@@ -12,35 +12,45 @@ struct ContentView: View {
     @State private var website: String = ""
 
     var body: some View {
-        NavigationView {
-            List {
-                ForEach(1..<10) { index in
-                    NavigationLink {
-                    } label: {
-                        Text("Model \(index)")
-                    }
+        NavigationStack {
+            TabView {
+                ZStack {
+                    
+                    EmptyView()
+                        .navigationBarItems( trailing:
+                                                                    HStack {
+                            Button ( action:  { }, label: { Image(systemName: "play").foregroundColor(.white)})
+                            Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.white)})
+                            Button ( action:  { }, label: { Image(systemName: "person").foregroundColor(.white)})
+                        }
+                        )
+                    Image("DemoScene")
+                        .resizable()
+                        .ignoresSafeArea()
+                        .scaledToFill()
+                        .toolbar { // <2>
+                            ToolbarItem(placement: .principal) {
+                                TextField("website url", text: $website)
+                                    .textFieldStyle(.roundedBorder)
+                                    .textInputAutocapitalization(.never)
+                                    .disableAutocorrection(true)
+                            }
+                        }
                 }
+                    .tabItem {
+                        Image(systemName: "map")
+                        Text("Web")
+                    }
+                    .tag(1)
+                Text("Second View")
+                    .padding()
+                    .tabItem {
+                        Image(systemName: "rectangle.grid.2x2")
+                        Text("Gallery")
+                    }
+                    .tag(2)
             }
-
-            Image("DemoScene")
-                .resizable()
-                .scaledToFill() // DemoScene code
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar { // <2>
-                    ToolbarItem(placement: .principal) {
-                        TextField("website url", text: $website)
-                            .textFieldStyle(.roundedBorder)
-                            .textInputAutocapitalization(.never)
-                            .disableAutocorrection(true)
-                    }
-                }
-                .navigationBarItems( trailing:
-                                        HStack {
-                    Button ( action:  { }, label: { Image(systemName: "play")})
-                    Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle")})
-                    Button ( action:  { }, label: { Image(systemName: "person")})
-                }
-                )
+            .accentColor(.white)
         }
     }
 }
