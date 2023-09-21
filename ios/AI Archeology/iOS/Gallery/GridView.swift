@@ -54,7 +54,7 @@ struct GridView: View {
                 .padding()
             }
         }
-        .ignoresSafeArea(.all, edges: .top)
+//        .ignoresSafeArea(.all, edges: .top)
         .sheet(isPresented: $isAddingPhoto) {
             PhotoPicker()
         }

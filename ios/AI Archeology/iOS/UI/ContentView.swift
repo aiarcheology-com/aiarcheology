@@ -99,31 +99,22 @@ struct ContentView: View {
                         EmptyView()
                             .navigationBarItems( leading:
                                                     HStack {
-                                Button ( action:  { }, label: { Image(systemName: "cpu").foregroundColor(.white)})
+                                Button ( action:  { }, label: { Image(systemName: "cpu").foregroundColor(.gray.opacity(0.8))})
                             }
                             )
 
                             .navigationBarItems( trailing:
                                                     HStack {
-                                Button ( action:  { }, label: { Image(systemName: "play").foregroundColor(.white)})
-                                Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.white)})
-                                Button ( action:  { }, label: { Image(systemName: "person").foregroundColor(.white)})
+                                Button ( action:  { }, label: { Image(systemName: "play").foregroundColor(.gray.opacity(0.8))})
+                                Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.gray.opacity(0.8))})
+                                Button ( action:  { }, label: { Image(systemName: "person").foregroundColor(.gray.opacity(0.8))})
                             }
                             )
                         ImageGalleryApp()
-                            .ignoresSafeArea(.container, edges: [.top, .leading, .trailing])
-                            .scaledToFill()
-                            .toolbar {
-                                ToolbarItem(placement: .principal) {
-                                    TextField("website url", text: $website)
-                                        .textFieldStyle(.roundedBorder)
-                                        .textInputAutocapitalization(.never)
-                                        .disableAutocorrection(true)
-                                }
-                            }
+//                            .ignoresSafeArea(.container, edges: [.top, .leading, .trailing])
+//                            .scaledToFill()
                     }
                 }
-                    .padding()
                     .tabItem {
                         if tabbarSelection == 1 {
                             Image(systemName: "rectangle.grid.2x2.fill")
