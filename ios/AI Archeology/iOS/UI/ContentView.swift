@@ -132,6 +132,70 @@ struct ContentView: View {
                     Text("Gallery")
                 }
                 .tag(1)
+                NavigationStack {
+                    ZStack {
+                        EmptyView()
+                            .navigationBarItems( leading:
+                                                    HStack {
+                                Button ( action:  {
+                                    presentSideMenu.toggle()
+                                }, label: { Image(systemName: "cpu").foregroundColor(.gray.opacity(0.8))})
+                            }
+                            )
+
+                            .navigationBarItems( trailing:
+                                                    HStack {
+                                Button ( action:  { }, label: { Image(systemName: "play").foregroundColor(.gray.opacity(0.8))})
+                                Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.gray.opacity(0.8))})
+                                Button ( action:  { }, label: { Image(systemName: "person").foregroundColor(.gray.opacity(0.8))})
+                            }
+                            )
+                        ImageGalleryApp()
+                        //                            .ignoresSafeArea(.container, edges: [.top, .leading, .trailing])
+                        //                            .scaledToFill()
+                    }
+                }
+                .tabItem {
+                    if tabbarSelection == 1 {
+                        Image(systemName: "externaldrive.fill.badge.icloud")
+                    } else {
+                        Image(systemName:"externaldrive.badge.icloud").environment(\.symbolVariants, .none)
+                    }
+                    Text("Cloud")
+                }
+                .tag(2)
+                NavigationStack {
+                    ZStack {
+                        EmptyView()
+                            .navigationBarItems( leading:
+                                                    HStack {
+                                Button ( action:  {
+                                    presentSideMenu.toggle()
+                                }, label: { Image(systemName: "cpu").foregroundColor(.gray.opacity(0.8))})
+                            }
+                            )
+
+                            .navigationBarItems( trailing:
+                                                    HStack {
+                                Button ( action:  { }, label: { Image(systemName: "play").foregroundColor(.gray.opacity(0.8))})
+                                Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.gray.opacity(0.8))})
+                                Button ( action:  { }, label: { Image(systemName: "person").foregroundColor(.gray.opacity(0.8))})
+                            }
+                            )
+                        ImageGalleryApp()
+                        //                            .ignoresSafeArea(.container, edges: [.top, .leading, .trailing])
+                        //                            .scaledToFill()
+                    }
+                }
+                .tabItem {
+                    if tabbarSelection == 1 {
+                        Image(systemName: "archivebox.fill")
+                    } else {
+                        Image(systemName:"archivebox").environment(\.symbolVariants, .none)
+                    }
+                    Text("API")
+                }
+                .tag(3)
             }
             SideMenu(isShowing: $presentSideMenu, content: AnyView(SideMenuView(selectedSideMenuTab: $selectedSideMenuTab, presentSideMenu: $presentSideMenu)))
         }
