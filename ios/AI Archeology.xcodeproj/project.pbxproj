@@ -24,6 +24,7 @@
 		8AE0BC1B2A97B0B40086DDF9 /* AI_ArcheologyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC1A2A97B0B40086DDF9 /* AI_ArcheologyTests.swift */; };
 		8AE0BC252A97B0B40086DDF9 /* AI_ArcheologyUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */; };
 		8AE0BC272A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */; };
+		8AF06FC42ABCD237001E7B6B /* SideMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF06FC32ABCD237001E7B6B /* SideMenu.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -65,6 +66,7 @@
 		8AE0BC202A97B0B40086DDF9 /* AI ArcheologyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "AI ArcheologyUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_ArcheologyUITests.swift; sourceTree = "<group>"; };
 		8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_ArcheologyUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		8AF06FC32ABCD237001E7B6B /* SideMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenu.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -142,6 +144,7 @@
 			children = (
 				8AE0BC032A97B0B30086DDF9 /* AIArcheologyApp.swift */,
 				8AE0BC052A97B0B30086DDF9 /* ContentView.swift */,
+				8AF06FC32ABCD237001E7B6B /* SideMenu.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -393,6 +396,7 @@
 				8AE0BC0D2A97B0B40086DDF9 /* Persistence.swift in Sources */,
 				8A1D49C12ABB87D500C2D7C1 /* Item.swift in Sources */,
 				8A1D49BA2ABB87D500C2D7C1 /* GridView.swift in Sources */,
+				8AF06FC42ABCD237001E7B6B /* SideMenu.swift in Sources */,
 				8A1D49BB2ABB87D500C2D7C1 /* PhotoPicker.swift in Sources */,
 				8AE0BC062A97B0B30086DDF9 /* ContentView.swift in Sources */,
 				8AE0BC042A97B0B30086DDF9 /* AIArcheologyApp.swift in Sources */,

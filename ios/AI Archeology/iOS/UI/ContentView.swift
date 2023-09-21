@@ -33,14 +33,20 @@ struct ContentView: View {
 
     @State private var website: String = ""
 
+    @State var presentSideMenu = false
+    @State var selectedSideMenuTab = 0
+
     var body: some View {
+        ZStack {
             TabView(selection: $tabbarSelection) {
                 NavigationStack {
                     ZStack {
                         EmptyView()
                             .navigationBarItems( leading:
                                                     HStack {
-                                Button ( action:  { }, label: { Image(systemName: "cpu").foregroundColor(.white)})
+                                Button ( action:  {
+                                    presentSideMenu.toggle()
+                                }, label: { Image(systemName: "cpu").foregroundColor(.white)})
                             }
                             )
 
@@ -84,22 +90,24 @@ struct ContentView: View {
                         }
                     }
                 }
-                    .tabItem {
-                        if tabbarSelection == 0 {
-                            Image(systemName: "map")
-                        } else {
-                            Image(systemName:"map").environment(\.symbolVariants, .none)
-                        }
-                        Text("Web")
+                .tabItem {
+                    if tabbarSelection == 0 {
+                        Image(systemName: "map")
+                    } else {
+                        Image(systemName:"map").environment(\.symbolVariants, .none)
                     }
-                    .tag(0)
+                    Text("Web")
+                }
+                .tag(0)
 
                 NavigationStack {
                     ZStack {
                         EmptyView()
                             .navigationBarItems( leading:
                                                     HStack {
-                                Button ( action:  { }, label: { Image(systemName: "cpu").foregroundColor(.gray.opacity(0.8))})
+                                Button ( action:  {
+                                    presentSideMenu.toggle()
+                                }, label: { Image(systemName: "cpu").foregroundColor(.gray.opacity(0.8))})
                             }
                             )
 
@@ -111,20 +119,22 @@ struct ContentView: View {
                             }
                             )
                         ImageGalleryApp()
-//                            .ignoresSafeArea(.container, edges: [.top, .leading, .trailing])
-//                            .scaledToFill()
+                        //                            .ignoresSafeArea(.container, edges: [.top, .leading, .trailing])
+                        //                            .scaledToFill()
                     }
                 }
-                    .tabItem {
-                        if tabbarSelection == 1 {
-                            Image(systemName: "rectangle.grid.2x2.fill")
-                        } else {
-                            Image(systemName:"rectangle.grid.2x2").environment(\.symbolVariants, .none)
-                        }
-                        Text("Gallery")
+                .tabItem {
+                    if tabbarSelection == 1 {
+                        Image(systemName: "rectangle.grid.2x2.fill")
+                    } else {
+                        Image(systemName:"rectangle.grid.2x2").environment(\.symbolVariants, .none)
                     }
-                    .tag(1)
+                    Text("Gallery")
+                }
+                .tag(1)
             }
+            SideMenu(isShowing: $presentSideMenu, content: AnyView(SideMenuView(selectedSideMenuTab: $selectedSideMenuTab, presentSideMenu: $presentSideMenu)))
+        }
     }
 }
 
