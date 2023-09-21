@@ -7,6 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8A1D49B92ABB87D500C2D7C1 /* FileManagerExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49AF2ABB87D400C2D7C1 /* FileManagerExtensions.swift */; };
+		8A1D49BA2ABB87D500C2D7C1 /* GridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B02ABB87D400C2D7C1 /* GridView.swift */; };
+		8A1D49BB2ABB87D500C2D7C1 /* PhotoPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B12ABB87D400C2D7C1 /* PhotoPicker.swift */; };
+		8A1D49BC2ABB87D500C2D7C1 /* GridItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B22ABB87D400C2D7C1 /* GridItemView.swift */; };
+		8A1D49BE2ABB87D500C2D7C1 /* DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B42ABB87D500C2D7C1 /* DetailView.swift */; };
+		8A1D49BF2ABB87D500C2D7C1 /* ColumnStepper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B52ABB87D500C2D7C1 /* ColumnStepper.swift */; };
+		8A1D49C02ABB87D500C2D7C1 /* DataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B62ABB87D500C2D7C1 /* DataModel.swift */; };
+		8A1D49C12ABB87D500C2D7C1 /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B72ABB87D500C2D7C1 /* Item.swift */; };
 		8AE0BC042A97B0B30086DDF9 /* AIArcheologyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC032A97B0B30086DDF9 /* AIArcheologyApp.swift */; };
 		8AE0BC062A97B0B30086DDF9 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC052A97B0B30086DDF9 /* ContentView.swift */; };
 		8AE0BC082A97B0B40086DDF9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8AE0BC072A97B0B40086DDF9 /* Assets.xcassets */; };
@@ -36,6 +44,14 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		8A1D49AF2ABB87D400C2D7C1 /* FileManagerExtensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileManagerExtensions.swift; sourceTree = "<group>"; };
+		8A1D49B02ABB87D400C2D7C1 /* GridView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GridView.swift; sourceTree = "<group>"; };
+		8A1D49B12ABB87D400C2D7C1 /* PhotoPicker.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PhotoPicker.swift; sourceTree = "<group>"; };
+		8A1D49B22ABB87D400C2D7C1 /* GridItemView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GridItemView.swift; sourceTree = "<group>"; };
+		8A1D49B42ABB87D500C2D7C1 /* DetailView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DetailView.swift; sourceTree = "<group>"; };
+		8A1D49B52ABB87D500C2D7C1 /* ColumnStepper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ColumnStepper.swift; sourceTree = "<group>"; };
+		8A1D49B62ABB87D500C2D7C1 /* DataModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DataModel.swift; sourceTree = "<group>"; };
+		8A1D49B72ABB87D500C2D7C1 /* Item.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
 		8AE0BC002A97B0B30086DDF9 /* AI Archeology.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "AI Archeology.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AE0BC032A97B0B30086DDF9 /* AIArcheologyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIArcheologyApp.swift; sourceTree = "<group>"; };
 		8AE0BC052A97B0B30086DDF9 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -76,9 +92,26 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		8A1D49AD2ABB878F00C2D7C1 /* Gallery */ = {
+			isa = PBXGroup;
+			children = (
+				8AF4A9E72ABB930A0054AB99 /* Images */,
+				8A1D49B52ABB87D500C2D7C1 /* ColumnStepper.swift */,
+				8A1D49B62ABB87D500C2D7C1 /* DataModel.swift */,
+				8A1D49B42ABB87D500C2D7C1 /* DetailView.swift */,
+				8A1D49AF2ABB87D400C2D7C1 /* FileManagerExtensions.swift */,
+				8A1D49B22ABB87D400C2D7C1 /* GridItemView.swift */,
+				8A1D49B02ABB87D400C2D7C1 /* GridView.swift */,
+				8A1D49B72ABB87D500C2D7C1 /* Item.swift */,
+				8A1D49B12ABB87D400C2D7C1 /* PhotoPicker.swift */,
+			);
+			path = Gallery;
+			sourceTree = "<group>";
+		};
 		8A61C50E2AB9A7A600BF72BE /* iOS */ = {
 			isa = PBXGroup;
 			children = (
+				8A1D49AD2ABB878F00C2D7C1 /* Gallery */,
 				8A6C2F7B2AB9EBA000AB26D4 /* Assets */,
 				8A6C2F7D2AB9EC8B00AB26D4 /* Configuration */,
 				8A61C5132AB9A87700BF72BE /* Guide */,
@@ -215,6 +248,13 @@
 			path = "AI ArcheologyUITests";
 			sourceTree = "<group>";
 		};
+		8AF4A9E72ABB930A0054AB99 /* Images */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Images;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -345,10 +385,18 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8A1D49BC2ABB87D500C2D7C1 /* GridItemView.swift in Sources */,
 				8AE0BC102A97B0B40086DDF9 /* AI_Archeology.xcdatamodeld in Sources */,
+				8A1D49BF2ABB87D500C2D7C1 /* ColumnStepper.swift in Sources */,
+				8A1D49BE2ABB87D500C2D7C1 /* DetailView.swift in Sources */,
+				8A1D49C02ABB87D500C2D7C1 /* DataModel.swift in Sources */,
 				8AE0BC0D2A97B0B40086DDF9 /* Persistence.swift in Sources */,
+				8A1D49C12ABB87D500C2D7C1 /* Item.swift in Sources */,
+				8A1D49BA2ABB87D500C2D7C1 /* GridView.swift in Sources */,
+				8A1D49BB2ABB87D500C2D7C1 /* PhotoPicker.swift in Sources */,
 				8AE0BC062A97B0B30086DDF9 /* ContentView.swift in Sources */,
 				8AE0BC042A97B0B30086DDF9 /* AIArcheologyApp.swift in Sources */,
+				8A1D49B92ABB87D500C2D7C1 /* FileManagerExtensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -504,6 +552,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"AI Archeology/iOS/Assets/Preview Content\"";
@@ -523,6 +572,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aiarcheology.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -534,6 +584,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"AI Archeology/iOS/Assets/Preview Content\"";
@@ -553,6 +604,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aiarcheology.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
