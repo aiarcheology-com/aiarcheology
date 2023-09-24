@@ -10,6 +10,7 @@ import CoreData
 
 
 import SwiftUI
+import Combine
 
 //TODO: Only for demo scene
 struct ImageGalleryApp: View {
@@ -22,6 +23,37 @@ struct ImageGalleryApp: View {
 }
 
 
+struct FirstItem: View {
+
+    @StateObject var viewModel = TextViewModel()
+//    var websiteUrl: CurrentValueSubject<String, Never> = .init("")
+    @State private var websiteUrl: String = "https://ags.cuzk.cz/av/?extent=-831332.9688214378,-1117345.0500381005,-639820.6497967998,-1016468.2402844809&zvd=dmr5g&rf=GrayscaleHillshade&o=0"
+    @State private var isWebsiteLoading: Bool = false
+    @State private var inputUrl: String = ""
+
+
+    var body: some View {
+        AntWebView(websiteUrl) { loading, error in
+            print("loading status : \(loading)")
+        }
+        .clipped()
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                // TODO: change the url in the text field,
+                // when it is updated in the webview component
+                // maybe move to some model... 
+                TextField("website url", text: $inputUrl)
+                    .textFieldStyle(.roundedBorder)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .onSubmit(of: .text, {
+                        self.websiteUrl = inputUrl
+                    })
+            }
+        }
+    }
+}
+
 struct ContentView: View {
     // TODO: remove the code and use some sensible api:
     // Only for the desing sessions.
@@ -31,7 +63,6 @@ struct ContentView: View {
         UITabBar.appearance().unselectedItemTintColor = UIColor.gray
     }
 
-    @State private var website: String = ""
 
     @State var presentSideMenu = false
     @State var selectedSideMenuTab = 0
@@ -46,49 +77,21 @@ struct ContentView: View {
                                                     HStack {
                                 Button ( action:  {
                                     presentSideMenu.toggle()
-                                }, label: { Image(systemName: "cpu").foregroundColor(.white)})
+                                }, label: { Image(systemName: "cpu").foregroundColor(.gray)})
                             }
                             )
 
                             .navigationBarItems( trailing:
                                                     HStack {
-                                Button ( action:  { }, label: { Image(systemName: "play").foregroundColor(.white)})
-                                Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.white)})
-                                Button ( action:  { }, label: { Image(systemName: "person").foregroundColor(.white)})
+                                Button ( action:  { }, label: { Image(systemName: "play").foregroundColor(.gray)})
+                                Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.gray)})
+                                Button ( action:  { }, label: { Image(systemName: "person").foregroundColor(.gray)})
                             }
                             )
-                        Image("DemoScene")
-                            .resizable()
-                            .ignoresSafeArea(.container, edges: [.top, .leading, .trailing])
-                            .scaledToFill()
-                            .toolbar {
-                                ToolbarItem(placement: .principal) {
-                                    TextField("website url", text: $website)
-                                        .textFieldStyle(.roundedBorder)
-                                        .textInputAutocapitalization(.never)
-                                        .disableAutocorrection(true)
-                                }
-                            }
                         VStack {
-                            Rectangle()
-                                .frame(width: nil, height:88)
-                                .background(.black)
-                                .mask(LinearGradient(gradient: Gradient(colors: [.black.opacity(0.3), .clear]), startPoint: .top, endPoint: .bottom))
-                                .ignoresSafeArea()
-                                .allowsTightening(false)
-                            Spacer()
-                            //TODO: when the webview will be integrated, the gradient
-                            //should be visible also in the landscape - the DemoScene image causes the
-                            // gradient to be shifted too much down
-                            Rectangle()
-                                .frame(width: nil, height:88)
-                                .background(.black)
-                                .mask(LinearGradient(gradient: Gradient(colors: [.black.opacity(0.5), .clear]), startPoint: .bottom, endPoint: .top))
-                                .ignoresSafeArea()
-                                .offset(x: 0, y: 66)
-                                .allowsTightening(false)
+                            FirstItem()
                         }
-                    }
+                    }.navigationBarTitleDisplayMode(.inline)
                 }
                 .tabItem {
                     if tabbarSelection == 0 {

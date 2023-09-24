@@ -1,0 +1,5 @@
+# Hessen
+https://windrosen.hessen.de/mapapps/resources/apps/windrosen/index.html?lang=en&vm=2D&s=500&r=0&c=465276.15642933134%2C5551959.291970836&bm=orthofotos_schummerung&l=~ol_basis(~78%7Bt%3A30%7D%2C~79%7Bt%3A30%7D%2C~80%7Bt%3A30%7D%2C~81%7Bt%3A30%7D)%2C~ueberschwemmung_hq100(~3%7Bt%3A50%7D)%2C-ol_wind&fbclid=IwAR1k2fvpzz3ZL0EO_UM2tuIcVbYmUN9u0PMuoYkvPw4pQ2L1f3-HC4h3LjY
+
+# Czechia
+https://ags.cuzk.cz/av/?extent=-831332.9688214378,-1117345.0500381005,-639820.6497967998,-1016468.2402844809&zvd=dmr5g&rf=GrayscaleHillshade&o=0
