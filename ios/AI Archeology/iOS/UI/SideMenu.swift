@@ -20,7 +20,7 @@ enum SideMenuRowType: Int, CaseIterable{
         case .favorite:
             return "Mound dection"
         case .chat:
-            return "Private Test"
+            return "Enclosure detection"
         case .profile:
             return "Private Test 2"
         }

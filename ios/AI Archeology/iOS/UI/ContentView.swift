@@ -60,6 +60,12 @@ struct ContentView: View {
     private let defaultNavigationBarHeight = 44.0
     @State var tabbarSelection = 0
     init() {
+        let appearance = UINavigationBarAppearance()
+        appearance.backgroundColor = .systemBackground // You can set this to your preferred color
+        UINavigationBar.appearance().standardAppearance = appearance
+        UINavigationBar.appearance().compactAppearance = appearance
+        UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        UITabBar.appearance().backgroundColor = .systemBackground
         UITabBar.appearance().unselectedItemTintColor = UIColor.gray
     }
 
@@ -159,7 +165,7 @@ struct ContentView: View {
                     }
                 }
                 .tabItem {
-                    if tabbarSelection == 1 {
+                    if tabbarSelection == 2 {
                         Image(systemName: "externaldrive.fill.badge.icloud")
                     } else {
                         Image(systemName:"externaldrive.badge.icloud").environment(\.symbolVariants, .none)
@@ -191,7 +197,7 @@ struct ContentView: View {
                     }
                 }
                 .tabItem {
-                    if tabbarSelection == 1 {
+                    if tabbarSelection == 3 {
                         Image(systemName: "archivebox.fill")
                     } else {
                         Image(systemName:"archivebox").environment(\.symbolVariants, .none)
@@ -199,6 +205,44 @@ struct ContentView: View {
                     Text("API")
                 }
                 .tag(3)
+                NavigationStack {
+                    ZStack {
+                        EmptyView()
+                            .navigationBarItems( leading:
+                                                    HStack {
+                                Button ( action:  {
+                                    presentSideMenu.toggle()
+                                }, label: { Image(systemName: "cpu").foregroundColor(.gray.opacity(0.8))})
+                            }
+                            )
+
+                            .navigationBarItems( trailing:
+                                                    HStack {
+                                Button ( action:  { }, label: { Image(systemName: "play").foregroundColor(.gray.opacity(0.8))})
+                                Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.gray.opacity(0.8))})
+                                Button ( action:  { }, label: { Image(systemName: "person").foregroundColor(.gray.opacity(0.8))})
+                            }
+                            )
+                        ZStack{
+                            Color.black
+                            Image("DemoVideo")
+
+                        }
+                        .foregroundColor(.black)
+                        .scaledToFit()
+                        .navigationBarTitleDisplayMode(.inline)
+                        .navigationTitle("Drone 02 - Online(TCP)")
+                    }
+                }
+                .tabItem {
+                    if tabbarSelection == 4 {
+                        Image(systemName: "video.fill")
+                    } else {
+                        Image(systemName:"video").environment(\.symbolVariants, .none)
+                    }
+                    Text("Stream")
+                }
+                .tag(4)
             }
             SideMenu(isShowing: $presentSideMenu, content: AnyView(SideMenuView(selectedSideMenuTab: $selectedSideMenuTab, presentSideMenu: $presentSideMenu)))
         }
