@@ -53,16 +53,36 @@ import SwiftUI
 import WebKit
 import Combine
 
+extension WKWebView {
+    func snapshotWebView(completion: @escaping (UIImage?) -> Void) {
+        takeSnapshot(with: nil) { image, error in
+            guard let image = image, error == nil else {
+                completion(nil)
+                return
+            }
+            completion(image)
+        }
+    }
+}
+
+
 @available(iOS 13, *)
 public struct AntWebView: UIViewRepresentable {
     var urlString: String
+//    var shouldCapture: Bool
     var loadStatusChanged: ((Bool, Error?) -> Void)? = nil
+    var capturedImageChanged: ((UIImage) -> Void)? = nil
+    var webView: WKWebView?
 
     public init(_ urlString: String,
+//                shouldCapture: Bool,
+                capturedImageChanged: ((UIImage) -> Void)? = nil,
                 loadStatusChanged: ((Bool, Error?) -> Void)? = nil
     ) {
         self.urlString = urlString
         self.loadStatusChanged = loadStatusChanged
+        self.capturedImageChanged = capturedImageChanged
+//        self.shouldCapture = shouldCapture
     }
 
     public func makeCoordinator() -> AntWebView.Coordinator {
@@ -90,6 +110,16 @@ public struct AntWebView: UIViewRepresentable {
         _ uiView: WKWebView,
         context: UIViewRepresentableContext<AntWebView>
     ) {
+//        guard shouldCapture.not else {
+//            uiView.takeSnapshot(with: nil, completionHandler: { image, error in
+//                if let image = image {
+//                    self.capturedImageChanged?(image)
+//                }
+//            })
+//            return
+//        }
+
+
         func load(_ urlString: String) {
             guard let url = URL(string: urlString.withHTTPS) else { return }
             DispatchQueue.main.async {

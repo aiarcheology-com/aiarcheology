@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreData
+import Vision
 
 
 import SwiftUI
@@ -22,6 +23,17 @@ struct ImageGalleryApp: View {
     }
 }
 
+import WebKit
+public class TakeScreenShotCommand {
+    var screenShot: UIImage?
+    func takeScreenShot(_ webview: WKWebView) {
+        webview.takeSnapshot(with: nil, completionHandler: { image, error in
+            if let image = image {
+                self.screenShot = image
+            }
+        })
+    }
+}
 
 struct FirstItem: View {
 
@@ -31,24 +43,50 @@ struct FirstItem: View {
     @State private var isWebsiteLoading: Bool = false
     @State private var inputUrl: String = ""
 
+    @Binding var shouldCapture: Bool
+    @State var capturedImage: UIImage?
+    // Initialize the object detector
+    let objectDetector = ObjectDetector()
+    let screenShotCommand = TakeScreenShotCommand()
+
+    @State private var observations: [VNRecognizedObjectObservation] = []
 
     var body: some View {
-        AntWebView(websiteUrl) { loading, error in
-            print("loading status : \(loading)")
-        }
-        .clipped()
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                // TODO: change the url in the text field,
-                // when it is updated in the webview component
-                // maybe move to some model... 
-                TextField("website url", text: $inputUrl)
-                    .textFieldStyle(.roundedBorder)
-                    .textInputAutocapitalization(.never)
-                    .disableAutocorrection(true)
-                    .onSubmit(of: .text, {
-                        self.websiteUrl = inputUrl
-                    })
+        // probably there should be a common impl for all capturable tabs.
+        // Each capturable tab should have its own impl of image capture and maybe later also a detection
+        ZStack {
+            Image(uiImage: capturedImage ?? UIImage())
+                .resizable()
+                .overlay(DetectionOverlayView(observations: observations))
+
+            AntWebView(websiteUrl, capturedImageChanged: { image in
+                if shouldCapture == true {
+
+                    // Trigger object detection
+                    objectDetector.detectObjects(in: image) { newObservations  in
+                        if let newObservations {
+                            self.observations = newObservations
+                        }
+                    }
+                    shouldCapture = false // Reset the flag
+                }
+            }) { loading, error in
+                print("loading status : \(loading)")
+            }
+            .clipped()
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    // TODO: change the url in the text field,
+                    // when it is updated in the webview component
+                    // maybe move to some model...
+                    TextField("website url", text: $inputUrl)
+                        .textFieldStyle(.roundedBorder)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                        .onSubmit(of: .text, {
+                            self.websiteUrl = inputUrl
+                        })
+                }
             }
         }
     }
@@ -60,6 +98,8 @@ struct ContentView: View {
     private let defaultNavigationBarHeight = 44.0
     @State var tabbarSelection = 0
     init() {
+        // To keep the navigation/tab bar non-transparent when using
+        // an Image view.
         let appearance = UINavigationBarAppearance()
         appearance.backgroundColor = .systemBackground // You can set this to your preferred color
         UINavigationBar.appearance().standardAppearance = appearance
@@ -68,6 +108,8 @@ struct ContentView: View {
         UITabBar.appearance().backgroundColor = .systemBackground
         UITabBar.appearance().unselectedItemTintColor = UIColor.gray
     }
+
+    @State var shouldCapture: Bool = false
 
 
     @State var presentSideMenu = false
@@ -95,7 +137,7 @@ struct ContentView: View {
                             }
                             )
                         VStack {
-                            FirstItem()
+                            FirstItem(shouldCapture: $shouldCapture)
                         }
                     }.navigationBarTitleDisplayMode(.inline)
                 }
@@ -245,6 +287,9 @@ struct ContentView: View {
                 .tag(4)
             }
             SideMenu(isShowing: $presentSideMenu, content: AnyView(SideMenuView(selectedSideMenuTab: $selectedSideMenuTab, presentSideMenu: $presentSideMenu)))
+                .onChange(of: selectedSideMenuTab) { newValue in
+//                    shouldCapture = true
+                }
         }
     }
 }
