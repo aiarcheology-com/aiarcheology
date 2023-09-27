@@ -16,7 +16,7 @@ struct DetectionOverlayView: View {
             ForEach(observations, id: \.uuid) { observation in
                 let boundingBox = observation.boundingBox
                 let size = CGSize(width: boundingBox.size.width * geometry.size.width, height: boundingBox.size.height * geometry.size.height)
-                let position = CGPoint(x: boundingBox.origin.x * geometry.size.width, y: (1 - boundingBox.origin.y - boundingBox.size.height) * geometry.size.height)
+                let position = CGPoint(x: boundingBox.origin.x * geometry.size.width + 80, y: (1 - boundingBox.origin.y - boundingBox.size.height) * geometry.size.height + 80)
 
                 Rectangle()
                     .fill(Color.clear)

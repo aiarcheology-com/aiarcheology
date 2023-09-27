@@ -18,11 +18,11 @@ enum SideMenuRowType: Int, CaseIterable{
         case .home:
             return "Fortification detection"
         case .favorite:
-            return "Mound dection"
+            return "Fortification detection"
         case .chat:
             return "Enclosure detection"
         case .profile:
-            return "Private Test 2"
+            return "Mound dection"
         }
     }
 

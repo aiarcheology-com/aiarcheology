@@ -44,7 +44,7 @@ struct FirstItem: View {
     @State private var inputUrl: String = ""
 
     @Binding var shouldCapture: Bool
-    @State var capturedImage: UIImage?
+//    @State var capturedImage: UIImage?
     // Initialize the object detector
     let objectDetector = ObjectDetector()
     let screenShotCommand = TakeScreenShotCommand()
@@ -55,20 +55,15 @@ struct FirstItem: View {
         // probably there should be a common impl for all capturable tabs.
         // Each capturable tab should have its own impl of image capture and maybe later also a detection
         ZStack {
-            Image(uiImage: capturedImage ?? UIImage())
-                .resizable()
-                .overlay(DetectionOverlayView(observations: observations))
-
-            AntWebView(websiteUrl, capturedImageChanged: { image in
+            AntWebView(websiteUrl, observations: observations, shouldCapture: $shouldCapture, capturedImageChanged: { image in
                 if shouldCapture == true {
-
                     // Trigger object detection
                     objectDetector.detectObjects(in: image) { newObservations  in
                         if let newObservations {
                             self.observations = newObservations
                         }
+                        shouldCapture = false // Reset the flag
                     }
-                    shouldCapture = false // Reset the flag
                 }
             }) { loading, error in
                 print("loading status : \(loading)")
@@ -88,7 +83,16 @@ struct FirstItem: View {
                         })
                 }
             }
+            if observations.count != 0 {
+                DetectionOverlayView(observations: observations)
+            }
         }
+        .gesture(
+            DragGesture()
+                .onEnded { _ in
+                    observations.removeAll()
+                }
+        )
     }
 }
 
@@ -288,7 +292,7 @@ struct ContentView: View {
             }
             SideMenu(isShowing: $presentSideMenu, content: AnyView(SideMenuView(selectedSideMenuTab: $selectedSideMenuTab, presentSideMenu: $presentSideMenu)))
                 .onChange(of: selectedSideMenuTab) { newValue in
-//                    shouldCapture = true
+                    shouldCapture = true
                 }
         }
     }
