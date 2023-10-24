@@ -102,15 +102,10 @@ struct ContentView: View {
     private let defaultNavigationBarHeight = 44.0
     @State var tabbarSelection = 0
     init() {
-        // To keep the navigation/tab bar non-transparent when using
-        // an Image view.
-        let appearance = UINavigationBarAppearance()
-        appearance.backgroundColor = .systemBackground // You can set this to your preferred color
-        UINavigationBar.appearance().standardAppearance = appearance
-        UINavigationBar.appearance().compactAppearance = appearance
-        UINavigationBar.appearance().scrollEdgeAppearance = appearance
-        UITabBar.appearance().backgroundColor = .systemBackground
-        UITabBar.appearance().unselectedItemTintColor = UIColor.gray
+        Backports.Appearance
+            .configure()
+            .tabbar()
+            .navigationBar()
     }
 
     @State var shouldCapture: Bool = false

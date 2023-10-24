@@ -8,7 +8,7 @@
 import SwiftUI
 
 @main
-struct AIArcheologyApp: App {
+struct MLBrowser: App {
     let persistenceController = PersistenceController.shared
 
     var body: some Scene {
