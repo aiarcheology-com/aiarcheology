@@ -7,13 +7,15 @@
 
 import Foundation
 
-enum AppMode: Int, Codable, Hashable {
+enum AppMode: Int, Codable, Hashable, Identifiable {
+	var id: Self { self }
     case web
     case gallery
     case cloud
     case camera
 	// case stream
 	// case api
+	static var tabOrder: [AppMode] { [.web, .gallery, .cloud, .camera] }
 }
 
 class AppState: ObservableObject {

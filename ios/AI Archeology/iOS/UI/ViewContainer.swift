@@ -26,14 +26,9 @@ struct ViewContainer<Content: View, LeadingItems: View, TrailingItems: View>: Vi
 		NavigationStack {
 			ZStack {
 				EmptyView()
-					.navigationBarItems( leading:
-											HStack {
-						Button ( action:  {
-							appState.guide.togglingSideMenu()
-						}, label: { Image(systemName: "cpu").foregroundColor(.gray)})
-					}
-					)
-				content.environmentObject(appState)
+					.navigationBarItems( leading: leadingItems)
+					.navigationBarItems( trailing: trailingItems)
+				content  //.environmentObject(appState)
 			}
 		}
 	}
