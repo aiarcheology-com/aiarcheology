@@ -70,7 +70,7 @@ extension WKWebView {
 @available(iOS 13, *)
 public struct AntWebView: UIViewRepresentable {
     var urlString: String
-    @Binding var shouldCapture: Bool
+    // @Binding var shouldCapture: Bool
     var loadStatusChanged: ((Bool, Error?) -> Void)? = nil
     var capturedImageChanged: ((UIImage) -> Void)? = nil
     var webView: WKWebView?
@@ -78,7 +78,7 @@ public struct AntWebView: UIViewRepresentable {
 
     public init(_ urlString: String,
                 observations: [VNRecognizedObjectObservation],
-                shouldCapture: Binding<Bool>,
+                /* shouldCapture: Binding<Bool>,*/
                 capturedImageChanged: ((UIImage) -> Void)? = nil,
                 loadStatusChanged: ((Bool, Error?) -> Void)? = nil
     ) {
@@ -86,7 +86,7 @@ public struct AntWebView: UIViewRepresentable {
         self.observations = observations
         self.loadStatusChanged = loadStatusChanged
         self.capturedImageChanged = capturedImageChanged
-        self._shouldCapture = shouldCapture
+        // self._shouldCapture = shouldCapture
     }
 
     public func makeCoordinator() -> AntWebView.Coordinator {
@@ -104,7 +104,7 @@ public struct AntWebView: UIViewRepresentable {
         webView.navigationDelegate = context.coordinator
 
         DispatchQueue.main.async {
-            if shouldCapture.not, observations.count == 0 {
+            if /*shouldCapture.not,*/ observations.count == 0 {
                 webView.load(URLRequest(url: url))
             }
         }
@@ -116,7 +116,7 @@ public struct AntWebView: UIViewRepresentable {
         _ uiView: WKWebView,
         context: UIViewRepresentableContext<AntWebView>
     ) {
-        guard shouldCapture.not, observations.count != 0 else {
+        guard /*shouldCapture.not,*/ observations.count != 0 else {
             uiView.takeSnapshot(with: nil, completionHandler: { image, error in
                 if let image = image {
                     self.capturedImageChanged?(image)
@@ -128,7 +128,7 @@ public struct AntWebView: UIViewRepresentable {
         func load(_ urlString: String) {
             guard let url = URL(string: urlString.withHTTPS) else { return }
             DispatchQueue.main.async {
-                if shouldCapture.not, observations.count == 0 { // TODO: if the webview is already loading, do not continue
+                if /*shouldCapture.not,*/ observations.count == 0 { // TODO: if the webview is already loading, do not continue
                     uiView.load(URLRequest(url: url))
                 }
             }
