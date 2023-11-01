@@ -28,6 +28,7 @@ struct ContentView: View {
 				ForEach(AppMode.tabOrder) { mode in
 					ViewContainer( {
 						Screens.content(mode)
+							.environmentObject(appState)
 					},
 					leadingItems: {
 						Screens.barItems(mode, position: .leading)
@@ -41,7 +42,6 @@ struct ContentView: View {
 						Screens.tabItem(mode, selection: tabbarSelection)
 					}
 					.tag(mode)
-					.environmentObject(appState)
 				}
             }
 			SideMenu {
