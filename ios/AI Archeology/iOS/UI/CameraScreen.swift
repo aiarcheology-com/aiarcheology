@@ -25,17 +25,9 @@ struct CameraScreen: Screen {
 	static func barItems(position: ItemsPosition) -> some View {
 		switch position {
 			case .leading:
-				HStack {
-					Button ( action:  {
-							// presentSideMenu.toggle()
-					}, label: { Image(systemName: "cpu").foregroundColor(.gray.opacity(0.8))})
-				}
+				GlobalToolbarLeading()
 			case .trailing:
-				HStack {
-					Button ( action:  { }, label: { Image(systemName: "play").foregroundColor(.gray.opacity(0.8))})
-					Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.gray.opacity(0.8))})
-					Button ( action:  { }, label: { Image(systemName: "person").foregroundColor(.gray.opacity(0.8))})
-				}
+				GlobalToolbarTrailing()
 		}
 	}
 

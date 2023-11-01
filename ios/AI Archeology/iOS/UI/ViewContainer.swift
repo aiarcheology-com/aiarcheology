@@ -28,7 +28,7 @@ struct ViewContainer<Content: View, LeadingItems: View, TrailingItems: View>: Vi
 				EmptyView()
 					.navigationBarItems( leading: leadingItems)
 					.navigationBarItems( trailing: trailingItems)
-				content  //.environmentObject(appState)
+				content
 			}
 		}
 	}

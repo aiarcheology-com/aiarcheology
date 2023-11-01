@@ -24,7 +24,7 @@ class AppState: ObservableObject {
 
 class Guide: ObservableObject {
     @Published var mode = AppMode.web
-    @Published private var presentedSideMenu = false
+    @Published var presentedSideMenu = false
 
     func togglingSideMenu() {
         presentedSideMenu.toggle()

@@ -19,17 +19,9 @@ struct WebScreen: Screen {
 	static func barItems(position: ItemsPosition) -> some View {
 		switch position {
 			case .leading:
-				HStack {
-					Button ( action:  {
-							// presentSideMenu.toggle()
-					}, label: { Image(systemName: "cpu").foregroundColor(.gray)})
-				}
+				GlobalToolbarLeading()
 			case .trailing:
-				HStack {
-					Button ( action:  { }, label: { Image(systemName: "play").foregroundColor(.gray)})
-					Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.gray)})
-					Button ( action:  { }, label: { Image(systemName: "person").foregroundColor(.gray)})
-				}
+				GlobalToolbarTrailing()
 		}
 	}
 

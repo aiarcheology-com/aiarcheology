@@ -12,9 +12,11 @@ protocol Screen {
 	associatedtype BarItems: View
 	associatedtype TabItem: View
 
+	static func tabId() -> AppMode
+
+	// Views
 	static func content() -> Content
 	static func barItems(position: ItemsPosition) -> BarItems
-	static func tabId() -> AppMode
 	static func tabItem(selection: AppMode) -> TabItem
 }
 

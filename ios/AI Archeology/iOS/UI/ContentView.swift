@@ -19,7 +19,6 @@ struct ContentView: View {
     }
 
     @State var shouldCapture: Bool = false
-    @State var presentSideMenu = false
     @State var selectedSideMenuTab = 0
 
 
@@ -32,9 +31,11 @@ struct ContentView: View {
 					},
 					leadingItems: {
 						Screens.barItems(mode, position: .leading)
+							.environmentObject(appState.guide)
 					},
 					trailingItems: {
 						Screens.barItems(mode, position: .trailing)
+							.environmentObject(appState.guide)
 					})
 					.tabItem {
 						Screens.tabItem(mode, selection: tabbarSelection)
@@ -43,10 +44,13 @@ struct ContentView: View {
 					.environmentObject(appState)
 				}
             }
-            SideMenu(isShowing: $presentSideMenu, content: AnyView(SideMenuView(selectedSideMenuTab: $selectedSideMenuTab, presentSideMenu: $presentSideMenu)))
-                .onChange(of: selectedSideMenuTab) { newValue in
-                    shouldCapture = true
-                }
+			SideMenu {
+				SideMenuView(selectedSideMenuTab: $selectedSideMenuTab)
+					.onChange(of: selectedSideMenuTab) { newValue in
+						shouldCapture = true
+					}
+			}
+			.environmentObject(appState.guide)
         }
     }
 }

@@ -40,18 +40,19 @@ enum SideMenuRowType: Int, CaseIterable{
     }
 }
 
-struct SideMenu: View {
-    @Binding var isShowing: Bool
-    var content: AnyView
+struct SideMenu<Content: View>: View {
+	@EnvironmentObject var guide: Guide
+
+	let content: Content
     var edgeTransition: AnyTransition = .move(edge: .leading)
     var body: some View {
         ZStack(alignment: .bottom) {
-            if (isShowing) {
+			if (guide.presentedSideMenu) {
                 Color.black
                     .opacity(0.3)
                     .ignoresSafeArea()
                     .onTapGesture {
-                        isShowing.toggle()
+						guide.togglingSideMenu()
                     }
                 content
                     .transition(edgeTransition)
@@ -62,14 +63,18 @@ struct SideMenu: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .ignoresSafeArea()
-        .animation(.easeInOut, value: isShowing)
+		.animation(.easeInOut, value: guide.presentedSideMenu)
     }
+
+	@inlinable public init(@ViewBuilder _ content: () -> Content) {
+		self.content = content()
+	}
 }
 
 struct SideMenuView: View {
+	@EnvironmentObject var guide: Guide
 
     @Binding var selectedSideMenuTab: Int
-    @Binding var presentSideMenu: Bool
 
     var body: some View {
         HStack {
@@ -86,7 +91,7 @@ struct SideMenuView: View {
                         ForEach(SideMenuRowType.allCases, id: \.self){ row in
                             RowView(isSelected: selectedSideMenuTab == row.rawValue, imageName: row.iconName, title: row.title) {
                                 selectedSideMenuTab = row.rawValue
-                                presentSideMenu.toggle()
+								guide.togglingSideMenu()
                             }
                         }
                     }.headerProminence(.increased)
