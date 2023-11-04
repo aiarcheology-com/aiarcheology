@@ -56,6 +56,8 @@ public class TakeScreenShotCommand {
 import Vision
 struct FirstItem: View {
 
+	let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
 	@StateObject var viewModel = TextViewModel()
 		//    var websiteUrl: CurrentValueSubject<String, Never> = .init("")
 	@State private var websiteUrl: String = "https://ags.cuzk.cz/av/?extent=-831332.9688214378,-1117345.0500381005,-639820.6497967998,-1016468.2402844809&zvd=dmr5g&rf=GrayscaleHillshade&o=0"
@@ -74,18 +76,20 @@ struct FirstItem: View {
 			// probably there should be a common impl for all capturable tabs.
 			// Each capturable tab should have its own impl of image capture and maybe later also a detection
 		ZStack {
-			AntWebView(websiteUrl, observations: observations, /*shouldCapture: $shouldCapture,*/ capturedImageChanged: { image in
-				if /*shouldCapture*/ true == true {
-						// Trigger object detection
-					objectDetector.detectObjects(in: image) { newObservations  in
-						if let newObservations {
-							self.observations = newObservations
+			SnapableGroup(publisher: timer) {
+				AntWebView(websiteUrl, observations: observations, /*shouldCapture: $shouldCapture,*/ capturedImageChanged: { image in
+					if /*shouldCapture*/ true == true {
+							// Trigger object detection
+						objectDetector.detectObjects(in: image) { newObservations  in
+							if let newObservations {
+								self.observations = newObservations
+							}
+								// shouldCapture = false // Reset the flag
 						}
-							// shouldCapture = false // Reset the flag
 					}
+				}) { loading, error in
+					print("loading status : \(loading)")
 				}
-			}) { loading, error in
-				print("loading status : \(loading)")
 			}
 			.clipped()
 			.toolbar {
