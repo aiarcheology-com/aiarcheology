@@ -20,6 +20,15 @@ enum AppMode: Int, Codable, Hashable, Identifiable {
 
 class AppState: ObservableObject {
     var guide = Guide()
+	var deep = DeepState()
+}
+
+import Vision
+import SwiftUI
+class DeepState: ObservableObject {
+	var frame: CGRect = .zero
+	@Published var detectedObservations: [VNRecognizedObjectObservation] = []
+	@Published var classifiedObservations: [VNClassificationObservation] = []
 }
 
 class Guide: ObservableObject {

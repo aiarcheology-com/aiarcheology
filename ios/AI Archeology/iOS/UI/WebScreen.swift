@@ -75,7 +75,6 @@ struct FirstItem: View {
 	var body: some View {
 			// probably there should be a common impl for all capturable tabs.
 			// Each capturable tab should have its own impl of image capture and maybe later also a detection
-		ZStack {
 			SnapableGroup(publisher: timer) {
 				AntWebView(websiteUrl, observations: observations, /*shouldCapture: $shouldCapture,*/ capturedImageChanged: { image in
 					if /*shouldCapture*/ true == true {
@@ -91,6 +90,7 @@ struct FirstItem: View {
 					print("loading status : \(loading)")
 				}
 			}
+			.navigationBarTitle("", displayMode: .inline)
 			.clipped()
 			.toolbar {
 				ToolbarItem(placement: .principal) {
@@ -106,10 +106,6 @@ struct FirstItem: View {
 						})
 				}
 			}
-			if observations.count != 0 {
-				DetectionOverlayView(observations: observations)
-			}
-		}
 		.gesture(
 			DragGesture()
 				.onEnded { _ in

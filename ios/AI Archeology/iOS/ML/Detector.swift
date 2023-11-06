@@ -120,7 +120,7 @@ actor ResultsCollector<T: VNRequestRevisionProviding> {
 }
 
 // Drivers factory
-class DeepDrivers: ObservableObject {
+class DeepDrivers {
 	var detectors: [DeepDriver] = []
 	var classificators: [DeepDriver] = []
 
@@ -133,7 +133,7 @@ class DeepDrivers: ObservableObject {
 		}
 	}
 
-	func detect(on image: UIImage, completion: @escaping ([VNRecognizedObjectObservation]?) -> Void) {
+	func detect(on image: UIImage, completion: @escaping ([VNRecognizedObjectObservation]) -> Void) {
 		Task { // consider explicit detached, in case of issues
 			let resultsCollector = ResultsCollector<VNRecognizedObjectObservation>()
 
@@ -161,7 +161,7 @@ class DeepDrivers: ObservableObject {
 		}
 	}
 
-	func classify(on image: UIImage, completion: @escaping ([VNClassificationObservation]?) -> Void) {
+	func classify(on image: UIImage, completion: @escaping ([VNClassificationObservation]) -> Void) {
 		Task { // consider explicit detached, in case of issues
 			let resultsCollector = ResultsCollector<VNClassificationObservation>()
 
