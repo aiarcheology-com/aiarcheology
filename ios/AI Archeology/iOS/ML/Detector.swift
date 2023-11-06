@@ -133,6 +133,12 @@ class DeepDrivers {
 		}
 	}
 
+	func unload() async {
+		for detector in detectors {
+			await detector.unload()
+		}
+	}
+
 	func detect(on image: UIImage, completion: @escaping ([VNRecognizedObjectObservation]) -> Void) {
 		Task { // consider explicit detached, in case of issues
 			let resultsCollector = ResultsCollector<VNRecognizedObjectObservation>()
