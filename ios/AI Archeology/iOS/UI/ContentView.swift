@@ -138,8 +138,6 @@ extension View {
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
 	var deepDrivers = DeepDrivers()
-	
-	@State var tabbarSelection: AppMode = .web
 
     init() {
         Backports.Appearance
@@ -165,7 +163,7 @@ struct ContentView: View {
 								}
 							}
 							.annotate(from: appState.deep.detectedObservations, withinFrame: appState.deep.frame) { observation, frame in
-								EmptyView()
+								EmptyView() // add a proper annotation
 							}
 							.environmentObject(appState)
 					},
@@ -178,7 +176,7 @@ struct ContentView: View {
 							.environmentObject(appState.guide)
 					})
 					.tabItem {
-						Screens.tabItem(mode, selection: tabbarSelection)
+						Screens.tabItem(mode, selection: appState.guide.mode)
 					}
 					.tag(mode)
 				}
