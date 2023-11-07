@@ -133,9 +133,16 @@ class DeepDrivers {
 		}
 	}
 
-	func unload() async {
-		for detector in detectors {
-			await detector.unload()
+	func unload(_ driver: DeepDriverType) async {
+		switch driver {
+		case .detector:
+			await detectors.concurrentForEach { driver in
+				await driver.unload()
+			}
+		case .classificator:
+			await classificators.concurrentForEach { driver in
+				await driver.unload()
+			}
 		}
 	}
 

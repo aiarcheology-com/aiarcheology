@@ -11,7 +11,7 @@ struct WebScreen: Screen {
 	@ViewBuilder
 	static func content() -> some View {
 		VStack {
-			FirstItem()
+			MlWebView()
 		}
 	}
 
@@ -54,12 +54,9 @@ public class TakeScreenShotCommand {
 }
 
 import Vision
-struct FirstItem: View {
-
-	let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-
+struct MlWebView: View {
+	@EnvironmentObject var snapState: SnapState
 	@StateObject var viewModel = TextViewModel()
-		//    var websiteUrl: CurrentValueSubject<String, Never> = .init("")
 	@State private var websiteUrl: String = "https://ags.cuzk.cz/av/?extent=-831332.9688214378,-1117345.0500381005,-639820.6497967998,-1016468.2402844809&zvd=dmr5g&rf=GrayscaleHillshade&o=0"
 	@State private var isWebsiteLoading: Bool = false
 	@State private var inputUrl: String = ""
@@ -73,9 +70,7 @@ struct FirstItem: View {
 	@State private var observations: [VNRecognizedObjectObservation] = []
 
 	var body: some View {
-			// probably there should be a common impl for all capturable tabs.
-			// Each capturable tab should have its own impl of image capture and maybe later also a detection
-			SnapableGroup(publisher: timer) {
+		SnapableGroup(publisher: snapState.combinedPublishers) {
 				AntWebView(websiteUrl, observations: observations, /*shouldCapture: $shouldCapture,*/ capturedImageChanged: { image in
 					if /*shouldCapture*/ true == true {
 							// Trigger object detection

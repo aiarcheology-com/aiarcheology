@@ -114,14 +114,16 @@ import Vision
 struct Annotator<AnnotationView: View>: ViewModifier {
 	var detections: [VNRecognizedObjectObservation]
 	var frame: CGRect?
-	var annotationView: (VNRecognizedObjectObservation, CGRect) -> AnnotationView
+	var annotationView: (VNRecognizedObjectObservation, CGRect, GeometryProxy) -> AnnotationView
 
 	@ViewBuilder func body(content: Content) -> some View {
 		ZStack {
 			content
-			ForEach(detections, id: \.uuid) { detection in
-				if let frame {
-					annotationView(detection, frame)
+			GeometryReader { geometry in
+				ForEach(detections, id: \.uuid) { detection in
+					if let frame {
+						annotationView(detection, frame, geometry)
+					}
 				}
 			}
 		}
@@ -129,8 +131,29 @@ struct Annotator<AnnotationView: View>: ViewModifier {
 }
 
 extension View {
-	func annotate<AnnotationView: View>(from detections: [VNRecognizedObjectObservation], withinFrame: CGRect, annotation: @escaping (VNRecognizedObjectObservation, CGRect) -> AnnotationView) -> some View {
+	func annotate<AnnotationView: View>(from detections: [VNRecognizedObjectObservation], withinFrame: CGRect, annotation: @escaping (VNRecognizedObjectObservation, CGRect, GeometryProxy) -> AnnotationView) -> some View {
 		modifier(Annotator(detections: detections, frame: withinFrame, annotationView: annotation))
+	}
+}
+
+import SwiftUI
+import Vision
+
+struct ObservationRectangleView: View {
+	var observation: VNRecognizedObjectObservation
+	var geometry: GeometryProxy
+
+	var body: some View {
+		let boundingBox = observation.boundingBox
+		let size = CGSize(width: boundingBox.size.width * geometry.size.width, height: boundingBox.size.height * geometry.size.height)
+		let position = CGPoint(x: boundingBox.origin.x * geometry.size.width + 80,
+							   y: (1 - boundingBox.origin.y - boundingBox.size.height) * geometry.size.height + 80)
+
+		Rectangle()
+			.fill(Color.clear)
+			.border(Color.red, width: 4)
+			.frame(width: size.width, height: size.height)
+			.position(x: position.x, y: position.y)
 	}
 }
 
@@ -162,8 +185,8 @@ struct ContentView: View {
 									appState.deep.frame = frame
 								}
 							}
-							.annotate(from: appState.deep.detectedObservations, withinFrame: appState.deep.frame) { observation, frame in
-								EmptyView() // add a proper annotation
+							.annotate(from: appState.deep.detectedObservations, withinFrame: appState.deep.frame) { observation, parentFrame, geometry  in
+								ObservationRectangleView(observation: observation, geometry: geometry)
 							}
 							.environmentObject(appState)
 					},

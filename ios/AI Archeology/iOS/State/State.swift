@@ -21,6 +21,7 @@ enum AppMode: Int, Codable, Hashable, Identifiable {
 class AppState: ObservableObject {
     var guide = Guide()
 	var deep = DeepState()
+	var snap = SnapState()
 }
 
 import Vision
@@ -38,5 +39,31 @@ class Guide: ObservableObject {
     func togglingSideMenu() {
         presentedSideMenu.toggle()
     }
+}
+
+import Combine
+class SnapState: ObservableObject {
+	var timerCancellable: Cancellable?
+	let snapshotTrigger = PassthroughSubject<Void, Never>()
+	let timerTrigger = PassthroughSubject<Void, Never>()
+
+	var combinedPublishers: AnyPublisher<Void, Never> {
+		Publishers.Merge(timerTrigger, snapshotTrigger)
+			.eraseToAnyPublisher()
+	}
+
+	func startTimer() {
+			// Start the timer and handle its events by sending them to timerTrigger
+		timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
+			.autoconnect()
+			.sink { [weak self] _ in
+				self?.timerTrigger.send()
+			}
+	}
+
+	func stopTimer() {
+		timerCancellable?.cancel()
+		timerCancellable = nil
+	}
 }
 
