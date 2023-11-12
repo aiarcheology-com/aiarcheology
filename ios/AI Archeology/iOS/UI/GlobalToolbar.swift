@@ -24,7 +24,7 @@ struct GlobalToolbarTrailing: View {
 
 	var body: some View {
 		HStack {
-			Button ( action:  { }, label: { Image(systemName: "play").foregroundColor(.gray)})
+			Button ( action:  { guide.ontheflyDetectionTapped() }, label: { Image(systemName: "play").foregroundColor(.gray)})
 			Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.gray)})
 			Button ( action:  { }, label: { Image(systemName: "person").foregroundColor(.gray)})
 		}

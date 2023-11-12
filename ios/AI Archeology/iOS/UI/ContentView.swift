@@ -12,32 +12,141 @@ struct SnapshotRendererKey: EnvironmentKey {
 }
 
 extension EnvironmentValues {
-	var snapshotRenderer: ((UIImage, CGRect) -> Void)? {
+	var snapshotProvider: ((UIImage, CGRect) -> Void)? {
 		get { self[SnapshotRendererKey.self] }
 		set { self[SnapshotRendererKey.self] = newValue }
 	}
 }
 
-struct SnapableGroup<Content: View, P>: View where P : Publisher, P.Failure == Never {
-	@Environment(\.snapshotRenderer) private var snapshotRenderer
-	@Environment(\.displayScale) var displayScale
-	private let publisher: P
-	let content: Content
+//struct SnapableGroup<Content: View, P>: View where P : Publisher, P.Failure == Never {
+//	@Environment(\.snapshotRenderer) private var snapshotRenderer
+//	@Environment(\.displayScale) var displayScale
+//	private let publisher: P
+//	let content: Content
+//	private var customRenderer = CustomRenderer()
+//
+//	@inlinable init(publisher: P, @ViewBuilder content: () -> Content) where P : Publisher, P.Failure == Never {
+//		self.content = content()
+//		self.publisher = publisher
+//	}
+//
+//	var body: some View {
+//		GeometryReader { geometry in
+//			if let customRenderer = content as? CustomRenderable {
+//				content
+//					.onReceive(publisher) { output in
+//						customRenderer.takeSnapshot { image, error in
+//								if let image = image, error == nil {
+//									snapshotRenderer?(image, geometry.frame(in: .local))
+//								} else {
+//										//TODO: Log error
+//								}
+//							}
+//						}
+//					}
+//					.environmentObject(customRenderer)
+//		} else {
+//			let renderer = ImageRenderer(content: content)
+//			renderer.scale = displayScale
+//			renderer.isOpaque = false
+//			if let uiImage = renderer.uiImage, let snapshotRenderer {
+//				snapshotRenderer(uiImage, geometry.frame(in: .local)) // TODO:  if this space does not work, use global or named(AnyHashable)
+//			}
+//		}
+//	}
+//}
 
-	@inlinable init(publisher: P, @ViewBuilder content: () -> Content) where P : Publisher, P.Failure == Never {
-		self.content = content()
+//struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Never {
+//	@Environment(\.snapshotProvider) private var snapshotProvider
+//	@Environment(\.displayScale) var displayScale
+//	private let publisher: P
+//	private var content: Content
+//	private var customRenderer = CustomRenderer()
+//
+//	@inlinable init(publisher: P, @ViewBuilder content: () -> Content) {
+//		self.publisher = publisher
+//		self.content = content()
+//	}
+//
+//	var body: some View {
+//		GeometryReader { geometry in
+//			Group {
+//				if contentIsCustomRenderable {
+//					customRenderableView
+//				} else {
+//					defaultRenderableView
+//				}
+//			}
+//			.onReceive(publisher) { _ in
+//				triggerRender(in: geometry.frame(in: .local))
+//			}
+//		}
+//	}
+//
+//	@ViewBuilder private var customRenderableView: some View {
+//		content.environmentObject(customRenderer)
+//	}
+//
+//	@ViewBuilder private var defaultRenderableView: some View {
+//		content
+//	}
+//
+//	private var contentIsCustomRenderable: Bool {
+//		content as? CustomRenderable != nil
+//	}
+//
+//	@MainActor private func triggerRender(in frame: CGRect) {
+//		if let customRenderable = content as? CustomRenderable {
+//			customRenderable.render { image, error in
+//				if let image = image, error == nil {
+//					snapshotProvider?(image, frame)
+//				} else {
+//						// Handle error
+//				}
+//			}
+//		} else {
+//			let renderer = ImageRenderer(content: content)
+//			renderer.scale = displayScale
+//			renderer.isOpaque = false
+//			if let image = renderer.uiImage {
+//				snapshotProvider?(image, frame)
+//			}
+//		}
+//	}
+//}
+
+// Do not forget to initiate a custom renderer, e.g. .environmentObject(customRenderer)
+// when wrapping another View
+struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Never {
+	@Environment(\.snapshotProvider) private var snapshotProvider
+	// @EnvironmentObject var defaultRenderer: DefaultRenderer
+	// @EnvironmentObject var webViewRenderer: WebViewRenderer
+	private unowned var renderer: DefaultRenderer
+
+	private let publisher: P
+	private var content: Content
+
+	@inlinable init(renderer: DefaultRenderer, publisher: P, @ViewBuilder content: () -> Content) {
 		self.publisher = publisher
+		self.content = content()
+		self.renderer = renderer
 	}
 
 	var body: some View {
 		GeometryReader { geometry in
 			content
-			.onReceive(publisher) { output in
-				let renderer = ImageRenderer(content: content)
-				renderer.scale = displayScale
-				if let uiImage = renderer.uiImage, let snapshotRenderer {
-					snapshotRenderer(uiImage, geometry.frame(in: CoordinateSpace.local)) // TODO:  if this space does not work, use global or named(AnyHashable)
-				}
+				.onReceive(publisher) { _ in
+				render(in: geometry.frame(in: .local))
+			}
+		}
+	}
+
+	@MainActor private func render(in frame: CGRect) {
+		renderer.render(content) { image, error in
+			if let image = image, error == nil {
+				snapshotProvider?(image, frame)
+			} else {
+					//TODO: Handle error
 			}
 		}
 	}
@@ -47,7 +156,7 @@ import Combine
 extension View {
 	// The snapshot is made from a view wrapped within SnapableGroup and driven by the group's publisher
 	func onSnapshot(perform action: @escaping (UIImage, CGRect) -> Void) -> some View {
-		environment(\.snapshotRenderer, { image, frame in
+		environment(\.snapshotProvider, { image, frame in
 				action(image, frame)
 		})
 	}
@@ -58,6 +167,7 @@ extension View {
 				@Environment(\.displayScale) var displayScale
 				let renderer = ImageRenderer(content: self)
 				renderer.scale = displayScale
+				renderer.isOpaque = false
 				if let uiImage = renderer.uiImage {
 					action(uiImage)
 				}

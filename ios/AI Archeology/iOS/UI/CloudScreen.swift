@@ -16,10 +16,10 @@ struct CloudScreen: Screen {
 	@ViewBuilder
 	static func barItems(position: ItemsPosition) -> some View {
 		switch position {
-			case .leading:
-				GlobalToolbarLeading()
-			case .trailing:
-				GlobalToolbarTrailing()
+		case .leading:
+			GlobalToolbarLeading()
+		case .trailing:
+			GlobalToolbarTrailing()
 		}
 	}
 

@@ -11,7 +11,7 @@ struct WebScreen: Screen {
 	@ViewBuilder
 	static func content() -> some View {
 		VStack {
-			MlWebView()
+			WebScreenView()
 		}
 	}
 
@@ -41,49 +41,19 @@ struct WebScreen: Screen {
 
 }
 
-import WebKit
-public class TakeScreenShotCommand {
-	var screenShot: UIImage?
-	func takeScreenShot(_ webview: WKWebView) {
-		webview.takeSnapshot(with: nil, completionHandler: { image, error in
-			if let image = image {
-				self.screenShot = image
-			}
-		})
-	}
-}
-
 import Vision
-struct MlWebView: View {
-	@EnvironmentObject var snapState: SnapState
-	@StateObject var viewModel = TextViewModel()
+struct WebScreenView: View {
+	@EnvironmentObject var appState: AppState
 	@State private var websiteUrl: String = "https://ags.cuzk.cz/av/?extent=-831332.9688214378,-1117345.0500381005,-639820.6497967998,-1016468.2402844809&zvd=dmr5g&rf=GrayscaleHillshade&o=0"
 	@State private var isWebsiteLoading: Bool = false
 	@State private var inputUrl: String = ""
 
-		//    @Binding var shouldCapture: Bool
-		//    @State var capturedImage: UIImage?
-		// Initialize the object detector
-	let objectDetector = ObjectDetector()
-	// let screenShotCommand = TakeScreenShotCommand()
-
-	@State private var observations: [VNRecognizedObjectObservation] = []
-
 	var body: some View {
-		SnapableGroup(publisher: snapState.combinedPublishers) {
-				AntWebView(websiteUrl, observations: observations, /*shouldCapture: $shouldCapture,*/ capturedImageChanged: { image in
-					if /*shouldCapture*/ true == true {
-							// Trigger object detection
-						objectDetector.detectObjects(in: image) { newObservations  in
-							if let newObservations {
-								self.observations = newObservations
-							}
-								// shouldCapture = false // Reset the flag
-						}
-					}
-				}) { loading, error in
+		SnapableGroup(renderer: appState.webViewRenderer, publisher: appState.snap.combinedPublishers) {
+			MLWebView(websiteUrl) { loading, error in
 					print("loading status : \(loading)")
 				}
+				.environmentObject(appState.webViewRenderer)
 			}
 			.navigationBarTitle("", displayMode: .inline)
 			.clipped()
@@ -101,11 +71,5 @@ struct MlWebView: View {
 						})
 				}
 			}
-		.gesture(
-			DragGesture()
-				.onEnded { _ in
-					observations.removeAll()
-				}
-		)
 	}
 }
