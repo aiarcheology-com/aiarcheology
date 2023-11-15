@@ -18,109 +18,11 @@ extension EnvironmentValues {
 	}
 }
 
-//struct SnapableGroup<Content: View, P>: View where P : Publisher, P.Failure == Never {
-//	@Environment(\.snapshotRenderer) private var snapshotRenderer
-//	@Environment(\.displayScale) var displayScale
-//	private let publisher: P
-//	let content: Content
-//	private var customRenderer = CustomRenderer()
-//
-//	@inlinable init(publisher: P, @ViewBuilder content: () -> Content) where P : Publisher, P.Failure == Never {
-//		self.content = content()
-//		self.publisher = publisher
-//	}
-//
-//	var body: some View {
-//		GeometryReader { geometry in
-//			if let customRenderer = content as? CustomRenderable {
-//				content
-//					.onReceive(publisher) { output in
-//						customRenderer.takeSnapshot { image, error in
-//								if let image = image, error == nil {
-//									snapshotRenderer?(image, geometry.frame(in: .local))
-//								} else {
-//										//TODO: Log error
-//								}
-//							}
-//						}
-//					}
-//					.environmentObject(customRenderer)
-//		} else {
-//			let renderer = ImageRenderer(content: content)
-//			renderer.scale = displayScale
-//			renderer.isOpaque = false
-//			if let uiImage = renderer.uiImage, let snapshotRenderer {
-//				snapshotRenderer(uiImage, geometry.frame(in: .local)) // TODO:  if this space does not work, use global or named(AnyHashable)
-//			}
-//		}
-//	}
-//}
-
-//struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Never {
-//	@Environment(\.snapshotProvider) private var snapshotProvider
-//	@Environment(\.displayScale) var displayScale
-//	private let publisher: P
-//	private var content: Content
-//	private var customRenderer = CustomRenderer()
-//
-//	@inlinable init(publisher: P, @ViewBuilder content: () -> Content) {
-//		self.publisher = publisher
-//		self.content = content()
-//	}
-//
-//	var body: some View {
-//		GeometryReader { geometry in
-//			Group {
-//				if contentIsCustomRenderable {
-//					customRenderableView
-//				} else {
-//					defaultRenderableView
-//				}
-//			}
-//			.onReceive(publisher) { _ in
-//				triggerRender(in: geometry.frame(in: .local))
-//			}
-//		}
-//	}
-//
-//	@ViewBuilder private var customRenderableView: some View {
-//		content.environmentObject(customRenderer)
-//	}
-//
-//	@ViewBuilder private var defaultRenderableView: some View {
-//		content
-//	}
-//
-//	private var contentIsCustomRenderable: Bool {
-//		content as? CustomRenderable != nil
-//	}
-//
-//	@MainActor private func triggerRender(in frame: CGRect) {
-//		if let customRenderable = content as? CustomRenderable {
-//			customRenderable.render { image, error in
-//				if let image = image, error == nil {
-//					snapshotProvider?(image, frame)
-//				} else {
-//						// Handle error
-//				}
-//			}
-//		} else {
-//			let renderer = ImageRenderer(content: content)
-//			renderer.scale = displayScale
-//			renderer.isOpaque = false
-//			if let image = renderer.uiImage {
-//				snapshotProvider?(image, frame)
-//			}
-//		}
-//	}
-//}
 
 // Do not forget to initiate a custom renderer, e.g. .environmentObject(customRenderer)
 // when wrapping another View
 struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Never {
 	@Environment(\.snapshotProvider) private var snapshotProvider
-	// @EnvironmentObject var defaultRenderer: DefaultRenderer
-	// @EnvironmentObject var webViewRenderer: WebViewRenderer
 	private unowned var renderer: DefaultRenderer
 
 	private let publisher: P
@@ -175,51 +77,6 @@ extension View {
 		}
 	}
 }
-
-//import Vision
-//struct Annotator: ViewModifier {
-//	var geometry: GeometryProxy
-//	var detectionObservations: [VNRecognizedObjectObservation]
-//	var annotation: () -> some View // compiler: Property declares an opaque return type, but has no initializer expression from which to infer an underlying type
-//	@ViewBuilder func body(content: Content) -> some View {
-//		content
-//		annotation
-//	}
-//}
-//
-//extension View {
-//	func annotate(from detectionObservations: [VNRecognizedObjectObservation], geometry: GeometryProxy) -> some View {
-//		modifier(Annotator(geometry: geometry, detectionObservations: detectionObservations, annotation: <#() -> some View#>))
-//	}
-//}
-
-import SwiftUI
-import Vision
-//
-//struct Annotator: ViewModifier {
-//	var detections: [VNRecognizedObjectObservation]
-//	var frame: CGRect?
-//	var annotationView: (VNRecognizedObjectObservation, CGRect) -> AnyView
-//
-//	@ViewBuilder func body(content: Content) -> some View {
-//		ZStack {
-//			content
-//			ForEach(detections, id: \.uuid) { detection in
-//				if let frame {
-//					annotationView(detection, frame)
-//						.position(x: frame.origin.x, y: frame.origin.y)
-//				}
-//			}
-//		}
-//	}
-//}
-
-//extension View {
-//	func annotate(from detections: [VNRecognizedObjectObservation], frame: CGRect?, annotation: @escaping (VNRecognizedObjectObservation, CGRect) -> AnyView) -> some View {
-//		modifier(Annotator(detections: detections, frame: frame, annotationView: annotation))
-//	}
-//}
-
 
 struct Annotator<AnnotationView: View>: ViewModifier {
 	var detections: [VNRecognizedObjectObservation]

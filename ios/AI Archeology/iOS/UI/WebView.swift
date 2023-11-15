@@ -13,8 +13,8 @@ import Combine
 import Vision
 
 @available(iOS 13, *)
-public struct MLWebView: UIViewRepresentable {
-	@EnvironmentObject var renderer: WebViewRenderer
+public struct MLWebView: UIViewRepresentable, WebViewRenderable {
+	@EnvironmentObject var webViewRenderer: WebViewRenderer
     var urlString: String
     var loadStatusChanged: ((Bool, Error?) -> Void)? = nil
 
@@ -33,7 +33,7 @@ public struct MLWebView: UIViewRepresentable {
         guard let url = URL(string: urlString)
         else {
 			let webView = WKWebView()
-			renderer.webView = webView
+			webViewRenderer.webView = webView
             return webView
         }
 
@@ -44,7 +44,7 @@ public struct MLWebView: UIViewRepresentable {
         DispatchQueue.main.async {
 			webView.load(URLRequest(url: url))
         }
-		renderer.webView = webView
+		webViewRenderer.webView = webView
         return webView
     }
 

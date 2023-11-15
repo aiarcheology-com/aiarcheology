@@ -94,11 +94,9 @@ class SnapState: ObservableObject {
 	}
 }
 
-//import WebKit
-//protocol CustomRenderable {
-//	var customRenderer: CustomRenderer { get }
-//	func render(completionHandler: @escaping (UIImage?, Error?) -> Void)
-//}
+protocol DefaultRenderable {
+	var defaultRenderer: DefaultRenderer { get }
+}
 
 import Vision
 // Default renderer for the SwiftUI components
@@ -120,6 +118,10 @@ class DefaultRenderer: ObservableObject {
 			completionHandler(nil, nil) //TODO: error handling
 		}
 	}
+}
+
+protocol WebViewRenderable {
+	var webViewRenderer: WebViewRenderer { get }
 }
 
 import WebKit
