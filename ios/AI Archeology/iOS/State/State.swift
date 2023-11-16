@@ -44,7 +44,8 @@ class Guide: ObservableObject {
     @Published var mode = AppMode.web
     @Published var presentedSideMenu = false
 	@Published var ontheflyDetectionEnabled = false
-	
+	@Published var selectedSideMenuTab = 0
+
 	init(appState: AppState) {
 		self.appState = appState
 	}

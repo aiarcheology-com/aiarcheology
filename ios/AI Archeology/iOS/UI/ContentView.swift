@@ -128,6 +128,7 @@ struct ObservationRectangleView: View {
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
 	var deepDrivers = DeepDrivers()
+	@State private var showingForm = false
 
     init() {
         Backports.Appearance
@@ -135,10 +136,6 @@ struct ContentView: View {
             .tabbar()
             .navigationBar()
     }
-
-    @State var shouldCapture: Bool = false
-    @State var selectedSideMenuTab = 0
-
 
     var body: some View {
         ZStack {
@@ -172,13 +169,17 @@ struct ContentView: View {
 				}
             }
 			SideMenu {
-				SideMenuView(selectedSideMenuTab: $selectedSideMenuTab)
-					.onChange(of: selectedSideMenuTab) { newValue in
-						shouldCapture = true
+				SideMenuView()
+					.onChange(of: appState.guide.selectedSideMenuTab) { newValue in
+						showingForm = true
 					}
 			}
 			.environmentObject(appState.guide)
         }
+		.sheet(isPresented: $showingForm) {
+			// ConfigurationForm(isPresented: $showingForm, selectedSideMenuTab: selectedSideMenuTab)
+			ConfigurationForm(isPresented: $showingForm)
+		}
     }
 }
 

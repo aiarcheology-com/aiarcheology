@@ -74,8 +74,6 @@ struct SideMenu<Content: View>: View {
 struct SideMenuView: View {
 	@EnvironmentObject var guide: Guide
 
-    @Binding var selectedSideMenuTab: Int
-
     var body: some View {
         HStack {
 
@@ -89,8 +87,9 @@ struct SideMenuView: View {
 
                     Section("Available Models") {
                         ForEach(SideMenuRowType.allCases, id: \.self){ row in
-                            RowView(isSelected: selectedSideMenuTab == row.rawValue, imageName: row.iconName, title: row.title) {
-                                selectedSideMenuTab = row.rawValue
+							RowView(isSelected: guide.selectedSideMenuTab == row.rawValue, imageName: row.iconName, title: row.title) {
+								guide.selectedSideMenuTab = row.rawValue
+								print("selectedSideMenuTab \(guide.selectedSideMenuTab)")
 								guide.togglingSideMenu()
                             }
                         }
