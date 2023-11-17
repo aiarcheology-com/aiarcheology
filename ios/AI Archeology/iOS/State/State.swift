@@ -39,7 +39,7 @@ class DeepState: ObservableObject {
 	}
 }
 
-class Guide: ObservableObject {
+final class Guide: ObservableObject {
 	unowned private var appState: AppState
     @Published var mode = AppMode.web
     @Published var presentedSideMenu = false

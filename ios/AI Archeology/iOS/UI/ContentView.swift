@@ -124,10 +124,11 @@ struct ObservationRectangleView: View {
 	}
 }
 
-
+import Combine
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
 	var deepDrivers = DeepDrivers()
+
 	@State private var showingForm = false
 
     init() {
@@ -168,21 +169,43 @@ struct ContentView: View {
 					.tag(mode)
 				}
             }
-			SideMenu {
-				SideMenuView()
-					.onChange(of: appState.guide.selectedSideMenuTab) { newValue in
-						showingForm = true
-					}
-			}
+			SideMenuLogic(showingForm: $showingForm)
 			.environmentObject(appState.guide)
         }
 		.sheet(isPresented: $showingForm) {
-			// ConfigurationForm(isPresented: $showingForm, selectedSideMenuTab: selectedSideMenuTab)
 			ConfigurationForm(isPresented: $showingForm)
 		}
     }
 }
 
+struct SideMenuLogic: View {
+	@EnvironmentObject var guide: Guide
+	@Binding var showingForm: Bool
+	@State private var selectedSideMenuTab = 0
+	@State private var presentedSideMenu = false
+
+	var body: some View {
+		SideMenu(presentedSideMenu: $presentedSideMenu) {
+			SideMenuView(selectedSideMenuTab: $selectedSideMenuTab)
+		}
+		.onChange(of: selectedSideMenuTab) { newValue in
+			guide.selectedSideMenuTab = newValue
+			showingForm = true
+		}
+		.onChange(of: presentedSideMenu) { newValue in
+			guide.presentedSideMenu = newValue
+		}
+		.onChange(of: guide.presentedSideMenu) { newValue in
+			presentedSideMenu = newValue
+		}
+	}
+}
+
+public extension View {
+	func onAppearAndOnChange<V>(of value: V, perform action: @escaping (_ newValue: V) -> Void) -> some View where V: Equatable {
+		onReceive(Just(value), perform: action)
+	}
+}
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {

@@ -41,18 +41,18 @@ enum SideMenuRowType: Int, CaseIterable{
 }
 
 struct SideMenu<Content: View>: View {
-	@EnvironmentObject var guide: Guide
+	@Binding var presentedSideMenu: Bool
 
 	let content: Content
     var edgeTransition: AnyTransition = .move(edge: .leading)
     var body: some View {
         ZStack(alignment: .bottom) {
-			if (guide.presentedSideMenu) {
+			if (presentedSideMenu) {
                 Color.black
                     .opacity(0.3)
                     .ignoresSafeArea()
                     .onTapGesture {
-						guide.togglingSideMenu()
+						presentedSideMenu.toggle()
                     }
                 content
                     .transition(edgeTransition)
@@ -63,16 +63,18 @@ struct SideMenu<Content: View>: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .ignoresSafeArea()
-		.animation(.easeInOut, value: guide.presentedSideMenu)
+		.animation(.easeInOut, value: presentedSideMenu)
     }
 
-	@inlinable public init(@ViewBuilder _ content: () -> Content) {
+	@inlinable public init(presentedSideMenu: Binding<Bool>, @ViewBuilder _ content: () -> Content) {
 		self.content = content()
+		self._presentedSideMenu = presentedSideMenu
 	}
 }
 
 struct SideMenuView: View {
 	@EnvironmentObject var guide: Guide
+	@Binding var selectedSideMenuTab: Int
 
     var body: some View {
         HStack {
@@ -87,9 +89,8 @@ struct SideMenuView: View {
 
                     Section("Available Models") {
                         ForEach(SideMenuRowType.allCases, id: \.self){ row in
-							RowView(isSelected: guide.selectedSideMenuTab == row.rawValue, imageName: row.iconName, title: row.title) {
-								guide.selectedSideMenuTab = row.rawValue
-								print("selectedSideMenuTab \(guide.selectedSideMenuTab)")
+							RowView(isSelected: selectedSideMenuTab == row.rawValue, imageName: row.iconName, title: row.title) {
+								selectedSideMenuTab = row.rawValue
 								guide.togglingSideMenu()
                             }
                         }
