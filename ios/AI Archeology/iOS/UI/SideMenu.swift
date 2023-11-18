@@ -51,9 +51,6 @@ struct SideMenu<Content: View>: View {
                 Color.black
                     .opacity(0.3)
                     .ignoresSafeArea()
-                    .onTapGesture {
-						presentedSideMenu.toggle()
-                    }
                 content
                     .transition(edgeTransition)
                     .background(
@@ -79,19 +76,34 @@ struct SideMenuView: View {
     var body: some View {
 		HStack(alignment: .bottom) {
             ZStack{
-				List {
-					Section("Available Models") {
-						ForEach(SideMenuRowType.allCases, id: \.self) { row in
-							Button {
-								selectedSideMenuTab = row.rawValue
-								guide.togglingSideMenu()
-							} label: {
-								Text(row.title)
+				VStack {
+					// Dismiss button
+					VStack {
+						HStack {
+							Spacer()
+							Button(action: {
+								guide.presentedSideMenu = false
+							}) {
+								Text("Close")
+									.bold()
+							}
+							.padding()
+						}
+					}
+
+					List {
+						Section("Available Models") {
+							ForEach(SideMenuRowType.allCases, id: \.self) { row in
+								Button {
+									selectedSideMenuTab = row.rawValue
+								} label: {
+									Text(row.title)
+								}
 							}
 						}
 					}
+					.listStyle(InsetGroupedListStyle()) //TODO: ultraThinMaterial background?
 				}
-				.listStyle(InsetGroupedListStyle())
 				.padding(.top, 30)
 				.frame(width: 270)
             }

@@ -52,7 +52,7 @@ struct WebScreenView: View {
 		// Passing appState.webViewRenderer as arg to be able to check, because:
 		// https://stackoverflow.com/questions/59822245/swiftui-optional-environment-object
 		SnapableGroup(renderer: appState.webViewRenderer, publisher: appState.snap.combinedPublishers) {
-			MLWebView(websiteUrl) { loading, error in
+			MLWebView(websiteUrl) { loading, error in	
 					print("loading status : \(loading)")
 				}
 				.environmentObject(appState.webViewRenderer)
