@@ -180,6 +180,9 @@ struct ContentView: View {
 			if let config = appState.deep.newConfiguration {
 				ConfigurationForm(isPresented: $showingForm)
 					.environmentObject(config)
+					.onChange(of: config) { newValue in
+						
+					}
 			} else {
 				// TODO: load an existin configuration
 			}
@@ -203,12 +206,6 @@ struct SideMenuLogic: View {
 		.onChange(of: guide.selectedSideMenuTab) { newValue in
 			showingForm = true
 		}
-	}
-}
-
-public extension View {
-	func onAppearAndOnChange<V>(of value: V, perform action: @escaping (_ newValue: V) -> Void) -> some View where V: Equatable {
-		onReceive(Just(value), perform: action)
 	}
 }
 

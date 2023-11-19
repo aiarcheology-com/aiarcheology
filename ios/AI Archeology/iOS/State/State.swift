@@ -50,9 +50,9 @@ class DeepState: ObservableObject {
 	}
 }
 
-class DeepConfiguration: ObservableObject, Identifiable {
+class DeepConfiguration: ObservableObject, Identifiable, Equatable {
 	let id: UUID
-	@Published var fileName: String = ""
+	@Published var fileName: URL = URL(fileURLWithPath: "")
 	@Published var modelName: String = ""
 	@Published var modelType: DeepDriverType = .detector
 	@Published var authorName: String = ""
@@ -65,11 +65,25 @@ class DeepConfiguration: ObservableObject, Identifiable {
 	init() {
 		self.id = UUID()
 	}
+
+	static func == (lhs: DeepConfiguration, rhs: DeepConfiguration) -> Bool {
+		return 
+			lhs.id == rhs.id &&
+			lhs.fileName == rhs.fileName &&
+			lhs.modelName == rhs.modelName &&
+			lhs.modelType == rhs.modelType &&
+			lhs.authorName == rhs.authorName &&
+			lhs.creationDate == rhs.creationDate &&
+			lhs.annotationColor == rhs.annotationColor &&
+			lhs.phaseOutTime == rhs.phaseOutTime &&
+			lhs.selectedSymbol == rhs.selectedSymbol &&
+			lhs.enabled == rhs.enabled
+	}
 }
 
-final class Guide: ObservableObject {
+class Guide: ObservableObject {
 	unowned private var appState: AppState
-    @Published var mode = AppMode.web
+	@Published var mode = AppMode.web
 	@Published var presentedSideMenu: Bool = false
 	@Published var ontheflyDetectionEnabled: Bool = false
 	@Published var selectedSideMenuTab: Int = 0

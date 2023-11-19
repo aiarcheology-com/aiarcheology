@@ -22,14 +22,15 @@ struct ConfigurationForm: View {
 		NavigationView {
 			Form {
 				Section(header: Text("Model Settings")) {
-					TextField("File", text: $configuration.fileName)
+					Text(configuration.fileName.absoluteString)
 					TextField("Name", text: $configuration.modelName)
 					Text(configuration.modelType.name())
 				}
 
 				Section(header: Text("Author")) {
-					TextField("Author", text: $configuration.authorName)
-					DatePicker("Created", selection: $configuration.creationDate, displayedComponents: .date)
+					Text(configuration.authorName)
+					let created = configuration.creationDate.formatted(.dateTime.year().month().day().hour().minute())
+					Text("Created: \(created)")
 				}
 
 				Section(header: Text("Annotation")) {
@@ -43,8 +44,15 @@ struct ConfigurationForm: View {
 				}
 			}
 			.navigationBarTitle("Configuration", displayMode: .inline)
-			.navigationBarItems(trailing: Button("Dismiss") {
+			.navigationBarItems(leading: 	Button(action: {
+				
+			}) {
+				Image(systemName: "plus")
+			})
+			.navigationBarItems(trailing: Button(action: {
 				isPresented = false
+			}) {
+				Text("Dismiss").bold()
 			})
 		}
 	}

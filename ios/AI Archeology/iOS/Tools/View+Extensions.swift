@@ -5,11 +5,12 @@
 //  Created by Vladimír Slavík on 26.09.23.
 //
 
+import Combine
 import Foundation
 import SwiftUI
 
 // Captures the rendered screen from the View.
-extension View {
+public extension View {
     func snapshot() -> UIImage {
         let controller = UIHostingController(rootView: self)
         let view = controller.view
@@ -22,3 +23,10 @@ extension View {
         }
     }
 }
+
+public extension View {
+	func onAppearAndOnChange<V>(of value: V, perform action: @escaping (_ newValue: V) -> Void) -> some View where V: Equatable {
+		onReceive(Just(value), perform: action)
+	}
+}
+
