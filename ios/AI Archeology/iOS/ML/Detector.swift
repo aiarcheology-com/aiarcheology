@@ -109,6 +109,12 @@ actor Classificator: DeepDriver {
 enum DeepDriverType {
 	case detector
 	case classificator
+	func name() -> String {
+		switch self {
+		case .classificator: return "classificator"
+		case .detector: return "detector"
+		}
+	}
 }
 
 actor ResultsCollector<T: VNRequestRevisionProviding> {
@@ -120,9 +126,9 @@ actor ResultsCollector<T: VNRequestRevisionProviding> {
 }
 
 // Drivers factory
-class DeepDrivers {
-	var detectors: [DeepDriver] = []
-	var classificators: [DeepDriver] = []
+class DeepDrivers: ObservableObject {
+	@Published var detectors: [DeepDriver] = []
+	@Published var classificators: [DeepDriver] = []
 
 	func register(driver: DeepDriver, along: DeepDriverType) {
 		switch along {

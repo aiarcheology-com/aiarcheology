@@ -20,10 +20,10 @@ enum AppMode: Int, Codable, Hashable, Identifiable {
 
 class AppState: ObservableObject {
 	lazy var guide = Guide(appState: self)
-	lazy var deep = DeepState(appState: self)
 	lazy var snap = SnapState(appState: self)
 	lazy var renderer = DefaultRenderer(appState: self)
 	lazy var webViewRenderer = WebViewRenderer(appState: self)
+	lazy var deep = DeepState(appState: self)
 }
 
 import Vision
@@ -33,18 +33,46 @@ class DeepState: ObservableObject {
 	var frame: CGRect = .zero
 	@Published var detectedObservations: [VNRecognizedObjectObservation] = []
 	@Published var classifiedObservations: [VNClassificationObservation] = []
+	@Published var configurations: [DeepConfiguration] = []
+	@Published var newConfiguration: DeepConfiguration?
 
 	init(appState: AppState) {
 		self.appState = appState
+	}
+
+	func addConfiguration(_ configuration: DeepConfiguration) {
+		assert(configurations.filter { $0.id == configuration.id }.isEmpty)
+		configurations.append(configuration)
+	}
+
+	func removeConfiguration(_ id: UUID) {
+		configurations.removeAll { $0.id == id }
+	}
+}
+
+class DeepConfiguration: ObservableObject, Identifiable {
+	let id: UUID
+	@Published var fileName: String = ""
+	@Published var modelName: String = ""
+	@Published var modelType: DeepDriverType = .detector
+	@Published var authorName: String = ""
+	@Published var creationDate: Date = Date()
+	@Published var annotationColor: Color = .black
+	@Published var phaseOutTime: Double = 0
+	@Published var selectedSymbol: AnnotationSymbol = .point
+	@Published var enabled: Bool = false
+
+	init() {
+		self.id = UUID()
 	}
 }
 
 final class Guide: ObservableObject {
 	unowned private var appState: AppState
     @Published var mode = AppMode.web
-    @Published var presentedSideMenu = false
-	@Published var ontheflyDetectionEnabled = false
-	@Published var selectedSideMenuTab = 0
+	@Published var presentedSideMenu: Bool = false
+	@Published var ontheflyDetectionEnabled: Bool = false
+	@Published var selectedSideMenuTab: Int = 0
 
 	init(appState: AppState) {
 		self.appState = appState
@@ -53,6 +81,11 @@ final class Guide: ObservableObject {
     func togglingSideMenu() {
         presentedSideMenu.toggle()
     }
+
+	func onAddcell() {
+		let configuration = DeepConfiguration()
+		appState.deep.addConfiguration(configuration)
+	}
 
 	func ontheflyDetectionTapped() {
 		ontheflyDetectionEnabled.toggle()

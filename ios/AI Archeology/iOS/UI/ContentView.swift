@@ -169,34 +169,39 @@ struct ContentView: View {
 					.tag(mode)
 				}
             }
-			SideMenuLogic(showingForm: $showingForm)
+			SideMenuLogic(showingForm: $showingForm, onAddCell: {
+				appState.deep.newConfiguration = DeepConfiguration()
+				showingForm = true
+			})
 			.environmentObject(appState.guide)
+			.environmentObject(appState.deep)
         }
 		.sheet(isPresented: $showingForm) {
-			ConfigurationForm(isPresented: $showingForm)
+			if let config = appState.deep.newConfiguration {
+				ConfigurationForm(isPresented: $showingForm)
+					.environmentObject(config)
+			} else {
+				// TODO: load an existin configuration
+			}
 		}
     }
 }
 
 struct SideMenuLogic: View {
-	@EnvironmentObject var guide: Guide
 	@Binding var showingForm: Bool
-	@State private var selectedSideMenuTab = 0
-	@State private var presentedSideMenu = false
+	@State var onAddCell: (() -> Void)
+	@EnvironmentObject var guide: Guide
+	@EnvironmentObject var deep: DeepState
 
 	var body: some View {
-		SideMenu(presentedSideMenu: $presentedSideMenu) {
-			SideMenuView(selectedSideMenuTab: $selectedSideMenuTab)
+		SideMenu(presentedSideMenu: $guide.presentedSideMenu) {
+			SideMenuView(cells: deep.configurations.map { SideMenuData(id: $0.id, title: $0.modelName, enabled: $0.enabled) },
+						selectedSideMenuTab: $guide.selectedSideMenuTab,
+						presentedSideMenu: $guide.presentedSideMenu,
+						onAddCell: onAddCell)
 		}
-		.onChange(of: selectedSideMenuTab) { newValue in
-			guide.selectedSideMenuTab = newValue
+		.onChange(of: guide.selectedSideMenuTab) { newValue in
 			showingForm = true
-		}
-		.onChange(of: presentedSideMenu) { newValue in
-			guide.presentedSideMenu = newValue
-		}
-		.onChange(of: guide.presentedSideMenu) { newValue in
-			presentedSideMenu = newValue
 		}
 	}
 }

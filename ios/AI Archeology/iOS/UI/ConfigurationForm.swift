@@ -7,43 +7,35 @@
 
 import SwiftUI
 
+enum AnnotationSymbol: String, CaseIterable, Identifiable {
+	case point = "Point"
+	case square = "Square"
+	case circle = "Circle"
+
+	var id: String { self.rawValue }
+}
+
 struct ConfigurationForm: View {
 	@Binding var isPresented: Bool
-	@State private var fileName: String = ""
-	@State private var modelName: String = ""
-	@State private var modelType: String = ""
-	@State private var authorName: String = ""
-	@State private var creationDate: Date = Date()
-	@State private var annotationColor: Color = .black
-	@State private var phaseOutTime: Double = 0
-	@State private var selectedSymbol: AnnotationSymbol = .point
-
-	enum AnnotationSymbol: String, CaseIterable, Identifiable {
-		case point = "Point"
-		case square = "Square"
-		case circle = "Circle"
-
-		var id: String { self.rawValue }
-	}
-
+	@EnvironmentObject var configuration: DeepConfiguration
 	var body: some View {
 		NavigationView {
 			Form {
 				Section(header: Text("Model Settings")) {
-					TextField("File", text: $fileName)
-					TextField("Name", text: $modelName)
-					TextField("Type", text: $modelType)
+					TextField("File", text: $configuration.fileName)
+					TextField("Name", text: $configuration.modelName)
+					Text(configuration.modelType.name())
 				}
 
 				Section(header: Text("Author")) {
-					TextField("Author", text: $authorName)
-					DatePicker("Created", selection: $creationDate, displayedComponents: .date)
+					TextField("Author", text: $configuration.authorName)
+					DatePicker("Created", selection: $configuration.creationDate, displayedComponents: .date)
 				}
 
 				Section(header: Text("Annotation")) {
-					ColorPicker("Color", selection: $annotationColor)
-					Slider(value: $phaseOutTime, in: 0...60)
-					Picker("Symbol", selection: $selectedSymbol) {
+					ColorPicker("Color", selection: $configuration.annotationColor)
+					Slider(value: $configuration.phaseOutTime, in: 0...60)
+					Picker("Symbol", selection: $configuration.selectedSymbol) {
 						ForEach(AnnotationSymbol.allCases) { symbol in
 							Text(symbol.rawValue).tag(symbol)
 						}

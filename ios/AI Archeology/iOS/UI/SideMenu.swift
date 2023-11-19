@@ -40,6 +40,31 @@ enum SideMenuRowType: Int, CaseIterable{
     }
 }
 
+class SideMenuData: ObservableObject {
+	@Published var id: UUID
+	@Published var title: String
+	@Published var enabled: Bool
+
+	init(id: UUID, title: String, enabled: Bool) {
+		self.id = id
+		self.title = title
+		self.enabled = enabled
+	}
+}
+
+struct SideMenuCell: View {
+	@EnvironmentObject var data: SideMenuData
+
+	var body: some View {
+		HStack {
+			Text(data.title)
+			Spacer()
+			Toggle("", isOn: $data.enabled)
+			.labelsHidden()
+		}
+	}
+}
+
 struct SideMenu<Content: View>: View {
 	@Binding var presentedSideMenu: Bool
 
@@ -70,8 +95,10 @@ struct SideMenu<Content: View>: View {
 }
 
 struct SideMenuView: View {
-	@EnvironmentObject var guide: Guide
+	@State var cells: [SideMenuData]
 	@Binding var selectedSideMenuTab: Int
+	@Binding var presentedSideMenu: Bool
+	@State var onAddCell: (() -> Void)
 
     var body: some View {
 		HStack(alignment: .bottom) {
@@ -80,9 +107,13 @@ struct SideMenuView: View {
 					// Dismiss button
 					VStack {
 						HStack {
+							Button(action: onAddCell) {
+								Image(systemName: "plus")
+							}
+							.padding()
 							Spacer()
 							Button(action: {
-								guide.presentedSideMenu = false
+								presentedSideMenu = false
 							}) {
 								Text("Close")
 									.bold()
@@ -93,11 +124,15 @@ struct SideMenuView: View {
 
 					List {
 						Section("Available Models") {
-							ForEach(SideMenuRowType.allCases, id: \.self) { row in
+							ForEach(Array(cells.enumerated()), id: \.offset) { index, cell in
 								Button {
-									selectedSideMenuTab = row.rawValue
+									selectedSideMenuTab = index
 								} label: {
-									Text(row.title)
+									SideMenuCell()
+										.environmentObject(cell)
+										.onChange(of: cell.enabled) { value in
+											print(cell.id)
+										}
 								}
 							}
 						}
