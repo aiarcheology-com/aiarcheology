@@ -41,11 +41,11 @@ enum SideMenuRowType: Int, CaseIterable{
 }
 
 class SideMenuData: ObservableObject {
-	@Published var id: UUID
-	@Published var title: String
+	@Published var id: UUID?
+	@Published var title: String?
 	@Published var enabled: Bool
 
-	init(id: UUID, title: String, enabled: Bool) {
+	init(id: UUID?, title: String?, enabled: Bool) {
 		self.id = id
 		self.title = title
 		self.enabled = enabled
@@ -57,7 +57,7 @@ struct SideMenuCell: View {
 
 	var body: some View {
 		HStack {
-			Text(data.title)
+			Text(data.title ?? "")
 			Spacer()
 			Toggle("", isOn: $data.enabled)
 			.labelsHidden()
@@ -131,7 +131,7 @@ struct SideMenuView: View {
 									SideMenuCell()
 										.environmentObject(cell)
 										.onChange(of: cell.enabled) { value in
-											print(cell.id)
+											print(cell.id ?? UUID())
 										}
 								}
 							}

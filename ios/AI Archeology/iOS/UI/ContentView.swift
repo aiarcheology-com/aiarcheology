@@ -140,6 +140,7 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
+			// Tabs:
             TabView(selection: $appState.guide.mode) {
 				ForEach(AppMode.tabOrder) { mode in
 					ViewContainer( {
@@ -169,8 +170,9 @@ struct ContentView: View {
 					.tag(mode)
 				}
             }
+			// Side Menu:
 			SideMenuLogic(showingForm: $showingForm, onAddCell: {
-				appState.deep.newConfiguration = DeepConfiguration()
+				appState.deep.newConfiguration = appState.deep.createConfiguration()
 				showingForm = true
 			})
 			.environmentObject(appState.guide)
@@ -192,13 +194,13 @@ struct ContentView: View {
 
 struct SideMenuLogic: View {
 	@Binding var showingForm: Bool
-	@State var onAddCell: (() -> Void)
+	var onAddCell: (() -> Void)
 	@EnvironmentObject var guide: Guide
 	@EnvironmentObject var deep: DeepState
 
 	var body: some View {
 		SideMenu(presentedSideMenu: $guide.presentedSideMenu) {
-			SideMenuView(cells: deep.configurations.map { SideMenuData(id: $0.id, title: $0.modelName, enabled: $0.enabled) },
+			SideMenuView(cells: deep.configurations.map { SideMenuData(id: $0.entityId, title: $0.modelName, enabled: $0.enabled) },
 						selectedSideMenuTab: $guide.selectedSideMenuTab,
 						presentedSideMenu: $guide.presentedSideMenu,
 						onAddCell: onAddCell)

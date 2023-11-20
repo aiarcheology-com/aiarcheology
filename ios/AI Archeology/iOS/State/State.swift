@@ -24,6 +24,7 @@ class AppState: ObservableObject {
 	lazy var renderer = DefaultRenderer(appState: self)
 	lazy var webViewRenderer = WebViewRenderer(appState: self)
 	lazy var deep = DeepState(appState: self)
+	lazy var dataController = DataController(appState: self)
 }
 
 import Vision
@@ -33,42 +34,58 @@ class DeepState: ObservableObject {
 	var frame: CGRect = .zero
 	@Published var detectedObservations: [VNRecognizedObjectObservation] = []
 	@Published var classifiedObservations: [VNClassificationObservation] = []
-	@Published var configurations: [DeepConfiguration] = []
+	@FetchRequest(sortDescriptors: []) var configurations: FetchedResults<DeepConfiguration>
 	@Published var newConfiguration: DeepConfiguration?
 
 	init(appState: AppState) {
 		self.appState = appState
 	}
 
-	func addConfiguration(_ configuration: DeepConfiguration) {
-		assert(configurations.filter { $0.id == configuration.id }.isEmpty)
-		configurations.append(configuration)
+	func createConfiguration() -> DeepConfiguration {
+		let context = appState.dataController.container.viewContext
+		return DeepConfiguration.create(in: context)
 	}
 
-	func removeConfiguration(_ id: UUID) {
-		configurations.removeAll { $0.id == id }
+	func updateConfiguration(_ entityId: UUID, updateClosure: (DeepConfiguration) -> Void) {
+		let context = appState.dataController.container.viewContext
+		DeepConfiguration.update(entityId, in: context, with: updateClosure)
+	}
+
+	func deleteConfiguration(_ entityId: UUID) {
+		let context = appState.dataController.container.viewContext
+		DeepConfiguration.delete(entityId, in: context)
 	}
 }
 
-class DeepConfiguration: ObservableObject, Identifiable, Equatable {
-	let id: UUID
-	@Published var fileName: URL = URL(fileURLWithPath: "")
-	@Published var modelName: String = ""
-	@Published var modelType: DeepDriverType = .detector
-	@Published var authorName: String = ""
-	@Published var creationDate: Date = Date()
-	@Published var annotationColor: Color = .black
-	@Published var phaseOutTime: Double = 0
-	@Published var selectedSymbol: AnnotationSymbol = .point
-	@Published var enabled: Bool = false
+extension DeepConfiguration: CoreDataManageable {
+}
 
-	init() {
-		self.id = UUID()
+// The class definition (public class DeepConfiguration) is generated from the Core data
+extension DeepConfiguration {
+	private static let dateFormatter = DateFormatter()
+
+	public var annotationColor: Color {
+		get {
+			guard 
+				let colorData = annotationColor_,
+				let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIColor.self, from: colorData) else {
+				return Color.clear
+			}
+			return Color(color)
+		}
+		set {
+			let color = UIColor(newValue)
+			annotationColor_ = try? NSKeyedArchiver.archivedData(withRootObject: color, requiringSecureCoding: false)
+		}
+	}
+
+	public var creationDate: String {
+		return Self.dateFormatter.string(from: creationDate_ ?? .now)
 	}
 
 	static func == (lhs: DeepConfiguration, rhs: DeepConfiguration) -> Bool {
 		return 
-			lhs.id == rhs.id &&
+			lhs.entityId == rhs.entityId &&
 			lhs.fileName == rhs.fileName &&
 			lhs.modelName == rhs.modelName &&
 			lhs.modelType == rhs.modelType &&
@@ -95,11 +112,6 @@ class Guide: ObservableObject {
     func togglingSideMenu() {
         presentedSideMenu.toggle()
     }
-
-	func onAddcell() {
-		let configuration = DeepConfiguration()
-		appState.deep.addConfiguration(configuration)
-	}
 
 	func ontheflyDetectionTapped() {
 		ontheflyDetectionEnabled.toggle()
@@ -194,4 +206,77 @@ class WebViewRenderer: DefaultRenderer {
 	}
 }
 
+import CoreData
+class DataController: ObservableObject {
+	unowned private var appState: AppState
+	let container = NSPersistentContainer(name: "MLBrowser")
 
+	init(appState: AppState) {
+		self.appState = appState
+		container.loadPersistentStores { description, error in
+			if let error = error {
+				print("Core Data failed to load: \(error.localizedDescription)")
+				assert(false)
+			}
+		}
+	}
+}
+
+
+protocol CoreDataManageable where Self: NSManagedObject {
+	var entityId: UUID? { get }
+	static func create(in context: NSManagedObjectContext) -> Self
+	static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: (Self) -> Void)
+	static func delete(_ entityId: UUID, in context: NSManagedObjectContext)
+	static func save(in context: NSManagedObjectContext)
+}
+
+extension CoreDataManageable where Self: NSManagedObject {
+	static func create(in context: NSManagedObjectContext) -> Self {
+		return Self(context: context)
+	}
+
+	static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: (Self) -> Void) {
+		let request = Self.fetchRequest()
+		request.predicate = NSPredicate(format: "entityId == '\(entityId)'")
+
+		context.performAndWait {
+			do {
+				let objectToUpdate = (try context.fetch(request) as? [Self])?.first
+				if let objectToUpdate {
+					updateClosure(objectToUpdate)
+					Self.save(in: context)
+				}
+			} catch {
+				assert(false, "Update error: \(error)")
+			}
+		}
+	}
+
+	static func save(in context: NSManagedObjectContext) {
+		if context.hasChanges {
+			do {
+				try context.save()
+			} catch {
+				assert(false, "CoreData save error: \(error)")
+			}
+		}
+	}
+
+	static func delete(_ entityId: UUID, in context: NSManagedObjectContext) {
+		let request = Self.fetchRequest()
+		request.predicate = NSPredicate(format: "entityId == '\(entityId)'")
+
+		context.performAndWait {
+			do {
+				let objectToDelete = (try context.fetch(request) as? [Self])?.first
+				if let objectToDelete {
+					context.delete(objectToDelete)
+					Self.save(in: context)
+				}
+			} catch {
+				assert(false, "Deletion error: \(error)")
+			}
+		}
+	}
+}

@@ -9,13 +9,13 @@ import SwiftUI
 
 @main
 struct MLBrowser: App {
-    let persistenceController = PersistenceController.shared
 	@StateObject var appState = AppState()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
+				.environment(\.managedObjectContext, appState.dataController.container.viewContext)
         }
     }
 }

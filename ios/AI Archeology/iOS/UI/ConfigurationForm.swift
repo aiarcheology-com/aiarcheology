@@ -22,15 +22,14 @@ struct ConfigurationForm: View {
 		NavigationView {
 			Form {
 				Section(header: Text("Model Settings")) {
-					Text(configuration.fileName.absoluteString)
-					TextField("Name", text: $configuration.modelName)
-					Text(configuration.modelType.name())
+					Text("File: \(configuration.fileName?.absoluteString ?? "")")
+					Text("Model Name: \(configuration.modelName ?? "")")
+					Text("Model Type: \(configuration.modelType ?? "")")
 				}
 
 				Section(header: Text("Author")) {
-					Text(configuration.authorName)
-					let created = configuration.creationDate.formatted(.dateTime.year().month().day().hour().minute())
-					Text("Created: \(created)")
+					Text("Author: \(configuration.authorName ?? "")" )
+					Text("Created: \(configuration.creationDate)")
 				}
 
 				Section(header: Text("Annotation")) {
@@ -45,7 +44,7 @@ struct ConfigurationForm: View {
 			}
 			.navigationBarTitle("Configuration", displayMode: .inline)
 			.navigationBarItems(leading: 	Button(action: {
-				
+
 			}) {
 				Image(systemName: "plus")
 			})
