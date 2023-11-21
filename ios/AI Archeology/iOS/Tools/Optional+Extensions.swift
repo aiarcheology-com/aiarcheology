@@ -30,3 +30,9 @@ extension Optional where Wrapped == String {
 		return !isNotBlank
 	}
 }
+
+extension Optional where Wrapped: Collection {
+	var isEmptyOrNil: Bool {
+		return self?.isEmpty ?? true
+	}
+}

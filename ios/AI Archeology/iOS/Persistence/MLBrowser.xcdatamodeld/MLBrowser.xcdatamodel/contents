@@ -5,7 +5,7 @@
         <attribute name="authorName" optional="YES" attributeType="String"/>
         <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="enabled" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
-        <attribute name="entityId" optional="YES" attributeType="UUID" defaultValueString="00000000-0000-0000-0000-000000000000" usesScalarValueType="NO"/>
+        <attribute name="entityId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="fileName" optional="YES" attributeType="URI"/>
         <attribute name="modelName" optional="YES" attributeType="String"/>
         <attribute name="modelType" optional="YES" attributeType="String"/>

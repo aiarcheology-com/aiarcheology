@@ -97,6 +97,53 @@ extension DeepConfiguration {
 	}
 }
 
+// Add the validations using the core data's api:
+extension DeepConfiguration {
+	public override func validateForInsert() throws {
+		try super.validateForInsert()
+		try validateDeepConfiguration()
+	}
+
+	public override func validateForUpdate() throws {
+		try super.validateForUpdate()
+		try validateDeepConfiguration()
+	}
+
+	private func validateDeepConfiguration() throws {
+		if modelName.isEmptyOrNil == true {
+			throw validationError(forKey: "modelName", error: "Model name is required.")
+		}
+		if fileName.isNil || fileName?.absoluteString.isEmpty == true {
+			throw validationError(forKey: "fileName", error: "Model fileName is required.")
+		}
+		if modelType.isEmptyOrNil == true {
+			throw validationError(forKey: "fileName", error: "Model modelType is required.")
+		}
+		if authorName.isEmptyOrNil == true {
+			throw validationError(forKey: "fileName", error: "Model authorName is required.")
+		}
+		if creationDate_.isNil == true {
+			throw validationError(forKey: "fileName", error: "Model creationDate_ is required.")
+		}
+		if annotationColor_.isNil == true {
+			throw validationError(forKey: "fileName", error: "Model annotationColor_ is required.")
+		}
+		if phaseOutTime < 0 {
+			throw validationError(forKey: "fileName", error: "Model phaseOutTime is required to be >= 0.")
+		}
+		if entityId.isNil || entityId?.uuidString.isEmpty == true {
+			throw validationError(forKey: "fileName", error: "Model entityId is required.")
+		}
+	}
+
+	private func validationError(forKey key: String, error: String) -> NSError {
+		// TODO: add the error codes
+		return NSError(domain: "DeepConfiguration", code: 1000, userInfo: [
+			NSLocalizedDescriptionKey: "Validation error - \(key): \(error)"
+		])
+	}
+}
+
 class Guide: ObservableObject {
 	unowned private var appState: AppState
 	@Published var mode = AppMode.web
