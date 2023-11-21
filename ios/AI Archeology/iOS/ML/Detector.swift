@@ -11,13 +11,18 @@ import UIKit
 import SwiftUI
 
 protocol Driver {
-	func load() async
+	func metadata() async -> [MLModelMetadataKey : Any]?
+	func load(from configuration: DeepConfiguration) async
 	func unload() async
 }
 
 protocol DeepDriver: Driver {
-	func load(image: UIImage) async
+	func process(image: UIImage) async
 	func run() async -> (error: Error?, observations: [VNObservation])
+}
+
+enum DetectorError: Error {
+	case loadError
 }
 
 actor Detector: DeepDriver {
@@ -25,15 +30,40 @@ actor Detector: DeepDriver {
 	private var handler: VNImageRequestHandler?
 	private var ciImage: CIImage?
 	private var detectionRequest: VNCoreMLRequest?
+	private var mlModel: MLModel?
 
-	func load() async {
+	func metadata() async -> [MLModelMetadataKey : Any]? {
+		mlModel?.modelDescription.metadata
+	}
+
+	@discardableResult
+	func loadModel(from path: URL) async -> MLModel? {
 		do {
-			if let coreMLModel = try? AIArcheology(configuration: MLModelConfiguration()).model {
-				objectDetectionModel = try VNCoreMLModel(for: coreMLModel)
-			}
+			let modelConfiguration = MLModelConfiguration()
+			let compiledModelURL = try await MLModel.compileModel(at: path)
+			guard mlModel.isNil else { return mlModel }
+			mlModel = try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
+			return mlModel
 		} catch {
-			print("Failed to load Vision ML model: \(error)")
+			assert(false, "Failed to load model from file: \(error)")
+			return nil
 		}
+	}
+
+	func load(from path: URL) async {
+		do {
+			guard let model = await loadModel(from: path) else {
+				throw DetectorError.loadError
+			}
+			objectDetectionModel = try VNCoreMLModel(for: model)
+		} catch {
+			print("Failed to load model from file: \(error)")
+		}
+	}
+
+	func load(from configuration: DeepConfiguration) async {
+		guard let path = configuration.fileName else { return }
+		await load(from: path)
 	}
 
 	func unload() async {
@@ -41,7 +71,7 @@ actor Detector: DeepDriver {
 		objectDetectionModel = nil
 	}
 
-	func load(image: UIImage) async {
+	func process(image: UIImage) async {
 		ciImage = CIImage(image: image)
 		guard let ciImage else {  return }
 		handler = VNImageRequestHandler(ciImage: ciImage)
@@ -87,13 +117,20 @@ actor Detector: DeepDriver {
 }
 
 actor Classificator: DeepDriver {
+	func metadata() async -> [MLModelMetadataKey : Any]? {
+		[:]
+	}
+	
+	func load(from configuration: DeepConfiguration) async {
+	}
+	
 	func load() async {
 	}
 
 	func unload() async {
 	}
 
-	func load(image: UIImage) async {
+	func process(image: UIImage) async {
 	}
 
 	func classify() async -> (error: Error?, observations: [VNClassificationObservation]) {
@@ -160,7 +197,7 @@ class DeepDrivers: ObservableObject {
 				guard let detector = detector as? Detector else {
 					continue
 				}
-				await detector.load(image: image)
+				await detector.process(image: image)
 
 				let detectionResults = await detector.detect()
 				let observations = detectionResults.observations
@@ -188,7 +225,7 @@ class DeepDrivers: ObservableObject {
 				guard let classificator = classificator as? Classificator else {
 					continue
 				}
-				await classificator.load(image: image)
+				await classificator.process(image: image)
 				
 				let classificationResults = await classificator.classify()
 				let observations = classificationResults.observations

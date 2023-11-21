@@ -171,14 +171,16 @@ struct ContentView: View {
 				}
             }
 			// ----- Side Menu: -----
-			SideMenuLogic(onAddCell: {
+			SideMenuLogic {
+				// Plus button triggered: -> create new configuration
 				appState.deep.newConfiguration = appState.deep.createConfiguration()
 				showingForm = true
-			})
-			.onAppearAndOnChange(of: appState.guide.selectedConfigurationId, perform: { newValue in
-				guard newValue.isNotNil else { return }
+			}
+			onSelectCell: { entityId in
+				// Configuration cell selected: -> open existing configuration
+				appState.guide.selectedConfigurationId = entityId
 				showingForm = true
-			})
+			}
 			.environmentObject(appState.guide)
 			.environmentObject(appState.deep)
         }
@@ -194,25 +196,33 @@ struct ContentView: View {
 			if let config = appState.deep.newConfiguration {
 				ConfigurationForm()
 					.environmentObject(config)
+					.environmentObject(appState.deep)
 			} else
 			if let selectedConfigurationId = appState.guide.selectedConfigurationId,
 			   let config = appState.deep.selectConfiguration(selectedConfigurationId) {
 				ConfigurationForm()
 					.environmentObject(config)
+					.environmentObject(appState.deep)
 			}
 		}
     }
 }
 
 struct SideMenuLogic: View {
-	var onAddCell: (() -> Void)
+	var onAddCell: () -> Void //TODO: observe changes using Guide properties
+	var onSelectCell: (UUID) -> Void //TODO: observe changes using Guide properties
 	@EnvironmentObject var guide: Guide
+	@State var selectedConfigurationId: UUID?
 
 	var body: some View {
 		SideMenu(presentedSideMenu: $guide.presentedSideMenu) {
-			SideMenuView(selectedConfigurationId: $guide.selectedConfigurationId,
+			SideMenuView(selectedConfigurationId: $selectedConfigurationId,
 						presentedSideMenu: $guide.presentedSideMenu,
 						onAddCell: onAddCell)
+		}
+		.onAppearAndOnChange(of: selectedConfigurationId) { newValue in
+			guard let newValue else { return }
+			onSelectCell(newValue)
 		}
 	}
 }

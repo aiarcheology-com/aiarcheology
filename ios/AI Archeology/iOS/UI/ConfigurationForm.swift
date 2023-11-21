@@ -17,6 +17,7 @@ enum AnnotationSymbol: String, CaseIterable, Identifiable {
 
 struct ConfigurationForm: View {
 	@Environment(\.dismiss) private var dismiss
+	@EnvironmentObject var deep: DeepState
 	@EnvironmentObject var configuration: DeepConfiguration
 	@State private var isValidConfiguration = false
 	@State private var showDocumentPicker = false
@@ -60,21 +61,50 @@ struct ConfigurationForm: View {
 					VStack {
 						Spacer()
 						HStack {
-							Spacer()
-							Button(action: {
-								showDocumentPicker = true
-							}) {
-								Image(systemName: "doc.badge.plus")
-									.font(.largeTitle)
+							VStack {
+								Spacer()
+								HStack {
+									Section {
+										Button(action: {
+											showDocumentPicker = true
+										}) {
+											Image(systemName: "doc.badge.plus")
+												.font(.largeTitle)
+										}
+									} footer: {
+										Spacer()
+										Text("Select a Create ML model supporting the object detection. Other models are not supported in this version.")
+									}
+								}
+								Section {
+									Spacer()
+									Button (action: {
+										showDocumentPicker = true
+									}) {
+										Text("Open").bold()
+									}
+									.buttonStyle(PressableButtonStyle())
+									Spacer()
+								}
+								Spacer()
 							}
-							.sheet(isPresented: $showDocumentPicker) {
-								DocumentPicker { url in
+						}
+						.sheet(isPresented: $showDocumentPicker) {
+							DocumentPicker { url in
+								Task {
+									let detector = Detector()
+									await detector.loadModel(from: url)
+									let metadata = await detector.metadata()
 									configuration.fileName = url
-									configuration.entityId = UUID() // just a test
+									configuration.entityId = UUID()
+//									let author = metadata[.author] as? String
+//									let license = metadata[.license] as? String
+//									let description = metadata[.description] as? String
+//									let versionString = metadata[.versionString] as? String
+
 									showDocumentPicker = false
 								}
 							}
-							Spacer()
 						}
 						Spacer()
 					}
@@ -88,12 +118,11 @@ struct ConfigurationForm: View {
 				dismiss()
 			}) {
 				if isValidConfiguration {
-					Text("Done").bold().foregroundStyle(.green)
+					Text("Done").bold()
 				} else {
-					Text("Dismiss").bold()
+					Text("Cancel").bold()
 				}
 			}
-			.buttonStyle(.bordered)
 			.tint(isValidConfiguration ? .green : .blue))
 		}
 	}
@@ -104,8 +133,21 @@ struct ConfigurationForm: View {
 			isValidConfiguration = true
 		} catch {
 			isValidConfiguration = false
-				// Handle the error, show an alert, etc.
 		}
+	}
+}
+
+
+struct PressableButtonStyle: ButtonStyle {
+	func makeBody(configuration: Configuration) -> some View {
+		configuration.label
+			.foregroundColor(.white)
+			.padding(9)
+			.background(configuration.isPressed ? Color.blue.opacity(0.5) : Color.blue)
+			.cornerRadius(10)
+			.shadow(radius: configuration.isPressed ? 5 : 10)
+			.scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+			.animation(.spring(response: 0.3, dampingFraction: 0.5, blendDuration: 0), value: configuration.isPressed)
 	}
 }
 
