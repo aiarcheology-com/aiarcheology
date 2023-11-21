@@ -19,6 +19,7 @@ struct ConfigurationForm: View {
 	@Environment(\.dismiss) private var dismiss
 	@EnvironmentObject var configuration: DeepConfiguration
 	@State private var isValidConfiguration = false
+	@State private var showDocumentPicker = false
 	var mergedObservable: [String] {[
 		configuration.fileName?.absoluteString ?? "",
 		configuration.modelName ?? "",
@@ -61,10 +62,17 @@ struct ConfigurationForm: View {
 						HStack {
 							Spacer()
 							Button(action: {
-								
+								showDocumentPicker = true
 							}) {
 								Image(systemName: "doc.badge.plus")
 									.font(.largeTitle)
+							}
+							.sheet(isPresented: $showDocumentPicker) {
+								DocumentPicker { url in
+									configuration.fileName = url
+									configuration.entityId = UUID() // just a test
+									showDocumentPicker = false
+								}
 							}
 							Spacer()
 						}
@@ -101,3 +109,38 @@ struct ConfigurationForm: View {
 	}
 }
 
+
+import SwiftUI
+import UIKit
+
+struct DocumentPicker: UIViewControllerRepresentable {
+	var onPick: (URL) -> Void
+
+	func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+		let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
+		picker.allowsMultipleSelection = false
+		picker.delegate = context.coordinator
+		return picker
+	}
+
+	func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {
+		// unused
+	}
+
+	func makeCoordinator() -> Coordinator {
+		Coordinator(self)
+	}
+
+	class Coordinator: NSObject, UIDocumentPickerDelegate {
+		var parent: DocumentPicker
+
+		init(_ parent: DocumentPicker) {
+			self.parent = parent
+		}
+
+		func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+			guard let url = urls.first else { return }
+			parent.onPick(url)
+		}
+	}
+}
