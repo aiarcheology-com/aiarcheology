@@ -140,7 +140,7 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-			// Tabs:
+			// ------ Tabs: ------
             TabView(selection: $appState.guide.mode) {
 				ForEach(AppMode.tabOrder) { mode in
 					ViewContainer( {
@@ -170,41 +170,49 @@ struct ContentView: View {
 					.tag(mode)
 				}
             }
-			// Side Menu:
-			SideMenuLogic(showingForm: $showingForm, onAddCell: {
+			// ----- Side Menu: -----
+			SideMenuLogic(onAddCell: {
 				appState.deep.newConfiguration = appState.deep.createConfiguration()
+				showingForm = true
+			})
+			.onAppearAndOnChange(of: appState.guide.selectedConfigurationId, perform: { newValue in
+				guard newValue.isNotNil else { return }
 				showingForm = true
 			})
 			.environmentObject(appState.guide)
 			.environmentObject(appState.deep)
         }
-		.sheet(isPresented: $showingForm) {
+		// ----- Configuration Form: -----
+		.sheet(isPresented: $showingForm, onDismiss: {
+			if appState.deep.newConfiguration?.entityId.isNotNil == true {
+				appState.deep.newConfiguration = nil
+			}
+			if appState.guide.selectedConfigurationId.isNotNil == true {
+				appState.guide.selectedConfigurationId = nil
+			}
+		}) {
 			if let config = appState.deep.newConfiguration {
 				ConfigurationForm(isPresented: $showingForm)
 					.environmentObject(config)
-					.onChange(of: config) { newValue in
-						
-					}
-			} else {
-				// TODO: load an existin configuration
+			}
+			if let selectedConfigurationId = appState.guide.selectedConfigurationId,
+			   let config = appState.deep.selectConfiguration(selectedConfigurationId) {
+				ConfigurationForm(isPresented: $showingForm)
+					.environmentObject(config)
 			}
 		}
     }
 }
 
 struct SideMenuLogic: View {
-	@Binding var showingForm: Bool
 	var onAddCell: (() -> Void)
 	@EnvironmentObject var guide: Guide
 
 	var body: some View {
 		SideMenu(presentedSideMenu: $guide.presentedSideMenu) {
-			SideMenuView(selectedSideMenuTab: $guide.selectedSideMenuTab,
+			SideMenuView(selectedConfigurationId: $guide.selectedConfigurationId,
 						presentedSideMenu: $guide.presentedSideMenu,
 						onAddCell: onAddCell)
-		}
-		.onChange(of: guide.selectedSideMenuTab) { newValue in
-			showingForm = true
 		}
 	}
 }

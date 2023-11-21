@@ -103,7 +103,7 @@ struct SideMenuView: View {
 		],
 		predicate: NSPredicate(format: "entityId != nil")
 	) var configurations: FetchedResults<DeepConfiguration>
-	@Binding var selectedSideMenuTab: Int
+	@Binding var selectedConfigurationId: UUID?
 	@Binding var presentedSideMenu: Bool
 	@State var onAddCell: (() -> Void)
 
@@ -133,7 +133,7 @@ struct SideMenuView: View {
 						Section("Available Models") {
 							ForEach(Array(configurations.enumerated()), id: \.offset) { index, configuration in
 								Button {
-									selectedSideMenuTab = index
+									selectedConfigurationId = configuration.entityId
 								} label: {
 									SideMenuCell()
 										.environmentObject(configuration)

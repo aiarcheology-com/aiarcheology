@@ -54,6 +54,20 @@ class DeepState: ObservableObject {
 		let context = appState.dataController.container.viewContext
 		DeepConfiguration.delete(entityId, in: context)
 	}
+
+	func selectConfiguration(_ entityId: UUID) -> DeepConfiguration? {
+		let context = appState.dataController.container.viewContext
+		return DeepConfiguration.select(entityId, in: context)
+	}
+
+	func saveConfiguration() {
+		let context = appState.dataController.container.viewContext
+		return DeepConfiguration.save(in: context)
+	}
+}
+
+protocol CombinedPublishing {
+	var combinedPublishers: AnyPublisher<Void, Never> { get }
 }
 
 extension DeepConfiguration: CoreDataManageable {
@@ -149,7 +163,7 @@ class Guide: ObservableObject {
 	@Published var mode = AppMode.web
 	@Published var presentedSideMenu: Bool = false
 	@Published var ontheflyDetectionEnabled: Bool = false
-	@Published var selectedSideMenuTab: Int = 0
+	@Published var selectedConfigurationId: UUID?
 
 	init(appState: AppState) {
 		self.appState = appState
@@ -268,16 +282,23 @@ class DataController: ObservableObject {
 	}
 }
 
+//enum CoreDataManageableStatus {
+//	case created
+//	case updated
+//	case deleted
+//}
 
 protocol CoreDataManageable where Self: NSManagedObject {
 	var entityId: UUID? { get }
 	static func create(in context: NSManagedObjectContext) -> Self
 	static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: (Self) -> Void)
 	static func delete(_ entityId: UUID, in context: NSManagedObjectContext)
+	static func select(_ entityId: UUID, in context: NSManagedObjectContext) -> Self?
 	static func save(in context: NSManagedObjectContext)
 }
 
 extension CoreDataManageable where Self: NSManagedObject {
+	// TODO: pull some repeated lines out
 	static func create(in context: NSManagedObjectContext) -> Self {
 		return Self(context: context)
 	}
@@ -288,7 +309,9 @@ extension CoreDataManageable where Self: NSManagedObject {
 
 		context.performAndWait {
 			do {
-				let objectToUpdate = (try context.fetch(request) as? [Self])?.first
+				let objects = try context.fetch(request) as? [Self]
+				assert(objects?.count == 1, "The numbner of instances should be one.")
+				let objectToUpdate = objects?.first
 				if let objectToUpdate {
 					updateClosure(objectToUpdate)
 					Self.save(in: context)
@@ -315,7 +338,9 @@ extension CoreDataManageable where Self: NSManagedObject {
 
 		context.performAndWait {
 			do {
-				let objectToDelete = (try context.fetch(request) as? [Self])?.first
+				let objects = try context.fetch(request) as? [Self]
+				assert(objects?.count == 1, "The numbner of instances should be one.")
+				let objectToDelete = objects?.first
 				if let objectToDelete {
 					context.delete(objectToDelete)
 					Self.save(in: context)
@@ -323,6 +348,20 @@ extension CoreDataManageable where Self: NSManagedObject {
 			} catch {
 				assert(false, "Deletion error: \(error)")
 			}
+		}
+	}
+
+	static func select(_ entityId: UUID, in context: NSManagedObjectContext) -> Self? {
+		let request = Self.fetchRequest()
+		request.predicate = NSPredicate(format: "entityId == '\(entityId)'")
+
+		do {
+			let objects = try context.fetch(request) as? [Self]
+			assert(objects?.count == 1, "The numbner of instances should be one.")
+			return objects?.first
+		} catch {
+			assert(false, "Error fetching object: \(error)")
+			return nil
 		}
 	}
 }

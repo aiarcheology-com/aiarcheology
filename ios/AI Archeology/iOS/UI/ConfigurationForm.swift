@@ -18,41 +18,61 @@ enum AnnotationSymbol: String, CaseIterable, Identifiable {
 struct ConfigurationForm: View {
 	@Binding var isPresented: Bool
 	@EnvironmentObject var configuration: DeepConfiguration
+	@State private var isValidConfiguration = false
 	var body: some View {
 		NavigationView {
 			Form {
-				Section(header: Text("Model Settings")) {
-					Text("File: \(configuration.fileName?.absoluteString ?? "")")
-					Text("Model Name: \(configuration.modelName ?? "")")
-					Text("Model Type: \(configuration.modelType ?? "")")
-				}
+				if configuration.entityId.isNotNil {
+					Section(header: Text("Model Settings")) {
+						Text("File: \(configuration.fileName?.absoluteString ?? "")")
+						Text("Model Name: \(configuration.modelName ?? "")")
+						Text("Model Type: \(configuration.modelType ?? "")")
+					}
 
-				Section(header: Text("Author")) {
-					Text("Author: \(configuration.authorName ?? "")" )
-					Text("Created: \(configuration.creationDate)")
-				}
+					Section(header: Text("Author")) {
+						Text("Author: \(configuration.authorName ?? "")" )
+						Text("Created: \(configuration.creationDate)")
+					}
 
-				Section(header: Text("Annotation")) {
-					ColorPicker("Color", selection: $configuration.annotationColor)
-					Slider(value: $configuration.phaseOutTime, in: 0...60)
-					Picker("Symbol", selection: $configuration.selectedSymbol) {
-						ForEach(AnnotationSymbol.allCases) { symbol in
-							Text(symbol.rawValue).tag(symbol)
+					Section(header: Text("Annotation")) {
+						ColorPicker("Color", selection: $configuration.annotationColor)
+						Slider(value: $configuration.phaseOutTime, in: 0...60)
+						Picker("Symbol", selection: $configuration.selectedSymbol) {
+							ForEach(AnnotationSymbol.allCases) { symbol in
+								Text(symbol.rawValue).tag(symbol)
+							}
 						}
+					}
+				} else {
+					Button(action: {
+						// load a file
+					}) {
+						Image(systemName: "plus")
 					}
 				}
 			}
 			.navigationBarTitle("Configuration", displayMode: .inline)
-			.navigationBarItems(leading: 	Button(action: {
-
-			}) {
-				Image(systemName: "plus")
-			})
 			.navigationBarItems(trailing: Button(action: {
 				isPresented = false
 			}) {
-				Text("Done").bold()
-			})
+				if isValidConfiguration {
+					Text("Done").bold().foregroundStyle(.green)
+				} else {
+					Text("Dismiss").bold()
+				}
+			}
+			.buttonStyle(.bordered)
+			.tint(isValidConfiguration ? .green : .blue))
+		}
+	}
+
+	private func validateConfiguration() {
+		do {
+			try configuration.validateForInsert()
+			isValidConfiguration = true
+		} catch {
+			isValidConfiguration = false
+				// Handle the error, show an alert, etc.
 		}
 	}
 }
