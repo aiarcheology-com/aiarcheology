@@ -34,7 +34,6 @@ class DeepState: ObservableObject {
 	var frame: CGRect = .zero
 	@Published var detectedObservations: [VNRecognizedObjectObservation] = []
 	@Published var classifiedObservations: [VNClassificationObservation] = []
-	// @FetchRequest(sortDescriptors: []) var configurations: FetchedResults<DeepConfiguration> // There is realy not a nice way to encapsulate this?
 	@Published var newConfiguration: DeepConfiguration?
 
 	init(appState: AppState) {
