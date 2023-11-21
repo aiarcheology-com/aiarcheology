@@ -51,7 +51,7 @@ struct ConfigurationForm: View {
 			.navigationBarItems(trailing: Button(action: {
 				isPresented = false
 			}) {
-				Text("Dismiss").bold()
+				Text("Done").bold()
 			})
 		}
 	}

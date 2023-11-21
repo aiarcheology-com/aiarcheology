@@ -53,13 +53,13 @@ class SideMenuData: ObservableObject {
 }
 
 struct SideMenuCell: View {
-	@EnvironmentObject var data: SideMenuData
+	@EnvironmentObject var configuration: DeepConfiguration
 
 	var body: some View {
 		HStack {
-			Text(data.title ?? "")
+			Text(configuration.modelName ?? "")
 			Spacer()
-			Toggle("", isOn: $data.enabled)
+			Toggle("", isOn: $configuration.enabled)
 			.labelsHidden()
 		}
 	}
@@ -95,7 +95,7 @@ struct SideMenu<Content: View>: View {
 }
 
 struct SideMenuView: View {
-	@State var cells: [SideMenuData]
+	@FetchRequest(sortDescriptors: []) var configurations: FetchedResults<DeepConfiguration>
 	@Binding var selectedSideMenuTab: Int
 	@Binding var presentedSideMenu: Bool
 	@State var onAddCell: (() -> Void)
@@ -124,14 +124,14 @@ struct SideMenuView: View {
 
 					List {
 						Section("Available Models") {
-							ForEach(Array(cells.enumerated()), id: \.offset) { index, cell in
+							ForEach(Array(configurations.enumerated()), id: \.offset) { index, configuration in
 								Button {
 									selectedSideMenuTab = index
 								} label: {
 									SideMenuCell()
-										.environmentObject(cell)
-										.onChange(of: cell.enabled) { value in
-											print(cell.id ?? UUID())
+										.environmentObject(configuration)
+										.onChange(of: configuration.enabled) { value in
+											print(configuration.entityId ?? UUID())
 										}
 								}
 							}

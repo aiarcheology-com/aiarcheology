@@ -196,12 +196,10 @@ struct SideMenuLogic: View {
 	@Binding var showingForm: Bool
 	var onAddCell: (() -> Void)
 	@EnvironmentObject var guide: Guide
-	@EnvironmentObject var deep: DeepState
 
 	var body: some View {
 		SideMenu(presentedSideMenu: $guide.presentedSideMenu) {
-			SideMenuView(cells: deep.configurations.map { SideMenuData(id: $0.entityId, title: $0.modelName, enabled: $0.enabled) },
-						selectedSideMenuTab: $guide.selectedSideMenuTab,
+			SideMenuView(selectedSideMenuTab: $guide.selectedSideMenuTab,
 						presentedSideMenu: $guide.presentedSideMenu,
 						onAddCell: onAddCell)
 		}
