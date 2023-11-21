@@ -16,7 +16,7 @@ enum AnnotationSymbol: String, CaseIterable, Identifiable {
 }
 
 struct ConfigurationForm: View {
-	@Binding var isPresented: Bool
+	@Environment(\.dismiss) private var dismiss
 	@EnvironmentObject var configuration: DeepConfiguration
 	@State private var isValidConfiguration = false
 	var body: some View {
@@ -53,7 +53,7 @@ struct ConfigurationForm: View {
 			}
 			.navigationBarTitle("Configuration", displayMode: .inline)
 			.navigationBarItems(trailing: Button(action: {
-				isPresented = false
+				dismiss()
 			}) {
 				if isValidConfiguration {
 					Text("Done").bold().foregroundStyle(.green)

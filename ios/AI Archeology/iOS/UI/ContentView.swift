@@ -184,7 +184,7 @@ struct ContentView: View {
         }
 		// ----- Configuration Form: -----
 		.sheet(isPresented: $showingForm, onDismiss: {
-			if appState.deep.newConfiguration?.entityId.isNotNil == true {
+			if appState.deep.newConfiguration.isNotNil == true {
 				appState.deep.newConfiguration = nil
 			}
 			if appState.guide.selectedConfigurationId.isNotNil == true {
@@ -192,12 +192,12 @@ struct ContentView: View {
 			}
 		}) {
 			if let config = appState.deep.newConfiguration {
-				ConfigurationForm(isPresented: $showingForm)
+				ConfigurationForm()
 					.environmentObject(config)
-			}
+			} else
 			if let selectedConfigurationId = appState.guide.selectedConfigurationId,
 			   let config = appState.deep.selectConfiguration(selectedConfigurationId) {
-				ConfigurationForm(isPresented: $showingForm)
+				ConfigurationForm()
 					.environmentObject(config)
 			}
 		}
