@@ -95,7 +95,14 @@ struct SideMenu<Content: View>: View {
 }
 
 struct SideMenuView: View {
-	@FetchRequest(sortDescriptors: []) var configurations: FetchedResults<DeepConfiguration>
+	@FetchRequest(
+		entity: DeepConfiguration.entity(),
+		sortDescriptors: [
+			// Most recent configuration is the first one:
+			NSSortDescriptor(keyPath: \DeepConfiguration.creationDate_, ascending: false)
+		],
+		predicate: NSPredicate(format: "entityId != nil")
+	) var configurations: FetchedResults<DeepConfiguration>
 	@Binding var selectedSideMenuTab: Int
 	@Binding var presentedSideMenu: Bool
 	@State var onAddCell: (() -> Void)
