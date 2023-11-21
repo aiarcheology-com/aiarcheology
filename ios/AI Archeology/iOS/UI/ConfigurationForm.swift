@@ -19,9 +19,20 @@ struct ConfigurationForm: View {
 	@Environment(\.dismiss) private var dismiss
 	@EnvironmentObject var configuration: DeepConfiguration
 	@State private var isValidConfiguration = false
+	var mergedObservable: [String] {[
+		configuration.fileName?.absoluteString ?? "",
+		configuration.modelName ?? "",
+		configuration.modelType ?? "",
+		configuration.authorName ?? "",
+		configuration.creationDate.description,
+		configuration.annotationColor.description,
+		configuration.phaseOutTime.description,
+		configuration.selectedSymbol.description
+	]}
 	var body: some View {
 		NavigationView {
 			Form {
+				// We are editing the existing configuration:
 				if configuration.entityId.isNotNil {
 					Section(header: Text("Model Settings")) {
 						Text("File: \(configuration.fileName?.absoluteString ?? "")")
@@ -44,12 +55,25 @@ struct ConfigurationForm: View {
 						}
 					}
 				} else {
-					Button(action: {
-						// load a file
-					}) {
-						Image(systemName: "plus")
+					// We are creating a new configuration:
+					VStack {
+						Spacer()
+						HStack {
+							Spacer()
+							Button(action: {
+								
+							}) {
+								Image(systemName: "doc.badge.plus")
+									.font(.largeTitle)
+							}
+							Spacer()
+						}
+						Spacer()
 					}
 				}
+			}
+			.onChange(of: mergedObservable) { _ in
+				validateConfiguration()
 			}
 			.navigationBarTitle("Configuration", displayMode: .inline)
 			.navigationBarItems(trailing: Button(action: {
