@@ -206,8 +206,10 @@ struct PressableButtonStyle: ButtonStyle {
 
 import SwiftUI
 import UIKit
-
+// TODO: Remove the file with the configuration
 struct DocumentPicker: UIViewControllerRepresentable {
+	@State private var documentURL: URL?
+
 	var onPick: (URL) -> Void
 
 	func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
@@ -218,7 +220,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
 	}
 
 	func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {
-		// unused
+			// unused
 	}
 
 	func makeCoordinator() -> Coordinator {
@@ -234,7 +236,15 @@ struct DocumentPicker: UIViewControllerRepresentable {
 
 		func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
 			guard let url = urls.first else { return }
-			parent.onPick(url)
+
+			let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+			let fileName = url.lastPathComponent
+			let destinationURL = documentsDirectory.appendingPathComponent(fileName)
+
+			try? FileManager.default.moveItem(at: url, to: destinationURL)
+			parent.documentURL = destinationURL
+
+			parent.onPick(destinationURL)
 		}
 	}
 }
