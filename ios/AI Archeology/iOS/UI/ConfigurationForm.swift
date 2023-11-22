@@ -7,12 +7,48 @@
 
 import SwiftUI
 
-enum AnnotationSymbol: String, CaseIterable, Identifiable {
+public enum AnnotationSymbol: String, CaseIterable, Identifiable {
 	case point = "Point"
 	case square = "Square"
 	case circle = "Circle"
 
-	var id: String { self.rawValue }
+	public var id: String { self.rawValue }
+}
+
+struct ConfigurationDetailRow: View {
+	var label: String
+	var value: String
+
+	var body: some View {
+		HStack {
+			Text(label)
+				.foregroundColor(.black)
+				.fontWeight(.regular)
+
+			Spacer()
+
+			Text(value)
+				.foregroundColor(.gray)
+				.lineLimit(1)
+				.truncationMode(.tail)
+		}
+	}
+}
+
+struct LabeledSlider: View {
+	var label: String
+	@Binding var value: Double
+	var range: ClosedRange<Double>
+
+	var body: some View {
+		VStack(alignment: .leading) {
+			Text("\(label): \(value, specifier: "%.2f")")
+				.foregroundColor(.black)
+				.fontWeight(.regular)
+
+			Slider(value: $value, in: range)
+		}
+	}
 }
 
 struct ConfigurationForm: View {
@@ -29,27 +65,27 @@ struct ConfigurationForm: View {
 		configuration.creationDate.description,
 		configuration.annotationColor.description,
 		configuration.phaseOutTime.description,
-		configuration.selectedSymbol.description
+		configuration.selectedSymbol.rawValue
 	]}
 	var body: some View {
 		NavigationView {
 			Form {
 				// We are editing the existing configuration:
 				if configuration.entityId.isNotNil {
-					Section(header: Text("Model Settings")) {
-						Text("File: \(configuration.file?.absoluteString ?? "")")
-						Text("Model Name: \(configuration.model ?? "")")
-						Text("Model Type: \(configuration.modelType ?? "")")
+					Section(header: Text("Model")) {
+						ConfigurationDetailRow(label: "File", value: "\(configuration.file?.pathComponents.last ?? "")")
+						ConfigurationDetailRow(label: "Model Name", value: "\(configuration.model ?? "")")
+						ConfigurationDetailRow(label: "Model Type", value: " \(configuration.modelType ?? "")")
 					}
 
 					Section(header: Text("Author")) {
-						Text("Author: \(configuration.author ?? "")" )
-						Text("Created: \(configuration.creationDate)")
+						ConfigurationDetailRow(label:"Author", value: "\(configuration.author ?? "")" )
+						ConfigurationDetailRow(label:"Created", value: "\(configuration.creationDate)")
 					}
 
 					Section(header: Text("Annotation")) {
 						ColorPicker("Color", selection: $configuration.annotationColor)
-						Slider(value: $configuration.phaseOutTime, in: 0...60)
+						LabeledSlider(label: "Phase Out Time", value: $configuration.phaseOutTime, range: 0...60)
 						Picker("Symbol", selection: $configuration.selectedSymbol) {
 							ForEach(AnnotationSymbol.allCases) { symbol in
 								Text(symbol.rawValue).tag(symbol)
@@ -58,7 +94,7 @@ struct ConfigurationForm: View {
 					}
 				} else {
 					// We are creating a new configuration:
-					VStack {
+					VStack { // TODO: make a component from this
 						Spacer()
 						HStack {
 							VStack {
@@ -105,10 +141,13 @@ struct ConfigurationForm: View {
 									guard let metadata = detector?.modelDescription.metadata else { return }
 									let parser = MLModelMetadataParser(metadata: metadata)
 
+									configuration.annotationColor = .yellow
 									configuration.author = parser.value(for: .author) as? String
 									configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
 									configuration.modelType = parser.value(for: .task) as? String
 									configuration.model = parser.value(for: .description) as? String
+									configuration.phaseOutTime = 2
+									configuration.selectedSymbol = .circle
 
 									// This line saves the new configurations. DeepState creates and registeres the detectors.
 									// Any time a deep configuration is created/deleted, a new detector is created/deleted.

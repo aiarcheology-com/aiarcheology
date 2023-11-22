@@ -95,6 +95,7 @@ struct SideMenu<Content: View>: View {
 }
 
 struct SideMenuView: View {
+	@Environment(\.managedObjectContext) var moc
 	@FetchRequest(
 		entity: DeepConfiguration.entity(),
 		sortDescriptors: [
@@ -140,6 +141,16 @@ struct SideMenuView: View {
 										.onChange(of: configuration.enabled) { value in
 											print(configuration.entityId ?? UUID())
 										}
+								}
+							}
+							.onDelete { offsets in
+								for index in offsets {
+									let configuration = configurations[index]
+									guard let entityId = configuration.entityId else {
+										assert(false, "Trying to delete a configuration without a valid id.")
+										continue
+									}
+									DeepConfiguration.delete(entityId, in: moc)
 								}
 							}
 						}

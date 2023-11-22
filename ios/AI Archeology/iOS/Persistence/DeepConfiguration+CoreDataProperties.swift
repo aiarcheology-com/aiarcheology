@@ -25,7 +25,7 @@ extension DeepConfiguration {
     @NSManaged public var model: String?
     @NSManaged public var modelType: String?
     @NSManaged public var phaseOutTime: Double
-    @NSManaged public var selectedSymbol: Int16
+    @NSManaged public var selectedSymbol_: String?
 
 }
 

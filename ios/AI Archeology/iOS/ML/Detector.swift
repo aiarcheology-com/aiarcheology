@@ -75,7 +75,7 @@ actor Detector: DeepDriver {
 			}
 			objectDetectionModel = try VNCoreMLModel(for: model)
 		} catch {
-			print("Failed to load model from file: \(error)")
+			assert(false, "Failed to load model from file: \(error)")
 		}
 	}
 
@@ -103,7 +103,7 @@ actor Detector: DeepDriver {
 			}
 			detectionRequest = detectionRequest ?? VNCoreMLRequest(model: detectionModel, completionHandler: { request, error in
 				if let error = error {
-					print("Object detection failed: \(error)")
+					assert(false, "Object detection failed: \(error)")
 					continuation.resume(returning: (error, []))
 					return
 				}
@@ -113,6 +113,7 @@ actor Detector: DeepDriver {
 				}
 
 				continuation.resume(returning: (nil, observations))
+				return
 			})
 
 			guard let detectionRequest else {
@@ -123,8 +124,9 @@ actor Detector: DeepDriver {
 			do {
 				try handler?.perform([detectionRequest])
 			} catch {
-				print("Failed to perform detection: \(error)")
+				assert(false, "Failed to perform detection: \(error)")
 				continuation.resume(returning: (nil, []))
+				return
 			}
 		}
 	}

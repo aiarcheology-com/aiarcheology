@@ -131,9 +131,13 @@ extension DeepConfiguration: CoreDataManageable {
 
 // The class definition (public class DeepConfiguration) is generated from the Core data
 extension DeepConfiguration {
-	private static let dateFormatter = DateFormatter()
+	private static var dateFormatter: DateFormatter {
+		let formater = DateFormatter()
+		formater.dateStyle = .long
+		return formater
+	}
 
-	public var annotationColor: Color {
+	 public var annotationColor: Color {
 		get {
 			guard 
 				let colorData = annotationColor_,
@@ -145,6 +149,15 @@ extension DeepConfiguration {
 		set {
 			let color = UIColor(newValue)
 			annotationColor_ = try? NSKeyedArchiver.archivedData(withRootObject: color, requiringSecureCoding: false)
+		}
+	}
+
+	public var selectedSymbol: AnnotationSymbol {
+		get {
+			AnnotationSymbol(rawValue: selectedSymbol_ ?? "Circle") ?? .circle
+		}
+		set {
+			selectedSymbol_ = newValue.rawValue
 		}
 	}
 
