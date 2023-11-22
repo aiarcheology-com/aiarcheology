@@ -149,9 +149,6 @@ struct ConfigurationForm: View {
 									configuration.phaseOutTime = 2
 									configuration.selectedSymbol = .circle
 
-									// This line saves the new configurations. DeepState creates and registeres the detectors.
-									// Any time a deep configuration is created/deleted, a new detector is created/deleted.
-									deep.saveConfigurations()
 									showDocumentPicker = false
 								}
 							}
@@ -162,6 +159,11 @@ struct ConfigurationForm: View {
 			}
 			.onChange(of: mergedObservable) { _ in
 				validateConfiguration()
+				if isValidConfiguration {
+					// This line saves the new configurations. DeepState creates and registeres the detectors.
+					// Any time a deep configuration is created/deleted, a new detector is created/deleted.
+					deep.saveConfigurations()
+				}
 			}
 			.navigationBarTitle("Configuration", displayMode: .inline)
 			.navigationBarItems(trailing: Button(action: {
