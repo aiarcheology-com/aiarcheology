@@ -40,6 +40,13 @@ class DeepState: ObservableObject {
 	init(appState: AppState) {
 		self.appState = appState
 		observeDeepConfigurationChanges()
+
+		// TODO: Probably can take long to load many large models
+		let configurations = DeepConfiguration.getAll(in: appState.dataController.container.viewContext)
+		configurations.forEach { configuration in
+			let driver = self.createDriver(from: configuration)
+			self.register(driver: driver, along: configuration.modelTypeInternal)
+		}
 	}
 
 	private func createDriver(from configuration: DeepConfiguration) -> any DeepDriver {
@@ -435,6 +442,18 @@ extension CoreDataManageable where Self: NSManagedObject {
 		} catch {
 			assert(false, "Error fetching object: \(error)")
 			return nil
+		}
+	}
+
+	static func getAll(in context: NSManagedObjectContext) -> [Self] {
+		let request = Self.fetchRequest()
+
+		do {
+			let objects = try context.fetch(request) as? [Self]
+			return objects ?? []
+		} catch {
+			assert(false, "Error fetching all objects: \(error)")
+			return []
 		}
 	}
 }
