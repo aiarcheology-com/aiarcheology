@@ -219,7 +219,7 @@ struct SideMenuLogic: View {
 						presentedSideMenu: $guide.presentedSideMenu,
 						onAddCell: onAddCell)
 		}
-		.onAppearAndOnChange(of: selectedConfigurationId) { newValue in
+		.onChange(of: selectedConfigurationId) { newValue in
 			guard let newValue else { return }
 			onSelectCell(newValue)
 		}
