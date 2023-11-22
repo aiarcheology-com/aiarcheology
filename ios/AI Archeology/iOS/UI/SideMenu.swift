@@ -57,7 +57,7 @@ struct SideMenuCell: View {
 
 	var body: some View {
 		HStack {
-			Text(configuration.modelName ?? "")
+			Text(configuration.model ?? "")
 			Spacer()
 			Toggle("", isOn: $configuration.enabled)
 			.labelsHidden()

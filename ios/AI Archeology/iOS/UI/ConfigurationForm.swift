@@ -22,10 +22,10 @@ struct ConfigurationForm: View {
 	@State private var isValidConfiguration = false
 	@State private var showDocumentPicker = false
 	var mergedObservable: [String] {[
-		configuration.fileName?.absoluteString ?? "",
-		configuration.modelName ?? "",
+		configuration.file?.absoluteString ?? "",
+		configuration.model ?? "",
 		configuration.modelType ?? "",
-		configuration.authorName ?? "",
+		configuration.author ?? "",
 		configuration.creationDate.description,
 		configuration.annotationColor.description,
 		configuration.phaseOutTime.description,
@@ -37,13 +37,13 @@ struct ConfigurationForm: View {
 				// We are editing the existing configuration:
 				if configuration.entityId.isNotNil {
 					Section(header: Text("Model Settings")) {
-						Text("File: \(configuration.fileName?.absoluteString ?? "")")
-						Text("Model Name: \(configuration.modelName ?? "")")
+						Text("File: \(configuration.file?.absoluteString ?? "")")
+						Text("Model Name: \(configuration.model ?? "")")
 						Text("Model Type: \(configuration.modelType ?? "")")
 					}
 
 					Section(header: Text("Author")) {
-						Text("Author: \(configuration.authorName ?? "")" )
+						Text("Author: \(configuration.author ?? "")" )
 						Text("Created: \(configuration.creationDate)")
 					}
 
@@ -92,16 +92,27 @@ struct ConfigurationForm: View {
 						.sheet(isPresented: $showDocumentPicker) {
 							DocumentPicker { url in
 								Task {
-									let detector = Detector()
-									await detector.loadModel(from: url)
-									let metadata = await detector.metadata()
-									configuration.fileName = url
+									// Update the DeepConfiguration
+									configuration.enabled = false
 									configuration.entityId = UUID()
-//									let author = metadata[.author] as? String
-//									let license = metadata[.license] as? String
-//									let description = metadata[.description] as? String
-//									let versionString = metadata[.versionString] as? String
+									configuration.file = url
 
+									// Create detector to fetch the info. This call does not register the detector for use.
+									// The detectors are automatically registered in the DeepState class
+									// after a specific DeepConfiguration has been saved in the context.
+									let detector = await Detector.loadModel(from: url) // We use here the instance of the Detector, but the code is common for all Create ML models.
+
+									guard let metadata = detector?.modelDescription.metadata else { return }
+									let parser = MLModelMetadataParser(metadata: metadata)
+
+									configuration.author = parser.value(for: .author) as? String
+									configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
+									configuration.modelType = parser.value(for: .task) as? String
+									configuration.model = parser.value(for: .description) as? String
+
+									// This line saves the new configurations. DeepState creates and registeres the detectors.
+									// Any time a deep configuration is created/deleted, a new detector is created/deleted.
+									deep.saveConfigurations()
 									showDocumentPicker = false
 								}
 							}
@@ -183,6 +194,60 @@ struct DocumentPicker: UIViewControllerRepresentable {
 		func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
 			guard let url = urls.first else { return }
 			parent.onPick(url)
+		}
+	}
+}
+
+
+import CoreML
+
+enum ExtendedMLModelMetadataKey: Hashable {
+	case standard(MLModelMetadataKey)
+	case custom(String)
+
+	var key: String {
+		switch self {
+			case .standard(let key):
+				return key.rawValue
+			case .custom(let key):
+				return key
+		}
+	}
+
+	// Standard keys
+	static let description = ExtendedMLModelMetadataKey.standard(.description)
+	static let versionString = ExtendedMLModelMetadataKey.standard(.versionString)
+	static let author = ExtendedMLModelMetadataKey.standard(.author)
+	static let license = ExtendedMLModelMetadataKey.standard(.license)
+	static let creatorDefined = ExtendedMLModelMetadataKey.standard(.creatorDefinedKey)
+
+	// User defined keys
+	static let date = ExtendedMLModelMetadataKey.custom("date")
+	static let confidenceThreshold = ExtendedMLModelMetadataKey.custom("Confidence threshold")
+	static let iouThreshold = ExtendedMLModelMetadataKey.custom("IoU threshold")
+	static let task = ExtendedMLModelMetadataKey.custom("task")
+	static let imgsz = ExtendedMLModelMetadataKey.custom("imgsz")
+	static let batch = ExtendedMLModelMetadataKey.custom("batch")
+	static let names = ExtendedMLModelMetadataKey.custom("names")
+}
+
+struct MLModelMetadataParser {
+	private let metadata: [String: Any]
+	private var creatorDefinedMetadata: [String: Any]?
+
+	init(metadata rawMetadata: [MLModelMetadataKey: Any]) {
+		self.metadata = rawMetadata.reduce(into: [String: Any]()) { result, pair in
+			result[pair.key.rawValue] = pair.value
+		}
+		self.creatorDefinedMetadata = self.metadata[MLModelMetadataKey.creatorDefinedKey.rawValue] as? [String: Any]
+	}
+
+	func value(for key: ExtendedMLModelMetadataKey) -> Any? {
+		switch key {
+			case .standard(let standardKey):
+				return metadata[standardKey.rawValue]
+			case .custom(let customKey):
+				return creatorDefinedMetadata?[customKey]
 		}
 	}
 }

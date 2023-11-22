@@ -2,12 +2,12 @@
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="22222" systemVersion="23A344" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
     <entity name="DeepConfiguration" representedClassName="DeepConfiguration" syncable="YES">
         <attribute name="annotationColor_" optional="YES" attributeType="Binary"/>
-        <attribute name="authorName" optional="YES" attributeType="String"/>
+        <attribute name="author" optional="YES" attributeType="String"/>
         <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="enabled" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="entityId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
-        <attribute name="fileName" optional="YES" attributeType="URI"/>
-        <attribute name="modelName" optional="YES" attributeType="String"/>
+        <attribute name="file" optional="YES" attributeType="URI"/>
+        <attribute name="model" optional="YES" attributeType="String"/>
         <attribute name="modelType" optional="YES" attributeType="String"/>
         <attribute name="phaseOutTime" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="selectedSymbol" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>

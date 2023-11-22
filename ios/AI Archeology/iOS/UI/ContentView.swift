@@ -127,7 +127,6 @@ struct ObservationRectangleView: View {
 import Combine
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
-	var deepDrivers = DeepDrivers()
 
 	@State private var showingForm = false
 
@@ -146,7 +145,7 @@ struct ContentView: View {
 					ViewContainer( {
 						Screens.content(mode)
 							.onSnapshot { image, frame in
-								deepDrivers.detect(on: image) { observations in
+								appState.deep.drivers.detect(on: image) { observations in
 									appState.deep.detectedObservations = observations
 									appState.deep.frame = frame
 								}

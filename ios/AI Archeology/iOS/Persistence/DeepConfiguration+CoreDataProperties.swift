@@ -2,7 +2,7 @@
 //  DeepConfiguration+CoreDataProperties.swift
 //  AI Archeology
 //
-//  Created by Vladimír Slavík on 21.11.23.
+//  Created by Vladimír Slavík on 22.11.23.
 //
 //
 
@@ -16,16 +16,16 @@ extension DeepConfiguration {
         return NSFetchRequest<DeepConfiguration>(entityName: "DeepConfiguration")
     }
 
-    @NSManaged public var fileName: URL?
-    @NSManaged public var modelName: String?
-    @NSManaged public var modelType: String?
-    @NSManaged public var authorName: String?
-    @NSManaged public var creationDate_: Date?
     @NSManaged public var annotationColor_: Data?
-    @NSManaged public var phaseOutTime: Double
-    @NSManaged public var selectedSymbol: Int16
+    @NSManaged public var author: String?
+    @NSManaged public var creationDate_: Date?
     @NSManaged public var enabled: Bool
     @NSManaged public var entityId: UUID?
+    @NSManaged public var file: URL?
+    @NSManaged public var model: String?
+    @NSManaged public var modelType: String?
+    @NSManaged public var phaseOutTime: Double
+    @NSManaged public var selectedSymbol: Int16
 
 }
 

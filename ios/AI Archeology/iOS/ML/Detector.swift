@@ -10,15 +10,31 @@ import Vision
 import UIKit
 import SwiftUI
 
-protocol Driver {
-	func metadata() async -> [MLModelMetadataKey : Any]?
+protocol Driver: Actor {
+	func metadata() -> [MLModelMetadataKey : Any]?
+	func id() -> UUID?
 	func load(from configuration: DeepConfiguration) async
 	func unload() async
 }
 
 protocol DeepDriver: Driver {
+	init(configuration: DeepConfiguration)
 	func process(image: UIImage) async
 	func run() async -> (error: Error?, observations: [VNObservation])
+}
+
+extension DeepDriver {
+	@discardableResult
+	static func loadModel(from path: URL) async -> MLModel? {
+		do {
+			let modelConfiguration = MLModelConfiguration()
+			let compiledModelURL = try await MLModel.compileModel(at: path)
+			return try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
+		} catch {
+			assert(false, "Failed to load model from file: \(error)")
+			return nil
+		}
+	}
 }
 
 enum DetectorError: Error {
@@ -26,33 +42,35 @@ enum DetectorError: Error {
 }
 
 actor Detector: DeepDriver {
+	private var internalId: UUID?
 	private var objectDetectionModel: VNCoreMLModel?
 	private var handler: VNImageRequestHandler?
 	private var ciImage: CIImage?
 	private var detectionRequest: VNCoreMLRequest?
 	private var mlModel: MLModel?
-
-	func metadata() async -> [MLModelMetadataKey : Any]? {
-		mlModel?.modelDescription.metadata
+	
+	func id() -> UUID? {
+		internalId
 	}
 
-	@discardableResult
-	func loadModel(from path: URL) async -> MLModel? {
-		do {
-			let modelConfiguration = MLModelConfiguration()
-			let compiledModelURL = try await MLModel.compileModel(at: path)
-			guard mlModel.isNil else { return mlModel }
-			mlModel = try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
-			return mlModel
-		} catch {
-			assert(false, "Failed to load model from file: \(error)")
-			return nil
+	init(configuration: DeepConfiguration) {
+		guard let entityId = configuration.entityId else {
+			assert(false, "configuration.entityId should not be nil.")
 		}
+		self.internalId = entityId
+
+		Task {
+			await self.load(from: configuration)
+		}
+	}
+
+	func metadata() -> [MLModelMetadataKey : Any]? {
+		mlModel?.modelDescription.metadata
 	}
 
 	func load(from path: URL) async {
 		do {
-			guard let model = await loadModel(from: path) else {
+			guard let model = await Self.loadModel(from: path) else {
 				throw DetectorError.loadError
 			}
 			objectDetectionModel = try VNCoreMLModel(for: model)
@@ -62,7 +80,7 @@ actor Detector: DeepDriver {
 	}
 
 	func load(from configuration: DeepConfiguration) async {
-		guard let path = configuration.fileName else { return }
+		guard let path = configuration.file else { return }
 		await load(from: path)
 	}
 
@@ -116,11 +134,30 @@ actor Detector: DeepDriver {
 	}
 }
 
+// The application does not support the classification yet.
 actor Classificator: DeepDriver {
-	func metadata() async -> [MLModelMetadataKey : Any]? {
+	private var internalId: UUID?
+
+	func metadata() -> [MLModelMetadataKey : Any]? {
 		[:]
 	}
 	
+	func id() -> UUID? {
+		UUID()
+	}
+	
+	init(configuration: DeepConfiguration) {
+		guard let entityId = configuration.entityId else {
+			assert(false, "configuration.entityId should not be nil.")
+		}
+
+		self.internalId = entityId
+
+		Task {
+			await self.load(from: configuration)
+		}
+	}
+
 	func load(from configuration: DeepConfiguration) async {
 	}
 	
@@ -143,15 +180,9 @@ actor Classificator: DeepDriver {
 	}
 }
 
-enum DeepDriverType {
-	case detector
-	case classificator
-	func name() -> String {
-		switch self {
-		case .classificator: return "classificator"
-		case .detector: return "detector"
-		}
-	}
+public enum DeepDriverType: String {
+	case detector = "detect"
+	case classificator = "classify"
 }
 
 actor ResultsCollector<T: VNRequestRevisionProviding> {
@@ -168,13 +199,61 @@ class DeepDrivers: ObservableObject {
 	@Published var classificators: [DeepDriver] = []
 
 	func register(driver: DeepDriver, along: DeepDriverType) {
-		switch along {
-			case .detector:
-				detectors.append(driver)
-			case .classificator:
-				classificators.append(driver)
+		Task {
+			guard let driverId = await driver.id() else { return }
+
+			switch along {
+				case .detector:
+					let alreadyRegistered = await containsDriver(with: driverId, in: detectors)
+					if !alreadyRegistered {
+						await MainActor.run { detectors.append(driver) }
+					}
+				case .classificator:
+					let alreadyRegistered = await containsDriver(with: driverId, in: classificators)
+					if !alreadyRegistered {
+						await MainActor.run { classificators.append(driver) }
+					}
+			}
 		}
 	}
+
+	func unregister(driverId: UUID) {
+		Task {
+			let updatedDetectors = await filterDrivers(detectors, excluding: driverId)
+			let updatedClassificators = await filterDrivers(classificators, excluding: driverId)
+
+			await MainActor.run {
+				detectors = updatedDetectors
+				classificators = updatedClassificators
+			}
+		}
+	}
+
+	private func filterDrivers(_ drivers: [any DeepDriver], excluding id: UUID) async -> [any DeepDriver] {
+		var updatedDrivers = [any DeepDriver]()
+
+		for driver in drivers {
+			let driverId = await driver.id()
+			if driverId == id {
+				await driver.unload()
+			} else {
+				updatedDrivers.append(driver)
+			}
+		}
+
+		return updatedDrivers
+	}
+
+	private func containsDriver(with id: UUID, in drivers: [DeepDriver]) async -> Bool {
+		for driver in drivers {
+			let driverId = await driver.id()
+			if driverId == id {
+				return true
+			}
+		}
+		return false
+	}
+
 
 	func unload(_ driver: DeepDriverType) async {
 		switch driver {
