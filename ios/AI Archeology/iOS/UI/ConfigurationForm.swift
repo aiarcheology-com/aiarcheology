@@ -65,7 +65,7 @@ struct NewConfigurationView: View {
 					onDocumentPickerToggle(true)
 				}) {
 					Image(systemName: "doc.badge.plus")
-						.font(.largeTitle)
+						.font(Font(.init(.label, size: 60.0)))
 				}
 				.buttonStyle(PressableButtonStyle())
 			} header: {

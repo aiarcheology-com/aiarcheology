@@ -114,7 +114,6 @@ class DeepState: ObservableObject {
 
 		let insertsAndUpdates = insertedObjects.union(updatedObjects)
 
-			// Handle inserted/updated configurations
 		for config in insertsAndUpdates.compactMap({ $0 as? DeepConfiguration }) {
 			if config.enabled {
 				let driver = createDriver(from: config)
@@ -127,15 +126,10 @@ class DeepState: ObservableObject {
 			// Handle deleted configurations
 		if let deletes = userInfo[NSDeletedObjectsKey] as? Set<NSManagedObject> {
 			for config in deletes.compactMap({ $0 as? DeepConfiguration }) {
-					// Here, unregister the driver associated with the deleted configuration
 				unregisterDriver(for: config)
 			}
 		}
 	}
-}
-
-protocol CombinedPublishing {
-	var combinedPublishers: AnyPublisher<Void, Never> { get }
 }
 
 extension DeepConfiguration: CoreDataManageable {
