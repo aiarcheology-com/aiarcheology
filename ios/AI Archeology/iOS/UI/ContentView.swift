@@ -217,6 +217,7 @@ struct SideMenuLogic: View {
 		}
 		.onChange(of: selectedConfigurationId) { newValue in
 			guard let newValue else { return }
+			selectedConfigurationId = nil
 			onSelectCell(newValue)
 		}
 	}
