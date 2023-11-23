@@ -29,6 +29,9 @@ class AppState: ObservableObject {
 
 import Vision
 import SwiftUI
+// Drivers and DeepConfiguration have 1:1 relationship, and also
+// both entities have the same UUID. DeepConfiguations are kept in CoreData.
+// Drivers are loaded just in memory and un/registered with toggling the DeepConfiguration.enabled property.
 class DeepState: ObservableObject {
 	unowned private var appState: AppState
 	var frame: CGRect = .zero
@@ -116,6 +119,8 @@ class DeepState: ObservableObject {
 			if config.enabled {
 				let driver = createDriver(from: config)
 				register(driver: driver, along: config.modelTypeInternal)
+			} else {
+				unregisterDriver(for: config)
 			}
 		}
 

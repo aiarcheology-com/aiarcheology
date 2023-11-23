@@ -270,6 +270,9 @@ class DeepDrivers: ObservableObject {
 		}
 	}
 
+	// This is the core function that takes a 2D image and detects objects in the scene.
+	// For that functionality, the driver should be already registered and loaded. That is
+	// controlled by the driver's related DeepConfiguation instance in CoreData.
 	func detect(on image: UIImage, completion: @escaping ([VNRecognizedObjectObservation]) -> Void) {
 		Task { // consider explicit detached, in case of issues
 			let resultsCollector = ResultsCollector<VNRecognizedObjectObservation>()

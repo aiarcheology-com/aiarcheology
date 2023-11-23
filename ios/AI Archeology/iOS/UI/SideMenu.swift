@@ -139,7 +139,8 @@ struct SideMenuView: View {
 									SideMenuCell()
 										.environmentObject(configuration)
 										.onChange(of: configuration.enabled) { value in
-											print(configuration.entityId ?? UUID())
+											guard let entityId = configuration.entityId else { return }
+											print(entityId)
 										}
 								}
 							}
