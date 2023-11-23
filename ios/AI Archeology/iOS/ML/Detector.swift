@@ -46,7 +46,6 @@ actor Detector: DeepDriver {
 	private var objectDetectionModel: VNCoreMLModel?
 	private var handler: VNImageRequestHandler?
 	private var ciImage: CIImage?
-	private var detectionRequest: VNCoreMLRequest?
 	private var mlModel: MLModel?
 	
 	func id() -> UUID? {
@@ -101,7 +100,7 @@ actor Detector: DeepDriver {
 				continuation.resume(returning: (nil, [])) // TODO: tidy up the returns
 				return
 			}
-			detectionRequest = detectionRequest ?? VNCoreMLRequest(model: detectionModel, completionHandler: { request, error in
+			let detectionRequest = VNCoreMLRequest(model: detectionModel, completionHandler: { request, error in
 				if let error = error {
 					assert(false, "Object detection failed: \(error)")
 					continuation.resume(returning: (error, []))
@@ -115,11 +114,6 @@ actor Detector: DeepDriver {
 				continuation.resume(returning: (nil, observations))
 				return
 			})
-
-			guard let detectionRequest else {
-				continuation.resume(returning: (nil, []))
-				return
-			}
 
 			do {
 				try handler?.perform([detectionRequest])

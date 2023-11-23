@@ -279,6 +279,8 @@ class SnapState: ObservableObject {
 	}
 
 	func startTimer() {
+		guard timerCancellable.isNil else { return }
+
 			// Start the timer and handle its events by sending them to timerTrigger
 		timerCancellable = Timer.publish(every: 3, on: .main, in: .common)
 			.autoconnect()
