@@ -185,12 +185,8 @@ struct ContentView: View {
         }
 		// ----- Configuration Form: -----
 		.sheet(isPresented: $showingForm, onDismiss: {
-			if appState.deep.newConfiguration.isNotNil == true {
-				appState.deep.newConfiguration = nil
-			}
-			if appState.guide.selectedConfigurationId.isNotNil == true {
-				appState.guide.selectedConfigurationId = nil
-			}
+			appState.deep.newConfiguration = nil
+			appState.guide.selectedConfigurationId = nil
 		}) {
 			if let config = appState.deep.newConfiguration {
 				ConfigurationForm()

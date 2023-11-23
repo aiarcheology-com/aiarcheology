@@ -51,6 +51,36 @@ struct LabeledSlider: View {
 	}
 }
 
+struct NewConfigurationView: View {
+	let showDocumentPicker: Bool
+	let configuration: DeepConfiguration
+	let onDocumentPickerToggle: (Bool) -> Void // Using callbacks as the compiler is not able to compile
+	let onConfigurationChanged: (URL) -> Void  // these lines with normal @Binding's.
+
+	var body: some View {
+		VStack {
+			Spacer()
+			Section {
+				Button(action: {
+					onDocumentPickerToggle(true)
+				}) {
+					Image(systemName: "doc.badge.plus")
+						.font(.largeTitle)
+				}
+				.buttonStyle(PressableButtonStyle())
+			} header: {
+				Text("Select a Create ML model supporting the object detection. Other models are not supported in this version.")
+			}
+			Spacer()
+		}
+		.sheet(isPresented: .constant(showDocumentPicker)) {
+			DocumentPicker { url in
+				onConfigurationChanged(url)
+			}
+		}
+	}
+}
+
 struct ConfigurationForm: View {
 	@Environment(\.dismiss) private var dismiss
 	@EnvironmentObject var deep: DeepState
@@ -70,8 +100,7 @@ struct ConfigurationForm: View {
 	var body: some View {
 		NavigationView {
 			Form {
-				// We are editing the existing configuration:
-				if configuration.entityId.isNotNil {
+				if isCompleteConfiguration() {
 					Section(header: Text("Model")) {
 						ConfigurationDetailRow(label: "File", value: "\(configuration.file?.pathComponents.last ?? "")")
 						ConfigurationDetailRow(label: "Model Name", value: "\(configuration.model ?? "")")
@@ -92,69 +121,17 @@ struct ConfigurationForm: View {
 							}
 						}
 					}
-				} else {
-					// We are creating a new configuration:
-					VStack { // TODO: make a component from this
-						Spacer()
-						HStack {
-							VStack {
-								Spacer()
-								HStack {
-									Section {
-										Button(action: {
-											showDocumentPicker = true
-										}) {
-											Image(systemName: "doc.badge.plus")
-												.font(.largeTitle)
-										}
-									} footer: {
-										Spacer()
-										Text("Select a Create ML model supporting the object detection. Other models are not supported in this version.")
-									}
-								}
-								Section {
-									Spacer()
-									Button (action: {
-										showDocumentPicker = true
-									}) {
-										Text("Open").bold()
-									}
-									.buttonStyle(PressableButtonStyle())
-									Spacer()
-								}
-								Spacer()
-							}
+				} else /* isNewConfiguration */ {
+					NewConfigurationView(
+						showDocumentPicker: showDocumentPicker,
+						configuration: configuration,
+						onDocumentPickerToggle: { shouldShow in
+							showDocumentPicker = shouldShow
+						},
+						onConfigurationChanged: { url in
+							updateConfiguration(with: url)
 						}
-						.sheet(isPresented: $showDocumentPicker) {
-							DocumentPicker { url in
-								Task {
-									// Update the DeepConfiguration
-									configuration.enabled = false
-									configuration.entityId = UUID()
-									configuration.file = url
-
-									// Create detector to fetch the info. This call does not register the detector for use.
-									// The detectors are automatically registered in the DeepState class
-									// after a specific DeepConfiguration has been saved in the context.
-									let detector = await Detector.loadModel(from: url) // We use here the instance of the Detector, but the code is common for all Create ML models.
-
-									guard let metadata = detector?.modelDescription.metadata else { return }
-									let parser = MLModelMetadataParser(metadata: metadata)
-
-									configuration.annotationColor = .yellow
-									configuration.author = parser.value(for: .author) as? String
-									configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
-									configuration.modelType = parser.value(for: .task) as? String
-									configuration.model = parser.value(for: .description) as? String
-									configuration.phaseOutTime = 2
-									configuration.selectedSymbol = .circle
-
-									showDocumentPicker = false
-								}
-							}
-						}
-						Spacer()
-					}
+					)
 				}
 			}
 			.onChange(of: mergedObservable) { _ in
@@ -179,12 +156,43 @@ struct ConfigurationForm: View {
 		}
 	}
 
+	private func isCompleteConfiguration() -> Bool {
+		configuration.entityId.isNotNil && configuration.entityId?.uuidString.isEmpty == false
+	}
+
 	private func validateConfiguration() {
 		do {
 			try configuration.validateForInsert()
 			isValidConfiguration = true
 		} catch {
 			isValidConfiguration = false
+		}
+	}
+
+	private func updateConfiguration(with url: URL) {
+		Task {
+			// Update the DeepConfiguration
+			configuration.enabled = false
+			configuration.entityId = UUID()
+			configuration.file = url
+
+			// Create detector to fetch the info. This call does not register the detector for use.
+			// The detectors are automatically registered in the DeepState class
+			// after a specific DeepConfiguration has been saved in the context.
+			let detector = await Detector.loadModel(from: url) // We use here the instance of the Detector, but the code is common for all Create ML models.
+
+			guard let metadata = detector?.modelDescription.metadata else { return }
+			let parser = MLModelMetadataParser(metadata: metadata)
+
+			configuration.annotationColor = .yellow
+			configuration.author = parser.value(for: .author) as? String
+			configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
+			configuration.modelType = parser.value(for: .task) as? String
+			configuration.model = parser.value(for: .description) as? String
+			configuration.phaseOutTime = 2
+			configuration.selectedSymbol = .circle
+
+			showDocumentPicker = false
 		}
 	}
 }
