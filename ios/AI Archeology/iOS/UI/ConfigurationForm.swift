@@ -172,6 +172,7 @@ struct ConfigurationForm: View {
 	private func updateConfiguration(with url: URL) {
 		Task {
 			// Update the DeepConfiguration
+			assert(url.absoluteString.isEmpty.not, "URL of the file should not be empty.")
 			configuration.enabled = false
 			configuration.entityId = UUID()
 			configuration.file = url

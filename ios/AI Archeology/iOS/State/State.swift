@@ -385,7 +385,7 @@ extension CoreDataManageable where Self: NSManagedObject {
 
 	static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: (Self) -> Void) {
 		let request = Self.fetchRequest()
-		request.predicate = NSPredicate(format: "entityId == '\(entityId)'")
+		request.predicate = NSPredicate(format: "%K == %@", "entityId", entityId as CVarArg)
 
 		context.performAndWait {
 			do {
@@ -414,7 +414,7 @@ extension CoreDataManageable where Self: NSManagedObject {
 
 	static func delete(_ entityId: UUID, in context: NSManagedObjectContext) {
 		let request = Self.fetchRequest()
-		request.predicate = NSPredicate(format: "entityId == '\(entityId)'")
+		request.predicate = NSPredicate(format: "%K == %@", "entityId", entityId as CVarArg)
 
 		context.performAndWait {
 			do {
@@ -433,7 +433,7 @@ extension CoreDataManageable where Self: NSManagedObject {
 
 	static func select(_ entityId: UUID, in context: NSManagedObjectContext) -> Self? {
 		let request = Self.fetchRequest()
-		request.predicate = NSPredicate(format: "entityId == '\(entityId)'")
+		request.predicate = NSPredicate(format: "%K == %@", "entityId", entityId as CVarArg)
 
 		do {
 			let objects = try context.fetch(request) as? [Self]
