@@ -204,21 +204,21 @@ extension DeepConfiguration {
 	}
 
 	private func validateDeepConfiguration() throws {
-		if model.isEmptyOrNil == true {
-			throw validationError(forKey: "modelName", error: "Model's name is required.")
-		}
+//		if model.isEmptyOrNil == true {
+//			throw validationError(forKey: "modelName", error: "Model's name is required.")
+//		}
 		if file.isNil || file?.absoluteString.isEmpty == true {
 			throw validationError(forKey: "fileName", error: "Model's file is required.")
 		}
 		if modelType.isEmptyOrNil == true {
 			throw validationError(forKey: "fileName", error: "Model's modelType is required.")
 		}
-		if author.isEmptyOrNil == true {
-			throw validationError(forKey: "fileName", error: "Model's author is required.")
-		}
-		if creationDate_.isNil == true {
-			throw validationError(forKey: "fileName", error: "Model's creationDate_ is required.")
-		}
+//		if author.isEmptyOrNil == true {
+//			throw validationError(forKey: "fileName", error: "Model's author is required.")
+//		}
+//		if creationDate_.isNil == true {
+//			throw validationError(forKey: "fileName", error: "Model's creationDate_ is required.")
+//		}
 		if annotationColor_.isNil == true {
 			throw validationError(forKey: "fileName", error: "Model's annotationColor_ is required.")
 		}
