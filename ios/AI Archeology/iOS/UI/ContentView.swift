@@ -167,11 +167,12 @@ struct ObservationCircleView: View {
 		)
 
 		Circle()
-			.stroke(Color.blue, lineWidth: animate ? 4 : 2) // Line width increases as the circle expands
-			.scaleEffect(animate ? 2 : 1) // Start from scale 1 to 2
+			.stroke(Color.blue, lineWidth: animate ? 6 : 2) // Line width increases as the circle expands
+			.scaleEffect(animate ? 4 : 1) // Start from scale 1 to 2
 			.opacity(animate ? 0 : 1) // Fade from fully visible to invisible
 			.frame(width: 30, height: 30) // Adjust the initial size if needed
 			.position(center)
+			.blur(radius: animate ? 3 : 0) // Apply blur as the circle grows
 			.onAppear {
 				withAnimation(.easeInOut(duration: 1)) {
 					animate = true
