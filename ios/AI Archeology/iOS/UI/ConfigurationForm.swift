@@ -255,7 +255,9 @@ struct DocumentPicker: UIViewControllerRepresentable {
 				let applicationSupportDirectory = try fileManager.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
 				let destinationURL = applicationSupportDirectory.appendingPathComponent(fileName)
 
-				try fileManager.copyItem(at: url, to: destinationURL)
+				if fileManager.fileExists(atPath: destinationURL.path).not {
+					try fileManager.copyItem(at: url, to: destinationURL)
+				}
 
 				parent.documentURL = destinationURL
 				parent.onPick(destinationURL)
