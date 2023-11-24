@@ -211,6 +211,12 @@ struct ContentView: View {
 								//ObservationRectangleView(observation: observation, geometry: geometry)
 								ObservationCircleView(observation: observation, geometry: geometry)
 							}
+							.gesture(
+								DragGesture()
+									.onEnded { _ in
+										detectedObservations.removeAll()
+									}
+							)
 							.environmentObject(appState)
 					},
 					leadingItems: {

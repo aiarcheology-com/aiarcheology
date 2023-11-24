@@ -16,13 +16,14 @@ public enum AnnotationSymbol: String, CaseIterable, Identifiable {
 }
 
 struct ConfigurationDetailRow: View {
+	@Environment(\.colorScheme) var colorScheme
 	var label: String
 	var value: String
 
 	var body: some View {
 		HStack {
 			Text(label)
-				.foregroundColor(.black)
+				.foregroundColor(colorScheme == .dark ? .white : .black)
 				.fontWeight(.regular)
 
 			Spacer()
@@ -36,6 +37,7 @@ struct ConfigurationDetailRow: View {
 }
 
 struct LabeledSlider: View {
+	@Environment(\.colorScheme) var colorScheme
 	var label: String
 	@Binding var value: Double
 	var range: ClosedRange<Double>
@@ -43,7 +45,7 @@ struct LabeledSlider: View {
 	var body: some View {
 		VStack(alignment: .leading) {
 			Text("\(label): \(value, specifier: "%.2f")")
-				.foregroundColor(.black)
+				.foregroundColor(colorScheme == .dark ? .white : .black)
 				.fontWeight(.regular)
 
 			Slider(value: $value, in: range)
@@ -188,7 +190,7 @@ struct ConfigurationForm: View {
 			configuration.annotationColor = .yellow
 			configuration.author = parser.value(for: .author) as? String
 			configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
-			configuration.modelType = parser.value(for: .task) as? String
+			configuration.modelType = parser.task
 			configuration.model = parser.value(for: .description) as? String
 			configuration.phaseOutTime = 2
 			configuration.selectedSymbol = .circle
@@ -246,14 +248,20 @@ struct DocumentPicker: UIViewControllerRepresentable {
 		func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
 			guard let url = urls.first else { return }
 
-			let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+			let fileManager = FileManager.default
 			let fileName = url.lastPathComponent
-			let destinationURL = documentsDirectory.appendingPathComponent(fileName)
 
-			try? FileManager.default.moveItem(at: url, to: destinationURL)
-			parent.documentURL = destinationURL
+			do {
+				let applicationSupportDirectory = try fileManager.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+				let destinationURL = applicationSupportDirectory.appendingPathComponent(fileName)
 
-			parent.onPick(destinationURL)
+				try fileManager.copyItem(at: url, to: destinationURL)
+
+				parent.documentURL = destinationURL
+				parent.onPick(destinationURL)
+			} catch {
+				print("Error copying file: \(error)")
+			}
 		}
 	}
 }
@@ -281,7 +289,7 @@ enum ExtendedMLModelMetadataKey: Hashable {
 	static let license = ExtendedMLModelMetadataKey.standard(.license)
 	static let creatorDefined = ExtendedMLModelMetadataKey.standard(.creatorDefinedKey)
 
-	// User defined keys
+	// User defined keys from Ultralytics
 	static let date = ExtendedMLModelMetadataKey.custom("date")
 	static let confidenceThreshold = ExtendedMLModelMetadataKey.custom("Confidence threshold")
 	static let iouThreshold = ExtendedMLModelMetadataKey.custom("IoU threshold")
@@ -289,6 +297,13 @@ enum ExtendedMLModelMetadataKey: Hashable {
 	static let imgsz = ExtendedMLModelMetadataKey.custom("imgsz")
 	static let batch = ExtendedMLModelMetadataKey.custom("batch")
 	static let names = ExtendedMLModelMetadataKey.custom("names")
+
+	// User defined keys from Create ML
+	static let createMLVersion = ExtendedMLModelMetadataKey.custom("com.apple.createml.version")
+	static let createMLAppTag = ExtendedMLModelMetadataKey.custom("com.apple.createml.app.tag")
+	static let iterations = ExtendedMLModelMetadataKey.custom("iterations")
+	static let createMLAppVersion = ExtendedMLModelMetadataKey.custom("com.apple.createml.app.version")
+	static let coreMLModelPreviewType = ExtendedMLModelMetadataKey.custom("com.apple.coreml.model.preview.type")
 }
 
 struct MLModelMetadataParser {
@@ -308,6 +323,15 @@ struct MLModelMetadataParser {
 				return metadata[standardKey.rawValue]
 			case .custom(let customKey):
 				return creatorDefinedMetadata?[customKey]
+		}
+	}
+
+	var task: String {
+		let task = self.value(for: .task) as? String ?? self.value(for: .coreMLModelPreviewType) as? String
+		switch(task) {
+			case "detect": return "detect"
+			case "objectDetector": return "detect"
+			default: return "error: missing type"
 		}
 	}
 }

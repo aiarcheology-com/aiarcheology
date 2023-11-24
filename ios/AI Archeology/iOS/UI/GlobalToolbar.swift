@@ -21,10 +21,30 @@ struct GlobalToolbarLeading: View {
 
 struct GlobalToolbarTrailing: View {
 	@EnvironmentObject var guide: Guide
+	@State private var isAnimating = false
 
 	var body: some View {
 		HStack {
-			Button ( action:  { guide.ontheflyDetectionTapped() }, label: { Image(systemName: "play").foregroundColor(.gray)})
+			if guide.ontheflyDetectionEnabled {
+				Button(action: {
+					guide.ontheflyDetectionTapped()
+				}) {
+					Image(systemName: "pause")
+						.foregroundColor(.gray)
+						.scaleEffect(isAnimating ? 1.1 : 0.8)
+						.onAppear {
+							withAnimation(Animation.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+								isAnimating.toggle()
+							}
+						}
+				}
+			} else {
+				Button(action: {
+					guide.ontheflyDetectionTapped()
+				}) {
+					Image(systemName: "play").foregroundColor(.gray)
+				}
+			}
 			Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.gray)})
 			Button ( action:  { }, label: { Image(systemName: "person").foregroundColor(.gray)})
 		}
