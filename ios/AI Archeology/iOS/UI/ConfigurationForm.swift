@@ -53,36 +53,6 @@ struct LabeledSlider: View {
 	}
 }
 
-struct NewConfigurationView: View {
-	let showDocumentPicker: Bool
-	let configuration: DeepConfiguration
-	let onDocumentPickerToggle: (Bool) -> Void // Using callbacks as the compiler is not able to compile
-	let onConfigurationChanged: (URL) -> Void  // these lines with normal @Binding's.
-
-	var body: some View {
-		VStack {
-			Spacer()
-			Section {
-				Button(action: {
-					onDocumentPickerToggle(true)
-				}) {
-					Image(systemName: "doc.badge.plus")
-						.font(Font(.init(.label, size: 60.0)))
-				}
-				.buttonStyle(PressableButtonStyle())
-			} header: {
-				Text("Select a Create ML model supporting the object detection. Other models are not supported in this version.")
-			}
-			Spacer()
-		}
-		.sheet(isPresented: .constant(showDocumentPicker)) {
-			DocumentPicker { url in
-				onConfigurationChanged(url)
-			}
-		}
-	}
-}
-
 struct ConfigurationForm: View {
 	@Environment(\.dismiss) private var dismiss
 	@EnvironmentObject var deep: DeepState
@@ -110,7 +80,7 @@ struct ConfigurationForm: View {
 					}
 
 					Section(header: Text("Author")) {
-						ConfigurationDetailRow(label:"Author", value: "\(configuration.author ?? "")" )
+						ConfigurationDetailRow(label:"Author", value: "\(configuration.author ?? "")")
 						ConfigurationDetailRow(label:"Created", value: "\(configuration.creationDate)")
 					}
 
@@ -124,16 +94,16 @@ struct ConfigurationForm: View {
 						}
 					}
 				} else /* isNewConfiguration */ {
+					let usedFiles = deep.allConfigurations().compactMap { $0.file }
+
 					NewConfigurationView(
 						showDocumentPicker: showDocumentPicker,
 						configuration: configuration,
-						onDocumentPickerToggle: { shouldShow in
+						usedFiles: usedFiles) { shouldShow in
 							showDocumentPicker = shouldShow
-						},
-						onConfigurationChanged: { url in
+						} onConfigurationChanged: { url in
 							updateConfiguration(with: url)
 						}
-					)
 				}
 			}
 			.onChange(of: mergedObservable) { _ in
@@ -213,61 +183,6 @@ struct PressableButtonStyle: ButtonStyle {
 			.animation(.spring(response: 0.3, dampingFraction: 0.5, blendDuration: 0), value: configuration.isPressed)
 	}
 }
-
-
-import SwiftUI
-import UIKit
-// TODO: Remove the file with the configuration
-struct DocumentPicker: UIViewControllerRepresentable {
-	@State private var documentURL: URL?
-
-	var onPick: (URL) -> Void
-
-	func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-		let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
-		picker.allowsMultipleSelection = false
-		picker.delegate = context.coordinator
-		return picker
-	}
-
-	func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {
-			// unused
-	}
-
-	func makeCoordinator() -> Coordinator {
-		Coordinator(self)
-	}
-
-	class Coordinator: NSObject, UIDocumentPickerDelegate {
-		var parent: DocumentPicker
-
-		init(_ parent: DocumentPicker) {
-			self.parent = parent
-		}
-
-		func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
-			guard let url = urls.first else { return }
-
-			let fileManager = FileManager.default
-			let fileName = url.lastPathComponent
-
-			do {
-				let applicationSupportDirectory = try fileManager.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-				let destinationURL = applicationSupportDirectory.appendingPathComponent(fileName)
-
-				if fileManager.fileExists(atPath: destinationURL.path).not {
-					try fileManager.copyItem(at: url, to: destinationURL)
-				}
-
-				parent.documentURL = destinationURL
-				parent.onPick(destinationURL)
-			} catch {
-				print("Error copying file: \(error)")
-			}
-		}
-	}
-}
-
 
 import CoreML
 

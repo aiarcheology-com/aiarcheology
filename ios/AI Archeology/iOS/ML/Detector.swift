@@ -18,6 +18,7 @@ protocol Driver: Actor {
 }
 
 protocol DeepDriver: Driver {
+	var configuration: DeepConfiguration { get set }
 	init(configuration: DeepConfiguration)
 	func process(image: UIImage) async
 	func run() async -> (error: Error?, observations: [VNObservation])
@@ -42,6 +43,7 @@ enum DetectorError: Error {
 }
 
 actor Detector: DeepDriver {
+	unowned var configuration: DeepConfiguration
 	private var internalId: UUID?
 	private var objectDetectionModel: VNCoreMLModel?
 	private var handler: VNImageRequestHandler?
@@ -57,6 +59,7 @@ actor Detector: DeepDriver {
 			assert(false, "configuration.entityId should not be nil.")
 		}
 		self.internalId = entityId
+		self.configuration = configuration
 
 		Task {
 			await self.load(from: configuration)
@@ -132,6 +135,7 @@ actor Detector: DeepDriver {
 
 // The application does not support the classification yet.
 actor Classificator: DeepDriver {
+	var configuration: DeepConfiguration
 	private var internalId: UUID?
 
 	func metadata() -> [MLModelMetadataKey : Any]? {
@@ -148,6 +152,7 @@ actor Classificator: DeepDriver {
 		}
 
 		self.internalId = entityId
+		self.configuration = configuration
 
 		Task {
 			await self.load(from: configuration)

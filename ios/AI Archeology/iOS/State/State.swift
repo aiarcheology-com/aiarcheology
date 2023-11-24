@@ -11,11 +11,11 @@ enum AppMode: Int, Codable, Hashable, Identifiable {
 	var id: Self { self }
     case web
     case gallery
-    case cloud
-    case camera
+    // case cloud
+    // case camera
 	// case stream
 	// case api
-	static var tabOrder: [AppMode] { [.web, .gallery, .cloud, .camera] }
+	static var tabOrder: [AppMode] { [.web, .gallery] }
 }
 
 class AppState: ObservableObject {
@@ -35,8 +35,8 @@ import SwiftUI
 class DeepState: ObservableObject {
 	unowned private var appState: AppState
 	var frame: CGRect = .zero
-	@Published var detectedObservations: [VNRecognizedObjectObservation] = []
-	@Published var classifiedObservations: [VNClassificationObservation] = []
+	// @Published var detectedObservations: [VNRecognizedObjectObservation] = [] // TODO: UI updates do not work with this variable
+	// @Published var classifiedObservations: [VNClassificationObservation] = [] // TODO: UI updates do not work with this variable
 	@Published var newConfiguration: DeepConfiguration?
 	var drivers = DeepDrivers()
 
@@ -93,6 +93,11 @@ class DeepState: ObservableObject {
 		return DeepConfiguration.save(in: context)
 	}
 
+	func allConfigurations() -> [DeepConfiguration] {
+		let context = appState.dataController.container.viewContext
+		return DeepConfiguration.getAll(in: context)
+	}
+
 	// Reacting to the changes in the DeepConfigurations:
 	private var context: NSManagedObjectContext {
 		appState.dataController.container.viewContext
@@ -110,11 +115,20 @@ class DeepState: ObservableObject {
 		guard let userInfo = notification.userInfo else { return }
 
 		let insertedObjects = userInfo[NSInsertedObjectsKey] as? Set<NSManagedObject> ?? []
+		for config in insertedObjects.compactMap({ $0 as? DeepConfiguration }) {
+			if config.enabled, config.entityId.isNotNil {
+				let driver = createDriver(from: config)
+				register(driver: driver, along: config.modelTypeInternal)
+			}
+			//else: The configuration is going to be updated yet.
+		}
+
 		let updatedObjects = userInfo[NSUpdatedObjectsKey] as? Set<NSManagedObject> ?? []
-
-		let insertsAndUpdates = insertedObjects.union(updatedObjects)
-
-		for config in insertsAndUpdates.compactMap({ $0 as? DeepConfiguration }) {
+		for config in updatedObjects.compactMap({ $0 as? DeepConfiguration }) {
+			guard config.entityId.isNotNil else {
+				assert(false, "The confuration should have a valid id already.")
+				continue
+			}
 			if config.enabled {
 				let driver = createDriver(from: config)
 				register(driver: driver, along: config.modelTypeInternal)
@@ -123,10 +137,25 @@ class DeepState: ObservableObject {
 			}
 		}
 
-			// Handle deleted configurations
-		if let deletes = userInfo[NSDeletedObjectsKey] as? Set<NSManagedObject> {
-			for config in deletes.compactMap({ $0 as? DeepConfiguration }) {
-				unregisterDriver(for: config)
+		let deletedObjects = userInfo[NSDeletedObjectsKey] as? Set<NSManagedObject> ?? []
+		for config in deletedObjects.compactMap({ $0 as? DeepConfiguration }) {
+			unregisterDriver(for: config)
+
+			// Delete the model file:
+			let fileManager = FileManager.default
+			guard
+				let filePath = config.file?.absoluteString,
+				fileManager.fileExists(atPath: filePath)
+			else {
+				print("There is no filepath, or the file does not exist.")
+				return
+			}
+
+			do {
+				try fileManager.removeItem(atPath: filePath)
+				print("File successfully deleted")
+			} catch {
+				assert(false, "Error deleting file: \(error.localizedDescription)")
 			}
 		}
 	}
@@ -203,29 +232,20 @@ extension DeepConfiguration {
 	}
 
 	private func validateDeepConfiguration() throws {
-//		if model.isEmptyOrNil == true {
-//			throw validationError(forKey: "modelName", error: "Model's name is required.")
-//		}
 		if file.isNil || file?.absoluteString.isEmpty == true {
-			throw validationError(forKey: "fileName", error: "Model's file is required.")
+			throw validationError(forKey: "file", error: "Model's file is required.")
 		}
 		if modelType.isEmptyOrNil == true {
-			throw validationError(forKey: "fileName", error: "Model's modelType is required.")
+			throw validationError(forKey: "modelType", error: "Model's modelType is required.")
 		}
-//		if author.isEmptyOrNil == true {
-//			throw validationError(forKey: "fileName", error: "Model's author is required.")
-//		}
-//		if creationDate_.isNil == true {
-//			throw validationError(forKey: "fileName", error: "Model's creationDate_ is required.")
-//		}
 		if annotationColor_.isNil == true {
-			throw validationError(forKey: "fileName", error: "Model's annotationColor_ is required.")
+			throw validationError(forKey: "annotationColor_", error: "Model's annotationColor_ is required.")
 		}
 		if phaseOutTime < 0 {
-			throw validationError(forKey: "fileName", error: "Model's phaseOutTime is required to be >= 0.")
+			throw validationError(forKey: "phaseOutTime", error: "Model's phaseOutTime is required to be >= 0.")
 		}
 		if entityId.isNil || entityId?.uuidString.isEmpty == true {
-			throw validationError(forKey: "fileName", error: "Model's entityId is required.")
+			throw validationError(forKey: "entityId", error: "Model's entityId is required.")
 		}
 	}
 

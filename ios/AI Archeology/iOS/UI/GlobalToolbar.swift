@@ -46,7 +46,7 @@ struct GlobalToolbarTrailing: View {
 				}
 			}
 			Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.gray)})
-			Button ( action:  { }, label: { Image(systemName: "person").foregroundColor(.gray)})
+			Button ( action:  { }, label: { Image(systemName: "gearshape").foregroundColor(.gray)})
 		}
 	}
 }

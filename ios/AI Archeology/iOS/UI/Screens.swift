@@ -15,10 +15,6 @@ struct Screens {
 				WebScreen.content()
 			case .gallery:
 				GalleryScreen.content()
-			case .camera:
-				CameraScreen.content()
-			case .cloud:
-				CloudScreen.content()
 		}
 	}
 
@@ -29,10 +25,6 @@ struct Screens {
 				WebScreen.barItems(position: position)
 			case .gallery:
 				GalleryScreen.barItems(position: position)
-			case .camera:
-				CameraScreen.barItems(position: position)
-			case .cloud:
-				CloudScreen.barItems(position: position)
 		}
 	}
 
@@ -43,10 +35,6 @@ struct Screens {
 				WebScreen.tabItem(selection: selection)
 			case .gallery:
 				GalleryScreen.tabItem(selection: selection)
-			case .camera:
-				CameraScreen.tabItem(selection: selection)
-			case .cloud:
-				CloudScreen.tabItem(selection: selection)
 		}
 	}
 }
