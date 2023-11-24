@@ -124,10 +124,66 @@ struct ObservationRectangleView: View {
 	}
 }
 
+//struct ObservationCircleView: View {
+//	var observation: VNRecognizedObjectObservation
+//	var geometry: GeometryProxy
+//
+//	@State private var animate = false
+//
+//	var body: some View {
+//		let boundingBox = observation.boundingBox
+//			// Calculate the center of the bounding box
+//		let center = CGPoint(
+//			x: boundingBox.midX * geometry.size.width,
+//			y: (1 - boundingBox.midY) * geometry.size.height
+//		)
+//
+//		Circle()
+//			.stroke(Color.blue, lineWidth: 2) // Make sure the circle is initially visible
+//			.scaleEffect(animate ? 2 : 1) // Start from scale 1 to 2
+//			.opacity(animate ? 0 : 1) // Fade from fully visible to invisible
+//			.frame(width: 30, height: 30) // Adjust the initial size if needed
+//			.position(center)
+//			.onAppear {
+//				withAnimation(.easeOut(duration: 0.5)) {
+//					animate = true
+//				}
+//			}
+//	}
+//}
+
+struct ObservationCircleView: View {
+	var observation: VNRecognizedObjectObservation
+	var geometry: GeometryProxy
+
+	@State private var animate = false
+
+	var body: some View {
+		let boundingBox = observation.boundingBox
+			// Calculate the center of the bounding box
+		let center = CGPoint(
+			x: boundingBox.midX * geometry.size.width,
+			y: (1 - boundingBox.midY) * geometry.size.height
+		)
+
+		Circle()
+			.stroke(Color.blue, lineWidth: animate ? 4 : 2) // Line width increases as the circle expands
+			.scaleEffect(animate ? 2 : 1) // Start from scale 1 to 2
+			.opacity(animate ? 0 : 1) // Fade from fully visible to invisible
+			.frame(width: 30, height: 30) // Adjust the initial size if needed
+			.position(center)
+			.onAppear {
+				withAnimation(.easeInOut(duration: 1)) {
+					animate = true
+				}
+			}
+	}
+}
+
 import Combine
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
-
+	@State private var detectedObservations: [VNRecognizedObjectObservation] = []
 	@State private var showingForm = false
 
     init() {
@@ -146,12 +202,13 @@ struct ContentView: View {
 						Screens.content(mode)
 							.onSnapshot { image, frame in
 								appState.deep.drivers.detect(on: image) { observations in
-									appState.deep.detectedObservations = observations
+									detectedObservations = observations
 									appState.deep.frame = frame
 								}
 							}
-							.annotate(from: appState.deep.detectedObservations, withinFrame: appState.deep.frame) { observation, parentFrame, geometry  in
-								ObservationRectangleView(observation: observation, geometry: geometry)
+							.annotate(from: detectedObservations, withinFrame: appState.deep.frame) { observation, parentFrame, geometry  in
+								//ObservationRectangleView(observation: observation, geometry: geometry)
+								ObservationCircleView(observation: observation, geometry: geometry)
 							}
 							.environmentObject(appState)
 					},
