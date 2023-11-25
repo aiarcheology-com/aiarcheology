@@ -88,9 +88,16 @@ public struct MLWebView: UIViewRepresentable, WebViewRenderable {
             parent.loadStatusChanged?(true, nil)
         }
 
-        public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            parent.loadStatusChanged?(false, nil)
-        }
+		public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+			parent.loadStatusChanged?(false, nil)
+
+			let jsRemoveButton = "document.querySelector('.esri-component.esri-compass.esri-widget').remove();"
+			webView.evaluateJavaScript(jsRemoveButton) { (result, error) in
+				if let error = error {
+					print("Error removing button: \(error)")
+				}
+			}
+		}
 
         public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
             parent.loadStatusChanged?(false, error)

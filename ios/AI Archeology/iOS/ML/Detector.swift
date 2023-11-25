@@ -12,14 +12,14 @@ import SwiftUI
 
 protocol Driver: Actor {
 	func metadata() -> [MLModelMetadataKey : Any]?
-	func id() -> UUID?
+	nonisolated func id() -> UUID?
 	func load(from configuration: DeepConfiguration) async
 	func unload() async
 }
 
 protocol DeepDriver: Driver {
 	var configuration: DeepConfiguration { get set }
-	init(configuration: DeepConfiguration)
+	init(configuration: DeepConfiguration, entityId: UUID) // Configuration arg. also contains UUID. But bcs of CoreData it is optional. We want to create a new driver only if the DeepConfiguration is complete, with UUID.
 	func process(image: UIImage) async
 	func run() async -> (error: Error?, observations: [VNObservation])
 }
@@ -44,21 +44,18 @@ enum DetectorError: Error {
 
 actor Detector: DeepDriver {
 	unowned var configuration: DeepConfiguration
-	private var internalId: UUID?
+	private let internalId: UUID
 	private var objectDetectionModel: VNCoreMLModel?
 	private var handler: VNImageRequestHandler?
 	private var ciImage: CIImage?
 	private var mlModel: MLModel?
 	
-	func id() -> UUID? {
+	nonisolated func id() -> UUID? {
 		internalId
 	}
 
-	init(configuration: DeepConfiguration) {
-		if configuration.entityId.isNil {
-			assert(false, "configuration.entityId should not be nil.")
-		}
-		self.internalId = configuration.entityId
+	init(configuration: DeepConfiguration, entityId: UUID) {
+		self.internalId = entityId
 		self.configuration = configuration
 
 		Task {
@@ -136,22 +133,18 @@ actor Detector: DeepDriver {
 // The application does not support the classification yet.
 actor Classificator: DeepDriver {
 	var configuration: DeepConfiguration
-	private var internalId: UUID?
+	private let internalId: UUID
 
 	func metadata() -> [MLModelMetadataKey : Any]? {
 		[:]
 	}
 	
-	func id() -> UUID? {
+	nonisolated func id() -> UUID? {
 		UUID()
 	}
 	
-	init(configuration: DeepConfiguration) {
-		if configuration.entityId.isNil {
-			assert(false, "configuration.entityId should not be nil.")
-		}
-
-		self.internalId = configuration.entityId
+	init(configuration: DeepConfiguration, entityId: UUID) {
+		self.internalId = entityId
 		self.configuration = configuration
 
 		Task {
@@ -201,7 +194,7 @@ class DeepDrivers: ObservableObject {
 
 	func register(driver: DeepDriver, along: DeepDriverType) {
 		Task {
-			guard let driverId = await driver.id() else { return }
+			guard let driverId = driver.id() else { return }
 
 			switch along {
 				case .detector:
@@ -234,7 +227,7 @@ class DeepDrivers: ObservableObject {
 		var updatedDrivers = [any DeepDriver]()
 
 		for driver in drivers {
-			let driverId = await driver.id()
+			let driverId = driver.id()
 			if driverId == id {
 				await driver.unload()
 			} else {
@@ -247,7 +240,7 @@ class DeepDrivers: ObservableObject {
 
 	private func containsDriver(with id: UUID, in drivers: [DeepDriver]) async -> Bool {
 		for driver in drivers {
-			let driverId = await driver.id()
+			let driverId = driver.id()
 			if driverId == id {
 				return true
 			}
