@@ -44,7 +44,8 @@ struct LabeledSlider: View {
 
 	var body: some View {
 		VStack(alignment: .leading) {
-			Text("\(label): \(value, specifier: "%.2f")")
+			let formattedValue = String(format: "%.2f", value)
+			ConfigurationDetailRow(label: label, value: formattedValue)
 				.foregroundColor(colorScheme == .dark ? .white : .black)
 				.fontWeight(.regular)
 
@@ -60,11 +61,13 @@ struct ConfigurationForm: View {
 	@State private var isValidConfiguration = false
 	@State private var showDocumentPicker = false
 	var mergedObservable: [String] {[
-		configuration.file?.absoluteString ?? "",
-		configuration.model ?? "",
-		configuration.modelType ?? "",
-		configuration.author ?? "",
-		configuration.creationDate.description,
+		// Updated from the code: possibly should be not commented when a model file is re-loaded/updated.
+		// configuration.file?.absoluteString ?? "",
+		// configuration.model ?? "",
+		// configuration.modelType ?? "",
+		// configuration.author ?? "",
+		// configuration.creationDate.description,
+		// Updated from the user's input:
 		configuration.annotationColor.description,
 		configuration.phaseOutTime.description,
 		configuration.selectedSymbol.rawValue
@@ -86,7 +89,7 @@ struct ConfigurationForm: View {
 
 					Section(header: Text("Annotation")) {
 						ColorPicker("Color", selection: $configuration.annotationColor)
-						LabeledSlider(label: "Phase Out Time", value: $configuration.phaseOutTime, range: 0...60)
+						LabeledSlider(label: "Fade Out Time", value: $configuration.phaseOutTime, range: 0...60)
 						Picker("Symbol", selection: $configuration.selectedSymbol) {
 							ForEach(AnnotationSymbol.allCases) { symbol in
 								Text(symbol.rawValue).tag(symbol)
@@ -109,7 +112,8 @@ struct ConfigurationForm: View {
 			.onChange(of: mergedObservable) { _ in
 				validateConfiguration()
 				if isValidConfiguration {
-					// This line saves the new configurations. DeepState creates and registeres the detectors.
+					// This line saves the new configurations. 
+					// DeepState creates and registeres the detectors and the SideMenu is updated.
 					// Any time a deep configuration is created/deleted, a new detector is created/deleted.
 					deep.saveConfigurations()
 				}
@@ -145,9 +149,6 @@ struct ConfigurationForm: View {
 		Task {
 			// Update the DeepConfiguration
 			assert(url.absoluteString.isEmpty.not, "URL of the file should not be empty.")
-			configuration.enabled = false
-			configuration.entityId = UUID()
-			configuration.file = url
 
 			// Create detector to fetch the info. This call does not register the detector for use.
 			// The detectors are automatically registered in the DeepState class
@@ -164,8 +165,11 @@ struct ConfigurationForm: View {
 			configuration.model = parser.value(for: .description) as? String
 			configuration.phaseOutTime = 2
 			configuration.selectedSymbol = .circle
+			configuration.enabled = false
+			configuration.file = url
 
 			showDocumentPicker = false
+			configuration.entityId = UUID()
 		}
 	}
 }

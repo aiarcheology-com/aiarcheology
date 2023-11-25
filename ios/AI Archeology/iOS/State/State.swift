@@ -59,6 +59,7 @@ class DeepState: ObservableObject {
 		}
 	}
 
+	// Actions:
 	private func register(driver: any DeepDriver, along: DeepDriverType) {
 		drivers.register(driver: driver, along: along)
 	}
@@ -98,7 +99,7 @@ class DeepState: ObservableObject {
 		return DeepConfiguration.getAll(in: context)
 	}
 
-	// Reacting to the changes in the DeepConfigurations:
+	// Handlers:
 	private var context: NSManagedObjectContext {
 		appState.dataController.container.viewContext
 	}

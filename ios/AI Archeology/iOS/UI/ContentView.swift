@@ -79,17 +79,19 @@ extension View {
 }
 
 struct Annotator<AnnotationView: View>: ViewModifier {
-	var detections: [VNRecognizedObjectObservation]
+	var observations: [(observations: [VNRecognizedObjectObservation], configuration: DeepConfiguration)]
 	var frame: CGRect?
-	var annotationView: (VNRecognizedObjectObservation, CGRect, GeometryProxy) -> AnnotationView
+	var annotationView: (VNRecognizedObjectObservation, DeepConfiguration, CGRect, GeometryProxy) -> AnnotationView
 
 	@ViewBuilder func body(content: Content) -> some View {
 		ZStack {
 			content
 			GeometryReader { geometry in
-				ForEach(detections, id: \.uuid) { detection in
-					if let frame {
-						annotationView(detection, frame, geometry)
+				ForEach(Array(observations.enumerated()), id: \.offset) { _, observationGroup in
+					ForEach(observationGroup.observations, id: \.uuid) { observation in
+						if let frame {
+							annotationView(observation, observationGroup.configuration, frame, geometry)
+						}
 					}
 				}
 			}
@@ -98,17 +100,46 @@ struct Annotator<AnnotationView: View>: ViewModifier {
 }
 
 extension View {
-	func annotate<AnnotationView: View>(from detections: [VNRecognizedObjectObservation], withinFrame: CGRect, annotation: @escaping (VNRecognizedObjectObservation, CGRect, GeometryProxy) -> AnnotationView) -> some View {
-		modifier(Annotator(detections: detections, frame: withinFrame, annotationView: annotation))
+	func annotate<AnnotationView: View>(from observations: [(observations: [VNRecognizedObjectObservation], configuration: DeepConfiguration)], withinFrame: CGRect, annotation: @escaping (VNRecognizedObjectObservation, DeepConfiguration, CGRect, GeometryProxy) -> AnnotationView) -> some View {
+		modifier(Annotator(observations: observations, frame: withinFrame, annotationView: annotation))
 	}
 }
 
 import SwiftUI
 import Vision
 
+struct ObservationPointView: View {
+	var observation: VNRecognizedObjectObservation
+	var geometry: GeometryProxy
+	var color: Color
+
+	@State private var animate = false
+
+	var body: some View {
+		let boundingBox = observation.boundingBox
+		let circleSize: CGFloat = 60
+		let center = CGPoint(x: boundingBox.midX * geometry.size.width,
+							 y: (1 - boundingBox.midY) * geometry.size.height)
+
+		Circle()
+			.fill(color)
+			.frame(width: circleSize, height: circleSize)
+			.opacity(0.5)
+			.position(center)
+			.onAppear {
+				withAnimation(.easeInOut(duration: 1)) {
+					animate = true
+				}
+			}
+	}
+}
+
 struct ObservationRectangleView: View {
 	var observation: VNRecognizedObjectObservation
 	var geometry: GeometryProxy
+	var color: Color
+
+	@State private var animate = false
 
 	var body: some View {
 		let boundingBox = observation.boundingBox
@@ -118,43 +149,23 @@ struct ObservationRectangleView: View {
 
 		Rectangle()
 			.fill(Color.clear)
-			.border(Color.red, width: 4)
+			.border(color, width: 4)
+			.opacity(0.5)
 			.frame(width: size.width, height: size.height)
 			.position(x: position.x, y: position.y)
+			.onAppear {
+				withAnimation(.easeInOut(duration: 1)) {
+					animate = true
+				}
+			}
 	}
 }
 
-//struct ObservationCircleView: View {
-//	var observation: VNRecognizedObjectObservation
-//	var geometry: GeometryProxy
-//
-//	@State private var animate = false
-//
-//	var body: some View {
-//		let boundingBox = observation.boundingBox
-//			// Calculate the center of the bounding box
-//		let center = CGPoint(
-//			x: boundingBox.midX * geometry.size.width,
-//			y: (1 - boundingBox.midY) * geometry.size.height
-//		)
-//
-//		Circle()
-//			.stroke(Color.blue, lineWidth: 2) // Make sure the circle is initially visible
-//			.scaleEffect(animate ? 2 : 1) // Start from scale 1 to 2
-//			.opacity(animate ? 0 : 1) // Fade from fully visible to invisible
-//			.frame(width: 30, height: 30) // Adjust the initial size if needed
-//			.position(center)
-//			.onAppear {
-//				withAnimation(.easeOut(duration: 0.5)) {
-//					animate = true
-//				}
-//			}
-//	}
-//}
 
 struct ObservationCircleView: View {
 	var observation: VNRecognizedObjectObservation
 	var geometry: GeometryProxy
+	var color: Color
 
 	@State private var animate = false
 
@@ -167,10 +178,10 @@ struct ObservationCircleView: View {
 		)
 
 		Circle()
-			.stroke(Color.blue, lineWidth: animate ? 6 : 2) // Line width increases as the circle expands
-			.scaleEffect(animate ? 4 : 1) // Start from scale 1 to 2
-			.opacity(animate ? 0 : 1) // Fade from fully visible to invisible
-			.frame(width: 30, height: 30) // Adjust the initial size if needed
+			.stroke(color, lineWidth: animate ? 6 : 2)
+			.scaleEffect(animate ? 4 : 1)
+			.opacity(animate ? 0 : 1)
+			.frame(width: 30, height: 30)
 			.position(center)
 			.blur(radius: animate ? 3 : 0) // Apply blur as the circle grows
 			.onAppear {
@@ -184,7 +195,7 @@ struct ObservationCircleView: View {
 import Combine
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
-	@State private var detectedObservations: [VNRecognizedObjectObservation] = []
+	@State private var detectedObservations: [(observations: [VNRecognizedObjectObservation], configuration: DeepConfiguration)] = []
 	@State private var showingForm = false
 
     init() {
@@ -207,9 +218,17 @@ struct ContentView: View {
 									appState.deep.frame = frame
 								}
 							}
-							.annotate(from: detectedObservations, withinFrame: appState.deep.frame) { observation, parentFrame, geometry  in
-								//ObservationRectangleView(observation: observation, geometry: geometry)
-								ObservationCircleView(observation: observation, geometry: geometry)
+							.annotate(from: detectedObservations, withinFrame: appState.deep.frame) { observation, configuration, parentFrame, geometry  in
+								Group {
+									switch configuration.selectedSymbol {
+										case .circle:
+											ObservationCircleView(observation: observation, geometry: geometry, color: configuration.annotationColor)
+										case .square:
+											ObservationRectangleView(observation: observation, geometry: geometry, color: configuration.annotationColor)
+										case .point:
+											ObservationPointView(observation: observation, geometry: geometry, color: configuration.annotationColor)
+									}
+								}
 							}
 							.gesture(
 								DragGesture()

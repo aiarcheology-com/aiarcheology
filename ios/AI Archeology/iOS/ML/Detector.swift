@@ -55,10 +55,10 @@ actor Detector: DeepDriver {
 	}
 
 	init(configuration: DeepConfiguration) {
-		guard let entityId = configuration.entityId else {
+		if configuration.entityId.isNil {
 			assert(false, "configuration.entityId should not be nil.")
 		}
-		self.internalId = entityId
+		self.internalId = configuration.entityId
 		self.configuration = configuration
 
 		Task {
@@ -186,11 +186,11 @@ public enum DeepDriverType: String {
 	case classificator = "classify"
 }
 
-actor ResultsCollector<T: VNRequestRevisionProviding> {
-	var collectedResults = [T]()
+actor ResultsCollector<T: VNObservation> {
+	var collectedResults = [(observations: [T], configuration: DeepConfiguration)]()
 
-	func append(_ results: [T]) {
-		collectedResults.append(contentsOf: results)
+	func append(_ result: (observations: [T], configuration: DeepConfiguration)) {
+		collectedResults.append(result)
 	}
 }
 
@@ -272,8 +272,8 @@ class DeepDrivers: ObservableObject {
 	// This is the core function that takes a 2D image and detects objects in the scene.
 	// For that functionality, the driver should be already registered and loaded. That is
 	// controlled by the driver's related DeepConfiguation instance in CoreData.
-	func detect(on image: UIImage, completion: @escaping ([VNRecognizedObjectObservation]) -> Void) {
-		Task { // consider explicit detached, in case of issues
+	func detect(on image: UIImage, completion: @escaping ([(observations: [VNRecognizedObjectObservation], configuration: DeepConfiguration)]) -> Void) {
+		Task {
 			let resultsCollector = ResultsCollector<VNRecognizedObjectObservation>()
 
 			for detector in detectors {
@@ -289,19 +289,19 @@ class DeepDrivers: ObservableObject {
 					detectionResults.error.isNil,
 					observations.isEmpty.not else { continue }  // TODO: log
 
-				await resultsCollector.append(observations)
+				let result = await (observations: observations, configuration: detector.configuration)
+				await resultsCollector.append(result)
 			}
 
 			let results = await resultsCollector.collectedResults
-
 			await MainActor.run {
 				completion(results)
 			}
 		}
 	}
 
-	func classify(on image: UIImage, completion: @escaping ([VNClassificationObservation]) -> Void) {
-		Task { // consider explicit detached, in case of issues
+	func classify(on image: UIImage, completion: @escaping ([(observations: [VNClassificationObservation], configuration: DeepConfiguration)]) -> Void) {
+		Task {
 			let resultsCollector = ResultsCollector<VNClassificationObservation>()
 
 			for classificator in classificators {
@@ -309,7 +309,7 @@ class DeepDrivers: ObservableObject {
 					continue
 				}
 				await classificator.process(image: image)
-				
+
 				let classificationResults = await classificator.classify()
 				let observations = classificationResults.observations
 
@@ -317,12 +317,12 @@ class DeepDrivers: ObservableObject {
 					classificationResults.error.isNil,
 					observations.isEmpty.not else { continue } // TODO: log
 
-				await resultsCollector.append(observations)
+				let result = await (observations: observations, configuration: classificator.configuration)
+				await resultsCollector.append(result)
 			}
 
 			let results = await resultsCollector.collectedResults
-
-			await MainActor.run {
+			await MainActor.run { 
 				completion(results)
 			}
 		}

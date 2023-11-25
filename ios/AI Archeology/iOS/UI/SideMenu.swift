@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import CoreData
 
 enum SideMenuRowType: Int, CaseIterable{
     case home = 0
@@ -104,6 +105,9 @@ struct SideMenuView: View {
 		],
 		predicate: NSPredicate(format: "entityId != nil")
 	) var configurations: FetchedResults<DeepConfiguration>
+
+	@State private var refreshToggle: Bool = false // to enforce the component's refresh (not happen always, issue on iOS16)
+
 	@Binding var selectedConfigurationId: UUID?
 	@Binding var presentedSideMenu: Bool
 	@State var onAddCell: (() -> Void)
@@ -132,26 +136,37 @@ struct SideMenuView: View {
 
 					List {
 						Section("Available Models") {
-							ForEach(Array(configurations.enumerated()), id: \.offset) { index, configuration in
-								Button {
-									selectedConfigurationId = configuration.entityId
-								} label: {
-									SideMenuCell()
-										.environmentObject(configuration)
-										.onChange(of: configuration.enabled) { value in
-											guard let entityId = configuration.entityId else { return }
-											print(entityId)
-										}
-								}
-							}
-							.onDelete { offsets in
-								for index in offsets {
-									let configuration = configurations[index]
-									guard let entityId = configuration.entityId else {
-										assert(false, "Trying to delete a configuration without a valid id.")
-										continue
+							Group {
+								if(configurations.isEmpty) {
+									VStack {
+										Spacer()
+										Text("Tap the ＋ icon to add a new model.")
+											.foregroundColor(.gray)
+										Spacer()
 									}
-									DeepConfiguration.delete(entityId, in: moc)
+								} else {
+									ForEach(Array(configurations.enumerated()), id: \.offset) { index, configuration in
+										Button {
+											selectedConfigurationId = configuration.entityId
+										} label: {
+											SideMenuCell()
+												.environmentObject(configuration)
+												.onChange(of: configuration.enabled) { value in
+													guard let entityId = configuration.entityId else { return }
+													print(entityId)
+												}
+										}
+									}
+									.onDelete { offsets in
+										for index in offsets {
+											let configuration = configurations[index]
+											guard let entityId = configuration.entityId else {
+												assert(false, "Trying to delete a configuration without a valid id.")
+												continue
+											}
+											DeepConfiguration.delete(entityId, in: moc)
+										}
+									}
 								}
 							}
 						}
