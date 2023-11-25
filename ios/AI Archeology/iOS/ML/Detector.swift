@@ -147,11 +147,11 @@ actor Classificator: DeepDriver {
 	}
 	
 	init(configuration: DeepConfiguration) {
-		guard let entityId = configuration.entityId else {
+		if configuration.entityId.isNil {
 			assert(false, "configuration.entityId should not be nil.")
 		}
 
-		self.internalId = entityId
+		self.internalId = configuration.entityId
 		self.configuration = configuration
 
 		Task {
