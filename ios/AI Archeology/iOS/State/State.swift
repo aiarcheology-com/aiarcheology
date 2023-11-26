@@ -38,6 +38,7 @@ class DeepState: ObservableObject {
 	// @Published var detectedObservations: [VNRecognizedObjectObservation] = [] // TODO: UI updates do not work with this variable
 	// @Published var classifiedObservations: [VNClassificationObservation] = [] // TODO: UI updates do not work with this variable
 	@Published var newConfiguration: DeepConfiguration?
+	@Published var deepStateError: Error?
 	var drivers = DeepDrivers()
 
 	init(appState: AppState) {
@@ -46,20 +47,26 @@ class DeepState: ObservableObject {
 
 		// TODO: Probably can take long to load many large models
 		let configurations = DeepConfiguration.getAll(in: appState.dataController.container.viewContext)
-		configurations.forEach { configuration in
-			guard let driver = self.createDriver(from: configuration) else { return }
-			self.register(driver: driver, along: configuration.modelTypeInternal)
+		do {
+			try configurations.forEach { configuration in
+				guard let driver = try self.createDriver(from: configuration) else { return }
+				self.register(driver: driver, along: configuration.modelTypeInternal)
+			}
+		}
+		catch {
+			// Send it to the upper layers to show the error to the user
+			deepStateError = error
 		}
 	}
 
-	private func createDriver(from configuration: DeepConfiguration) -> (any DeepDriver)? {
+	private func createDriver(from configuration: DeepConfiguration) throws -> (any DeepDriver)? {
 		guard let entityId = configuration.entityId else {
 			assert(false, "The entityId of the configuration should be already initialised.")
 			return nil
 		}
 		switch configuration.modelTypeInternal {
-		case .detector: return Detector(configuration: configuration, entityId: entityId)
-		case .classificator: return Classificator(configuration: configuration, entityId: entityId)
+		case .detector: return try Detector(configuration: configuration, entityId: entityId)
+		case .classificator: return try Classificator(configuration: configuration, entityId: entityId)
 		}
 	}
 
@@ -121,40 +128,50 @@ class DeepState: ObservableObject {
 
 		let insertedObjects = userInfo[NSInsertedObjectsKey] as? Set<NSManagedObject> ?? []
 		for config in insertedObjects.compactMap({ $0 as? DeepConfiguration }) {
-			if config.enabled, config.entityId.isNotNil {
-				guard let driver = createDriver(from: config) else {
-					assert(false, "Driver has not been initialised after a configuratoin insert.")
-					return
+			do {
+				if config.enabled, config.entityId.isNotNil {
+					guard let driver = try createDriver(from: config) else {
+						assert(false, "Driver has not been initialised after a configuratoin insert.")
+						return
+					}
+
+					let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains { driver in
+						driver.id() == config.entityId
+					}
+
+					assert(isDriverForThisConfigurationLoaded.not, "You are trying to insert a configuration with an UUID that already exist." )
+
+					register(driver: driver, along: config.modelTypeInternal)
 				}
-
-				let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains { driver in
-					driver.id() == config.entityId
-				}
-
-				assert(isDriverForThisConfigurationLoaded.not, "You are trying to insert a configuration with an UUID that already exist." )
-
-				register(driver: driver, along: config.modelTypeInternal)
+			}
+			catch {
+				deepStateError = error
 			}
 			//else: The configuration is going to be updated yet.
 		}
 
 		let updatedObjects = userInfo[NSUpdatedObjectsKey] as? Set<NSManagedObject> ?? []
 		for config in updatedObjects.compactMap({ $0 as? DeepConfiguration }) {
-			guard config.entityId.isNotNil else {
-				assert(false, "The confuration should have a valid id already.")
-				continue
-			}
-			let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains { driver in
-					driver.id() == config.entityId
-			}
-			if isDriverForThisConfigurationLoaded.not, config.enabled {
-				guard let driver = createDriver(from: config) else {
-					assert(false, "Driver has not been initialised after a configuratoin insert.")
-					return
+			do {
+				guard config.entityId.isNotNil else {
+					assert(false, "The confuration should have a valid id already.")
+					continue
 				}
-				register(driver: driver, along: config.modelTypeInternal)
-			} else {
-				unregisterDriver(for: config)
+				let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains { driver in
+					driver.id() == config.entityId
+				}
+				if isDriverForThisConfigurationLoaded.not, config.enabled {
+					guard let driver = try createDriver(from: config) else {
+						assert(false, "Driver has not been initialised after a configuratoin insert.")
+						return
+					}
+					register(driver: driver, along: config.modelTypeInternal)
+				} else {
+					unregisterDriver(for: config)
+				}
+			}
+			catch {
+				deepStateError = error
 			}
 		}
 

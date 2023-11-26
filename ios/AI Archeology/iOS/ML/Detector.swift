@@ -13,28 +13,23 @@ import SwiftUI
 protocol Driver: Actor {
 	func metadata() -> [MLModelMetadataKey : Any]?
 	nonisolated func id() -> UUID?
-	func load(from configuration: DeepConfiguration) async
+	func load(from configuration: DeepConfiguration) async throws
 	func unload() async
 }
 
 protocol DeepDriver: Driver {
 	var configuration: DeepConfiguration { get set }
-	init(configuration: DeepConfiguration, entityId: UUID) // Configuration arg. also contains UUID. But bcs of CoreData it is optional. We want to create a new driver only if the DeepConfiguration is complete, with UUID.
+	init(configuration: DeepConfiguration, entityId: UUID) throws // Configuration arg. also contains UUID. But bcs of CoreData it is optional. We want to create a new driver only if the DeepConfiguration is complete, with UUID.
 	func process(image: UIImage) async
 	func run() async -> (error: Error?, observations: [VNObservation])
 }
 
 extension DeepDriver {
 	@discardableResult
-	static func loadModel(from path: URL) async -> MLModel? {
-		do {
-			let modelConfiguration = MLModelConfiguration()
-			let compiledModelURL = try await MLModel.compileModel(at: path)
-			return try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
-		} catch {
-			assert(false, "Failed to load model from file: \(error)")
-			return nil
-		}
+	static func loadModel(from path: URL) async throws -> MLModel? {
+		let modelConfiguration = MLModelConfiguration()
+		let compiledModelURL = try await MLModel.compileModel(at: path)
+		return try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
 	}
 }
 
@@ -54,12 +49,12 @@ actor Detector: DeepDriver {
 		internalId
 	}
 
-	init(configuration: DeepConfiguration, entityId: UUID) {
+	init(configuration: DeepConfiguration, entityId: UUID) throws {
 		self.internalId = entityId
 		self.configuration = configuration
 
 		Task {
-			await self.load(from: configuration)
+			try await self.load(from: configuration)
 		}
 	}
 
@@ -67,20 +62,16 @@ actor Detector: DeepDriver {
 		mlModel?.modelDescription.metadata
 	}
 
-	func load(from path: URL) async {
-		do {
-			guard let model = await Self.loadModel(from: path) else {
-				throw DetectorError.loadError
-			}
-			objectDetectionModel = try VNCoreMLModel(for: model)
-		} catch {
-			assert(false, "Failed to load model from file: \(error)")
+	func load(from path: URL) async throws {
+		guard let model = try await Self.loadModel(from: path) else {
+			throw DetectorError.loadError
 		}
+		objectDetectionModel = try VNCoreMLModel(for: model)
 	}
 
-	func load(from configuration: DeepConfiguration) async {
+	func load(from configuration: DeepConfiguration) async throws {
 		guard let path = configuration.file else { return }
-		await load(from: path)
+		try await load(from: path)
 	}
 
 	func unload() async {
@@ -143,16 +134,16 @@ actor Classificator: DeepDriver {
 		UUID()
 	}
 	
-	init(configuration: DeepConfiguration, entityId: UUID) {
+	init(configuration: DeepConfiguration, entityId: UUID) throws {
 		self.internalId = entityId
 		self.configuration = configuration
 
 		Task {
-			await self.load(from: configuration)
+			try await self.load(from: configuration)
 		}
 	}
 
-	func load(from configuration: DeepConfiguration) async {
+	func load(from configuration: DeepConfiguration) async throws {
 	}
 	
 	func load() async {

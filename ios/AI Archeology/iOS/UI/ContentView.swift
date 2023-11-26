@@ -197,6 +197,8 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
 	@State private var detectedObservations: [(observations: [VNRecognizedObjectObservation], configuration: DeepConfiguration)] = []
 	@State private var showingForm = false
+	@State private var showErrorAlert = false
+	@State private var errorMessage = ""
 
     init() {
         Backports.Appearance
@@ -266,7 +268,7 @@ struct ContentView: View {
 			.environmentObject(appState.guide)
 			.environmentObject(appState.deep)
         }
-		// ----- Configuration Form: -----
+		// ------ Configurations Form -----
 		.sheet(isPresented: $showingForm, onDismiss: {
 			appState.deep.newConfiguration = nil
 			appState.guide.selectedConfigurationId = nil
@@ -282,6 +284,15 @@ struct ContentView: View {
 					.environmentObject(config)
 					.environmentObject(appState.deep)
 			}
+		}
+		// ------ Error processing -----
+		.onReceive(appState.deep.$deepStateError) { error in
+			guard let error else { return }
+			errorMessage = error.localizedDescription
+			showErrorAlert = true
+		}
+		.alert(isPresented: $showErrorAlert) {
+			Alert(title: Text("Error"), message: Text(errorMessage), dismissButton: .default(Text("OK")))
 		}
     }
 }

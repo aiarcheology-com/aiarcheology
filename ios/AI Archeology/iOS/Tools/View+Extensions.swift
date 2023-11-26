@@ -29,4 +29,3 @@ public extension View {
 		onReceive(Just(value), perform: action)
 	}
 }
-

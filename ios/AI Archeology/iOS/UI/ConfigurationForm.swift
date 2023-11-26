@@ -60,6 +60,9 @@ struct ConfigurationForm: View {
 	@EnvironmentObject var configuration: DeepConfiguration
 	@State private var isValidConfiguration = false
 	@State private var showDocumentPicker = false
+	@State private var showErrorAlert = false
+	@State private var errorMessage = ""
+
 	var mergedObservable: [String] {[
 		// Updated from the code: possibly should be not commented when a model file is re-loaded/updated.
 		// configuration.file?.absoluteString ?? "",
@@ -109,6 +112,15 @@ struct ConfigurationForm: View {
 						}
 				}
 			}
+			.onReceive(deep.$deepStateError) { error in
+				guard let error else { return }
+				showDocumentPicker = false
+				errorMessage = error.localizedDescription
+				showErrorAlert = true
+			}
+			.alert(isPresented: $showErrorAlert) {
+				Alert(title: Text("Error"), message: Text(errorMessage), dismissButton: .default(Text("OK")))
+			}
 			.onChange(of: mergedObservable) { _ in
 				validateConfiguration()
 				if isValidConfiguration {
@@ -153,8 +165,13 @@ struct ConfigurationForm: View {
 			// Create detector to fetch the info. This call does not register the detector for use.
 			// The detectors are automatically registered in the DeepState class
 			// after a specific DeepConfiguration has been saved in the context.
-			let detector = await Detector.loadModel(from: url) // We use here the instance of the Detector, but the code is common for all Create ML models.
-
+			var detector: MLModel?
+			do {
+				detector = try await Detector.loadModel(from: url) // We use here the instance of the Detector, but the code is common for all Create ML models.
+			}
+			catch {
+				deep.deepStateError = error
+			}
 			guard let metadata = detector?.modelDescription.metadata else { return }
 			let parser = MLModelMetadataParser(metadata: metadata)
 
