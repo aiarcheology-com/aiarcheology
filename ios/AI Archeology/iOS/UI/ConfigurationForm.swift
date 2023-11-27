@@ -92,7 +92,8 @@ struct ConfigurationForm: View {
 
 					Section(header: Text("Annotation")) {
 						ColorPicker("Color", selection: $configuration.annotationColor)
-						LabeledSlider(label: "Fade Out Time", value: $configuration.phaseOutTime, range: 0...60)
+						LabeledSlider(label: "Fade Out Time", value: $configuration.phaseOutTime, range: 0.2...10)
+							// TODO: define constants for the limits
 						Picker("Symbol", selection: $configuration.selectedSymbol) {
 							ForEach(AnnotationSymbol.allCases) { symbol in
 								Text(symbol.rawValue).tag(symbol)

@@ -279,7 +279,7 @@ extension DeepConfiguration {
 		if annotationColor_.isNil == true {
 			throw validationError(forKey: "annotationColor_", error: "Model's annotationColor_ is required.")
 		}
-		if phaseOutTime < 0 {
+		if phaseOutTime < 0.2 {
 			throw validationError(forKey: "phaseOutTime", error: "Model's phaseOutTime is required to be >= 0.")
 		}
 		if entityId.isNil || entityId?.uuidString.isEmpty == true {

@@ -112,6 +112,7 @@ struct ObservationPointView: View {
 	var observation: VNRecognizedObjectObservation
 	var geometry: GeometryProxy
 	var color: Color
+	var phaseOutTime: CFTimeInterval
 
 	@State private var animate = false
 
@@ -123,11 +124,11 @@ struct ObservationPointView: View {
 
 		Circle()
 			.fill(color)
-			.frame(width: circleSize, height: circleSize)
-			.opacity(0.5)
+			.frame(width: animate ? circleSize * 1.5 : circleSize, height: animate ? circleSize * 1.5 : circleSize)
+			.opacity(animate ? 0 : 0.5)
 			.position(center)
 			.onAppear {
-				withAnimation(.easeInOut(duration: 1)) {
+				withAnimation(.easeInOut(duration: phaseOutTime)) {
 					animate = true
 				}
 			}
@@ -138,6 +139,7 @@ struct ObservationRectangleView: View {
 	var observation: VNRecognizedObjectObservation
 	var geometry: GeometryProxy
 	var color: Color
+	var phaseOutTime: CFTimeInterval
 
 	@State private var animate = false
 
@@ -150,11 +152,11 @@ struct ObservationRectangleView: View {
 		Rectangle()
 			.fill(Color.clear)
 			.border(color, width: 4)
-			.opacity(0.5)
+			.opacity(animate ? 0 : 0.5) // Animate opacity
 			.frame(width: size.width, height: size.height)
 			.position(x: position.x, y: position.y)
 			.onAppear {
-				withAnimation(.easeInOut(duration: 1)) {
+				withAnimation(.easeInOut(duration: phaseOutTime)) {
 					animate = true
 				}
 			}
@@ -166,6 +168,7 @@ struct ObservationCircleView: View {
 	var observation: VNRecognizedObjectObservation
 	var geometry: GeometryProxy
 	var color: Color
+	var phaseOutTime: CFTimeInterval
 
 	@State private var animate = false
 
@@ -185,10 +188,29 @@ struct ObservationCircleView: View {
 			.position(center)
 			.blur(radius: animate ? 3 : 0) // Apply blur as the circle grows
 			.onAppear {
-				withAnimation(.easeInOut(duration: 1)) {
+				withAnimation(.easeInOut(duration: phaseOutTime)) {
 					animate = true
 				}
 			}
+	}
+}
+
+struct AnnotationViewBuilder: View {
+	var observation: VNRecognizedObjectObservation
+	var geometry: GeometryProxy
+	var configuration: DeepConfiguration
+
+	var body: some View {
+		Group {
+			switch configuration.selectedSymbol {
+				case .circle:
+					ObservationCircleView(observation: observation, geometry: geometry, color: configuration.annotationColor, phaseOutTime: configuration.phaseOutTime)
+				case .square:
+					ObservationRectangleView(observation: observation, geometry: geometry, color: configuration.annotationColor, phaseOutTime: configuration.phaseOutTime)
+				case .point:
+					ObservationPointView(observation: observation, geometry: geometry, color: configuration.annotationColor, phaseOutTime: configuration.phaseOutTime)
+			}
+		}
 	}
 }
 
@@ -221,16 +243,7 @@ struct ContentView: View {
 								}
 							}
 							.annotate(from: detectedObservations, withinFrame: appState.deep.frame) { observation, configuration, parentFrame, geometry  in
-								Group {
-									switch configuration.selectedSymbol {
-										case .circle:
-											ObservationCircleView(observation: observation, geometry: geometry, color: configuration.annotationColor)
-										case .square:
-											ObservationRectangleView(observation: observation, geometry: geometry, color: configuration.annotationColor)
-										case .point:
-											ObservationPointView(observation: observation, geometry: geometry, color: configuration.annotationColor)
-									}
-								}
+								AnnotationViewBuilder(observation: observation, geometry: geometry, configuration: configuration)
 							}
 							.gesture(
 								DragGesture()
