@@ -11,7 +11,8 @@ import UIKit
 
 struct DocumentPicker: UIViewControllerRepresentable {
 	var usedURLs: [URL]
-	var onPick: (URL) -> Void
+	let configurationId: UUID
+	var onPick: (URL, UUID) -> Void
 	@State private var showAlert = false
 
 	func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
@@ -27,14 +28,16 @@ struct DocumentPicker: UIViewControllerRepresentable {
 	}
 
 	func makeCoordinator() -> Coordinator {
-		Coordinator(self)
+		Coordinator(self, configurationId: configurationId)
 	}
 
 	class Coordinator: NSObject, UIDocumentPickerDelegate {
 		var parent: DocumentPicker
+		let configurationId: UUID
 
-		init(_ parent: DocumentPicker) {
+		init(_ parent: DocumentPicker, configurationId: UUID) {
 			self.parent = parent
+			self.configurationId = configurationId
 		}
 
 		func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
@@ -49,14 +52,20 @@ struct DocumentPicker: UIViewControllerRepresentable {
 			let fileName = url.lastPathComponent
 
 			do {
-				let applicationSupportDirectory = try fileManager.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-				let destinationURL = applicationSupportDirectory.appendingPathComponent(fileName)
+				let configurationsDirectory = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+				let destinationDir = configurationsDirectory
+					.appendingPathComponent("Configurations")
+					.appendingPathComponent(configurationId.uuidString)
+				let destinationURL = destinationDir
+					.appendingPathComponent(fileName)
+
+				try fileManager.createDirectory(at: destinationDir, withIntermediateDirectories: true)
 
 				if fileManager.fileExists(atPath: destinationURL.path).not {
 					try fileManager.copyItem(at: url, to: destinationURL)
 				}
 
-				parent.onPick(destinationURL)
+				parent.onPick(destinationURL, configurationId)
 			} catch {
 				print("Error copying file: \(error)")
 			}

@@ -13,7 +13,7 @@ struct NewConfigurationView: View {
 	let configuration: DeepConfiguration
 	let usedFiles: [URL]
 	let onDocumentPickerToggle: (Bool) -> Void // Using callbacks as the compiler is not able to compile
-	let onConfigurationChanged: (URL) -> Void  // these lines with normal @Binding's.
+	let onConfigurationChanged: (URL, UUID) -> Void  // these lines with normal @Binding's.
 
 	var body: some View {
 		EmptyView()
@@ -33,8 +33,9 @@ struct NewConfigurationView: View {
 			Spacer()
 		}
 		.sheet(isPresented: .constant(showDocumentPicker)) {
-			DocumentPicker(usedURLs: usedFiles) { url in
-				onConfigurationChanged(url)
+			let newConfigurationId = UUID()
+			DocumentPicker(usedURLs: usedFiles, configurationId: newConfigurationId) { url, id in
+				onConfigurationChanged(url, id)
 			}
 		}
 	}

@@ -108,8 +108,8 @@ struct ConfigurationForm: View {
 						configuration: configuration,
 						usedFiles: usedFiles) { shouldShow in
 							showDocumentPicker = shouldShow
-						} onConfigurationChanged: { url in
-							updateConfiguration(with: url)
+						} onConfigurationChanged: { url, id in
+							updateConfiguration(with: url, id: id)
 						}
 				}
 			}
@@ -158,7 +158,7 @@ struct ConfigurationForm: View {
 		}
 	}
 
-	private func updateConfiguration(with url: URL) {
+	private func updateConfiguration(with url: URL, id: UUID) {
 		Task {
 			// Update the DeepConfiguration
 			assert(url.absoluteString.isEmpty.not, "URL of the file should not be empty.")
@@ -184,10 +184,10 @@ struct ConfigurationForm: View {
 			configuration.phaseOutTime = 2
 			configuration.selectedSymbol = .circle
 			configuration.enabled = false
-			configuration.file = url
+			configuration.file = try? url.relativePath(from: .documentDirectory)
 
 			showDocumentPicker = false
-			configuration.entityId = UUID()
+			configuration.entityId = id
 		}
 	}
 }

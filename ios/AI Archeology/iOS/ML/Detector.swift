@@ -13,7 +13,6 @@ import SwiftUI
 protocol Driver: Actor {
 	func metadata() -> [MLModelMetadataKey : Any]?
 	nonisolated func id() -> UUID?
-	func load(from configuration: DeepConfiguration) async throws
 	func unload() async
 }
 
@@ -42,7 +41,7 @@ enum DetectorError: Error {
 }
 
 actor Detector: DeepDriver {
-	unowned var configuration: DeepConfiguration
+	internal var configuration: DeepConfiguration
 	private let internalId: UUID
 	private var objectDetectionModel: VNCoreMLModel?
 	private var handler: VNImageRequestHandler?
@@ -57,8 +56,13 @@ actor Detector: DeepDriver {
 		self.internalId = entityId
 		self.configuration = configuration
 
+		guard let file = try? self.configuration.file?.completePath(to: .documentDirectory) else {
+			assert(false, "The DeeepConfiguration.file is not initialised.")
+			return
+		}
+
 		Task {
-			try await self.load(from: configuration)
+			try await self.load(from: file)
 		}
 	}
 
@@ -71,11 +75,6 @@ actor Detector: DeepDriver {
 			throw DetectorError.loadError
 		}
 		objectDetectionModel = try VNCoreMLModel(for: model)
-	}
-
-	func load(from configuration: DeepConfiguration) async throws {
-		guard let path = configuration.file else { return }
-		try await load(from: path)
 	}
 
 	func unload() async {
@@ -127,7 +126,7 @@ actor Detector: DeepDriver {
 
 // The application does not support the classification yet.
 actor Classificator: DeepDriver {
-	var configuration: DeepConfiguration
+	internal var configuration: DeepConfiguration
 	private let internalId: UUID
 
 	func metadata() -> [MLModelMetadataKey : Any]? {
@@ -142,15 +141,20 @@ actor Classificator: DeepDriver {
 		self.internalId = entityId
 		self.configuration = configuration
 
+		guard let file = try? self.configuration.file?.completePath(to: .documentDirectory) else {
+			assert(false, "The DeeepConfiguration.file is not initialised.")
+			return
+		}
+
 		Task {
-			try await self.load(from: configuration)
+			try await self.load(from: file)
 		}
 	}
 
-	func load(from configuration: DeepConfiguration) async throws {
-	}
-	
 	func load() async {
+	}
+
+	func load(from path: URL) async throws {
 	}
 
 	func unload() async {
@@ -292,51 +296,4 @@ class DeepDrivers: ObservableObject {
 			}
 		}
 	}
-}
-
-class ObjectDetector {
-    private var objectDetectionModel: VNCoreMLModel?
-
-    init() {
-        do {
-            // "YourMLModel" is the name of the imported .mlmodel file
-            if let coreMLModel = try? AIArcheology(configuration: MLModelConfiguration()).model {
-                objectDetectionModel = try VNCoreMLModel(for: coreMLModel)
-            }
-        } catch {
-            print("Failed to load Vision ML model: \(error)")
-        }
-    }
-
-    func detectObjects(in image: UIImage, completion: @escaping ([VNRecognizedObjectObservation]?) -> Void) {
-        guard let detectionModel = objectDetectionModel else { return }
-        let objectDetectionRequest = VNCoreMLRequest(model: detectionModel, completionHandler: { request, error in
-            self.handleDetection(request: request, error: error, completion: completion)
-        })
-
-        guard let ciImage = CIImage(image: image) else { return }
-        let handler = VNImageRequestHandler(ciImage: ciImage)
-
-        do {
-            try handler.perform([objectDetectionRequest])
-        } catch {
-            print("Failed to perform detection: \(error)")
-            completion(nil)
-        }
-    }
-
-    private func handleDetection(request: VNRequest, error: Error?, completion: ([VNRecognizedObjectObservation]?) -> Void) {
-        if let error = error {
-            print("Object detection failed: \(error)")
-            completion(nil)
-            return
-        }
-
-        guard let observations = request.results as? [VNRecognizedObjectObservation] else {
-            completion(nil)
-            return
-        }
-
-        completion(observations)
-    }
 }
