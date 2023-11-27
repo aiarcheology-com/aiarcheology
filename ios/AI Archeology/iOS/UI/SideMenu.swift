@@ -152,8 +152,7 @@ struct SideMenuView: View {
 											SideMenuCell()
 												.environmentObject(configuration)
 												.onChange(of: configuration.enabled) { value in
-													guard let entityId = configuration.entityId else { return }
-													print(entityId)
+													DeepConfiguration.save(in: moc)
 												}
 										}
 									}

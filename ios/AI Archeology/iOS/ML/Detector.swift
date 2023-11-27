@@ -19,6 +19,7 @@ protocol Driver: Actor {
 
 protocol DeepDriver: Driver {
 	var configuration: DeepConfiguration { get set }
+	func updateConfiguration(_ newConfiguration: DeepConfiguration) async
 	init(configuration: DeepConfiguration, entityId: UUID) throws // Configuration arg. also contains UUID. But bcs of CoreData it is optional. We want to create a new driver only if the DeepConfiguration is complete, with UUID.
 	func process(image: UIImage) async
 	func run() async -> (error: Error?, observations: [VNObservation])
@@ -30,6 +31,9 @@ extension DeepDriver {
 		let modelConfiguration = MLModelConfiguration()
 		let compiledModelURL = try await MLModel.compileModel(at: path)
 		return try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
+	}
+	func updateConfiguration(_ newConfiguration: DeepConfiguration) async {
+		self.configuration = newConfiguration
 	}
 }
 
@@ -184,61 +188,38 @@ class DeepDrivers: ObservableObject {
 	@Published var classificators: [DeepDriver] = []
 
 	func register(driver: DeepDriver, along: DeepDriverType) {
-		Task {
-			guard let driverId = driver.id() else { return }
+		guard let driverId = driver.id() else { return }
 
-			switch along {
-				case .detector:
-					let alreadyRegistered = await containsDriver(with: driverId, in: detectors)
-					if !alreadyRegistered {
-						await MainActor.run { detectors.append(driver) }
-					}
-				case .classificator:
-					let alreadyRegistered = await containsDriver(with: driverId, in: classificators)
-					if !alreadyRegistered {
-						await MainActor.run { classificators.append(driver) }
-					}
+		switch along {
+		case .detector:
+			let alreadyRegistered = detectors.contains { $0.id() == driverId }
+			if !alreadyRegistered {
+				detectors.append(driver)
+			}
+		case .classificator:
+			let alreadyRegistered = classificators.contains { $0.id() == driverId }
+			if !alreadyRegistered {
+				classificators.append(driver)
 			}
 		}
 	}
+
+	func update(driverId: UUID, configuration: DeepConfiguration) {
+		let drivers = (detectors + classificators).filter { $0.id() == configuration.entityId }
+		assert(drivers.count < 2, "There are more drivers to update with the same configuration.entityId.")
+		Task {
+			await drivers.first?.updateConfiguration(configuration)
+		}
+	}
+
 
 	func unregister(driverId: UUID) {
 		Task {
-			let updatedDetectors = await filterDrivers(detectors, excluding: driverId)
-			let updatedClassificators = await filterDrivers(classificators, excluding: driverId)
-
-			await MainActor.run {
-				detectors = updatedDetectors
-				classificators = updatedClassificators
-			}
+			await (classificators + detectors).filter { $0.id() == driverId }.first?.unload()
+			detectors = detectors.filter { $0.id() != driverId }
+			classificators = classificators.filter { $0.id() != driverId }
 		}
 	}
-
-	private func filterDrivers(_ drivers: [any DeepDriver], excluding id: UUID) async -> [any DeepDriver] {
-		var updatedDrivers = [any DeepDriver]()
-
-		for driver in drivers {
-			let driverId = driver.id()
-			if driverId == id {
-				await driver.unload()
-			} else {
-				updatedDrivers.append(driver)
-			}
-		}
-
-		return updatedDrivers
-	}
-
-	private func containsDriver(with id: UUID, in drivers: [DeepDriver]) async -> Bool {
-		for driver in drivers {
-			let driverId = driver.id()
-			if driverId == id {
-				return true
-			}
-		}
-		return false
-	}
-
 
 	func unload(_ driver: DeepDriverType) async {
 		switch driver {

@@ -45,12 +45,12 @@ class DeepState: ObservableObject {
 		self.appState = appState
 		observeDeepConfigurationChanges()
 
-		// TODO: Probably can take long to load many large models
 		let configurations = DeepConfiguration.getAll(in: appState.dataController.container.viewContext)
 		do {
-			try configurations.forEach { configuration in
-				guard let driver = try self.createDriver(from: configuration) else { return }
-				self.register(driver: driver, along: configuration.modelTypeInternal)
+			try configurations.forEach { config in
+				guard config.enabled == true else { return }
+				guard let driver = try self.createDriver(from: config) else { return }
+				self.register(driver: driver, along: config.modelTypeInternal)
 			}
 		}
 		catch {
@@ -75,7 +75,12 @@ class DeepState: ObservableObject {
 		drivers.register(driver: driver, along: along)
 	}
 
-	private func unregisterDriver(for configuration: DeepConfiguration) {
+	private func updaterDriver(with configuration: DeepConfiguration) {
+		guard let entityId = configuration.entityId else { return }
+		drivers.update(driverId: entityId, configuration: configuration)
+	}
+
+	private func unregisterDriver(with configuration: DeepConfiguration) {
 		guard let entityId = configuration.entityId else { return }
 		drivers.unregister(driverId: entityId)
 	}
@@ -135,8 +140,8 @@ class DeepState: ObservableObject {
 						return
 					}
 
-					let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains { driver in
-						driver.id() == config.entityId
+					let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
+						$0.id() == config.entityId
 					}
 
 					assert(isDriverForThisConfigurationLoaded.not, "You are trying to insert a configuration with an UUID that already exist." )
@@ -157,8 +162,8 @@ class DeepState: ObservableObject {
 					assert(false, "The confuration should have a valid id already.")
 					continue
 				}
-				let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains { driver in
-					driver.id() == config.entityId
+				let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
+					$0.id() == config.entityId
 				}
 				if isDriverForThisConfigurationLoaded.not, config.enabled {
 					guard let driver = try createDriver(from: config) else {
@@ -167,7 +172,12 @@ class DeepState: ObservableObject {
 					}
 					register(driver: driver, along: config.modelTypeInternal)
 				} else {
-					unregisterDriver(for: config)
+					if config.enabled {
+						updaterDriver(with: config)
+					} else {
+						unregisterDriver(with: config)
+					}
+
 				}
 			}
 			catch {
@@ -177,7 +187,7 @@ class DeepState: ObservableObject {
 
 		let deletedObjects = userInfo[NSDeletedObjectsKey] as? Set<NSManagedObject> ?? []
 		for config in deletedObjects.compactMap({ $0 as? DeepConfiguration }) {
-			unregisterDriver(for: config)
+			unregisterDriver(with: config)
 
 			// Delete the model file:
 			let fileManager = FileManager.default
