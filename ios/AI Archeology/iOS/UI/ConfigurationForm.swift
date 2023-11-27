@@ -184,7 +184,7 @@ struct ConfigurationForm: View {
 			configuration.phaseOutTime = 2
 			configuration.selectedSymbol = .circle
 			configuration.enabled = false
-			configuration.file = try? url.relativePath(from: .documentDirectory)
+			configuration.file = try? url.relativePath(from: DeepConfiguration.rootDirectory)
 
 			showDocumentPicker = false
 			configuration.entityId = id

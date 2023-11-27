@@ -220,6 +220,10 @@ extension DeepConfiguration {
 		return formater
 	}
 
+	public static var rootDirectory: FileManager.SearchPathDirectory {
+		get { .documentDirectory }
+	}
+
 	 public var annotationColor: Color {
 		get {
 			guard 
