@@ -12,10 +12,10 @@ import Foundation
 import SwiftUI
 
 struct NewConfigurationView: View {
-	let showDocumentPicker: Bool
+	@EnvironmentObject var deep: DeepState
+	@State var showDocumentPicker: Bool = false
 	let configuration: DeepConfiguration
 	let usedFiles: [URL]
-	let onDocumentPickerToggle: (Bool) -> Void
 	let onConfigurationChanged: (URL, UUID) -> Void
 
 	var body: some View {
@@ -28,7 +28,7 @@ struct NewConfigurationView: View {
 				HStack {
 					Spacer()
 					Button(action: {
-						onDocumentPickerToggle(true)
+						showDocumentPicker = true
 					}) {
 						Image(systemName: "doc.badge.plus")
 							.font(Font(.init(.label, size: 60.0)))
@@ -68,11 +68,15 @@ struct NewConfigurationView: View {
 					.textCase(nil)
 			}
 		}
-		.sheet(isPresented: .constant(showDocumentPicker)) {
+		.sheet(isPresented: $showDocumentPicker) {
 			let newConfigurationId = UUID()
 			DocumentPicker(usedURLs: usedFiles, configurationId: newConfigurationId) { url, id in
 				onConfigurationChanged(url, id)
 			}
+		}
+		.onReceive(deep.$deepStateError) { error in
+			guard error.isNotNil else { return }
+			showDocumentPicker = false
 		}
 	}
 }

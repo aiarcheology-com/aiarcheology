@@ -479,8 +479,11 @@ extension CoreDataManageable where Self: NSManagedObject {
 		if context.hasChanges {
 			do {
 				try context.save()
-			} catch {
-				assert(false, "CoreData save error: \(error)")
+			} catch let error as NSError {
+				if (error.domain == NSCocoaErrorDomain && error.code == 1560).not {
+					assert(false, "CoreData save error: \(error)")
+				}
+				// objects, that are not valid, do not save
 			}
 		}
 	}

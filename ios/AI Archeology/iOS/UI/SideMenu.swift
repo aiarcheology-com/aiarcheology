@@ -146,15 +146,15 @@ struct SideMenuView: View {
 									}
 								} else {
 									ForEach(Array(configurations.enumerated()), id: \.offset) { index, configuration in
-										Button {
-											selectedConfigurationId = configuration.entityId
-										} label: {
-											SideMenuCell()
-												.environmentObject(configuration)
-												.onChange(of: configuration.enabled) { value in
-													DeepConfiguration.save(in: moc)
-												}
-										}
+											Button {
+												selectedConfigurationId = configuration.entityId
+											} label: {
+												SideMenuCell()
+													.environmentObject(configuration)
+													.onChange(of: configuration.enabled) { value in
+														DeepConfiguration.save(in: moc)
+													}
+											}
 									}
 									.onDelete { offsets in
 										for index in offsets {

@@ -145,16 +145,19 @@ struct ObservationRectangleView: View {
 
 	var body: some View {
 		let boundingBox = observation.boundingBox
-		let size = CGSize(width: boundingBox.size.width * geometry.size.width, height: boundingBox.size.height * geometry.size.height)
-		let position = CGPoint(x: boundingBox.origin.x * geometry.size.width + 80,
-							   y: (1 - boundingBox.origin.y - boundingBox.size.height) * geometry.size.height + 80)
+		let size = CGSize(width: boundingBox.width * geometry.size.width,
+						  height: boundingBox.height * geometry.size.height)
+		let center = CGPoint(
+			x: boundingBox.midX * geometry.size.width,
+			y: (1 - boundingBox.midY) * geometry.size.height
+		)
 
 		Rectangle()
 			.fill(Color.clear)
 			.border(color, width: 4)
 			.opacity(animate ? 0 : 0.5) // Animate opacity
 			.frame(width: size.width, height: size.height)
-			.position(x: position.x, y: position.y)
+			.position(center)
 			.onAppear {
 				withAnimation(.easeInOut(duration: phaseOutTime)) {
 					animate = true

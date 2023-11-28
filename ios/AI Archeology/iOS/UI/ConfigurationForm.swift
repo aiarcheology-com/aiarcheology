@@ -59,7 +59,6 @@ struct ConfigurationForm: View {
 	@EnvironmentObject var deep: DeepState
 	@EnvironmentObject var configuration: DeepConfiguration
 	@State private var isValidConfiguration = false
-	@State private var showDocumentPicker = false
 	@State private var showErrorAlert = false
 	@State private var errorMessage = ""
 	@State private var isLoading = false
@@ -112,18 +111,14 @@ struct ConfigurationForm: View {
 						let usedFiles = deep.allConfigurations().compactMap { $0.file }
 
 						NewConfigurationView(
-							showDocumentPicker: showDocumentPicker,
 							configuration: configuration,
-							usedFiles: usedFiles) { shouldShow in
-								showDocumentPicker = shouldShow
-							} onConfigurationChanged: { url, id in
+							usedFiles: usedFiles) { url, id in
 								updateConfiguration(with: url, id: id)
 							}
 					}
 				}
 				.onReceive(deep.$deepStateError) { error in
 					guard let error else { return }
-					showDocumentPicker = false
 					errorMessage = error.localizedDescription
 					showErrorAlert = true
 				}
@@ -199,11 +194,13 @@ struct ConfigurationForm: View {
 				configuration.model = parser.value(for: .description) as? String
 				configuration.phaseOutTime = 2
 				configuration.selectedSymbol = .circle
-				configuration.enabled = false
-				configuration.file = try? url.relativePath(from: DeepConfiguration.rootDirectory)
-
-				showDocumentPicker = false
+				guard let file = try? url.relativePath(from: DeepConfiguration.rootDirectory) else {
+					assert(false, "Model file is required.")
+					return
+				}
+				configuration.file = file
 				configuration.entityId = id
+				configuration.enabled = false
 				validateConfiguration()
 			}
 		}
