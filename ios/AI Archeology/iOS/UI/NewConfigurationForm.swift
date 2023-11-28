@@ -36,6 +36,7 @@ struct NewConfigurationView: View {
 					.buttonStyle(PressableButtonStyle())
 					Spacer()
 				}
+				.padding(12)
 			}
 
 			Section {
