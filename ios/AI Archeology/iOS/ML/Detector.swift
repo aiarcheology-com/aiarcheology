@@ -17,7 +17,7 @@ protocol Driver: Actor {
 }
 
 protocol DeepDriver: Driver {
-	var configuration: DeepConfiguration { get set }
+	var params: DeepDriverParams { get set }
 	func updateConfiguration(_ newConfiguration: DeepConfiguration) async
 	init(configuration: DeepConfiguration, entityId: UUID) throws // Configuration arg. also contains UUID. But bcs of CoreData it is optional. We want to create a new driver only if the DeepConfiguration is complete, with UUID.
 	func process(image: UIImage) async
@@ -32,7 +32,13 @@ extension DeepDriver {
 		return try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
 	}
 	func updateConfiguration(_ newConfiguration: DeepConfiguration) async {
-		self.configuration = newConfiguration
+		self.params = DeepDriverParams(
+			annotationColor: newConfiguration.annotationColor,
+			entityId: newConfiguration.entityId,
+			file: newConfiguration.file,
+			phaseOutTime: newConfiguration.phaseOutTime,
+			selectedSymbol: newConfiguration.selectedSymbol
+			)
 	}
 }
 
@@ -40,23 +46,39 @@ enum DetectorError: Error {
 	case loadError
 }
 
+struct DeepDriverParams {
+	var annotationColor: Color = .yellow
+	var entityId: UUID?
+	var file: URL?
+	var phaseOutTime: Double = 1.0
+	var selectedSymbol: AnnotationSymbol = .circle
+}
+
 actor Detector: DeepDriver {
-	internal var configuration: DeepConfiguration
 	private let internalId: UUID
 	private var objectDetectionModel: VNCoreMLModel?
 	private var handler: VNImageRequestHandler?
 	private var ciImage: CIImage?
 	private var mlModel: MLModel?
-	
+	private var file: URL?
+	internal var params: DeepDriverParams
+
 	nonisolated func id() -> UUID? {
 		internalId
 	}
 
 	init(configuration: DeepConfiguration, entityId: UUID) throws {
 		self.internalId = entityId
-		self.configuration = configuration
+		self.params = DeepDriverParams(
+			annotationColor: configuration.annotationColor,
+			entityId: configuration.entityId,
+			file: configuration.file,
+			phaseOutTime: configuration.phaseOutTime,
+			selectedSymbol: configuration.selectedSymbol
+		)
 
-		guard let file = try? self.configuration.file?.completePath(to: DeepConfiguration.rootDirectory) else {
+
+		guard let file = try? self.params.file?.completePath(to: DeepConfiguration.rootDirectory) else {
 			assert(false, "The DeeepConfiguration.file is not initialised.")
 			return
 		}
@@ -126,7 +148,7 @@ actor Detector: DeepDriver {
 
 // The application does not support the classification yet.
 actor Classificator: DeepDriver {
-	internal var configuration: DeepConfiguration
+	internal var params: DeepDriverParams
 	private let internalId: UUID
 
 	func metadata() -> [MLModelMetadataKey : Any]? {
@@ -139,9 +161,9 @@ actor Classificator: DeepDriver {
 	
 	init(configuration: DeepConfiguration, entityId: UUID) throws {
 		self.internalId = entityId
-		self.configuration = configuration
+		self.params = DeepDriverParams()
 
-		guard let file = try? self.configuration.file?.completePath(to: DeepConfiguration.rootDirectory) else {
+		guard let file = try? self.params.file?.completePath(to: DeepConfiguration.rootDirectory) else {
 			assert(false, "The DeeepConfiguration.file is not initialised.")
 			return
 		}
@@ -179,12 +201,14 @@ public enum DeepDriverType: String {
 }
 
 actor ResultsCollector<T: VNObservation> {
-	var collectedResults = [(observations: [T], configuration: DeepConfiguration)]()
+	var collectedResults = [(observations: [T], params: DeepDriverParams)]()
 
-	func append(_ result: (observations: [T], configuration: DeepConfiguration)) {
+	func append(_ result: (observations: [T], params: DeepDriverParams)) {
 		collectedResults.append(result)
 	}
 }
+
+typealias ObservationParams = (observations: [VNObservation], params: DeepDriverParams)
 
 // Drivers factory
 class DeepDrivers: ObservableObject {
@@ -241,7 +265,7 @@ class DeepDrivers: ObservableObject {
 	// This is the core function that takes a 2D image and detects objects in the scene.
 	// For that functionality, the driver should be already registered and loaded. That is
 	// controlled by the driver's related DeepConfiguation instance in CoreData.
-	func detect(on image: UIImage, completion: @escaping ([(observations: [VNRecognizedObjectObservation], configuration: DeepConfiguration)]) -> Void) {
+	func detect(on image: UIImage, completion: @escaping ([ObservationParams]) -> Void) {
 		Task {
 			let resultsCollector = ResultsCollector<VNRecognizedObjectObservation>()
 
@@ -258,7 +282,7 @@ class DeepDrivers: ObservableObject {
 					detectionResults.error.isNil,
 					observations.isEmpty.not else { continue }  // TODO: log
 
-				let result = await (observations: observations, configuration: detector.configuration)
+				let result = await (observations: observations, params: detector.params)
 				await resultsCollector.append(result)
 			}
 
@@ -269,7 +293,7 @@ class DeepDrivers: ObservableObject {
 		}
 	}
 
-	func classify(on image: UIImage, completion: @escaping ([(observations: [VNClassificationObservation], configuration: DeepConfiguration)]) -> Void) {
+	func classify(on image: UIImage, completion: @escaping ([ObservationParams]) -> Void) {
 		Task {
 			let resultsCollector = ResultsCollector<VNClassificationObservation>()
 
@@ -286,7 +310,7 @@ class DeepDrivers: ObservableObject {
 					classificationResults.error.isNil,
 					observations.isEmpty.not else { continue } // TODO: log
 
-				let result = await (observations: observations, configuration: classificator.configuration)
+				let result = await (observations: observations, params: classificator.params)
 				await resultsCollector.append(result)
 			}
 

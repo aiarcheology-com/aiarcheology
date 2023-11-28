@@ -79,9 +79,9 @@ extension View {
 }
 
 struct Annotator<AnnotationView: View>: ViewModifier {
-	var observations: [(observations: [VNRecognizedObjectObservation], configuration: DeepConfiguration)]
+	var observations: [ObservationParams]
 	var frame: CGRect?
-	var annotationView: (VNRecognizedObjectObservation, DeepConfiguration, CGRect, GeometryProxy) -> AnnotationView
+	var annotationView: (VNRecognizedObjectObservation, DeepDriverParams, CGRect, GeometryProxy) -> AnnotationView
 
 	@ViewBuilder func body(content: Content) -> some View {
 		ZStack {
@@ -89,8 +89,13 @@ struct Annotator<AnnotationView: View>: ViewModifier {
 			GeometryReader { geometry in
 				ForEach(Array(observations.enumerated()), id: \.offset) { _, observationGroup in
 					ForEach(observationGroup.observations, id: \.uuid) { observation in
-						if let frame {
-							annotationView(observation, observationGroup.configuration, frame, geometry)
+						if 
+							let frame,
+							let detection = observation as? VNRecognizedObjectObservation {
+							annotationView(detection,
+										   observationGroup.params,
+										   frame,
+										   geometry)
 						}
 					}
 				}
@@ -100,7 +105,7 @@ struct Annotator<AnnotationView: View>: ViewModifier {
 }
 
 extension View {
-	func annotate<AnnotationView: View>(from observations: [(observations: [VNRecognizedObjectObservation], configuration: DeepConfiguration)], withinFrame: CGRect, annotation: @escaping (VNRecognizedObjectObservation, DeepConfiguration, CGRect, GeometryProxy) -> AnnotationView) -> some View {
+	func annotate<AnnotationView: View>(from observations: [ObservationParams], withinFrame: CGRect, annotation: @escaping (VNRecognizedObjectObservation, DeepDriverParams, CGRect, GeometryProxy) -> AnnotationView) -> some View {
 		modifier(Annotator(observations: observations, frame: withinFrame, annotationView: annotation))
 	}
 }
@@ -201,17 +206,17 @@ struct ObservationCircleView: View {
 struct AnnotationViewBuilder: View {
 	var observation: VNRecognizedObjectObservation
 	var geometry: GeometryProxy
-	var configuration: DeepConfiguration
+	var params: DeepDriverParams
 
 	var body: some View {
 		Group {
-			switch configuration.selectedSymbol {
+			switch params.selectedSymbol {
 				case .circle:
-					ObservationCircleView(observation: observation, geometry: geometry, color: configuration.annotationColor, phaseOutTime: configuration.phaseOutTime)
+					ObservationCircleView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime)
 				case .square:
-					ObservationRectangleView(observation: observation, geometry: geometry, color: configuration.annotationColor, phaseOutTime: configuration.phaseOutTime)
+					ObservationRectangleView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime)
 				case .point:
-					ObservationPointView(observation: observation, geometry: geometry, color: configuration.annotationColor, phaseOutTime: configuration.phaseOutTime)
+					ObservationPointView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime)
 			}
 		}
 	}
@@ -220,7 +225,7 @@ struct AnnotationViewBuilder: View {
 import Combine
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
-	@State private var detectedObservations: [(observations: [VNRecognizedObjectObservation], configuration: DeepConfiguration)] = []
+	@State private var detectedObservations: [ObservationParams] = []
 	@State private var showingForm = false
 	@State private var showErrorAlert = false
 	@State private var errorMessage = ""
@@ -245,8 +250,8 @@ struct ContentView: View {
 									appState.deep.frame = frame
 								}
 							}
-							.annotate(from: detectedObservations, withinFrame: appState.deep.frame) { observation, configuration, parentFrame, geometry  in
-								AnnotationViewBuilder(observation: observation, geometry: geometry, configuration: configuration)
+							.annotate(from: detectedObservations, withinFrame: appState.deep.frame) { observation, params, parentFrame, geometry  in
+								AnnotationViewBuilder(observation: observation, geometry: geometry, params: params)
 							}
 							.gesture(
 								DragGesture()
