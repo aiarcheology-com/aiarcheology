@@ -42,11 +42,20 @@ struct GlobalToolbarTrailing: View {
 				Button(action: {
 					guide.ontheflyDetectionTapped()
 				}) {
-					Image(systemName: "play").foregroundColor(.gray)
+					Image(systemName: "play")
+						.foregroundColor(.gray)
 				}
 			}
-			Button ( action:  { }, label: { Image(systemName: "pencil.tip.crop.circle").foregroundColor(.gray)})
-			Button ( action:  { }, label: { Image(systemName: "gearshape").foregroundColor(.gray)})
+			Button ( action:  { }) {
+				Image(systemName: "pencil.tip.crop.circle")
+					.foregroundColor(.gray)
+			}
+			Button ( action:  {
+				guide.settingsTapped()
+			}) {
+				Image(systemName: "gearshape")
+					.foregroundColor(.gray)
+			}
 		}
 	}
 }

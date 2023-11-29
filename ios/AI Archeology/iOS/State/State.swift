@@ -25,7 +25,122 @@ class AppState: ObservableObject {
 	lazy var webViewRenderer = WebViewRenderer(appState: self)
 	lazy var deep = DeepState(appState: self)
 	lazy var dataController = DataController(appState: self)
+	lazy var settings = Settings(appState: self)
 }
+
+protocol Validatable {
+	func validate() throws
+}
+
+enum ValidationError: Error {
+	case invalidData(String)
+}
+
+class Settings: ObservableObject, Validatable {
+	unowned private var appState: AppState
+	// TODO: add a porperty to reset the app
+	private enum UserDefaultsKeys {
+		static let snapAfterAppStart = "snapAfterAppStart"
+		static let snapFrequency = "snapFrequency"
+		static let resetHistory = "resetHistory"
+		static let defaultPage = "defaultPage"
+		static let removeAnnotationOnDrag = "removeAnnotationOnDrag"
+		static let entityId = "entityId"
+	}
+
+	@Published public var applicationResetButtonToggle: Bool = false
+
+	@Published public var snapAfterAppStart: Bool {
+		didSet {
+			UserDefaults.standard.set(snapAfterAppStart, forKey: UserDefaultsKeys.snapAfterAppStart)
+		}
+	}
+
+	@Published public var snapFrequency: Double {
+		didSet {
+			UserDefaults.standard.set(snapFrequency, forKey: UserDefaultsKeys.snapFrequency)
+		}
+	}
+
+	@Published public var resetHistory: Bool {
+		didSet {
+			UserDefaults.standard.set(resetHistory, forKey: UserDefaultsKeys.resetHistory)
+		}
+	}
+
+	@Published public var defaultPage: URL? {
+		didSet {
+			UserDefaults.standard.set(defaultPage, forKey: UserDefaultsKeys.defaultPage)
+		}
+	}
+
+	@Published public var removeAnnotationOnDrag: Bool {
+		didSet {
+			UserDefaults.standard.set(removeAnnotationOnDrag, forKey: UserDefaultsKeys.removeAnnotationOnDrag)
+		}
+	}
+
+	@Published public var entityId: UUID? {
+		didSet {
+			UserDefaults.standard.set(entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
+		}
+	}
+
+	init(appState: AppState) {
+		self.appState = appState
+
+		let defaultValues: [String: Any] = [
+			UserDefaultsKeys.snapAfterAppStart: false,
+			UserDefaultsKeys.snapFrequency: 3.0,
+			UserDefaultsKeys.resetHistory: false,
+			UserDefaultsKeys.defaultPage: URL(string: "https://www.google.com")!,
+			UserDefaultsKeys.removeAnnotationOnDrag: false,
+			UserDefaultsKeys.entityId: UUID().uuidString
+		]
+
+			// Register default values
+		UserDefaults.standard.register(defaults: defaultValues)
+		self.snapAfterAppStart = UserDefaults.standard.bool(forKey: UserDefaultsKeys.snapAfterAppStart)
+		self.snapFrequency = UserDefaults.standard.double(forKey: UserDefaultsKeys.snapFrequency)
+		self.resetHistory = UserDefaults.standard.bool(forKey: UserDefaultsKeys.resetHistory)
+		self.defaultPage = UserDefaults.standard.url(forKey: UserDefaultsKeys.defaultPage)
+		self.removeAnnotationOnDrag = UserDefaults.standard.bool(forKey: UserDefaultsKeys.removeAnnotationOnDrag)
+		if let uuidString = UserDefaults.standard.string(forKey: UserDefaultsKeys.entityId),
+		   let uuid = UUID(uuidString: uuidString) {
+			self.entityId = uuid
+		}
+	}
+
+	func validate() throws {
+		if (snapFrequency >= 1.0 && snapFrequency <= 10.0).not {
+			throw ValidationError.invalidData("Settings's snapFrequency is required between 1.0 and 10.0!")
+		}
+		if defaultPage.isNotNil &&
+		   defaultPage?.absoluteString.isEmpty == false &&
+			(defaultPage?.absoluteString.browserInputType == .url).not {
+			throw ValidationError.invalidData("Settings's defaultPage with valid URL is required.")
+		}
+		if entityId.isNil || entityId?.uuidString.isEmpty == true {
+			throw ValidationError.invalidData("Settings's entityId is required.")
+		}
+	}
+
+	func reset() {
+		self.snapAfterAppStart = false
+		self.snapFrequency = 3.0
+		self.resetHistory = false
+		self.defaultPage = URL(string: "https://www.google.com")
+		self.removeAnnotationOnDrag = false
+		self.entityId = UUID()  // Generating a new UUID
+
+		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.snapAfterAppStart)
+		UserDefaults.standard.set(3.0, forKey: UserDefaultsKeys.snapFrequency)
+		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.resetHistory)
+		UserDefaults.standard.set(self.defaultPage, forKey: UserDefaultsKeys.defaultPage)
+		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.removeAnnotationOnDrag)
+		UserDefaults.standard.set(self.entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
+	}}
+
 
 import Vision
 import SwiftUI
@@ -35,8 +150,7 @@ import SwiftUI
 class DeepState: ObservableObject {
 	unowned private var appState: AppState
 	var frame: CGRect = .zero
-	// @Published var detectedObservations: [VNRecognizedObjectObservation] = [] // TODO: UI updates do not work with this variable
-	// @Published var classifiedObservations: [VNClassificationObservation] = [] // TODO: UI updates do not work with this variable
+
 	@Published var newConfiguration: DeepConfiguration?
 	@Published var deepStateError: Error?
 	var drivers = DeepDrivers()
@@ -98,6 +212,13 @@ class DeepState: ObservableObject {
 	func deleteConfiguration(_ entityId: UUID) {
 		let context = appState.dataController.container.viewContext
 		DeepConfiguration.delete(entityId, in: context)
+	}
+
+	func reset() {
+		let context = appState.dataController.container.viewContext
+		for configuration in allConfigurations() {
+			context.delete(configuration)
+		}
 	}
 
 	func selectConfiguration(_ entityId: UUID) -> DeepConfiguration? {
@@ -191,16 +312,26 @@ class DeepState: ObservableObject {
 
 			// Delete the model file:
 			let fileManager = FileManager.default
+			guard let configurationId = config.entityId?.uuidString else {
+				print("Can not reconstruct the path to the configuration's directory.")
+				return
+
+			}
+
+			let documentDirectory = FileManager.default.documentDirectory
 			guard
-				let filePath = config.file?.absoluteString,
-				fileManager.fileExists(atPath: filePath)
+				let configurationDirectory = documentDirectory?
+					.appendingPathComponent("Configurations")
+					.appendingPathComponent(configurationId)
+					.path(percentEncoded: false),
+				fileManager.fileExists(atPath: configurationDirectory)
 			else {
 				print("There is no filepath, or the file does not exist.")
 				return
 			}
 
 			do {
-				try fileManager.removeItem(atPath: filePath)
+				try fileManager.removeItem(atPath: configurationDirectory)
 				print("File successfully deleted")
 			} catch {
 				assert(false, "Error deleting file: \(error.localizedDescription)")
@@ -315,14 +446,15 @@ class Guide: ObservableObject {
 	@Published var presentedSideMenu: Bool = false
 	@Published var ontheflyDetectionEnabled: Bool = false
 	@Published var selectedConfigurationId: UUID?
+	@Published var presentSettings: Bool = false
 
 	init(appState: AppState) {
 		self.appState = appState
 	}
 
-    func togglingSideMenu() {
-        presentedSideMenu.toggle()
-    }
+	func togglingSideMenu() {
+		presentedSideMenu.toggle()
+	}
 
 	func ontheflyDetectionTapped() {
 		ontheflyDetectionEnabled.toggle()
@@ -331,6 +463,16 @@ class Guide: ObservableObject {
 		} else {
 			appState.snap.stopTimer()
 		}
+	}
+
+	func settingsTapped() {
+		presentSettings = true
+	}
+
+	func resetApplication() {
+		appState.deep.reset()
+		appState.settings.reset()
+		appState.settings.applicationResetButtonToggle.toggle()
 	}
 }
 
@@ -354,7 +496,7 @@ class SnapState: ObservableObject {
 		guard timerCancellable.isNil else { return }
 
 			// Start the timer and handle its events by sending them to timerTrigger
-		timerCancellable = Timer.publish(every: 3, on: .main, in: .common)
+		timerCancellable = Timer.publish(every: appState.settings.snapFrequency, on: .main, in: .common)
 			.autoconnect()
 			.sink { [weak self] _ in
 				self?.timerTrigger.send()
@@ -421,8 +563,10 @@ class WebViewRenderer: DefaultRenderer {
 
 import CoreData
 class DataController: ObservableObject {
+	static let containerName = "MLBrowser"
 	unowned private var appState: AppState
-	let container = NSPersistentContainer(name: "MLBrowser")
+	private(set) var container = NSPersistentContainer(name: containerName)
+	let settingsContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
 
 	init(appState: AppState) {
 		self.appState = appState
@@ -432,6 +576,7 @@ class DataController: ObservableObject {
 				assert(false)
 			}
 		}
+		settingsContext.parent = container.viewContext
 	}
 }
 
@@ -480,9 +625,7 @@ extension CoreDataManageable where Self: NSManagedObject {
 			do {
 				try context.save()
 			} catch let error as NSError {
-				if (error.domain == NSCocoaErrorDomain && error.code == 1560).not {
-					assert(false, "CoreData save error: \(error)")
-				}
+				print("CoreData save error: \(error)")
 				// objects, that are not valid, do not save
 			}
 		}

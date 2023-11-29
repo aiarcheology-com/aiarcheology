@@ -2,7 +2,7 @@
 //  DeepConfiguration+CoreDataProperties.swift
 //  AI Archeology
 //
-//  Created by Vladimír Slavík on 22.11.23.
+//  Created by Vladimír Slavík on 29.11.23.
 //
 //
 

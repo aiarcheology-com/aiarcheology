@@ -77,8 +77,8 @@ actor Detector: DeepDriver {
 			selectedSymbol: configuration.selectedSymbol
 		)
 
-
-		guard let file = try? self.params.file?.completePath(to: DeepConfiguration.rootDirectory) else {
+		let detectorFileIsDirectory = false
+		guard let file = try? self.params.file?.completePath(to: DeepConfiguration.rootDirectory, isDirectory: detectorFileIsDirectory) else {
 			assert(false, "The DeeepConfiguration.file is not initialised.")
 			return
 		}
@@ -163,7 +163,8 @@ actor Classificator: DeepDriver {
 		self.internalId = entityId
 		self.params = DeepDriverParams()
 
-		guard let file = try? self.params.file?.completePath(to: DeepConfiguration.rootDirectory) else {
+		let detectorFileIsDirectory = false
+		guard let file = try? self.params.file?.completePath(to: DeepConfiguration.rootDirectory, isDirectory: detectorFileIsDirectory) else {
 			assert(false, "The DeeepConfiguration.file is not initialised.")
 			return
 		}

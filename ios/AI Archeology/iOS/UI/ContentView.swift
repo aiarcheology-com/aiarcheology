@@ -227,6 +227,7 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
 	@State private var detectedObservations: [ObservationParams] = []
 	@State private var showingForm = false
+	@State private var showingSettingsForm = false
 	@State private var showErrorAlert = false
 	@State private var errorMessage = ""
 
@@ -253,7 +254,7 @@ struct ContentView: View {
 							.annotate(from: detectedObservations, withinFrame: appState.deep.frame) { observation, params, parentFrame, geometry  in
 								AnnotationViewBuilder(observation: observation, geometry: geometry, params: params)
 							}
-							.gesture(
+							.gesture( // Reset the annoation when we drag the content
 								DragGesture()
 									.onEnded { _ in
 										detectedObservations.removeAll()
@@ -305,6 +306,16 @@ struct ContentView: View {
 					.environmentObject(config)
 					.environmentObject(appState.deep)
 			}
+		}
+		.onReceive(appState.guide.$presentSettings) { present in
+			showingSettingsForm = present
+		}
+		.sheet(isPresented: $showingSettingsForm, onDismiss: {
+			showingSettingsForm = false
+		}) {
+			SettingsForm()
+				.environmentObject(appState.settings)
+				.environmentObject(appState.guide)
 		}
 		// ------ Error processing -----
 		.onReceive(appState.deep.$deepStateError) { error in

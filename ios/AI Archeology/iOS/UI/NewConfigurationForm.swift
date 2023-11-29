@@ -48,6 +48,7 @@ struct NewConfigurationView: View {
 			}
 
 			Section {
+				Link("Get models on device using Core ML Converters", destination: URL(string: "https://developer.apple.com/videos/play/wwdc2020/10153/")!)
 				Text("""
 					import coremltools as ct
 

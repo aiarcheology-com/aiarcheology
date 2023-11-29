@@ -209,11 +209,12 @@ struct ConfigurationForm: View {
 
 
 struct PressableButtonStyle: ButtonStyle {
+	var color: Color = .blue
 	func makeBody(configuration: Configuration) -> some View {
 		configuration.label
 			.foregroundColor(.white)
 			.padding(9)
-			.background(configuration.isPressed ? Color.blue.opacity(0.5) : Color.blue)
+			.background(configuration.isPressed ? color.opacity(0.5) : color)
 			.cornerRadius(10)
 			.shadow(radius: configuration.isPressed ? 5 : 10)
 			.scaleEffect(configuration.isPressed ? 0.9 : 1.0)
