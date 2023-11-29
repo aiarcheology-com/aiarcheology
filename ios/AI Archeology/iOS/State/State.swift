@@ -455,6 +455,13 @@ class Guide: ObservableObject {
 	func togglingSideMenu() {
 		presentedSideMenu.toggle()
 	}
+	
+	func ontheflyDetectionResetTapped() {
+		if ontheflyDetectionEnabled {
+			appState.snap.stopTimer()
+			appState.snap.startTimer()
+		}
+	}
 
 	func ontheflyDetectionTapped() {
 		ontheflyDetectionEnabled.toggle()
@@ -470,6 +477,9 @@ class Guide: ObservableObject {
 	}
 
 	func resetApplication() {
+		if appState.guide.ontheflyDetectionEnabled {
+			appState.guide.ontheflyDetectionTapped()
+		}
 		appState.deep.reset()
 		appState.settings.reset()
 		appState.settings.applicationResetButtonToggle.toggle()
@@ -482,6 +492,7 @@ class SnapState: ObservableObject {
 	var timerCancellable: Cancellable?
 	let snapshotTrigger = PassthroughSubject<Void, Never>()
 	let timerTrigger = PassthroughSubject<Void, Never>()
+	var delayedTimer: Bool = false
 
 	init(appState: AppState) {
 		self.appState = appState

@@ -14,6 +14,7 @@
 		@State private var defaultWebPlaceholder: String = "www.google.com"
 		@State private var validationErrorMessage: String?
 		@State private var resetButtonColor: Color = .red
+		@State private var showResetWarning = false
 
 		var mergedObservable: [String] {[
 			// Updated from the user's input:
@@ -32,6 +33,9 @@
 							ForEach(1...10, id: \.self) { second in
 								Text("\(second) second\(second > 1 ? "s" : "")").tag(Double(second))
 							}
+						}
+						.onChange(of: settings.snapFrequency) { _ in
+							guide.ontheflyDetectionResetTapped()
 						}
 
 						Toggle("Restart detection after application start", isOn: $settings.snapAfterAppStart)
@@ -59,10 +63,12 @@
 					}
 					Section(header: Text("ML Browser")) {
 						HStack {
-							Text("Return to Default Settings")
+							Text("Reset to Default Settings")
 							Spacer()
-							Button(action: guide.resetApplication) {
-								Text("Reset Application to Default")
+							Button(action: {
+								showResetWarning = true
+							}) {
+								Text("Reset Application")
 							}
 							.buttonStyle(PressableButtonStyle(color: resetButtonColor))
 						}
@@ -99,6 +105,14 @@
 						})
 					)
 				})
+				.alert(isPresented: $showResetWarning) {
+					Alert(
+						title: Text("Warning"),
+						message: Text("Resetting the application will erase all data models from the ML Browser. Are you sure you want to proceed?"),
+						primaryButton: .destructive(Text("Reset"), action: guide.resetApplication),
+						secondaryButton: .cancel()
+					)
+				}
 				.onChange(of: mergedObservable) { _ in
 					resetButtonColor = .red
 				}

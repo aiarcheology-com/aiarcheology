@@ -326,6 +326,16 @@ struct ContentView: View {
 		.alert(isPresented: $showErrorAlert) {
 			Alert(title: Text("Error"), message: Text(errorMessage), dismissButton: .default(Text("OK")))
 		}
+		.onAppear { // should be called only once after the app start
+			guard appState.snap.delayedTimer.not else { return }
+
+			DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+				if appState.settings.snapAfterAppStart {
+					appState.guide.ontheflyDetectionTapped()
+				}
+				appState.snap.delayedTimer = true
+			}
+		}
     }
 }
 
