@@ -21,7 +21,7 @@ struct NewConfigurationView: View {
 	var body: some View {
 		List {
 			Section {
-				Text("Select a Create ML model supporting the object detection. Other models are not supported in this version.")
+				Text("Choose a Create ML model (.mlmodel or .mlpackage) that supports object detection. Other model types are not supported in this version.")
 			} header: {
 				EmptyView()
 			} footer: {
