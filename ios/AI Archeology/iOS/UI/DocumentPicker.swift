@@ -8,18 +8,23 @@
 import Foundation
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 struct DocumentPicker: UIViewControllerRepresentable {
 	var usedURLs: [URL]
 	let configurationId: UUID
 	var onPick: (URL, UUID) -> Void
-	@State private var showAlert = false
 
 	func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-		let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
+		let extensions: [UTType] = [
+			UTType(filenameExtension: "mlmodel") ?? .item,
+			UTType(filenameExtension: "mlpackage", conformingTo: .package) ?? .item
+		]
+		let picker = UIDocumentPickerViewController(forOpeningContentTypes: extensions, asCopy: true)
 		picker.allowsMultipleSelection = false
+		picker.shouldShowFileExtensions = true
 		picker.delegate = context.coordinator
-		picker.presentationController?.presentedViewController.presentAlertIfNeeded(showAlert: $showAlert)
+
 		return picker
 	}
 
@@ -43,10 +48,14 @@ struct DocumentPicker: UIViewControllerRepresentable {
 		func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
 			guard let url = urls.first else { return }
 
-			if parent.usedURLs.contains(url) {
-				parent.showAlert = true
-				return
-			}
+			// TODO: Should we prevent the user from selecting the same file
+			// more than once?
+//			if parent.usedURLs.contains(url) {
+//				DispatchQueue.main.async {
+//					controller.presentAlertView(title: "File Already Used", message: "The selected file is already in use. Please choose a different file.")
+//				}
+//				return
+//			}
 
 			let fileManager = FileManager.default
 			let fileName = url.lastPathComponent
@@ -73,14 +82,10 @@ struct DocumentPicker: UIViewControllerRepresentable {
 	}
 }
 
-extension UIViewController {
-	func presentAlertIfNeeded(showAlert: Binding<Bool>) {
-		if showAlert.wrappedValue {
-			let alert = UIAlertController(title: "File Already Used", message: "The selected file is already in use. Please choose a different file.", preferredStyle: .alert)
-			alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-				showAlert.wrappedValue = false
-			})
-			self.present(alert, animated: true)
-		}
+fileprivate extension UIViewController {
+	func presentAlertView(title: String, message: String) {
+		let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+		alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in })
+		self.present(alert, animated: true)
 	}
 }
