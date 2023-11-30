@@ -16,14 +16,13 @@ public enum AnnotationSymbol: String, CaseIterable, Identifiable {
 }
 
 struct ConfigurationDetailRow: View {
-	@Environment(\.colorScheme) var colorScheme
 	var label: String
 	var value: String
 
 	var body: some View {
 		HStack {
 			Text(label)
-				.foregroundColor(colorScheme == .dark ? .white : .black)
+				.foregroundColor(.primary)
 				.fontWeight(.regular)
 
 			Spacer()
@@ -37,7 +36,6 @@ struct ConfigurationDetailRow: View {
 }
 
 struct LabeledSlider: View {
-	@Environment(\.colorScheme) var colorScheme
 	var label: String
 	@Binding var value: Double
 	var range: ClosedRange<Double>
@@ -46,7 +44,7 @@ struct LabeledSlider: View {
 		VStack(alignment: .leading) {
 			let formattedValue = String(format: "%.2f", value)
 			ConfigurationDetailRow(label: label, value: formattedValue)
-				.foregroundColor(colorScheme == .dark ? .white : .black)
+				.foregroundColor(.primary)
 				.fontWeight(.regular)
 
 			Slider(value: $value, in: range)

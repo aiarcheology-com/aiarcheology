@@ -59,11 +59,11 @@
 							.multilineTextAlignment(.trailing)
 							.foregroundColor(.gray)
 						}
-						Toggle("Reset history", isOn: $settings.resetHistory)
+						Toggle("Reset History", isOn: $settings.resetHistory)
 					}
 					Section(header: Text("ML Browser")) {
 						HStack {
-							Text("Restore defaults")
+							Text("Restore Defaults")
 							Spacer()
 							Button(action: {
 								showResetWarning = true
@@ -121,8 +121,102 @@
 	}
 
 struct AppDescriptionView: View {
+	let versionString: String = appVersion()
+	let appIcon: String = Bundle.main.iconFileName ?? "AppIcon"
+	let emailAddress: String = "info@aiarcheology.com"
+	private static let websiteURL = URL(string: "https://www.aiarcheology.com")!
+	private static let xName = "@aiarcheology"
+	private static let xURL = URL(string: "twitter://user?screen_name=\(xName)")!
+	private static let xWebURL = URL(string: "https://twitter.com/\(xName)")!
+
+	@State private var showCopiedPopover = false
+
 	var body: some View {
-		Text("Application Description Here...")
-			.navigationBarTitle("About the App", displayMode: .inline)
+		Form {
+			Section(header: Text("Application")) {
+				HStack(alignment: .center, spacing: 12) {
+					if let image = UIImage(named: appIcon){
+						Image(uiImage: image)
+							.resizable()
+							.aspectRatio(contentMode: .fit)
+							.clipShape(RoundedRectangle(cornerRadius: 8))
+					}
+					VStack(alignment: .leading) {
+						Text("Version (Beta)")
+							.bold()
+						Text("v\(versionString)")
+					}
+					.copiedToClipboard(copiedText: Self.xName)
+					.foregroundColor(.primary)
+				}
+				.fixedSize()
+				.accessibilityElement(children: .ignore)
+				.accessibilityLabel("Version \(versionString)")
+			}
+			Section(header: Text("Contact")) {
+				Button(action: {
+					if let url = URL(string: "mailto:\(emailAddress)") {
+						UIApplication.shared.open(url)
+					}
+				}) {
+					HStack {
+						Image(systemName: "envelope.fill")
+						Text(emailAddress)
+					}
+					.copiedToClipboard(copiedText: emailAddress)
+				}
+
+				HStack {
+					Image(systemName: "globe")
+						.foregroundColor(.blue)
+					Link(Self.websiteURL.absoluteString, destination: Self.websiteURL)
+				}
+				.copiedToClipboard(copiedText: Self.websiteURL.absoluteString)
+
+				HStack {
+					Image(templateName: "Twitter")
+						.resizable()
+						.scaledToFit()
+						.frame(maxWidth: 16, maxHeight: 16)
+						.foregroundColor(.primary)
+					Link(Self.xName, destination: Self.xWebURL)
+				}
+				.copiedToClipboard(copiedText: Self.xName)
+			}
+		}
+		.navigationBarTitle("About", displayMode: .inline)
+	}
+
+	static func appVersion(in bundle: Bundle = .main) -> String {
+		guard let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
+			fatalError("CFBundleShortVersionString should not be missing from info dictionary")
+		}
+		return version
+	}
+}
+
+
+extension View {
+	func copiedToClipboard(copiedText: String) -> some View {
+		self.modifier(CopiedToClipboardModifier(copiedText: copiedText))
+	}
+}
+struct CopiedToClipboardModifier: ViewModifier {
+	@State private var showPopover = false
+	var copiedText: String
+
+	func body(content: Content) -> some View {
+		content
+			.onLongPressGesture {
+				UIPasteboard.general.string = copiedText
+				self.showPopover = true
+				DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+					self.showPopover = false
+				}
+			}
+			.popover(isPresented: $showPopover) {
+				Text("Copied: \(copiedText)")
+					.padding()
+			}
 	}
 }

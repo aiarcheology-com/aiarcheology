@@ -29,3 +29,27 @@ public extension View {
 		onReceive(Just(value), perform: action)
 	}
 }
+
+extension View {
+	func centerVerticalyInParentView() -> some View {
+		VStack(alignment: .center) {
+			self
+		}
+		.frame(maxWidth: .infinity)
+	}
+	func centerHorizontalyInParentView() -> some View {
+		VStack(alignment: .center) {
+			self
+		}
+		.frame(maxWidth: .infinity)
+	}
+	func centerInParentView() -> some View {
+		VStack(alignment: .center) {
+			HStack(alignment: .center) {
+				self
+			}
+			.frame(maxWidth: .infinity)
+		}
+		.frame(maxWidth: .infinity)
+	}
+}
