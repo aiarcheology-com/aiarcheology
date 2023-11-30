@@ -24,12 +24,15 @@ struct ViewContainer<Content: View, LeadingItems: View, TrailingItems: View>: Vi
 
 	var body: some View {
 		NavigationStack {
-			ZStack {
-				EmptyView()
-					.navigationBarItems( leading: leadingItems)
-					.navigationBarItems( trailing: trailingItems)
-				content
-			}
+			content
+				.toolbar {
+					ToolbarItemGroup(placement: .navigationBarLeading) {
+						leadingItems
+					}
+					ToolbarItemGroup(placement: .navigationBarTrailing) {
+						trailingItems
+					}
+				}
 		}
 	}
 }

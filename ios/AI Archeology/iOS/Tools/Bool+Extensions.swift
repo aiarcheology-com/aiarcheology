@@ -11,4 +11,12 @@ public extension Bool {
     @inlinable var not: Bool {
         !self
     }
+
+	@inlinable var enabled: Bool {
+		self
+	}
+
+	@inlinable var disbled: Bool {
+		!self
+	}
 }

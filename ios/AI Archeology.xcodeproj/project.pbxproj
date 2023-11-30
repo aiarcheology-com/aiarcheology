@@ -43,6 +43,8 @@
 		8A7740CD2B1682F5002E90D9 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740CC2B1682F5002E90D9 /* SettingsView.swift */; };
 		8A7740D32B1894B3002E90D9 /* Bundle+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740D22B1894B3002E90D9 /* Bundle+Extension.swift */; };
 		8A7740D52B18AEB8002E90D9 /* Image+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740D42B18AEB8002E90D9 /* Image+Extensions.swift */; };
+		8A7740D72B1908DD002E90D9 /* SnapControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740D62B1908DD002E90D9 /* SnapControlView.swift */; };
+		8A7740D92B19299F002E90D9 /* UIImage+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740D82B19299F002E90D9 /* UIImage+Extensions.swift */; };
 		8A9BB4422B10F3590061246A /* NewConfigurationForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9BB4412B10F3590061246A /* NewConfigurationForm.swift */; };
 		8A9BB4442B10F3990061246A /* DocumentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9BB4432B10F3990061246A /* DocumentPicker.swift */; };
 		8AA9962C2AD9EB6400371EC8 /* Appearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA9962B2AD9EB6400371EC8 /* Appearance.swift */; };
@@ -113,6 +115,8 @@
 		8A7740CC2B1682F5002E90D9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8A7740D22B1894B3002E90D9 /* Bundle+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Bundle+Extension.swift"; sourceTree = "<group>"; };
 		8A7740D42B18AEB8002E90D9 /* Image+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Image+Extensions.swift"; sourceTree = "<group>"; };
+		8A7740D62B1908DD002E90D9 /* SnapControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapControlView.swift; sourceTree = "<group>"; };
+		8A7740D82B19299F002E90D9 /* UIImage+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Extensions.swift"; sourceTree = "<group>"; };
 		8A9BB4412B10F3590061246A /* NewConfigurationForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewConfigurationForm.swift; sourceTree = "<group>"; };
 		8A9BB4432B10F3990061246A /* DocumentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPicker.swift; sourceTree = "<group>"; };
 		8AA9962B2AD9EB6400371EC8 /* Appearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Appearance.swift; sourceTree = "<group>"; };
@@ -170,6 +174,7 @@
 				8AC9B6252B153A11007D20EA /* URL+Extensions.swift */,
 				8A7740D22B1894B3002E90D9 /* Bundle+Extension.swift */,
 				8A7740D42B18AEB8002E90D9 /* Image+Extensions.swift */,
+				8A7740D82B19299F002E90D9 /* UIImage+Extensions.swift */,
 			);
 			path = Tools;
 			sourceTree = "<group>";
@@ -251,6 +256,7 @@
 				8A9BB4412B10F3590061246A /* NewConfigurationForm.swift */,
 				8A9BB4432B10F3990061246A /* DocumentPicker.swift */,
 				8A7740CC2B1682F5002E90D9 /* SettingsView.swift */,
+				8A7740D62B1908DD002E90D9 /* SnapControlView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -502,6 +508,7 @@
 				8A1D49C02ABB87D500C2D7C1 /* DataModel.swift in Sources */,
 				8A1328172AF1438100F119C6 /* Screens.swift in Sources */,
 				8A112CBF2ABEEEEC00786384 /* WebViewModel.swift in Sources */,
+				8A7740D72B1908DD002E90D9 /* SnapControlView.swift in Sources */,
 				8A1328222AF7023D00F119C6 /* Optional+Extensions.swift in Sources */,
 				8A1D49C12ABB87D500C2D7C1 /* Item.swift in Sources */,
 				8A1D49BA2ABB87D500C2D7C1 /* GridView.swift in Sources */,
@@ -525,6 +532,7 @@
 				8A112CCD2AC30E3E00786384 /* View+Extensions.swift in Sources */,
 				8A112CC62AC0863300786384 /* Bool+Extensions.swift in Sources */,
 				8AC9B6262B153A11007D20EA /* URL+Extensions.swift in Sources */,
+				8A7740D92B19299F002E90D9 /* UIImage+Extensions.swift in Sources */,
 				8A1328282B010B8C00F119C6 /* EnvironmentObject+Extensions.swift in Sources */,
 				8AC7CDED2AE7FCED00871074 /* State.swift in Sources */,
 			);

@@ -26,6 +26,22 @@ class AppState: ObservableObject {
 	lazy var deep = DeepState(appState: self)
 	lazy var dataController = DataController(appState: self)
 	lazy var settings = Settings(appState: self)
+	lazy var snapAdjustment = SnapAdjustment(appState: self)
+}
+
+class SnapAdjustment: ObservableObject {
+	unowned var appState: AppState
+	static let defaultBrightness = 0.0
+	static let defaultContrast = 1.0
+	static let defaultSaturation = 1.0
+	init(appState: AppState) {
+		self.appState = appState
+	}
+
+	// TODO: Possibly store together in the Page History
+	@Published var brightness: Double = defaultBrightness
+	@Published var contrast: Double = defaultContrast
+	@Published var saturation: Double = defaultSaturation
 }
 
 protocol Validatable {
@@ -37,8 +53,7 @@ enum ValidationError: Error {
 }
 
 class Settings: ObservableObject, Validatable {
-	unowned private var appState: AppState
-	// TODO: add a porperty to reset the app
+	unowned var appState: AppState
 	private enum UserDefaultsKeys {
 		static let snapAfterAppStart = "snapAfterAppStart"
 		static let snapFrequency = "snapFrequency"
@@ -148,7 +163,7 @@ import SwiftUI
 // both entities have the same UUID. DeepConfiguations are kept in CoreData.
 // Drivers are loaded just in memory and un/registered with toggling the DeepConfiguration.enabled property.
 class DeepState: ObservableObject {
-	unowned private var appState: AppState
+	unowned var appState: AppState
 	var frame: CGRect = .zero
 
 	@Published var newConfiguration: DeepConfiguration?
@@ -441,7 +456,7 @@ extension DeepConfiguration {
 }
 
 class Guide: ObservableObject {
-	unowned private var appState: AppState
+	unowned var appState: AppState
 	@Published var mode = AppMode.web
 	@Published var presentedSideMenu: Bool = false
 	@Published var ontheflyDetectionEnabled: Bool = false
@@ -488,7 +503,7 @@ class Guide: ObservableObject {
 
 import Combine
 class SnapState: ObservableObject {
-	unowned private var appState: AppState
+	unowned var appState: AppState
 	var timerCancellable: Cancellable?
 	let snapshotTrigger = PassthroughSubject<Void, Never>()
 	let timerTrigger = PassthroughSubject<Void, Never>()
@@ -527,7 +542,7 @@ protocol DefaultRenderable {
 import Vision
 // Default renderer for the SwiftUI components
 class DefaultRenderer: ObservableObject {
-	unowned private var appState: AppState
+	unowned var appState: AppState
 
 	init(appState: AppState) {
 		self.appState = appState
@@ -562,9 +577,18 @@ class WebViewRenderer: DefaultRenderer {
 		}
 
 		let config = WKSnapshotConfiguration()
-		webView.takeSnapshot(with: config) { image, error in
+		webView.takeSnapshot(with: config) { [weak self] image, error in
+			guard let self else {
+				assert(false, "Renderer exist longer than his parents.")
+				return
+			}
 			if let image = image {
-				completionHandler(image, error)
+				// The takeSnapshot func does not take in account the changes in the SwiftUI
+				// api (brightness, contrast, saturation) and has to be explicitly set here:
+				let updatedImage = image.adjusted(brightness: appState.snapAdjustment.brightness,
+												 contrast: appState.snapAdjustment.contrast,
+												 saturation: appState.snapAdjustment.saturation)
+				completionHandler(updatedImage, error)
 			} else {
 				completionHandler(nil, error)
 			}
@@ -575,7 +599,7 @@ class WebViewRenderer: DefaultRenderer {
 import CoreData
 class DataController: ObservableObject {
 	static let containerName = "MLBrowser"
-	unowned private var appState: AppState
+	unowned var appState: AppState
 	private(set) var container = NSPersistentContainer(name: containerName)
 	let settingsContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
 

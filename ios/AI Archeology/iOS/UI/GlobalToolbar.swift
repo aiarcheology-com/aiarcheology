@@ -22,6 +22,7 @@ struct GlobalToolbarLeading: View {
 struct GlobalToolbarTrailing: View {
 	@EnvironmentObject var guide: Guide
 	@State private var isAnimating = false
+	@State private var showPopoverAdjustment = false
 
 	var body: some View {
 		HStack {
@@ -38,6 +39,7 @@ struct GlobalToolbarTrailing: View {
 							}
 						}
 				}
+				.disabled(showPopoverAdjustment)
 			} else {
 				Button(action: {
 					guide.ontheflyDetectionTapped()
@@ -45,10 +47,22 @@ struct GlobalToolbarTrailing: View {
 					Image(systemName: "play")
 						.foregroundColor(.gray)
 				}
+				.disabled(showPopoverAdjustment)
 			}
-			Button ( action:  { }) {
+			Button ( action:  {
+				showPopoverAdjustment = true
+			}) {
 				Image(systemName: "pencil.tip.crop.circle")
 					.foregroundColor(.gray)
+			}
+			.popover(isPresented: $showPopoverAdjustment) {
+				SnapAdjustmentView()
+					.padding(20)
+					.frame(width: 280)
+					.onDisappear {
+						showPopoverAdjustment = false
+					}
+					.environmentObject(guide.appState.snapAdjustment)
 			}
 			Button ( action:  {
 				guide.settingsTapped()
@@ -56,6 +70,7 @@ struct GlobalToolbarTrailing: View {
 				Image(systemName: "gearshape")
 					.foregroundColor(.gray)
 			}
+			.disabled(showPopoverAdjustment)
 		}
 	}
 }

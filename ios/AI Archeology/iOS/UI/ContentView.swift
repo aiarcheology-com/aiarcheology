@@ -230,6 +230,9 @@ struct ContentView: View {
 	@State private var showingSettingsForm = false
 	@State private var showErrorAlert = false
 	@State private var errorMessage = ""
+	@State private var brightness = SnapAdjustment.defaultBrightness
+	@State private var contrast = SnapAdjustment.defaultContrast
+	@State private var saturation = SnapAdjustment.defaultSaturation
 
     init() {
         Backports.Appearance
@@ -260,6 +263,21 @@ struct ContentView: View {
 										detectedObservations.removeAll()
 									}
 							)
+							// ---- Apply the image properties to the content -----
+						    // Some lidar/map/orto websites have slightly different brightnes
+						    // which can be compensated by adjusting one of these properties:
+							.onReceive(appState.snapAdjustment.$brightness) { newValue in
+								brightness = newValue
+							}
+							.onReceive(appState.snapAdjustment.$contrast) { newValue in
+								contrast = newValue
+							}
+							.onReceive(appState.snapAdjustment.$saturation) { newValue in
+								saturation = newValue
+							}
+							.brightness(brightness)
+							.contrast(contrast)
+							.saturation(saturation)
 							.environmentObject(appState)
 					},
 					leadingItems: {
