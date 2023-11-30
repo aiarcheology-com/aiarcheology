@@ -18,6 +18,19 @@ struct NewConfigurationView: View {
 	let usedFiles: [URL]
 	let onConfigurationChanged: (URL, UUID) -> Void
 
+	private static let pythonCode = """
+		import coremltools as ct
+
+		# Load the ONNX model
+		onnx_model = ct.onnx.load_model("path_to_your_model.onnx")
+
+		# Convert the model
+		coreml_model = ct.convert(onnx_model, source='onnx')
+
+		# Save the converted model
+		coreml_model.save("your_model.mlmodel")
+	"""
+
 	var body: some View {
 		List {
 			Section {
@@ -49,20 +62,10 @@ struct NewConfigurationView: View {
 
 			Section {
 				Link("Get models on device using Core ML Converters", destination: URL(string: "https://developer.apple.com/videos/play/wwdc2020/10153/")!)
-				Text("""
-					import coremltools as ct
-
-					# Load the ONNX model
-					onnx_model = ct.onnx.load_model("path_to_your_model.onnx")
-
-					# Convert the model
-					coreml_model = ct.convert(onnx_model, source='onnx')
-
-					# Save the converted model
-					coreml_model.save("your_model.mlmodel")
-					""")
+				Text(Self.pythonCode)
 					.font(.system(.body, design: .monospaced))
 					.padding(.vertical)
+					.copiedToClipboard(copiedText: Self.pythonCode, preview: String(Self.pythonCode.prefix(80)))
 			} header: {
 				Text("Python Code to Convert ONNX to Create ML:").font(.headline)
 					.font(.headline)

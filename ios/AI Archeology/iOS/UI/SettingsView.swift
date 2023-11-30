@@ -146,7 +146,7 @@ struct AppDescriptionView: View {
 							.bold()
 						Text("v\(versionString)")
 					}
-					.copiedToClipboard(copiedText: Self.xName)
+					.copiedToClipboard(copiedText: Self.xName, preview: Self.xName)
 					.foregroundColor(.primary)
 				}
 				.fixedSize()
@@ -163,7 +163,7 @@ struct AppDescriptionView: View {
 						Image(systemName: "envelope.fill")
 						Text(emailAddress)
 					}
-					.copiedToClipboard(copiedText: emailAddress)
+					.copiedToClipboard(copiedText: emailAddress, preview: emailAddress)
 				}
 
 				HStack {
@@ -171,7 +171,7 @@ struct AppDescriptionView: View {
 						.foregroundColor(.blue)
 					Link(Self.websiteURL.absoluteString, destination: Self.websiteURL)
 				}
-				.copiedToClipboard(copiedText: Self.websiteURL.absoluteString)
+				.copiedToClipboard(copiedText: Self.websiteURL.absoluteString, preview: Self.websiteURL.absoluteString)
 
 				HStack {
 					Image(templateName: "Twitter")
@@ -181,7 +181,7 @@ struct AppDescriptionView: View {
 						.foregroundColor(.primary)
 					Link(Self.xName, destination: Self.xWebURL)
 				}
-				.copiedToClipboard(copiedText: Self.xName)
+				.copiedToClipboard(copiedText: Self.xName, preview: Self.xName)
 			}
 		}
 		.navigationBarTitle("About", displayMode: .inline)
@@ -197,13 +197,14 @@ struct AppDescriptionView: View {
 
 
 extension View {
-	func copiedToClipboard(copiedText: String) -> some View {
-		self.modifier(CopiedToClipboardModifier(copiedText: copiedText))
+	func copiedToClipboard(copiedText: String, preview: String) -> some View {
+		self.modifier(CopiedToClipboardModifier(copiedText: copiedText, preview: preview))
 	}
 }
 struct CopiedToClipboardModifier: ViewModifier {
 	@State private var showPopover = false
 	var copiedText: String
+	var preview: String
 
 	func body(content: Content) -> some View {
 		content
@@ -215,7 +216,7 @@ struct CopiedToClipboardModifier: ViewModifier {
 				}
 			}
 			.popover(isPresented: $showPopover) {
-				Text("Copied: \(copiedText)")
+				Text("Copied: \(preview)")
 					.padding()
 			}
 	}
