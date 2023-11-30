@@ -61,7 +61,8 @@ struct SideMenuCell: View {
 			Text(configuration.model ?? "")
 			Spacer()
 			Toggle("", isOn: $configuration.enabled)
-			.labelsHidden()
+				.tint(configuration.annotationColor)
+				.labelsHidden()
 		}
 	}
 }
@@ -173,7 +174,7 @@ struct SideMenuView: View {
 					.listStyle(InsetGroupedListStyle()) //TODO: ultraThinMaterial background?
 				}
 				.padding(.top, 30)
-				.frame(width: 270)
+				.frame(width: 300)
             }
 			.background(.ultraThinMaterial)
             Spacer()
