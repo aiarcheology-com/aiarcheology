@@ -163,7 +163,6 @@ struct AppDescriptionView: View {
 						Image(systemName: "envelope.fill")
 						Text(emailAddress)
 					}
-					.copiedToClipboard(copiedText: emailAddress, preview: emailAddress)
 				}
 
 				HStack {
@@ -171,7 +170,6 @@ struct AppDescriptionView: View {
 						.foregroundColor(.blue)
 					Link(Self.websiteURL.absoluteString, destination: Self.websiteURL)
 				}
-				.copiedToClipboard(copiedText: Self.websiteURL.absoluteString, preview: Self.websiteURL.absoluteString)
 
 				HStack {
 					Image(templateName: "Twitter")
@@ -181,7 +179,6 @@ struct AppDescriptionView: View {
 						.foregroundColor(.primary)
 					Link(Self.xName, destination: Self.xWebURL)
 				}
-				.copiedToClipboard(copiedText: Self.xName, preview: Self.xName)
 			}
 		}
 		.navigationBarTitle("About", displayMode: .inline)
@@ -208,12 +205,19 @@ struct CopiedToClipboardModifier: ViewModifier {
 
 	func body(content: Content) -> some View {
 		content
-			.onLongPressGesture {
-				UIPasteboard.general.string = copiedText
-				self.showPopover = true
-				DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-					self.showPopover = false
+			.onLongPressGesture(minimumDuration: 0.5, pressing: { isPressing in
+				if isPressing {
+						// Begin of the gesture
+				} else {
+						// End of the gesture
+					UIPasteboard.general.string = copiedText
+					self.showPopover = true
+					DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+						self.showPopover = false
+					}
 				}
+			}) {
+					// This block is empty to allow the gesture to coexist with others
 			}
 			.popover(isPresented: $showPopover) {
 				Text("Copied: \(preview)")
