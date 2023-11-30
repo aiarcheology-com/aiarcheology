@@ -28,8 +28,8 @@
 			NavigationView {
 				Form {
 						// Detection Section
-					Section(header: Text("Detection")) {
-						Picker("Snapshot Frequency", selection: $settings.snapFrequency) {
+					Section(header: Text("Annotation")) {
+						Picker("Frequency", selection: $settings.snapFrequency) {
 							ForEach(1...10, id: \.self) { second in
 								Text("\(second) second\(second > 1 ? "s" : "")").tag(Double(second))
 							}
@@ -38,13 +38,13 @@
 							guide.ontheflyDetectionResetTapped()
 						}
 
-						Toggle("Restart detection after application start", isOn: $settings.snapAfterAppStart)
+						Toggle("Run At Launch", isOn: $settings.snapAfterAppStart)
 					}
 
 						// Web Content Section
 					Section(header: Text("Web Content")) {
 						HStack {
-							Text("Default Web Page") // Label on the left
+							Text("Default Page") // Label on the left
 							Spacer()
 							TextField(defaultWebPlaceholder, text: Binding(
 								get: { settings.defaultPage?.absoluteString ?? "" },
@@ -59,16 +59,16 @@
 							.multilineTextAlignment(.trailing)
 							.foregroundColor(.gray)
 						}
-						Toggle("Reset browsing history on app restart", isOn: $settings.resetHistory)
+						Toggle("Reset history", isOn: $settings.resetHistory)
 					}
 					Section(header: Text("ML Browser")) {
 						HStack {
-							Text("Reset to Default Settings")
+							Text("Restore defaults")
 							Spacer()
 							Button(action: {
 								showResetWarning = true
 							}) {
-								Text("Reset Application")
+								Text("Restore")
 							}
 							.buttonStyle(PressableButtonStyle(color: resetButtonColor))
 						}
@@ -77,12 +77,12 @@
 						}
 						NavigationLink(destination: AppDescriptionView()) {
 							HStack {
-								Text("About the App")
+								Text("About")
 							}
 						}
 					}
 				}
-				.navigationBarTitle("Settings")
+				.navigationBarTitle("Settings", displayMode: .inline)
 				.navigationBarItems(trailing: Button(action: {
 					do {
 						try settings.validate()
