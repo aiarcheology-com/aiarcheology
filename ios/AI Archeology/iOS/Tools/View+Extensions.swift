@@ -45,10 +45,14 @@ extension View {
 	}
 	func centerInParentView() -> some View {
 		VStack(alignment: .center) {
+			Spacer()
 			HStack(alignment: .center) {
+				Spacer()
 				self
+				Spacer()
 			}
 			.frame(maxWidth: .infinity)
+			Spacer()
 		}
 		.frame(maxWidth: .infinity)
 	}

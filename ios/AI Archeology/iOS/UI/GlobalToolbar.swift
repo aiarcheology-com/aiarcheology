@@ -55,6 +55,7 @@ struct GlobalToolbarTrailing: View {
 				Image(systemName: "pencil.tip.crop.circle")
 					.foregroundColor(.gray)
 			}
+			// TODO: use this https://pspdfkit.com/blog/2022/presenting-popovers-on-iphone-with-swiftui/
 			.popover(isPresented: $showPopoverAdjustment) {
 				SnapAdjustmentView()
 					.padding(20)

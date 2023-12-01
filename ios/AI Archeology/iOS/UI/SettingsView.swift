@@ -132,54 +132,60 @@ struct AppDescriptionView: View {
 	@State private var showCopiedPopover = false
 
 	var body: some View {
-		Form {
-			Section(header: Text("Application")) {
-				HStack(alignment: .center, spacing: 12) {
-					if let image = UIImage(named: appIcon){
-						Image(uiImage: image)
-							.resizable()
-							.aspectRatio(contentMode: .fit)
-							.clipShape(RoundedRectangle(cornerRadius: 8))
-					}
-					VStack(alignment: .leading) {
-						Text("Version (Beta)")
-							.bold()
-						Text("v\(versionString)")
-					}
-					.copiedToClipboard(copiedText: Self.xName, preview: Self.xName)
-					.foregroundColor(.primary)
-				}
-				.fixedSize()
-				.accessibilityElement(children: .ignore)
-				.accessibilityLabel("Version \(versionString)")
-			}
-			Section(header: Text("Contact")) {
-				Button(action: {
-					if let url = URL(string: "mailto:\(emailAddress)") {
-						UIApplication.shared.open(url)
-					}
-				}) {
-					HStack {
-						Image(systemName: "envelope.fill")
-						Text(emailAddress)
-					}
-				}
-
-				HStack {
-					Image(systemName: "globe")
-						.foregroundColor(.blue)
-					Link(Self.websiteURL.absoluteString, destination: Self.websiteURL)
-				}
-
-				HStack {
-					Image(templateName: "Twitter")
-						.resizable()
-						.scaledToFit()
-						.frame(maxWidth: 16, maxHeight: 16)
+		VStack {
+			Form {
+				Section(header: Text("Application")) {
+					HStack(alignment: .center, spacing: 12) {
+						if let image = UIImage(named: appIcon){
+							Image(uiImage: image)
+								.resizable()
+								.aspectRatio(contentMode: .fit)
+								.clipShape(RoundedRectangle(cornerRadius: 8))
+						}
+						VStack(alignment: .leading) {
+							Text("Version (Beta)")
+								.bold()
+							Text("v\(versionString)")
+						}
+						.copiedToClipboard(copiedText: versionString, preview: versionString)
 						.foregroundColor(.primary)
-					Link(Self.xName, destination: Self.xWebURL)
+					}
+					.fixedSize()
+					.accessibilityElement(children: .ignore)
+					.accessibilityLabel("Version \(versionString)")
+				}
+				Section(header: Text("Contact")) {
+					Button(action: {
+						if let url = URL(string: "mailto:\(emailAddress)") {
+							UIApplication.shared.open(url)
+						}
+					}) {
+						HStack {
+							Image(systemName: "envelope.fill")
+							Text(emailAddress)
+						}
+					}
+
+					HStack {
+						Image(systemName: "globe")
+							.foregroundColor(.blue)
+						Link(Self.websiteURL.absoluteString, destination: Self.websiteURL)
+					}
+
+					HStack {
+						Image(templateName: "Twitter")
+							.resizable()
+							.scaledToFit()
+							.frame(maxWidth: 16, maxHeight: 16)
+							.foregroundColor(.primary)
+						Link(Self.xName, destination: Self.xWebURL)
+					}
 				}
 			}
+			Text("In the places of forgotten memories, we see not just a pile of rocks, but the resilient people who once arranged them, often under dramatic circumstances, in the right spot.")
+				.font(.headline)
+				.italic()
+				.centerInParentView()
 		}
 		.navigationBarTitle("About", displayMode: .inline)
 	}

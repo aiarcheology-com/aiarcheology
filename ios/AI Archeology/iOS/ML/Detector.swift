@@ -18,10 +18,11 @@ protocol Driver: Actor {
 
 protocol DeepDriver: Driver {
 	var params: DeepDriverParams { get set }
+	var observations: [VNObservation] { get set }
 	func updateConfiguration(_ newConfiguration: DeepConfiguration) async
 	init(configuration: DeepConfiguration, entityId: UUID) throws // Configuration arg. also contains UUID. But bcs of CoreData it is optional. We want to create a new driver only if the DeepConfiguration is complete, with UUID.
 	func process(image: UIImage) async
-	func run() async -> (error: Error?, observations: [VNObservation])
+	func run() async
 }
 
 extension DeepDriver {
@@ -44,6 +45,7 @@ extension DeepDriver {
 
 enum DetectorError: Error {
 	case loadError
+	case coreModelLoadError
 }
 
 struct DeepDriverParams {
@@ -57,6 +59,8 @@ struct DeepDriverParams {
 actor Detector: DeepDriver {
 	private let internalId: UUID
 	private var objectDetectionModel: VNCoreMLModel?
+	private var detectionRequest: VNCoreMLRequest?
+	internal var observations: [VNObservation] = []
 	private var handler: VNImageRequestHandler?
 	private var ciImage: CIImage?
 	private var mlModel: MLModel?
@@ -93,14 +97,38 @@ actor Detector: DeepDriver {
 	}
 
 	func load(from path: URL) async throws {
+		print("Model loaded from: \(path)")
 		guard let model = try await Self.loadModel(from: path) else {
 			throw DetectorError.loadError
 		}
 		objectDetectionModel = try VNCoreMLModel(for: model)
+		guard let detecionModel = objectDetectionModel else {
+			throw DetectorError.coreModelLoadError
+		}
+		detectionRequest = VNCoreMLRequest(model: detecionModel, completionHandler: { [weak self] request, error in
+			guard let self = self else { return }
+			Task {
+				if let error = error {
+					assert(false, "Object detection request ened up with error \(error)")
+					return
+				}
+				guard let observations = request.results as? [VNRecognizedObjectObservation] else {
+					assert(false, "Can not cast the results to expected VNRecognizedObjectObservation")
+					return
+				}
+				await self.updateDetectionResults(observations: observations)
+			}
+		})
+	}
+
+	private func updateDetectionResults(observations: [VNRecognizedObjectObservation] = []) {
+		self.ciImage = nil
+		self.observations = observations
 	}
 
 	func unload() async {
 		ciImage = nil
+		detectionRequest = nil
 		objectDetectionModel = nil
 	}
 
@@ -110,38 +138,20 @@ actor Detector: DeepDriver {
 		handler = VNImageRequestHandler(ciImage: ciImage)
 	}
 
-	func detect() async -> (error: Error?, observations: [VNRecognizedObjectObservation]) {
-		await withCheckedContinuation { continuation in
-			guard let detectionModel = objectDetectionModel else {
-				continuation.resume(returning: (nil, [])) // TODO: tidy up the returns
-				return
-			}
-			let detectionRequest = VNCoreMLRequest(model: detectionModel, completionHandler: { request, error in
-				if let error = error {
-					assert(false, "Object detection failed: \(error)")
-					continuation.resume(returning: (error, []))
-					return
-				}
-				guard let observations = request.results as? [VNRecognizedObjectObservation] else {
-					continuation.resume(returning: (error, []))
-					return
-				}
+	func detect() async {
+		guard let detectionRequest else {
+			return
+		}
 
-				continuation.resume(returning: (nil, observations))
-				return
-			})
-
-			do {
-				try handler?.perform([detectionRequest])
-			} catch {
-				assert(false, "Failed to perform detection: \(error)")
-				continuation.resume(returning: (nil, []))
-				return
-			}
+		do {
+			try handler?.perform([detectionRequest])
+		} catch {
+			assert(false, "Failed to perform detection: \(error)")
+			return
 		}
 	}
 
-	func run() async -> (error: Error?, observations: [VNObservation]) {
+	func run() async {
 		 await detect()
 	}
 }
@@ -150,6 +160,7 @@ actor Detector: DeepDriver {
 actor Classificator: DeepDriver {
 	internal var params: DeepDriverParams
 	private let internalId: UUID
+	internal var observations: [VNObservation] = []
 
 	func metadata() -> [MLModelMetadataKey : Any]? {
 		[:]
@@ -186,12 +197,11 @@ actor Classificator: DeepDriver {
 	func process(image: UIImage) async {
 	}
 
-	func classify() async -> (error: Error?, observations: [VNClassificationObservation]) {
+	func classify() async {
 		// TODO: TBD
-		return (nil, [])
 	}
 
-	func run() async -> (error: Error?, observations: [VNObservation]) {
+	func run() async {
 		await classify()
 	}
 }
@@ -276,13 +286,12 @@ class DeepDrivers: ObservableObject {
 				}
 				await detector.process(image: image)
 
-				let detectionResults = await detector.detect()
-				let observations = detectionResults.observations
+				await detector.detect()
+				let observations = await detector.observations
 
-				guard
-					detectionResults.error.isNil,
-					observations.isEmpty.not else { continue }  // TODO: log
+				guard observations.isEmpty.not else { continue }  // TODO: log
 
+				guard let observations = observations as? [VNRecognizedObjectObservation] else { continue }
 				let result = await (observations: observations, params: detector.params)
 				await resultsCollector.append(result)
 			}
@@ -304,13 +313,12 @@ class DeepDrivers: ObservableObject {
 				}
 				await classificator.process(image: image)
 
-				let classificationResults = await classificator.classify()
-				let observations = classificationResults.observations
+				await classificator.classify()
+				let observations = await classificator.observations
 
-				guard
-					classificationResults.error.isNil,
-					observations.isEmpty.not else { continue } // TODO: log
+				guard observations.isEmpty.not else { continue } // TODO: log
 
+				guard let observations = observations as? [VNClassificationObservation] else { continue }
 				let result = await (observations: observations, params: classificator.params)
 				await resultsCollector.append(result)
 			}
