@@ -15,7 +15,7 @@ enum AppMode: Int, Codable, Hashable, Identifiable {
     // case camera
 	// case stream
 	// case api
-	static var tabOrder: [AppMode] { [.web, .gallery] }
+	static var tabOrder: [AppMode] { [.web] }
 }
 
 class AppState: ObservableObject {
@@ -55,6 +55,7 @@ enum ValidationError: Error {
 class Settings: ObservableObject, Validatable {
 	unowned var appState: AppState
 	private enum UserDefaultsKeys {
+		static let showIdentifiers = "showIdentifiers"
 		static let snapAfterAppStart = "snapAfterAppStart"
 		static let snapFrequency = "snapFrequency"
 		static let resetHistory = "resetHistory"
@@ -95,6 +96,12 @@ class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	@Published public var showIdentifiers: Bool {
+		didSet {
+			UserDefaults.standard.set(showIdentifiers, forKey: UserDefaultsKeys.showIdentifiers)
+		}
+	}
+
 	@Published public var entityId: UUID? {
 		didSet {
 			UserDefaults.standard.set(entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
@@ -105,6 +112,7 @@ class Settings: ObservableObject, Validatable {
 		self.appState = appState
 
 		let defaultValues: [String: Any] = [
+			UserDefaultsKeys.showIdentifiers: false,
 			UserDefaultsKeys.snapAfterAppStart: false,
 			UserDefaultsKeys.snapFrequency: 3.0,
 			UserDefaultsKeys.resetHistory: false,
@@ -115,6 +123,7 @@ class Settings: ObservableObject, Validatable {
 
 			// Register default values
 		UserDefaults.standard.register(defaults: defaultValues)
+		self.showIdentifiers = UserDefaults.standard.bool(forKey: UserDefaultsKeys.showIdentifiers)
 		self.snapAfterAppStart = UserDefaults.standard.bool(forKey: UserDefaultsKeys.snapAfterAppStart)
 		self.snapFrequency = UserDefaults.standard.double(forKey: UserDefaultsKeys.snapFrequency)
 		self.resetHistory = UserDefaults.standard.bool(forKey: UserDefaultsKeys.resetHistory)
@@ -141,13 +150,15 @@ class Settings: ObservableObject, Validatable {
 	}
 
 	func reset() {
+		self.showIdentifiers = false
 		self.snapAfterAppStart = false
 		self.snapFrequency = 3.0
 		self.resetHistory = false
 		self.defaultPage = URL(string: "https://www.google.com")
 		self.removeAnnotationOnDrag = false
-		self.entityId = UUID()  // Generating a new UUID
+		self.entityId = UUID()
 
+		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.showIdentifiers)
 		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.snapAfterAppStart)
 		UserDefaults.standard.set(3.0, forKey: UserDefaultsKeys.snapFrequency)
 		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.resetHistory)

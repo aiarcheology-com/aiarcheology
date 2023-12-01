@@ -118,6 +118,7 @@ struct ObservationPointView: View {
 	var geometry: GeometryProxy
 	var color: Color
 	var phaseOutTime: CFTimeInterval
+	var showIndentifiers: Bool
 
 	@State private var animate = false
 
@@ -126,17 +127,28 @@ struct ObservationPointView: View {
 		let circleSize: CGFloat = 60
 		let center = CGPoint(x: boundingBox.midX * geometry.size.width,
 							 y: (1 - boundingBox.midY) * geometry.size.height)
-
-		Circle()
-			.fill(color)
-			.frame(width: animate ? circleSize * 1.5 : circleSize, height: animate ? circleSize * 1.5 : circleSize)
-			.opacity(animate ? 0 : 0.5)
-			.position(center)
-			.onAppear {
-				withAnimation(.easeInOut(duration: phaseOutTime)) {
-					animate = true
+		ZStack {
+			if showIndentifiers {
+				HStack {
+					ForEach(observation.labels, id: \.self) { label in
+						Text(" \(label.identifier)|")
+					}
+					.foregroundColor(color)
 				}
+				.position(center)
 			}
+
+			Circle()
+				.fill(color)
+				.frame(width: animate ? circleSize * 1.5 : circleSize, height: animate ? circleSize * 1.5 : circleSize)
+				.opacity(animate ? 0 : 0.5)
+				.position(center)
+				.onAppear {
+					withAnimation(.easeInOut(duration: phaseOutTime)) {
+						animate = true
+					}
+				}
+		}
 	}
 }
 
@@ -145,6 +157,7 @@ struct ObservationRectangleView: View {
 	var geometry: GeometryProxy
 	var color: Color
 	var phaseOutTime: CFTimeInterval
+	var showIndentifiers: Bool
 
 	@State private var animate = false
 
@@ -157,17 +170,29 @@ struct ObservationRectangleView: View {
 			y: (1 - boundingBox.midY) * geometry.size.height
 		)
 
-		Rectangle()
-			.fill(Color.clear)
-			.border(color, width: 4)
-			.opacity(animate ? 0 : 0.5) // Animate opacity
-			.frame(width: size.width, height: size.height)
-			.position(center)
-			.onAppear {
-				withAnimation(.easeInOut(duration: phaseOutTime)) {
-					animate = true
+		VStack {
+			if showIndentifiers {
+				HStack {
+					ForEach(observation.labels, id: \.self) { label in
+						Text(" \(label.identifier)|")
+					}
 				}
+				.foregroundColor(color)
+				.frame(width: size.width)
+				.offset(x: center.x - geometry.size.width / 2, y: center.y - size.height / 2)
 			}
+			Rectangle()
+				.fill(Color.clear)
+				.border(color, width: 4)
+				.opacity(animate ? 0 : 0.5) // Animate opacity
+				.frame(width: size.width, height: size.height)
+				.position(center)
+				.onAppear {
+					withAnimation(.easeInOut(duration: phaseOutTime)) {
+						animate = true
+					}
+				}
+		}
 	}
 }
 
@@ -177,6 +202,7 @@ struct ObservationCircleView: View {
 	var geometry: GeometryProxy
 	var color: Color
 	var phaseOutTime: CFTimeInterval
+	var showIndentifiers: Bool
 
 	@State private var animate = false
 
@@ -188,18 +214,29 @@ struct ObservationCircleView: View {
 			y: (1 - boundingBox.midY) * geometry.size.height
 		)
 
-		Circle()
-			.stroke(color, lineWidth: animate ? 6 : 2)
-			.scaleEffect(animate ? 4 : 1)
-			.opacity(animate ? 0 : 1)
-			.frame(width: 30, height: 30)
-			.position(center)
-			.blur(radius: animate ? 3 : 0) // Apply blur as the circle grows
-			.onAppear {
-				withAnimation(.easeInOut(duration: phaseOutTime)) {
-					animate = true
+		ZStack {
+			if showIndentifiers {
+				HStack {
+					ForEach(observation.labels, id: \.self) { label in
+						Text(" \(label.identifier)|")
+					}
+					.foregroundColor(color)
 				}
+				.position(center)
 			}
+			Circle()
+				.stroke(color, lineWidth: animate ? 6 : 2)
+				.scaleEffect(animate ? 4 : 1)
+				.opacity(animate ? 0 : 1)
+				.frame(width: 30, height: 30)
+				.position(center)
+				.blur(radius: animate ? 3 : 0) // Apply blur as the circle grows
+				.onAppear {
+					withAnimation(.easeInOut(duration: phaseOutTime)) {
+						animate = true
+					}
+				}
+		}
 	}
 }
 
@@ -207,16 +244,17 @@ struct AnnotationViewBuilder: View {
 	var observation: VNRecognizedObjectObservation
 	var geometry: GeometryProxy
 	var params: DeepDriverParams
+	var showIndentifiers: Bool
 
 	var body: some View {
 		Group {
 			switch params.selectedSymbol {
 				case .circle:
-					ObservationCircleView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime)
+					ObservationCircleView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime, showIndentifiers: showIndentifiers)
 				case .square:
-					ObservationRectangleView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime)
+					ObservationRectangleView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime, showIndentifiers: showIndentifiers)
 				case .point:
-					ObservationPointView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime)
+					ObservationPointView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime, showIndentifiers: showIndentifiers)
 			}
 		}
 	}
@@ -255,7 +293,7 @@ struct ContentView: View {
 								}
 							}
 							.annotate(from: detectedObservations, withinFrame: appState.deep.frame) { observation, params, parentFrame, geometry  in
-								AnnotationViewBuilder(observation: observation, geometry: geometry, params: params)
+								AnnotationViewBuilder(observation: observation, geometry: geometry, params: params, showIndentifiers: appState.settings.showIdentifiers)
 							}
 							.gesture( // Reset the annoation when we drag the content
 								DragGesture()
@@ -293,6 +331,7 @@ struct ContentView: View {
 					}
 					.tag(mode)
 				}
+				.toolbar(.hidden, for: .tabBar) // REMOVE this in case of supporting more screens, see AppMode.tabOrder
             }
 			// ----- Side Menu: -----
 			SideMenuLogic {

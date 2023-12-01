@@ -39,6 +39,7 @@
 						}
 
 						Toggle("Run At Launch", isOn: $settings.snapAfterAppStart)
+						Toggle("Show labels", isOn: $settings.showIdentifiers)
 					}
 
 						// Web Content Section
