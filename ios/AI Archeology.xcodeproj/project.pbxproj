@@ -44,8 +44,6 @@
 		8A7740D52B18AEB8002E90D9 /* Image+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740D42B18AEB8002E90D9 /* Image+Extensions.swift */; };
 		8A7740D72B1908DD002E90D9 /* SnapControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740D62B1908DD002E90D9 /* SnapControlView.swift */; };
 		8A7740D92B19299F002E90D9 /* UIImage+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740D82B19299F002E90D9 /* UIImage+Extensions.swift */; };
-		8A7740E02B1A87B3002E90D9 /* AIArcheology.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8A7740DA2B1A7390002E90D9 /* AIArcheology.mlpackage */; };
-		8A7740E12B1A87B3002E90D9 /* HroudaDetector15.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8A7740DB2B1A7391002E90D9 /* HroudaDetector15.mlpackage */; };
 		8A9BB4422B10F3590061246A /* NewConfigurationForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9BB4412B10F3590061246A /* NewConfigurationForm.swift */; };
 		8A9BB4442B10F3990061246A /* DocumentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9BB4432B10F3990061246A /* DocumentPicker.swift */; };
 		8AA9962C2AD9EB6400371EC8 /* Appearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA9962B2AD9EB6400371EC8 /* Appearance.swift */; };
@@ -58,6 +56,8 @@
 		8AE0BC1B2A97B0B40086DDF9 /* AI_ArcheologyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC1A2A97B0B40086DDF9 /* AI_ArcheologyTests.swift */; };
 		8AE0BC252A97B0B40086DDF9 /* AI_ArcheologyUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */; };
 		8AE0BC272A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */; };
+		8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */; };
+		8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */; };
 		8AF06FC42ABCD237001E7B6B /* SideMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF06FC32ABCD237001E7B6B /* SideMenu.swift */; };
 /* End PBXBuildFile section */
 
@@ -117,8 +117,6 @@
 		8A7740D42B18AEB8002E90D9 /* Image+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Image+Extensions.swift"; sourceTree = "<group>"; };
 		8A7740D62B1908DD002E90D9 /* SnapControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapControlView.swift; sourceTree = "<group>"; };
 		8A7740D82B19299F002E90D9 /* UIImage+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Extensions.swift"; sourceTree = "<group>"; };
-		8A7740DA2B1A7390002E90D9 /* AIArcheology.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; name = AIArcheology.mlpackage; path = "../../../../../Documents/AI Archeology/Models/AIArcheology.mlpackage"; sourceTree = "<group>"; };
-		8A7740DB2B1A7391002E90D9 /* HroudaDetector15.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; name = HroudaDetector15.mlpackage; path = "../../../../../Documents/AI Archeology/Models/HroudaDetector15.mlpackage"; sourceTree = "<group>"; };
 		8A9BB4412B10F3590061246A /* NewConfigurationForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewConfigurationForm.swift; sourceTree = "<group>"; };
 		8A9BB4432B10F3990061246A /* DocumentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPicker.swift; sourceTree = "<group>"; };
 		8AA9962B2AD9EB6400371EC8 /* Appearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Appearance.swift; sourceTree = "<group>"; };
@@ -135,6 +133,8 @@
 		8AE0BC202A97B0B40086DDF9 /* AI ArcheologyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "AI ArcheologyUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_ArcheologyUITests.swift; sourceTree = "<group>"; };
 		8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_ArcheologyUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = HroudaDetector15.mlpackage; sourceTree = "<group>"; };
+		8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = AIArcheology.mlpackage; sourceTree = "<group>"; };
 		8AF06FC32ABCD237001E7B6B /* SideMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenu.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -184,8 +184,8 @@
 		8A112CC92AC2BCA600786384 /* ML */ = {
 			isa = PBXGroup;
 			children = (
-				8A7740DA2B1A7390002E90D9 /* AIArcheology.mlpackage */,
-				8A7740DB2B1A7391002E90D9 /* HroudaDetector15.mlpackage */,
+				8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */,
+				8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */,
 				8A112CCA2AC2BCBC00786384 /* Detector.swift */,
 				8A112CD02AC31C0000786384 /* DetectionOverlay.swift */,
 			);
@@ -466,8 +466,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8A7740E02B1A87B3002E90D9 /* AIArcheology.mlpackage in Resources */,
-				8A7740E12B1A87B3002E90D9 /* HroudaDetector15.mlpackage in Resources */,
+				8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */,
+				8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */,
 				8AE0BC0B2A97B0B40086DDF9 /* Preview Assets.xcassets in Resources */,
 				8AE0BC082A97B0B40086DDF9 /* Assets.xcassets in Resources */,
 				8A112CC82AC08BAC00786384 /* lidaLinks.txt in Resources */,
@@ -699,7 +699,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 180;
 				DEVELOPMENT_ASSET_PATHS = "\"AI Archeology/iOS/Assets/Preview Content\"";
 				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				ENABLE_PREVIEWS = YES;
@@ -719,6 +719,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.aiarcheology.ios;
 				PRODUCT_NAME = "ML Browser";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -733,7 +736,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 180;
 				DEVELOPMENT_ASSET_PATHS = "\"AI Archeology/iOS/Assets/Preview Content\"";
 				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				ENABLE_PREVIEWS = YES;
@@ -753,6 +756,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.aiarcheology.ios;
 				PRODUCT_NAME = "ML Browser";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

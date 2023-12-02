@@ -1,0 +1,24 @@
+{
+    "fileFormatVersion": "1.0.0",
+    "itemInfoEntries": {
+        "028E3F99-3374-4553-B2C1-9B3EA862BA57": {
+            "author": "com.apple.CoreML",
+            "description": "CoreML Model Specification",
+            "name": "HroudaDetector 15.mlmodel",
+            "path": "com.apple.CoreML/HroudaDetector 15.mlmodel"
+        },
+        "7C5B8F8C-3A8C-43ED-A4B2-D57DFB70C9B3": {
+            "author": "com.apple.CoreML",
+            "description": "External Metadata Overlay",
+            "name": "Metadata.json",
+            "path": "com.apple.CoreML/Metadata.json"
+        },
+        "8B960522-9BBA-4D84-B408-8A89528B291F": {
+            "author": "com.apple.CoreML",
+            "description": "External FeatureDescription Overlay",
+            "name": "FeatureDescriptions.json",
+            "path": "com.apple.CoreML/FeatureDescriptions.json"
+        }
+    },
+    "rootModelIdentifier": "028E3F99-3374-4553-B2C1-9B3EA862BA57"
+}

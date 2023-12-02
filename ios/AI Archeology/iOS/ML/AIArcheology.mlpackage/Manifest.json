@@ -1,0 +1,24 @@
+{
+    "fileFormatVersion": "1.0.0",
+    "itemInfoEntries": {
+        "63B9B7AC-6816-4507-8BB9-AB97DB002697": {
+            "author": "com.apple.CoreML",
+            "description": "External Metadata Overlay",
+            "name": "Metadata.json",
+            "path": "com.apple.CoreML/Metadata.json"
+        },
+        "7BFDFDE3-1D88-47E2-9DBF-9AD33A2C1BFB": {
+            "author": "com.apple.CoreML",
+            "description": "External FeatureDescription Overlay",
+            "name": "FeatureDescriptions.json",
+            "path": "com.apple.CoreML/FeatureDescriptions.json"
+        },
+        "C71BE69C-57C2-4E1A-A7C1-8352BCA89835": {
+            "author": "com.apple.CoreML",
+            "description": "CoreML Model Specification",
+            "name": "AIArcheology.mlmodel",
+            "path": "com.apple.CoreML/AIArcheology.mlmodel"
+        }
+    },
+    "rootModelIdentifier": "C71BE69C-57C2-4E1A-A7C1-8352BCA89835"
+}

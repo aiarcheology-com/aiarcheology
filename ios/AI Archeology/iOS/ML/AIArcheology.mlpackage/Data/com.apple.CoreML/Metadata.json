@@ -1,0 +1,16 @@
+{
+  "MLModelVersionStringKey" : "1.0.7",
+  "MLModelDescriptionKey" : "Prehistoric Fortifications II",
+  "MLModelCreatorDefinedKey" : {
+    "IoU threshold" : "0.45",
+    "stride" : "32",
+    "Confidence threshold" : "0.25",
+    "task" : "detect",
+    "imgsz" : "[1280, 1280]",
+    "date" : "2023-08-07T16:11:04.179634",
+    "batch" : "1",
+    "names" : "{0: 'f7'}"
+  },
+  "MLModelAuthorKey" : "AI Archeology",
+  "MLModelLicenseKey" : "Copyright © 2023 by AI Archeology"
+}
