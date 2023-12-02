@@ -334,7 +334,7 @@ struct ContentView: View {
 				.toolbar(.hidden, for: .tabBar) // REMOVE this in case of supporting more screens, see AppMode.tabOrder
             }
 			// ----- Side Menu: -----
-			SideMenuLogic {
+			SideMenuLogic(isFirstLaunch: appState.settings.isFirstLaunch) {
 				// Plus button triggered: -> create new configuration
 				appState.deep.newConfiguration = appState.deep.createConfiguration()
 				showingForm = true
@@ -397,6 +397,7 @@ struct ContentView: View {
 }
 
 struct SideMenuLogic: View {
+	var isFirstLaunch: Bool
 	var onAddCell: () -> Void //TODO: observe changes using Guide properties
 	var onSelectCell: (UUID) -> Void //TODO: observe changes using Guide properties
 	@EnvironmentObject var guide: Guide
@@ -404,7 +405,7 @@ struct SideMenuLogic: View {
 
 	var body: some View {
 		SideMenu(presentedSideMenu: $guide.presentedSideMenu) {
-			SideMenuView(selectedConfigurationId: $selectedConfigurationId,
+			SideMenuView(isFirstLaunch: isFirstLaunch, selectedConfigurationId: $selectedConfigurationId,
 						presentedSideMenu: $guide.presentedSideMenu,
 						onAddCell: onAddCell)
 		}

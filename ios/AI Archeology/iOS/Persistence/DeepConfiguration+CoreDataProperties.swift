@@ -2,7 +2,7 @@
 //  DeepConfiguration+CoreDataProperties.swift
 //  AI Archeology
 //
-//  Created by Vladimír Slavík on 29.11.23.
+//  Created by Vladimír Slavík on 01.12.23.
 //
 //
 
@@ -26,6 +26,7 @@ extension DeepConfiguration {
     @NSManaged public var modelType: String?
     @NSManaged public var phaseOutTime: Double
     @NSManaged public var selectedSymbol_: String?
+    @NSManaged public var demo: Bool
 
 }
 

@@ -27,6 +27,84 @@ class AppState: ObservableObject {
 	lazy var dataController = DataController(appState: self)
 	lazy var settings = Settings(appState: self)
 	lazy var snapAdjustment = SnapAdjustment(appState: self)
+
+	init() {
+		if settings.isFirstLaunch {
+			createDemoConfigurations()
+			DeepConfiguration.save(in: dataController.container.viewContext)
+		}
+	}
+
+	func createDemoConfigurations() {
+		loadModelOne()
+		loadModelTwo()
+	}
+
+	private func loadModelOne() {
+		Task {
+			// Warning: models are used as mlmodelc in the bundle when handled from xcode
+			guard let urlInBundle = Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") else {
+				assert(false, "Can not locate the model demo file in the bundle.")
+				return
+			}
+
+			await loadModel(from: urlInBundle)
+		}
+	}
+
+	private func loadModelTwo() {
+		Task {
+			// Warning: models are used as mlmodelc in the bundle when handled from xcode
+			guard let urlInBundle = Bundle.main.url(forResource: "HroudaDetector15", withExtension: "mlmodelc") else {
+				assert(false, "Can not locate the model demo file in the bundle.")
+				return
+			}
+
+			await loadModel(from: urlInBundle)
+		}
+	}
+
+	// TODO: make this nicer, unify with the deep configuration form
+	private func loadModel(from file: URL) async {
+		var urlToPossibleDirectory = file.absoluteString
+		if urlToPossibleDirectory.hasSuffix("/") {
+			urlToPossibleDirectory.removeLast()
+		}
+
+		guard let url = URL(string: urlToPossibleDirectory) else {
+			assert(false, "Error in creating URL from string.")
+			return
+		}
+
+
+		let id = UUID()
+		var detector: MLModel?
+		let demo = true
+
+		do {
+			detector = try await Detector.loadModel(from: url, demo: demo)
+		}
+		catch {
+			assert(false, "Demo detector can not be loaded.")
+			return
+		}
+
+		guard let metadata = detector?.modelDescription.metadata else { return }
+		let parser = MLModelMetadataParser(metadata: metadata)
+
+		let configuration = DeepConfiguration.create(in: dataController.container.viewContext)
+		configuration.demo = true
+		configuration.annotationColor = .yellow
+		configuration.author = parser.value(for: .author) as? String
+		configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
+		configuration.modelType = parser.task
+		configuration.model = parser.value(for: .description) as? String
+		configuration.phaseOutTime = 2
+		configuration.selectedSymbol = .circle
+		configuration.file = url
+		configuration.entityId = id
+		configuration.enabled = false
+	}
 }
 
 class SnapAdjustment: ObservableObject {
@@ -55,6 +133,7 @@ enum ValidationError: Error {
 class Settings: ObservableObject, Validatable {
 	unowned var appState: AppState
 	private enum UserDefaultsKeys {
+		static let isFirstLaunch = "isFirstLaunch"
 		static let showIdentifiers = "showIdentifiers"
 		static let snapAfterAppStart = "snapAfterAppStart"
 		static let snapFrequency = "snapFrequency"
@@ -108,10 +187,17 @@ class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	@Published public var isFirstLaunch: Bool {
+		didSet {
+			UserDefaults.standard.set(isFirstLaunch, forKey: UserDefaultsKeys.isFirstLaunch)
+		}
+	}
+
 	init(appState: AppState) {
 		self.appState = appState
 
 		let defaultValues: [String: Any] = [
+			UserDefaultsKeys.isFirstLaunch: true,
 			UserDefaultsKeys.showIdentifiers: false,
 			UserDefaultsKeys.snapAfterAppStart: false,
 			UserDefaultsKeys.snapFrequency: 3.0,
@@ -123,6 +209,7 @@ class Settings: ObservableObject, Validatable {
 
 			// Register default values
 		UserDefaults.standard.register(defaults: defaultValues)
+		self.isFirstLaunch = UserDefaults.standard.bool(forKey: UserDefaultsKeys.isFirstLaunch)
 		self.showIdentifiers = UserDefaults.standard.bool(forKey: UserDefaultsKeys.showIdentifiers)
 		self.snapAfterAppStart = UserDefaults.standard.bool(forKey: UserDefaultsKeys.snapAfterAppStart)
 		self.snapFrequency = UserDefaults.standard.double(forKey: UserDefaultsKeys.snapFrequency)
@@ -150,6 +237,7 @@ class Settings: ObservableObject, Validatable {
 	}
 
 	func reset() {
+		self.isFirstLaunch = true
 		self.showIdentifiers = false
 		self.snapAfterAppStart = false
 		self.snapFrequency = 3.0
@@ -158,6 +246,7 @@ class Settings: ObservableObject, Validatable {
 		self.removeAnnotationOnDrag = false
 		self.entityId = UUID()
 
+		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.isFirstLaunch)
 		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.showIdentifiers)
 		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.snapAfterAppStart)
 		UserDefaults.standard.set(3.0, forKey: UserDefaultsKeys.snapFrequency)
@@ -245,6 +334,7 @@ class DeepState: ObservableObject {
 		for configuration in allConfigurations() {
 			context.delete(configuration)
 		}
+		DeepConfiguration.save(in: context)
 	}
 
 	func selectConfiguration(_ entityId: UUID) -> DeepConfiguration? {
@@ -356,6 +446,10 @@ class DeepState: ObservableObject {
 				return
 			}
 
+			guard config.demo.not else { 
+				// DO NOT DELETE THE MODEL that is part of the demo
+				return
+			}
 			do {
 				try fileManager.removeItem(atPath: configurationDirectory)
 				print("File successfully deleted")
@@ -612,7 +706,6 @@ class DataController: ObservableObject {
 	static let containerName = "MLBrowser"
 	unowned var appState: AppState
 	private(set) var container = NSPersistentContainer(name: containerName)
-	let settingsContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
 
 	init(appState: AppState) {
 		self.appState = appState
@@ -622,7 +715,6 @@ class DataController: ObservableObject {
 				assert(false)
 			}
 		}
-		settingsContext.parent = container.viewContext
 	}
 }
 

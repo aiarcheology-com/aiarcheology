@@ -27,9 +27,11 @@ protocol DeepDriver: Driver {
 
 extension DeepDriver {
 	@discardableResult
-	static func loadModel(from path: URL) async throws -> MLModel? {
+	static func loadModel(from path: URL, demo: Bool = false) async throws -> MLModel? {
 		let modelConfiguration = MLModelConfiguration()
-		let compiledModelURL = try await MLModel.compileModel(at: path)
+		// the file is already handled by copying resources in Xcode: -> mlmodelc (compiled)
+		let compiledModelURL = demo ? path : try await MLModel.compileModel(at: path)
+
 		return try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
 	}
 	func updateConfiguration(_ newConfiguration: DeepConfiguration) async {
@@ -54,6 +56,7 @@ struct DeepDriverParams {
 	var file: URL?
 	var phaseOutTime: Double = 1.0
 	var selectedSymbol: AnnotationSymbol = .circle
+	var demo: Bool = false
 }
 
 actor Detector: DeepDriver {
@@ -64,7 +67,7 @@ actor Detector: DeepDriver {
 	private var handler: VNImageRequestHandler?
 	private var ciImage: CIImage?
 	private var mlModel: MLModel?
-	private var file: URL?
+
 	internal var params: DeepDriverParams
 
 	nonisolated func id() -> UUID? {
@@ -78,12 +81,14 @@ actor Detector: DeepDriver {
 			entityId: configuration.entityId,
 			file: configuration.file,
 			phaseOutTime: configuration.phaseOutTime,
-			selectedSymbol: configuration.selectedSymbol
+			selectedSymbol: configuration.selectedSymbol,
+			demo: configuration.demo
 		)
 
 		let detectorFileIsDirectory = false
-		guard let file = try? self.params.file?.completePath(to: DeepConfiguration.rootDirectory, isDirectory: detectorFileIsDirectory) else {
-			assert(false, "The DeeepConfiguration.file is not initialised.")
+		let file = params.demo ? params.file : try? params.file?.completePath(to: DeepConfiguration.rootDirectory, isDirectory: detectorFileIsDirectory)
+		guard let file else {
+			assert(false, "The DeeepConfiguration.file is not initialised or can not infer the completePath.")
 			return
 		}
 
@@ -98,7 +103,7 @@ actor Detector: DeepDriver {
 
 	func load(from path: URL) async throws {
 		print("Model loaded from: \(path)")
-		guard let model = try await Self.loadModel(from: path) else {
+		guard let model = try await Self.loadModel(from: path, demo: params.demo) else {
 			throw DetectorError.loadError
 		}
 		objectDetectionModel = try VNCoreMLModel(for: model)

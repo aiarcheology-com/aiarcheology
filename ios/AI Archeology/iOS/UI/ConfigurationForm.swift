@@ -200,6 +200,14 @@ struct ConfigurationForm: View {
 				configuration.entityId = id
 				configuration.enabled = false
 				validateConfiguration()
+				if isValidConfiguration {
+						// This line saves the new configurations.
+						// DeepState creates and registeres the detectors and the SideMenu is updated.
+						// Any time a deep configuration is created/deleted, a new detector is created/deleted.
+					deep.saveConfigurations()
+				} else {
+					assert(false, "Not all data are complete in the new deep configuration.")
+				}
 			}
 		}
 	}

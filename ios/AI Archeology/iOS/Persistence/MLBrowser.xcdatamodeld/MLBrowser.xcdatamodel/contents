@@ -4,6 +4,7 @@
         <attribute name="annotationColor_" optional="YES" attributeType="Binary"/>
         <attribute name="author" optional="YES" attributeType="String"/>
         <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="demo" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="enabled" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="entityId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="file" optional="YES" attributeType="URI"/>

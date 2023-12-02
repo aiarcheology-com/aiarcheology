@@ -97,6 +97,7 @@ struct SideMenu<Content: View>: View {
 }
 
 struct SideMenuView: View {
+	var isFirstLaunch: Bool
 	@Environment(\.managedObjectContext) var moc
 	@FetchRequest(
 		entity: DeepConfiguration.entity(),
@@ -138,7 +139,7 @@ struct SideMenuView: View {
 					List {
 						Section("Available Models") {
 							Group {
-								if(configurations.isEmpty) {
+								if(configurations.isEmpty && isFirstLaunch.not) {
 									VStack {
 										Spacer()
 										Text("Tap the ＋ icon to add a new model.")
@@ -146,16 +147,24 @@ struct SideMenuView: View {
 										Spacer()
 									}
 								} else {
+									if isFirstLaunch {
+										VStack {
+											Spacer()
+											Text("Tap the ＋ icon to add a new model.")
+												.foregroundColor(.gray)
+											Spacer()
+										}
+									}
 									ForEach(Array(configurations.enumerated()), id: \.offset) { index, configuration in
-											Button {
-												selectedConfigurationId = configuration.entityId
-											} label: {
-												SideMenuCell()
-													.environmentObject(configuration)
-													.onChange(of: configuration.enabled) { value in
-														DeepConfiguration.save(in: moc)
-													}
-											}
+										Button {
+											selectedConfigurationId = configuration.entityId
+										} label: {
+											SideMenuCell()
+												.environmentObject(configuration)
+												.onChange(of: configuration.enabled) { value in
+													DeepConfiguration.save(in: moc)
+												}
+										}
 									}
 									.onDelete { offsets in
 										for index in offsets {

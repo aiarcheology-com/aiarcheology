@@ -183,7 +183,7 @@ struct AppDescriptionView: View {
 					}
 				}
 			}
-			Text("In the places of forgotten memories, we see not just a pile of rocks, but the resilient people who once arranged them, often under dramatic circumstances, in the right spot.")
+			Text("In the places of forgotten memories, we see not just piles of rocks, but the resilient people who once arranged the rocks in the right spot, often under dramatic circumstances.")
 				.font(.headline)
 				.italic()
 				.centerInParentView()

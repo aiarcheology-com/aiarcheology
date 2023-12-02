@@ -15,7 +15,6 @@
 		8A112CC82AC08BAC00786384 /* lidaLinks.txt in Resources */ = {isa = PBXBuildFile; fileRef = 8A112CC72AC08BAC00786384 /* lidaLinks.txt */; };
 		8A112CCB2AC2BCBC00786384 /* Detector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CCA2AC2BCBC00786384 /* Detector.swift */; };
 		8A112CCD2AC30E3E00786384 /* View+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CCC2AC30E3E00786384 /* View+Extensions.swift */; };
-		8A112CCF2AC3191200786384 /* AIArcheology.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CCE2AC3191200786384 /* AIArcheology.mlmodel */; };
 		8A112CD12AC31C0000786384 /* DetectionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CD02AC31C0000786384 /* DetectionOverlay.swift */; };
 		8A13280F2AF142C600F119C6 /* WebScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A13280E2AF142C600F119C6 /* WebScreen.swift */; };
 		8A1328112AF142FF00F119C6 /* GalleryScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1328102AF142FF00F119C6 /* GalleryScreen.swift */; };
@@ -45,6 +44,8 @@
 		8A7740D52B18AEB8002E90D9 /* Image+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740D42B18AEB8002E90D9 /* Image+Extensions.swift */; };
 		8A7740D72B1908DD002E90D9 /* SnapControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740D62B1908DD002E90D9 /* SnapControlView.swift */; };
 		8A7740D92B19299F002E90D9 /* UIImage+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740D82B19299F002E90D9 /* UIImage+Extensions.swift */; };
+		8A7740E02B1A87B3002E90D9 /* AIArcheology.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8A7740DA2B1A7390002E90D9 /* AIArcheology.mlpackage */; };
+		8A7740E12B1A87B3002E90D9 /* HroudaDetector15.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8A7740DB2B1A7391002E90D9 /* HroudaDetector15.mlpackage */; };
 		8A9BB4422B10F3590061246A /* NewConfigurationForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9BB4412B10F3590061246A /* NewConfigurationForm.swift */; };
 		8A9BB4442B10F3990061246A /* DocumentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9BB4432B10F3990061246A /* DocumentPicker.swift */; };
 		8AA9962C2AD9EB6400371EC8 /* Appearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA9962B2AD9EB6400371EC8 /* Appearance.swift */; };
@@ -87,7 +88,6 @@
 		8A112CC72AC08BAC00786384 /* lidaLinks.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = lidaLinks.txt; sourceTree = "<group>"; };
 		8A112CCA2AC2BCBC00786384 /* Detector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detector.swift; sourceTree = "<group>"; };
 		8A112CCC2AC30E3E00786384 /* View+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+Extensions.swift"; sourceTree = "<group>"; };
-		8A112CCE2AC3191200786384 /* AIArcheology.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = AIArcheology.mlmodel; sourceTree = "<group>"; };
 		8A112CD02AC31C0000786384 /* DetectionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionOverlay.swift; sourceTree = "<group>"; };
 		8A13280E2AF142C600F119C6 /* WebScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebScreen.swift; sourceTree = "<group>"; };
 		8A1328102AF142FF00F119C6 /* GalleryScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryScreen.swift; sourceTree = "<group>"; };
@@ -117,6 +117,8 @@
 		8A7740D42B18AEB8002E90D9 /* Image+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Image+Extensions.swift"; sourceTree = "<group>"; };
 		8A7740D62B1908DD002E90D9 /* SnapControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapControlView.swift; sourceTree = "<group>"; };
 		8A7740D82B19299F002E90D9 /* UIImage+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Extensions.swift"; sourceTree = "<group>"; };
+		8A7740DA2B1A7390002E90D9 /* AIArcheology.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; name = AIArcheology.mlpackage; path = "../../../../../Documents/AI Archeology/Models/AIArcheology.mlpackage"; sourceTree = "<group>"; };
+		8A7740DB2B1A7391002E90D9 /* HroudaDetector15.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; name = HroudaDetector15.mlpackage; path = "../../../../../Documents/AI Archeology/Models/HroudaDetector15.mlpackage"; sourceTree = "<group>"; };
 		8A9BB4412B10F3590061246A /* NewConfigurationForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewConfigurationForm.swift; sourceTree = "<group>"; };
 		8A9BB4432B10F3990061246A /* DocumentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPicker.swift; sourceTree = "<group>"; };
 		8AA9962B2AD9EB6400371EC8 /* Appearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Appearance.swift; sourceTree = "<group>"; };
@@ -182,7 +184,8 @@
 		8A112CC92AC2BCA600786384 /* ML */ = {
 			isa = PBXGroup;
 			children = (
-				8A112CCE2AC3191200786384 /* AIArcheology.mlmodel */,
+				8A7740DA2B1A7390002E90D9 /* AIArcheology.mlpackage */,
+				8A7740DB2B1A7391002E90D9 /* HroudaDetector15.mlpackage */,
 				8A112CCA2AC2BCBC00786384 /* Detector.swift */,
 				8A112CD02AC31C0000786384 /* DetectionOverlay.swift */,
 			);
@@ -463,6 +466,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8A7740E02B1A87B3002E90D9 /* AIArcheology.mlpackage in Resources */,
+				8A7740E12B1A87B3002E90D9 /* HroudaDetector15.mlpackage in Resources */,
 				8AE0BC0B2A97B0B40086DDF9 /* Preview Assets.xcassets in Resources */,
 				8AE0BC082A97B0B40086DDF9 /* Assets.xcassets in Resources */,
 				8A112CC82AC08BAC00786384 /* lidaLinks.txt in Resources */,
@@ -516,7 +521,6 @@
 				8A13281F2AF265DE00F119C6 /* GlobalToolbar.swift in Sources */,
 				8A13282A2B052C7900F119C6 /* ConfigurationForm.swift in Sources */,
 				8A13280F2AF142C600F119C6 /* WebScreen.swift in Sources */,
-				8A112CCF2AC3191200786384 /* AIArcheology.mlmodel in Sources */,
 				8A1D49BB2ABB87D500C2D7C1 /* PhotoPicker.swift in Sources */,
 				8A112CC42AC0852B00786384 /* String+Extensions.swift in Sources */,
 				8AE0BC062A97B0B30086DDF9 /* ContentView.swift in Sources */,
