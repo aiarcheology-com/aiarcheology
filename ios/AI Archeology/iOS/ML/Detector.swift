@@ -32,7 +32,14 @@ extension DeepDriver {
 		// the file is already handled by copying resources in Xcode: -> mlmodelc (compiled)
 		let compiledModelURL = demo ? path : try await MLModel.compileModel(at: path)
 
-		return try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
+		do {
+			return try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
+		}
+		catch let error {
+			print("Error while loading the MLModel: \(error)")
+		}
+
+		return nil
 	}
 	func updateConfiguration(_ newConfiguration: DeepConfiguration) async {
 		self.params = DeepDriverParams(
@@ -86,14 +93,24 @@ actor Detector: DeepDriver {
 		)
 
 		let detectorFileIsDirectory = false
-		let file = params.demo ? params.file : try? params.file?.completePath(to: DeepConfiguration.rootDirectory, isDirectory: detectorFileIsDirectory)
-		guard let file else {
+
+		var modelFile = try? params.file?.completePath(to: DeepConfiguration.rootDirectory, isDirectory: detectorFileIsDirectory)
+		if
+			params.demo.enabled,
+			let paramsFile = params.file,
+			// Because the simulator changes the app path:
+			let demoFileUrl = Bundle.main.url(forResource: paramsFile.deletingPathExtension().lastPathComponent,
+											 withExtension: paramsFile.pathExtension) {
+			modelFile = demoFileUrl
+		}
+
+		guard let modelFile else {
 			assert(false, "The DeeepConfiguration.file is not initialised or can not infer the completePath.")
 			return
 		}
 
 		Task {
-			try await self.load(from: file)
+			try await self.load(from: modelFile)
 		}
 	}
 
@@ -102,11 +119,12 @@ actor Detector: DeepDriver {
 	}
 
 	func load(from path: URL) async throws {
-		print("Model loaded from: \(path)")
 		guard let model = try await Self.loadModel(from: path, demo: params.demo) else {
 			throw DetectorError.loadError
 		}
+		print("Model loaded from: \(path)")
 		objectDetectionModel = try VNCoreMLModel(for: model)
+		print("objectDetectionModel created from: \(model)")
 		guard let detecionModel = objectDetectionModel else {
 			throw DetectorError.coreModelLoadError
 		}
@@ -124,6 +142,7 @@ actor Detector: DeepDriver {
 				await self.updateDetectionResults(observations: observations)
 			}
 		})
+		print("detectionRequest created from: \(detecionModel)")
 	}
 
 	private func updateDetectionResults(observations: [VNRecognizedObjectObservation] = []) {
@@ -145,6 +164,7 @@ actor Detector: DeepDriver {
 
 	func detect() async {
 		guard let detectionRequest else {
+			assert(false, "The detection request has not been initialised.")
 			return
 		}
 

@@ -16,11 +16,6 @@ struct MLBrowser: App {
             ContentView()
                 .environmentObject(appState)
 				.environment(\.managedObjectContext, appState.dataController.container.viewContext)
-				.onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { output in
-					// TODO: Possibly treat the case with the app reset. But for now the user has to reinstall the app,
-					// if he wants to use e.g. the demo models.
-					appState.settings.isFirstLaunch = false
-				}
         }
     }
 }

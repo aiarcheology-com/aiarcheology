@@ -36,6 +36,7 @@
 		8A1D49BF2ABB87D500C2D7C1 /* ColumnStepper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B52ABB87D500C2D7C1 /* ColumnStepper.swift */; };
 		8A1D49C02ABB87D500C2D7C1 /* DataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B62ABB87D500C2D7C1 /* DataModel.swift */; };
 		8A1D49C12ABB87D500C2D7C1 /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B72ABB87D500C2D7C1 /* Item.swift */; };
+		8A4256DE2B1D3090009153B1 /* WebCacheCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256DD2B1D3090009153B1 /* WebCacheCleaner.swift */; };
 		8A51D1BB2B0B1EA400D2417C /* MLBrowser.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 8A51D1B92B0B1EA400D2417C /* MLBrowser.xcdatamodeld */; };
 		8A51D1BE2B0B98E300D2417C /* DeepConfiguration+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A51D1BC2B0B98E200D2417C /* DeepConfiguration+CoreDataClass.swift */; };
 		8A51D1BF2B0B98E300D2417C /* DeepConfiguration+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A51D1BD2B0B98E200D2417C /* DeepConfiguration+CoreDataProperties.swift */; };
@@ -113,6 +114,7 @@
 		8A1D49B52ABB87D500C2D7C1 /* ColumnStepper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ColumnStepper.swift; sourceTree = "<group>"; };
 		8A1D49B62ABB87D500C2D7C1 /* DataModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DataModel.swift; sourceTree = "<group>"; };
 		8A1D49B72ABB87D500C2D7C1 /* Item.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
+		8A4256DD2B1D3090009153B1 /* WebCacheCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebCacheCleaner.swift; sourceTree = "<group>"; };
 		8A51D1BA2B0B1EA400D2417C /* MLBrowser.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = MLBrowser.xcdatamodel; sourceTree = "<group>"; };
 		8A51D1BC2B0B98E200D2417C /* DeepConfiguration+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DeepConfiguration+CoreDataClass.swift"; sourceTree = "<group>"; };
 		8A51D1BD2B0B98E200D2417C /* DeepConfiguration+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DeepConfiguration+CoreDataProperties.swift"; sourceTree = "<group>"; };
@@ -277,6 +279,7 @@
 			children = (
 				8A112CBC2ABEE5B200786384 /* DebouncedInput.swift */,
 				8AC7CDEC2AE7FCED00871074 /* State.swift */,
+				8A4256DD2B1D3090009153B1 /* WebCacheCleaner.swift */,
 			);
 			path = State;
 			sourceTree = "<group>";
@@ -518,6 +521,7 @@
 				8A9BB4422B10F3590061246A /* NewConfigurationForm.swift in Sources */,
 				8A1D49BF2ABB87D500C2D7C1 /* ColumnStepper.swift in Sources */,
 				8A51D1BF2B0B98E300D2417C /* DeepConfiguration+CoreDataProperties.swift in Sources */,
+				8A4256DE2B1D3090009153B1 /* WebCacheCleaner.swift in Sources */,
 				8A1328192AF143A400F119C6 /* Screen.swift in Sources */,
 				8A7740CD2B1682F5002E90D9 /* SettingsView.swift in Sources */,
 				8A1D49BE2ABB87D500C2D7C1 /* DetailView.swift in Sources */,

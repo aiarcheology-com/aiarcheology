@@ -334,7 +334,7 @@ struct ContentView: View {
 				.toolbar(.hidden, for: .tabBar) // REMOVE this in case of supporting more screens, see AppMode.tabOrder
             }
 			// ----- Side Menu: -----
-			SideMenuLogic(isFirstLaunch: appState.settings.isFirstLaunch) {
+			SideMenuLogic(isFirstLaunch: appState.settings.isFirstLaunchMarked) {
 				// Plus button triggered: -> create new configuration
 				appState.deep.newConfiguration = appState.deep.createConfiguration()
 				showingForm = true

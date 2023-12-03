@@ -45,15 +45,16 @@ import Vision
 struct WebScreenView: View {
 	@Environment(\.managedObjectContext) var moc
 	@FetchRequest(
-		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: true)],
+		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: false)],
 		predicate: NSPredicate(format: "entityId != nil AND page != nil AND creationDate_ != nil"),
 		animation: .default)
 	private var history: FetchedResults<WebHistoryEntry>
 	@EnvironmentObject var appState: AppState
-	@State private var websiteUrl: String = "https://ags.cuzk.cz/av/?extent=-831332.9688214378,-1117345.0500381005,-639820.6497967998,-1016468.2402844809&zvd=dmr5g&rf=GrayscaleHillshade&o=0"
+	@State private var websiteUrl: String = "https://www.google.com"
 	@State private var isWebsiteLoading: Bool = false
 	@State private var inputUrl: String = ""
 	@State private var showMenu: Bool = false
+	@State private var hasPerformedInitialAction = false
 
 var body: some View {
 	// Passing appState.webViewRenderer as arg to be able to check, because:
@@ -61,6 +62,22 @@ var body: some View {
 	SnapableGroup(renderer: appState.webViewRenderer, publisher: appState.snap.combinedPublishers) {
 		MLWebView(websiteUrl) { loading, error in
 				print("loading status : \(loading)")
+			}
+		}
+		.onAppear() {
+			if hasPerformedInitialAction.not {
+				hasPerformedInitialAction = true
+				if 
+					appState.settings.reopenLastPage.enabled,
+					let lastPage = history.first?.page?.absoluteString {
+					inputUrl = lastPage
+					self.websiteUrl = inputUrl
+				} else {
+					guard let defaultPage = appState.settings.defaultPage?.absoluteString else { return }
+					inputUrl = defaultPage
+					self.websiteUrl = inputUrl
+					createWebHistoryEntry(inputUrl)
+				}
 			}
 		}
 		.environmentObject(appState.webViewRenderer)
@@ -75,12 +92,28 @@ var body: some View {
 				})
 				.contextMenu {
 					if showMenu {
-						ForEach(history, id: \.self){ entry in
-							Button(entry.page?.host(percentEncoded: false) ?? "Unknown URL") {
-								guard let page = entry.page else {
-									assert(false, "The page property of the WebHistoryEntry is nil.")
+						ForEach(Array(history), id: \.self){ entry in
+							HStack {
+								Button(entry.page?.host(percentEncoded: false) ?? "Unknown URL") {
+									guard let page = entry.page else {
+										assert(false, "The page property of the WebHistoryEntry is nil.")
+									}
+									inputUrl = page.absoluteString
+									self.websiteUrl = inputUrl
+									entry.creationDate_ = .now
+									WebHistoryEntry.save(in: appState.dataController.container.viewContext)
 								}
-								appState.guide.openPage(page)
+								// Shows the tags of the entries:
+//								Spacer()
+//								HStack {
+//									ForEach(entry.tagsArray, id: \.self) { tag in
+//										Text(tag.identifier ?? "")
+//											.padding()
+//											.background(Color.blue)
+//											.foregroundColor(.white)
+//											.cornerRadius(10) //
+//									}
+//								}
 							}
 						}
 					}
@@ -90,29 +123,30 @@ var body: some View {
 				.disableAutocorrection(true)
 				.onSubmit(of: .text, {
 					self.websiteUrl = inputUrl
-					guard inputUrl.browserInputType == .url else { return }
-
-					let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: moc)
-					newHistorEntry.bookmarked = false
-					newHistorEntry.creationDate_ = .now
-					newHistorEntry.entityId = UUID()
-					newHistorEntry.page = URL(string:websiteUrl.withHTTPS)
-					do {
-						try newHistorEntry.validateForInsert()
-					}
-					catch let error {
-						moc.delete(newHistorEntry)
-						assert(false, "The new web history entry is not valid and can not be stored \(error)" )
-						return
-					}
-					WebHistoryEntry.save(in: moc)
+					guard inputUrl.browserInputType == .url else { return } // do not store search terms
+					createWebHistoryEntry(inputUrl)
 				})
-				.onReceive(appState.guide.$pageToOpen) { page in
-					guard let pageString = page?.absoluteString else { return }
-					self.websiteUrl = pageString
-				}
 			}
 		}
+	}
+
+	private func createWebHistoryEntry(_ urlString: String) {
+		guard history.contains(where: { $0.page?.absoluteString == urlString }).not else { return }
+
+		let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: moc)
+		newHistorEntry.bookmarked = false
+		newHistorEntry.creationDate_ = .now
+		newHistorEntry.entityId = UUID()
+		newHistorEntry.page = URL(string:websiteUrl.withHTTPS)
+		do {
+			try newHistorEntry.validateForInsert()
+		}
+		catch let error {
+			WebHistoryEntry.delete(newHistorEntry, in: moc)
+			assert(false, "The new web history entry is not valid and can not be stored \(error)" )
+			return
+		}
+		WebHistoryEntry.save(in: moc)
 	}
 }
 

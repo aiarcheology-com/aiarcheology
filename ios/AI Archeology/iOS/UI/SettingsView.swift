@@ -14,6 +14,7 @@
 		@State private var defaultWebPlaceholder: String = "www.google.com"
 		@State private var validationErrorMessage: String?
 		@State private var resetButtonColor: Color = .red
+		@State private var cleanCacheButtonColor: Color = .red
 		@State private var showResetWarning = false
 
 		var mergedObservable: [String] {[
@@ -60,13 +61,38 @@
 							.multilineTextAlignment(.trailing)
 							.foregroundColor(.gray)
 						}
+						Toggle("Reopen Last Page", isOn: $settings.reopenLastPage)
 						NavigationLink(destination: BrowserHistoryView()) {
 							HStack {
 								Text("History")
 							}
 						}
+						HStack {
+							Text("Delete Cache")
+							Spacer()
+							Button(action: {
+								WebCacheCleaner.clean()
+								cleanCacheButtonColor = .blue
+							}) {
+								Text("Delete")
+							}
+							.buttonStyle(PressableButtonStyle(color: cleanCacheButtonColor))
+						}
+						.onChange(of: settings.applicationResetButtonToggle) { reseted in
+							resetButtonColor = .blue
+						}
 					}
 					Section(header: Text("ML Browser")) {
+						NavigationLink(destination: AppDescriptionView()) {
+							HStack {
+								Text("About")
+							}
+						}
+						NavigationLink(destination: AppDescriptionView()) {
+							HStack {
+								Text("Help")
+							}
+						}
 						HStack {
 							Text("Restore Defaults")
 							Spacer()
@@ -79,16 +105,6 @@
 						}
 						.onChange(of: settings.applicationResetButtonToggle) { reseted in
 							resetButtonColor = .blue
-						}
-						NavigationLink(destination: AppDescriptionView()) {
-							HStack {
-								Text("About")
-							}
-						}
-						NavigationLink(destination: AppDescriptionView()) {
-							HStack {
-								Text("Help")
-							}
 						}
 					}
 				}

@@ -29,15 +29,56 @@ class AppState: ObservableObject {
 	lazy var snapAdjustment = SnapAdjustment(appState: self)
 
 	init() {
+		createDemo()
+	}
+
+	func createDemo() {
 		if settings.isFirstLaunch {
+			settings.isFirstLaunchMarked = true
+			settings.isFirstLaunch = false
 			createDemoConfigurations()
-			DeepConfiguration.save(in: dataController.container.viewContext)
+			createBrowsingHistory()
 		}
 	}
 
 	func createDemoConfigurations() {
 		loadModelOne()
 		loadModelTwo()
+	}
+
+	func createBrowsingHistory() {
+		let history = WebHistoryEntry.getAll(in: dataController.container.viewContext)
+		guard history.isEmpty, settings.isFirstLaunchMarked else { return }
+
+		let pages: [String] = [
+			"https://ags.cuzk.cz/av/?zvd=dmr5g&rf=GrayscaleHillshade&o=0",
+			"https://windrosen.hessen.de/mapapps/resources/apps/windrosen/index.html?lang=en&vm=2D&s=1500000&r=0&c=550000%2C5595000&bm=orthofotos_schummerung",
+			"https://zbgis.skgeodesy.sk/mkzbgis/sk/teren",
+			"https://geoportal.bayern.de/bayernatlas/?topic=ba&lang=de&bgLayer=voidLayer&zoom=3&w=100%25&h=500px&E=651597.27&N=5461429.48&layers=KML%7C%7Chttps:%2F%2Fwww.geodaten.bayern.de%2Fdownload%2Fuebersicht_DGM%2FLaserscanningbefliegungen.kml%7C%7Ctrue,relief_t&catalogNodes=11,12,121&layers_visibility=false,true",
+			"https://www.geoland.at/webgisviewer/geoland/map/Geoland_Viewer/Geoland?fbclid=IwAR3hGN0L39GRBEXx1rfdBjo_M5HthBjurMS6fR50JnEJ1aDJ2pmblfTGHoo",
+			"https://houseprices.io/lab/lidar/map"
+
+		]
+
+		pages.forEach { page in
+			let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: dataController.container.viewContext)
+			newHistorEntry.bookmarked = false
+			newHistorEntry.creationDate_ = .now
+			newHistorEntry.entityId = UUID()
+			newHistorEntry.page = URL(string:page)
+			do {
+				try newHistorEntry.validateForInsert()
+			}
+			catch let error {
+				WebHistoryEntry.delete(newHistorEntry, in: dataController.container.viewContext)
+				assert(false, "The new web history entry is not valid and can not be stored \(error)" )
+				return
+			}
+
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+				WebHistoryEntry.save(in: self.dataController.container.viewContext)
+			}
+		}
 	}
 
 	private func loadModelOne() {
@@ -101,9 +142,12 @@ class AppState: ObservableObject {
 		configuration.model = parser.value(for: .description) as? String
 		configuration.phaseOutTime = 2
 		configuration.selectedSymbol = .circle
-		configuration.file = url
+		configuration.file = URL(string: url.lastPathComponent)
 		configuration.entityId = id
 		configuration.enabled = false
+		DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+			DeepConfiguration.save(in: self.dataController.container.viewContext)
+		}
 	}
 }
 
@@ -133,6 +177,7 @@ enum ValidationError: Error {
 class Settings: ObservableObject, Validatable {
 	unowned var appState: AppState
 	private enum UserDefaultsKeys {
+		static let reopenLastPage = "reopenLastPage"
 		static let isFirstLaunch = "isFirstLaunch"
 		static let showIdentifiers = "showIdentifiers"
 		static let snapAfterAppStart = "snapAfterAppStart"
@@ -143,6 +188,8 @@ class Settings: ObservableObject, Validatable {
 		static let entityId = "entityId"
 	}
 
+	public var isFirstLaunchMarked: Bool = false
+
 	@Published public var applicationResetButtonToggle: Bool = false
 
 	@Published public var snapAfterAppStart: Bool {
@@ -150,6 +197,13 @@ class Settings: ObservableObject, Validatable {
 			UserDefaults.standard.set(snapAfterAppStart, forKey: UserDefaultsKeys.snapAfterAppStart)
 		}
 	}
+
+	@Published public var reopenLastPage: Bool {
+		didSet {
+			UserDefaults.standard.set(reopenLastPage, forKey: UserDefaultsKeys.reopenLastPage)
+		}
+	}
+
 
 	@Published public var snapFrequency: Double {
 		didSet {
@@ -187,7 +241,7 @@ class Settings: ObservableObject, Validatable {
 		}
 	}
 
-	@Published public var isFirstLaunch: Bool {
+	@Published public var isFirstLaunch: Bool { // is being reseted in MLBrowser
 		didSet {
 			UserDefaults.standard.set(isFirstLaunch, forKey: UserDefaultsKeys.isFirstLaunch)
 		}
@@ -197,6 +251,7 @@ class Settings: ObservableObject, Validatable {
 		self.appState = appState
 
 		let defaultValues: [String: Any] = [
+			UserDefaultsKeys.reopenLastPage: false,
 			UserDefaultsKeys.isFirstLaunch: true,
 			UserDefaultsKeys.showIdentifiers: false,
 			UserDefaultsKeys.snapAfterAppStart: false,
@@ -209,6 +264,7 @@ class Settings: ObservableObject, Validatable {
 
 			// Register default values
 		UserDefaults.standard.register(defaults: defaultValues)
+		self.reopenLastPage = UserDefaults.standard.bool(forKey: UserDefaultsKeys.reopenLastPage)
 		self.isFirstLaunch = UserDefaults.standard.bool(forKey: UserDefaultsKeys.isFirstLaunch)
 		self.showIdentifiers = UserDefaults.standard.bool(forKey: UserDefaultsKeys.showIdentifiers)
 		self.snapAfterAppStart = UserDefaults.standard.bool(forKey: UserDefaultsKeys.snapAfterAppStart)
@@ -237,6 +293,8 @@ class Settings: ObservableObject, Validatable {
 	}
 
 	func reset() {
+		self.reopenLastPage = false
+		self.isFirstLaunchMarked = false
 		self.isFirstLaunch = true
 		self.showIdentifiers = false
 		self.snapAfterAppStart = false
@@ -246,7 +304,8 @@ class Settings: ObservableObject, Validatable {
 		self.removeAnnotationOnDrag = false
 		self.entityId = UUID()
 
-		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.isFirstLaunch)
+		UserDefaults.standard.set(true, forKey: UserDefaultsKeys.reopenLastPage)
+		UserDefaults.standard.set(true, forKey: UserDefaultsKeys.isFirstLaunch)
 		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.showIdentifiers)
 		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.snapAfterAppStart)
 		UserDefaults.standard.set(3.0, forKey: UserDefaultsKeys.snapFrequency)
@@ -578,10 +637,6 @@ class Guide: ObservableObject {
 		self.appState = appState
 	}
 
-	func openPage(_ url: URL) {
-		pageToOpen = url
-	}
-
 	func togglingSideMenu() {
 		presentedSideMenu.toggle()
 	}
@@ -613,6 +668,10 @@ class Guide: ObservableObject {
 		appState.deep.reset()
 		appState.settings.reset()
 		appState.settings.applicationResetButtonToggle.toggle()
+		DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+			guard let self else { return }
+			self.appState.createDemo()
+		}
 	}
 }
 
@@ -637,6 +696,7 @@ class SnapState: ObservableObject {
 		guard timerCancellable.isNil else { return }
 
 			// Start the timer and handle its events by sending them to timerTrigger
+		self.timerTrigger.send() // start immediately
 		timerCancellable = Timer.publish(every: appState.settings.snapFrequency, on: .main, in: .common)
 			.autoconnect()
 			.sink { [weak self] _ in
@@ -739,6 +799,7 @@ protocol CoreDataManageable where Self: NSManagedObject {
 	static func create(in context: NSManagedObjectContext) -> Self
 	static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: (Self) -> Void)
 	static func delete(_ entityId: UUID, in context: NSManagedObjectContext)
+	static func delete(_ entity: Self, in context: NSManagedObjectContext)
 	static func select(_ entityId: UUID, in context: NSManagedObjectContext) -> Self?
 	static func save(in context: NSManagedObjectContext)
 }
@@ -774,9 +835,13 @@ extension CoreDataManageable where Self: NSManagedObject {
 				try context.save()
 			} catch let error as NSError {
 				print("CoreData save error: \(error)")
-				// objects, that are not valid, do not save
+					// objects, that are not valid, do not save
 			}
 		}
+	}
+
+	static func delete(_ entity: Self, in context: NSManagedObjectContext) {
+		context.delete(entity)
 	}
 
 	static func delete(_ entityId: UUID, in context: NSManagedObjectContext) {
@@ -826,6 +891,12 @@ extension CoreDataManageable where Self: NSManagedObject {
 }
 
 extension WebHistoryEntry: CoreDataManageable {
+	public var tagsArray: [Tag] {
+		guard let tags else {
+			return []
+		}
+		return Array(_immutableCocoaArray: tags)
+	}
 }
 
 extension WebHistoryEntry {
@@ -850,6 +921,19 @@ extension WebHistoryEntry {
 
 		guard let pageURL = page, UIApplication.shared.canOpenURL(pageURL) else {
 			throw ValidationError.invalidPageURL
+		}
+	}
+}
+
+extension WebHistoryEntry: Comparable {
+	public static func < (lhs: WebHistoryEntry, rhs: WebHistoryEntry) -> Bool {
+		switch (lhs.creationDate_, rhs.creationDate_) {
+			case (let date1?, let date2?):
+				return date1 < date2
+			case (nil, _):
+				return true
+			default:
+				return false
 		}
 	}
 }
