@@ -37,5 +37,15 @@ struct Backports {
         #endif
             return Self.self
         }
+
+		@discardableResult
+		static func textField() -> Self.Type {
+		#if os(iOS)
+			UITextField.appearance().clearButtonMode = .whileEditing
+		#elseif os(macOS)
+
+		#endif
+			return Self.self
+		}
     }
 }

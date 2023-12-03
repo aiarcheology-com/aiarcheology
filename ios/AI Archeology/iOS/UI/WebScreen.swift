@@ -56,6 +56,10 @@ struct WebScreenView: View {
 	@State private var showMenu: Bool = false
 	@State private var hasPerformedInitialAction = false
 
+	init() {
+		Backports.Appearance.textField()
+	}
+
 var body: some View {
 	// Passing appState.webViewRenderer as arg to be able to check, because:
 	// https://stackoverflow.com/questions/59822245/swiftui-optional-environment-object
