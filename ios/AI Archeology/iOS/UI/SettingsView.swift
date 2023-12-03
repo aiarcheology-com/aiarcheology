@@ -201,6 +201,7 @@ struct AppDescriptionView: View {
 				.frame(maxHeight: 200)
 			Spacer()
 			Text("Copyright © 2023 by Vladimír Slavík, AI Archeology")
+				.foregroundColor(.gray)
 				.padding()
 		}
 		.navigationBarTitle("About", displayMode: .inline)
