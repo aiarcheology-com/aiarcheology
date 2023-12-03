@@ -329,6 +329,11 @@ class DeepState: ObservableObject {
 		DeepConfiguration.delete(entityId, in: context)
 	}
 
+	func deleteConfiguration(_ entity: DeepConfiguration) {
+		let context = appState.dataController.container.viewContext
+		context.delete(entity)
+	}
+
 	func reset() {
 		let context = appState.dataController.container.viewContext
 		for configuration in allConfigurations() {

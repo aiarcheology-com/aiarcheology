@@ -14,7 +14,6 @@ import SwiftUI
 struct NewConfigurationView: View {
 	@EnvironmentObject var deep: DeepState
 	@State var showDocumentPicker: Bool = false
-	let configuration: DeepConfiguration
 	let usedFiles: [URL]
 	let onConfigurationChanged: (URL, UUID) -> Void
 

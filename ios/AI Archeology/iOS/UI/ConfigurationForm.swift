@@ -109,7 +109,6 @@ struct ConfigurationForm: View {
 						let usedFiles = deep.allConfigurations().compactMap { $0.file }
 
 						NewConfigurationView(
-							configuration: configuration,
 							usedFiles: usedFiles) { url, id in
 								updateConfiguration(with: url, id: id)
 							}
@@ -134,6 +133,16 @@ struct ConfigurationForm: View {
 				}
 				.navigationBarTitle("Configuration", displayMode: .inline)
 				.navigationBarItems(trailing: Button(action: {
+					if isValidConfiguration {
+						deep.saveConfigurations()
+					} else {
+						let editingConfiguration = configuration.entityId?.uuidString.isEmpty == false
+						guard editingConfiguration.not else {
+							dismiss()
+							return
+						}
+						deep.deleteConfiguration(configuration)
+					}
 					dismiss()
 				}) {
 					if isValidConfiguration {
@@ -186,6 +195,7 @@ struct ConfigurationForm: View {
 				guard let metadata = detector?.modelDescription.metadata else { return }
 				let parser = MLModelMetadataParser(metadata: metadata)
 
+				configuration.entityId = id
 				configuration.annotationColor = .yellow
 				configuration.author = parser.value(for: .author) as? String
 				configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
@@ -198,16 +208,12 @@ struct ConfigurationForm: View {
 					return
 				}
 				configuration.file = file
-				configuration.entityId = id
 				configuration.enabled = false
 				validateConfiguration()
-				if isValidConfiguration {
-						// This line saves the new configurations.
-						// DeepState creates and registeres the detectors and the SideMenu is updated.
-						// Any time a deep configuration is created/deleted, a new detector is created/deleted.
-					deep.saveConfigurations()
-				} else {
-					deep.deleteConfiguration(id)
+					// This line saves the new configurations.
+					// DeepState creates and registeres the detectors and the SideMenu is updated.
+					// Any time a deep configuration is created/deleted, a new detector is created/deleted.
+				if isValidConfiguration.not {
 					assert(false, "Not all data are complete in the new deep configuration.")
 				}
 			}
