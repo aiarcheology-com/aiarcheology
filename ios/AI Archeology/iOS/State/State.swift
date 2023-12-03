@@ -567,9 +567,14 @@ class Guide: ObservableObject {
 	@Published var ontheflyDetectionEnabled: Bool = false
 	@Published var selectedConfigurationId: UUID?
 	@Published var presentSettings: Bool = false
+	@Published var pageToOpen: URL?
 
 	init(appState: AppState) {
 		self.appState = appState
+	}
+
+	func openPage(_ url: URL) {
+		pageToOpen = url
 	}
 
 	func togglingSideMenu() {
@@ -811,6 +816,54 @@ extension CoreDataManageable where Self: NSManagedObject {
 		} catch {
 			assert(false, "Error fetching all objects: \(error)")
 			return []
+		}
+	}
+}
+
+extension WebHistoryEntry: CoreDataManageable {
+}
+
+extension WebHistoryEntry {
+	public override func validateForInsert() throws {
+		try super.validateForInsert()
+		try validateCommon()
+	}
+
+	public override func validateForUpdate() throws {
+		try super.validateForUpdate()
+		try validateCommon()
+	}
+
+	private func validateCommon() throws {
+		guard entityId != nil else {
+			throw ValidationError.entityIdNil
+		}
+
+		guard creationDate_ != nil else {
+			throw ValidationError.creationDateNil
+		}
+
+		guard let pageURL = page, UIApplication.shared.canOpenURL(pageURL) else {
+			throw ValidationError.invalidPageURL
+		}
+	}
+}
+
+extension WebHistoryEntry {
+	enum ValidationError: LocalizedError {
+		case entityIdNil
+		case creationDateNil
+		case invalidPageURL
+
+		var errorDescription: String? {
+			switch self {
+				case .entityIdNil:
+					return "Entity ID is nil."
+				case .creationDateNil:
+					return "Creation date is nil."
+				case .invalidPageURL:
+					return "Invalid page URL."
+			}
 		}
 	}
 }

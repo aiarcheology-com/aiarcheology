@@ -142,7 +142,8 @@ struct ConfigurationForm: View {
 						Text("Cancel").bold()
 					}
 				}
-					.tint(isValidConfiguration ? .green : .blue))
+					.tint(isValidConfiguration ? .green : .blue)
+				)
 			}
 		}
 	}
@@ -206,6 +207,7 @@ struct ConfigurationForm: View {
 						// Any time a deep configuration is created/deleted, a new detector is created/deleted.
 					deep.saveConfigurations()
 				} else {
+					deep.deleteConfiguration(id)
 					assert(false, "Not all data are complete in the new deep configuration.")
 				}
 			}

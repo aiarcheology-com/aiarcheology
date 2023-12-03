@@ -13,4 +13,15 @@
         <attribute name="phaseOutTime" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="selectedSymbol_" optional="YES" attributeType="String"/>
     </entity>
+    <entity name="Tag" representedClassName="Tag" syncable="YES">
+        <attribute name="identifier" optional="YES" attributeType="String"/>
+        <relationship name="webHistoryEntry" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="WebHistoryEntry" inverseName="tags" inverseEntity="WebHistoryEntry"/>
+    </entity>
+    <entity name="WebHistoryEntry" representedClassName="WebHistoryEntry" syncable="YES">
+        <attribute name="bookmarked" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="entityId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="page" optional="YES" attributeType="URI"/>
+        <relationship name="tags" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Tag" inverseName="webHistoryEntry" inverseEntity="Tag"/>
+    </entity>
 </model>

@@ -60,7 +60,11 @@
 							.multilineTextAlignment(.trailing)
 							.foregroundColor(.gray)
 						}
-						Toggle("Reset History", isOn: $settings.resetHistory)
+						NavigationLink(destination: BrowserHistoryView()) {
+							HStack {
+								Text("History")
+							}
+						}
 					}
 					Section(header: Text("ML Browser")) {
 						HStack {
@@ -79,6 +83,11 @@
 						NavigationLink(destination: AppDescriptionView()) {
 							HStack {
 								Text("About")
+							}
+						}
+						NavigationLink(destination: AppDescriptionView()) {
+							HStack {
+								Text("Help")
 							}
 						}
 					}
@@ -183,10 +192,16 @@ struct AppDescriptionView: View {
 					}
 				}
 			}
-			Text("In the places of forgotten memories, we see not just piles of rocks, but the resilient people who once arranged the rocks in the right spot, often under dramatic circumstances.")
+			Spacer()
+			Text("In the places of forgotten memories, we see not just piles of rocks, but also the resilient people who once arranged them in the right spot.")
+				.multilineTextAlignment(.center)
 				.font(.headline)
 				.italic()
 				.centerInParentView()
+				.frame(maxHeight: 200)
+			Spacer()
+			Text("Copyright © 2023 by Vladimír Slavík, AI Archeology")
+				.padding()
 		}
 		.navigationBarTitle("About", displayMode: .inline)
 	}
@@ -230,5 +245,38 @@ struct CopiedToClipboardModifier: ViewModifier {
 				Text("Copied: \(preview)")
 					.padding()
 			}
+	}
+}
+
+struct BrowserHistoryView: View {
+	@FetchRequest(
+		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: true)],
+		predicate: NSPredicate(format: "entityId != nil AND page != nil AND creationDate_ != nil"),
+		animation: .default)
+	private var history: FetchedResults<WebHistoryEntry>
+
+	var body: some View {
+		VStack {
+			Form {
+				List {
+					ForEach(history, id: \.self) { item in
+						Text(item.page?.absoluteString ?? "Unknown Page")
+							// Additional details can be added here
+					}
+					.onDelete(perform: deleteItems)
+				}
+			}
+		}
+		.navigationTitle("Browsing History")
+		.navigationBarItems(trailing: Button(action: {
+
+		}) {
+			Text("Clear").bold()
+		}
+		)
+	}
+
+	private func deleteItems(at offsets: IndexSet) {
+			// Logic to delete items from Core Data
 	}
 }
