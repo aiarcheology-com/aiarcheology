@@ -116,9 +116,9 @@ struct AlertItem: Identifiable {
 								Text("About")
 							}
 						}
-						NavigationLink(destination: AppDescriptionView()) {
+						NavigationLink(destination: SlideshowView().environmentObject(settings)) {
 							HStack {
-								Text("Help")
+								Text("Introduction")
 							}
 						}
 						HStack {
