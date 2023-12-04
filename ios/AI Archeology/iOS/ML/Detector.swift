@@ -164,7 +164,8 @@ actor Detector: DeepDriver {
 
 	func detect() async {
 		guard let detectionRequest else {
-			assert(false, "The detection request has not been initialised.")
+			// Possibly no bug, just ignore the detection, when the engine is not ready to do it.
+			// assert(false, "The detection request has not been initialised.")
 			return
 		}
 

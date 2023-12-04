@@ -183,6 +183,7 @@ enum ValidationError: Error {
 class Settings: ObservableObject, Validatable {
 	unowned var appState: AppState
 	private enum UserDefaultsKeys {
+		static let keepSlideShowActive = "keepSlideShowActive"
 		static let reopenLastPage = "reopenLastPage"
 		static let isFirstLaunch = "isFirstLaunch"
 		static let showIdentifiers = "showIdentifiers"
@@ -196,6 +197,12 @@ class Settings: ObservableObject, Validatable {
 	}
 
 	public var isFirstLaunchMarked: Bool = false
+
+	@Published public var keepSlideShowActive: Bool {
+		didSet {
+			UserDefaults.standard.set(keepSlideShowActive, forKey: UserDefaultsKeys.keepSlideShowActive)
+		}
+	}
 
 	@Published public var applicationResetButtonToggle: Bool = false
 
@@ -264,6 +271,7 @@ class Settings: ObservableObject, Validatable {
 		self.appState = appState
 
 		let defaultValues: [String: Any] = [
+			UserDefaultsKeys.keepSlideShowActive: true,
 			UserDefaultsKeys.sizeHistory: 30,
 			UserDefaultsKeys.reopenLastPage: false,
 			UserDefaultsKeys.isFirstLaunch: true,
@@ -278,6 +286,7 @@ class Settings: ObservableObject, Validatable {
 
 			// Register default values
 		UserDefaults.standard.register(defaults: defaultValues)
+		self.keepSlideShowActive = UserDefaults.standard.bool(forKey: UserDefaultsKeys.keepSlideShowActive)
 		self.historySize = UserDefaults.standard.integer(forKey: UserDefaultsKeys.sizeHistory)
 		self.reopenLastPage = UserDefaults.standard.bool(forKey: UserDefaultsKeys.reopenLastPage)
 		self.isFirstLaunch = UserDefaults.standard.bool(forKey: UserDefaultsKeys.isFirstLaunch)

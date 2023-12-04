@@ -36,6 +36,7 @@
 		8A1D49BF2ABB87D500C2D7C1 /* ColumnStepper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B52ABB87D500C2D7C1 /* ColumnStepper.swift */; };
 		8A1D49C02ABB87D500C2D7C1 /* DataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B62ABB87D500C2D7C1 /* DataModel.swift */; };
 		8A1D49C12ABB87D500C2D7C1 /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B72ABB87D500C2D7C1 /* Item.swift */; };
+		8A1EF7132B1E203E00B0967B /* Slide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1EF7122B1E203E00B0967B /* Slide.swift */; };
 		8A4256DE2B1D3090009153B1 /* WebCacheCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256DD2B1D3090009153B1 /* WebCacheCleaner.swift */; };
 		8A4256E42B1E0BA3009153B1 /* EmailController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256E32B1E0BA3009153B1 /* EmailController.swift */; };
 		8A4256E62B1E0C4C009153B1 /* UIApplication+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256E52B1E0C4C009153B1 /* UIApplication+Extensions.swift */; };
@@ -116,6 +117,7 @@
 		8A1D49B52ABB87D500C2D7C1 /* ColumnStepper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ColumnStepper.swift; sourceTree = "<group>"; };
 		8A1D49B62ABB87D500C2D7C1 /* DataModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DataModel.swift; sourceTree = "<group>"; };
 		8A1D49B72ABB87D500C2D7C1 /* Item.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
+		8A1EF7122B1E203E00B0967B /* Slide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Slide.swift; sourceTree = "<group>"; };
 		8A4256DD2B1D3090009153B1 /* WebCacheCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebCacheCleaner.swift; sourceTree = "<group>"; };
 		8A4256E32B1E0BA3009153B1 /* EmailController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailController.swift; sourceTree = "<group>"; };
 		8A4256E52B1E0C4C009153B1 /* UIApplication+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplication+Extensions.swift"; sourceTree = "<group>"; };
@@ -276,6 +278,7 @@
 				8A7740CC2B1682F5002E90D9 /* SettingsView.swift */,
 				8A7740D62B1908DD002E90D9 /* SnapControlView.swift */,
 				8A4256E32B1E0BA3009153B1 /* EmailController.swift */,
+				8A1EF7122B1E203E00B0967B /* Slide.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -563,6 +566,7 @@
 				8A112CCD2AC30E3E00786384 /* View+Extensions.swift in Sources */,
 				8A112CC62AC0863300786384 /* Bool+Extensions.swift in Sources */,
 				8A6AE18B2B1BCC48005A5A79 /* Tag+CoreDataClass.swift in Sources */,
+				8A1EF7132B1E203E00B0967B /* Slide.swift in Sources */,
 				8AC9B6262B153A11007D20EA /* URL+Extensions.swift in Sources */,
 				8A7740D92B19299F002E90D9 /* UIImage+Extensions.swift in Sources */,
 				8A1328282B010B8C00F119C6 /* EnvironmentObject+Extensions.swift in Sources */,

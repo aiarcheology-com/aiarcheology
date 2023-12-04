@@ -267,6 +267,7 @@ struct ContentView: View {
 	@State private var showingForm = false
 	@State private var showingSettingsForm = false
 	@State private var showErrorAlert = false
+	@State private var showSlideshow = false
 	@State private var errorMessage = ""
 	@State private var brightness = SnapAdjustment.defaultBrightness
 	@State private var contrast = SnapAdjustment.defaultContrast
@@ -346,8 +347,14 @@ struct ContentView: View {
 			}
 			.environmentObject(appState.guide)
 			.environmentObject(appState.deep)
+			// ------ Show the slideshow after the app's installation -----
         }
 		// ------ Configurations Form -----
+		.sheet(isPresented: $showSlideshow) {
+			SlideshowView()
+				.centerInParentView()
+				.environmentObject(appState.settings)
+		}
 		.sheet(isPresented: $showingForm, onDismiss: {
 			appState.deep.newConfiguration = nil
 			appState.guide.selectedConfigurationId = nil
@@ -391,6 +398,10 @@ struct ContentView: View {
 					appState.guide.ontheflyDetectionTapped()
 				}
 				appState.snap.delayedTimer = true
+			}
+
+			if appState.settings.keepSlideShowActive {
+				showSlideshow = true
 			}
 		}
     }
