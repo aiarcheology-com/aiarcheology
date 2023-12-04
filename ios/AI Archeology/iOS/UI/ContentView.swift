@@ -131,7 +131,7 @@ struct ObservationPointView: View {
 			if showIndentifiers {
 				HStack {
 					ForEach(observation.labels, id: \.self) { label in
-						Text(" \(label.identifier)|")
+						Text(" \(String(label.identifier.prefix(6)))|") //TODO: put this number in the annotation settings
 					}
 					.foregroundColor(color)
 				}
@@ -174,7 +174,7 @@ struct ObservationRectangleView: View {
 			if showIndentifiers {
 				HStack {
 					ForEach(observation.labels, id: \.self) { label in
-						Text(" \(label.identifier)|")
+						Text(" \(String(label.identifier.prefix(6)))|")
 					}
 				}
 				.foregroundColor(color)
@@ -218,7 +218,7 @@ struct ObservationCircleView: View {
 			if showIndentifiers {
 				HStack {
 					ForEach(observation.labels, id: \.self) { label in
-						Text(" \(label.identifier)|")
+						Text(" \(String(label.identifier.prefix(6)))|")
 					}
 					.foregroundColor(color)
 				}

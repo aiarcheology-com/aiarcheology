@@ -80,7 +80,7 @@ var body: some View {
 					guard let defaultPage = appState.settings.defaultPage?.absoluteString else { return }
 					inputUrl = defaultPage
 					self.websiteUrl = inputUrl
-					createWebHistoryEntry(inputUrl)
+					createWebHistoryEntry(inputUrl, maxEntries: appState.settings.historySize)
 				}
 			}
 		}
@@ -128,14 +128,19 @@ var body: some View {
 				.onSubmit(of: .text, {
 					self.websiteUrl = inputUrl
 					guard inputUrl.browserInputType == .url else { return } // do not store search terms
-					createWebHistoryEntry(inputUrl)
+					createWebHistoryEntry(inputUrl, maxEntries: appState.settings.historySize)
 				})
 			}
 		}
 	}
 
-	private func createWebHistoryEntry(_ urlString: String) {
-		guard history.contains(where: { $0.page?.absoluteString == urlString }).not else { return }
+	private func createWebHistoryEntry(_ urlString: String, maxEntries: Int) {
+		// TODO:  Add the limit for the entries to setting.historySize, remove the oldest entry
+		guard 
+			WebHistoryEntry.getAll(in: moc).count <= maxEntries,
+			history.contains(where: { $0.page?.absoluteString == urlString }).not else {
+			return
+		}
 
 		let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: moc)
 		newHistorEntry.bookmarked = false

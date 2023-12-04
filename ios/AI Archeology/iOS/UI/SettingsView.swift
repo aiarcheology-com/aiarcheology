@@ -62,6 +62,16 @@
 							.foregroundColor(.gray)
 						}
 						Toggle("Reopen Last Page", isOn: $settings.reopenLastPage)
+						HStack {
+							Text("History Limit")
+								.foregroundColor(.primary)
+							Spacer()
+							TextField("0-100", value: $settings.historySize, formatter:
+										NumberFormatter.historyLimitFormatter)
+								.multilineTextAlignment(.trailing)
+								.keyboardType(.numberPad)
+								.foregroundColor(.gray)
+						}
 						NavigationLink(destination: BrowserHistoryView()) {
 							HStack {
 								Text("History")
@@ -75,8 +85,9 @@
 								cleanCacheButtonColor = .blue
 							}) {
 								Text("Delete")
+									.bold()
+									.foregroundColor(cleanCacheButtonColor)
 							}
-							.buttonStyle(PressableButtonStyle(color: cleanCacheButtonColor))
 						}
 						.onChange(of: settings.applicationResetButtonToggle) { reseted in
 							resetButtonColor = .blue
@@ -244,7 +255,7 @@ struct CopiedToClipboardModifier: ViewModifier {
 
 	func body(content: Content) -> some View {
 		content
-			.onLongPressGesture(minimumDuration: 0.5, pressing: { isPressing in
+			.onLongPressGesture(minimumDuration: 1.0, pressing: { isPressing in
 				if isPressing {
 						// Begin of the gesture
 				} else {
@@ -266,34 +277,63 @@ struct CopiedToClipboardModifier: ViewModifier {
 }
 
 struct BrowserHistoryView: View {
+	@Environment(\.managedObjectContext) var moc
+	@Environment(\.presentationMode) var presentation
 	@FetchRequest(
-		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: true)],
+		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: false)],
 		predicate: NSPredicate(format: "entityId != nil AND page != nil AND creationDate_ != nil"),
 		animation: .default)
 	private var history: FetchedResults<WebHistoryEntry>
+	@State private var refreshFrom: Bool = false // TODO: history is not being reloaded after deletion
 
 	var body: some View {
 		VStack {
 			Form {
 				List {
-					ForEach(history, id: \.self) { item in
-						Text(item.page?.absoluteString ?? "Unknown Page")
-							// Additional details can be added here
+					ForEach(history, id: \.self) { (item: WebHistoryEntry) in
+						let page = item.page?.absoluteString ?? "Unknown Page"
+						Text(page)
+							.swipeActions {
+								Button(action: {
+									UIPasteboard.general.string = page
+								}) {
+									Label("COPY", systemImage: "doc.on.doc")
+								}
+								.tint(.blue) // Optional: customize the button color
+
+								Button(role: .destructive, action: {
+									guard let entityId = item.entityId else {
+										assert(false, "No entry has been found after the selection.")
+										return
+									}
+									WebHistoryEntry.delete(entityId, in: moc)
+								}) {
+									Label("DELETE", systemImage: "trash")
+								}
+							}
 					}
-					.onDelete(perform: deleteItems)
 				}
 			}
 		}
 		.navigationTitle("Browsing History")
 		.navigationBarItems(trailing: Button(action: {
-
+			WebHistoryEntry.deleteAll(in: moc)
+			refreshFrom.toggle()
+			self.presentation.wrappedValue.dismiss()
 		}) {
 			Text("Clear").bold()
+				.foregroundColor(refreshFrom.disabled ? .red : .blue)
 		}
 		)
 	}
+}
 
-	private func deleteItems(at offsets: IndexSet) {
-			// Logic to delete items from Core Data
+extension NumberFormatter {
+	static var historyLimitFormatter: NumberFormatter {
+		let formatter = NumberFormatter()
+		formatter.numberStyle = .none
+		formatter.minimum = 0
+		formatter.maximum = 100
+		return formatter
 	}
 }

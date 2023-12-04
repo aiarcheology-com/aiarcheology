@@ -183,6 +183,7 @@ class Settings: ObservableObject, Validatable {
 		static let snapAfterAppStart = "snapAfterAppStart"
 		static let snapFrequency = "snapFrequency"
 		static let resetHistory = "resetHistory"
+		static let sizeHistory = "sizeHistory"
 		static let defaultPage = "defaultPage"
 		static let removeAnnotationOnDrag = "removeAnnotationOnDrag"
 		static let entityId = "entityId"
@@ -191,6 +192,12 @@ class Settings: ObservableObject, Validatable {
 	public var isFirstLaunchMarked: Bool = false
 
 	@Published public var applicationResetButtonToggle: Bool = false
+
+	@Published public var historySize: Int {
+		didSet {
+			UserDefaults.standard.set(historySize, forKey: UserDefaultsKeys.sizeHistory)
+		}
+	}
 
 	@Published public var snapAfterAppStart: Bool {
 		didSet {
@@ -251,6 +258,7 @@ class Settings: ObservableObject, Validatable {
 		self.appState = appState
 
 		let defaultValues: [String: Any] = [
+			UserDefaultsKeys.sizeHistory: 30,
 			UserDefaultsKeys.reopenLastPage: false,
 			UserDefaultsKeys.isFirstLaunch: true,
 			UserDefaultsKeys.showIdentifiers: false,
@@ -264,6 +272,7 @@ class Settings: ObservableObject, Validatable {
 
 			// Register default values
 		UserDefaults.standard.register(defaults: defaultValues)
+		self.historySize = UserDefaults.standard.integer(forKey: UserDefaultsKeys.sizeHistory)
 		self.reopenLastPage = UserDefaults.standard.bool(forKey: UserDefaultsKeys.reopenLastPage)
 		self.isFirstLaunch = UserDefaults.standard.bool(forKey: UserDefaultsKeys.isFirstLaunch)
 		self.showIdentifiers = UserDefaults.standard.bool(forKey: UserDefaultsKeys.showIdentifiers)
@@ -293,6 +302,7 @@ class Settings: ObservableObject, Validatable {
 	}
 
 	func reset() {
+		self.historySize = 30
 		self.reopenLastPage = false
 		self.isFirstLaunchMarked = false
 		self.isFirstLaunch = true
@@ -303,7 +313,7 @@ class Settings: ObservableObject, Validatable {
 		self.defaultPage = URL(string: "https://www.google.com")
 		self.removeAnnotationOnDrag = false
 		self.entityId = UUID()
-
+		UserDefaults.standard.set(30, forKey: UserDefaultsKeys.sizeHistory)
 		UserDefaults.standard.set(true, forKey: UserDefaultsKeys.reopenLastPage)
 		UserDefaults.standard.set(true, forKey: UserDefaultsKeys.isFirstLaunch)
 		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.showIdentifiers)
@@ -798,6 +808,7 @@ protocol CoreDataManageable where Self: NSManagedObject {
 	var entityId: UUID? { get }
 	static func create(in context: NSManagedObjectContext) -> Self
 	static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: (Self) -> Void)
+	static func deleteAll(in context: NSManagedObjectContext)
 	static func delete(_ entityId: UUID, in context: NSManagedObjectContext)
 	static func delete(_ entity: Self, in context: NSManagedObjectContext)
 	static func select(_ entityId: UUID, in context: NSManagedObjectContext) -> Self?
@@ -842,6 +853,24 @@ extension CoreDataManageable where Self: NSManagedObject {
 
 	static func delete(_ entity: Self, in context: NSManagedObjectContext) {
 		context.delete(entity)
+		do {
+			try context.save()
+		}
+		catch let error {
+			print("Error deleting a single entity: \(error)")
+		}
+	}
+
+	static func deleteAll(in context: NSManagedObjectContext) {
+		let fetchRequest: NSFetchRequest<NSFetchRequestResult> = Self.fetchRequest()
+		let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+
+		do {
+			try context.execute(deleteRequest)
+			try context.save()
+		} catch let error as NSError {
+			print("Error deleting all entities: \(error), \(error.userInfo)")
+		}
 	}
 
 	static func delete(_ entityId: UUID, in context: NSManagedObjectContext) {

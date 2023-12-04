@@ -16,7 +16,7 @@ public extension Bool {
 		self
 	}
 
-	@inlinable var disbled: Bool {
+	@inlinable var disabled: Bool {
 		!self
 	}
 }
