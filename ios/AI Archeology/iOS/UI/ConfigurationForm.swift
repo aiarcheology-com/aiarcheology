@@ -207,7 +207,7 @@ struct ConfigurationForm: View {
 					assert(false, "Model file is required.")
 					return
 				}
-				configuration.file = file
+				configuration.file_ = file
 				configuration.enabled = false
 				validateConfiguration()
 					// This line saves the new configurations.

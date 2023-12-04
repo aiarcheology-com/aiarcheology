@@ -86,25 +86,13 @@ actor Detector: DeepDriver {
 		self.params = DeepDriverParams(
 			annotationColor: configuration.annotationColor,
 			entityId: configuration.entityId,
-			file: configuration.file,
+			file: configuration.file_,
 			phaseOutTime: configuration.phaseOutTime,
 			selectedSymbol: configuration.selectedSymbol,
 			demo: configuration.demo
 		)
 
-		let detectorFileIsDirectory = false
-
-		var modelFile = try? params.file?.completePath(to: DeepConfiguration.rootDirectory, isDirectory: detectorFileIsDirectory)
-		if
-			params.demo.enabled,
-			let paramsFile = params.file,
-			// Because the simulator changes the app path:
-			let demoFileUrl = Bundle.main.url(forResource: paramsFile.deletingPathExtension().lastPathComponent,
-											 withExtension: paramsFile.pathExtension) {
-			modelFile = demoFileUrl
-		}
-
-		guard let modelFile else {
+		guard let modelFile = configuration.file else {
 			assert(false, "The DeeepConfiguration.file is not initialised or can not infer the completePath.")
 			return
 		}

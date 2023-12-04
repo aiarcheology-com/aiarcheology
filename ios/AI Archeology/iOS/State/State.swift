@@ -148,7 +148,7 @@ class AppState: ObservableObject {
 		configuration.model = parser.value(for: .description) as? String
 		configuration.phaseOutTime = 2
 		configuration.selectedSymbol = .circle
-		configuration.file = URL(string: url.lastPathComponent)
+		configuration.file_ = URL(string: url.lastPathComponent)
 		configuration.entityId = id
 		configuration.enabled = false
 		DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -563,9 +563,22 @@ extension DeepConfiguration {
 		get { .documentDirectory }
 	}
 
-	 public var annotationColor: Color {
+	public var file: URL? {
 		get {
-			guard 
+			guard let file_ else { return nil}
+
+			if demo.enabled {
+				return Bundle.main.url(forResource: file_.deletingPathExtension().lastPathComponent,
+					withExtension: file_.pathExtension)
+			} else {
+				return try? file_.completePath(to: DeepConfiguration.rootDirectory, isDirectory: false)
+			}
+		}
+	}
+
+	public var annotationColor: Color {
+		get {
+			guard
 				let colorData = annotationColor_,
 				let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIColor.self, from: colorData) else {
 				return Color.clear
