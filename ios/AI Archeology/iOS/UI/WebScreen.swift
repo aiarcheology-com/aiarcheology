@@ -112,6 +112,7 @@ var body: some View {
 								Button(entry.page?.host(percentEncoded: false) ?? "Unknown URL") {
 									guard let page = entry.page else {
 										assert(false, "The page property of the WebHistoryEntry is nil.")
+										return
 									}
 									inputUrl = page.absoluteString
 									self.websiteUrl = inputUrl
