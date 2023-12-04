@@ -57,3 +57,13 @@ extension View {
 		.frame(maxWidth: .infinity)
 	}
 }
+
+extension View {
+	public static func removeFocus() {
+#if os (iOS)
+		UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to:nil, from:nil, for:nil)
+#elseif os(macOS)
+		DispatchQueue.main.async { NSApp.keyWindow?.makeFirstResponder(nil) }
+#endif
+	}
+}

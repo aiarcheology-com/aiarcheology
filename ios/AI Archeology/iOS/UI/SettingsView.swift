@@ -71,6 +71,14 @@
 								.multilineTextAlignment(.trailing)
 								.keyboardType(.numberPad)
 								.foregroundColor(.gray)
+								.toolbar {
+									ToolbarItemGroup(placement: .keyboard) {
+										Spacer()
+										Button("Done") {
+											Self.removeFocus()
+										}
+									}
+								}
 						}
 						NavigationLink(destination: BrowserHistoryView()) {
 							HStack {

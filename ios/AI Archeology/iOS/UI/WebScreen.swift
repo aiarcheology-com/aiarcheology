@@ -41,6 +41,11 @@ struct WebScreen: Screen {
 
 }
 
+
+enum HistoryError: Error {
+	case fullHistory
+}
+
 import Vision
 struct WebScreenView: View {
 	@Environment(\.managedObjectContext) var moc
@@ -54,6 +59,8 @@ struct WebScreenView: View {
 	@State private var isWebsiteLoading: Bool = false
 	@State private var inputUrl: String = ""
 	@State private var showMenu: Bool = false
+	@State private var latestError: HistoryError?
+	@State private var showAlert: Bool = false
 	@State private var hasPerformedInitialAction = false
 
 	init() {
@@ -130,14 +137,28 @@ var body: some View {
 					guard inputUrl.browserInputType == .url else { return } // do not store search terms
 					createWebHistoryEntry(inputUrl, maxEntries: appState.settings.historySize)
 				})
+				.alert(isPresented: $showAlert) {
+					showAlert = false
+					switch latestError {
+						case .fullHistory:
+							return Alert(title: Text("Warning"), message: Text("Browsing history is full. Increase the web browsing history size in Settings, or delete some existing entries from the history."), dismissButton: .default(Text("OK")))
+
+						default:
+							return Alert(title: Text(""))
+					}
+				}
 			}
 		}
 	}
 
 	private func createWebHistoryEntry(_ urlString: String, maxEntries: Int) {
-		// TODO:  Add the limit for the entries to setting.historySize, remove the oldest entry
-		guard 
-			WebHistoryEntry.getAll(in: moc).count <= maxEntries,
+		guard WebHistoryEntry.getAll(in: moc).count <= maxEntries else {
+			latestError = HistoryError.fullHistory
+			showAlert = true
+			return
+		}
+
+		guard
 			history.contains(where: { $0.page?.absoluteString == urlString }).not else {
 			return
 		}
