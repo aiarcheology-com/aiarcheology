@@ -7,6 +7,15 @@
 
 	import SwiftUI
 
+struct AlertItem: Identifiable {
+	var id = UUID()
+	var title: Text
+	var message: Text?
+	var primaryButton: Alert.Button?
+	var dismissButton: Alert.Button?
+	var secondaryButton: Alert.Button?
+}
+
 	struct SettingsForm: View {
 		@Environment(\.dismiss) private var dismiss
 		@EnvironmentObject var settings: Settings
@@ -15,7 +24,7 @@
 		@State private var validationErrorMessage: String?
 		@State private var resetButtonColor: Color = .red
 		@State private var cleanCacheButtonColor: Color = .red
-		@State private var showResetWarning = false
+		@State private var alertItem: AlertItem?
 
 		var mergedObservable: [String] {[
 			// Updated from the user's input:
@@ -116,7 +125,10 @@
 							Text("Restore Defaults")
 							Spacer()
 							Button(action: {
-								showResetWarning = true
+								self.alertItem = AlertItem(title: Text("Warning"), 
+														   message: Text("Resetting the application will erase all data models from the ML Browser except the demo models. Are you sure you want to proceed?"),
+														   primaryButton: .destructive(Text("Restore"), action: guide.resetApplication),
+														   secondaryButton: .cancel())
 							}) {
 								Text("Restore")
 							}
@@ -134,13 +146,20 @@
 						dismiss()
 					} catch ValidationError.invalidData(let message) {
 						validationErrorMessage = message
+						self.alertItem = AlertItem(title: Text("Error"), 
+												 message: Text(validationErrorMessage ?? ""), //TODO optional
+												 dismissButton: .default(Text("OK"), action: { validationErrorMessage = nil }))
 					} catch {
 						validationErrorMessage = "An unexpected error occurred."
+						self.alertItem = AlertItem(title: Text("Error"), 
+												  message: Text(validationErrorMessage ?? ""), //TODO optional
+												  dismissButton: .default(Text("OK"), action: { validationErrorMessage = nil }))
 					}
 				}) {
 
 					Text("Dismiss").bold()
 				})
+
 				.alert(isPresented: .constant(validationErrorMessage != nil), content: {
 					Alert(
 						title: Text("Validation Error"),
@@ -150,16 +169,27 @@
 						})
 					)
 				})
-				.alert(isPresented: $showResetWarning) {
-					Alert(
-						title: Text("Warning"),
-						message: Text("Resetting the application will erase all data models from the ML Browser. Are you sure you want to proceed?"),
-						primaryButton: .destructive(Text("Reset"), action: guide.resetApplication),
-						secondaryButton: .cancel()
-					)
-				}
 				.onChange(of: mergedObservable) { _ in
 					resetButtonColor = .red
+				}
+				.onReceive(guide.appState.$restartTriggered) { newValue in
+					guard newValue.enabled else { return }
+					self.alertItem = AlertItem(title: Text("Reset complete"), message: Text("Please close and reopen the application after the reset to defaults."))
+				}
+				.alert(item: $alertItem) { alertItem in
+					if let primaryButton = alertItem.primaryButton, let secondaryButton = alertItem.secondaryButton {
+						return Alert(title: alertItem.title,
+									 message: alertItem.message,
+									 primaryButton: primaryButton,
+									 secondaryButton: secondaryButton)
+					}
+					if let dismissButton = alertItem.dismissButton {
+						return Alert(title: alertItem.title,
+									 message: alertItem.message,
+									 dismissButton: dismissButton)
+					}
+					return Alert(title: alertItem.title,
+								 message: alertItem.message)
 				}
 			}
 		}

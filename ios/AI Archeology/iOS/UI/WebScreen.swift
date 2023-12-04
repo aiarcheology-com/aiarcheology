@@ -55,6 +55,7 @@ struct WebScreenView: View {
 		animation: .default)
 	private var history: FetchedResults<WebHistoryEntry>
 	@EnvironmentObject var appState: AppState
+	@State private var webScreenUpdate: Bool = false
 	@State private var websiteUrl: String = "https://www.google.com"
 	@State private var isWebsiteLoading: Bool = false
 	@State private var inputUrl: String = ""
@@ -91,6 +92,9 @@ var body: some View {
 				}
 			}
 		}
+//		.onReceive(appState.$webScreenUpdate) { newValue in // TODO: because the history does not trigger the update itself
+//			webScreenUpdate.toggle() // TODO: does not work as intended
+//		}
 		.environmentObject(appState.webViewRenderer)
 		.navigationBarTitle("", displayMode: .inline)
 		.clipped()

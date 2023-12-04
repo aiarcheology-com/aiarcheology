@@ -91,10 +91,20 @@ public struct MLWebView: UIViewRepresentable, WebViewRenderable {
 		public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
 			parent.loadStatusChanged?(false, nil)
 
-			let jsRemoveButton = "document.querySelector('.esri-component.esri-compass.esri-widget').remove();"
-			webView.evaluateJavaScript(jsRemoveButton) { (result, error) in
-				if let error = error {
-					print("Error removing button: \(error)")
+			if let url = webView.url, let domain = url.host {
+				func removeJSObjects_agsCuzkCz() {
+					let jsRemoveButton = "document.querySelector('.esri-component.esri-compass.esri-widget').remove();"
+					webView.evaluateJavaScript(jsRemoveButton) { (result, error) in
+						if let error = error {
+							print("Error removing button: \(error)")
+						}
+					}
+				}
+				switch domain {
+				case "ags.cuzk.cz":
+					removeJSObjects_agsCuzkCz()
+				default:
+					break
 				}
 			}
 		}

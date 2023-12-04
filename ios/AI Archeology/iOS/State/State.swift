@@ -28,11 +28,13 @@ class AppState: ObservableObject {
 	lazy var settings = Settings(appState: self)
 	lazy var snapAdjustment = SnapAdjustment(appState: self)
 
+	@Published var restartTriggered: Bool = false
+
 	init() {
-		createDemo()
+		createDemoEntities()
 	}
 
-	func createDemo() {
+	func createDemoEntities() {
 		if settings.isFirstLaunch {
 			settings.isFirstLaunchMarked = true
 			settings.isFirstLaunch = false
@@ -45,6 +47,11 @@ class AppState: ObservableObject {
 		loadModelOne()
 		loadModelTwo()
 	}
+
+	func deleteBrowsingHistory() {
+		WebHistoryEntry.deleteAll(in: dataController.container.viewContext)
+	}
+
 
 	func createBrowsingHistory() {
 		let history = WebHistoryEntry.getAll(in: dataController.container.viewContext)
@@ -75,7 +82,7 @@ class AppState: ObservableObject {
 				return
 			}
 
-			DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
 				WebHistoryEntry.save(in: self.dataController.container.viewContext)
 			}
 		}
@@ -405,10 +412,7 @@ class DeepState: ObservableObject {
 
 	func reset() {
 		let context = appState.dataController.container.viewContext
-		for configuration in allConfigurations() {
-			context.delete(configuration)
-		}
-		DeepConfiguration.save(in: context)
+		DeepConfiguration.deleteAll(in: context)
 	}
 
 	func selectConfiguration(_ entityId: UUID) -> DeepConfiguration? {
@@ -678,9 +682,14 @@ class Guide: ObservableObject {
 		appState.deep.reset()
 		appState.settings.reset()
 		appState.settings.applicationResetButtonToggle.toggle()
-		DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+		DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
 			guard let self else { return }
-			self.appState.createDemo()
+			self.appState.deleteBrowsingHistory()
+			//self.appState.createDemoEntities()
+			DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+					// TODO: Sadly the context does not updated @FetchRequest, explicit refresh follows
+				self.appState.restartTriggered = true
+			}
 		}
 	}
 }
