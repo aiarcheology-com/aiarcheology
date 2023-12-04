@@ -118,6 +118,7 @@ var body: some View {
 									self.websiteUrl = inputUrl
 									entry.creationDate_ = .now
 									WebHistoryEntry.save(in: appState.dataController.container.viewContext)
+									Self.removeFocus()
 								}
 								// Shows the tags of the entries:
 //								Spacer()
