@@ -58,13 +58,12 @@ class AppState: ObservableObject {
 		guard history.isEmpty, settings.isFirstLaunchMarked else { return }
 
 		let pages: [String] = [
-			"https://ags.cuzk.cz/av/?zvd=dmr5g&rf=GrayscaleHillshade&o=0",
 			"https://windrosen.hessen.de/mapapps/resources/apps/windrosen/index.html?lang=en&vm=2D&s=1500000&r=0&c=550000%2C5595000&bm=orthofotos_schummerung",
 			"https://zbgis.skgeodesy.sk/mkzbgis/sk/teren",
 			"https://geoportal.bayern.de/bayernatlas/?topic=ba&lang=de&bgLayer=voidLayer&zoom=3&w=100%25&h=500px&E=651597.27&N=5461429.48&layers=KML%7C%7Chttps:%2F%2Fwww.geodaten.bayern.de%2Fdownload%2Fuebersicht_DGM%2FLaserscanningbefliegungen.kml%7C%7Ctrue,relief_t&catalogNodes=11,12,121&layers_visibility=false,true",
 			"https://www.geoland.at/webgisviewer/geoland/map/Geoland_Viewer/Geoland?fbclid=IwAR3hGN0L39GRBEXx1rfdBjo_M5HthBjurMS6fR50JnEJ1aDJ2pmblfTGHoo",
-			"https://houseprices.io/lab/lidar/map"
-
+			"https://houseprices.io/lab/lidar/map",
+			"https://ags.cuzk.cz/av/?zvd=dmr5g&rf=GrayscaleHillshade&o=0"
 		]
 
 		pages.forEach { page in
@@ -929,12 +928,13 @@ extension CoreDataManageable where Self: NSManagedObject {
 }
 
 extension WebHistoryEntry: CoreDataManageable {
-	public var tagsArray: [Tag] {
-		guard let tags else {
-			return []
-		}
-		return Array(_immutableCocoaArray: tags)
-	}
+// TODO: there are multiple issues with relationships in SwiftUI
+//	public var tagsArray: [Tag] {
+//		guard let tags else {
+//			return []
+//		}
+//		return Array(_immutableCocoaArray: tags)
+//	}
 }
 
 extension WebHistoryEntry {

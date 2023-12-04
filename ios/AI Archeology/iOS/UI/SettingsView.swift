@@ -175,6 +175,7 @@ struct AlertItem: Identifiable {
 				.onReceive(guide.appState.$restartTriggered) { newValue in
 					guard newValue.enabled else { return }
 					self.alertItem = AlertItem(title: Text("Reset complete"), message: Text("Please close and reopen the application after the reset to defaults."))
+					guide.appState.restartTriggered = false
 				}
 				.alert(item: $alertItem) { alertItem in
 					if let primaryButton = alertItem.primaryButton, let secondaryButton = alertItem.secondaryButton {
