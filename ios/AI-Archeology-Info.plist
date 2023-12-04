@@ -6,6 +6,10 @@
 	<false/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
+		<string>ymail</string>
+		<string>readdle-spark</string>
+		<string>ms-outlook</string>
+		<string>googlegmail</string>
 		<string>twitter</string>
 	</array>
 </dict>
