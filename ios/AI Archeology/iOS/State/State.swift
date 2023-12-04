@@ -317,6 +317,7 @@ class Settings: ObservableObject, Validatable {
 	}
 
 	func reset() {
+		self.keepSlideShowActive = true
 		self.historySize = 30
 		self.reopenLastPage = false
 		self.isFirstLaunchMarked = false
@@ -328,6 +329,7 @@ class Settings: ObservableObject, Validatable {
 		self.defaultPage = URL(string: "https://www.google.com")
 		self.removeAnnotationOnDrag = false
 		self.entityId = UUID()
+		UserDefaults.standard.set(true, forKey: UserDefaultsKeys.keepSlideShowActive)
 		UserDefaults.standard.set(30, forKey: UserDefaultsKeys.sizeHistory)
 		UserDefaults.standard.set(true, forKey: UserDefaultsKeys.reopenLastPage)
 		UserDefaults.standard.set(true, forKey: UserDefaultsKeys.isFirstLaunch)
