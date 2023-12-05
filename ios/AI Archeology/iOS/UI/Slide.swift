@@ -22,7 +22,7 @@ struct SlideshowView: View {
 
 		Slide(imageName: "AppLogo", title: "Welcome to ML Browser", description: "The application combines the browsing experience with assisted object detection within web content.", showButton: true, ratio: 0.4),
 		Slide(imageName: "slide0", title: "Open a Web Page", description: "You can open any web page, similar to how you would in a web browser, with content you wish to test using your object detection model."),
-		Slide(imageName: "slide1", title: "Long Tap on Address Bar", description: "A long tap opens a dropdown menu showing your browsing history."),
+		Slide(imageName: "slide1", title: "Long Tap on Address Bar", description: "A long tap on the address bar opens a dropdown menu showing your browsing history."),
 		Slide(imageName: "slide2", title: "Add a New Model", description: "The application is capable of working with Create ML detection models. Click the processor icon in the top left corner, and then plus sign to add a new model."),
 		Slide(imageName: "slide3", title: "Tap on the Icon to Open the File", description: "You can download any Create ML detection model to your Apple device and load it into the ML Browser app. The ML Browser does not send your model anywhere, or collect information. The model is used only for the annotations."),
 		Slide(imageName: "slide4", title: "Activate the Models", description: "In this menu on the left, you can activate any detection model. These detectors work simultaneously on the same web page content."),
