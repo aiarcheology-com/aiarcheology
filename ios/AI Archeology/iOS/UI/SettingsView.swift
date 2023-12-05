@@ -263,15 +263,15 @@ struct AppDescriptionView: View {
 						Link(Self.xName, destination: Self.xWebURL)
 					}
 				}
+				Section(header: Text("Legal")) {
+					NavigationLink(destination: 
+						PrivacyPolicyView(htmlFileName: "privacypolicy")
+						.navigationTitle("Privacy Policy")
+					) {
+						Text("Privacy Policy")
+					}
+				}
 			}
-			Spacer()
-			Text("In the places of forgotten memories, we should see not just piles of rocks, but also the resilient people -  builders - who once arranged these rocks in the right spot.")
-				.multilineTextAlignment(.center)
-				.font(.headline)
-				.italic()
-				.centerInParentView()
-				.frame(maxHeight: 200)
-				.padding(25)
 			Spacer()
 			Text("Copyright © 2023 by Vladimír Slavík, AI Archeology")
 				.foregroundColor(.gray)
@@ -455,5 +455,46 @@ struct DeviceInfo {
 		}
 
 		return identifier
+	}
+}
+
+
+struct PrivacyPolicyView: View {
+	var htmlFileName: String
+
+	var body: some View {
+		ScrollView {
+			if let url = Bundle.main.url(forResource: htmlFileName, withExtension: "html"),
+			   let htmlContent = try? String(contentsOf: url) {
+				TestHTMLText(html: htmlContent)
+					.padding()
+			} else {
+				Text("Privacy Policy not available. Missing in the bundle?")
+			}
+		}
+	}
+}
+
+struct TestHTMLText: View {
+	let html: String
+
+	var body: some View {
+		if let string = attributedString(from: html) {
+			Text(string)
+		} else {
+			Text(html)
+		}
+	}
+
+	func attributedString(from html: String) -> AttributedString? {
+		guard let nsAttributedString = try? NSMutableAttributedString(data: Data(html.utf8),
+																options: [.documentType: NSAttributedString.DocumentType.html],
+																	  documentAttributes: nil) else {
+			return nil
+		}
+
+		var attrString = try? AttributedString(nsAttributedString, including: \.uiKit)
+		attrString?.setAttributes(AttributeContainer([NSAttributedString.Key.foregroundColor : Color.primary]))
+		return attrString
 	}
 }

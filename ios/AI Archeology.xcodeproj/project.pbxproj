@@ -12,7 +12,6 @@
 		8A112CBF2ABEEEEC00786384 /* WebViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CBE2ABEEEEC00786384 /* WebViewModel.swift */; };
 		8A112CC42AC0852B00786384 /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CC32AC0852B00786384 /* String+Extensions.swift */; };
 		8A112CC62AC0863300786384 /* Bool+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CC52AC0863300786384 /* Bool+Extensions.swift */; };
-		8A112CC82AC08BAC00786384 /* lidaLinks.txt in Resources */ = {isa = PBXBuildFile; fileRef = 8A112CC72AC08BAC00786384 /* lidaLinks.txt */; };
 		8A112CCB2AC2BCBC00786384 /* Detector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CCA2AC2BCBC00786384 /* Detector.swift */; };
 		8A112CCD2AC30E3E00786384 /* View+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CCC2AC30E3E00786384 /* View+Extensions.swift */; };
 		8A112CD12AC31C0000786384 /* DetectionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CD02AC31C0000786384 /* DetectionOverlay.swift */; };
@@ -37,6 +36,7 @@
 		8A1D49C02ABB87D500C2D7C1 /* DataModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B62ABB87D500C2D7C1 /* DataModel.swift */; };
 		8A1D49C12ABB87D500C2D7C1 /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B72ABB87D500C2D7C1 /* Item.swift */; };
 		8A1EF7132B1E203E00B0967B /* Slide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1EF7122B1E203E00B0967B /* Slide.swift */; };
+		8A31559A2B1F9EFA00EA9110 /* privacypolicy.html in Resources */ = {isa = PBXBuildFile; fileRef = 8A3155992B1F9EFA00EA9110 /* privacypolicy.html */; };
 		8A4256DE2B1D3090009153B1 /* WebCacheCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256DD2B1D3090009153B1 /* WebCacheCleaner.swift */; };
 		8A4256E42B1E0BA3009153B1 /* EmailController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256E32B1E0BA3009153B1 /* EmailController.swift */; };
 		8A4256E62B1E0C4C009153B1 /* UIApplication+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256E52B1E0C4C009153B1 /* UIApplication+Extensions.swift */; };
@@ -94,7 +94,6 @@
 		8A112CC02AC0757900786384 /* AI-Archeology-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "AI-Archeology-Info.plist"; sourceTree = SOURCE_ROOT; };
 		8A112CC32AC0852B00786384 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
 		8A112CC52AC0863300786384 /* Bool+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Bool+Extensions.swift"; sourceTree = "<group>"; };
-		8A112CC72AC08BAC00786384 /* lidaLinks.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = lidaLinks.txt; sourceTree = "<group>"; };
 		8A112CCA2AC2BCBC00786384 /* Detector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detector.swift; sourceTree = "<group>"; };
 		8A112CCC2AC30E3E00786384 /* View+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+Extensions.swift"; sourceTree = "<group>"; };
 		8A112CD02AC31C0000786384 /* DetectionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionOverlay.swift; sourceTree = "<group>"; };
@@ -119,6 +118,7 @@
 		8A1D49B62ABB87D500C2D7C1 /* DataModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DataModel.swift; sourceTree = "<group>"; };
 		8A1D49B72ABB87D500C2D7C1 /* Item.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
 		8A1EF7122B1E203E00B0967B /* Slide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Slide.swift; sourceTree = "<group>"; };
+		8A3155992B1F9EFA00EA9110 /* privacypolicy.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = privacypolicy.html; path = iOS/Documents/privacypolicy.html; sourceTree = "<group>"; };
 		8A4256DD2B1D3090009153B1 /* WebCacheCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebCacheCleaner.swift; sourceTree = "<group>"; };
 		8A4256E32B1E0BA3009153B1 /* EmailController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailController.swift; sourceTree = "<group>"; };
 		8A4256E52B1E0C4C009153B1 /* UIApplication+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplication+Extensions.swift"; sourceTree = "<group>"; };
@@ -235,6 +235,14 @@
 			path = Gallery;
 			sourceTree = "<group>";
 		};
+		8A3155982B1F9EE700EA9110 /* Documents */ = {
+			isa = PBXGroup;
+			children = (
+				8A3155992B1F9EFA00EA9110 /* privacypolicy.html */,
+			);
+			name = Documents;
+			sourceTree = "<group>";
+		};
 		8A61C50E2AB9A7A600BF72BE /* iOS */ = {
 			isa = PBXGroup;
 			children = (
@@ -249,14 +257,6 @@
 				8A61C5112AB9A85400BF72BE /* UI */,
 			);
 			path = iOS;
-			sourceTree = "<group>";
-		};
-		8A61C5102AB9A83A00BF72BE /* Documentation */ = {
-			isa = PBXGroup;
-			children = (
-				8A112CC72AC08BAC00786384 /* lidaLinks.txt */,
-			);
-			path = Documentation;
 			sourceTree = "<group>";
 		};
 		8A61C5112AB9A85400BF72BE /* UI */ = {
@@ -330,7 +330,6 @@
 		8AE0BBF72A97B0B30086DDF9 = {
 			isa = PBXGroup;
 			children = (
-				8A61C5102AB9A83A00BF72BE /* Documentation */,
 				8AE0BC022A97B0B30086DDF9 /* AI Archeology */,
 				8AE0BC192A97B0B40086DDF9 /* AI ArcheologyTests */,
 				8AE0BC232A97B0B40086DDF9 /* AI ArcheologyUITests */,
@@ -351,6 +350,7 @@
 		8AE0BC022A97B0B30086DDF9 /* AI Archeology */ = {
 			isa = PBXGroup;
 			children = (
+				8A3155982B1F9EE700EA9110 /* Documents */,
 				8A112CC02AC0757900786384 /* AI-Archeology-Info.plist */,
 				8A61C50E2AB9A7A600BF72BE /* iOS */,
 			);
@@ -497,7 +497,7 @@
 				8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */,
 				8AE0BC0B2A97B0B40086DDF9 /* Preview Assets.xcassets in Resources */,
 				8AE0BC082A97B0B40086DDF9 /* Assets.xcassets in Resources */,
-				8A112CC82AC08BAC00786384 /* lidaLinks.txt in Resources */,
+				8A31559A2B1F9EFA00EA9110 /* privacypolicy.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
