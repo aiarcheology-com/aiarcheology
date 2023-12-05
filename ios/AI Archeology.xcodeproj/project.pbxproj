@@ -755,7 +755,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aiarcheology.ios;
 				PRODUCT_NAME = "ML Browser";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -792,7 +792,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aiarcheology.ios;
 				PRODUCT_NAME = "ML Browser";
 				PROVISIONING_PROFILE_SPECIFIER = "";

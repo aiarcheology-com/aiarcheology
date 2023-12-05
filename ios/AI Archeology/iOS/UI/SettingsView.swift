@@ -193,6 +193,7 @@ struct AlertItem: Identifiable {
 
 struct AppDescriptionView: View {
 	let versionString: String = appVersion()
+	let buildString: String = appBuild()
 	let appIcon: String = Bundle.main.iconFileName ?? "AppIcon"
 	let emailAddress: String = "info@aiarcheology.com"
 	private static let websiteURL = URL(string: "https://www.aiarcheology.com")!
@@ -213,12 +214,13 @@ struct AppDescriptionView: View {
 								.aspectRatio(contentMode: .fit)
 								.clipShape(RoundedRectangle(cornerRadius: 8))
 						}
+						let version = "v\(versionString) \(buildString)"
 						VStack(alignment: .leading) {
 							Text("Version (Beta)")
 								.bold()
-							Text("v\(versionString)")
+							Text(version)
 						}
-						.copiedToClipboard(copiedText: versionString, preview: versionString)
+						.copiedToClipboard(copiedText: version, preview: version)
 						.foregroundColor(.primary)
 					}
 					.fixedSize()
@@ -279,9 +281,15 @@ struct AppDescriptionView: View {
 
 	static func appVersion(in bundle: Bundle = .main) -> String {
 		guard let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
-			fatalError("CFBundleShortVersionString should not be missing from info dictionary")
+			assert(false, "CFBundleShortVersionString should not be missing from info dictionary")
 		}
 		return version
+	}
+	static func appBuild(in bundle: Bundle = .main) -> String {
+		guard let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String else {
+			assert(false, "CFBundleVersion should not be missing from info dictionary")
+		}
+		return build
 	}
 }
 
