@@ -283,6 +283,7 @@ struct AppDescriptionView: View {
 	static func appVersion(in bundle: Bundle = .main) -> String {
 		guard let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
 			assert(false, "CFBundleShortVersionString should not be missing from info dictionary")
+			return ""
 		}
 		return version
 	}
@@ -290,7 +291,7 @@ struct AppDescriptionView: View {
 		guard let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String else {
 			assert(false, "CFBundleVersion should not be missing from info dictionary")
 		}
-		return build
+		return ""
 	}
 }
 
