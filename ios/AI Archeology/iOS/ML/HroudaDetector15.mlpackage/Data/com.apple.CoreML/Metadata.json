@@ -4,8 +4,8 @@
   "MLModelCreatorDefinedKey" : {
     "com.apple.createml.version" : "11.5.2",
     "com.apple.createml.app.tag" : "78.5",
-    "com.apple.coreml.model.preview.type" : "objectDetector",
     "iterations" : "13000",
+    "com.apple.coreml.model.preview.type" : "objectDetector",
     "com.apple.createml.app.version" : "3.0"
   },
   "MLModelAuthorKey" : "AI Archeology",
