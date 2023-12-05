@@ -181,6 +181,7 @@ enum ValidationError: Error {
 class Settings: ObservableObject, Validatable {
 	unowned var appState: AppState
 	private enum UserDefaultsKeys {
+		static let isDetectionPaused = "isDetectionPaused"
 		static let keepSlideShowActive = "keepSlideShowActive"
 		static let reopenLastPage = "reopenLastPage"
 		static let isFirstLaunch = "isFirstLaunch"
@@ -195,6 +196,8 @@ class Settings: ObservableObject, Validatable {
 	}
 
 	public var isFirstLaunchMarked: Bool = false
+
+	@Published public var isDetectionPaused: Bool = false
 
 	@Published public var keepSlideShowActive: Bool {
 		didSet {
@@ -315,6 +318,7 @@ class Settings: ObservableObject, Validatable {
 	}
 
 	func reset() {
+		self.isDetectionPaused = false
 		self.keepSlideShowActive = true
 		self.historySize = 30
 		self.reopenLastPage = false

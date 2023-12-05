@@ -16,6 +16,18 @@ struct MLBrowser: App {
             ContentView()
                 .environmentObject(appState)
 				.environment(\.managedObjectContext, appState.dataController.container.viewContext)
+				.onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { output in
+					if appState.guide.ontheflyDetectionEnabled {
+						appState.settings.isDetectionPaused = true
+						appState.guide.ontheflyDetectionTapped()
+					}
+				}
+				.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { output in
+					if appState.settings.isDetectionPaused {
+						appState.settings.isDetectionPaused = false
+						appState.guide.ontheflyDetectionTapped()
+					}
+				}
         }
     }
 }
