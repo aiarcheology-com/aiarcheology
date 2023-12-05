@@ -263,7 +263,7 @@ struct AppDescriptionView: View {
 				}
 			}
 			Spacer()
-			Text("In the places of forgotten memories, we see not just piles of rocks, but also the resilient people who once arranged them in the right spot.")
+			Text("In the places of forgotten memories, we should see not just piles of rocks, but also the resilient people -  builders - who once arranged these rocks in the right spot.")
 				.multilineTextAlignment(.center)
 				.font(.headline)
 				.italic()
