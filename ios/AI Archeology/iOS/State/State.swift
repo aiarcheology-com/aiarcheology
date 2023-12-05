@@ -28,8 +28,6 @@ class AppState: ObservableObject {
 	lazy var settings = Settings(appState: self)
 	lazy var snapAdjustment = SnapAdjustment(appState: self)
 
-	@Published var restartTriggered: Bool = false
-
 	init() {
 		createDemoEntities()
 	}
@@ -49,7 +47,7 @@ class AppState: ObservableObject {
 	}
 
 	func deleteBrowsingHistory() {
-		WebHistoryEntry.deleteAll(in: dataController.container.viewContext)
+		WebHistoryEntry.deleteAll(in: dataController.container.viewContext, executeAndMerge: true)
 	}
 
 
@@ -705,14 +703,10 @@ class Guide: ObservableObject {
 		appState.deep.reset()
 		appState.settings.reset()
 		appState.settings.applicationResetButtonToggle.toggle()
-		DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+		self.appState.deleteBrowsingHistory()
+		DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
 			guard let self else { return }
-			self.appState.deleteBrowsingHistory()
-			//self.appState.createDemoEntities()
-			DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-					// TODO: Sadly the context does not updated @FetchRequest, explicit refresh follows
-				self.appState.restartTriggered = true
-			}
+			self.appState.createDemoEntities()
 		}
 	}
 }
@@ -840,7 +834,7 @@ protocol CoreDataManageable where Self: NSManagedObject {
 	var entityId: UUID? { get }
 	static func create(in context: NSManagedObjectContext) -> Self
 	static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: (Self) -> Void)
-	static func deleteAll(in context: NSManagedObjectContext)
+	static func deleteAll(in context: NSManagedObjectContext, executeAndMerge: Bool)
 	static func delete(_ entityId: UUID, in context: NSManagedObjectContext)
 	static func delete(_ entity: Self, in context: NSManagedObjectContext)
 	static func select(_ entityId: UUID, in context: NSManagedObjectContext) -> Self?
@@ -893,12 +887,17 @@ extension CoreDataManageable where Self: NSManagedObject {
 		}
 	}
 
-	static func deleteAll(in context: NSManagedObjectContext) {
+	static func deleteAll(in context: NSManagedObjectContext, executeAndMerge: Bool = false) {
 		let fetchRequest: NSFetchRequest<NSFetchRequestResult> = Self.fetchRequest()
 		let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
 
 		do {
-			try context.execute(deleteRequest)
+			if executeAndMerge.enabled {
+				try context.executeAndMergeChanges(using: deleteRequest)
+			} else {
+				try context.execute(deleteRequest)
+			}
+
 			try context.save()
 		} catch let error as NSError {
 			print("Error deleting all entities: \(error), \(error.userInfo)")

@@ -172,11 +172,6 @@ struct AlertItem: Identifiable {
 				.onChange(of: mergedObservable) { _ in
 					resetButtonColor = .red
 				}
-				.onReceive(guide.appState.$restartTriggered) { newValue in
-					guard newValue.enabled else { return }
-					self.alertItem = AlertItem(title: Text("Reset complete"), message: Text("Please close and reopen the application after the reset to defaults."))
-					guide.appState.restartTriggered = false
-				}
 				.alert(item: $alertItem) { alertItem in
 					if let primaryButton = alertItem.primaryButton, let secondaryButton = alertItem.secondaryButton {
 						return Alert(title: alertItem.title,
@@ -365,7 +360,7 @@ struct BrowserHistoryView: View {
 		}
 		.navigationTitle("Browsing History")
 		.navigationBarItems(trailing: Button(action: {
-			WebHistoryEntry.deleteAll(in: moc)
+			WebHistoryEntry.deleteAll(in: moc, executeAndMerge: true)
 			refreshFrom.toggle()
 			self.presentation.wrappedValue.dismiss()
 		}) {

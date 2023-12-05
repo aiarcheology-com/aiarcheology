@@ -112,7 +112,7 @@ actor Detector: DeepDriver {
 		}
 		print("Model loaded from: \(path)")
 		objectDetectionModel = try VNCoreMLModel(for: model)
-		print("objectDetectionModel created from: \(model)")
+
 		guard let detecionModel = objectDetectionModel else {
 			throw DetectorError.coreModelLoadError
 		}
@@ -130,7 +130,6 @@ actor Detector: DeepDriver {
 				await self.updateDetectionResults(observations: observations)
 			}
 		})
-		print("detectionRequest created from: \(detecionModel)")
 	}
 
 	private func updateDetectionResults(observations: [VNRecognizedObjectObservation] = []) {
