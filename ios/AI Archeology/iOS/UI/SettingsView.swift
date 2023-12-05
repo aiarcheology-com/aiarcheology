@@ -216,7 +216,7 @@ struct AppDescriptionView: View {
 						}
 						let version = "v\(versionString) \(buildString)"
 						VStack(alignment: .leading) {
-							Text("Version (Beta)")
+							Text("Version")
 								.bold()
 							Text(version)
 						}
@@ -271,6 +271,7 @@ struct AppDescriptionView: View {
 				.italic()
 				.centerInParentView()
 				.frame(maxHeight: 200)
+				.padding(25)
 			Spacer()
 			Text("Copyright © 2023 by Vladimír Slavík, AI Archeology")
 				.foregroundColor(.gray)
