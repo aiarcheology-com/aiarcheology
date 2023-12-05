@@ -1,6 +1,6 @@
 {
   "MLModelVersionStringKey" : "1.0.20",
-  "MLModelDescriptionKey" : "Prehistoric Fortifications I",
+  "MLModelDescriptionKey" : "Fortification relicts in LIDAR 2 (greyscale)",
   "MLModelCreatorDefinedKey" : {
     "com.apple.createml.version" : "11.5.2",
     "com.apple.createml.app.tag" : "78.5",

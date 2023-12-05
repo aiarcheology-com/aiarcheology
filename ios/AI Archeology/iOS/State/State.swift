@@ -140,10 +140,11 @@ class AppState: ObservableObject {
 		let configuration = DeepConfiguration.create(in: dataController.container.viewContext)
 		configuration.demo = true
 		configuration.annotationColor = .yellow
+		configuration.modelVersion = parser.value(for: .versionString) as? String
+		configuration.modelDescription = parser.value(for: .description) as? String
 		configuration.author = parser.value(for: .author) as? String
 		configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
 		configuration.modelType = parser.task
-		configuration.model = parser.value(for: .description) as? String
 		configuration.phaseOutTime = 2
 		configuration.selectedSymbol = .circle
 		configuration.file_ = URL(string: url.lastPathComponent)
@@ -614,7 +615,7 @@ extension DeepConfiguration {
 		return 
 			lhs.entityId == rhs.entityId &&
 			lhs.file == rhs.file &&
-			lhs.model == rhs.model &&
+			lhs.modelDescription == rhs.modelDescription &&
 			lhs.modelType == rhs.modelType &&
 			lhs.author == rhs.author &&
 			lhs.creationDate == rhs.creationDate &&

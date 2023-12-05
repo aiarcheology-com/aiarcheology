@@ -58,7 +58,7 @@ struct SideMenuCell: View {
 
 	var body: some View {
 		HStack {
-			Text(configuration.model ?? "")
+			Text(configuration.modelDescription ?? "")
 			Spacer()
 			Toggle("", isOn: $configuration.enabled)
 				.tint(configuration.annotationColor)

@@ -8,8 +8,9 @@
         <attribute name="enabled" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="entityId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="file_" optional="YES" attributeType="URI"/>
-        <attribute name="model" optional="YES" attributeType="String"/>
+        <attribute name="modelDescription" optional="YES" attributeType="String"/>
         <attribute name="modelType" optional="YES" attributeType="String"/>
+        <attribute name="modelVersion" optional="YES" attributeType="String"/>
         <attribute name="phaseOutTime" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="selectedSymbol_" optional="YES" attributeType="String"/>
     </entity>

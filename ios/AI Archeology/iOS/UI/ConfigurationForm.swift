@@ -86,8 +86,9 @@ struct ConfigurationForm: View {
 					if isCompleteConfiguration() {
 						Section(header: Text("Model")) {
 							ConfigurationDetailRow(label: "File", value: "\(configuration.file?.pathComponents.last ?? "")")
-							ConfigurationDetailRow(label: "Model Name", value: "\(configuration.model ?? "")")
-							ConfigurationDetailRow(label: "Model Type", value: " \(configuration.modelType ?? "")")
+							ConfigurationDetailRow(label: "Decription", value: " \(configuration.modelDescription ?? "")")
+							ConfigurationDetailRow(label: "Type", value: " \(configuration.modelType ?? "")")
+							ConfigurationDetailRow(label: "Version", value: " \(configuration.modelVersion ?? "")")
 						}
 
 						Section(header: Text("Author")) {
@@ -197,10 +198,11 @@ struct ConfigurationForm: View {
 
 				configuration.entityId = id
 				configuration.annotationColor = .yellow
+				configuration.modelDescription = parser.value(for: .description) as? String
+				configuration.modelVersion = parser.value(for: .versionString) as? String
 				configuration.author = parser.value(for: .author) as? String
 				configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
 				configuration.modelType = parser.task
-				configuration.model = parser.value(for: .description) as? String
 				configuration.phaseOutTime = 2
 				configuration.selectedSymbol = .circle
 				guard let file = try? url.relativePath(from: DeepConfiguration.rootDirectory) else {
