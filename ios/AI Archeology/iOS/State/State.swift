@@ -334,7 +334,7 @@ class Settings: ObservableObject, Validatable {
 		self.entityId = UUID()
 		UserDefaults.standard.set(true, forKey: UserDefaultsKeys.keepSlideShowActive)
 		UserDefaults.standard.set(30, forKey: UserDefaultsKeys.sizeHistory)
-		UserDefaults.standard.set(true, forKey: UserDefaultsKeys.reopenLastPage)
+		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.reopenLastPage)
 		UserDefaults.standard.set(true, forKey: UserDefaultsKeys.isFirstLaunch)
 		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.showIdentifiers)
 		UserDefaults.standard.set(false, forKey: UserDefaultsKeys.snapAfterAppStart)

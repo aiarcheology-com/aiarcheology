@@ -82,6 +82,7 @@ var body: some View {
 				if 
 					appState.settings.reopenLastPage.enabled,
 					let lastPage = history.first?.page?.absoluteString {
+					print("lastpage: \(lastPage)")
 					inputUrl = lastPage
 					self.websiteUrl = inputUrl
 				} else {

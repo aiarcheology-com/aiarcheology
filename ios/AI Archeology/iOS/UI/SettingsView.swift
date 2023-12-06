@@ -49,7 +49,7 @@ struct AlertItem: Identifiable {
 						}
 
 						Toggle("Run At Launch", isOn: $settings.snapAfterAppStart)
-						Toggle("Show labels", isOn: $settings.showIdentifiers)
+						Toggle("Show Labels", isOn: $settings.showIdentifiers)
 					}
 
 						// Web Content Section
@@ -258,7 +258,7 @@ struct AppDescriptionView: View {
 						Image(templateName: "Twitter")
 							.resizable()
 							.scaledToFit()
-							.frame(maxWidth: 16, maxHeight: 16)
+							.frame(maxWidth: 20, maxHeight: 19)
 							.foregroundColor(.primary)
 						Link(Self.xName, destination: Self.xWebURL)
 					}
