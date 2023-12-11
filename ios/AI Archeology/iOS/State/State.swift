@@ -672,6 +672,8 @@ class Guide: ObservableObject {
 	@Published var selectedConfigurationId: UUID?
 	@Published var presentSettings: Bool = false
 	@Published var pageToOpen: URL?
+	@Published var addressBarMenu: [URL] = []
+	@Published var addressSelected: URL?
 
 	init(appState: AppState) {
 		self.appState = appState
@@ -686,6 +688,11 @@ class Guide: ObservableObject {
 			appState.snap.stopTimer()
 			appState.snap.startTimer()
 		}
+	}
+
+	func historySelected(_ item: URL) {
+		addressSelected = item
+		addressBarMenu = []
 	}
 
 	func ontheflyDetectionTapped() {

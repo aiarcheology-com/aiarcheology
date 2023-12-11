@@ -262,13 +262,20 @@ struct AnnotationViewBuilder: View {
 
 import Combine
 struct ContentView: View {
+	// environment:
+	@Environment(\.colorScheme) var colorScheme
+	@Environment(\.dismiss) var dismiss
+	// app model:
     @EnvironmentObject var appState: AppState
+	// sheets, alerts and menus:
 	@State private var detectedObservations: [ObservationParams] = []
 	@State private var showingForm = false
 	@State private var showingSettingsForm = false
 	@State private var showErrorAlert = false
 	@State private var showSlideshow = false
+	@State private var addressBarMenu: [URL] = []
 	@State private var errorMessage = ""
+	// content manipulation:
 	@State private var brightness = SnapAdjustment.defaultBrightness
 	@State private var contrast = SnapAdjustment.defaultContrast
 	@State private var saturation = SnapAdjustment.defaultSaturation
@@ -332,7 +339,7 @@ struct ContentView: View {
 					}
 					.tag(mode)
 				}
-				.toolbar(.hidden, for: .tabBar) // REMOVE this in case of supporting more screens, see AppMode.tabOrder
+				.toolbar(AppMode.tabOrder.count == 1 ? .hidden : .visible, for: .tabBar)
             }
 			// ----- Side Menu: -----
 			SideMenuLogic(isFirstLaunch: appState.settings.isFirstLaunchMarked) {
@@ -344,6 +351,32 @@ struct ContentView: View {
 				// Configuration cell selected: -> open existing configuration
 				appState.guide.selectedConfigurationId = entityId
 				showingForm = true
+			}
+			.onReceive(appState.guide.$addressBarMenu) { urls in
+				addressBarMenu = urls
+			}
+			.dropDownMenu(items: addressBarMenu, backgroundColor: colorScheme == .dark ? .black : .white, 
+			cancelContent: {
+				HStack {
+					Spacer()
+					Button {
+						appState.guide.addressBarMenu = []
+					} label: {
+						Image(systemName: "xmark.circle.fill")
+					}
+					.foregroundColor(.gray)
+					.padding(EdgeInsets(top: 20, leading: 0, bottom: 0, trailing: 25))
+				}
+			}) { item in
+				Button {
+					appState.guide.historySelected(item)
+				} label: {
+					Text(item.absoluteString.trimmedString)
+						.foregroundColor(.gray)
+						.lineLimit(1)
+						.truncationMode(.tail)
+					Spacer()
+				}
 			}
 			.environmentObject(appState.guide)
 			.environmentObject(appState.deep)
@@ -425,6 +458,70 @@ struct SideMenuLogic: View {
 			selectedConfigurationId = nil
 			onSelectCell(newValue)
 		}
+	}
+}
+
+// Please, Apple, make a real native dropdown menu for textField
+struct DropdownMenuModifier<Item, ItemContent: View, CancelContent: View>: ViewModifier where Item: Hashable {
+	var backgroundColor: Color = .clear
+	var items: [Item]
+	var cancelContent: () -> CancelContent
+	var itemContent: (Item) -> ItemContent
+
+	func body(content baseContent: Content) -> some View {
+		if items.isEmpty {
+			baseContent
+		} else {
+			GeometryReader { geometry in
+				ZStack(alignment: .top) {
+					baseContent
+					VStack {
+						Spacer()
+						.frame(height: 42)
+						.allowsHitTesting(false)
+						ScrollView {
+							cancelContent()
+							VStack(alignment: .leading) {
+								ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+										itemContent(item)
+											.padding(5)
+											.transition(.opacity)
+								}
+							}
+							.background(backgroundColor)
+						}
+						.frame(width: 0.6 * geometry.size.width, height: 0.4 * geometry.size.height)
+						.padding(5)
+						.background(
+							RoundedRectangle(cornerRadius: 5)
+							.fill(backgroundColor)
+							.overlay(
+								RoundedRectangle(cornerRadius: 5)
+									.stroke(Color.gray.opacity(0.5), lineWidth: 0.5)
+							)
+							.shadow(color: .black.opacity(0.75), radius: 5, x: 0, y: 0)
+						)
+					}
+					.animation(.easeInOut, value: items)
+				}
+			}
+		}
+	}
+}
+
+extension View {
+	public func dropDownMenu<Item, CancelContent: View, ItemContent: View>(
+															items: [Item],
+															backgroundColor: Color,
+															@ViewBuilder cancelContent: @escaping () -> CancelContent,
+															@ViewBuilder itemContent: @escaping (Item) -> ItemContent)
+														-> some View where Item: Hashable {
+
+		modifier(DropdownMenuModifier(backgroundColor: backgroundColor,
+									items: items,
+									cancelContent: cancelContent,
+									itemContent: itemContent)
+		)
 	}
 }
 

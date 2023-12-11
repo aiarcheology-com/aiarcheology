@@ -76,6 +76,12 @@ var body: some View {
 				print("loading status : \(loading)")
 			}
 		}
+		.onReceive(appState.guide.$addressSelected) { address in
+			guard let address else { return }
+			inputUrl = address.absoluteString
+			self.websiteUrl = inputUrl
+			appState.guide.addressBarMenu = []
+		}
 		.onAppear() {
 			if hasPerformedInitialAction.not {
 				hasPerformedInitialAction = true
@@ -93,47 +99,31 @@ var body: some View {
 				}
 			}
 		}
-//		.onReceive(appState.$webScreenUpdate) { newValue in // TODO: because the history does not trigger the update itself
-//			webScreenUpdate.toggle() // TODO: does not work as intended
-//		}
 		.environmentObject(appState.webViewRenderer)
 		.navigationBarTitle("", displayMode: .inline)
 		.clipped()
 		.toolbar {
 			ToolbarItem(placement: .principal) {
-				TextField("Search or enter any website name", text: $inputUrl, onEditingChanged: { starts in
-					if starts && history.isEmpty.not {
-						showMenu = true
+
+				TextField("Search or enter any website name", text: $inputUrl) { isStart in
+					showMenu = isStart
+				}
+				.environmentObject(appState.guide)
+				.onChange(of: inputUrl) { value in
+					if let addressSelected = appState.guide.addressSelected,
+					   inputUrl == addressSelected.absoluteString {
+						// Do not fill in the addressBarMenu if we already have
+						// selected an item.
+						appState.guide.addressSelected = nil
+						appState.guide.addressBarMenu = []
+						return
 					}
-				})
-				.contextMenu {
-					if showMenu {
-						ForEach(Array(history), id: \.self){ entry in
-							HStack {
-								Button(entry.page?.host(percentEncoded: false) ?? "Unknown URL") {
-									guard let page = entry.page else {
-										assert(false, "The page property of the WebHistoryEntry is nil.")
-										return
-									}
-									inputUrl = page.absoluteString
-									self.websiteUrl = inputUrl
-									entry.creationDate_ = .now
-									WebHistoryEntry.save(in: appState.dataController.container.viewContext)
-									Self.removeFocus()
-								}
-								// Shows the tags of the entries:
-//								Spacer()
-//								HStack {
-//									ForEach(entry.tagsArray, id: \.self) { tag in
-//										Text(tag.identifier ?? "")
-//											.padding()
-//											.background(Color.blue)
-//											.foregroundColor(.white)
-//											.cornerRadius(10) //
-//									}
-//								}
-							}
-						}
+					if history.isEmpty.not, showMenu.enabled {
+					   appState.guide.addressBarMenu = history
+							.filter { $0.page?.absoluteString.contains(value) == true }
+							.compactMap { $0.page }
+					} else {
+						appState.guide.addressBarMenu = []
 					}
 				}
 				.textFieldStyle(.roundedBorder)

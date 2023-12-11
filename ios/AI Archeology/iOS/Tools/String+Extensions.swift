@@ -51,6 +51,13 @@ enum BrowserInpuType {
 }
 
 extension String {
+	var trimmedString: String {
+		self.trimmingCharacters(in: .whitespacesAndNewlines)
+			.components(separatedBy: .newlines)
+			.filter{!$0.isEmpty}
+			.joined(separator: "\n")
+	}
+	
     var browserInputType: BrowserInpuType {
         let trimmed = self.trimmingCharacters(in: .whitespacesAndNewlines)
 
