@@ -126,7 +126,18 @@ var body: some View {
 						appState.guide.addressBarMenu = []
 					}
 				}
-				.textFieldStyle(.roundedBorder)
+				.padding(5)
+				.background(
+					LinearGradient(
+						gradient: Gradient(colors: [.gray.opacity(0.6), .gray.opacity(0.3), .gray.opacity(0.6)]),
+						startPoint: .top,
+						endPoint: .bottom)
+					.clipShape(RoundedRectangle(cornerRadius: 5))
+				)
+				.overlay(
+					RoundedRectangle(cornerRadius: 5)
+						.stroke(Color.gray.opacity(0.75), lineWidth: 0.75) // Grey border
+				)
 				.textInputAutocapitalization(.never)
 				.disableAutocorrection(true)
 				.onSubmit(of: .text, {

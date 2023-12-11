@@ -122,7 +122,9 @@ struct SideMenuView: View {
 					VStack {
 						HStack {
 							Button(action: onAddCell) {
-								Image(systemName: "plus")
+								Image(systemName: "plus.circle.fill")
+									.resizable()
+									.frame(width: 30, height: 30)
 							}
 							.padding()
 							Spacer()
