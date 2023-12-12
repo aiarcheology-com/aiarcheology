@@ -150,7 +150,7 @@ class AppState: ObservableObject {
 		configuration.file_ = URL(string: url.lastPathComponent)
 		configuration.entityId = id
 		configuration.enabled = false
-		DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+		Task {
 			DeepConfiguration.save(in: self.dataController.container.viewContext)
 		}
 	}
