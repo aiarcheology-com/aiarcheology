@@ -67,3 +67,9 @@ extension View {
 #endif
 	}
 }
+
+extension View {
+	func copiedToClipboard(copiedText: String, preview: String) -> some View {
+		self.modifier(CopiedToClipboardModifier(copiedText: copiedText, preview: preview))
+	}
+}

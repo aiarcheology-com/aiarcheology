@@ -1,0 +1,113 @@
+//
+//  AppDescriptionView.swift
+//  AI Archeology
+//
+//  Created by Vladimír Slavík on 14.12.23.
+//
+
+import SwiftUI
+
+struct AppDescriptionView: View {
+	let versionString: String = appVersion()
+	let buildString: String = appBuild()
+	let appIcon: String = Bundle.main.iconFileName ?? "AppIcon"
+	let emailAddress: String = "info@aiarcheology.com"
+	private static let websiteURL = URL(string: "https://www.aiarcheology.com")!
+	private static let xName = "@aiarcheology"
+	private static let xURL = URL(string: "twitter://user?screen_name=\(xName)")!
+	private static let xWebURL = URL(string: "https://twitter.com/\(xName)")!
+
+	@State private var showCopiedPopover = false
+
+	var body: some View {
+		VStack {
+			Form {
+				Section(header: Text("Application")) {
+					HStack(alignment: .center, spacing: 12) {
+						if let image = UIImage(named: appIcon){
+							Image(uiImage: image)
+								.resizable()
+								.aspectRatio(contentMode: .fit)
+								.clipShape(RoundedRectangle(cornerRadius: 8))
+						}
+						let version = "v\(versionString) \(buildString)"
+						VStack(alignment: .leading) {
+							Text("Version")
+								.bold()
+							Text(version)
+						}
+						.copiedToClipboard(copiedText: version, preview: version)
+						.foregroundColor(.primary)
+					}
+					.fixedSize()
+					.accessibilityElement(children: .ignore)
+					.accessibilityLabel("Version \(versionString)")
+				}
+				Section(header: Text("Contact")) {
+					Button(action: {
+						let email = emailAddress
+						let subject = "MLBrowser: v" + versionString +
+						" on " + DeviceInfo.deviceModelName() +
+						" " + UIDevice.current.systemVersion
+						let body = DeviceInfo.information()
+
+
+						guard let emailURL = URL(string: "mailto:\(email)?subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "")&body=\(body.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "")") else { return }
+
+						if UIApplication.shared.canOpenURL(emailURL as URL) {
+							UIApplication.shared.open(emailURL as URL)
+						}
+					}) {
+						HStack {
+							Image(systemName: "envelope.fill")
+							Text(emailAddress)
+						}
+					}
+
+					HStack {
+						Image(systemName: "globe")
+							.foregroundColor(.blue)
+						Link(Self.websiteURL.absoluteString, destination: Self.websiteURL)
+					}
+
+					HStack {
+						Image(templateName: "Twitter")
+							.resizable()
+							.scaledToFit()
+							.frame(maxWidth: 20, maxHeight: 19)
+							.foregroundColor(.primary)
+						Link(Self.xName, destination: Self.xWebURL)
+					}
+				}
+				Section(header: Text("Legal")) {
+					NavigationLink(destination:
+									PrivacyPolicyView(htmlFileName: "privacypolicy")
+						.navigationTitle("Privacy Policy")
+					) {
+						Text("Privacy Policy")
+					}
+				}
+			}
+			Spacer()
+			Text("Copyright © 2023 by Vladimír Slavík, AI Archeology")
+				.foregroundColor(.gray)
+				.padding()
+		}
+		.navigationBarTitle("About", displayMode: .inline)
+	}
+
+	static func appVersion(in bundle: Bundle = .main) -> String {
+		guard let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
+			assert(false, "CFBundleShortVersionString should not be missing from info dictionary")
+			return ""
+		}
+		return version
+	}
+	static func appBuild(in bundle: Bundle = .main) -> String {
+		guard let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String else {
+			assert(false, "CFBundleVersion should not be missing from info dictionary")
+			return ""
+		}
+		return build
+	}
+}

@@ -1,5 +1,5 @@
 //
-//  SnapControlView.swift
+//  SnapAdjustmentView.swift
 //  AI Archeology
 //
 //  Created by Vladimír Slavík on 30.11.23.
