@@ -24,6 +24,7 @@ struct SideMenuView: View {
 	@Binding var selectedConfigurationId: UUID?
 	@Binding var presentedSideMenu: Bool
 	@State var onAddCell: (() -> Void)
+	@State var onDownloadTap: (() -> Void)
 
 	var body: some View {
 		HStack(alignment: .bottom) {
@@ -35,15 +36,24 @@ struct SideMenuView: View {
 							Button(action: onAddCell) {
 								Image(systemName: "plus.circle.fill")
 									.resizable()
-									.frame(width: 30, height: 30)
+									.foregroundColor(.blue)
+									.frame(width: 24, height: 24)
 							}
-							.padding()
+							.padding(EdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 0))
+							Button(action: onDownloadTap) {
+								Image(systemName: "arrow.down.circle")
+									.resizable()
+									.foregroundColor(.gray)
+									.frame(width: 24, height: 24)
+							}
+							.padding(7)
 							Spacer()
 							Button(action: {
 								presentedSideMenu = false
 							}) {
 								Text("Close")
 									.bold()
+									.foregroundColor(.blue)
 							}
 							.padding()
 						}
@@ -95,7 +105,7 @@ struct SideMenuView: View {
 					}
 					.listStyle(InsetGroupedListStyle()) //TODO: ultraThinMaterial background?
 				}
-				.padding(.top, 30)
+				.padding(.top, 25)
 				.frame(width: 300)
 			}
 			.background(.ultraThinMaterial)

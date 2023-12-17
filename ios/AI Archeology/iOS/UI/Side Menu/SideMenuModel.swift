@@ -8,39 +8,6 @@
 import SwiftUI
 import CoreData
 
-enum SideMenuRowType: Int, CaseIterable{
-    case home = 0
-    case favorite
-    case chat
-    case profile
-
-    var title: String{
-        switch self {
-        case .home:
-            return "Fortification detection"
-        case .favorite:
-            return "Fortification detection"
-        case .chat:
-            return "Enclosure detection"
-        case .profile:
-            return "Mound dection"
-        }
-    }
-
-    var iconName: String{
-        switch self {
-        case .home:
-            return "home"
-        case .favorite:
-            return "favorite"
-        case .chat:
-            return "chat"
-        case .profile:
-            return "profile"
-        }
-    }
-}
-
 class SideMenuData: ObservableObject {
 	@Published var id: UUID?
 	@Published var title: String?

@@ -89,16 +89,20 @@ struct ContentView: View {
 				.toolbar(AppMode.tabOrder.count == 1 ? .hidden : .visible, for: .tabBar)
             }
 			// ----- Side Menu: -----
-			SideMenuLogic(isFirstLaunch: appState.settings.isFirstLaunchMarked) {
-				// Plus button triggered: -> create new configuration
-				appState.deep.newConfiguration = appState.deep.createConfiguration()
-				showingForm = true
-			}
-			onSelectCell: { entityId in
-				// Configuration cell selected: -> open existing configuration
-				appState.guide.selectedConfigurationId = entityId
-				showingForm = true
-			}
+			SideMenuLogic(isFirstLaunch: appState.settings.isFirstLaunchMarked,
+				onAddCell: {
+					// Plus button triggered: -> create new configuration
+					appState.deep.newConfiguration = appState.deep.createConfiguration()
+					showingForm = true
+			},
+				onDownloadTap: {
+				// TODO: Open the download sheet
+			},
+				onSelectCell: { entityId in
+					// Configuration cell selected: -> open existing configuration
+					appState.guide.selectedConfigurationId = entityId
+					showingForm = true
+			})
 			.onReceive(appState.guide.$addressBarMenu) { urls in
 				addressBarMenu = urls
 			}

@@ -9,8 +9,9 @@ import SwiftUI
 
 struct SideMenuLogic: View {
 	var isFirstLaunch: Bool
-	var onAddCell: () -> Void //TODO: observe changes using Guide properties
-	var onSelectCell: (UUID) -> Void //TODO: observe changes using Guide properties
+	var onAddCell: () -> Void
+	var onDownloadTap: () -> Void
+	var onSelectCell: (UUID) -> Void
 	@EnvironmentObject var guide: Guide
 	@State var selectedConfigurationId: UUID?
 
@@ -18,7 +19,8 @@ struct SideMenuLogic: View {
 		SideMenu(presentedSideMenu: $guide.presentedSideMenu) {
 			SideMenuView(isFirstLaunch: isFirstLaunch, selectedConfigurationId: $selectedConfigurationId,
 						 presentedSideMenu: $guide.presentedSideMenu,
-						 onAddCell: onAddCell)
+						 onAddCell: onAddCell, 
+						 onDownloadTap: onDownloadTap)
 		}
 		.onChange(of: selectedConfigurationId) { newValue in
 			guard let newValue else { return }
