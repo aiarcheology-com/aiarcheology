@@ -22,14 +22,14 @@ struct DeviceInfo {
 		let date = getCurrentFormattedDate()
 
 		let info = """
-   Device Model: \(deviceModel)
-   iOS Version: \(iosVersion)
-   App Name: \(appName)
-   App Version Number: \(appVersionNumber)
-   App Build Number: \(appBuildNumber)
-   Current Device Storage Status: \(storageStatus)
-   Info Gathered to Date: \(date)
-  """
+		   Device Model: \(deviceModel)
+		   iOS Version: \(iosVersion)
+		   App Name: \(appName)
+		   App Version Number: \(appVersionNumber)
+		   App Build Number: \(appBuildNumber)
+		   Current Device Storage Status: \(storageStatus)
+		   Info Gathered to Date: \(date)
+		"""
 
 		return info
 	}
