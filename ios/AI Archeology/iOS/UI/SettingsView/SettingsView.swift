@@ -148,7 +148,9 @@ struct SettingsForm: View {
 				}
 			}) {
 
-				Text("Dismiss").bold()
+				Text("Dismiss")
+					.bold()
+					.foregroundColor(.blue)
 			})
 
 			.alert(isPresented: .constant(validationErrorMessage != nil), content: {

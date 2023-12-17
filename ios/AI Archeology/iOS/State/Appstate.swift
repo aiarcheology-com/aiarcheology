@@ -30,8 +30,15 @@ class AppState: ObservableObject {
 		if settings.isFirstLaunch {
 			settings.isFirstLaunchMarked = true
 			settings.isFirstLaunch = false
-			createDemoConfigurations()
-			createBrowsingHistory()
+
+			// Create the context
+			_ = self.dataController.container.viewContext
+			Task {
+				// and give the context time to be ready
+				try await Task.sleep(nanoseconds: 100_000_000)
+				createDemoConfigurations()
+				createBrowsingHistory()
+			}
 		}
 	}
 
@@ -144,8 +151,6 @@ class AppState: ObservableObject {
 		configuration.file_ = URL(string: url.lastPathComponent)
 		configuration.entityId = id
 		configuration.enabled = false
-		Task {
-			DeepConfiguration.save(in: self.dataController.container.viewContext)
-		}
+		DeepConfiguration.save(in: self.dataController.container.viewContext)
 	}
 }

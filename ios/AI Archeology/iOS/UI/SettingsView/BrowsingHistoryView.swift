@@ -17,58 +17,84 @@ struct BrowserHistoryView: View {
 	private var history: FetchedResults<WebHistoryEntry>
 	@EnvironmentObject var settings: Settings
 	@State private var refreshFrom: Bool = false // TODO: history is not being reloaded after deletion
+	@State private var showingAlert = false
 
 	var body: some View {
 		VStack {
 			Form {
 				List {
-					ForEach(history, id: \.self) { (item: WebHistoryEntry) in
-						let page = item.page?.absoluteString ?? "Unknown Page"
+					Section {
 						HStack {
-							Text(page)
-								.swipeActions {
-									Button(action: {
-										UIPasteboard.general.string = page
-									}) {
-										Label("", systemImage: "doc.on.doc")
-									}
-									.tint(.blue)
-
-									Button(role: .destructive, action: {
-										guard let entityId = item.entityId else {
-											assert(false, "No entry has been found after the selection.")
-											return
-										}
-										WebHistoryEntry.delete(entityId, in: moc)
-									}) {
-										Label("", systemImage: "trash")
-									}
-
-									Button(action: {
-										settings.defaultPage = item.page
-									}) {
-										Label("", systemImage: "house")
-									}
-									.tint(.green)
-								}
+							Text("Clear Browsing History")
 							Spacer()
-							if item.page == settings.defaultPage {
-								Image(systemName: "house")
-									.foregroundColor(.green)
+							Button(action: {
+								showingAlert = true
+							}) {
+								Text("Clear")
+									.bold()
+									.foregroundColor(refreshFrom.disabled ? .red : .blue)
 							}
 						}
 					}
+					Section {
+						ForEach(history, id: \.self) { (item: WebHistoryEntry) in
+							let page = item.page?.absoluteString ?? "Unknown Page"
+							HStack {
+								Text(page)
+									.swipeActions {
+										Button(action: {
+											UIPasteboard.general.string = page
+										}) {
+											Label("", systemImage: "doc.on.doc")
+										}
+										.tint(.blue)
+
+										Button(role: .destructive, action: {
+											guard let entityId = item.entityId else {
+												assert(false, "No entry has been found after the selection.")
+												return
+											}
+											WebHistoryEntry.delete(entityId, in: moc)
+										}) {
+											Label("", systemImage: "trash")
+										}
+
+										Button(action: {
+											settings.defaultPage = item.page
+										}) {
+											Label("", systemImage: "house")
+										}
+										.tint(.green)
+									}
+								Spacer()
+								if item.page == settings.defaultPage {
+									Image(systemName: "house")
+										.foregroundColor(.green)
+								}
+							}
+						}
+					}
+				}
+				.alert(isPresented: $showingAlert) {
+					Alert(
+						title: Text("Warning"),
+						message: Text("Clear the browsing history?"),
+						primaryButton: .destructive(Text("Clear")) {
+							WebHistoryEntry.deleteAll(in: moc, executeAndMerge: true)
+							refreshFrom.toggle()
+						},
+						secondaryButton: .cancel()
+					)
 				}
 			}
 		}
 		.navigationTitle("Browsing History")
 		.navigationBarItems(trailing: Button(action: {
-			WebHistoryEntry.deleteAll(in: moc, executeAndMerge: true)
-			refreshFrom.toggle()
 			self.presentation.wrappedValue.dismiss()
 		}) {
-			Text("Clear").bold()
-				.foregroundColor(refreshFrom.disabled ? .red : .blue)
+			Text("Dismiss")
+				.bold()
+				.foregroundColor(.blue)
 		}
 		)
 	}
