@@ -35,27 +35,23 @@ actor Detector: DeepDriver {
 		self.params = DeepDriverParams(
 			annotationColor: configuration.annotationColor,
 			entityId: configuration.entityId,
-			file: configuration.file_,
+			file: configuration.file,
 			phaseOutTime: configuration.phaseOutTime,
 			selectedSymbol: configuration.selectedSymbol,
 			demo: configuration.demo
 		)
-
-		guard let modelFile = configuration.file else {
-			assert(false, "The DeeepConfiguration.file is not initialised or can not infer the completePath.")
-			return
-		}
-
-		Task {
-			try await self.load(from: modelFile)
-		}
 	}
 
 	func metadata() -> [MLModelMetadataKey : Any]? {
 		mlModel?.modelDescription.metadata
 	}
 
-	func load(from path: URL) async throws {
+	func loadFile() async throws {
+		guard let path = self.params.file else {
+			assert(false, "The DeeepConfiguration.file is not initialised or can not infer the completePath.")
+			return
+		}
+
 		guard let model = try await Self.loadModel(from: path, demo: params.demo) else {
 			throw DetectorError.loadError
 		}
@@ -79,6 +75,7 @@ actor Detector: DeepDriver {
 				await self.updateDetectionResults(observations: observations)
 			}
 		})
+		detectionRequest?.imageCropAndScaleOption = .scaleFit
 	}
 
 	private func updateDetectionResults(observations: [VNRecognizedObjectObservation] = []) {

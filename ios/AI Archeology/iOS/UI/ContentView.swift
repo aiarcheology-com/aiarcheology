@@ -162,14 +162,14 @@ struct ContentView: View {
 				.environmentObject(appState.guide)
 		}
 		// ------ Error processing -----
-		.onReceive(appState.deep.$deepStateError) { error in
-			guard let error else { return }
-			errorMessage = error.localizedDescription
-			showErrorAlert = true
-		}
-		.alert(isPresented: $showErrorAlert) {
-			Alert(title: Text("Error"), message: Text(errorMessage), dismissButton: .default(Text("OK")))
-		}
+			.onReceive(appState.deep.$deepStateError) { error in
+				guard let error else { return }
+				errorMessage = error.localizedDescription
+				showErrorAlert = true
+			}
+			.alert(isPresented: $showErrorAlert) {
+				Alert(title: Text("Error"), message: Text(errorMessage), dismissButton: .default(Text("OK")))
+			}
 		.onAppear { // should be called only once after the app start
 			guard appState.snap.delayedTimer.not else { return }
 

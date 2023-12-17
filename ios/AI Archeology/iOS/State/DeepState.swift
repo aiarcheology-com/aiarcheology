@@ -31,7 +31,16 @@ class DeepState: ObservableObject {
 			try configurations.forEach { config in
 				guard config.enabled == true else { return }
 				guard let driver = try self.createDriver(from: config) else { return }
-				self.register(driver: driver, along: config.modelTypeInternal)
+
+				Task {
+					do {
+						try await driver.loadFile()
+						register(driver: driver, along: config.modelTypeInternal)
+					}
+					catch let error {
+						assert(false, "The driver has not been loaded. \(error)")
+					}
+				}
 			}
 		}
 		catch {
@@ -137,7 +146,15 @@ class DeepState: ObservableObject {
 
 					assert(isDriverForThisConfigurationLoaded.not, "You are trying to insert a configuration with an UUID that already exist." )
 
-					register(driver: driver, along: config.modelTypeInternal)
+					Task {
+						do {
+							try await driver.loadFile()
+							register(driver: driver, along: config.modelTypeInternal)
+						}
+						catch let error {
+							assert(false, "The driver has not been loaded. \(error)")
+						}
+					}
 				}
 			}
 			catch {
@@ -161,7 +178,15 @@ class DeepState: ObservableObject {
 						assert(false, "Driver has not been initialised after a configuratoin insert.")
 						return
 					}
-					register(driver: driver, along: config.modelTypeInternal)
+					Task {
+						do {
+							try await driver.loadFile()
+							register(driver: driver, along: config.modelTypeInternal)
+						}
+						catch let error {
+							assert(false, "The driver has not been loaded. \(error)")
+						}
+					}
 				} else {
 					if config.enabled {
 						updaterDriver(with: config)

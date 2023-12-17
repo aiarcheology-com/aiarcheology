@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		8A112CB92ABDE0BB00786384 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CB82ABDE0BB00786384 /* WebView.swift */; };
-		8A112CBF2ABEEEEC00786384 /* WebViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CBE2ABEEEEC00786384 /* WebViewModel.swift */; };
 		8A112CC42AC0852B00786384 /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CC32AC0852B00786384 /* String+Extensions.swift */; };
 		8A112CC62AC0863300786384 /* Bool+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CC52AC0863300786384 /* Bool+Extensions.swift */; };
 		8A112CCB2AC2BCBC00786384 /* Detector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CCA2AC2BCBC00786384 /* Detector.swift */; };
@@ -86,6 +85,11 @@
 		8AC650B22B2B9B4400922648 /* WebViewRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC650B12B2B9B4400922648 /* WebViewRenderer.swift */; };
 		8AC7CDED2AE7FCED00871074 /* SnapState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC7CDEC2AE7FCED00871074 /* SnapState.swift */; };
 		8AC9B6262B153A11007D20EA /* URL+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC9B6252B153A11007D20EA /* URL+Extensions.swift */; };
+		8AD3A82B2B2EF3320058E018 /* DownloaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AD3A82A2B2EF3320058E018 /* DownloaderView.swift */; };
+		8AD3A82E2B2EF9490058E018 /* Downloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AD3A82D2B2EF9490058E018 /* Downloader.swift */; };
+		8AD3A8302B2EFA3E0058E018 /* Annotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AD3A82F2B2EFA3E0058E018 /* Annotation.swift */; };
+		8AD3A8332B2F02280058E018 /* DownloadItem+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AD3A8312B2F02280058E018 /* DownloadItem+CoreDataClass.swift */; };
+		8AD3A8342B2F02280058E018 /* DownloadItem+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AD3A8322B2F02280058E018 /* DownloadItem+CoreDataProperties.swift */; };
 		8ADCE5D52B1EA15200B5EAED /* NSManagedObjectContext+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ADCE5D42B1EA15200B5EAED /* NSManagedObjectContext+Extensions.swift */; };
 		8AE0BC042A97B0B30086DDF9 /* MLBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC032A97B0B30086DDF9 /* MLBrowser.swift */; };
 		8AE0BC062A97B0B30086DDF9 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC052A97B0B30086DDF9 /* ContentView.swift */; };
@@ -118,7 +122,6 @@
 
 /* Begin PBXFileReference section */
 		8A112CB82ABDE0BB00786384 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
-		8A112CBE2ABEEEEC00786384 /* WebViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewModel.swift; sourceTree = "<group>"; };
 		8A112CC02AC0757900786384 /* AI-Archeology-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "AI-Archeology-Info.plist"; sourceTree = SOURCE_ROOT; };
 		8A112CC32AC0852B00786384 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
 		8A112CC52AC0863300786384 /* Bool+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Bool+Extensions.swift"; sourceTree = "<group>"; };
@@ -197,6 +200,11 @@
 		8AC650B12B2B9B4400922648 /* WebViewRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewRenderer.swift; sourceTree = "<group>"; };
 		8AC7CDEC2AE7FCED00871074 /* SnapState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapState.swift; sourceTree = "<group>"; };
 		8AC9B6252B153A11007D20EA /* URL+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URL+Extensions.swift"; sourceTree = "<group>"; };
+		8AD3A82A2B2EF3320058E018 /* DownloaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloaderView.swift; sourceTree = "<group>"; };
+		8AD3A82D2B2EF9490058E018 /* Downloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Downloader.swift; sourceTree = "<group>"; };
+		8AD3A82F2B2EFA3E0058E018 /* Annotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Annotation.swift; sourceTree = "<group>"; };
+		8AD3A8312B2F02280058E018 /* DownloadItem+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DownloadItem+CoreDataClass.swift"; sourceTree = "<group>"; };
+		8AD3A8322B2F02280058E018 /* DownloadItem+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DownloadItem+CoreDataProperties.swift"; sourceTree = "<group>"; };
 		8ADCE5D42B1EA15200B5EAED /* NSManagedObjectContext+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSManagedObjectContext+Extensions.swift"; sourceTree = "<group>"; };
 		8AE0BC002A97B0B30086DDF9 /* ML Browser.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "ML Browser.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AE0BC032A97B0B30086DDF9 /* MLBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLBrowser.swift; sourceTree = "<group>"; };
@@ -312,19 +320,16 @@
 		8A61C5112AB9A85400BF72BE /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				8AD3A82C2B2EF3390058E018 /* Downloder */,
 				8AC393D42B2BA31300C9BA57 /* Annotation */,
 				8AC393CD2B2BA24600C9BA57 /* Side Menu */,
 				8AC393BC2B2B9EB900C9BA57 /* Modifiers */,
+				8AAE89512B2E4D16007C9E26 /* Screens */,
 				8AC393B92B2B9E5600C9BA57 /* SettingsView */,
 				8AE0BC032A97B0B30086DDF9 /* MLBrowser.swift */,
 				8AE0BC052A97B0B30086DDF9 /* ContentView.swift */,
 				8A112CB82ABDE0BB00786384 /* WebView.swift */,
-				8A112CBE2ABEEEEC00786384 /* WebViewModel.swift */,
 				8AA9962B2AD9EB6400371EC8 /* Appearance.swift */,
-				8A13280E2AF142C600F119C6 /* WebScreen.swift */,
-				8A1328102AF142FF00F119C6 /* GalleryScreen.swift */,
-				8A1328162AF1438100F119C6 /* Screens.swift */,
-				8A1328182AF143A400F119C6 /* Screen.swift */,
 				8A13281A2AF1598500F119C6 /* ViewContainer.swift */,
 				8A13281C2AF159E100F119C6 /* NavigationBarItems.swift */,
 				8A13281E2AF265DE00F119C6 /* GlobalToolbar.swift */,
@@ -343,10 +348,12 @@
 		8A61C5122AB9A85900BF72BE /* State */ = {
 			isa = PBXGroup;
 			children = (
+				8AD3A82F2B2EFA3E0058E018 /* Annotation.swift */,
 				8AC6509E2B2B492C00922648 /* AppMode.swift */,
 				8AC6509C2B2B48D500922648 /* Appstate.swift */,
 				8AC650A62B2B4C5600922648 /* DataController.swift */,
 				8AC650A42B2B4BE200922648 /* DeepConfiguration.swift */,
+				8AD3A82D2B2EF9490058E018 /* Downloader.swift */,
 				8AC650A22B2B4BB000922648 /* DeepState.swift */,
 				8AC650AC2B2B9A6200922648 /* Guide.swift */,
 				8AC650A02B2B495B00922648 /* Settings.swift */,
@@ -370,6 +377,8 @@
 			isa = PBXGroup;
 			children = (
 				8AC650A82B2B4C8300922648 /* CoreDataManagable.swift */,
+				8AD3A8312B2F02280058E018 /* DownloadItem+CoreDataClass.swift */,
+				8AD3A8322B2F02280058E018 /* DownloadItem+CoreDataProperties.swift */,
 				8A51D1BC2B0B98E200D2417C /* DeepConfiguration+CoreDataClass.swift */,
 				8A51D1BD2B0B98E200D2417C /* DeepConfiguration+CoreDataProperties.swift */,
 				8A6AE1892B1BCC48005A5A79 /* WebHistoryEntry+CoreDataClass.swift */,
@@ -385,6 +394,17 @@
 				8AE0BC112A97B0B40086DDF9 /* Info.plist */,
 			);
 			path = Configuration;
+			sourceTree = "<group>";
+		};
+		8AAE89512B2E4D16007C9E26 /* Screens */ = {
+			isa = PBXGroup;
+			children = (
+				8A1328102AF142FF00F119C6 /* GalleryScreen.swift */,
+				8A1328182AF143A400F119C6 /* Screen.swift */,
+				8A1328162AF1438100F119C6 /* Screens.swift */,
+				8A13280E2AF142C600F119C6 /* WebScreen.swift */,
+			);
+			path = Screens;
 			sourceTree = "<group>";
 		};
 		8AC393B92B2B9E5600C9BA57 /* SettingsView */ = {
@@ -468,6 +488,14 @@
 				8AC393CB2B2BA1C700C9BA57 /* Snapshot.swift */,
 			);
 			path = Rendering;
+			sourceTree = "<group>";
+		};
+		8AD3A82C2B2EF3390058E018 /* Downloder */ = {
+			isa = PBXGroup;
+			children = (
+				8AD3A82A2B2EF3320058E018 /* DownloaderView.swift */,
+			);
+			path = Downloder;
 			sourceTree = "<group>";
 		};
 		8AE0BBF72A97B0B30086DDF9 = {
@@ -693,8 +721,8 @@
 				8AC393BB2B2B9E7A00C9BA57 /* AppDescriptionView.swift in Sources */,
 				8A1328172AF1438100F119C6 /* Screens.swift in Sources */,
 				8AC650B22B2B9B4400922648 /* WebViewRenderer.swift in Sources */,
-				8A112CBF2ABEEEEC00786384 /* WebViewModel.swift in Sources */,
 				8A7740D72B1908DD002E90D9 /* SnapAdjustmentView.swift in Sources */,
+				8AD3A82B2B2EF3320058E018 /* DownloaderView.swift in Sources */,
 				8A1328222AF7023D00F119C6 /* Optional+Extensions.swift in Sources */,
 				8A6AE18D2B1BCC48005A5A79 /* WebHistoryEntry+CoreDataClass.swift in Sources */,
 				8A1D49C12ABB87D500C2D7C1 /* Item.swift in Sources */,
@@ -720,6 +748,8 @@
 				8A13281D2AF159E100F119C6 /* NavigationBarItems.swift in Sources */,
 				8AC393DA2B2BA38400C9BA57 /* ObservationRectangleView.swift in Sources */,
 				8A4256E62B1E0C4C009153B1 /* UIApplication+Extensions.swift in Sources */,
+				8AD3A82E2B2EF9490058E018 /* Downloader.swift in Sources */,
+				8AD3A8342B2F02280058E018 /* DownloadItem+CoreDataProperties.swift in Sources */,
 				8AC650A32B2B4BB000922648 /* DeepState.swift in Sources */,
 				8A112CCB2AC2BCBC00786384 /* Detector.swift in Sources */,
 				8A7740D52B18AEB8002E90D9 /* Image+Extensions.swift in Sources */,
@@ -731,6 +761,7 @@
 				8AC6509B2B2B3D9900922648 /* Classificator.swift in Sources */,
 				8AA9962C2AD9EB6400371EC8 /* Appearance.swift in Sources */,
 				8A112CCD2AC30E3E00786384 /* View+Extensions.swift in Sources */,
+				8AD3A8332B2F02280058E018 /* DownloadItem+CoreDataClass.swift in Sources */,
 				8AC393DC2B2BA3A100C9BA57 /* ObservationCircleView.swift in Sources */,
 				8AC393DE2B2BA3DC00C9BA57 /* AnnotationViewBuilder.swift in Sources */,
 				8A112CC62AC0863300786384 /* Bool+Extensions.swift in Sources */,
@@ -746,6 +777,7 @@
 				8AC393D62B2BA33400C9BA57 /* Annotator.swift in Sources */,
 				8A1328282B010B8C00F119C6 /* EnvironmentObject+Extensions.swift in Sources */,
 				8AC7CDED2AE7FCED00871074 /* SnapState.swift in Sources */,
+				8AD3A8302B2EFA3E0058E018 /* Annotation.swift in Sources */,
 				8AC650AB2B2B4CCB00922648 /* WebHistory.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -28,22 +28,12 @@ actor Classificator: DeepDriver {
 	init(configuration: DeepConfiguration, entityId: UUID) throws {
 		self.internalId = entityId
 		self.params = DeepDriverParams()
-
-		let detectorFileIsDirectory = false
-		guard let file = try? self.params.file?.completePath(to: DeepConfiguration.rootDirectory, isDirectory: detectorFileIsDirectory) else {
-			assert(false, "The DeeepConfiguration.file is not initialised.")
-			return
-		}
-
-		Task {
-			try await self.load(from: file)
-		}
 	}
 
 	func load() async {
 	}
 
-	func load(from path: URL) async throws {
+	func loadFile() async throws {
 	}
 
 	func unload() async {

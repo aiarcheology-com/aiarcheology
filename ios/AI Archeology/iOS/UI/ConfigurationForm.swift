@@ -7,14 +7,6 @@
 
 import SwiftUI
 
-public enum AnnotationSymbol: String, CaseIterable, Identifiable {
-	case point = "Point"
-	case square = "Square"
-	case circle = "Circle"
-
-	public var id: String { self.rawValue }
-}
-
 struct ConfigurationDetailRow: View {
 	var label: String
 	var value: String
@@ -62,12 +54,6 @@ struct ConfigurationForm: View {
 	@State private var isLoading = false
 
 	var mergedObservable: [String] {[
-		// Updated from the code: possibly should be not commented when a model file is re-loaded/updated.
-		// configuration.file?.absoluteString ?? "",
-		// configuration.model ?? "",
-		// configuration.modelType ?? "",
-		// configuration.author ?? "",
-		// configuration.creationDate.description,
 		// Updated from the user's input:
 		configuration.annotationColor.description,
 		configuration.phaseOutTime.description,
