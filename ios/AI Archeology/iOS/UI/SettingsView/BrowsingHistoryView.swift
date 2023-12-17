@@ -15,6 +15,7 @@ struct BrowserHistoryView: View {
 		predicate: NSPredicate(format: "entityId != nil AND page != nil AND creationDate_ != nil"),
 		animation: .default)
 	private var history: FetchedResults<WebHistoryEntry>
+	@EnvironmentObject var settings: Settings
 	@State private var refreshFrom: Bool = false // TODO: history is not being reloaded after deletion
 
 	var body: some View {
@@ -23,25 +24,39 @@ struct BrowserHistoryView: View {
 				List {
 					ForEach(history, id: \.self) { (item: WebHistoryEntry) in
 						let page = item.page?.absoluteString ?? "Unknown Page"
-						Text(page)
-							.swipeActions {
-								Button(action: {
-									UIPasteboard.general.string = page
-								}) {
-									Label("COPY", systemImage: "doc.on.doc")
-								}
-								.tint(.blue) // Optional: customize the button color
-
-								Button(role: .destructive, action: {
-									guard let entityId = item.entityId else {
-										assert(false, "No entry has been found after the selection.")
-										return
+						HStack {
+							Text(page)
+								.swipeActions {
+									Button(action: {
+										UIPasteboard.general.string = page
+									}) {
+										Label("", systemImage: "doc.on.doc")
 									}
-									WebHistoryEntry.delete(entityId, in: moc)
-								}) {
-									Label("DELETE", systemImage: "trash")
+									.tint(.blue)
+
+									Button(role: .destructive, action: {
+										guard let entityId = item.entityId else {
+											assert(false, "No entry has been found after the selection.")
+											return
+										}
+										WebHistoryEntry.delete(entityId, in: moc)
+									}) {
+										Label("", systemImage: "trash")
+									}
+
+									Button(action: {
+										settings.defaultPage = item.page
+									}) {
+										Label("", systemImage: "house")
+									}
+									.tint(.green)
 								}
+							Spacer()
+							if item.page == settings.defaultPage {
+								Image(systemName: "house")
+									.foregroundColor(.green)
 							}
+						}
 					}
 				}
 			}

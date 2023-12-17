@@ -19,6 +19,7 @@ enum ValidationError: Error {
 class Settings: ObservableObject, Validatable {
 	unowned var appState: AppState
 	private enum UserDefaultsKeys {
+		static let lastPage = "lastPage"
 		static let isDetectionPaused = "isDetectionPaused"
 		static let keepSlideShowActive = "keepSlideShowActive"
 		static let reopenLastPage = "reopenLastPage"
@@ -82,6 +83,12 @@ class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	@Published public var lastPage: URL? {
+		didSet {
+			UserDefaults.standard.set(lastPage, forKey: UserDefaultsKeys.lastPage)
+		}
+	}
+
 	@Published public var removeAnnotationOnDrag: Bool {
 		didSet {
 			UserDefaults.standard.set(removeAnnotationOnDrag, forKey: UserDefaultsKeys.removeAnnotationOnDrag)
@@ -123,7 +130,7 @@ class Settings: ObservableObject, Validatable {
 			UserDefaultsKeys.entityId: UUID().uuidString
 		]
 
-			// Register default values
+		// Register default values
 		UserDefaults.standard.register(defaults: defaultValues)
 		self.keepSlideShowActive = UserDefaults.standard.bool(forKey: UserDefaultsKeys.keepSlideShowActive)
 		self.historySize = UserDefaults.standard.integer(forKey: UserDefaultsKeys.sizeHistory)
@@ -134,6 +141,7 @@ class Settings: ObservableObject, Validatable {
 		self.snapFrequency = UserDefaults.standard.double(forKey: UserDefaultsKeys.snapFrequency)
 		self.resetHistory = UserDefaults.standard.bool(forKey: UserDefaultsKeys.resetHistory)
 		self.defaultPage = UserDefaults.standard.url(forKey: UserDefaultsKeys.defaultPage)
+		self.lastPage = UserDefaults.standard.url(forKey: UserDefaultsKeys.lastPage)
 		self.removeAnnotationOnDrag = UserDefaults.standard.bool(forKey: UserDefaultsKeys.removeAnnotationOnDrag)
 		if let uuidString = UserDefaults.standard.string(forKey: UserDefaultsKeys.entityId),
 		   let uuid = UUID(uuidString: uuidString) {
@@ -170,6 +178,7 @@ class Settings: ObservableObject, Validatable {
 		removeAnnotationOnDrag = false
 		entityId = UUID()
 
+		UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.lastPage)
 		UserDefaults.standard.set(keepSlideShowActive, forKey: UserDefaultsKeys.keepSlideShowActive)
 		UserDefaults.standard.set(historySize, forKey: UserDefaultsKeys.sizeHistory)
 		UserDefaults.standard.set(reopenLastPage, forKey: UserDefaultsKeys.reopenLastPage)

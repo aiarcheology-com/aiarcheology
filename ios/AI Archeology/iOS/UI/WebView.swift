@@ -13,16 +13,18 @@ import Combine
 import Vision
 
 @available(iOS 13, *)
-public struct MLWebView: UIViewRepresentable, WebViewRenderable {
+public struct MLWebView: UIViewRepresentable, WebViewRenderable, Equatable {
 	@EnvironmentObject var webViewRenderer: WebViewRenderer
     var urlString: String
     var loadStatusChanged: ((Bool, Error?) -> Void)? = nil
+	var lastPage: ((URL) -> Void)? = nil
 
-    public init(_ urlString: String,
+	public init(_ urlString: String, lastPage: ((URL) -> Void)? = nil,
                 loadStatusChanged: ((Bool, Error?) -> Void)? = nil
     ) {
         self.urlString = urlString
         self.loadStatusChanged = loadStatusChanged
+		self.lastPage = lastPage
     }
 
     public func makeCoordinator() -> Self.Coordinator {
@@ -91,26 +93,34 @@ public struct MLWebView: UIViewRepresentable, WebViewRenderable {
 		public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
 			parent.loadStatusChanged?(false, nil)
 
-			if let url = webView.url, let domain = url.host {
-				func removeJSObjects_agsCuzkCz() {
-					let jsRemoveButton = "document.querySelector('.esri-component.esri-compass.esri-widget').remove();"
-					webView.evaluateJavaScript(jsRemoveButton) { (result, error) in
-						if let error = error {
-							print("Error removing button: \(error)")
-						}
+			guard let url = webView.url, let domain = url.host else {
+				return
+			}
+
+			func removeJSObjects_agsCuzkCz() {
+				let jsRemoveButton = "document.querySelector('.esri-component.esri-compass.esri-widget').remove();"
+				webView.evaluateJavaScript(jsRemoveButton) { (result, error) in
+					if let error = error {
+						print("Error removing button: \(error)")
 					}
 				}
-				switch domain {
-				case "ags.cuzk.cz":
-					removeJSObjects_agsCuzkCz()
-				default:
-					break
-				}
 			}
+			switch domain {
+			case "ags.cuzk.cz":
+				removeJSObjects_agsCuzkCz()
+			default:
+				break
+			}
+
+			parent.lastPage?(url)
 		}
 
         public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
             parent.loadStatusChanged?(false, error)
         }
     }
+
+	public static func == (lhs: Self, rhs: Self) -> Bool {
+		lhs.urlString == rhs.urlString
+	}
 }
