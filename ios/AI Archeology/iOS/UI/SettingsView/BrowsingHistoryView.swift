@@ -36,7 +36,7 @@ struct BrowserHistoryView: View {
 							}
 						}
 					}
-					Section {
+					Section(header: Text("History")) {
 						ForEach(history, id: \.self) { (item: WebHistoryEntry) in
 							let page = item.page?.absoluteString ?? "Unknown Page"
 							HStack {

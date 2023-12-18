@@ -8,12 +8,10 @@
 import Foundation
 import SwiftUI
 
-import Foundation
-import SwiftUI
-
 struct NewConfigurationView: View {
 	@EnvironmentObject var deep: DeepState
 	@State var showDocumentPicker: Bool = false
+	@State var showUrlPicker: Bool = false
 	let usedFiles: [URL]
 	let onConfigurationChanged: (URL, UUID) -> Void
 
@@ -47,6 +45,14 @@ struct NewConfigurationView: View {
 					}
 					.buttonStyle(PressableButtonStyle())
 					Spacer()
+//					Button(action: {
+//						showUrlPicker = true
+//					}) {
+//						Image(systemName: "globe")
+//							.font(Font(.init(.label, size: 60.0)))
+//					}
+//					.buttonStyle(PressableButtonStyle())
+//					Spacer()
 				}
 				.padding(12)
 			}
