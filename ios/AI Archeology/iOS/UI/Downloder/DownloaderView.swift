@@ -17,140 +17,144 @@ struct DownloaderView: View {
 		animation: .default)
 	private var downloadItems: FetchedResults<DownloadItem>
 
-	@State private var isFormValid: Bool = false
-	@State private var urlText: String = ""
-	@State private var fromListSelectedDownloadItem: DownloadItem?
-	private var selectedDownloadItem: Binding<DownloadItem?> {
-		Binding (
-			get: { fromListSelectedDownloadItem ?? downloadItems.first },
-			set: {_ in }
-		)
-	}
-
-
 	var body: some View {
 		NavigationView {
-				// List of downloaded files, or currently being downloaded:
-			List(downloadItems, id: \.entityId) { (item: DownloadItem) in
-				HStack {
-					Text(item.url?.lastPathComponent ?? "Unknown File")
-					Spacer()
-					Text(item.state.id)
-						.foregroundColor(.gray)
-						.font(.caption)
-				}
-				.swipeActions {
-					Button(role: .destructive, action: {
-						guard let entityId = item.entityId else {
-							assert(false, "No entry has been found after the selection.")
-							return
+			// List of downloaded files, or currently being downloaded:
+			List(downloadItems, id: \.entityId) { item in
+				NavigationLink(destination:
+					DownloadDetailView(selectedDownloadItem: item)
+					.environmentObject(downloader)
+					.navigationBarTitle("Download Detail", displayMode: .inline)
+					.navigationBarItems(trailing:
+						Button("Cancel") {
+							showUrlPicker = false
 						}
-						DownloadItem.delete(entityId, in: moc)
-						self.fromListSelectedDownloadItem = nil
-
-					}) {
-						Label("", systemImage: "trash")
+						.bold()
+						.foregroundColor(.blue)
+					)
+				) {
+				ListItemView(item: item)
+					.swipeActions {
+						Button(role: .destructive, action: {
+							guard let entityId = item.entityId else {
+								assert(false, "No entry has been found after the selection.")
+								return
+							}
+							DownloadItem.delete(entityId, in: moc)
+						}) {
+							Label("", systemImage: "trash")
+						}
 					}
 				}
-				.onTapGesture {
-					self.fromListSelectedDownloadItem = item
-				}
 			}
-			.listStyle(SidebarListStyle())
+			.listStyle(InsetGroupedListStyle())
 			.navigationBarTitle("Models", displayMode: .inline)
 			.navigationBarItems(trailing:	Button {
-				self.fromListSelectedDownloadItem = DownloadItem.create(in: moc)
+				_ = DownloadItem.create(in: moc)
 			} label: {
 				Image(systemName: "plus").foregroundColor(.blue)
 			}
 			)
+		}
+	}
+}
 
+fileprivate struct ListItemView: View {
+	@ObservedObject var item: DownloadItem
 
-				// Detail view:
-				Group {
-				if let selectedDownloadItem = selectedDownloadItem.wrappedValue {
-					VStack {
-						ProgressView(value: selectedDownloadItem.progress)
-							.progressViewStyle(LinearProgressViewStyle())
-							.frame(height: 4)
-						Form {
-							Section {
-								HStack {
-									Text("URL")
-									Spacer()
-									TextField("                     https://.../mymodel.mlmodel",
-											  text: $urlText, axis: .vertical)
-									.disabled([Downloader.State.downloading, Downloader.State.paused].contains(selectedDownloadItem.state))
-									.lineLimit(3)
-									.autocapitalization(.none)
-									.disableAutocorrection(true)
-									.multilineTextAlignment(.trailing)
-									.onChange(of: urlText) { value in
-										let invalidURLs = ["https:", "http:", "https://", "http://", "https:/", "http:/"]
-										if invalidURLs.contains(value) {
-											isFormValid = false
-											return
-										}
-										guard let url = URL(string: value) else {
-											isFormValid = false
-											return
-										}
-										if UIApplication.shared.canOpenURL(url) {
-											selectedDownloadItem.url = url
-											isFormValid = true
-										}
+	var body: some View {
+		HStack {
+			Text(item.url?.lastPathComponent ?? "Unknown File")
+			Spacer()
+			Text(item.state.id)
+				.foregroundColor(.gray)
+				.font(.caption)
+		}
+	}
+}
+
+fileprivate struct DownloadDetailView: View {
+	@Environment(\.managedObjectContext) var moc
+	@EnvironmentObject var downloader: Downloader
+	@State private var urlText: String = ""
+	@State private var isFormValid: Bool = false
+	@ObservedObject var selectedDownloadItem: DownloadItem
+
+	var body: some View {
+		if selectedDownloadItem.entityId.isNotNil {
+			Group {
+				VStack {
+					ProgressView(value: selectedDownloadItem.progress)
+						.progressViewStyle(LinearProgressViewStyle())
+						.frame(height: 4)
+					Form {
+						Section {
+							HStack {
+								Text("URL")
+								Spacer()
+								TextField("                     https://.../mymodel.mlmodel",
+										  text: $urlText, axis: .vertical)
+								.disabled([Downloader.State.downloading, Downloader.State.paused].contains(selectedDownloadItem.state))
+								.lineLimit(3)
+								.autocapitalization(.none)
+								.disableAutocorrection(true)
+								.multilineTextAlignment(.trailing)
+								.onChange(of: urlText) { value in
+									selectedDownloadItem.url = URL(string: urlText)
+									
+									let invalidURLs = ["https:", "http:", "https://", "http://", "https:/", "http:/"]
+									if invalidURLs.contains(value) {
+										isFormValid = false
+										return
 									}
-									.onChange(of: selectedDownloadItem) { newValue in
-										urlText = newValue.url?.absoluteString ?? ""
+									guard let url = URL(string: value) else {
+										isFormValid = false
+										return
+									}
+									if UIApplication.shared.canOpenURL(url) {
+										isFormValid = true
 									}
 								}
 							}
+						}
 
-							Section {
-								HStack {
-									Text("Status")
-									Spacer()
-									Text(selectedDownloadItem.state.id)
-										.foregroundColor(.gray)
-								}
-								HStack {
-									Text("Downloaded: ")
-									Spacer()
-									Text("4d85/4988395MB")
-										.foregroundColor(.gray)
-								}
+						Section {
+							HStack {
+								Text("Status")
+								Spacer()
+								Text(selectedDownloadItem.state.id)
+									.foregroundColor(.gray)
+							}
+							HStack {
+								Text("Downloaded")
+								Spacer()
+								Text("4d85/4988395MB")
+									.foregroundColor(.gray)
 							}
 						}
-						HStack {
-							Spacer()
-							Button(Self.downloadButtonAttributes(selectedDownloadItem.state).label, action: {
-								downloader.downloadTapped(selectedDownloadItem)
-								DownloadItem.save(in: moc)
-							})
-							.buttonStyle(PressableButtonStyle(color: isFormValid ? Self.downloadButtonAttributes(selectedDownloadItem.state).color : .gray))
-							.disabled(Self.downloadButtonAttributes(selectedDownloadItem.state).enabled.not)
-							Spacer()
-							Button(Self.cancelButtonAttributes(selectedDownloadItem.state).label, action: {
-								downloader.cancelTapped(selectedDownloadItem)
-							})
-							.buttonStyle(PressableButtonStyle(color: Self.cancelButtonAttributes(selectedDownloadItem.state).color))
-							.disabled(Self.cancelButtonAttributes(selectedDownloadItem.state).enabled.not)
-							Spacer()
-						}
-						.centerInParentView()
 					}
-				} else {
-					EmptyView()
+					HStack {
+						Spacer()
+						Button(Self.downloadButtonAttributes(selectedDownloadItem.state).label, action: {
+							downloader.downloadTapped(selectedDownloadItem)
+							DownloadItem.save(in: moc)
+						})
+						.buttonStyle(PressableButtonStyle(color: isFormValid ? Self.downloadButtonAttributes(selectedDownloadItem.state).color : .gray))
+						.disabled(Self.downloadButtonAttributes(selectedDownloadItem.state).enabled.not)
+						Spacer()
+						Button(Self.cancelButtonAttributes(selectedDownloadItem.state).label, action: {
+							downloader.cancelTapped(selectedDownloadItem)
+						})
+						.buttonStyle(PressableButtonStyle(color: Self.cancelButtonAttributes(selectedDownloadItem.state).color))
+						.disabled(Self.cancelButtonAttributes(selectedDownloadItem.state).enabled.not)
+						Spacer()
+					}
+					.centerInParentView()
 				}
 			}
-			.navigationBarTitle("Download Detail", displayMode: .inline)
-			.navigationBarItems(trailing:
-									Button("Cancel") {
-				showUrlPicker = false
+			.onAppear {
+				urlText = selectedDownloadItem.url?.absoluteString ?? ""
 			}
-				.bold()
-				.foregroundColor(.blue)
-			)
 		}
 	}
 
@@ -169,4 +173,5 @@ struct DownloaderView: View {
 		case .paused, .downloading: return (enabled: true, color: .red, label: "Cancel Download")
 		}
 	}
+
 }

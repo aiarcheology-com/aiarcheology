@@ -41,7 +41,8 @@ struct NewConfigurationView: View {
 						showDocumentPicker = true
 					}) {
 						Image(systemName: "doc.badge.plus")
-							.font(Font(.init(.label, size: 60.0)))
+							.resizable()
+							.frame(width: 70, height: 70)
 					}
 					.buttonStyle(PressableButtonStyle())
 					Spacer()
@@ -49,7 +50,8 @@ struct NewConfigurationView: View {
 						showUrlPicker = true
 					}) {
 						Image(systemName: "globe")
-							.font(Font(.init(.label, size: 60.0)))
+							.resizable()
+							.frame(width: 70, height: 70)
 					}
 					.buttonStyle(PressableButtonStyle())
 					Spacer()
