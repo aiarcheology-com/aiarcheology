@@ -2,7 +2,7 @@
 //  DownloadItem+CoreDataClass.swift
 //  AI Archeology
 //
-//  Created by Vladimír Slavík on 17.12.23.
+//  Created by Vladimír Slavík on 19.12.23.
 //
 //
 

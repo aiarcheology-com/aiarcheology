@@ -88,7 +88,8 @@ extension CoreDataManageable where Self: NSManagedObject {
 		context.performAndWait {
 			do {
 				let objects = try context.fetch(request) as? [Self]
-				assert(objects?.count == 1, "The numbner of instances should be one.")
+				// Apple: When changes are committed, object will be removed from the uniquing tables. If object has not yet been saved to a persistent store, it is simply removed from the receiver.
+				// assert(objects?.count == 1, "The numbner of instances should be one.")
 				let objectToDelete = objects?.first
 				if let objectToDelete {
 					context.delete(objectToDelete)

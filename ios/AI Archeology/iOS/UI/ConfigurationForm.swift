@@ -98,7 +98,7 @@ struct ConfigurationForm: View {
 						NewConfigurationView(
 							usedFiles: usedFiles) { url, id in
 								updateConfiguration(with: url, id: id)
-							}
+						}
 					}
 				}
 				.onReceive(deep.$deepStateError) { error in

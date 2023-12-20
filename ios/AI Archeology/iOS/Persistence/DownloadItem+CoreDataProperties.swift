@@ -2,7 +2,7 @@
 //  DownloadItem+CoreDataProperties.swift
 //  AI Archeology
 //
-//  Created by Vladimír Slavík on 17.12.23.
+//  Created by Vladimír Slavík on 19.12.23.
 //
 //
 
@@ -16,10 +16,13 @@ extension DownloadItem {
         return NSFetchRequest<DownloadItem>(entityName: "DownloadItem")
     }
 
-    @NSManaged public var stateChanged: Date?
     @NSManaged public var entityId: UUID?
+    @NSManaged public var state_: String?
+    @NSManaged public var stateChanged_: Date?
     @NSManaged public var url: URL?
-    @NSManaged public var state: String?
+    @NSManaged public var sizeDownloaded: Int64
+    @NSManaged public var size: Int64
+    @NSManaged public var progress: Double
 
 }
 

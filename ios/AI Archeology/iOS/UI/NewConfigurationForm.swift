@@ -45,14 +45,14 @@ struct NewConfigurationView: View {
 					}
 					.buttonStyle(PressableButtonStyle())
 					Spacer()
-//					Button(action: {
-//						showUrlPicker = true
-//					}) {
-//						Image(systemName: "globe")
-//							.font(Font(.init(.label, size: 60.0)))
-//					}
-//					.buttonStyle(PressableButtonStyle())
-//					Spacer()
+					Button(action: {
+						showUrlPicker = true
+					}) {
+						Image(systemName: "globe")
+							.font(Font(.init(.label, size: 60.0)))
+					}
+					.buttonStyle(PressableButtonStyle())
+					Spacer()
 				}
 				.padding(12)
 			}
@@ -77,15 +77,18 @@ struct NewConfigurationView: View {
 					.textCase(nil)
 			}
 		}
+		.onReceive(deep.$deepStateError) { error in
+			guard error.isNotNil else { return }
+			showDocumentPicker = false
+		}
 		.sheet(isPresented: $showDocumentPicker) {
 			let newConfigurationId = UUID()
 			DocumentPicker(usedURLs: usedFiles, configurationId: newConfigurationId) { url, id in
 				onConfigurationChanged(url, id)
 			}
 		}
-		.onReceive(deep.$deepStateError) { error in
-			guard error.isNotNil else { return }
-			showDocumentPicker = false
+		.sheet(isPresented: $showUrlPicker) {
+			DownloaderView(showUrlPicker: $showUrlPicker)
 		}
 	}
 }

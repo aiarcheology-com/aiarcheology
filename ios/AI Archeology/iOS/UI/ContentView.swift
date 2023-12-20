@@ -147,12 +147,14 @@ struct ContentView: View {
 				ConfigurationForm()
 					.environmentObject(config)
 					.environmentObject(appState.deep)
+					.environmentObject(appState.downloader)
 			} else
 			if let selectedConfigurationId = appState.guide.selectedConfigurationId,
 			   let config = appState.deep.selectConfiguration(selectedConfigurationId) {
 				ConfigurationForm()
 					.environmentObject(config)
 					.environmentObject(appState.deep)
+					.environmentObject(appState.downloader)
 			}
 		}
 		.onReceive(appState.guide.$presentSettings) { present in

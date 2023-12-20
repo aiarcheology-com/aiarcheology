@@ -6,10 +6,11 @@
 //
 
 import Foundation
+import CoreData
 
-class Downloader: ObservableObject {
-	enum State: String, CaseIterable, Identifiable {
-		case notStarted = "NotStarted"
+public class Downloader: ObservableObject {
+	public enum State: String, CaseIterable, Identifiable {
+		case notStarted = "Not Started"
 		case downloading = "Downloading"
 		case paused = "Paused"
 		case cancelled = "Cancelled"
@@ -27,45 +28,124 @@ class Downloader: ObservableObject {
 		case complete
 	}
 
-	private var state: State = .notStarted
+	unowned var appState: AppState
 
-	func handleEvent(_ event: Event) {
-		switch (state, event) {
-			case (.notStarted, .start):
-				transition(to: .downloading)
+	init(appState: AppState) {
+		self.appState = appState
+	}
 
-			case (.downloading, .pause):
-				transition(to: .paused)
-
-			case (.downloading, .cancel),
-				(.paused, .cancel):
-				transition(to: .cancelled)
-
-			case (.downloading, .fail),
-				(.paused, .fail):
-				transition(to: .failed)
-
-			case (.downloading, .complete):
-				transition(to: .completed)
-
-			case (.paused, .start):
-				transition(to: .downloading)
-
-			default:
-				assert(false, "Invalid transition from \(state) with event \(event)")
+	func downloadTapped(_ item: DownloadItem) {
+		switch item.state {
+		case .notStarted, .failed, .cancelled: handleEvent(item, .start)
+		case .downloading: handleEvent(item, .pause)
+		case .paused: handleEvent(item, .start)
+		case .completed: handleEvent(item, .start)
 		}
 	}
 
-	private func transition(to newState: State) {
-		let oldState = state
+	func cancelTapped(_ item: DownloadItem) {
+		switch item.state {
+		case .downloading, .paused: handleEvent(item, .cancel)
+		default: break // a cancel action does not change anything at this state
+		}
+	}
+
+	func handleEvent(_ item: DownloadItem, _ event: Event) {
+		switch (item.state, event) {
+			case (.notStarted, .start):
+				transition(item, to: .downloading)
+
+			case (.downloading, .pause):
+				transition(item, to: .paused)
+
+			case (.downloading, .cancel),
+				(.paused, .cancel):
+				transition(item, to: .cancelled)
+
+			case (.downloading, .fail),
+				(.paused, .fail):
+				transition(item, to: .failed)
+
+			case (.downloading, .complete):
+				transition(item, to: .completed)
+
+			case (.paused, .start):
+				transition(item, to: .downloading)
+
+			default:
+				assert(false, "Invalid transition from \(item.state) with event \(event)")
+		}
+	}
+
+	private func transition(_ item: DownloadItem, to newState: State) {
+		let oldState = item.state
 		print("Transitioned to \(newState)")
 		
 
 	}
+}
 
-	func currentState() -> State {
-		return state
+extension DownloadItem: CoreDataManageable {
+	static func create(in context: NSManagedObjectContext) -> Self {
+		let newItem = Self(context: context)
+		newItem.entityId = UUID()
+		return newItem
+	}
+
+}
+
+extension DownloadItem {
+	typealias State = Downloader.State
+
+	public var state: Downloader.State {
+		get {
+			let defaultReturn = State.notStarted
+			guard let state = state_ else { return defaultReturn }
+			switch state {
+				case State.notStarted.id: return .notStarted
+				case State.downloading.id: return .downloading
+				case State.paused.id: return .paused
+				case State.cancelled.id: return .cancelled
+				case State.failed.id: return .failed
+				case State.completed.id: return .completed
+				default: return defaultReturn
+			}
+		}
+		set {
+			state_ = newValue.id
+		}
+	}
+
+	public var stateChanged: String {
+		return DateFormatter.longDateFormater.string(from: stateChanged_ ?? .now)
 	}
 }
 
-extension DownloadItem: CoreDataManageable {}
+// Add the validations using the core data's api:
+extension DownloadItem {
+	public override func validateForInsert() throws {
+		try super.validateForInsert()
+		try validateDownloadItem()
+	}
+
+	public override func validateForUpdate() throws {
+		try super.validateForUpdate()
+		try validateDownloadItem()
+	}
+
+	private func validateDownloadItem() throws {
+		if url.isNil || url?.absoluteString.isEmpty == true {
+			throw validationError(forKey: "url", error: "Model's url is required.")
+		}
+		if entityId.isNil || entityId?.uuidString.isEmpty == true {
+			throw validationError(forKey: "entityId", error: "Model's entityId is required.")
+		}
+	}
+
+	private func validationError(forKey key: String, error: String) -> NSError {
+			// TODO: add the error codes
+		return NSError(domain: "DownloadItem", code: 1000, userInfo: [
+			NSLocalizedDescriptionKey: "Validation error - \(key): \(error)"
+		])
+	}
+}

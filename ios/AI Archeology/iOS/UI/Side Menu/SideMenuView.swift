@@ -40,13 +40,13 @@ struct SideMenuView: View {
 									.frame(width: 24, height: 24)
 							}
 							.padding(EdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 0))
-//							Button(action: onDownloadTap) {
-//								Image(systemName: "arrow.down.circle")
-//									.resizable()
-//									.foregroundColor(.gray)
-//									.frame(width: 24, height: 24)
-//							}
-//							.padding(7)
+							Button(action: onDownloadTap) {
+								Image(systemName: "arrow.down.circle")
+									.resizable()
+									.foregroundColor(.gray)
+									.frame(width: 24, height: 24)
+							}
+							.padding(7)
 							Spacer()
 							Button(action: {
 								presentedSideMenu = false

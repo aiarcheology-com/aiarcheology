@@ -13,12 +13,6 @@ extension DeepConfiguration: CoreDataManageable {
 
 // WARN: The class definition (public class DeepConfiguration) is generated from the Core data
 extension DeepConfiguration {
-	private static var dateFormatter: DateFormatter {
-		let formater = DateFormatter()
-		formater.dateStyle = .long
-		return formater
-	}
-
 	public static var rootDirectory: FileManager.SearchPathDirectory {
 		get { .documentDirectory }
 	}
@@ -61,7 +55,7 @@ extension DeepConfiguration {
 	}
 
 	public var creationDate: String {
-		return Self.dateFormatter.string(from: creationDate_ ?? .now)
+		return DateFormatter.longDateFormater.string(from: creationDate_ ?? .now)
 	}
 
 	public var modelTypeInternal: DeepDriverType {
@@ -83,7 +77,7 @@ extension DeepConfiguration {
 	}
 }
 
-	// Add the validations using the core data's api:
+// Add the validations using the core data's api:
 extension DeepConfiguration {
 	public override func validateForInsert() throws {
 		try super.validateForInsert()

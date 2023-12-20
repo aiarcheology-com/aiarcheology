@@ -21,6 +21,7 @@ class AppState: ObservableObject {
 	lazy var dataController = DataController(appState: self)
 	lazy var settings = Settings(appState: self)
 	lazy var snapAdjustment = SnapAdjustment(appState: self)
+	lazy var downloader = Downloader(appState: self)
 
 	init() {
 		createDemoEntities()
