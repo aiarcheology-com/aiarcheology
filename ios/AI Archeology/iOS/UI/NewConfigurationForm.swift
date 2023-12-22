@@ -90,7 +90,10 @@ struct NewConfigurationView: View {
 			}
 		}
 		.sheet(isPresented: $showUrlPicker) {
-			DownloaderView(showUrlPicker: $showUrlPicker)
+			let newConfigurationId = UUID()
+			DownloaderView(showUrlPicker: $showUrlPicker, configurationId: newConfigurationId) { url, id in
+				onConfigurationChanged(url, id)
+			}
 		}
 	}
 }

@@ -8,7 +8,12 @@
 import Foundation
 import CoreData
 
-public class Downloader: ObservableObject {
+enum DownloaderError: Error {
+	case invalidObjectInQueue
+	case invalidStateInQueue
+}
+
+public actor Downloader: ObservableObject {
 	public enum State: String, CaseIterable, Identifiable {
 		case notStarted = "Not Started"
 		case downloading = "Downloading"
@@ -24,64 +29,175 @@ public class Downloader: ObservableObject {
 		case start
 		case pause
 		case cancel
-		case fail
-		case complete
 	}
 
 	unowned var appState: AppState
+	private var activeDownloads: [UUID: URLSessionDownloadTask] = [:]
+	private var pausedDownloads: [UUID: Data?] = [:]
 
 	init(appState: AppState) {
 		self.appState = appState
 	}
 
-	func downloadTapped(_ item: DownloadItem) {
+	func downloadTapped(_ item: DownloadItem) async {
 		switch item.state {
-		case .notStarted, .failed, .cancelled: handleEvent(item, .start)
-		case .downloading: handleEvent(item, .pause)
-		case .paused: handleEvent(item, .start)
-		case .completed: handleEvent(item, .start)
+		case .notStarted, .failed, .cancelled: await handleEvent(item, .start)
+		case .downloading: await handleEvent(item, .pause)
+		case .paused: await handleEvent(item, .start)
+		case .completed: await handleEvent(item, .start)
 		}
 	}
 
-	func cancelTapped(_ item: DownloadItem) {
+	func cancelTapped(_ item: DownloadItem) async {
 		switch item.state {
-		case .downloading, .paused: handleEvent(item, .cancel)
+		case .downloading, .paused: await handleEvent(item, .cancel)
 		default: break // a cancel action does not change anything at this state
 		}
 	}
 
-	func handleEvent(_ item: DownloadItem, _ event: Event) {
+	private func handleEvent(_ item: DownloadItem, _ event: Event) async {
 		switch (item.state, event) {
-			case (.notStarted, .start):
-				transition(item, to: .downloading)
+		case (.notStarted, .start), (.paused, .start), (.completed, .start), (.failed, .start):
+			await transition(item, to: .downloading)
+			await startDownload(item)
 
-			case (.downloading, .pause):
-				transition(item, to: .paused)
+		case (.downloading, .pause):
+			await transition(item, to: .paused)
+			await pauseDownload(item)
 
-			case (.downloading, .cancel),
-				(.paused, .cancel):
-				transition(item, to: .cancelled)
+		case (.downloading, .cancel), (.paused, .cancel):
+			await transition(item, to: .cancelled)
+			await cancelDownload(item)
 
-			case (.downloading, .fail),
-				(.paused, .fail):
-				transition(item, to: .failed)
-
-			case (.downloading, .complete):
-				transition(item, to: .completed)
-
-			case (.paused, .start):
-				transition(item, to: .downloading)
-
-			default:
-				assert(false, "Invalid transition from \(item.state) with event \(event)")
+		default:
+			assert(false, "Invalid transition from \(item.state) with event \(event)")
 		}
 	}
 
-	private func transition(_ item: DownloadItem, to newState: State) {
-		let oldState = item.state
-		print("Transitioned to \(newState)")
-		
+	private func transition(_ item: DownloadItem, to newState: State) async {
+		item.state = newState
+		await saveDownloadContext()
+	}
+}
 
+extension Downloader {
+
+	@MainActor
+	private func saveDownloadContext() async {
+		let downloadContext = await appState.dataController.container.viewContext
+		DownloadItem.save(in: downloadContext)
+	}
+
+	func enqueueDownload(for item: DownloadItem) async throws {
+		guard item.state == .notStarted || item.state == .failed || item.state == .completed else {
+			await transition(item, to: .failed)
+			throw DownloaderError.invalidStateInQueue
+		}
+
+		guard item.entityId.isNotNil else {
+			await transition(item, to: .failed)
+			throw DownloaderError.invalidObjectInQueue
+		}
+
+		Task {
+			await startDownload(item)
+		}
+	}
+
+	func cancelDownload(_ item: DownloadItem) async {
+		guard
+			let entityId = item.entityId,
+			let downloadTask = activeDownloads[entityId] else { return }
+		downloadTask.cancel()
+		await transition(item, to: .cancelled)
+		activeDownloads.removeValue(forKey: entityId)
+	}
+
+	func pauseDownload(_ item: DownloadItem) async {
+		guard
+			let entityId = item.entityId,
+			let downloadTask = activeDownloads[entityId] else { return }
+
+		pausedDownloads[entityId] = await downloadTask.cancelByProducingResumeData()
+		await transition(item, to: .paused)
+		activeDownloads.removeValue(forKey: entityId)
+	}
+
+	private func startDownload(_ item: DownloadItem) async {
+		guard let url = item.url, let entityId = item.entityId else { return }
+
+		let downloadTask = URLSession.shared.downloadTask(with: url) { [weak self] tmpLocation, response, error in
+			guard let self else { return }
+
+			Task { [weak self] in
+				if let error = error {
+					item.error = error.localizedDescription
+					await self?.transition(item, to: .failed)
+					return
+				}
+
+				guard let tmpLocation = tmpLocation else {
+					item.error = "Temporal location of the download file was not created."
+					await self?.transition(item, to: .failed)
+					return
+				}
+
+				await self?.handleDownloadCompletion(for: item, location: tmpLocation)
+			}
+		}
+
+		downloadTask.resume()
+		activeDownloads[entityId] = downloadTask
+	}
+
+	private func handleDownloadCompletion(for item: DownloadItem, location: URL) async {
+		guard let entityId = item.entityId else {
+			item.error = "Download entity id is not initialised."
+			await transition(item, to: .failed)
+			return
+		}
+		guard let url = item.url else {
+			item.error = "Download entity id is not initialised."
+			await transition(item, to: .failed)
+			return
+		}
+
+		let targetDirectory = Self.constructTargetDirectory(for: entityId)
+
+		do {
+			try Self.createDirectoryIfNeeded(at: targetDirectory)
+			let fileName = url.lastPathComponent
+			let targetPath = targetDirectory.appendingPathComponent(fileName)
+
+			if FileManager.default.fileExists(atPath: targetPath.path) {
+				try FileManager.default.removeItem(at: targetPath)
+			}
+
+			try FileManager.default.moveItem(at: location, to: targetPath)
+			
+			item.file = targetPath
+			await transition(item, to: .completed)
+
+		} catch let error {
+			item.error = error.localizedDescription
+			await transition(item, to: .failed)
+		}
+
+		activeDownloads.removeValue(forKey: entityId)
+	}
+
+	static private func constructTargetDirectory(for entityId: UUID) -> URL {
+		let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+		return documentDirectory
+			.appendingPathComponent("Configurations")
+			.appendingPathComponent(entityId.uuidString)
+	}
+
+	static private func createDirectoryIfNeeded(at path: URL) throws {
+		let fileManager = FileManager.default
+		if !fileManager.fileExists(atPath: path.path) {
+			try fileManager.createDirectory(at: path, withIntermediateDirectories: true, attributes: nil)
+		}
 	}
 }
 

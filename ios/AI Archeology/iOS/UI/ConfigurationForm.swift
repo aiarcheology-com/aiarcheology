@@ -184,7 +184,9 @@ struct ConfigurationForm: View {
 
 				configuration.entityId = id
 				configuration.annotationColor = .yellow
-				configuration.modelDescription = parser.value(for: .description) as? String
+				let description = parser.value(for: .description) as? String
+				let modelDescrition = description.isNotBlank ? description : url.lastPathComponent.fileName
+				configuration.modelDescription = modelDescrition
 				configuration.modelVersion = parser.value(for: .versionString) as? String
 				configuration.author = parser.value(for: .author) as? String
 				configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)

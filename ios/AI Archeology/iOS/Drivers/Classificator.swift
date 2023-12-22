@@ -11,7 +11,7 @@ import SwiftUI
 import UIKit
 
 // The application does not support the classification yet.
-// But the driver can be already loaded
+// But the driver can be already loaded, but it does nothing.
 actor Classificator: DeepDriver {
 	internal var params: DeepDriverParams = DeepDriverParams()
 	private let internalId: UUID = UUID()

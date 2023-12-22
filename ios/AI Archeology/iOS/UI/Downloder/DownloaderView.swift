@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct DownloaderView: View {
-	@Binding var showUrlPicker: Bool
+	@Environment(\.horizontalSizeClass) var sizeClass
 	@Environment(\.managedObjectContext) var moc
 	@EnvironmentObject var downloader: Downloader
 	@FetchRequest(
@@ -16,22 +16,20 @@ struct DownloaderView: View {
 		predicate: NSPredicate(format: "entityId != nil"), // TODO: This is a workaround. OnAppear is called multiple times, which creates multiple instances from DownloadItem - not desired behaviour
 		animation: .default)
 	private var downloadItems: FetchedResults<DownloadItem>
+	@Binding var showUrlPicker: Bool
+	let configurationId: UUID
+	var onDownload: (URL, UUID) -> Void
 
 	var body: some View {
 		NavigationView {
 			// List of downloaded files, or currently being downloaded:
 			List(downloadItems, id: \.entityId) { item in
 				NavigationLink(destination:
-					DownloadDetailView(selectedDownloadItem: item)
+					DownloadDetailView(item: item)
 					.environmentObject(downloader)
-					.navigationBarTitle("Download Detail", displayMode: .inline)
-					.navigationBarItems(trailing:
-						Button("Cancel") {
-							showUrlPicker = false
-						}
-						.bold()
-						.foregroundColor(.blue)
-					)
+					.navigationBarTitle("Model", displayMode: .inline)
+					.navigationBarItems(leading: detailNavLeadingButton(item))
+					.navigationBarItems(trailing: detailNavTrailingButton(item))
 				) {
 				ListItemView(item: item)
 					.swipeActions {
@@ -57,6 +55,46 @@ struct DownloaderView: View {
 			)
 		}
 	}
+
+	private func isImportButton(_ item: DownloadItem) -> Bool {
+		item.entityId.isNotNil &&
+		item.state == .completed &&
+		item.url.isNotNil &&
+		item.url?.absoluteString.isEmpty == false
+	}
+
+	private func importButton(_ item: DownloadItem) -> some View {
+		Button("Import") {
+			guard let file = item.file, let entityId = item.entityId else { return }
+			onDownload(file, entityId)
+			showUrlPicker = false
+		}
+		.bold()
+		.foregroundColor(isImportButton(item).enabled ? .green : .gray)
+		.disabled(isImportButton(item).enabled.not)
+	}
+
+	@ViewBuilder
+	private func detailNavLeadingButton(_ item: DownloadItem) -> some View {
+		if sizeClass == .compact {
+			EmptyView()
+		} else {
+			importButton(item)
+		}
+	}
+
+	@ViewBuilder
+	private func detailNavTrailingButton(_ item: DownloadItem) -> some View {
+		if sizeClass == .compact {
+			importButton(item)
+		} else {
+			Button("Dismiss") {
+				showUrlPicker = false
+			}
+			.bold()
+			.foregroundColor(.blue)
+		}
+	}
 }
 
 fileprivate struct ListItemView: View {
@@ -64,11 +102,23 @@ fileprivate struct ListItemView: View {
 
 	var body: some View {
 		HStack {
-			Text(item.url?.lastPathComponent ?? "Unknown File")
-			Spacer()
-			Text(item.state.id)
-				.foregroundColor(.gray)
-				.font(.caption)
+			VStack {
+				HStack {
+					if let fileName = item.url?.lastPathComponent.fileName {
+						Text(fileName)
+					} else {
+						Text("Edit")
+							.foregroundColor(.blue)
+					}
+					Spacer()
+				}
+				HStack {
+					Text(item.state.id)
+						.foregroundColor(.gray)
+						.font(.caption)
+					Spacer()
+				}
+			}
 		}
 	}
 }
@@ -77,14 +127,14 @@ fileprivate struct DownloadDetailView: View {
 	@Environment(\.managedObjectContext) var moc
 	@EnvironmentObject var downloader: Downloader
 	@State private var urlText: String = ""
-	@State private var isFormValid: Bool = false
-	@ObservedObject var selectedDownloadItem: DownloadItem
+	@State private var isFormValid: Bool = false // TODO: use PreferenceKey to validate the components
+	@ObservedObject var item: DownloadItem
 
 	var body: some View {
-		if selectedDownloadItem.entityId.isNotNil {
+		if item.entityId.isNotNil {
 			Group {
 				VStack {
-					ProgressView(value: selectedDownloadItem.progress)
+					ProgressView(value: item.progress)
 						.progressViewStyle(LinearProgressViewStyle())
 						.frame(height: 4)
 					Form {
@@ -92,16 +142,16 @@ fileprivate struct DownloadDetailView: View {
 							HStack {
 								Text("URL")
 								Spacer()
-								TextField("                     https://.../mymodel.mlmodel",
+								TextField("                     https://.../mymodel.mlmodel", // TODO: alignment of the hint on the trailing side
 										  text: $urlText, axis: .vertical)
-								.disabled([Downloader.State.downloading, Downloader.State.paused].contains(selectedDownloadItem.state))
+								.disabled([Downloader.State.downloading, Downloader.State.paused].contains(item.state))
 								.lineLimit(3)
 								.autocapitalization(.none)
 								.disableAutocorrection(true)
 								.multilineTextAlignment(.trailing)
 								.onChange(of: urlText) { value in
-									selectedDownloadItem.url = URL(string: urlText)
-									
+									item.url = URL(string: urlText)
+
 									let invalidURLs = ["https:", "http:", "https://", "http://", "https:/", "http:/"]
 									if invalidURLs.contains(value) {
 										isFormValid = false
@@ -122,7 +172,7 @@ fileprivate struct DownloadDetailView: View {
 							HStack {
 								Text("Status")
 								Spacer()
-								Text(selectedDownloadItem.state.id)
+								Text(item.state.id)
 									.foregroundColor(.gray)
 							}
 							HStack {
@@ -131,29 +181,51 @@ fileprivate struct DownloadDetailView: View {
 								Text("4d85/4988395MB")
 									.foregroundColor(.gray)
 							}
+							if let error = item.error {
+								HStack {
+									Text("Error")
+										.foregroundColor(.red)
+									Spacer()
+									Text(error)
+										.multilineTextAlignment(.trailing)
+										.lineLimit(5)
+										.foregroundColor(.gray)
+								}
+							}
 						}
 					}
 					HStack {
 						Spacer()
-						Button(Self.downloadButtonAttributes(selectedDownloadItem.state).label, action: {
-							downloader.downloadTapped(selectedDownloadItem)
+						Button(Self.downloadButtonAttributes(item.state).label, action: {
 							DownloadItem.save(in: moc)
+							Task {
+								item.error = nil
+								await downloader.downloadTapped(item)
+							}
 						})
-						.buttonStyle(PressableButtonStyle(color: isFormValid ? Self.downloadButtonAttributes(selectedDownloadItem.state).color : .gray))
-						.disabled(Self.downloadButtonAttributes(selectedDownloadItem.state).enabled.not)
+						.buttonStyle(PressableButtonStyle(color: isFormValid ? Self.downloadButtonAttributes(item.state).color : .gray))
+						.disabled(Self.downloadButtonAttributes(item.state).enabled.not)
 						Spacer()
-						Button(Self.cancelButtonAttributes(selectedDownloadItem.state).label, action: {
-							downloader.cancelTapped(selectedDownloadItem)
+						Button(Self.cancelButtonAttributes(item.state).label, action: {
+							Task {
+								// TODO: add alert if "This action will replace the already downloaded file! Do you really want it?"
+								await downloader.cancelTapped(item)
+							}
 						})
-						.buttonStyle(PressableButtonStyle(color: Self.cancelButtonAttributes(selectedDownloadItem.state).color))
-						.disabled(Self.cancelButtonAttributes(selectedDownloadItem.state).enabled.not)
+						.buttonStyle(PressableButtonStyle(color: Self.cancelButtonAttributes(item.state).color))
+						.disabled(Self.cancelButtonAttributes(item.state).enabled.not)
 						Spacer()
 					}
 					.centerInParentView()
 				}
 			}
 			.onAppear {
-				urlText = selectedDownloadItem.url?.absoluteString ?? ""
+				#if false //debugging data
+				// item.url = URL(string: "http://172.20.10.13:2343/HroudaDetector.mlmodel")
+				item.url = URL(string: "http://192.168.178.49:2344/HroudaDetector.mlmodel")
+				isFormValid = true
+				#endif
+				urlText = item.url?.absoluteString ?? ""
 			}
 		}
 	}
@@ -175,3 +247,4 @@ fileprivate struct DownloadDetailView: View {
 	}
 
 }
+
