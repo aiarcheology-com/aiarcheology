@@ -129,14 +129,18 @@ fileprivate struct DownloadDetailView: View {
 	@State private var urlText: String = ""
 	@State private var isFormValid: Bool = false // TODO: use PreferenceKey to validate the components
 	@ObservedObject var item: DownloadItem
+	@State private var progress: Double = 0.0
 
 	var body: some View {
 		if item.entityId.isNotNil {
 			Group {
 				VStack {
-					ProgressView(value: item.progress)
-						.progressViewStyle(LinearProgressViewStyle())
-						.frame(height: 4)
+					ProgressView(value: progress)
+						.progressViewStyle(LinearProgressViewStyle(tint: .green))
+						.frame(height: 5)
+						.onReceive(downloader.progressPublisher(for: item.entityId ?? UUID())) { newProgress in // Core data properties are optional
+							progress = newProgress
+						}
 					Form {
 						Section {
 							HStack {
@@ -200,7 +204,7 @@ fileprivate struct DownloadDetailView: View {
 							DownloadItem.save(in: moc)
 							Task {
 								item.error = nil
-								await downloader.downloadTapped(item)
+								downloader.downloadTapped(item)
 							}
 						})
 						.buttonStyle(PressableButtonStyle(color: isFormValid ? Self.downloadButtonAttributes(item.state).color : .gray))
@@ -209,7 +213,7 @@ fileprivate struct DownloadDetailView: View {
 						Button(Self.cancelButtonAttributes(item.state).label, action: {
 							Task {
 								// TODO: add alert if "This action will replace the already downloaded file! Do you really want it?"
-								await downloader.cancelTapped(item)
+								downloader.cancelTapped(item)
 							}
 						})
 						.buttonStyle(PressableButtonStyle(color: Self.cancelButtonAttributes(item.state).color))
@@ -220,7 +224,7 @@ fileprivate struct DownloadDetailView: View {
 				}
 			}
 			.onAppear {
-				#if false //debugging data
+				#if true && DEBUG //debugging data
 				// item.url = URL(string: "http://172.20.10.13:2343/HroudaDetector.mlmodel")
 				item.url = URL(string: "http://192.168.178.49:2344/HroudaDetector.mlmodel")
 				isFormValid = true
@@ -232,17 +236,17 @@ fileprivate struct DownloadDetailView: View {
 
 	static func downloadButtonAttributes(_ state: Downloader.State) -> (enabled: Bool, color: Color, label: String) {
 		switch state {
-		case .notStarted: return (enabled: true, color: .blue, label: "Download")
-		case .cancelled, .failed, .completed: return (enabled: true, color: .blue, label: "Restart Download")
-		case .paused: return (enabled: true, color: .green, label: "Continue Download")
-		case .downloading: return (enabled: true, color: .orange, label: "Pause Download")
+		case .notStarted, .imported: return (enabled: true, color: .blue, label: "Download")
+		case .cancelled, .failed, .completed: return (enabled: true, color: .blue, label: "Restart")
+		case .paused: return (enabled: true, color: .green, label: "Continue")
+		case .downloading: return (enabled: true, color: .orange, label: "Pause")
 		}
 	}
 
 	static func cancelButtonAttributes(_ state: Downloader.State) -> (enabled: Bool, color: Color, label: String) {
 		switch state {
-		case .notStarted, .cancelled, .failed, .completed: return (enabled: false, color: .gray, label: "Cancel Download")
-		case .paused, .downloading: return (enabled: true, color: .red, label: "Cancel Download")
+		case .notStarted, .cancelled, .failed, .completed, .imported: return (enabled: false, color: .gray, label: "Cancel")
+		case .paused, .downloading: return (enabled: true, color: .red, label: "Cancel")
 		}
 	}
 

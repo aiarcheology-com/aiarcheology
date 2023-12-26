@@ -47,6 +47,7 @@ actor Detector: DeepDriver {
 	}
 
 	func loadFile() async throws {
+		print("Model to be loaded from \(self.params.file?.absoluteString ?? "")")
 		guard let path = self.params.file else {
 			assert(false, "The DeeepConfiguration.file is not initialised or can not infer the completePath.")
 			return

@@ -7,13 +7,52 @@
 
 import Foundation
 import CoreData
+import Combine
 
 enum DownloaderError: Error {
 	case invalidObjectInQueue
 	case invalidStateInQueue
 }
 
-public actor Downloader: ObservableObject {
+class ActiveDownload: Identifiable, Comparable, Hashable {
+	var progress: Double {
+		task.progress.fractionCompleted
+	}
+	var id: UUID {
+		guard let entityId = item.entityId 
+		else {
+			assert(false, "[DL] ActiveDownload must have always a valid DownloadItem object with a valid id.")
+			return UUID()
+		}
+		return entityId
+	}
+	let started: Date = .now
+	unowned let task: URLSessionDownloadTask
+	unowned let item: DownloadItem
+
+	init(task: URLSessionDownloadTask, item: DownloadItem) {
+		self.task = task
+		self.item = item
+	}
+
+	func storeProgress() {
+		item.progress = task.progress.fractionCompleted
+	}
+
+	static func < (lhs: ActiveDownload, rhs: ActiveDownload) -> Bool {
+		lhs.started < rhs.started
+	}
+	
+	static func == (lhs: ActiveDownload, rhs: ActiveDownload) -> Bool {
+		lhs.id == rhs.id
+	}
+
+	func hash(into hasher: inout Hasher) {
+		hasher.combine(id)
+	}
+}
+
+public class Downloader: NSObject, ObservableObject {
 	public enum State: String, CaseIterable, Identifiable {
 		case notStarted = "Not Started"
 		case downloading = "Downloading"
@@ -21,6 +60,7 @@ public actor Downloader: ObservableObject {
 		case cancelled = "Cancelled"
 		case failed = "Failed"
 		case completed = "Completed"
+		case imported = "Imported"
 
 		public var id: String { self.rawValue }
 	}
@@ -32,137 +72,146 @@ public actor Downloader: ObservableObject {
 	}
 
 	unowned var appState: AppState
-	private var activeDownloads: [UUID: URLSessionDownloadTask] = [:]
-	private var pausedDownloads: [UUID: Data?] = [:]
+	@Published var activeDownloads: Set<ActiveDownload> = []
+	private var pausedDownloads: [UUID: Data] = [:]
 
 	init(appState: AppState) {
 		self.appState = appState
 	}
 
-	func downloadTapped(_ item: DownloadItem) async {
+	func progressPublisher(for itemId: UUID?) -> AnyPublisher<Double, Never> {
+		guard let itemId else {
+			assert(false, "[DL] Expecting a valid item id when getting the progress of the download item.")
+			return Just(0.0)
+				.eraseToAnyPublisher()
+		}
+
+		return $activeDownloads
+			.map { activeDownloads in
+				activeDownloads.first { $0.id == itemId }?.item.progress ?? 0.0
+			}
+			.removeDuplicates()
+			.eraseToAnyPublisher()
+	}
+
+	func downloadTapped(_ item: DownloadItem) {
 		switch item.state {
-		case .notStarted, .failed, .cancelled: await handleEvent(item, .start)
-		case .downloading: await handleEvent(item, .pause)
-		case .paused: await handleEvent(item, .start)
-		case .completed: await handleEvent(item, .start)
+		case .notStarted, .failed, .cancelled, .imported: handleEvent(item, .start)
+		case .downloading: handleEvent(item, .pause)
+		case .paused: handleEvent(item, .start)
+		case .completed: handleEvent(item, .start)
 		}
 	}
 
-	func cancelTapped(_ item: DownloadItem) async {
+	func cancelTapped(_ item: DownloadItem) {
 		switch item.state {
-		case .downloading, .paused: await handleEvent(item, .cancel)
+		case .downloading, .paused: handleEvent(item, .cancel)
 		default: break // a cancel action does not change anything at this state
 		}
 	}
 
-	private func handleEvent(_ item: DownloadItem, _ event: Event) async {
+	private func handleEvent(_ item: DownloadItem, _ event: Event) {
 		switch (item.state, event) {
-		case (.notStarted, .start), (.paused, .start), (.completed, .start), (.failed, .start):
-			await transition(item, to: .downloading)
-			await startDownload(item)
+		case (.notStarted, .start), (.paused, .start), (.cancelled, .start),
+			 (.completed, .start), (.failed, .start):
+			startDownload(item)
+			transition(item, to: .downloading)
 
 		case (.downloading, .pause):
-			await transition(item, to: .paused)
-			await pauseDownload(item)
+			pauseDownload(item)
+			transition(item, to: .paused)
 
 		case (.downloading, .cancel), (.paused, .cancel):
-			await transition(item, to: .cancelled)
-			await cancelDownload(item)
+			cancelDownload(item)
+			transition(item, to: .cancelled)
 
 		default:
 			assert(false, "Invalid transition from \(item.state) with event \(event)")
 		}
 	}
 
-	private func transition(_ item: DownloadItem, to newState: State) async {
+	private func transition(_ item: DownloadItem, to newState: State) {
 		item.state = newState
-		await saveDownloadContext()
+		saveDownloadContext()
 	}
 }
 
-extension Downloader {
-
-	@MainActor
-	private func saveDownloadContext() async {
-		let downloadContext = await appState.dataController.container.viewContext
-		DownloadItem.save(in: downloadContext)
-	}
-
-	func enqueueDownload(for item: DownloadItem) async throws {
-		guard item.state == .notStarted || item.state == .failed || item.state == .completed else {
-			await transition(item, to: .failed)
-			throw DownloaderError.invalidStateInQueue
-		}
-
-		guard item.entityId.isNotNil else {
-			await transition(item, to: .failed)
-			throw DownloaderError.invalidObjectInQueue
-		}
-
-		Task {
-			await startDownload(item)
-		}
-	}
-
-	func cancelDownload(_ item: DownloadItem) async {
-		guard
-			let entityId = item.entityId,
-			let downloadTask = activeDownloads[entityId] else { return }
-		downloadTask.cancel()
-		await transition(item, to: .cancelled)
-		activeDownloads.removeValue(forKey: entityId)
-	}
-
-	func pauseDownload(_ item: DownloadItem) async {
-		guard
-			let entityId = item.entityId,
-			let downloadTask = activeDownloads[entityId] else { return }
-
-		pausedDownloads[entityId] = await downloadTask.cancelByProducingResumeData()
-		await transition(item, to: .paused)
-		activeDownloads.removeValue(forKey: entityId)
-	}
-
-	private func startDownload(_ item: DownloadItem) async {
-		guard let url = item.url, let entityId = item.entityId else { return }
-
-		let downloadTask = URLSession.shared.downloadTask(with: url) { [weak self] tmpLocation, response, error in
+extension Downloader: URLSessionDownloadDelegate  {
+	private func saveDownloadContext() {
+		DispatchQueue.main.async { [weak self] in
 			guard let self else { return }
-
-			Task { [weak self] in
-				if let error = error {
-					item.error = error.localizedDescription
-					await self?.transition(item, to: .failed)
-					return
-				}
-
-				guard let tmpLocation = tmpLocation else {
-					item.error = "Temporal location of the download file was not created."
-					await self?.transition(item, to: .failed)
-					return
-				}
-
-				await self?.handleDownloadCompletion(for: item, location: tmpLocation)
-			}
+			let downloadContext = self.appState.dataController.container.viewContext
+			DownloadItem.save(in: downloadContext)
 		}
-
-		downloadTask.resume()
-		activeDownloads[entityId] = downloadTask
 	}
 
-	private func handleDownloadCompletion(for item: DownloadItem, location: URL) async {
-		guard let entityId = item.entityId else {
-			item.error = "Download entity id is not initialised."
-			await transition(item, to: .failed)
-			return
-		}
-		guard let url = item.url else {
-			item.error = "Download entity id is not initialised."
-			await transition(item, to: .failed)
+	private func startDownload(_ item: DownloadItem) {
+		guard let url = item.url 
+		else {
+			assert(false, "[DL] There must be a valid url before the download starts.")
 			return
 		}
 
-		let targetDirectory = Self.constructTargetDirectory(for: entityId)
+		let configuration = URLSessionConfiguration.default
+		let operationQueue = OperationQueue()
+		let session = URLSession(configuration: configuration, delegate: self, delegateQueue: operationQueue)
+
+		let downloadTask: URLSessionDownloadTask
+		if 
+			let entityId = item.entityId,
+			let pausedData = pausedDownloads[entityId] {
+			downloadTask = session.downloadTask(withResumeData: pausedData)
+		} else {
+			downloadTask = session.downloadTask(with: url)
+		}
+
+		downloadTask.taskDescription = item.entityId?.uuidString
+		downloadTask.resume()
+
+		DispatchQueue.main.async { [weak self] in
+			let download = ActiveDownload(task: downloadTask, item: item)
+			self?.activeDownloads.insert(download)
+		}
+	}
+
+	func cancelDownload(_ item: DownloadItem) {
+		guard
+			let entityId = item.entityId,
+			let download = activeDownloads.first( where: {$0.id == entityId }) else { return
+		}
+		download.task.cancel()
+		
+		DispatchQueue.main.async { [weak self] in
+			self?.activeDownloads.remove(download)
+		}
+	}
+
+	func pauseDownload(_ item: DownloadItem) {
+		guard
+			let entityId = item.entityId,
+			let download = activeDownloads.first( where: {$0.id == entityId }) 
+		else { return
+		}
+
+		download.task.cancel(byProducingResumeData: { [weak self] data in
+			 guard let data, let self else {
+				 assert(false, "[DL] The Downloader has been unloaded before the task was succesfully paused.")
+				 return
+			 }
+			 DispatchQueue.main.async { [weak self] in
+				 self?.activeDownloads.remove(download)
+			 }
+
+			 pausedDownloads[entityId] = data
+		})
+	}
+
+	private func handleDownloadCompletion(for download: ActiveDownload, location: URL) {
+		let targetDirectory = Self.constructTargetDirectory(for: download.id)
+		guard let url = download.item.url else {
+			assert(false, "[DL] The item's url property is not initialised.")
+			return
+		}
 
 		do {
 			try Self.createDirectoryIfNeeded(at: targetDirectory)
@@ -175,15 +224,18 @@ extension Downloader {
 
 			try FileManager.default.moveItem(at: location, to: targetPath)
 			
-			item.file = targetPath
-			await transition(item, to: .completed)
+			download.item.file = targetPath
+			transition(download.item, to: .completed)
 
 		} catch let error {
-			item.error = error.localizedDescription
-			await transition(item, to: .failed)
+			print("error: \(error)")
+			download.item.error = error.localizedDescription
+			transition(download.item, to: .failed)
 		}
 
-		activeDownloads.removeValue(forKey: entityId)
+		DispatchQueue.main.async { [weak self] in
+			self?.activeDownloads.remove(download)
+		}
 	}
 
 	static private func constructTargetDirectory(for entityId: UUID) -> URL {
@@ -198,6 +250,63 @@ extension Downloader {
 		if !fileManager.fileExists(atPath: path.path) {
 			try fileManager.createDirectory(at: path, withIntermediateDirectories: true, attributes: nil)
 		}
+	}
+
+	// MARK: - URLSessionDownloadDelegate Methods
+
+	public func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+		guard
+			let entityIdString = task.taskDescription,
+			let entityId = UUID(uuidString: entityIdString),
+			let download = self.activeDownloads.first(where: {$0.id == entityId})
+		else {
+			assert(false, "The task identifier has to be defined before the download can succeed.")
+			return
+		}
+
+		guard let error = error else {
+			return
+		}
+
+		download.item.error = error.localizedDescription
+		transition(download.item, to: .failed)
+
+		let userInfo = (error as NSError).userInfo
+		if let resumeData = userInfo[NSURLSessionDownloadTaskResumeData] as? Data {
+			pausedDownloads[entityId] = resumeData
+		}
+	}
+
+	public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, 
+						   didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+		guard
+			let entityIdString = downloadTask.taskDescription,
+			let entityId = UUID(uuidString: entityIdString),
+			let download = self.activeDownloads.first(where: {$0.id == entityId})
+		else {
+			assert(false, "The task identifier has to be defined before the download can succeed.")
+			return
+		}
+
+		let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+		print("[DL] progress \(progress)")
+
+		DispatchQueue.main.async {
+			download.item.progress = progress
+		}
+	}
+
+	public func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+		guard
+			let entityIdString = downloadTask.taskDescription,
+			let entityId = UUID(uuidString: entityIdString),
+			let download = self.activeDownloads.first(where: {$0.id == entityId})
+		else {
+			assert(false, "The task identifier has to be defined before the download can succeed.")
+			return
+		}
+
+		handleDownloadCompletion(for: download, location: location)
 	}
 }
 
