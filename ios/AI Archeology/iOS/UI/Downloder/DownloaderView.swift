@@ -126,19 +126,22 @@ fileprivate struct ListItemView: View {
 fileprivate struct DownloadDetailView: View {
 	@Environment(\.managedObjectContext) var moc
 	@EnvironmentObject var downloader: Downloader
+
+	@ObservedObject var item: DownloadItem
 	@State private var urlText: String = ""
 	@State private var isFormValid: Bool = false // TODO: use PreferenceKey to validate the components
-	@ObservedObject var item: DownloadItem
 	@State private var progress: Double = 0.0
+	@State private var totalBytesWritten: Int = 0
+	@State private var totalBytesExpected: Int = 0
 
 	var body: some View {
 		if item.entityId.isNotNil {
 			Group {
 				VStack {
-					ProgressView(value: progress)
+					ProgressView(value: item.state == .completed ? 1.0 : progress)
 						.progressViewStyle(LinearProgressViewStyle(tint: .green))
 						.frame(height: 5)
-						.onReceive(downloader.progressPublisher(for: item.entityId ?? UUID())) { newProgress in // Core data properties are optional
+						.onReceive(downloader.progressPublisher(for: item.entityId)) { newProgress in // Core data properties are optional
 							progress = newProgress
 						}
 					Form {
@@ -182,8 +185,19 @@ fileprivate struct DownloadDetailView: View {
 							HStack {
 								Text("Downloaded")
 								Spacer()
-								Text("4d85/4988395MB")
-									.foregroundColor(.gray)
+								if item.state == .downloading {
+									Text("\(totalBytesWritten.formatBytesAsHumanReadable()) / \(totalBytesExpected.formatBytesAsHumanReadable())")
+										.onReceive(downloader.totalBytesWrittenPublisher(for: item.entityId)) { newValue in
+											totalBytesWritten = newValue
+										}
+										.onReceive(downloader.totalBytesExpectedPublisher(for: item.entityId)) { newValue in
+											totalBytesExpected = newValue
+										}
+										.foregroundColor(.gray)
+								} else {
+									Text("\(Int($item.totalBytesWritten.wrappedValue).formatBytesAsHumanReadable()) / \(Int($item.totalBytesExpectedToWrite.wrappedValue).formatBytesAsHumanReadable())")
+										.foregroundColor(.gray)
+								}
 							}
 							if let error = item.error {
 								HStack {

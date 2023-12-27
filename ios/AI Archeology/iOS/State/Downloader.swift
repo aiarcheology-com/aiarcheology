@@ -16,7 +16,8 @@ enum DownloaderError: Error {
 
 class ActiveDownload: Identifiable, Comparable, Hashable {
 	var progress: Double {
-		task.progress.fractionCompleted
+		guard let task else { return 0.0 }
+		return task.progress.fractionCompleted
 	}
 	var id: UUID {
 		guard let entityId = item.entityId 
@@ -27,7 +28,7 @@ class ActiveDownload: Identifiable, Comparable, Hashable {
 		return entityId
 	}
 	let started: Date = .now
-	unowned let task: URLSessionDownloadTask
+	weak var task: URLSessionDownloadTask?
 	unowned let item: DownloadItem
 
 	init(task: URLSessionDownloadTask, item: DownloadItem) {
@@ -36,6 +37,7 @@ class ActiveDownload: Identifiable, Comparable, Hashable {
 	}
 
 	func storeProgress() {
+		guard let task else { return }
 		item.progress = task.progress.fractionCompleted
 	}
 
@@ -94,6 +96,37 @@ public class Downloader: NSObject, ObservableObject {
 			.eraseToAnyPublisher()
 	}
 
+	func totalBytesWrittenPublisher(for itemId: UUID?) -> AnyPublisher<Int, Never> {
+		guard let itemId else {
+			assert(false, "[DL] Expecting a valid item id when getting the progress of the download item.")
+			return Just(0)
+				.eraseToAnyPublisher()
+		}
+
+		return $activeDownloads
+			.map { activeDownloads in
+				Int(activeDownloads.first { $0.id == itemId }?.item.totalBytesWritten ?? 0)
+			}
+			.removeDuplicates()
+			.eraseToAnyPublisher()
+	}
+
+	func totalBytesExpectedPublisher(for itemId: UUID?) -> AnyPublisher<Int, Never> {
+		guard let itemId else {
+			assert(false, "[DL] Expecting a valid item id when getting the progress of the download item.")
+			return Just(0)
+				.eraseToAnyPublisher()
+		}
+
+		return $activeDownloads
+			.map { activeDownloads in
+				Int(activeDownloads.first { $0.id == itemId }?.item.totalBytesExpectedToWrite ?? 0)
+			}
+			.removeDuplicates()
+			.eraseToAnyPublisher()
+	}
+
+
 	func downloadTapped(_ item: DownloadItem) {
 		switch item.state {
 		case .notStarted, .failed, .cancelled, .imported: handleEvent(item, .start)
@@ -115,15 +148,12 @@ public class Downloader: NSObject, ObservableObject {
 		case (.notStarted, .start), (.paused, .start), (.cancelled, .start),
 			 (.completed, .start), (.failed, .start):
 			startDownload(item)
-			transition(item, to: .downloading)
 
 		case (.downloading, .pause):
 			pauseDownload(item)
-			transition(item, to: .paused)
 
 		case (.downloading, .cancel), (.paused, .cancel):
 			cancelDownload(item)
-			transition(item, to: .cancelled)
 
 		default:
 			assert(false, "Invalid transition from \(item.state) with event \(event)")
@@ -167,6 +197,7 @@ extension Downloader: URLSessionDownloadDelegate  {
 
 		downloadTask.taskDescription = item.entityId?.uuidString
 		downloadTask.resume()
+		transition(item, to: .downloading)
 
 		DispatchQueue.main.async { [weak self] in
 			let download = ActiveDownload(task: downloadTask, item: item)
@@ -179,10 +210,12 @@ extension Downloader: URLSessionDownloadDelegate  {
 			let entityId = item.entityId,
 			let download = activeDownloads.first( where: {$0.id == entityId }) else { return
 		}
-		download.task.cancel()
-		
-		DispatchQueue.main.async { [weak self] in
-			self?.activeDownloads.remove(download)
+		if download.task.isNil {
+			URLSession.shared.getTasksWithCompletionHandler { sessionDatas, uploadTasks, downloadTasks in
+				download.task = downloadTasks.first(where: { $0.taskDescription ?? "" == download.id.uuidString})
+				guard let task = download.task else { return }
+				task.cancel()
+			}
 		}
 	}
 
@@ -190,20 +223,36 @@ extension Downloader: URLSessionDownloadDelegate  {
 		guard
 			let entityId = item.entityId,
 			let download = activeDownloads.first( where: {$0.id == entityId }) 
-		else { return
+		else { 
+			return
 		}
 
-		download.task.cancel(byProducingResumeData: { [weak self] data in
-			 guard let data, let self else {
-				 assert(false, "[DL] The Downloader has been unloaded before the task was succesfully paused.")
-				 return
-			 }
-			 DispatchQueue.main.async { [weak self] in
-				 self?.activeDownloads.remove(download)
-			 }
+		func produceResumeDataByCancellingTask(_ sessionTask: URLSessionDownloadTask) {
+			sessionTask.cancel(byProducingResumeData: { [weak self] data in
+				guard let self else {
+					assert(false, "[DL] The Downloader has been unloaded before the task was succesfully paused.")
+					return
+				}
 
-			 pausedDownloads[entityId] = data
-		})
+				guard let data else {
+					assert(false, "[DL] The data to resume the download are not available.")
+					return
+				}
+
+				pausedDownloads[entityId] = data
+			})
+		}
+
+		if let task = download.task { // TODO: find out, what the task is beeing dealocated
+			produceResumeDataByCancellingTask(task)
+		}
+		else { // fallback, search for the task using stored task taskDescription
+			URLSession.shared.getTasksWithCompletionHandler { sessionDatas, uploadTasks, downloadTasks in
+				download.task = downloadTasks.first(where: { $0.taskDescription ?? "" == download.id.uuidString})
+				guard let task = download.task else { return }
+				produceResumeDataByCancellingTask(task)
+			}
+		}
 	}
 
 	private func handleDownloadCompletion(for download: ActiveDownload, location: URL) {
@@ -232,6 +281,8 @@ extension Downloader: URLSessionDownloadDelegate  {
 			download.item.error = error.localizedDescription
 			transition(download.item, to: .failed)
 		}
+
+		pausedDownloads.removeValue(forKey: download.id)
 
 		DispatchQueue.main.async { [weak self] in
 			self?.activeDownloads.remove(download)
@@ -264,6 +315,30 @@ extension Downloader: URLSessionDownloadDelegate  {
 			return
 		}
 
+		if	// The task has been cancelled or paused
+			let error = error as? NSError {
+			switch error.code {
+			case NSURLErrorCancelled:
+				if pausedDownloads[entityId].isNotNil {
+					transition(download.item, to: .paused)
+				} else
+				{
+					transition(download.item, to: .cancelled)
+				}
+			case NSURLErrorNotConnectedToInternet:
+				download.item.error = "Check your connection and restart download. " + error.localizedDescription
+				transition(download.item, to: .failed)
+
+			default: break
+			}
+
+			DispatchQueue.main.async { [weak self] in
+				self?.activeDownloads.remove(download)
+			}
+
+			return
+		}
+
 		guard let error = error else {
 			return
 		}
@@ -274,6 +349,10 @@ extension Downloader: URLSessionDownloadDelegate  {
 		let userInfo = (error as NSError).userInfo
 		if let resumeData = userInfo[NSURLSessionDownloadTaskResumeData] as? Data {
 			pausedDownloads[entityId] = resumeData
+		}
+
+		DispatchQueue.main.async { [weak self] in
+			self?.activeDownloads.remove(download)
 		}
 	}
 
@@ -292,6 +371,8 @@ extension Downloader: URLSessionDownloadDelegate  {
 		print("[DL] progress \(progress)")
 
 		DispatchQueue.main.async {
+			download.item.totalBytesWritten = totalBytesWritten
+			download.item.totalBytesExpectedToWrite = totalBytesExpectedToWrite
 			download.item.progress = progress
 		}
 	}

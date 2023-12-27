@@ -2,7 +2,7 @@
 //  DownloadItem+CoreDataProperties.swift
 //  AI Archeology
 //
-//  Created by Vladimír Slavík on 22.12.23.
+//  Created by Vladimír Slavík on 27.12.23.
 //
 //
 
@@ -20,12 +20,12 @@ extension DownloadItem {
     @NSManaged public var error: String?
     @NSManaged public var file: URL?
     @NSManaged public var progress: Double
-    @NSManaged public var size: Int64
-    @NSManaged public var sizeDownloaded: Int64
+    @NSManaged public var readyTosave: Bool
+    @NSManaged public var totalBytesExpectedToWrite: Int64
+    @NSManaged public var totalBytesWritten: Int64
     @NSManaged public var state_: String?
     @NSManaged public var stateChanged_: Date?
     @NSManaged public var url: URL?
-    @NSManaged public var readyTosave: Bool
 
 }
 
