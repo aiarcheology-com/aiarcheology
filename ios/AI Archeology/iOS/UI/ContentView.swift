@@ -140,6 +140,11 @@ struct ContentView: View {
 				.environmentObject(appState.settings)
 		}
 		.sheet(isPresented: $showingForm, onDismiss: {
+			if appState.deep.newConfiguration?.entityId.isNil == true,
+			   let newConfiguration = appState.deep.newConfiguration {
+				// Clean up
+				DeepConfiguration.delete(newConfiguration, in: appState.dataController.container.viewContext)
+			}
 			appState.deep.newConfiguration = nil
 			appState.guide.selectedConfigurationId = nil
 		}) {

@@ -90,6 +90,8 @@ extension DeepConfiguration {
 	}
 
 	private func validateDeepConfiguration() throws {
+		guard readyToValidate.enabled else { return }
+
 		if file.isNil || file?.absoluteString.isEmpty == true {
 			throw validationError(forKey: "file", error: "Model's file is required.")
 		}

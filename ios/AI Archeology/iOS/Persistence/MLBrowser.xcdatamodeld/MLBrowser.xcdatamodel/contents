@@ -12,7 +12,7 @@
         <attribute name="modelType" optional="YES" attributeType="String"/>
         <attribute name="modelVersion" optional="YES" attributeType="String"/>
         <attribute name="phaseOutTime" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
-        <attribute name="readyToSave" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="readyToValidate" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="selectedSymbol_" optional="YES" attributeType="String"/>
     </entity>
     <entity name="DownloadItem" representedClassName="DownloadItem" syncable="YES">
@@ -20,7 +20,7 @@
         <attribute name="error" optional="YES" attributeType="String"/>
         <attribute name="file" optional="YES" attributeType="URI"/>
         <attribute name="progress" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
-        <attribute name="readyTosave" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="readyToValidate" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="state_" optional="YES" attributeType="String"/>
         <attribute name="stateChanged_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="totalBytesExpectedToWrite" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
@@ -32,6 +32,6 @@
         <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="entityId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="page" optional="YES" attributeType="URI"/>
-        <attribute name="readyToSave" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="readyToValidate" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
     </entity>
 </model>

@@ -158,6 +158,9 @@ fileprivate struct DownloadDetailView: View {
 								.multilineTextAlignment(.trailing)
 								.onChange(of: urlText) { value in
 									item.url = URL(string: urlText)
+									// Keep the record even if the URL is not valid. But do not enable the download button.
+									item.readyToValidate = true
+									DownloadItem.save(in: moc)
 
 									let invalidURLs = ["https:", "http:", "https://", "http://", "https:/", "http:/"]
 									if invalidURLs.contains(value) {
@@ -215,14 +218,13 @@ fileprivate struct DownloadDetailView: View {
 					HStack {
 						Spacer()
 						Button(Self.downloadButtonAttributes(item.state).label, action: {
-							DownloadItem.save(in: moc)
 							Task {
 								item.error = nil
 								downloader.downloadTapped(item)
 							}
 						})
 						.buttonStyle(PressableButtonStyle(color: isFormValid ? Self.downloadButtonAttributes(item.state).color : .gray))
-						.disabled(Self.downloadButtonAttributes(item.state).enabled.not)
+						.disabled(Self.downloadButtonAttributes(item.state).enabled.not || isFormValid.not)
 						Spacer()
 						Button(Self.cancelButtonAttributes(item.state).label, action: {
 							Task {
@@ -238,7 +240,7 @@ fileprivate struct DownloadDetailView: View {
 				}
 			}
 			.onAppear {
-				#if true && DEBUG //debugging data
+				#if false && DEBUG //debugging data
 				// item.url = URL(string: "http://172.20.10.13:2343/HroudaDetector.mlmodel")
 				item.url = URL(string: "http://192.168.178.49:2344/HroudaDetector.mlmodel")
 				isFormValid = true

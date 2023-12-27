@@ -20,11 +20,11 @@ extension DownloadItem {
     @NSManaged public var error: String?
     @NSManaged public var file: URL?
     @NSManaged public var progress: Double
-    @NSManaged public var readyTosave: Bool
-    @NSManaged public var totalBytesExpectedToWrite: Int64
-    @NSManaged public var totalBytesWritten: Int64
+    @NSManaged public var readyToValidate: Bool
     @NSManaged public var state_: String?
     @NSManaged public var stateChanged_: Date?
+    @NSManaged public var totalBytesExpectedToWrite: Int64
+    @NSManaged public var totalBytesWritten: Int64
     @NSManaged public var url: URL?
 
 }

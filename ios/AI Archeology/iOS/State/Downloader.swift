@@ -56,7 +56,7 @@ class ActiveDownload: Identifiable, Comparable, Hashable {
 
 public class Downloader: NSObject, ObservableObject {
 	public enum State: String, CaseIterable, Identifiable {
-		case notStarted = "Not Started"
+		case notStarted = "Not started"
 		case downloading = "Downloading"
 		case paused = "Paused"
 		case cancelled = "Cancelled"
@@ -231,7 +231,7 @@ extension Downloader: URLSessionDownloadDelegate  {
 		}
 
 		func produceResumeDataByCancellingTask(_ sessionTask: URLSessionDownloadTask) {
-			sessionTask.cancel(byProducingResumeData: { [weak self] data in
+			sessionTask.cancel { [weak self] data in
 				guard let self else {
 					assert(false, "[DL] The Downloader has been unloaded before the task was succesfully paused.")
 					return
@@ -243,7 +243,7 @@ extension Downloader: URLSessionDownloadDelegate  {
 				}
 
 				pausedDownloads[entityId] = data
-			})
+			}
 		}
 
 		if let task = download.task { // TODO: find out, what the task is beeing dealocated
@@ -443,6 +443,8 @@ extension DownloadItem {
 	}
 
 	private func validateDownloadItem() throws {
+		guard readyToValidate.enabled else { return }
+
 		if url.isNil || url?.absoluteString.isEmpty == true {
 			throw validationError(forKey: "url", error: "Model's url is required.")
 		}

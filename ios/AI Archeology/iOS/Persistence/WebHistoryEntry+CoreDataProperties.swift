@@ -2,7 +2,7 @@
 //  WebHistoryEntry+CoreDataProperties.swift
 //  AI Archeology
 //
-//  Created by Vladimír Slavík on 04.12.23.
+//  Created by Vladimír Slavík on 27.12.23.
 //
 //
 
@@ -20,6 +20,7 @@ extension WebHistoryEntry {
     @NSManaged public var creationDate_: Date?
     @NSManaged public var entityId: UUID?
     @NSManaged public var page: URL?
+    @NSManaged public var readyToValidate: Bool
 
 }
 

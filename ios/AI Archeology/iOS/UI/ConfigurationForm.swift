@@ -199,6 +199,7 @@ struct ConfigurationForm: View {
 				}
 				configuration.file_ = file
 				configuration.enabled = false
+				configuration.readyToValidate = true
 				validateConfiguration()
 					// This line saves the new configurations.
 					// DeepState creates and registeres the detectors and the SideMenu is updated.
