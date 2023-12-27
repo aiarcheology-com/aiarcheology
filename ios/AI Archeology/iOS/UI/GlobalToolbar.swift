@@ -9,12 +9,26 @@ import SwiftUI
 
 struct GlobalToolbarLeading: View {
 	@EnvironmentObject var guide: Guide
+	@EnvironmentObject var download: Downloader
+
+		// State variable for the animation
+	@State private var isAnimating = false
 
 	var body: some View {
 		HStack {
-			Button ( action:  {
+			Button(action: {
 				guide.togglingSideMenu()
-			}, label: { Image(systemName: "cpu").foregroundColor(.gray)})
+			}) {
+				Image(systemName: "cpu")
+					.foregroundColor(isAnimating ? Color.blue : Color.gray)
+					.scaleEffect(isAnimating ? 1.1 : 1)
+					.animation(Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: isAnimating)
+			}
+		}
+		.onReceive(download.$activeDownloads) { newValue in
+			if download.activeDownloads.isEmpty.not {
+				isAnimating.toggle()
+			}
 		}
 	}
 }
@@ -31,10 +45,10 @@ struct GlobalToolbarTrailing: View {
 					guide.ontheflyDetectionTapped()
 				}) {
 					Image(systemName: "pause")
-						.foregroundColor(.gray)
-						.scaleEffect(isAnimating ? 1.1 : 0.8)
+						.foregroundColor(isAnimating ? Color.blue : Color.gray)
+						.scaleEffect(isAnimating ? 1.1 : 1)
 						.onAppear {
-							withAnimation(Animation.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+							withAnimation(Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
 								isAnimating.toggle()
 							}
 						}

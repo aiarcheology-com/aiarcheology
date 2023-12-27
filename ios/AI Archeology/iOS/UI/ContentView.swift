@@ -76,6 +76,7 @@ struct ContentView: View {
 					leadingItems: {
 						Screens.barItems(mode, position: .leading)
 							.environmentObject(appState.guide)
+							.environmentObject(appState.downloader)
 					},
 					trailingItems: {
 						Screens.barItems(mode, position: .trailing)
@@ -141,8 +142,7 @@ struct ContentView: View {
 		}
 		.sheet(isPresented: $showingForm, onDismiss: {
 			if appState.deep.newConfiguration?.entityId.isNil == true,
-			   let newConfiguration = appState.deep.newConfiguration {
-				// Clean up
+			   let newConfiguration = appState.deep.newConfiguration { // Clean up
 				DeepConfiguration.delete(newConfiguration, in: appState.dataController.container.viewContext)
 			}
 			appState.deep.newConfiguration = nil
