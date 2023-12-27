@@ -216,6 +216,9 @@ extension Downloader: URLSessionDownloadDelegate  {
 				guard let task = download.task else { return }
 				task.cancel()
 			}
+		} else {
+			guard let task = download.task else { return }
+			task.cancel()
 		}
 	}
 
