@@ -10,6 +10,7 @@ import SwiftUI
 struct DownloadDetailView: View {
 	@Environment(\.managedObjectContext) var moc
 	@EnvironmentObject var downloader: Downloader
+	@EnvironmentObject var deep: DeepState
 
 	@ObservedObject var item: DownloadItem
 	@State private var urlText: String = ""
@@ -22,7 +23,7 @@ struct DownloadDetailView: View {
 		if item.entityId.isNotNil {
 			Group {
 				VStack {
-					ProgressView(value: item.state == .completed ? 1.0 : progress)
+					ProgressView(value: [.completed, .imported].contains(item.state) ? 1.0 : progress)
 						.progressViewStyle(LinearProgressViewStyle(tint: .green))
 						.frame(height: 5)
 						.onReceive(downloader.progressPublisher(for: item.entityId)) { newProgress in // Core data properties are optional
@@ -33,7 +34,7 @@ struct DownloadDetailView: View {
 							HStack {
 								Text("URL")
 								Spacer()
-								TextField("                     https://.../mymodel.mlmodel", // TODO: alignment of the hint on the trailing side
+								TextField("example: https://.../mymodel.mlmodel", // TODO: alignment of the hint on the trailing side
 										  text: $urlText, axis: .vertical)
 								.disabled([Downloader.State.downloading, Downloader.State.paused].contains(item.state))
 								.lineLimit(3)
@@ -46,18 +47,10 @@ struct DownloadDetailView: View {
 									item.readyToValidate = true
 									DownloadItem.save(in: moc)
 
-									let invalidURLs = ["https:", "http:", "https://", "http://", "https:/", "http:/"]
-									if invalidURLs.contains(value) {
-										isFormValid = false
-										return
-									}
-									guard let url = URL(string: value) else {
-										isFormValid = false
-										return
-									}
-									if UIApplication.shared.canOpenURL(url) {
-										isFormValid = true
-									}
+									validateUrl(value)
+								}
+								.onAppear {
+									validateUrl(urlText)
 								}
 							}
 						}
@@ -114,7 +107,6 @@ struct DownloadDetailView: View {
 						Spacer()
 						Button(Self.cancelButtonAttributes(item.state).label, action: {
 							Task {
-									// TODO: add alert if "This action will replace the already downloaded file! Do you really want it?"
 								downloader.cancelTapped(item)
 							}
 						})
@@ -126,7 +118,7 @@ struct DownloadDetailView: View {
 				}
 			}
 			.onAppear {
-				#if false && DEBUG //debugging data
+				#if true && DEBUG //debugging data
 				   // item.url = URL(string: "http://172.20.10.13:2343/HroudaDetector.mlmodel")
 				item.url = URL(string: "http://192.168.178.49:2344/HroudaDetector.mlmodel")
 				isFormValid = true
@@ -134,6 +126,21 @@ struct DownloadDetailView: View {
 
 				urlText = item.url?.absoluteString ?? ""
 			}
+		}
+	}
+
+	private func validateUrl(_ value: String) {
+		let invalidURLs = ["https:", "http:", "https://", "http://", "https:/", "http:/"]
+		if invalidURLs.contains(value) {
+			isFormValid = false
+			return
+		}
+		guard let url = URL(string: value) else {
+			isFormValid = false
+			return
+		}
+		if UIApplication.shared.canOpenURL(url) {
+			isFormValid = true
 		}
 	}
 

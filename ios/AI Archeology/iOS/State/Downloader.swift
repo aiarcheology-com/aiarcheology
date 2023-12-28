@@ -145,8 +145,8 @@ public class Downloader: NSObject, ObservableObject {
 
 	private func handleEvent(_ item: DownloadItem, _ event: Event) {
 		switch (item.state, event) {
-		case (.notStarted, .start), (.paused, .start), (.cancelled, .start),
-			 (.completed, .start), (.failed, .start):
+		case (.notStarted, .start), (.paused, .start), (.cancelled, .start), (.completed, .start), (.failed, .start),
+			(.imported, .start): // TODO: Is it ok to let the user download the file again, when it is already imported?
 			startDownload(item)
 
 		case (.downloading, .pause):
@@ -163,6 +163,20 @@ public class Downloader: NSObject, ObservableObject {
 	private func transition(_ item: DownloadItem, to newState: State) {
 		item.state = newState
 		saveDownloadContext()
+	}
+}
+
+extension Downloader: ModelProvider {
+	func result(_ error: ModelProviderError, id: UUID) {
+		guard let item = DownloadItem.select(id, in: appState.dataController.container.viewContext)
+		else { return }
+
+		switch error {
+		case .importSucceeded:
+			transition(item, to: .imported)
+		case .importFailed:
+			break
+		}
 	}
 }
 
@@ -191,6 +205,7 @@ extension Downloader: URLSessionDownloadDelegate  {
 			let entityId = item.entityId,
 			let pausedData = pausedDownloads[entityId] {
 			downloadTask = session.downloadTask(withResumeData: pausedData)
+			pausedDownloads.removeValue(forKey: entityId)
 		} else {
 			downloadTask = session.downloadTask(with: url)
 		}
@@ -208,18 +223,30 @@ extension Downloader: URLSessionDownloadDelegate  {
 	func cancelDownload(_ item: DownloadItem) {
 		guard
 			let entityId = item.entityId,
-			let download = activeDownloads.first( where: {$0.id == entityId }) else { return
+			let download = activeDownloads.first( where: {$0.id == entityId }) 
+		else {
+			// There is no download active.
+			switch item.state {
+			case .paused, .downloading: // TODO: Better handling from the paused, and terminated downloads. Reset the hanging states.
+				transition(item, to: .notStarted)
+			default:
+				break
+			}
+
+			return
 		}
-		if download.task.isNil {
+
+		guard let task = download.task 
+		else { // locate the task using URLSession
 			URLSession.shared.getTasksWithCompletionHandler { sessionDatas, uploadTasks, downloadTasks in
 				download.task = downloadTasks.first(where: { $0.taskDescription ?? "" == download.id.uuidString})
 				guard let task = download.task else { return }
 				task.cancel()
 			}
-		} else {
-			guard let task = download.task else { return }
-			task.cancel()
+			return
 		}
+
+		task.cancel()
 	}
 
 	func pauseDownload(_ item: DownloadItem) {
@@ -246,7 +273,7 @@ extension Downloader: URLSessionDownloadDelegate  {
 			}
 		}
 
-		if let task = download.task { // TODO: find out, what the task is beeing dealocated
+		if let task = download.task { // TODO: find out, why the task is beeing dealocated
 			produceResumeDataByCancellingTask(task)
 		}
 		else { // fallback, search for the task using stored task taskDescription
@@ -281,7 +308,12 @@ extension Downloader: URLSessionDownloadDelegate  {
 
 			try FileManager.default.moveItem(at: location, to: targetPath)
 			
-			download.item.file = targetPath
+			guard let relativePath = try? targetPath.relativePath(from: DownloadItem.rootDirectory) else {
+				assert(false, "Model file is required.")
+				return
+			}
+
+			download.item.file_ = relativePath
 			transition(download.item, to: .completed)
 
 		} catch let error {
@@ -399,10 +431,41 @@ extension DownloadItem: CoreDataManageable {
 		return newItem
 	}
 
+	static func delete(_ entity: DownloadItem, in context: NSManagedObjectContext, deleteModel: Bool) {
+		if deleteModel.enabled, let modelPath = entity.file {
+			if FileManager.default.fileExists(atPath: modelPath.path) {
+				do {
+					try FileManager.default.removeItem(at: modelPath)
+				} catch let error {
+					print("[DI] There was an error during the model file deletion \(entity.entityId?.uuidString ?? "unknown"): \(error)")
+				}
+			}
+		}
+		DownloadItem.delete(entity, in: context)
+	}
+
+	func doesModelFileExist() -> Bool {
+		guard let modelPath = file else {
+			assert(false, "[DI] Expecting a file value in the download item, but it is nil.")
+			return false
+		}
+		return FileManager.default.fileExists(atPath: modelPath.path)
+	}
 }
 
 extension DownloadItem {
 	typealias State = Downloader.State
+
+	public static var rootDirectory: FileManager.SearchPathDirectory {
+		get { .documentDirectory }
+	}
+
+	public var file: URL? {
+		get {
+			guard let file_ else { return nil}
+			return try? file_.completePath(to: DownloadItem.rootDirectory, isDirectory: false)
+		}
+	}
 
 	public var state: Downloader.State {
 		get {
@@ -415,6 +478,7 @@ extension DownloadItem {
 				case State.cancelled.id: return .cancelled
 				case State.failed.id: return .failed
 				case State.completed.id: return .completed
+				case State.imported.id: return .imported
 				default: return defaultReturn
 			}
 		}

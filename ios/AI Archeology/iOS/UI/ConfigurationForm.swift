@@ -96,8 +96,8 @@ struct ConfigurationForm: View {
 						let usedFiles = deep.allConfigurations().compactMap { $0.file }
 
 						NewConfigurationView(
-							usedFiles: usedFiles) { url, id in
-								updateConfiguration(with: url, id: id)
+							usedFiles: usedFiles) { url, id, provider in
+								updateConfiguration(with: url, id: id, provider: provider)
 						}
 					}
 				}
@@ -157,7 +157,7 @@ struct ConfigurationForm: View {
 		}
 	}
 
-	private func updateConfiguration(with url: URL, id: UUID) {
+	private func updateConfiguration(with url: URL, id: UUID, provider: ModelProvider) {
 		Task {
 			// Update the DeepConfiguration
 			assert(url.absoluteString.isEmpty.not, "URL of the file should not be empty.")
@@ -193,22 +193,28 @@ struct ConfigurationForm: View {
 				configuration.modelType = parser.task
 				configuration.phaseOutTime = 2
 				configuration.selectedSymbol = .circle
-				guard let file = try? url.relativePath(from: DeepConfiguration.rootDirectory) else {
+				guard let relativePath = try? url.relativePath(from: DeepConfiguration.rootDirectory) else {
 					assert(false, "Model file is required.")
 					return
 				}
-				configuration.file_ = file
+				configuration.file_ = relativePath
 				configuration.enabled = false
 				configuration.readyToValidate = true
 				validateConfiguration()
 					// This line saves the new configurations.
 					// DeepState creates and registeres the detectors and the SideMenu is updated.
 					// Any time a deep configuration is created/deleted, a new detector is created/deleted.
+				let importResult: ModelProviderError
 				if isValidConfiguration {
 					deep.saveConfigurations()
+					importResult = .importSucceeded
 				} else {
+					importResult = .importFailed
 					assert(false, "Not all data are complete in the new deep configuration.")
 				}
+
+				guard let id = configuration.entityId else { return }
+				provider.result(importResult, id: id)
 			}
 		}
 	}

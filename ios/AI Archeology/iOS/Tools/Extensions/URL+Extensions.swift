@@ -36,7 +36,6 @@ extension URL {
 			throw CocoaError(.fileWriteUnknown)
 		}
 
-			// Create a URL from the encoded string
 		guard let relativeURL = URL(string: urlEncoded) else {
 			throw CocoaError(.fileNoSuchFile)
 		}

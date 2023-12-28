@@ -13,7 +13,7 @@ struct NewConfigurationView: View {
 	@State var showDocumentPicker: Bool = false
 	@State var showUrlPicker: Bool = false
 	let usedFiles: [URL]
-	let onConfigurationChanged: (URL, UUID) -> Void
+	let onConfigurationChanged: (URL, UUID, ModelProvider) -> Void
 
 	private static let pythonCode = """
 		import coremltools as ct
@@ -85,14 +85,14 @@ struct NewConfigurationView: View {
 		}
 		.sheet(isPresented: $showDocumentPicker) {
 			let newConfigurationId = UUID()
-			DocumentPicker(usedURLs: usedFiles, configurationId: newConfigurationId) { url, id in
-				onConfigurationChanged(url, id)
+			DocumentPicker(usedURLs: usedFiles, configurationId: newConfigurationId) { url, id, provider in
+				onConfigurationChanged(url, id, provider)
 			}
 		}
 		.sheet(isPresented: $showUrlPicker) {
 			let newConfigurationId = UUID()
-			DownloaderView(showUrlPicker: $showUrlPicker, configurationId: newConfigurationId) { url, id in
-				onConfigurationChanged(url, id)
+			DownloaderView(showUrlPicker: $showUrlPicker, configurationId: newConfigurationId) { url, id, provider in
+				onConfigurationChanged(url, id, provider)
 			}
 		}
 	}

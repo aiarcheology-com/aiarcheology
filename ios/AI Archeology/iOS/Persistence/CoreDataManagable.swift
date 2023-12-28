@@ -107,7 +107,7 @@ extension CoreDataManageable where Self: NSManagedObject {
 
 		do {
 			let objects = try context.fetch(request) as? [Self]
-			assert(objects?.count == 1, "The numbner of instances should be one.")
+			assert(objects?.count ?? 0 <= 1, "The numbner of instances should be one.")
 			return objects?.first
 		} catch {
 			assert(false, "Error fetching object: \(error)")

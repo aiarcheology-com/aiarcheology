@@ -11,6 +11,7 @@ struct DownloaderView: View {
 	@Environment(\.horizontalSizeClass) var sizeClass
 	@Environment(\.managedObjectContext) var moc
 	@EnvironmentObject var downloader: Downloader
+	@EnvironmentObject var deep: DeepState
 	@FetchRequest(
 		sortDescriptors: [NSSortDescriptor(keyPath: \DownloadItem.stateChanged_, ascending: false)],
 		predicate: NSPredicate(format: "entityId != nil"), // TODO: This is a workaround. OnAppear is called multiple times, which creates multiple instances from DownloadItem - not desired behaviour
@@ -18,7 +19,7 @@ struct DownloaderView: View {
 	private var downloadItems: FetchedResults<DownloadItem>
 	@Binding var showUrlPicker: Bool
 	let configurationId: UUID
-	var onDownload: (URL, UUID) -> Void
+	var onDownload: (URL, UUID, ModelProvider) -> Void
 
 	var body: some View {
 		NavigationView {
@@ -38,7 +39,10 @@ struct DownloaderView: View {
 								assert(false, "No entry has been found after the selection.")
 								return
 							}
-							DownloadItem.delete(entityId, in: moc)
+							// ifConfig.isNil: The model has not been imported. Remove it.
+							// ifConfig.isNotNil: The model has been imported. Keep it.
+							let ifConfig = deep.selectConfiguration(entityId)
+							DownloadItem.delete(item, in: moc, deleteModel: ifConfig.isNil)
 						}) {
 							Label("", systemImage: "trash")
 						}
@@ -75,13 +79,14 @@ struct DownloaderView: View {
 		item.entityId.isNotNil &&
 		item.state == .completed &&
 		item.url.isNotNil &&
-		item.url?.absoluteString.isEmpty == false
+		item.url?.absoluteString.isEmpty == false &&
+		item.doesModelFileExist()
 	}
 
 	private func importButton(_ item: DownloadItem) -> some View {
 		Button("Import") {
 			guard let file = item.file, let entityId = item.entityId else { return }
-			onDownload(file, entityId)
+			onDownload(file, entityId, downloader)
 			showUrlPicker = false
 		}
 		.bold()

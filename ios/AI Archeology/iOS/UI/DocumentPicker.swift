@@ -13,7 +13,7 @@ import UniformTypeIdentifiers
 struct DocumentPicker: UIViewControllerRepresentable {
 	var usedURLs: [URL]
 	let configurationId: UUID
-	var onPick: (URL, UUID) -> Void
+	var onPick: (URL, UUID, ModelProvider) -> Void
 
 	func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
 		let extensions: [UTType] = [
@@ -36,7 +36,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
 		Coordinator(self, configurationId: configurationId)
 	}
 
-	class Coordinator: NSObject, UIDocumentPickerDelegate {
+	class Coordinator: NSObject, UIDocumentPickerDelegate, ModelProvider {
 		var parent: DocumentPicker
 		let configurationId: UUID
 
@@ -76,10 +76,15 @@ struct DocumentPicker: UIViewControllerRepresentable {
 					try fileManager.copyItem(at: url, to: destinationUrl)
 				}
 
-				parent.onPick(destinationUrl, configurationId)
+				parent.onPick(destinationUrl, configurationId, self)
 			} catch {
 				print("Error copying file: \(error)")
 			}
+		}
+
+		// MARK: - ModelProvider
+		func result(_ error: ModelProviderError, id: UUID) {
+			// Not used
 		}
 	}
 }
