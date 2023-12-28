@@ -259,8 +259,13 @@ extension Downloader: URLSessionDownloadDelegate  {
 	}
 
 	private func handleDownloadCompletion(for download: ActiveDownload, location: URL) {
-		let targetDirectory = Self.constructTargetDirectory(for: download.id)
-		guard let url = download.item.url else {
+		guard let targetDirectory = FileManager.deepConfigurationDirectory(id: download.id)
+		else {
+			assert(false, "[DL] Document directory could not be composed.")
+			return
+		}
+		guard let url = download.item.url 
+		else {
 			assert(false, "[DL] The item's url property is not initialised.")
 			return
 		}
@@ -290,13 +295,6 @@ extension Downloader: URLSessionDownloadDelegate  {
 		DispatchQueue.main.async { [weak self] in
 			self?.activeDownloads.remove(download)
 		}
-	}
-
-	static private func constructTargetDirectory(for entityId: UUID) -> URL {
-		let documentDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-		return documentDirectory
-			.appendingPathComponent("Configurations")
-			.appendingPathComponent(entityId.uuidString)
 	}
 
 	static private func createDirectoryIfNeeded(at path: URL) throws {

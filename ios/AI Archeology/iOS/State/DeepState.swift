@@ -207,18 +207,14 @@ class DeepState: ObservableObject {
 
 				// Delete the model file:
 			let fileManager = FileManager.default
-			guard let configurationId = config.entityId?.uuidString else {
+			guard let entityId = config.entityId else {
 				print("Can not reconstruct the path to the configuration's directory.")
 				return
 
 			}
 
-			let documentDirectory = FileManager.default.documentDirectory
 			guard
-				let configurationDirectory = documentDirectory?
-					.appendingPathComponent("Configurations")
-					.appendingPathComponent(configurationId)
-					.path(percentEncoded: false),
+				let configurationDirectory = FileManager.deepConfigurationDirectory(id: entityId)?.path(percentEncoded: false),
 				fileManager.fileExists(atPath: configurationDirectory)
 			else {
 				print("There is no filepath, or the file does not exist.")

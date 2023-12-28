@@ -61,20 +61,22 @@ struct DocumentPicker: UIViewControllerRepresentable {
 			let fileName = url.lastPathComponent
 
 			do {
-				let configurationsDirectory = try fileManager.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-				let destinationDir = configurationsDirectory
-					.appendingPathComponent("Configurations")
-					.appendingPathComponent(configurationId.uuidString)
-				let destinationURL = destinationDir
-					.appendingPathComponent(fileName)
+
+				guard 
+					let destinationDir = FileManager.deepConfigurationDirectory(id: configurationId)
+				else {
+					assert(false, "Destination directory can not be created.")
+					return
+				}
 
 				try fileManager.createDirectory(at: destinationDir, withIntermediateDirectories: true)
 
-				if fileManager.fileExists(atPath: destinationURL.path).not {
-					try fileManager.copyItem(at: url, to: destinationURL)
+				let destinationUrl = destinationDir.appendingPathComponent(fileName)
+				if fileManager.fileExists(atPath: destinationUrl.path).not {
+					try fileManager.copyItem(at: url, to: destinationUrl)
 				}
 
-				parent.onPick(destinationURL, configurationId)
+				parent.onPick(destinationUrl, configurationId)
 			} catch {
 				print("Error copying file: \(error)")
 			}

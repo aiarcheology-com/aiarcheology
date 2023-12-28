@@ -204,7 +204,9 @@ struct ConfigurationForm: View {
 					// This line saves the new configurations.
 					// DeepState creates and registeres the detectors and the SideMenu is updated.
 					// Any time a deep configuration is created/deleted, a new detector is created/deleted.
-				if isValidConfiguration.not {
+				if isValidConfiguration {
+					deep.saveConfigurations()
+				} else {
 					assert(false, "Not all data are complete in the new deep configuration.")
 				}
 			}

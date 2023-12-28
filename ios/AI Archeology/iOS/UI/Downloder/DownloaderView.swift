@@ -47,11 +47,26 @@ struct DownloaderView: View {
 			}
 			.listStyle(InsetGroupedListStyle())
 			.navigationBarTitle("Models", displayMode: .inline)
-			.navigationBarItems(trailing:	Button {
-				_ = DownloadItem.create(in: moc)
-			} label: {
-				Image(systemName: "plus").foregroundColor(.blue)
-			}
+			.navigationBarItems(leading:
+				Button {
+					showUrlPicker = false
+				} label: {
+					Image(systemName: "plus")
+						.rotationEffect(.radians(.pi/4))
+						.foregroundColor(.blue)
+				}
+					.foregroundColor(.blue)
+
+				)
+			.navigationBarItems(trailing:
+				HStack {
+					Button {
+						_ = DownloadItem.create(in: moc)
+					} label: {
+						Image(systemName: "plus.circle.fill")
+							.foregroundColor(.blue)
+					}
+				}
 			)
 		}
 	}
