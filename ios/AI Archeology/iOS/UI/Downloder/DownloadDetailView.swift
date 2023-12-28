@@ -118,7 +118,7 @@ struct DownloadDetailView: View {
 				}
 			}
 			.onAppear {
-				#if true && DEBUG //debugging data
+				#if false && DEBUG //debugging data
 				   // item.url = URL(string: "http://172.20.10.13:2343/HroudaDetector.mlmodel")
 				item.url = URL(string: "http://192.168.178.49:2344/HroudaDetector.mlmodel")
 				isFormValid = true
