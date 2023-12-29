@@ -22,6 +22,7 @@ struct ContentView: View {
 	@State private var showSlideshow = false
 	@State private var addressBarMenu: [URL] = []
 	@State private var errorMessage = ""
+	@State private var showAnnotation = true
 	// content manipulation:
 	@State private var brightness = SnapAdjustment.defaultBrightness
 	@State private var contrast = SnapAdjustment.defaultContrast
@@ -52,8 +53,15 @@ struct ContentView: View {
 							}
 							.gesture( // Reset the annoation when we drag the content
 								DragGesture()
-									.onEnded { _ in
+									.onChanged { _ in
+										showAnnotation = false
 										detectedObservations.removeAll()
+									}
+									.onEnded { _ in
+										DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+											detectedObservations.removeAll()
+											showAnnotation = true
+										}
 									}
 							)
 							// ---- Apply the image properties to the content -----
