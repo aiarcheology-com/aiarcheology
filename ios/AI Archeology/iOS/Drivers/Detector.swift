@@ -30,7 +30,7 @@ actor Detector: DeepDriver {
 		internalId
 	}
 
-	init(configuration: DeepConfiguration, entityId: UUID) throws {
+	init(configuration: DeepConfiguration, entityId: UUID) {
 		self.internalId = entityId
 		self.params = DeepDriverParams(
 			annotationColor: configuration.annotationColor,

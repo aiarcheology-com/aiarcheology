@@ -25,7 +25,7 @@ actor Classificator: DeepDriver {
 		UUID()
 	}
 
-	init(configuration: DeepConfiguration, entityId: UUID) throws {
+	init(configuration: DeepConfiguration, entityId: UUID) {
 	}
 
 	func load() async {

@@ -55,8 +55,8 @@ class DeepState: ObservableObject {
 			return nil
 		}
 		switch configuration.modelTypeInternal {
-			case .detector: return try Detector(configuration: configuration, entityId: entityId)
-			case .classificator: return try Classificator(configuration: configuration, entityId: entityId)
+			case .detector: return Detector(configuration: configuration, entityId: entityId)
+			case .classificator: return Classificator(configuration: configuration, entityId: entityId)
 		}
 	}
 

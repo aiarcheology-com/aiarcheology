@@ -30,7 +30,7 @@ protocol DeepDriver: Driver {
 	var params: DeepDriverParams { get set }
 	var observations: [VNObservation] { get set }
 	func updateConfiguration(_ newConfiguration: DeepConfiguration) async
-	init(configuration: DeepConfiguration, entityId: UUID) throws // Configuration arg. also contains UUID. But bcs of CoreData it is optional. We want to create a new driver only if the DeepConfiguration is complete, with UUID.
+	init(configuration: DeepConfiguration, entityId: UUID) // Configuration arg. also contains UUID. But bcs of CoreData it is optional. We want to create a new driver only if the DeepConfiguration is complete, with UUID.
 	func process(image: UIImage) async
 	func loadFile() async throws
 	func run() async
