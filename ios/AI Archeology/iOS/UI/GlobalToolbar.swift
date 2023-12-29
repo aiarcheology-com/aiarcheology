@@ -11,24 +11,31 @@ struct GlobalToolbarLeading: View {
 	@EnvironmentObject var guide: Guide
 	@EnvironmentObject var download: Downloader
 
-		// State variable for the animation
 	@State private var isAnimating = false
+	@State private var animationChange = false
 
 	var body: some View {
 		HStack {
 			Button(action: {
 				guide.togglingSideMenu()
 			}) {
-				Image(systemName: "cpu")
-					.foregroundColor(isAnimating ? Color.blue : Color.gray)
-					.scaleEffect(isAnimating ? 1.1 : 1)
-					.animation(Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: isAnimating)
+				if isAnimating {
+					Image(systemName: "cpu")
+						.foregroundColor(animationChange ? Color.blue : Color.gray)
+						.scaleEffect(animationChange ? 1.1 : 1)
+						.onAppear {
+							withAnimation(Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+								animationChange.toggle()
+							}
+						}
+				} else {
+					Image(systemName: "cpu").foregroundColor(.gray)
+				}
 			}
 		}
 		.onReceive(download.$activeDownloads) { newValue in
-			if download.activeDownloads.isEmpty.not {
-				isAnimating.toggle()
-			}
+			isAnimating = newValue.isEmpty.not
+			animationChange.toggle()
 		}
 	}
 }

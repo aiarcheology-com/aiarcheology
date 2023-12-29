@@ -83,7 +83,6 @@ public class Downloader: NSObject, ObservableObject {
 
 	func progressPublisher(for itemId: UUID?) -> AnyPublisher<Double, Never> {
 		guard let itemId else {
-			assert(false, "[DL] Expecting a valid item id when getting the progress of the download item.")
 			return Just(0.0)
 				.eraseToAnyPublisher()
 		}
@@ -98,7 +97,6 @@ public class Downloader: NSObject, ObservableObject {
 
 	func totalBytesWrittenPublisher(for itemId: UUID?) -> AnyPublisher<Int, Never> {
 		guard let itemId else {
-			assert(false, "[DL] Expecting a valid item id when getting the progress of the download item.")
 			return Just(0)
 				.eraseToAnyPublisher()
 		}
@@ -344,7 +342,17 @@ extension Downloader: URLSessionDownloadDelegate  {
 			let entityId = UUID(uuidString: entityIdString),
 			let download = self.activeDownloads.first(where: {$0.id == entityId})
 		else {
-			assert(false, "The task identifier has to be defined before the download can succeed.")
+			// assert(false, "The task identifier has to be defined before the download can succeed.")
+
+			// Fallback to the initial state. User can still delete the download item in the list.
+			DispatchQueue.main.async { [weak self] in
+				if	let self,
+					let entityIdString = task.taskDescription,
+					let entityId = UUID(uuidString: entityIdString),
+					let item = DownloadItem.select(entityId, in: self.appState.dataController.container.viewContext) {
+					transition(item, to: .notStarted)
+				}
+			}
 			return
 		}
 
