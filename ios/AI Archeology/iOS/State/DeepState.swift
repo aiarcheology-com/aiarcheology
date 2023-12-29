@@ -11,8 +11,8 @@ import Vision
 import SwiftUI
 import Combine
 
-	// Drivers and DeepConfigurations have 1:1 relationship, and also
-	// both entities have the same UUID. DeepConfiguations are kept in CoreData.
+	// Drivers, DeepConfigurations, and DownloadItems have 1:1 relationship, and also
+	// their entities have the same UUID. DeepConfiguations and DownloadItems are kept in CoreData.
 	// Drivers are loaded on-demand in memory and un/registered with toggling the DeepConfiguration.enabled property.
 class DeepState: ObservableObject {
 	unowned var appState: AppState
@@ -210,7 +210,6 @@ class DeepState: ObservableObject {
 			guard let entityId = config.entityId else {
 				print("Can not reconstruct the path to the configuration's directory.")
 				return
-
 			}
 
 			guard

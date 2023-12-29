@@ -34,10 +34,10 @@ struct DownloadDetailView: View {
 							HStack {
 								Text("URL")
 								Spacer()
-								TextField("example: https://.../mymodel.mlmodel", // TODO: alignment of the hint on the trailing side
+								TextField("https://.../mymodel.mlmodel", // TODO: alignment of the hint on the trailing side
 										  text: $urlText, axis: .vertical)
 								.disabled([Downloader.State.downloading, Downloader.State.paused].contains(item.state))
-								.lineLimit(3)
+								.lineLimit(5)
 								.autocapitalization(.none)
 								.disableAutocorrection(true)
 								.multilineTextAlignment(.trailing)
@@ -53,6 +53,10 @@ struct DownloadDetailView: View {
 									validateUrl(urlText)
 								}
 							}
+						} footer: {
+							Text("Provide a valid address pointing to the Create ML detection model (.mlmodel)")
+								.font(.subheadline)
+								.foregroundColor(.gray)
 						}
 
 						Section {
@@ -118,7 +122,7 @@ struct DownloadDetailView: View {
 				}
 			}
 			.onAppear {
-				#if false && DEBUG //debugging data
+				#if true && DEBUG //debugging data
 				   // item.url = URL(string: "http://172.20.10.13:2343/HroudaDetector.mlmodel")
 				item.url = URL(string: "http://192.168.178.49:2344/HroudaDetector.mlmodel")
 				isFormValid = true
