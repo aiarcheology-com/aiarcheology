@@ -49,7 +49,11 @@ struct ContentView: View {
 								}
 							}
 							.annotate(from: detectedObservations, withinFrame: appState.deep.frame) { observation, params, parentFrame, geometry  in
-								AnnotationViewBuilder(observation: observation, geometry: geometry, params: params, showIndentifiers: appState.settings.showIdentifiers)
+								Group {
+									if showAnnotation {
+										AnnotationViewBuilder(observation: observation, geometry: geometry, params: params, showIndentifiers: appState.settings.showIdentifiers)
+									}
+								}
 							}
 							.gesture( // Reset the annoation when we drag the content
 								DragGesture()
