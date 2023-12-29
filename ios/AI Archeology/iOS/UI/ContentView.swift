@@ -49,24 +49,12 @@ struct ContentView: View {
 								}
 							}
 							.annotate(from: detectedObservations, withinFrame: appState.deep.frame) { observation, params, parentFrame, geometry  in
-								Group {
-									if showAnnotation {
-										AnnotationViewBuilder(observation: observation, geometry: geometry, params: params, showIndentifiers: appState.settings.showIdentifiers)
-									}
-								}
+								AnnotationViewBuilder(observation: observation, geometry: geometry, params: params, showIndentifiers: appState.settings.showIdentifiers)
 							}
 							.gesture( // Reset the annoation when we drag the content
 								DragGesture()
-									.onChanged { _ in
-										detectedObservations.removeAll()
-										showAnnotation = false
-									}
 									.onEnded { _ in
 										detectedObservations.removeAll()
-										DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-											detectedObservations.removeAll()
-											showAnnotation = true
-										}
 									}
 							)
 							// ---- Apply the image properties to the content -----
