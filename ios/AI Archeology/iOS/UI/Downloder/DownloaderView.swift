@@ -78,7 +78,7 @@ struct DownloaderView: View {
 	private func isImportButton(_ item: DownloadItem) -> Bool {
 		guard 
 			let entityId = item.entityId,
-			[.completed, .imported].contains(item.state),
+			[.complete, .imported].contains(item.state),
 			item.url.isNotNil,
 			item.url?.absoluteString.isEmpty == false,
 			item.doesModelFileExist(),

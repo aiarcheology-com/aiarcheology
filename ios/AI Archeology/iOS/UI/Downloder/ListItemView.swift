@@ -31,7 +31,7 @@ struct ListItemView: View {
 					Spacer()
 				}
 				if progress > 0.0 {
-					ProgressView(value: [.completed, .imported].contains(item.state) ? 1.0 : progress)
+					ProgressView(value: [.complete, .imported].contains(item.state) ? 1.0 : progress)
 						.progressViewStyle(LinearProgressViewStyle(tint: .green))
 						.frame(height: 5)
 				}

@@ -62,7 +62,7 @@ public class Downloader: NSObject, ObservableObject {
 		case paused = "Paused"
 		case cancelled = "Cancelled"
 		case failed = "Failed"
-		case completed = "Completed"
+		case complete = "Complete"
 		case imported = "Imported"
 
 		public var id: String { self.rawValue }
@@ -159,7 +159,7 @@ public class Downloader: NSObject, ObservableObject {
 		case .notStarted, .failed, .cancelled, .imported: handleEvent(item, .start)
 		case .downloading: handleEvent(item, .pause)
 		case .paused: handleEvent(item, .start)
-		case .completed: handleEvent(item, .start)
+		case .complete: handleEvent(item, .start)
 		}
 	}
 
@@ -172,7 +172,7 @@ public class Downloader: NSObject, ObservableObject {
 
 	private func handleEvent(_ item: DownloadItem, _ event: Event) {
 		switch (item.state, event) {
-		case (.notStarted, .start), (.paused, .start), (.cancelled, .start), (.completed, .start), (.failed, .start),
+		case (.notStarted, .start), (.paused, .start), (.cancelled, .start), (.complete, .start), (.failed, .start),
 			(.imported, .start): // TODO: Is it ok to let the user download the file again, when it is already imported?
 			startDownload(item)
 
@@ -341,7 +341,7 @@ extension Downloader: URLSessionDownloadDelegate  {
 			}
 
 			download.item.file_ = relativePath
-			transition(download.item, to: .completed)
+			transition(download.item, to: .complete)
 
 		} catch let error {
 			print("error: \(error)")
@@ -513,7 +513,7 @@ extension DownloadItem {
 				case State.paused.id: return .paused
 				case State.cancelled.id: return .cancelled
 				case State.failed.id: return .failed
-				case State.completed.id: return .completed
+				case State.complete.id: return .complete
 				case State.imported.id: return .imported
 				default: return defaultReturn
 			}

@@ -24,7 +24,7 @@ struct DownloadDetailView: View {
 		if item.entityId.isNotNil {
 			Group {
 				VStack {
-					ProgressView(value: [.completed, .imported].contains(item.state) ? 1.0 : progress)
+					ProgressView(value: [.complete, .imported].contains(item.state) ? 1.0 : progress)
 						.progressViewStyle(LinearProgressViewStyle(tint: .green))
 						.frame(height: 5)
 						.onReceive(downloader.progressPublisher(for: item.entityId)) { newProgress in // Core data properties are optional
@@ -190,7 +190,7 @@ struct DownloadDetailView: View {
 	static func downloadButtonAttributes(_ state: Downloader.State) -> (enabled: Bool, color: Color, label: String) {
 		switch state {
 		case .notStarted, .imported: return (enabled: true, color: .blue, label: "Download")
-		case .cancelled, .failed, .completed: return (enabled: true, color: .blue, label: "Restart")
+		case .cancelled, .failed, .complete: return (enabled: true, color: .blue, label: "Restart")
 		case .paused: return (enabled: true, color: .green, label: "Continue")
 		case .downloading: return (enabled: true, color: .orange, label: "Pause")
 		}
@@ -198,7 +198,7 @@ struct DownloadDetailView: View {
 
 	static func cancelButtonAttributes(_ state: Downloader.State) -> (enabled: Bool, color: Color, label: String) {
 		switch state {
-		case .notStarted, .cancelled, .failed, .completed, .imported: return (enabled: false, color: .gray, label: "Cancel")
+		case .notStarted, .cancelled, .failed, .complete, .imported: return (enabled: false, color: .gray, label: "Cancel")
 		case .paused, .downloading: return (enabled: true, color: .red, label: "Cancel")
 		}
 	}
