@@ -409,7 +409,6 @@ extension Downloader: URLSessionDownloadDelegate  {
 		}
 
 		let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-		print("[DL] progress \(progress)")
 
 		DispatchQueue.main.async {
 			download.item.totalBytesWritten = totalBytesWritten

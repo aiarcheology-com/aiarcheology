@@ -222,9 +222,16 @@ class DeepState: ObservableObject {
 			}
 
 			guard config.demo.not else {
-					// DO NOT DELETE THE MODEL that is part of the demo
+				// 1. DO NOT DELETE THE MODEL that is part of the demo
 				return
 			}
+
+			guard DownloadItem.select(entityId, in: appState.dataController.container.viewContext).isNil else {
+				// 2. DO NOT DELETE THE MODEL that is part of the existing download item
+				// An alternative solution: having the models in a separate pre-import directory. But that consumes double of the storage.
+				return
+			}
+
 			do {
 				try fileManager.removeItem(atPath: configurationDirectory)
 				print("File successfully deleted")
