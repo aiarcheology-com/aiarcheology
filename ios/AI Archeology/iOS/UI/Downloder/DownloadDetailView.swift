@@ -13,6 +13,7 @@ struct DownloadDetailView: View {
 	@EnvironmentObject var deep: DeepState
 
 	@ObservedObject var item: DownloadItem
+	@State private var showAlert = false
 	@State private var urlText: String = ""
 	@State private var isFormValid: Bool = false // TODO: use PreferenceKey to validate the components
 	@State private var progress: Double = 0.0
@@ -52,9 +53,21 @@ struct DownloadDetailView: View {
 								.onAppear {
 									validateUrl(urlText)
 								}
+								.toolbar {
+									ToolbarItemGroup(placement: .keyboard) {
+										Button("Clear") {
+											urlText = ""
+										}
+										.foregroundColor(.blue)
+										Spacer()
+										Button("Done") {
+											Self.removeFocus()
+										}
+									}
+								}
 							}
 						} footer: {
-							Text("Provide a valid address pointing to the Create ML detection model (.mlmodel)")
+							Text("Provide a valid address pointing to a Create ML detection model (.mlmodel)")
 								.font(.subheadline)
 								.foregroundColor(.gray)
 						}
@@ -97,6 +110,20 @@ struct DownloadDetailView: View {
 								}
 							}
 						}
+						Section {
+							HStack {
+								Spacer()
+								Button(action: {
+									self.showAlert = true
+								}) {
+									Image(systemName: "questionmark.circle") // Using a system image for the question mark
+										.foregroundColor(.blue)
+										.font(Font.title3) // Adjust size as needed
+								}
+							}
+							.padding(.trailing, -17)
+						}
+						.listRowBackground(Color.clear)
 					}
 					HStack {
 						Spacer()
@@ -118,17 +145,29 @@ struct DownloadDetailView: View {
 						.disabled(Self.cancelButtonAttributes(item.state).enabled.not)
 						Spacer()
 					}
-					.centerInParentView()
+					.padding(20)
 				}
 			}
 			.onAppear {
-				#if true && DEBUG //debugging data
+				#if false && DEBUG //debugging data
 				   // item.url = URL(string: "http://172.20.10.13:2343/HroudaDetector.mlmodel")
 				item.url = URL(string: "http://192.168.178.49:2344/HroudaDetector.mlmodel")
 				isFormValid = true
 				#endif
 
 				urlText = item.url?.absoluteString ?? ""
+			}
+			.alert(isPresented: $showAlert) {
+				Alert(
+					title: Text("Import"),
+					message: Text(
+						"""
+						In order to import a model succesfully, the  download has to be complete, and no deep configuration (side menu in the app) should use this model already - the model should not be already imported.
+						To reimport the model, first delete the deep configuration from the app's side menu with swipe gesture, and then you will be able to import the file from this form again.
+						"""
+					),
+					dismissButton: .default(Text("Got it!"))
+				)
 			}
 		}
 	}

@@ -8,6 +8,7 @@
 import Foundation
 import CoreData
 import Combine
+import Network
 
 enum DownloaderError: Error {
 	case invalidObjectInQueue
@@ -77,8 +78,36 @@ public class Downloader: NSObject, ObservableObject {
 	@Published var activeDownloads: Set<ActiveDownload> = []
 	private var pausedDownloads: [UUID: Data] = [:]
 
+	let networkMonitor = NWPathMonitor()
+
 	init(appState: AppState) {
 		self.appState = appState
+
+		super.init()
+		self.networkMonitor.pathUpdateHandler = { [weak self] path in
+			guard let self else { return }
+			switch path.status {
+			case .satisfied: break
+			default:
+				activeDownloads.forEach {
+					$0.item.error = "There are issues with your \(self.getNetworkType(path)) connection. The download has been paused."
+					self.handleEvent($0.item, .pause)
+				}
+			}
+		}
+		self.networkMonitor.start(queue: DispatchQueue(label: "Network Monitor"))
+	}
+
+	private func getNetworkType(_ path: NWPath) -> String {
+		if path.usesInterfaceType(.wifi) {
+			return "WiFi"
+		} else if path.usesInterfaceType(.cellular) {
+			return "Cellular"
+		} else if path.usesInterfaceType(.wiredEthernet) {
+			return "Ethernet"
+		} else {
+			return "Internet"
+		}
 	}
 
 	func progressPublisher(for itemId: UUID?) -> AnyPublisher<Double, Never> {
@@ -262,8 +291,8 @@ extension Downloader: URLSessionDownloadDelegate  {
 					return
 				}
 
-				guard let data else {
-					assert(false, "[DL] The data to resume the download are not available.")
+				guard let data else { // TODO: find out, why the data are not sometimes available
+					// assert(false, "[DL] The data to resume the download are not available.")
 					return
 				}
 

@@ -35,27 +35,7 @@ struct NewConfigurationView: View {
 			} header: {
 				EmptyView()
 			} footer: {
-				HStack {
-					Spacer()
-					Button(action: {
-						showDocumentPicker = true
-					}) {
-						Image(systemName: "doc.badge.plus")
-							.resizable()
-							.frame(width: 70, height: 70)
-					}
-					.buttonStyle(PressableButtonStyle())
-					Spacer()
-					Button(action: {
-						showUrlPicker = true
-					}) {
-						Image(systemName: "globe")
-							.resizable()
-							.frame(width: 70, height: 70)
-					}
-					.buttonStyle(PressableButtonStyle())
-					Spacer()
-				}
+				SourceButtons(showDocumentPicker: $showDocumentPicker, showUrlPicker: $showUrlPicker)
 				.padding(12)
 			}
 
@@ -95,5 +75,53 @@ struct NewConfigurationView: View {
 				onConfigurationChanged(url, id, provider)
 			}
 		}
+	}
+}
+
+fileprivate struct SourceButtons: View {
+	@Binding var showDocumentPicker: Bool
+	@Binding var showUrlPicker: Bool
+
+	var body: some View {
+		HStack {
+			Spacer()
+				// Document picker button
+			PlusIconButton(systemName: "doc", action: {
+				self.showDocumentPicker = true
+			})
+			Spacer()
+				// URL picker button
+			PlusIconButton(systemName: "globe", action: {
+				self.showUrlPicker = true
+			})
+			Spacer()
+		}
+		.padding(12)
+	}
+}
+
+fileprivate struct PlusIconButton: View {
+	var systemName: String
+	var action: () -> Void
+
+	var body: some View {
+		Button(action: action) {
+			ZStack(alignment: .bottomLeading) {
+				Image(systemName: systemName)
+					.resizable()
+					.frame(width: 70, height: 70)
+				ZStack {
+					Circle()
+						.frame(width: 37, height: 37)
+						.foregroundColor(.blue)
+					Image(systemName: "plus.circle.fill")
+						.resizable()
+						.frame(width: 30, height: 30)
+				}
+				.alignmentGuide(.bottom) { d in d[.bottom] }
+				.alignmentGuide(.leading) { d in d[.leading] }
+			}
+		}
+		.buttonStyle(PressableButtonStyle())
 	}
 }

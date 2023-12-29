@@ -59,11 +59,9 @@ struct ContentView: View {
 								DragGesture()
 									.onChanged { _ in
 										showAnnotation = false
-										detectedObservations.removeAll()
 									}
 									.onEnded { _ in
 										DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-											detectedObservations.removeAll()
 											showAnnotation = true
 										}
 									}
