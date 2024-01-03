@@ -1,0 +1,23 @@
+{
+  "pins" : [
+    {
+      "identity" : "cucumberswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Tyler-Keith-Thompson/CucumberSwift",
+      "state" : {
+        "revision" : "5226892807bf773d8a4c45708eaf6fcaba62f612",
+        "version" : "4.3.2"
+      }
+    },
+    {
+      "identity" : "cucumberswiftexpressions",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Tyler-Keith-Thompson/CucumberSwiftExpressions.git",
+      "state" : {
+        "revision" : "5200dc2c5d7cd31f07a13f030ab0027224d2dbea",
+        "version" : "0.0.8"
+      }
+    }
+  ],
+  "version" : 2
+}

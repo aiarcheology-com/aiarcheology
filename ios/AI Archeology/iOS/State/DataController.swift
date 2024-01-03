@@ -8,7 +8,7 @@
 import CoreData
 import SwiftUI
 
-class DataController: ObservableObject {
+final class DataController: ObservableObject {
 	static let containerName = "MLBrowser"
 	unowned var appState: AppState
 	private(set) var container: NSPersistentContainer

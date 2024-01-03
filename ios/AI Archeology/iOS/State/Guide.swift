@@ -7,7 +7,7 @@
 
 import Foundation
 
-class Guide: ObservableObject {
+final class Guide: ObservableObject {
 	unowned var appState: AppState
 	@Published var mode = AppMode.web
 	@Published var presentedSideMenu: Bool = false

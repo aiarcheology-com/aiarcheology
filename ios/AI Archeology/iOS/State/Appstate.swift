@@ -12,7 +12,7 @@ import Vision
 
 // Responsible for keeping the data consistency across the app
 // and setting up the demo structures.
-class AppState: ObservableObject {
+final class AppState: ObservableObject {
 	lazy var guide = Guide(appState: self)
 	lazy var snap = SnapState(appState: self)
 	lazy var renderer = DefaultRenderer(appState: self)

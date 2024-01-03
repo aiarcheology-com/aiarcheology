@@ -14,7 +14,7 @@ import Combine
 	// Drivers, DeepConfigurations, and DownloadItems have 1:1 relationship, and also
 	// their entities have the same UUID. DeepConfiguations and DownloadItems are kept in CoreData.
 	// Drivers are loaded on-demand in memory and un/registered with toggling the DeepConfiguration.enabled property.
-class DeepState: ObservableObject {
+final class DeepState: ObservableObject {
 	unowned var appState: AppState
 	var frame: CGRect = .zero
 

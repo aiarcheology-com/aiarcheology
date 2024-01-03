@@ -8,7 +8,7 @@
 import Foundation
 import Vision
 
-class SnapAdjustment: ObservableObject {
+final class SnapAdjustment: ObservableObject {
 	unowned var appState: AppState
 	static let defaultBrightness = 0.0
 	static let defaultContrast = 1.0

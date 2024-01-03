@@ -6,7 +6,7 @@
 //
 
 import XCTest
-@testable import AI_Archeology
+@testable import ML_Browser
 
 final class AI_ArcheologyTests: XCTestCase {
 

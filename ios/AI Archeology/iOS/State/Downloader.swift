@@ -15,7 +15,7 @@ enum DownloaderError: Error {
 	case invalidStateInQueue
 }
 
-class ActiveDownload: Identifiable, Comparable, Hashable {
+final class ActiveDownload: Identifiable, Comparable, Hashable {
 	var progress: Double {
 		guard let task else { return 0.0 }
 		return task.progress.fractionCompleted
