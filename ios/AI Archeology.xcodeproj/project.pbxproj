@@ -109,6 +109,7 @@
 		8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */; };
 		8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */; };
 		8AF06FC42ABCD237001E7B6B /* SideMenuModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF06FC32ABCD237001E7B6B /* SideMenuModel.swift */; };
+		94DF06A22E95C1090024E381 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -236,6 +237,7 @@
 		8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = HroudaDetector15.mlpackage; sourceTree = "<group>"; };
 		8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = AIArcheology.mlpackage; sourceTree = "<group>"; };
 		8AF06FC32ABCD237001E7B6B /* SideMenuModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenuModel.swift; sourceTree = "<group>"; };
+		94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OSLog+Extensions.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -273,6 +275,7 @@
 				8A1328252AFE3D9A00F119C6 /* CGRect+Extension.swift */,
 				8A1328272B010B8C00F119C6 /* EnvironmentObject+Extensions.swift */,
 				8A1328212AF7023D00F119C6 /* Optional+Extensions.swift */,
+				94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */,
 				8A1328232AFAD02800F119C6 /* Sequence+Extensions.swift */,
 				8A112CC32AC0852B00786384 /* String+Extensions.swift */,
 				8ADCE5D42B1EA15200B5EAED /* NSManagedObjectContext+Extensions.swift */,
@@ -678,6 +681,7 @@
 			mainGroup = 8AE0BBF72A97B0B30086DDF9;
 			packageReferences = (
 				8AB3EAD72B444E44001083D1 /* XCRemoteSwiftPackageReference "CucumberSwift" */,
+				94DF06A32E95C1D60024E381 /* XCRemoteSwiftPackageReference "OSLogViewer" */,
 			);
 			productRefGroup = 8AE0BC012A97B0B30086DDF9 /* Products */;
 			projectDirPath = "";
@@ -771,6 +775,7 @@
 				8A13282A2B052C7900F119C6 /* ConfigurationForm.swift in Sources */,
 				8A13280F2AF142C600F119C6 /* WebScreen.swift in Sources */,
 				8A1D49BB2ABB87D500C2D7C1 /* PhotoPicker.swift in Sources */,
+				94DF06A22E95C1090024E381 /* OSLog+Extensions.swift in Sources */,
 				8A112CC42AC0852B00786384 /* String+Extensions.swift in Sources */,
 				8AC393C32B2B9FD700C9BA57 /* DeviceInfo.swift in Sources */,
 				8AE0BC062A97B0B30086DDF9 /* ContentView.swift in Sources */,
@@ -1191,6 +1196,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 4.3.2;
+			};
+		};
+		94DF06A32E95C1D60024E381 /* XCRemoteSwiftPackageReference "OSLogViewer" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/0xWDG/OSLogViewer.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.3;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
