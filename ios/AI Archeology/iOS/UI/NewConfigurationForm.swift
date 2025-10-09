@@ -8,10 +8,15 @@
 import Foundation
 import SwiftUI
 
+private enum ConfigurationSheet: Identifiable {
+    case document
+    case url
+    var id: Int { hashValue }
+}
+
 struct NewConfigurationView: View {
 	@EnvironmentObject var deep: DeepState
-	@State var showDocumentPicker: Bool = false
-	@State var showUrlPicker: Bool = false
+    @State private var activeSheet: ConfigurationSheet?
 	let usedFiles: [URL]
 	let onConfigurationChanged: (URL, UUID, ModelProvider) -> Void
 
@@ -35,7 +40,7 @@ struct NewConfigurationView: View {
 			} header: {
 				EmptyView()
 			} footer: {
-				SourceButtons(showDocumentPicker: $showDocumentPicker, showUrlPicker: $showUrlPicker)
+                SourceButtons(activeSheet: $activeSheet)
 				.padding(12)
 			}
 
@@ -60,44 +65,52 @@ struct NewConfigurationView: View {
 			}
 		}
 		.onReceive(deep.$deepStateError) { error in
+            print("🚨 DeepState error: \(String(describing: error))")
 			guard error.isNotNil else { return }
-			showDocumentPicker = false
 		}
-		.sheet(isPresented: $showDocumentPicker) {
-			let newConfigurationId = UUID()
-			DocumentPicker(usedURLs: usedFiles, configurationId: newConfigurationId) { url, id, provider in
-				onConfigurationChanged(url, id, provider)
-			}
-		}
-		.sheet(isPresented: $showUrlPicker) {
-			let newConfigurationId = UUID()
-			DownloaderView(showUrlPicker: $showUrlPicker, configurationId: newConfigurationId) { url, id, provider in
-				onConfigurationChanged(url, id, provider)
-			}
-		}
+        .sheet(item: $activeSheet) { sheet in
+            let newConfigurationId = UUID()
+            switch sheet {
+            case .document:
+                DocumentPicker(usedURLs: usedFiles, configurationId: newConfigurationId) { url, id, provider in
+                    onConfigurationChanged(url, id, provider)
+                }
+            case .url:
+                DownloaderView(configurationId: newConfigurationId) { url, id, provider in
+                    onConfigurationChanged(url, id, provider)
+                }
+            }
+        }
+        .onAppear {
+            print("🟢 [NewConfigurationView] appeared")
+        }
+        .onDisappear {
+            print("🔴 [NewConfigurationView] disappeared")
+        }
 	}
 }
 
 fileprivate struct SourceButtons: View {
-	@Binding var showDocumentPicker: Bool
-	@Binding var showUrlPicker: Bool
-
-	var body: some View {
-		HStack {
-			Spacer()
-				// Document picker button
-			PlusIconButton(systemName: "doc", action: {
-				self.showDocumentPicker = true
-			})
-			Spacer()
-				// URL picker button
-			PlusIconButton(systemName: "globe", action: {
-				self.showUrlPicker = true
-			})
-			Spacer()
-		}
-		.padding(12)
-	}
+    @Binding var activeSheet: ConfigurationSheet?
+    
+    var body: some View {
+        HStack {
+            Spacer()
+            PlusIconButton(systemName: "doc") {
+                if activeSheet == nil {
+                    activeSheet = .document
+                }
+            }
+            Spacer()
+            PlusIconButton(systemName: "globe") {
+                if activeSheet == nil {
+                    activeSheet = .url
+                }
+            }
+            Spacer()
+        }
+        .padding(12)
+    }
 }
 
 fileprivate struct PlusIconButton: View {

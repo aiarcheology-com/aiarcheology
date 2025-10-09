@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct DownloaderView: View {
+    @Environment(\.dismiss) private var dismiss
 	@Environment(\.horizontalSizeClass) var sizeClass
 	@Environment(\.managedObjectContext) var moc
 	@EnvironmentObject var downloader: Downloader
@@ -17,7 +18,6 @@ struct DownloaderView: View {
 		predicate: NSPredicate(format: "entityId != nil"), // TODO: This is a workaround. OnAppear is called multiple times, which creates multiple instances from DownloadItem - not desired behaviour
 		animation: .default)
 	private var downloadItems: FetchedResults<DownloadItem>
-	@Binding var showUrlPicker: Bool
 	let configurationId: UUID
 	var onDownload: (URL, UUID, ModelProvider) -> Void
 
@@ -53,7 +53,7 @@ struct DownloaderView: View {
 			.navigationBarTitle("Models", displayMode: .inline)
 			.navigationBarItems(leading:
 				Button {
-					showUrlPicker = false
+                    dismiss()
 				} label: {
 					Image(systemName: "plus")
 						.rotationEffect(.radians(.pi/4))
@@ -94,7 +94,7 @@ struct DownloaderView: View {
 		Button("Import") {
 			guard let file = item.file, let entityId = item.entityId else { return }
 			onDownload(file, entityId, downloader)
-			showUrlPicker = false
+            dismiss()
 		}
 		.bold()
 		.foregroundColor(isImportButton(item).enabled ? .green : .gray)
@@ -116,7 +116,7 @@ struct DownloaderView: View {
 			importButton(item)
 		} else {
 			Button("Dismiss") {
-				showUrlPicker = false
+                dismiss()
 			}
 			.bold()
 			.foregroundColor(.blue)
