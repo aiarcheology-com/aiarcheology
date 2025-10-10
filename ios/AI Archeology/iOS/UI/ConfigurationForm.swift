@@ -60,7 +60,7 @@ struct ConfigurationForm: View {
 		configuration.selectedSymbol.rawValue
 	]}
 	var body: some View {
-		NavigationView {
+        NavigationStack {
 			if isLoading {
 				ProgressView {
 					Text("Fetching the model data ...")
