@@ -1,48 +1,59 @@
-name: Auto issue key (AIA matches issue #) + Share line
+name: Auto issue key (AIA matches issue #) + Share line w/ prefixes
 
 on:
   issues:
-    types: [opened]
-  # Optional helpers:
+    types: [opened, labeled, unlabeled]  # re-suggest branch when labels change
   issue_comment:
-    types: [created]     # allows "/key" to re-run on an existing issue
-  workflow_dispatch:      # allows manual run from the Actions tab
+    types: [created]                     # allows "/key" or "/branch <prefix>"
+  workflow_dispatch:
 
 permissions:
-  issues: write           # minimal; no repo writes, so this won't trigger builds
+  issues: write
 
 jobs:
   assign-key:
-    # If triggered by a comment, only run when the comment is "/key"
+    # Run when:
+    # - it's an issue event, OR
+    # - it's a comment with "/key" or "/branch"
     if: >
       github.event_name != 'issue_comment' ||
-      contains(github.event.comment.body || '', '/key')
+      contains(github.event.comment.body || '', '/key') ||
+      contains(github.event.comment.body || '', '/branch')
     runs-on: ubuntu-latest
     env:
-      KEY_PREFIX: "AIA"   # change if you want a different prefix
-      PAD_WIDTH: "4"      # AIA-0001, AIA-0016, etc.
+      KEY_PREFIX: "AIA"
+      PAD_WIDTH: "4"
+      DEFAULT_BRANCH_PREFIX: "fix"   # fallback if no matching label/override
+      ALLOWED_BRANCH_PREFIXES: "fix,feature,test"
     steps:
-      - name: Set title with padded issue number
+      - name: Normalize title (AIA-####)
         uses: actions/github-script@v7
         with:
           script: |
             const prefix = process.env.KEY_PREFIX;
             const padWidth = parseInt(process.env.PAD_WIDTH || '4', 10);
             const issue = context.payload.issue;
-            const originalTitle = issue.title;
 
-            // If already normalized like "AIA-0001: ..."
-            const finalRx = new RegExp(`^${prefix}-\\d{${padWidth},}:\\s`);
-            if (finalRx.test(originalTitle)) {
-              core.info('Title already normalized, skipping.');
+            // Only normalize on issue events or "/key" comment
+            const isComment = context.eventName === 'issue_comment';
+            const body = isComment ? (context.payload.comment.body || '') : '';
+            if (isComment && !body.includes('/key') && !body.startsWith('/branch')) {
+              core.info('Comment not a /key or /branch command; skip title step.');
               return;
             }
 
-            // Strip any provisional prefix like "AIA-XXXX:" or "AIA-123:"
+            const originalTitle = issue.title;
+            const finalRx = new RegExp(`^${prefix}-\\d{${padWidth},}:\\s`);
+            if (finalRx.test(originalTitle)) {
+              core.info('Title already normalized; skipping.');
+              return;
+            }
+
+            // Strip provisional "AIA-XXXX:" or "AIA-123:"
             const stripRx = new RegExp(`^${prefix}-[A-ZX0-9]+:\\s*`, 'i');
             const baseTitle = originalTitle.replace(stripRx, '').trim();
 
-            // Use the GitHub issue number so it matches the URL (/issues/<number>)
+            // Use GitHub issue number (matches URL)
             const padded = String(issue.number).padStart(padWidth, '0');
             const newTitle = `${prefix}-${padded}: ${baseTitle}`;
 
@@ -59,48 +70,79 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const prefix = process.env.KEY_PREFIX;
+            const keyPrefix = process.env.KEY_PREFIX;
             const padWidth = parseInt(process.env.PAD_WIDTH || '4', 10);
+            const defaultBranchPrefix = (process.env.DEFAULT_BRANCH_PREFIX || 'fix').toLowerCase();
+            const allowed = (process.env.ALLOWED_BRANCH_PREFIXES || 'fix,feature,test')
+              .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+
             const n = context.payload.issue.number;
 
-            // Fetch current (possibly updated) title
+            // Load fresh issue (title + labels)
             const { data: it } = await github.rest.issues.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: n
             });
 
-            // Remove "AIA-0001: " to get the clean subject
-            const titleOnly = it.title.replace(new RegExp(`^${prefix}-\\d{${padWidth},}:\\s*`), '');
-            const padded = String(n).padStart(padWidth, '0');
-            const key = `${prefix}-${padded}`;
+            // Determine requested override via "/branch <prefix>" (if comment)
+            let requested = null;
+            if (context.eventName === 'issue_comment') {
+              const body = (context.payload.comment.body || '').trim();
+              const m = body.match(/^\/branch\s+([a-zA-Z0-9_-]+)/);
+              if (m) requested = m[1].toLowerCase();
+            }
 
-            // Make a clean, short slug for branch names
+            // Determine prefix from labels (fix/feature/test), precedence by order in `allowed`
+            const labelNames = (it.labels || []).map(l => (typeof l === 'string' ? l : l.name).toLowerCase());
+            let labelBased = allowed.find(p => labelNames.includes(p)) || null;
+
+            // Final prefix: override > label-based > default
+            let branchPrefix = requested && allowed.includes(requested)
+              ? requested
+              : (labelBased || defaultBranchPrefix);
+
+            // Strip leading "AIA-0001: " from title
+            const titleOnly = it.title.replace(new RegExp(`^${keyPrefix}-\\d{${padWidth},}:\\s*`), '');
+            const padded = String(n).padStart(padWidth, '0');
+            const key = `${keyPrefix}-${padded}`;
+
+            // Make slug for branch tail
             const slug = titleOnly
               .toLowerCase()
               .replace(/[^a-z0-9]+/g, '-')
               .replace(/^-+|-+$/g, '')
               .replace(/-+/g, '-');
 
-            const branch = `fix/${key}-${slug}`.slice(0, 120); // keep conservative length
+            const branch = `${branchPrefix}/${key}-${slug}`.slice(0, 120);
             const url = `https://github.com/${context.repo.owner}/${context.repo.repo}/issues/${n}`;
 
-            const body = [
-              `**${key}**`,
-              ``,
-              `Share: ${url}`,
-              ``,
-              `Suggested branch:`,
-              '```',
-              branch,
-              '```'
-            ].join('\n');
+            const lines = [];
+            lines.push(`**${key}**`);
+            lines.push('');
+            lines.push(`Share: ${url}`);
+            lines.push('');
+            lines.push(`Suggested branch (${branchPrefix}):`);
+            lines.push('```');
+            lines.push(branch);
+            lines.push('```');
+
+            if (requested && !allowed.includes(requested)) {
+              lines.push('');
+              lines.push(`> Unknown branch prefix "${requested}". Allowed: ${allowed.join(', ')}`);
+            } else {
+              // If this was a "/branch ..." request, add a small ack
+              if (context.eventName === 'issue_comment' && (requested || (context.payload.comment.body||'').includes('/key'))) {
+                lines.push('');
+                lines.push('_Updated suggestion per request._');
+              }
+            }
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: n,
-              body
+              body: lines.join('\n')
             });
 
-            core.info(`Commented share line and branch suggestion for ${key}`);
+            core.info(`Commented share link + branch suggestion for ${key} with prefix "${branchPrefix}"`);
