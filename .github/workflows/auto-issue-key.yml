@@ -1,91 +1,56 @@
-name: Auto issue key (AIA-####)
+name: Auto issue key (AIA matches issue #)
 
 on:
   issues:
     types: [opened]
+  # Optional helpers:
+  issue_comment:
+    types: [created]     # allows "/key" to re-run on an existing issue
+  workflow_dispatch:      # allows manual run from the Actions tab
 
 permissions:
   issues: write
-  contents: write
-
-concurrency:
-  group: aiarcheology-issue-key
-  cancel-in-progress: false
 
 jobs:
   assign-key:
+    # If triggered by a comment, only run when the comment is "/key"
+    if: >
+      github.event_name != 'issue_comment' ||
+      contains(github.event.comment.body || '', '/key')
     runs-on: ubuntu-latest
     env:
-      KEY_PREFIX: "AIA"                # change if you want a different prefix
-      PAD_WIDTH: "4"                   # <- number of digits (AIA-0001)
-      COUNTER_FILE: ".github/aia_counter.json"
+      KEY_PREFIX: "AIA"   # change to your prefix if needed
+      PAD_WIDTH: "4"      # AIA-0001, AIA-0016, etc.
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Compute next key and update title
-        id: compute
+      - name: Set title with padded issue number
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const path = require('path');
             const prefix = process.env.KEY_PREFIX;
             const padWidth = parseInt(process.env.PAD_WIDTH || '4', 10);
-            const counterPath = process.env.COUNTER_FILE;
 
-            const issue = context.payload.issue;
-            const title = issue.title;
+            // Get the issue depending on trigger type
+            const issue =
+              context.eventName === 'issue_comment'
+                ? context.payload.issue
+                : context.payload.issue;
 
-            // If already has our prefix, skip
-            const prefixRegex = new RegExp(`^${prefix}-\\d+\\b`);
-            if (prefixRegex.test(title)) {
-              core.setOutput('skipped', 'true');
-              core.info('Title already has key, skipping.');
+            const originalTitle = issue.title;
+
+            // If already normalized like "AIA-0001: ..."
+            const finalRx = new RegExp(`^${prefix}-\\d{${padWidth},}:\\s`);
+            if (finalRx.test(originalTitle)) {
+              core.info('Title already normalized, skipping.');
               return;
             }
 
-            async function findMaxFromHistory() {
-              let max = 0;
-              const reg = new RegExp(`\\b${prefix}-(\\d+)\\b`, 'i');
-              for await (const page of github.paginate.iterator(
-                github.rest.issues.listForRepo, {
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  state: 'all',
-                  per_page: 100
-                }
-              )) {
-                for (const it of page.data) {
-                  const m = it.title.match(reg);
-                  if (m) {
-                    const n = parseInt(m[1], 10);
-                    if (!Number.isNaN(n) && n > max) max = n;
-                  }
-                }
-              }
-              return max;
-            }
+            // Strip any provisional prefix like "AIA-XXXX:" or "AIA-123:"
+            const stripRx = new RegExp(`^${prefix}-[A-ZX0-9]+:\\s*`, 'i');
+            const baseTitle = originalTitle.replace(stripRx, '').trim();
 
-            // Load or init counter
-            let nextNum = null;
-            if (fs.existsSync(counterPath)) {
-              try {
-                const data = JSON.parse(fs.readFileSync(counterPath, 'utf8'));
-                if (Number.isInteger(data.next) && data.next > 0) {
-                  nextNum = data.next;
-                }
-              } catch { core.warning('Counter unreadable, will recompute.'); }
-            }
-            if (nextNum === null) {
-              const maxExisting = await findMaxFromHistory();
-              nextNum = maxExisting + 1;
-              core.info(`Initialized counter from history: next=${nextNum}`);
-            }
-
-            const padded = String(nextNum).padStart(padWidth, '0'); // <- zero padding
-            const newKey = `${prefix}-${padded}`;
-            const newTitle = `${newKey}: ${title}`;
+            // Use the GitHub issue number so it matches the URL (/issues/<number>)
+            const padded = String(issue.number).padStart(padWidth, '0');
+            const newTitle = `${prefix}-${padded}: ${baseTitle}`;
 
             await github.rest.issues.update({
               owner: context.repo.owner,
@@ -94,19 +59,4 @@ jobs:
               title: newTitle
             });
 
-            // Persist next value
-            const nextObj = { next: nextNum + 1 };
-            fs.mkdirSync(path.dirname(counterPath), { recursive: true });
-            fs.writeFileSync(counterPath, JSON.stringify(nextObj, null, 2) + '\n');
-
-            core.setOutput('newKey', newKey);
-            core.setOutput('skipped', 'false');
-
-      - name: Commit updated counter
-        if: steps.compute.outputs.skipped == 'false'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "${COUNTER_FILE}"
-          git commit -m "chore: bump ${KEY_PREFIX} counter to next value"
-          git push
+            core.info(`Updated title: ${newTitle}`);
