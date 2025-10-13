@@ -1,8 +1,8 @@
-name: Auto issue key (AIA matches issue #) + Share line w/ prefixes
+name: Auto issue key (AIA matches issue #) + Share line w/ prefixes (dedup)
 
 on:
   issues:
-    types: [opened, labeled, unlabeled]  # re-suggest branch when labels change
+    types: [opened, labeled, unlabeled]  # will refresh suggestion when labels change
   issue_comment:
     types: [created]                     # allows "/key" or "/branch <prefix>"
   workflow_dispatch:
@@ -18,13 +18,14 @@ jobs:
     if: >
       github.event_name != 'issue_comment' ||
       contains(github.event.comment.body || '', '/key') ||
-      contains(github.event.comment.body || '', '/branch')
+      startsWith(github.event.comment.body || '', '/branch')
     runs-on: ubuntu-latest
     env:
       KEY_PREFIX: "AIA"
       PAD_WIDTH: "4"
-      DEFAULT_BRANCH_PREFIX: "fix"   # fallback if no matching label/override
+      DEFAULT_BRANCH_PREFIX: "fix"         # fallback if no matching label/override
       ALLOWED_BRANCH_PREFIXES: "fix,feature,test"
+      COMMENT_MARKER: "<!-- AIA_SHARE_BLOCK -->"  # used to find/update existing comment
     steps:
       - name: Normalize title (AIA-####)
         uses: actions/github-script@v7
@@ -66,7 +67,7 @@ jobs:
 
             core.info(`Updated title: ${newTitle}`);
 
-      - name: Comment share link + branch suggestion
+      - name: Comment share link + branch suggestion (dedup/update)
         uses: actions/github-script@v7
         with:
           script: |
@@ -75,6 +76,7 @@ jobs:
             const defaultBranchPrefix = (process.env.DEFAULT_BRANCH_PREFIX || 'fix').toLowerCase();
             const allowed = (process.env.ALLOWED_BRANCH_PREFIXES || 'fix,feature,test')
               .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+            const MARKER = process.env.COMMENT_MARKER || '<!-- AIA_SHARE_BLOCK -->';
 
             const n = context.payload.issue.number;
 
@@ -117,32 +119,60 @@ jobs:
             const branch = `${branchPrefix}/${key}-${slug}`.slice(0, 120);
             const url = `https://github.com/${context.repo.owner}/${context.repo.repo}/issues/${n}`;
 
-            const lines = [];
-            lines.push(`**${key}**`);
-            lines.push('');
-            lines.push(`Share: ${url}`);
-            lines.push('');
-            lines.push(`Suggested branch (${branchPrefix}):`);
-            lines.push('```');
-            lines.push(branch);
-            lines.push('```');
+            // Build the target comment body with a stable hidden marker
+            const newBody = [
+              MARKER,
+              `**${key}**`,
+              ``,
+              `Share: ${url}`,
+              ``,
+              `Suggested branch (${branchPrefix}):`,
+              '```',
+              branch,
+              '```',
+              ...(requested && !allowed.includes(requested)
+                ? ['', `> Unknown branch prefix "${requested}". Allowed: ${allowed.join(', ')}`]
+                : (context.eventName === 'issue_comment' && (requested || (context.payload.comment.body||'').includes('/key'))
+                    ? ['', '_Updated suggestion per request._']
+                    : [])
+              )
+            ].join('\n');
 
-            if (requested && !allowed.includes(requested)) {
-              lines.push('');
-              lines.push(`> Unknown branch prefix "${requested}". Allowed: ${allowed.join(', ')}`);
-            } else {
-              // If this was a "/branch ..." request, add a small ack
-              if (context.eventName === 'issue_comment' && (requested || (context.payload.comment.body||'').includes('/key'))) {
-                lines.push('');
-                lines.push('_Updated suggestion per request._');
+            // Find existing bot comment with the marker
+            let existing = null;
+            for await (const page of github.paginate.iterator(
+              github.rest.issues.listComments, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: n,
+                per_page: 100
+              }
+            )) {
+              for (const c of page.data) {
+                if (c.user && c.user.type === 'Bot' && c.user.login === 'github-actions[bot]' && (c.body || '').includes(MARKER)) {
+                  existing = c;
+                }
               }
             }
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: n,
-              body: lines.join('\n')
-            });
-
-            core.info(`Commented share link + branch suggestion for ${key} with prefix "${branchPrefix}"`);
+            if (existing) {
+              if ((existing.body || '').trim() === newBody.trim()) {
+                core.info('Existing share comment is up-to-date; skipping.');
+              } else {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body: newBody
+                });
+                core.info(`Updated existing share comment (id=${existing.id}).`);
+              }
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: n,
+                body: newBody
+              });
+              core.info('Created new share comment.');
+            }
