@@ -1,0 +1,8 @@
+name: Bug Report
+description: Report a bug
+title: "AIA-XXXX: [short description]"
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: Description

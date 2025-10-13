@@ -1,0 +1,115 @@
+name: Auto issue key (AIA-####)
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  contents: write
+
+# Prevent duplicates if multiple issues open at the same time
+concurrency:
+  group: aiarcheology-issue-key
+  cancel-in-progress: false
+
+jobs:
+  assign-key:
+    runs-on: ubuntu-latest
+    env:
+      KEY_PREFIX: "AIA"
+      COUNTER_FILE: ".github/aia_counter.json"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute next key and update title
+        id: compute
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const prefix = process.env.KEY_PREFIX;
+            const counterPath = process.env.COUNTER_FILE;
+
+            const issue = context.payload.issue;
+            const title = issue.title;
+
+            // If already has our prefix, skip
+            const prefixRegex = new RegExp(`^${prefix}-\\d+\\b`);
+            if (prefixRegex.test(title)) {
+              core.setOutput('skipped', 'true');
+              core.info('Title already has key, skipping.');
+              return;
+            }
+
+            // Helper to find max existing key across issues
+            async function findMaxFromHistory() {
+              let max = 0;
+              const reg = new RegExp(`\\b${prefix}-(\\d+)\\b`, 'i');
+              for await (const page of github.paginate.iterator(
+                github.rest.issues.listForRepo, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  state: 'all',
+                  per_page: 100
+                }
+              )) {
+                for (const it of page.data) {
+                  const m = it.title.match(reg);
+                  if (m) {
+                    const n = parseInt(m[1], 10);
+                    if (!Number.isNaN(n) && n > max) max = n;
+                  }
+                }
+              }
+              return max;
+            }
+
+            // Load or initialize counter
+            let nextNum = null;
+            if (fs.existsSync(counterPath)) {
+              try {
+                const data = JSON.parse(fs.readFileSync(counterPath, 'utf8'));
+                if (Number.isInteger(data.next) && data.next > 0) {
+                  nextNum = data.next;
+                }
+              } catch (e) {
+                core.warning('Counter file unreadable, will recompute.');
+              }
+            }
+
+            if (nextNum === null) {
+              const maxExisting = await findMaxFromHistory();
+              nextNum = maxExisting + 1;
+              core.info(`Initialized counter from history: next=${nextNum}`);
+            }
+
+            const newKey = `${prefix}-${nextNum}`;
+            const newTitle = `${newKey}: ${title}`;
+
+            // Update issue title
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              title: newTitle
+            });
+
+            // Bump and write counter file
+            const nextObj = { next: nextNum + 1 };
+            fs.mkdirSync(path.dirname(counterPath), { recursive: true });
+            fs.writeFileSync(counterPath, JSON.stringify(nextObj, null, 2) + '\n');
+
+            core.setOutput('newKey', newKey);
+            core.setOutput('skipped', 'false');
+
+      - name: Commit updated counter
+        if: steps.compute.outputs.skipped == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${COUNTER_FILE}"
+          git commit -m "chore: bump ${KEY_PREFIX} counter to next value"
+          git push
