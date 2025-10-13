@@ -1,4 +1,4 @@
-name: Auto issue key (AIA matches issue #)
+name: Auto issue key (AIA matches issue #) + Share line
 
 on:
   issues:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:      # allows manual run from the Actions tab
 
 permissions:
-  issues: write
+  issues: write           # minimal; no repo writes, so this won't trigger builds
 
 jobs:
   assign-key:
@@ -19,7 +19,7 @@ jobs:
       contains(github.event.comment.body || '', '/key')
     runs-on: ubuntu-latest
     env:
-      KEY_PREFIX: "AIA"   # change to your prefix if needed
+      KEY_PREFIX: "AIA"   # change if you want a different prefix
       PAD_WIDTH: "4"      # AIA-0001, AIA-0016, etc.
     steps:
       - name: Set title with padded issue number
@@ -28,13 +28,7 @@ jobs:
           script: |
             const prefix = process.env.KEY_PREFIX;
             const padWidth = parseInt(process.env.PAD_WIDTH || '4', 10);
-
-            // Get the issue depending on trigger type
-            const issue =
-              context.eventName === 'issue_comment'
-                ? context.payload.issue
-                : context.payload.issue;
-
+            const issue = context.payload.issue;
             const originalTitle = issue.title;
 
             // If already normalized like "AIA-0001: ..."
@@ -60,3 +54,53 @@ jobs:
             });
 
             core.info(`Updated title: ${newTitle}`);
+
+      - name: Comment share link + branch suggestion
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prefix = process.env.KEY_PREFIX;
+            const padWidth = parseInt(process.env.PAD_WIDTH || '4', 10);
+            const n = context.payload.issue.number;
+
+            // Fetch current (possibly updated) title
+            const { data: it } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: n
+            });
+
+            // Remove "AIA-0001: " to get the clean subject
+            const titleOnly = it.title.replace(new RegExp(`^${prefix}-\\d{${padWidth},}:\\s*`), '');
+            const padded = String(n).padStart(padWidth, '0');
+            const key = `${prefix}-${padded}`;
+
+            // Make a clean, short slug for branch names
+            const slug = titleOnly
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/^-+|-+$/g, '')
+              .replace(/-+/g, '-');
+
+            const branch = `fix/${key}-${slug}`.slice(0, 120); // keep conservative length
+            const url = `https://github.com/${context.repo.owner}/${context.repo.repo}/issues/${n}`;
+
+            const body = [
+              `**${key}**`,
+              ``,
+              `Share: ${url}`,
+              ``,
+              `Suggested branch:`,
+              '```',
+              branch,
+              '```'
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: n,
+              body
+            });
+
+            core.info(`Commented share line and branch suggestion for ${key}`);
