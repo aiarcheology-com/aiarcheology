@@ -8,11 +8,15 @@
 import SwiftUI
 
 struct DownloadDetailView: View {
-	@Environment(\.managedObjectContext) var moc
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.managedObjectContext) private var moc
 	@EnvironmentObject var downloader: Downloader
 	@EnvironmentObject var deep: DeepState
 
 	@ObservedObject var item: DownloadItem
+    let onImport: (URL, UUID, ModelProvider) -> Void
+
 	@State private var showAlert = false
 	@State private var urlText: String = ""
 	@State private var isFormValid: Bool = false // TODO: use PreferenceKey to validate the components
@@ -148,6 +152,9 @@ struct DownloadDetailView: View {
 					.padding(20)
 				}
 			}
+            .navigationBarTitle("Model")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { toolbarContent }
 			.onAppear {
 				#if false && DEBUG //debugging data
 				   // item.url = URL(string: "http://172.20.10.13:2343/HroudaDetector.mlmodel")
@@ -171,6 +178,42 @@ struct DownloadDetailView: View {
 			}
 		}
 	}
+    
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        if sizeClass == .compact {
+            ToolbarItem(placement: .topBarTrailing) { importButton }
+        } else {
+            ToolbarItem(placement: .topBarLeading)  { importButton }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Dismiss") { dismiss() }
+                    .bold()
+                    .foregroundColor(.blue)
+            }
+        }
+    }
+        
+    private var canImport: Bool {
+        guard
+            let entityId = item.entityId,
+            [.complete, .imported].contains(item.state),
+            let url = item.url, !url.absoluteString.isEmpty,
+            item.doesModelFileExist(),
+            deep.selectConfiguration(entityId).isNil
+        else { return false }
+        return true
+    }
+    
+    private var importButton: some View {
+        Button("Import") {
+            guard let file = item.file, let id = item.entityId else { return }
+            onImport(file, id, downloader)
+            dismiss()
+        }
+        .bold()
+        .foregroundColor(canImport ? .green : .gray)
+        .disabled(!canImport)
+    }
 
 	private func validateUrl(_ value: String) {
 		let invalidURLs = ["https:", "http:", "https://", "http://", "https:/", "http:/"]
