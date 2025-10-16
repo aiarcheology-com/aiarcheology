@@ -346,11 +346,19 @@ extension Downloader: URLSessionDownloadDelegate  {
 			}
 
 			item.file_ = relativePath
+			// Save final progress/bytes values to Core Data for non-active display
+			item.progress = download.progress
+			item.totalBytesWritten = Int64(download.totalBytesWritten)
+			item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
 			transition(item, to: .complete)
 
 		} catch let error {
 			print("error: \(error)")
 			item.error = error.localizedDescription
+			// Save final progress/bytes values even on failure
+			item.progress = download.progress
+			item.totalBytesWritten = Int64(download.totalBytesWritten)
+			item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
 			transition(item, to: .failed)
 		}
 
@@ -403,6 +411,10 @@ extension Downloader: URLSessionDownloadDelegate  {
 			let error = error as? NSError {
 			switch error.code {
 			case NSURLErrorCancelled:
+				// Save current progress/bytes values before transitioning state
+				item.progress = download.progress
+				item.totalBytesWritten = Int64(download.totalBytesWritten)
+				item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
 				if pausedDownloads[entityId].isNotNil {
 					transition(item, to: .paused)
 				} else
@@ -411,6 +423,10 @@ extension Downloader: URLSessionDownloadDelegate  {
 				}
 			case NSURLErrorNotConnectedToInternet:
 				item.error = "Check your connection and restart download. " + error.localizedDescription
+				// Save current progress/bytes values before transitioning state
+				item.progress = download.progress
+				item.totalBytesWritten = Int64(download.totalBytesWritten)
+				item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
 				transition(item, to: .failed)
 
 			default: break
@@ -428,6 +444,10 @@ extension Downloader: URLSessionDownloadDelegate  {
 		}
 
 		item.error = error.localizedDescription
+		// Save current progress/bytes values before transitioning state
+		item.progress = download.progress
+		item.totalBytesWritten = Int64(download.totalBytesWritten)
+		item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
 		transition(item, to: .failed)
 
 		let userInfo = (error as NSError).userInfo
