@@ -16,30 +16,28 @@ enum DownloaderError: Error {
 }
 
 final class ActiveDownload: Identifiable, Comparable, Hashable {
-	var progress: Double {
-		guard let task else { return 0.0 }
-		return task.progress.fractionCompleted
-	}
+	let itemId: UUID
+	var progress: Double = 0.0
+	var totalBytesWritten: Int = 0
+	var totalBytesExpected: Int = 0
+	
 	var id: UUID {
-		guard let entityId = item.entityId 
-		else {
-			assert(false, "[DL] ActiveDownload must have always a valid DownloadItem object with a valid id.")
-			return UUID()
-		}
-		return entityId
+		return itemId
 	}
 	let started: Date = .now
 	weak var task: URLSessionDownloadTask?
-	unowned let item: DownloadItem
 
-	init(task: URLSessionDownloadTask, item: DownloadItem) {
+	init(task: URLSessionDownloadTask, itemId: UUID) {
 		self.task = task
-		self.item = item
+		self.itemId = itemId
 	}
 
 	func storeProgress() {
 		guard let task else { return }
-		item.progress = task.progress.fractionCompleted
+		// Update local primitives from URLSession task, do NOT write to Core Data
+		self.progress = task.progress.fractionCompleted
+		self.totalBytesWritten = Int(task.countOfBytesReceived)
+		self.totalBytesExpected = Int(task.countOfBytesExpectedToReceive)
 	}
 
 	static func < (lhs: ActiveDownload, rhs: ActiveDownload) -> Bool {
@@ -89,9 +87,12 @@ public class Downloader: NSObject, ObservableObject {
 			switch path.status {
 			case .satisfied: break
 			default:
-				activeDownloads.forEach {
-					$0.item.error = "There are issues with your \(self.getNetworkType(path)) connection. The download has been paused."
-					self.handleEvent($0.item, .pause)
+				activeDownloads.forEach { download in
+					// Fetch the managed object to update error state
+					if let item = DownloadItem.select(download.id, in: self.appState.dataController.container.viewContext) {
+						item.error = "There are issues with your \(self.getNetworkType(path)) connection. The download has been paused."
+						self.handleEvent(item, .pause)
+					}
 				}
 			}
 		}
@@ -118,7 +119,7 @@ public class Downloader: NSObject, ObservableObject {
 
 		return $activeDownloads
 			.map { activeDownloads in
-				activeDownloads.first { $0.id == itemId }?.item.progress ?? 0.0
+				activeDownloads.first { $0.id == itemId }?.progress ?? 0.0
 			}
 			.removeDuplicates()
 			.eraseToAnyPublisher()
@@ -132,7 +133,7 @@ public class Downloader: NSObject, ObservableObject {
 
 		return $activeDownloads
 			.map { activeDownloads in
-				Int(activeDownloads.first { $0.id == itemId }?.item.totalBytesWritten ?? 0)
+				activeDownloads.first { $0.id == itemId }?.totalBytesWritten ?? 0
 			}
 			.removeDuplicates()
 			.eraseToAnyPublisher()
@@ -147,7 +148,7 @@ public class Downloader: NSObject, ObservableObject {
 
 		return $activeDownloads
 			.map { activeDownloads in
-				Int(activeDownloads.first { $0.id == itemId }?.item.totalBytesExpectedToWrite ?? 0)
+				activeDownloads.first { $0.id == itemId }?.totalBytesExpected ?? 0
 			}
 			.removeDuplicates()
 			.eraseToAnyPublisher()
@@ -242,7 +243,8 @@ extension Downloader: URLSessionDownloadDelegate  {
 		transition(item, to: .downloading)
 
 		DispatchQueue.main.async { [weak self] in
-			let download = ActiveDownload(task: downloadTask, item: item)
+			guard let entityId = item.entityId else { return }
+			let download = ActiveDownload(task: downloadTask, itemId: entityId)
 			self?.activeDownloads.insert(download)
 		}
 	}
@@ -318,7 +320,10 @@ extension Downloader: URLSessionDownloadDelegate  {
 			assert(false, "[DL] Document directory could not be composed.")
 			return
 		}
-		guard let url = download.item.url 
+		
+		// Fetch the managed object to get URL and update properties
+		guard let item = DownloadItem.select(download.id, in: appState.dataController.container.viewContext),
+			  let url = item.url
 		else {
 			assert(false, "[DL] The item's url property is not initialised.")
 			return
@@ -340,13 +345,13 @@ extension Downloader: URLSessionDownloadDelegate  {
 				return
 			}
 
-			download.item.file_ = relativePath
-			transition(download.item, to: .complete)
+			item.file_ = relativePath
+			transition(item, to: .complete)
 
 		} catch let error {
 			print("error: \(error)")
-			download.item.error = error.localizedDescription
-			transition(download.item, to: .failed)
+			item.error = error.localizedDescription
+			transition(item, to: .failed)
 		}
 
 		pausedDownloads.removeValue(forKey: download.id)
@@ -385,19 +390,28 @@ extension Downloader: URLSessionDownloadDelegate  {
 			return
 		}
 
+		// Fetch the managed object to update state and error
+		guard let item = DownloadItem.select(download.id, in: appState.dataController.container.viewContext)
+		else {
+			DispatchQueue.main.async { [weak self] in
+				self?.activeDownloads.remove(download)
+			}
+			return
+		}
+
 		if	// The task has been cancelled or paused
 			let error = error as? NSError {
 			switch error.code {
 			case NSURLErrorCancelled:
 				if pausedDownloads[entityId].isNotNil {
-					transition(download.item, to: .paused)
+					transition(item, to: .paused)
 				} else
 				{
-					transition(download.item, to: .cancelled)
+					transition(item, to: .cancelled)
 				}
 			case NSURLErrorNotConnectedToInternet:
-				download.item.error = "Check your connection and restart download. " + error.localizedDescription
-				transition(download.item, to: .failed)
+				item.error = "Check your connection and restart download. " + error.localizedDescription
+				transition(item, to: .failed)
 
 			default: break
 			}
@@ -413,8 +427,8 @@ extension Downloader: URLSessionDownloadDelegate  {
 			return
 		}
 
-		download.item.error = error.localizedDescription
-		transition(download.item, to: .failed)
+		item.error = error.localizedDescription
+		transition(item, to: .failed)
 
 		let userInfo = (error as NSError).userInfo
 		if let resumeData = userInfo[NSURLSessionDownloadTaskResumeData] as? Data {
@@ -437,12 +451,12 @@ extension Downloader: URLSessionDownloadDelegate  {
 			return
 		}
 
-		let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
-
+		// Update ActiveDownload's local primitives only - do NOT write to Core Data
+		// This breaks the tight feedback loop that causes CPU spikes on iOS 16
 		DispatchQueue.main.async {
-			download.item.totalBytesWritten = totalBytesWritten
-			download.item.totalBytesExpectedToWrite = totalBytesExpectedToWrite
-			download.item.progress = progress
+			download.progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+			download.totalBytesWritten = Int(totalBytesWritten)
+			download.totalBytesExpected = Int(totalBytesExpectedToWrite)
 		}
 	}
 
