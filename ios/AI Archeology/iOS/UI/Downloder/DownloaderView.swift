@@ -17,12 +17,12 @@ struct DownloaderView: View {
         animation: .default)
     private var downloadItems: FetchedResults<DownloadItem>
     let configurationId: UUID
-    var onDownload: (URL, UUID, ModelProvider) -> Void
+    var onImport: (URL, UUID, ModelProvider) -> Void
     
     var body: some View {
         // List of downloaded files, or currently being downloaded:
         List(downloadItems, id: \.entityId) { item in
-            NavigationLink(destination: DownloadDetailView(item: item, onImport: onDownload)
+            NavigationLink(destination: DownloadDetailView(item: item, onImport: onImport)
                 .environmentObject(downloader)
             ) {
                 ListItemView(item: item)
