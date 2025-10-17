@@ -3,7 +3,26 @@
 This repository contains a **SwiftUI-based application** that hosts a `WKWebView` browser with AI-powered object detection and classification capabilities.  
 It supports **iOS 16+**, **iPadOS 16+**, and **macOS 14+** (running as a *Mac app designed for iPad*).
 
-I am the **sole developer** of this project.
+---
+
+## Copilot Execution Boundaries
+
+What Copilot can do in reviews and PRs:
+- Analyze code structure, architecture, APIs, and data flow (read-only).
+- Propose code changes with rationale, tests, and documentation.
+- Review unit tests for behavior coverage and determinism; suggest additional cases.
+- Inspect error handling, platform conditionals, accessibility, and public API docs.
+- Suggest profiling and measurement plans; interpret artifacts you share (e.g., logs, screenshots).
+
+What Copilot cannot do:
+- Build, run, or profile the project.
+- Execute tests or measure coverage.
+- See runtime UI/animation behavior or Instruments timelines without artifacts.
+- Access private CI systems without pasted logs or shared links.
+
+Review policy:
+- Copilot proceeds with best-effort feedback even when artifacts are missing.
+- If runtime validation is needed, you may optionally paste build/test logs or share Instruments findings; Copilot will iterate based on them.
 
 ---
 
@@ -52,7 +71,19 @@ I am the **sole developer** of this project.
   - **Use descriptive test names** following `test_<scenario>_<expectedOutcome>` pattern
   - **One assertion per test** when practical
 - Structure test helpers and mocks under `/Tests` with parallel folder structure
-- Aim for **70%+ code coverage** on business logic, less on UI
+- Coverage target is **aspirational** (e.g., ~70% on business logic). In early stages, prioritize critical paths over a strict percentage.
+
+Early-stage, high-value test candidates in this repo:
+- Drivers (AI engine abstraction): protocol conformance, model loading errors, fallback paths.
+- State (`AppState`, `DeepState`): reducer/intent handling, side effects, actor isolation invariants.
+- Persistence: CRUD correctness, migrations, error mapping, background context merge strategies.
+- Rendering: pure utilities for snapshot sizing, coordinate transforms, debouncing/throttling logic.
+- Tools: pure functions and extensions (string/URL/file operations) with edge cases.
+- Error handling: typed error surfaces and user-facing message mapping.
+- Feature flags/configuration: default values, flag gating for `.gallery` mode.
+
+Execution note:
+- Copilot will scaffold tests and suggest missing cases; you/CI run them and optionally share failures for analysis.
 
 ### Performance Guidelines
 - **Profile before optimizing** — use Instruments to identify bottlenecks
@@ -60,6 +91,9 @@ I am the **sole developer** of this project.
 - Use **lazy loading** for large data sets and images
 - Implement **debouncing/throttling** for high-frequency events
 - Consider memory footprint, especially with ML models
+
+Execution note:
+- Copilot proposes profiling hypotheses and instrumentation points; you run Instruments and (optionally) share summaries for follow-up recommendations.
 
 ---
 
@@ -139,7 +173,7 @@ The iOS project is organized under `/iOS` with the following modules:
   #endif
   ```
 - Prefer **adaptive SwiftUI** over platform-specific code
-- Test on all target platforms regularly
+- Test on target platforms regularly (ad hoc on simulators is fine at this stage)
 - Consider screen size classes for responsive design
 
 ### 6. **Data Flow Architecture**
@@ -161,11 +195,11 @@ The iOS project is organized under `/iOS` with the following modules:
   
   <footer>
   ```
-  Types: F for `feat`, B for `bug`, D for `docs`, S for `style` of `syntax`, R for `refactor`, T for `test`, C for `chore`, D for `deletetion` or `removal`
+  Types: F for `feat`, B for `bug`, D for `docs`, S for `style` or `syntax`, R for `refactor`, T for `test`, C for `chore`, D for `deletion` or `removal`
 - Reference issues/tickets when applicable
 - Keep commit messages under 72 characters
-- Commits should have as the prefix the issue ID in form [AIA-XXXX], or [AIA-XXXX, <X>] <X> where is a set from the Types above.
-- Pull request shold have in the title a prefix in form [AIA-XXXX]
+- Commits should have as the prefix the issue ID in form [AIA-XXXX], or [AIA-XXXX, <X>] where <X> is from the types above.
+- Pull request should have in the title a prefix in form [AIA-XXXX]
 
 ---
 
@@ -214,13 +248,58 @@ When suggesting code:
 - Provide **fallback behaviors** for model failures
 - Monitor **memory usage** during inference
 
+---
+
+## PR Review Expectations for Copilot
+
+Copilot will:
+- Review architectural alignment with Extensibility/Modularity guidelines
+- Check state/data flow, concurrency usage, and actor isolation
+- Verify error handling coverage and public-facing messaging
+- Inspect accessibility (labels, traits, Dynamic Type, hit targets) when relevant to the PR scope
+- Validate platform conditionals and adaptive layout strategies
+- Review unit tests for behavior coverage and determinism; suggest additional cases
+- Flag performance risks and suggest measurement/profiling plans
+- Suggest documentation updates for public APIs and complex logic
+
+Copilot proceeds best-effort even if artifacts (build logs, test reports, profiling screenshots) are not provided.
+
+---
+
+## Accessibility Checklist (applied when PR scope touches UI)
+
+- [ ] Supports Dynamic Type and respects content size category
+- [ ] Meaningful accessibility labels and traits for interactive elements
+- [ ] Sufficient color contrast in key UI components
+- [ ] Hit area ≥ 44x44pt for touch targets
+- [ ] VoiceOver order is logical; custom overlays/annotations expose semantics
+- [ ] Animations are minimal or reduce motion compliant when applicable
+
+---
+
+## Platform Validation Guidance (non-blocking at this stage)
+
+- Physical devices currently available: iPhone X, Apple Silicon Mac (Mac app designed for iPad)
+- Simulators: test representative size classes (e.g., iPhone SE, iPhone Pro Max, iPad)
+- Prefer adaptive SwiftUI; keep conditional compilation minimal and centralized
+
+---
+
 ## Quality Checklist
-Before merging PR code, ensure:
-- [ ] Code compiles without warnings
-- [ ] Unit tests pass
-- [ ] No memory leaks (verified with Instruments)
+
+Copilot can verify in review:
 - [ ] Documentation updated for public APIs
-- [ ] Performance impact assessed for new features
-- [ ] Error cases handled gracefully
-- [ ] Accessibility features maintained
-- [ ] Platform compatibility verified
+- [ ] Error cases handled with typed errors and user-friendly messages
+- [ ] Platform adaptivity and conditional compilation are correct and minimal
+- [ ] Accessibility considerations present where applicable
+- [ ] Unit tests exist for critical code paths and are deterministic
+- [ ] Code structure aligns with modularity/extensibility guidelines
+- [ ] Concurrency usage is appropriate (actors, main-actor, no obvious races)
+- [ ] Memory safety guarded (no obvious strong reference cycles)
+- [ ] Commit and PR titles follow conventions
+- [ ] Suggestions provided for additional high-value tests where missing
+
+## Github Related Requirements
+Always work on the current PR branch. Or ask in case you are not sure.
+
+---
