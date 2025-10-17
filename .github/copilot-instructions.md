@@ -3,8 +3,6 @@
 This repository contains a **SwiftUI-based application** that hosts a `WKWebView` browser with AI-powered object detection and classification capabilities.  
 It supports **iOS 16+**, **iPadOS 16+**, and **macOS 14+** (running as a *Mac app designed for iPad*).
 
-I am the **sole developer** of this project.
-
 ---
 
 ## Copilot Execution Boundaries
@@ -301,12 +299,7 @@ Copilot can verify in review:
 - [ ] Commit and PR titles follow conventions
 - [ ] Suggestions provided for additional high-value tests where missing
 
-Maintainer/Developer verifies (artifacts optional, non-blocking for Copilot review):
-- [ ] Code compiles (ideally without warnings)
-- [ ] Unit tests pass
-- [ ] Performance impact assessed for new features (e.g., via Instruments)
-- [ ] No memory leaks observed during testing
-- [ ] Platform compatibility validated on at least one phone and Mac target
-- [ ] Accessibility validated on-device/simulator where UI was touched
+## Github Related Requirements
+Always work on the current PR branch. Or ask in case you are not sure.
 
 ---
