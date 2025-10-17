@@ -113,7 +113,6 @@ public class Downloader: NSObject, ObservableObject {
             .map { activeDownloads -> AnyPublisher<Double, Never> in
                 if let download = activeDownloads[itemId] {
                     return download.$progress
-                        .filter { $0 != 0.0 }
                         .eraseToAnyPublisher()
                 } else {
                     return Empty<Double, Never>(completeImmediately: true).eraseToAnyPublisher()
