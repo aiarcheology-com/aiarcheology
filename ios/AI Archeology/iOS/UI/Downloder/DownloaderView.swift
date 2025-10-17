@@ -30,7 +30,7 @@ struct DownloaderView: View {
                 )
                 .environmentObject(downloader)
             ) {
-            ListItemView(item: item)
+                ListItemView(item: item)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive, action: {
                             delete(item)
