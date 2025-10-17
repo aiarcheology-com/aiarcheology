@@ -113,7 +113,6 @@ public class Downloader: NSObject, ObservableObject {
             .map { activeDownloads -> AnyPublisher<Double, Never> in
                 if let download = activeDownloads[itemId] {
                     return download.$progress
-                        .filter { $0 != 0.0 }
                         .eraseToAnyPublisher()
                 } else {
                     return Just(0.0).eraseToAnyPublisher()
@@ -133,7 +132,6 @@ public class Downloader: NSObject, ObservableObject {
             .map { activeDownloads -> AnyPublisher<Int, Never> in
                 if let download = activeDownloads[itemId] {
                     return download.$totalBytesWritten
-                        .filter { $0 != 0 }
                         .eraseToAnyPublisher()
                 } else {
                     return Just(0).eraseToAnyPublisher()
@@ -154,7 +152,6 @@ public class Downloader: NSObject, ObservableObject {
             .map { activeDownloads -> AnyPublisher<Int, Never> in
                 if let download = activeDownloads[itemId] {
                     return download.$totalBytesExpected
-                        .filter { $0 != 0 }
                         .eraseToAnyPublisher()
                 } else {
                     return Just(0).eraseToAnyPublisher()
