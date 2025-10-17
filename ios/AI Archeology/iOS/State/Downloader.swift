@@ -188,7 +188,7 @@ public class Downloader: NSObject, ObservableObject {
 		}
 	}
 
-	private func transition(_ item: DownloadItem, to newState: State) {
+	private func transitionAndSave(_ item: DownloadItem, to newState: State) {
 		item.state = newState
 		saveDownloadContext()
 	}
@@ -201,7 +201,7 @@ extension Downloader: ModelProvider {
 
 		switch error {
 		case .importSucceeded:
-			transition(item, to: .imported)
+			transitionAndSave(item, to: .imported)
 		case .importFailed:
 			break
 		}
@@ -240,7 +240,7 @@ extension Downloader: URLSessionDownloadDelegate  {
 
 		downloadTask.taskDescription = item.entityId?.uuidString
 		downloadTask.resume()
-		transition(item, to: .downloading)
+		transitionAndSave(item, to: .downloading)
 
 		DispatchQueue.main.async { [weak self] in
 			guard let entityId = item.entityId else { return }
@@ -257,7 +257,7 @@ extension Downloader: URLSessionDownloadDelegate  {
 			// There is no download active.
 			switch item.state {
 			case .paused, .downloading: // TODO: Better handling from the paused, and terminated downloads. Reset the hanging states.
-				transition(item, to: .notStarted)
+				transitionAndSave(item, to: .notStarted)
 			default:
 				break
 			}
@@ -347,19 +347,15 @@ extension Downloader: URLSessionDownloadDelegate  {
 
 			item.file_ = relativePath
 			// Save final progress/bytes values to Core Data for non-active display
-			item.progress = download.progress
-			item.totalBytesWritten = Int64(download.totalBytesWritten)
-			item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
-			transition(item, to: .complete)
+            Downloader.persistDownloadState(from: download, to: item)
+            transitionAndSave(item, to: .complete)
 
 		} catch let error {
 			print("error: \(error)")
 			item.error = error.localizedDescription
 			// Save final progress/bytes values even on failure
-			item.progress = download.progress
-			item.totalBytesWritten = Int64(download.totalBytesWritten)
-			item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
-			transition(item, to: .failed)
+            Downloader.persistDownloadState(from: download, to: item)
+            transitionAndSave(item, to: .failed)
 		}
 
 		pausedDownloads.removeValue(forKey: download.id)
@@ -392,7 +388,7 @@ extension Downloader: URLSessionDownloadDelegate  {
 					let entityIdString = task.taskDescription,
 					let entityId = UUID(uuidString: entityIdString),
 					let item = DownloadItem.select(entityId, in: self.appState.dataController.container.viewContext) {
-					transition(item, to: .notStarted)
+					transitionAndSave(item, to: .notStarted)
 				}
 			}
 			return
@@ -412,22 +408,18 @@ extension Downloader: URLSessionDownloadDelegate  {
 			switch error.code {
 			case NSURLErrorCancelled:
 				// Save current progress/bytes values before transitioning state
-				item.progress = download.progress
-				item.totalBytesWritten = Int64(download.totalBytesWritten)
-				item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
-				if pausedDownloads[entityId].isNotNil {
-					transition(item, to: .paused)
+                Downloader.persistDownloadState(from: download, to: item)
+                if pausedDownloads[entityId].isNotNil {
+					transitionAndSave(item, to: .paused)
 				} else
 				{
-					transition(item, to: .cancelled)
+					transitionAndSave(item, to: .cancelled)
 				}
 			case NSURLErrorNotConnectedToInternet:
 				item.error = "Check your connection and restart download. " + error.localizedDescription
 				// Save current progress/bytes values before transitioning state
-				item.progress = download.progress
-				item.totalBytesWritten = Int64(download.totalBytesWritten)
-				item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
-				transition(item, to: .failed)
+                Downloader.persistDownloadState(from: download, to: item)
+                transitionAndSave(item, to: .failed)
 
 			default: break
 			}
@@ -445,10 +437,8 @@ extension Downloader: URLSessionDownloadDelegate  {
 
 		item.error = error.localizedDescription
 		// Save current progress/bytes values before transitioning state
-		item.progress = download.progress
-		item.totalBytesWritten = Int64(download.totalBytesWritten)
-		item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
-		transition(item, to: .failed)
+        Downloader.persistDownloadState(from: download, to: item)
+		transitionAndSave(item, to: .failed)
 
 		let userInfo = (error as NSError).userInfo
 		if let resumeData = userInfo[NSURLSessionDownloadTaskResumeData] as? Data {
@@ -492,6 +482,14 @@ extension Downloader: URLSessionDownloadDelegate  {
 
 		handleDownloadCompletion(for: download, location: location)
 	}
+    
+    private static func persistDownloadState(from download: ActiveDownload, to item: DownloadItem) {
+        // Copy current values from the ActiveDownload's managed item to ensure consistency.
+        // This centralizes the three assignments in one place to avoid duplication.
+        item.progress = download.progress
+        item.totalBytesWritten = Int64(download.totalBytesWritten)
+        item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
+    }
 }
 
 extension DownloadItem: CoreDataManageable {
