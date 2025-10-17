@@ -25,10 +25,7 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
     // sheets, alerts and menus:
     @State private var detectedObservations: [ObservationParams] = []
-    //    @State private var showingForm = false
-    //    @State private var showingSettingsForm = false
     @State private var showErrorAlert = false
-    //    @State private var showSlideshow = false
     @State private var addressBarMenu: [URL] = []
     @State private var errorMessage = ""
     @State private var showAnnotation = true
@@ -147,12 +144,6 @@ struct ContentView: View {
             .environmentObject(appState.deep)
             // ------ Show the slideshow after the app's installation -----
         }
-        // ------ Configurations Form -----
-        //        .sheet(isPresented: $showSlideshow) {
-        //            SlideshowView()
-        //                .centerInParentView()
-        //                .environmentObject(appState.settings)
-        //        }
         .sheet(item: $activeSheet, onDismiss: {
             // centralize your cleanup that used to live in each onDismiss
             if appState.deep.newConfiguration?.entityId.isNil == true,
@@ -191,51 +182,9 @@ struct ContentView: View {
                 }
             }
         }
-        //        .sheet(isPresented: $showingForm, onDismiss: {
-        //            if appState.deep.newConfiguration?.entityId.isNil == true,
-        //               let newConfiguration = appState.deep.newConfiguration { // Clean up
-        //                DeepConfiguration.delete(newConfiguration, in: appState.dataController.container.viewContext)
-        //            }
-        //            appState.deep.newConfiguration = nil
-        //            appState.guide.selectedConfigurationId = nil
-        //        }) {
-        //            if let config = appState.deep.newConfiguration {
-        //                ConfigurationForm()
-        //                    .environmentObject(config)
-        //                    .environmentObject(appState.deep)
-        //                    .environmentObject(appState.downloader)
-        //            } else
-        //            if let selectedConfigurationId = appState.guide.selectedConfigurationId,
-        //               let config = appState.deep.selectConfiguration(selectedConfigurationId) {
-        //                ConfigurationForm()
-        //                    .environmentObject(config)
-        //                    .environmentObject(appState.deep)
-        //                    .environmentObject(appState.downloader)
-        //            }
-        //        }
-        //        .onChange(of: showingForm) { newValue in
-        //            print("🔎 showingForm ->", newValue)
-        //            Thread.callStackSymbols.prefix(12).forEach { print($0) }
-        //        }
-        //        .onChange(of: showingSettingsForm) { newValue in
-        //            print("🔎 showingSettingsForm ->", newValue)
-        //            Thread.callStackSymbols.prefix(12).forEach { print($0) }
-        //        }
-        //        .onChange(of: showSlideshow) { newValue in
-        //            print("🔎 showSlideshow ->", newValue)
-        //            Thread.callStackSymbols.prefix(12).forEach { print($0) }
-        //        }
         .onReceive(appState.guide.$presentSettings) { present in
             activeSheet = present ? .settings : nil
         }
-        //        .sheet(isPresented: $showingSettingsForm, onDismiss: {
-        //            showingSettingsForm = false
-        //        }) {
-        //            SettingsForm()
-        //                .environmentObject(appState.settings)
-        //                .environmentObject(appState.guide)
-        //        }
-        // ------ Error processing -----
         .onReceive(appState.deep.$deepStateError) { error in
             guard let error else { return }
             errorMessage = error.localizedDescription

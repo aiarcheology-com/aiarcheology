@@ -8,9 +8,7 @@
 import SwiftUI
 
 struct DownloaderView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.horizontalSizeClass) var sizeClass
-    @Environment(\.managedObjectContext) var moc
+    @Environment(\.managedObjectContext) private var moc
     @EnvironmentObject var downloader: Downloader
     @EnvironmentObject var deep: DeepState
     @FetchRequest(
@@ -19,36 +17,42 @@ struct DownloaderView: View {
         animation: .default)
     private var downloadItems: FetchedResults<DownloadItem>
     let configurationId: UUID
-    var onDownload: (URL, UUID, ModelProvider) -> Void
+    var onImport: (URL, UUID, ModelProvider) -> Void
     
     var body: some View {
         // List of downloaded files, or currently being downloaded:
         List(downloadItems, id: \.entityId) { item in
             NavigationLink(destination:
-                            DownloadDetailView(item: item)
+                DownloadDetailView(item: item, onImport:
+                    ImportHandler { url, id, provider in
+                        onImport(url, id, provider)
+                    }
+                )
                 .environmentObject(downloader)
-                .navigationBarTitle("Model", displayMode: .inline)
-                .navigationBarItems(leading: detailNavLeadingButton(item))
-                .navigationBarItems(trailing: detailNavTrailingButton(item))
             ) {
                 ListItemView(item: item)
-                    .swipeActions {
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive, action: {
-                            guard let entityId = item.entityId else {
-                                assert(false, "No entry has been found after the selection.")
-                                return
-                            }
-                            // ifConfig.isNil: The model has not been imported. Remove it.
-                            // ifConfig.isNotNil: The model has been imported. Keep it.
-                            let ifConfig = deep.selectConfiguration(entityId)
-                            DownloadItem.delete(item, in: moc, deleteModel: ifConfig.isNil)
+                            delete(item)
                         }) {
-                            Label("", systemImage: "trash")
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            delete(item)                        }
+                        label: {
+                            Label("Delete", systemImage: "trash")
                         }
                     }
             }
         }
-        .listStyle(InsetGroupedListStyle())
+        .macOnly { view in
+            view.listStyle(.inset)
+        }
+        .mobileOnly { view in
+            view.listStyle(InsetGroupedListStyle())
+        }
         .navigationTitle("Models")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -63,51 +67,15 @@ struct DownloaderView: View {
         }
     }
     
-    private func isImportButton(_ item: DownloadItem) -> Bool {
-        guard
-            let entityId = item.entityId,
-            [.complete, .imported].contains(item.state),
-            item.url.isNotNil,
-            item.url?.absoluteString.isEmpty == false,
-            item.doesModelFileExist(),
-            deep.selectConfiguration(entityId).isNil
-        else {
-            return false
+    private func delete(_ item: DownloadItem) {
+        guard let entityId = item.entityId else {
+            assert(false, "No entry has been found after the selection.")
+            return
         }
         
-        return true
-    }
-    
-    private func importButton(_ item: DownloadItem) -> some View {
-        Button("Import") {
-            guard let file = item.file, let entityId = item.entityId else { return }
-            onDownload(file, entityId, downloader)
-            dismiss()
-        }
-        .bold()
-        .foregroundColor(isImportButton(item).enabled ? .green : .gray)
-        .disabled(isImportButton(item).enabled.not)
-    }
-    
-    @ViewBuilder
-    private func detailNavLeadingButton(_ item: DownloadItem) -> some View {
-        if sizeClass == .compact {
-            EmptyView()
-        } else {
-            importButton(item)
-        }
-    }
-    
-    @ViewBuilder
-    private func detailNavTrailingButton(_ item: DownloadItem) -> some View {
-        if sizeClass == .compact {
-            importButton(item)
-        } else {
-            Button("Dismiss") {
-                dismiss()
-            }
-            .bold()
-            .foregroundColor(.blue)
-        }
+        // ifConfig.isNil: The model has not been imported. Remove it.
+        // ifConfig.isNotNil: The model has been imported. Keep it.
+        let ifConfig = deep.selectConfiguration(entityId)
+        DownloadItem.delete(item, in: moc, deleteModel: ifConfig.isNil)
     }
 }
