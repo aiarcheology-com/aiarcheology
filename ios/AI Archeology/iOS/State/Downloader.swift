@@ -152,7 +152,6 @@ public class Downloader: NSObject, ObservableObject {
             .map { activeDownloads -> AnyPublisher<Int, Never> in
                 if let download = activeDownloads[itemId] {
                     return download.$totalBytesExpected
-                        .filter { $0 != 0 }
                         .eraseToAnyPublisher()
                 } else {
                     return Empty<Int, Never>(completeImmediately: true).eraseToAnyPublisher()
