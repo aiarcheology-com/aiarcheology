@@ -31,7 +31,7 @@ final class ActiveDownload: Identifiable, Comparable, Hashable, ObservableObject
         self.task = task
         self.itemId = itemId
     }
-        
+    
     static func < (lhs: ActiveDownload, rhs: ActiveDownload) -> Bool {
         lhs.started < rhs.started
     }
@@ -105,7 +105,7 @@ public class Downloader: NSObject, ObservableObject {
     
     func progressPublisher(for itemId: UUID?) -> AnyPublisher<Double, Never> {
         guard let itemId else {
-            return Just(0.0)
+            return Empty<Double, Never>(completeImmediately: false)
                 .eraseToAnyPublisher()
         }
         
@@ -113,9 +113,11 @@ public class Downloader: NSObject, ObservableObject {
         return $activeDownloads
             .map { activeDownloads -> AnyPublisher<Double, Never> in
                 if let download = activeDownloads[itemId] {
-                    return download.$progress.eraseToAnyPublisher()
+                    return download.$progress
+                        .filter { $0 != 0.0 }
+                        .eraseToAnyPublisher()
                 } else {
-                    return Just(0.0).eraseToAnyPublisher()
+                    return Empty<Double, Never>(completeImmediately: false).eraseToAnyPublisher()
                 }
             }
             .switchToLatest()
@@ -125,16 +127,18 @@ public class Downloader: NSObject, ObservableObject {
     
     func totalBytesWrittenPublisher(for itemId: UUID?) -> AnyPublisher<Int, Never> {
         guard let itemId else {
-            return Just(0)
+            return Empty<Int, Never>(completeImmediately: false)
                 .eraseToAnyPublisher()
         }
         
         return $activeDownloads
             .map { activeDownloads -> AnyPublisher<Int, Never> in
                 if let download = activeDownloads[itemId] {
-                    return download.$totalBytesWritten.eraseToAnyPublisher()
+                    return download.$totalBytesWritten
+                        .filter { $0 != 0 }
+                        .eraseToAnyPublisher()
                 } else {
-                    return Just(0).eraseToAnyPublisher()
+                    return Empty<Int, Never>(completeImmediately: false).eraseToAnyPublisher()
                 }
             }
             .switchToLatest()
@@ -145,16 +149,18 @@ public class Downloader: NSObject, ObservableObject {
     func totalBytesExpectedPublisher(for itemId: UUID?) -> AnyPublisher<Int, Never> {
         guard let itemId else {
             assert(false, "[DL] Expecting a valid item id when getting the progress of the download item.")
-            return Just(0)
+            return Empty<Int, Never>(completeImmediately: false)
                 .eraseToAnyPublisher()
         }
         
         return $activeDownloads
             .map { activeDownloads -> AnyPublisher<Int, Never> in
                 if let download = activeDownloads[itemId] {
-                    return download.$totalBytesExpected.eraseToAnyPublisher()
+                    return download.$totalBytesExpected
+                        .filter { $0 != 0 }
+                        .eraseToAnyPublisher()
                 } else {
-                    return Just(0).eraseToAnyPublisher()
+                    return Empty<Int, Never>(completeImmediately: false).eraseToAnyPublisher()
                 }
             }
             .switchToLatest()
@@ -502,6 +508,7 @@ extension DownloadItem: CoreDataManageable {
     static func create(in context: NSManagedObjectContext) -> Self {
         let newItem = Self(context: context)
         newItem.entityId = UUID()
+        DownloadItem.save(in: context)
         return newItem
     }
     

@@ -22,10 +22,15 @@ struct DownloaderView: View {
     var body: some View {
         // List of downloaded files, or currently being downloaded:
         List(downloadItems, id: \.entityId) { item in
-            NavigationLink(destination: DownloadDetailView(item: item, onImport: onImport)
+            NavigationLink(destination:
+                DownloadDetailView(item: item, onImport:
+                    ImportHandler { url, id, provider in
+                        onImport(url, id, provider)
+                    }
+                )
                 .environmentObject(downloader)
             ) {
-                ListItemView(item: item)
+            ListItemView(item: item)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button(role: .destructive, action: {
                             delete(item)

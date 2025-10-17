@@ -15,7 +15,7 @@ struct DownloadDetailView: View {
 	@EnvironmentObject var deep: DeepState
 
 	@ObservedObject var item: DownloadItem
-    let onImport: (URL, UUID, ModelProvider) -> Void
+    let onImport: ImportHandler
 
 	@State private var showAlert = false
 	@State private var urlText: String = ""
@@ -207,7 +207,7 @@ struct DownloadDetailView: View {
     private var importButton: some View {
         Button("Import") {
             guard let file = item.file, let id = item.entityId else { return }
-            onImport(file, id, downloader)
+            onImport.call(file, id, downloader)
             dismiss()
         }
         .bold()
