@@ -69,16 +69,14 @@ class DeepDrivers: ObservableObject {
 	@Published var classificators: [DeepDriver] = []
 
 	func register(driver: DeepDriver, along: DeepDriverType) {
-		guard let driverId = driver.id() else { return }
-
 		switch along {
 			case .detector:
-				let alreadyRegistered = detectors.contains { $0.id() == driverId }
+				let alreadyRegistered = detectors.contains { $0.id == driver.id }
 				if !alreadyRegistered {
 					detectors.append(driver)
 				}
 			case .classificator:
-				let alreadyRegistered = classificators.contains { $0.id() == driverId }
+				let alreadyRegistered = classificators.contains { $0.id == driver.id }
 				if !alreadyRegistered {
 					classificators.append(driver)
 				}
@@ -86,7 +84,7 @@ class DeepDrivers: ObservableObject {
 	}
 
 	func update(driverId: UUID, configuration: DeepConfiguration) {
-		let drivers = (detectors + classificators).filter { $0.id() == configuration.entityId }
+		let drivers = (detectors + classificators).filter { $0.id == configuration.entityId }
 		assert(drivers.count < 2, "There are more drivers to update with the same configuration.entityId.")
 		Task {
 			await drivers.first?.updateConfiguration(configuration)
@@ -96,9 +94,9 @@ class DeepDrivers: ObservableObject {
 
 	func unregister(driverId: UUID) {
 		Task {
-			await (classificators + detectors).filter { $0.id() == driverId }.first?.unload()
-			detectors = detectors.filter { $0.id() != driverId }
-			classificators = classificators.filter { $0.id() != driverId }
+			await (classificators + detectors).filter { $0.id == driverId }.first?.unload()
+			detectors = detectors.filter { $0.id != driverId }
+			classificators = classificators.filter { $0.id != driverId }
 		}
 	}
 

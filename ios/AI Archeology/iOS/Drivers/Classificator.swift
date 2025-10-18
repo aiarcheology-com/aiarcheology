@@ -13,6 +13,8 @@ import UIKit
 // The application does not support the classification yet.
 // But the driver can be already loaded, but it does nothing.
 actor Classificator: DeepDriver {
+    let id: UUID
+
 	internal var params: DeepDriverParams = DeepDriverParams()
 	private let internalId: UUID = UUID()
 	internal var observations: [VNObservation] = []
@@ -21,11 +23,8 @@ actor Classificator: DeepDriver {
 		[:]
 	}
 
-	nonisolated func id() -> UUID? {
-		UUID()
-	}
-
 	init(configuration: DeepConfiguration, entityId: UUID) {
+        self.id = entityId
 	}
 
 	func load() async {

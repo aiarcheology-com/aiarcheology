@@ -141,7 +141,7 @@ final class DeepState: ObservableObject {
 					}
 
 					let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
-						$0.id() == config.entityId
+						$0.id == config.entityId
 					}
 
 					assert(isDriverForThisConfigurationLoaded.not, "You are trying to insert a configuration with an UUID that already exist." )
@@ -171,7 +171,7 @@ final class DeepState: ObservableObject {
 					continue
 				}
 				let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
-					$0.id() == config.entityId
+					$0.id == config.entityId
 				}
 				if isDriverForThisConfigurationLoaded.not, config.enabled {
 					guard let driver = try createDriver(from: config) else {

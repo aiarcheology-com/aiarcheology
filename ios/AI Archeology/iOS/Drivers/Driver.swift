@@ -8,6 +8,6 @@ import Vision
 
 protocol Driver: Actor {
 	func metadata() -> [MLModelMetadataKey : Any]?
-	nonisolated func id() -> UUID?
+    nonisolated var id: UUID { get }
 	func unload() async
 }
