@@ -13,7 +13,7 @@ import UIKit
 // The application does not support the classification yet.
 // But the driver can be already loaded, but it does nothing.
 actor Classificator: DeepDriver {
-    let id: UUID
+    nonisolated let id: UUID
 
 	internal var params: DeepDriverParams = DeepDriverParams()
 	private let internalId: UUID = UUID()

@@ -66,8 +66,7 @@ final class DeepState: ObservableObject {
 	}
 
 	private func updaterDriver(with configuration: DeepConfiguration) {
-		guard let entityId = configuration.entityId else { return }
-		drivers.update(driverId: entityId, configuration: configuration)
+		drivers.update(configuration: configuration)
 	}
 
 	private func unregisterDriver(with configuration: DeepConfiguration) {

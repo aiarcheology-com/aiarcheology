@@ -83,7 +83,7 @@ class DeepDrivers: ObservableObject {
 		}
 	}
 
-	func update(driverId: UUID, configuration: DeepConfiguration) {
+	func update(configuration: DeepConfiguration) {
 		let drivers = (detectors + classificators).filter { $0.id == configuration.entityId }
 		assert(drivers.count < 2, "There are more drivers to update with the same configuration.entityId.")
 		Task {

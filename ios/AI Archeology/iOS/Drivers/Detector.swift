@@ -16,7 +16,7 @@ enum DetectorError: Error {
 }
 
 actor Detector: DeepDriver {
-    let id: UUID
+    nonisolated let id: UUID
 	private var objectDetectionModel: VNCoreMLModel?
 	private var detectionRequest: VNCoreMLRequest?
 	internal var observations: [VNObservation] = []
