@@ -84,7 +84,11 @@ class DeepDrivers: ObservableObject {
 	}
 
 	func update(configuration: DeepConfiguration) {
-		let drivers = (detectors + classificators).filter { $0.id == configuration.entityId }
+        guard let entityId = configuration.entityId else {
+            assertionFailure("Configuration.entityId is nil.")
+            return
+        }
+		let drivers = (detectors + classificators).filter { $0.id == entityId }
 		assert(drivers.count < 2, "There are more drivers to update with the same configuration.entityId.")
 		Task {
 			await drivers.first?.updateConfiguration(configuration)
@@ -95,8 +99,10 @@ class DeepDrivers: ObservableObject {
 	func unregister(driverId: UUID) {
 		Task {
 			await (classificators + detectors).filter { $0.id == driverId }.first?.unload()
-			detectors = detectors.filter { $0.id != driverId }
-			classificators = classificators.filter { $0.id != driverId }
+            await MainActor.run {
+                detectors = detectors.filter { $0.id != driverId }
+                classificators = classificators.filter { $0.id != driverId }
+            }
 		}
 	}
 
