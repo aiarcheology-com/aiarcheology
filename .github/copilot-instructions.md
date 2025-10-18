@@ -300,6 +300,6 @@ Copilot can verify in review:
 - [ ] Suggestions provided for additional high-value tests where missing
 
 ## Github Related Requirements
-Always work on the current PR branch. Or ask in case you are not sure.
+Always work on the current PR branch. Or ask in case you are not sure. Any branch name that copilot creates starts with copilot/<issue number>-description-of-the-issue. Copilot asks in the chat, what is the issue number, or tries to get the issue number from the PR's title. E.g. [AIA-XXXX], where XXXX is an integer that is uniquelly identifying the original project's issue.
 
 ---
