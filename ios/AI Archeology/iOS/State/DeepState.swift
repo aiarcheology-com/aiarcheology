@@ -66,8 +66,8 @@ final class DeepState: ObservableObject {
 	}
 
 	private func updaterDriver(with configuration: DeepConfiguration) {
-		guard let entityId = configuration.entityId else { return }
-		drivers.update(driverId: entityId, configuration: configuration)
+        assert(configuration.entityId != nil, "Configuration.entityId is nil.")
+		drivers.update(configuration: configuration)
 	}
 
 	private func unregisterDriver(with configuration: DeepConfiguration) {
@@ -141,7 +141,8 @@ final class DeepState: ObservableObject {
 					}
 
 					let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
-						$0.id() == config.entityId
+                        guard let id = config.entityId else { return false }
+						return $0.id == id
 					}
 
 					assert(isDriverForThisConfigurationLoaded.not, "You are trying to insert a configuration with an UUID that already exist." )
@@ -171,7 +172,8 @@ final class DeepState: ObservableObject {
 					continue
 				}
 				let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
-					$0.id() == config.entityId
+                    guard let id = config.entityId else { return false }
+					return $0.id == id
 				}
 				if isDriverForThisConfigurationLoaded.not, config.enabled {
 					guard let driver = try createDriver(from: config) else {
