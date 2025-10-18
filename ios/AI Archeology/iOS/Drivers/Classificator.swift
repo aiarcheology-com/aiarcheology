@@ -16,7 +16,6 @@ actor Classificator: DeepDriver {
     nonisolated let id: UUID
 
 	internal var params: DeepDriverParams = DeepDriverParams()
-	private let internalId: UUID = UUID()
 	internal var observations: [VNObservation] = []
 
 	func metadata() -> [MLModelMetadataKey : Any]? {

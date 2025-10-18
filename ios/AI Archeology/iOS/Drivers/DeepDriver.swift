@@ -68,19 +68,25 @@ class DeepDrivers: ObservableObject {
 	@Published var detectors: [DeepDriver] = []
 	@Published var classificators: [DeepDriver] = []
 
-	func register(driver: DeepDriver, along: DeepDriverType) {
-		switch along {
-			case .detector:
-				let alreadyRegistered = detectors.contains { $0.id == driver.id }
-				if !alreadyRegistered {
-					detectors.append(driver)
-				}
-			case .classificator:
-				let alreadyRegistered = classificators.contains { $0.id == driver.id }
-				if !alreadyRegistered {
-					classificators.append(driver)
-				}
-		}
+    func register(driver: DeepDriver, along: DeepDriverType) {
+        Task {
+            switch along {
+            case .detector:
+                let alreadyRegistered = detectors.contains { $0.id == driver.id }
+                if !alreadyRegistered {
+                    await MainActor.run {
+                        detectors.append(driver)
+                    }
+                }
+            case .classificator:
+                let alreadyRegistered = classificators.contains { $0.id == driver.id }
+                if !alreadyRegistered {
+                    await MainActor.run {
+                        classificators.append(driver)
+                    }
+                }
+            }
+        }
 	}
 
 	func update(configuration: DeepConfiguration) {
