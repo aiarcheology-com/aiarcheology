@@ -7,17 +7,19 @@
 
 import Foundation
 import WebKit
+import OSLog
 
 final class WebCacheCleaner {
 
 	class func clean() {
 		HTTPCookieStorage.shared.removeCookies(since: Date.distantPast)
-		print("[WebCacheCleaner] All cookies deleted")
+		Logger.state.info("All HTTP cookies deleted")
 
 		WKWebsiteDataStore.default().fetchDataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes()) { records in
+			Logger.state.debug("Deleting \(records.count) website data records")
 			records.forEach { record in
 				WKWebsiteDataStore.default().removeData(ofTypes: record.dataTypes, for: [record], completionHandler: {})
-				print("[WebCacheCleaner] Record \(record) deleted")
+				Logger.state.debug("Website data record deleted: \(record.displayName, privacy: .public)")
 			}
 		}
 	}

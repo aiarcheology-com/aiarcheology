@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+import OSLog
 
 struct DocumentPicker: UIViewControllerRepresentable {
 	var usedURLs: [URL]
@@ -78,7 +79,8 @@ struct DocumentPicker: UIViewControllerRepresentable {
 
 				parent.onPick(destinationUrl, configurationId, self)
 			} catch {
-				print("Error copying file: \(error)")
+				Logger.ui.error("Error copying file from document picker: \(error.localizedDescription, privacy: .public)")
+				DefaultCrashReporter.shared.recordError(error, context: ["operation": "documentPickerCopy"])
 			}
 		}
 

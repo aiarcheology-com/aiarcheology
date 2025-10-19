@@ -7,6 +7,8 @@
 
 import Foundation
 import MessageUI
+import OSLog
+
 class EmailController: NSObject, MFMailComposeViewControllerDelegate {
 	public static let shared = EmailController()
 	private override init() { }
@@ -14,7 +16,7 @@ class EmailController: NSObject, MFMailComposeViewControllerDelegate {
 	func sendEmail(subject:String, body:String, to:String){
 			// Check if the device is able to send emails
 		if !MFMailComposeViewController.canSendMail() {
-			print("This device cannot send emails.")
+			Logger.ui.warning("Device cannot send emails - email composition unavailable")
 			return
 		}
 			// Create the email composer

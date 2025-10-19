@@ -3,6 +3,7 @@ See the License.txt file for this sample’s licensing information.
 */
 
 import Foundation
+import OSLog
 
 extension FileManager {
     
@@ -27,8 +28,8 @@ extension FileManager {
             do {
                 try self.copyItem(at: sourceURL, to: destinationURL)
                 return destinationURL
-            } catch let error {
-                print("Unable to copy file: \(error.localizedDescription)")
+            } catch {
+                Logger.gallery.error("Unable to copy file: \(error.localizedDescription, privacy: .public)")
             }
         }
         return nil
@@ -45,8 +46,8 @@ extension FileManager {
         if self.fileExists(atPath: fileUrl.path) {
             do {
                 try self.removeItem(at: url)
-            } catch let error {
-                print("Unable to remove file: \(error.localizedDescription)")
+            } catch {
+                Logger.gallery.error("Unable to remove file: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -58,8 +59,8 @@ extension FileManager {
         guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue else { return [] }
         do {
             return try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
-        } catch let error {
-            print("Unable to get directory contents: \(error.localizedDescription)")
+        } catch {
+            Logger.gallery.error("Unable to get directory contents: \(error.localizedDescription, privacy: .public)")
         }
         return []
     }
