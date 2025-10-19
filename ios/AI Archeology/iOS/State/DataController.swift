@@ -7,6 +7,7 @@
 
 import CoreData
 import SwiftUI
+import OSLog
 
 final class DataController: ObservableObject {
 	static let containerName = "MLBrowser"
@@ -18,8 +19,11 @@ final class DataController: ObservableObject {
 		container = NSPersistentContainer(name: DataController.containerName)
 		container.loadPersistentStores { description, error in
 			if let error = error {
-				print("Core Data failed to load: \(error.localizedDescription)")
-				assert(false)
+				// Core Data failure is a critical error that compromises all app functionality
+				Logger.persistence.fault("Core Data failed to load persistent store: \(error.localizedDescription, privacy: .public)")
+				LoggingPolicy.criticalFailure("Core Data persistent store failed to load: \(error.localizedDescription)")
+			} else {
+				Logger.persistence.info("Core Data persistent store loaded successfully: \(description.description, privacy: .public)")
 			}
 		}
 	}
