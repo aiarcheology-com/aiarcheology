@@ -179,9 +179,9 @@ var body: some View {
 		do {
 			try newHistorEntry.validateForInsert()
 		}
-		catch let error {
+		catch {
 			WebHistoryEntry.delete(newHistorEntry, in: moc)
-			assert(false, "The new web history entry is not valid and can not be stored \(error)" )
+			Logger.state.error("Web history entry validation failed: \(error.localizedDescription, privacy: .public)")
 			return
 		}
 		WebHistoryEntry.save(in: moc)
