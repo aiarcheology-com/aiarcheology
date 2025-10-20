@@ -55,4 +55,15 @@ extension Logger {
     
     @available(*, deprecated, renamed: "configuration")
     static let logConfigration = Logger(subsystem: subsystem, category: "Configuration")
+    
+    // MARK: - Timestamp Support
+    
+    /// Generates a formatted timestamp for log messages
+    /// Performance optimized: uses cached formatter and only creates Date when needed
+    static var timestamp: String {
+        guard LoggingConfiguration.timestampsEnabled else { return "" }
+        let date = Date()
+        let formatted = LoggingConfiguration.timestampFormat.formatter.string(from: date)
+        return "\(formatted) "
+    }
 }

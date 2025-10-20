@@ -29,7 +29,7 @@ extension FileManager {
                 try self.copyItem(at: sourceURL, to: destinationURL)
                 return destinationURL
             } catch {
-                Logger.gallery.error("Unable to copy file: \(error.localizedDescription, privacy: .public)")
+                Logger.gallery.error("\(Logger.timestamp)Unable to copy file: \(error.localizedDescription, privacy: .public)")
             }
         }
         return nil
@@ -47,7 +47,7 @@ extension FileManager {
             do {
                 try self.removeItem(at: url)
             } catch {
-                Logger.gallery.error("Unable to remove file: \(error.localizedDescription, privacy: .public)")
+                Logger.gallery.error("\(Logger.timestamp)Unable to remove file: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -60,7 +60,7 @@ extension FileManager {
         do {
             return try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
         } catch {
-            Logger.gallery.error("Unable to get directory contents: \(error.localizedDescription, privacy: .public)")
+            Logger.gallery.error("\(Logger.timestamp)Unable to get directory contents: \(error.localizedDescription, privacy: .public)")
         }
         return []
     }

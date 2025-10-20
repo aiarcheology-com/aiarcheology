@@ -195,7 +195,7 @@ struct ConfigurationForm: View {
 				configuration.phaseOutTime = 2
 				configuration.selectedSymbol = .circle
 				guard let relativePath = try? url.relativePath(from: DeepConfiguration.rootDirectory) else {
-					Logger.configuration.error("Failed to compute relative path for model file")
+					Logger.configuration.error("\(Logger.timestamp)Failed to compute relative path for model file")
 					return
 				}
 				configuration.file_ = relativePath
@@ -210,7 +210,7 @@ struct ConfigurationForm: View {
 					deep.saveConfigurations()
 					importResult = .importSucceeded
 				} else {
-					Logger.configuration.warning("Configuration validation failed - incomplete data")
+					Logger.configuration.warning("\(Logger.timestamp)Configuration validation failed - incomplete data")
 					importResult = .importFailed
 				}
 

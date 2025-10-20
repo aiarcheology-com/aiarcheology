@@ -86,7 +86,7 @@ extension String {
                     return .url
                 }
             } catch {
-                Logger.app.error("URL regex pattern failed to compile: \(error.localizedDescription, privacy: .public)")
+                Logger.app.error("\(Logger.timestamp)URL regex pattern failed to compile: \(error.localizedDescription, privacy: .public)")
                 // Fall through to return .searchTerm if regex fails
             }
         }

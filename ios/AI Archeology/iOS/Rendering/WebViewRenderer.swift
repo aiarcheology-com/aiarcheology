@@ -26,7 +26,7 @@ class WebViewRenderer: DefaultRenderer {
 		let config = WKSnapshotConfiguration()
 		webView.takeSnapshot(with: config) { [weak self] image, error in
 			guard let self else {
-				Logger.rendering.warning("WebViewRenderer deallocated during snapshot operation")
+				Logger.rendering.warning("\(Logger.timestamp)WebViewRenderer deallocated during snapshot operation")
 				return
 			}
 			if let image = image {

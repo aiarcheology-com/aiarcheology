@@ -37,10 +37,10 @@ final class DeepState: ObservableObject {
 					do {
 						try await driver.loadFile()
 						register(driver: driver, along: config.modelTypeInternal)
-						Logger.drivers.info("Driver successfully loaded and registered for configuration \(config.entityId?.uuidString ?? "unknown", privacy: .public)")
+						Logger.drivers.info("\(Logger.timestamp)Driver successfully loaded and registered for configuration \(config.entityId?.uuidString ?? "unknown", privacy: .public)")
 					}
 					catch {
-						Logger.drivers.error("Failed to load driver for configuration \(config.entityId?.uuidString ?? "unknown", privacy: .public): \(error.localizedDescription, privacy: .public)")
+						Logger.drivers.error("\(Logger.timestamp)Failed to load driver for configuration \(config.entityId?.uuidString ?? "unknown", privacy: .public): \(error.localizedDescription, privacy: .public)")
 						DefaultCrashReporter.shared.recordError(error, context: ["operation": "loadDriver", "configId": config.entityId?.uuidString ?? "unknown"])
 						deepStateError = error
 					}
@@ -49,18 +49,18 @@ final class DeepState: ObservableObject {
 		}
 		catch {
 			// Send it to the upper layers to show the error to the user
-			Logger.state.error("Error initializing DeepState: \(error.localizedDescription, privacy: .public)")
+			Logger.state.error("\(Logger.timestamp)Error initializing DeepState: \(error.localizedDescription, privacy: .public)")
 			deepStateError = error
 		}
 	}
 
 	private func createDriver(from configuration: DeepConfiguration) throws -> (any DeepDriver)? {
 		guard let entityId = configuration.entityId else {
-			Logger.drivers.error("Configuration entityId is nil when creating driver")
+			Logger.drivers.error("\(Logger.timestamp)Configuration entityId is nil when creating driver")
 			return nil
 		}
 		
-		Logger.drivers.debug("Creating driver of type \(configuration.modelTypeInternal.rawValue, privacy: .public) for configuration \(entityId.uuidString, privacy: .public)")
+		Logger.drivers.debug("\(Logger.timestamp)Creating driver of type \(configuration.modelTypeInternal.rawValue, privacy: .public) for configuration \(entityId.uuidString, privacy: .public)")
 		
 		switch configuration.modelTypeInternal {
 			case .detector: return Detector(configuration: configuration, entityId: entityId)
@@ -75,7 +75,7 @@ final class DeepState: ObservableObject {
 
 	private func updaterDriver(with configuration: DeepConfiguration) {
 		guard configuration.entityId != nil else {
-			Logger.drivers.error("Cannot update driver: Configuration.entityId is nil")
+			Logger.drivers.error("\(Logger.timestamp)Cannot update driver: Configuration.entityId is nil")
 			return
 		}
 		drivers.update(configuration: configuration)
@@ -147,7 +147,7 @@ final class DeepState: ObservableObject {
 			do {
 				if config.enabled, config.entityId.isNotNil {
 					guard let driver = try createDriver(from: config) else {
-						Logger.drivers.error("Driver initialization failed after configuration insert for config \(config.entityId?.uuidString ?? "unknown", privacy: .public)")
+						Logger.drivers.error("\(Logger.timestamp)Driver initialization failed after configuration insert for config \(config.entityId?.uuidString ?? "unknown", privacy: .public)")
 						return
 					}
 
@@ -157,17 +157,17 @@ final class DeepState: ObservableObject {
 					}
 
 					if isDriverForThisConfigurationLoaded {
-						Logger.drivers.warning("Attempting to insert configuration with UUID that already exists: \(config.entityId?.uuidString ?? "unknown", privacy: .public)")
+						Logger.drivers.warning("\(Logger.timestamp)Attempting to insert configuration with UUID that already exists: \(config.entityId?.uuidString ?? "unknown", privacy: .public)")
 					}
 
 					Task {
 						do {
 							try await driver.loadFile()
 							register(driver: driver, along: config.modelTypeInternal)
-							Logger.drivers.info("Driver loaded and registered after configuration insert")
+							Logger.drivers.info("\(Logger.timestamp)Driver loaded and registered after configuration insert")
 						}
 						catch {
-							Logger.drivers.error("Failed to load driver after configuration insert: \(error.localizedDescription, privacy: .public)")
+							Logger.drivers.error("\(Logger.timestamp)Failed to load driver after configuration insert: \(error.localizedDescription, privacy: .public)")
 							DefaultCrashReporter.shared.recordError(error, context: ["operation": "insertDriver", "configId": config.entityId?.uuidString ?? "unknown"])
 							deepStateError = error
 						}
@@ -175,7 +175,7 @@ final class DeepState: ObservableObject {
 				}
 			}
 			catch {
-				Logger.state.error("Error handling configuration insert: \(error.localizedDescription, privacy: .public)")
+				Logger.state.error("\(Logger.timestamp)Error handling configuration insert: \(error.localizedDescription, privacy: .public)")
 				deepStateError = error
 			}
 				//else: The configuration is going to be updated yet.
@@ -185,7 +185,7 @@ final class DeepState: ObservableObject {
 		for config in updatedObjects.compactMap({ $0 as? DeepConfiguration }) {
 			do {
 				guard config.entityId.isNotNil else {
-					Logger.drivers.error("Configuration update attempted with nil entityId")
+					Logger.drivers.error("\(Logger.timestamp)Configuration update attempted with nil entityId")
 					continue
 				}
 				let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
@@ -194,17 +194,17 @@ final class DeepState: ObservableObject {
 				}
 				if isDriverForThisConfigurationLoaded.not, config.enabled {
 					guard let driver = try createDriver(from: config) else {
-						Logger.drivers.error("Driver initialization failed after configuration update for config \(config.entityId?.uuidString ?? "unknown", privacy: .public)")
+						Logger.drivers.error("\(Logger.timestamp)Driver initialization failed after configuration update for config \(config.entityId?.uuidString ?? "unknown", privacy: .public)")
 						return
 					}
 					Task {
 						do {
 							try await driver.loadFile()
 							register(driver: driver, along: config.modelTypeInternal)
-							Logger.drivers.info("Driver loaded and registered after configuration update")
+							Logger.drivers.info("\(Logger.timestamp)Driver loaded and registered after configuration update")
 						}
 						catch {
-							Logger.drivers.error("Failed to load driver after configuration update: \(error.localizedDescription, privacy: .public)")
+							Logger.drivers.error("\(Logger.timestamp)Failed to load driver after configuration update: \(error.localizedDescription, privacy: .public)")
 							DefaultCrashReporter.shared.recordError(error, context: ["operation": "updateDriver", "configId": config.entityId?.uuidString ?? "unknown"])
 							deepStateError = error
 						}
@@ -219,7 +219,7 @@ final class DeepState: ObservableObject {
 				}
 			}
 			catch {
-				Logger.state.error("Error handling configuration update: \(error.localizedDescription, privacy: .public)")
+				Logger.state.error("\(Logger.timestamp)Error handling configuration update: \(error.localizedDescription, privacy: .public)")
 				deepStateError = error
 			}
 		}
@@ -231,7 +231,7 @@ final class DeepState: ObservableObject {
 				// Delete the model file:
 			let fileManager = FileManager.default
 			guard let entityId = config.entityId else {
-				Logger.state.warning("Cannot reconstruct path to configuration directory: entityId is nil")
+				Logger.state.warning("\(Logger.timestamp)Cannot reconstruct path to configuration directory: entityId is nil")
 				return
 			}
 
@@ -239,28 +239,28 @@ final class DeepState: ObservableObject {
 				let configurationDirectory = FileManager.deepConfigurationDirectory(id: entityId)?.path(percentEncoded: false),
 				fileManager.fileExists(atPath: configurationDirectory)
 			else {
-				Logger.state.debug("Configuration directory does not exist or path is nil for \(entityId.uuidString, privacy: .public)")
+				Logger.state.debug("\(Logger.timestamp)Configuration directory does not exist or path is nil for \(entityId.uuidString, privacy: .public)")
 				return
 			}
 
 			guard config.demo.not else {
 				// 1. DO NOT DELETE THE MODEL that is part of the demo
-				Logger.state.debug("Skipping deletion of demo model for configuration \(entityId.uuidString, privacy: .public)")
+				Logger.state.debug("\(Logger.timestamp)Skipping deletion of demo model for configuration \(entityId.uuidString, privacy: .public)")
 				return
 			}
 
 			guard DownloadItem.select(entityId, in: appState.dataController.container.viewContext).isNil else {
 				// 2. DO NOT DELETE THE MODEL that is part of the existing download item
 				// An alternative solution: having the models in a separate pre-import directory. But that consumes double of the storage.
-				Logger.state.debug("Skipping deletion of model file still referenced by download item for configuration \(entityId.uuidString, privacy: .public)")
+				Logger.state.debug("\(Logger.timestamp)Skipping deletion of model file still referenced by download item for configuration \(entityId.uuidString, privacy: .public)")
 				return
 			}
 
 			do {
 				try fileManager.removeItem(atPath: configurationDirectory)
-				Logger.state.info("Model file successfully deleted for configuration \(entityId.uuidString, privacy: .public)")
+				Logger.state.info("\(Logger.timestamp)Model file successfully deleted for configuration \(entityId.uuidString, privacy: .public)")
 			} catch {
-				Logger.state.error("Error deleting model file for configuration \(entityId.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
+				Logger.state.error("\(Logger.timestamp)Error deleting model file for configuration \(entityId.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
 				DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteModelFile", "configId": entityId.uuidString])
 			}
 		}

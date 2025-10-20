@@ -21,7 +21,7 @@ protocol CoreDataManageable where Self: NSManagedObject {
 
 extension CoreDataManageable where Self: NSManagedObject {
 	static func create(in context: NSManagedObjectContext) -> Self {
-		Logger.persistence.debug("Creating new \(String(describing: Self.self), privacy: .public) entity")
+		Logger.persistence.debug("\(Logger.timestamp)Creating new \(String(describing: Self.self), privacy: .public) entity")
 		return Self(context: context)
 	}
 
@@ -33,24 +33,24 @@ extension CoreDataManageable where Self: NSManagedObject {
 			do {
 				let objects = try context.fetch(request) as? [Self]
 				guard let count = objects?.count else {
-					Logger.persistence.error("Failed to fetch objects for update - unexpected nil result for entity \(String(describing: Self.self), privacy: .public) with ID \(entityId.uuidString, privacy: .public)")
+					Logger.persistence.error("\(Logger.timestamp)Failed to fetch objects for update - unexpected nil result for entity \(String(describing: Self.self), privacy: .public) with ID \(entityId.uuidString, privacy: .public)")
 					return
 				}
 				
 				if count != 1 {
-					Logger.persistence.warning("Expected 1 instance for update but found \(count) for entity \(String(describing: Self.self), privacy: .public) with ID \(entityId.uuidString, privacy: .public)")
+					Logger.persistence.warning("\(Logger.timestamp)Expected 1 instance for update but found \(count) for entity \(String(describing: Self.self), privacy: .public) with ID \(entityId.uuidString, privacy: .public)")
 				}
 				
 				guard let objectToUpdate = objects?.first else {
-					Logger.persistence.warning("No object found to update for entity \(String(describing: Self.self), privacy: .public) with ID \(entityId.uuidString, privacy: .public)")
+					Logger.persistence.warning("\(Logger.timestamp)No object found to update for entity \(String(describing: Self.self), privacy: .public) with ID \(entityId.uuidString, privacy: .public)")
 					return
 				}
 				
 				updateClosure(objectToUpdate)
 				Self.save(in: context)
-				Logger.persistence.debug("Successfully updated \(String(describing: Self.self), privacy: .public) entity with ID \(entityId.uuidString, privacy: .public)")
+				Logger.persistence.debug("\(Logger.timestamp)Successfully updated \(String(describing: Self.self), privacy: .public) entity with ID \(entityId.uuidString, privacy: .public)")
 			} catch {
-				Logger.persistence.error("Update error for \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
+				Logger.persistence.error("\(Logger.timestamp)Update error for \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
 				DefaultCrashReporter.shared.recordError(error, context: ["operation": "update", "entityType": String(describing: Self.self)])
 			}
 		}
@@ -60,22 +60,22 @@ extension CoreDataManageable where Self: NSManagedObject {
 		if context.hasChanges {
 			do {
 				try context.save()
-				Logger.persistence.debug("Successfully saved context changes for \(String(describing: Self.self), privacy: .public)")
+				Logger.persistence.debug("\(Logger.timestamp)Successfully saved context changes for \(String(describing: Self.self), privacy: .public)")
 			} catch {
-				Logger.persistence.error("CoreData save error for \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
+				Logger.persistence.error("\(Logger.timestamp)CoreData save error for \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
 				DefaultCrashReporter.shared.recordError(error, context: ["operation": "save", "entityType": String(describing: Self.self)])
 			}
 		}
 	}
 
 	static func delete(_ entity: Self, in context: NSManagedObjectContext) {
-		Logger.persistence.debug("Deleting \(String(describing: Self.self), privacy: .public) entity")
+		Logger.persistence.debug("\(Logger.timestamp)Deleting \(String(describing: Self.self), privacy: .public) entity")
 		context.delete(entity)
 		do {
 			try context.save()
-			Logger.persistence.debug("Successfully deleted \(String(describing: Self.self), privacy: .public) entity")
+			Logger.persistence.debug("\(Logger.timestamp)Successfully deleted \(String(describing: Self.self), privacy: .public) entity")
 		} catch {
-			Logger.persistence.error("Error deleting entity \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
+			Logger.persistence.error("\(Logger.timestamp)Error deleting entity \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
 			DefaultCrashReporter.shared.recordError(error, context: ["operation": "delete", "entityType": String(describing: Self.self)])
 		}
 	}
@@ -92,9 +92,9 @@ extension CoreDataManageable where Self: NSManagedObject {
 			}
 
 			try context.save()
-			Logger.persistence.info("Successfully deleted all \(String(describing: Self.self), privacy: .public) entities")
+			Logger.persistence.info("\(Logger.timestamp)Successfully deleted all \(String(describing: Self.self), privacy: .public) entities")
 		} catch {
-			Logger.persistence.error("Error deleting all entities \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
+			Logger.persistence.error("\(Logger.timestamp)Error deleting all entities \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
 			DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteAll", "entityType": String(describing: Self.self)])
 		}
 	}
@@ -107,15 +107,15 @@ extension CoreDataManageable where Self: NSManagedObject {
 			do {
 				let objects = try context.fetch(request) as? [Self]
 				guard let objectToDelete = objects?.first else {
-					Logger.persistence.debug("No object found to delete for entity \(String(describing: Self.self), privacy: .public) with ID \(entityId.uuidString, privacy: .public)")
+					Logger.persistence.debug("\(Logger.timestamp)No object found to delete for entity \(String(describing: Self.self), privacy: .public) with ID \(entityId.uuidString, privacy: .public)")
 					return
 				}
 				
 				context.delete(objectToDelete)
 				Self.save(in: context)
-				Logger.persistence.debug("Successfully deleted \(String(describing: Self.self), privacy: .public) entity with ID \(entityId.uuidString, privacy: .public)")
+				Logger.persistence.debug("\(Logger.timestamp)Successfully deleted \(String(describing: Self.self), privacy: .public) entity with ID \(entityId.uuidString, privacy: .public)")
 			} catch {
-				Logger.persistence.error("Deletion error for \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
+				Logger.persistence.error("\(Logger.timestamp)Deletion error for \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
 				DefaultCrashReporter.shared.recordError(error, context: ["operation": "delete", "entityType": String(describing: Self.self)])
 			}
 		}
@@ -130,12 +130,12 @@ extension CoreDataManageable where Self: NSManagedObject {
 			let count = objects?.count ?? 0
 			
 			if count > 1 {
-				Logger.persistence.warning("Expected at most 1 instance but found \(count) for entity \(String(describing: Self.self), privacy: .public) with ID \(entityId.uuidString, privacy: .public)")
+				Logger.persistence.warning("\(Logger.timestamp)Expected at most 1 instance but found \(count) for entity \(String(describing: Self.self), privacy: .public) with ID \(entityId.uuidString, privacy: .public)")
 			}
 			
 			return objects?.first
 		} catch {
-			Logger.persistence.error("Error fetching object \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
+			Logger.persistence.error("\(Logger.timestamp)Error fetching object \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
 			DefaultCrashReporter.shared.recordError(error, context: ["operation": "select", "entityType": String(describing: Self.self)])
 			return nil
 		}
@@ -146,10 +146,10 @@ extension CoreDataManageable where Self: NSManagedObject {
 
 		do {
 			let objects = try context.fetch(request) as? [Self]
-			Logger.persistence.debug("Fetched \((objects?.count ?? 0)) \(String(describing: Self.self), privacy: .public) entities")
+			Logger.persistence.debug("\(Logger.timestamp)Fetched \((objects?.count ?? 0)) \(String(describing: Self.self), privacy: .public) entities")
 			return objects ?? []
 		} catch {
-			Logger.persistence.error("Error fetching all objects \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
+			Logger.persistence.error("\(Logger.timestamp)Error fetching all objects \(String(describing: Self.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
 			DefaultCrashReporter.shared.recordError(error, context: ["operation": "getAll", "entityType": String(describing: Self.self)])
 			return []
 		}

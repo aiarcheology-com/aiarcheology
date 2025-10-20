@@ -45,11 +45,11 @@ extension DeepDriver {
 		let compiledModelURL = demo ? path : try await MLModel.compileModel(at: path)
 
 		do {
-			Logger.drivers.debug("Loading MLModel from \(compiledModelURL.lastPathComponent, privacy: .public)")
+			Logger.drivers.debug("\(Logger.timestamp)Loading MLModel from \(compiledModelURL.lastPathComponent, privacy: .public)")
 			return try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
 		}
 		catch {
-			Logger.drivers.error("Error loading MLModel: \(error.localizedDescription, privacy: .public)")
+			Logger.drivers.error("\(Logger.timestamp)Error loading MLModel: \(error.localizedDescription, privacy: .public)")
 			DefaultCrashReporter.shared.recordError(error, context: ["operation": "loadMLModel", "path": compiledModelURL.lastPathComponent])
 			return nil
 		}
@@ -62,7 +62,7 @@ extension DeepDriver {
 			phaseOutTime: newConfiguration.phaseOutTime,
 			selectedSymbol: newConfiguration.selectedSymbol
 		)
-		Logger.drivers.debug("Configuration updated for driver \(newConfiguration.entityId?.uuidString ?? "unknown", privacy: .public)")
+		Logger.drivers.debug("\(Logger.timestamp)Configuration updated for driver \(newConfiguration.entityId?.uuidString ?? "unknown", privacy: .public)")
 	}
 }
 
@@ -94,12 +94,12 @@ class DeepDrivers: ObservableObject {
 
 	func update(configuration: DeepConfiguration) {
         guard let entityId = configuration.entityId else {
-            Logger.drivers.error("Cannot update driver: Configuration.entityId is nil")
+            Logger.drivers.error("\(Logger.timestamp)Cannot update driver: Configuration.entityId is nil")
             return
         }
 		let drivers = (detectors + classificators).filter { $0.id == entityId }
 		if drivers.count >= 2 {
-			Logger.drivers.warning("Multiple drivers found with same configuration.entityId: \(entityId.uuidString, privacy: .public)")
+			Logger.drivers.warning("\(Logger.timestamp)Multiple drivers found with same configuration.entityId: \(entityId.uuidString, privacy: .public)")
 		}
 		Task {
 			await drivers.first?.updateConfiguration(configuration)
