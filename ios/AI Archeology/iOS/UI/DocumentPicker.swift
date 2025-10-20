@@ -66,7 +66,8 @@ struct DocumentPicker: UIViewControllerRepresentable {
 				guard 
 					let destinationDir = FileManager.deepConfigurationDirectory(id: configurationId)
 				else {
-					Logger.ui.error("Failed to create destination directory for configuration \(configurationId.uuidString, privacy: .public)")
+                    let id = configurationId.uuidString
+					Logger.ui.error("Failed to create destination directory for configuration \(id, privacy: .public)")
 					return
 				}
 

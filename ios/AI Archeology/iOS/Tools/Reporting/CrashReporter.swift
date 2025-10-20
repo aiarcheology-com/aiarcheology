@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 /// Protocol for crash reporting services integration (e.g., Crashlytics, Sentry)
 /// This provides a clean abstraction layer for future crash reporting integration

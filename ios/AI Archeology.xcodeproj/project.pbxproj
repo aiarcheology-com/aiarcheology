@@ -109,6 +109,14 @@
 		8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */; };
 		8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */; };
 		8AF06FC42ABCD237001E7B6B /* SideMenuModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF06FC32ABCD237001E7B6B /* SideMenuModel.swift */; };
+		942B1DD22EA62E11005455F9 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD02EA62E11005455F9 /* CrashReporter.swift */; };
+		942B1DD32EA62E11005455F9 /* LoggingPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD12EA62E11005455F9 /* LoggingPolicy.swift */; };
+		942B1DD42EA62E11005455F9 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD02EA62E11005455F9 /* CrashReporter.swift */; };
+		942B1DD52EA62E11005455F9 /* LoggingPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD12EA62E11005455F9 /* LoggingPolicy.swift */; };
+		942B1DD62EA62E11005455F9 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD02EA62E11005455F9 /* CrashReporter.swift */; };
+		942B1DD72EA62E11005455F9 /* LoggingPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD12EA62E11005455F9 /* LoggingPolicy.swift */; };
+		942B1DDB2EA66353005455F9 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 942B1DDA2EA66353005455F9 /* README.md */; };
+		942B1DDD2EA66353005455F9 /* LOGGING_GUIDE.md in Resources */ = {isa = PBXBuildFile; fileRef = 942B1DD92EA66353005455F9 /* LOGGING_GUIDE.md */; };
 		94713D982EA2F33E00713068 /* ImportHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94713D972EA2F33A00713068 /* ImportHandler.swift */; };
 		9489C96E2EA02B1A008C728F /* HostPlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9489C96D2EA02B0C008C728F /* HostPlatform.swift */; };
 		94DF06A22E95C1090024E381 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
@@ -239,6 +247,10 @@
 		8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = HroudaDetector15.mlpackage; sourceTree = "<group>"; };
 		8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = AIArcheology.mlpackage; sourceTree = "<group>"; };
 		8AF06FC32ABCD237001E7B6B /* SideMenuModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenuModel.swift; sourceTree = "<group>"; };
+		942B1DD02EA62E11005455F9 /* CrashReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReporter.swift; sourceTree = "<group>"; };
+		942B1DD12EA62E11005455F9 /* LoggingPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingPolicy.swift; sourceTree = "<group>"; };
+		942B1DD92EA66353005455F9 /* LOGGING_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = LOGGING_GUIDE.md; sourceTree = "<group>"; };
+		942B1DDA2EA66353005455F9 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		94713D972EA2F33A00713068 /* ImportHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportHandler.swift; sourceTree = "<group>"; };
 		9489C96D2EA02B0C008C728F /* HostPlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPlatform.swift; sourceTree = "<group>"; };
 		94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OSLog+Extensions.swift"; sourceTree = "<group>"; };
@@ -323,6 +335,8 @@
 		8A3155982B1F9EE700EA9110 /* Documents */ = {
 			isa = PBXGroup;
 			children = (
+				942B1DD92EA66353005455F9 /* LOGGING_GUIDE.md */,
+				942B1DDA2EA66353005455F9 /* README.md */,
 				8A3155992B1F9EFA00EA9110 /* privacypolicy.html */,
 			);
 			name = Documents;
@@ -458,9 +472,10 @@
 		8AC393C12B2B9FB300C9BA57 /* Tools */ = {
 			isa = PBXGroup;
 			children = (
+				8AC393C22B2B9FD700C9BA57 /* DeviceInfo.swift */,
 				9489C96D2EA02B0C008C728F /* HostPlatform.swift */,
 				8A112CC12AC0851000786384 /* Extensions */,
-				8AC393C22B2B9FD700C9BA57 /* DeviceInfo.swift */,
+				942B1DCF2EA62DEB005455F9 /* Reporting */,
 			);
 			path = Tools;
 			sourceTree = "<group>";
@@ -594,6 +609,15 @@
 			path = Images;
 			sourceTree = "<group>";
 		};
+		942B1DCF2EA62DEB005455F9 /* Reporting */ = {
+			isa = PBXGroup;
+			children = (
+				942B1DD02EA62E11005455F9 /* CrashReporter.swift */,
+				942B1DD12EA62E11005455F9 /* LoggingPolicy.swift */,
+			);
+			path = Reporting;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -707,6 +731,8 @@
 			files = (
 				8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */,
 				8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */,
+				942B1DDB2EA66353005455F9 /* README.md in Resources */,
+				942B1DDD2EA66353005455F9 /* LOGGING_GUIDE.md in Resources */,
 				8AE0BC0B2A97B0B40086DDF9 /* Preview Assets.xcassets in Resources */,
 				8AE0BC082A97B0B40086DDF9 /* Assets.xcassets in Resources */,
 				8A31559A2B1F9EFA00EA9110 /* privacypolicy.html in Resources */,
@@ -758,6 +784,8 @@
 				8AC393C02B2B9F7C00C9BA57 /* BrowsingHistoryView.swift in Sources */,
 				8A4256DE2B1D3090009153B1 /* WebCacheCleaner.swift in Sources */,
 				8A1328192AF143A400F119C6 /* Screen.swift in Sources */,
+				942B1DD62EA62E11005455F9 /* CrashReporter.swift in Sources */,
+				942B1DD72EA62E11005455F9 /* LoggingPolicy.swift in Sources */,
 				8A7740CD2B1682F5002E90D9 /* SettingsView.swift in Sources */,
 				8A1D49BE2ABB87D500C2D7C1 /* DetailView.swift in Sources */,
 				8AC650992B2A453200922648 /* Driver.swift in Sources */,
@@ -838,6 +866,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				8AE0BC1B2A97B0B40086DDF9 /* AI_ArcheologyTests.swift in Sources */,
+				942B1DD42EA62E11005455F9 /* CrashReporter.swift in Sources */,
+				942B1DD52EA62E11005455F9 /* LoggingPolicy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -847,6 +877,8 @@
 			files = (
 				8AE0BC252A97B0B40086DDF9 /* AI_ArcheologyUITests.swift in Sources */,
 				8AE0BC272A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift in Sources */,
+				942B1DD22EA62E11005455F9 /* CrashReporter.swift in Sources */,
+				942B1DD32EA62E11005455F9 /* LoggingPolicy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

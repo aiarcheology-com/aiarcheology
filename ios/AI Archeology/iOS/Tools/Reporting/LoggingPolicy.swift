@@ -64,28 +64,31 @@ enum LoggingPolicy {
     
     // MARK: - Crash Policy
     
-    /// Use for invariant violations and critical errors that compromise app functionality
-    /// This will crash in ALL builds (debug and release) to ensure data integrity
-    static func criticalFailure(_ message: String, file: String = #file, line: Int = #line) -> Never {
-        let fileName = (file as NSString).lastPathComponent
+    /// Crashes in all builds to ensure data integrity
+    static func criticalFailure(
+        _ message: String,
+        file: StaticString = #file,
+        filePath: String = #file,
+        line: UInt = #line
+    ) -> Never {
+        let fileName = (filePath as NSString).lastPathComponent
         Logger.app.fault("CRITICAL FAILURE at \(fileName, privacy: .public):\(line): \(message, privacy: .public)")
-        preconditionFailure(message, file: file, line: UInt(line))
+        preconditionFailure(message, file: file, line: line)
     }
     
-    /// Use for assertion failures during development
-    /// Crashes in debug builds but logs as error in release
-    static func assertionFailure(_ message: String, file: String = #file, line: Int = #line) {
-        let fileName = (file as NSString).lastPathComponent
-        #if DEBUG
+    /// Crashes in debug; logs and reports in release
+    static func assertionFailure( _ message: String, file: StaticString = #file, filePath: String = #file, line: UInt = #line) {
+        let fileName = (filePath as NSString).lastPathComponent
+#if DEBUG
         Logger.app.fault("ASSERTION FAILURE at \(fileName, privacy: .public):\(line): \(message, privacy: .public)")
         Swift.assertionFailure(message, file: file, line: line)
-        #else
+#else
         Logger.app.error("Assertion would fail in debug at \(fileName, privacy: .public):\(line): \(message, privacy: .public)")
         DefaultCrashReporter.shared.recordError(
             LoggingError.assertionFailure(message),
             context: ["file": fileName, "line": "\(line)"]
         )
-        #endif
+#endif
     }
     
     // MARK: - Privacy Guidelines
