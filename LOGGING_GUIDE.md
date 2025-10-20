@@ -156,7 +156,7 @@ Use for conditions that compromise app functionality or data integrity:
 
 ```swift
 if let error = error {
-    Logger.persistence.logFault("Core Data failed to load: \(error.localizedDescription, privacy: .public)")
+    Logger.persistence.logFault("Core Data failed to load: \(error.localizedDescription)")
     LoggingPolicy.criticalFailure("Core Data persistent store failed to load")
 }
 ```
