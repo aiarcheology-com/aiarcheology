@@ -37,7 +37,7 @@ actor Detector: DeepDriver {
 			selectedSymbol: configuration.selectedSymbol,
 			demo: configuration.demo
 		)
-		Logger.drivers.debug("\(Logger.timestamp)Detector initialized with ID \(entityId.uuidString, privacy: .public)")
+		Logger.drivers.logDebug("Detector initialized with ID \(entityId.uuidString, privacy: .public)")
 	}
 
 	func metadata() -> [MLModelMetadataKey : Any]? {
@@ -46,38 +46,38 @@ actor Detector: DeepDriver {
 
 	func loadFile() async throws {
 		guard let path = self.params.file else {
-			Logger.drivers.error("\(Logger.timestamp)Detector loadFile failed: file path is nil")
+			Logger.drivers.logError("Detector loadFile failed: file path is nil")
 			throw DetectorError.loadError
 		}
 		
-		Logger.drivers.info("\(Logger.timestamp)Loading detector model from \(path.absoluteString, privacy: .public)")
+		Logger.drivers.logInfo("Loading detector model from \(path.absoluteString, privacy: .public)")
 
 		guard let model = try await Self.loadModel(from: path, demo: params.demo) else {
-			Logger.drivers.error("\(Logger.timestamp)Failed to load ML model from \(path.absoluteString, privacy: .public)")
+			Logger.drivers.logError("Failed to load ML model from \(path.absoluteString, privacy: .public)")
 			throw DetectorError.loadError
 		}
 		
-		Logger.drivers.info("\(Logger.timestamp)Model successfully loaded from \(path.lastPathComponent, privacy: .public)")
+		Logger.drivers.logInfo("Model successfully loaded from \(path.lastPathComponent, privacy: .public)")
 		objectDetectionModel = try VNCoreMLModel(for: model)
 
 		guard let detecionModel = objectDetectionModel else {
-			Logger.drivers.error("\(Logger.timestamp)Failed to create VNCoreMLModel from loaded model")
+			Logger.drivers.logError("Failed to create VNCoreMLModel from loaded model")
 			throw DetectorError.coreModelLoadError
 		}
 		detectionRequest = VNCoreMLRequest(model: detecionModel, completionHandler: { [weak self] request, error in
 			guard let self = self else { return }
 			Task {
 				if let error = error {
-					Logger.drivers.error("\(Logger.timestamp)Object detection request failed: \(error.localizedDescription, privacy: .public)")
+					Logger.drivers.logError("Object detection request failed: \(error.localizedDescription, privacy: .public)")
 					DefaultCrashReporter.shared.recordError(error, context: ["operation": "detection"])
 					return
 				}
 				guard let observations = request.results as? [VNRecognizedObjectObservation] else {
-					Logger.drivers.warning("\(Logger.timestamp)Detection request results could not be cast to VNRecognizedObjectObservation")
+					Logger.drivers.logWarning("Detection request results could not be cast to VNRecognizedObjectObservation")
 					return
 				}
 				await self.updateDetectionResults(observations: observations)
-				Logger.drivers.debug("\(Logger.timestamp)Detection completed with \(observations.count) observations")
+				Logger.drivers.logDebug("Detection completed with \(observations.count) observations")
 			}
 		})
 		detectionRequest?.imageCropAndScaleOption = .scaleFit
@@ -92,13 +92,13 @@ actor Detector: DeepDriver {
 		ciImage = nil
 		detectionRequest = nil
 		objectDetectionModel = nil
-		Logger.drivers.debug("\(Logger.timestamp)Detector unloaded")
+		Logger.drivers.logDebug("Detector unloaded")
 	}
 
 	func process(image: UIImage) async {
 		ciImage = CIImage(image: image)
 		guard let ciImage else {
-			Logger.drivers.warning("\(Logger.timestamp)Failed to create CIImage from UIImage")
+			Logger.drivers.logWarning("Failed to create CIImage from UIImage")
 			return
 		}
 		handler = VNImageRequestHandler(ciImage: ciImage)
@@ -107,14 +107,14 @@ actor Detector: DeepDriver {
 	func detect() async {
 		guard let detectionRequest else {
 			// Possibly no bug, just ignore the detection, when the engine is not ready to do it.
-			Logger.drivers.debug("\(Logger.timestamp)Detection skipped: detection request not initialized")
+			Logger.drivers.logDebug("Detection skipped: detection request not initialized")
 			return
 		}
 
 		do {
 			try handler?.perform([detectionRequest])
 		} catch {
-			Logger.drivers.error("\(Logger.timestamp)Failed to perform detection: \(error.localizedDescription, privacy: .public)")
+			Logger.drivers.logError("Failed to perform detection: \(error.localizedDescription, privacy: .public)")
 			DefaultCrashReporter.shared.recordError(error, context: ["operation": "performDetection"])
 		}
 	}

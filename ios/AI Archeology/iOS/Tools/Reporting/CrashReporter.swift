@@ -50,23 +50,23 @@ final class DefaultCrashReporter: CrashReporter {
         if let context = context {
             contextString = context.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
         }
-        Logger.app.error("\(Logger.timestamp)Non-fatal error recorded: \(error.localizedDescription, privacy: .public) context: \(contextString, privacy: .public)")
+        Logger.app.logError("Non-fatal error recorded: \(error.localizedDescription, privacy: .public) context: \(contextString, privacy: .public)")
     }
     
     func recordBreadcrumb(_ message: String, level: BreadcrumbLevel) {
         switch level {
         case .debug:
-            Logger.app.debug("\(Logger.timestamp)Breadcrumb: \(message, privacy: .public)")
+            Logger.app.logDebug("Breadcrumb: \(message, privacy: .public)")
         case .info:
-            Logger.app.info("\(Logger.timestamp)Breadcrumb: \(message, privacy: .public)")
+            Logger.app.logInfo("Breadcrumb: \(message, privacy: .public)")
         case .warning:
-            Logger.app.warning("\(Logger.timestamp)Breadcrumb: \(message, privacy: .public)")
+            Logger.app.logWarning("Breadcrumb: \(message, privacy: .public)")
         case .error:
-            Logger.app.error("\(Logger.timestamp)Breadcrumb: \(message, privacy: .public)")
+            Logger.app.logError("Breadcrumb: \(message, privacy: .public)")
         }
     }
     
     func setCustomValue(_ value: String, forKey key: String) {
-        Logger.app.debug("\(Logger.timestamp)Custom attribute set: \(key, privacy: .public)=\(value, privacy: .public)")
+        Logger.app.logDebug("Custom attribute set: \(key, privacy: .public)=\(value, privacy: .public)")
     }
 }

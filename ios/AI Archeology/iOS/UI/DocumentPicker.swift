@@ -67,7 +67,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
 					let destinationDir = FileManager.deepConfigurationDirectory(id: configurationId)
 				else {
                     let id = configurationId.uuidString
-					Logger.ui.error("\(Logger.timestamp)Failed to create destination directory for configuration \(id, privacy: .public)")
+					Logger.ui.logError("Failed to create destination directory for configuration \(id, privacy: .public)")
 					return
 				}
 
@@ -80,7 +80,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
 
 				parent.onPick(destinationUrl, configurationId, self)
 			} catch {
-				Logger.ui.error("\(Logger.timestamp)Error copying file from document picker: \(error.localizedDescription, privacy: .public)")
+				Logger.ui.logError("Error copying file from document picker: \(error.localizedDescription, privacy: .public)")
 				DefaultCrashReporter.shared.recordError(error, context: ["operation": "documentPickerCopy"])
 			}
 		}

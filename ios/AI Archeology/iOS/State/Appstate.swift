@@ -25,13 +25,13 @@ final class AppState: ObservableObject {
 	lazy var downloader = Downloader(appState: self)
 
 	init() {
-		Logger.state.info("\(Logger.timestamp)AppState initializing")
+		Logger.state.logInfo("AppState initializing")
 		createDemoEntities()
 	}
 
 	func createDemoEntities() {
 		if settings.isFirstLaunch {
-			Logger.app.info("\(Logger.timestamp)First launch detected, creating demo entities")
+			Logger.app.logInfo("First launch detected, creating demo entities")
 			settings.isFirstLaunchMarked = true
 			settings.isFirstLaunch = false
 
@@ -52,7 +52,7 @@ final class AppState: ObservableObject {
 	}
 
 	func deleteBrowsingHistory() {
-		Logger.state.info("\(Logger.timestamp)Deleting all browsing history")
+		Logger.state.logInfo("Deleting all browsing history")
 		WebHistoryEntry.deleteAll(in: dataController.container.viewContext, executeAndMerge: true)
 	}
 
@@ -61,7 +61,7 @@ final class AppState: ObservableObject {
 		let history = WebHistoryEntry.getAll(in: dataController.container.viewContext)
 		guard history.isEmpty, settings.isFirstLaunchMarked else { return }
 
-		Logger.state.info("\(Logger.timestamp)Creating initial browsing history with demo pages")
+		Logger.state.logInfo("Creating initial browsing history with demo pages")
 		let pages: [String] = [
 			"https://windrosen.hessen.de/mapapps/resources/apps/windrosen/index.html?lang=en&vm=2D&s=1500000&r=0&c=550000%2C5595000&bm=orthofotos_schummerung",
 			"https://zbgis.skgeodesy.sk/mkzbgis/sk/teren",
@@ -82,7 +82,7 @@ final class AppState: ObservableObject {
 			}
 			catch {
 				WebHistoryEntry.delete(newHistorEntry, in: dataController.container.viewContext)
-				Logger.state.error("\(Logger.timestamp)Web history entry validation failed: \(error.localizedDescription, privacy: .public)")
+				Logger.state.logError("Web history entry validation failed: \(error.localizedDescription, privacy: .public)")
 				return
 			}
 
@@ -96,7 +96,7 @@ final class AppState: ObservableObject {
 		Task {
 				// Warning: models are used as mlmodelc in the bundle when handled from xcode
 			guard let urlInBundle = Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") else {
-				Logger.configuration.error("\(Logger.timestamp)Cannot locate AIArcheology demo model in bundle")
+				Logger.configuration.logError("Cannot locate AIArcheology demo model in bundle")
 				return
 			}
 
@@ -108,7 +108,7 @@ final class AppState: ObservableObject {
 		Task {
 				// Warning: models are used as mlmodelc in the bundle when handled from xcode
 			guard let urlInBundle = Bundle.main.url(forResource: "HroudaDetector15", withExtension: "mlmodelc") else {
-				Logger.configuration.error("\(Logger.timestamp)Cannot locate HroudaDetector15 demo model in bundle")
+				Logger.configuration.logError("Cannot locate HroudaDetector15 demo model in bundle")
 				return
 			}
 
@@ -124,11 +124,11 @@ final class AppState: ObservableObject {
 		}
 
 		guard let url = URL(string: urlToPossibleDirectory) else {
-			Logger.configuration.error("\(Logger.timestamp)Failed to create URL from string for demo model")
+			Logger.configuration.logError("Failed to create URL from string for demo model")
 			return
 		}
 
-		Logger.configuration.info("\(Logger.timestamp)Loading demo model from \(url.lastPathComponent, privacy: .public)")
+		Logger.configuration.logInfo("Loading demo model from \(url.lastPathComponent, privacy: .public)")
 
 		let id = UUID()
 		var detector: MLModel?
@@ -138,12 +138,12 @@ final class AppState: ObservableObject {
 			detector = try await Detector.loadModel(from: url, demo: demo)
 		}
 		catch {
-			Logger.configuration.error("\(Logger.timestamp)Failed to load demo detector model: \(error.localizedDescription, privacy: .public)")
+			Logger.configuration.logError("Failed to load demo detector model: \(error.localizedDescription, privacy: .public)")
 			return
 		}
 
 		guard let metadata = detector?.modelDescription.metadata else { 
-			Logger.configuration.warning("\(Logger.timestamp)Demo model loaded but has no metadata")
+			Logger.configuration.logWarning("Demo model loaded but has no metadata")
 			return 
 		}
 		let parser = MLModelMetadataParser(metadata: metadata)
@@ -162,6 +162,6 @@ final class AppState: ObservableObject {
 		configuration.entityId = id
 		configuration.enabled = false
 		DeepConfiguration.save(in: self.dataController.container.viewContext)
-		Logger.configuration.info("\(Logger.timestamp)Demo configuration created successfully for \(url.lastPathComponent, privacy: .public)")
+		Logger.configuration.logInfo("Demo configuration created successfully for \(url.lastPathComponent, privacy: .public)")
 	}
 }

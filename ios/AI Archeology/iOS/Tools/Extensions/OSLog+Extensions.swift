@@ -60,10 +60,48 @@ extension Logger {
     
     /// Generates a formatted timestamp for log messages
     /// Performance optimized: uses cached formatter and only creates Date when needed
-    static var timestamp: String {
+    private static var timestamp: String {
         guard LoggingConfiguration.timestampsEnabled else { return "" }
         let date = Date()
         let formatted = LoggingConfiguration.timestampFormat.formatter.string(from: date)
         return "\(formatted) "
+    }
+    
+    // MARK: - Timestamped Logging Methods
+    
+    /// Log a debug message with automatic timestamp prepended
+    /// - Parameter message: An autoclosure that produces the log message
+    func logDebug(_ message: @autoclosure () -> String) {
+        self.debug("\(Logger.timestamp)\(message(), privacy: .public)")
+    }
+    
+    /// Log an info message with automatic timestamp prepended
+    /// - Parameter message: An autoclosure that produces the log message
+    func logInfo(_ message: @autoclosure () -> String) {
+        self.info("\(Logger.timestamp)\(message(), privacy: .public)")
+    }
+    
+    /// Log a notice message with automatic timestamp prepended
+    /// - Parameter message: An autoclosure that produces the log message
+    func logNotice(_ message: @autoclosure () -> String) {
+        self.notice("\(Logger.timestamp)\(message(), privacy: .public)")
+    }
+    
+    /// Log a warning message with automatic timestamp prepended
+    /// - Parameter message: An autoclosure that produces the log message
+    func logWarning(_ message: @autoclosure () -> String) {
+        self.warning("\(Logger.timestamp)\(message(), privacy: .public)")
+    }
+    
+    /// Log an error message with automatic timestamp prepended
+    /// - Parameter message: An autoclosure that produces the log message
+    func logError(_ message: @autoclosure () -> String) {
+        self.error("\(Logger.timestamp)\(message(), privacy: .public)")
+    }
+    
+    /// Log a fault message with automatic timestamp prepended
+    /// - Parameter message: An autoclosure that produces the log message
+    func logFault(_ message: @autoclosure () -> String) {
+        self.fault("\(Logger.timestamp)\(message(), privacy: .public)")
     }
 }

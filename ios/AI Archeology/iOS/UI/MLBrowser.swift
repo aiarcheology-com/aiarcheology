@@ -13,7 +13,7 @@ struct MLBrowser: App {
 	@StateObject var appState = AppState()
 
 	init() {
-		Logger.lifecycle.info("\(Logger.timestamp)AI Archeology app launching")
+		Logger.lifecycle.logInfo("AI Archeology app launching")
 		DefaultCrashReporter.shared.recordBreadcrumb("App initialized", level: .info)
 	}
 
@@ -23,14 +23,14 @@ struct MLBrowser: App {
                 .environmentObject(appState)
 				.environment(\.managedObjectContext, appState.dataController.container.viewContext)
 				.onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { output in
-					Logger.lifecycle.info("\(Logger.timestamp)App entering background")
+					Logger.lifecycle.logInfo("App entering background")
 					if appState.guide.ontheflyDetectionEnabled {
 						appState.settings.isDetectionPaused = true
 						appState.guide.ontheflyDetectionTapped()
 					}
 				}
 				.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { output in
-					Logger.lifecycle.info("\(Logger.timestamp)App entering foreground")
+					Logger.lifecycle.logInfo("App entering foreground")
 					if appState.settings.isDetectionPaused {
 						appState.settings.isDetectionPaused = false
 						appState.guide.ontheflyDetectionTapped()
