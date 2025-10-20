@@ -6,10 +6,16 @@
 //
 
 import SwiftUI
+import OSLog
 
 @main
 struct MLBrowser: App {
 	@StateObject var appState = AppState()
+
+	init() {
+		Logger.lifecycle.info("AI Archeology app launching")
+		DefaultCrashReporter.shared.recordBreadcrumb("App initialized", level: .info)
+	}
 
     var body: some Scene {
         WindowGroup {
@@ -17,12 +23,14 @@ struct MLBrowser: App {
                 .environmentObject(appState)
 				.environment(\.managedObjectContext, appState.dataController.container.viewContext)
 				.onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { output in
+					Logger.lifecycle.info("App entering background")
 					if appState.guide.ontheflyDetectionEnabled {
 						appState.settings.isDetectionPaused = true
 						appState.guide.ontheflyDetectionTapped()
 					}
 				}
 				.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { output in
+					Logger.lifecycle.info("App entering foreground")
 					if appState.settings.isDetectionPaused {
 						appState.settings.isDetectionPaused = false
 						appState.guide.ontheflyDetectionTapped()

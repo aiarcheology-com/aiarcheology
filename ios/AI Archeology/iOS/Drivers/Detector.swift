@@ -9,6 +9,7 @@ import CoreML
 import Vision
 import UIKit
 import SwiftUI
+import OSLog
 
 enum DetectorError: Error {
 	case loadError
@@ -36,6 +37,7 @@ actor Detector: DeepDriver {
 			selectedSymbol: configuration.selectedSymbol,
 			demo: configuration.demo
 		)
+		Logger.drivers.debug("Detector initialized with ID \(entityId.uuidString, privacy: .public)")
 	}
 
 	func metadata() -> [MLModelMetadataKey : Any]? {
@@ -43,33 +45,39 @@ actor Detector: DeepDriver {
 	}
 
 	func loadFile() async throws {
-		print("Model to be loaded from \(self.params.file?.absoluteString ?? "")")
 		guard let path = self.params.file else {
-			assert(false, "The DeeepConfiguration.file is not initialised or can not infer the completePath.")
-			return
-		}
-
-		guard let model = try await Self.loadModel(from: path, demo: params.demo) else {
+			Logger.drivers.error("Detector loadFile failed: file path is nil")
 			throw DetectorError.loadError
 		}
-		print("Model loaded from: \(path)")
+		
+		Logger.drivers.info("Loading detector model from \(path.absoluteString, privacy: .public)")
+
+		guard let model = try await Self.loadModel(from: path, demo: params.demo) else {
+			Logger.drivers.error("Failed to load ML model from \(path.absoluteString, privacy: .public)")
+			throw DetectorError.loadError
+		}
+		
+		Logger.drivers.info("Model successfully loaded from \(path.lastPathComponent, privacy: .public)")
 		objectDetectionModel = try VNCoreMLModel(for: model)
 
 		guard let detecionModel = objectDetectionModel else {
+			Logger.drivers.error("Failed to create VNCoreMLModel from loaded model")
 			throw DetectorError.coreModelLoadError
 		}
 		detectionRequest = VNCoreMLRequest(model: detecionModel, completionHandler: { [weak self] request, error in
 			guard let self = self else { return }
 			Task {
 				if let error = error {
-					assert(false, "Object detection request ened up with error \(error)")
+					Logger.drivers.error("Object detection request failed: \(error.localizedDescription, privacy: .public)")
+					DefaultCrashReporter.shared.recordError(error, context: ["operation": "detection"])
 					return
 				}
 				guard let observations = request.results as? [VNRecognizedObjectObservation] else {
-					assert(false, "Can not cast the results to expected VNRecognizedObjectObservation")
+					Logger.drivers.warning("Detection request results could not be cast to VNRecognizedObjectObservation")
 					return
 				}
 				await self.updateDetectionResults(observations: observations)
+				Logger.drivers.debug("Detection completed with \(observations.count) observations")
 			}
 		})
 		detectionRequest?.imageCropAndScaleOption = .scaleFit
@@ -84,26 +92,30 @@ actor Detector: DeepDriver {
 		ciImage = nil
 		detectionRequest = nil
 		objectDetectionModel = nil
+		Logger.drivers.debug("Detector unloaded")
 	}
 
 	func process(image: UIImage) async {
 		ciImage = CIImage(image: image)
-		guard let ciImage else {  return }
+		guard let ciImage else {
+			Logger.drivers.warning("Failed to create CIImage from UIImage")
+			return
+		}
 		handler = VNImageRequestHandler(ciImage: ciImage)
 	}
 
 	func detect() async {
 		guard let detectionRequest else {
 			// Possibly no bug, just ignore the detection, when the engine is not ready to do it.
-			// assert(false, "The detection request has not been initialised.")
+			Logger.drivers.debug("Detection skipped: detection request not initialized")
 			return
 		}
 
 		do {
 			try handler?.perform([detectionRequest])
 		} catch {
-			assert(false, "Failed to perform detection: \(error)")
-			return
+			Logger.drivers.error("Failed to perform detection: \(error.localizedDescription, privacy: .public)")
+			DefaultCrashReporter.shared.recordError(error, context: ["operation": "performDetection"])
 		}
 	}
 

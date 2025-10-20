@@ -7,6 +7,7 @@
 
 import WebKit
 import SwiftUI
+import OSLog
 
 protocol WebViewRenderable {
 	var webViewRenderer: WebViewRenderer { get }
@@ -25,7 +26,7 @@ class WebViewRenderer: DefaultRenderer {
 		let config = WKSnapshotConfiguration()
 		webView.takeSnapshot(with: config) { [weak self] image, error in
 			guard let self else {
-				assert(false, "Renderer exist longer than his parents.")
+				Logger.rendering.warning("WebViewRenderer deallocated during snapshot operation")
 				return
 			}
 			if let image = image {

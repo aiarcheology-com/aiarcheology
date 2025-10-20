@@ -11,6 +11,7 @@ import SwiftUI
 import WebKit
 import Combine
 import Vision
+import OSLog
 
 @available(iOS 13, *)
 public struct MLWebView: UIViewRepresentable, WebViewRenderable, Equatable {
@@ -101,7 +102,7 @@ public struct MLWebView: UIViewRepresentable, WebViewRenderable, Equatable {
 				let jsRemoveButton = "document.querySelector('.esri-component.esri-compass.esri-widget').remove();"
 				webView.evaluateJavaScript(jsRemoveButton) { (result, error) in
 					if let error = error {
-						print("Error removing button: \(error)")
+						Logger.ui.debug("Error removing compass button via JavaScript: \(error.localizedDescription, privacy: .public)")
 					}
 				}
 			}
