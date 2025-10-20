@@ -204,7 +204,7 @@ Logger.networking.logWarning("Retry attempt \(attemptCount) of \(maxAttempts)")
 do {
     try performOperation()
 } catch {
-    Logger.persistence.logError("Operation failed: \(error.localizedDescription, privacy: .public)")
+    Logger.persistence.logError("Operation failed: \(error.localizedDescription)", isPrivate: false)
     DefaultCrashReporter.shared.recordError(error, context: [
         "operation": "save",
         "entityType": "DeepConfiguration"
