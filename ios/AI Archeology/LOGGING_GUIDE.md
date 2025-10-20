@@ -56,9 +56,15 @@ Use appropriate log levels based on the significance and audience:
 - **Example**: "Download failed: network connection unavailable"
 
 ### `.fault`
-- **Purpose**: Critical failures, invariant violations, imminent crashes
+- **Purpose**: Fatal failures, invariant violations, imminent crashes
 - **Visible**: Development and production
 - **Example**: "Core Data persistent store failed to load"
+
+### `.critical`
+- **Purpose**: Critical failures, invariant violations, imminent crashes. Higher severit than .fault.
+- **Visible**: Development and production
+- **Example**: "Core Data persistent store failed to load"
+
 
 ## Privacy Guidelines
 
