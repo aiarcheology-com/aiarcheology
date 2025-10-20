@@ -45,7 +45,7 @@ extension DeepDriver {
 		let compiledModelURL = demo ? path : try await MLModel.compileModel(at: path)
 
 		do {
-			Logger.drivers.logDebug("Loading MLModel from \(compiledModelURL.lastPathComponent,)")
+			Logger.drivers.logDebug("Loading MLModel from \(compiledModelURL.lastPathComponent)")
 			return try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
 		}
 		catch {
@@ -62,7 +62,7 @@ extension DeepDriver {
 			phaseOutTime: newConfiguration.phaseOutTime,
 			selectedSymbol: newConfiguration.selectedSymbol
 		)
-		Logger.drivers.logDebug("Configuration updated for driver \(newConfiguration.entityId?.uuidString ?? "unknown",)")
+		Logger.drivers.logDebug("Configuration updated for driver \(newConfiguration.entityId?.uuidString ?? "unknown")")
 	}
 }
 
