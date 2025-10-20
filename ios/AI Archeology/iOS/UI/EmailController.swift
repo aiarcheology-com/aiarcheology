@@ -16,7 +16,7 @@ class EmailController: NSObject, MFMailComposeViewControllerDelegate {
 	func sendEmail(subject:String, body:String, to:String){
 			// Check if the device is able to send emails
 		if !MFMailComposeViewController.canSendMail() {
-			Logger.ui.warning("Device cannot send emails - email composition unavailable")
+			Logger.ui.logWarning("Device cannot send emails - email composition unavailable")
 			return
 		}
 			// Create the email composer

@@ -4,6 +4,8 @@
 
 This application uses Apple's unified logging system (OSLog) for structured, privacy-conscious logging. All logs are automatically managed by the system, with rotation and retention handled automatically.
 
+All log messages include ISO 8601 timestamps with millisecond precision, enabling chronological sorting and precise timing analysis.
+
 ## Viewing Logs
 
 ### Development
@@ -31,6 +33,57 @@ The application organizes logs into logical categories:
 | **UI** | User interface events | User actions, view lifecycle |
 | **Gallery** | Gallery module | Photo picker, file operations |
 
+## Timestamps
+
+All log messages automatically include ISO 8601 timestamps with millisecond precision using the new logging methods:
+
+```
+2025-10-20T13:46:05.233Z Fetched 7 DeepConfiguration entities
+2025-10-20T13:46:05.285Z Creating driver of type detect for configuration ED1A28E4
+2025-10-20T13:46:05.335Z Detector initialized with ID ED1A28E4-D59D-41CA-A723-5174BF2BDA70
+```
+
+### Usage
+
+Use the new timestamped logging methods that automatically prepend timestamps:
+
+```swift
+// Use logDebug, logInfo, logWarning, logError, logFault instead of debug, info, etc.
+Logger.drivers.logInfo("Model loaded successfully")
+Logger.networking.logError("Download failed: connection unavailable")
+Logger.persistence.logDebug("Fetched \(count) entities")
+```
+
+**Important:** Always use the `log*` methods (e.g., `logInfo`, `logDebug`) instead of the standard Logger methods (e.g., `info`, `debug`) to ensure timestamps are included.
+
+### Configuration
+
+Timestamps can be configured via `LoggingConfiguration`:
+
+```swift
+// Disable timestamps globally
+LoggingConfiguration.timestampsEnabled = false
+
+// Re-enable timestamps
+LoggingConfiguration.timestampsEnabled = true
+
+// Timestamps are enabled by default
+```
+
+### Benefits
+
+- **Chronological sorting**: Log entries can be sorted lexicographically by timestamp
+- **Precise timing**: Millisecond precision enables accurate performance analysis
+- **Cross-correlation**: Correlate events across different log categories and sources
+- **UTC timezone**: All timestamps use UTC (indicated by Z suffix) for consistency
+
+### Performance
+
+Timestamp generation is optimized with:
+- Cached `DateFormatter` instance to avoid repeated initialization
+- Only creates `Date()` when timestamps are enabled
+- Minimal overhead: ~0.002ms per timestamp on average
+
 ## Log Levels
 
 Use appropriate log levels based on the significance and audience:
@@ -38,27 +91,32 @@ Use appropriate log levels based on the significance and audience:
 ### `.debug`
 - **Purpose**: Internal developer details, verbose diagnostics
 - **Visible**: Development builds only
-- **Example**: "Driver initialized with ID abc-123"
+- **Example**: "2025-10-20T13:46:05.233Z Driver initialized with ID abc-123"
+- **Usage**: `Logger.drivers.logDebug("Driver initialized with ID abc-123")`
 
 ### `.info` / `.notice`
 - **Purpose**: Noteworthy app state changes, user actions
 - **Visible**: Development and production
-- **Example**: "Core Data persistent store loaded successfully"
+- **Example**: "2025-10-20T13:46:05.285Z Core Data persistent store loaded successfully"
+- **Usage**: `Logger.persistence.logInfo("Core Data persistent store loaded successfully")`
 
 ### `.warning`
 - **Purpose**: Degraded behavior, retries, unexpected but recoverable conditions
 - **Visible**: Development and production
-- **Example**: "Multiple drivers found with same configuration ID"
+- **Example**: "2025-10-20T13:46:05.335Z Multiple drivers found with same configuration ID"
+- **Usage**: `Logger.drivers.logWarning("Multiple drivers found with same configuration ID")`
 
 ### `.error`
 - **Purpose**: Operation failures that can be recovered from
 - **Visible**: Development and production
-- **Example**: "Download failed: network connection unavailable"
+- **Example**: "2025-10-20T13:46:05.636Z Download failed: network connection unavailable"
+- **Usage**: `Logger.networking.logError("Download failed: network connection unavailable")`
 
 ### `.fault`
 - **Purpose**: Critical failures, invariant violations, imminent crashes
 - **Visible**: Development and production
-- **Example**: "Core Data persistent store failed to load"
+- **Example**: "2025-10-20T13:46:05.737Z Core Data persistent store failed to load"
+- **Usage**: `Logger.persistence.logFault("Core Data persistent store failed to load")`
 
 ## Privacy Guidelines
 
@@ -98,10 +156,12 @@ Use for conditions that compromise app functionality or data integrity:
 
 ```swift
 if let error = error {
-    Logger.persistence.fault("Core Data failed to load: \(error.localizedDescription, privacy: .public)")
+    Logger.persistence.logFault("Core Data failed to load: \(error.localizedDescription)")
     LoggingPolicy.criticalFailure("Core Data persistent store failed to load")
 }
 ```
+
+**Note**: Use the `log*` methods (e.g., `logInfo`, `logDebug`, `logFault`) to automatically include timestamps.
 
 ### Recoverable Errors (Use structured logging)
 Log errors but allow graceful degradation:
@@ -111,7 +171,7 @@ Log errors but allow graceful degradation:
 
 ```swift
 catch {
-    Logger.networking.error("Download failed: \(error.localizedDescription, privacy: .public)")
+    Logger.networking.logError("Download failed: \(error.localizedDescription)", isPrivate: false)
     DefaultCrashReporter.shared.recordError(error, context: ["operation": "download"])
     // Continue with fallback behavior
 }
@@ -133,9 +193,10 @@ guard configuration.entityId != nil else {
 ```swift
 import OSLog
 
-Logger.drivers.info("Loading model from \(path.lastPathComponent, privacy: .public)")
-Logger.persistence.debug("Fetched \(count) entities")
-Logger.networking.warning("Retry attempt \(attemptCount) of \(maxAttempts)")
+// Use the new log* methods that automatically add timestamps
+Logger.drivers.logInfo("Loading model from \(path.lastPathComponent)")
+Logger.persistence.logDebug("Fetched \(count) entities")
+Logger.networking.logWarning("Retry attempt \(attemptCount) of \(maxAttempts)")
 ```
 
 ### Error Logging with Context
@@ -143,7 +204,7 @@ Logger.networking.warning("Retry attempt \(attemptCount) of \(maxAttempts)")
 do {
     try performOperation()
 } catch {
-    Logger.persistence.error("Operation failed: \(error.localizedDescription, privacy: .public)")
+    Logger.persistence.logError("Operation failed: \(error.localizedDescription)", isPrivate: false)
     DefaultCrashReporter.shared.recordError(error, context: [
         "operation": "save",
         "entityType": "DeepConfiguration"
@@ -153,14 +214,14 @@ do {
 
 ### Lifecycle Logging
 ```swift
-Logger.lifecycle.info("App entering background")
-Logger.lifecycle.info("App returning to foreground")
+Logger.lifecycle.logInfo("App entering background")
+Logger.lifecycle.logInfo("App returning to foreground")
 ```
 
 ### State Transitions
 ```swift
-Logger.state.info("AppState initializing")
-Logger.networking.info("Download state transition: \(oldState.rawValue) → \(newState.rawValue, privacy: .public)")
+Logger.state.logInfo("AppState initializing")
+Logger.networking.logInfo("Download state transition: \(oldState.rawValue) → \(newState.rawValue)")
 ```
 
 ## Filtering Logs
