@@ -171,7 +171,7 @@ Log errors but allow graceful degradation:
 
 ```swift
 catch {
-    Logger.networking.logError("Download failed: \(error.localizedDescription, privacy: .public)")
+    Logger.networking.logError("Download failed: \(error.localizedDescription)", isPrivate: false)
     DefaultCrashReporter.shared.recordError(error, context: ["operation": "download"])
     // Continue with fallback behavior
 }
