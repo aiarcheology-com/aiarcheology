@@ -77,6 +77,7 @@ enum LoggingPolicy {
     }
     
     /// Crashes in debug; logs and reports in release
+    /// We need both file and filePath to serve different apis
     static func assertionFailure( _ message: String, file: StaticString = #file, filePath: String = #file, line: UInt = #line) {
         let fileName = (filePath as NSString).lastPathComponent
 #if DEBUG
