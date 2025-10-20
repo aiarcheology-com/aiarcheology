@@ -102,7 +102,7 @@ public struct MLWebView: UIViewRepresentable, WebViewRenderable, Equatable {
 				let jsRemoveButton = "document.querySelector('.esri-component.esri-compass.esri-widget').remove();"
 				webView.evaluateJavaScript(jsRemoveButton) { (result, error) in
 					if let error = error {
-						Logger.ui.logDebug("Error removing compass button via JavaScript: \(error.localizedDescription, privacy: .public)")
+						Logger.ui.logDebug("Error removing compass button via JavaScript: \(error.localizedDescription)")
 					}
 				}
 			}

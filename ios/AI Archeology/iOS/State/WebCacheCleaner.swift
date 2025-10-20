@@ -19,7 +19,7 @@ final class WebCacheCleaner {
 			Logger.state.logDebug("Deleting \(records.count) website data records")
 			records.forEach { record in
 				WKWebsiteDataStore.default().removeData(ofTypes: record.dataTypes, for: [record], completionHandler: {})
-				Logger.state.logDebug("Website data record deleted: \(record.displayName, privacy: .public)")
+				Logger.state.logDebug("Website data record deleted: \(record.displayName)")
 			}
 		}
 	}

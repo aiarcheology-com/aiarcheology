@@ -95,7 +95,7 @@ struct NewConfigurationView: View {
             .navigationBarTitleDisplayMode(.inline)
             .onReceive(deep.$deepStateError) { error in
                 if let error = error {
-                    Logger.ui.logError("DeepState error in NewConfigurationView: \(error.localizedDescription, privacy: .public)")
+                    Logger.ui.logError("DeepState error in NewConfigurationView: \(error.localizedDescription)")
                 }
             }
             .navigationDestination(for: Route.self) { route in

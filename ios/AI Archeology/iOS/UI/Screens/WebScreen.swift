@@ -76,9 +76,9 @@ var body: some View {
 		MLWebView(websiteUrl, lastPage: { urlPage in
 			appState.settings.lastPage = urlPage
 		}) { loading, error in
-			Logger.ui.logDebug("WebView loading status changed: \(loading ? "loading" : "loaded", privacy: .public)")
+			Logger.ui.logDebug("WebView loading status changed: \(loading ? "loading" : "loaded")")
 			if let error = error {
-				Logger.ui.logError("WebView loading error: \(error.localizedDescription, privacy: .public)")
+				Logger.ui.logError("WebView loading error: \(error.localizedDescription)")
 			}
 		}
 		.equatable()
@@ -181,7 +181,7 @@ var body: some View {
 		}
 		catch {
 			WebHistoryEntry.delete(newHistorEntry, in: moc)
-			Logger.state.logError("Web history entry validation failed: \(error.localizedDescription, privacy: .public)")
+			Logger.state.logError("Web history entry validation failed: \(error.localizedDescription)")
 			return
 		}
 		WebHistoryEntry.save(in: moc)

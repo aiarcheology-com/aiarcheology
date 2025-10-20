@@ -45,11 +45,11 @@ extension DeepDriver {
 		let compiledModelURL = demo ? path : try await MLModel.compileModel(at: path)
 
 		do {
-			Logger.drivers.logDebug("Loading MLModel from \(compiledModelURL.lastPathComponent, privacy: .public)")
+			Logger.drivers.logDebug("Loading MLModel from \(compiledModelURL.lastPathComponent,)")
 			return try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
 		}
 		catch {
-			Logger.drivers.logError("Error loading MLModel: \(error.localizedDescription, privacy: .public)")
+			Logger.drivers.logError("Error loading MLModel: \(error.localizedDescription)")
 			DefaultCrashReporter.shared.recordError(error, context: ["operation": "loadMLModel", "path": compiledModelURL.lastPathComponent])
 			return nil
 		}
@@ -62,7 +62,7 @@ extension DeepDriver {
 			phaseOutTime: newConfiguration.phaseOutTime,
 			selectedSymbol: newConfiguration.selectedSymbol
 		)
-		Logger.drivers.logDebug("Configuration updated for driver \(newConfiguration.entityId?.uuidString ?? "unknown", privacy: .public)")
+		Logger.drivers.logDebug("Configuration updated for driver \(newConfiguration.entityId?.uuidString ?? "unknown",)")
 	}
 }
 
@@ -99,7 +99,7 @@ class DeepDrivers: ObservableObject {
         }
 		let drivers = (detectors + classificators).filter { $0.id == entityId }
 		if drivers.count >= 2 {
-			Logger.drivers.logWarning("Multiple drivers found with same configuration.entityId: \(entityId.uuidString, privacy: .public)")
+			Logger.drivers.logWarning("Multiple drivers found with same configuration.entityId: \(entityId.uuidString)")
 		}
 		Task {
 			await drivers.first?.updateConfiguration(configuration)

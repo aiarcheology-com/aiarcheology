@@ -56,7 +56,7 @@ class Coordinator: NSObject, UINavigationControllerDelegate, PHPickerViewControl
         // This creates a temporary file which is then copied to the app’s document directory for persistent storage.
         result.itemProvider.loadFileRepresentation(forTypeIdentifier: UTType.image.identifier) { url, error in
             if let error = error {
-                Logger.gallery.logError("Error loading file representation: \(error.localizedDescription, privacy: .public)")
+                Logger.gallery.logError("Error loading file representation: \(error.localizedDescription)")
             } else if let url = url {
                 if let savedUrl = FileManager.default.copyItemToDocumentDirectory(from: url) {
                     // Add the new item to the data model.

@@ -72,7 +72,7 @@ enum LoggingPolicy {
         line: UInt = #line
     ) -> Never {
         let fileName = (filePath as NSString).lastPathComponent
-        Logger.app.logFault("CRITICAL FAILURE at \(fileName, privacy: .public):\(line): \(message, privacy: .public)")
+        Logger.app.logFault("CRITICAL FAILURE at \(fileName):\(line): \(message)")
         preconditionFailure(message, file: file, line: line)
     }
     
@@ -80,10 +80,10 @@ enum LoggingPolicy {
     static func assertionFailure( _ message: String, file: StaticString = #file, filePath: String = #file, line: UInt = #line) {
         let fileName = (filePath as NSString).lastPathComponent
 #if DEBUG
-        Logger.app.logFault("ASSERTION FAILURE at \(fileName, privacy: .public):\(line): \(message, privacy: .public)")
+        Logger.app.logFault("ASSERTION FAILURE at \(fileName):\(line): \(message)")
         Swift.assertionFailure(message, file: file, line: line)
 #else
-        Logger.app.logError("Assertion would fail in debug at \(fileName, privacy: .public):\(line): \(message, privacy: .public)")
+        Logger.app.logError("Assertion would fail in debug at \(fileName):\(line): \(message)")
         DefaultCrashReporter.shared.recordError(
             LoggingError.assertionFailure(message),
             context: ["file": fileName, "line": "\(line)"]

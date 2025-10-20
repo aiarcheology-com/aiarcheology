@@ -82,7 +82,7 @@ final class AppState: ObservableObject {
 			}
 			catch {
 				WebHistoryEntry.delete(newHistorEntry, in: dataController.container.viewContext)
-				Logger.state.logError("Web history entry validation failed: \(error.localizedDescription, privacy: .public)")
+				Logger.state.logError("Web history entry validation failed: \(error.localizedDescription)")
 				return
 			}
 
@@ -128,7 +128,7 @@ final class AppState: ObservableObject {
 			return
 		}
 
-		Logger.configuration.logInfo("Loading demo model from \(url.lastPathComponent, privacy: .public)")
+		Logger.configuration.logInfo("Loading demo model from \(url.lastPathComponent)")
 
 		let id = UUID()
 		var detector: MLModel?
@@ -138,7 +138,7 @@ final class AppState: ObservableObject {
 			detector = try await Detector.loadModel(from: url, demo: demo)
 		}
 		catch {
-			Logger.configuration.logError("Failed to load demo detector model: \(error.localizedDescription, privacy: .public)")
+			Logger.configuration.logError("Failed to load demo detector model: \(error.localizedDescription)")
 			return
 		}
 
@@ -162,6 +162,6 @@ final class AppState: ObservableObject {
 		configuration.entityId = id
 		configuration.enabled = false
 		DeepConfiguration.save(in: self.dataController.container.viewContext)
-		Logger.configuration.logInfo("Demo configuration created successfully for \(url.lastPathComponent, privacy: .public)")
+		Logger.configuration.logInfo("Demo configuration created successfully for \(url.lastPathComponent)")
 	}
 }

@@ -37,7 +37,7 @@ actor Detector: DeepDriver {
 			selectedSymbol: configuration.selectedSymbol,
 			demo: configuration.demo
 		)
-		Logger.drivers.logDebug("Detector initialized with ID \(entityId.uuidString, privacy: .public)")
+		Logger.drivers.logDebug("Detector initialized with ID \(entityId.uuidString)")
 	}
 
 	func metadata() -> [MLModelMetadataKey : Any]? {
@@ -50,14 +50,14 @@ actor Detector: DeepDriver {
 			throw DetectorError.loadError
 		}
 		
-		Logger.drivers.logInfo("Loading detector model from \(path.absoluteString, privacy: .public)")
+		Logger.drivers.logInfo("Loading detector model from \(path.absoluteString)")
 
 		guard let model = try await Self.loadModel(from: path, demo: params.demo) else {
-			Logger.drivers.logError("Failed to load ML model from \(path.absoluteString, privacy: .public)")
+			Logger.drivers.logError("Failed to load ML model from \(path.absoluteString)")
 			throw DetectorError.loadError
 		}
 		
-		Logger.drivers.logInfo("Model successfully loaded from \(path.lastPathComponent, privacy: .public)")
+		Logger.drivers.logInfo("Model successfully loaded from \(path.lastPathComponent)")
 		objectDetectionModel = try VNCoreMLModel(for: model)
 
 		guard let detecionModel = objectDetectionModel else {
@@ -68,7 +68,7 @@ actor Detector: DeepDriver {
 			guard let self = self else { return }
 			Task {
 				if let error = error {
-					Logger.drivers.logError("Object detection request failed: \(error.localizedDescription, privacy: .public)")
+					Logger.drivers.logError("Object detection request failed: \(error.localizedDescription)")
 					DefaultCrashReporter.shared.recordError(error, context: ["operation": "detection"])
 					return
 				}
@@ -114,7 +114,7 @@ actor Detector: DeepDriver {
 		do {
 			try handler?.perform([detectionRequest])
 		} catch {
-			Logger.drivers.logError("Failed to perform detection: \(error.localizedDescription, privacy: .public)")
+			Logger.drivers.logError("Failed to perform detection: \(error.localizedDescription)")
 			DefaultCrashReporter.shared.recordError(error, context: ["operation": "performDetection"])
 		}
 	}
