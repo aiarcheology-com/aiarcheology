@@ -61,7 +61,7 @@ Use appropriate log levels based on the significance and audience:
 - **Example**: "Core Data persistent store failed to load"
 
 ### `.critical`
-- **Purpose**: Critical failures, invariant violations, imminent crashes. Higher severit than .fault.
+- **Purpose**: Critical failures, invariant violations, imminent crashes. Higher severity than .fault.
 - **Visible**: Development and production
 - **Example**: "Core Data persistent store failed to load"
 
