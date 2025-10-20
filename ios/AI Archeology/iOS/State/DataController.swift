@@ -20,10 +20,10 @@ final class DataController: ObservableObject {
 		container.loadPersistentStores { description, error in
 			if let error = error {
 				// Core Data failure is a critical error that compromises all app functionality
-				Logger.persistence.fault("Core Data failed to load persistent store: \(error.localizedDescription, privacy: .public)")
+				Logger.persistence.logFault("Core Data failed to load persistent store: \(error.localizedDescription)")
 				LoggingPolicy.criticalFailure("Core Data persistent store failed to load: \(error.localizedDescription)")
 			} else {
-				Logger.persistence.info("Core Data persistent store loaded successfully: \(description.description, privacy: .public)")
+				Logger.persistence.logInfo("Core Data persistent store loaded successfully: \(description.description)")
 			}
 		}
 	}

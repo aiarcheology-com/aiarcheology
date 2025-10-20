@@ -50,23 +50,23 @@ final class DefaultCrashReporter: CrashReporter {
         if let context = context {
             contextString = context.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
         }
-        Logger.app.error("Non-fatal error recorded: \(error.localizedDescription, privacy: .public) context: \(contextString, privacy: .public)")
+        Logger.app.logError("Non-fatal error recorded: \(error.localizedDescription) context: \(contextString)")
     }
     
     func recordBreadcrumb(_ message: String, level: BreadcrumbLevel) {
         switch level {
         case .debug:
-            Logger.app.debug("Breadcrumb: \(message, privacy: .public)")
+            Logger.app.logDebug("Breadcrumb: \(message)")
         case .info:
-            Logger.app.info("Breadcrumb: \(message, privacy: .public)")
+            Logger.app.logInfo("Breadcrumb: \(message)")
         case .warning:
-            Logger.app.warning("Breadcrumb: \(message, privacy: .public)")
+            Logger.app.logWarning("Breadcrumb: \(message)")
         case .error:
-            Logger.app.error("Breadcrumb: \(message, privacy: .public)")
+            Logger.app.logError("Breadcrumb: \(message)")
         }
     }
     
     func setCustomValue(_ value: String, forKey key: String) {
-        Logger.app.debug("Custom attribute set: \(key, privacy: .public)=\(value, privacy: .public)")
+        Logger.app.logDebug("Custom attribute set: \(key)=\(value)")
     }
 }

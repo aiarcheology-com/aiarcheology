@@ -21,7 +21,7 @@ enum LoggingPolicy {
     /// - Verbose diagnostic information
     /// - Development-only messages
     static func debug(_ message: String, logger: Logger = .app) {
-        logger.debug("\(message, privacy: .public)")
+        logger.logDebug(message)
     }
     
     /// Use `.info` or `.notice` for:
@@ -30,7 +30,7 @@ enum LoggingPolicy {
     /// - Non-critical updates
     /// - Lifecycle events
     static func info(_ message: String, logger: Logger = .app) {
-        logger.info("\(message, privacy: .public)")
+        logger.logInfo(message)
     }
     
     /// Use `.warning` for:
@@ -38,7 +38,7 @@ enum LoggingPolicy {
     /// - Retry operations
     /// - Unexpected but recoverable conditions
     static func warning(_ message: String, logger: Logger = .app) {
-        logger.warning("\(message, privacy: .public)")
+        logger.logWarning(message)
     }
     
     /// Use `.error` for:
@@ -47,9 +47,9 @@ enum LoggingPolicy {
     /// - Network errors
     static func error(_ message: String, error: Error? = nil, logger: Logger = .app) {
         if let error = error {
-            logger.error("\(message, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            logger.logError("\(message): \(error.localizedDescription)")
         } else {
-            logger.error("\(message, privacy: .public)")
+            logger.logError(message)
         }
     }
     
@@ -59,7 +59,7 @@ enum LoggingPolicy {
     /// - Critical data corruption
     /// - Conditions that will lead to a crash
     static func fault(_ message: String, logger: Logger = .app) {
-        logger.fault("\(message, privacy: .public)")
+        logger.logFault(message)
     }
     
     // MARK: - Crash Policy
@@ -72,7 +72,7 @@ enum LoggingPolicy {
         line: UInt = #line
     ) -> Never {
         let fileName = (filePath as NSString).lastPathComponent
-        Logger.app.fault("CRITICAL FAILURE at \(fileName, privacy: .public):\(line): \(message, privacy: .public)")
+        Logger.app.logFault("CRITICAL FAILURE at \(fileName):\(line): \(message)")
         preconditionFailure(message, file: file, line: line)
     }
     
@@ -81,10 +81,10 @@ enum LoggingPolicy {
     static func assertionFailure( _ message: String, file: StaticString = #file, filePath: String = #file, line: UInt = #line) {
         let fileName = (filePath as NSString).lastPathComponent
 #if DEBUG
-        Logger.app.fault("ASSERTION FAILURE at \(fileName, privacy: .public):\(line): \(message, privacy: .public)")
+        Logger.app.logFault("ASSERTION FAILURE at \(fileName):\(line): \(message)")
         Swift.assertionFailure(message, file: file, line: line)
 #else
-        Logger.app.error("Assertion would fail in debug at \(fileName, privacy: .public):\(line): \(message, privacy: .public)")
+        Logger.app.logError("Assertion would fail in debug at \(fileName):\(line): \(message)")
         DefaultCrashReporter.shared.recordError(
             LoggingError.assertionFailure(message),
             context: ["file": fileName, "line": "\(line)"]
@@ -97,8 +97,10 @@ enum LoggingPolicy {
     /// Log sensitive data only in debug builds
     static func debugPrivate(_ message: String, logger: Logger = .app) {
         #if DEBUG
-        logger.debug("\(message, privacy: .public)")
+        logger.logDebug(message)
         #else
+        // In production, use the original debug method with .private privacy
+        // Privacy enforced; timestamp display is controlled by LoggingConfiguration.timestampsEnabled
         logger.debug("\(message, privacy: .private)")
         #endif
     }
