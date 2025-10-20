@@ -194,7 +194,7 @@ guard configuration.entityId != nil else {
 import OSLog
 
 // Use the new log* methods that automatically add timestamps
-Logger.drivers.logInfo("Loading model from \(path.lastPathComponent, privacy: .public)")
+Logger.drivers.logInfo("Loading model from \(path.lastPathComponent)")
 Logger.persistence.logDebug("Fetched \(count) entities")
 Logger.networking.logWarning("Retry attempt \(attemptCount) of \(maxAttempts)")
 ```
