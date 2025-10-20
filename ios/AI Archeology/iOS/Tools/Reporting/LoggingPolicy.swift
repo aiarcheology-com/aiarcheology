@@ -99,7 +99,7 @@ enum LoggingPolicy {
         logger.logDebug(message)
         #else
         // In production, use the original debug method with .private privacy
-        // Since timestamps are only shown in debug, no timestamp needed here
+        // Privacy enforced; timestamp display is controlled by LoggingConfiguration.timestampsEnabled
         logger.debug("\(message, privacy: .private)")
         #endif
     }
