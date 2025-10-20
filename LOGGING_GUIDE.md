@@ -221,7 +221,7 @@ Logger.lifecycle.logInfo("App returning to foreground")
 ### State Transitions
 ```swift
 Logger.state.logInfo("AppState initializing")
-Logger.networking.logInfo("Download state transition: \(oldState.rawValue) → \(newState.rawValue, privacy: .public)")
+Logger.networking.logInfo("Download state transition: \(oldState.rawValue) → \(newState.rawValue)")
 ```
 
 ## Filtering Logs
