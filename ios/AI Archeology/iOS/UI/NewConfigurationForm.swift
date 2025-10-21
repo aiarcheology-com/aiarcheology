@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
+import OSLog
 
 private enum Route: Hashable {
     case downloader(UUID)
@@ -93,8 +94,9 @@ struct NewConfigurationView: View {
             .navigationTitle("New Configuration")
             .navigationBarTitleDisplayMode(.inline)
             .onReceive(deep.$deepStateError) { error in
-                print("❌ DeepState error: \(String(describing: error))")
-                guard error.isNotNil else { return }
+                if let error = error {
+                    Logger.ui.logError("DeepState error in NewConfigurationView: \(error.localizedDescription)")
+                }
             }
             .navigationDestination(for: Route.self) { route in
                 switch route {

@@ -6,6 +6,7 @@
 //
 
 import CoreData
+import OSLog
 
 protocol CoreDataManageable where Self: NSManagedObject {
 	var entityId: UUID? { get }
@@ -19,8 +20,8 @@ protocol CoreDataManageable where Self: NSManagedObject {
 }
 
 extension CoreDataManageable where Self: NSManagedObject {
-		// TODO: pull some repeated lines out
 	static func create(in context: NSManagedObjectContext) -> Self {
+		Logger.persistence.logDebug("Creating new \(String(describing: Self.self)) entity")
 		return Self(context: context)
 	}
 
@@ -31,14 +32,26 @@ extension CoreDataManageable where Self: NSManagedObject {
 		context.performAndWait {
 			do {
 				let objects = try context.fetch(request) as? [Self]
-				assert(objects?.count == 1, "The numbner of instances should be one.")
-				let objectToUpdate = objects?.first
-				if let objectToUpdate {
-					updateClosure(objectToUpdate)
-					Self.save(in: context)
+				guard let count = objects?.count else {
+					Logger.persistence.logError("Failed to fetch objects for update - unexpected nil result for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)")
+					return
 				}
+				
+				if count != 1 {
+					Logger.persistence.logWarning("Expected 1 instance for update but found \(count) for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)")
+				}
+				
+				guard let objectToUpdate = objects?.first else {
+					Logger.persistence.logWarning("No object found to update for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)")
+					return
+				}
+				
+				updateClosure(objectToUpdate)
+				Self.save(in: context)
+				Logger.persistence.logDebug("Successfully updated \(String(describing: Self.self)) entity with ID \(entityId.uuidString)")
 			} catch {
-				assert(false, "Update error: \(error)")
+				Logger.persistence.logError("Update error for \(String(describing: Self.self)): \(error.localizedDescription)")
+				DefaultCrashReporter.shared.recordError(error, context: ["operation": "update", "entityType": String(describing: Self.self)])
 			}
 		}
 	}
@@ -47,20 +60,23 @@ extension CoreDataManageable where Self: NSManagedObject {
 		if context.hasChanges {
 			do {
 				try context.save()
-			} catch let error as NSError {
-				print("CoreData save error: \(error)")
-					// objects, that are not valid, do not save
+				Logger.persistence.logDebug("Successfully saved context changes for \(String(describing: Self.self))")
+			} catch {
+				Logger.persistence.logError("CoreData save error for \(String(describing: Self.self)): \(error.localizedDescription)")
+				DefaultCrashReporter.shared.recordError(error, context: ["operation": "save", "entityType": String(describing: Self.self)])
 			}
 		}
 	}
 
 	static func delete(_ entity: Self, in context: NSManagedObjectContext) {
+		Logger.persistence.logDebug("Deleting \(String(describing: Self.self)) entity")
 		context.delete(entity)
 		do {
 			try context.save()
-		}
-		catch let error {
-			print("Error deleting a single entity: \(error)")
+			Logger.persistence.logDebug("Successfully deleted \(String(describing: Self.self)) entity")
+		} catch {
+			Logger.persistence.logError("Error deleting entity \(String(describing: Self.self)): \(error.localizedDescription)")
+			DefaultCrashReporter.shared.recordError(error, context: ["operation": "delete", "entityType": String(describing: Self.self)])
 		}
 	}
 
@@ -76,8 +92,10 @@ extension CoreDataManageable where Self: NSManagedObject {
 			}
 
 			try context.save()
-		} catch let error as NSError {
-			print("Error deleting all entities: \(error), \(error.userInfo)")
+			Logger.persistence.logInfo("Successfully deleted all \(String(describing: Self.self)) entities")
+		} catch {
+			Logger.persistence.logError("Error deleting all entities \(String(describing: Self.self)): \(error.localizedDescription)")
+			DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteAll", "entityType": String(describing: Self.self)])
 		}
 	}
 
@@ -88,15 +106,17 @@ extension CoreDataManageable where Self: NSManagedObject {
 		context.performAndWait {
 			do {
 				let objects = try context.fetch(request) as? [Self]
-				// Apple: When changes are committed, object will be removed from the uniquing tables. If object has not yet been saved to a persistent store, it is simply removed from the receiver.
-				// assert(objects?.count == 1, "The numbner of instances should be one.")
-				let objectToDelete = objects?.first
-				if let objectToDelete {
-					context.delete(objectToDelete)
-					Self.save(in: context)
+				guard let objectToDelete = objects?.first else {
+					Logger.persistence.logDebug("No object found to delete for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)")
+					return
 				}
+				
+				context.delete(objectToDelete)
+				Self.save(in: context)
+				Logger.persistence.logDebug("Successfully deleted \(String(describing: Self.self)) entity with ID \(entityId.uuidString)")
 			} catch {
-				assert(false, "Deletion error: \(error)")
+				Logger.persistence.logError("Deletion error for \(String(describing: Self.self)): \(error.localizedDescription)")
+				DefaultCrashReporter.shared.recordError(error, context: ["operation": "delete", "entityType": String(describing: Self.self)])
 			}
 		}
 	}
@@ -107,10 +127,16 @@ extension CoreDataManageable where Self: NSManagedObject {
 
 		do {
 			let objects = try context.fetch(request) as? [Self]
-			assert(objects?.count ?? 0 <= 1, "The numbner of instances should be one.")
+			let count = objects?.count ?? 0
+			
+			if count > 1 {
+				Logger.persistence.logWarning("Expected at most 1 instance but found \(count) for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)")
+			}
+			
 			return objects?.first
 		} catch {
-			assert(false, "Error fetching object: \(error)")
+			Logger.persistence.logError("Error fetching object \(String(describing: Self.self)): \(error.localizedDescription)")
+			DefaultCrashReporter.shared.recordError(error, context: ["operation": "select", "entityType": String(describing: Self.self)])
 			return nil
 		}
 	}
@@ -120,9 +146,11 @@ extension CoreDataManageable where Self: NSManagedObject {
 
 		do {
 			let objects = try context.fetch(request) as? [Self]
+			Logger.persistence.logDebug("Fetched \((objects?.count ?? 0)) \(String(describing: Self.self)) entities")
 			return objects ?? []
 		} catch {
-			assert(false, "Error fetching all objects: \(error)")
+			Logger.persistence.logError("Error fetching all objects \(String(describing: Self.self)): \(error.localizedDescription)")
+			DefaultCrashReporter.shared.recordError(error, context: ["operation": "getAll", "entityType": String(describing: Self.self)])
 			return []
 		}
 	}

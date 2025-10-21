@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+import OSLog
 
 struct DocumentPicker: UIViewControllerRepresentable {
 	var usedURLs: [URL]
@@ -65,7 +66,8 @@ struct DocumentPicker: UIViewControllerRepresentable {
 				guard 
 					let destinationDir = FileManager.deepConfigurationDirectory(id: configurationId)
 				else {
-					assert(false, "Destination directory can not be created.")
+                    let id = configurationId.uuidString
+					Logger.ui.logError("Failed to create destination directory for configuration \(id)")
 					return
 				}
 
@@ -78,7 +80,8 @@ struct DocumentPicker: UIViewControllerRepresentable {
 
 				parent.onPick(destinationUrl, configurationId, self)
 			} catch {
-				print("Error copying file: \(error)")
+				Logger.ui.logError("Error copying file from document picker: \(error.localizedDescription)")
+				DefaultCrashReporter.shared.recordError(error, context: ["operation": "documentPickerCopy"])
 			}
 		}
 

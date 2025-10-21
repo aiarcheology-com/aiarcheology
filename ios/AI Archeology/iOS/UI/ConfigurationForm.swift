@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import OSLog
 
 struct ConfigurationDetailRow: View {
 	var label: String
@@ -194,7 +195,7 @@ struct ConfigurationForm: View {
 				configuration.phaseOutTime = 2
 				configuration.selectedSymbol = .circle
 				guard let relativePath = try? url.relativePath(from: DeepConfiguration.rootDirectory) else {
-					assert(false, "Model file is required.")
+					Logger.configuration.logError("Failed to compute relative path for model file")
 					return
 				}
 				configuration.file_ = relativePath
@@ -209,8 +210,8 @@ struct ConfigurationForm: View {
 					deep.saveConfigurations()
 					importResult = .importSucceeded
 				} else {
+					Logger.configuration.logWarning("Configuration validation failed - incomplete data")
 					importResult = .importFailed
-					assert(false, "Not all data are complete in the new deep configuration.")
 				}
 
 				guard let id = configuration.entityId else { return }

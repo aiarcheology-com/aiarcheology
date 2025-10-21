@@ -9,6 +9,7 @@ import Foundation
 import CoreData
 import Combine
 import Network
+import OSLog
 
 enum DownloaderError: Error {
     case invalidObjectInQueue
@@ -74,11 +75,14 @@ public class Downloader: NSObject, ObservableObject {
         self.appState = appState
         
         super.init()
+        Logger.networking.logInfo("Downloader initialized, starting network monitor")
         self.networkMonitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
             switch path.status {
-            case .satisfied: break
+            case .satisfied: 
+                Logger.networking.logDebug("Network connection satisfied")
             default:
+                Logger.networking.logWarning("Network connection issue detected, pausing active downloads")
                 activeDownloads.values.forEach { download in
                     // Fetch the managed object to update error state
                     if let item = DownloadItem.select(download.id, in: self.appState.dataController.container.viewContext) {
@@ -144,7 +148,7 @@ public class Downloader: NSObject, ObservableObject {
     
     func totalBytesExpectedPublisher(for itemId: UUID?) -> AnyPublisher<Int, Never> {
         guard let itemId else {
-            assert(false, "[DL] Expecting a valid item id when getting the progress of the download item.")
+            Logger.networking.logError("Expected valid item id when getting download item progress")
             return Just(0).eraseToAnyPublisher()
         }
         
@@ -192,7 +196,7 @@ public class Downloader: NSObject, ObservableObject {
             cancelDownload(item)
             
         default:
-            assert(false, "Invalid transition from \(item.state) with event \(event)")
+            Logger.networking.logWarning("Invalid download state transition from \(item.state.rawValue) with event \(String(describing: event))")
         }
     }
     
@@ -228,9 +232,11 @@ extension Downloader: URLSessionDownloadDelegate  {
     private func startDownload(_ item: DownloadItem) {
         guard let url = item.url
         else {
-            assert(false, "[DL] There must be a valid url before the download starts.")
+            Logger.networking.logError("Cannot start download: URL is nil for item \(item.entityId?.uuidString ?? "unknown")")
             return
         }
+        
+        Logger.networking.logInfo("Starting download for item \(item.entityId?.uuidString ?? "unknown") from \(url.absoluteString)")
         
         let configuration = URLSessionConfiguration.default
         let operationQueue = OperationQueue()
@@ -242,6 +248,7 @@ extension Downloader: URLSessionDownloadDelegate  {
             let pausedData = pausedDownloads[entityId] {
             downloadTask = session.downloadTask(withResumeData: pausedData)
             pausedDownloads.removeValue(forKey: entityId)
+            Logger.networking.logDebug("Resuming download from paused state")
         } else {
             downloadTask = session.downloadTask(with: url)
         }
@@ -292,15 +299,17 @@ extension Downloader: URLSessionDownloadDelegate  {
             return
         }
         
+        Logger.networking.logDebug("Pausing download for item \(entityId.uuidString)")
+        
         func produceResumeDataByCancellingTask(_ sessionTask: URLSessionDownloadTask) {
             sessionTask.cancel { [weak self] data in
                 guard let self else {
-                    assert(false, "[DL] The Downloader has been unloaded before the task was succesfully paused.")
+                    Logger.networking.logError("Downloader deallocated before task was paused")
                     return
                 }
                 
-                guard let data else { // TODO: find out, why the data are not sometimes available
-                    // assert(false, "[DL] The data to resume the download are not available.")
+                guard let data else {
+                    Logger.networking.logWarning("Resume data not available when pausing download for item \(entityId.uuidString)")
                     return
                 }
                 
@@ -308,10 +317,11 @@ extension Downloader: URLSessionDownloadDelegate  {
             }
         }
         
-        if let task = download.task { // TODO: find out, why the task is beeing dealocated
+        if let task = download.task {
             produceResumeDataByCancellingTask(task)
         }
         else { // fallback, search for the task using stored task taskDescription
+            Logger.networking.logDebug("Download task was deallocated, searching for task via session")
             URLSession.shared.getTasksWithCompletionHandler { sessionDatas, uploadTasks, downloadTasks in
                 download.task = downloadTasks.first(where: { $0.taskDescription ?? "" == download.id.uuidString})
                 guard let task = download.task else { return }
@@ -323,7 +333,7 @@ extension Downloader: URLSessionDownloadDelegate  {
     private func handleDownloadCompletion(for download: ActiveDownload, location: URL) {
         guard let targetDirectory = FileManager.deepConfigurationDirectory(id: download.id)
         else {
-            assert(false, "[DL] Document directory could not be composed.")
+            Logger.networking.logError("Cannot compose document directory for download \(download.id.uuidString)")
             return
         }
         
@@ -331,9 +341,11 @@ extension Downloader: URLSessionDownloadDelegate  {
         guard let item = DownloadItem.select(download.id, in: appState.dataController.container.viewContext),
               let url = item.url
         else {
-            assert(false, "[DL] The item's url property is not initialised.")
+            Logger.networking.logError("Download item URL not initialized for \(download.id.uuidString)")
             return
         }
+        
+        Logger.networking.logInfo("Download completed for item \(download.id.uuidString), moving to target directory")
         
         do {
             try Self.createDirectoryIfNeeded(at: targetDirectory)
@@ -347,7 +359,7 @@ extension Downloader: URLSessionDownloadDelegate  {
             try FileManager.default.moveItem(at: location, to: targetPath)
             
             guard let relativePath = try? targetPath.relativePath(from: DownloadItem.rootDirectory) else {
-                assert(false, "Model file is required.")
+                Logger.networking.logError("Could not construct relative path for downloaded model")
                 return
             }
             
@@ -355,9 +367,10 @@ extension Downloader: URLSessionDownloadDelegate  {
             // Save final progress/bytes values to Core Data for non-active display
             Downloader.persistDownloadState(from: download, to: item)
             transitionAndSave(item, to: .complete)
+            Logger.networking.logInfo("Download successfully saved to \(fileName)")
             
-        } catch let error {
-            print("error: \(error)")
+        } catch {
+            Logger.networking.logError("Download completion failed: \(error.localizedDescription)")
             item.error = error.localizedDescription
             // Save final progress/bytes values even on failure
             Downloader.persistDownloadState(from: download, to: item)
@@ -386,9 +399,8 @@ extension Downloader: URLSessionDownloadDelegate  {
             let entityId = UUID(uuidString: entityIdString),
             let download = self.activeDownloads[entityId]
         else {
-            // assert(false, "The task identifier has to be defined before the download can succeed.")
-            
             // Fallback to the initial state. User can still delete the download item in the list.
+            Logger.networking.logWarning("Download task completed but identifier not found or invalid")
             DispatchQueue.main.async { [weak self] in
                 if    let self,
                       let entityIdString = task.taskDescription,
@@ -403,6 +415,7 @@ extension Downloader: URLSessionDownloadDelegate  {
         // Fetch the managed object to update state and error
         guard let item = DownloadItem.select(download.id, in: appState.dataController.container.viewContext)
         else {
+            Logger.networking.logWarning("Download item not found in Core Data for \(download.id.uuidString)")
             DispatchQueue.main.async { [weak self] in
                 self?.activeDownloads.removeValue(forKey: download.id)
             }
@@ -413,6 +426,7 @@ extension Downloader: URLSessionDownloadDelegate  {
             let error = error as? NSError {
             switch error.code {
             case NSURLErrorCancelled:
+                Logger.networking.logDebug("Download cancelled for item \(download.id.uuidString)")
                 // Save current progress/bytes values before transitioning state
                 Downloader.persistDownloadState(from: download, to: item)
                 if pausedDownloads[entityId].isNotNil {
@@ -422,12 +436,14 @@ extension Downloader: URLSessionDownloadDelegate  {
                     transitionAndSave(item, to: .cancelled)
                 }
             case NSURLErrorNotConnectedToInternet:
+                Logger.networking.logError("Download failed due to no internet connection for item \(download.id.uuidString)")
                 item.error = "Check your connection and restart download. " + error.localizedDescription
                 // Save current progress/bytes values before transitioning state
                 Downloader.persistDownloadState(from: download, to: item)
                 transitionAndSave(item, to: .failed)
                 
-            default: break
+            default: 
+                Logger.networking.logError("Download error \(error.code) for item \(download.id.uuidString): \(error.localizedDescription)")
             }
             
             DispatchQueue.main.async { [weak self] in
@@ -441,6 +457,7 @@ extension Downloader: URLSessionDownloadDelegate  {
             return
         }
         
+        Logger.networking.logError("Download failed for item \(download.id.uuidString): \(error.localizedDescription)")
         item.error = error.localizedDescription
         // Save current progress/bytes values before transitioning state
         Downloader.persistDownloadState(from: download, to: item)
@@ -463,7 +480,7 @@ extension Downloader: URLSessionDownloadDelegate  {
             let entityId = UUID(uuidString: entityIdString),
             let download = self.activeDownloads[entityId]
         else {
-            assert(false, "The task identifier has to be defined before the download can succeed.")
+            Logger.networking.logError("Download task identifier not defined or invalid during progress update")
             return
         }
         
@@ -482,10 +499,11 @@ extension Downloader: URLSessionDownloadDelegate  {
             let entityId = UUID(uuidString: entityIdString),
             let download = self.activeDownloads[entityId]
         else {
-            assert(false, "The task identifier has to be defined before the download can succeed.")
+            Logger.networking.logError("Download task identifier not defined or invalid on completion")
             return
         }
         
+        Logger.networking.logInfo("Download finished for item \(entityId.uuidString)")
         handleDownloadCompletion(for: download, location: location)
     }
     
@@ -511,8 +529,10 @@ extension DownloadItem: CoreDataManageable {
             if FileManager.default.fileExists(atPath: modelPath.path) {
                 do {
                     try FileManager.default.removeItem(at: modelPath)
-                } catch let error {
-                    print("[DI] There was an error during the model file deletion \(entity.entityId?.uuidString ?? "unknown"): \(error)")
+                    Logger.networking.logDebug("Model file deleted for download item \(entity.entityId?.uuidString ?? "unknown")")
+                } catch {
+                    Logger.networking.logError("Error deleting model file for download item \(entity.entityId?.uuidString ?? "unknown"): \(error.localizedDescription)")
+                    DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteDownloadModel", "itemId": entity.entityId?.uuidString ?? "unknown"])
                 }
             }
         }
@@ -521,7 +541,7 @@ extension DownloadItem: CoreDataManageable {
     
     func doesModelFileExist() -> Bool {
         guard let modelPath = file else {
-            assert(false, "[DI] Expecting a file value in the download item, but it is nil.")
+            Logger.networking.logWarning("Expected file value in download item but it is nil")
             return false
         }
         return FileManager.default.fileExists(atPath: modelPath.path)

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 extension String {
     var withHTTPS: String {
@@ -79,9 +80,14 @@ extension String {
 
         if let url = URL(string: modifiedInput), let _ = url.host, url.scheme == "http" || url.scheme == "https" {
             // Regular Expression for URL validation
-            let regex = try! NSRegularExpression(pattern: "((https?|ftp):\\/\\/)?(www\\.)?[\\w\\-._~:\\/?#\\[\\]@!$&'()*+,;=%]+", options: .caseInsensitive)
-            if regex.firstMatch(in: modifiedInput, options: [], range: NSRange(location: 0, length: modifiedInput.count)) != nil {
-                return .url
+            do {
+                let regex = try NSRegularExpression(pattern: "((https?|ftp):\\/\\/)?(www\\.)?[\\w\\-._~:\\/?#\\[\\]@!$&'()*+,;=%]+", options: .caseInsensitive)
+                if regex.firstMatch(in: modifiedInput, options: [], range: NSRange(location: 0, length: modifiedInput.count)) != nil {
+                    return .url
+                }
+            } catch {
+                Logger.app.logError("URL regex pattern failed to compile: \(error.localizedDescription)")
+                // Fall through to return .searchTerm if regex fails
             }
         }
 

@@ -9,6 +9,7 @@
 import UIKit
 import SwiftUI
 import Vision
+import OSLog
 
 public enum DeepDriverType: String {
 	case detector = "detect"
@@ -44,13 +45,14 @@ extension DeepDriver {
 		let compiledModelURL = demo ? path : try await MLModel.compileModel(at: path)
 
 		do {
+			Logger.drivers.logDebug("Loading MLModel from \(compiledModelURL.lastPathComponent)")
 			return try MLModel(contentsOf: compiledModelURL, configuration: modelConfiguration)
 		}
-		catch let error {
-			print("Error while loading the MLModel: \(error)")
+		catch {
+			Logger.drivers.logError("Error loading MLModel: \(error.localizedDescription)")
+			DefaultCrashReporter.shared.recordError(error, context: ["operation": "loadMLModel", "path": compiledModelURL.lastPathComponent])
+			return nil
 		}
-
-		return nil
 	}
 	func updateConfiguration(_ newConfiguration: DeepConfiguration) async {
 		self.params = DeepDriverParams(
@@ -60,6 +62,7 @@ extension DeepDriver {
 			phaseOutTime: newConfiguration.phaseOutTime,
 			selectedSymbol: newConfiguration.selectedSymbol
 		)
+		Logger.drivers.logDebug("Configuration updated for driver \(newConfiguration.entityId?.uuidString ?? "unknown")")
 	}
 }
 
@@ -91,11 +94,13 @@ class DeepDrivers: ObservableObject {
 
 	func update(configuration: DeepConfiguration) {
         guard let entityId = configuration.entityId else {
-            assertionFailure("Configuration.entityId is nil.")
+            Logger.drivers.logError("Cannot update driver: Configuration.entityId is nil")
             return
         }
 		let drivers = (detectors + classificators).filter { $0.id == entityId }
-		assert(drivers.count < 2, "There are more drivers to update with the same configuration.entityId.")
+		if drivers.count >= 2 {
+			Logger.drivers.logWarning("Multiple drivers found with same configuration.entityId: \(entityId.uuidString)")
+		}
 		Task {
 			await drivers.first?.updateConfiguration(configuration)
 		}

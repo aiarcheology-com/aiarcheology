@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import OSLog
 
 struct WebScreen: Screen {
 	@ViewBuilder
@@ -75,7 +76,10 @@ var body: some View {
 		MLWebView(websiteUrl, lastPage: { urlPage in
 			appState.settings.lastPage = urlPage
 		}) { loading, error in
-				print("loading status : \(loading)")
+			Logger.ui.logDebug("WebView loading status changed: \(loading ? "loading" : "loaded")")
+			if let error = error {
+				Logger.ui.logError("WebView loading error: \(error.localizedDescription)")
+			}
 		}
 		.equatable()
 	}
@@ -175,9 +179,9 @@ var body: some View {
 		do {
 			try newHistorEntry.validateForInsert()
 		}
-		catch let error {
+		catch {
 			WebHistoryEntry.delete(newHistorEntry, in: moc)
-			assert(false, "The new web history entry is not valid and can not be stored \(error)" )
+			Logger.state.logError("Web history entry validation failed: \(error.localizedDescription)")
 			return
 		}
 		WebHistoryEntry.save(in: moc)

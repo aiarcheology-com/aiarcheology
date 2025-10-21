@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Vision
+import OSLog
 
 
 // Responsible for keeping the data consistency across the app
@@ -24,11 +25,13 @@ final class AppState: ObservableObject {
 	lazy var downloader = Downloader(appState: self)
 
 	init() {
+		Logger.state.logInfo("AppState initializing")
 		createDemoEntities()
 	}
 
 	func createDemoEntities() {
 		if settings.isFirstLaunch {
+			Logger.app.logInfo("First launch detected, creating demo entities")
 			settings.isFirstLaunchMarked = true
 			settings.isFirstLaunch = false
 
@@ -49,6 +52,7 @@ final class AppState: ObservableObject {
 	}
 
 	func deleteBrowsingHistory() {
+		Logger.state.logInfo("Deleting all browsing history")
 		WebHistoryEntry.deleteAll(in: dataController.container.viewContext, executeAndMerge: true)
 	}
 
@@ -57,6 +61,7 @@ final class AppState: ObservableObject {
 		let history = WebHistoryEntry.getAll(in: dataController.container.viewContext)
 		guard history.isEmpty, settings.isFirstLaunchMarked else { return }
 
+		Logger.state.logInfo("Creating initial browsing history with demo pages")
 		let pages: [String] = [
 			"https://windrosen.hessen.de/mapapps/resources/apps/windrosen/index.html?lang=en&vm=2D&s=1500000&r=0&c=550000%2C5595000&bm=orthofotos_schummerung",
 			"https://zbgis.skgeodesy.sk/mkzbgis/sk/teren",
@@ -75,9 +80,9 @@ final class AppState: ObservableObject {
 			do {
 				try newHistorEntry.validateForInsert()
 			}
-			catch let error {
+			catch {
 				WebHistoryEntry.delete(newHistorEntry, in: dataController.container.viewContext)
-				assert(false, "The new web history entry is not valid and can not be stored \(error)" )
+				Logger.state.logError("Web history entry validation failed: \(error.localizedDescription)")
 				return
 			}
 
@@ -91,7 +96,7 @@ final class AppState: ObservableObject {
 		Task {
 				// Warning: models are used as mlmodelc in the bundle when handled from xcode
 			guard let urlInBundle = Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") else {
-				assert(false, "Can not locate the model demo file in the bundle.")
+				Logger.configuration.logError("Cannot locate AIArcheology demo model in bundle")
 				return
 			}
 
@@ -103,7 +108,7 @@ final class AppState: ObservableObject {
 		Task {
 				// Warning: models are used as mlmodelc in the bundle when handled from xcode
 			guard let urlInBundle = Bundle.main.url(forResource: "HroudaDetector15", withExtension: "mlmodelc") else {
-				assert(false, "Can not locate the model demo file in the bundle.")
+				Logger.configuration.logError("Cannot locate HroudaDetector15 demo model in bundle")
 				return
 			}
 
@@ -119,10 +124,11 @@ final class AppState: ObservableObject {
 		}
 
 		guard let url = URL(string: urlToPossibleDirectory) else {
-			assert(false, "Error in creating URL from string.")
+			Logger.configuration.logError("Failed to create URL from string for demo model")
 			return
 		}
 
+		Logger.configuration.logInfo("Loading demo model from \(url.lastPathComponent)")
 
 		let id = UUID()
 		var detector: MLModel?
@@ -132,11 +138,14 @@ final class AppState: ObservableObject {
 			detector = try await Detector.loadModel(from: url, demo: demo)
 		}
 		catch {
-			assert(false, "Demo detector can not be loaded.")
+			Logger.configuration.logError("Failed to load demo detector model: \(error.localizedDescription)")
 			return
 		}
 
-		guard let metadata = detector?.modelDescription.metadata else { return }
+		guard let metadata = detector?.modelDescription.metadata else { 
+			Logger.configuration.logWarning("Demo model loaded but has no metadata")
+			return 
+		}
 		let parser = MLModelMetadataParser(metadata: metadata)
 
 		let configuration = DeepConfiguration.create(in: dataController.container.viewContext)
@@ -153,5 +162,6 @@ final class AppState: ObservableObject {
 		configuration.entityId = id
 		configuration.enabled = false
 		DeepConfiguration.save(in: self.dataController.container.viewContext)
+		Logger.configuration.logInfo("Demo configuration created successfully for \(url.lastPathComponent)")
 	}
 }
