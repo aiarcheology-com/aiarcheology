@@ -13,6 +13,8 @@ import UIKit
 // The application does not support the classification yet.
 // But the driver can be already loaded, but it does nothing.
 actor Classificator: DeepDriver {
+    // Swift 6: Use nonisolated(unsafe) for immutable value types that need cross-isolation access
+    // This is safe because UUID is a value type and 'let' ensures immutability after initialization
     nonisolated(unsafe) let id: UUID
 
 	internal var params: DeepDriverParams = DeepDriverParams()

@@ -17,6 +17,8 @@ enum DetectorError: Error {
 }
 
 actor Detector: DeepDriver {
+    // Swift 6: Use nonisolated(unsafe) for immutable value types that need cross-isolation access
+    // This is safe because UUID is a value type and 'let' ensures immutability after initialization
     nonisolated(unsafe) let id: UUID
 	private var objectDetectionModel: VNCoreMLModel?
 	private var detectionRequest: VNCoreMLRequest?
