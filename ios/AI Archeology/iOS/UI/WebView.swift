@@ -14,7 +14,7 @@ import Vision
 import OSLog
 
 @available(iOS 13, *)
-public struct MLWebView: UIViewRepresentable, WebViewRenderable, Equatable {
+public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @MainActor Equatable {
 	@EnvironmentObject var webViewRenderer: WebViewRenderer
     var urlString: String
     var loadStatusChanged: ((Bool, Error?) -> Void)? = nil

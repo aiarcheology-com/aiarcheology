@@ -13,6 +13,7 @@ import OSLog
 
 // Responsible for keeping the data consistency across the app
 // and setting up the demo structures.
+@MainActor
 final class AppState: ObservableObject {
 	lazy var guide = Guide(appState: self)
 	lazy var snap = SnapState(appState: self)

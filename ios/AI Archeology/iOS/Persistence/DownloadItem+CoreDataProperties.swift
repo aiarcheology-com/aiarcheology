@@ -16,7 +16,7 @@ extension DownloadItem {
         return NSFetchRequest<DownloadItem>(entityName: "DownloadItem")
     }
 
-    @NSManaged public var entityId: UUID?
+    @NSManaged public var entityId: UUID
     @NSManaged public var error: String?
     @NSManaged public var file_: URL?
     @NSManaged public var progress: Double

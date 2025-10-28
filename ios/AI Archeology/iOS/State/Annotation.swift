@@ -14,3 +14,5 @@ public enum AnnotationSymbol: String, CaseIterable, Identifiable {
 
 	public var id: String { self.rawValue }
 }
+
+extension AnnotationSymbol: @unchecked Sendable {}

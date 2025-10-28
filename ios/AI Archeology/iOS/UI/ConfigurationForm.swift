@@ -96,8 +96,7 @@ struct ConfigurationForm: View {
 					} else /* isNewConfiguration */ {
 						let usedFiles = deep.allConfigurations().compactMap { $0.file }
 
-						NewConfigurationView(
-							usedFiles: usedFiles) { url, id, provider in
+						NewConfigurationView(usedFiles: usedFiles) { url, id, provider in
 								updateConfiguration(with: url, id: id, provider: provider)
 						}
 					}
@@ -124,7 +123,7 @@ struct ConfigurationForm: View {
 					if isValidConfiguration {
 						deep.saveConfigurations()
 					} else {
-						let editingConfiguration = configuration.entityId?.uuidString.isEmpty == false
+						let editingConfiguration = configuration.entityId.uuidString.isEmpty == false
 						guard editingConfiguration.not else {
 							dismiss()
 							return
@@ -146,7 +145,7 @@ struct ConfigurationForm: View {
 	}
 
 	private func isCompleteConfiguration() -> Bool {
-		configuration.entityId.isNotNil && configuration.entityId?.uuidString.isEmpty == false
+		configuration.entityId.uuidString.isEmpty == false
 	}
 
 	private func validateConfiguration() {
@@ -214,7 +213,7 @@ struct ConfigurationForm: View {
 					importResult = .importFailed
 				}
 
-				guard let id = configuration.entityId else { return }
+				let id = configuration.entityId
 				provider.result(importResult, id: id)
 			}
 		}

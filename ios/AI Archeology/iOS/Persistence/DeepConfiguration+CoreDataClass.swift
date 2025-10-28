@@ -11,5 +11,8 @@ import CoreData
 
 @objc(DeepConfiguration)
 final public class DeepConfiguration: NSManagedObject {
-
+    @nonobjc public override func awakeFromInsert() {
+        super.awakeFromInsert()
+        self.entityId = UUID()
+    }
 }

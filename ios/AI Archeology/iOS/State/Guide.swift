@@ -26,7 +26,7 @@ final class Guide: ObservableObject {
 		presentedSideMenu.toggle()
 	}
 
-	func ontheflyDetectionResetTapped() {
+    @MainActor func ontheflyDetectionResetTapped() {
 		if ontheflyDetectionEnabled {
 			appState.snap.stopTimer()
 			appState.snap.startTimer()
@@ -38,7 +38,7 @@ final class Guide: ObservableObject {
 		addressBarMenu = []
 	}
 
-	func ontheflyDetectionTapped() {
+    @MainActor func ontheflyDetectionTapped() {
 		ontheflyDetectionEnabled.toggle()
 		if ontheflyDetectionEnabled {
 			appState.snap.startTimer()
@@ -51,7 +51,7 @@ final class Guide: ObservableObject {
 		presentSettings = true
 	}
 
-	func resetApplication() {
+    @MainActor func resetApplication() {
 		if appState.guide.ontheflyDetectionEnabled {
 			appState.guide.ontheflyDetectionTapped()
 		}

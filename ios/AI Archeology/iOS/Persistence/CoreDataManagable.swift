@@ -9,7 +9,7 @@ import CoreData
 import OSLog
 
 protocol CoreDataManageable where Self: NSManagedObject {
-	var entityId: UUID? { get }
+	var entityId: UUID { get }
 	static func create(in context: NSManagedObjectContext) -> Self
 	static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: (Self) -> Void)
 	static func deleteAll(in context: NSManagedObjectContext, executeAndMerge: Bool)

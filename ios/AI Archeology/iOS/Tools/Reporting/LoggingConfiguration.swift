@@ -10,6 +10,7 @@ import Foundation
 /// Configuration for logging behavior across the application
 enum LoggingConfiguration {
     /// Whether to include timestamps in log messages
+    @MainActor
     static var timestampsEnabled: Bool = true
     
     /// Format for timestamps in log messages
@@ -35,6 +36,7 @@ enum LoggingConfiguration {
     }
     
     /// Current timestamp format to use
+    @MainActor
     static var timestampFormat: TimestampFormat = .iso8601WithMilliseconds
 }
 

@@ -9,7 +9,8 @@ import Foundation
 import MessageUI
 import OSLog
 
-class EmailController: NSObject, MFMailComposeViewControllerDelegate {
+@MainActor
+final class EmailController: NSObject, @MainActor MFMailComposeViewControllerDelegate {
 	public static let shared = EmailController()
 	private override init() { }
 

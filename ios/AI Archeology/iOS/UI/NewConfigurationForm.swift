@@ -21,7 +21,7 @@ struct NewConfigurationView: View {
     @State private var path: [Route] = []
     @State private var presented: Route? = nil
     let usedFiles: [URL]
-    let onConfigurationChanged: (URL, UUID, ModelProvider) -> Void
+    let onConfigurationChanged: (URL ModelProvider) -> Void
     private let allowedTypes: [UTType] = [
         UTType("com.apple.coreml.model"),
         UTType("com.apple.coreml.package")
@@ -101,8 +101,8 @@ struct NewConfigurationView: View {
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .downloader(let configId):
-                    DownloaderView(configurationId: configId) { url, newId, provider in
-                        onConfigurationChanged(url, newId, provider)
+                    DownloaderView(configurationId: configId) { url, provider in
+                        onConfigurationChanged(url, provider)
                         DispatchQueue.main.async { dismiss() }
                     }
                 case .importer:
@@ -121,8 +121,7 @@ struct NewConfigurationView: View {
                 switch result {
                 case .success(let urls):
                     if let url = urls.first {
-                        let newConfigurationId = UUID()
-                        onConfigurationChanged(url, newConfigurationId, NoopProvider())
+                        onConfigurationChanged(url, NoopProvider())
                         DispatchQueue.main.async { dismiss() }
                     }
                 case .failure:

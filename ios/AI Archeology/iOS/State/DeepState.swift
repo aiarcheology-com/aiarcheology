@@ -15,6 +15,7 @@ import OSLog
 	// Drivers, DeepConfigurations, and DownloadItems have 1:1 relationship, and also
 	// their entities have the same UUID. DeepConfiguations and DownloadItems are kept in CoreData.
 	// Drivers are loaded on-demand in memory and un/registered with toggling the DeepConfiguration.enabled property.
+@MainActor
 final class DeepState: ObservableObject {
 	unowned var appState: AppState
 	var frame: CGRect = .zero
@@ -62,13 +63,14 @@ final class DeepState: ObservableObject {
 		
 		Logger.drivers.logDebug("Creating driver of type \(configuration.modelTypeInternal.rawValue) for configuration \(entityId.uuidString)")
 		
-		switch configuration.modelTypeInternal {
-			case .detector: return Detector(configuration: configuration, entityId: entityId)
-			case .classificator: return Classificator(configuration: configuration, entityId: entityId)
-		}
-	}
+        let params = configuration.toDriverParams()
+        switch configuration.modelTypeInternal {
+        case .detector: return Detector(params: params)
+        case .classificator: return Classificator(params: params)
+        }
+    }
 
-		// Actions:
+    // Actions:
 	private func register(driver: any DeepDriver, along: DeepDriverType) {
 		drivers.register(driver: driver, along: along)
 	}
@@ -135,7 +137,9 @@ final class DeepState: ObservableObject {
 	private func observeDeepConfigurationChanges() {
 		deepConfigurationsChanges = NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange, object: context)
 			.sink { [weak self] notification in
-				self?.handleContextChanges(notification)
+                Task { @MainActor in
+                    self?.handleContextChanges(notification)
+                }
 			}
 	}
 
@@ -163,13 +167,17 @@ final class DeepState: ObservableObject {
 					Task {
 						do {
 							try await driver.loadFile()
-							register(driver: driver, along: config.modelTypeInternal)
-							Logger.drivers.logInfo("Driver loaded and registered after configuration insert")
+                            await MainActor.run {
+                                register(driver: driver, along: config.modelTypeInternal)
+                                Logger.drivers.logInfo("Driver loaded and registered after configuration insert")
+                            }
 						}
 						catch {
-							Logger.drivers.logError("Failed to load driver after configuration insert: \(error.localizedDescription)")
-							DefaultCrashReporter.shared.recordError(error, context: ["operation": "insertDriver", "configId": config.entityId?.uuidString ?? "unknown"])
-							deepStateError = error
+                            await MainActor.run {
+                                Logger.drivers.logError("Failed to load driver after configuration insert: \(error.localizedDescription)")
+                                DefaultCrashReporter.shared.recordError(error, context: ["operation": "insertDriver", "configId": config.entityId?.uuidString ?? "unknown"])
+                                deepStateError = error
+                            }
 						}
 					}
 				}
@@ -200,13 +208,17 @@ final class DeepState: ObservableObject {
 					Task {
 						do {
 							try await driver.loadFile()
-							register(driver: driver, along: config.modelTypeInternal)
-							Logger.drivers.logInfo("Driver loaded and registered after configuration update")
+                            await MainActor.run {
+                                register(driver: driver, along: config.modelTypeInternal)
+                                Logger.drivers.logInfo("Driver loaded and registered after configuration update")
+                            }
 						}
 						catch {
-							Logger.drivers.logError("Failed to load driver after configuration update: \(error.localizedDescription)")
-							DefaultCrashReporter.shared.recordError(error, context: ["operation": "updateDriver", "configId": config.entityId?.uuidString ?? "unknown"])
-							deepStateError = error
+                            await MainActor.run {
+                                Logger.drivers.logError("Failed to load driver after configuration update: \(error.localizedDescription)")
+                                DefaultCrashReporter.shared.recordError(error, context: ["operation": "updateDriver", "configId": config.entityId?.uuidString ?? "unknown"])
+                                deepStateError = error
+                            }
 						}
 					}
 				} else {

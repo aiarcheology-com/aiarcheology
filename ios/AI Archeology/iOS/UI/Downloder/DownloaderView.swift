@@ -68,10 +68,7 @@ struct DownloaderView: View {
     }
     
     private func delete(_ item: DownloadItem) {
-        guard let entityId = item.entityId else {
-            assert(false, "No entry has been found after the selection.")
-            return
-        }
+        let entityId = item.entityId
         
         // ifConfig.isNil: The model has not been imported. Remove it.
         // ifConfig.isNotNil: The model has been imported. Keep it.

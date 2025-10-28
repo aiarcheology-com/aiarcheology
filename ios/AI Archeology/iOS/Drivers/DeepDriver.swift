@@ -16,25 +16,42 @@ public enum DeepDriverType: String {
 	case classificator = "classify"
 }
 
-struct DeepDriverParams {
+struct DeepDriverParams : Sendable {
 	var annotationColor: Color = .yellow
-	var entityId: UUID?
+	var entityId: UUID
 	var file: URL?
 	var phaseOutTime: Double = 1.0
 	var selectedSymbol: AnnotationSymbol = .circle
 	var demo: Bool = false
 }
 
+// Custom symbol crosses tasks via params; assert it is safe in this app.
+extension AnnotationSymbol: @unchecked Sendable {}
+
+// Vision result types cross tasks; results are immutable.
+extension VNObservation: @unchecked @retroactive Sendable {}
+extension VNRecognizedObjectObservation: @unchecked Sendable {}
+extension VNClassificationObservation: @unchecked Sendable {}
+
+actor ResultsCollector<T: VNObservation> {
+    var collectedResults = [(observations: [T], params: DeepDriverParams)]()
+    
+    func append(_ result: (observations: [T], params: DeepDriverParams)) {
+        collectedResults.append(result)
+    }
+}
+
 typealias ObservationParams = (observations: [VNObservation], params: DeepDriverParams)
 
-protocol DeepDriver: Driver {
+protocol DeepDriver: Driver, Sendable {
 	var params: DeepDriverParams { get set }
 	var observations: [VNObservation] { get set }
-	func updateConfiguration(_ newConfiguration: DeepConfiguration) async
-	init(configuration: DeepConfiguration, entityId: UUID) // Configuration arg. also contains UUID. But bcs of CoreData it is optional. We want to create a new driver only if the DeepConfiguration is complete, with UUID.
+    init(params: DeepDriverParams)
+	func updateConfiguration(_ params: DeepDriverParams) async
 	func process(image: UIImage) async
 	func loadFile() async throws
 	func run() async
+    func unload() async
 }
 
 extension DeepDriver {
@@ -62,17 +79,18 @@ extension DeepDriver {
 			phaseOutTime: newConfiguration.phaseOutTime,
 			selectedSymbol: newConfiguration.selectedSymbol
 		)
-		Logger.drivers.logDebug("Configuration updated for driver \(newConfiguration.entityId?.uuidString ?? "unknown")")
+		Logger.drivers.logDebug("Configuration updated for driver \(newConfiguration.entityId.uuidString)")
 	}
 }
 
 // Drivers factory
+@MainActor
 class DeepDrivers: ObservableObject {
 	@Published var detectors: [DeepDriver] = []
 	@Published var classificators: [DeepDriver] = []
 
     func register(driver: DeepDriver, along: DeepDriverType) {
-        Task {
+        Task { @MainActor in
             switch along {
             case .detector:
                 let alreadyRegistered = detectors.contains { $0.id == driver.id }
@@ -93,10 +111,7 @@ class DeepDrivers: ObservableObject {
 	}
 
 	func update(configuration: DeepConfiguration) {
-        guard let entityId = configuration.entityId else {
-            Logger.drivers.logError("Cannot update driver: Configuration.entityId is nil")
-            return
-        }
+        let entityId = configuration.entityId
 		let drivers = (detectors + classificators).filter { $0.id == entityId }
 		if drivers.count >= 2 {
 			Logger.drivers.logWarning("Multiple drivers found with same configuration.entityId: \(entityId.uuidString)")
@@ -117,18 +132,30 @@ class DeepDrivers: ObservableObject {
 		}
 	}
 
-	func unload(_ driver: DeepDriverType) async {
-		switch driver {
-			case .detector:
-				await detectors.concurrentForEach { driver in
-					await driver.unload()
-				}
-			case .classificator:
-				await classificators.concurrentForEach { driver in
-					await driver.unload()
-				}
-		}
-	}
+    func unload(_ driver: DeepDriverType) async {
+        switch driver {
+        case .detector:
+            // Snapshot on the main actor
+            let snapshot = detectors
+            await withTaskGroup(of: Void.self) { group in
+                for driver in snapshot {
+                    group.addTask {
+                        await driver.unload()
+                    }
+                }
+            }
+        case .classificator:
+            // Snapshot on the main actor
+            let snapshot = classificators
+            await withTaskGroup(of: Void.self) { group in
+                for driver in snapshot {
+                    group.addTask {
+                        await driver.unload()
+                    }
+                }
+            }
+        }
+    }
 
 		// This is the core function that takes a 2D image and detects objects in the scene.
 		// For that functionality, the driver should be already registered and loaded. That is
