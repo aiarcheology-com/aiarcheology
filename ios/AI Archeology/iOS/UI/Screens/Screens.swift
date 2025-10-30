@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct Screens {
-	@ViewBuilder
+    @MainActor @ViewBuilder
 	static func content(_ mode: AppMode) -> some View {
 		switch mode {
 			case .web:
@@ -18,7 +18,7 @@ struct Screens {
 		}
 	}
 
-	@ViewBuilder
+    @MainActor @ViewBuilder
 	static func barItems(_ mode: AppMode, position: ItemsPosition) -> some View {
 		switch mode {
 			case .web:
@@ -28,7 +28,7 @@ struct Screens {
 		}
 	}
 
-	@ViewBuilder
+    @MainActor @ViewBuilder
 	static func tabItem(_ mode: AppMode, selection: AppMode) -> some View {
 		switch mode {
 			case .web:

@@ -37,10 +37,23 @@ extension WebHistoryEntry {
 			throw ValidationError.creationDateNil
 		}
 
-		guard let pageURL = page, UIApplication.shared.canOpenURL(pageURL) else {
+		guard let pageURL = page, WebHistoryEntry.isValidPageURL(pageURL) else {
 			throw ValidationError.invalidPageURL
 		}
 	}
+    
+    // Pure validation: avoid main-actor-only APIs here.
+    private static func isValidPageURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased() else { return false }
+        switch scheme {
+        case "http", "https":
+            return (url.host?.isEmpty == false)
+        case "file":
+            return url.isFileURL
+        default:
+            return false
+        }
+    }
 }
 
 extension WebHistoryEntry: Comparable {

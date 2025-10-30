@@ -42,7 +42,7 @@ final class AppState: ObservableObject {
 				// and give the context time to be ready
 				try await Task.sleep(nanoseconds: 100_000_000)
 				createDemoConfigurations()
-				createBrowsingHistory()
+				await createBrowsingHistory()
 			}
 		}
 	}
@@ -58,8 +58,8 @@ final class AppState: ObservableObject {
 	}
 
 
-	func createBrowsingHistory() {
-		let history = WebHistoryEntry.getAll(in: dataController.container.viewContext)
+	func createBrowsingHistory() async {
+		let history = WebHistoryEntry.selectAll(in: dataController.container.viewContext)
 		guard history.isEmpty, settings.isFirstLaunchMarked else { return }
 
 		Logger.state.logInfo("Creating initial browsing history with demo pages")
@@ -72,7 +72,7 @@ final class AppState: ObservableObject {
 			"https://ags.cuzk.cz/av/?zvd=dmr5g&rf=GrayscaleHillshade&o=0"
 		]
 
-		pages.forEach { page in
+        for page in pages {
 			let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: dataController.container.viewContext)
 			newHistorEntry.bookmarked = false
 			newHistorEntry.creationDate_ = .now
@@ -84,12 +84,10 @@ final class AppState: ObservableObject {
 			catch {
 				WebHistoryEntry.delete(newHistorEntry, in: dataController.container.viewContext)
 				Logger.state.logError("Web history entry validation failed: \(error.localizedDescription)")
-				return
+                continue
 			}
 
-			DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-				WebHistoryEntry.save(in: self.dataController.container.viewContext)
-			}
+            WebHistoryEntry.save(in: self.dataController.container.viewContext)
 		}
 	}
 
@@ -131,7 +129,6 @@ final class AppState: ObservableObject {
 
 		Logger.configuration.logInfo("Loading demo model from \(url.lastPathComponent)")
 
-		let id = UUID()
 		var detector: MLModel?
 		let demo = true
 
@@ -160,7 +157,6 @@ final class AppState: ObservableObject {
 		configuration.phaseOutTime = 2
 		configuration.selectedSymbol = .circle
 		configuration.file_ = URL(string: url.lastPathComponent)
-		configuration.entityId = id
 		configuration.enabled = false
 		DeepConfiguration.save(in: self.dataController.container.viewContext)
 		Logger.configuration.logInfo("Demo configuration created successfully for \(url.lastPathComponent)")

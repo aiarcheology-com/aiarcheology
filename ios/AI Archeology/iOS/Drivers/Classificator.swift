@@ -14,7 +14,7 @@ import OSLog
 // The application does not support the classification yet.
 // But the driver can be already loaded, but it does nothing.
 actor Classificator: DeepDriver {
-    nonisolated let id: UUID
+    let id: UUID
     var params: DeepDriverParams
     var observations: [VNObservation] = []
 

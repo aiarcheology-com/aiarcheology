@@ -5,49 +5,72 @@
 //  Configuration for logging behavior including timestamps
 //
 
+// Swift
 import Foundation
 
-/// Configuration for logging behavior across the application
+/// Concurrency-safe logging configuration and timestamp formatting (synchronous)
 enum LoggingConfiguration {
-    /// Whether to include timestamps in log messages
-    @MainActor
-    static var timestampsEnabled: Bool = true
-    
-    /// Format for timestamps in log messages
-    enum TimestampFormat {
-        /// ISO 8601 format with milliseconds: "2025-10-20T13:46:05.233Z"
+    enum TimestampFormat: Equatable {
         case iso8601WithMilliseconds
-        
-        /// Custom format string (not yet implemented)
         case custom(String)
-        
-        /// Returns the configured DateFormatter for the format
-        var formatter: DateFormatter {
-            switch self {
-            case .iso8601WithMilliseconds:
-                return ISO8601DateFormatter.logFormatter
-            case .custom(let format):
-                let formatter = DateFormatter()
-                formatter.dateFormat = format
-                formatter.timeZone = TimeZone(identifier: "UTC")
-                return formatter
-            }
-        }
     }
     
-    /// Current timestamp format to use
-    @MainActor
-    static var timestampFormat: TimestampFormat = .iso8601WithMilliseconds
+    // Configuration state protected by a concurrent queue (barrier for writes)
+    private static let queue = DispatchQueue(label: "com.aiarcheology.logging.config", attributes: .concurrent)
+    nonisolated(unsafe) private static var _timestampsEnabled: Bool = true
+    nonisolated(unsafe) private static var _timestampFormat: TimestampFormat = .iso8601WithMilliseconds
+    
+    // MARK: - Mutations (async barrier writes to avoid blocking callers)
+    static func setTimestampsEnabled(_ enabled: Bool) {
+        queue.async(flags: .barrier) { _timestampsEnabled = enabled }
+    }
+    
+    static func setTimestampFormat(_ format: TimestampFormat) {
+        queue.async(flags: .barrier) { _timestampFormat = format }
+    }
+    
+    // MARK: - Reads (synchronous snapshot)
+    static func timestampsEnabled() -> Bool {
+        queue.sync { _timestampsEnabled }
+    }
+    
+    static func timestampFormat() -> TimestampFormat {
+        queue.sync { _timestampFormat }
+    }
+    
+    // MARK: - Synchronous timestamp prefix
+    static func timestampPrefix(now: Date = Date()) -> String {
+        let (enabled, format) = queue.sync { (_timestampsEnabled, _timestampFormat) }
+        guard enabled else { return "" }
+        let formatter = format.threadLocalFormatter()
+        return "\(formatter.string(from: now)) "
+    }
 }
 
-extension ISO8601DateFormatter {
-    /// Shared formatter for log timestamps with millisecond precision
-    /// Cached to avoid repeated initialization overhead
-    static let logFormatter: DateFormatter = {
+private extension LoggingConfiguration.TimestampFormat {
+    // Thread-local formatter per pattern to avoid cross-thread `DateFormatter` access
+    func threadLocalFormatter() -> DateFormatter {
+        let key: String
+        switch self {
+        case .iso8601WithMilliseconds:
+            key = "com.aiarcheology.logging.df.iso8601ms"
+        case .custom(let pattern):
+            key = "com.aiarcheology.logging.df.custom.\(pattern)"
+        }
+        
+        let dict = Thread.current.threadDictionary
+        if let cached = dict[key] as? DateFormatter { return cached }
+        
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        switch self {
+        case .iso8601WithMilliseconds:
+            formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        case .custom(let pattern):
+            formatter.dateFormat = pattern
+        }
         formatter.timeZone = TimeZone(identifier: "UTC")
         formatter.locale = Locale(identifier: "en_US_POSIX")
+        dict[key] = formatter
         return formatter
-    }()
+    }
 }

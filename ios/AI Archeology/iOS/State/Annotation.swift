@@ -15,4 +15,5 @@ public enum AnnotationSymbol: String, CaseIterable, Identifiable {
 	public var id: String { self.rawValue }
 }
 
+// Custom symbol crosses tasks via params; assert it is safe in this app.
 extension AnnotationSymbol: @unchecked Sendable {}

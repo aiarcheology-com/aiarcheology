@@ -259,18 +259,19 @@ final public class Downloader: NSObject, ObservableObject {
     // MARK: Start/Cancel/Pause
     private func startDownload(_ item: DownloadItem) {
         guard let url = item.url else {
-            Logger.networking.logError("Cannot start download: URL is nil for item \(item.entityId?.uuidString ?? "unknown")")
+            Logger.networking.logError("Cannot start download: URL is nil for item \(item.entityId.uuidString)")
             return
         }
         
-        Logger.networking.logInfo("Starting download for item \(item.entityId?.uuidString ?? "unknown") from \(url.absoluteString)")
+        Logger.networking.logInfo("Starting download for item \(item.entityId.uuidString) from \(url.absoluteString)")
         
         let configuration = URLSessionConfiguration.default
         let queue = OperationQueue()
         let session = URLSession(configuration: configuration, delegate: delegateProxy, delegateQueue: queue)
         
         let downloadTask: URLSessionDownloadTask
-        if let entityId = item.entityId, let pausedData = pausedDownloads[entityId] {
+        let entityId = item.entityId
+        if let pausedData = pausedDownloads[entityId] {
             downloadTask = session.downloadTask(withResumeData: pausedData)
             pausedDownloads.removeValue(forKey: entityId)
             Logger.networking.logDebug("Resuming download from paused state")
@@ -278,18 +279,15 @@ final public class Downloader: NSObject, ObservableObject {
             downloadTask = session.downloadTask(with: url)
         }
         
-        downloadTask.taskDescription = item.entityId?.uuidString
+        downloadTask.taskDescription = item.entityId.uuidString
         downloadTask.resume()
         transitionAndSave(item, to: .downloading)
         
-        if let entityId = item.entityId {
-            activeDownloads[entityId] = ActiveDownload(task: downloadTask, itemId: entityId)
-        }
+        activeDownloads[entityId] = ActiveDownload(task: downloadTask, itemId: entityId)
     }
     
     func cancelDownload(_ item: DownloadItem) {
-        guard let entityId = item.entityId else { return }
-        
+        let entityId = item.entityId
         guard let current = activeDownloads[entityId] else {
             if item.state == .paused || item.state == .downloading { transitionAndSave(item, to: .notStarted) }
             return
@@ -311,7 +309,7 @@ final public class Downloader: NSObject, ObservableObject {
     }
     
     func pauseDownload(_ item: DownloadItem) {
-        guard let entityId = item.entityId else { return }
+        let entityId = item.entityId
         guard let download = activeDownloads[entityId] else { return }
         
         Logger.networking.logDebug("Pausing download for item \(entityId.uuidString)")
@@ -515,10 +513,10 @@ extension DownloadItem: CoreDataManageable {
             if FileManager.default.fileExists(atPath: modelPath.path) {
                 do {
                     try FileManager.default.removeItem(at: modelPath)
-                    Logger.networking.logDebug("Model file deleted for download item \(entity.entityId?.uuidString ?? "unknown")")
+                    Logger.networking.logDebug("Model file deleted for download item \(entity.entityId.uuidString)")
                 } catch {
-                    Logger.networking.logError("Error deleting model file for download item \(entity.entityId?.uuidString ?? "unknown"): \(error.localizedDescription)")
-                    DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteDownloadModel", "itemId": entity.entityId?.uuidString ?? "unknown"])
+                    Logger.networking.logError("Error deleting model file for download item \(entity.entityId.uuidString): \(error.localizedDescription)")
+                    DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteDownloadModel", "itemId": entity.entityId.uuidString])
                 }
             }
         }
@@ -591,7 +589,7 @@ extension DownloadItem {
         if url.isNil || url?.absoluteString.isEmpty == true {
             throw validationError(forKey: "url", error: "Model's url is required.")
         }
-        if entityId.isNil || entityId?.uuidString.isEmpty == true {
+        if entityId.uuidString.isEmpty {
             throw validationError(forKey: "entityId", error: "Model's entityId is required.")
         }
     }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24410" systemVersion="24G231" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24411" systemVersion="24G231" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
     <entity name="DeepConfiguration" representedClassName="DeepConfiguration" syncable="YES">
         <attribute name="annotationColor_" optional="YES" attributeType="Binary"/>
         <attribute name="author" optional="YES" attributeType="String"/>
@@ -16,7 +16,7 @@
         <attribute name="selectedSymbol_" optional="YES" attributeType="String"/>
     </entity>
     <entity name="DownloadItem" representedClassName="DownloadItem" syncable="YES">
-        <attribute name="entityId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="entityId" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="error" optional="YES" attributeType="String"/>
         <attribute name="file_" optional="YES" attributeType="URI"/>
         <attribute name="progress" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
@@ -30,7 +30,7 @@
     <entity name="WebHistoryEntry" representedClassName="WebHistoryEntry" syncable="YES">
         <attribute name="bookmarked" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
-        <attribute name="entityId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="entityId" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="page" optional="YES" attributeType="URI"/>
         <attribute name="readyToValidate" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
     </entity>

@@ -50,10 +50,7 @@ struct BrowserHistoryView: View {
 										.tint(.blue)
 
 										Button(role: .destructive, action: {
-											guard let entityId = item.entityId else {
-												assert(false, "No entry has been found after the selection.")
-												return
-											}
+											let entityId = item.entityId
 											WebHistoryEntry.delete(entityId, in: moc)
 										}) {
 											Label("", systemImage: "trash")

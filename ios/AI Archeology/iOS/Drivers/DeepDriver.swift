@@ -25,9 +25,6 @@ struct DeepDriverParams : Sendable {
 	var demo: Bool = false
 }
 
-// Custom symbol crosses tasks via params; assert it is safe in this app.
-extension AnnotationSymbol: @unchecked Sendable {}
-
 // Vision result types cross tasks; results are immutable.
 extension VNObservation: @unchecked @retroactive Sendable {}
 extension VNRecognizedObjectObservation: @unchecked Sendable {}
@@ -46,7 +43,6 @@ typealias ObservationParams = (observations: [VNObservation], params: DeepDriver
 protocol DeepDriver: Driver, Sendable {
 	var params: DeepDriverParams { get set }
 	var observations: [VNObservation] { get set }
-    init(params: DeepDriverParams)
 	func updateConfiguration(_ params: DeepDriverParams) async
 	func process(image: UIImage) async
 	func loadFile() async throws

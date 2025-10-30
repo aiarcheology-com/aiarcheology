@@ -85,10 +85,7 @@ struct SideMenuView: View {
 									.onDelete { offsets in
 										for index in offsets {
 											let configuration = configurations[index]
-											guard let entityId = configuration.entityId else {
-												assert(false, "Trying to delete a configuration without a valid id.")
-												continue
-											}
+                                            let entityId = configuration.entityId
 											DeepConfiguration.delete(entityId, in: moc)
 										}
 									}

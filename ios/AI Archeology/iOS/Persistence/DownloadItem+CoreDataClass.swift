@@ -11,5 +11,8 @@ import CoreData
 
 @objc(DownloadItem)
 final public class DownloadItem: NSManagedObject {
-
+    @nonobjc public override func awakeFromInsert() {
+        super.awakeFromInsert()
+        self.entityId = UUID()
+    }
 }

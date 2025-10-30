@@ -44,7 +44,7 @@ fileprivate final class DetectorVisionRequestProxy: @unchecked Sendable {
 }
 
 actor Detector: DeepDriver {
-    nonisolated let id: UUID
+    let id: UUID
     var params: DeepDriverParams
     private var objectDetectionModel: VNCoreMLModel?
     private var detectionRequest: VNCoreMLRequest?
