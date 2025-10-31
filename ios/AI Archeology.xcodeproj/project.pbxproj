@@ -257,6 +257,8 @@
 		942B1DDA2EA66353005455F9 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		942B1DDE2EA6BF72005455F9 /* LoggingConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingConfiguration.swift; sourceTree = "<group>"; };
 		942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingConfigurationTests.swift; sourceTree = "<group>"; };
+		946A3B602EB3C4B4002CF63C /* MLBrowser_0.1.0.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = MLBrowser_0.1.0.xcdatamodel; sourceTree = "<group>"; };
+		946A3B612EB3C50E002CF63C /* MLBrowser_0.1.1.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = MLBrowser_0.1.1.xcdatamodel; sourceTree = "<group>"; };
 		94713D972EA2F33A00713068 /* ImportHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportHandler.swift; sourceTree = "<group>"; };
 		9489C96D2EA02B0C008C728F /* HostPlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPlatform.swift; sourceTree = "<group>"; };
 		94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OSLog+Extensions.swift"; sourceTree = "<group>"; };
@@ -1270,9 +1272,11 @@
 		8A51D1B92B0B1EA400D2417C /* MLBrowser.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (
+				946A3B612EB3C50E002CF63C /* MLBrowser_0.1.1.xcdatamodel */,
+				946A3B602EB3C4B4002CF63C /* MLBrowser_0.1.0.xcdatamodel */,
 				8A51D1BA2B0B1EA400D2417C /* MLBrowser.xcdatamodel */,
 			);
-			currentVersion = 8A51D1BA2B0B1EA400D2417C /* MLBrowser.xcdatamodel */;
+			currentVersion = 946A3B612EB3C50E002CF63C /* MLBrowser_0.1.1.xcdatamodel */;
 			path = MLBrowser.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;
