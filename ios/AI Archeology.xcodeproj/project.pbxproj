@@ -121,6 +121,8 @@
 		942B1DE02EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DDE2EA6BF72005455F9 /* LoggingConfiguration.swift */; };
 		942B1DE12EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DDE2EA6BF72005455F9 /* LoggingConfiguration.swift */; };
 		942B1DE32EA6BF86005455F9 /* LoggingConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */; };
+		946A3B732EB543BC002CF63C /* FillEntityIdIfNilPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946A3B722EB543BC002CF63C /* FillEntityIdIfNilPolicy.swift */; };
+		946A3B762EB556C5002CF63C /* MLBrowser_original-0.0.1.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = 946A3B752EB556C5002CF63C /* MLBrowser_original-0.0.1.xcmappingmodel */; };
 		94713D982EA2F33E00713068 /* ImportHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94713D972EA2F33A00713068 /* ImportHandler.swift */; };
 		9489C96E2EA02B1A008C728F /* HostPlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9489C96D2EA02B0C008C728F /* HostPlatform.swift */; };
 		94BAD1842EB0ED3D0079869F /* UUID+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BAD1832EB0ED370079869F /* UUID+Extension.swift */; };
@@ -258,8 +260,9 @@
 		942B1DDA2EA66353005455F9 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		942B1DDE2EA6BF72005455F9 /* LoggingConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingConfiguration.swift; sourceTree = "<group>"; };
 		942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingConfigurationTests.swift; sourceTree = "<group>"; };
-		946A3B602EB3C4B4002CF63C /* MLBrowser_0.1.0.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = MLBrowser_0.1.0.xcdatamodel; sourceTree = "<group>"; };
-		946A3B612EB3C50E002CF63C /* MLBrowser_0.1.1.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = MLBrowser_0.1.1.xcdatamodel; sourceTree = "<group>"; };
+		946A3B722EB543BC002CF63C /* FillEntityIdIfNilPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillEntityIdIfNilPolicy.swift; sourceTree = "<group>"; };
+		946A3B742EB55675002CF63C /* MLBrowser_0.0.1.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = MLBrowser_0.0.1.xcdatamodel; sourceTree = "<group>"; };
+		946A3B752EB556C5002CF63C /* MLBrowser_original-0.0.1.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = "MLBrowser_original-0.0.1.xcmappingmodel"; sourceTree = "<group>"; };
 		94713D972EA2F33A00713068 /* ImportHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportHandler.swift; sourceTree = "<group>"; };
 		9489C96D2EA02B0C008C728F /* HostPlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPlatform.swift; sourceTree = "<group>"; };
 		94BAD1832EB0ED370079869F /* UUID+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UUID+Extension.swift"; sourceTree = "<group>"; };
@@ -429,6 +432,7 @@
 		8A6C2F7C2AB9EC5000AB26D4 /* Persistence */ = {
 			isa = PBXGroup;
 			children = (
+				946A3B662EB54217002CF63C /* Migration */,
 				8AC650A82B2B4C8300922648 /* CoreDataManagable.swift */,
 				8AD3A8312B2F02280058E018 /* DownloadItem+CoreDataClass.swift */,
 				8AD3A8322B2F02280058E018 /* DownloadItem+CoreDataProperties.swift */,
@@ -631,6 +635,23 @@
 			path = Reporting;
 			sourceTree = "<group>";
 		};
+		946A3B662EB54217002CF63C /* Migration */ = {
+			isa = PBXGroup;
+			children = (
+				946A3B712EB5430E002CF63C /* 0.0.0-0.1.0 */,
+			);
+			path = Migration;
+			sourceTree = "<group>";
+		};
+		946A3B712EB5430E002CF63C /* 0.0.0-0.1.0 */ = {
+			isa = PBXGroup;
+			children = (
+				946A3B752EB556C5002CF63C /* MLBrowser_original-0.0.1.xcmappingmodel */,
+				946A3B722EB543BC002CF63C /* FillEntityIdIfNilPolicy.swift */,
+			);
+			path = "0.0.0-0.1.0";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -811,6 +832,7 @@
 				8A7740D72B1908DD002E90D9 /* SnapAdjustmentView.swift in Sources */,
 				8A3C366B2B3C594200E5AF2D /* Int+Extensions.swift in Sources */,
 				8AD3A82B2B2EF3320058E018 /* DownloaderView.swift in Sources */,
+				946A3B732EB543BC002CF63C /* FillEntityIdIfNilPolicy.swift in Sources */,
 				8A1328222AF7023D00F119C6 /* Optional+Extensions.swift in Sources */,
 				8A6AE18D2B1BCC48005A5A79 /* WebHistoryEntry+CoreDataClass.swift in Sources */,
 				8A1D49C12ABB87D500C2D7C1 /* Item.swift in Sources */,
@@ -833,6 +855,7 @@
 				8AC650A52B2B4BE200922648 /* DeepConfiguration.swift in Sources */,
 				8A1D49B92ABB87D500C2D7C1 /* FileManagerExtensions.swift in Sources */,
 				8A112CB92ABDE0BB00786384 /* WebView.swift in Sources */,
+				946A3B762EB556C5002CF63C /* MLBrowser_original-0.0.1.xcmappingmodel in Sources */,
 				8AC093E82B3210CA00E455D5 /* DateFormatter+Extension.swift in Sources */,
 				8A1328112AF142FF00F119C6 /* GalleryScreen.swift in Sources */,
 				8AC393BE2B2B9EEF00C9BA57 /* CopiedToClipboardModifier.swift in Sources */,
@@ -1272,11 +1295,10 @@
 		8A51D1B92B0B1EA400D2417C /* MLBrowser.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (
-				946A3B612EB3C50E002CF63C /* MLBrowser_0.1.1.xcdatamodel */,
-				946A3B602EB3C4B4002CF63C /* MLBrowser_0.1.0.xcdatamodel */,
+				946A3B742EB55675002CF63C /* MLBrowser_0.0.1.xcdatamodel */,
 				8A51D1BA2B0B1EA400D2417C /* MLBrowser.xcdatamodel */,
 			);
-			currentVersion = 946A3B612EB3C50E002CF63C /* MLBrowser_0.1.1.xcdatamodel */;
+			currentVersion = 946A3B742EB55675002CF63C /* MLBrowser_0.0.1.xcdatamodel */;
 			path = MLBrowser.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;
