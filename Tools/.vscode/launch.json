@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Tools}",
+            "name": "Debug ProjectTool",
+            "target": "ProjectTool",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug ProjectTool"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Tools}",
+            "name": "Release ProjectTool",
+            "target": "ProjectTool",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release ProjectTool"
+        }
+    ]
+}

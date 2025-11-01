@@ -104,9 +104,6 @@ extension DeepConfiguration {
 		if phaseOutTime < 0.2 {
 			throw validationError(forKey: "phaseOutTime", error: "Model's phaseOutTime is required to be >= 0.")
 		}
-		if entityId.isNil || entityId?.uuidString.isEmpty == true {
-			throw validationError(forKey: "entityId", error: "Model's entityId is required.")
-		}
 	}
 
 	private func validationError(forKey key: String, error: String) -> NSError {
@@ -115,4 +112,19 @@ extension DeepConfiguration {
 			NSLocalizedDescriptionKey: "Validation error - \(key): \(error)"
 		])
 	}
+}
+
+// MARK: - Snapshot helper to avoid sending NSManagedObject across actors
+extension DeepConfiguration {
+    @MainActor
+    func toDriverParams() -> DeepDriverParams {
+        DeepDriverParams(
+            annotationColor: annotationColor,
+            entityId: entityId,
+            file: file,
+            phaseOutTime: phaseOutTime,
+            selectedSymbol: selectedSymbol,
+            demo: demo
+        )
+    }
 }

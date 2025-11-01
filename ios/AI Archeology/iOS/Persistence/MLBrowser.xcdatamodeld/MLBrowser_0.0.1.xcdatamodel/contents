@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24411" systemVersion="24G231" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
+    <entity name="DeepConfiguration" representedClassName="DeepConfiguration" syncable="YES">
+        <attribute name="annotationColor_" optional="YES" attributeType="Binary"/>
+        <attribute name="author" optional="YES" attributeType="String"/>
+        <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="demo" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="enabled" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="entityId" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="file_" optional="YES" attributeType="URI"/>
+        <attribute name="modelDescription" optional="YES" attributeType="String"/>
+        <attribute name="modelType" optional="YES" attributeType="String"/>
+        <attribute name="modelVersion" optional="YES" attributeType="String"/>
+        <attribute name="phaseOutTime" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="readyToValidate" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="selectedSymbol_" optional="YES" attributeType="String"/>
+    </entity>
+    <entity name="DownloadItem" representedClassName="DownloadItem" syncable="YES">
+        <attribute name="entityId" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="error" optional="YES" attributeType="String"/>
+        <attribute name="file_" optional="YES" attributeType="URI"/>
+        <attribute name="progress" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="readyToValidate" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="state_" optional="YES" attributeType="String"/>
+        <attribute name="stateChanged_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="totalBytesExpectedToWrite" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="totalBytesWritten" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="url" optional="YES" attributeType="URI"/>
+    </entity>
+    <entity name="WebHistoryEntry" representedClassName="WebHistoryEntry" syncable="YES">
+        <attribute name="bookmarked" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="entityId" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="page" optional="YES" attributeType="URI"/>
+        <attribute name="readyToValidate" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+    </entity>
+</model>

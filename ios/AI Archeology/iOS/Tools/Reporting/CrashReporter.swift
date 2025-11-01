@@ -40,7 +40,7 @@ enum BreadcrumbLevel: String {
 
 /// Default implementation that logs to OSLog
 /// Replace with actual crash reporting service implementation when needed
-final class DefaultCrashReporter: CrashReporter {
+final class DefaultCrashReporter: CrashReporter, Sendable {
     static let shared = DefaultCrashReporter()
     
     private init() {}

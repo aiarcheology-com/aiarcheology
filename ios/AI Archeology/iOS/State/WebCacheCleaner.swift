@@ -11,7 +11,7 @@ import OSLog
 
 final class WebCacheCleaner {
 
-	class func clean() {
+    @MainActor class func clean() {
 		HTTPCookieStorage.shared.removeCookies(since: Date.distantPast)
 		Logger.state.logInfo("All HTTP cookies deleted")
 

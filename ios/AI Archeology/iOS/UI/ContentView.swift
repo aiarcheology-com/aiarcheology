@@ -50,11 +50,15 @@ struct ContentView: View {
                     ViewContainer( {
                         Screens.content(mode)
                             .onSnapshot { image, frame in
-                                appState.deep.drivers.detect(on: image) { observations in
-                                    detectedObservations = observations
-                                    appState.deep.frame = frame
-                                }
-                            }
+                                let frameCopy = frame
+                                Task { @MainActor in
+                                    appState.deep.drivers.detect(on: image) { observations in
+                                        Task { @MainActor in
+                                            detectedObservations = observations
+                                            appState.deep.frame = frameCopy
+                                        }
+                                    }
+                                }                            }
                             .annotate(from: detectedObservations, withinFrame: appState.deep.frame) { observation, params, parentFrame, geometry  in
                                 AnnotationViewBuilder(observation: observation, geometry: geometry, params: params, showIndentifiers: appState.settings.showIdentifiers)
                             }
@@ -101,7 +105,7 @@ struct ContentView: View {
             SideMenuLogic(isFirstLaunch: appState.settings.isFirstLaunchMarked,
                           onAddCell: {
                 // Plus button triggered: -> create new configuration
-                guard activeSheet == nil else { return } // avoid presenting while another sheet is up
+                guard activeSheet == nil else { return }
                 appState.deep.newConfiguration = appState.deep.createConfiguration()
                 activeSheet = .configuration
             },
@@ -110,7 +114,7 @@ struct ContentView: View {
             },
                           onSelectCell: { entityId in
                 // Configuration cell selected: -> open existing configuration
-                guard activeSheet == nil else { return } // avoid presenting while another sheet is up
+                guard activeSheet == nil else { return }
                 appState.guide.selectedConfigurationId = entityId
                 activeSheet = .configuration
             })
@@ -145,13 +149,14 @@ struct ContentView: View {
             // ------ Show the slideshow after the app's installation -----
         }
         .sheet(item: $activeSheet, onDismiss: {
-            // centralize your cleanup that used to live in each onDismiss
-            if appState.deep.newConfiguration?.entityId.isNil == true,
-               let newConfiguration = appState.deep.newConfiguration {
-                DeepConfiguration.delete(newConfiguration, in: appState.dataController.container.viewContext)
+            Task { @MainActor in
+                // centralize your cleanup that used to live in each onDismiss
+                if let newConfiguration = appState.deep.newConfiguration {
+                    DeepConfiguration.delete(newConfiguration, in: appState.dataController.container.viewContext)
+                }
+                appState.deep.newConfiguration = nil
+                appState.guide.selectedConfigurationId = nil
             }
-            appState.deep.newConfiguration = nil
-            appState.guide.selectedConfigurationId = nil
         }) { sheet in
             switch sheet {
             case .slideshow:
