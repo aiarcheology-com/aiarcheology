@@ -375,12 +375,13 @@
 		8A61C5112AB9A85400BF72BE /* UI */ = {
 			isa = PBXGroup;
 			children = (
-				8AD3A82C2B2EF3390058E018 /* Downloder */,
 				8AC393D42B2BA31300C9BA57 /* Annotation */,
-				8AC393CD2B2BA24600C9BA57 /* Side Menu */,
+				946A3B782EB5ECE0002CF63C /* Configuration */,
+				8AD3A82C2B2EF3390058E018 /* Downloder */,
 				8AC393BC2B2B9EB900C9BA57 /* Modifiers */,
 				8AAE89512B2E4D16007C9E26 /* Screens */,
 				8AC393B92B2B9E5600C9BA57 /* SettingsView */,
+				8AC393CD2B2BA24600C9BA57 /* Side Menu */,
 				8AE0BC032A97B0B30086DDF9 /* MLBrowser.swift */,
 				8AE0BC052A97B0B30086DDF9 /* ContentView.swift */,
 				8A112CB82ABDE0BB00786384 /* WebView.swift */,
@@ -388,8 +389,6 @@
 				8A13281A2AF1598500F119C6 /* ViewContainer.swift */,
 				8A13281C2AF159E100F119C6 /* NavigationBarItems.swift */,
 				8A13281E2AF265DE00F119C6 /* GlobalToolbar.swift */,
-				8A1328292B052C7800F119C6 /* ConfigurationForm.swift */,
-				8A9BB4412B10F3590061246A /* NewConfigurationForm.swift */,
 				8A9BB4432B10F3990061246A /* DocumentPicker.swift */,
 				8A7740D62B1908DD002E90D9 /* SnapAdjustmentView.swift */,
 				8A4256E32B1E0BA3009153B1 /* EmailController.swift */,
@@ -650,6 +649,15 @@
 				946A3B722EB543BC002CF63C /* FillEntityIdIfNilPolicy.swift */,
 			);
 			path = "0.0.0-0.1.0";
+			sourceTree = "<group>";
+		};
+		946A3B782EB5ECE0002CF63C /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				8A1328292B052C7800F119C6 /* ConfigurationForm.swift */,
+				8A9BB4412B10F3590061246A /* NewConfigurationForm.swift */,
+			);
+			path = Configuration;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
