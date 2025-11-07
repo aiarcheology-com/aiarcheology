@@ -135,8 +135,9 @@ final class DeepState: ObservableObject {
     private func observeDeepConfigurationChanges() {
         deepConfigurationsChanges = NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange, object: context)
             .sink { [weak self] notification in
-                guard let self else { return }
+                guard let self = self else { return }
                 
+                // Extract all needed data IMMEDIATELY while objects are still valid
                 let insertedConfigs: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)] = {
                     guard let inserted = notification.userInfo?[NSInsertedObjectsKey] as? Set<NSManagedObject> else { return [] }
                     return inserted.compactMap { obj in
@@ -157,32 +158,23 @@ final class DeepState: ObservableObject {
                     guard let deleted = notification.userInfo?[NSDeletedObjectsKey] as? Set<NSManagedObject> else { return [] }
                     return deleted.compactMap { obj in
                         guard let config = obj as? DeepConfiguration else { return nil }
-                        // Access properties NOW while object is still valid
                         return (config.objectID, config.entityId, config.demo)
                     }
                 }()
                 
                 // NOW cross the async boundary with extracted data
                 Task { @MainActor in
-                    self.handleContextChanges(
-                        inserted: insertedConfigs,
-                        updated: updatedConfigs,
-                        deleted: deletedConfigs
-                    )
+                    self.handleInsertedConfigurations(insertedConfigs)
+                    self.handleUpdatedConfigurations(updatedConfigs)
+                    self.handleDeletedConfigurations(deletedConfigs)
                 }
             }
     }
 
-    private func handleContextChanges(
-        inserted: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)],
-        updated: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)],
-        deleted: [(objectID: NSManagedObjectID, entityId: UUID, demo: Bool)]
-    ) {
-        // Handle insertions
+    private func handleInsertedConfigurations(_ inserted: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)]) {
         for (_, entityId, enabled, modelType) in inserted {
             do {
                 if enabled {
-                    // Fetch fresh object from context if needed
                     guard let config = selectConfiguration(entityId) else {
                         Logger.drivers.logError("Could not fetch inserted configuration \(entityId.uuidString)")
                         continue
@@ -224,13 +216,15 @@ final class DeepState: ObservableObject {
                 deepStateError = error
             }
         }
-        
-        // Handle updates
+    }
+    
+    private func handleUpdatedConfigurations(_ updated: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)]) {
         for (_, entityId, enabled, modelType) in updated {
             do {
                 let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
                     return $0.id == entityId
                 }
+                
                 if isDriverForThisConfigurationLoaded.not, enabled {
                     guard let config = selectConfiguration(entityId) else {
                         Logger.drivers.logError("Could not fetch updated configuration \(entityId.uuidString)")
@@ -241,6 +235,7 @@ final class DeepState: ObservableObject {
                         Logger.drivers.logError("Driver initialization failed after configuration update for config \(entityId.uuidString)")
                         continue
                     }
+                    
                     Task {
                         do {
                             try await driver.loadFile()
@@ -271,12 +266,12 @@ final class DeepState: ObservableObject {
                 deepStateError = error
             }
         }
-        
-        // Handle deletions
+    }
+    
+    private func handleDeletedConfigurations(_ deleted: [(objectID: NSManagedObjectID, entityId: UUID, demo: Bool)]) {
         for (_, entityId, demo) in deleted {
             unregisterDriver(driverId: entityId)
             
-            // Delete the model file:
             let fileManager = FileManager.default
             
             guard
