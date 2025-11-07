@@ -12,7 +12,7 @@ struct BrowserHistoryView: View {
 	@Environment(\.presentationMode) var presentation
 	@FetchRequest(
 		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: false)],
-		predicate: NSPredicate(format: "entityId != nil AND page != nil AND creationDate_ != nil"),
+		predicate: NSPredicate(format: "lifeCycleString == %@ AND page != nil AND creationDate_ != nil", "ready"),
 		animation: .default)
 	private var history: FetchedResults<WebHistoryEntry>
 	@EnvironmentObject var settings: Settings

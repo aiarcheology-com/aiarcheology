@@ -37,7 +37,7 @@ final class DeepState: ObservableObject {
 				Task {
 					do {
 						try await driver.loadFile()
-						register(driver: driver, along: config.modelTypeInternal)
+						register(driver: driver, along: config.modelType)
 						Logger.drivers.logInfo("Driver successfully loaded and registered for configuration \(config.entityId.uuidString)")
 					}
 					catch {
@@ -58,12 +58,15 @@ final class DeepState: ObservableObject {
 	private func createDriver(from configuration: DeepConfiguration) throws -> (any DeepDriver)? {
         let entityId = configuration.entityId
         
-		Logger.drivers.logDebug("Creating driver of type \(configuration.modelTypeInternal.rawValue) for configuration \(entityId.uuidString)")
+		Logger.drivers.logDebug("Creating driver of type \(configuration.modelType.rawValue) for configuration \(entityId.uuidString)")
 		
         let params = configuration.toDriverParams()
-        switch configuration.modelTypeInternal {
+        switch configuration.modelType {
         case .detector: return Detector(params: params)
         case .classificator: return Classificator(params: params)
+        case .invalid:
+            Logger.drivers.logError("Invalid model type for configuration \(entityId.uuidString)")
+            return nil
         }
     }
 
@@ -76,9 +79,9 @@ final class DeepState: ObservableObject {
 		drivers.update(configuration: configuration)
 	}
 
-	private func unregisterDriver(with configuration: DeepConfiguration) {
-        drivers.unregister(driverId: configuration.entityId)
-	}
+    private func unregisterDriver(driverId: UUID) {
+        drivers.unregister(driverId: driverId)
+    }
 
 	func createConfiguration() -> DeepConfiguration {
 		let context = appState.dataController.container.viewContext
@@ -129,138 +132,179 @@ final class DeepState: ObservableObject {
 	}
 	private var deepConfigurationsChanges: AnyCancellable?
 
-	private func observeDeepConfigurationChanges() {
-		deepConfigurationsChanges = NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange, object: context)
-			.sink { [weak self] notification in
+    private func observeDeepConfigurationChanges() {
+        deepConfigurationsChanges = NotificationCenter.default.publisher(for: .NSManagedObjectContextObjectsDidChange, object: context)
+            .sink { [weak self] notification in
+                guard let self else { return }
+                
+                let insertedConfigs: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)] = {
+                    guard let inserted = notification.userInfo?[NSInsertedObjectsKey] as? Set<NSManagedObject> else { return [] }
+                    return inserted.compactMap { obj in
+                        guard let config = obj as? DeepConfiguration else { return nil }
+                        return (config.objectID, config.entityId, config.enabled, config.modelType)
+                    }
+                }()
+                
+                let updatedConfigs: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)] = {
+                    guard let updated = notification.userInfo?[NSUpdatedObjectsKey] as? Set<NSManagedObject> else { return [] }
+                    return updated.compactMap { obj in
+                        guard let config = obj as? DeepConfiguration else { return nil }
+                        return (config.objectID, config.entityId, config.enabled, config.modelType)
+                    }
+                }()
+                
+                let deletedConfigs: [(objectID: NSManagedObjectID, entityId: UUID, demo: Bool)] = {
+                    guard let deleted = notification.userInfo?[NSDeletedObjectsKey] as? Set<NSManagedObject> else { return [] }
+                    return deleted.compactMap { obj in
+                        guard let config = obj as? DeepConfiguration else { return nil }
+                        // Access properties NOW while object is still valid
+                        return (config.objectID, config.entityId, config.demo)
+                    }
+                }()
+                
+                // NOW cross the async boundary with extracted data
                 Task { @MainActor in
-                    self?.handleContextChanges(notification)
+                    self.handleContextChanges(
+                        inserted: insertedConfigs,
+                        updated: updatedConfigs,
+                        deleted: deletedConfigs
+                    )
                 }
-			}
-	}
+            }
+    }
 
-	private func handleContextChanges(_ notification: Notification) {
-		guard let userInfo = notification.userInfo else { return }
-
-		let insertedObjects = userInfo[NSInsertedObjectsKey] as? Set<NSManagedObject> ?? []
-		for config in insertedObjects.compactMap({ $0 as? DeepConfiguration }) {
-			do {
-				if config.enabled {
-					guard let driver = try createDriver(from: config) else {
-						Logger.drivers.logError("Driver initialization failed after configuration insert for config \(config.entityId.uuidString)")
-						return
-					}
-
-					let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
-						return $0.id == config.entityId
-					}
-
-					if isDriverForThisConfigurationLoaded {
-						Logger.drivers.logWarning("Attempting to insert configuration with UUID that already exists: \(config.entityId.uuidString)")
-					}
-
-					Task {
-						do {
-							try await driver.loadFile()
+    private func handleContextChanges(
+        inserted: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)],
+        updated: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)],
+        deleted: [(objectID: NSManagedObjectID, entityId: UUID, demo: Bool)]
+    ) {
+        // Handle insertions
+        for (_, entityId, enabled, modelType) in inserted {
+            do {
+                if enabled {
+                    // Fetch fresh object from context if needed
+                    guard let config = selectConfiguration(entityId) else {
+                        Logger.drivers.logError("Could not fetch inserted configuration \(entityId.uuidString)")
+                        continue
+                    }
+                    
+                    guard let driver = try createDriver(from: config) else {
+                        Logger.drivers.logError("Driver initialization failed after configuration insert for config \(entityId.uuidString)")
+                        continue
+                    }
+                    
+                    let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
+                        return $0.id == entityId
+                    }
+                    
+                    if isDriverForThisConfigurationLoaded {
+                        Logger.drivers.logWarning("Attempting to insert configuration with UUID that already exists: \(entityId.uuidString)")
+                    }
+                    
+                    Task {
+                        do {
+                            try await driver.loadFile()
                             await MainActor.run {
-                                register(driver: driver, along: config.modelTypeInternal)
+                                register(driver: driver, along: modelType)
                                 Logger.drivers.logInfo("Driver loaded and registered after configuration insert")
                             }
-						}
-						catch {
+                        }
+                        catch {
                             await MainActor.run {
                                 Logger.drivers.logError("Failed to load driver after configuration insert: \(error.localizedDescription)")
-                                DefaultCrashReporter.shared.recordError(error, context: ["operation": "insertDriver", "configId": config.entityId.uuidString])
+                                DefaultCrashReporter.shared.recordError(error, context: ["operation": "insertDriver", "configId": entityId.uuidString])
                                 deepStateError = error
                             }
-						}
-					}
-				}
-			}
-			catch {
-				Logger.state.logError("Error handling configuration insert: \(error.localizedDescription)")
-				deepStateError = error
-			}
-				//else: The configuration is going to be updated yet.
-		}
-
-		let updatedObjects = userInfo[NSUpdatedObjectsKey] as? Set<NSManagedObject> ?? []
-		for config in updatedObjects.compactMap({ $0 as? DeepConfiguration }) {
-			do {
-				let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
-					return $0.id == config.entityId
-				}
-				if isDriverForThisConfigurationLoaded.not, config.enabled {
-					guard let driver = try createDriver(from: config) else {
-						Logger.drivers.logError("Driver initialization failed after configuration update for config \(config.entityId.uuidString)")
-						return
-					}
-					Task {
-						do {
-							try await driver.loadFile()
+                        }
+                    }
+                }
+            }
+            catch {
+                Logger.state.logError("Error handling configuration insert: \(error.localizedDescription)")
+                deepStateError = error
+            }
+        }
+        
+        // Handle updates
+        for (_, entityId, enabled, modelType) in updated {
+            do {
+                let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
+                    return $0.id == entityId
+                }
+                if isDriverForThisConfigurationLoaded.not, enabled {
+                    guard let config = selectConfiguration(entityId) else {
+                        Logger.drivers.logError("Could not fetch updated configuration \(entityId.uuidString)")
+                        continue
+                    }
+                    
+                    guard let driver = try createDriver(from: config) else {
+                        Logger.drivers.logError("Driver initialization failed after configuration update for config \(entityId.uuidString)")
+                        continue
+                    }
+                    Task {
+                        do {
+                            try await driver.loadFile()
                             await MainActor.run {
-                                register(driver: driver, along: config.modelTypeInternal)
+                                register(driver: driver, along: modelType)
                                 Logger.drivers.logInfo("Driver loaded and registered after configuration update")
                             }
-						}
-						catch {
+                        }
+                        catch {
                             await MainActor.run {
                                 Logger.drivers.logError("Failed to load driver after configuration update: \(error.localizedDescription)")
-                                DefaultCrashReporter.shared.recordError(error, context: ["operation": "updateDriver", "configId": config.entityId.uuidString])
+                                DefaultCrashReporter.shared.recordError(error, context: ["operation": "updateDriver", "configId": entityId.uuidString])
                                 deepStateError = error
                             }
-						}
-					}
-				} else {
-					if config.enabled {
-						updaterDriver(with: config)
-					} else {
-						unregisterDriver(with: config)
-					}
-
-				}
-			}
-			catch {
-				Logger.state.logError("Error handling configuration update: \(error.localizedDescription)")
-				deepStateError = error
-			}
-		}
-
-		let deletedObjects = userInfo[NSDeletedObjectsKey] as? Set<NSManagedObject> ?? []
-		for config in deletedObjects.compactMap({ $0 as? DeepConfiguration }) {
-			unregisterDriver(with: config)
-
-				// Delete the model file:
-			let fileManager = FileManager.default
-
-			guard
-                let configurationDirectory = FileManager.deepConfigurationDirectory(id: config.entityId)?.path(percentEncoded: false),
-				fileManager.fileExists(atPath: configurationDirectory)
-			else {
-				Logger.state.logDebug("Configuration directory does not exist or path is nil for \(config.entityId.uuidString)")
-				return
-			}
-
-			guard config.demo.not else {
-				// 1. DO NOT DELETE THE MODEL that is part of the demo
-				Logger.state.logDebug("Skipping deletion of demo model for configuration \(config.entityId.uuidString)")
-				return
-			}
-
-			guard DownloadItem.select(config.entityId, in: appState.dataController.container.viewContext).isNil else {
-				// 2. DO NOT DELETE THE MODEL that is part of the existing download item
-				// An alternative solution: having the models in a separate pre-import directory. But that consumes double of the storage.
-				Logger.state.logDebug("Skipping deletion of model file still referenced by download item for configuration \(config.entityId.uuidString)")
-				return
-			}
-
-			do {
-				try fileManager.removeItem(atPath: configurationDirectory)
-				Logger.state.logInfo("Model file successfully deleted for configuration \(config.entityId.uuidString)")
-			} catch {
+                        }
+                    }
+                } else {
+                    if enabled {
+                        guard let config = selectConfiguration(entityId) else { continue }
+                        updaterDriver(with: config)
+                    } else {
+                        unregisterDriver(driverId: entityId)
+                    }
+                }
+            }
+            catch {
+                Logger.state.logError("Error handling configuration update: \(error.localizedDescription)")
+                deepStateError = error
+            }
+        }
+        
+        // Handle deletions
+        for (_, entityId, demo) in deleted {
+            unregisterDriver(driverId: entityId)
+            
+            // Delete the model file:
+            let fileManager = FileManager.default
+            
+            guard
+                let configurationDirectory = FileManager.deepConfigurationDirectory(id: entityId)?.path(percentEncoded: false),
+                fileManager.fileExists(atPath: configurationDirectory)
+            else {
+                Logger.state.logDebug("Configuration directory does not exist or path is nil for \(entityId.uuidString)")
+                continue
+            }
+            
+            guard demo.not else {
+                Logger.state.logDebug("Skipping deletion of demo model for configuration \(entityId.uuidString)")
+                continue
+            }
+            
+            guard DownloadItem.select(entityId, in: appState.dataController.container.viewContext).isNil else {
+                Logger.state.logDebug("Skipping deletion of model file still referenced by download item for configuration \(entityId.uuidString)")
+                continue
+            }
+            
+            do {
+                try fileManager.removeItem(atPath: configurationDirectory)
+                Logger.state.logInfo("Model file successfully deleted for configuration \(entityId.uuidString)")
+            } catch {
                 let id = error.localizedDescription
-				Logger.state.logError("Error deleting model file for configuration \(config.entityId.uuidString): \(id)")
-				DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteModelFile", "configId": config.entityId.uuidString])
-			}
-		}
-	}
+                Logger.state.logError("Error deleting model file for configuration \(entityId.uuidString): \(id)")
+                DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteModelFile", "configId": entityId.uuidString])
+            }
+        }
+    }
 }

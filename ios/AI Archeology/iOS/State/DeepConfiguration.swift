@@ -7,8 +7,32 @@
 
 import Foundation
 import SwiftUI
+import CoreData
 
 extension DeepConfiguration: CoreDataManageable {
+}
+
+extension DeepConfiguration: CoreDataManagableWithState {
+    func validationReport() -> CoreDataManagableValidationReport {
+        guard lifeCycle == .draft || lifeCycle == .ready else { return .init(issues: nil) }
+        
+        var issues: [CoreDataManagableValidationIssue] = []
+        
+        if file == nil || file?.absoluteString.isEmpty == true {
+            issues.append(.init(key: "file", message: "Model file is required."))
+        }
+        if modelTypeString.isEmptyOrNil == true {
+            issues.append(.init(key: "modelType", message: "Model type is required."))
+        }
+        if annotationColor_.isNil == true {
+            issues.append(.init(key: "annotationColor_", message: "Annotation color is required."))
+        }
+        if phaseOutTime < 0.2 {
+            issues.append(.init(key: "phaseOutTime", message: "Phase-out time must be ≥ 0.2s."))
+        }
+        
+        return .init(issues: issues)
+    }
 }
 
 // WARN: The class definition (public class DeepConfiguration) is generated from the Core data
@@ -58,8 +82,13 @@ extension DeepConfiguration {
 		return DateFormatter.longDateFormater.string(from: creationDate_ ?? .now)
 	}
 
-	public var modelTypeInternal: DeepDriverType {
-		return DeepDriverType(rawValue: modelType ?? "detect") ?? .detector
+	public var modelType: DeepDriverType {
+        get {
+            DeepDriverType(rawValue: modelTypeString ?? "detect") ?? .detector
+        }
+        set {
+            modelTypeString = newValue.rawValue
+        }
 	}
 
 	static func == (lhs: DeepConfiguration, rhs: DeepConfiguration) -> Bool {
@@ -67,7 +96,7 @@ extension DeepConfiguration {
 			lhs.entityId == rhs.entityId &&
 			lhs.file == rhs.file &&
 			lhs.modelDescription == rhs.modelDescription &&
-			lhs.modelType == rhs.modelType &&
+			lhs.modelTypeString == rhs.modelTypeString &&
 			lhs.author == rhs.author &&
 			lhs.creationDate == rhs.creationDate &&
 			lhs.annotationColor == rhs.annotationColor &&
@@ -79,39 +108,15 @@ extension DeepConfiguration {
 
 // Add the validations using the core data's api:
 extension DeepConfiguration {
-	public override func validateForInsert() throws {
-		try super.validateForInsert()
-		try validateDeepConfiguration()
-	}
-
-	public override func validateForUpdate() throws {
-		try super.validateForUpdate()
-		try validateDeepConfiguration()
-	}
-
-	private func validateDeepConfiguration() throws {
-		guard readyToValidate.enabled else { return }
-
-		if file.isNil || file?.absoluteString.isEmpty == true {
-			throw validationError(forKey: "file", error: "Model's file is required.")
-		}
-		if modelType.isEmptyOrNil == true {
-			throw validationError(forKey: "modelType", error: "Model's modelType is required.")
-		}
-		if annotationColor_.isNil == true {
-			throw validationError(forKey: "annotationColor_", error: "Model's annotationColor_ is required.")
-		}
-		if phaseOutTime < 0.2 {
-			throw validationError(forKey: "phaseOutTime", error: "Model's phaseOutTime is required to be >= 0.")
-		}
-	}
-
-	private func validationError(forKey key: String, error: String) -> NSError {
-			// TODO: add the error codes
-		return NSError(domain: "DeepConfiguration", code: 1000, userInfo: [
-			NSLocalizedDescriptionKey: "Validation error - \(key): \(error)"
-		])
-	}
+    public override func validateForInsert() throws {
+        try super.validateForInsert()
+        try throwIfInvalid()
+    }
+    
+    public override func validateForUpdate() throws {
+        try super.validateForUpdate()
+        try throwIfInvalid()
+    }
 }
 
 // MARK: - Snapshot helper to avoid sending NSManagedObject across actors

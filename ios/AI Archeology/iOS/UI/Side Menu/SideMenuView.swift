@@ -16,7 +16,8 @@ struct SideMenuView: View {
 			// Most recent configuration is the first one:
 			NSSortDescriptor(keyPath: \DeepConfiguration.creationDate_, ascending: false)
 		],
-		predicate: NSPredicate(format: "entityId != nil")
+		// Filter for configurations that are ready (filled out and validated)
+		predicate: NSPredicate(format: "lifeCycleString == %@", "ready")
 	) var configurations: FetchedResults<DeepConfiguration>
 
 	@State private var refreshToggle: Bool = false // to enforce the component's refresh (not happen always, issue on iOS16)

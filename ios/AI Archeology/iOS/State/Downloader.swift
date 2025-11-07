@@ -500,10 +500,41 @@ extension Downloader: @MainActor ModelProvider {
     }
 }
 
+extension DownloadItem: CoreDataManagableWithState {
+    func validationReport() -> CoreDataManagableValidationReport {
+        guard lifeCycle == .draft || lifeCycle == .ready else { return .init(issues: nil) }
+        
+        var issues: [CoreDataManagableValidationIssue] = []
+        
+        if file.isNil || file?.absoluteString.isEmpty == true {
+            issues.append(.init(key: "file", message: "Model file is required."))
+        }
+        
+        if url.isNil || url?.absoluteString.isEmpty == true {
+            issues.append(.init(key: "url", message: "Model's url is required."))
+        }
+        
+        return .init(issues: issues)
+    }
+}
+
+// Add the validations using the core data's api:
+extension DownloadItem {
+    public override func validateForInsert() throws {
+        try super.validateForInsert()
+        try throwIfInvalid()
+    }
+    
+    public override func validateForUpdate() throws {
+        try super.validateForUpdate()
+        try throwIfInvalid()
+    }
+}
+
 extension DownloadItem: CoreDataManageable {
     static func create(in context: NSManagedObjectContext) -> Self {
         let newItem = Self(context: context)
-        newItem.entityId = UUID()
+        newItem.transition(to: .ready) // ready to be displayed
         DownloadItem.save(in: context)
         return newItem
     }
@@ -568,36 +599,5 @@ extension DownloadItem {
     
     public var stateChanged: String {
         return DateFormatter.longDateFormater.string(from: stateChanged_ ?? .now)
-    }
-}
-
-// Add the validations using the core data's api:
-extension DownloadItem {
-    public override func validateForInsert() throws {
-        try super.validateForInsert()
-        try validateDownloadItem()
-    }
-    
-    public override func validateForUpdate() throws {
-        try super.validateForUpdate()
-        try validateDownloadItem()
-    }
-    
-    private func validateDownloadItem() throws {
-        guard readyToValidate.enabled else { return }
-        
-        if url.isNil || url?.absoluteString.isEmpty == true {
-            throw validationError(forKey: "url", error: "Model's url is required.")
-        }
-        if entityId.uuidString.isEmpty {
-            throw validationError(forKey: "entityId", error: "Model's entityId is required.")
-        }
-    }
-    
-    private func validationError(forKey key: String, error: String) -> NSError {
-        // TODO: add the error codes
-        return NSError(domain: "DownloadItem", code: 1000, userInfo: [
-            NSLocalizedDescriptionKey: "Validation error - \(key): \(error)"
-        ])
     }
 }

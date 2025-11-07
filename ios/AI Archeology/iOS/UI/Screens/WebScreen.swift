@@ -53,7 +53,7 @@ struct WebScreenView: View {
 	@Environment(\.managedObjectContext) var moc
 	@FetchRequest(
 		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: false)],
-		predicate: NSPredicate(format: "entityId != nil AND page != nil AND creationDate_ != nil"),
+		predicate: NSPredicate(format: "page != nil AND creationDate_ != nil"),
 		animation: .default)
 	private var history: FetchedResults<WebHistoryEntry>
 	@EnvironmentObject var appState: AppState
@@ -175,7 +175,6 @@ var body: some View {
 		let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: moc)
 		newHistorEntry.bookmarked = false
 		newHistorEntry.creationDate_ = .now
-		newHistorEntry.entityId = UUID()
 		newHistorEntry.page = URL(string:websiteUrl.withHTTPS)
 		do {
 			try newHistorEntry.validateForInsert()

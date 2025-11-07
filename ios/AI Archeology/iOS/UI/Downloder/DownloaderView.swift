@@ -13,7 +13,7 @@ struct DownloaderView: View {
     @EnvironmentObject var deep: DeepState
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \DownloadItem.stateChanged_, ascending: false)],
-        predicate: NSPredicate(format: "entityId != nil"), // TODO: This is a workaround. OnAppear is called multiple times, which creates multiple instances from DownloadItem - not desired behaviour
+        predicate: NSPredicate(format: "lifeCycleString == %@", "ready"),
         animation: .default)
     private var downloadItems: FetchedResults<DownloadItem>
     let configurationId: UUID

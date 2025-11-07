@@ -14,6 +14,7 @@ import OSLog
 public enum DeepDriverType: String {
 	case detector = "detect"
 	case classificator = "classify"
+    case invalid = "invalid"
 }
 
 struct DeepDriverParams : Sendable {
@@ -102,6 +103,8 @@ class DeepDrivers: ObservableObject {
                         classificators.append(driver)
                     }
                 }
+            case .invalid:
+                Logger.drivers.logError("Attempted to register driver with invalid type.")
             }
         }
 	}
@@ -150,6 +153,8 @@ class DeepDrivers: ObservableObject {
                     }
                 }
             }
+        case .invalid:
+            Logger.drivers.logError("Attempted to register driver with invalid type.")
         }
     }
 
