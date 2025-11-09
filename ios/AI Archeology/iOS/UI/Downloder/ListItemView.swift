@@ -11,6 +11,13 @@ struct ListItemView: View {
 	@EnvironmentObject var download: Downloader
 	@ObservedObject var item: DownloadItem
 	@State private var progress: Double = 0.0
+    
+    private let entityId: UUID
+    
+    init(item: DownloadItem) {
+        self.item = item
+        self.entityId = item.entityId
+    }
 
 	var body: some View {
 		HStack {
@@ -36,7 +43,7 @@ struct ListItemView: View {
 						.frame(height: 5)
 				}
 			}
-			.onReceive(download.progressPublisher(for: item.entityId)) { newProgress in // Core data properties are optional
+			.onReceive(download.progressPublisher(for: entityId)) { newProgress in // Core data properties are optional
 				progress = newProgress
 			}
 		}

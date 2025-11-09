@@ -534,7 +534,8 @@ extension DownloadItem {
 extension DownloadItem: CoreDataManageable {
     static func create(in context: NSManagedObjectContext) -> Self {
         let newItem = Self(context: context)
-        newItem.transition(to: .ready) // ready to be displayed
+        newItem.transition(to: .draft) // initial state
+        newItem.transition(to: .ready) // ready to be displayed with any data
         DownloadItem.save(in: context)
         return newItem
     }
