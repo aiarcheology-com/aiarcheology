@@ -14,9 +14,16 @@ struct DownloaderView: View {
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \DownloadItem.stateChanged_, ascending: false)],
         predicate: NSPredicate(
-            format: "%K == %@", #keyPath(DownloadItem.lifeCycleString), CoreDataManageableState.ready.rawValue
+            format: "%K IN %@",
+            #keyPath(DownloadItem.lifeCycleString),
+            [
+                CoreDataManageableState.empty.rawValue,
+                CoreDataManageableState.draft.rawValue,
+                CoreDataManageableState.ready.rawValue
+            ]
         ),
-        animation: .default)
+        animation: .default
+    )
     private var downloadItems: FetchedResults<DownloadItem>
     let configurationId: UUID
     var onImport: (URL, UUID, ModelProvider) -> Void

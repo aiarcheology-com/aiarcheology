@@ -47,7 +47,7 @@ struct DownloadDetailView: View {
                             .multilineTextAlignment(.trailing)
                             .onChange(of: urlText) { value in
                                 item.url = URL(string: urlText)
-                                item.transition(to: .ready)
+                                item.transition(to: .draft)
                                 item.persist(in: moc)
 
                                 validateUrl(value) // But do not enable the download button, if the URL is not valid.

@@ -33,6 +33,11 @@ extension DeepConfiguration: CoreDataManagableWithState {
         
         return .init(issues: issues)
     }
+    
+    // Indicates whether this configuration is temporary and should be cleaned up if abandoned
+    var shouldDeleteOnAbandon: Bool {
+        return lifeCycle == .draft || lifeCycle == .empty
+    }
 }
 
 // WARN: The class definition (public class DeepConfiguration) is generated from the Core data

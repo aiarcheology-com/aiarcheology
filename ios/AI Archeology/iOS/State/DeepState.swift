@@ -69,6 +69,17 @@ final class DeepState: ObservableObject {
             return nil
         }
     }
+    
+    func cleanupTemporaryConfiguration() {
+        guard let config = newConfiguration else { return }
+        
+        if config.shouldDeleteOnAbandon {
+            // Only delete if it's still temporary (not imported/finalized)
+            DeepConfiguration.delete(config, in: context)
+        }
+        
+        newConfiguration = nil
+    }
 
     // Actions:
 	private func register(driver: any DeepDriver, along: DeepDriverType) {

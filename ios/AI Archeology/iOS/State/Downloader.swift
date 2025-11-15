@@ -79,10 +79,47 @@ fileprivate final class DownloaderSessionDelegateProxy: NSObject, URLSessionDown
     func urlSession(_ session: URLSession,
                     downloadTask: URLSessionDownloadTask,
                     didFinishDownloadingTo location: URL) {
+        guard
+            let idString = downloadTask.taskDescription,
+            let id = UUID(uuidString: idString)
+        else {
+            Logger.networking.logError("Download task identifier not defined or invalid on completion")
+            return
+        }
+        
+        Logger.networking.logInfo("Download finished for item \(id.uuidString)")
+        
+        // CRITICAL: Move file synchronously BEFORE returning from delegate
+        let fileResult = Self.moveDownloadedFileImmediately(location: location, itemId: id)
+        
+        // Update Core Data on main actor
         Task { @MainActor [weak owner] in
-            owner?.sessionDownloadDidFinish(session: session,
-                                            downloadTask: downloadTask,
-                                            location: location)
+            owner?.handleDownloadCompletion(itemId: id, fileURL: fileResult)
+        }
+    }
+    
+    // Static helper - doesn't need owner reference
+    private static func moveDownloadedFileImmediately(location: URL, itemId: UUID) -> Result<URL, Error> {
+        guard let targetDirectory = FileManager.deepConfigurationDirectory(id: itemId) else {
+            return .failure(NSError(domain: "Downloader", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Cannot compose document directory"
+            ]))
+        }
+        
+        do {
+            try FileManager.default.createDirectory(at: targetDirectory, withIntermediateDirectories: true)
+            let targetPath = targetDirectory.appendingPathComponent(location.lastPathComponent)
+            
+            if FileManager.default.fileExists(atPath: targetPath.path) {
+                try FileManager.default.removeItem(at: targetPath)
+            }
+            
+            try FileManager.default.moveItem(at: location, to: targetPath)
+            Logger.networking.logDebug("File moved synchronously to: \(targetPath.path)")
+            return .success(targetPath)
+        } catch {
+            Logger.networking.logError("Synchronous file move failed: \(error.localizedDescription)")
+            return .failure(error)
         }
     }
 }
@@ -265,6 +302,10 @@ final public class Downloader: NSObject, ObservableObject {
         
         Logger.networking.logInfo("Starting download for item \(item.entityId.uuidString) from \(url.absoluteString)")
         
+        if item.lifeCycle == .draft {
+            item.transition(to: .ready)
+        }
+        
         let configuration = URLSessionConfiguration.default
         let queue = OperationQueue()
         let session = URLSession(configuration: configuration, delegate: delegateProxy, delegateQueue: queue)
@@ -350,7 +391,10 @@ final public class Downloader: NSObject, ObservableObject {
                 let id = UUID(uuidString: idString),
                 let item = DownloadItem.select(id, in: appState.dataController.container.viewContext)
             {
-                transitionAndSave(item, to: .notStarted)
+                // Only reset if it's not in a terminal state (success/failure already handled)
+                if item.state == .downloading || item.state == .paused {
+                    transitionAndSave(item, to: .notStarted)
+                }
             }
             return
         }
@@ -383,7 +427,9 @@ final public class Downloader: NSObject, ObservableObject {
             return
         }
         
-        // Success path is handled by didFinishDownloadingTo.
+        // Success path - item already handled by handleDownloadCompletion
+        // Just clean up the activeDownload if still present
+        activeDownloads.removeValue(forKey: download.id)
     }
     
     func sessionDownloadDidWriteData(session: URLSession,
@@ -405,67 +451,65 @@ final public class Downloader: NSObject, ObservableObject {
         download.totalBytesExpected = Int(totalBytesExpectedToWrite)
     }
     
-    func sessionDownloadDidFinish(session: URLSession,
-                                  downloadTask: URLSessionDownloadTask,
-                                  location: URL) {
-        guard
-            let idString = downloadTask.taskDescription,
-            let id = UUID(uuidString: idString),
-            let download = activeDownloads[id]
-        else {
-            Logger.networking.logError("Download task identifier not defined or invalid on completion")
-            return
+    // Static helper - doesn't need owner reference
+    private static func moveDownloadedFileImmediately(location: URL, itemId: UUID) -> Result<URL, Error> {
+        guard let targetDirectory = FileManager.deepConfigurationDirectory(id: itemId) else {
+            return .failure(NSError(domain: "Downloader", code: 1, userInfo: [
+                NSLocalizedDescriptionKey: "Cannot compose document directory"
+            ]))
         }
-        
-        Logger.networking.logInfo("Download finished for item \(id.uuidString)")
-        handleDownloadCompletion(for: download, location: location)
-    }
-    
-    // MARK: Completion handling
-    private func handleDownloadCompletion(for download: ActiveDownload, location: URL) {
-        guard let targetDirectory = FileManager.deepConfigurationDirectory(id: download.id) else {
-            Logger.networking.logError("Cannot compose document directory for download \(download.id.uuidString)")
-            return
-        }
-        
-        guard let item = DownloadItem.select(download.id, in: appState.dataController.container.viewContext),
-              let url = item.url
-        else {
-            Logger.networking.logError("Download item URL not initialized for \(download.id.uuidString)")
-            return
-        }
-        
-        Logger.networking.logInfo("Download completed for item \(download.id.uuidString), moving to target directory")
         
         do {
-            try Self.createDirectoryIfNeeded(at: targetDirectory)
-            let fileName = url.lastPathComponent
-            let targetPath = targetDirectory.appendingPathComponent(fileName)
+            try FileManager.default.createDirectory(at: targetDirectory, withIntermediateDirectories: true)
+            let targetPath = targetDirectory.appendingPathComponent(location.lastPathComponent)
             
             if FileManager.default.fileExists(atPath: targetPath.path) {
                 try FileManager.default.removeItem(at: targetPath)
             }
             
             try FileManager.default.moveItem(at: location, to: targetPath)
-            
-            guard let relativePath = try? targetPath.relativePath(from: DownloadItem.rootDirectory) else {
-                Logger.networking.logError("Could not construct relative path for downloaded model")
-                return
+            Logger.networking.logDebug("File moved synchronously to: \(targetPath.path)")
+            return .success(targetPath)
+        } catch {
+            Logger.networking.logError("Synchronous file move failed: \(error.localizedDescription)")
+            return .failure(error)
+        }
+    }
+    
+    // MARK: Completion handling
+    @MainActor
+    func handleDownloadCompletion(itemId: UUID, fileURL: Result<URL, Error>) {
+        guard let download = activeDownloads[itemId],
+              let item = DownloadItem.select(itemId, in: appState.dataController.container.viewContext)
+        else {
+            Logger.networking.logWarning("Download item not found in Core Data for \(itemId.uuidString)")
+            activeDownloads.removeValue(forKey: itemId)
+            return
+        }
+        
+        switch fileURL {
+        case .success(let targetPath):
+            do {
+                guard let relativePath = try? targetPath.relativePath(from: DownloadItem.rootDirectory) else {
+                    Logger.networking.logError("Could not construct relative path for downloaded model")
+                    return
+                }
+                
+                item.file_ = relativePath
+                Self.persistDownloadState(from: download, to: item)
+                transitionAndSave(item, to: .complete)
+                Logger.networking.logInfo("Download successfully saved")
             }
             
-            item.file_ = relativePath
-            Self.persistDownloadState(from: download, to: item)
-            transitionAndSave(item, to: .complete)
-            Logger.networking.logInfo("Download successfully saved to \(fileName)")
-        } catch {
+        case .failure(let error):
             Logger.networking.logError("Download completion failed: \(error.localizedDescription)")
             item.error = error.localizedDescription
             Self.persistDownloadState(from: download, to: item)
             transitionAndSave(item, to: .failed)
         }
         
-        pausedDownloads.removeValue(forKey: download.id)
-        activeDownloads.removeValue(forKey: download.id)
+        pausedDownloads.removeValue(forKey: itemId)
+        activeDownloads.removeValue(forKey: itemId)
     }
     
     static private func createDirectoryIfNeeded(at path: URL) throws {
@@ -506,6 +550,9 @@ extension DownloadItem: CoreDataManagableWithState {
         
         var issues: [CoreDataManagableValidationIssue] = []
         
+        // Only validate if download has started or completed
+        guard state != .notStarted else { return .init(issues: nil) }
+        
         if file.isNil || file?.absoluteString.isEmpty == true {
             issues.append(.init(key: "file", message: "Model file is required."))
         }
@@ -534,8 +581,6 @@ extension DownloadItem {
 extension DownloadItem: CoreDataManageable {
     static func create(in context: NSManagedObjectContext) -> Self {
         let newItem = Self(context: context)
-        newItem.transition(to: .draft) // initial state
-        newItem.transition(to: .ready) // ready to be displayed with any data
         DownloadItem.save(in: context)
         return newItem
     }

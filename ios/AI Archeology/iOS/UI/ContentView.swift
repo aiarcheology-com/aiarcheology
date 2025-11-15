@@ -150,11 +150,7 @@ struct ContentView: View {
         }
         .sheet(item: $activeSheet, onDismiss: {
             Task { @MainActor in
-                // centralize your cleanup that used to live in each onDismiss
-                if let newConfiguration = appState.deep.newConfiguration {
-                    DeepConfiguration.delete(newConfiguration, in: appState.dataController.container.viewContext)
-                }
-                appState.deep.newConfiguration = nil
+                appState.deep.cleanupTemporaryConfiguration()
                 appState.guide.selectedConfigurationId = nil
             }
         }) { sheet in

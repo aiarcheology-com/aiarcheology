@@ -27,7 +27,7 @@ struct CoreDataManagableValidationIssue: Identifiable, Hashable {
 struct CoreDataManagableValidationReport: Hashable {
     static let zeroIssues: [CoreDataManagableValidationIssue] = []
     var issues: [CoreDataManagableValidationIssue]?
-    var isValid: Bool { issues.map { $0.isEmpty } ?? false }
+    var isValid: Bool { issues?.isEmpty ?? true }
 }
 
 protocol CoreDataManagableWithState: CoreDataManageable where Self: NSManagedObject {
