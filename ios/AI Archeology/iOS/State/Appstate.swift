@@ -48,8 +48,10 @@ final class AppState: ObservableObject {
 	}
 
 	func createDemoConfigurations() {
-		loadModelOne()
-		loadModelTwo()
+        Task {
+            await loadModelOne()
+            await loadModelTwo()
+        }
 	}
 
 	func deleteBrowsingHistory() {
@@ -91,28 +93,24 @@ final class AppState: ObservableObject {
 		}
 	}
 
-	private func loadModelOne() {
-		Task {
-				// Warning: models are used as mlmodelc in the bundle when handled from xcode
-			guard let urlInBundle = Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") else {
-				Logger.configuration.logError("Cannot locate AIArcheology demo model in bundle")
-				return
-			}
+	private func loadModelOne() async {
+        // Warning: models are used as mlmodelc in the bundle when handled from xcode
+        guard let urlInBundle = Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") else {
+            Logger.configuration.logError("Cannot locate AIArcheology demo model in bundle")
+            return
+        }
 
-			await loadModel(from: urlInBundle)
-		}
+        await loadModel(from: urlInBundle)
 	}
 
-	private func loadModelTwo() {
-		Task {
-				// Warning: models are used as mlmodelc in the bundle when handled from xcode
-			guard let urlInBundle = Bundle.main.url(forResource: "HroudaDetector15", withExtension: "mlmodelc") else {
-				Logger.configuration.logError("Cannot locate HroudaDetector15 demo model in bundle")
-				return
-			}
+	private func loadModelTwo() async {
+        // Warning: models are used as mlmodelc in the bundle when handled from xcode
+        guard let urlInBundle = Bundle.main.url(forResource: "HroudaDetector15", withExtension: "mlmodelc") else {
+            Logger.configuration.logError("Cannot locate HroudaDetector15 demo model in bundle")
+            return
+        }
 
-			await loadModel(from: urlInBundle)
-		}
+        await loadModel(from: urlInBundle)
 	}
 
 		// TODO: make this nicer, unify with the deep configuration form
@@ -158,7 +156,10 @@ final class AppState: ObservableObject {
 		configuration.selectedSymbol = .circle
 		configuration.file_ = URL(string: url.lastPathComponent)
 		configuration.enabled = false
+        configuration.transition(to: .draft)
+        configuration.transition(to: .ready)
 		DeepConfiguration.save(in: self.dataController.container.viewContext)
+        Logger.configuration.logTrace("Demo configuration life cycle: \(configuration.lifeCycle)")
 		Logger.configuration.logInfo("Demo configuration created successfully for \(url.lastPathComponent)")
 	}
 }

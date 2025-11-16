@@ -29,7 +29,7 @@ struct SnapAdjustmentView: View {
 				Text("\(snapAdjustment.contrast, specifier: "%.2f")")
 			}
 			.frame(maxWidth: .infinity, alignment: .leading)
-			Slider(value: $snapAdjustment.contrast, in: 0...3, step: 0.01)
+			Slider(value: $snapAdjustment.contrast, in: 0...5, step: 0.01)
 
 			HStack {
 				Text("Saturation")
