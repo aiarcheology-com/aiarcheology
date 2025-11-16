@@ -89,6 +89,16 @@ extension Logger {
         }
     }
     
+    func logTrace(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
+        let evaluatedMessage = message()
+        let ts = Logger.timestamp()
+        if isPrivate {
+            self.debug("\(ts)[trace] \(evaluatedMessage, privacy: .private)")
+        } else {
+            self.debug("\(ts)[trace] \(evaluatedMessage, privacy: .public)")
+        }
+    }
+    
     func logError(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
         let ts = Logger.timestamp()
