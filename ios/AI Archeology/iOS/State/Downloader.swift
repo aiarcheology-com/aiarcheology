@@ -303,7 +303,7 @@ final public class Downloader: NSObject, ObservableObject {
         Logger.networking.logInfo("Starting download for item \(item.entityId.uuidString) from \(url.absoluteString)")
         
         if item.lifeCycle == .draft {
-            item.transition(to: .ready)
+            item.move()
         }
         
         let configuration = URLSessionConfiguration.default
