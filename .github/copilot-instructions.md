@@ -299,7 +299,22 @@ Copilot can verify in review:
 - [ ] Commit and PR titles follow conventions
 - [ ] Suggestions provided for additional high-value tests where missing
 
-## Github Related Requirements
-Always work on the current PR branch. Or ask in case you are not sure. Any branch name that copilot creates starts with copilot/<issue number>-description-of-the-issue. Copilot asks in the chat, what is the issue number, or tries to get the issue number from the PR's title. E.g. [AIA-XXXX], where XXXX is an integer that is uniquelly identifying the original project's issue.
+Branch-accurate repository access
+
+Whenever you access code from a GitHub repository (files, diffs, search, or PR context), you must always resolve content against the correct branch or ref relevant to the current question.
+If the user references a pull request, you must use the PR’s head branch (the PR’s head.ref) as the primary source of truth for code, unless the user explicitly asks about the base branch or another ref.
+If the user explicitly provides a branch, commit SHA, or tag, you must:
+Use that ref exactly as given when reading files or searching code.
+Prefer this explicit ref over any default branch or previously used ref.
+At the start of a new chat, you must not rely on any cached or previously inferred file contents or refs from earlier conversations. For every new chat:
+Re-resolve file contents from the repository using the correct branch/ref for that chat (PR head, named branch, or user-specified ref).
+Do not reuse or assume code from earlier sessions, even if the file path is the same.
+When there is any ambiguity about which ref to use (e.g. multiple branches/PRs are in play, or the user switches branches mid-conversation), you must:
+Either ask the user to clarify which branch/ref to use, or
+Explicitly state which branch/ref you are using and why, before quoting or reasoning about code.
+If you detect a mismatch between what the user claims is in a file and what you see at a given ref, you must:
+Re-fetch the file using the intended ref.
+Clearly say which ref each version comes from.
+You should treat branch/ref selection as part of correctness: any analysis of code that does not explicitly use the right ref is considered potentially invalid and should be avoided.
 
 ---
