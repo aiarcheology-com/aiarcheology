@@ -80,6 +80,10 @@ final class DeepState: ObservableObject {
         
         newConfiguration = nil
     }
+    
+    func createTemportaryConfiguration() {
+        self.newConfiguration = self.createConfiguration()
+    }
 
     // Actions:
 	private func register(driver: any DeepDriver, along: DeepDriverType) {

@@ -21,7 +21,8 @@ struct NewConfigurationView: View {
     @State private var path: [Route] = []
     @State private var presented: Route? = nil
     let usedFiles: [URL]
-    let onConfigurationChanged: (URL, UUID, ModelProvider) -> Void
+    let onConfigurationChanged: (URL, UUID, ModelProvider) async -> Void
+    let onImportFinished: @MainActor () -> Void
     private let allowedTypes: [UTType] = [
         UTType("com.apple.coreml.model"),
         UTType("com.apple.coreml.package")
@@ -102,14 +103,15 @@ struct NewConfigurationView: View {
                 switch route {
                 case .downloader(let configId):
                     DownloaderView(configurationId: configId) { url, newId, provider in
-                        onConfigurationChanged(url, newId, provider)
-                        DispatchQueue.main.async { dismiss() }
+                        Task { @MainActor in
+                            await onConfigurationChanged(url, newId, provider)
+                            onImportFinished()
+                        }
                     }
                 case .importer:
                     EmptyView()
                 }
             }
-            // Document flow uses the system file importer, driven by the SAME enum state
             .fileImporter(
                 isPresented: Binding(
                     get: { presented == .importer },
@@ -122,14 +124,14 @@ struct NewConfigurationView: View {
                 case .success(let urls):
                     if let url = urls.first {
                         let newConfigurationId = UUID()
-                        onConfigurationChanged(url, newConfigurationId, NoopProvider())
-                        DispatchQueue.main.async { dismiss() }
+                        Task { @MainActor in
+                            await onConfigurationChanged(url, newConfigurationId, NoopProvider())
+                            onImportFinished()
+                        }
                     }
                 case .failure:
-                    // TODO: log error
                     break
                 }
-                // ensure we clear the presentation state
                 presented = nil
             }
         }

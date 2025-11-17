@@ -52,6 +52,7 @@ struct ConfigurationForm: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
     @State private var isLoading = false
+    @State private var showImportAlert = false // new parent-owned alert state
     
     var mergedObservable: [String] {[
         configuration.annotationColor.description,
@@ -66,6 +67,18 @@ struct ConfigurationForm: View {
             } else {
                 configurationFormContent
             }
+        }
+        .alert(isPresented: $showImportAlert) { // moved alert here
+            var title = "Import Failed"
+            var message = "The model could not be imported. Please try again with a valid Create ML model."
+            if configuration.lifeCycle == .ready, let description = configuration.modelDescription, let author = configuration.author {
+                title = "The model has been imported."
+                message = "The model \(description) from \(author) has been successfully imported."
+            }
+            
+            return Alert( title: Text(title), message: Text(message), dismissButton: .default(Text("OK")) {
+                dismiss() // This will close the sheet
+            })
         }
     }
     
@@ -132,9 +145,13 @@ struct ConfigurationForm: View {
     
     private var newConfigurationSection: some View {
         let usedFiles = deep.allConfigurations().compactMap { $0.file }
-        return NewConfigurationView(usedFiles: usedFiles) { url, id, provider in
-            updateConfiguration(with: url, id: id, provider: provider)
-        }
+        return NewConfigurationView(usedFiles: usedFiles,
+                    onConfigurationChanged: { url, id, provider in
+                        await updateConfiguration(with: url, id: id, provider: provider)
+                    },
+                    onImportFinished: {
+                        showImportAlert = true
+                    })
     }
     
     private var navigationButton: some View {
@@ -179,66 +196,63 @@ struct ConfigurationForm: View {
         }
     }
     
-    private func updateConfiguration(with url: URL, id: UUID, provider: ModelProvider) {
-        Task {
-            // Update the DeepConfiguration
-            assert(url.absoluteString.isEmpty.not, "URL of the file should not be empty.")
-            
-            // Create detector to fetch the info. This call does not register the detector for use.
-            // The detectors are automatically registered in the DeepState class
-            // after a specific DeepConfiguration has been saved in the context.
-            var detector: MLModel?
-            isLoading = true // show the spinner
-            
-            Task {
-                do {
-                    // We use here the instance of the Detector, but the code is common for all Create ML models.
-                    detector = try await Detector.loadModel(from: url)
-                }
-                catch {
-                    deep.deepStateError = error
-                }
-                
-                isLoading = false
-                
-                guard let metadata = detector?.modelDescription.metadata else { return }
-                let parser = MLModelMetadataParser(metadata: metadata)
-                
-                configuration.entityId = id
-                configuration.annotationColor = .yellow
-                let description = parser.value(for: .description) as? String
-                let modelDescrition = description.isNotBlank ? description : url.lastPathComponent.fileName
-                configuration.modelDescription = modelDescrition
-                configuration.modelVersion = parser.value(for: .versionString) as? String
-                configuration.author = parser.value(for: .author) as? String
-                configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
-                configuration.modelType = parser.task
-                configuration.phaseOutTime = 2
-                configuration.selectedSymbol = .circle
-                guard let relativePath = try? url.relativePath(from: DeepConfiguration.rootDirectory) else {
-                    Logger.configuration.logError("Failed to compute relative path for model file")
-                    return
-                }
-                configuration.file_ = relativePath
-                configuration.enabled = false
-                configuration.transition(to: .draft)
-                validateConfiguration()
-                // This line saves the new configurations.
-                // DeepState creates and registeres the detectors and the SideMenu is updated.
-                // Any time a deep configuration is created/deleted, a new detector is created/deleted.
-                let importResult: ModelProviderError
-                if configuration.lifeCycle == .ready {
-                    deep.saveConfigurations()
-                    importResult = .importSucceeded
-                } else {
-                    Logger.configuration.logWarning("Configuration validation failed - incomplete data")
-                    importResult = .importFailed
-                }
-                
-                let id = configuration.entityId
-                provider.result(importResult, id: id)
-            }
+    @MainActor
+    private func updateConfiguration(with url: URL, id: UUID, provider: ModelProvider) async {
+        // Update the DeepConfiguration
+        assert(url.absoluteString.isEmpty.not, "URL of the file should not be empty.")
+        
+        // Create detector to fetch the info. This call does not register the detector for use.
+        // The detectors are automatically registered in the DeepState class
+        // after a specific DeepConfiguration has been saved in the context.
+        var detector: MLModel?
+        isLoading = true // show the spinner
+        
+        do {
+            // We use here the instance of the Detector, but the code is common for all Create ML models.
+            detector = try await Detector.loadModel(from: url)
         }
+        catch {
+            deep.deepStateError = error
+        }
+        
+        isLoading = false
+        
+        guard let metadata = detector?.modelDescription.metadata else { return }
+        let parser = MLModelMetadataParser(metadata: metadata)
+        
+        configuration.entityId = id
+        configuration.annotationColor = .yellow
+        let description = parser.value(for: .description) as? String
+        let modelDescrition = description.isNotBlank ? description : url.lastPathComponent.fileName
+        configuration.modelDescription = modelDescrition
+        configuration.modelVersion = parser.value(for: .versionString) as? String
+        configuration.author = parser.value(for: .author) as? String
+        configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
+        configuration.modelType = parser.task
+        configuration.phaseOutTime = 2
+        configuration.selectedSymbol = .circle
+        guard let relativePath = try? url.relativePath(from: DeepConfiguration.rootDirectory) else {
+            Logger.configuration.logError("Failed to compute relative path for model file")
+            return
+        }
+        configuration.file_ = relativePath
+        configuration.enabled = false
+        configuration.transition(to: .draft)
+        validateConfiguration()
+        // This line saves the new configurations.
+        // DeepState creates and registeres the detectors and the SideMenu is updated.
+        // Any time a deep configuration is created/deleted, a new detector is created/deleted.
+        let importResult: ModelProviderError
+        if configuration.lifeCycle == .ready {
+            deep.saveConfigurations()
+            importResult = .importSucceeded
+        } else {
+            Logger.configuration.logWarning("Configuration validation failed - incomplete data")
+            importResult = .importFailed
+        }
+        
+        let id = configuration.entityId
+        provider.result(importResult, id: id)
     }
 }
 

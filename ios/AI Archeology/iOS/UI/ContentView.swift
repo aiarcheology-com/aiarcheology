@@ -106,7 +106,7 @@ struct ContentView: View {
                           onAddCell: {
                 // Plus button triggered: -> create new configuration
                 guard activeSheet == nil else { return }
-                appState.deep.newConfiguration = appState.deep.createConfiguration()
+                appState.deep.createTemportaryConfiguration()
                 activeSheet = .configuration
             },
                           onDownloadTap: {

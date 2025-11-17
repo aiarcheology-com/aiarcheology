@@ -206,7 +206,6 @@ struct DownloadDetailView: View {
             let entityId = item.entityId
             guard let file = item.file else { return }
             onImport.call(file, entityId, downloader)
-            dismiss()
         }
         .bold()
         .foregroundColor(canImport ? .green : .gray)
