@@ -5,6 +5,7 @@
 //  Created by Vladimír Cortes Slavík on 07.10.25.
 //
 
+// Swift
 import OSLog
 
 extension Logger {
@@ -12,145 +13,119 @@ extension Logger {
     private static var subsystem: String { Bundle.main.bundleIdentifier ?? "com.aiarcheology.ios" }
     
     // MARK: - App & Lifecycle
-    /// Logs for app-wide events, initialization, and teardown
     static let app = Logger(subsystem: subsystem, category: "App")
-    
-    /// Logs for app lifecycle events (foreground/background, startup, shutdown)
     static let lifecycle = Logger(subsystem: subsystem, category: "Lifecycle")
     
     // MARK: - Core Features
-    /// Logs for AI driver operations (model loading, detection, classification)
     static let drivers = Logger(subsystem: subsystem, category: "Drivers")
-    
-    /// Logs for rendering operations (snapshots, image processing)
     static let rendering = Logger(subsystem: subsystem, category: "Rendering")
-    
-    /// Logs for configuration management
     static let configuration = Logger(subsystem: subsystem, category: "Configuration")
     
     // MARK: - Data Layer
-    /// Logs for Core Data operations and persistence
     static let persistence = Logger(subsystem: subsystem, category: "Persistence")
-    
-    /// Logs for state management operations
     static let state = Logger(subsystem: subsystem, category: "State")
     
     // MARK: - Networking & Downloads
-    /// Logs for network operations and model downloads
     static let networking = Logger(subsystem: subsystem, category: "Networking")
     
     // MARK: - UI
-    /// Logs for user interface events and interactions
     static let ui = Logger(subsystem: subsystem, category: "UI")
-    
-    /// Logs for gallery module operations
     static let gallery = Logger(subsystem: subsystem, category: "Gallery")
     
     // MARK: - Deprecated (for backwards compatibility)
     @available(*, deprecated, renamed: "drivers")
     static let logDrivers = Logger(subsystem: subsystem, category: "Drivers")
-    
     @available(*, deprecated, renamed: "rendering")
     static let logRendering = Logger(subsystem: subsystem, category: "Rendering")
-    
     @available(*, deprecated, renamed: "configuration")
     static let logConfigration = Logger(subsystem: subsystem, category: "Configuration")
     
     // MARK: - Timestamp Support
     
-    /// Generates a formatted timestamp for log messages
-    /// Performance optimized: uses cached formatter and only creates Date when needed
-    private static var timestamp: String {
-        guard LoggingConfiguration.timestampsEnabled else { return "" }
-        let date = Date()
-        let formatted = LoggingConfiguration.timestampFormat.formatter.string(from: date)
-        return "\(formatted) "
+    /// Generates a formatted timestamp for log messages (async to honor actor-isolated config)
+    private static func timestamp() -> String {
+        LoggingConfiguration.timestampPrefix()
     }
     
     // MARK: - Timestamped Logging Methods
-        
-    /// Log a debug message with automatic timestamp prepended
-    /// - Parameter message: An autoclosure that produces the log message
+    
     func logDebug(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
-        let evaluatedMessage = message() // evaluate now
+        let evaluatedMessage = message()
+        let ts = Logger.timestamp()
         if isPrivate {
-            self.debug("\(Logger.timestamp)\(evaluatedMessage, privacy: .private)")
-        }
-        else {
-            self.debug("\(Logger.timestamp)\(evaluatedMessage, privacy: .public)")
+            self.debug("\(ts)\(evaluatedMessage, privacy: .private)")
+        } else {
+            self.debug("\(ts)\(evaluatedMessage, privacy: .public)")
         }
     }
     
-    /// Log an info message with automatic timestamp prepended
-    /// - Parameter message: An autoclosure that produces the log message
     func logInfo(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
+        let ts = Logger.timestamp()
         if isPrivate {
-            self.info("\(Logger.timestamp)\(evaluatedMessage, privacy: .private)")
-        }
-        else {
-            self.info("\(Logger.timestamp)\(evaluatedMessage, privacy: .public)")
+            self.info("\(ts)\(evaluatedMessage, privacy: .private)")
+        } else {
+            self.info("\(ts)\(evaluatedMessage, privacy: .public)")
         }
     }
     
-    /// Log a notice message with automatic timestamp prepended
-    /// - Parameter message: An autoclosure that produces the log message
     func logNotice(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
+        let ts = Logger.timestamp()
         if isPrivate {
-            self.notice("\(Logger.timestamp)\(evaluatedMessage, privacy: .private)")
-        }
-        else {
-            self.notice("\(Logger.timestamp)\(evaluatedMessage, privacy: .public)")
+            self.notice("\(ts)\(evaluatedMessage, privacy: .private)")
+        } else {
+            self.notice("\(ts)\(evaluatedMessage, privacy: .public)")
         }
     }
     
-    /// Log a warning message with automatic timestamp prepended
-    /// - Parameter message: An autoclosure that produces the log message
     func logWarning(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
+        let ts = Logger.timestamp()
         if isPrivate {
-            self.warning("\(Logger.timestamp)\(evaluatedMessage, privacy: .private)")
-        }
-        else {
-            self.warning("\(Logger.timestamp)\(evaluatedMessage, privacy: .public)")
+            self.warning("\(ts)\(evaluatedMessage, privacy: .private)")
+        } else {
+            self.warning("\(ts)\(evaluatedMessage, privacy: .public)")
         }
     }
     
-    /// Log an error message with automatic timestamp prepended
-    /// - Parameter message: An autoclosure that produces the log message
+    func logTrace(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
+        let evaluatedMessage = message()
+        let ts = Logger.timestamp()
+        if isPrivate {
+            self.debug("\(ts)[trace] \(evaluatedMessage, privacy: .private)")
+        } else {
+            self.debug("\(ts)[trace] \(evaluatedMessage, privacy: .public)")
+        }
+    }
+    
     func logError(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
+        let ts = Logger.timestamp()
         if isPrivate {
-            self.error("\(Logger.timestamp)\(evaluatedMessage, privacy: .private)")
-        }
-        else {
-            self.error("\(Logger.timestamp)\(evaluatedMessage, privacy: .public)")
+            self.error("\(ts)\(evaluatedMessage, privacy: .private)")
+        } else {
+            self.error("\(ts)\(evaluatedMessage, privacy: .public)")
         }
     }
     
-    /// Log a fault message with automatic timestamp prepended
-    /// - Parameter message: An autoclosure that produces the log message
     func logFault(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
+        let ts = Logger.timestamp()
         if isPrivate {
-            self.fault("\(Logger.timestamp)\(evaluatedMessage, privacy: .private)")
-        }
-        else {
-            self.fault("\(Logger.timestamp)\(evaluatedMessage, privacy: .public)")
+            self.fault("\(ts)\(evaluatedMessage, privacy: .private)")
+        } else {
+            self.fault("\(ts)\(evaluatedMessage, privacy: .public)")
         }
     }
-
-    /// Log a critical message with automatic timestamp prepended
-    /// - Parameter message: An autoclosure that produces the log message
+    
     func logCritical(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
+        let ts = Logger.timestamp()
         if isPrivate {
-            self.critical("\(Logger.timestamp)\(evaluatedMessage, privacy: .private)")
-        }
-        else {
-            self.critical("\(Logger.timestamp)\(evaluatedMessage, privacy: .public)")
+            self.critical("\(ts)\(evaluatedMessage, privacy: .private)")
+        } else {
+            self.critical("\(ts)\(evaluatedMessage, privacy: .public)")
         }
     }
-
 }

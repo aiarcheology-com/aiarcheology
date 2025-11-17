@@ -13,8 +13,17 @@ struct DownloaderView: View {
     @EnvironmentObject var deep: DeepState
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \DownloadItem.stateChanged_, ascending: false)],
-        predicate: NSPredicate(format: "entityId != nil"), // TODO: This is a workaround. OnAppear is called multiple times, which creates multiple instances from DownloadItem - not desired behaviour
-        animation: .default)
+        predicate: NSPredicate(
+            format: "%K IN %@",
+            #keyPath(DownloadItem.lifeCycleString),
+            [
+                CoreDataManageableState.empty.rawValue,
+                CoreDataManageableState.draft.rawValue,
+                CoreDataManageableState.ready.rawValue
+            ]
+        ),
+        animation: .default
+    )
     private var downloadItems: FetchedResults<DownloadItem>
     let configurationId: UUID
     var onImport: (URL, UUID, ModelProvider) -> Void
@@ -68,10 +77,7 @@ struct DownloaderView: View {
     }
     
     private func delete(_ item: DownloadItem) {
-        guard let entityId = item.entityId else {
-            assert(false, "No entry has been found after the selection.")
-            return
-        }
+        let entityId = item.entityId
         
         // ifConfig.isNil: The model has not been imported. Remove it.
         // ifConfig.isNotNil: The model has been imported. Keep it.

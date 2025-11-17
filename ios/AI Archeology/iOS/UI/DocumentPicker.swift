@@ -37,7 +37,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
 		Coordinator(self, configurationId: configurationId)
 	}
 
-	class Coordinator: NSObject, UIDocumentPickerDelegate, ModelProvider {
+    class Coordinator: NSObject, UIDocumentPickerDelegate, @MainActor ModelProvider {
 		var parent: DocumentPicker
 		let configurationId: UUID
 

@@ -1,16 +1,35 @@
-### Hi there 👋
+# 📱 AI Archeology iOS App
 
-<!--
-**aiarcheology/aiarcheology** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+Welcome to the AI Archeology project repository.
 
-Here are some ideas to get you started:
+## 🛠️ Initial Project Setup
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+Before opening the Xcode project or starting development, you **must** run the project setup tool.
+
+### Prerequisites
+
+* **Xcode:** Latest stable version (includes Swift and Swift Package Manager).
+
+### Setup Instructions
+
+1.  **Clone the Repository:**
+    ```bash
+    git clone [your_repo_url]
+    cd aiarcheology
+    ```
+
+2.  **Run the Setup Tool:**
+    Use Swift Package Manager to build and execute the `ProjectTool` with the `setup` command, specifying the location of the package manifest.
+
+    ```bash
+    swift run --package-path Tools ProjectTool setup
+    ```
+
+    * *Note: The first time this runs, SwiftPM will resolve dependencies and build the tool, which may take a few seconds.*
+
+3.  **Open the Project:**
+    After the setup script successfully completes, you can open your Xcode project/workspace.
+    
+    ```bash
+    open AI\ Archeology.xcodeproj
+    ```

@@ -39,8 +39,7 @@ class SnapState: ObservableObject {
 		Publishers.Merge(timerTrigger, snapshotTrigger)
 			.eraseToAnyPublisher()
 	}
-
-	func startTimer() {
+    @MainActor func startTimer() {
 		guard timerCancellable.isNil else { return }
 
 			// Start the timer and handle its events by sending them to timerTrigger

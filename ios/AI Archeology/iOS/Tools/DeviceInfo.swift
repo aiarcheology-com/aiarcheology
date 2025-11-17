@@ -8,7 +8,7 @@
 import UIKit
 
 struct DeviceInfo {
-	static func information() -> String {
+    @MainActor static func information() -> String {
 		let device = UIDevice.current
 		let deviceModel = DeviceInfo.deviceModelName()
 		let iosVersion = device.systemVersion

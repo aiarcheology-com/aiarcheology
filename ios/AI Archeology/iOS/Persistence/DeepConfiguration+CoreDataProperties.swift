@@ -15,23 +15,20 @@ extension DeepConfiguration {
     @nonobjc public class func fetchRequest() -> NSFetchRequest<DeepConfiguration> {
         return NSFetchRequest<DeepConfiguration>(entityName: "DeepConfiguration")
     }
-
+    
     @NSManaged public var annotationColor_: Data?
     @NSManaged public var author: String?
     @NSManaged public var creationDate_: Date?
     @NSManaged public var demo: Bool
     @NSManaged public var enabled: Bool
-    @NSManaged public var entityId: UUID?
+    @NSManaged public var entityId: UUID
     @NSManaged public var file_: URL?
     @NSManaged public var modelDescription: String?
-    @NSManaged public var modelType: String?
+    @NSManaged public var modelTypeString: String?
     @NSManaged public var modelVersion: String?
     @NSManaged public var phaseOutTime: Double
-    @NSManaged public var readyToValidate: Bool
     @NSManaged public var selectedSymbol_: String?
-
+    @NSManaged public var lifeCycleString: String
 }
 
-extension DeepConfiguration : Identifiable {
-
-}
+extension DeepConfiguration : Identifiable {}

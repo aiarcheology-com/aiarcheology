@@ -11,5 +11,9 @@ import CoreData
 
 @objc(WebHistoryEntry)
 final public class WebHistoryEntry: NSManagedObject {
-
+    public override func awakeFromInsert() {
+        super.awakeFromInsert()
+        self.entityId = UUID()
+        self.lifeCycleString = CoreDataManageableState.empty.rawValue
+    }
 }

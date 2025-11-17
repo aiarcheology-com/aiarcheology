@@ -7,13 +7,13 @@
 
 import SwiftUI
 
-struct GalleryScreen: Screen {
+struct GalleryScreen: @MainActor Screen {
 	@ViewBuilder
 	static func content() -> some View {
 		ImageGalleryApp()
 	}
 
-	@ViewBuilder
+    @MainActor @ViewBuilder
 	static func barItems(position: ItemsPosition) -> some View {
 		switch position {
 		case .leading:

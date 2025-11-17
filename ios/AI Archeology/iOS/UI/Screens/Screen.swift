@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+@MainActor
 protocol Screen {
 	associatedtype Content: View
 	associatedtype BarItems: View

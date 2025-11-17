@@ -8,12 +8,14 @@
 import SwiftUI
 import Combine
 
+typealias SnapshotProvider = @Sendable (UIImage, CGRect) -> Void
+
 struct SnapshotRendererKey: EnvironmentKey {
-	static let defaultValue: ((UIImage, CGRect) -> Void)? = nil
+	static let defaultValue: SnapshotProvider? = nil
 }
 
 extension EnvironmentValues {
-	var snapshotProvider: ((UIImage, CGRect) -> Void)? {
+	var snapshotProvider: SnapshotProvider? {
 		get { self[SnapshotRendererKey.self] }
 		set { self[SnapshotRendererKey.self] = newValue }
 	}
@@ -57,7 +59,7 @@ struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Ne
 
 extension View {
 		// The snapshot is made from a view wrapped within SnapableGroup and driven by the group's publisher
-	func onSnapshot(perform action: @escaping (UIImage, CGRect) -> Void) -> some View {
+	func onSnapshot(perform action: @escaping SnapshotProvider) -> some View {
 		environment(\.snapshotProvider, { image, frame in
 			action(image, frame)
 		})

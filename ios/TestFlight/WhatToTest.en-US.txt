@@ -1,0 +1,79 @@
+Test Focus: New Configuration, Model Import & Delete
+Branch: origin/fix/AIA-0054-error-in-the-swift-6-language-mode-detector-swift-30-2
+Build: 302
+Test model url: https://github.com/tucan9389/ObjectDetection-CoreML/releases/download/etc-models/ObjectDetector.mlmodel
+
+Devices / Platforms
+- Please test at least on an iPhone.
+- If possible, also test on an iPad and on a Mac build (for right-click context menus).
+
+1. New Configuration – entry & layout
+- Open the side menu and tap the "+" button to create a new configuration.
+- Verify:
+  - Title is "New Configuration".
+  - Intro text explains that only Create ML .mlmodel / .mlpackage object detection models are supported.
+  - At the bottom there are two large buttons: a "doc" icon and a "globe" icon.
+  - The "Learn more" and "Python Code to Convert ONNX to Create ML" sections are visible and scroll correctly.
+
+2. Import via document picker (local file)
+Happy path:
+- From "New Configuration", tap the doc button.
+- Choose a valid .mlmodel or .mlpackage file.
+- Expect:
+  - The file picker dismisses.
+  - Import completes without an error.
+  - A success alert appears about the model being imported.
+  - After dismissing, a new configuration appears in the side menu and is still there after app restart.
+
+Cancel / invalid:
+- Tap the doc button, then tap Cancel in the file picker:
+  - No alert, no new configuration created.
+- If possible, select an invalid or unsupported file:
+  - Expect an error alert and no new configuration in the side menu.
+
+3. Import via Downloader (globe button)
+Happy path:
+- From "New Configuration", tap the globe button.
+- DownloaderView opens with title "Models".
+- Tap "+" to add a download, enter a valid model URL, and start the download.
+- When the download is finished, open it and import the model as a configuration.
+- Expect:
+  - A success alert.
+  - A new configuration appears in the side menu and can be selected and used.
+
+Failure path:
+- In DownloaderView, add a download with an obviously invalid URL (e.g. not a model).
+- Expect:
+  - Download shows a failure or error status.
+  - Import is blocked or fails with a clear error.
+  - No broken configuration is added.
+
+4. Side menu – selecting and deleting configurations
+Setup:
+- Make sure you have at least 2–3 configurations created.
+
+Selection:
+- Tap each configuration in the side menu.
+- Confirm:
+  - The tapped item becomes visually selected.
+  - The main content uses that configuration’s model (as far as the UI exposes).
+
+Delete:
+- On iPhone/iPad: swipe left on a configuration row and tap Delete.
+- On Mac (or iPad with pointer): right-click / long-press a configuration row and choose Delete from the context menu.
+- For both methods, confirm:
+  - The row disappears from the list.
+  - If you deleted the currently selected configuration, nothing stays selected for that deleted entry and the app doesn’t crash.
+
+Empty state:
+- Delete all configurations.
+- Open the side menu.
+- Confirm:
+  - You see helper text telling you to tap "+" to add a new model.
+  - Tapping "+" opens New Configuration and lets you create/import a new configuration again.
+
+5. Error handling (spot check)
+- Try to import a clearly invalid model (bad file or bad URL) to trigger an error.
+- Confirm:
+  - You see an "Error" alert (no crash).
+  - After dismissing the alert, the app continues to work and you can retry the flow.

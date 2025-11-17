@@ -17,6 +17,12 @@ final class DataController: ObservableObject {
 	init(appState: AppState) {
 		self.appState = appState
 		container = NSPersistentContainer(name: DataController.containerName)
+        
+        if let desc = container.persistentStoreDescriptions.first {
+            desc.shouldMigrateStoreAutomatically = true
+            desc.shouldInferMappingModelAutomatically = false
+        }
+        
 		container.loadPersistentStores { description, error in
 			if let error = error {
 				// Core Data failure is a critical error that compromises all app functionality

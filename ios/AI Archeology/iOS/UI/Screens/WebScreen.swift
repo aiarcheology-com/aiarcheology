@@ -8,8 +8,9 @@
 import SwiftUI
 import OSLog
 
+@MainActor
 struct WebScreen: Screen {
-	@ViewBuilder
+    @ViewBuilder
 	static func content() -> some View {
 		VStack {
 			WebScreenView()
@@ -52,7 +53,7 @@ struct WebScreenView: View {
 	@Environment(\.managedObjectContext) var moc
 	@FetchRequest(
 		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: false)],
-		predicate: NSPredicate(format: "entityId != nil AND page != nil AND creationDate_ != nil"),
+		predicate: NSPredicate(format: "page != nil AND creationDate_ != nil"),
 		animation: .default)
 	private var history: FetchedResults<WebHistoryEntry>
 	@EnvironmentObject var appState: AppState
@@ -160,7 +161,7 @@ var body: some View {
 	}
 
 	private func createWebHistoryEntry(_ urlString: String, maxEntries: Int) {
-		guard WebHistoryEntry.getAll(in: moc).count <= maxEntries else {
+		guard WebHistoryEntry.selectAll(in: moc).count <= maxEntries else {
 			latestError = HistoryError.fullHistory
 			showAlert = true
 			return
@@ -174,7 +175,6 @@ var body: some View {
 		let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: moc)
 		newHistorEntry.bookmarked = false
 		newHistorEntry.creationDate_ = .now
-		newHistorEntry.entityId = UUID()
 		newHistorEntry.page = URL(string:websiteUrl.withHTTPS)
 		do {
 			try newHistorEntry.validateForInsert()

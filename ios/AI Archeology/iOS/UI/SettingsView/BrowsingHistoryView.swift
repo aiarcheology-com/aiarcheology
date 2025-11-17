@@ -12,7 +12,7 @@ struct BrowserHistoryView: View {
 	@Environment(\.presentationMode) var presentation
 	@FetchRequest(
 		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: false)],
-		predicate: NSPredicate(format: "entityId != nil AND page != nil AND creationDate_ != nil"),
+		predicate: NSPredicate(format: "lifeCycleString == %@ AND page != nil AND creationDate_ != nil", "ready"),
 		animation: .default)
 	private var history: FetchedResults<WebHistoryEntry>
 	@EnvironmentObject var settings: Settings
@@ -50,10 +50,7 @@ struct BrowserHistoryView: View {
 										.tint(.blue)
 
 										Button(role: .destructive, action: {
-											guard let entityId = item.entityId else {
-												assert(false, "No entry has been found after the selection.")
-												return
-											}
+											let entityId = item.entityId
 											WebHistoryEntry.delete(entityId, in: moc)
 										}) {
 											Label("", systemImage: "trash")

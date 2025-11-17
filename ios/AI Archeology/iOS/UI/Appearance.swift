@@ -14,7 +14,7 @@ struct Backports {
             return Self.self
         }
 
-        @discardableResult
+        @MainActor @discardableResult
         static func tabbar() -> Self.Type {
         #if os(iOS)
             UITabBar.appearance().backgroundColor = .systemBackground
@@ -24,7 +24,7 @@ struct Backports {
         #endif
             return Self.self
         }
-        @discardableResult
+        @MainActor @discardableResult
         static func navigationBar() -> Self.Type {
         #if os(iOS)
             let appearance = UINavigationBarAppearance()
@@ -38,7 +38,7 @@ struct Backports {
             return Self.self
         }
 
-		@discardableResult
+        @MainActor @discardableResult
 		static func textField() -> Self.Type {
 		#if os(iOS)
 			UITextField.appearance().clearButtonMode = .whileEditing

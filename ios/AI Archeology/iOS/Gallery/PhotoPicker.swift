@@ -60,7 +60,10 @@ class Coordinator: NSObject, UINavigationControllerDelegate, PHPickerViewControl
             } else if let url = url {
                 if let savedUrl = FileManager.default.copyItemToDocumentDirectory(from: url) {
                     // Add the new item to the data model.
-                    Task { @MainActor [dataModel = self.parent.dataModel] in
+                    Task { @MainActor [weak self] in
+                        guard let dataModel = self?.parent.dataModel else {
+                            return
+                        }
                         withAnimation {
                             let item = ItemG(url: savedUrl)
                             dataModel.addItem(item)
