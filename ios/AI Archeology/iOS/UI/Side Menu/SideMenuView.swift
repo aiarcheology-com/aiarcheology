@@ -17,23 +17,23 @@ struct SideMenuView: View {
 			NSSortDescriptor(keyPath: \DeepConfiguration.creationDate_, ascending: false)
 		],
 		// Filter for configurations that are ready (filled out and validated)
-        predicate: NSPredicate(
-            format: "%K == %@", #keyPath(DownloadItem.lifeCycleString), CoreDataManageableState.ready.rawValue
-        )
+		predicate: NSPredicate(
+			format: "%K == %@", #keyPath(DownloadItem.lifeCycleString), CoreDataManageableState.ready.rawValue
+		)
 	) var configurations: FetchedResults<DeepConfiguration>
-
+	
 	@State private var refreshToggle: Bool = false // to enforce the component's refresh (not happen always, issue on iOS16)
-
+	
 	@Binding var selectedConfigurationId: UUID?
 	@Binding var presentedSideMenu: Bool
 	@State var onAddCell: (() -> Void)
 	@State var onDownloadTap: (() -> Void)
-
+	
 	var body: some View {
 		HStack(alignment: .bottom) {
-			ZStack{
+			ZStack {
 				VStack {
-						// Dismiss button
+					// Dismiss button
 					VStack {
 						HStack {
 							Button(action: onAddCell) {
@@ -54,11 +54,11 @@ struct SideMenuView: View {
 							.padding()
 						}
 					}
-
+					
 					List {
 						Section("Available Models") {
 							Group {
-								if(configurations.isEmpty && isFirstLaunch.not) {
+								if (configurations.isEmpty && isFirstLaunch.not) {
 									VStack {
 										Spacer()
 										Text("Tap the ＋ icon to add a new model.")
@@ -84,11 +84,19 @@ struct SideMenuView: View {
 													DeepConfiguration.save(in: moc)
 												}
 										}
+										.contextMenu { // Context menu for macOS/right-click deletion
+											Button(role: .destructive) {
+												deleteConfiguration(configuration)
+											}
+											label: {
+												Label("Delete", systemImage: "trash")
+											}
+										}
 									}
 									.onDelete { offsets in
 										for index in offsets {
 											let configuration = configurations[index]
-                                            let entityId = configuration.entityId
+											let entityId = configuration.entityId
 											DeepConfiguration.delete(entityId, in: moc)
 										}
 									}
@@ -105,5 +113,16 @@ struct SideMenuView: View {
 			Spacer()
 		}
 		.background(.clear)
+	}
+	
+	private func deleteConfiguration(_ configuration: DeepConfiguration) {
+		let entityId = configuration.entityId
+		
+		// If the currently selected configuration is being deleted, clear the selection
+		if selectedConfigurationId == entityId {
+			selectedConfigurationId = nil
+		}
+		
+		DeepConfiguration.delete(entityId, in: moc)
 	}
 }
