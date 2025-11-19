@@ -84,7 +84,7 @@ struct GlobalToolbarTrailing: View {
 					.onDisappear {
 						showPopoverAdjustment = false
 					}
-					.environmentObject(guide.appState.snapAdjustment)
+					.environmentObject(guide.snapAdjustment)
 			}
 			Button ( action:  {
 				guide.settingsTapped()

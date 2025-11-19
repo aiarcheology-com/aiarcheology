@@ -88,7 +88,7 @@ struct ContentView: View {
                                    leadingItems: {
                         Screens.barItems(mode, position: .leading)
                             .environmentObject(appState.guide)
-                            .environmentObject(appState.downloader)
+                            .environmentObject(appState.downloader as! Downloader)
                     },
                                    trailingItems: {
                         Screens.barItems(mode, position: .trailing)
@@ -138,14 +138,14 @@ struct ContentView: View {
                     appState.guide.historySelected(item)
                 } label: {
                     Text(item.absoluteString.trimmedString)
-                        .foregroundColor(.gray)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    .foregroundColor(.gray)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                     Spacer()
                 }
             }
             .environmentObject(appState.guide)
-            .environmentObject(appState.deep)
+            .environmentObject(appState.deep as! DeepState)
             // ------ Show the slideshow after the app's installation -----
         }
         .sheet(item: $activeSheet, onDismiss: {
@@ -158,25 +158,25 @@ struct ContentView: View {
             case .slideshow:
                 SlideshowView()
                     .centerInParentView()
-                    .environmentObject(appState.settings)
+                    .environmentObject(appState.settings as! Settings)
                 
             case .settings:
                 SettingsForm()
-                    .environmentObject(appState.settings)
+                    .environmentObject(appState.settings as! Settings)
                     .environmentObject(appState.guide)
                 
             case .configuration:
                 if let config = appState.deep.newConfiguration {
                     ConfigurationForm()
                         .environmentObject(config)
-                        .environmentObject(appState.deep)
-                        .environmentObject(appState.downloader)
+                        .environmentObject(appState.deep as! DeepState)
+                        .environmentObject(appState.downloader as! Downloader)
                 } else if let id = appState.guide.selectedConfigurationId,
                           let config = appState.deep.selectConfiguration(id) {
                     ConfigurationForm()
                         .environmentObject(config)
-                        .environmentObject(appState.deep)
-                        .environmentObject(appState.downloader)
+                        .environmentObject(appState.deep as! DeepState)
+                        .environmentObject(appState.downloader as! Downloader)
                 } else {
                     // Optional: a fallback view if nothing is selected
                     Text("No configuration available")
@@ -186,7 +186,7 @@ struct ContentView: View {
         .onReceive(appState.guide.$presentSettings) { present in
             activeSheet = present ? .settings : nil
         }
-        .onReceive(appState.deep.$deepStateError) { error in
+        .onReceive(appState.deep.deepStateErrorPublisher) { error in
             guard let error else { return }
             errorMessage = error.localizedDescription
             showErrorAlert = true

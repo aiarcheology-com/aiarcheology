@@ -16,19 +16,20 @@ import OSLog
 // their entities have the same UUID. DeepConfiguations and DownloadItems are kept in CoreData.
 // Drivers are loaded on-demand in memory and un/registered with toggling the DeepConfiguration.enabled property.
 @MainActor
-final class DeepState: ObservableObject {
-	unowned var appState: AppState
+final class DeepState: ObservableObject, DeepStateManaging {
+	let dataController: DataControlling
 	var frame: CGRect = .zero
 	
 	@Published var newConfiguration: DeepConfiguration?
 	@Published var deepStateError: Error?
+    var deepStateErrorPublisher: Published<Error?>.Publisher { $deepStateError }
 	var drivers = DeepDrivers()
 	
-	init(appState: AppState) {
-		self.appState = appState
+	init(dataController: DataControlling) {
+		self.dataController = dataController
 		observeDeepConfigurationChanges()
 		
-		let configurations = DeepConfiguration.selectAll(in: appState.dataController.container.viewContext)
+		let configurations = DeepConfiguration.selectAll(in: dataController.container.viewContext)
 		do {
 			try configurations.forEach { config in
 				guard config.enabled == true else { return }
@@ -99,7 +100,7 @@ final class DeepState: ObservableObject {
 	}
 	
 	func createConfiguration() -> DeepConfiguration {
-		let context = appState.dataController.container.viewContext
+		let context = dataController.container.viewContext
 		return DeepConfiguration.create(in: context)
 	}
 	
@@ -107,43 +108,43 @@ final class DeepState: ObservableObject {
 		_ entityId: UUID,
 		updateClosure: @Sendable @escaping (DeepConfiguration) -> Void
 	) {
-		let context = appState.dataController.container.viewContext
+		let context = dataController.container.viewContext
 		DeepConfiguration.update(entityId, in: context, with: updateClosure)
 	}
 	
 	func deleteConfiguration(_ entityId: UUID) {
-		let context = appState.dataController.container.viewContext
+		let context = dataController.container.viewContext
 		DeepConfiguration.delete(entityId, in: context)
 	}
 	
 	func deleteConfiguration(_ entity: DeepConfiguration) {
-		let context = appState.dataController.container.viewContext
+		let context = dataController.container.viewContext
 		context.delete(entity)
 	}
 	
 	func reset() {
-		let context = appState.dataController.container.viewContext
+		let context = dataController.container.viewContext
 		DeepConfiguration.deleteAll(in: context)
 	}
 	
 	func selectConfiguration(_ entityId: UUID) -> DeepConfiguration? {
-		let context = appState.dataController.container.viewContext
+		let context = dataController.container.viewContext
 		return DeepConfiguration.select(entityId, in: context)
 	}
 	
 	func saveConfigurations() {
-		let context = appState.dataController.container.viewContext
+		let context = dataController.container.viewContext
 		return DeepConfiguration.save(in: context)
 	}
 	
 	func allConfigurations() -> [DeepConfiguration] {
-		let context = appState.dataController.container.viewContext
+		let context = dataController.container.viewContext
 		return DeepConfiguration.selectAll(in: context)
 	}
 	
 	// Handlers:
 	private var context: NSManagedObjectContext {
-		appState.dataController.container.viewContext
+		dataController.container.viewContext
 	}
 	private var deepConfigurationsChanges: AnyCancellable?
 	
@@ -302,7 +303,7 @@ final class DeepState: ObservableObject {
 				continue
 			}
 			
-			guard DownloadItem.select(entityId, in: appState.dataController.container.viewContext).isNil else {
+			guard DownloadItem.select(entityId, in: dataController.container.viewContext).isNil else {
 				Logger.state.logDebug("Skipping deletion of model file still referenced by download item for configuration \(entityId.uuidString)")
 				continue
 			}

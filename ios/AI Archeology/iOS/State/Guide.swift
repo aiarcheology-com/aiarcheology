@@ -8,7 +8,13 @@
 import Foundation
 
 final class Guide: ObservableObject {
-	unowned var appState: AppState
+	var snap: any SnapStateManaging
+    var deep: any DeepStateManaging
+    var settings: any SettingsProviding
+    unowned var snapAdjustment: SnapAdjustment
+    let dataController: DataControlling
+    let demoDataManager: DemoDataManaging
+    
 	@Published var mode = AppMode.web
 	@Published var presentedSideMenu: Bool = false
 	@Published var ontheflyDetectionEnabled: Bool = false
@@ -18,8 +24,13 @@ final class Guide: ObservableObject {
 	@Published var addressBarMenu: [URL] = []
 	@Published var addressSelected: URL?
 
-	init(appState: AppState) {
-		self.appState = appState
+	init(snap: any SnapStateManaging, deep: any DeepStateManaging, settings: any SettingsProviding, dataController: DataControlling, demoDataManager: DemoDataManaging, snapAdjustment: SnapAdjustment) {
+		self.snap = snap
+        self.deep = deep
+        self.settings = settings
+        self.dataController = dataController
+        self.demoDataManager = demoDataManager
+        self.snapAdjustment = snapAdjustment
 	}
 
 	func togglingSideMenu() {
@@ -28,8 +39,8 @@ final class Guide: ObservableObject {
 
     @MainActor func ontheflyDetectionResetTapped() {
 		if ontheflyDetectionEnabled {
-			appState.snap.stopTimer()
-			appState.snap.startTimer()
+			snap.stopTimer()
+			snap.startTimer()
 		}
 	}
 
@@ -41,9 +52,9 @@ final class Guide: ObservableObject {
     @MainActor func ontheflyDetectionTapped() {
 		ontheflyDetectionEnabled.toggle()
 		if ontheflyDetectionEnabled {
-			appState.snap.startTimer()
+			snap.startTimer()
 		} else {
-			appState.snap.stopTimer()
+			snap.stopTimer()
 		}
 	}
 
@@ -52,16 +63,16 @@ final class Guide: ObservableObject {
 	}
 
     @MainActor func resetApplication() {
-		if appState.guide.ontheflyDetectionEnabled {
-			appState.guide.ontheflyDetectionTapped()
+		if ontheflyDetectionEnabled {
+			ontheflyDetectionTapped()
 		}
-		appState.deep.reset()
-		appState.settings.reset()
-		appState.settings.applicationResetButtonToggle.toggle()
-		self.appState.deleteBrowsingHistory()
+		deep.reset()
+		settings.reset()
+		settings.applicationResetButtonToggle.toggle()
+		demoDataManager.deleteBrowsingHistory()
 		DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
 			guard let self else { return }
-			self.appState.createDemoEntities()
+			self.demoDataManager.createDemoEntities()
 		}
 	}
 }

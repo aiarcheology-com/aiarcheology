@@ -7,17 +7,20 @@
 
 import Foundation
 
+@MainActor
 protocol Validatable {
 	func validate() throws
 }
+
+
 
 enum ValidationError: Error {
 	case invalidData(String)
 }
 
 // TODO: use another way to handle the defaults, @dynamicMemberLookup, or so
-final class Settings: ObservableObject, Validatable {
-	unowned var appState: AppState
+final class Settings: ObservableObject, Validatable, SettingsProviding {
+
 	private enum UserDefaultsKeys {
 		static let lastPage = "lastPage"
 		static let isDetectionPaused = "isDetectionPaused"
@@ -113,9 +116,7 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
-	init(appState: AppState) {
-		self.appState = appState
-
+	init() {
 		let defaultValues: [String: Any] = [
 			UserDefaultsKeys.keepSlideShowActive: true,
 			UserDefaultsKeys.sizeHistory: 30,
