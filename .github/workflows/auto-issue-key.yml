@@ -118,7 +118,6 @@ jobs:
 
             const branch = `${branchPrefix}/${key}/${slug}`.slice(0, 120);
             const url = `https://github.com/${context.repo.owner}/${context.repo.repo}/issues/${n}`;
-            const createBranchUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/new/main?filename=${encodeURIComponent(branch)}/.gitkeep`;
 
             // Build the target comment body with a stable hidden marker
             const newBody = [
@@ -131,7 +130,6 @@ jobs:
               '```',
               branch,
               '```',
-              `[Create branch (via new file)](${createBranchUrl})`,
               ...(requested && !allowed.includes(requested)
                 ? ['', `> Unknown branch prefix "${requested}". Allowed: ${allowed.join(', ')}`]
                 : (context.eventName === 'issue_comment' && (requested || (context.payload.comment.body||'').includes('/key'))
