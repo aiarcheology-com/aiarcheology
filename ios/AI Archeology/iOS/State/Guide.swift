@@ -8,12 +8,12 @@
 import Foundation
 
 final class Guide: ObservableObject {
-	var snap: any SnapStateManaging
-    var deep: any DeepStateManaging
-    var settings: any SettingsProviding
+	var snap: SnapState
+    var deep: DeepState
+    var settings: Settings
     unowned var snapAdjustment: SnapAdjustment
-    let dataController: DataControlling
-    let demoDataManager: DemoDataManaging
+    let dataController: DataController
+    let demoDataManager: DemoDataManager
     
 	@Published var mode = AppMode.web
 	@Published var presentedSideMenu: Bool = false
@@ -24,7 +24,7 @@ final class Guide: ObservableObject {
 	@Published var addressBarMenu: [URL] = []
 	@Published var addressSelected: URL?
 
-	init(snap: any SnapStateManaging, deep: any DeepStateManaging, settings: any SettingsProviding, dataController: DataControlling, demoDataManager: DemoDataManaging, snapAdjustment: SnapAdjustment) {
+	init(snap: SnapState, deep: DeepState, settings: Settings, dataController: DataController, demoDataManager: DemoDataManager, snapAdjustment: SnapAdjustment) {
 		self.snap = snap
         self.deep = deep
         self.settings = settings

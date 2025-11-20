@@ -22,8 +22,8 @@ final class SnapAdjustment: ObservableObject {
 }
 
 import Combine
-class SnapState: ObservableObject, SnapStateManaging {
-	var settings: any SettingsProviding
+class SnapState: ObservableObject {
+	var settings: Settings
 	var timerCancellable: Cancellable?
 	let snapshotTrigger = PassthroughSubject<Void, Never>()
 	let timerTrigger = PassthroughSubject<Void, Never>()
@@ -31,7 +31,7 @@ class SnapState: ObservableObject, SnapStateManaging {
 	
 	@Published var snap: Snapshot?
 
-	init(settings: any SettingsProviding) {
+	init(settings: Settings) {
 		self.settings = settings
 	}
 

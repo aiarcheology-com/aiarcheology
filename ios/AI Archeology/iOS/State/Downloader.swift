@@ -125,7 +125,7 @@ fileprivate final class DownloaderSessionDelegateProxy: NSObject, URLSessionDown
 }
 
 @MainActor
-final public class Downloader: NSObject, ObservableObject, Downloading {
+final public class Downloader: NSObject, ObservableObject {
     public enum State: String, CaseIterable, Identifiable {
         case notStarted = "Not started"
         case downloading = "Downloading"
@@ -144,14 +144,14 @@ final public class Downloader: NSObject, ObservableObject, Downloading {
         case cancel
     }
     
-    let dataController: DataControlling
+    let dataController: DataController
     @Published private(set) var activeDownloads: [UUID: ActiveDownload] = [:]
     private var pausedDownloads: [UUID: Data] = [:]
     
     private let networkMonitor = NWPathMonitor()
     private lazy var delegateProxy: DownloaderSessionDelegateProxy = DownloaderSessionDelegateProxy(owner: self)
         
-    init(dataController: DataControlling) {
+    init(dataController: DataController) {
         self.dataController = dataController
         super.init()
         
@@ -392,8 +392,8 @@ final public class Downloader: NSObject, ObservableObject, Downloading {
                 let item = DownloadItem.select(id, in: dataController.container.viewContext)
             {
                 // Only reset if it's not in a terminal state (success/failure already handled)
-                if item.state == .downloading || item.state == .paused {
-                    transitionAndSave(item, to: .notStarted)
+                if item.state == Downloader.State.downloading || item.state == Downloader.State.paused {
+                    transitionAndSave(item, to: Downloader.State.notStarted)
                 }
             }
             return

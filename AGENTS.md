@@ -25,6 +25,9 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 *   **Dependencies**:
     *   Use Protocols to define boundaries between major components.
     *   **Avoid "Fake" Abstractions**: Don't create a protocol if there will only ever be one implementation and it adds no testing value.
+*   **Testing Strategy**:
+    *   **Prefer Real Objects**: Use real implementations with isolated dependencies (e.g., In-Memory Core Data) over mocks. This tests actual logic.
+    *   **Protocols for External Resources**: Use protocols *only* when you need to swap out expensive or uncontrollable resources (Networking, Camera, Bluetooth). Extract only the capability needed (e.g., `NetworkService` vs `Downloading`).
 
 ### Code Style
 *   **Clarity > Cleverness**: Write code that a junior developer can debug 6 months from now.

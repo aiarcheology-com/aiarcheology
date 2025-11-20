@@ -23,16 +23,16 @@ final class AppState: ObservableObject {
         demoDataManager: self.demoDataManager,
         snapAdjustment: self.snapAdjustment
     )
-	lazy var snap: any SnapStateManaging = DependencyContainer.shared.snapState
+	lazy var snap: SnapState = DependencyContainer.shared.snapState
 	lazy var renderer = DefaultRenderer()
 	lazy var webViewRenderer = WebViewRenderer(snapAdjustment: self.snapAdjustment)
-	lazy var deep: any DeepStateManaging = DependencyContainer.shared.deepState
-	lazy var dataController: DataControlling = DependencyContainer.shared.dataController
-	lazy var settings: any SettingsProviding = DependencyContainer.shared.settings
+	lazy var deep: DeepState = DependencyContainer.shared.deepState
+	lazy var dataController: DataController = DependencyContainer.shared.dataController
+	lazy var settings: Settings = DependencyContainer.shared.settings
 	lazy var snapAdjustment = SnapAdjustment()
-	lazy var downloader: any Downloading = DependencyContainer.shared.downloader
+	lazy var downloader: Downloader = DependencyContainer.shared.downloader
     
-    lazy var demoDataManager: DemoDataManaging = DependencyContainer.shared.demoDataManager
+    lazy var demoDataManager: DemoDataManager = DependencyContainer.shared.demoDataManager
 	
 	init() {
 		Logger.state.logInfo("AppState initializing")

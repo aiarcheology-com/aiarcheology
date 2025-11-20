@@ -19,7 +19,7 @@ enum ValidationError: Error {
 }
 
 // TODO: use another way to handle the defaults, @dynamicMemberLookup, or so
-final class Settings: ObservableObject, Validatable, SettingsProviding {
+final class Settings: ObservableObject, Validatable {
 
 	private enum UserDefaultsKeys {
 		static let lastPage = "lastPage"

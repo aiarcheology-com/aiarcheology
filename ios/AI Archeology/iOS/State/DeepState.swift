@@ -16,8 +16,8 @@ import OSLog
 // their entities have the same UUID. DeepConfiguations and DownloadItems are kept in CoreData.
 // Drivers are loaded on-demand in memory and un/registered with toggling the DeepConfiguration.enabled property.
 @MainActor
-final class DeepState: ObservableObject, DeepStateManaging {
-	let dataController: DataControlling
+final class DeepState: ObservableObject {
+	let dataController: DataController
 	var frame: CGRect = .zero
 	
 	@Published var newConfiguration: DeepConfiguration?
@@ -25,7 +25,7 @@ final class DeepState: ObservableObject, DeepStateManaging {
     var deepStateErrorPublisher: Published<Error?>.Publisher { $deepStateError }
 	var drivers = DeepDrivers()
 	
-	init(dataController: DataControlling) {
+	init(dataController: DataController) {
 		self.dataController = dataController
 		observeDeepConfigurationChanges()
 		

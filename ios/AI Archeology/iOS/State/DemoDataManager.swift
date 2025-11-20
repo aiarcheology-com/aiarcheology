@@ -12,11 +12,11 @@ import OSLog
 import CoreML
 
 @MainActor
-final class DemoDataManager: DemoDataManaging {
-    let settings: any SettingsProviding
-    let dataController: DataControlling
+final class DemoDataManager {
+    let settings: Settings
+    let dataController: DataController
     
-    init(settings: any SettingsProviding, dataController: DataControlling) {
+    init(settings: Settings, dataController: DataController) {
         self.settings = settings
         self.dataController = dataController
     }

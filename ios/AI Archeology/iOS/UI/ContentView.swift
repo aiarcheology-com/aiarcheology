@@ -88,7 +88,7 @@ struct ContentView: View {
                                    leadingItems: {
                         Screens.barItems(mode, position: .leading)
                             .environmentObject(appState.guide)
-                            .environmentObject(appState.downloader as! Downloader)
+                            .environmentObject(appState.downloader)
                     },
                                    trailingItems: {
                         Screens.barItems(mode, position: .trailing)
@@ -145,7 +145,7 @@ struct ContentView: View {
                 }
             }
             .environmentObject(appState.guide)
-            .environmentObject(appState.deep as! DeepState)
+            .environmentObject(appState.deep)
             // ------ Show the slideshow after the app's installation -----
         }
         .sheet(item: $activeSheet, onDismiss: {
@@ -158,25 +158,25 @@ struct ContentView: View {
             case .slideshow:
                 SlideshowView()
                     .centerInParentView()
-                    .environmentObject(appState.settings as! Settings)
+                    .environmentObject(appState.settings)
                 
             case .settings:
                 SettingsForm()
-                    .environmentObject(appState.settings as! Settings)
+                    .environmentObject(appState.settings)
                     .environmentObject(appState.guide)
                 
             case .configuration:
                 if let config = appState.deep.newConfiguration {
                     ConfigurationForm()
                         .environmentObject(config)
-                        .environmentObject(appState.deep as! DeepState)
-                        .environmentObject(appState.downloader as! Downloader)
+                        .environmentObject(appState.deep)
+                        .environmentObject(appState.downloader)
                 } else if let id = appState.guide.selectedConfigurationId,
                           let config = appState.deep.selectConfiguration(id) {
                     ConfigurationForm()
                         .environmentObject(config)
-                        .environmentObject(appState.deep as! DeepState)
-                        .environmentObject(appState.downloader as! Downloader)
+                        .environmentObject(appState.deep)
+                        .environmentObject(appState.downloader)
                 } else {
                     // Optional: a fallback view if nothing is selected
                     Text("No configuration available")
