@@ -14,10 +14,7 @@ protocol DefaultRenderable {
 
 	// Default renderer for the SwiftUI components
 class DefaultRenderer: ObservableObject {
-	unowned var appState: AppState
-
-	init(appState: AppState) {
-		self.appState = appState
+	init() {
 	}
 
 	@MainActor func render<Content>(_ content: Content, completionHandler: @escaping (UIImage?, Error?) -> Void) where Content: View {

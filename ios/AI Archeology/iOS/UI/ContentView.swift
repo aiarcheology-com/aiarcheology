@@ -138,9 +138,9 @@ struct ContentView: View {
                     appState.guide.historySelected(item)
                 } label: {
                     Text(item.absoluteString.trimmedString)
-                        .foregroundColor(.gray)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                    .foregroundColor(.gray)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                     Spacer()
                 }
             }
@@ -186,7 +186,7 @@ struct ContentView: View {
         .onReceive(appState.guide.$presentSettings) { present in
             activeSheet = present ? .settings : nil
         }
-        .onReceive(appState.deep.$deepStateError) { error in
+        .onReceive(appState.deep.deepStateErrorPublisher) { error in
             guard let error else { return }
             errorMessage = error.localizedDescription
             showErrorAlert = true

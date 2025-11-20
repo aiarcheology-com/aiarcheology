@@ -10,6 +10,11 @@ import Combine
 
 typealias SnapshotProvider = @Sendable (UIImage, CGRect) -> Void
 
+struct Snapshot {
+    let image: UIImage
+    let date: Date = Date()
+}
+
 struct SnapshotRendererKey: EnvironmentKey {
 	static let defaultValue: SnapshotProvider? = nil
 }

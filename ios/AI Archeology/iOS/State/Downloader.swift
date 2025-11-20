@@ -144,15 +144,15 @@ final public class Downloader: NSObject, ObservableObject {
         case cancel
     }
     
-    unowned let appState: AppState
+    let dataController: DataController
     @Published private(set) var activeDownloads: [UUID: ActiveDownload] = [:]
     private var pausedDownloads: [UUID: Data] = [:]
     
     private let networkMonitor = NWPathMonitor()
     private lazy var delegateProxy: DownloaderSessionDelegateProxy = DownloaderSessionDelegateProxy(owner: self)
         
-    init(appState: AppState) {
-        self.appState = appState
+    init(dataController: DataController) {
+        self.dataController = dataController
         super.init()
         
         Logger.networking.logInfo("Downloader initialized, starting network monitor")
@@ -167,7 +167,7 @@ final public class Downloader: NSObject, ObservableObject {
                     guard let self else { return }
                     activeDownloads.values.forEach { download in
                         // Fetch the managed object to update error state
-                        if let item = DownloadItem.select(download.id, in: self.appState.dataController.container.viewContext) {
+                        if let item = DownloadItem.select(download.id, in: self.dataController.container.viewContext) {
                             item.error = "There are issues with your \(self.getNetworkType(path)) connection. The download has been paused."
                             self.handleEvent(item, .pause)
                         }
@@ -289,7 +289,7 @@ final public class Downloader: NSObject, ObservableObject {
     }
     
     private func saveDownloadContext() {
-        let ctx = appState.dataController.container.viewContext
+        let ctx = dataController.container.viewContext
         DownloadItem.save(in: ctx)
     }
     
@@ -389,17 +389,17 @@ final public class Downloader: NSObject, ObservableObject {
             if
                 let idString = task.taskDescription,
                 let id = UUID(uuidString: idString),
-                let item = DownloadItem.select(id, in: appState.dataController.container.viewContext)
+                let item = DownloadItem.select(id, in: dataController.container.viewContext)
             {
                 // Only reset if it's not in a terminal state (success/failure already handled)
-                if item.state == .downloading || item.state == .paused {
-                    transitionAndSave(item, to: .notStarted)
+                if item.state == Downloader.State.downloading || item.state == Downloader.State.paused {
+                    transitionAndSave(item, to: Downloader.State.notStarted)
                 }
             }
             return
         }
         
-        guard let item = DownloadItem.select(download.id, in: appState.dataController.container.viewContext) else {
+        guard let item = DownloadItem.select(download.id, in: dataController.container.viewContext) else {
             Logger.networking.logWarning("Download item not found in Core Data for \(download.id.uuidString)")
             activeDownloads.removeValue(forKey: download.id)
             return
@@ -480,7 +480,7 @@ final public class Downloader: NSObject, ObservableObject {
     @MainActor
     func handleDownloadCompletion(itemId: UUID, fileURL: Result<URL, Error>) {
         guard let download = activeDownloads[itemId],
-              let item = DownloadItem.select(itemId, in: appState.dataController.container.viewContext)
+              let item = DownloadItem.select(itemId, in: dataController.container.viewContext)
         else {
             Logger.networking.logWarning("Download item not found in Core Data for \(itemId.uuidString)")
             activeDownloads.removeValue(forKey: itemId)
@@ -532,7 +532,7 @@ final public class Downloader: NSObject, ObservableObject {
 @MainActor
 extension Downloader: @MainActor ModelProvider {
     func result(_ error: ModelProviderError, id: UUID) {
-        guard let item = DownloadItem.select(id, in: appState.dataController.container.viewContext)
+        guard let item = DownloadItem.select(id, in: dataController.container.viewContext)
         else { return }
         
         switch error {

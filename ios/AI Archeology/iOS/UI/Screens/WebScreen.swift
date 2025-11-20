@@ -70,48 +70,9 @@ struct WebScreenView: View {
 		Backports.Appearance.textField()
 	}
 
-var body: some View {
-	// Passing appState.webViewRenderer as arg to be able to check, because:
-	// https://stackoverflow.com/questions/59822245/swiftui-optional-environment-object
-	SnapableGroup(renderer: appState.webViewRenderer, publisher: appState.snap.combinedPublishers) {
-		MLWebView(websiteUrl, lastPage: { urlPage in
-			appState.settings.lastPage = urlPage
-		}) { loading, error in
-			Logger.ui.logDebug("WebView loading status changed: \(loading ? "loading" : "loaded")")
-			if let error = error {
-				Logger.ui.logError("WebView loading error: \(error.localizedDescription)")
-			}
-		}
-		.equatable()
-	}
-	.onReceive(appState.guide.$addressSelected) { address in
-		guard let address else { return }
-		inputUrl = address.absoluteString
-		self.websiteUrl = inputUrl
-		appState.guide.addressBarMenu = []
-	}
-	.onAppear() {
-		if hasPerformedInitialAction.not {
-			hasPerformedInitialAction = true
-			if
-				appState.settings.reopenLastPage.enabled,
-				let lastPage = appState.settings.lastPage {
-				inputUrl = lastPage.absoluteString
-				self.websiteUrl = inputUrl
-			} else {
-				guard let defaultPage = appState.settings.defaultPage?.absoluteString else { return }
-				inputUrl = defaultPage
-				self.websiteUrl = inputUrl
-				createWebHistoryEntry(inputUrl, maxEntries: appState.settings.historySize)
-			}
-		}
-	}
-	.environmentObject(appState.webViewRenderer)
-	.navigationBarTitle("", displayMode: .inline)
-	.clipped()
-	.toolbar {
+	@ToolbarContentBuilder
+	var toolbarContent: some ToolbarContent {
 		ToolbarItem(placement: .principal) {
-
 			TextField("Search or enter any website name", text: $inputUrl) { isStart in
 				showMenu = isStart
 			}
@@ -158,7 +119,50 @@ var body: some View {
 			}
 		}
 	}
-	}
+
+    var body: some View {
+        // Passing appState.webViewRenderer as arg to be able to check, because:
+        // https://stackoverflow.com/questions/59822245/swiftui-optional-environment-object
+        SnapableGroup(renderer: appState.webViewRenderer, publisher: appState.snap.combinedPublishers) {
+            MLWebView(websiteUrl, lastPage: { urlPage in
+                appState.settings.lastPage = urlPage
+            }) { loading, error in
+                Logger.ui.logDebug("WebView loading status changed: \(loading ? "loading" : "loaded")")
+                if let error = error {
+                    Logger.ui.logError("WebView loading error: \(error.localizedDescription)")
+                }
+            }
+            .equatable()
+        }
+        .onReceive(appState.guide.$addressSelected) { address in
+            guard let address else { return }
+            inputUrl = address.absoluteString
+            self.websiteUrl = inputUrl
+            appState.guide.addressBarMenu = []
+        }
+        .onAppear() {
+            if hasPerformedInitialAction.not {
+                hasPerformedInitialAction = true
+                if
+                    appState.settings.reopenLastPage.enabled,
+                    let lastPage = appState.settings.lastPage {
+                    inputUrl = lastPage.absoluteString
+                    self.websiteUrl = inputUrl
+                } else {
+                    guard let defaultPage = appState.settings.defaultPage?.absoluteString else { return }
+                    inputUrl = defaultPage
+                    self.websiteUrl = inputUrl
+                    createWebHistoryEntry(inputUrl, maxEntries: appState.settings.historySize)
+                }
+            }
+        }
+        .environmentObject(appState.webViewRenderer)
+        .navigationBarTitle("", displayMode: .inline)
+        .clipped()
+        .toolbar {
+            toolbarContent
+        }
+    }
 
 	private func createWebHistoryEntry(_ urlString: String, maxEntries: Int) {
 		guard WebHistoryEntry.selectAll(in: moc).count <= maxEntries else {

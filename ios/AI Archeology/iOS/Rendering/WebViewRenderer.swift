@@ -16,6 +16,12 @@ protocol WebViewRenderable {
 // Webview renderer for the components with a nested WebView
 class WebViewRenderer: DefaultRenderer {
 	var webView: WKWebView?
+    unowned var snapAdjustment: SnapAdjustment
+    
+    init(snapAdjustment: SnapAdjustment) {
+        self.snapAdjustment = snapAdjustment
+        super.init()
+    }
 
 	@MainActor override func render<Content>(_ content: Content, completionHandler: @escaping (UIImage?, Error?) -> Void) where Content: View {
 		guard let webView = webView else {
@@ -32,9 +38,9 @@ class WebViewRenderer: DefaultRenderer {
 			if let image = image {
 					// The takeSnapshot func does not take in account the changes in the SwiftUI
 					// api (brightness, contrast, saturation) and has to be explicitly set here:
-				let updatedImage = image.adjusted(brightness: appState.snapAdjustment.brightness,
-												  contrast: appState.snapAdjustment.contrast,
-												  saturation: appState.snapAdjustment.saturation)
+				let updatedImage = image.adjusted(brightness: self.snapAdjustment.brightness,
+												  contrast: self.snapAdjustment.contrast,
+												  saturation: self.snapAdjustment.saturation)
 				completionHandler(updatedImage, error)
 			} else {
 				completionHandler(nil, error)

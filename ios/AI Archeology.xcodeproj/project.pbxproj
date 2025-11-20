@@ -127,6 +127,8 @@
 		9489C96E2EA02B1A008C728F /* HostPlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9489C96D2EA02B0C008C728F /* HostPlatform.swift */; };
 		94BAD1842EB0ED3D0079869F /* UUID+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BAD1832EB0ED370079869F /* UUID+Extension.swift */; };
 		94DF06A22E95C1090024E381 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
+		94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4012ECE46C60047B283 /* DependencyContainer.swift */; };
+		94FCC4032ECE46C60047B283 /* DemoDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4002ECE46C60047B283 /* DemoDataManager.swift */; };
 		94FF14922EBBA08700033B5B /* NSManagedObject+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF14912EBBA07800033B5B /* NSManagedObject+Extension.swift */; };
 /* End PBXBuildFile section */
 
@@ -268,6 +270,8 @@
 		9489C96D2EA02B0C008C728F /* HostPlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPlatform.swift; sourceTree = "<group>"; };
 		94BAD1832EB0ED370079869F /* UUID+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UUID+Extension.swift"; sourceTree = "<group>"; };
 		94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OSLog+Extensions.swift"; sourceTree = "<group>"; };
+		94FCC4002ECE46C60047B283 /* DemoDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManager.swift; sourceTree = "<group>"; };
+		94FCC4012ECE46C60047B283 /* DependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyContainer.swift; sourceTree = "<group>"; };
 		94FF14912EBBA07800033B5B /* NSManagedObject+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSManagedObject+Extension.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -408,6 +412,8 @@
 				8AD3A82F2B2EFA3E0058E018 /* Annotation.swift */,
 				8AC6509E2B2B492C00922648 /* AppMode.swift */,
 				8AC6509C2B2B48D500922648 /* Appstate.swift */,
+				94FCC4002ECE46C60047B283 /* DemoDataManager.swift */,
+				94FCC4012ECE46C60047B283 /* DependencyContainer.swift */,
 				8AC650A62B2B4C5600922648 /* DataController.swift */,
 				8AC650A42B2B4BE200922648 /* DeepConfiguration.swift */,
 				8AD3A82D2B2EF9490058E018 /* Downloader.swift */,
@@ -904,6 +910,8 @@
 				8AC9B6262B153A11007D20EA /* URL+Extensions.swift in Sources */,
 				8A7740D92B19299F002E90D9 /* UIImage+Extensions.swift in Sources */,
 				8AC393D62B2BA33400C9BA57 /* Annotator.swift in Sources */,
+				94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */,
+				94FCC4032ECE46C60047B283 /* DemoDataManager.swift in Sources */,
 				8A1328282B010B8C00F119C6 /* EnvironmentObject+Extensions.swift in Sources */,
 				8AC7CDED2AE7FCED00871074 /* SnapState.swift in Sources */,
 				8AD3A8302B2EFA3E0058E018 /* Annotation.swift in Sources */,

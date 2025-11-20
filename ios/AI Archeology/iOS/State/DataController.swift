@@ -11,11 +11,9 @@ import OSLog
 
 final class DataController: ObservableObject {
 	static let containerName = "MLBrowser"
-	unowned var appState: AppState
 	private(set) var container: NSPersistentContainer
 
-	init(appState: AppState) {
-		self.appState = appState
+	init() {
 		container = NSPersistentContainer(name: DataController.containerName)
         
         if let desc = container.persistentStoreDescriptions.first {

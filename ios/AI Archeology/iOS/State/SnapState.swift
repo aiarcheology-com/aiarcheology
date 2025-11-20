@@ -9,12 +9,10 @@ import Foundation
 import Vision
 
 final class SnapAdjustment: ObservableObject {
-	unowned var appState: AppState
 	static let defaultBrightness = 0.0
 	static let defaultContrast = 1.0
 	static let defaultSaturation = 1.0
-	init(appState: AppState) {
-		self.appState = appState
+	init() {
 	}
 
 	// TODO: Possibly store together in the Page History
@@ -25,14 +23,16 @@ final class SnapAdjustment: ObservableObject {
 
 import Combine
 class SnapState: ObservableObject {
-	unowned var appState: AppState
+	var settings: Settings
 	var timerCancellable: Cancellable?
 	let snapshotTrigger = PassthroughSubject<Void, Never>()
 	let timerTrigger = PassthroughSubject<Void, Never>()
 	var delayedTimer: Bool = false
+	
+	@Published var snap: Snapshot?
 
-	init(appState: AppState) {
-		self.appState = appState
+	init(settings: Settings) {
+		self.settings = settings
 	}
 
 	var combinedPublishers: AnyPublisher<Void, Never> {
@@ -44,7 +44,7 @@ class SnapState: ObservableObject {
 
 			// Start the timer and handle its events by sending them to timerTrigger
 		self.timerTrigger.send() // start immediately
-		timerCancellable = Timer.publish(every: appState.settings.snapFrequency, on: .main, in: .common)
+		timerCancellable = Timer.publish(every: settings.snapFrequency, on: .main, in: .common)
 			.autoconnect()
 			.sink { [weak self] _ in
 				self?.timerTrigger.send()
