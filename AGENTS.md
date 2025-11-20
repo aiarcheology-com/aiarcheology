@@ -10,7 +10,7 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 *   **Pragmatic SwiftUI**: SwiftUI is opinionated. Work *with* it, not against it.
     *   Prefer `Environment` and `EnvironmentObject` for deep hierarchy data flow over passing dependencies through 10 layers of init.
     *   Accept that `ObservableObject` is often the most practical tool, even if it makes strict "pure" DI harder.
-*   **Think Like a User**: Code is a means to an end. If a "clean code" solution results in janky UI or crashes, it is a *bad solution*.
+*   **Think Like a User**: Code is a means to an end. If a "clean code" solution results in janky UI or crashes, it is a **bad solution**.
 
 ## 2. Technical Standards
 
