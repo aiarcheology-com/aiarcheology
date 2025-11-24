@@ -55,8 +55,6 @@
 		8A9BB4422B10F3590061246A /* NewConfigurationForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9BB4412B10F3590061246A /* NewConfigurationForm.swift */; };
 		8A9BB4442B10F3990061246A /* DocumentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9BB4432B10F3990061246A /* DocumentPicker.swift */; };
 		8AA9962C2AD9EB6400371EC8 /* Appearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA9962B2AD9EB6400371EC8 /* Appearance.swift */; };
-		8AB3EAD92B444E44001083D1 /* CucumberSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 8AB3EAD82B444E44001083D1 /* CucumberSwift */; };
-		8AB3EADE2B44508C001083D1 /* AppFeatures in Resources */ = {isa = PBXBuildFile; fileRef = 8AB3EADD2B44508C001083D1 /* AppFeatures */; };
 		8AC093E82B3210CA00E455D5 /* DateFormatter+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC093E72B3210CA00E455D5 /* DateFormatter+Extension.swift */; };
 		8AC393B82B2B9E1800C9BA57 /* AlertItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393B72B2B9E1800C9BA57 /* AlertItem.swift */; };
 		8AC393BB2B2B9E7A00C9BA57 /* AppDescriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393BA2B2B9E7A00C9BA57 /* AppDescriptionView.swift */; };
@@ -129,6 +127,9 @@
 		94DF06A22E95C1090024E381 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
 		94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4012ECE46C60047B283 /* DependencyContainer.swift */; };
 		94FCC4032ECE46C60047B283 /* DemoDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4002ECE46C60047B283 /* DemoDataManager.swift */; };
+		94FCC4052ECFD7730047B283 /* DriversTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4042ECFD7730047B283 /* DriversTests.swift */; };
+		94FCC4062ED062CF0047B283 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
+		94FCC4072ED063010047B283 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
 		94FF14922EBBA08700033B5B /* NSManagedObject+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF14912EBBA07800033B5B /* NSManagedObject+Extension.swift */; };
 /* End PBXBuildFile section */
 
@@ -199,7 +200,6 @@
 		8A9BB4412B10F3590061246A /* NewConfigurationForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewConfigurationForm.swift; sourceTree = "<group>"; };
 		8A9BB4432B10F3990061246A /* DocumentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPicker.swift; sourceTree = "<group>"; };
 		8AA9962B2AD9EB6400371EC8 /* Appearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Appearance.swift; sourceTree = "<group>"; };
-		8AB3EADD2B44508C001083D1 /* AppFeatures */ = {isa = PBXFileReference; lastKnownFileType = folder; path = AppFeatures; sourceTree = "<group>"; };
 		8AB3EADF2B4450B9001083D1 /* AI-ArcheologyTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "AI-ArcheologyTests-Info.plist"; sourceTree = SOURCE_ROOT; };
 		8AC093E72B3210CA00E455D5 /* DateFormatter+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DateFormatter+Extension.swift"; sourceTree = "<group>"; };
 		8AC393B72B2B9E1800C9BA57 /* AlertItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertItem.swift; sourceTree = "<group>"; };
@@ -272,6 +272,7 @@
 		94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OSLog+Extensions.swift"; sourceTree = "<group>"; };
 		94FCC4002ECE46C60047B283 /* DemoDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManager.swift; sourceTree = "<group>"; };
 		94FCC4012ECE46C60047B283 /* DependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyContainer.swift; sourceTree = "<group>"; };
+		94FCC4042ECFD7730047B283 /* DriversTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriversTests.swift; sourceTree = "<group>"; };
 		94FF14912EBBA07800033B5B /* NSManagedObject+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSManagedObject+Extension.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -287,7 +288,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8AB3EAD92B444E44001083D1 /* CucumberSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -610,8 +610,8 @@
 			isa = PBXGroup;
 			children = (
 				8AB3EADF2B4450B9001083D1 /* AI-ArcheologyTests-Info.plist */,
-				8AB3EADD2B44508C001083D1 /* AppFeatures */,
 				8AE0BC1A2A97B0B40086DDF9 /* AI_ArcheologyTests.swift */,
+				94FCC4042ECFD7730047B283 /* DriversTests.swift */,
 				942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */,
 			);
 			path = "AI ArcheologyTests";
@@ -704,7 +704,6 @@
 			);
 			name = "AI ArcheologyTests";
 			packageProductDependencies = (
-				8AB3EAD82B444E44001083D1 /* CucumberSwift */,
 			);
 			productName = "AI ArcheologyTests";
 			productReference = 8AE0BC162A97B0B40086DDF9 /* AI ArcheologyTests.xctest */;
@@ -761,7 +760,6 @@
 			);
 			mainGroup = 8AE0BBF72A97B0B30086DDF9;
 			packageReferences = (
-				8AB3EAD72B444E44001083D1 /* XCRemoteSwiftPackageReference "CucumberSwift" */,
 				94DF06A32E95C1D60024E381 /* XCRemoteSwiftPackageReference "OSLogViewer" */,
 			);
 			productRefGroup = 8AE0BC012A97B0B30086DDF9 /* Products */;
@@ -794,7 +792,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8AB3EADE2B44508C001083D1 /* AppFeatures in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -926,8 +923,10 @@
 				942B1DE12EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */,
 				8AE0BC1B2A97B0B40086DDF9 /* AI_ArcheologyTests.swift in Sources */,
 				942B1DD42EA62E11005455F9 /* CrashReporter.swift in Sources */,
+				94FCC4062ED062CF0047B283 /* OSLog+Extensions.swift in Sources */,
 				942B1DD52EA62E11005455F9 /* LoggingPolicy.swift in Sources */,
 				942B1DE32EA6BF86005455F9 /* LoggingConfigurationTests.swift in Sources */,
+				94FCC4052ECFD7730047B283 /* DriversTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -939,6 +938,7 @@
 				8AE0BC272A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift in Sources */,
 				942B1DD22EA62E11005455F9 /* CrashReporter.swift in Sources */,
 				942B1DD32EA62E11005455F9 /* LoggingPolicy.swift in Sources */,
+				94FCC4072ED063010047B283 /* OSLog+Extensions.swift in Sources */,
 				942B1DDF2EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1104,7 +1104,6 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1143,7 +1142,6 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1170,7 +1168,6 @@
 				DEVELOPMENT_TEAM = 58DST6H6WD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "AI-ArcheologyTests-Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "AIA.AI-ArcheologyTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1179,7 +1176,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AI Archeology.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AI Archeology";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ML Browser.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ML Browser";
 			};
 			name = Debug;
 		};
@@ -1192,7 +1189,6 @@
 				DEVELOPMENT_TEAM = 58DST6H6WD;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "AI-ArcheologyTests-Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "AIA.AI-ArcheologyTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1201,7 +1197,7 @@
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AI Archeology.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AI Archeology";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ML Browser.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ML Browser";
 			};
 			name = Release;
 		};
@@ -1285,14 +1281,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		8AB3EAD72B444E44001083D1 /* XCRemoteSwiftPackageReference "CucumberSwift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Tyler-Keith-Thompson/CucumberSwift";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 4.3.2;
-			};
-		};
 		94DF06A32E95C1D60024E381 /* XCRemoteSwiftPackageReference "OSLogViewer" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/0xWDG/OSLogViewer.git";
@@ -1302,14 +1290,6 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		8AB3EAD82B444E44001083D1 /* CucumberSwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 8AB3EAD72B444E44001083D1 /* XCRemoteSwiftPackageReference "CucumberSwift" */;
-			productName = CucumberSwift;
-		};
-/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCVersionGroup section */
 		8A51D1B92B0B1EA400D2417C /* MLBrowser.xcdatamodeld */ = {
