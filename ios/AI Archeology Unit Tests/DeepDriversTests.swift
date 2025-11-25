@@ -144,14 +144,14 @@ final class DeepDriversTests: XCTestCase {
     
     var sut: DeepDrivers!
     
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         sut = DeepDrivers()
     }
     
-    override func tearDown() {
+    override func tearDown() async throws {
         sut = nil
-        super.tearDown()
+        try await super.tearDown()
     }
     
     // MARK: - Registration Tests

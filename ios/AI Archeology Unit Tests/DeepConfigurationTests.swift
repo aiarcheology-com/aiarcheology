@@ -204,9 +204,7 @@ final class DeepConfigurationTests: XCTestCase {
         
         let report = config.validationReport()
         
-        // Ready state skips validation per implementation: guard lifeCycle == .draft || lifeCycle == .ready
-        // Actually wait - it validates for both draft AND ready, so let me re-read the implementation
-        XCTAssertFalse(report.isValid) // It should validate for .ready
+        XCTAssertFalse(report.isValid)
     }
     
     func testValidationReport_DeprecatedLifeCycle_SkipsValidation() {

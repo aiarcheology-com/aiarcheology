@@ -31,9 +31,7 @@ final class CoreDataManagableTests: XCTestCase {
         let context = testStack.viewContext
         let item = WebHistoryEntry(context: context)
         
-        // Initial state (assuming default is undefined or empty depending on init)
-        // WebHistoryEntry doesn't set default in init, so it's likely undefined (nil string -> undefined)
-        XCTAssertEqual(item.lifeCycle, .empty)
+        XCTAssertEqual(item.lifeCycle, .empty) // See awakeFromInsert
         
         // Transition to Draft
         XCTAssertEqual(item.transition(to: .draft), .draft)

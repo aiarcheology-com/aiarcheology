@@ -345,7 +345,6 @@ final class URLExtensionsTests: XCTestCase {
             XCTAssertTrue(completedURL.path.hasSuffix("test/file.txt"))
         } catch {
             // This might fail in test environment without proper sandbox
-            // That's acceptable - we're testing the logic, not the filesystem
             XCTAssertTrue(error is CocoaError)
         }
     }
