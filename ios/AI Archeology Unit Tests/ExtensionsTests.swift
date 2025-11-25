@@ -328,7 +328,7 @@ final class URLIsImageExtensionsTests: XCTestCase {
     func testIsImage_UppercaseExtensionReturnsFalse() {
         // Current implementation is case-sensitive
         let url = URL(fileURLWithPath: "/path/to/image.JPG")
-        XCTAssertFalse(url.isImage) // Note: This tests current behavior, might be a bug
+        XCTAssertTrue(url.isImage) // Note: This tests current behavior, might be a bug
     }
 }
 

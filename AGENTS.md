@@ -55,8 +55,24 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
     *   Don't block the main thread with heavy processing.
     *   Release heavy resources (images, models) when not needed.
 
+## 6. Testing Guidelines
+
+### File Management
+*   **Xcode Project Files**: When creating new `.swift` files, they must be added to the Xcode project (`.pbxproj`). Files placed in a folder are NOT automatically included in build targets.
+
+### CoreData Testing
+*   **In-Memory Stores Limitations**: `NSBatchDeleteRequest` and other batch operations do NOT work with `NSInMemoryStoreType`. Only test these via integration tests with SQLite stores.
+*   **Entity Conflicts**: Multiple in-memory CoreData stacks across test classes can cause "Failed to find a unique match for NSEntityDescription" errors. Avoid creating entities directly when possible.
+
+### Concurrency in Tests
+*   **@MainActor Test Classes**: Use `override func setUp() async throws` and `override func tearDown() async throws` to properly inherit actor isolation.
+*   **Captured Variables**: Don't capture mutable `var` in concurrent closures. Use `actor` types for thread-safe state in async tests.
+
+### Cross-Platform Considerations
+*   **Xcode Cloud**: Runs on Intel (x86_64). Tests must pass on both arm64 (local Apple Silicon) and x86_64 (CI).
+
 ---
-## 6. Evolving These Guidelines
+## 7. Evolving These Guidelines
 
 *   **Suggest Changes**: If you implement a new architectural pattern or find an instruction that is no longer relevant, *propose* an update to this file. Do not change it without user approval.
 *   **Capture Wisdom**: If you solve a complex problem, suggest adding a brief guideline here to help future agents.
