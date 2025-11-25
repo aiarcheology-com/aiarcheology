@@ -32,6 +32,9 @@
             reference = "container:AI ArcheologyTestPlan/Unit Tests.xctestplan"
             default = "YES">
          </TestPlanReference>
+         <TestPlanReference
+            reference = "container:AI ArcheologyTestPlan/UI Tests.xctestplan">
+         </TestPlanReference>
       </TestPlans>
       <Testables>
          <TestableReference

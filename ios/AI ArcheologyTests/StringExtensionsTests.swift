@@ -278,7 +278,3 @@ final class StringExtensionsTests: XCTestCase {
     }
 }
 
-// MARK: - BrowserInputType Equatable for testing
-
-extension BrowserInpuType: Equatable {}
-
