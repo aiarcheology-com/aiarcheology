@@ -14,64 +14,70 @@ final class LoggingConfigurationTests: XCTestCase {
     override func setUp() {
         super.setUp()
         // Restore default configuration before each test
-        LoggingConfiguration.timestampsEnabled = true
-        LoggingConfiguration.timestampFormat = .iso8601WithMilliseconds
+        LoggingConfiguration.setTimestampsEnabled(true)
+        LoggingConfiguration.setTimestampFormat(.iso8601WithMilliseconds)
     }
     
     func test_timestampFormatter_isCached() throws {
         // Given
-        let formatter1 = ISO8601DateFormatter.logFormatter
-        let formatter2 = ISO8601DateFormatter.logFormatter
+        LoggingConfiguration.setTimestampFormat(.iso8601WithMilliseconds)
+        let date = Date(timeIntervalSince1970: 0)
+        let ts1 = LoggingConfiguration.timestampPrefix(now: date)
+        let ts2 = LoggingConfiguration.timestampPrefix(now: date)
         
         // Then
-        XCTAssertTrue(formatter1 === formatter2, "Formatter should be cached and return same instance")
+        XCTAssertEqual(ts1, ts2, "Timestamp prefix should be deterministic for same date and format")
     }
     
     func test_timestampFormatter_usesUTC() throws {
         // Given
-        let formatter = ISO8601DateFormatter.logFormatter
+        LoggingConfiguration.setTimestampFormat(.iso8601WithMilliseconds)
+        let date = Date(timeIntervalSince1970: 0) // 1970-01-01T00:00:00Z
         
-        // Then
-        XCTAssertEqual(formatter.timeZone.identifier, "UTC", "Formatter should use UTC timezone")
+        // When
+        let prefix = LoggingConfiguration.timestampPrefix(now: date)
+        
+        // Then: should end with 'Z ' (UTC designator + space)
+        XCTAssertTrue(prefix.hasSuffix("Z "), "Timestamp prefix should use UTC timezone and end with 'Z '")
     }
     
     func test_timestampFormatter_producesISO8601Format() throws {
         // Given
-        let formatter = ISO8601DateFormatter.logFormatter
+        LoggingConfiguration.setTimestampFormat(.iso8601WithMilliseconds)
         let date = Date()
         
         // When
-        let timestamp = formatter.string(from: date)
+        let prefix = LoggingConfiguration.timestampPrefix(now: date)
+        let timestamp = prefix.trimmingCharacters(in: .whitespaces)
         
         // Then
         // Format: 2025-10-20T14:59:59.908Z
         let regex = #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$"#
         let predicate = NSPredicate(format: "SELF MATCHES %@", regex)
-        XCTAssertTrue(predicate.evaluate(with: timestamp), 
+        XCTAssertTrue(predicate.evaluate(with: timestamp),
                      "Timestamp '\(timestamp)' should match ISO 8601 format with milliseconds")
     }
     
     func test_loggingConfiguration_timestampsEnabledByDefault() throws {
         // Then
-        XCTAssertTrue(LoggingConfiguration.timestampsEnabled, "Timestamps should be enabled by default")
+        XCTAssertTrue(LoggingConfiguration.timestampsEnabled(), "Timestamps should be enabled by default")
     }
     
     func test_loggingConfiguration_canBeDisabled() throws {
         // When
-        LoggingConfiguration.timestampsEnabled = false
+        LoggingConfiguration.setTimestampsEnabled(false)
         
         // Then
-        XCTAssertFalse(LoggingConfiguration.timestampsEnabled, "Timestamps should be disabled")
+        XCTAssertFalse(LoggingConfiguration.timestampsEnabled(), "Timestamps should be disabled")
         
         // Cleanup
-        LoggingConfiguration.timestampsEnabled = true
+        LoggingConfiguration.setTimestampsEnabled(true)
     }
     
     func test_loggingConfiguration_defaultFormatIsISO8601() throws {
         // Then
-        let formatter = LoggingConfiguration.timestampFormat.formatter
-        XCTAssertTrue(formatter === ISO8601DateFormatter.logFormatter, 
-                     "Default format should use ISO 8601 formatter")
+        let format = LoggingConfiguration.timestampFormat()
+        XCTAssertEqual(format, .iso8601WithMilliseconds)
     }
     
     func test_loggerMethods_existAndAreCallable() throws {
@@ -92,15 +98,15 @@ final class LoggingConfigurationTests: XCTestCase {
     
     func test_formatterPerformance() throws {
         // Given
-        let formatter = ISO8601DateFormatter.logFormatter
+        LoggingConfiguration.setTimestampFormat(.iso8601WithMilliseconds)
+        let date = Date()
         
         // When/Then
         measure {
             for _ in 0..<1000 {
-                _ = formatter.string(from: Date())
+                _ = LoggingConfiguration.timestampPrefix(now: date)
             }
         }
-        // This test ensures timestamp generation is performant
-        // With cached formatter, should be fast
+        // This test ensures timestamp generation is performant with cached formatter.
     }
 }

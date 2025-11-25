@@ -1,24 +1,6 @@
 {
-  "originHash" : "eaa6653848506e699ca30f74e0106f0b97e029a6477100286d8e513acf21a6c1",
+  "originHash" : "e398e080d76436f8897f64b9644c5c3fd9e6e86a593aa2776da897e1c06f0b27",
   "pins" : [
-    {
-      "identity" : "cucumberswift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Tyler-Keith-Thompson/CucumberSwift",
-      "state" : {
-        "revision" : "5226892807bf773d8a4c45708eaf6fcaba62f612",
-        "version" : "4.3.2"
-      }
-    },
-    {
-      "identity" : "cucumberswiftexpressions",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Tyler-Keith-Thompson/CucumberSwiftExpressions.git",
-      "state" : {
-        "revision" : "5200dc2c5d7cd31f07a13f030ab0027224d2dbea",
-        "version" : "0.0.8"
-      }
-    },
     {
       "identity" : "oslogviewer",
       "kind" : "remoteSourceControl",
