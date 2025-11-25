@@ -4,4 +4,7 @@
    <FileRef
       location = "container:AI Archeology.xcodeproj">
    </FileRef>
+   <FileRef
+      location = "group:AI ArcheologyTestPlan/AI Archeology.xctestplan">
+   </FileRef>
 </Workspace>

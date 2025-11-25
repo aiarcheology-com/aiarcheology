@@ -150,6 +150,9 @@ final public class Downloader: NSObject, ObservableObject {
     
     private let networkMonitor = NWPathMonitor()
     private lazy var delegateProxy: DownloaderSessionDelegateProxy = DownloaderSessionDelegateProxy(owner: self)
+    
+    // Test hook
+    var sessionFactory: ((URLSessionConfiguration, URLSessionDelegate?, OperationQueue?) -> URLSession)?
         
     init(dataController: DataController) {
         self.dataController = dataController
@@ -176,6 +179,7 @@ final public class Downloader: NSObject, ObservableObject {
             }
         }
         self.networkMonitor.start(queue: DispatchQueue(label: "Network Monitor"))
+        Downloader.current = self
     }
     
     private func getNetworkType(_ path: NWPath) -> String {
@@ -308,7 +312,12 @@ final public class Downloader: NSObject, ObservableObject {
         
         let configuration = URLSessionConfiguration.default
         let queue = OperationQueue()
-        let session = URLSession(configuration: configuration, delegate: delegateProxy, delegateQueue: queue)
+        let session: URLSession
+        if let factory = sessionFactory {
+            session = factory(configuration, delegateProxy, queue)
+        } else {
+            session = URLSession(configuration: configuration, delegate: delegateProxy, delegateQueue: queue)
+        }
         
         let downloadTask: URLSessionDownloadTask
         let entityId = item.entityId
@@ -527,6 +536,12 @@ final public class Downloader: NSObject, ObservableObject {
     
     // Optional: global access if needed by closures
     static weak var current: Downloader?
+
+    // MARK: - Test helpers
+    /// Injects resume data for a given item ID to simulate a paused state in tests.
+    func _testInjectResumeData(for id: UUID, data: Data = Data()) {
+        pausedDownloads[id] = data
+    }
 }
 
 @MainActor

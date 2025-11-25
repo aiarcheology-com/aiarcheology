@@ -13,10 +13,14 @@ final class DataController: ObservableObject {
 	static let containerName = "MLBrowser"
 	private(set) var container: NSPersistentContainer
 
-	init() {
+	init(inMemory: Bool = false) {
 		container = NSPersistentContainer(name: DataController.containerName)
         
-        if let desc = container.persistentStoreDescriptions.first {
+        if inMemory {
+            let description = NSPersistentStoreDescription()
+            description.type = NSInMemoryStoreType
+            container.persistentStoreDescriptions = [description]
+        } else if let desc = container.persistentStoreDescriptions.first {
             desc.shouldMigrateStoreAutomatically = true
             desc.shouldInferMappingModelAutomatically = false
         }
