@@ -29,7 +29,7 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <TestPlans>
          <TestPlanReference
-            reference = "container:AI ArcheologyTestPlan/AI Archeology Unit Tests.xctestplan"
+            reference = "container:AI ArcheologyTestPlan/Unit Tests.xctestplan"
             default = "YES">
          </TestPlanReference>
       </TestPlans>
