@@ -28,6 +28,11 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 *   **Testing Strategy**:
     *   **Prefer Real Objects**: Use real implementations with isolated dependencies (e.g., In-Memory Core Data) over mocks. This tests actual logic.
     *   **Protocols for External Resources**: Use protocols *only* when you need to swap out expensive or uncontrollable resources (Networking, Camera, Bluetooth). Extract only the capability needed (e.g., `NetworkService` vs `Downloading`).
+    *   **Protocol-Based Mocking for Deprecated APIs**: When subclassing deprecated system classes (like `URLSessionDownloadTask.init()`), use protocol-based mocking instead:
+        1. Create a minimal protocol extracting only the methods/properties needed
+        2. Extend the system class to conform to the protocol
+        3. Change production code to use the protocol type (e.g., `any DownloadTaskProtocol`)
+        4. Create test mocks conforming to the protocol (no subclassing, no warnings)
 
 ### Code Style
 *   **Clarity > Cleverness**: Write code that a junior developer can debug 6 months from now.
@@ -63,13 +68,37 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 ### CoreData Testing
 *   **In-Memory Stores Limitations**: `NSBatchDeleteRequest` and other batch operations do NOT work with `NSInMemoryStoreType`. Only test these via integration tests with SQLite stores.
 *   **Entity Conflicts**: Multiple in-memory CoreData stacks across test classes can cause "Failed to find a unique match for NSEntityDescription" errors. Avoid creating entities directly when possible.
+*   **Entity Creation Pattern**: Prefer using factory methods from protocols like `CoreDataManageable` (`.create(in:)`) over direct entity initialization (`EntityName(context:)`). This reduces entity descriptor conflicts when multiple test classes share the same model.
 
 ### Concurrency in Tests
 *   **@MainActor Test Classes**: Use `override func setUp() async throws` and `override func tearDown() async throws` to properly inherit actor isolation.
 *   **Captured Variables**: Don't capture mutable `var` in concurrent closures. Use `actor` types for thread-safe state in async tests.
+*   **`@MainActor` Class Methods**: If a `@MainActor` class has methods that check-then-modify state, DO NOT wrap them in `Task { @MainActor in ... }`. The method already runs synchronously on the main thread, so the Task wrapper creates a race condition. Trust the actor isolation.
+    ```swift
+    // ❌ BAD - Creates race condition
+    @MainActor class MyClass {
+        func register() {
+            Task { @MainActor in
+                if !items.contains(...) { items.append(...) } // Race!
+            }
+        }
+    }
+    
+    // ✅ GOOD - Atomic operation
+    @MainActor class MyClass {
+        func register() {
+            if !items.contains(...) { items.append(...) } // Synchronous, safe
+        }
+    }
+    ```
 
 ### Cross-Platform Considerations
 *   **Xcode Cloud**: Runs on Intel (x86_64). Tests must pass on both arm64 (local Apple Silicon) and x86_64 (CI).
+
+### Test Organization
+*   **File Structure**: Group related tests by component, not by "unit vs integration". A `FooTests.swift` file tests `Foo.swift`.
+*   **New Test Files**: When creating `NewComponentTests.swift`, immediately add it to the Xcode project (`.pbxproj`) via `PBXBuildFile` and `PBXFileReference`. Don't wait for build failures.
+*   **Test Naming**: Use descriptive names following the pattern `test[Method]_[Scenario]_[ExpectedResult]`, e.g., `testRegister_SameDriverTwice_OnlyRegistersOnce`.
 
 ---
 ## 7. Evolving These Guidelines
