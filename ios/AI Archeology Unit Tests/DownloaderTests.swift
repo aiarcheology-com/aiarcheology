@@ -10,45 +10,34 @@ import Combine
 import CoreData
 @testable import ML_Browser
 
-// MARK: - Mock URLSessionDownloadTask
+// MARK: - Mock DownloadTask (Protocol-based)
 
-/// A minimal mock download task for testing.
-/// Note: URLSessionDownloadTask.init() is deprecated in iOS 13+, but subclassing
-/// is the only way to create a mock that can be passed where URLSessionDownloadTask
-/// is expected. This is acceptable for test-only code.
-final class MockDownloadTask: URLSessionDownloadTask, @unchecked Sendable {
+/// A protocol-conforming mock for testing download tasks.
+/// Uses DownloadTaskProtocol instead of subclassing URLSessionDownloadTask,
+/// avoiding the deprecated URLSessionDownloadTask.init() warning.
+final class MockDownloadTask: DownloadTaskProtocol, @unchecked Sendable {
     var resumeCalled = false
     var cancelCalled = false
     var cancelWithResumeDataCalled = false
     var capturedResumeDataHandler: (@Sendable (Data?) -> Void)?
     
-    private let _taskDescription: String?
-    private let _state: URLSessionTask.State
+    var taskDescription: String?
+    private(set) var state: URLSessionTask.State
     
     init(taskDescription: String? = nil, state: URLSessionTask.State = .suspended) {
-        self._taskDescription = taskDescription
-        self._state = state
-        super.init()
+        self.taskDescription = taskDescription
+        self.state = state
     }
     
-    override var taskDescription: String? {
-        get { _taskDescription }
-        set { /* Intentionally empty - read-only in tests */ }
-    }
-    
-    override var state: URLSessionTask.State {
-        _state
-    }
-    
-    override func resume() {
+    func resume() {
         resumeCalled = true
     }
     
-    override func cancel() {
+    func cancel() {
         cancelCalled = true
     }
     
-    override func cancel(byProducingResumeData completionHandler: @escaping @Sendable (Data?) -> Void) {
+    func cancel(byProducingResumeData completionHandler: @escaping @Sendable (Data?) -> Void) {
         cancelWithResumeDataCalled = true
         capturedResumeDataHandler = completionHandler
     }

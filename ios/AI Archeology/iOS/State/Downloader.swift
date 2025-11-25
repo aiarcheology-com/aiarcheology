@@ -16,6 +16,28 @@ enum DownloaderError: Error {
     case invalidStateInQueue
 }
 
+// MARK: - Task Protocols for Testing
+
+/// Minimal protocol for task identification - used in delegate forwarding methods
+/// that only need to read taskDescription.
+protocol TaskIdentifiable: AnyObject, Sendable {
+    var taskDescription: String? { get set }
+}
+
+/// Protocol abstraction for URLSessionDownloadTask to enable testing without subclassing.
+/// URLSessionDownloadTask.init() is deprecated in iOS 13+, so we use protocol-based mocking instead.
+protocol DownloadTaskProtocol: TaskIdentifiable {
+    var state: URLSessionTask.State { get }
+    func resume()
+    func cancel()
+    func cancel(byProducingResumeData completionHandler: @escaping @Sendable (Data?) -> Void)
+}
+
+extension URLSessionTask: TaskIdentifiable {}
+extension URLSessionDownloadTask: DownloadTaskProtocol {}
+
+// MARK: - ActiveDownload
+
 @MainActor
 final class ActiveDownload: Identifiable, Comparable, Hashable, ObservableObject {
     let itemId: UUID
@@ -27,9 +49,9 @@ final class ActiveDownload: Identifiable, Comparable, Hashable, ObservableObject
         return itemId
     }
     let started: Date = .now
-    weak var task: URLSessionDownloadTask?
+    weak var task: (any DownloadTaskProtocol)?
     
-    init(task: URLSessionDownloadTask, itemId: UUID) {
+    init(task: any DownloadTaskProtocol, itemId: UUID) {
         self.task = task
         self.itemId = itemId
     }
@@ -388,7 +410,7 @@ final public class Downloader: NSObject, ObservableObject {
     }
     
     // MARK: URLSession delegate forwarding endpoints (called by the proxy)
-    func sessionTaskDidComplete(session: URLSession, task: URLSessionTask, error: Error?) {
+    func sessionTaskDidComplete(session: URLSession, task: any TaskIdentifiable, error: Error?) {
         guard
             let idString = task.taskDescription,
             let id = UUID(uuidString: idString),
@@ -442,7 +464,7 @@ final public class Downloader: NSObject, ObservableObject {
     }
     
     func sessionDownloadDidWriteData(session: URLSession,
-                                     downloadTask: URLSessionDownloadTask,
+                                     downloadTask: any TaskIdentifiable,
                                      bytesWritten: Int64,
                                      totalBytesWritten: Int64,
                                      totalBytesExpectedToWrite: Int64) {
