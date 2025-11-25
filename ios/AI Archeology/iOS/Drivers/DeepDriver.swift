@@ -87,25 +87,19 @@ class DeepDrivers: ObservableObject {
 	@Published var classificators: [DeepDriver] = []
 
     func register(driver: DeepDriver, along: DeepDriverType) {
-        Task { @MainActor in
-            switch along {
-            case .detector:
-                let alreadyRegistered = detectors.contains { $0.id == driver.id }
-                if !alreadyRegistered {
-                    await MainActor.run {
-                        detectors.append(driver)
-                    }
-                }
-            case .classificator:
-                let alreadyRegistered = classificators.contains { $0.id == driver.id }
-                if !alreadyRegistered {
-                    await MainActor.run {
-                        classificators.append(driver)
-                    }
-                }
-            case .invalid:
-                Logger.drivers.logError("Attempted to register driver with invalid type.")
+        switch along {
+        case .detector:
+            let alreadyRegistered = detectors.contains { $0.id == driver.id }
+            if !alreadyRegistered {
+                detectors.append(driver)
             }
+        case .classificator:
+            let alreadyRegistered = classificators.contains { $0.id == driver.id }
+            if !alreadyRegistered {
+                classificators.append(driver)
+            }
+        case .invalid:
+            Logger.drivers.logError("Attempted to register driver with invalid type.")
         }
 	}
 

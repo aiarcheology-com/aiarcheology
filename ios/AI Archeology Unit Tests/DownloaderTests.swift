@@ -16,7 +16,6 @@ import CoreData
 /// Note: URLSessionDownloadTask.init() is deprecated in iOS 13+, but subclassing
 /// is the only way to create a mock that can be passed where URLSessionDownloadTask
 /// is expected. This is acceptable for test-only code.
-@available(iOS, deprecated: 13.0, message: "Test mock using deprecated URLSessionDownloadTask.init()")
 final class MockDownloadTask: URLSessionDownloadTask, @unchecked Sendable {
     var resumeCalled = false
     var cancelCalled = false

@@ -2,12 +2,6 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "group:AI ArcheologyTestPlan/UI Tests.xctestplan">
-   </FileRef>
-   <FileRef
       location = "container:AI Archeology.xcodeproj">
-   </FileRef>
-   <FileRef
-      location = "group:AI ArcheologyTestPlan/Unit Tests.xctestplan">
    </FileRef>
 </Workspace>
