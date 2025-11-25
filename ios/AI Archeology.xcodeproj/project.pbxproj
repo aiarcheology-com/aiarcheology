@@ -135,6 +135,11 @@
 		94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */; };
 		94929E772ED633C1001A4C63 /* DeepDriversTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E732ED633C1001A4C63 /* DeepDriversTests.swift */; };
 		94929E782ED633C1001A4C63 /* ExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E742ED633C1001A4C63 /* ExtensionsTests.swift */; };
+		94929E7E2ED63ADE001A4C63 /* SnapStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */; };
+		94929E7F2ED63ADE001A4C63 /* GalleryModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E7A2ED63ADE001A4C63 /* GalleryModelTests.swift */; };
+		94929E802ED63ADE001A4C63 /* GuideTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E7B2ED63ADE001A4C63 /* GuideTests.swift */; };
+		94929E812ED63ADE001A4C63 /* DeviceInfoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E792ED63ADE001A4C63 /* DeviceInfoTests.swift */; };
+		94929E822ED63ADE001A4C63 /* ModelEnumsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */; };
 		94BAD1842EB0ED3D0079869F /* UUID+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BAD1832EB0ED370079869F /* UUID+Extension.swift */; };
 		94DF06A22E95C1090024E381 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
 		94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4012ECE46C60047B283 /* DependencyContainer.swift */; };
@@ -292,6 +297,11 @@
 		94929E732ED633C1001A4C63 /* DeepDriversTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepDriversTests.swift; sourceTree = "<group>"; };
 		94929E742ED633C1001A4C63 /* ExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionsTests.swift; sourceTree = "<group>"; };
 		94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingPolicyTests.swift; sourceTree = "<group>"; };
+		94929E792ED63ADE001A4C63 /* DeviceInfoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInfoTests.swift; sourceTree = "<group>"; };
+		94929E7A2ED63ADE001A4C63 /* GalleryModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryModelTests.swift; sourceTree = "<group>"; };
+		94929E7B2ED63ADE001A4C63 /* GuideTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideTests.swift; sourceTree = "<group>"; };
+		94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelEnumsTests.swift; sourceTree = "<group>"; };
+		94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapStateTests.swift; sourceTree = "<group>"; };
 		94BAD1832EB0ED370079869F /* UUID+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UUID+Extension.swift"; sourceTree = "<group>"; };
 		94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OSLog+Extensions.swift"; sourceTree = "<group>"; };
 		94FCC4002ECE46C60047B283 /* DemoDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManager.swift; sourceTree = "<group>"; };
@@ -633,16 +643,21 @@
 		8AE0BC192A97B0B40086DDF9 /* AI Archeology Unit Tests */ = {
 			isa = PBXGroup;
 			children = (
-				94929E732ED633C1001A4C63 /* DeepDriversTests.swift */,
-				94929E742ED633C1001A4C63 /* ExtensionsTests.swift */,
-				94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */,
 				945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */,
 				945C55852ED71234007DD8FB /* DeepConfigurationTests.swift */,
 				945C55692ED5127C007DD8FB /* DeepStateTests.swift */,
+				94929E732ED633C1001A4C63 /* DeepDriversTests.swift */,
+				94929E792ED63ADE001A4C63 /* DeviceInfoTests.swift */,
 				945C557F2ED61234007DD8FB /* DownloaderTests.swift */,
 				94FCC4042ECFD7730047B283 /* DriversTests.swift */,
+				94929E7B2ED63ADE001A4C63 /* GuideTests.swift */,
+				94929E742ED633C1001A4C63 /* ExtensionsTests.swift */,
+				94929E7A2ED63ADE001A4C63 /* GalleryModelTests.swift */,
+				94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */,
+				94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */,
 				942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */,
 				945C55832ED71234007DD8FB /* SettingsTests.swift */,
+				94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */,
 				945C55812ED71234007DD8FB /* StringExtensionsTests.swift */,
 				945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */,
 				945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */,
@@ -968,6 +983,11 @@
 				945C55702ED5127C007DD8FB /* CoreDataManagableTests.swift in Sources */,
 				945C55712ED5127C007DD8FB /* DeepStateTests.swift in Sources */,
 				945C55802ED61234007DD8FB /* DownloaderTests.swift in Sources */,
+				94929E7E2ED63ADE001A4C63 /* SnapStateTests.swift in Sources */,
+				94929E7F2ED63ADE001A4C63 /* GalleryModelTests.swift in Sources */,
+				94929E802ED63ADE001A4C63 /* GuideTests.swift in Sources */,
+				94929E812ED63ADE001A4C63 /* DeviceInfoTests.swift in Sources */,
+				94929E822ED63ADE001A4C63 /* ModelEnumsTests.swift in Sources */,
 				945C55822ED71234007DD8FB /* StringExtensionsTests.swift in Sources */,
 				945C55842ED71234007DD8FB /* SettingsTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
