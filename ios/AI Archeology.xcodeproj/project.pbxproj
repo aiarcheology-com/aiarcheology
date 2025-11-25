@@ -140,6 +140,7 @@
 		94929E802ED63ADE001A4C63 /* GuideTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E7B2ED63ADE001A4C63 /* GuideTests.swift */; };
 		94929E812ED63ADE001A4C63 /* DeviceInfoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E792ED63ADE001A4C63 /* DeviceInfoTests.swift */; };
 		94929E822ED63ADE001A4C63 /* ModelEnumsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */; };
+		94929E832ED65555001A4C63 /* LowerPriorityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E842ED65555001A4C63 /* LowerPriorityTests.swift */; };
 		94BAD1842EB0ED3D0079869F /* UUID+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BAD1832EB0ED370079869F /* UUID+Extension.swift */; };
 		94DF06A22E95C1090024E381 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
 		94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4012ECE46C60047B283 /* DependencyContainer.swift */; };
@@ -302,6 +303,7 @@
 		94929E7B2ED63ADE001A4C63 /* GuideTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideTests.swift; sourceTree = "<group>"; };
 		94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelEnumsTests.swift; sourceTree = "<group>"; };
 		94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapStateTests.swift; sourceTree = "<group>"; };
+		94929E842ED65555001A4C63 /* LowerPriorityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LowerPriorityTests.swift; sourceTree = "<group>"; };
 		94BAD1832EB0ED370079869F /* UUID+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UUID+Extension.swift"; sourceTree = "<group>"; };
 		94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OSLog+Extensions.swift"; sourceTree = "<group>"; };
 		94FCC4002ECE46C60047B283 /* DemoDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManager.swift; sourceTree = "<group>"; };
@@ -656,6 +658,7 @@
 				94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */,
 				94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */,
 				942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */,
+				94929E842ED65555001A4C63 /* LowerPriorityTests.swift */,
 				945C55832ED71234007DD8FB /* SettingsTests.swift */,
 				94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */,
 				945C55812ED71234007DD8FB /* StringExtensionsTests.swift */,
@@ -988,6 +991,7 @@
 				94929E802ED63ADE001A4C63 /* GuideTests.swift in Sources */,
 				94929E812ED63ADE001A4C63 /* DeviceInfoTests.swift in Sources */,
 				94929E822ED63ADE001A4C63 /* ModelEnumsTests.swift in Sources */,
+				94929E832ED65555001A4C63 /* LowerPriorityTests.swift in Sources */,
 				945C55822ED71234007DD8FB /* StringExtensionsTests.swift in Sources */,
 				945C55842ED71234007DD8FB /* SettingsTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
