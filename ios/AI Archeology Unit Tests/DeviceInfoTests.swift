@@ -19,8 +19,9 @@ final class DeviceInfoTests: XCTestCase {
     
     func testDeviceModelName_ContainsValidCharacters() {
         let modelName = DeviceInfo.deviceModelName()
-        // Model names typically contain alphanumeric characters and commas
-        let validCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: ","))
+        // Model names contain alphanumeric characters, commas, and underscores
+        // Examples: "iPhone14,2", "arm64", "x86_64"
+        let validCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: ",_"))
         let modelCharacters = CharacterSet(charactersIn: modelName)
         XCTAssertTrue(modelCharacters.isSubset(of: validCharacters), 
                       "Model name '\(modelName)' contains unexpected characters")
