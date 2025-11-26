@@ -62,13 +62,19 @@ struct ConfigurationForm: View {
 	
 	var body: some View {
 		NavigationStack {
+			configurationFormContent
+		}
+		.overlay {
 			if isLoading {
-				loadingView
-			} else {
-				configurationFormContent
+				loadingOverlay
 			}
 		}
-		.alert(isPresented: $showImportAlert) { // moved alert here
+		.alert("Error", isPresented: $showErrorAlert) {
+			Button("OK", role: .cancel) { }
+		} message: {
+			Text(errorMessage)
+		}
+		.alert(isPresented: $showImportAlert) {
 			var title = "Import Failed"
 			var message = "The model could not be imported. Please try again with a valid Create ML model."
 			if configuration.lifeCycle == .ready, let description = configuration.modelDescription, let author = configuration.author {
@@ -82,12 +88,17 @@ struct ConfigurationForm: View {
 		}
 	}
 	
-	private var loadingView: some View {
-		ProgressView {
-			Text("Fetching the model data ...")
+	private var loadingOverlay: some View {
+		ZStack {
+			Color.black.opacity(0.3)
+				.ignoresSafeArea()
+			
+			ProgressView {
+				Text("Fetching the model data ...")
+			}
+			.padding(24)
+			.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
 		}
-		.navigationTitle("Configuration")
-		.navigationBarTitleDisplayMode(.inline)
 	}
 	
 	private var configurationFormContent: some View {
@@ -99,14 +110,6 @@ struct ConfigurationForm: View {
 			} else {
 				newConfigurationSection
 			}
-		}
-		.onReceive(deep.$deepStateError) { error in
-			guard let error else { return }
-			errorMessage = error.localizedDescription
-			showErrorAlert = true
-		}
-		.alert(isPresented: $showErrorAlert) {
-			Alert(title: Text("Error"), message: Text(errorMessage), dismissButton: .default(Text("OK")))
 		}
 		.onChange(of: mergedObservable) { _ in
 			handleConfigurationChange()
@@ -145,13 +148,22 @@ struct ConfigurationForm: View {
 	
 	private var newConfigurationSection: some View {
 		let usedFiles = deep.allConfigurations().compactMap { $0.file }
-		return NewConfigurationView(usedFiles: usedFiles,
-									onConfigurationChanged: { url, id, provider in
-			await updateConfiguration(with: url, id: id, provider: provider)
-		},
-									onImportFinished: {
-			showImportAlert = true
-		})
+		return NewConfigurationView(
+			usedFiles: usedFiles,
+			onConfigurationChanged: { url, id, provider in
+				try await updateConfiguration(with: url, id: id, provider: provider)
+			},
+			onImportFinished: {
+				showImportAlert = true
+			},
+			onLoadingStateChanged: { loading in
+				isLoading = loading
+			},
+			onError: { error in
+				errorMessage = error.localizedDescription
+				showErrorAlert = true
+			}
+		)
 	}
 	
 	private var navigationButton: some View {
@@ -197,25 +209,16 @@ struct ConfigurationForm: View {
 	}
 	
 	@MainActor
-	private func updateConfiguration(with url: URL, id: UUID, provider: ModelProvider) async {
+	private func updateConfiguration(with url: URL, id: UUID, provider: ModelProvider) async throws {
 		// Update the DeepConfiguration
 		assert(url.absoluteString.isEmpty.not, "URL of the file should not be empty.")
 		
 		// Create detector to fetch the info. This call does not register the detector for use.
 		// The detectors are automatically registered in the DeepState class
 		// after a specific DeepConfiguration has been saved in the context.
-		var detector: MLModel?
-		isLoading = true // show the spinner
-		
-		do {
-			// We use here the instance of the Detector, but the code is common for all Create ML models.
-			detector = try await Detector.loadModel(from: url)
-		}
-		catch {
-			deep.deepStateError = error
-		}
-		
-		isLoading = false
+		// Note: Loading state and errors are managed by the caller via callbacks,
+		// which are set BEFORE this async function starts, giving SwiftUI a render cycle.
+		let detector = try await Detector.loadModel(from: url)
 		
 		guard let metadata = detector?.modelDescription.metadata else { return }
 		let parser = MLModelMetadataParser(metadata: metadata)
