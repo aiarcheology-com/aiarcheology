@@ -21,8 +21,10 @@ struct NewConfigurationView: View {
 	@State private var path: [Route] = []
 	@State private var presented: Route? = nil
 	let usedFiles: [URL]
-	let onConfigurationChanged: (URL, UUID, ModelProvider) async -> Void
+	let onConfigurationChanged: (URL, UUID, ModelProvider) async throws -> Void
 	let onImportFinished: @MainActor () -> Void
+	let onLoadingStateChanged: @MainActor (Bool) -> Void
+	let onError: @MainActor (Error) -> Void
 	private let allowedTypes: [UTType] = [
 		UTType("com.apple.coreml.model"),
 		UTType("com.apple.coreml.package")
@@ -97,15 +99,24 @@ struct NewConfigurationView: View {
 			.onReceive(deep.$deepStateError) { error in
 				if let error = error {
 					Logger.ui.logError("DeepState error in NewConfigurationView: \(error.localizedDescription)")
+					onError(error)
 				}
 			}
 			.navigationDestination(for: Route.self) { route in
 				switch route {
 				case .downloader(let configId):
 					DownloaderView(configurationId: configId) { url, newId, provider in
+						// Set loading state BEFORE starting async work.
+						// This gives SwiftUI a render cycle to show the loading view.
+						onLoadingStateChanged(true)
 						Task { @MainActor in
-							await onConfigurationChanged(url, newId, provider)
-							onImportFinished()
+							do {
+								try await onConfigurationChanged(url, newId, provider)
+								onImportFinished()
+							} catch {
+								onError(error)
+							}
+							onLoadingStateChanged(false)
 						}
 					}
 				case .importer:
@@ -124,9 +135,17 @@ struct NewConfigurationView: View {
 				case .success(let urls):
 					if let url = urls.first {
 						let newConfigurationId = UUID()
+						// Set loading state BEFORE starting async work.
+						// This gives SwiftUI a render cycle to show the loading view.
+						onLoadingStateChanged(true)
 						Task { @MainActor in
-							await onConfigurationChanged(url, newConfigurationId, NoopProvider())
-							onImportFinished()
+							do {
+								try await onConfigurationChanged(url, newConfigurationId, NoopProvider())
+								onImportFinished()
+							} catch {
+								onError(error)
+							}
+							onLoadingStateChanged(false)
 						}
 					}
 				case .failure:
