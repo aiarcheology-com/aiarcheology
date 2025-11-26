@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -126,6 +126,8 @@
 		945C55822ED71234007DD8FB /* StringExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55812ED71234007DD8FB /* StringExtensionsTests.swift */; };
 		945C55842ED71234007DD8FB /* SettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55832ED71234007DD8FB /* SettingsTests.swift */; };
 		945C55862ED71234007DD8FB /* DeepConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55852ED71234007DD8FB /* DeepConfigurationTests.swift */; };
+		945C55882ED71234007DD8FB /* TestabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55872ED71234007DD8FB /* TestabilityTests.swift */; };
+		946200F12ED70AEC0047336A /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946200F02ED70AE60047336A /* AppEnvironment.swift */; };
 		946A3B732EB543BC002CF63C /* FillEntityIdIfNilPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 946A3B722EB543BC002CF63C /* FillEntityIdIfNilPolicy.swift */; };
 		94713D982EA2F33E00713068 /* ImportHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94713D972EA2F33A00713068 /* ImportHandler.swift */; };
 		9484825F2ECA5C0B00C5CE48 /* MLBrowser_0.0.0-0.0.1.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = 9484825E2ECA5C0B00C5CE48 /* MLBrowser_0.0.0-0.0.1.xcmappingmodel */; };
@@ -288,6 +290,8 @@
 		945C55812ED71234007DD8FB /* StringExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringExtensionsTests.swift; sourceTree = "<group>"; };
 		945C55832ED71234007DD8FB /* SettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTests.swift; sourceTree = "<group>"; };
 		945C55852ED71234007DD8FB /* DeepConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepConfigurationTests.swift; sourceTree = "<group>"; };
+		945C55872ED71234007DD8FB /* TestabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestabilityTests.swift; sourceTree = "<group>"; };
+		946200F02ED70AE60047336A /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		946A3B722EB543BC002CF63C /* FillEntityIdIfNilPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillEntityIdIfNilPolicy.swift; sourceTree = "<group>"; };
 		946A3B742EB55675002CF63C /* MLBrowser_0.0.1.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = MLBrowser_0.0.1.xcdatamodel; sourceTree = "<group>"; };
 		94713D972EA2F33A00713068 /* ImportHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportHandler.swift; sourceTree = "<group>"; };
@@ -311,6 +315,10 @@
 		94FCC4042ECFD7730047B283 /* DriversTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriversTests.swift; sourceTree = "<group>"; };
 		94FF14912EBBA07800033B5B /* NSManagedObject+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSManagedObject+Extension.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		946200EC2ED6FF520047336A /* Testability */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Testability; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		8AE0BBFD2A97B0B30086DDF9 /* Frameworks */ = {
@@ -531,8 +539,10 @@
 		8AC393C12B2B9FB300C9BA57 /* Tools */ = {
 			isa = PBXGroup;
 			children = (
+				946200F02ED70AE60047336A /* AppEnvironment.swift */,
 				8AC393C22B2B9FD700C9BA57 /* DeviceInfo.swift */,
 				9489C96D2EA02B0C008C728F /* HostPlatform.swift */,
+				946200EC2ED6FF520047336A /* Testability */,
 				8A112CC12AC0851000786384 /* Extensions */,
 				942B1DCF2EA62DEB005455F9 /* Reporting */,
 			);
@@ -664,6 +674,7 @@
 				945C55812ED71234007DD8FB /* StringExtensionsTests.swift */,
 				945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */,
 				945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */,
+				945C55872ED71234007DD8FB /* TestabilityTests.swift */,
 				8AB3EADF2B4450B9001083D1 /* AI-ArcheologyTests-Info.plist */,
 				94929E6F2ED62B74001A4C63 /* Unit Tests.xctestplan */,
 			);
@@ -737,6 +748,9 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				946200EC2ED6FF520047336A /* Testability */,
 			);
 			name = "AI Archeology";
 			productName = "AI Archeology";
@@ -873,6 +887,7 @@
 				8A7740D32B1894B3002E90D9 /* Bundle+Extension.swift in Sources */,
 				9484825F2ECA5C0B00C5CE48 /* MLBrowser_0.0.0-0.0.1.xcmappingmodel in Sources */,
 				8A13281B2AF1598500F119C6 /* ViewContainer.swift in Sources */,
+				946200F12ED70AEC0047336A /* AppEnvironment.swift in Sources */,
 				8A1D49BC2ABB87D500C2D7C1 /* GridItemView.swift in Sources */,
 				8AC6509D2B2B48D500922648 /* Appstate.swift in Sources */,
 				8AC650972B2A442A00922648 /* DeepDriver.swift in Sources */,
@@ -999,6 +1014,7 @@
 				94929E782ED633C1001A4C63 /* ExtensionsTests.swift in Sources */,
 				945C55862ED71234007DD8FB /* DeepConfigurationTests.swift in Sources */,
 				94FCC4052ECFD7730047B283 /* DriversTests.swift in Sources */,
+				945C55882ED71234007DD8FB /* TestabilityTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
