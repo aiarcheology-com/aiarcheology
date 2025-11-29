@@ -57,103 +57,144 @@ struct NewConfigurationView: View {
 	
 	var body: some View {
 		NavigationStack {
-			List {
-				Section {
-					Text("Choose a Create ML model (.mlmodel or .mlpackage) that supports object detection. Other model types are not supported in this version.")
-						.frame(maxWidth: .infinity, alignment: .leading)
-						.multilineTextAlignment(.leading)
-				} header: {
-					EmptyView()
-				} footer: {
-					SourceButtons(
-						onPickDocument: { acquisitionCoordinator.beginLocalImport() },
-						onPickURL:      { acquisitionCoordinator.beginRemoteImport() }
-					)
-					.padding(12)
+			contentList
+				.navigationTitle("New Configuration")
+				.navigationBarTitleDisplayMode(.inline)
+				.onReceive(deep.$deepStateError, perform: handleDeepStateError)
+				.sheet(isPresented: $acquisitionCoordinator.isShowingDownloader) {
+					remoteDownloaderSheet
 				}
-				
-				Section {
-					Link("Apple Documentation: Create ML", destination: URL(string: "https://developer.apple.com/documentation/createml")!)
-						.frame(maxWidth: .infinity, alignment: .leading)
-				} header: {
-					Text("Learn more about creating a detector in Create ML:")
-						.font(.headline)
-						.frame(maxWidth: .infinity, alignment: .leading)
-						.textCase(nil)
+				.fileImporter(
+					isPresented: $acquisitionCoordinator.isShowingFileImporter,
+					allowedContentTypes: acquisitionCoordinator.allowedTypes,
+					allowsMultipleSelection: false,
+					onCompletion: handleFileImportResult
+				)
+				.onChange(of: acquisitionCoordinator.pendingImport, perform: handlePendingImport)
+		}
+	}
+	
+	// MARK: - Content Sections
+	
+	private var contentList: some View {
+		List {
+			instructionsSection
+			createMLDocumentationSection
+			onnxConversionSection
+		}
+	}
+	
+	private var instructionsSection: some View {
+		Section {
+			Text("Choose a Create ML model (.mlmodel or .mlpackage) that supports object detection. Other model types are not supported in this version.")
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.multilineTextAlignment(.leading)
+		} header: {
+			EmptyView()
+		} footer: {
+			SourceButtons(
+				onPickDocument: { acquisitionCoordinator.beginLocalImport() },
+				onPickURL: { acquisitionCoordinator.beginRemoteImport() }
+			)
+			.padding(12)
+		}
+	}
+	
+	private var createMLDocumentationSection: some View {
+		Section {
+			Link("Apple Documentation: Create ML", destination: URL(string: "https://developer.apple.com/documentation/createml")!)
+				.frame(maxWidth: .infinity, alignment: .leading)
+		} header: {
+			Text("Learn more about creating a detector in Create ML:")
+				.font(.headline)
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.textCase(nil)
+		}
+	}
+	
+	private var onnxConversionSection: some View {
+		Section {
+			Link("Get models on device using Core ML Converters", destination: URL(string: "https://developer.apple.com/videos/play/wwdc2020/10153/")!)
+				.frame(maxWidth: .infinity, alignment: .leading)
+			Text(Self.pythonCode)
+				.font(.system(.body, design: .monospaced))
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.multilineTextAlignment(.leading)
+				.padding(.vertical)
+				.copiedToClipboard(copiedText: Self.pythonCode, preview: String(Self.pythonCode.prefix(80)))
+		} header: {
+			Text("Python Code to Convert ONNX to Create ML:")
+				.font(.headline)
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.textCase(nil)
+		}
+	}
+	
+	// MARK: - Model Acquisition UI
+	
+	private var remoteDownloaderSheet: some View {
+		NavigationStack {
+			DownloaderView(
+				onImport: ImportHandler { url, id, provider in
+					handleRemoteImport(url: url, id: id, provider: provider)
 				}
-				
-				Section {
-					Link("Get models on device using Core ML Converters", destination: URL(string: "https://developer.apple.com/videos/play/wwdc2020/10153/")!)
-						.frame(maxWidth: .infinity, alignment: .leading)
-					Text(Self.pythonCode)
-						.font(.system(.body, design: .monospaced))
-						.frame(maxWidth: .infinity, alignment: .leading)
-						.multilineTextAlignment(.leading)
-						.padding(.vertical)
-						.copiedToClipboard(copiedText: Self.pythonCode, preview: String(Self.pythonCode.prefix(80)))
-				} header: {
-					Text("Python Code to Convert ONNX to Create ML:")
-						.font(.headline)
-						.frame(maxWidth: .infinity, alignment: .leading)
-						.textCase(nil)
-				}
+			)
+		}
+	}
+	
+	// MARK: - Event Handlers
+	
+	private func handleDeepStateError(_ error: Error?) {
+		if let error = error {
+			Logger.ui.logError("DeepState error in NewConfigurationView: \(error.localizedDescription)")
+			onError(error)
+		}
+	}
+	
+	private func handleRemoteImport(url: URL, id: UUID, provider: ModelProvider) {
+		// Dismiss the sheet first so the loading overlay is visible
+		acquisitionCoordinator.isShowingDownloader = false
+		// Small delay to let the sheet dismiss animation complete
+		DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+			acquisitionCoordinator.completeRemoteImport(url: url, configurationId: id, provider: provider)
+		}
+	}
+	
+	private func handleFileImportResult(_ result: Result<[URL], Error>) {
+		switch result {
+		case .success(let urls):
+			if let url = urls.first {
+				acquisitionCoordinator.completeLocalImport(url: url, provider: NoopProvider())
 			}
-			.navigationTitle("New Configuration")
-			.navigationBarTitleDisplayMode(.inline)
-			.onReceive(deep.$deepStateError) { error in
-				if let error = error {
-					Logger.ui.logError("DeepState error in NewConfigurationView: \\ (error.localizedDescription)")
-					onError(error)
-				}
+		case .failure:
+			break
+		}
+	}
+	
+	private func handlePendingImport(_ request: ModelAcquisitionCoordinator.ImportRequest?) {
+		guard let request else { return }
+		onLoadingStateChanged(true)
+		Task { @MainActor in
+			do {
+				try await onConfigurationChanged(request.url, request.configurationId, request.provider)
+				onImportFinished()
+			} catch {
+				onError(error)
 			}
-			// Present downloader as a sheet for now; can be changed to navigation if desired.
-			.sheet(isPresented: $acquisitionCoordinator.isShowingDownloader) {
-				NavigationStack {
-					DownloaderView(
-						onImport: ImportHandler { url, id, provider in
-							// Dismiss the sheet first so the loading overlay is visible
-							acquisitionCoordinator.isShowingDownloader = false
-							// Small delay to let the sheet dismiss animation complete
-							DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-								acquisitionCoordinator.completeRemoteImport(url: url, configurationId: id, provider: provider)
-							}
-						}
-					)
-				}
-			}
-			// Host the standard SwiftUI fileImporter using coordinator state.
-			.fileImporter(
-				isPresented: $acquisitionCoordinator.isShowingFileImporter,
-				allowedContentTypes: acquisitionCoordinator.allowedTypes,
-				allowsMultipleSelection: false
-			) { result in
-				switch result {
-				case .success(let urls):
-					if let url = urls.first {
-						acquisitionCoordinator.completeLocalImport(url: url, provider: NoopProvider())
-					}
-				case .failure:
-					break
-				}
-			}
-			// React to a resolved import once, performing the async configuration change.
-			.onChange(of: acquisitionCoordinator.pendingImport) { request in
-				guard let request else { return }
-				onLoadingStateChanged(true)
-				Task { @MainActor in
-					do {
-						try await onConfigurationChanged(request.url, request.configurationId, request.provider)
-						onImportFinished()
-					} catch {
-						onError(error)
-					}
-					onLoadingStateChanged(false)
-					acquisitionCoordinator.markImportHandled()
-				}
-			}
+			onLoadingStateChanged(false)
+			acquisitionCoordinator.markImportHandled()
 		}
 	}
 }
+
+// MARK: - Supporting Types
+
+/// Blank provider used for the local file import path
+private struct NoopProvider: ModelProvider {
+	func result(_ error: ModelProviderError, id: UUID) { }
+}
+
+// MARK: - Supporting Views
 
 fileprivate struct SourceButtons: View {
 	var onPickDocument: () -> Void
