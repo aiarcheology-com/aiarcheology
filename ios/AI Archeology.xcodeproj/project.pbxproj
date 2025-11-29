@@ -106,6 +106,9 @@
 		8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */; };
 		8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */; };
 		8AF06FC42ABCD237001E7B6B /* SideMenuModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF06FC32ABCD237001E7B6B /* SideMenuModel.swift */; };
+		941C4FBA2EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */; };
+		941C4FBC2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FBB2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift */; };
+		941C4FBE2EDBB0C300066AED /* UTTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */; };
 		942B1DD22EA62E11005455F9 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD02EA62E11005455F9 /* CrashReporter.swift */; };
 		942B1DD32EA62E11005455F9 /* LoggingPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD12EA62E11005455F9 /* LoggingPolicy.swift */; };
 		942B1DD42EA62E11005455F9 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD02EA62E11005455F9 /* CrashReporter.swift */; };
@@ -276,6 +279,9 @@
 		8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = HroudaDetector15.mlpackage; sourceTree = "<group>"; };
 		8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = AIArcheology.mlpackage; sourceTree = "<group>"; };
 		8AF06FC32ABCD237001E7B6B /* SideMenuModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenuModel.swift; sourceTree = "<group>"; };
+		941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAcquisitionCoordinator.swift; sourceTree = "<group>"; };
+		941C4FBB2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAcquisitionCoordinatorTests.swift; sourceTree = "<group>"; };
+		941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UTTypeTests.swift; sourceTree = "<group>"; };
 		942B1DD02EA62E11005455F9 /* CrashReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReporter.swift; sourceTree = "<group>"; };
 		942B1DD12EA62E11005455F9 /* LoggingPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingPolicy.swift; sourceTree = "<group>"; };
 		942B1DD92EA66353005455F9 /* LOGGING_GUIDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = LOGGING_GUIDE.md; sourceTree = "<group>"; };
@@ -665,16 +671,18 @@
 				94929E7B2ED63ADE001A4C63 /* GuideTests.swift */,
 				94929E742ED633C1001A4C63 /* ExtensionsTests.swift */,
 				94929E7A2ED63ADE001A4C63 /* GalleryModelTests.swift */,
+				941C4FBB2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift */,
 				94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */,
-				94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */,
 				942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */,
+				94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */,
 				94929E842ED65555001A4C63 /* LowerPriorityTests.swift */,
 				945C55832ED71234007DD8FB /* SettingsTests.swift */,
 				94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */,
 				945C55812ED71234007DD8FB /* StringExtensionsTests.swift */,
 				945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */,
-				945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */,
 				945C55872ED71234007DD8FB /* TestabilityTests.swift */,
+				941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */,
+				945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */,
 				8AB3EADF2B4450B9001083D1 /* AI-ArcheologyTests-Info.plist */,
 				94929E6F2ED62B74001A4C63 /* Unit Tests.xctestplan */,
 			);
@@ -728,6 +736,7 @@
 		946A3B782EB5ECE0002CF63C /* Configuration */ = {
 			isa = PBXGroup;
 			children = (
+				941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */,
 				8A1328292B052C7800F119C6 /* ConfigurationForm.swift */,
 				8A9BB4412B10F3590061246A /* NewConfigurationForm.swift */,
 			);
@@ -929,6 +938,7 @@
 				8A13281F2AF265DE00F119C6 /* GlobalToolbar.swift in Sources */,
 				8AC393C52B2BA01100C9BA57 /* NumberFormater+Extension.swift in Sources */,
 				8A13282A2B052C7900F119C6 /* ConfigurationForm.swift in Sources */,
+				941C4FBA2EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift in Sources */,
 				94713D982EA2F33E00713068 /* ImportHandler.swift in Sources */,
 				8A13280F2AF142C600F119C6 /* WebScreen.swift in Sources */,
 				8A1D49BB2ABB87D500C2D7C1 /* PhotoPicker.swift in Sources */,
@@ -997,6 +1007,7 @@
 				942B1DD52EA62E11005455F9 /* LoggingPolicy.swift in Sources */,
 				942B1DE32EA6BF86005455F9 /* LoggingConfigurationTests.swift in Sources */,
 				945C556D2ED5127C007DD8FB /* WebHistoryTests.swift in Sources */,
+				941C4FBE2EDBB0C300066AED /* UTTypeTests.swift in Sources */,
 				945C556F2ED5127C007DD8FB /* TestCoreDataStack.swift in Sources */,
 				945C55702ED5127C007DD8FB /* CoreDataManagableTests.swift in Sources */,
 				945C55712ED5127C007DD8FB /* DeepStateTests.swift in Sources */,
@@ -1004,6 +1015,7 @@
 				94929E7E2ED63ADE001A4C63 /* SnapStateTests.swift in Sources */,
 				94929E7F2ED63ADE001A4C63 /* GalleryModelTests.swift in Sources */,
 				94929E802ED63ADE001A4C63 /* GuideTests.swift in Sources */,
+				941C4FBC2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift in Sources */,
 				94929E812ED63ADE001A4C63 /* DeviceInfoTests.swift in Sources */,
 				94929E822ED63ADE001A4C63 /* ModelEnumsTests.swift in Sources */,
 				94929E832ED65555001A4C63 /* LowerPriorityTests.swift in Sources */,

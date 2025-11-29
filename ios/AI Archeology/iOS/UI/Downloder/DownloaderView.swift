@@ -9,6 +9,7 @@ import SwiftUI
 
 struct DownloaderView: View {
     @Environment(\.managedObjectContext) private var moc
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var downloader: Downloader
     @EnvironmentObject var deep: DeepState
     @FetchRequest(
@@ -25,19 +26,15 @@ struct DownloaderView: View {
         animation: .default
     )
     private var downloadItems: FetchedResults<DownloadItem>
-    let configurationId: UUID
-    var onImport: (URL, UUID, ModelProvider) -> Void
+
+    var onImport: ImportHandler
     
     var body: some View {
         // List of downloaded files, or currently being downloaded:
         List(downloadItems, id: \.entityId) { item in
             NavigationLink(destination:
-                DownloadDetailView(item: item, onImport:
-                    ImportHandler { url, id, provider in
-                        onImport(url, id, provider)
-                    }
-                )
-                .environmentObject(downloader)
+                DownloadDetailView(item: item, onImport: onImport)
+                    .environmentObject(downloader)
             ) {
                 ListItemView(item: item)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -49,8 +46,8 @@ struct DownloaderView: View {
                     }
                     .contextMenu {
                         Button(role: .destructive) {
-                            delete(item)                        }
-                        label: {
+                            delete(item)
+                        } label: {
                             Label("Delete", systemImage: "trash")
                         }
                     }
@@ -65,6 +62,13 @@ struct DownloaderView: View {
         .navigationTitle("Models")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Done") {
+                    dismiss()
+                }
+                .bold()
+                .foregroundColor(.blue)
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     _ = DownloadItem.create(in: moc)

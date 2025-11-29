@@ -10,25 +10,32 @@ import SwiftUI
 import UniformTypeIdentifiers
 import OSLog
 
-private enum Route: Hashable {
-	case downloader(UUID)
+private enum ImportRoute: Hashable {
+	case downloader
 	case importer
 }
 
 struct NewConfigurationView: View {
 	@EnvironmentObject var deep: DeepState
 	@Environment(\.dismiss) private var dismiss
-	@State private var path: [Route] = []
-	@State private var presented: Route? = nil
+	
+	@StateObject private var acquisitionCoordinator = ModelAcquisitionCoordinator(
+		allowedTypes: [
+			// Core ML model types
+			UTType("com.apple.coreml.mlmodel"),
+			UTType("com.apple.coreml.mlpackage"),
+			// Fallback to extension-based types if identifiers don't work
+			UTType(filenameExtension: "mlmodel"),
+			UTType(filenameExtension: "mlpackage"),
+			UTType(filenameExtension: "mlmodelc")
+		].compactMap { $0 }
+	)
+	
 	let usedFiles: [URL]
 	let onConfigurationChanged: (URL, UUID, ModelProvider) async throws -> Void
 	let onImportFinished: @MainActor () -> Void
 	let onLoadingStateChanged: @MainActor (Bool) -> Void
 	let onError: @MainActor (Error) -> Void
-	private let allowedTypes: [UTType] = [
-		UTType("com.apple.coreml.model"),
-		UTType("com.apple.coreml.package")
-	].compactMap { $0 }
 	
 	private static let pythonCode = """
 	import coremltools as ct
@@ -49,7 +56,7 @@ struct NewConfigurationView: View {
 	}
 	
 	var body: some View {
-		NavigationStack(path: $path) {
+		NavigationStack {
 			List {
 				Section {
 					Text("Choose a Create ML model (.mlmodel or .mlpackage) that supports object detection. Other model types are not supported in this version.")
@@ -59,11 +66,8 @@ struct NewConfigurationView: View {
 					EmptyView()
 				} footer: {
 					SourceButtons(
-						onPickDocument: { presented = .importer },
-						onPickURL: {
-							let id = UUID()
-							path.append(.downloader(id))
-						}
+						onPickDocument: { acquisitionCoordinator.beginLocalImport() },
+						onPickURL:      { acquisitionCoordinator.beginRemoteImport() }
 					)
 					.padding(12)
 				}
@@ -98,60 +102,54 @@ struct NewConfigurationView: View {
 			.navigationBarTitleDisplayMode(.inline)
 			.onReceive(deep.$deepStateError) { error in
 				if let error = error {
-					Logger.ui.logError("DeepState error in NewConfigurationView: \(error.localizedDescription)")
+					Logger.ui.logError("DeepState error in NewConfigurationView: \\ (error.localizedDescription)")
 					onError(error)
 				}
 			}
-			.navigationDestination(for: Route.self) { route in
-				switch route {
-				case .downloader(let configId):
-					DownloaderView(configurationId: configId) { url, newId, provider in
-						// Set loading state BEFORE starting async work.
-						// This gives SwiftUI a render cycle to show the loading view.
-						onLoadingStateChanged(true)
-						Task { @MainActor in
-							do {
-								try await onConfigurationChanged(url, newId, provider)
-								onImportFinished()
-							} catch {
-								onError(error)
+			// Present downloader as a sheet for now; can be changed to navigation if desired.
+			.sheet(isPresented: $acquisitionCoordinator.isShowingDownloader) {
+				NavigationStack {
+					DownloaderView(
+						onImport: ImportHandler { url, id, provider in
+							// Dismiss the sheet first so the loading overlay is visible
+							acquisitionCoordinator.isShowingDownloader = false
+							// Small delay to let the sheet dismiss animation complete
+							DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+								acquisitionCoordinator.completeRemoteImport(url: url, configurationId: id, provider: provider)
 							}
-							onLoadingStateChanged(false)
 						}
-					}
-				case .importer:
-					EmptyView()
+					)
 				}
 			}
+			// Host the standard SwiftUI fileImporter using coordinator state.
 			.fileImporter(
-				isPresented: Binding(
-					get: { presented == .importer },
-					set: { showing in if !showing { presented = nil } }
-				),
-				allowedContentTypes: allowedTypes,
+				isPresented: $acquisitionCoordinator.isShowingFileImporter,
+				allowedContentTypes: acquisitionCoordinator.allowedTypes,
 				allowsMultipleSelection: false
 			) { result in
 				switch result {
 				case .success(let urls):
 					if let url = urls.first {
-						let newConfigurationId = UUID()
-						// Set loading state BEFORE starting async work.
-						// This gives SwiftUI a render cycle to show the loading view.
-						onLoadingStateChanged(true)
-						Task { @MainActor in
-							do {
-								try await onConfigurationChanged(url, newConfigurationId, NoopProvider())
-								onImportFinished()
-							} catch {
-								onError(error)
-							}
-							onLoadingStateChanged(false)
-						}
+						acquisitionCoordinator.completeLocalImport(url: url, provider: NoopProvider())
 					}
 				case .failure:
 					break
 				}
-				presented = nil
+			}
+			// React to a resolved import once, performing the async configuration change.
+			.onChange(of: acquisitionCoordinator.pendingImport) { request in
+				guard let request else { return }
+				onLoadingStateChanged(true)
+				Task { @MainActor in
+					do {
+						try await onConfigurationChanged(request.url, request.configurationId, request.provider)
+						onImportFinished()
+					} catch {
+						onError(error)
+					}
+					onLoadingStateChanged(false)
+					acquisitionCoordinator.markImportHandled()
+				}
 			}
 		}
 	}
