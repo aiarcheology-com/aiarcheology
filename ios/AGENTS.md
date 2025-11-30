@@ -107,11 +107,17 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 
 ## Avoid This Kind of Code
 *   **Avoid using hardcoded delays**. These are fragile.
+```swift
 // ❌ BAD - Creates race condition
-DispatchQueue.main.asyncAfter(deadline: .now() + 0.3)  or sleep(...)
-*   **Do not ignorre errors silently**. Always handle errors explicitly. E.g. do not ignore .failure cases.
+DispatchQueue.main.asyncAfter(deadline: .now() + 0.3)
+// or
+sleep(...)
+```
+*   **Do not ignore errors silently**. Always handle errors explicitly. E.g. do not ignore .failure cases.
+```swift
 // ❌ BAD - Ignores error
 try? someThrowingFunction()
+```
 
 
 
