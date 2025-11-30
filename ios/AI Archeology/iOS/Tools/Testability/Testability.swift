@@ -110,7 +110,6 @@ extension TestabilityIdentification {
 		case slideshowSwipeRight
 		// Grid View
 		case gridViewRemoveItem
-		case gridViewAddPhoto
 	}
 	
 	enum Toggle: String, TestabilityIdentification {
