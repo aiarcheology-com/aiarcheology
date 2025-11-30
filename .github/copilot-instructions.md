@@ -8,7 +8,7 @@
     *   Ensure that all code changes are properly documented and tested before approval.
 
 ### PR Review Context
-    *   Take in account all comits in a pull request when providing feedback. Not just the last one.
+    *   Take in account all commits in a pull request when providing feedback. Not just the last one.
     *   Understand the context of the codebase you are working on.
     *   Familiarize yourself with the project's coding standards and guidelines.
     *   Understand the overall architecture and design patterns used in the project.
