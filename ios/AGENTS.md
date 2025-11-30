@@ -70,6 +70,11 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 *   **Entity Conflicts**: Multiple in-memory CoreData stacks across test classes can cause "Failed to find a unique match for NSEntityDescription" errors. Avoid creating entities directly when possible.
 *   **Entity Creation Pattern**: Prefer using factory methods from protocols like `CoreDataManageable` (`.create(in:)`) over direct entity initialization (`EntityName(context:)`). This reduces entity descriptor conflicts when multiple test classes share the same model.
 
+### Bad Practices to Avoid
+*   **Global State in Tests**: Avoid using global singletons or shared instances that maintain state across tests. This can lead to flaky tests due to unintended interactions.
+*   **Hard-Coded Delays**: Do not use `sleep()`, `usleep()`, or fixed delays in tests to wait for asynchronous operations. Use expectations (`XCTestExpectation`) to wait for specific conditions instead.
+*   **Over-Mocking**: Avoid excessive use of mocks and stubs that do not reflect real-world behavior. Prefer using real implementations with isolated dependencies to ensure tests are meaningful.
+
 ### Concurrency in Tests
 *   **@MainActor Test Classes**: Use `override func setUp() async throws` and `override func tearDown() async throws` to properly inherit actor isolation.
 *   **Captured Variables**: Don't capture mutable `var` in concurrent closures. Use `actor` types for thread-safe state in async tests.
@@ -99,6 +104,16 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 *   **File Structure**: Group related tests by component, not by "unit vs integration". A `FooTests.swift` file tests `Foo.swift`.
 *   **New Test Files**: When creating `NewComponentTests.swift`, immediately add it to the Xcode project (`.pbxproj`) via `PBXBuildFile` and `PBXFileReference`. Don't wait for build failures.
 *   **Test Naming**: Use descriptive names following the pattern `test[Method]_[Scenario]_[ExpectedResult]`, e.g., `testRegister_SameDriverTwice_OnlyRegistersOnce`.
+
+## Avoid This Kind of Code
+*   **Avoid using hardcoded delays**. These are fragile.
+// ❌ BAD - Creates race condition
+DispatchQueue.main.asyncAfter(deadline: .now() + 0.3)  or sleep(...)
+*   **Do not ignorre errors silently**. Always handle errors explicitly. E.g. do not ignore .failure cases.
+// ❌ BAD - Ignores error
+try? someThrowingFunction()
+
+
 
 ---
 ## 7. Evolving These Guidelines

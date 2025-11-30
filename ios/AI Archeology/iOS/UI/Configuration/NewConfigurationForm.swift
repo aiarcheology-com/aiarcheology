@@ -10,11 +10,6 @@ import SwiftUI
 import UniformTypeIdentifiers
 import OSLog
 
-private enum ImportRoute: Hashable {
-	case downloader
-	case importer
-}
-
 struct NewConfigurationView: View {
 	@EnvironmentObject var deep: DeepState
 	@Environment(\.dismiss) private var dismiss
@@ -30,6 +25,9 @@ struct NewConfigurationView: View {
 			UTType(filenameExtension: "mlmodelc")
 		].compactMap { $0 }
 	)
+
+	/// Holds remote import data until the sheet finishes dismissing
+	@State private var pendingRemoteImport: (url: URL, id: UUID, provider: ModelProvider)?
 	
 	let usedFiles: [URL]
 	let onConfigurationChanged: (URL, UUID, ModelProvider) async throws -> Void
@@ -61,7 +59,7 @@ struct NewConfigurationView: View {
 				.navigationTitle("New Configuration")
 				.navigationBarTitleDisplayMode(.inline)
 				.onReceive(deep.$deepStateError, perform: handleDeepStateError)
-				.sheet(isPresented: $acquisitionCoordinator.isShowingDownloader) {
+				.sheet(isPresented: $acquisitionCoordinator.isShowingDownloader, onDismiss: handleDownloaderDismiss) {
 					remoteDownloaderSheet
 				}
 				.fileImporter(
@@ -152,12 +150,18 @@ struct NewConfigurationView: View {
 	}
 	
 	private func handleRemoteImport(url: URL, id: UUID, provider: ModelProvider) {
-		// Dismiss the sheet first so the loading overlay is visible
+		pendingRemoteImport = (url, id, provider)
 		acquisitionCoordinator.isShowingDownloader = false
-		// Small delay to let the sheet dismiss animation complete
-		DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-			acquisitionCoordinator.completeRemoteImport(url: url, configurationId: id, provider: provider)
-		}
+	}
+
+	private func handleDownloaderDismiss() {
+		guard let pending = pendingRemoteImport else { return }
+		pendingRemoteImport = nil
+		acquisitionCoordinator.completeRemoteImport(
+			url: pending.url,
+			configurationId: pending.id,
+			provider: pending.provider
+		)
 	}
 	
 	private func handleFileImportResult(_ result: Result<[URL], Error>) {
@@ -166,8 +170,8 @@ struct NewConfigurationView: View {
 			if let url = urls.first {
 				acquisitionCoordinator.completeLocalImport(url: url, provider: NoopProvider())
 			}
-		case .failure:
-			break
+		case .failure(let error):
+			onError(error)
 		}
 	}
 	
