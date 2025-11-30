@@ -96,7 +96,9 @@ final class DeepState: ObservableObject {
 	}
 	
 	private func unregisterDriver(driverId: UUID) {
-		drivers.unregister(driverId: driverId)
+		Task {
+			await drivers.unregister(driverId: driverId)
+		}
 	}
 	
 	func createConfiguration() -> DeepConfiguration {

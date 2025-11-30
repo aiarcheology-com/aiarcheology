@@ -82,9 +82,7 @@ struct ConfigurationForm: View {
 				message = "The model \(description) from \(author) has been successfully imported."
 			}
 			
-			return Alert( title: Text(title), message: Text(message), dismissButton: .default(Text("OK")) {
-				dismiss() // This will close the sheet
-			})
+			return Alert( title: Text(title), message: Text(message), dismissButton: .default(Text("OK")) {})
 		}
 	}
 	
@@ -115,7 +113,7 @@ struct ConfigurationForm: View {
 			handleConfigurationChange()
 		}
 		.navigationBarTitle("Configuration", displayMode: .inline)
-		.navigationBarItems(trailing: navigationButton)
+		.navigationBarItems(leading: navigationButton)
 	}
 	
 	private var modelSection: some View {

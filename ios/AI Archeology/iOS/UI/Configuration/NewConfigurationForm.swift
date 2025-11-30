@@ -10,25 +10,30 @@ import SwiftUI
 import UniformTypeIdentifiers
 import OSLog
 
-private enum Route: Hashable {
-	case downloader(UUID)
-	case importer
-}
-
 struct NewConfigurationView: View {
 	@EnvironmentObject var deep: DeepState
 	@Environment(\.dismiss) private var dismiss
-	@State private var path: [Route] = []
-	@State private var presented: Route? = nil
+	
+	@StateObject private var acquisitionCoordinator = ModelAcquisitionCoordinator(
+		allowedTypes: [
+			// Core ML model types
+			UTType("com.apple.coreml.mlmodel"),
+			UTType("com.apple.coreml.mlpackage"),
+			// Fallback to extension-based types if identifiers don't work
+			UTType(filenameExtension: "mlmodel"),
+			UTType(filenameExtension: "mlpackage"),
+			UTType(filenameExtension: "mlmodelc")
+		].compactMap { $0 }
+	)
+
+	/// Holds remote import data until the sheet finishes dismissing
+	@State private var pendingRemoteImport: (url: URL, id: UUID, provider: ModelProvider)?
+	
 	let usedFiles: [URL]
 	let onConfigurationChanged: (URL, UUID, ModelProvider) async throws -> Void
 	let onImportFinished: @MainActor () -> Void
 	let onLoadingStateChanged: @MainActor (Bool) -> Void
 	let onError: @MainActor (Error) -> Void
-	private let allowedTypes: [UTType] = [
-		UTType("com.apple.coreml.model"),
-		UTType("com.apple.coreml.package")
-	].compactMap { $0 }
 	
 	private static let pythonCode = """
 	import coremltools as ct
@@ -49,113 +54,151 @@ struct NewConfigurationView: View {
 	}
 	
 	var body: some View {
-		NavigationStack(path: $path) {
-			List {
-				Section {
-					Text("Choose a Create ML model (.mlmodel or .mlpackage) that supports object detection. Other model types are not supported in this version.")
-						.frame(maxWidth: .infinity, alignment: .leading)
-						.multilineTextAlignment(.leading)
-				} header: {
-					EmptyView()
-				} footer: {
-					SourceButtons(
-						onPickDocument: { presented = .importer },
-						onPickURL: {
-							let id = UUID()
-							path.append(.downloader(id))
-						}
-					)
-					.padding(12)
+		NavigationStack {
+			contentList
+				.navigationTitle("New Configuration")
+				.navigationBarTitleDisplayMode(.inline)
+				.onReceive(deep.$deepStateError, perform: handleDeepStateError)
+				.sheet(isPresented: $acquisitionCoordinator.isShowingDownloader, onDismiss: handleDownloaderDismiss) {
+					remoteDownloaderSheet
 				}
-				
-				Section {
-					Link("Apple Documentation: Create ML", destination: URL(string: "https://developer.apple.com/documentation/createml")!)
-						.frame(maxWidth: .infinity, alignment: .leading)
-				} header: {
-					Text("Learn more about creating a detector in Create ML:")
-						.font(.headline)
-						.frame(maxWidth: .infinity, alignment: .leading)
-						.textCase(nil)
+				.fileImporter(
+					isPresented: $acquisitionCoordinator.isShowingFileImporter,
+					allowedContentTypes: acquisitionCoordinator.allowedTypes,
+					allowsMultipleSelection: false,
+					onCompletion: handleFileImportResult
+				)
+				.onChange(of: acquisitionCoordinator.pendingImport, perform: handlePendingImport)
+		}
+	}
+	
+	// MARK: - Content Sections
+	
+	private var contentList: some View {
+		List {
+			instructionsSection
+			createMLDocumentationSection
+			onnxConversionSection
+		}
+	}
+	
+	private var instructionsSection: some View {
+		Section {
+			Text("Choose a Create ML model (.mlmodel or .mlpackage) that supports object detection. Other model types are not supported in this version.")
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.multilineTextAlignment(.leading)
+		} header: {
+			EmptyView()
+		} footer: {
+			SourceButtons(
+				onPickDocument: { acquisitionCoordinator.beginLocalImport() },
+				onPickURL: { acquisitionCoordinator.beginRemoteImport() }
+			)
+			.padding(12)
+		}
+	}
+	
+	private var createMLDocumentationSection: some View {
+		Section {
+			Link("Apple Documentation: Create ML", destination: URL(string: "https://developer.apple.com/documentation/createml")!)
+				.frame(maxWidth: .infinity, alignment: .leading)
+		} header: {
+			Text("Learn more about creating a detector in Create ML:")
+				.font(.headline)
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.textCase(nil)
+		}
+	}
+	
+	private var onnxConversionSection: some View {
+		Section {
+			Link("Get models on device using Core ML Converters", destination: URL(string: "https://developer.apple.com/videos/play/wwdc2020/10153/")!)
+				.frame(maxWidth: .infinity, alignment: .leading)
+			Text(Self.pythonCode)
+				.font(.system(.body, design: .monospaced))
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.multilineTextAlignment(.leading)
+				.padding(.vertical)
+				.copiedToClipboard(copiedText: Self.pythonCode, preview: String(Self.pythonCode.prefix(80)))
+		} header: {
+			Text("Python Code to Convert ONNX to Create ML:")
+				.font(.headline)
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.textCase(nil)
+		}
+	}
+	
+	// MARK: - Model Acquisition UI
+	
+	private var remoteDownloaderSheet: some View {
+		NavigationStack {
+			DownloaderView(
+				onImport: ImportHandler { url, id, provider in
+					handleRemoteImport(url: url, id: id, provider: provider)
 				}
-				
-				Section {
-					Link("Get models on device using Core ML Converters", destination: URL(string: "https://developer.apple.com/videos/play/wwdc2020/10153/")!)
-						.frame(maxWidth: .infinity, alignment: .leading)
-					Text(Self.pythonCode)
-						.font(.system(.body, design: .monospaced))
-						.frame(maxWidth: .infinity, alignment: .leading)
-						.multilineTextAlignment(.leading)
-						.padding(.vertical)
-						.copiedToClipboard(copiedText: Self.pythonCode, preview: String(Self.pythonCode.prefix(80)))
-				} header: {
-					Text("Python Code to Convert ONNX to Create ML:")
-						.font(.headline)
-						.frame(maxWidth: .infinity, alignment: .leading)
-						.textCase(nil)
-				}
+			)
+		}
+	}
+	
+	// MARK: - Event Handlers
+	
+	private func handleDeepStateError(_ error: Error?) {
+		if let error = error {
+			Logger.ui.logError("DeepState error in NewConfigurationView: \(error.localizedDescription)")
+			onError(error)
+		}
+	}
+	
+	private func handleRemoteImport(url: URL, id: UUID, provider: ModelProvider) {
+		pendingRemoteImport = (url, id, provider)
+		acquisitionCoordinator.isShowingDownloader = false
+	}
+
+	private func handleDownloaderDismiss() {
+		guard let pending = pendingRemoteImport else { return }
+		pendingRemoteImport = nil
+		acquisitionCoordinator.completeRemoteImport(
+			url: pending.url,
+			configurationId: pending.id,
+			provider: pending.provider
+		)
+	}
+	
+	private func handleFileImportResult(_ result: Result<[URL], Error>) {
+		switch result {
+		case .success(let urls):
+			if let url = urls.first {
+				acquisitionCoordinator.completeLocalImport(url: url, provider: NoopProvider())
 			}
-			.navigationTitle("New Configuration")
-			.navigationBarTitleDisplayMode(.inline)
-			.onReceive(deep.$deepStateError) { error in
-				if let error = error {
-					Logger.ui.logError("DeepState error in NewConfigurationView: \(error.localizedDescription)")
-					onError(error)
-				}
+		case .failure(let error):
+			onError(error)
+		}
+	}
+	
+	private func handlePendingImport(_ request: ModelAcquisitionCoordinator.ImportRequest?) {
+		guard let request else { return }
+		onLoadingStateChanged(true)
+		Task { @MainActor in
+			do {
+				try await onConfigurationChanged(request.url, request.configurationId, request.provider)
+				onImportFinished()
+			} catch {
+				onError(error)
 			}
-			.navigationDestination(for: Route.self) { route in
-				switch route {
-				case .downloader(let configId):
-					DownloaderView(configurationId: configId) { url, newId, provider in
-						// Set loading state BEFORE starting async work.
-						// This gives SwiftUI a render cycle to show the loading view.
-						onLoadingStateChanged(true)
-						Task { @MainActor in
-							do {
-								try await onConfigurationChanged(url, newId, provider)
-								onImportFinished()
-							} catch {
-								onError(error)
-							}
-							onLoadingStateChanged(false)
-						}
-					}
-				case .importer:
-					EmptyView()
-				}
-			}
-			.fileImporter(
-				isPresented: Binding(
-					get: { presented == .importer },
-					set: { showing in if !showing { presented = nil } }
-				),
-				allowedContentTypes: allowedTypes,
-				allowsMultipleSelection: false
-			) { result in
-				switch result {
-				case .success(let urls):
-					if let url = urls.first {
-						let newConfigurationId = UUID()
-						// Set loading state BEFORE starting async work.
-						// This gives SwiftUI a render cycle to show the loading view.
-						onLoadingStateChanged(true)
-						Task { @MainActor in
-							do {
-								try await onConfigurationChanged(url, newConfigurationId, NoopProvider())
-								onImportFinished()
-							} catch {
-								onError(error)
-							}
-							onLoadingStateChanged(false)
-						}
-					}
-				case .failure:
-					break
-				}
-				presented = nil
-			}
+			onLoadingStateChanged(false)
+			acquisitionCoordinator.markImportHandled()
 		}
 	}
 }
+
+// MARK: - Supporting Types
+
+/// Blank provider used for the local file import path
+private struct NoopProvider: ModelProvider {
+	func result(_ error: ModelProviderError, id: UUID) { }
+}
+
+// MARK: - Supporting Views
 
 fileprivate struct SourceButtons: View {
 	var onPickDocument: () -> Void
