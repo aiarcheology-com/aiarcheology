@@ -63,11 +63,13 @@ struct AppDescriptionView: View {
 							Text(emailAddress)
 						}
 					}
+					.testability(Testability.Button.appDescriptionEmailContact)
 
 					HStack {
 						Image(systemName: "globe")
 							.foregroundColor(.blue)
 						Link(Self.websiteURL.absoluteString, destination: Self.websiteURL)
+							.testability(Testability.Link.appDescriptionWebsite)
 					}
 
 					HStack {
@@ -77,6 +79,7 @@ struct AppDescriptionView: View {
 							.frame(maxWidth: 20, maxHeight: 19)
 							.foregroundColor(.primary)
 						Link(Self.xName, destination: Self.xWebURL)
+							.testability(Testability.Link.appDescriptionTwitter)
 					}
 				}
 				Section(header: Text("Legal")) {
@@ -86,6 +89,7 @@ struct AppDescriptionView: View {
 					) {
 						Text("Privacy Policy")
 					}
+					.testability(Testability.NavigationLink.appDescriptionPrivacyPolicy)
 				}
 			}
 			Spacer()

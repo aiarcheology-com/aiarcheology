@@ -41,6 +41,7 @@ struct LabeledSlider: View {
 				.fontWeight(.regular)
 			
 			Slider(value: $value, in: range)
+				.testability(Testability.Slider.configurationFormFadeOutTime)
 		}
 	}
 }
@@ -135,12 +136,14 @@ struct ConfigurationForm: View {
 	private var annotationSection: some View {
 		Section(header: Text("Annotation")) {
 			ColorPicker("Color", selection: $configuration.annotationColor)
+				.testability(Testability.ColorPicker.configurationFormAnnotationColor)
 			LabeledSlider(label: "Fade Out Time", value: $configuration.phaseOutTime, range: 0.2...10)
 			Picker("Symbol", selection: $configuration.selectedSymbol) {
 				ForEach(AnnotationSymbol.allCases) { symbol in
 					Text(symbol.rawValue).tag(symbol)
 				}
 			}
+			.testability(Testability.Picker.configurationFormSymbol)
 		}
 	}
 	
@@ -172,6 +175,7 @@ struct ConfigurationForm: View {
 				Text("Cancel").bold()
 			}
 		}
+		.testability(configuration.lifeCycle == .ready ? Testability.Button.configurationFormDone : Testability.Button.configurationFormCancel)
 		.tint(configuration.lifeCycle == .ready ? .green : .blue)
 	}
 	

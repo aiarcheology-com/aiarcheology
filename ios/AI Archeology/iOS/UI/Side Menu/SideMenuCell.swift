@@ -13,8 +13,10 @@ struct SideMenuCell: View {
 	var body: some View {
 		HStack {
 			Text(configuration.modelDescription ?? "")
+				.testability(Testability.Label.sideMenuCellDescription)
 			Spacer()
 			Toggle("", isOn: $configuration.enabled)
+				.testability(Testability.Toggle.sideMenuCellEnabled)
 				.tint(configuration.annotationColor)
 				.labelsHidden()
 		}

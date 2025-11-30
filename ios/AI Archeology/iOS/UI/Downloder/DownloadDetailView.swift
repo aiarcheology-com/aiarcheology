@@ -28,6 +28,7 @@ struct DownloadDetailView: View {
 		Group {
 			VStack {
 				ProgressView(value: [.complete, .imported].contains(item.state) ? 1.0 : progress)
+					.testability(Testability.ProgressView.downloadDetailProgress)
 					.progressViewStyle(LinearProgressViewStyle(tint: .green))
 					.frame(height: 5)
 					.onReceive(downloader.progressPublisher(for: item.entityId)) { newProgress in // Core data properties are optional

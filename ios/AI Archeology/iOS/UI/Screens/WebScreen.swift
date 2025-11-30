@@ -76,6 +76,7 @@ struct WebScreenView: View {
 			TextField("Search or enter any website name", text: $inputUrl) { isStart in
 				showMenu = isStart
 			}
+			.testability(Testability.TextField.webScreenAddressBar)
 			.environmentObject(appState.guide)
 			.onChange(of: inputUrl) { value in
 				if let addressSelected = appState.guide.addressSelected,

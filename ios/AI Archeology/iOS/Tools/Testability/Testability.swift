@@ -58,6 +58,7 @@ extension TestabilityIdentification {
 	}
 	
 	enum Button: String, TestabilityIdentification {
+		// Download Detail
 		case downloadDetailClear
 		case downloadDetailDone
 		case downloadDetailHelp
@@ -65,23 +66,143 @@ extension TestabilityIdentification {
 		case downloadDetailCancel
 		case downloadDetailDismiss
 		case downloadDetailImport
+		// Downloader
+		case downloaderDone
+		case downloaderAddDownload
+		case downloaderListItemDelete
+		// Side Menu
+		case sideMenuAddConfiguration
+		case sideMenuClose
+		case sideMenuConfigurationCell
+		case sideMenuDeleteConfiguration
+		// Configuration Form
+		case configurationFormDone
+		case configurationFormCancel
+		// New Configuration
+		case newConfigurationPickDocument
+		case newConfigurationPickUrl
+		// Settings
+		case settingsDismiss
+		case settingsDeleteCache
+		case settingsRestoreDefaults
+		case settingsKeyboardDone
+		// Browsing History
+		case browsingHistoryClear
+		case browsingHistoryDismiss
+		case browsingHistoryCopyUrl
+		case browsingHistoryDeleteEntry
+		case browsingHistorySetDefaultPage
+		// App Description
+		case appDescriptionEmailContact
+		// Global Toolbar
+		case globalToolbarSideMenu
+		case globalToolbarPlayDetection
+		case globalToolbarPauseDetection
+		case globalToolbarAdjustments
+		case globalToolbarSettings
+		// Snap Adjustment
+		case snapAdjustmentReset
+		// Content View
+		case contentViewAddressBarCancel
+		case contentViewAddressBarHistoryItem
+		// Slideshow
+		case slideshowSwipeLeft
+		case slideshowSwipeRight
+		// Grid View
+		case gridViewRemoveItem
+		case gridViewAddPhoto
 	}
 	
-	enum CheckBox: String, TestabilityIdentification {
-		case aCheckBox
+	enum Toggle: String, TestabilityIdentification {
+		// Settings
+		case settingsRunAtLaunch
+		case settingsShowLabels
+		case settingsReopenLastPage
+		// Slideshow
+		case slideshowShowNextTime
+		// Side Menu Cell
+		case sideMenuCellEnabled
 	}
 	
-	enum SegmentedControl: String, TestabilityIdentification {
-		case aSegmentedControl
+	enum Picker: String, TestabilityIdentification {
+		// Settings
+		case settingsFrequency
+		// Configuration Form
+		case configurationFormSymbol
+	}
+	
+	enum Slider: String, TestabilityIdentification {
+		// Configuration Form
+		case configurationFormFadeOutTime
+		// Snap Adjustment
+		case snapAdjustmentBrightness
+		case snapAdjustmentContrast
+		case snapAdjustmentSaturation
+	}
+	
+	enum ColorPicker: String, TestabilityIdentification {
+		case configurationFormAnnotationColor
+	}
+	
+	enum Link: String, TestabilityIdentification {
+		// New Configuration
+		case newConfigurationAppleDocumentation
+		case newConfigurationCoreMLConverters
+		// App Description
+		case appDescriptionWebsite
+		case appDescriptionTwitter
+	}
+	
+	enum NavigationLink: String, TestabilityIdentification {
+		// Settings
+		case settingsHistory
+		case settingsAbout
+		case settingsIntroduction
+		// App Description
+		case appDescriptionPrivacyPolicy
+		// Downloader
+		case downloaderListItem
+		// Grid View
+		case gridViewDetailItem
 	}
 	
 	enum Label: String, TestabilityIdentification {
 		case downloadDetailProgressWritten
 		case downloadDetailProgressExpected
+		// Side Menu Cell
+		case sideMenuCellDescription
+		// List Item
+		case listItemFileName
+		case listItemState
+		// Snap Adjustment
+		case snapAdjustmentBrightnessValue
+		case snapAdjustmentContrastValue
+		case snapAdjustmentSaturationValue
 	}
 	
 	enum TextField: String, TestabilityIdentification {
 		case downloadDetailUrl
+		// Settings
+		case settingsDefaultPage
+		case settingsHistoryLimit
+		// Web Screen
+		case webScreenAddressBar
+	}
+	
+	enum Stepper: String, TestabilityIdentification {
+		case gridViewColumnStepper
+	}
+	
+	enum ProgressView: String, TestabilityIdentification {
+		case downloadDetailProgress
+		case listItemProgress
+	}
+	
+	enum List: String, TestabilityIdentification {
+		case sideMenuConfigurationList
+		case downloaderList
+		case browsingHistoryList
+		case gridViewList
 	}
 	
 	enum ImageView: String, TestabilityIdentification {
@@ -98,6 +219,10 @@ extension TestabilityIdentification {
 	
 	enum Collection: String, TestabilityIdentification {
 		case aCollection
+	}
+	
+	enum SegmentedControl: String, TestabilityIdentification {
+		case aSegmentedControl
 	}
 	
 	enum SegmentedItem: String, TestabilityIdentification {
