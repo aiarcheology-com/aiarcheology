@@ -156,69 +156,54 @@ final class DeepDriversTests: XCTestCase {
     
     // MARK: - Registration Tests
     
-    func testRegisterDetector() async {
+    func testRegisterDetector() {
         let params = DeepDriverParams(entityId: UUID())
         let detector = Detector(params: params)
-        
+
         sut.register(driver: detector, along: .detector)
-        
-        // Allow async registration to complete
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+
         XCTAssertEqual(sut.detectors.count, 1)
         XCTAssertTrue(sut.classificators.isEmpty)
     }
     
-    func testRegisterClassificator() async {
+    func testRegisterClassificator() {
         let params = DeepDriverParams(entityId: UUID())
         let classificator = Classificator(params: params)
-        
+
         sut.register(driver: classificator, along: .classificator)
-        
-        // Allow async registration to complete
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+
         XCTAssertEqual(sut.classificators.count, 1)
         XCTAssertTrue(sut.detectors.isEmpty)
     }
     
-    func testRegisterInvalidType_DoesNotRegister() async {
+    func testRegisterInvalidType_DoesNotRegister() {
         let params = DeepDriverParams(entityId: UUID())
         let detector = Detector(params: params)
-        
+
         sut.register(driver: detector, along: .invalid)
-        
-        // Allow async operation to complete
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+
         XCTAssertTrue(sut.detectors.isEmpty)
         XCTAssertTrue(sut.classificators.isEmpty)
     }
     
-    func testRegisterSameDriverTwice_OnlyRegistersOnce() async {
+    func testRegisterSameDriverTwice_OnlyRegistersOnce() {
         let id = UUID()
         let params = DeepDriverParams(entityId: id)
         let detector = Detector(params: params)
-        
+
         sut.register(driver: detector, along: .detector)
         sut.register(driver: detector, along: .detector)
-        
-        // Allow async registration to complete
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+
         XCTAssertEqual(sut.detectors.count, 1)
     }
     
-    func testRegisterMultipleDetectors() async {
+    func testRegisterMultipleDetectors() {
         let detector1 = Detector(params: DeepDriverParams(entityId: UUID()))
         let detector2 = Detector(params: DeepDriverParams(entityId: UUID()))
-        
+
         sut.register(driver: detector1, along: .detector)
         sut.register(driver: detector2, along: .detector)
-        
-        // Allow async registration to complete
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+
         XCTAssertEqual(sut.detectors.count, 2)
     }
     
@@ -228,15 +213,12 @@ final class DeepDriversTests: XCTestCase {
         let id = UUID()
         let params = DeepDriverParams(entityId: id)
         let detector = Detector(params: params)
-        
+
         sut.register(driver: detector, along: .detector)
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
         XCTAssertEqual(sut.detectors.count, 1)
-        
-        sut.unregister(driverId: id)
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+
+        await sut.unregister(driverId: id)
+
         XCTAssertTrue(sut.detectors.isEmpty)
     }
     
@@ -244,29 +226,25 @@ final class DeepDriversTests: XCTestCase {
         let id = UUID()
         let params = DeepDriverParams(entityId: id)
         let classificator = Classificator(params: params)
-        
+
         sut.register(driver: classificator, along: .classificator)
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
         XCTAssertEqual(sut.classificators.count, 1)
-        
-        sut.unregister(driverId: id)
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+
+        await sut.unregister(driverId: id)
+
         XCTAssertTrue(sut.classificators.isEmpty)
     }
     
     func testUnregisterNonexistentDriver_DoesNothing() async {
         let params = DeepDriverParams(entityId: UUID())
         let detector = Detector(params: params)
-        
+
         sut.register(driver: detector, along: .detector)
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+        XCTAssertEqual(sut.detectors.count, 1)
+
         let nonexistentId = UUID()
-        sut.unregister(driverId: nonexistentId)
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+        await sut.unregister(driverId: nonexistentId)
+
         XCTAssertEqual(sut.detectors.count, 1)
     }
     
@@ -275,13 +253,12 @@ final class DeepDriversTests: XCTestCase {
     func testUnloadDetectors() async {
         let detector1 = Detector(params: DeepDriverParams(entityId: UUID()))
         let detector2 = Detector(params: DeepDriverParams(entityId: UUID()))
-        
+
         sut.register(driver: detector1, along: .detector)
         sut.register(driver: detector2, along: .detector)
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+
         await sut.unload(.detector)
-        
+
         // Detectors should still be in the array, just unloaded
         // The unload method doesn't remove them, just calls unload on each
         XCTAssertEqual(sut.detectors.count, 2)
@@ -290,13 +267,12 @@ final class DeepDriversTests: XCTestCase {
     func testUnloadClassificators() async {
         let classificator1 = Classificator(params: DeepDriverParams(entityId: UUID()))
         let classificator2 = Classificator(params: DeepDriverParams(entityId: UUID()))
-        
+
         sut.register(driver: classificator1, along: .classificator)
         sut.register(driver: classificator2, along: .classificator)
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+
         await sut.unload(.classificator)
-        
+
         // Classificators should still be in the array, just unloaded
         XCTAssertEqual(sut.classificators.count, 2)
     }
@@ -304,27 +280,25 @@ final class DeepDriversTests: XCTestCase {
     func testUnloadInvalidType_DoesNothing() async {
         let detector = Detector(params: DeepDriverParams(entityId: UUID()))
         let classificator = Classificator(params: DeepDriverParams(entityId: UUID()))
-        
+
         sut.register(driver: detector, along: .detector)
         sut.register(driver: classificator, along: .classificator)
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+
         await sut.unload(.invalid)
-        
+
         XCTAssertEqual(sut.detectors.count, 1)
         XCTAssertEqual(sut.classificators.count, 1)
     }
     
     // MARK: - Update Configuration Tests
     
-    func testUpdateConfiguration() async {
+    func testUpdateConfiguration() {
         let id = UUID()
         let params = DeepDriverParams(annotationColor: .red, entityId: id)
         let detector = Detector(params: params)
-        
+
         sut.register(driver: detector, along: .detector)
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+
         // To test update, we need a DeepConfiguration mock
         // For now, just verify the method doesn't crash
         // A more complete test would require CoreData setup
@@ -361,36 +335,34 @@ final class DeepDriversTests: XCTestCase {
     func testDetectWithUnloadedDetector_ReturnsEmptyResults() async {
         let expectation = XCTestExpectation(description: "Detection completed")
         let detector = Detector(params: DeepDriverParams(entityId: UUID()))
-        
+
         sut.register(driver: detector, along: .detector)
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+
         let image = UIImage(systemName: "star") ?? UIImage()
-        
+
         sut.detect(on: image) { results in
             // Without a loaded model, detection should return empty
             XCTAssertTrue(results.isEmpty)
             expectation.fulfill()
         }
-        
+
         await fulfillment(of: [expectation], timeout: 2.0)
     }
     
     func testClassifyWithUnloadedClassificator_ReturnsEmptyResults() async {
         let expectation = XCTestExpectation(description: "Classification completed")
         let classificator = Classificator(params: DeepDriverParams(entityId: UUID()))
-        
+
         sut.register(driver: classificator, along: .classificator)
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
+
         let image = UIImage(systemName: "star") ?? UIImage()
-        
+
         sut.classify(on: image) { results in
             // Without a loaded model, classification should return empty
             XCTAssertTrue(results.isEmpty)
             expectation.fulfill()
         }
-        
+
         await fulfillment(of: [expectation], timeout: 2.0)
     }
 }

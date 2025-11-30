@@ -168,16 +168,14 @@ struct DownloadDetailView: View {
 			
 			urlText = item.url?.absoluteString ?? ""
 		}
-		.alert(isPresented: $showAlert) {
-			Alert(
-				title: Text("Import"),
-				message: Text(
-					"""
-					In order to import a model succesfully, the  download has to be complete, and no deep configuration (side menu in the app) should use this model already - the model should not be already imported.
-					To reimport the model, first delete the deep configuration from the app's side menu with swipe gesture, and then you will be able to import the file from this form again.
-					"""
-				),
-				dismissButton: .default(Text("Got it!"))
+		.alert("Help", isPresented: $showAlert) {
+			Button("OK", role: .cancel) { }
+		} message: {
+			Text(
+				"""
+				In order to import a model succesfully, the download has to be complete, and no deep configuration (side menu in the app) should use this model already - the model should not be already imported.
+				To reimport the model, first delete the deep configuration from the app's side menu with swipe gesture, and then you will be able to import the file from this form again.
+				"""
 			)
 		}
 	}

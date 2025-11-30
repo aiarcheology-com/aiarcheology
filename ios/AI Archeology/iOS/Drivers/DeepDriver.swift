@@ -115,14 +115,10 @@ class DeepDrivers: ObservableObject {
 	}
 	
 	
-	func unregister(driverId: UUID) {
-		Task {
-			await (classificators + detectors).filter { $0.id == driverId }.first?.unload()
-			await MainActor.run {
-				detectors = detectors.filter { $0.id != driverId }
-				classificators = classificators.filter { $0.id != driverId }
-			}
-		}
+	func unregister(driverId: UUID) async {
+		await (classificators + detectors).filter { $0.id == driverId }.first?.unload()
+		detectors = detectors.filter { $0.id != driverId }
+		classificators = classificators.filter { $0.id != driverId }
 	}
 	
 	func unload(_ driver: DeepDriverType) async {
