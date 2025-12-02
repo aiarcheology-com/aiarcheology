@@ -31,6 +31,7 @@ struct GridView: View {
                             NavigationLink(destination: DetailView(item: item)) {
                                 GridItemView(size: geo.size.width, item: item)
                             }
+                            .testability(Testability.NavigationLink.gridViewDetailItem)
                         }
                         .cornerRadius(8.0)
                         .aspectRatio(1, contentMode: .fit)
@@ -46,11 +47,13 @@ struct GridView: View {
                                                 .symbolRenderingMode(.palette)
                                                 .foregroundStyle(.white, .red)
                                 }
+                                .testability(Testability.Button.gridViewRemoveItem)
                                 .offset(x: 7, y: -7)
                             }
                         }
                     }
                 }
+                .testability(Testability.List.gridViewList)
                 .padding()
             }
         }

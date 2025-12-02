@@ -42,6 +42,7 @@ struct SideMenuView: View {
 									.foregroundColor(.blue)
 									.frame(width: 24, height: 24)
 							}
+							.testability(Testability.Button.sideMenuAddConfiguration)
 							.padding(EdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 0))
 							Spacer()
 							Button(action: {
@@ -51,6 +52,7 @@ struct SideMenuView: View {
 									.bold()
 									.foregroundColor(.blue)
 							}
+							.testability(Testability.Button.sideMenuClose)
 							.padding()
 						}
 					}
@@ -84,6 +86,7 @@ struct SideMenuView: View {
 													DeepConfiguration.save(in: moc)
 												}
 										}
+										.testability(Testability.Button.sideMenuConfigurationCell, index: index)
 										.contextMenu { // Context menu for macOS/right-click deletion
 											Button(role: .destructive) {
 												deleteConfiguration(configuration)
@@ -91,6 +94,7 @@ struct SideMenuView: View {
 											label: {
 												Label("Delete", systemImage: "trash")
 											}
+											.testability(Testability.Button.sideMenuDeleteConfiguration, index: index)
 										}
 									}
 									.onDelete { offsets in

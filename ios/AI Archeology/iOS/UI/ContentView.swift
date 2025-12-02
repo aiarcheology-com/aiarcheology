@@ -130,6 +130,7 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                     }
+                    .testability(Testability.Button.contentViewAddressBarCancel)
                     .foregroundColor(.gray)
                     .padding(EdgeInsets(top: 20, leading: 0, bottom: 0, trailing: 25))
                 }
@@ -143,6 +144,7 @@ struct ContentView: View {
                     .truncationMode(.tail)
                     Spacer()
                 }
+                .testability(Testability.Button.contentViewAddressBarHistoryItem)
             }
             .environmentObject(appState.guide)
             .environmentObject(appState.deep)

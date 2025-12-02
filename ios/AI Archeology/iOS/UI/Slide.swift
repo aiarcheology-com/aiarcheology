@@ -63,6 +63,7 @@ struct SlideshowView: View {
 									.foregroundColor(.accentColor.opacity(0.5))
 									.blur(radius: 0.8)
 								}
+								.testability(Testability.Button.slideshowSwipeLeft, index: index)
 								.padding()
 							} else {
 								Rectangle()
@@ -87,6 +88,7 @@ struct SlideshowView: View {
 									.foregroundColor(.accentColor.opacity(0.5))
 									.blur(radius: 0.8)
 								}
+								.testability(Testability.Button.slideshowSwipeRight, index: index)
 								.padding()
 							} else {
 								Rectangle()
@@ -102,6 +104,7 @@ struct SlideshowView: View {
 						Spacer()
 						if slide.showButton {
 							Toggle("Show next time", isOn: $settings.keepSlideShowActive)
+								.testability(Testability.Toggle.slideshowShowNextTime)
 							.padding(40)
 						}
 					}

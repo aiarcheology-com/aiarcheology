@@ -21,6 +21,7 @@ struct ColumnStepper: View {
         Stepper(title, value: $numColumns, in: range, step: 1) { _ in
             withAnimation { columns = Array(repeating: GridItem(.flexible()), count: numColumns) }
         }
+        .testability(Testability.Stepper.gridViewColumnStepper)
     }
 }
 

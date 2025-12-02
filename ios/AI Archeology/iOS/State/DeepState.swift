@@ -183,7 +183,7 @@ final class DeepState: ObservableObject {
 				// NOW cross the async boundary with extracted data
 				Task { @MainActor in
 					self.handleInsertedConfigurations(insertedConfigs)
-					self.handleUpdatedConfigurations(updatedConfigs)
+					await self.handleUpdatedConfigurations(updatedConfigs)
 					self.handleDeletedConfigurations(deletedConfigs)
 				}
 			}
@@ -236,7 +236,7 @@ final class DeepState: ObservableObject {
 		}
 	}
 	
-	private func handleUpdatedConfigurations(_ updated: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)]) {
+	private func handleUpdatedConfigurations(_ updated: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)]) async {
 		for (_, entityId, enabled, modelType) in updated {
 			do {
 				let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
@@ -257,17 +257,12 @@ final class DeepState: ObservableObject {
 					Task {
 						do {
 							try await driver.loadFile()
-							await MainActor.run {
-								register(driver: driver, along: modelType)
-								Logger.drivers.logInfo("Driver loaded and registered after configuration update")
-							}
-						}
-						catch {
-							await MainActor.run {
-								Logger.drivers.logError("Failed to load driver after configuration update: \(error.localizedDescription)")
-								DefaultCrashReporter.shared.recordError(error, context: ["operation": "updateDriver", "configId": entityId.uuidString])
-								deepStateError = error
-							}
+							self.register(driver: driver, along: modelType)
+							Logger.drivers.logInfo("Driver loaded and registered after configuration update")
+						} catch {
+							Logger.drivers.logError("Failed to load driver after configuration update: \(error.localizedDescription)")
+							DefaultCrashReporter.shared.recordError(error, context: ["operation": "updateDriver", "configId": entityId.uuidString])
+							self.deepStateError = error
 						}
 					}
 				} else {

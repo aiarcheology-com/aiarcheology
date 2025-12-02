@@ -69,22 +69,13 @@ final class DeepStateTests: XCTestCase {
             c.enabled = true
         }
         
-        // Wait for async driver loading
-        let expectation = XCTestExpectation(description: "Driver registered")
-        
-        // We need to wait a bit because `handleUpdatedConfigurations` spawns a Task.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            // It might fail to load file (since we didn't provide one), but it tries to register?
-            // Actually, `createDriver` returns a driver, then it calls `driver.loadFile()`.
-            // If `loadFile` fails, it logs error and sets `deepStateError`.
-            // It does NOT register if load fails.
-            
-            // So we expect it to FAIL to register because we have no model file.
-            // But we can check if `deepStateError` is set?
-            if self.deepState.deepStateError != nil {
+        let expectation = XCTestExpectation(description: "Driver registration attempt finished")
+        deepState.deepStateErrorPublisher
+            .compactMap { $0 }
+            .sink { _ in
                 expectation.fulfill()
             }
-        }
+            .store(in: &cancellables)
         
         wait(for: [expectation], timeout: 1.0)
     }
@@ -104,4 +95,3 @@ final class DeepStateTests: XCTestCase {
         XCTAssertNil(fetched)
     }
 }
-
