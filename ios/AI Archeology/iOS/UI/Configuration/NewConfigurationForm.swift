@@ -10,6 +10,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 import OSLog
 
+private let navDebugLog = Logger(subsystem: Bundle.main.bundleIdentifier ?? "AI-Archeology", category: "nav-debug")
+
 struct NewConfigurationView: View {
 	@EnvironmentObject var deep: DeepState
 	@Environment(\.dismiss) private var dismiss
@@ -59,7 +61,9 @@ struct NewConfigurationView: View {
 				.navigationTitle("New Configuration")
 				.navigationBarTitleDisplayMode(.inline)
 				.onReceive(deep.$deepStateError, perform: handleDeepStateError)
-				.sheet(isPresented: $acquisitionCoordinator.isShowingDownloader, onDismiss: handleDownloaderDismiss) {
+				.sheet(isPresented: $acquisitionCoordinator.isShowingDownloader, onDismiss: {
+					handleDownloaderDismiss()
+				}) {
 					remoteDownloaderSheet
 				}
 				.fileImporter(
@@ -133,7 +137,7 @@ struct NewConfigurationView: View {
 	// MARK: - Model Acquisition UI
 	
 	private var remoteDownloaderSheet: some View {
-		NavigationStack {
+		return NavigationStack {
 			DownloaderView(
 				onImport: ImportHandler { url, id, provider in
 					handleRemoteImport(url: url, id: id, provider: provider)

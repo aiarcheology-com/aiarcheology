@@ -18,7 +18,6 @@ import OSLog
 @MainActor
 final class DeepState: ObservableObject {
 	let dataController: DataController
-	var frame: CGRect = .zero
 	
 	@Published var newConfiguration: DeepConfiguration?
 	@Published var deepStateError: Error?

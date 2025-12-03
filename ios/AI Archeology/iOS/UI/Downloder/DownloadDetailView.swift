@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import OSLog
 
 struct DownloadDetailView: View {
 	@Environment(\.dismiss) private var dismiss
@@ -39,7 +40,9 @@ struct DownloadDetailView: View {
 		.navigationBarTitle("Model")
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar { toolbarContent }
-		.onAppear { urlText = item.url?.absoluteString ?? "" }
+		.onAppear {
+			urlText = item.url?.absoluteString ?? ""
+		}
 		.alert("Help", isPresented: $showAlert) {
 			Button("OK", role: .cancel) { }
 		} message: {

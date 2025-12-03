@@ -122,9 +122,14 @@ struct WebScreenView: View {
 	}
 
     var body: some View {
-        // Passing appState.webViewRenderer as arg to be able to check, because:
-        // https://stackoverflow.com/questions/59822245/swiftui-optional-environment-object
-        SnapableGroup(renderer: appState.webViewRenderer, publisher: appState.snap.combinedPublishers) {
+        // DetectableView handles both snapshotting and annotation in one coordinated scope
+        // This keeps detection state local to WebScreenView and ensures coordinate alignment
+        DetectableView(
+            renderer: appState.webViewRenderer,
+            drivers: appState.deep.drivers,
+            trigger: appState.snap.combinedPublishers,
+            showIdentifiers: appState.settings.showIdentifiers
+        ) {
             MLWebView(websiteUrl, lastPage: { urlPage in
                 appState.settings.lastPage = urlPage
             }) { loading, error in
