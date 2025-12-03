@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-typealias SnapshotProvider = @Sendable (UIImage, CGRect) -> Void
+typealias SnapshotProvider = @MainActor (UIImage, CGRect) -> Void
 
 struct Snapshot {
     let image: UIImage
