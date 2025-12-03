@@ -38,7 +38,11 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             }
         }
         .onSnapshot { image, frame in
-            detect(image: image)
+            Task { @MainActor in
+                drivers.detect(on: image) { observations in
+                    detectedObservations = observations
+                }
+            }
         }
         .gesture(
             // Reset annotations when dragging the content
@@ -47,15 +51,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                     detectedObservations.removeAll()
                 }
         )
-    }
-    
-    @MainActor
-    private func detect(image: UIImage) {
-        drivers.detect(on: image) { observations in
-            Task { @MainActor in
-                detectedObservations = observations
-            }
-        }
     }
 }
 
