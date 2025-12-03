@@ -25,20 +25,24 @@ struct ListItemView: View {
 				HStack {
 					if let fileName = item.url?.lastPathComponent.fileName {
 						Text(fileName)
+							.testability(Testability.Label.listItemFileName)
 					} else {
 						Text("Edit")
+							.testability(Testability.Label.listItemFileName)
 							.foregroundColor(.blue)
 					}
 					Spacer()
 				}
 				HStack {
 					Text(item.state.id)
+						.testability(Testability.Label.listItemState)
 						.foregroundColor(.gray)
 						.font(.caption)
 					Spacer()
 				}
 				if progress > 0.0 {
 					ProgressView(value: [.complete, .imported].contains(item.state) ? 1.0 : progress)
+						.testability(Testability.ProgressView.listItemProgress)
 						.progressViewStyle(LinearProgressViewStyle(tint: .green))
 						.frame(height: 5)
 				}

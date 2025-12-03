@@ -65,6 +65,7 @@ struct WebScreenView: View {
 	@State private var latestError: HistoryError?
 	@State private var showAlert: Bool = false
 	@State private var hasPerformedInitialAction = false
+	@State private var showIdentifiers: Bool = false
 
 	init() {
 		Backports.Appearance.textField()
@@ -76,6 +77,7 @@ struct WebScreenView: View {
 			TextField("Search or enter any website name", text: $inputUrl) { isStart in
 				showMenu = isStart
 			}
+			.testability(Testability.TextField.webScreenAddressBar)
 			.environmentObject(appState.guide)
 			.onChange(of: inputUrl) { value in
 				if let addressSelected = appState.guide.addressSelected,
@@ -121,18 +123,33 @@ struct WebScreenView: View {
 	}
 
     var body: some View {
-        // Passing appState.webViewRenderer as arg to be able to check, because:
-        // https://stackoverflow.com/questions/59822245/swiftui-optional-environment-object
-        SnapableGroup(renderer: appState.webViewRenderer, publisher: appState.snap.combinedPublishers) {
+        // DetectableView handles both snapshotting and annotation in one coordinated scope
+        // This keeps detection state local to WebScreenView and ensures coordinate alignment
+        DetectableView(
+            renderer: appState.webViewRenderer,
+            drivers: appState.deep.drivers,
+            trigger: appState.snap.combinedPublishers,
+            showIdentifiers: showIdentifiers,
+            onInteractionStateChanged: { state in
+                // Optionally propagate to Guide for other UI components to observe
+                appState.guide.contentInteractionState = state
+            }
+        ) { interactionState in
             MLWebView(websiteUrl, lastPage: { urlPage in
                 appState.settings.lastPage = urlPage
-            }) { loading, error in
+            }, loadStatusChanged: { loading, error in
                 Logger.ui.logDebug("WebView loading status changed: \(loading ? "loading" : "loaded")")
                 if let error = error {
                     Logger.ui.logError("WebView loading error: \(error.localizedDescription)")
                 }
-            }
+            }, interactionStateChanged: { state in
+                // Update DetectableView's internal state via binding
+                interactionState.wrappedValue = state
+            })
             .equatable()
+        }
+        .onReceive(appState.settings.$showIdentifiers) { value in
+            showIdentifiers = value
         }
         .onReceive(appState.guide.$addressSelected) { address in
             guard let address else { return }
@@ -141,6 +158,7 @@ struct WebScreenView: View {
             appState.guide.addressBarMenu = []
         }
         .onAppear() {
+            showIdentifiers = appState.settings.showIdentifiers
             if hasPerformedInitialAction.not {
                 hasPerformedInitialAction = true
                 if

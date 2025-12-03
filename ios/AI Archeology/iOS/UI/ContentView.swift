@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import OSLog
 
 
 private enum ActiveSheet: Identifiable {
@@ -24,11 +25,9 @@ struct ContentView: View {
     // app model:
     @EnvironmentObject var appState: AppState
     // sheets, alerts and menus:
-    @State private var detectedObservations: [ObservationParams] = []
     @State private var showErrorAlert = false
     @State private var addressBarMenu: [URL] = []
     @State private var errorMessage = ""
-    @State private var showAnnotation = true
     // content manipulation:
     @State private var brightness = SnapAdjustment.defaultBrightness
     @State private var contrast = SnapAdjustment.defaultContrast
@@ -49,25 +48,6 @@ struct ContentView: View {
                 ForEach(AppMode.tabOrder) { mode in
                     ViewContainer( {
                         Screens.content(mode)
-                            .onSnapshot { image, frame in
-                                let frameCopy = frame
-                                Task { @MainActor in
-                                    appState.deep.drivers.detect(on: image) { observations in
-                                        Task { @MainActor in
-                                            detectedObservations = observations
-                                            appState.deep.frame = frameCopy
-                                        }
-                                    }
-                                }                            }
-                            .annotate(from: detectedObservations, withinFrame: appState.deep.frame) { observation, params, parentFrame, geometry  in
-                                AnnotationViewBuilder(observation: observation, geometry: geometry, params: params, showIndentifiers: appState.settings.showIdentifiers)
-                            }
-                            .gesture( // Reset the annoation when we drag the content
-                                DragGesture()
-                                    .onEnded { _ in
-                                        detectedObservations.removeAll()
-                                    }
-                            )
                         // ---- Apply the image properties to the content -----
                         // Some lidar/map/orto websites have slightly different brightnes
                         // which can be compensated by adjusting one of these properties:
@@ -130,6 +110,7 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                     }
+                    .testability(Testability.Button.contentViewAddressBarCancel)
                     .foregroundColor(.gray)
                     .padding(EdgeInsets(top: 20, leading: 0, bottom: 0, trailing: 25))
                 }
@@ -143,6 +124,7 @@ struct ContentView: View {
                     .truncationMode(.tail)
                     Spacer()
                 }
+                .testability(Testability.Button.contentViewAddressBarHistoryItem)
             }
             .environmentObject(appState.guide)
             .environmentObject(appState.deep)

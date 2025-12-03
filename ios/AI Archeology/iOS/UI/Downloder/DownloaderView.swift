@@ -43,6 +43,7 @@ struct DownloaderView: View {
                         }) {
                             Label("Delete", systemImage: "trash")
                         }
+                        .testability(Testability.Button.downloaderListItemDelete)
                     }
                     .contextMenu {
                         Button(role: .destructive) {
@@ -52,7 +53,9 @@ struct DownloaderView: View {
                         }
                     }
             }
+            .testability(Testability.NavigationLink.downloaderListItem)
         }
+        .testability(Testability.List.downloaderList)
         .macOnly { view in
             view.listStyle(.inset)
         }
@@ -66,6 +69,7 @@ struct DownloaderView: View {
                 Button("Done") {
                     dismiss()
                 }
+                .testability(Testability.Button.downloaderDone)
                 .bold()
                 .foregroundColor(.blue)
             }
@@ -76,6 +80,7 @@ struct DownloaderView: View {
                     Image(systemName: "plus.circle.fill")
                         .foregroundColor(.blue)
                 }
+                .testability(Testability.Button.downloaderAddDownload)
             }
         }
     }

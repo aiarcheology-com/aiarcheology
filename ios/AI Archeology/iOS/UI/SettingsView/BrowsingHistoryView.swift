@@ -34,6 +34,7 @@ struct BrowserHistoryView: View {
 									.bold()
 									.foregroundColor(refreshFrom.disabled ? .red : .blue)
 							}
+							.testability(Testability.Button.browsingHistoryClear)
 						}
 					}
 					Section(header: Text("History")) {
@@ -47,6 +48,7 @@ struct BrowserHistoryView: View {
 										}) {
 											Label("", systemImage: "doc.on.doc")
 										}
+										.testability(Testability.Button.browsingHistoryCopyUrl)
 										.tint(.blue)
 
 										Button(role: .destructive, action: {
@@ -55,12 +57,14 @@ struct BrowserHistoryView: View {
 										}) {
 											Label("", systemImage: "trash")
 										}
+										.testability(Testability.Button.browsingHistoryDeleteEntry)
 
 										Button(action: {
 											settings.defaultPage = item.page
 										}) {
 											Label("", systemImage: "house")
 										}
+										.testability(Testability.Button.browsingHistorySetDefaultPage)
 										.tint(.green)
 									}
 								Spacer()
@@ -72,6 +76,7 @@ struct BrowserHistoryView: View {
 						}
 					}
 				}
+				.testability(Testability.List.browsingHistoryList)
 				.alert(isPresented: $showingAlert) {
 					Alert(
 						title: Text("Warning"),
@@ -93,6 +98,7 @@ struct BrowserHistoryView: View {
 				.bold()
 				.foregroundColor(.blue)
 		}
+		.testability(Testability.Button.browsingHistoryDismiss)
 		)
 	}
 }

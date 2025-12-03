@@ -32,6 +32,7 @@ struct GlobalToolbarLeading: View {
 					Image(systemName: "cpu").foregroundColor(.gray)
 				}
 			}
+			.testability(Testability.Button.globalToolbarSideMenu)
 		}
 		.onReceive(download.$activeDownloads) { newValue in
 			isAnimating = newValue.isEmpty.not
@@ -60,6 +61,7 @@ struct GlobalToolbarTrailing: View {
 							}
 						}
 				}
+				.testability(Testability.Button.globalToolbarPauseDetection)
 				.disabled(showPopoverAdjustment)
 			} else {
 				Button(action: {
@@ -68,6 +70,7 @@ struct GlobalToolbarTrailing: View {
 					Image(systemName: "play")
 						.foregroundColor(.gray)
 				}
+				.testability(Testability.Button.globalToolbarPlayDetection)
 				.disabled(showPopoverAdjustment)
 			}
 			Button ( action:  {
@@ -76,6 +79,7 @@ struct GlobalToolbarTrailing: View {
 				Image(systemName: "pencil.tip.crop.circle")
 					.foregroundColor(.gray)
 			}
+			.testability(Testability.Button.globalToolbarAdjustments)
 			// TODO: use this https://pspdfkit.com/blog/2022/presenting-popovers-on-iphone-with-swiftui/
 			.popover(isPresented: $showPopoverAdjustment) {
 				SnapAdjustmentView()
@@ -92,6 +96,7 @@ struct GlobalToolbarTrailing: View {
 				Image(systemName: "gearshape")
 					.foregroundColor(.gray)
 			}
+			.testability(Testability.Button.globalToolbarSettings)
 			.disabled(showPopoverAdjustment)
 		}
 	}

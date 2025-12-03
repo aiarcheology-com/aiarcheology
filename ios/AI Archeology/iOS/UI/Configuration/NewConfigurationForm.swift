@@ -10,6 +10,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 import OSLog
 
+private let navDebugLog = Logger(subsystem: Bundle.main.bundleIdentifier ?? "AI-Archeology", category: "nav-debug")
+
 struct NewConfigurationView: View {
 	@EnvironmentObject var deep: DeepState
 	@Environment(\.dismiss) private var dismiss
@@ -59,7 +61,9 @@ struct NewConfigurationView: View {
 				.navigationTitle("New Configuration")
 				.navigationBarTitleDisplayMode(.inline)
 				.onReceive(deep.$deepStateError, perform: handleDeepStateError)
-				.sheet(isPresented: $acquisitionCoordinator.isShowingDownloader, onDismiss: handleDownloaderDismiss) {
+				.sheet(isPresented: $acquisitionCoordinator.isShowingDownloader, onDismiss: {
+					handleDownloaderDismiss()
+				}) {
 					remoteDownloaderSheet
 				}
 				.fileImporter(
@@ -101,6 +105,7 @@ struct NewConfigurationView: View {
 	private var createMLDocumentationSection: some View {
 		Section {
 			Link("Apple Documentation: Create ML", destination: URL(string: "https://developer.apple.com/documentation/createml")!)
+				.testability(Testability.Link.newConfigurationAppleDocumentation)
 				.frame(maxWidth: .infinity, alignment: .leading)
 		} header: {
 			Text("Learn more about creating a detector in Create ML:")
@@ -113,6 +118,7 @@ struct NewConfigurationView: View {
 	private var onnxConversionSection: some View {
 		Section {
 			Link("Get models on device using Core ML Converters", destination: URL(string: "https://developer.apple.com/videos/play/wwdc2020/10153/")!)
+				.testability(Testability.Link.newConfigurationCoreMLConverters)
 				.frame(maxWidth: .infinity, alignment: .leading)
 			Text(Self.pythonCode)
 				.font(.system(.body, design: .monospaced))
@@ -131,7 +137,7 @@ struct NewConfigurationView: View {
 	// MARK: - Model Acquisition UI
 	
 	private var remoteDownloaderSheet: some View {
-		NavigationStack {
+		return NavigationStack {
 			DownloaderView(
 				onImport: ImportHandler { url, id, provider in
 					handleRemoteImport(url: url, id: id, provider: provider)
@@ -207,9 +213,9 @@ fileprivate struct SourceButtons: View {
 	var body: some View {
 		HStack {
 			Spacer()
-			PlusIconButton(systemName: "doc") { onPickDocument() }
+			PlusIconButton(systemName: "doc", testability: Testability.Button.newConfigurationPickDocument) { onPickDocument() }
 			Spacer()
-			PlusIconButton(systemName: "globe") { onPickURL() }
+			PlusIconButton(systemName: "globe", testability: Testability.Button.newConfigurationPickUrl) { onPickURL() }
 			Spacer()
 		}
 		.padding(12)
@@ -218,6 +224,7 @@ fileprivate struct SourceButtons: View {
 
 fileprivate struct PlusIconButton: View {
 	var systemName: String
+	var testability: Testability.Button
 	var action: () -> Void
 	
 	var body: some View {
@@ -238,6 +245,7 @@ fileprivate struct PlusIconButton: View {
 				.alignmentGuide(.leading) { d in d[.leading] }
 			}
 		}
+		.testability(testability)
 		.buttonStyle(PressableButtonStyle())
 	}
 }

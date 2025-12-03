@@ -35,12 +35,15 @@ struct SettingsForm: View {
 							Text("\(second) second\(second > 1 ? "s" : "")").tag(Double(second))
 						}
 					}
+					.testability(Testability.Picker.settingsFrequency)
 					.onChange(of: settings.snapFrequency) { _ in
 						guide.ontheflyDetectionResetTapped()
 					}
 
 					Toggle("Run At Launch", isOn: $settings.snapAfterAppStart)
+						.testability(Testability.Toggle.settingsRunAtLaunch)
 					Toggle("Show Labels", isOn: $settings.showIdentifiers)
+						.testability(Testability.Toggle.settingsShowLabels)
 				}
 
 					// Web Content Section
@@ -58,16 +61,19 @@ struct SettingsForm: View {
 								defaultWebPlaceholder = ""
 							}
 						}
+						.testability(Testability.TextField.settingsDefaultPage)
 						.multilineTextAlignment(.trailing)
 						.foregroundColor(.gray)
 					}
 					Toggle("Reopen Last Page", isOn: $settings.reopenLastPage)
+						.testability(Testability.Toggle.settingsReopenLastPage)
 					HStack {
 						Text("History Limit")
 							.foregroundColor(.primary)
 						Spacer()
 						TextField("0-100", value: $settings.historySize, formatter:
 									NumberFormatter.historyLimitFormatter)
+							.testability(Testability.TextField.settingsHistoryLimit)
 							.multilineTextAlignment(.trailing)
 							.keyboardType(.numberPad)
 							.foregroundColor(.gray)
@@ -77,6 +83,7 @@ struct SettingsForm: View {
 									Button("Done") {
 										Self.removeFocus()
 									}
+									.testability(Testability.Button.settingsKeyboardDone)
 								}
 							}
 					}
@@ -85,6 +92,7 @@ struct SettingsForm: View {
 							Text("History")
 						}
 					}
+					.testability(Testability.NavigationLink.settingsHistory)
 					HStack {
 						Text("Delete Cache")
 						Spacer()
@@ -96,6 +104,7 @@ struct SettingsForm: View {
 								.bold()
 								.foregroundColor(cleanCacheButtonColor)
 						}
+						.testability(Testability.Button.settingsDeleteCache)
 					}
 					.onChange(of: settings.applicationResetButtonToggle) { reseted in
 						resetButtonColor = .blue
@@ -107,11 +116,13 @@ struct SettingsForm: View {
 							Text("About")
 						}
 					}
+					.testability(Testability.NavigationLink.settingsAbout)
 					NavigationLink(destination: SlideshowView().environmentObject(settings)) {
 						HStack {
 							Text("Introduction")
 						}
 					}
+					.testability(Testability.NavigationLink.settingsIntroduction)
 					HStack {
 						Text("Restore Defaults")
 						Spacer()
@@ -123,6 +134,7 @@ struct SettingsForm: View {
 						}) {
 							Text("Restore")
 						}
+						.testability(Testability.Button.settingsRestoreDefaults)
 						.buttonStyle(PressableButtonStyle(color: resetButtonColor))
 					}
 					.onChange(of: settings.applicationResetButtonToggle) { reseted in
@@ -151,7 +163,9 @@ struct SettingsForm: View {
 				Text("Dismiss")
 					.bold()
 					.foregroundColor(.blue)
-			})
+			}
+			.testability(Testability.Button.settingsDismiss)
+			)
 
 			.alert(isPresented: .constant(validationErrorMessage != nil), content: {
 				Alert(
