@@ -23,6 +23,7 @@ final class Guide: ObservableObject {
 	@Published var pageToOpen: URL?
 	@Published var addressBarMenu: [URL] = []
 	@Published var addressSelected: URL?
+	@Published var contentInteractionState: ContentInteractionState = .idle
 
 	init(snap: SnapState, deep: DeepState, settings: Settings, dataController: DataController, demoDataManager: DemoDataManager, snapAdjustment: SnapAdjustment) {
 		self.snap = snap

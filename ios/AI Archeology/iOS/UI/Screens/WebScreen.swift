@@ -65,6 +65,7 @@ struct WebScreenView: View {
 	@State private var latestError: HistoryError?
 	@State private var showAlert: Bool = false
 	@State private var hasPerformedInitialAction = false
+	@State private var showIdentifiers: Bool = false
 
 	init() {
 		Backports.Appearance.textField()
@@ -128,17 +129,27 @@ struct WebScreenView: View {
             renderer: appState.webViewRenderer,
             drivers: appState.deep.drivers,
             trigger: appState.snap.combinedPublishers,
-            showIdentifiers: appState.settings.showIdentifiers
-        ) {
+            showIdentifiers: showIdentifiers,
+            onInteractionStateChanged: { state in
+                // Optionally propagate to Guide for other UI components to observe
+                appState.guide.contentInteractionState = state
+            }
+        ) { interactionState in
             MLWebView(websiteUrl, lastPage: { urlPage in
                 appState.settings.lastPage = urlPage
-            }) { loading, error in
+            }, loadStatusChanged: { loading, error in
                 Logger.ui.logDebug("WebView loading status changed: \(loading ? "loading" : "loaded")")
                 if let error = error {
                     Logger.ui.logError("WebView loading error: \(error.localizedDescription)")
                 }
-            }
+            }, interactionStateChanged: { state in
+                // Update DetectableView's internal state via binding
+                interactionState.wrappedValue = state
+            })
             .equatable()
+        }
+        .onReceive(appState.settings.$showIdentifiers) { value in
+            showIdentifiers = value
         }
         .onReceive(appState.guide.$addressSelected) { address in
             guard let address else { return }
@@ -147,6 +158,7 @@ struct WebScreenView: View {
             appState.guide.addressBarMenu = []
         }
         .onAppear() {
+            showIdentifiers = appState.settings.showIdentifiers
             if hasPerformedInitialAction.not {
                 hasPerformedInitialAction = true
                 if
