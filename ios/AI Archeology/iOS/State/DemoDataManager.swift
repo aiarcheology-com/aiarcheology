@@ -71,6 +71,7 @@ final class DemoDataManager {
             newHistorEntry.creationDate_ = .now
             newHistorEntry.entityId = UUID()
             newHistorEntry.page = URL(string:page)
+            newHistorEntry.transition(to: .draft)
             do {
                 try newHistorEntry.validateForInsert()
             }
@@ -79,7 +80,7 @@ final class DemoDataManager {
                 Logger.state.logError("Web history entry validation failed: \(error.localizedDescription)")
                 continue
             }
-            
+            newHistorEntry.transition(to: .ready)
             WebHistoryEntry.save(in: self.dataController.container.viewContext)
         }
     }
