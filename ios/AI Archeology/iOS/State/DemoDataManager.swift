@@ -38,7 +38,18 @@ final class DemoDataManager {
         }
     }
     
+    /// Load the configuration only if the demo configurations do not exist yet
     func createDemoConfigurations() {
+		let demosDoNotExist = DeepConfiguration
+			.selectAll(in: dataController.container.viewContext)
+			.filter { $0.demo }
+			.isEmpty
+			
+		guard demosDoNotExist else {
+			Logger.configuration.logInfo("Demo configurations already exist, skipping creation")
+			return
+		}
+		
         Task {
             await loadModelOne()
             await loadModelTwo()
@@ -71,6 +82,7 @@ final class DemoDataManager {
             newHistorEntry.creationDate_ = .now
             newHistorEntry.entityId = UUID()
             newHistorEntry.page = URL(string:page)
+            newHistorEntry.transition(to: .draft)
             do {
                 try newHistorEntry.validateForInsert()
             }
@@ -79,7 +91,7 @@ final class DemoDataManager {
                 Logger.state.logError("Web history entry validation failed: \(error.localizedDescription)")
                 continue
             }
-            
+            newHistorEntry.transition(to: .ready)
             WebHistoryEntry.save(in: self.dataController.container.viewContext)
         }
     }
