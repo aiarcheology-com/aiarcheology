@@ -38,7 +38,18 @@ final class DemoDataManager {
         }
     }
     
+    /// Load the configuration only if the demo configurations do not exist yet
     func createDemoConfigurations() {
+		let demosDoNotExist = DeepConfiguration
+			.selectAll(in: dataController.container.viewContext)
+			.filter { $0.demo }
+			.isEmpty
+			
+		guard demosDoNotExist else {
+			Logger.configuration.logInfo("Demo configurations already exist, skipping creation")
+			return
+		}
+		
         Task {
             await loadModelOne()
             await loadModelTwo()
