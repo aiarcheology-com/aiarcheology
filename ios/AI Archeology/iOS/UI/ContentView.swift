@@ -33,6 +33,7 @@ struct ContentView: View {
     @State private var brightness = SnapAdjustment.defaultBrightness
     @State private var contrast = SnapAdjustment.defaultContrast
     @State private var saturation = SnapAdjustment.defaultSaturation
+    @State private var showSnapAdjustment = false
     @State private var activeSheet: ActiveSheet?
     
     init() {
@@ -57,6 +58,15 @@ struct ContentView: View {
         }
         .onReceive(appState.guide.$presentSettings) { present in
             activeSheet = present ? .settings : nil
+        }
+        .onReceive(appState.guide.$showSnapAdjustment) { show in
+            // Bridge from Guide's showSnapAdjustment to local state for proper observation
+            showSnapAdjustment = show
+        }
+        .onChange(of: showSnapAdjustment) { _, newValue in
+            // Sync back to Guide when local state changes (e.g., overlay dismissed)
+            guard appState.guide.showSnapAdjustment != newValue else { return }
+            appState.guide.showSnapAdjustment = newValue
         }
         .onReceive(appState.guide.$presentedSideMenu) { shouldOpen in
             // Bridge from Guide's presentedSideMenu to new DrawerManager
@@ -129,6 +139,12 @@ struct ContentView: View {
             // Address bar dropdown menu
             addressBarDropdown
         }
+        // Snap adjustment overlay for iPhone (compact width)
+        // On iPad/Mac, this is handled via popover in GlobalToolbarTrailing
+        .snapAdjustmentOverlay(
+            isPresented: $showSnapAdjustment,
+            snapAdjustment: appState.snapAdjustment
+        )
     }
     
     // MARK: - Address Bar Dropdown
