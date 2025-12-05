@@ -94,11 +94,16 @@ struct DrawerContent: View {
     private var configurationsSection: some View {
         Section("Available Models") {
             ForEach(configurations, id: \.entityId) { configuration in
-                ConfigurationRow(configuration: configuration) {
-                    selectedConfigurationId = configuration.entityId
-                }
+                ConfigurationRow(
+                    configuration: configuration,
+                    onTap: {
+						selectedConfigurationId = configuration.entityId
+                    },
+                    onDelete: {
+						DeepConfiguration.delete(configuration.entityId, in: moc)
+                    }
+                )
             }
-            .onDelete(perform: deleteConfigurations)
         }
     }
     
@@ -124,58 +129,53 @@ struct DrawerContent: View {
             .tint(.blue)
         }
     }
-    
-    // MARK: - Actions
-    
-    private func deleteConfigurations(at offsets: IndexSet) {
-        for index in offsets {
-            let configuration = configurations[index]
-            DeepConfiguration.delete(configuration.entityId, in: moc)
-        }
-    }
 }
 
 // MARK: - Configuration Row
 
-/// A single row in the configurations list
+/// A single row in the configurations list.
+/// Uses `.buttonStyle(.borderless)` to isolate gesture handling, enabling
+/// swipe actions to coexist with Toggle on all platforms.
 private struct ConfigurationRow: View {
     @ObservedObject var configuration: DeepConfiguration
     let onTap: () -> Void
+    let onDelete: () -> Void
     
     var body: some View {
-        Button(action: onTap) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(configuration.modelDescription ?? "Unnamed Model")
-                        .foregroundStyle(.primary)
-                    
-                    if let author = configuration.author {
-                        Text(author)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(configuration.modelDescription ?? "Unnamed Model")
+                    .foregroundStyle(.primary)
+                
+                if let author = configuration.author {
+                    Text(author)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                
-                Spacer()
-                
-                Toggle("", isOn: Binding(
-                    get: { configuration.enabled },
-                    set: { newValue in
-                        configuration.enabled = newValue
-                        DeepConfiguration.save(in: configuration.managedObjectContext!)
-                    }
-                ))
-                .tint(configuration.annotationColor)
-                .labelsHidden()
+            }
+            
+            Spacer()
+            
+            Toggle("", isOn: Binding(
+                get: { configuration.enabled },
+                set: { newValue in
+                    configuration.enabled = newValue
+                    DeepConfiguration.save(in: configuration.managedObjectContext!)
+                }
+            ))
+            .tint(configuration.annotationColor)
+            .labelsHidden()
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { onTap() }
+        .buttonStyle(.borderless)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive, action: onDelete) {
+                Label("Delete", systemImage: "trash")
             }
         }
-        .buttonStyle(.plain)
         .contextMenu {
-            Button(role: .destructive) {
-                if let context = configuration.managedObjectContext {
-                    DeepConfiguration.delete(configuration.entityId, in: context)
-                }
-            } label: {
+            Button(role: .destructive, action: onDelete) {
                 Label("Delete", systemImage: "trash")
             }
         }
