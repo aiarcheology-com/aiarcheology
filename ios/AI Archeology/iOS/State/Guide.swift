@@ -24,6 +24,7 @@ final class Guide: ObservableObject {
 	@Published var addressBarMenu: [URL] = []
 	@Published var addressSelected: URL?
 	@Published var contentInteractionState: ContentInteractionState = .idle
+	@Published var showSnapAdjustment: Bool = false
 
 	init(snap: SnapState, deep: DeepState, settings: Settings, dataController: DataController, demoDataManager: DemoDataManager, snapAdjustment: SnapAdjustment) {
 		self.snap = snap

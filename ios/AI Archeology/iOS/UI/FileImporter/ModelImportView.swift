@@ -124,10 +124,10 @@ struct ModelImportView: View {
                 Label {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Import from Files")
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(Color(.label))
                         Text("Select a .mlmodel or .mlpackage file")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color(.secondaryLabel))
                     }
                 } icon: {
                     Image(systemName: "folder")
@@ -135,6 +135,7 @@ struct ModelImportView: View {
                         .foregroundStyle(.blue)
                 }
             }
+            .buttonStyle(.plain)
             .testability(Testability.Button.newConfigurationPickDocument)
             
             Button {
@@ -143,10 +144,10 @@ struct ModelImportView: View {
                 Label {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Download from URL")
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(Color(.label))
                         Text("Download a model from the internet")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color(.secondaryLabel))
                     }
                 } icon: {
                     Image(systemName: "globe")
@@ -154,6 +155,7 @@ struct ModelImportView: View {
                         .foregroundStyle(.blue)
                 }
             }
+            .buttonStyle(.plain)
             .testability(Testability.Button.newConfigurationPickUrl)
         }
     }
@@ -164,7 +166,7 @@ struct ModelImportView: View {
         Section {
             Text("Choose a Create ML model (.mlmodel or .mlpackage) that supports object detection. Other model types are not supported in this version.")
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color(.secondaryLabel))
         } header: {
             Text("Supported Models")
         }
@@ -195,7 +197,7 @@ struct ModelImportView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Use this Python code to convert ONNX models:")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color(.secondaryLabel))
                 
                 Text(Self.pythonCode)
                     .font(.system(.caption, design: .monospaced))

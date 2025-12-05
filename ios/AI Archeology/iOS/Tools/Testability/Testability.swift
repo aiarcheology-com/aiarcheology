@@ -102,6 +102,7 @@ extension TestabilityIdentification {
 		case globalToolbarSettings
 		// Snap Adjustment
 		case snapAdjustmentReset
+		case snapAdjustmentOverlayDismiss
 		// Content View
 		case contentViewAddressBarCancel
 		case contentViewAddressBarHistoryItem
