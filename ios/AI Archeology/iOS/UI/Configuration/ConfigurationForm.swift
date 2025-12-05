@@ -73,7 +73,7 @@ struct ConfigurationForm: View {
 				deep.saveConfigurations()
 			}
 			.navigationBarTitle("Configuration", displayMode: .inline)
-			.navigationBarItems(leading: doneButton)
+			.navigationBarItems(trailing: doneButton)
 		}
 	}
 	

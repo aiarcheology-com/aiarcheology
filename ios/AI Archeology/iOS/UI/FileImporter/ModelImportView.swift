@@ -214,8 +214,8 @@ struct ModelImportView: View {
     
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .cancellationAction) {
-            Button("Cancel") {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button("Dismiss") {
                 dismiss()
             }
             .tint(.blue)
