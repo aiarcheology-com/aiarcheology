@@ -9,7 +9,7 @@ import SwiftUI
 
 struct BrowserHistoryView: View {
 	@Environment(\.managedObjectContext) var moc
-	@Environment(\.presentationMode) var presentation
+	@Environment(\.dismissSheet) var dismissSheet
 	@FetchRequest(
 		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: false)],
 		predicate: NSPredicate(format: "lifeCycleString == %@ AND page != nil AND creationDate_ != nil", "ready"),
@@ -92,13 +92,13 @@ struct BrowserHistoryView: View {
 		}
 		.navigationTitle("Browsing History")
 		.navigationBarItems(trailing: Button(action: {
-			self.presentation.wrappedValue.dismiss()
+			dismissSheet?()
 		}) {
 			Text("Dismiss")
 				.bold()
 				.foregroundColor(.blue)
-		}
-		.testability(Testability.Button.browsingHistoryDismiss)
+			}
+			.testability(Testability.Button.browsingHistoryDismiss)
 		)
 	}
 }

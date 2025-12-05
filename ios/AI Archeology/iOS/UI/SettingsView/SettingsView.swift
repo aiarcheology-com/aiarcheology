@@ -87,7 +87,9 @@ struct SettingsForm: View {
 								}
 							}
 					}
-					NavigationLink(destination: BrowserHistoryView()) {
+					NavigationLink(destination: BrowserHistoryView()
+						.environment(\.dismissSheet, { dismiss() })
+					) {
 						HStack {
 							Text("History")
 						}
@@ -111,13 +113,16 @@ struct SettingsForm: View {
 					}
 				}
 				Section(header: Text("ML Browser")) {
-					NavigationLink(destination: AppDescriptionView()) {
+					NavigationLink(destination: AppDescriptionView()
+						.environment(\.dismissSheet, { dismiss() })) {
 						HStack {
 							Text("About")
 						}
 					}
 					.testability(Testability.NavigationLink.settingsAbout)
-					NavigationLink(destination: SlideshowView().environmentObject(settings)) {
+					NavigationLink(destination: SlideshowView()
+						.environmentObject(settings)
+						.environment(\.dismissSheet, { dismiss() })) {
 						HStack {
 							Text("Introduction")
 						}

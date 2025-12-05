@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct AppDescriptionView: View {
+	@Environment(\.dismissSheet) var dismissSheet
 	let versionString: String = appVersion()
 	let buildString: String = appBuild()
 	let appIcon: String = Bundle.main.iconFileName ?? "AppIcon"
@@ -97,6 +98,15 @@ struct AppDescriptionView: View {
 				.foregroundColor(.gray)
 				.padding()
 		}
+		.navigationBarItems(trailing: Button(action: {
+			dismissSheet?()
+		}) {
+			Text("Dismiss")
+				.bold()
+				.foregroundColor(.blue)
+			}
+			.testability(Testability.Button.appDescriptionDismiss)
+		)
 		.navigationBarTitle("About", displayMode: .inline)
 	}
 

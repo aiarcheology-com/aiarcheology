@@ -25,6 +25,7 @@ struct Slide {
 
 
 struct SlideshowView: View {
+	@Environment(\.dismissSheet) var dismissSheet
 	@EnvironmentObject var settings: Settings
 	private let slides: [Slide] = [
 
@@ -116,6 +117,15 @@ struct SlideshowView: View {
 			.tabViewStyle(PageTabViewStyle())
 			.indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
 		}
+		.navigationBarItems(trailing: Button(action: {
+			dismissSheet?()
+		}) {
+			Text("Dismiss")
+				.bold()
+				.foregroundColor(.blue)
+			}
+			.testability(Testability.Button.slideShowDismiss)
+		)
 	}
 }
 

@@ -122,7 +122,7 @@ struct DrawerContent: View {
         }
         
         ToolbarItem(placement: .topBarTrailing) {
-            Button("Close") {
+            Button("Dimiss") {
                 drawer.close()
             }
             .bold()
