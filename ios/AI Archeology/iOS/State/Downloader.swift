@@ -112,36 +112,17 @@ fileprivate final class DownloaderSessionDelegateProxy: NSObject, URLSessionDown
         Logger.networking.logInfo("Download finished for item \(id.uuidString)")
         
         // CRITICAL: Move file synchronously BEFORE returning from delegate
-        let fileResult = Self.moveDownloadedFileImmediately(location: location, itemId: id)
+        let fileResult: Result<URL, Error>
+        do {
+            let targetURL = try FileManager.moveModelToDocuments(from: location, configurationId: id)
+            fileResult = .success(targetURL)
+        } catch {
+            fileResult = .failure(error)
+        }
         
         // Update Core Data on main actor
         Task { @MainActor [weak owner] in
             owner?.handleDownloadCompletion(itemId: id, fileURL: fileResult)
-        }
-    }
-    
-    // Static helper - doesn't need owner reference
-    private static func moveDownloadedFileImmediately(location: URL, itemId: UUID) -> Result<URL, Error> {
-        guard let targetDirectory = FileManager.deepConfigurationDirectory(id: itemId) else {
-            return .failure(NSError(domain: "Downloader", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Cannot compose document directory"
-            ]))
-        }
-        
-        do {
-            try FileManager.default.createDirectory(at: targetDirectory, withIntermediateDirectories: true)
-            let targetPath = targetDirectory.appendingPathComponent(location.lastPathComponent)
-            
-            if FileManager.default.fileExists(atPath: targetPath.path) {
-                try FileManager.default.removeItem(at: targetPath)
-            }
-            
-            try FileManager.default.moveItem(at: location, to: targetPath)
-            Logger.networking.logDebug("File moved synchronously to: \(targetPath.path)")
-            return .success(targetPath)
-        } catch {
-            Logger.networking.logError("Synchronous file move failed: \(error.localizedDescription)")
-            return .failure(error)
         }
     }
 }
@@ -480,31 +461,6 @@ final public class Downloader: NSObject, ObservableObject {
         download.progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
         download.totalBytesWritten = Int(totalBytesWritten)
         download.totalBytesExpected = Int(totalBytesExpectedToWrite)
-    }
-    
-    // Static helper - doesn't need owner reference
-    private static func moveDownloadedFileImmediately(location: URL, itemId: UUID) -> Result<URL, Error> {
-        guard let targetDirectory = FileManager.deepConfigurationDirectory(id: itemId) else {
-            return .failure(NSError(domain: "Downloader", code: 1, userInfo: [
-                NSLocalizedDescriptionKey: "Cannot compose document directory"
-            ]))
-        }
-        
-        do {
-            try FileManager.default.createDirectory(at: targetDirectory, withIntermediateDirectories: true)
-            let targetPath = targetDirectory.appendingPathComponent(location.lastPathComponent)
-            
-            if FileManager.default.fileExists(atPath: targetPath.path) {
-                try FileManager.default.removeItem(at: targetPath)
-            }
-            
-            try FileManager.default.moveItem(at: location, to: targetPath)
-            Logger.networking.logDebug("File moved synchronously to: \(targetPath.path)")
-            return .success(targetPath)
-        } catch {
-            Logger.networking.logError("Synchronous file move failed: \(error.localizedDescription)")
-            return .failure(error)
-        }
     }
     
     // MARK: Completion handling

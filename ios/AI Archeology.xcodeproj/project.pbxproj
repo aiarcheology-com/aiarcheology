@@ -65,15 +65,11 @@
 		8AC393C82B2BA0EC00C9BA57 /* PrivacyPolicyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393C72B2BA0EC00C9BA57 /* PrivacyPolicyView.swift */; };
 		8AC393CA2B2BA13300C9BA57 /* HtmlTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393C92B2BA13300C9BA57 /* HtmlTextView.swift */; };
 		8AC393CC2B2BA1C700C9BA57 /* Snapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393CB2B2BA1C700C9BA57 /* Snapshot.swift */; };
-		8AC393CF2B2BA28100C9BA57 /* SideMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393CE2B2BA28100C9BA57 /* SideMenu.swift */; };
-		8AC393D12B2BA2A500C9BA57 /* SideMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393D02B2BA2A500C9BA57 /* SideMenuView.swift */; };
-		8AC393D32B2BA2DF00C9BA57 /* SideMenuCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393D22B2BA2DF00C9BA57 /* SideMenuCell.swift */; };
 		8AC393D62B2BA33400C9BA57 /* Annotator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393D52B2BA33400C9BA57 /* Annotator.swift */; };
 		8AC393D82B2BA35F00C9BA57 /* ObservationPointView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393D72B2BA35F00C9BA57 /* ObservationPointView.swift */; };
 		8AC393DA2B2BA38400C9BA57 /* ObservationRectangleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393D92B2BA38400C9BA57 /* ObservationRectangleView.swift */; };
 		8AC393DC2B2BA3A100C9BA57 /* ObservationCircleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393DB2B2BA3A100C9BA57 /* ObservationCircleView.swift */; };
 		8AC393DE2B2BA3DC00C9BA57 /* AnnotationViewBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393DD2B2BA3DC00C9BA57 /* AnnotationViewBuilder.swift */; };
-		8AC393E02B2BA41200C9BA57 /* SideMenuLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393DF2B2BA41200C9BA57 /* SideMenuLogic.swift */; };
 		8AC393E22B2BA44600C9BA57 /* DropdownMenuModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393E12B2BA44600C9BA57 /* DropdownMenuModifier.swift */; };
 		8AC650972B2A442A00922648 /* DeepDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC650962B2A442A00922648 /* DeepDriver.swift */; };
 		8AC650992B2A453200922648 /* Driver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC650982B2A453200922648 /* Driver.swift */; };
@@ -105,8 +101,11 @@
 		8AE0BC272A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */; };
 		8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */; };
 		8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */; };
-		8AF06FC42ABCD237001E7B6B /* SideMenuModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF06FC32ABCD237001E7B6B /* SideMenuModel.swift */; };
 		94048A5C2EE02D440064AC55 /* DetectableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A5B2EE02D440064AC55 /* DetectableView.swift */; };
+		94048A652EE23D3B0064AC55 /* DrawerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A632EE23D3B0064AC55 /* DrawerManager.swift */; };
+		94048A662EE23D3B0064AC55 /* DrawerContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A612EE23D3B0064AC55 /* DrawerContainer.swift */; };
+		94048A672EE23D3B0064AC55 /* DrawerContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A622EE23D3B0064AC55 /* DrawerContent.swift */; };
+		94048A692EE245D60064AC55 /* ModelImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A682EE245D60064AC55 /* ModelImportView.swift */; };
 		941C4FBA2EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */; };
 		941C4FBC2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FBB2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift */; };
 		941C4FBE2EDBB0C300066AED /* UTTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */; };
@@ -235,15 +234,11 @@
 		8AC393C72B2BA0EC00C9BA57 /* PrivacyPolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyPolicyView.swift; sourceTree = "<group>"; };
 		8AC393C92B2BA13300C9BA57 /* HtmlTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HtmlTextView.swift; sourceTree = "<group>"; };
 		8AC393CB2B2BA1C700C9BA57 /* Snapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Snapshot.swift; sourceTree = "<group>"; };
-		8AC393CE2B2BA28100C9BA57 /* SideMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenu.swift; sourceTree = "<group>"; };
-		8AC393D02B2BA2A500C9BA57 /* SideMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenuView.swift; sourceTree = "<group>"; };
-		8AC393D22B2BA2DF00C9BA57 /* SideMenuCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenuCell.swift; sourceTree = "<group>"; };
 		8AC393D52B2BA33400C9BA57 /* Annotator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Annotator.swift; sourceTree = "<group>"; };
 		8AC393D72B2BA35F00C9BA57 /* ObservationPointView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationPointView.swift; sourceTree = "<group>"; };
 		8AC393D92B2BA38400C9BA57 /* ObservationRectangleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationRectangleView.swift; sourceTree = "<group>"; };
 		8AC393DB2B2BA3A100C9BA57 /* ObservationCircleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationCircleView.swift; sourceTree = "<group>"; };
 		8AC393DD2B2BA3DC00C9BA57 /* AnnotationViewBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationViewBuilder.swift; sourceTree = "<group>"; };
-		8AC393DF2B2BA41200C9BA57 /* SideMenuLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenuLogic.swift; sourceTree = "<group>"; };
 		8AC393E12B2BA44600C9BA57 /* DropdownMenuModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropdownMenuModifier.swift; sourceTree = "<group>"; };
 		8AC650962B2A442A00922648 /* DeepDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepDriver.swift; sourceTree = "<group>"; };
 		8AC650982B2A453200922648 /* Driver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Driver.swift; sourceTree = "<group>"; };
@@ -279,8 +274,11 @@
 		8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_ArcheologyUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = HroudaDetector15.mlpackage; sourceTree = "<group>"; };
 		8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = AIArcheology.mlpackage; sourceTree = "<group>"; };
-		8AF06FC32ABCD237001E7B6B /* SideMenuModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenuModel.swift; sourceTree = "<group>"; };
 		94048A5B2EE02D440064AC55 /* DetectableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectableView.swift; sourceTree = "<group>"; };
+		94048A612EE23D3B0064AC55 /* DrawerContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerContainer.swift; sourceTree = "<group>"; };
+		94048A622EE23D3B0064AC55 /* DrawerContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerContent.swift; sourceTree = "<group>"; };
+		94048A632EE23D3B0064AC55 /* DrawerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerManager.swift; sourceTree = "<group>"; };
+		94048A682EE245D60064AC55 /* ModelImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelImportView.swift; sourceTree = "<group>"; };
 		941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAcquisitionCoordinator.swift; sourceTree = "<group>"; };
 		941C4FBB2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAcquisitionCoordinatorTests.swift; sourceTree = "<group>"; };
 		941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UTTypeTests.swift; sourceTree = "<group>"; };
@@ -437,10 +435,10 @@
 				8AC393D42B2BA31300C9BA57 /* Annotation */,
 				946A3B782EB5ECE0002CF63C /* Configuration */,
 				8AD3A82C2B2EF3390058E018 /* Downloder */,
+				94048A642EE23D3B0064AC55 /* Drawer */,
 				8AC393BC2B2B9EB900C9BA57 /* Modifiers */,
 				8AAE89512B2E4D16007C9E26 /* Screens */,
 				8AC393B92B2B9E5600C9BA57 /* SettingsView */,
-				8AC393CD2B2BA24600C9BA57 /* Side Menu */,
 				8AE0BC032A97B0B30086DDF9 /* MLBrowser.swift */,
 				8AE0BC052A97B0B30086DDF9 /* ContentView.swift */,
 				8A112CB82ABDE0BB00786384 /* WebView.swift */,
@@ -566,18 +564,6 @@
 				8A112CCC2AC30E3E00786384 /* View+Extensions.swift */,
 			);
 			path = UI;
-			sourceTree = "<group>";
-		};
-		8AC393CD2B2BA24600C9BA57 /* Side Menu */ = {
-			isa = PBXGroup;
-			children = (
-				8AC393CE2B2BA28100C9BA57 /* SideMenu.swift */,
-				8AC393D22B2BA2DF00C9BA57 /* SideMenuCell.swift */,
-				8AF06FC32ABCD237001E7B6B /* SideMenuModel.swift */,
-				8AC393D02B2BA2A500C9BA57 /* SideMenuView.swift */,
-				8AC393DF2B2BA41200C9BA57 /* SideMenuLogic.swift */,
-			);
-			path = "Side Menu";
 			sourceTree = "<group>";
 		};
 		8AC393D42B2BA31300C9BA57 /* Annotation */ = {
@@ -707,6 +693,17 @@
 			children = (
 			);
 			path = Images;
+			sourceTree = "<group>";
+		};
+		94048A642EE23D3B0064AC55 /* Drawer */ = {
+			isa = PBXGroup;
+			children = (
+				94048A682EE245D60064AC55 /* ModelImportView.swift */,
+				94048A612EE23D3B0064AC55 /* DrawerContainer.swift */,
+				94048A622EE23D3B0064AC55 /* DrawerContent.swift */,
+				94048A632EE23D3B0064AC55 /* DrawerManager.swift */,
+			);
+			path = Drawer;
 			sourceTree = "<group>";
 		};
 		942B1DCF2EA62DEB005455F9 /* Reporting */ = {
@@ -898,6 +895,7 @@
 				8AC650AD2B2B9A6200922648 /* Guide.swift in Sources */,
 				8A7740D32B1894B3002E90D9 /* Bundle+Extension.swift in Sources */,
 				9484825F2ECA5C0B00C5CE48 /* MLBrowser_0.0.0-0.0.1.xcmappingmodel in Sources */,
+				94048A692EE245D60064AC55 /* ModelImportView.swift in Sources */,
 				8A13281B2AF1598500F119C6 /* ViewContainer.swift in Sources */,
 				946200F12ED70AEC0047336A /* AppEnvironment.swift in Sources */,
 				8A1D49BC2ABB87D500C2D7C1 /* GridItemView.swift in Sources */,
@@ -937,8 +935,6 @@
 				8A1D49C12ABB87D500C2D7C1 /* Item.swift in Sources */,
 				8A1D49BA2ABB87D500C2D7C1 /* GridView.swift in Sources */,
 				8AC393CC2B2BA1C700C9BA57 /* Snapshot.swift in Sources */,
-				8AC393CF2B2BA28100C9BA57 /* SideMenu.swift in Sources */,
-				8AF06FC42ABCD237001E7B6B /* SideMenuModel.swift in Sources */,
 				8A13281F2AF265DE00F119C6 /* GlobalToolbar.swift in Sources */,
 				8AC393C52B2BA01100C9BA57 /* NumberFormater+Extension.swift in Sources */,
 				8A13282A2B052C7900F119C6 /* ConfigurationForm.swift in Sources */,
@@ -970,10 +966,11 @@
 				8A7740D52B18AEB8002E90D9 /* Image+Extensions.swift in Sources */,
 				94BAD1842EB0ED3D0079869F /* UUID+Extension.swift in Sources */,
 				8A81536C2B3CAB6F00B3B079 /* DownloadDetailView.swift in Sources */,
-				8AC393D32B2BA2DF00C9BA57 /* SideMenuCell.swift in Sources */,
+				94048A652EE23D3B0064AC55 /* DrawerManager.swift in Sources */,
+				94048A662EE23D3B0064AC55 /* DrawerContainer.swift in Sources */,
+				94048A672EE23D3B0064AC55 /* DrawerContent.swift in Sources */,
 				8A4256E42B1E0BA3009153B1 /* EmailController.swift in Sources */,
 				8AC393B82B2B9E1800C9BA57 /* AlertItem.swift in Sources */,
-				8AC393D12B2BA2A500C9BA57 /* SideMenuView.swift in Sources */,
 				8A51D1BE2B0B98E300D2417C /* DeepConfiguration+CoreDataClass.swift in Sources */,
 				8AC6509B2B2B3D9900922648 /* Classificator.swift in Sources */,
 				8AA9962C2AD9EB6400371EC8 /* Appearance.swift in Sources */,
@@ -982,7 +979,6 @@
 				8AC393DC2B2BA3A100C9BA57 /* ObservationCircleView.swift in Sources */,
 				8AC393DE2B2BA3DC00C9BA57 /* AnnotationViewBuilder.swift in Sources */,
 				8A112CC62AC0863300786384 /* Bool+Extensions.swift in Sources */,
-				8AC393E02B2BA41200C9BA57 /* SideMenuLogic.swift in Sources */,
 				8AC393E22B2BA44600C9BA57 /* DropdownMenuModifier.swift in Sources */,
 				8A1EF7132B1E203E00B0967B /* Slide.swift in Sources */,
 				8AC650B02B2B9B1800922648 /* DefaultRenderer.swift in Sources */,
@@ -1117,7 +1113,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1176,7 +1172,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;

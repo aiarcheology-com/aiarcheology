@@ -7,11 +7,6 @@ import OSLog
 
 extension FileManager {
     
-    /// The URL of the document directory.
-    var documentDirectory: URL? {
-        return self.urls(for: .documentDirectory, in: .userDomainMask).first
-    }
-    
     /// Copies the specified file URL to a file with the same name in the document directory.
     ///
     /// - parameter url: The file URL to be copied.

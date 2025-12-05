@@ -110,7 +110,7 @@ struct ConfigurationForm: View {
 				newConfigurationSection
 			}
 		}
-		.onChange(of: mergedObservable) { _ in
+		.onChange(of: mergedObservable) {
 			handleConfigurationChange()
 		}
 		.navigationBarTitle("Configuration", displayMode: .inline)

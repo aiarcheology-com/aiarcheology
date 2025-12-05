@@ -24,6 +24,7 @@ extension Logger {
     // MARK: - Data Layer
     static let persistence = Logger(subsystem: subsystem, category: "Persistence")
     static let state = Logger(subsystem: subsystem, category: "State")
+    static let storage = Logger(subsystem: subsystem, category: "Storage")
     
     // MARK: - Networking & Downloads
     static let networking = Logger(subsystem: subsystem, category: "Networking")

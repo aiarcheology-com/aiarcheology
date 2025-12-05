@@ -36,7 +36,7 @@ struct SettingsForm: View {
 						}
 					}
 					.testability(Testability.Picker.settingsFrequency)
-					.onChange(of: settings.snapFrequency) { _ in
+					.onChange(of: settings.snapFrequency) {
 						guide.ontheflyDetectionResetTapped()
 					}
 
@@ -106,7 +106,7 @@ struct SettingsForm: View {
 						}
 						.testability(Testability.Button.settingsDeleteCache)
 					}
-					.onChange(of: settings.applicationResetButtonToggle) { reseted in
+					.onChange(of: settings.applicationResetButtonToggle) {
 						resetButtonColor = .blue
 					}
 				}
@@ -137,7 +137,7 @@ struct SettingsForm: View {
 						.testability(Testability.Button.settingsRestoreDefaults)
 						.buttonStyle(PressableButtonStyle(color: resetButtonColor))
 					}
-					.onChange(of: settings.applicationResetButtonToggle) { reseted in
+					.onChange(of: settings.applicationResetButtonToggle) {
 						resetButtonColor = .blue
 					}
 				}
@@ -176,7 +176,7 @@ struct SettingsForm: View {
 					})
 				)
 			})
-			.onChange(of: mergedObservable) { _ in
+			.onChange(of: mergedObservable) {
 				resetButtonColor = .red
 			}
 			.alert(item: $alertItem) { alertItem in

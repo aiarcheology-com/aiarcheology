@@ -72,7 +72,9 @@ struct NewConfigurationView: View {
 					allowsMultipleSelection: false,
 					onCompletion: handleFileImportResult
 				)
-				.onChange(of: acquisitionCoordinator.pendingImport, perform: handlePendingImport)
+				.onChange(of: acquisitionCoordinator.pendingImport) { _, newValue in
+					handlePendingImport(newValue)
+				}
 		}
 	}
 	
