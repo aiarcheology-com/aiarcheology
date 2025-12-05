@@ -97,6 +97,7 @@ struct AppDescriptionView: View {
 				.foregroundColor(.gray)
 				.padding()
 		}
+		.sheetDismissButton(testability: .appDescriptionDismiss)
 		.navigationBarTitle("About", displayMode: .inline)
 	}
 

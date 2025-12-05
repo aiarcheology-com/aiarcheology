@@ -36,7 +36,7 @@ struct SettingsForm: View {
 						}
 					}
 					.testability(Testability.Picker.settingsFrequency)
-					.onChange(of: settings.snapFrequency) { _ in
+					.onChange(of: settings.snapFrequency) {
 						guide.ontheflyDetectionResetTapped()
 					}
 
@@ -87,7 +87,9 @@ struct SettingsForm: View {
 								}
 							}
 					}
-					NavigationLink(destination: BrowserHistoryView()) {
+					NavigationLink(destination: BrowserHistoryView()
+						.environment(\.dismissSheet, { dismiss() })
+					) {
 						HStack {
 							Text("History")
 						}
@@ -106,18 +108,21 @@ struct SettingsForm: View {
 						}
 						.testability(Testability.Button.settingsDeleteCache)
 					}
-					.onChange(of: settings.applicationResetButtonToggle) { reseted in
+					.onChange(of: settings.applicationResetButtonToggle) {
 						resetButtonColor = .blue
 					}
 				}
 				Section(header: Text("ML Browser")) {
-					NavigationLink(destination: AppDescriptionView()) {
+					NavigationLink(destination: AppDescriptionView()
+						.environment(\.dismissSheet, { dismiss() })) {
 						HStack {
 							Text("About")
 						}
 					}
 					.testability(Testability.NavigationLink.settingsAbout)
-					NavigationLink(destination: SlideshowView().environmentObject(settings)) {
+					NavigationLink(destination: SlideshowView()
+						.environmentObject(settings)
+						.environment(\.dismissSheet, { dismiss() })) {
 						HStack {
 							Text("Introduction")
 						}
@@ -137,7 +142,7 @@ struct SettingsForm: View {
 						.testability(Testability.Button.settingsRestoreDefaults)
 						.buttonStyle(PressableButtonStyle(color: resetButtonColor))
 					}
-					.onChange(of: settings.applicationResetButtonToggle) { reseted in
+					.onChange(of: settings.applicationResetButtonToggle) {
 						resetButtonColor = .blue
 					}
 				}
@@ -176,7 +181,7 @@ struct SettingsForm: View {
 					})
 				)
 			})
-			.onChange(of: mergedObservable) { _ in
+			.onChange(of: mergedObservable) {
 				resetButtonColor = .red
 			}
 			.alert(item: $alertItem) { alertItem in

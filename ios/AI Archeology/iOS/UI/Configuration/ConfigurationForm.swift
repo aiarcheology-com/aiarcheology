@@ -6,7 +6,9 @@
 //
 
 import SwiftUI
-import OSLog
+import CoreML
+
+// MARK: - Supporting Views
 
 struct ConfigurationDetailRow: View {
 	var label: String
@@ -46,16 +48,15 @@ struct LabeledSlider: View {
 	}
 }
 
+// MARK: - Configuration Form
+
+/// Form for viewing and editing an existing ML model configuration.
 struct ConfigurationForm: View {
 	@Environment(\.dismiss) private var dismiss
 	@EnvironmentObject var deep: DeepState
 	@EnvironmentObject var configuration: DeepConfiguration
-	@State private var showErrorAlert = false
-	@State private var errorMessage = ""
-	@State private var isLoading = false
-	@State private var showImportAlert = false // new parent-owned alert state
 	
-	var mergedObservable: [String] {[
+	private var mergedObservable: [String] {[
 		configuration.annotationColor.description,
 		configuration.phaseOutTime.description,
 		configuration.selectedSymbol.rawValue
@@ -63,73 +64,34 @@ struct ConfigurationForm: View {
 	
 	var body: some View {
 		NavigationStack {
-			configurationFormContent
-		}
-		.overlay {
-			if isLoading {
-				loadingOverlay
-			}
-		}
-		.alert("Error", isPresented: $showErrorAlert) {
-			Button("OK", role: .cancel) { }
-		} message: {
-			Text(errorMessage)
-		}
-		.alert(isPresented: $showImportAlert) {
-			var title = "Import Failed"
-			var message = "The model could not be imported. Please try again with a valid Create ML model."
-			if configuration.lifeCycle == .ready, let description = configuration.modelDescription, let author = configuration.author {
-				title = "The model has been imported."
-				message = "The model \(description) from \(author) has been successfully imported."
-			}
-			
-			return Alert( title: Text(title), message: Text(message), dismissButton: .default(Text("OK")) {})
-		}
-	}
-	
-	private var loadingOverlay: some View {
-		ZStack {
-			Color.black.opacity(0.3)
-				.ignoresSafeArea()
-			
-			ProgressView {
-				Text("Fetching the model data ...")
-			}
-			.padding(24)
-			.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
-		}
-	}
-	
-	private var configurationFormContent: some View {
-		Form {
-			if isCompleteConfiguration() {
+			Form {
 				modelSection
 				authorSection
 				annotationSection
-			} else {
-				newConfigurationSection
 			}
+			.onChange(of: mergedObservable) {
+				deep.saveConfigurations()
+			}
+			.navigationBarTitle("Configuration", displayMode: .inline)
+			.navigationBarItems(trailing: doneButton)
 		}
-		.onChange(of: mergedObservable) { _ in
-			handleConfigurationChange()
-		}
-		.navigationBarTitle("Configuration", displayMode: .inline)
-		.navigationBarItems(leading: navigationButton)
 	}
+	
+	// MARK: - Sections
 	
 	private var modelSection: some View {
 		Section(header: Text("Model")) {
 			ConfigurationDetailRow(label: "File", value: "\(configuration.file?.pathComponents.last ?? "")")
 			ConfigurationDetailRow(label: "Decription", value: " \(configuration.modelDescription ?? "")")
-			ConfigurationDetailRow( label: "Type", value: " \(configuration.modelType.rawValue)")
+			ConfigurationDetailRow(label: "Type", value: " \(configuration.modelType.rawValue)")
 			ConfigurationDetailRow(label: "Version", value: " \(configuration.modelVersion ?? "")")
 		}
 	}
 	
 	private var authorSection: some View {
 		Section(header: Text("Author")) {
-			ConfigurationDetailRow(label:"Author", value: "\(configuration.author ?? "")")
-			ConfigurationDetailRow(label:"Created", value: "\(configuration.creationDate)")
+			ConfigurationDetailRow(label: "Author", value: "\(configuration.author ?? "")")
+			ConfigurationDetailRow(label: "Created", value: "\(configuration.creationDate)")
 		}
 	}
 	
@@ -147,120 +109,21 @@ struct ConfigurationForm: View {
 		}
 	}
 	
-	private var newConfigurationSection: some View {
-		let usedFiles = deep.allConfigurations().compactMap { $0.file }
-		return NewConfigurationView(
-			usedFiles: usedFiles,
-			onConfigurationChanged: { url, id, provider in
-				try await updateConfiguration(with: url, id: id, provider: provider)
-			},
-			onImportFinished: {
-				showImportAlert = true
-			},
-			onLoadingStateChanged: { loading in
-				isLoading = loading
-			},
-			onError: { error in
-				errorMessage = error.localizedDescription
-				showErrorAlert = true
-			}
-		)
-	}
+	// MARK: - Navigation
 	
-	private var navigationButton: some View {
-		Button(action: handleNavigationButtonTap) {
-			if configuration.lifeCycle == .ready {
-				Text("Done").bold()
-			} else {
-				Text("Cancel").bold()
-			}
-		}
-		.testability(configuration.lifeCycle == .ready ? Testability.Button.configurationFormDone : Testability.Button.configurationFormCancel)
-		.tint(configuration.lifeCycle == .ready ? .green : .blue)
-	}
-	
-	private func handleNavigationButtonTap() {
-		if configuration.lifeCycle == .ready {
+	private var doneButton: some View {
+		Button(action: {
 			deep.saveConfigurations()
-		} else {
-			if configuration.isPersisted {
-				deep.deleteConfiguration(configuration)
-			}
+			dismiss()
+		}) {
+			Text("Done").bold()
 		}
-		dismiss()
-	}
-	
-	private func handleConfigurationChange() {
-		validateConfiguration()
-		if configuration.lifeCycle == .ready {
-			deep.saveConfigurations()
-		}
-	}
-	
-	private func isCompleteConfiguration() -> Bool {
-		configuration.lifeCycle == .ready
-	}
-	
-	private func validateConfiguration() {
-		do {
-			try configuration.validateForInsert()
-			configuration.lifeCycle = .ready
-		} catch {
-			configuration.lifeCycle = .draft
-		}
-	}
-	
-	@MainActor
-	private func updateConfiguration(with url: URL, id: UUID, provider: ModelProvider) async throws {
-		// Update the DeepConfiguration
-		assert(url.absoluteString.isEmpty.not, "URL of the file should not be empty.")
-		
-		// Create detector to fetch the info. This call does not register the detector for use.
-		// The detectors are automatically registered in the DeepState class
-		// after a specific DeepConfiguration has been saved in the context.
-		// Note: Loading state and errors are managed by the caller via callbacks,
-		// which are set BEFORE this async function starts, giving SwiftUI a render cycle.
-		let detector = try await Detector.loadModel(from: url)
-		
-		guard let metadata = detector?.modelDescription.metadata else { return }
-		let parser = MLModelMetadataParser(metadata: metadata)
-		
-		configuration.entityId = id
-		configuration.annotationColor = .yellow
-		let description = parser.value(for: .description) as? String
-		let modelDescrition = description.isNotBlank ? description : url.lastPathComponent.fileName
-		configuration.modelDescription = modelDescrition
-		configuration.modelVersion = parser.value(for: .versionString) as? String
-		configuration.author = parser.value(for: .author) as? String
-		configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
-		configuration.modelType = parser.task
-		configuration.phaseOutTime = 2
-		configuration.selectedSymbol = .circle
-		guard let relativePath = try? url.relativePath(from: DeepConfiguration.rootDirectory) else {
-			Logger.configuration.logError("Failed to compute relative path for model file")
-			return
-		}
-		configuration.file_ = relativePath
-		configuration.enabled = false
-		configuration.transition(to: .draft)
-		validateConfiguration()
-		// This line saves the new configurations.
-		// DeepState creates and registeres the detectors and the SideMenu is updated.
-		// Any time a deep configuration is created/deleted, a new detector is created/deleted.
-		let importResult: ModelProviderError
-		if configuration.lifeCycle == .ready {
-			deep.saveConfigurations()
-			importResult = .importSucceeded
-		} else {
-			Logger.configuration.logWarning("Configuration validation failed - incomplete data")
-			importResult = .importFailed
-		}
-		
-		let id = configuration.entityId
-		provider.result(importResult, id: id)
+		.testability(Testability.Button.configurationFormDone)
+		.tint(.green)
 	}
 }
 
+// MARK: - Button Style
 
 struct PressableButtonStyle: ButtonStyle {
 	var color: Color = .blue
@@ -276,7 +139,7 @@ struct PressableButtonStyle: ButtonStyle {
 	}
 }
 
-import CoreML
+// MARK: - ML Model Metadata
 
 enum ExtendedMLModelMetadataKey: Hashable {
 	case standard(MLModelMetadataKey)

@@ -113,9 +113,10 @@ struct SlideshowView: View {
 					.shadow(radius: 10)
 				}
 			}
-			.tabViewStyle(PageTabViewStyle())
+		.tabViewStyle(PageTabViewStyle())
 			.indexViewStyle(PageIndexViewStyle(backgroundDisplayMode: .always))
 		}
+		.sheetDismissButton(testability: .slideShowDismiss)
 	}
 }
 

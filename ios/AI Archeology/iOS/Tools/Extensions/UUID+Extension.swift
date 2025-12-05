@@ -12,3 +12,9 @@ extension UUID {
         UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
     }
 }
+
+// MARK: - Identifiable conformance for sheet presentation
+
+extension UUID: @retroactive Identifiable {
+    public var id: UUID { self }
+}

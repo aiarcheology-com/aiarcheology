@@ -90,11 +90,11 @@ private extension DownloadDetailView {
 			.autocapitalization(.none)
 			.disableAutocorrection(true)
 			.multilineTextAlignment(.trailing)
-			.onChange(of: urlText) { value in
-				item.url = URL(string: urlText)
+			.onChange(of: urlText) { oldValue, newValue in
+				item.url = URL(string: newValue)
 				item.transition(to: .draft)
 				item.persist(in: moc)
-				validateUrl(value)
+				validateUrl(newValue)
 			}
 			.onAppear { validateUrl(urlText) }
 			.toolbar {
@@ -337,3 +337,4 @@ fileprivate struct ProgressDetailTextView: View {
 		}
 	}
 }
+

@@ -11,7 +11,6 @@ import OSLog
 
 
 private enum ActiveSheet: Identifiable {
-    case configuration
     case settings
     case slideshow
     
@@ -24,6 +23,8 @@ struct ContentView: View {
     @Environment(\.dismiss) var dismiss
     // app model:
     @EnvironmentObject var appState: AppState
+    // drawer:
+    @State private var drawer = DrawerManager()
     // sheets, alerts and menus:
     @State private var showErrorAlert = false
     @State private var addressBarMenu: [URL] = []
@@ -42,15 +43,58 @@ struct ContentView: View {
     }
     
     var body: some View {
+        DrawerContainer(manager: drawer) {
+            mainContent
+        } menu: {
+            DrawerContent()
+                .environment(drawer)
+                .environmentObject(appState.deep)
+                .environmentObject(appState.downloader)
+        }
+        .environment(drawer)
+        .sheet(item: $activeSheet) { sheet in
+            sheetContent(for: sheet)
+        }
+        .onReceive(appState.guide.$presentSettings) { present in
+            activeSheet = present ? .settings : nil
+        }
+        .onReceive(appState.guide.$presentedSideMenu) { shouldOpen in
+            // Bridge from Guide's presentedSideMenu to new DrawerManager
+            // Guard against sync loops
+            guard shouldOpen != drawer.isOpen else { return }
+            if shouldOpen {
+                drawer.open()
+            } else {
+                drawer.close()
+            }
+        }
+        .onChange(of: drawer.isOpen) { _, isOpen in
+            // Sync drawer state back to Guide for any dependent code
+            // Guard against sync loops
+            guard appState.guide.presentedSideMenu != isOpen else { return }
+            appState.guide.presentedSideMenu = isOpen
+        }
+        .onReceive(appState.deep.deepStateErrorPublisher) { error in
+            guard let error else { return }
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+        }
+        .alert(isPresented: $showErrorAlert) {
+            Alert(title: Text("Error"), message: Text(errorMessage), dismissButton: .default(Text("OK")))
+        }
+        .onAppear {
+            handleOnAppear()
+        }
+    }
+    
+    // MARK: - Main Content
+    
+    private var mainContent: some View {
         ZStack {
-            // ------ Tabs: ------
             TabView(selection: $appState.guide.mode) {
                 ForEach(AppMode.tabOrder) { mode in
-                    ViewContainer( {
+                    ViewContainer({
                         Screens.content(mode)
-                        // ---- Apply the image properties to the content -----
-                        // Some lidar/map/orto websites have slightly different brightnes
-                        // which can be compensated by adjusting one of these properties:
                             .onReceive(appState.snapAdjustment.$brightness) { newValue in
                                 brightness = newValue
                             }
@@ -65,12 +109,12 @@ struct ContentView: View {
                             .saturation(saturation)
                             .environmentObject(appState)
                     },
-                                   leadingItems: {
+                    leadingItems: {
                         Screens.barItems(mode, position: .leading)
                             .environmentObject(appState.guide)
                             .environmentObject(appState.downloader)
                     },
-                                   trailingItems: {
+                    trailingItems: {
                         Screens.barItems(mode, position: .trailing)
                             .environmentObject(appState.guide)
                     })
@@ -81,121 +125,89 @@ struct ContentView: View {
                 }
                 .toolbar(AppMode.tabOrder.count == 1 ? .hidden : .visible, for: .tabBar)
             }
-            // ----- Side Menu: -----
-            SideMenuLogic(isFirstLaunch: appState.settings.isFirstLaunchMarked,
-                          onAddCell: {
-                // Plus button triggered: -> create new configuration
-                guard activeSheet == nil else { return }
-                appState.deep.createTemportaryConfiguration()
-                activeSheet = .configuration
-            },
-                          onDownloadTap: {
-                // TODO: Open the download sheet
-            },
-                          onSelectCell: { entityId in
-                // Configuration cell selected: -> open existing configuration
-                guard activeSheet == nil else { return }
-                appState.guide.selectedConfigurationId = entityId
-                activeSheet = .configuration
-            })
+            
+            // Address bar dropdown menu
+            addressBarDropdown
+        }
+    }
+    
+    // MARK: - Address Bar Dropdown
+    
+    private var addressBarDropdown: some View {
+        Color.clear
             .onReceive(appState.guide.$addressBarMenu) { urls in
                 addressBarMenu = urls
             }
-            .dropDownMenu(items: addressBarMenu, backgroundColor: colorScheme == .dark ? .black : .white, 
-                          cancelContent: {
-                HStack {
-                    Spacer()
-                    Button {
-                        appState.guide.addressBarMenu = []
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
+            .dropDownMenu(
+                items: addressBarMenu,
+                backgroundColor: colorScheme == .dark ? .black : .white,
+                cancelContent: {
+                    HStack {
+                        Spacer()
+                        Button {
+                            appState.guide.addressBarMenu = []
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                        }
+                        .testability(Testability.Button.contentViewAddressBarCancel)
+                        .foregroundColor(.gray)
+                        .padding(EdgeInsets(top: 20, leading: 0, bottom: 0, trailing: 25))
                     }
-                    .testability(Testability.Button.contentViewAddressBarCancel)
-                    .foregroundColor(.gray)
-                    .padding(EdgeInsets(top: 20, leading: 0, bottom: 0, trailing: 25))
+                },
+                itemContent: { item in
+                    Button {
+                        appState.guide.historySelected(item)
+                    } label: {
+                        Text(item.absoluteString.trimmedString)
+                            .foregroundColor(.gray)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Spacer()
+                    }
+                    .testability(Testability.Button.contentViewAddressBarHistoryItem)
                 }
-            }) { item in
-                Button {
-                    appState.guide.historySelected(item)
-                } label: {
-                    Text(item.absoluteString.trimmedString)
-                    .foregroundColor(.gray)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    Spacer()
-                }
-                .testability(Testability.Button.contentViewAddressBarHistoryItem)
-            }
-            .environmentObject(appState.guide)
-            .environmentObject(appState.deep)
-            // ------ Show the slideshow after the app's installation -----
-        }
-        .sheet(item: $activeSheet, onDismiss: {
-            Task { @MainActor in
-                appState.deep.cleanupTemporaryConfiguration()
-                appState.guide.selectedConfigurationId = nil
-            }
-        }) { sheet in
-            switch sheet {
-            case .slideshow:
-                SlideshowView()
-                    .centerInParentView()
-                    .environmentObject(appState.settings)
-                
-            case .settings:
-                SettingsForm()
-                    .environmentObject(appState.settings)
-                    .environmentObject(appState.guide)
-                
-            case .configuration:
-                if let config = appState.deep.newConfiguration {
-                    ConfigurationForm()
-                        .environmentObject(config)
-                        .environmentObject(appState.deep)
-                        .environmentObject(appState.downloader)
-                } else if let id = appState.guide.selectedConfigurationId,
-                          let config = appState.deep.selectConfiguration(id) {
-                    ConfigurationForm()
-                        .environmentObject(config)
-                        .environmentObject(appState.deep)
-                        .environmentObject(appState.downloader)
-                } else {
-                    // Optional: a fallback view if nothing is selected
-                    Text("No configuration available")
-                }
-            }
-        }
-        .onReceive(appState.guide.$presentSettings) { present in
-            activeSheet = present ? .settings : nil
-        }
-        .onReceive(appState.deep.deepStateErrorPublisher) { error in
-            guard let error else { return }
-            errorMessage = error.localizedDescription
-            showErrorAlert = true
-        }
-        .alert(isPresented: $showErrorAlert) {
-            Alert(title: Text("Error"), message: Text(errorMessage), dismissButton: .default(Text("OK")))
-        }
-        .onAppear { // should be called only once after the app start
-            guard appState.snap.delayedTimer.not else { return }
+            )
+    }
+    
+    // MARK: - Sheets
+    
+    @ViewBuilder
+    private func sheetContent(for sheet: ActiveSheet) -> some View {
+        switch sheet {
+        case .slideshow:
+            SlideshowView()
+                .centerInParentView()
+                .environmentObject(appState.settings)
             
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                if appState.settings.snapAfterAppStart {
-                    appState.guide.ontheflyDetectionTapped()
-                }
-                appState.snap.delayedTimer = true
+        case .settings:
+            SettingsForm()
+                .environmentObject(appState.settings)
+                .environmentObject(appState.guide)
+        }
+    }
+    
+    // MARK: - Lifecycle
+    
+    private func handleOnAppear() {
+        // Should be called only once after the app start
+        guard appState.snap.delayedTimer.not else { return }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            if appState.settings.snapAfterAppStart {
+                appState.guide.ontheflyDetectionTapped()
             }
-            
-            if appState.settings.keepSlideShowActive {
-                activeSheet = .slideshow
-            }
+            appState.snap.delayedTimer = true
+        }
+        
+        if appState.settings.keepSlideShowActive {
+            activeSheet = .slideshow
         }
     }
 }
 
 
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
-    }
+// MARK: - Preview
+
+#Preview {
+    ContentView()
 }

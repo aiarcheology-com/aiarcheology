@@ -120,7 +120,7 @@ final class DeepState: ObservableObject {
 	
 	func deleteConfiguration(_ entity: DeepConfiguration) {
 		let context = dataController.container.viewContext
-		context.delete(entity)
+		DeepConfiguration.delete(entity, in: context)
 	}
 	
 	func reset() {

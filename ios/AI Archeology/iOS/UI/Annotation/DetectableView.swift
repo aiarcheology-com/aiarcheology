@@ -92,7 +92,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 detectedObservations = observations
             }
         }
-        .onChange(of: interactionState) { state in
+        .onChange(of: interactionState) { _, state in
             if state.isInteracting {
                 // Invalidate any in-flight detections
                 detectionGeneration &+= 1

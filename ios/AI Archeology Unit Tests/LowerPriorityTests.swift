@@ -54,6 +54,7 @@ final class DataControllerTests: XCTestCase {
 
 // MARK: - HostPlatform Tests
 
+@MainActor
 final class HostPlatformTests: XCTestCase {
     
     func testCurrent_ReturnsValidPlatform() {

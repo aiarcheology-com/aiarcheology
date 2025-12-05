@@ -79,7 +79,7 @@ struct WebScreenView: View {
 			}
 			.testability(Testability.TextField.webScreenAddressBar)
 			.environmentObject(appState.guide)
-			.onChange(of: inputUrl) { value in
+			.onChange(of: inputUrl) { _, value in
 				if let addressSelected = appState.guide.addressSelected,
 				   inputUrl == addressSelected.absoluteString {
 					// Do not fill in the addressBarMenu if we already have
