@@ -134,8 +134,6 @@
 		94713D982EA2F33E00713068 /* ImportHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94713D972EA2F33A00713068 /* ImportHandler.swift */; };
 		9484825F2ECA5C0B00C5CE48 /* MLBrowser_0.0.0-0.0.1.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = 9484825E2ECA5C0B00C5CE48 /* MLBrowser_0.0.0-0.0.1.xcmappingmodel */; };
 		9489C96E2EA02B1A008C728F /* HostPlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9489C96D2EA02B0C008C728F /* HostPlatform.swift */; };
-		94929E702ED62B74001A4C63 /* Unit Tests.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = 94929E6F2ED62B74001A4C63 /* Unit Tests.xctestplan */; };
-		94929E722ED62B7A001A4C63 /* UI Tests.xctestplan in Resources */ = {isa = PBXBuildFile; fileRef = 94929E712ED62B7A001A4C63 /* UI Tests.xctestplan */; };
 		94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */; };
 		94929E772ED633C1001A4C63 /* DeepDriversTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E732ED633C1001A4C63 /* DeepDriversTests.swift */; };
 		94929E782ED633C1001A4C63 /* ExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E742ED633C1001A4C63 /* ExtensionsTests.swift */; };
@@ -172,14 +170,14 @@
 			containerPortal = 8AE0BBF82A97B0B30086DDF9 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 8AE0BBFF2A97B0B30086DDF9;
-			remoteInfo = "MLBrowser";
+			remoteInfo = MLBrowser;
 		};
 		8AE0BC212A97B0B40086DDF9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 8AE0BBF82A97B0B30086DDF9 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 8AE0BBFF2A97B0B30086DDF9;
-			remoteInfo = "MLBrowser";
+			remoteInfo = MLBrowser;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -288,6 +286,8 @@
 		94048A622EE23D3B0064AC55 /* DrawerContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerContent.swift; sourceTree = "<group>"; };
 		94048A632EE23D3B0064AC55 /* DrawerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerManager.swift; sourceTree = "<group>"; };
 		94048A682EE245D60064AC55 /* ModelImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelImportView.swift; sourceTree = "<group>"; };
+		9415A1E82EE4D736000B65EB /* MLBrowserUITests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MLBrowserUITests.xctestplan; sourceTree = "<group>"; };
+		9415A1E92EE4D736000B65EB /* MLBrowserUnitTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MLBrowserUnitTests.xctestplan; sourceTree = "<group>"; };
 		941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAcquisitionCoordinator.swift; sourceTree = "<group>"; };
 		941C4FBB2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAcquisitionCoordinatorTests.swift; sourceTree = "<group>"; };
 		941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UTTypeTests.swift; sourceTree = "<group>"; };
@@ -312,8 +312,6 @@
 		94713D972EA2F33A00713068 /* ImportHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportHandler.swift; sourceTree = "<group>"; };
 		9484825E2ECA5C0B00C5CE48 /* MLBrowser_0.0.0-0.0.1.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = "MLBrowser_0.0.0-0.0.1.xcmappingmodel"; sourceTree = "<group>"; };
 		9489C96D2EA02B0C008C728F /* HostPlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPlatform.swift; sourceTree = "<group>"; };
-		94929E6F2ED62B74001A4C63 /* Unit Tests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; name = "Unit Tests.xctestplan"; path = "../MLBrowserTestPlan/Unit Tests.xctestplan"; sourceTree = "<group>"; };
-		94929E712ED62B7A001A4C63 /* UI Tests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; name = "UI Tests.xctestplan"; path = "../MLBrowserTestPlan/UI Tests.xctestplan"; sourceTree = "<group>"; };
 		94929E732ED633C1001A4C63 /* DeepDriversTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepDriversTests.swift; sourceTree = "<group>"; };
 		94929E742ED633C1001A4C63 /* ExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionsTests.swift; sourceTree = "<group>"; };
 		94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingPolicyTests.swift; sourceTree = "<group>"; };
@@ -637,6 +635,7 @@
 			isa = PBXGroup;
 			children = (
 				8AE0BC022A97B0B30086DDF9 /* MLBrowser */,
+				9415A1EA2EE4D736000B65EB /* MLBrowserTestPlan */,
 				8AE0BC192A97B0B40086DDF9 /* MLBrowserUnitTests */,
 				8AE0BC232A97B0B40086DDF9 /* MLBrowserUITests */,
 				8AE0BC012A97B0B30086DDF9 /* Products */,
@@ -704,8 +703,7 @@
 				94D79C932EE37DBF0027C9FA /* UIExtensionsTests.swift */,
 				941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */,
 				945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */,
-				8AB3EADF2B4450B9001083D1 /* Tests-Info.plist */,
-				94929E6F2ED62B74001A4C63 /* Unit Tests.xctestplan */,
+				8AB3EADF2B4450B9001083D1 /* MLBrowserTests-Info.plist */,
 			);
 			path = MLBrowserUnitTests;
 			sourceTree = "<group>";
@@ -715,7 +713,6 @@
 			children = (
 				8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */,
 				8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */,
-				94929E712ED62B7A001A4C63 /* UI Tests.xctestplan */,
 			);
 			path = MLBrowserUITests;
 			sourceTree = "<group>";
@@ -743,6 +740,15 @@
 				94048A682EE245D60064AC55 /* ModelImportView.swift */,
 			);
 			path = FileImporter;
+			sourceTree = "<group>";
+		};
+		9415A1EA2EE4D736000B65EB /* MLBrowserTestPlan */ = {
+			isa = PBXGroup;
+			children = (
+				9415A1E82EE4D736000B65EB /* MLBrowserUITests.xctestplan */,
+				9415A1E92EE4D736000B65EB /* MLBrowserUnitTests.xctestplan */,
+			);
+			path = MLBrowserTestPlan;
 			sourceTree = "<group>";
 		};
 		942B1DCF2EA62DEB005455F9 /* Reporting */ = {
@@ -800,7 +806,7 @@
 				946200EC2ED6FF520047336A /* Testability */,
 			);
 			name = MLBrowser;
-			productName = "MLBrowser";
+			productName = MLBrowser;
 			productReference = 8AE0BC002A97B0B30086DDF9 /* ML Browser.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -820,7 +826,7 @@
 			name = MLBrowserTests;
 			packageProductDependencies = (
 			);
-			productName = "MLBrowserTests";
+			productName = MLBrowserTests;
 			productReference = 8AE0BC162A97B0B40086DDF9 /* MLBrowserTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
@@ -838,7 +844,7 @@
 				8AE0BC222A97B0B40086DDF9 /* PBXTargetDependency */,
 			);
 			name = MLBrowserUITests;
-			productName = "MLBrowserUITests";
+			productName = MLBrowserUITests;
 			productReference = 8AE0BC202A97B0B40086DDF9 /* MLBrowserUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
@@ -907,7 +913,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				94929E702ED62B74001A4C63 /* Unit Tests.xctestplan in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -915,7 +920,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				94929E722ED62B7A001A4C63 /* UI Tests.xctestplan in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1315,7 +1319,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "MLBrowserTests-Info.plist";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "AIA.Tests";
+				PRODUCT_BUNDLE_IDENTIFIER = AIA.Tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -1336,7 +1340,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "MLBrowserTests-Info.plist";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "AIA.MLBrowserTests";
+				PRODUCT_BUNDLE_IDENTIFIER = AIA.MLBrowserTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -1355,7 +1359,7 @@
 				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "AIA.MLBrowserUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = AIA.MLBrowserUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -1374,7 +1378,7 @@
 				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "AIA.MLBrowserUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = AIA.MLBrowserUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
