@@ -54,7 +54,7 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 *   **Over-Engineering**: Do not implement a generic, abstract factory pattern when a simple struct will do.
 *   **Ignoring Errors**: Never use `try?` or `try!` without a comment explaining *why* failure is acceptable.
 
-## 5. The "AI Archeology" Domain
+## 5. The "MLBrowser" Domain
 
 *   **Performance**: We deal with Vision and WebViews. Be mindful of memory and CPU.
     *   Don't block the main thread with heavy processing.

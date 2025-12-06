@@ -14,9 +14,9 @@
   "testTargets" : [
     {
       "target" : {
-        "containerPath" : "container:AI Archeology.xcodeproj",
+        "containerPath" : "container:MLBrowser.xcodeproj",
         "identifier" : "8AE0BC152A97B0B40086DDF9",
-        "name" : "AI ArcheologyTests"
+        "name" : "MLBrowserTests"
       }
     }
   ],

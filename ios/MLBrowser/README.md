@@ -1,6 +1,6 @@
-# 📱 AI Archeology iOS App
+# 📱 MLBrowser iOS App
 
-Welcome to the AI Archeology project repository.
+Welcome to the MLBrowser project repository.
 
 ## 🛠️ Initial Project Setup
 

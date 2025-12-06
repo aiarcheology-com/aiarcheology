@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace
+   version = "1.0">
+   <FileRef
+      location = "container:MLBrowser.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:MLBrowserTestPlan/MLBrowserUnitTests.xctestplan">
+   </FileRef>
+   <FileRef
+      location = "group:MLBrowserTestPlan/MLBrowserUITests.xctestplan">
+   </FileRef>
+</Workspace>

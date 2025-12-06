@@ -172,20 +172,20 @@
 			containerPortal = 8AE0BBF82A97B0B30086DDF9 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 8AE0BBFF2A97B0B30086DDF9;
-			remoteInfo = "AI Archeology";
+			remoteInfo = "MLBrowser";
 		};
 		8AE0BC212A97B0B40086DDF9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 8AE0BBF82A97B0B30086DDF9 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 8AE0BBFF2A97B0B30086DDF9;
-			remoteInfo = "AI Archeology";
+			remoteInfo = "MLBrowser";
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		8A112CB82ABDE0BB00786384 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
-		8A112CC02AC0757900786384 /* AI-Archeology-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "AI-Archeology-Info.plist"; sourceTree = SOURCE_ROOT; };
+		8A112CC02AC0757900786384 /* MLBrowser-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "MLBrowser-Info.plist"; sourceTree = SOURCE_ROOT; };
 		8A112CC32AC0852B00786384 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
 		8A112CC52AC0863300786384 /* Bool+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Bool+Extensions.swift"; sourceTree = "<group>"; };
 		8A112CCA2AC2BCBC00786384 /* Detector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detector.swift; sourceTree = "<group>"; };
@@ -232,7 +232,7 @@
 		8A8153712B3E272800B3B079 /* ModelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelProvider.swift; sourceTree = "<group>"; };
 		8A9BB4432B10F3990061246A /* DocumentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPicker.swift; sourceTree = "<group>"; };
 		8AA9962B2AD9EB6400371EC8 /* Appearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Appearance.swift; sourceTree = "<group>"; };
-		8AB3EADF2B4450B9001083D1 /* AI-ArcheologyTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "AI-ArcheologyTests-Info.plist"; sourceTree = SOURCE_ROOT; };
+		8AB3EADF2B4450B9001083D1 /* MLBrowserTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "MLBrowserTests-Info.plist"; sourceTree = SOURCE_ROOT; };
 		8AC093E72B3210CA00E455D5 /* DateFormatter+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DateFormatter+Extension.swift"; sourceTree = "<group>"; };
 		8AC393B72B2B9E1800C9BA57 /* AlertItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertItem.swift; sourceTree = "<group>"; };
 		8AC393BA2B2B9E7A00C9BA57 /* AppDescriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDescriptionView.swift; sourceTree = "<group>"; };
@@ -277,8 +277,8 @@
 		8AE0BC072A97B0B40086DDF9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8AE0BC0A2A97B0B40086DDF9 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		8AE0BC112A97B0B40086DDF9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		8AE0BC162A97B0B40086DDF9 /* AI ArcheologyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "AI ArcheologyTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		8AE0BC202A97B0B40086DDF9 /* AI ArcheologyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "AI ArcheologyUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		8AE0BC162A97B0B40086DDF9 /* MLBrowserTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MLBrowserTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		8AE0BC202A97B0B40086DDF9 /* MLBrowserUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MLBrowserUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_ArcheologyUITests.swift; sourceTree = "<group>"; };
 		8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_ArcheologyUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = HroudaDetector15.mlpackage; sourceTree = "<group>"; };
@@ -312,8 +312,8 @@
 		94713D972EA2F33A00713068 /* ImportHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportHandler.swift; sourceTree = "<group>"; };
 		9484825E2ECA5C0B00C5CE48 /* MLBrowser_0.0.0-0.0.1.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = "MLBrowser_0.0.0-0.0.1.xcmappingmodel"; sourceTree = "<group>"; };
 		9489C96D2EA02B0C008C728F /* HostPlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPlatform.swift; sourceTree = "<group>"; };
-		94929E6F2ED62B74001A4C63 /* Unit Tests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; name = "Unit Tests.xctestplan"; path = "../AI ArcheologyTestPlan/Unit Tests.xctestplan"; sourceTree = "<group>"; };
-		94929E712ED62B7A001A4C63 /* UI Tests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; name = "UI Tests.xctestplan"; path = "../AI ArcheologyTestPlan/UI Tests.xctestplan"; sourceTree = "<group>"; };
+		94929E6F2ED62B74001A4C63 /* Unit Tests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; name = "Unit Tests.xctestplan"; path = "../MLBrowserTestPlan/Unit Tests.xctestplan"; sourceTree = "<group>"; };
+		94929E712ED62B7A001A4C63 /* UI Tests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; name = "UI Tests.xctestplan"; path = "../MLBrowserTestPlan/UI Tests.xctestplan"; sourceTree = "<group>"; };
 		94929E732ED633C1001A4C63 /* DeepDriversTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepDriversTests.swift; sourceTree = "<group>"; };
 		94929E742ED633C1001A4C63 /* ExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionsTests.swift; sourceTree = "<group>"; };
 		94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingPolicyTests.swift; sourceTree = "<group>"; };
@@ -636,9 +636,9 @@
 		8AE0BBF72A97B0B30086DDF9 = {
 			isa = PBXGroup;
 			children = (
-				8AE0BC022A97B0B30086DDF9 /* AI Archeology */,
-				8AE0BC192A97B0B40086DDF9 /* AI Archeology Unit Tests */,
-				8AE0BC232A97B0B40086DDF9 /* AI ArcheologyUITests */,
+				8AE0BC022A97B0B30086DDF9 /* MLBrowser */,
+				8AE0BC192A97B0B40086DDF9 /* MLBrowserUnitTests */,
+				8AE0BC232A97B0B40086DDF9 /* MLBrowserUITests */,
 				8AE0BC012A97B0B30086DDF9 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -647,20 +647,20 @@
 			isa = PBXGroup;
 			children = (
 				8AE0BC002A97B0B30086DDF9 /* ML Browser.app */,
-				8AE0BC162A97B0B40086DDF9 /* AI ArcheologyTests.xctest */,
-				8AE0BC202A97B0B40086DDF9 /* AI ArcheologyUITests.xctest */,
+				8AE0BC162A97B0B40086DDF9 /* MLBrowserTests.xctest */,
+				8AE0BC202A97B0B40086DDF9 /* MLBrowserUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		8AE0BC022A97B0B30086DDF9 /* AI Archeology */ = {
+		8AE0BC022A97B0B30086DDF9 /* MLBrowser */ = {
 			isa = PBXGroup;
 			children = (
 				8A3155982B1F9EE700EA9110 /* Documents */,
-				8A112CC02AC0757900786384 /* AI-Archeology-Info.plist */,
+				8A112CC02AC0757900786384 /* MLBrowser-Info.plist */,
 				8A61C50E2AB9A7A600BF72BE /* iOS */,
 			);
-			path = "AI Archeology";
+			path = MLBrowser;
 			sourceTree = "<group>";
 		};
 		8AE0BC092A97B0B40086DDF9 /* Preview Content */ = {
@@ -671,7 +671,7 @@
 			path = "Preview Content";
 			sourceTree = "<group>";
 		};
-		8AE0BC192A97B0B40086DDF9 /* AI Archeology Unit Tests */ = {
+		8AE0BC192A97B0B40086DDF9 /* MLBrowserUnitTests */ = {
 			isa = PBXGroup;
 			children = (
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
@@ -704,20 +704,20 @@
 				94D79C932EE37DBF0027C9FA /* UIExtensionsTests.swift */,
 				941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */,
 				945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */,
-				8AB3EADF2B4450B9001083D1 /* AI-ArcheologyTests-Info.plist */,
+				8AB3EADF2B4450B9001083D1 /* Tests-Info.plist */,
 				94929E6F2ED62B74001A4C63 /* Unit Tests.xctestplan */,
 			);
-			path = "AI Archeology Unit Tests";
+			path = MLBrowserUnitTests;
 			sourceTree = "<group>";
 		};
-		8AE0BC232A97B0B40086DDF9 /* AI ArcheologyUITests */ = {
+		8AE0BC232A97B0B40086DDF9 /* MLBrowserUITests */ = {
 			isa = PBXGroup;
 			children = (
 				8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */,
 				8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */,
 				94929E712ED62B7A001A4C63 /* UI Tests.xctestplan */,
 			);
-			path = "AI ArcheologyUITests";
+			path = MLBrowserUITests;
 			sourceTree = "<group>";
 		};
 		8AF4A9E72ABB930A0054AB99 /* Images */ = {
@@ -784,9 +784,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		8AE0BBFF2A97B0B30086DDF9 /* AI Archeology */ = {
+		8AE0BBFF2A97B0B30086DDF9 /* MLBrowser */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 8AE0BC2A2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "AI Archeology" */;
+			buildConfigurationList = 8AE0BC2A2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowser" */;
 			buildPhases = (
 				8AE0BBFC2A97B0B30086DDF9 /* Sources */,
 				8AE0BBFD2A97B0B30086DDF9 /* Frameworks */,
@@ -799,14 +799,14 @@
 			fileSystemSynchronizedGroups = (
 				946200EC2ED6FF520047336A /* Testability */,
 			);
-			name = "AI Archeology";
-			productName = "AI Archeology";
+			name = MLBrowser;
+			productName = "MLBrowser";
 			productReference = 8AE0BC002A97B0B30086DDF9 /* ML Browser.app */;
 			productType = "com.apple.product-type.application";
 		};
-		8AE0BC152A97B0B40086DDF9 /* AI ArcheologyTests */ = {
+		8AE0BC152A97B0B40086DDF9 /* MLBrowserTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 8AE0BC2D2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "AI ArcheologyTests" */;
+			buildConfigurationList = 8AE0BC2D2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowserTests" */;
 			buildPhases = (
 				8AE0BC122A97B0B40086DDF9 /* Sources */,
 				8AE0BC132A97B0B40086DDF9 /* Frameworks */,
@@ -817,16 +817,16 @@
 			dependencies = (
 				8AE0BC182A97B0B40086DDF9 /* PBXTargetDependency */,
 			);
-			name = "AI ArcheologyTests";
+			name = MLBrowserTests;
 			packageProductDependencies = (
 			);
-			productName = "AI ArcheologyTests";
-			productReference = 8AE0BC162A97B0B40086DDF9 /* AI ArcheologyTests.xctest */;
+			productName = "MLBrowserTests";
+			productReference = 8AE0BC162A97B0B40086DDF9 /* MLBrowserTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		8AE0BC1F2A97B0B40086DDF9 /* AI ArcheologyUITests */ = {
+		8AE0BC1F2A97B0B40086DDF9 /* MLBrowserUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 8AE0BC302A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "AI ArcheologyUITests" */;
+			buildConfigurationList = 8AE0BC302A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowserUITests" */;
 			buildPhases = (
 				8AE0BC1C2A97B0B40086DDF9 /* Sources */,
 				8AE0BC1D2A97B0B40086DDF9 /* Frameworks */,
@@ -837,9 +837,9 @@
 			dependencies = (
 				8AE0BC222A97B0B40086DDF9 /* PBXTargetDependency */,
 			);
-			name = "AI ArcheologyUITests";
-			productName = "AI ArcheologyUITests";
-			productReference = 8AE0BC202A97B0B40086DDF9 /* AI ArcheologyUITests.xctest */;
+			name = MLBrowserUITests;
+			productName = "MLBrowserUITests";
+			productReference = 8AE0BC202A97B0B40086DDF9 /* MLBrowserUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -865,7 +865,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 8AE0BBFB2A97B0B30086DDF9 /* Build configuration list for PBXProject "AI Archeology" */;
+			buildConfigurationList = 8AE0BBFB2A97B0B30086DDF9 /* Build configuration list for PBXProject "MLBrowser" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -881,9 +881,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				8AE0BBFF2A97B0B30086DDF9 /* AI Archeology */,
-				8AE0BC152A97B0B40086DDF9 /* AI ArcheologyTests */,
-				8AE0BC1F2A97B0B40086DDF9 /* AI ArcheologyUITests */,
+				8AE0BBFF2A97B0B30086DDF9 /* MLBrowser */,
+				8AE0BC152A97B0B40086DDF9 /* MLBrowserTests */,
+				8AE0BC1F2A97B0B40086DDF9 /* MLBrowserUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -1096,12 +1096,12 @@
 /* Begin PBXTargetDependency section */
 		8AE0BC182A97B0B40086DDF9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 8AE0BBFF2A97B0B30086DDF9 /* AI Archeology */;
+			target = 8AE0BBFF2A97B0B30086DDF9 /* MLBrowser */;
 			targetProxy = 8AE0BC172A97B0B40086DDF9 /* PBXContainerItemProxy */;
 		};
 		8AE0BC222A97B0B40086DDF9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 8AE0BBFF2A97B0B30086DDF9 /* AI Archeology */;
+			target = 8AE0BBFF2A97B0B30086DDF9 /* MLBrowser */;
 			targetProxy = 8AE0BC212A97B0B40086DDF9 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -1240,11 +1240,10 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 228;
-				DEVELOPMENT_ASSET_PATHS = "\"AI Archeology/iOS/Assets/Preview Content\"";
 				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "AI-Archeology-Info.plist";
+				INFOPLIST_FILE = "MLBrowser-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Your permission is needed to connect with devices on your local network. This allows the app to automatically detect and interact with compatible devices for streamlined data sharing and enhanced functionality.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -1278,11 +1277,10 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 228;
-				DEVELOPMENT_ASSET_PATHS = "\"AI Archeology/iOS/Assets/Preview Content\"";
 				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "AI-Archeology-Info.plist";
+				INFOPLIST_FILE = "MLBrowser-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Your permission is needed to connect with devices on your local network. This allows the app to automatically detect and interact with compatible devices for streamlined data sharing and enhanced functionality.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -1315,9 +1313,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "AI-ArcheologyTests-Info.plist";
+				INFOPLIST_FILE = "MLBrowserTests-Info.plist";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "AIA.AI-ArcheologyTests";
+				PRODUCT_BUNDLE_IDENTIFIER = "AIA.Tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -1336,9 +1334,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "AI-ArcheologyTests-Info.plist";
+				INFOPLIST_FILE = "MLBrowserTests-Info.plist";
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "AIA.AI-ArcheologyTests";
+				PRODUCT_BUNDLE_IDENTIFIER = "AIA.MLBrowserTests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -1357,14 +1355,14 @@
 				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "AIA.AI-ArcheologyUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = "AIA.MLBrowserUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "AI Archeology";
+				TEST_TARGET_NAME = MLBrowser;
 			};
 			name = Debug;
 		};
@@ -1376,21 +1374,21 @@
 				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "AIA.AI-ArcheologyUITests";
+				PRODUCT_BUNDLE_IDENTIFIER = "AIA.MLBrowserUITests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = "AI Archeology";
+				TEST_TARGET_NAME = MLBrowser;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		8AE0BBFB2A97B0B30086DDF9 /* Build configuration list for PBXProject "AI Archeology" */ = {
+		8AE0BBFB2A97B0B30086DDF9 /* Build configuration list for PBXProject "MLBrowser" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				8AE0BC282A97B0B40086DDF9 /* Debug */,
@@ -1399,7 +1397,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		8AE0BC2A2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "AI Archeology" */ = {
+		8AE0BC2A2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowser" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				8AE0BC2B2A97B0B40086DDF9 /* Debug */,
@@ -1408,7 +1406,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		8AE0BC2D2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "AI ArcheologyTests" */ = {
+		8AE0BC2D2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowserTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				8AE0BC2E2A97B0B40086DDF9 /* Debug */,
@@ -1417,7 +1415,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		8AE0BC302A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "AI ArcheologyUITests" */ = {
+		8AE0BC302A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowserUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				8AE0BC312A97B0B40086DDF9 /* Debug */,
