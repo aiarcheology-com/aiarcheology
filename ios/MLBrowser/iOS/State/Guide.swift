@@ -72,9 +72,8 @@ final class Guide: ObservableObject {
 		settings.reset()
 		settings.applicationResetButtonToggle.toggle()
 		demoDataManager.deleteBrowsingHistory()
-		DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-			guard let self else { return }
-			self.demoDataManager.createDemoEntities()
+		Task {
+			await demoDataManager.createDemoDataIfNeeded()
 		}
 	}
 }

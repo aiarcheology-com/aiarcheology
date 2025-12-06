@@ -34,7 +34,7 @@ class DependencyContainer {
     }()
     
     lazy var demoDataManager: DemoDataManager = {
-        return DemoDataManager(settings: self.settings, dataController: self.dataController)
+        return DemoDataManager(dataController: self.dataController)
     }()
     
     private init() {}

@@ -28,7 +28,7 @@ final class GuideTests: XCTestCase {
         snapState = SnapState(settings: settings)
         deepState = DeepState(dataController: dataController)
         snapAdjustment = SnapAdjustment()
-        demoDataManager = DemoDataManager(settings: settings, dataController: dataController)
+        demoDataManager = DemoDataManager(dataController: dataController)
         
         sut = Guide(
             snap: snapState,
