@@ -32,15 +32,7 @@ extension Logger {
     // MARK: - UI
     static let ui = Logger(subsystem: subsystem, category: "UI")
     static let gallery = Logger(subsystem: subsystem, category: "Gallery")
-    
-    // MARK: - Deprecated (for backwards compatibility)
-    @available(*, deprecated, renamed: "drivers")
-    static let logDrivers = Logger(subsystem: subsystem, category: "Drivers")
-    @available(*, deprecated, renamed: "rendering")
-    static let logRendering = Logger(subsystem: subsystem, category: "Rendering")
-    @available(*, deprecated, renamed: "configuration")
-    static let logConfigration = Logger(subsystem: subsystem, category: "Configuration")
-    
+        
     // MARK: - Timestamp Support
     
     /// Generates a formatted timestamp for log messages (async to honor actor-isolated config)
