@@ -1,7 +1,7 @@
 {
   "configurations" : [
     {
-      "id" : "A478AD11-D986-4A07-92B6-BCF8453C9CCE",
+      "id" : "BD940E8D-6E68-4946-997B-63F8468F279A",
       "name" : "Configuration 1",
       "options" : {
 
@@ -9,14 +9,14 @@
     }
   ],
   "defaultOptions" : {
-    "testTimeoutsEnabled" : true
+
   },
   "testTargets" : [
     {
       "target" : {
-        "containerPath" : "container:AI Archeology.xcodeproj",
+        "containerPath" : "container:MLBrowser.xcodeproj",
         "identifier" : "8AE0BC1F2A97B0B40086DDF9",
-        "name" : "AI ArcheologyUITests"
+        "name" : "MLBrowserUITests"
       }
     }
   ],

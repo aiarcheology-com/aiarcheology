@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "2610"
+   LastUpgradeVersion = "2620"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES">
+      buildImplicitDependencies = "YES"
+      buildArchitectures = "Automatic">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -16,8 +17,8 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "8AE0BBFF2A97B0B30086DDF9"
                BuildableName = "ML Browser.app"
-               BlueprintName = "AI Archeology"
-               ReferencedContainer = "container:AI Archeology.xcodeproj">
+               BlueprintName = "MLBrowser"
+               ReferencedContainer = "container:MLBrowser.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -29,11 +30,11 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <TestPlans>
          <TestPlanReference
-            reference = "container:AI ArcheologyTestPlan/Unit Tests.xctestplan"
+            reference = "container:MLBrowserTestPlan/MLBrowserUnitTests.xctestplan"
             default = "YES">
          </TestPlanReference>
          <TestPlanReference
-            reference = "container:AI ArcheologyTestPlan/UI Tests.xctestplan">
+            reference = "container:MLBrowserTestPlan/MLBrowserUITests.xctestplan">
          </TestPlanReference>
       </TestPlans>
       <Testables>
@@ -43,9 +44,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "8AE0BC152A97B0B40086DDF9"
-               BuildableName = "AI ArcheologyTests.xctest"
-               BlueprintName = "AI ArcheologyTests"
-               ReferencedContainer = "container:AI Archeology.xcodeproj">
+               BuildableName = "MLBrowserTests.xctest"
+               BlueprintName = "MLBrowserTests"
+               ReferencedContainer = "container:MLBrowser.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -54,9 +55,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "8AE0BC1F2A97B0B40086DDF9"
-               BuildableName = "AI ArcheologyUITests.xctest"
-               BlueprintName = "AI ArcheologyUITests"
-               ReferencedContainer = "container:AI Archeology.xcodeproj">
+               BuildableName = "MLBrowserUITests.xctest"
+               BlueprintName = "MLBrowserUITests"
+               ReferencedContainer = "container:MLBrowser.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -77,22 +78,10 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "8AE0BBFF2A97B0B30086DDF9"
             BuildableName = "ML Browser.app"
-            BlueprintName = "AI Archeology"
-            ReferencedContainer = "container:AI Archeology.xcodeproj">
+            BlueprintName = "MLBrowser"
+            ReferencedContainer = "container:MLBrowser.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <EnvironmentVariables>
-         <EnvironmentVariable
-            key = "OS_ACTIVITY_MODE"
-            value = "${DEBUG_ACTIVITY_MODE} "
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
-            key = "OS_ACTIVITY_DT_MODE"
-            value = "NO"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -106,8 +95,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "8AE0BBFF2A97B0B30086DDF9"
             BuildableName = "ML Browser.app"
-            BlueprintName = "AI Archeology"
-            ReferencedContainer = "container:AI Archeology.xcodeproj">
+            BlueprintName = "MLBrowser"
+            ReferencedContainer = "container:MLBrowser.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

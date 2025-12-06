@@ -1,4 +1,4 @@
-# AI Archeology Logging Guide
+# MLBrowser Logging Guide
 
 ## Overview
 

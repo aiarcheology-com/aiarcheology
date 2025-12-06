@@ -8,7 +8,7 @@
 import SwiftUI
 import CoreData
 
-/// The content displayed inside the drawer for AI Archeology.
+/// The content displayed inside the drawer for MLBrowser.
 ///
 /// This view displays the list of ML configurations.
 /// Detail view and import are presented as sheets for consistent UX

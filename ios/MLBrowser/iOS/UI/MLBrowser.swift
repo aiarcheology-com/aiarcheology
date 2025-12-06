@@ -13,7 +13,7 @@ struct MLBrowser: App {
 	@StateObject var appState = AppState()
 
 	init() {
-		Logger.lifecycle.logInfo("AI Archeology app launching")
+		Logger.lifecycle.logInfo("MLBrowser app launching")
 		DefaultCrashReporter.shared.recordBreadcrumb("App initialized", level: .info)
 	}
 
