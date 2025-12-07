@@ -34,9 +34,25 @@ final class AppState: ObservableObject {
     
     lazy var demoDataManager: DemoDataManager = DependencyContainer.shared.demoDataManager
 	
+	/// Indicates whether the app initialization is complete
+	@Published private(set) var isReady = false
+	
 	init() {
 		Logger.state.logInfo("AppState initializing")
-		demoDataManager.createDemoEntities()
+		Task {
+			await initialize()
+		}
 	}
 	
+	private func initialize() async {
+		// 1. Wait for Core Data to be ready
+		await dataController.awaitStoreReady()
+		
+		// 2. Create demo data if needed (checked against Core Data, not UserDefaults)
+		await demoDataManager.createDemoDataIfNeeded()
+		
+		// 3. Signal ready
+		isReady = true
+		Logger.state.logInfo("AppState ready")
+	}
 }

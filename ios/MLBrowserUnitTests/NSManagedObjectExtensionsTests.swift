@@ -11,21 +11,22 @@ import CoreData
 
 // MARK: - NSManagedObject+Extension Tests
 
+@MainActor
 final class NSManagedObjectExtensionsTests: XCTestCase {
     
     private var dataController: DataController!
     private var context: NSManagedObjectContext!
     
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         dataController = DataController(inMemory: true)
         context = dataController.container.viewContext
     }
     
-    override func tearDown() {
+    override func tearDown() async throws {
         context = nil
         dataController = nil
-        super.tearDown()
+        try await super.tearDown()
     }
     
     // MARK: - isPersisted Tests

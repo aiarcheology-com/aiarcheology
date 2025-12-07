@@ -19,23 +19,29 @@ struct MLBrowser: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(appState)
-				.environment(\.managedObjectContext, appState.dataController.container.viewContext)
-				.onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { output in
-					Logger.lifecycle.logInfo("App entering background")
-					if appState.guide.ontheflyDetectionEnabled {
-						appState.settings.isDetectionPaused = true
-						appState.guide.ontheflyDetectionTapped()
-					}
-				}
-				.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { output in
-					Logger.lifecycle.logInfo("App entering foreground")
-					if appState.settings.isDetectionPaused {
-						appState.settings.isDetectionPaused = false
-						appState.guide.ontheflyDetectionTapped()
-					}
-				}
+            Group {
+                if appState.isReady {
+                    ContentView()
+                        .environmentObject(appState)
+                        .environment(\.managedObjectContext, appState.dataController.container.viewContext)
+                } else {
+                    ProgressView("Loading...")
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                Logger.lifecycle.logInfo("App entering background")
+                if appState.guide.ontheflyDetectionEnabled {
+                    appState.settings.isDetectionPaused = true
+                    appState.guide.ontheflyDetectionTapped()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                Logger.lifecycle.logInfo("App entering foreground")
+                if appState.settings.isDetectionPaused {
+                    appState.settings.isDetectionPaused = false
+                    appState.guide.ontheflyDetectionTapped()
+                }
+            }
         }
     }
 }

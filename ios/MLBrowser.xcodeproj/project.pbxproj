@@ -143,6 +143,8 @@
 		94929E812ED63ADE001A4C63 /* DeviceInfoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E792ED63ADE001A4C63 /* DeviceInfoTests.swift */; };
 		94929E822ED63ADE001A4C63 /* ModelEnumsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */; };
 		94929E832ED65555001A4C63 /* LowerPriorityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E842ED65555001A4C63 /* LowerPriorityTests.swift */; };
+		949DB6E22EE4F1B0002E904E /* DemoDataManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949DB6E12EE4F1B0002E904E /* DemoDataManagerTests.swift */; };
+		949DB6E32EE4F1B0002E904E /* DataControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949DB6E02EE4F1B0002E904E /* DataControllerTests.swift */; };
 		94BAD1842EB0ED3D0079869F /* UUID+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BAD1832EB0ED370079869F /* UUID+Extension.swift */; };
 		94D79C822EE35B9B0027C9FA /* EnvironmentValues+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79C812EE35B9B0027C9FA /* EnvironmentValues+Extensions.swift */; };
 		94D79C842EE3616C0027C9FA /* SheetDismissButtonModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79C832EE3616C0027C9FA /* SheetDismissButtonModifier.swift */; };
@@ -321,6 +323,8 @@
 		94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelEnumsTests.swift; sourceTree = "<group>"; };
 		94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapStateTests.swift; sourceTree = "<group>"; };
 		94929E842ED65555001A4C63 /* LowerPriorityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LowerPriorityTests.swift; sourceTree = "<group>"; };
+		949DB6E02EE4F1B0002E904E /* DataControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataControllerTests.swift; sourceTree = "<group>"; };
+		949DB6E12EE4F1B0002E904E /* DemoDataManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManagerTests.swift; sourceTree = "<group>"; };
 		94BAD1832EB0ED370079869F /* UUID+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UUID+Extension.swift"; sourceTree = "<group>"; };
 		94D79C812EE35B9B0027C9FA /* EnvironmentValues+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnvironmentValues+Extensions.swift"; sourceTree = "<group>"; };
 		94D79C832EE3616C0027C9FA /* SheetDismissButtonModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SheetDismissButtonModifier.swift; sourceTree = "<group>"; };
@@ -677,9 +681,11 @@
 				94D79C8E2EE37DBF0027C9FA /* BundleExtensionsTests.swift */,
 				945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */,
 				94D79C8F2EE37DBF0027C9FA /* CrashReporterTests.swift */,
+				949DB6E02EE4F1B0002E904E /* DataControllerTests.swift */,
 				945C55852ED71234007DD8FB /* DeepConfigurationTests.swift */,
 				94929E732ED633C1001A4C63 /* DeepDriversTests.swift */,
 				945C55692ED5127C007DD8FB /* DeepStateTests.swift */,
+				949DB6E12EE4F1B0002E904E /* DemoDataManagerTests.swift */,
 				94929E792ED63ADE001A4C63 /* DeviceInfoTests.swift */,
 				945C557F2ED61234007DD8FB /* DownloaderTests.swift */,
 				94FCC4042ECFD7730047B283 /* DriversTests.swift */,
@@ -1059,6 +1065,8 @@
 				94929E7E2ED63ADE001A4C63 /* SnapStateTests.swift in Sources */,
 				94929E7F2ED63ADE001A4C63 /* GalleryModelTests.swift in Sources */,
 				94929E802ED63ADE001A4C63 /* GuideTests.swift in Sources */,
+				949DB6E22EE4F1B0002E904E /* DemoDataManagerTests.swift in Sources */,
+				949DB6E32EE4F1B0002E904E /* DataControllerTests.swift in Sources */,
 				94D79C8C2EE37B0D0027C9FA /* FileManagerExtensionsTests.swift in Sources */,
 				941C4FBC2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift in Sources */,
 				94D79C942EE37DBF0027C9FA /* HostPlatformTests.swift in Sources */,

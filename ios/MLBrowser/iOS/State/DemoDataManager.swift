@@ -13,47 +13,30 @@ import CoreML
 
 @MainActor
 final class DemoDataManager {
-    let settings: Settings
     let dataController: DataController
     
-    init(settings: Settings, dataController: DataController) {
-        self.settings = settings
+    init(dataController: DataController) {
         self.dataController = dataController
     }
     
-    func createDemoEntities() {
-        if settings.isFirstLaunch {
-            Logger.app.logInfo("First launch detected, creating demo entities")
-            settings.isFirstLaunchMarked = true
-            settings.isFirstLaunch = false
-            
-            // Create the context
-            _ = self.dataController.container.viewContext
-            Task {
-                // and give the context time to be ready
-                try await Task.sleep(nanoseconds: 100_000_000)
-                createDemoConfigurations()
-                await createBrowsingHistory()
-            }
+    /// Creates demo data if none exists. Call AFTER Core Data is ready.
+    func createDemoDataIfNeeded() async {
+        let context = dataController.container.viewContext
+        
+        // Single source of truth: check Core Data directly
+        let existingDemos = DeepConfiguration.selectAll(in: context).filter { $0.demo }
+        guard existingDemos.isEmpty else {
+            Logger.configuration.logInfo("Demo configurations already exist (\(existingDemos.count) found), skipping creation")
+            return
         }
-    }
-    
-    /// Load the configuration only if the demo configurations do not exist yet
-    func createDemoConfigurations() {
-		let demosDoNotExist = DeepConfiguration
-			.selectAll(in: dataController.container.viewContext)
-			.filter { $0.demo }
-			.isEmpty
-			
-		guard demosDoNotExist else {
-			Logger.configuration.logInfo("Demo configurations already exist, skipping creation")
-			return
-		}
-		
-        Task {
-            await loadModelOne()
-            await loadModelTwo()
-        }
+        
+        Logger.configuration.logInfo("Creating demo configurations")
+        
+        await loadModelOne()
+        await loadModelTwo()
+        await createBrowsingHistoryIfNeeded()
+        
+        Logger.configuration.logInfo("Demo data creation complete")
     }
     
     func deleteBrowsingHistory() {
@@ -61,10 +44,9 @@ final class DemoDataManager {
         WebHistoryEntry.deleteAll(in: dataController.container.viewContext, executeAndMerge: true)
     }
     
-    
-    func createBrowsingHistory() async {
+    private func createBrowsingHistoryIfNeeded() async {
         let history = WebHistoryEntry.selectAll(in: dataController.container.viewContext)
-        guard history.isEmpty, settings.isFirstLaunchMarked else { return }
+        guard history.isEmpty else { return }
         
         Logger.state.logInfo("Creating initial browsing history with demo pages")
         let pages: [String] = [
