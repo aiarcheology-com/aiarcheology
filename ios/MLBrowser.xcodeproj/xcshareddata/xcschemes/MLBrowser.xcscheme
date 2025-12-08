@@ -44,8 +44,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "8AE0BC152A97B0B40086DDF9"
-               BuildableName = "MLBrowserTests.xctest"
-               BlueprintName = "MLBrowserTests"
+               BuildableName = "MLBrowserUnitTests.xctest"
+               BlueprintName = "MLBrowserUnitTests"
                ReferencedContainer = "container:MLBrowser.xcodeproj">
             </BuildableReference>
          </TestableReference>

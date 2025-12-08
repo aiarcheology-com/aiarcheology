@@ -33,92 +33,80 @@ extension Logger {
     static let ui = Logger(subsystem: subsystem, category: "UI")
     static let gallery = Logger(subsystem: subsystem, category: "Gallery")
         
-    // MARK: - Timestamp Support
-    
-    /// Generates a formatted timestamp for log messages (async to honor actor-isolated config)
-    private static func timestamp() -> String {
-        LoggingConfiguration.timestampPrefix()
-    }
-    
-    // MARK: - Timestamped Logging Methods
+    // MARK: - Logging Methods
+    //
+    // These methods receive pre-formatted messages from LoggingPolicy
+    // (which adds timestamp + file:line prefix).
     
     func logDebug(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
-        let ts = Logger.timestamp()
         if isPrivate {
-            self.debug("\(ts)\(evaluatedMessage, privacy: .private)")
+            self.debug("\(evaluatedMessage, privacy: .private)")
         } else {
-            self.debug("\(ts)\(evaluatedMessage, privacy: .public)")
+            self.debug("\(evaluatedMessage, privacy: .public)")
         }
     }
     
     func logInfo(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
-        let ts = Logger.timestamp()
         if isPrivate {
-            self.info("\(ts)\(evaluatedMessage, privacy: .private)")
+            self.info("\(evaluatedMessage, privacy: .private)")
         } else {
-            self.info("\(ts)\(evaluatedMessage, privacy: .public)")
+            self.info("\(evaluatedMessage, privacy: .public)")
         }
     }
     
     func logNotice(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
-        let ts = Logger.timestamp()
         if isPrivate {
-            self.notice("\(ts)\(evaluatedMessage, privacy: .private)")
+            self.notice("\(evaluatedMessage, privacy: .private)")
         } else {
-            self.notice("\(ts)\(evaluatedMessage, privacy: .public)")
+            self.notice("\(evaluatedMessage, privacy: .public)")
         }
     }
     
     func logWarning(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
-        let ts = Logger.timestamp()
         if isPrivate {
-            self.warning("\(ts)\(evaluatedMessage, privacy: .private)")
+            self.warning("\(evaluatedMessage, privacy: .private)")
         } else {
-            self.warning("\(ts)\(evaluatedMessage, privacy: .public)")
+            self.warning("\(evaluatedMessage, privacy: .public)")
         }
     }
     
     func logTrace(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
-        let ts = Logger.timestamp()
         if isPrivate {
-            self.debug("\(ts)[trace] \(evaluatedMessage, privacy: .private)")
+            self.debug("[trace] \(evaluatedMessage, privacy: .private)")
         } else {
-            self.debug("\(ts)[trace] \(evaluatedMessage, privacy: .public)")
+            self.debug("[trace] \(evaluatedMessage, privacy: .public)")
         }
     }
     
     func logError(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
-        let ts = Logger.timestamp()
         if isPrivate {
-            self.error("\(ts)\(evaluatedMessage, privacy: .private)")
+            self.error("\(evaluatedMessage, privacy: .private)")
         } else {
-            self.error("\(ts)\(evaluatedMessage, privacy: .public)")
+            self.error("\(evaluatedMessage, privacy: .public)")
         }
     }
     
     func logFault(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
-        let ts = Logger.timestamp()
         if isPrivate {
-            self.fault("\(ts)\(evaluatedMessage, privacy: .private)")
+            self.fault("\(evaluatedMessage, privacy: .private)")
         } else {
-            self.fault("\(ts)\(evaluatedMessage, privacy: .public)")
+            self.fault("\(evaluatedMessage, privacy: .public)")
         }
     }
     
     func logCritical(_ message: @autoclosure () -> String, isPrivate: Bool = false) {
         let evaluatedMessage = message()
-        let ts = Logger.timestamp()
         if isPrivate {
-            self.critical("\(ts)\(evaluatedMessage, privacy: .private)")
+            self.critical("\(evaluatedMessage, privacy: .private)")
         } else {
-            self.critical("\(ts)\(evaluatedMessage, privacy: .public)")
+            self.critical("\(evaluatedMessage, privacy: .public)")
         }
     }
 }

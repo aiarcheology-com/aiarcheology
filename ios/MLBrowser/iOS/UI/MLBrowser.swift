@@ -10,12 +10,13 @@ import OSLog
 
 @main
 struct MLBrowser: App {
-	@StateObject var appState = AppState()
+    @StateObject var appState = AppState()
 
-	init() {
-		Logger.lifecycle.logInfo("MLBrowser app launching")
-		DefaultCrashReporter.shared.recordBreadcrumb("App initialized", level: .info)
-	}
+    init() {
+		// Reporting setup
+		Observability.start(with: DependencyContainer.shared.crashReporter)
+        LoggingPolicy.info("MLBrowser app launching", logger: .lifecycle)
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -29,14 +30,14 @@ struct MLBrowser: App {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
-                Logger.lifecycle.logInfo("App entering background")
+                LoggingPolicy.info("App entering background", logger: .lifecycle)
                 if appState.guide.ontheflyDetectionEnabled {
                     appState.settings.isDetectionPaused = true
                     appState.guide.ontheflyDetectionTapped()
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-                Logger.lifecycle.logInfo("App entering foreground")
+                LoggingPolicy.info("App entering foreground", logger: .lifecycle)
                 if appState.settings.isDetectionPaused {
                     appState.settings.isDetectionPaused = false
                     appState.guide.ontheflyDetectionTapped()

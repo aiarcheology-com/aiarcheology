@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		510BEBE08AE94921B256AD77 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = C868B4879FC9440AA740CFDD /* Sentry */; };
 		8A112CB92ABDE0BB00786384 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CB82ABDE0BB00786384 /* WebView.swift */; };
 		8A112CC42AC0852B00786384 /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CC32AC0852B00786384 /* String+Extensions.swift */; };
 		8A112CC62AC0863300786384 /* Bool+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CC52AC0863300786384 /* Bool+Extensions.swift */; };
@@ -108,10 +109,6 @@
 		941C4FBA2EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */; };
 		941C4FBC2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FBB2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift */; };
 		941C4FBE2EDBB0C300066AED /* UTTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */; };
-		942B1DD22EA62E11005455F9 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD02EA62E11005455F9 /* CrashReporter.swift */; };
-		942B1DD32EA62E11005455F9 /* LoggingPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD12EA62E11005455F9 /* LoggingPolicy.swift */; };
-		942B1DD42EA62E11005455F9 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD02EA62E11005455F9 /* CrashReporter.swift */; };
-		942B1DD52EA62E11005455F9 /* LoggingPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD12EA62E11005455F9 /* LoggingPolicy.swift */; };
 		942B1DD62EA62E11005455F9 /* CrashReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD02EA62E11005455F9 /* CrashReporter.swift */; };
 		942B1DD72EA62E11005455F9 /* LoggingPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DD12EA62E11005455F9 /* LoggingPolicy.swift */; };
 		942B1DDB2EA66353005455F9 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 942B1DDA2EA66353005455F9 /* README.md */; };
@@ -120,6 +117,10 @@
 		942B1DE02EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DDE2EA6BF72005455F9 /* LoggingConfiguration.swift */; };
 		942B1DE12EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DDE2EA6BF72005455F9 /* LoggingConfiguration.swift */; };
 		942B1DE32EA6BF86005455F9 /* LoggingConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */; };
+		944D74E02EE62B37009F3584 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		944D74E12EE62B37009F3584 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		944D74E62EE63344009F3584 /* SentryCrashReportingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944D74E52EE63344009F3584 /* SentryCrashReportingService.swift */; };
+		944D74E72EE63344009F3584 /* Observability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944D74E42EE63344009F3584 /* Observability.swift */; };
 		945C556D2ED5127C007DD8FB /* WebHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */; };
 		945C556F2ED5127C007DD8FB /* TestCoreDataStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */; };
 		945C55702ED5127C007DD8FB /* CoreDataManagableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */; };
@@ -164,6 +165,7 @@
 		94FCC4062ED062CF0047B283 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
 		94FCC4072ED063010047B283 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
 		94FF14922EBBA08700033B5B /* NSManagedObject+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF14912EBBA07800033B5B /* NSManagedObject+Extension.swift */; };
+		94FFB9D82EE6603B0049A549 /* ObservabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FFB9D72EE6603B0049A549 /* ObservabilityTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -277,7 +279,7 @@
 		8AE0BC072A97B0B40086DDF9 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		8AE0BC0A2A97B0B40086DDF9 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		8AE0BC112A97B0B40086DDF9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		8AE0BC162A97B0B40086DDF9 /* MLBrowserTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MLBrowserTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		8AE0BC162A97B0B40086DDF9 /* MLBrowserUnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MLBrowserUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AE0BC202A97B0B40086DDF9 /* MLBrowserUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MLBrowserUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_ArcheologyUITests.swift; sourceTree = "<group>"; };
 		8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_ArcheologyUITestsLaunchTests.swift; sourceTree = "<group>"; };
@@ -299,6 +301,8 @@
 		942B1DDA2EA66353005455F9 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		942B1DDE2EA6BF72005455F9 /* LoggingConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingConfiguration.swift; sourceTree = "<group>"; };
 		942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingConfigurationTests.swift; sourceTree = "<group>"; };
+		944D74E42EE63344009F3584 /* Observability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Observability.swift; sourceTree = "<group>"; };
+		944D74E52EE63344009F3584 /* SentryCrashReportingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryCrashReportingService.swift; sourceTree = "<group>"; };
 		945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataManagableTests.swift; sourceTree = "<group>"; };
 		945C55692ED5127C007DD8FB /* DeepStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepStateTests.swift; sourceTree = "<group>"; };
 		945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestCoreDataStack.swift; sourceTree = "<group>"; };
@@ -342,6 +346,7 @@
 		94FCC4012ECE46C60047B283 /* DependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyContainer.swift; sourceTree = "<group>"; };
 		94FCC4042ECFD7730047B283 /* DriversTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriversTests.swift; sourceTree = "<group>"; };
 		94FF14912EBBA07800033B5B /* NSManagedObject+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSManagedObject+Extension.swift"; sourceTree = "<group>"; };
+		94FFB9D72EE6603B0049A549 /* ObservabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservabilityTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -353,6 +358,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				510BEBE08AE94921B256AD77 /* Sentry in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -360,6 +366,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				944D74E02EE62B37009F3584 /* (null) in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -367,6 +374,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				944D74E12EE62B37009F3584 /* (null) in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -650,7 +658,7 @@
 			isa = PBXGroup;
 			children = (
 				8AE0BC002A97B0B30086DDF9 /* ML Browser.app */,
-				8AE0BC162A97B0B40086DDF9 /* MLBrowserTests.xctest */,
+				8AE0BC162A97B0B40086DDF9 /* MLBrowserUnitTests.xctest */,
 				8AE0BC202A97B0B40086DDF9 /* MLBrowserUITests.xctest */,
 			);
 			name = Products;
@@ -677,6 +685,7 @@
 		8AE0BC192A97B0B40086DDF9 /* MLBrowserUnitTests */ = {
 			isa = PBXGroup;
 			children = (
+				94FFB9D72EE6603B0049A549 /* ObservabilityTests.swift */,
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
 				94D79C8E2EE37DBF0027C9FA /* BundleExtensionsTests.swift */,
 				945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */,
@@ -760,6 +769,8 @@
 		942B1DCF2EA62DEB005455F9 /* Reporting */ = {
 			isa = PBXGroup;
 			children = (
+				944D74E42EE63344009F3584 /* Observability.swift */,
+				944D74E52EE63344009F3584 /* SentryCrashReportingService.swift */,
 				942B1DDE2EA6BF72005455F9 /* LoggingConfiguration.swift */,
 				942B1DD02EA62E11005455F9 /* CrashReporter.swift */,
 				942B1DD12EA62E11005455F9 /* LoggingPolicy.swift */,
@@ -803,6 +814,7 @@
 				8AE0BBFC2A97B0B30086DDF9 /* Sources */,
 				8AE0BBFD2A97B0B30086DDF9 /* Frameworks */,
 				8AE0BBFE2A97B0B30086DDF9 /* Resources */,
+				C3216188147B480A9E50D242 /* Upload Debug Symbols to Sentry */,
 			);
 			buildRules = (
 			);
@@ -812,13 +824,16 @@
 				946200EC2ED6FF520047336A /* Testability */,
 			);
 			name = MLBrowser;
+			packageProductDependencies = (
+				C868B4879FC9440AA740CFDD /* Sentry */,
+			);
 			productName = MLBrowser;
 			productReference = 8AE0BC002A97B0B30086DDF9 /* ML Browser.app */;
 			productType = "com.apple.product-type.application";
 		};
-		8AE0BC152A97B0B40086DDF9 /* MLBrowserTests */ = {
+		8AE0BC152A97B0B40086DDF9 /* MLBrowserUnitTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 8AE0BC2D2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowserTests" */;
+			buildConfigurationList = 8AE0BC2D2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowserUnitTests" */;
 			buildPhases = (
 				8AE0BC122A97B0B40086DDF9 /* Sources */,
 				8AE0BC132A97B0B40086DDF9 /* Frameworks */,
@@ -829,11 +844,11 @@
 			dependencies = (
 				8AE0BC182A97B0B40086DDF9 /* PBXTargetDependency */,
 			);
-			name = MLBrowserTests;
+			name = MLBrowserUnitTests;
 			packageProductDependencies = (
 			);
 			productName = MLBrowserTests;
-			productReference = 8AE0BC162A97B0B40086DDF9 /* MLBrowserTests.xctest */;
+			productReference = 8AE0BC162A97B0B40086DDF9 /* MLBrowserUnitTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		8AE0BC1F2A97B0B40086DDF9 /* MLBrowserUITests */ = {
@@ -888,13 +903,14 @@
 			mainGroup = 8AE0BBF72A97B0B30086DDF9;
 			packageReferences = (
 				94DF06A32E95C1D60024E381 /* XCRemoteSwiftPackageReference "OSLogViewer" */,
+				81666D3A451C4358B0AFB17A /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 			);
 			productRefGroup = 8AE0BC012A97B0B30086DDF9 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				8AE0BBFF2A97B0B30086DDF9 /* MLBrowser */,
-				8AE0BC152A97B0B40086DDF9 /* MLBrowserTests */,
+				8AE0BC152A97B0B40086DDF9 /* MLBrowserUnitTests */,
 				8AE0BC1F2A97B0B40086DDF9 /* MLBrowserUITests */,
 			);
 		};
@@ -931,6 +947,24 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		C3216188147B480A9E50D242 /* Upload Debug Symbols to Sentry */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${TARGET_NAME}",
+			);
+			name = "Upload Debug Symbols to Sentry";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# This script is responsible for uploading debug symbols and source context for Sentry.\nif which sentry-cli >/dev/null; then\n  export SENTRY_ORG=ai-archeology\n  export SENTRY_PROJECT=apple-ios\n  ERROR=$(sentry-cli debug-files upload --include-sources \"$DWARF_DSYM_FOLDER_PATH\" 2>&1 >/dev/null)\n  if [ ! $? -eq 0 ]; then\n    echo \"warning: sentry-cli - $ERROR\"\n  fi\nelse\n  echo \"warning: sentry-cli not installed, download from https://github.com/getsentry/sentry-cli/releases\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		8AE0BBFC2A97B0B30086DDF9 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -950,6 +984,8 @@
 				8A1D49BC2ABB87D500C2D7C1 /* GridItemView.swift in Sources */,
 				8AC6509D2B2B48D500922648 /* Appstate.swift in Sources */,
 				8AC650972B2A442A00922648 /* DeepDriver.swift in Sources */,
+				944D74E62EE63344009F3584 /* SentryCrashReportingService.swift in Sources */,
+				944D74E72EE63344009F3584 /* Observability.swift in Sources */,
 				8A1328242AFAD02800F119C6 /* Sequence+Extensions.swift in Sources */,
 				8AC650A12B2B495B00922648 /* Settings.swift in Sources */,
 				8A9BB4442B10F3990061246A /* DocumentPicker.swift in Sources */,
@@ -1052,9 +1088,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				942B1DE12EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */,
-				942B1DD42EA62E11005455F9 /* CrashReporter.swift in Sources */,
 				94FCC4062ED062CF0047B283 /* OSLog+Extensions.swift in Sources */,
-				942B1DD52EA62E11005455F9 /* LoggingPolicy.swift in Sources */,
 				942B1DE32EA6BF86005455F9 /* LoggingConfigurationTests.swift in Sources */,
 				945C556D2ED5127C007DD8FB /* WebHistoryTests.swift in Sources */,
 				941C4FBE2EDBB0C300066AED /* UTTypeTests.swift in Sources */,
@@ -1083,6 +1117,7 @@
 				945C55842ED71234007DD8FB /* SettingsTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
 				94929E772ED633C1001A4C63 /* DeepDriversTests.swift in Sources */,
+				94FFB9D82EE6603B0049A549 /* ObservabilityTests.swift in Sources */,
 				94929E782ED633C1001A4C63 /* ExtensionsTests.swift in Sources */,
 				945C55862ED71234007DD8FB /* DeepConfigurationTests.swift in Sources */,
 				94FCC4052ECFD7730047B283 /* DriversTests.swift in Sources */,
@@ -1096,8 +1131,6 @@
 			files = (
 				8AE0BC252A97B0B40086DDF9 /* AI_ArcheologyUITests.swift in Sources */,
 				8AE0BC272A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift in Sources */,
-				942B1DD22EA62E11005455F9 /* CrashReporter.swift in Sources */,
-				942B1DD32EA62E11005455F9 /* LoggingPolicy.swift in Sources */,
 				94FCC4072ED063010047B283 /* OSLog+Extensions.swift in Sources */,
 				942B1DDF2EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */,
 			);
@@ -1252,8 +1285,10 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 228;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "MLBrowser-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
@@ -1289,8 +1324,10 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 228;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "MLBrowser-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
@@ -1418,7 +1455,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		8AE0BC2D2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowserTests" */ = {
+		8AE0BC2D2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowserUnitTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				8AE0BC2E2A97B0B40086DDF9 /* Debug */,
@@ -1439,6 +1476,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		81666D3A451C4358B0AFB17A /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa/";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
 		94DF06A32E95C1D60024E381 /* XCRemoteSwiftPackageReference "OSLogViewer" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/0xWDG/OSLogViewer.git";
@@ -1448,6 +1493,14 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C868B4879FC9440AA740CFDD /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 81666D3A451C4358B0AFB17A /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCVersionGroup section */
 		8A51D1B92B0B1EA400D2417C /* MLBrowser.xcdatamodeld */ = {

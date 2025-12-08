@@ -8,10 +8,31 @@
 import Foundation
 import CoreData
 import Combine
+import OSLog
 
 @MainActor
 class DependencyContainer {
 	static let shared = DependencyContainer()
+	
+	lazy var crashReporter: CrashReportingService = {
+		let reportingRate: Float = 0.5
+		let reporter: CrashReportingService = (AppEnvironment.isRunningUnderAnyTests || AppEnvironment.isDebugConfiguration)
+			? NoOpCrashReportingService() : SentryCrashReportingService(tracesSampleRate: reportingRate)
+		
+		Logger.app.info(
+			"""
+			
+			XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+			
+				Observability set with reportingRate: \(reportingRate)
+				Consider reducing reporting rate in production builds < 0.1.
+				
+			XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+			"""
+		)
+			
+		return reporter
+	}()
     
     lazy var dataController: DataController = {
         return DataController()
@@ -39,3 +60,4 @@ class DependencyContainer {
     
     private init() {}
 }
+

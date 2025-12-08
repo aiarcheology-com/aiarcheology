@@ -45,6 +45,19 @@ enum LoggingConfiguration {
         let formatter = format.threadLocalFormatter()
         return "\(formatter.string(from: now)) "
     }
+    
+    // MARK: - File:Line prefix
+    static func fileLinePrefix(file: String, line: UInt) -> String {
+        let fileName = (file as NSString).lastPathComponent
+        return "\(fileName):\(line) "
+    }
+    
+    // MARK: - Combined prefix (timestamp + file:line)
+    static func logPrefix(file: String, line: UInt, now: Date = Date()) -> String {
+        let ts = timestampPrefix(now: now)
+        let fl = fileLinePrefix(file: file, line: line)
+        return "\(ts)\(fl)"
+    }
 }
 
 private extension LoggingConfiguration.TimestampFormat {

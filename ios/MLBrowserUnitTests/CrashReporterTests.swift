@@ -2,40 +2,10 @@
 //  CrashReporterTests.swift
 //  AI ArcheologyTests
 //
-//  Created by AI Assistant on 05.12.25.
 //
 
 import XCTest
 @testable import ML_Browser
-
-// MARK: - BreadcrumbLevel Tests
-
-final class BreadcrumbLevelTests: XCTestCase {
-    
-    func test_debug_hasCorrectRawValue() {
-        XCTAssertEqual(BreadcrumbLevel.debug.rawValue, "debug")
-    }
-    
-    func test_info_hasCorrectRawValue() {
-        XCTAssertEqual(BreadcrumbLevel.info.rawValue, "info")
-    }
-    
-    func test_warning_hasCorrectRawValue() {
-        XCTAssertEqual(BreadcrumbLevel.warning.rawValue, "warning")
-    }
-    
-    func test_error_hasCorrectRawValue() {
-        XCTAssertEqual(BreadcrumbLevel.error.rawValue, "error")
-    }
-    
-    func test_allCases_haveUniqueRawValues() {
-        let levels: [BreadcrumbLevel] = [.debug, .info, .warning, .error]
-        let rawValues = levels.map { $0.rawValue }
-        let uniqueValues = Set(rawValues)
-        
-        XCTAssertEqual(rawValues.count, uniqueValues.count)
-    }
-}
 
 // MARK: - DefaultCrashReporter Tests
 
@@ -46,6 +16,12 @@ final class DefaultCrashReporterTests: XCTestCase {
     override func setUp() {
         super.setUp()
         sut = DefaultCrashReporter.shared
+        
+        // Ensure Observability is started for tests
+        // In real tests, this would be done with a mock service
+        if !Observability.isStarted {
+            Observability.start(with: NoOpCrashReportingService())
+        }
     }
     
     override func tearDown() {
@@ -173,6 +149,14 @@ final class DefaultCrashReporterTests: XCTestCase {
 // MARK: - CrashReporter Protocol Tests
 
 final class CrashReporterProtocolTests: XCTestCase {
+    
+    override func setUp() {
+        super.setUp()
+        // Ensure Observability is started for tests
+        if !Observability.isStarted {
+            Observability.start(with: NoOpCrashReportingService())
+        }
+    }
     
     func test_protocolMethods_areCallable() {
         let reporter: CrashReporter = DefaultCrashReporter.shared

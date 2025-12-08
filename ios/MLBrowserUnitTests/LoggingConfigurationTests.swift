@@ -109,4 +109,60 @@ final class LoggingConfigurationTests: XCTestCase {
         }
         // This test ensures timestamp generation is performant with cached formatter.
     }
+    
+    // MARK: - File:Line Prefix Tests
+    
+    func test_fileLinePrefix_extractsFilename() throws {
+        // Given
+        let fullPath = "/Users/developer/Project/Sources/MyFile.swift"
+        let line: UInt = 42
+        
+        // When
+        let prefix = LoggingConfiguration.fileLinePrefix(file: fullPath, line: line)
+        
+        // Then
+        XCTAssertEqual(prefix, "MyFile.swift:42 ")
+    }
+    
+    func test_fileLinePrefix_handlesSimpleFilename() throws {
+        // Given
+        let filename = "SimpleFile.swift"
+        let line: UInt = 100
+        
+        // When
+        let prefix = LoggingConfiguration.fileLinePrefix(file: filename, line: line)
+        
+        // Then
+        XCTAssertEqual(prefix, "SimpleFile.swift:100 ")
+    }
+    
+    func test_logPrefix_combinesTimestampAndFileLine() throws {
+        // Given
+        LoggingConfiguration.setTimestampsEnabled(true)
+        let date = Date(timeIntervalSince1970: 0) // 1970-01-01T00:00:00.000Z
+        let file = "/path/to/TestFile.swift"
+        let line: UInt = 55
+        
+        // When
+        let prefix = LoggingConfiguration.logPrefix(file: file, line: line, now: date)
+        
+        // Then
+        XCTAssertEqual(prefix, "1970-01-01T00:00:00.000Z TestFile.swift:55 ")
+    }
+    
+    func test_logPrefix_omitsTimestampWhenDisabled() throws {
+        // Given
+        LoggingConfiguration.setTimestampsEnabled(false)
+        let file = "/path/to/TestFile.swift"
+        let line: UInt = 55
+        
+        // When
+        let prefix = LoggingConfiguration.logPrefix(file: file, line: line)
+        
+        // Then
+        XCTAssertEqual(prefix, "TestFile.swift:55 ")
+        
+        // Cleanup
+        LoggingConfiguration.setTimestampsEnabled(true)
+    }
 }
