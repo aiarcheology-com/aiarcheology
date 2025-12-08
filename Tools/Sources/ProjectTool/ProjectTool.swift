@@ -43,7 +43,7 @@ struct GitSetup: ParsableCommand {
     )
 
     func run() throws {
-        let filePath = "./ios/AI Archeology/iOS/Persistence/MLBrowser.xcdatamodeld/MLBrowser.xcdatamodel/contents"
+        let filePath = "./ios/MLBrowser/iOS/Persistence/MLBrowser.xcdatamodeld/MLBrowser.xcdatamodel/contents"
         let arguments = ["update-index", "--assume-unchanged", filePath]
         
         let status = try runShellCommand("git", arguments: arguments)

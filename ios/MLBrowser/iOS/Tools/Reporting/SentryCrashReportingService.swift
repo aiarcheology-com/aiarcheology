@@ -25,7 +25,7 @@ final class SentryCrashReportingService: CrashReportingService {
     init(
         dsn: String? = nil,
         tracesSampleRate: Float = 1.0,
-        enableProfiling: Bool = true
+        enableProfiling: Bool = false
     ) {
         self.dsn = dsn ?? Self.dsnFromInfoPlist()
         self.tracesSampleRate = tracesSampleRate
@@ -39,11 +39,12 @@ final class SentryCrashReportingService: CrashReportingService {
     }
     
     func start() {
+        
         guard let dsn = dsn, !dsn.isEmpty else {
             // DSN not configured - Sentry will be disabled
             // This can happen in development if secrets aren't set up
             #if DEBUG
-            print("⚠️ Sentry DSN not configured. Run: swift run ProjectTool secrets generate")
+            print("Sentry DSN not configured. Run: swift run ProjectTool secrets generate")
             #endif
             return
         }
@@ -53,6 +54,12 @@ final class SentryCrashReportingService: CrashReportingService {
         
         SentrySDK.start { options in
             options.dsn = dsn
+            
+            // Enable debug logging in DEBUG builds
+            #if DEBUG
+            options.debug = true
+            print("Sentry initializing with DSN: \(dsn)")
+            #endif
             
             // Adds IP for users.
             // For more information: https://docs.sentry.io/platforms/apple/data-management/data-collected/
