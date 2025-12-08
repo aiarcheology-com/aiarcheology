@@ -57,9 +57,9 @@ final class SentryCrashReportingService: CrashReportingService {
             options.dsn = dsn
             
             // Enable debug logging in DEBUG builds
-            #if DEBUG
+            #if DEBUG && false
             options.debug = true
-            Logger.logger.debug("Sentry initializing with DSN: \(dsn)")
+            Logger.logger.debug("[Sentry] Initializing with DSN: \(dsn.prefix(50))...")
             #endif
             
             // Adds IP for users.
@@ -123,7 +123,7 @@ private extension BreadcrumbLevel {
     func toSentryLevel() -> SentryLevel {
         switch self {
         case .none:
-			return .none
+            return .none
         case .debug:
             return .debug
         case .info:
@@ -132,7 +132,7 @@ private extension BreadcrumbLevel {
             return .warning
         case .error:
             return .error
-		case .fatal:
+        case .fatal:
             return .fatal
         }
     }
