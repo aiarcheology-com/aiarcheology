@@ -24,7 +24,7 @@ extension FileManager {
                 try self.copyItem(at: sourceURL, to: destinationURL)
                 return destinationURL
             } catch {
-                Logger.gallery.logError("Unable to copy file: \(error.localizedDescription)")
+            LoggingPolicy.debug("Unable to copy file: \(error.localizedDescription)", logger: .file)
             }
         }
         return nil
@@ -42,7 +42,7 @@ extension FileManager {
             do {
                 try self.removeItem(at: url)
             } catch {
-                Logger.gallery.logError("Unable to remove file: \(error.localizedDescription)")
+				LoggingPolicy.error("Unable to remove file: \(error.localizedDescription)", logger: .file)
             }
         }
     }
@@ -55,7 +55,7 @@ extension FileManager {
         do {
             return try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
         } catch {
-            Logger.gallery.logError("Unable to get directory contents: \(error.localizedDescription)")
+			LoggingPolicy.error("Unable to get directory contents: \(error.localizedDescription)", logger: .file)
         }
         return []
     }

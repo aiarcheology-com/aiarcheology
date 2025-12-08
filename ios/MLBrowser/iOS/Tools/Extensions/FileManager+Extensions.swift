@@ -50,7 +50,7 @@ extension FileManager {
 	static func moveModelToDocuments(from sourceURL: URL, configurationId: UUID) throws -> URL {
 		let targetURL = try prepareTargetURL(from: sourceURL, configurationId: configurationId)
 		try FileManager.default.moveItem(at: sourceURL, to: targetURL)
-		Logger.storage.logDebug("Model moved to: \(targetURL.path)")
+		LoggingPolicy.debug("Model moved to: \(targetURL.path)", logger: .storage)
 		return targetURL
 	}
 	
@@ -71,7 +71,7 @@ extension FileManager {
 		
 		let targetURL = try prepareTargetURL(from: sourceURL, configurationId: configurationId)
 		try FileManager.default.copyItem(at: sourceURL, to: targetURL)
-		Logger.storage.logDebug("Model copied to: \(targetURL.path)")
+		LoggingPolicy.debug("Model copied to: \(targetURL.path)", logger: .storage)
 		return targetURL
 	}
 	

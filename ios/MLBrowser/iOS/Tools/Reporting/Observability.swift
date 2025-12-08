@@ -73,7 +73,8 @@ enum Observability {
     static func start(with service: CrashReportingService) {
         queue.async(flags: .barrier) {
             guard !_isStarted else {
-                Logger.app.warning("Observability.start() called multiple times - ignoring")
+                // Use Logger directly here to avoid circular dependency with LoggingPolicy
+                Logger.logger.warning("Observability.start() called multiple times - ignoring")
                 return
             }
             _service = service
@@ -82,7 +83,7 @@ enum Observability {
         
         // Start the service outside the barrier to avoid blocking
         service.start()
-        Logger.lifecycle.logInfo("Observability started with \(String(describing: type(of: service)))")
+        Logger.logger.info("Observability started with \(String(describing: type(of: service)))")
     }
     
     /// Check if observability has been started
@@ -147,7 +148,7 @@ enum Observability {
 /// No-operation implementation for testing or when crash reporting is disabled.
 final class NoOpCrashReportingService: CrashReportingService {
     func start() {
-        Logger.app.logDebug("NoOpCrashReportingService: start() called")
+		Logger.logger.info("NoOpCrashReportingService: start() called")
     }
     
     func addBreadcrumb(message: String, level: BreadcrumbLevel, category: String) {

@@ -13,6 +13,7 @@ extension Logger {
     private static var subsystem: String { Bundle.main.bundleIdentifier ?? "com.aiarcheology.ios" }
     
     // MARK: - App & Lifecycle
+    static let logger = Logger(subsystem: subsystem, category: "Logger")
     static let app = Logger(subsystem: subsystem, category: "App")
     static let lifecycle = Logger(subsystem: subsystem, category: "Lifecycle")
     
@@ -20,6 +21,8 @@ extension Logger {
     static let drivers = Logger(subsystem: subsystem, category: "Drivers")
     static let rendering = Logger(subsystem: subsystem, category: "Rendering")
     static let configuration = Logger(subsystem: subsystem, category: "Configuration")
+    static let importing = Logger(subsystem: subsystem, category: "Importing")
+    static let file = Logger(subsystem: subsystem, category: "File")
     
     // MARK: - Data Layer
     static let persistence = Logger(subsystem: subsystem, category: "Persistence")

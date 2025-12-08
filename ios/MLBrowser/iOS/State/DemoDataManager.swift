@@ -26,21 +26,21 @@ final class DemoDataManager {
         // Single source of truth: check Core Data directly
         let existingDemos = DeepConfiguration.selectAll(in: context).filter { $0.demo }
         guard existingDemos.isEmpty else {
-            Logger.configuration.logInfo("Demo configurations already exist (\(existingDemos.count) found), skipping creation")
+        LoggingPolicy.debug("Demo configurations already exist (\(existingDemos.count) found), skipping creation", logger: .configuration)
             return
         }
         
-        Logger.configuration.logInfo("Creating demo configurations")
+        LoggingPolicy.info("Creating demo configurations", logger: .configuration)
         
         await loadModelOne()
         await loadModelTwo()
         await createBrowsingHistoryIfNeeded()
         
-        Logger.configuration.logInfo("Demo data creation complete")
+        LoggingPolicy.info("Demo data creation complete", logger: .configuration)
     }
     
     func deleteBrowsingHistory() {
-        Logger.state.logInfo("Deleting all browsing history")
+        LoggingPolicy.info("Deleting all browsing history", logger: .state)
         WebHistoryEntry.deleteAll(in: dataController.container.viewContext, executeAndMerge: true)
     }
     
@@ -48,7 +48,7 @@ final class DemoDataManager {
         let history = WebHistoryEntry.selectAll(in: dataController.container.viewContext)
         guard history.isEmpty else { return }
         
-        Logger.state.logInfo("Creating initial browsing history with demo pages")
+        LoggingPolicy.info("Creating initial browsing history with demo pages", logger: .state)
         let pages: [String] = [
             "https://windrosen.hessen.de/mapapps/resources/apps/windrosen/index.html?lang=en&vm=2D&s=1500000&r=0&c=550000%2C5595000&bm=orthofotos_schummerung",
             "https://zbgis.skgeodesy.sk/mkzbgis/sk/teren",
@@ -70,7 +70,7 @@ final class DemoDataManager {
             }
             catch {
                 WebHistoryEntry.delete(newHistorEntry, in: dataController.container.viewContext)
-                Logger.state.logError("Web history entry validation failed: \(error.localizedDescription)")
+                LoggingPolicy.error("Web history entry validation failed", error: error, logger: .state)
                 continue
             }
             newHistorEntry.transition(to: .ready)
@@ -81,7 +81,7 @@ final class DemoDataManager {
     private func loadModelOne() async {
         // Warning: models are used as mlmodelc in the bundle when handled from xcode
         guard let urlInBundle = Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") else {
-            Logger.configuration.logError("Cannot locate AIArcheology demo model in bundle")
+            LoggingPolicy.error("Cannot locate AIArcheology demo model in bundle", logger: .configuration)
             return
         }
         
@@ -91,7 +91,7 @@ final class DemoDataManager {
     private func loadModelTwo() async {
         // Warning: models are used as mlmodelc in the bundle when handled from xcode
         guard let urlInBundle = Bundle.main.url(forResource: "HroudaDetector15", withExtension: "mlmodelc") else {
-            Logger.configuration.logError("Cannot locate HroudaDetector15 demo model in bundle")
+            LoggingPolicy.error("Cannot locate HroudaDetector15 demo model in bundle", logger: .configuration)
             return
         }
         
@@ -106,11 +106,11 @@ final class DemoDataManager {
         }
         
         guard let url = URL(string: urlToPossibleDirectory) else {
-            Logger.configuration.logError("Failed to create URL from string for demo model")
+            LoggingPolicy.error("Failed to create URL from string for demo model", logger: .configuration)
             return
         }
-        
-        Logger.configuration.logInfo("Loading demo model from \(url.lastPathComponent)")
+		
+		LoggingPolicy.debug("Loading MLModel from \(url.lastPathComponent)", logger: .configuration)
         
         var detector: MLModel?
         let demo = true
@@ -119,12 +119,12 @@ final class DemoDataManager {
             detector = try await Detector.loadModel(from: url, demo: demo)
         }
         catch {
-            Logger.configuration.logError("Failed to load demo detector model: \(error.localizedDescription)")
+            LoggingPolicy.error("Failed to load demo detector model", error: error, logger: .configuration)
             return
         }
         
         guard let metadata = detector?.modelDescription.metadata else {
-            Logger.configuration.logWarning("Demo model loaded but has no metadata")
+            LoggingPolicy.warning("Demo model loaded but has no metadata", logger: .configuration)
             return
         }
         let parser = MLModelMetadataParser(metadata: metadata)
@@ -144,7 +144,7 @@ final class DemoDataManager {
         configuration.transition(to: .draft)
         configuration.transition(to: .ready)
         DeepConfiguration.save(in: self.dataController.container.viewContext)
-        Logger.configuration.logTrace("Demo configuration life cycle: \(configuration.lifeCycle)")
-        Logger.configuration.logInfo("Demo configuration created successfully for \(url.lastPathComponent)")
+        LoggingPolicy.debug("Demo configuration life cycle: \(configuration.lifeCycle)", logger: .configuration)
+        LoggingPolicy.info("Demo configuration created successfully for \(url.lastPathComponent)", logger: .configuration)
     }
 }

@@ -8,6 +8,7 @@
 
 import Foundation
 import Sentry
+import OSLog
 
 /// Sentry SDK implementation of the CrashReportingService protocol.
 /// Isolates all Sentry-specific code to this single file.
@@ -44,7 +45,7 @@ final class SentryCrashReportingService: CrashReportingService {
             // DSN not configured - Sentry will be disabled
             // This can happen in development if secrets aren't set up
             #if DEBUG
-            print("Sentry DSN not configured. Run: swift run ProjectTool secrets generate")
+			Logger.logger.debug("Sentry DSN not configured. Run: swift run ProjectTool secrets generate")
             #endif
             return
         }
@@ -58,7 +59,7 @@ final class SentryCrashReportingService: CrashReportingService {
             // Enable debug logging in DEBUG builds
             #if DEBUG
             options.debug = true
-            print("Sentry initializing with DSN: \(dsn)")
+            Logger.logger.debug("Sentry initializing with DSN: \(dsn)")
             #endif
             
             // Adds IP for users.

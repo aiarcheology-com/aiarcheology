@@ -170,7 +170,7 @@ protocol CoreDataManageable where Self: NSManagedObject {
 
 extension CoreDataManageable where Self: NSManagedObject {
     static func create(in context: NSManagedObjectContext) -> Self {
-        Logger.persistence.logDebug("Creating new \(String(describing: Self.self)) entity")
+        LoggingPolicy.debug("Creating new \(String(describing: Self.self)) entity", logger: .storage)
         return Self(context: context)
     }
     
@@ -181,16 +181,16 @@ extension CoreDataManageable where Self: NSManagedObject {
         do {
             let objects = try context.fetch(request) as? [Self]
             guard let count = objects?.count else {
-                Logger.persistence.logError("Failed to fetch objects for update - unexpected nil result for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)")
+                LoggingPolicy.error("Failed to fetch objects for update - unexpected nil result for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
                 return
             }
             
             if count != 1 {
-                Logger.persistence.logWarning("Expected 1 instance for update but found \(count) for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)")
+                LoggingPolicy.warning("Expected 1 instance for update but found \(count) for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
             }
             
             guard let objectToUpdate = objects?.first else {
-                Logger.persistence.logWarning("No object found to update for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)")
+                LoggingPolicy.warning("No object found to update for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
                 return
             }
             
@@ -199,9 +199,9 @@ extension CoreDataManageable where Self: NSManagedObject {
             
             save(in: context)
             
-            Logger.persistence.logDebug("Successfully updated \(String(describing: Self.self)) entity with ID \(entityId.uuidString)")
+            LoggingPolicy.debug("Successfully updated \(String(describing: Self.self)) entity with ID \(entityId.uuidString)", logger: .storage)
         } catch {
-            Logger.persistence.logError("Update error for \(String(describing: Self.self)): \(error.localizedDescription)")
+            LoggingPolicy.error("Update error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
             DefaultCrashReporter.shared.recordError(error, context: ["operation": "update", "entityType": String(describing: Self.self)])
         }
     }
@@ -210,10 +210,10 @@ extension CoreDataManageable where Self: NSManagedObject {
         do {
             if context.hasChanges {
                 try context.save()
-                Logger.persistence.logDebug("Successfully saved context changes for \(String(describing: Self.self))")
+                LoggingPolicy.debug("Successfully saved context changes for \(String(describing: Self.self))", logger: .storage)
             }
         } catch {
-            Logger.persistence.logError("CoreData save error for \(String(describing: Self.self)): \(error.localizedDescription)")
+            LoggingPolicy.error("CoreData save error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
             DefaultCrashReporter.shared.recordError(error, context: ["operation": "save", "entityType": String(describing: Self.self)])
         }
     }
@@ -222,12 +222,12 @@ extension CoreDataManageable where Self: NSManagedObject {
         let objectID = entity.objectID
         do {
             let entityToDelete = try context.existingObject(with: objectID)
-            Logger.persistence.logDebug("Deleting \(String(describing: Self.self)) entity")
+            LoggingPolicy.debug("Deleting \(String(describing: Self.self)) entity", logger: .storage)
             context.delete(entityToDelete)
             save(in: context)
-            Logger.persistence.logInfo("Successfully deleted \(String(describing: Self.self)) entity")
+            LoggingPolicy.info("Successfully deleted \(String(describing: Self.self)) entity", logger: .storage)
         } catch {
-            Logger.persistence.logError("Error fetching object for deletion \(String(describing: Self.self)): \(error.localizedDescription)")
+            LoggingPolicy.error("Error fetching object for deletion \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
             DefaultCrashReporter.shared.recordError(error, context: ["operation": "delete", "entityType": String(describing: Self.self)])
         }
     }
@@ -243,9 +243,9 @@ extension CoreDataManageable where Self: NSManagedObject {
             }
             
             save(in: context)
-            Logger.persistence.logInfo("Successfully deleted all \(String(describing: Self.self)) entities")
+            LoggingPolicy.info("Successfully deleted all \(String(describing: Self.self)) entities", logger: .storage)
         } catch {
-            Logger.persistence.logError("Error deleting all entities \(String(describing: Self.self)): \(error.localizedDescription)")
+            LoggingPolicy.error("Error deleting all entities \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
             DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteAll", "entityType": String(describing: Self.self)])
         }
     }
@@ -257,15 +257,15 @@ extension CoreDataManageable where Self: NSManagedObject {
         do {
             let objects = try context.fetch(request) as? [Self]
             guard let objectToDelete = objects?.first else {
-                Logger.persistence.logDebug("No object found to delete for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)")
+                LoggingPolicy.debug("No object found to delete for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
                 return
             }
             
             context.delete(objectToDelete)
             save(in: context)
-            Logger.persistence.logDebug("Successfully deleted \(String(describing: Self.self)) entity with ID \(entityId.uuidString)")
+            LoggingPolicy.debug("Successfully deleted \(String(describing: Self.self)) entity with ID \(entityId.uuidString)", logger: .storage)
         } catch {
-            Logger.persistence.logError("Deletion error for \(String(describing: Self.self)): \(error.localizedDescription)")
+            LoggingPolicy.error("Deletion error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
             DefaultCrashReporter.shared.recordError(error, context: ["operation": "delete", "entityType": String(describing: Self.self)])
         }
     }
@@ -280,12 +280,12 @@ extension CoreDataManageable where Self: NSManagedObject {
             let count = objects?.count ?? 0
             
             if count > 1 {
-                Logger.persistence.logWarning("Expected at most 1 instance but found \(count) for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)")
+                LoggingPolicy.warning("Expected at most 1 instance but found \(count) for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
             }
             
             result = objects?.first //Capture of 'result' with non-Sendable type 'Self?' in a '@Sendable' closure
         } catch {
-            Logger.persistence.logError("Error fetching object \(String(describing: Self.self)): \(error.localizedDescription)")
+            LoggingPolicy.error("Error fetching object \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
             DefaultCrashReporter.shared.recordError(error, context: ["operation": "select", "entityType": String(describing: Self.self)])
         }
         return result
@@ -297,12 +297,13 @@ extension CoreDataManageable where Self: NSManagedObject {
         nonisolated(unsafe) var result: [Self] = []
         do {
             let objects = try context.fetch(request) as? [Self]
-            Logger.persistence.logDebug("Fetched \((objects?.count ?? 0)) \(String(describing: Self.self)) entities")
+            LoggingPolicy.debug("Fetched \((objects?.count ?? 0)) \(String(describing: Self.self)) entities", logger: .storage)
             result = objects ?? []
         } catch {
-            Logger.persistence.logError("Error fetching all objects \(String(describing: Self.self)): \(error.localizedDescription)")
+            LoggingPolicy.error("Error fetching all objects \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
             DefaultCrashReporter.shared.recordError(error, context: ["operation": "getAll", "entityType": String(describing: Self.self)])
         }
         return result
     }
 }
+

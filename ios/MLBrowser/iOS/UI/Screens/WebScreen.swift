@@ -138,9 +138,9 @@ struct WebScreenView: View {
             MLWebView(websiteUrl, lastPage: { urlPage in
                 appState.settings.lastPage = urlPage
             }, loadStatusChanged: { loading, error in
-                Logger.ui.logDebug("WebView loading status changed: \(loading ? "loading" : "loaded")")
+				LoggingPolicy.debug("WebView loading status changed: \(loading ? "loading" : "loaded")", logger: .ui)
                 if let error = error {
-                    Logger.ui.logError("WebView loading error: \(error.localizedDescription)")
+					LoggingPolicy.error("WebView loading error: \(error.localizedDescription)", logger: .ui)
                 }
             }, interactionStateChanged: { state in
                 // Update DetectableView's internal state via binding
@@ -203,7 +203,7 @@ struct WebScreenView: View {
 		}
 		catch {
 			WebHistoryEntry.delete(newHistorEntry, in: moc)
-			Logger.state.logError("Web history entry validation failed: \(error.localizedDescription)")
+			LoggingPolicy.error("Web history entry validation failed: \(error.localizedDescription)", logger: .state)
 			return
 		}
 		WebHistoryEntry.save(in: moc)

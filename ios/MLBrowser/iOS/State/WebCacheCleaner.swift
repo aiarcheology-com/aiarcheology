@@ -13,13 +13,13 @@ final class WebCacheCleaner {
 
     @MainActor class func clean() {
 		HTTPCookieStorage.shared.removeCookies(since: Date.distantPast)
-		Logger.state.logInfo("All HTTP cookies deleted")
+		LoggingPolicy.info("All HTTP cookies deleted", logger: .storage)
 
 		WKWebsiteDataStore.default().fetchDataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes()) { records in
-			Logger.state.logDebug("Deleting \(records.count) website data records")
+			LoggingPolicy.debug("Deleting \(records.count) website data records", logger: .storage)
 			records.forEach { record in
 				WKWebsiteDataStore.default().removeData(ofTypes: record.dataTypes, for: [record], completionHandler: {})
-				Logger.state.logDebug("Website data record deleted: \(record.displayName)")
+				LoggingPolicy.debug("Website data record deleted: \(record.displayName)", logger: .storage)
 			}
 		}
 	}
