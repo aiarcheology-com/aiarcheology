@@ -1,0 +1,6 @@
+# .sentryclirc - Sentry CLI authentication
+# Auto-generated - DO NOT EDIT manually
+# To regenerate: swift run --package-path Tools ProjectTool secrets refresh
+
+[auth]
+token=op://Personal/Sentry Auth Token ML Browser/credential

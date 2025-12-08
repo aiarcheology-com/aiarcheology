@@ -13,27 +13,45 @@ import Sentry
 /// Isolates all Sentry-specific code to this single file.
 final class SentryCrashReportingService: CrashReportingService {
     
-    private let dsn: String
+    private let dsn: String?
     private let enableProfiling: Bool
     private let tracesSampleRate: Float
     
     /// Initialize the Sentry crash reporting service.
     /// - Parameters:
-    ///   - dsn: Sentry DSN (Data Source Name)
+    ///   - dsn: Sentry DSN (Data Source Name). If nil, reads from Info.plist "SentryDSN" key.
     ///   - tracesSampleRate: Performance monitoring sample rate (0.0 to 1.0). Default: 1.0 for dev, reduce in production.
     ///   - enableProfiling: Whether to enable profiling. Default: true for dev, consider disabling in production.
     init(
-        dsn: String = "https://84fcc6da78e28f0a8ab379bb6c7e5503@o4510495266570240.ingest.de.sentry.io/4510495268405328",
+        dsn: String? = nil,
         tracesSampleRate: Float = 1.0,
         enableProfiling: Bool = true
     ) {
-        self.dsn = dsn
+        self.dsn = dsn ?? Self.dsnFromInfoPlist()
         self.tracesSampleRate = tracesSampleRate
         self.enableProfiling = enableProfiling
     }
     
+    /// Reads the Sentry DSN from Info.plist.
+    /// The DSN is injected via xcconfig → Info.plist build settings.
+    private static func dsnFromInfoPlist() -> String? {
+        Bundle.main.object(forInfoDictionaryKey: "SentryDSN") as? String
+    }
+    
     func start() {
-        SentrySDK.start { [self] options in
+        guard let dsn = dsn, !dsn.isEmpty else {
+            // DSN not configured - Sentry will be disabled
+            // This can happen in development if secrets aren't set up
+            #if DEBUG
+            print("⚠️ Sentry DSN not configured. Run: swift run ProjectTool secrets generate")
+            #endif
+            return
+        }
+        
+        let tracesSampleRate = self.tracesSampleRate
+        let enableProfiling = self.enableProfiling
+        
+        SentrySDK.start { options in
             options.dsn = dsn
             
             // Adds IP for users.
