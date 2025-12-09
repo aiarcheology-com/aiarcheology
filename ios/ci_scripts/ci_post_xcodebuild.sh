@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/zsh
 # ci_post_xcodebuild.sh
 # =====================
 # Uploads dSYM files to Sentry for crash symbolication.
@@ -11,14 +11,12 @@
 #
 # Reference: https://docs.sentry.io/platforms/apple/dsym/
 
-# Don't forget to run 'chmod +x ci_post_xcodebuild.sh' after adding this file
-
-set -e
+set -eo pipefail
 
 echo "🔧 Running ci_post_xcodebuild.sh..."
 
 # Only run if archive exists (i.e., this is an archive build)
-if [[ -z "$CI_ARCHIVE_PATH" ]] || [[ ! -d "$CI_ARCHIVE_PATH" ]]; then
+if [[ -z "${CI_ARCHIVE_PATH:-}" ]] || [[ ! -d "${CI_ARCHIVE_PATH:-}" ]]; then
     echo "⏭️  Archive path not available - skipping dSYM upload"
     exit 0
 fi
@@ -39,10 +37,11 @@ if [[ -z "${SENTRY_PROJECT:-}" ]]; then
     exit 1
 fi
 
-# Install sentry-cli into the current directory
-export INSTALL_DIR=$PWD
+# Determine script directory for sentry-cli installation
+SCRIPT_DIR="${0:A:h}"
+export INSTALL_DIR="$SCRIPT_DIR"
 
-if [[ $(command -v sentry-cli) == "" ]]; then
+if ! command -v sentry-cli &> /dev/null && [[ ! -f "$SCRIPT_DIR/sentry-cli" ]]; then
     echo "📦 Installing sentry-cli..."
     curl -sL https://sentry.io/get-cli/ | bash
 fi
@@ -52,10 +51,9 @@ echo "   Organization: ${SENTRY_ORG}"
 echo "   Project: ${SENTRY_PROJECT}"
 echo "   Archive path: ${CI_ARCHIVE_PATH}"
 
-# Upload dSYMs from the archive
-# Using the local sentry-cli if installed to current directory
-if [[ -f "$CI_PRIMARY_REPOSITORY_PATH/ci_scripts/sentry-cli" ]]; then
-    SENTRY_CLI="$CI_PRIMARY_REPOSITORY_PATH/ci_scripts/sentry-cli"
+# Use local sentry-cli if installed to script directory, otherwise use PATH
+if [[ -f "$SCRIPT_DIR/sentry-cli" ]]; then
+    SENTRY_CLI="$SCRIPT_DIR/sentry-cli"
 else
     SENTRY_CLI="sentry-cli"
 fi

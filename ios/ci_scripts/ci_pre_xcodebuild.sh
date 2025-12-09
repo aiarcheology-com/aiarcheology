@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 # ci_pre_xcodebuild.sh
 # ====================
 # Xcode Cloud build script that runs before xcodebuild.
@@ -10,12 +10,14 @@
 #
 # See: https://developer.apple.com/documentation/xcode/writing-custom-build-scripts
 
-set -euo pipefail
+set -eo pipefail
 
 echo "🔧 Running ci_pre_xcodebuild.sh..."
+echo "   CI_PRIMARY_REPOSITORY_PATH: ${CI_PRIMARY_REPOSITORY_PATH}"
 
-# Navigate to the ios directory (CI_PRIMARY_REPOSITORY_PATH is set by Xcode Cloud)
-cd "$CI_PRIMARY_REPOSITORY_PATH/ios"
+# Navigate to the ios directory
+cd "${CI_PRIMARY_REPOSITORY_PATH}/ios"
+echo "   Working directory: $(pwd)"
 
 # --- Generate Secrets.xcconfig ---
 
@@ -23,15 +25,13 @@ SECRETS_FILE="Secrets.xcconfig"
 
 echo "📝 Generating $SECRETS_FILE from environment variables..."
 
-if [ -z "${SENTRY_DSN:-}" ]; then
+if [[ -z "${SENTRY_DSN:-}" ]]; then
     echo "⚠️  Warning: SENTRY_DSN environment variable not set"
     echo "   Sentry crash reporting will be disabled in this build"
     SENTRY_DSN=""
 fi
 
 # Escape :// as :$()/$()/ for xcconfig compatibility (// is treated as a comment)
-# Each slash needs the empty variable prefix to prevent comment parsing
-# Using sed for clearer escaping
 ESCAPED_DSN=$(echo "$SENTRY_DSN" | sed 's|://|:$()/$()/|g')
 
 cat > "$SECRETS_FILE" << EOF
@@ -50,7 +50,7 @@ SENTRY_CLI_RC=".sentryclirc"
 
 echo "📝 Generating $SENTRY_CLI_RC from environment variables..."
 
-if [ -z "${SENTRY_AUTH_TOKEN:-}" ]; then
+if [[ -z "${SENTRY_AUTH_TOKEN:-}" ]]; then
     echo "⚠️  Warning: SENTRY_AUTH_TOKEN environment variable not set"
     echo "   dSYM upload will be skipped in this build"
 else
