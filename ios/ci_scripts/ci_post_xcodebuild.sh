@@ -14,8 +14,15 @@
 set -eo pipefail
 
 echo "🔧 Running ci_post_xcodebuild.sh..."
+echo "   CI_XCODEBUILD_ACTION: ${CI_XCODEBUILD_ACTION:-<not set>}"
 
-# Only run if archive exists (i.e., this is an archive build)
+# Only upload dSYMs for archive builds
+if [[ "${CI_XCODEBUILD_ACTION:-}" != "archive" ]]; then
+    echo "⏭️  Skipping dSYM upload (only needed for archive builds)"
+    exit 0
+fi
+
+# Only run if archive exists
 if [[ -z "${CI_ARCHIVE_PATH:-}" ]] || [[ ! -d "${CI_ARCHIVE_PATH:-}" ]]; then
     echo "⏭️  Archive path not available - skipping dSYM upload"
     exit 0
@@ -37,7 +44,7 @@ if [[ -z "${SENTRY_PROJECT:-}" ]]; then
     exit 1
 fi
 
-# Determine script directory for sentry-cli installation
+# Install sentry-cli
 SCRIPT_DIR="${0:A:h}"
 export INSTALL_DIR="$SCRIPT_DIR"
 
@@ -51,7 +58,7 @@ echo "   Organization: ${SENTRY_ORG}"
 echo "   Project: ${SENTRY_PROJECT}"
 echo "   Archive path: ${CI_ARCHIVE_PATH}"
 
-# Use local sentry-cli if installed to script directory, otherwise use PATH
+# Use local sentry-cli if available
 if [[ -f "$SCRIPT_DIR/sentry-cli" ]]; then
     SENTRY_CLI="$SCRIPT_DIR/sentry-cli"
 else

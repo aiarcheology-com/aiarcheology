@@ -13,17 +13,21 @@
 set -eo pipefail
 
 echo "🔧 Running ci_pre_xcodebuild.sh..."
+echo "   CI_XCODEBUILD_ACTION: ${CI_XCODEBUILD_ACTION:-<not set>}"
 
-# Check if we're on the build machine (has CI_PRIMARY_REPOSITORY_PATH)
-# vs a test device (has TEST_RUNNER_ prefixed vars instead)
+# Skip for test-without-building (secrets already in compiled app)
+if [[ "${CI_XCODEBUILD_ACTION:-}" == "test-without-building" ]]; then
+    echo "⏭️  Skipping secrets generation (test-without-building uses pre-built app)"
+    exit 0
+fi
+
+# Verify we're on the build machine
 if [[ -z "${CI_PRIMARY_REPOSITORY_PATH:-}" ]]; then
-    echo "⏭️  CI_PRIMARY_REPOSITORY_PATH not set (likely running on test device)"
-    echo "   Skipping secrets generation - not needed for test execution"
+    echo "⏭️  CI_PRIMARY_REPOSITORY_PATH not set - skipping"
     exit 0
 fi
 
 echo "   CI_PRIMARY_REPOSITORY_PATH: ${CI_PRIMARY_REPOSITORY_PATH}"
-echo "   CI_XCODEBUILD_ACTION: ${CI_XCODEBUILD_ACTION:-<not set>}"
 
 # Navigate to the ios directory
 cd "${CI_PRIMARY_REPOSITORY_PATH}/ios"
