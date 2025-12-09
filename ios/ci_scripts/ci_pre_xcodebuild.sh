@@ -13,7 +13,17 @@
 set -eo pipefail
 
 echo "🔧 Running ci_pre_xcodebuild.sh..."
+
+# Check if we're on the build machine (has CI_PRIMARY_REPOSITORY_PATH)
+# vs a test device (has TEST_RUNNER_ prefixed vars instead)
+if [[ -z "${CI_PRIMARY_REPOSITORY_PATH:-}" ]]; then
+    echo "⏭️  CI_PRIMARY_REPOSITORY_PATH not set (likely running on test device)"
+    echo "   Skipping secrets generation - not needed for test execution"
+    exit 0
+fi
+
 echo "   CI_PRIMARY_REPOSITORY_PATH: ${CI_PRIMARY_REPOSITORY_PATH}"
+echo "   CI_XCODEBUILD_ACTION: ${CI_XCODEBUILD_ACTION:-<not set>}"
 
 # Navigate to the ios directory
 cd "${CI_PRIMARY_REPOSITORY_PATH}/ios"
@@ -42,7 +52,7 @@ cat > "$SECRETS_FILE" << EOF
 SENTRY_DSN = ${ESCAPED_DSN}
 EOF
 
-echo "   ✓ Created $SECRETS_FILE"
+echo "   ✅ Created $SECRETS_FILE"
 
 # --- Generate .sentryclirc ---
 
@@ -61,7 +71,7 @@ else
 [auth]
 token=${SENTRY_AUTH_TOKEN}
 EOF
-    echo "   ✓ Created $SENTRY_CLI_RC"
+    echo "   ✅ Created $SENTRY_CLI_RC"
 fi
 
 echo "✅ ci_pre_xcodebuild.sh completed successfully"
