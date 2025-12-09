@@ -80,27 +80,29 @@ final class SequenceExtensionsTests: XCTestCase {
     
     func test_concurrentForEach_runsConcurrently() async {
         let items = [1, 2, 3]
-        let startTime = Date()
+        let concurrencyTracker = ConcurrencyTracker()
         
         await items.concurrentForEach { _ in
-            try? await Task.sleep(nanoseconds: 50_000_000) // 50ms each
+            await concurrencyTracker.taskStarted()
+            try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+            await concurrencyTracker.taskEnded()
         }
         
-        let elapsed = Date().timeIntervalSince(startTime)
-        // If truly concurrent, should take ~50ms, not 150ms
-        XCTAssertLessThan(elapsed, 0.15, "Should run concurrently, not sequentially")
+        let maxConcurrent = await concurrencyTracker.maxConcurrentTasks
+        // If truly concurrent, multiple tasks should overlap
+        XCTAssertGreaterThan(maxConcurrent, 1, "Tasks should run concurrently (max concurrent: \(maxConcurrent))")
     }
     
-    func test_concurrentForEach_largeCollection_completesInReasonableTime() async {
+    func test_concurrentForEach_largeCollection_processesAll() async {
         let items = Array(1...1000)
-        let startTime = Date()
+        let counter = Counter()
         
         await items.concurrentForEach { _ in
-            // Minimal work
+            await counter.increment()
         }
         
-        let elapsed = Date().timeIntervalSince(startTime)
-        XCTAssertLessThan(elapsed, 1.0, "1000 items should complete quickly")
+        let count = await counter.value
+        XCTAssertEqual(count, 1000, "All 1000 items should be processed")
     }
     
     // MARK: - concurrentForEach Type Tests
@@ -206,5 +208,20 @@ actor ResultsStore<T> {
     
     func clear() {
         values.removeAll()
+    }
+}
+
+/// Tracks concurrent task execution to verify parallelism
+actor ConcurrencyTracker {
+    private var currentTasks = 0
+    private(set) var maxConcurrentTasks = 0
+    
+    func taskStarted() {
+        currentTasks += 1
+        maxConcurrentTasks = max(maxConcurrentTasks, currentTasks)
+    }
+    
+    func taskEnded() {
+        currentTasks -= 1
     }
 }
