@@ -44,31 +44,8 @@ if [[ -z "${SENTRY_PROJECT:-}" ]]; then
     exit 1
 fi
 
-# Install sentry-cli
+# Use unified upload script
 SCRIPT_DIR="${0:A:h}"
-export INSTALL_DIR="$SCRIPT_DIR"
+"${SCRIPT_DIR}/upload_symbols.sh" "$CI_ARCHIVE_PATH"
 
-if ! command -v sentry-cli &> /dev/null && [[ ! -f "$SCRIPT_DIR/sentry-cli" ]]; then
-    echo "📦 Installing sentry-cli..."
-    curl -sL https://sentry.io/get-cli/ | bash
-fi
-
-echo "📤 Uploading dSYM files to Sentry..."
-echo "   Organization: ${SENTRY_ORG}"
-echo "   Project: ${SENTRY_PROJECT}"
-echo "   Archive path: ${CI_ARCHIVE_PATH}"
-
-# Use local sentry-cli if available
-if [[ -f "$SCRIPT_DIR/sentry-cli" ]]; then
-    SENTRY_CLI="$SCRIPT_DIR/sentry-cli"
-else
-    SENTRY_CLI="sentry-cli"
-fi
-
-$SENTRY_CLI --auth-token "$SENTRY_AUTH_TOKEN" \
-    upload-dif \
-    --org "$SENTRY_ORG" \
-    --project "$SENTRY_PROJECT" \
-    "$CI_ARCHIVE_PATH"
-
-echo "✅ dSYM upload complete"
+echo "✅ ci_post_xcodebuild.sh completed successfully"

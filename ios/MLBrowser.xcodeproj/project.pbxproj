@@ -961,7 +961,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# This script is responsible for uploading debug symbols and source context for Sentry.\n\n# Skip on CI - ci_post_xcodebuild.sh handles upload there\nif [[ \"${CI:-}\" == \"TRUE\" ]]; then\n    echo \"Skipping Sentry upload (CI environment - handled by ci_post_xcodebuild.sh)\"\n    exit 0\nfi\n\n# Only upload for Release/archive builds\nif [[ \"${CONFIGURATION}\" != \"Release\" ]]; then\n    exit 0\nfi\n\nif which sentry-cli >/dev/null; then\n  export SENTRY_ORG=ai-archeology\n  export SENTRY_PROJECT=apple-ios-ml-browser\n  ERROR=$(sentry-cli debug-files upload --include-sources \"$DWARF_DSYM_FOLDER_PATH\" 2>&1 >/dev/null)\n  if [ ! $? -eq 0 ]; then\n    echo \"warning: sentry-cli - $ERROR\"\n  fi\nelse\n  echo \"warning: sentry-cli not installed, download from https://github.com/getsentry/sentry-cli/releases\"\nfi\n";
+			shellScript = "# Upload Debug Symbols to Sentry\ngit update-index --chmod=+x ios/ci_scripts/upload_symbols.sh\n# Skip on CI - ci_post_xcodebuild.sh handles upload there\nif [[ \"${CI:-}\" == \"TRUE\" ]]; then\n    echo \"Skipping Sentry upload (CI environment)\"\n    exit 0\nfi\n\n# Only upload for Release builds\nif [[ \"${CONFIGURATION}\" != \"Release\" ]]; then\n    echo \"Skipping Sentry upload (${CONFIGURATION} build)\"\n    exit 0\nfi\n\n# Use unified upload script\nSCRIPT_PATH=\"${SRCROOT}/ci_scripts/upload_symbols.sh\"\nif [[ -f \"$SCRIPT_PATH\" ]]; then\n    \"$SCRIPT_PATH\" \"$DWARF_DSYM_FOLDER_PATH\"\nelse\n    echo \"warning: upload_symbols.sh not found at $SCRIPT_PATH\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
