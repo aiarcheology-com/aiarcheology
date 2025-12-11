@@ -57,11 +57,17 @@ protocol CrashReportingService: Sendable {
 /// ```
 enum Observability {
     
-    // MARK: - Configuration
+    // MARK: - Thread-Safe State (Write-Once Pattern)
     
-    private static let queue = DispatchQueue(label: "com.aiarcheology.observability", attributes: .concurrent)
-    nonisolated(unsafe) private static var _service: CrashReportingService?
-    nonisolated(unsafe) private static var _isStarted = false
+    /// The service reference. Write-once during start(), then read-only forever.
+    /// Uses nonisolated(unsafe) with careful ordering: _service is set BEFORE _isStarted.
+    /// This ensures any thread that sees _isStarted==true will also see _service set.
+    private nonisolated(unsafe) static var _service: CrashReportingService?
+    
+    /// Lock protects ONLY the initialization path to prevent double-start.
+    /// After initialization, _service can be read lock-free (it never changes).
+    private static let initLock = OSAllocatedUnfairLock<Void>(initialState: ())
+    private nonisolated(unsafe) static var _isStarted = false
     
     // MARK: - Initialization
     
@@ -71,24 +77,29 @@ enum Observability {
     /// - Parameter service: The crash reporting service implementation to use.
     ///                      Use `NoOpCrashReportingService()` to disable remote reporting.
     static func start(with service: CrashReportingService) {
-        queue.async(flags: .barrier) {
+        // Lock ensures only one thread can initialize
+        let didInitialize = initLock.withLock { () -> Bool in
             guard !_isStarted else {
-                // Use Logger directly here to avoid circular dependency with LoggingPolicy
                 Logger.logger.warning("Observability.start() called multiple times - ignoring")
-                return
+                return false
             }
+            // Order matters: set _service BEFORE _isStarted
+            // Lock release provides memory barrier ensuring visibility
             _service = service
             _isStarted = true
+            return true
         }
         
-        // Start the service outside the barrier to avoid blocking
+        guard didInitialize else { return }
+        
         service.start()
         Logger.logger.info("Observability started with \(String(describing: type(of: service)))")
     }
     
-    /// Check if observability has been started
+    /// Check if observability has been started.
+    /// Lock-free read - safe because _isStarted transitions false→true exactly once.
     static var isStarted: Bool {
-        queue.sync { _isStarted }
+        _isStarted
     }
     
     // MARK: - Breadcrumbs (FREE - attached to crash reports)
@@ -105,7 +116,8 @@ enum Observability {
         level: BreadcrumbLevel = .info,
         category: String = "app.log"
     ) {
-        guard let service = queue.sync(execute: { _service }) else { return }
+        // Lock-free read: safe because _service is write-once and set before isStarted
+        guard let service = _service else { return }
         service.addBreadcrumb(message: message, level: level, category: category)
     }
     
@@ -118,7 +130,7 @@ enum Observability {
     ///   - message: Error description
     ///   - error: Optional underlying error
     static func captureError(_ message: String, error: Error? = nil) {
-        guard let service = queue.sync(execute: { _service }) else { return }
+        guard let service = _service else { return }
         service.captureError(message: message, error: error)
     }
     
@@ -127,7 +139,7 @@ enum Observability {
     ///
     /// - Parameter message: Fault description
     static func captureFault(_ message: String) {
-        guard let service = queue.sync(execute: { _service }) else { return }
+        guard let service = _service else { return }
         service.captureFault(message: message)
     }
     
@@ -138,7 +150,7 @@ enum Observability {
     ///   - value: Attribute value (must be privacy-safe)
     ///   - key: Attribute key
     static func setCustomValue(_ value: String, forKey key: String) {
-        guard let service = queue.sync(execute: { _service }) else { return }
+        guard let service = _service else { return }
         service.setCustomValue(value, forKey: key)
     }
 }

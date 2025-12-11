@@ -14,25 +14,13 @@ import OSLog
 class DependencyContainer {
 	static let shared = DependencyContainer()
 	
-	lazy var crashReporter: CrashReportingService = {
-		let reportingRate: Float = 0.5
-		let reporter: CrashReportingService = (AppEnvironment.isRunningUnderAnyTests || AppEnvironment.isDebugConfiguration)
-			? NoOpCrashReportingService() : SentryCrashReportingService(tracesSampleRate: reportingRate)
-		
-		Logger.app.info(
-			"""
-			
-			XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-			
-				Observability set with reportingRate: \(reportingRate)
-				Consider reducing reporting rate in production builds < 0.1.
-				
-			XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-			"""
-		)
-			
-		return reporter
-	}()
+	// MARK: - Crash Reporting (Eager Initialization)
+	
+	/// The crash reporting service. Initialized eagerly to ensure Observability
+	/// is started before any code can call DefaultCrashReporter.shared.
+	let crashReporter: CrashReportingService
+	
+	// MARK: - Lazy Dependencies
     
     lazy var dataController: DataController = {
         return DataController()
@@ -58,6 +46,33 @@ class DependencyContainer {
         return DemoDataManager(dataController: self.dataController)
     }()
     
-    private init() {}
+	// MARK: - Initialization
+	
+    private init() {
+		self.crashReporter = Self.crashReporterFactory()
+	}
+	
+	private static func crashReporterFactory() -> CrashReportingService {
+		// Create crash reporter FIRST - this must happen before anything else
+		let reportingRate: Float = 0.5
+		let reporter: CrashReportingService = (AppEnvironment.isRunningUnderAnyTests || AppEnvironment.isDebugConfiguration)
+			? NoOpCrashReportingService()
+			: SentryCrashReportingService(tracesSampleRate: reportingRate)
+
+		Logger.app.info(
+			"""
+			
+			XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+			
+				Observability initialized with reportingRate: \(reportingRate)
+				isDebug: \(AppEnvironment.isDebugConfiguration)
+				isTests: \(AppEnvironment.isRunningUnderAnyTests)
+				
+			XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+			"""
+		)
+		
+		return reporter
+	}
 }
 
