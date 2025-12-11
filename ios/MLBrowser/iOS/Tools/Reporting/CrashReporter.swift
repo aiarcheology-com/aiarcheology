@@ -14,12 +14,12 @@ import OSLog
 
 /// Severity levels for breadcrumbs
 enum BreadcrumbLevel: String, Sendable {
-	case none
+	case none // No severity; use to suppress breadcrumb recording or indicate absence of a level.
 	case debug
 	case info
 	case warning
 	case error
-	case fatal
+	case fatal // Fatal severity; indicates an unrecoverable error or crash, typically logged as a fault. Use for critical failures beyond `.error`.
 }
 
 /// Protocol for crash reporting services integration.
