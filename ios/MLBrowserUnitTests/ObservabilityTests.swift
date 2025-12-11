@@ -160,6 +160,10 @@ final class BreadcrumbLevelTests: XCTestCase {
 		XCTAssertEqual(BreadcrumbLevel.debug.rawValue, "debug")
 	}
 	
+	func test_none_hasCorrectRawValue() {
+		XCTAssertEqual(BreadcrumbLevel.none.rawValue, "none")
+	}
+	
 	func test_info_hasCorrectRawValue() {
 		XCTAssertEqual(BreadcrumbLevel.info.rawValue, "info")
 	}
@@ -170,6 +174,10 @@ final class BreadcrumbLevelTests: XCTestCase {
 	
 	func test_error_hasCorrectRawValue() {
 		XCTAssertEqual(BreadcrumbLevel.error.rawValue, "error")
+	}
+	
+	func test_fatal_hasCorrectRawValue() {
+		XCTAssertEqual(BreadcrumbLevel.fatal.rawValue, "fatal")
 	}
 	
 	func test_allCases_haveUniqueRawValues() {
