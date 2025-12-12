@@ -197,3 +197,64 @@ final class BreadcrumbLevelTests: XCTestCase {
 		XCTAssertNotNil(level)
 	}
 }
+
+// MARK: - SentryCrashReportingService Tests
+
+final class SentryCrashReportingServiceTests: XCTestCase {
+	
+	func test_toSentryLevel_mappings_coverAllCases() {
+		XCTAssertEqual(BreadcrumbLevel.none.toSentryLevel(), .none)
+		XCTAssertEqual(BreadcrumbLevel.debug.toSentryLevel(), .debug)
+		XCTAssertEqual(BreadcrumbLevel.info.toSentryLevel(), .info)
+		XCTAssertEqual(BreadcrumbLevel.warning.toSentryLevel(), .warning)
+		XCTAssertEqual(BreadcrumbLevel.error.toSentryLevel(), .error)
+		XCTAssertEqual(BreadcrumbLevel.fatal.toSentryLevel(), .fatal)
+	}
+	
+	func test_start_withoutDsn_doesNotCrash() {
+		// With nil DSN the service should no-op without throwing or crashing.
+		let sut = SentryCrashReportingService(dsn: nil, tracesSampleRate: 1.0, enableProfiling: false)
+		sut.start() // should early-return and not crash
+	}
+	
+	func test_start_withEmptyDsn_doesNotCrash() {
+		let sut = SentryCrashReportingService(dsn: "", tracesSampleRate: 0.25, enableProfiling: true)
+		sut.start() // should early-return and not crash
+	}
+	
+	func test_initialization_storesParameters() {
+		let sut = SentryCrashReportingService(dsn: "https://example", tracesSampleRate: 0.25, enableProfiling: true)
+		
+		XCTAssertEqual(try? sut.privateValue(for: "dsn") as? String, "https://example")
+		XCTAssertEqual(try? sut.privateValue(for: "tracesSampleRate") as? Float, 0.25)
+		XCTAssertEqual(try? sut.privateValue(for: "enableProfiling") as? Bool, true)
+	}
+	
+	func test_start_idempotent_onMainThread() {
+		// Sentry SDK expects main-thread initialization (it touches UIApplication).
+		// Verify repeated calls on main thread do not crash.
+		let sut = SentryCrashReportingService(dsn: nil, tracesSampleRate: 0.1, enableProfiling: false)
+		for _ in 0..<3 {
+			sut.start()
+		}
+	}
+}
+
+// MARK: - Test helpers
+
+private enum MirrorError: Error {
+	case propertyNotFound(String)
+}
+
+private extension SentryCrashReportingService {
+	func privateValue(for property: String) throws -> Any {
+		var mirror: Mirror? = Mirror(reflecting: self)
+		while let current = mirror {
+			if let child = current.children.first(where: { $0.label == property }) {
+				return child.value
+			}
+			mirror = current.superclassMirror
+		}
+		throw MirrorError.propertyNotFound(property)
+	}
+}

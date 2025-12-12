@@ -119,7 +119,7 @@ final class SentryCrashReportingService: CrashReportingService {
 
 // MARK: - BreadcrumbLevel to Sentry Mapping
 
-private extension BreadcrumbLevel {
+extension BreadcrumbLevel {
 	func toSentryLevel() -> SentryLevel {
 		switch self {
 		case .none:
