@@ -332,7 +332,7 @@ struct ModelImportView: View {
         
         guard let relativePath = try? modelURL.relativePath(from: DeepConfiguration.rootDirectory) else {
             moc.delete(configuration)
-            Logger.configuration.logError("Failed to compute relative path for model file")
+            LoggingPolicy.error("Failed to compute relative path for model file", logger: .configuration)
             throw ImportError.invalidPath
         }
         

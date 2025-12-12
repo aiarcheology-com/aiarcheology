@@ -38,7 +38,7 @@ final class AppState: ObservableObject {
 	@Published private(set) var isReady = false
 	
 	init() {
-		Logger.state.logInfo("AppState initializing")
+		LoggingPolicy.debug("AppState initializing", logger: .lifecycle)
 		Task {
 			await initialize()
 		}
@@ -53,6 +53,6 @@ final class AppState: ObservableObject {
 		
 		// 3. Signal ready
 		isReady = true
-		Logger.state.logInfo("AppState ready")
+		LoggingPolicy.debug("AppState ready", logger: .lifecycle)
 	}
 }

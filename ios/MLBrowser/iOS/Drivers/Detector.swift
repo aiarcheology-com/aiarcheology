@@ -25,20 +25,20 @@ fileprivate final class DetectorVisionRequestProxy: @unchecked Sendable {
     
     func handleCompletion(request: VNRequest, error: Error?) {
         if let error = error {
-            Logger.drivers.logError("Object detection request failed: \(error.localizedDescription)")
+            LoggingPolicy.error("Object detection request failed", error: error, logger: .drivers)
             DefaultCrashReporter.shared.recordError(error, context: ["operation": "detection"])
             return
         }
         
         guard let observations = request.results as? [VNRecognizedObjectObservation] else {
-            Logger.drivers.logWarning("Detection request results could not be cast to VNRecognizedObjectObservation")
+            LoggingPolicy.warning("Detection request results could not be cast to VNRecognizedObjectObservation", logger: .drivers)
             return
         }
         
         Task {
             guard let owner = self.owner else { return }
             await owner.updateDetectionResults(observations: observations)
-            Logger.drivers.logDebug("Detection completed with \(observations.count) observations")
+            LoggingPolicy.debug("Detection completed with \(observations.count) observations", logger: .drivers)
         }
     }
 }
@@ -56,12 +56,12 @@ actor Detector: DeepDriver {
     init(params: DeepDriverParams) {
         self.id = params.entityId
         self.params = params
-        Logger.drivers.logDebug("Detector initialized with ID \(id)")
+        LoggingPolicy.debug("Detector initialized with ID \(id)", logger: .drivers)
     }
     
     func updateConfiguration(_ params: DeepDriverParams) async {
         self.params = params
-        Logger.drivers.logDebug("Detector updated with ID \(id)")
+        LoggingPolicy.debug("Detector updated with ID \(id)", logger: .drivers)
     }
     
     
@@ -71,22 +71,23 @@ actor Detector: DeepDriver {
     
     func loadFile() async throws {
         guard let path = self.params.file else {
-            Logger.drivers.logError("Detector loadFile failed: file path is nil")
+            LoggingPolicy.error("Detector loadFile failed: file path is nil", logger: .drivers)
             throw DetectorError.loadError
         }
         
-        Logger.drivers.logInfo("Loading detector model from \(path.absoluteString)")
+        LoggingPolicy.debug("Loading detector model from \(path.absoluteString)", logger: .drivers)
         
         guard let model = try await Self.loadModel(from: path, demo: params.demo) else {
-            Logger.drivers.logError("Failed to load ML model from \(path.absoluteString)")
+            LoggingPolicy.error("Failed to load ML model from \(path.absoluteString)", logger: .drivers)
             throw DetectorError.loadError
         }
         
-        Logger.drivers.logInfo("Model successfully loaded from \(path.lastPathComponent)")
+        LoggingPolicy.debug("Model successfully loaded from \(path.lastPathComponent)", logger: .drivers)
+        
         objectDetectionModel = try VNCoreMLModel(for: model)
         
         guard let detecionModel = objectDetectionModel else {
-            Logger.drivers.logError("Failed to create VNCoreMLModel from loaded model")
+            LoggingPolicy.error("Failed to create VNCoreMLModel from loaded model", logger: .drivers)
             throw DetectorError.coreModelLoadError
         }
         
@@ -107,13 +108,13 @@ actor Detector: DeepDriver {
         ciImage = nil
         detectionRequest = nil
         objectDetectionModel = nil
-        Logger.drivers.logDebug("Detector unloaded")
+        LoggingPolicy.debug("Detector unloaded", logger: .drivers)
     }
     
     func process(image: UIImage) async {
         ciImage = CIImage(image: image)
         guard let ciImage else {
-            Logger.drivers.logWarning("Failed to create CIImage from UIImage")
+            LoggingPolicy.warning("Failed to create CIImage from UIImage", logger: .drivers)
             return
         }
         handler = VNImageRequestHandler(ciImage: ciImage)
@@ -121,14 +122,14 @@ actor Detector: DeepDriver {
     
     func detect() async {
         guard let detectionRequest else {
-            Logger.drivers.logDebug("Detection skipped: detection request not initialized")
+            LoggingPolicy.debug("Detection skipped: detection request not initialized", logger: .drivers)
             return
         }
         
         do {
             try handler?.perform([detectionRequest])
         } catch {
-            Logger.drivers.logError("Failed to perform detection: \(error.localizedDescription)")
+            LoggingPolicy.error("Failed to perform detection", error: error, logger: .drivers)
             DefaultCrashReporter.shared.recordError(error, context: ["operation": "performDetection"])
         }
     }

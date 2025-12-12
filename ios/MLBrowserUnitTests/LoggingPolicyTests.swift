@@ -2,7 +2,7 @@
 //  LoggingPolicyTests.swift
 //  AI ArcheologyTests
 //
-//  Created by AI Assistant on 25.11.25.
+//  Tests for LoggingPolicy and LoggingError.
 //
 
 import XCTest
@@ -97,20 +97,42 @@ final class LoggingErrorTests: XCTestCase {
 
 final class LoggingPolicyTests: XCTestCase {
     
-    // Note: Most LoggingPolicy methods call Logger methods which we can't easily verify
-    // without mocking. These tests verify the methods don't crash.
+    override func setUp() {
+        super.setUp()
+        // Ensure Observability is started for tests
+        // Using NoOp to avoid actual Sentry calls during tests
+        if !Observability.isStarted {
+            Observability.start(with: NoOpCrashReportingService())
+        }
+    }
+    
+    // Note: These tests verify the methods don't crash.
+    // Full integration testing would require mocking Observability.
+    
+    // MARK: - Basic Logging Tests
     
     func testDebug_DoesNotCrash() {
-        // Should not throw or crash
         LoggingPolicy.debug("Test debug message")
+    }
+    
+    func testDebug_WithCategory_DoesNotCrash() {
+        LoggingPolicy.debug("Test debug message", category: "test.category")
     }
     
     func testInfo_DoesNotCrash() {
         LoggingPolicy.info("Test info message")
     }
     
+    func testInfo_WithCategory_DoesNotCrash() {
+        LoggingPolicy.info("Test info message", category: "navigation")
+    }
+    
     func testWarning_DoesNotCrash() {
         LoggingPolicy.warning("Test warning message")
+    }
+    
+    func testWarning_WithCategory_DoesNotCrash() {
+        LoggingPolicy.warning("Test warning message", category: "network")
     }
     
     func testError_WithoutError_DoesNotCrash() {
@@ -122,14 +144,70 @@ final class LoggingPolicyTests: XCTestCase {
         LoggingPolicy.error("Test error message", error: testError)
     }
     
+    func testError_WithCategory_DoesNotCrash() {
+        LoggingPolicy.error("Test error message", category: "persistence")
+    }
+    
     func testFault_DoesNotCrash() {
         LoggingPolicy.fault("Test fault message")
+    }
+    
+    func testFault_WithCategory_DoesNotCrash() {
+        LoggingPolicy.fault("Test fault message", category: "critical")
     }
     
     func testDebugPrivate_DoesNotCrash() {
         LoggingPolicy.debugPrivate("Test private message")
     }
     
+    // MARK: - Empty Message Tests
+    
+    func testDebug_EmptyMessage_DoesNotCrash() {
+        LoggingPolicy.debug("")
+    }
+    
+    func testInfo_EmptyMessage_DoesNotCrash() {
+        LoggingPolicy.info("")
+    }
+    
+    func testWarning_EmptyMessage_DoesNotCrash() {
+        LoggingPolicy.warning("")
+    }
+    
+    func testError_EmptyMessage_DoesNotCrash() {
+        LoggingPolicy.error("")
+    }
+    
+    func testFault_EmptyMessage_DoesNotCrash() {
+        LoggingPolicy.fault("")
+    }
+    
+    // MARK: - Long Message Tests
+    
+    func testDebug_LongMessage_DoesNotCrash() {
+        let longMessage = String(repeating: "A", count: 10000)
+        LoggingPolicy.debug(longMessage)
+    }
+    
+    func testInfo_LongMessage_DoesNotCrash() {
+        let longMessage = String(repeating: "B", count: 10000)
+        LoggingPolicy.info(longMessage)
+    }
+    
+    func testError_LongMessage_DoesNotCrash() {
+        let longMessage = String(repeating: "C", count: 10000)
+        LoggingPolicy.error(longMessage)
+    }
+    
+    // MARK: - Unicode Tests
+    
+    func testInfo_UnicodeMessage_DoesNotCrash() {
+        LoggingPolicy.info("Unicode: 你好世界 🌍 مرحبا")
+    }
+    
+    func testError_UnicodeMessage_DoesNotCrash() {
+        LoggingPolicy.error("Error with unicode: 错误 ⚠️")
+    }
+    
     // Note: criticalFailure and assertionFailure are not tested as they terminate/assert
 }
-

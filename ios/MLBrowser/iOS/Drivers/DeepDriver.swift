@@ -59,11 +59,11 @@ extension DeepDriver {
 		let compiledModelURL = demo ? path : try await MLModel.compileModel(at: path)
 		
 		do {
-			Logger.drivers.logDebug("Loading MLModel from \(compiledModelURL.lastPathComponent)")
+			LoggingPolicy.debug("Loading MLModel from \(compiledModelURL.lastPathComponent)", logger: .drivers)
 			return try await MLModel.load(contentsOf: compiledModelURL, configuration: modelConfiguration)
 		}
 		catch {
-			Logger.drivers.logError("Error loading MLModel: \(error.localizedDescription)")
+			LoggingPolicy.error("Error loading MLModel", error: error, logger: .drivers)
 			DefaultCrashReporter.shared.recordError(error, context: ["operation": "loadMLModel", "path": compiledModelURL.lastPathComponent])
 			return nil
 		}
@@ -76,7 +76,7 @@ extension DeepDriver {
 			phaseOutTime: newConfiguration.phaseOutTime,
 			selectedSymbol: newConfiguration.selectedSymbol
 		)
-		Logger.drivers.logDebug("Configuration updated for driver \(newConfiguration.entityId.uuidString)")
+		LoggingPolicy.debug("Configuration updated for driver \(newConfiguration.entityId.uuidString)", logger: .drivers)
 	}
 }
 
@@ -99,7 +99,7 @@ class DeepDrivers: ObservableObject {
 				classificators.append(driver)
 			}
 		case .invalid:
-			Logger.drivers.logError("Attempted to register driver with invalid type.")
+			LoggingPolicy.error("Attempted to register driver with invalid type.", logger: .drivers)
 		}
 	}
 	
@@ -107,7 +107,7 @@ class DeepDrivers: ObservableObject {
 		let entityId = configuration.entityId
 		let drivers = (detectors + classificators).filter { $0.id == entityId }
 		if drivers.count >= 2 {
-			Logger.drivers.logWarning("Multiple drivers found with same configuration.entityId: \(entityId.uuidString)")
+			LoggingPolicy.warning("Multiple drivers found with same configuration.entityId: \(entityId.uuidString)", logger: .drivers)
 		}
 		Task {
 			await drivers.first?.updateConfiguration(configuration)
@@ -144,7 +144,7 @@ class DeepDrivers: ObservableObject {
 				}
 			}
 		case .invalid:
-			Logger.drivers.logError("Attempted to register driver with invalid type.")
+			LoggingPolicy.error("Attempted to unload driver with invalid type.", logger: .drivers)
 		}
 	}
 	

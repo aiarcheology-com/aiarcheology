@@ -2,71 +2,84 @@
 //  CrashReporter.swift
 //  AI Archeology
 //
-//  Created for logging and crash reporting infrastructure
+//  Legacy crash reporting abstraction.
+//  Delegates to Observability for actual implementation.
+//
+//  NOTE: New code should use LoggingPolicy or Observability directly.
+//  This file exists for backward compatibility with existing call sites.
 //
 
 import Foundation
 import OSLog
 
-/// Protocol for crash reporting services integration (e.g., Crashlytics, Sentry)
-/// This provides a clean abstraction layer for future crash reporting integration
-protocol CrashReporter {
-    /// Records a non-fatal error for later analysis
-    /// - Parameters:
-    ///   - error: The error to record
-    ///   - context: Additional context about where/when the error occurred
-    func recordError(_ error: Error, context: [String: Any]?)
-    
-    /// Records a custom message as a breadcrumb for debugging
-    /// - Parameters:
-    ///   - message: The message to record
-    ///   - level: The severity level (debug, info, warning, error)
-    func recordBreadcrumb(_ message: String, level: BreadcrumbLevel)
-    
-    /// Sets custom user attributes for crash reports
-    /// - Parameters:
-    ///   - key: The attribute key
-    ///   - value: The attribute value (must be privacy-safe)
-    func setCustomValue(_ value: String, forKey key: String)
-}
-
 /// Severity levels for breadcrumbs
-enum BreadcrumbLevel: String {
-    case debug
-    case info
-    case warning
-    case error
+enum BreadcrumbLevel: String, Sendable {
+	case none // No severity; use to suppress breadcrumb recording or indicate absence of a level.
+	case debug
+	case info
+	case warning
+	case error
+	case fatal // Fatal severity; indicates an unrecoverable error or crash, typically logged as a fault. Use for critical failures beyond `.error`.
 }
 
-/// Default implementation that logs to OSLog
-/// Replace with actual crash reporting service implementation when needed
+/// Protocol for crash reporting services integration.
+/// Prefer using LoggingPolicy or Observability directly in new code.
+protocol CrashReporter: Sendable {
+	/// Records a non-fatal error for later analysis
+	func recordError(_ error: Error, context: [String: Any]?)
+	
+	/// Records a custom message as a breadcrumb for debugging
+	func recordBreadcrumb(_ message: String, level: BreadcrumbLevel)
+	
+	/// Sets custom user attributes for crash reports
+	func setCustomValue(_ value: String, forKey key: String)
+}
+
+/// Default implementation that delegates to Observability.
+/// This ensures all crash reporting goes through the same channel.
 final class DefaultCrashReporter: CrashReporter, Sendable {
-    static let shared = DefaultCrashReporter()
-    
-    private init() {}
-    
-    func recordError(_ error: Error, context: [String: Any]?) {
-        var contextString = ""
-        if let context = context {
-            contextString = context.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
-        }
-        Logger.app.logError("Non-fatal error recorded: \(error.localizedDescription) context: \(contextString)")
-    }
-    
-    func recordBreadcrumb(_ message: String, level: BreadcrumbLevel) {
-        switch level {
-        case .debug:
-            Logger.app.logDebug("Breadcrumb: \(message)")
-        case .info:
-            Logger.app.logInfo("Breadcrumb: \(message)")
-        case .warning:
-            Logger.app.logWarning("Breadcrumb: \(message)")
-        case .error:
-            Logger.app.logError("Breadcrumb: \(message)")
-        }
-    }
-    
-    func setCustomValue(_ value: String, forKey key: String) {
-        Logger.app.logDebug("Custom attribute set: \(key)=\(value)")
-    }
+	static let shared = DefaultCrashReporter()
+	
+	private init() {}
+	
+	func recordError(_ error: Error, context: [String: Any]?) {
+		var contextString = ""
+		if let context = context {
+			contextString = " context: " + context.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
+		}
+		
+		let message = "Non-fatal error recorded: \(error.localizedDescription)\(contextString)"
+		
+		// Route through Observability for remote reporting
+		Observability.captureError(message, error: error)
+		
+		// Also log locally
+		Logger.app.logError(message)
+	}
+	
+	func recordBreadcrumb(_ message: String, level: BreadcrumbLevel) {
+		// Route through Observability
+		Observability.recordBreadcrumb(message, level: level, category: "app.breadcrumb")
+		
+		// Also log locally based on level
+		switch level {
+		case .none:
+			break
+		case .debug:
+			Logger.app.logDebug("Breadcrumb: \(message)")
+		case .info:
+			Logger.app.logInfo("Breadcrumb: \(message)")
+		case .warning:
+			Logger.app.logWarning("Breadcrumb: \(message)")
+		case .error:
+			Logger.app.logError("Breadcrumb: \(message)")
+		case .fatal:
+			Logger.app.logFault("Breadcrumb: \(message)")
+		}
+	}
+	
+	func setCustomValue(_ value: String, forKey key: String) {
+		Observability.setCustomValue(value, forKey: key)
+		Logger.app.logDebug("Custom attribute set: \(key)=\(value)")
+	}
 }

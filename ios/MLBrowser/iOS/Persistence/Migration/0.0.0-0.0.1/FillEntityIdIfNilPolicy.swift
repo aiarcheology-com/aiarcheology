@@ -29,10 +29,10 @@ final class FillEntityIdIfNilPolicy: NSEntityMigrationPolicy {
     override func createDestinationInstances(forSource source: NSManagedObject,
                                              in mapping: NSEntityMapping,
                                              manager: NSMigrationManager) throws {
-        Logger.drivers.logInfo("Starting FillEntityIdIfNilPolicy migration for mapping: \(mapping.name ?? "unknown")")
+		LoggingPolicy.info("Starting FillEntityIdIfNilPolicy migration for mapping: \(mapping.name ?? "unknown")", logger: .storage)
         
         guard let destName = mapping.destinationEntityName else {
-            Logger.drivers.logWarning("No destination entity name found, skipping migration")
+			LoggingPolicy.warning("No destination entity name found, skipping migration", logger: .storage)
             return
         }
         let destination = NSEntityDescription.insertNewObject(forEntityName: destName,
@@ -47,17 +47,17 @@ final class FillEntityIdIfNilPolicy: NSEntityMigrationPolicy {
         }
         
         if let uuid = source.value(forKey: MigrationKeys.Source.entityId) as? UUID {
-            Logger.drivers.logInfo("Copying existing entityId: \(uuid)")
+			LoggingPolicy.info("Copying existing entityId: \(uuid)", logger: .storage)
             destination.setValue(uuid, forKey: MigrationKeys.Destination.entityId)
         } else {
             let newUUID = UUID()
-            Logger.drivers.logInfo("Generating new entityId: \(newUUID) (source entityId was nil)")
+            LoggingPolicy.info("Generating new entityId: \(newUUID) (source entityId was nil)", logger: .storage)
             destination.setValue(newUUID, forKey: MigrationKeys.Destination.entityId)
         }
         
         if source.entity.attributesByName.keys.contains(MigrationKeys.Source.modelType),
            let model = source.value(forKey: MigrationKeys.Source.modelType) as? String {
-            Logger.drivers.logInfo("Migrating modelType: \(model)")
+			LoggingPolicy.info("Migrating modelType: \(model)", logger: .storage)
             destination.setValue(model, forKey: MigrationKeys.Destination.modelTypeString)
         }
         
@@ -67,6 +67,6 @@ final class FillEntityIdIfNilPolicy: NSEntityMigrationPolicy {
         
         manager.associate(sourceInstance: source, withDestinationInstance: destination, for: mapping)
         
-        Logger.drivers.logInfo("Completed migration for entity \(destName)")
+        LoggingPolicy.info("Completed migration for entity \(destName)", logger: .storage)
     }
 }

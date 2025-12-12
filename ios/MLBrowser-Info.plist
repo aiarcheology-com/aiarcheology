@@ -12,5 +12,7 @@
 		<string>googlegmail</string>
 		<string>twitter</string>
 	</array>
+	<key>SentryDSN</key>
+	<string>$(SENTRY_DSN)</string>
 </dict>
 </plist>

@@ -30,7 +30,7 @@ func runShellCommand(_ command: String, arguments: [String]) throws -> Int32 {
 struct ProjectTool: ParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "A Swift-based CLI for project setup and maintenance tasks.",
-        subcommands: [GitSetup.self, Cleanup.self] // Define your subcommands here
+        subcommands: [GitSetup.self, Cleanup.self, Secrets.self]
     )
 }
 
@@ -43,7 +43,7 @@ struct GitSetup: ParsableCommand {
     )
 
     func run() throws {
-        let filePath = "./ios/AI Archeology/iOS/Persistence/MLBrowser.xcdatamodeld/MLBrowser.xcdatamodel/contents"
+        let filePath = "./ios/MLBrowser/iOS/Persistence/MLBrowser.xcdatamodeld/MLBrowser.xcdatamodel/contents"
         let arguments = ["update-index", "--assume-unchanged", filePath]
         
         let status = try runShellCommand("git", arguments: arguments)
