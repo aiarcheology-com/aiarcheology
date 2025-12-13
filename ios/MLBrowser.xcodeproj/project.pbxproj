@@ -156,6 +156,7 @@
 		94D79C992EE37DBF0027C9FA /* NSManagedObjectExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79C912EE37DBF0027C9FA /* NSManagedObjectExtensionsTests.swift */; };
 		94D79C9A2EE37DBF0027C9FA /* AppEnvironmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */; };
 		94DF06A22E95C1090024E381 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
+		94E6A66D2EEE1EEB008E1B4B /* MetadataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E6A66C2EEE1EE6008E1B4B /* MetadataParser.swift */; };
 		94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4012ECE46C60047B283 /* DependencyContainer.swift */; };
 		94FCC4032ECE46C60047B283 /* DemoDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4002ECE46C60047B283 /* DemoDataManager.swift */; };
 		94FCC4052ECFD7730047B283 /* DriversTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4042ECFD7730047B283 /* DriversTests.swift */; };
@@ -338,6 +339,7 @@
 		94D79C922EE37DBF0027C9FA /* SequenceExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SequenceExtensionsTests.swift; sourceTree = "<group>"; };
 		94D79C932EE37DBF0027C9FA /* UIExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIExtensionsTests.swift; sourceTree = "<group>"; };
 		94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OSLog+Extensions.swift"; sourceTree = "<group>"; };
+		94E6A66C2EEE1EE6008E1B4B /* MetadataParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataParser.swift; sourceTree = "<group>"; };
 		94FCC4002ECE46C60047B283 /* DemoDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManager.swift; sourceTree = "<group>"; };
 		94FCC4012ECE46C60047B283 /* DependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyContainer.swift; sourceTree = "<group>"; };
 		94FCC4042ECFD7730047B283 /* DriversTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriversTests.swift; sourceTree = "<group>"; };
@@ -793,6 +795,7 @@
 		946A3B782EB5ECE0002CF63C /* Configuration */ = {
 			isa = PBXGroup;
 			children = (
+				94E6A66C2EEE1EE6008E1B4B /* MetadataParser.swift */,
 				941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */,
 				8A1328292B052C7800F119C6 /* ConfigurationForm.swift */,
 			);
@@ -1024,6 +1027,7 @@
 				8A1D49BB2ABB87D500C2D7C1 /* PhotoPicker.swift in Sources */,
 				94DF06A22E95C1090024E381 /* OSLog+Extensions.swift in Sources */,
 				8A112CC42AC0852B00786384 /* String+Extensions.swift in Sources */,
+				94E6A66D2EEE1EEB008E1B4B /* MetadataParser.swift in Sources */,
 				8AC393C32B2B9FD700C9BA57 /* DeviceInfo.swift in Sources */,
 				8AE0BC062A97B0B30086DDF9 /* ContentView.swift in Sources */,
 				8AE0BC042A97B0B30086DDF9 /* MLBrowser.swift in Sources */,
