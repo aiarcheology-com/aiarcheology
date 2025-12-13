@@ -157,6 +157,7 @@
 		94D79C9A2EE37DBF0027C9FA /* AppEnvironmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */; };
 		94DF06A22E95C1090024E381 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
 		94E6A66D2EEE1EEB008E1B4B /* MetadataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E6A66C2EEE1EE6008E1B4B /* MetadataParser.swift */; };
+		94E6A6772EEE224A008E1B4B /* MLModelMetadataParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E6A6762EEE224A008E1B4B /* MLModelMetadataParserTests.swift */; };
 		94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4012ECE46C60047B283 /* DependencyContainer.swift */; };
 		94FCC4032ECE46C60047B283 /* DemoDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4002ECE46C60047B283 /* DemoDataManager.swift */; };
 		94FCC4052ECFD7730047B283 /* DriversTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4042ECFD7730047B283 /* DriversTests.swift */; };
@@ -340,6 +341,7 @@
 		94D79C932EE37DBF0027C9FA /* UIExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIExtensionsTests.swift; sourceTree = "<group>"; };
 		94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OSLog+Extensions.swift"; sourceTree = "<group>"; };
 		94E6A66C2EEE1EE6008E1B4B /* MetadataParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataParser.swift; sourceTree = "<group>"; };
+		94E6A6762EEE224A008E1B4B /* MLModelMetadataParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLModelMetadataParserTests.swift; sourceTree = "<group>"; };
 		94FCC4002ECE46C60047B283 /* DemoDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManager.swift; sourceTree = "<group>"; };
 		94FCC4012ECE46C60047B283 /* DependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyContainer.swift; sourceTree = "<group>"; };
 		94FCC4042ECFD7730047B283 /* DriversTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriversTests.swift; sourceTree = "<group>"; };
@@ -682,7 +684,6 @@
 		8AE0BC192A97B0B40086DDF9 /* MLBrowserUnitTests */ = {
 			isa = PBXGroup;
 			children = (
-				94FFB9D72EE6603B0049A549 /* ObservabilityTests.swift */,
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
 				94D79C8E2EE37DBF0027C9FA /* BundleExtensionsTests.swift */,
 				945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */,
@@ -700,12 +701,14 @@
 				94929E7A2ED63ADE001A4C63 /* GalleryModelTests.swift */,
 				94929E7B2ED63ADE001A4C63 /* GuideTests.swift */,
 				94D79C902EE37DBF0027C9FA /* HostPlatformTests.swift */,
+				94E6A6762EEE224A008E1B4B /* MLModelMetadataParserTests.swift */,
 				941C4FBB2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift */,
 				94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */,
 				942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */,
 				94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */,
 				94929E842ED65555001A4C63 /* LowerPriorityTests.swift */,
 				94D79C912EE37DBF0027C9FA /* NSManagedObjectExtensionsTests.swift */,
+				94FFB9D72EE6603B0049A549 /* ObservabilityTests.swift */,
 				945C55832ED71234007DD8FB /* SettingsTests.swift */,
 				94D79C922EE37DBF0027C9FA /* SequenceExtensionsTests.swift */,
 				94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */,
@@ -1086,6 +1089,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				94E6A6772EEE224A008E1B4B /* MLModelMetadataParserTests.swift in Sources */,
 				942B1DE12EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */,
 				94FCC4062ED062CF0047B283 /* OSLog+Extensions.swift in Sources */,
 				942B1DE32EA6BF86005455F9 /* LoggingConfigurationTests.swift in Sources */,
