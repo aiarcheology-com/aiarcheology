@@ -19,16 +19,24 @@ if command -v sentry-cli &> /dev/null; then
     echo "   ✅ sentry-cli already available: $(which sentry-cli)"
     sentry-cli --version
 else
-    # Homebrew is available on Xcode Cloud macOS images
+    # Try Homebrew first (available on Xcode Cloud macOS images)
     if command -v brew &> /dev/null; then
-        brew install getsentry/tools/sentry-cli
-        echo "   ✅ sentry-cli installed via Homebrew"
+        if brew install getsentry/tools/sentry-cli; then
+            echo "   ✅ sentry-cli installed via Homebrew"
+            sentry-cli --version
+        else
+            echo "   ⚠️  Homebrew installation failed, trying direct download..."
+            # Fallback to direct download
+            curl -sL https://sentry.io/get-cli/ | INSTALL_DIR=/usr/local/bin bash
+            echo "   ✅ sentry-cli installed via direct download"
+            sentry-cli --version
+        fi
     else
-        # Fallback to direct download
+        # Direct download if Homebrew not available
         curl -sL https://sentry.io/get-cli/ | INSTALL_DIR=/usr/local/bin bash
         echo "   ✅ sentry-cli installed to /usr/local/bin"
+        sentry-cli --version
     fi
-    sentry-cli --version
 fi
 
 echo "✅ ci_post_clone.sh completed successfully"
