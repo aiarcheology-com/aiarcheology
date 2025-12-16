@@ -30,7 +30,7 @@ struct ModelImportView: View {
     )
     
     /// Holds remote import data until the sheet finishes dismissing
-    @State private var pendingRemoteImport: (url: URL, id: UUID, provider: ModelProvider)?
+    @State private var pendingRemoteImport: (url: URL, id: UUID, downloadUrl: URL, provider: ModelProvider)?
     
     /// Loading state during model validation
     @State private var isLoading = false
@@ -244,8 +244,8 @@ struct ModelImportView: View {
     private var remoteDownloaderSheet: some View {
         NavigationStack {
             DownloaderView(
-                onImport: ImportHandler { url, id, provider in
-                    handleRemoteImport(url: url, id: id, provider: provider)
+                onImport: ImportHandler { url, id, downloadUrl, provider in
+                    handleRemoteImport(url: url, id: id, downloadUrl: downloadUrl, provider: provider)
                 }
             )
             .environmentObject(downloader)
@@ -255,8 +255,8 @@ struct ModelImportView: View {
     
     // MARK: - Event Handlers
     
-    private func handleRemoteImport(url: URL, id: UUID, provider: ModelProvider) {
-        pendingRemoteImport = (url, id, provider)
+    private func handleRemoteImport(url: URL, id: UUID, downloadUrl: URL, provider: ModelProvider) {
+        pendingRemoteImport = (url, id, downloadUrl, provider)
         acquisitionCoordinator.isShowingDownloader = false
     }
     
@@ -265,7 +265,8 @@ struct ModelImportView: View {
         pendingRemoteImport = nil
         acquisitionCoordinator.completeRemoteImport(
             url: pending.url,
-            configurationId: pending.id,
+			configurationId: pending.id,
+			downloadUrl: pending.downloadUrl,
             provider: pending.provider
         )
     }
@@ -288,7 +289,7 @@ struct ModelImportView: View {
         
         Task { @MainActor in
             do {
-                let info = try await importConfiguration(from: request.url, id: request.configurationId, provider: request.provider)
+                let info = try await importConfiguration(from: request.url, downloadUrl: request.downloadUrl, id: request.configurationId, provider: request.provider)
                 importedModelInfo = info
             } catch {
                 errorMessage = error.localizedDescription
@@ -300,9 +301,14 @@ struct ModelImportView: View {
     }
     
     /// Import and validate a model configuration
+    /// - Parameters:
+    ///   - sourceURL: Local file URL of the model
+    ///   - downloadUrl: Original download URL (nil for local file imports, non-nil for remote downloads)
+    ///   - id: Configuration identifier
+    ///   - provider: Model provider for result callbacks
     /// - Returns: Info about the imported model for display in success alert
     @discardableResult
-    private func importConfiguration(from sourceURL: URL, id: UUID, provider: ModelProvider) async throws -> ImportedModelInfo {
+    private func importConfiguration(from sourceURL: URL, downloadUrl: URL?, id: UUID, provider: ModelProvider) async throws -> ImportedModelInfo {
         // Create a new configuration entity
         let configuration = DeepConfiguration.create(in: moc)
         
@@ -337,6 +343,7 @@ struct ModelImportView: View {
         }
         
         configuration.file_ = relativePath
+        configuration.downloadURL = downloadUrl
         configuration.enabled = false
         configuration.transition(to: .draft)
         

@@ -22,6 +22,7 @@ final class ModelAcquisitionCoordinator: ObservableObject {
 	struct ImportRequest: Equatable, Identifiable {
 		let id = UUID()
 		let url: URL
+		var downloadUrl: URL? = nil
 		let configurationId: UUID
 		let provider: ModelProvider
 		
@@ -40,13 +41,13 @@ final class ModelAcquisitionCoordinator: ObservableObject {
 	
 	/// Called by the UI when a file importer completes successfully.
 	func completeLocalImport(url: URL, provider: ModelProvider) {
-		let configId = UUID()
-		pendingImport = ImportRequest(url: url, configurationId: configId, provider: provider)
+		let configurationId = UUID()
+		pendingImport = ImportRequest(url: url, configurationId: configurationId, provider: provider)
 	}
 	
 	/// Called by the downloader flow when the user taps Import in `DownloadDetailView`.
-	func completeRemoteImport(url: URL, configurationId: UUID, provider: ModelProvider) {
-		pendingImport = ImportRequest(url: url, configurationId: configurationId, provider: provider)
+	func completeRemoteImport(url: URL, configurationId: UUID, downloadUrl: URL, provider: ModelProvider) {
+		pendingImport = ImportRequest(url: url, downloadUrl: downloadUrl, configurationId: configurationId, provider: provider)
 	}
 	
 	/// Mark the current pending import as handled so observers don't process it twice.

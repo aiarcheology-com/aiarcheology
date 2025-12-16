@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24411" systemVersion="24G231" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24512" systemVersion="25B78" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
     <entity name="DeepConfiguration" representedClassName="DeepConfiguration" syncable="YES">
         <attribute name="annotationColor_" optional="YES" attributeType="Binary"/>
         <attribute name="author" optional="YES" attributeType="String"/>
         <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="demo" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="downloadURL" optional="YES" attributeType="URI"/>
         <attribute name="enabled" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="entityId" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="file_" optional="YES" attributeType="URI"/>
@@ -16,6 +17,7 @@
         <attribute name="selectedSymbol_" optional="YES" attributeType="String"/>
     </entity>
     <entity name="DownloadItem" representedClassName="DownloadItem" syncable="YES">
+        <attribute name="downloadURL" optional="YES" attributeType="URI"/>
         <attribute name="entityId" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="error" optional="YES" attributeType="String"/>
         <attribute name="file_" optional="YES" attributeType="URI"/>

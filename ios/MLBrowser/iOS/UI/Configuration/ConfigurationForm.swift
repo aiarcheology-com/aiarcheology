@@ -13,19 +13,64 @@ import CoreML
 struct ConfigurationDetailRow: View {
 	var label: String
 	var value: String
-	
+
 	var body: some View {
 		HStack {
 			Text(label)
 				.foregroundColor(.primary)
 				.fontWeight(.regular)
-			
+
 			Spacer()
-			
+
 			Text(value)
 				.foregroundColor(.gray)
 				.lineLimit(1)
 				.truncationMode(.tail)
+		}
+	}
+}
+
+struct ExpandableDetailRow: View {
+	var label: String
+	var value: String
+	@State private var isExpanded: Bool = false
+	@State private var isCopied: Bool = false
+
+	var body: some View {
+		HStack(alignment: .top) {
+			VStack(alignment: .leading, spacing: 8) {
+				Text(label)
+					.foregroundColor(.primary)
+					.fontWeight(.regular)
+
+				if isExpanded {
+					Button(action: {
+						UIPasteboard.general.string = value
+						isCopied = true
+					}) {
+						Image(systemName: "document.on.document")
+							.foregroundColor(isCopied ? .green : .blue)
+							.font(.title3)
+					}
+					.buttonStyle(.borderless)
+				}
+			}
+
+			Spacer()
+
+			Text(value)
+				.foregroundColor(.gray)
+				.lineLimit(isExpanded ? nil : 1)
+				.truncationMode(.tail)
+				.multilineTextAlignment(.trailing)
+		}
+		.contentShape(Rectangle())
+		.onTapGesture {
+			if !isExpanded {
+				withAnimation(.easeInOut(duration: 0.2)) {
+					isExpanded = true
+				}
+			}
 		}
 	}
 }
@@ -82,9 +127,13 @@ struct ConfigurationForm: View {
 	private var modelSection: some View {
 		Section(header: Text("Model")) {
 			ConfigurationDetailRow(label: "File", value: "\(configuration.file?.pathComponents.last ?? "")")
-			ConfigurationDetailRow(label: "Decription", value: " \(configuration.modelDescription ?? "")")
+			ConfigurationDetailRow(label: "Description", value: " \(configuration.modelDescription ?? "")")
 			ConfigurationDetailRow(label: "Type", value: " \(configuration.modelType.rawValue)")
 			ConfigurationDetailRow(label: "Version", value: " \(configuration.modelVersion ?? "")")
+
+			if let downloadURL = configuration.downloadURL {
+				ExpandableDetailRow(label: "Link", value: downloadURL.absoluteString)
+			}
 		}
 	}
 	

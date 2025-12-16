@@ -23,6 +23,7 @@ extension DeepConfiguration {
     @NSManaged public var enabled: Bool
     @NSManaged public var entityId: UUID
     @NSManaged public var file_: URL?
+    @NSManaged public var downloadURL: URL?
     @NSManaged public var modelDescription: String?
     @NSManaged public var modelTypeString: String?
     @NSManaged public var modelVersion: String?
