@@ -78,6 +78,7 @@ extension TestabilityIdentification {
 		// Configuration Form
 		case configurationFormDone
 		case configurationFormCancel
+		case configurationExapandableRow
 		// New Configuration
 		case newConfigurationPickDocument
 		case newConfigurationPickUrl

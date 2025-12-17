@@ -47,11 +47,15 @@ struct ExpandableDetailRow: View {
 					Button(action: {
 						UIPasteboard.general.string = value
 						isCopied = true
+					DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+						isCopied = false
+					}
 					}) {
 						Image(systemName: "document.on.document")
 							.foregroundColor(isCopied ? .green : .blue)
 							.font(.title3)
 					}
+					.testability(Testability.Button.configurationExapandableRow)
 					.buttonStyle(.borderless)
 				}
 			}
