@@ -183,7 +183,8 @@ struct WebScreenView: View {
     }
 
 	private func createWebHistoryEntry(_ urlString: String, maxEntries: Int) {
-		guard WebHistoryEntry.selectAll(in: moc).count <= maxEntries else {
+		// Use existing @FetchRequest count instead of fetching all objects
+		guard history.count <= maxEntries else {
 			latestError = HistoryError.fullHistory
 			showAlert = true
 			return

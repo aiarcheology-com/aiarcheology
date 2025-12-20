@@ -14,9 +14,19 @@ import Combine
 final class DataController: ObservableObject {
 	static let containerName = "MLBrowser"
 	private(set) var container: NSPersistentContainer
-	
+
 	/// Indicates whether the persistent store has been successfully loaded
 	@Published private(set) var isStoreLoaded = false
+
+	/// Executes work on a background context asynchronously.
+	/// Changes are automatically merged to viewContext after save.
+	/// - Parameter block: The work to perform on the background context
+	func performBackgroundTask(_ block: @escaping @Sendable (NSManagedObjectContext) -> Void) {
+		container.performBackgroundTask { context in
+			context.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
+			block(context)
+		}
+	}
 
 	init(inMemory: Bool = false) {
 		container = NSPersistentContainer(name: DataController.containerName)
@@ -38,14 +48,23 @@ final class DataController: ObservableObject {
 			} else {
 				LoggingPolicy.debug("Core Data persistent store loaded successfully: \(description.description)")
 				if Thread.isMainThread {
+					self?.setupContextMerging()
 					self?.isStoreLoaded = true
 				} else {
 					DispatchQueue.main.async {
+						self?.setupContextMerging()
 						self?.isStoreLoaded = true
 					}
 				}
 			}
 		}
+	}
+
+	/// Sets up automatic merging of changes from background contexts to viewContext
+	private func setupContextMerging() {
+		// Automatically merge changes from background contexts into viewContext
+		container.viewContext.automaticallyMergesChangesFromParent = true
+		LoggingPolicy.debug("Core Data context merging enabled", logger: .persistence)
 	}
 	
 	/// Async wrapper that waits for store to be ready

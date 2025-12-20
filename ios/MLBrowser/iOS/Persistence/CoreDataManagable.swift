@@ -170,138 +170,191 @@ protocol CoreDataManageable where Self: NSManagedObject {
 
 extension CoreDataManageable where Self: NSManagedObject {
     static func create(in context: NSManagedObjectContext) -> Self {
-        LoggingPolicy.debug("Creating new \(String(describing: Self.self)) entity", logger: .storage)
-        return Self(context: context)
+        nonisolated(unsafe) var entity: Self!
+        context.performAndWait {
+            LoggingPolicy.debug("Creating new \(String(describing: Self.self)) entity", logger: .storage)
+            entity = Self(context: context)
+        }
+        return entity
     }
     
     static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: @escaping @Sendable (Self) -> Void) {
-        let request = Self.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", "entityId", entityId as CVarArg)
-        
-        do {
-            let objects = try context.fetch(request) as? [Self]
-            guard let count = objects?.count else {
-                LoggingPolicy.error("Failed to fetch objects for update - unexpected nil result for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
-                return
+        context.performAndWait {
+            let request = Self.fetchRequest()
+            request.predicate = NSPredicate(format: "%K == %@", "entityId", entityId as CVarArg)
+
+            do {
+                let objects = try context.fetch(request) as? [Self]
+                guard let count = objects?.count else {
+                    LoggingPolicy.error("Failed to fetch objects for update - unexpected nil result for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
+                    return
+                }
+
+                if count != 1 {
+                    LoggingPolicy.warning("Expected 1 instance for update but found \(count) for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
+                }
+
+                guard let objectToUpdate = objects?.first else {
+                    LoggingPolicy.warning("No object found to update for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
+                    return
+                }
+
+                updateClosure(objectToUpdate)
+
+                // Save is called within performAndWait - it will handle its own performAndWait internally
+            } catch {
+                LoggingPolicy.error("Update error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
+                DefaultCrashReporter.shared.recordError(error, context: ["operation": "update", "entityType": String(describing: Self.self)])
             }
-            
-            if count != 1 {
-                LoggingPolicy.warning("Expected 1 instance for update but found \(count) for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
-            }
-            
-            guard let objectToUpdate = objects?.first else {
-                LoggingPolicy.warning("No object found to update for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
-                return
-            }
-            
-            updateClosure(objectToUpdate)
-            
-            
-            save(in: context)
-            
-            LoggingPolicy.debug("Successfully updated \(String(describing: Self.self)) entity with ID \(entityId.uuidString)", logger: .storage)
-        } catch {
-            LoggingPolicy.error("Update error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
-            DefaultCrashReporter.shared.recordError(error, context: ["operation": "update", "entityType": String(describing: Self.self)])
         }
+        save(in: context)
+        LoggingPolicy.debug("Successfully updated \(String(describing: Self.self)) entity with ID \(entityId.uuidString)", logger: .storage)
     }
     
     static func save(in context: NSManagedObjectContext) {
-        do {
-            if context.hasChanges {
-                try context.save()
-                LoggingPolicy.debug("Successfully saved context changes for \(String(describing: Self.self))", logger: .storage)
+        context.performAndWait {
+            do {
+                if context.hasChanges {
+                    try context.save()
+                    LoggingPolicy.debug("Successfully saved context changes for \(String(describing: Self.self))", logger: .storage)
+                }
+            } catch {
+                LoggingPolicy.error("CoreData save error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
+                DefaultCrashReporter.shared.recordError(error, context: ["operation": "save", "entityType": String(describing: Self.self)])
             }
-        } catch {
-            LoggingPolicy.error("CoreData save error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
-            DefaultCrashReporter.shared.recordError(error, context: ["operation": "save", "entityType": String(describing: Self.self)])
         }
     }
     
     static func delete(_ entity: Self, in context: NSManagedObjectContext) {
         let objectID = entity.objectID
-        do {
-            let entityToDelete = try context.existingObject(with: objectID)
-            LoggingPolicy.debug("Deleting \(String(describing: Self.self)) entity", logger: .storage)
-            context.delete(entityToDelete)
-            save(in: context)
-            LoggingPolicy.info("Successfully deleted \(String(describing: Self.self)) entity", logger: .storage)
-        } catch {
-            LoggingPolicy.error("Error fetching object for deletion \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
-            DefaultCrashReporter.shared.recordError(error, context: ["operation": "delete", "entityType": String(describing: Self.self)])
+        context.performAndWait {
+            do {
+                let entityToDelete = try context.existingObject(with: objectID)
+                LoggingPolicy.debug("Deleting \(String(describing: Self.self)) entity", logger: .storage)
+                context.delete(entityToDelete)
+                LoggingPolicy.info("Successfully deleted \(String(describing: Self.self)) entity", logger: .storage)
+            } catch {
+                LoggingPolicy.error("Error fetching object for deletion \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
+                DefaultCrashReporter.shared.recordError(error, context: ["operation": "delete", "entityType": String(describing: Self.self)])
+            }
         }
+        save(in: context)
     }
     
     static func deleteAll(in context: NSManagedObjectContext, executeAndMerge: Bool = false) {
-        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = Self.fetchRequest()
-        let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
-        do {
-            if executeAndMerge.enabled {
-                try context.executeAndMergeChanges(using: deleteRequest)
-            } else {
-                try context.execute(deleteRequest)
+        context.performAndWait {
+            let fetchRequest: NSFetchRequest<NSFetchRequestResult> = Self.fetchRequest()
+            let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+            do {
+                if executeAndMerge.enabled {
+                    try context.executeAndMergeChanges(using: deleteRequest)
+                } else {
+                    try context.execute(deleteRequest)
+                }
+                LoggingPolicy.info("Successfully deleted all \(String(describing: Self.self)) entities", logger: .storage)
+            } catch {
+                LoggingPolicy.error("Error deleting all entities \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
+                DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteAll", "entityType": String(describing: Self.self)])
             }
-            
-            save(in: context)
-            LoggingPolicy.info("Successfully deleted all \(String(describing: Self.self)) entities", logger: .storage)
-        } catch {
-            LoggingPolicy.error("Error deleting all entities \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
-            DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteAll", "entityType": String(describing: Self.self)])
         }
+        save(in: context)
     }
     
     static func delete(_ entityId: UUID, in context: NSManagedObjectContext) {
-        let request = Self.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", "entityId", entityId as CVarArg)
-        
-        do {
-            let objects = try context.fetch(request) as? [Self]
-            guard let objectToDelete = objects?.first else {
-                LoggingPolicy.debug("No object found to delete for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
-                return
+        nonisolated(unsafe) var didDelete = false
+        context.performAndWait {
+            let request = Self.fetchRequest()
+            request.predicate = NSPredicate(format: "%K == %@", "entityId", entityId as CVarArg)
+
+            do {
+                let objects = try context.fetch(request) as? [Self]
+                guard let objectToDelete = objects?.first else {
+                    LoggingPolicy.debug("No object found to delete for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
+                    return
+                }
+
+                context.delete(objectToDelete)
+                didDelete = true
+                LoggingPolicy.debug("Successfully deleted \(String(describing: Self.self)) entity with ID \(entityId.uuidString)", logger: .storage)
+            } catch {
+                LoggingPolicy.error("Deletion error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
+                DefaultCrashReporter.shared.recordError(error, context: ["operation": "delete", "entityType": String(describing: Self.self)])
             }
-            
-            context.delete(objectToDelete)
+        }
+        if didDelete {
             save(in: context)
-            LoggingPolicy.debug("Successfully deleted \(String(describing: Self.self)) entity with ID \(entityId.uuidString)", logger: .storage)
-        } catch {
-            LoggingPolicy.error("Deletion error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
-            DefaultCrashReporter.shared.recordError(error, context: ["operation": "delete", "entityType": String(describing: Self.self)])
         }
     }
     
     static func select(_ entityId: UUID, in context: NSManagedObjectContext) -> Self? {
-        let request = Self.fetchRequest()
-        request.predicate = NSPredicate(format: "%K == %@", "entityId", entityId as CVarArg)
-        
         nonisolated(unsafe) var result: Self?
-        do {
-            let objects = try context.fetch(request) as? [Self]
-            let count = objects?.count ?? 0
-            
-            if count > 1 {
-                LoggingPolicy.warning("Expected at most 1 instance but found \(count) for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
+        context.performAndWait {
+            let request = Self.fetchRequest()
+            request.predicate = NSPredicate(format: "%K == %@", "entityId", entityId as CVarArg)
+
+            do {
+                let objects = try context.fetch(request) as? [Self]
+                let count = objects?.count ?? 0
+
+                if count > 1 {
+                    LoggingPolicy.warning("Expected at most 1 instance but found \(count) for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
+                }
+
+                result = objects?.first
+            } catch {
+                LoggingPolicy.error("Error fetching object \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
+                DefaultCrashReporter.shared.recordError(error, context: ["operation": "select", "entityType": String(describing: Self.self)])
             }
-            
-            result = objects?.first //Capture of 'result' with non-Sendable type 'Self?' in a '@Sendable' closure
-        } catch {
-            LoggingPolicy.error("Error fetching object \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
-            DefaultCrashReporter.shared.recordError(error, context: ["operation": "select", "entityType": String(describing: Self.self)])
         }
         return result
     }
     
     static func selectAll(in context: NSManagedObjectContext) -> [Self] {
-        let request = Self.fetchRequest()
-        
+        selectAll(in: context, fetchLimit: nil, fetchBatchSize: 20)
+    }
+
+    /// Enhanced selectAll with fetch optimizations
+    static func selectAll(
+        in context: NSManagedObjectContext,
+        fetchLimit: Int?,
+        fetchBatchSize: Int
+    ) -> [Self] {
         nonisolated(unsafe) var result: [Self] = []
-        do {
-            let objects = try context.fetch(request) as? [Self]
-            LoggingPolicy.debug("Fetched \((objects?.count ?? 0)) \(String(describing: Self.self)) entities", logger: .storage)
-            result = objects ?? []
-        } catch {
-            LoggingPolicy.error("Error fetching all objects \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
-            DefaultCrashReporter.shared.recordError(error, context: ["operation": "getAll", "entityType": String(describing: Self.self)])
+        context.performAndWait {
+            let request = Self.fetchRequest()
+            if let limit = fetchLimit {
+                request.fetchLimit = limit
+            }
+            request.fetchBatchSize = fetchBatchSize
+
+            do {
+                let objects = try context.fetch(request) as? [Self]
+                LoggingPolicy.debug("Fetched \((objects?.count ?? 0)) \(String(describing: Self.self)) entities", logger: .storage)
+                result = objects ?? []
+            } catch {
+                LoggingPolicy.error("Error fetching all objects \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
+                DefaultCrashReporter.shared.recordError(error, context: ["operation": "getAll", "entityType": String(describing: Self.self)])
+            }
+        }
+        return result
+    }
+
+    /// Efficiently counts entities without fetching them into memory.
+    /// Use this instead of `selectAll(in:).count` for better performance.
+    static func count(in context: NSManagedObjectContext, predicate: NSPredicate? = nil) -> Int {
+        nonisolated(unsafe) var result = 0
+        // nonisolated(unsafe) because performAndWait is synchronous - predicate won't escape
+        nonisolated(unsafe) let predicateCopy = predicate?.copy() as? NSPredicate
+        context.performAndWait {
+            let request = Self.fetchRequest()
+            request.predicate = predicateCopy
+            do {
+                result = try context.count(for: request)
+                LoggingPolicy.debug("Count for \(String(describing: Self.self)): \(result)", logger: .storage)
+            } catch {
+                LoggingPolicy.error("Error counting \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
+                DefaultCrashReporter.shared.recordError(error, context: ["operation": "count", "entityType": String(describing: Self.self)])
+            }
         }
         return result
     }
