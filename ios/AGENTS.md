@@ -102,7 +102,7 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 
 ### Accessibility
 *  **Using Control's ID**: If there is a new button, or any new control added, also decorate the element with the .testability modifier that adds a unique identification.
-*  **Review**: Try to catch bad cases like low contrast, small font, or overalapping views that hinder the accesibility features.
+*  **Review**: Try to catch bad cases like low contrast, small font, or overlapping views that hinder the accessibility features.
 
 ### Test Organization
 *   **File Structure**: Group related tests by component, not by "unit vs integration". A `FooTests.swift` file tests `Foo.swift`.
