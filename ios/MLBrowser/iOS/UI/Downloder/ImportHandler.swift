@@ -8,6 +8,6 @@
 import Foundation
 
 struct ImportHandler: Equatable {
-    let call: @MainActor (URL, UUID, ModelProvider) -> Void
+    let call: @MainActor (URL, UUID, URL, ModelProvider) -> Void
     static func == (lhs: ImportHandler, rhs: ImportHandler) -> Bool { true } // treat as stable
 }

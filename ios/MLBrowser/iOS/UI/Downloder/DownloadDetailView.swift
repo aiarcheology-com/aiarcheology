@@ -262,8 +262,11 @@ private extension DownloadDetailView {
 	var importButton: some View {
 		Button("Import") {
 			let entityId = item.entityId
-			guard let file = item.file else { return }
-			onImport.call(file, entityId, downloader)
+			guard let file = item.file,
+				  let url = item.url
+			else { return }
+			
+			onImport.call(file, entityId, url, downloader)
 		}
 		.bold()
 		.foregroundColor(canImport ? .green : .gray)

@@ -132,7 +132,7 @@ final class DemoDataManager {
         let configuration = DeepConfiguration.create(in: dataController.container.viewContext)
         configuration.demo = true
         configuration.annotationColor = .yellow
-        configuration.modelVersion = parser.value(for: .versionString) as? String
+        configuration.modelVersion = parser.modelVersion
         configuration.modelDescription = parser.value(for: .description) as? String
         configuration.author = parser.value(for: .author) as? String
         configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)

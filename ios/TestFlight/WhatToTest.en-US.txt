@@ -1,29 +1,46 @@
-Test Focus: Infrastructure - Secrets Management & Crash Reporting
-Branch: AIA-0112
+Test Focus: Model Metadata & Download URL Display
+Branch: AIA-0070
 Build: TBD
 
-This build contains infrastructure changes for secrets management and crash reporting. No user-facing features were added, but please verify the app works correctly.
+This build contains improvements to model metadata parsing and adds download URL display in configuration forms.
 
 Devices / Platforms
 - iPhone (required)
 - iPad (if available)
 - Mac (if available)
 
-1. Basic App Functionality
-- Launch the app and verify it starts without crashing.
-- Open the side menu and verify configurations load correctly.
-- If you have existing configurations, verify they still appear.
-- Create a new configuration and import a model (both methods: file picker and URL).
+1. Model Metadata Parsing (Bug Fix)
+- Import a new model (either via file picker or URL download).
+- Open the configuration form for the imported model.
+- Verify the "Model" section displays correct information:
+  * Description field shows the model description (not empty or garbled)
+  * Type field correctly shows "detect" or "classify"
+  * Version field shows the correct model version (if available)
 
-2. Crash Reporting (Optional - Developer Verification)
-- This build includes updated Sentry integration.
-- Crash reports should be properly symbolicated in Sentry dashboard.
-- No user action required - this is verified by the development team.
+2. Download URL Display (New Feature)
+- Import a model via URL download:
+  a. Tap the "+" button and select "Download from URL"
+  b. Enter a model URL and complete the download
+  c. Tap "Import" after download completes
+- Open the configuration for the imported model:
+  * Verify a "Link" field appears in the "Model" section
+  * The URL should be truncated to one line with "..."
+- Tap anywhere on the Link cell:
+  * The URL should expand to show the full text across multiple lines
+  * A copy icon (document icon) should appear under the "Link" label
+  * The icon should be blue initially
+- Tap the copy icon:
+  * Icon should turn green indicating successful copy
+  * Test pasting the URL elsewhere to verify it was copied correctly
+- Import a model via file picker (local import):
+  * Open the configuration form
+  * Verify the "Link" field does NOT appear (only for downloaded models)
 
 3. Regression Check
 - Browse a website and run object detection.
 - Verify annotations appear correctly on detected objects.
 - Switch between configurations and verify detection works with different models.
 - Delete a configuration and verify it's removed from the list.
+- Verify all existing configurations still work correctly.
 
-If you encounter any crashes or unexpected behavior, please report them with steps to reproduce.
+If you encounter any crashes, incorrect metadata display, or issues with the download URL feature, please report them with steps to reproduce.

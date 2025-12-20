@@ -13,19 +13,68 @@ import CoreML
 struct ConfigurationDetailRow: View {
 	var label: String
 	var value: String
-	
+
 	var body: some View {
 		HStack {
 			Text(label)
 				.foregroundColor(.primary)
 				.fontWeight(.regular)
-			
+
 			Spacer()
-			
+
 			Text(value)
 				.foregroundColor(.gray)
 				.lineLimit(1)
 				.truncationMode(.tail)
+		}
+	}
+}
+
+struct ExpandableDetailRow: View {
+	var label: String
+	var value: String
+	@State private var isExpanded: Bool = false
+	@State private var isCopied: Bool = false
+
+	var body: some View {
+		HStack(alignment: .top) {
+			VStack(alignment: .leading, spacing: 8) {
+				Text(label)
+					.foregroundColor(.primary)
+					.fontWeight(.regular)
+
+				if isExpanded {
+					Button(action: {
+						UIPasteboard.general.string = value
+						isCopied = true
+					DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+						isCopied = false
+					}
+					}) {
+						Image(systemName: "document.on.document")
+							.foregroundColor(isCopied ? .green : .blue)
+							.font(.title3)
+					}
+					.testability(Testability.Button.configurationExapandableRow)
+					.buttonStyle(.borderless)
+				}
+			}
+
+			Spacer()
+
+			Text(value)
+				.foregroundColor(.gray)
+				.lineLimit(isExpanded ? nil : 1)
+				.truncationMode(.tail)
+				.multilineTextAlignment(.trailing)
+		}
+		.contentShape(Rectangle())
+		.onTapGesture {
+			if !isExpanded {
+				withAnimation(.easeInOut(duration: 0.2)) {
+					isExpanded = true
+				}
+			}
 		}
 	}
 }
@@ -82,9 +131,13 @@ struct ConfigurationForm: View {
 	private var modelSection: some View {
 		Section(header: Text("Model")) {
 			ConfigurationDetailRow(label: "File", value: "\(configuration.file?.pathComponents.last ?? "")")
-			ConfigurationDetailRow(label: "Decription", value: " \(configuration.modelDescription ?? "")")
+			ConfigurationDetailRow(label: "Description", value: " \(configuration.modelDescription ?? "")")
 			ConfigurationDetailRow(label: "Type", value: " \(configuration.modelType.rawValue)")
 			ConfigurationDetailRow(label: "Version", value: " \(configuration.modelVersion ?? "")")
+
+			if let downloadURL = configuration.downloadURL {
+				ExpandableDetailRow(label: "Link", value: downloadURL.absoluteString)
+			}
 		}
 	}
 	
@@ -136,74 +189,5 @@ struct PressableButtonStyle: ButtonStyle {
 			.shadow(radius: configuration.isPressed ? 5 : 10)
 			.scaleEffect(configuration.isPressed ? 0.9 : 1.0)
 			.animation(.spring(response: 0.3, dampingFraction: 0.5, blendDuration: 0), value: configuration.isPressed)
-	}
-}
-
-// MARK: - ML Model Metadata
-
-enum ExtendedMLModelMetadataKey: Hashable {
-	case standard(MLModelMetadataKey)
-	case custom(String)
-	
-	var key: String {
-		switch self {
-		case .standard(let key):
-			return key.rawValue
-		case .custom(let key):
-			return key
-		}
-	}
-	
-	// Standard keys
-	static let description = ExtendedMLModelMetadataKey.standard(.description)
-	static let versionString = ExtendedMLModelMetadataKey.standard(.versionString)
-	static let author = ExtendedMLModelMetadataKey.standard(.author)
-	static let license = ExtendedMLModelMetadataKey.standard(.license)
-	static let creatorDefined = ExtendedMLModelMetadataKey.standard(.creatorDefinedKey)
-	
-	// User defined keys from Ultralytics
-	static let date = ExtendedMLModelMetadataKey.custom("date")
-	static let confidenceThreshold = ExtendedMLModelMetadataKey.custom("Confidence threshold")
-	static let iouThreshold = ExtendedMLModelMetadataKey.custom("IoU threshold")
-	static let task = ExtendedMLModelMetadataKey.custom("task")
-	static let imgsz = ExtendedMLModelMetadataKey.custom("imgsz")
-	static let batch = ExtendedMLModelMetadataKey.custom("batch")
-	static let names = ExtendedMLModelMetadataKey.custom("names")
-	
-	// User defined keys from Create ML
-	static let createMLVersion = ExtendedMLModelMetadataKey.custom("com.apple.createml.version")
-	static let createMLAppTag = ExtendedMLModelMetadataKey.custom("com.apple.createml.app.tag")
-	static let iterations = ExtendedMLModelMetadataKey.custom("iterations")
-	static let createMLAppVersion = ExtendedMLModelMetadataKey.custom("com.apple.createml.app.version")
-	static let coreMLModelPreviewType = ExtendedMLModelMetadataKey.custom("com.apple.coreml.model.preview.type")
-}
-
-struct MLModelMetadataParser {
-	private let metadata: [String: Any]
-	private var creatorDefinedMetadata: [String: Any]?
-	
-	init(metadata rawMetadata: [MLModelMetadataKey: Any]) {
-		self.metadata = rawMetadata.reduce(into: [String: Any]()) { result, pair in
-			result[pair.key.rawValue] = pair.value
-		}
-		self.creatorDefinedMetadata = self.metadata[MLModelMetadataKey.creatorDefinedKey.rawValue] as? [String: Any]
-	}
-	
-	func value(for key: ExtendedMLModelMetadataKey) -> Any? {
-		switch key {
-		case .standard(let standardKey):
-			return metadata[standardKey.rawValue]
-		case .custom(let customKey):
-			return creatorDefinedMetadata?[customKey]
-		}
-	}
-	
-	var task: DeepDriverType {
-		let task = self.value(for: .task) as? String ?? self.value(for: .coreMLModelPreviewType) as? String
-		switch(task) {
-		case "detect", "objectDetector": return DeepDriverType(rawValue: task ?? "detect") ?? .detector
-		case "classify", "objectClassificator": return DeepDriverType(rawValue: task ?? "classify") ?? .classificator
-		default: return .invalid
-		}
 	}
 }
