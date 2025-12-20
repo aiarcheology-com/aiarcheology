@@ -100,6 +100,10 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 ### Cross-Platform Considerations
 *   **Xcode Cloud**: Runs on Intel (x86_64). Tests must pass on both arm64 (local Apple Silicon) and x86_64 (CI).
 
+### Accessibility
+*  **Using Control's ID**: If there is a new button, or any new control added, also decorate the element with the .testability modifier that adds a unique identification.
+*  **Review**: Try to catch bad cases like low contrast, small font, or overalapping views that hinder the accesibility features.
+
 ### Test Organization
 *   **File Structure**: Group related tests by component, not by "unit vs integration". A `FooTests.swift` file tests `Foo.swift`.
 *   **New Test Files**: When creating `NewComponentTests.swift`, immediately add it to the Xcode project (`.pbxproj`) via `PBXBuildFile` and `PBXFileReference`. Don't wait for build failures.
