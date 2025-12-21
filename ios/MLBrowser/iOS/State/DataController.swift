@@ -13,6 +13,20 @@ import Combine
 @MainActor
 final class DataController: ObservableObject {
 	static let containerName = "MLBrowser"
+
+	/// Shared managed object model to avoid loading duplicates in tests.
+	/// Core Data has issues when the same model is loaded multiple times.
+	private static let sharedModel: NSManagedObjectModel = {
+		// Try main bundle first, then fall back to searching all bundles (for tests)
+		let modelURL = Bundle.main.url(forResource: containerName, withExtension: "momd")
+			?? Bundle.allBundles.compactMap { $0.url(forResource: containerName, withExtension: "momd") }.first
+
+		guard let url = modelURL, let model = NSManagedObjectModel(contentsOf: url) else {
+			fatalError("Failed to load Core Data model '\(containerName).momd'")
+		}
+		return model
+	}()
+
 	private(set) var container: NSPersistentContainer
 
 	/// Indicates whether the persistent store has been successfully loaded
@@ -46,7 +60,7 @@ final class DataController: ObservableObject {
 	}
 
 	init(inMemory: Bool = false) {
-		container = NSPersistentContainer(name: DataController.containerName)
+		container = NSPersistentContainer(name: DataController.containerName, managedObjectModel: Self.sharedModel)
 
         if inMemory {
             let description = NSPersistentStoreDescription()
@@ -62,7 +76,7 @@ final class DataController: ObservableObject {
 
 	/// Initializer for testing with a custom store URL (e.g., temporary SQLite store).
 	init(storeURL: URL) {
-		container = NSPersistentContainer(name: DataController.containerName)
+		container = NSPersistentContainer(name: DataController.containerName, managedObjectModel: Self.sharedModel)
 		let description = NSPersistentStoreDescription(url: storeURL)
 		description.shouldMigrateStoreAutomatically = true
 		description.shouldInferMappingModelAutomatically = true

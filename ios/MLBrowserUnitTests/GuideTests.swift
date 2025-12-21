@@ -76,6 +76,12 @@ final class GuideTests: XCTestCase {
     /// Sets up the test with a temporary SQLite store instead of in-memory.
     /// Use this for tests that call resetApplication() or other batch delete operations.
     private func setUpWithSQLiteStore() async {
+        // Properly unload the in-memory store before creating the SQLite store
+        // to avoid duplicate entity description issues
+        for store in dataController.container.persistentStoreCoordinator.persistentStores {
+            try? dataController.container.persistentStoreCoordinator.remove(store)
+        }
+
         let (sqliteController, storeURL) = createTempSQLiteDataController()
         tempStoreURL = storeURL
         dataController = sqliteController
