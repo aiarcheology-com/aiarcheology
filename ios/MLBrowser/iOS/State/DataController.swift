@@ -5,7 +5,7 @@
 //  Created by Vladimír Slavík on 14.12.23.
 //
 
-import CoreData
+@preconcurrency import CoreData
 import SwiftUI
 import OSLog
 import Combine
