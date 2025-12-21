@@ -195,6 +195,9 @@ extension CoreDataManageable where Self: NSManagedObject {
     /// automatically inside the `performAndWait` block, preventing forgotten saves
     /// but removing the ability to batch multiple updates before saving.
     ///
+    /// For batching multiple updates before saving, use `batchedUpdate(_:in:with:)` instead,
+    /// which allows you to perform multiple updates and then call `save(in:)` once.
+    ///
     /// - Parameters:
     ///   - entityId: The identifier of the entity to update.
     ///   - context: The `NSManagedObjectContext` in which the update occurs.
@@ -230,6 +233,45 @@ extension CoreDataManageable where Self: NSManagedObject {
             } catch {
                 LoggingPolicy.error("Update error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
                 DefaultCrashReporter.shared.recordError(error, context: ["operation": "update", "entityType": String(describing: Self.self)])
+            }
+        }
+    }
+    
+    /// Performs an update on the entity without saving the context.
+    ///
+    /// Use this when you want to batch multiple updates and persist them
+    /// together by calling `save(in:)` on the same context afterward.
+    ///
+    /// - Parameters:
+    ///   - entityId: The identifier of the entity to update.
+    ///   - context: The `NSManagedObjectContext` in which the update occurs.
+    ///   - updateClosure: A closure that mutates the fetched entity.
+    static func batchedUpdate(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: @escaping @Sendable (Self) -> Void) {
+        context.performAndWait {
+            let request = Self.fetchRequest()
+            request.predicate = NSPredicate(format: "%K == %@", "entityId", entityId as CVarArg)
+
+            do {
+                let objects = try context.fetch(request) as? [Self]
+                guard let count = objects?.count else {
+                    LoggingPolicy.error("Failed to fetch objects for batched update - unexpected nil result for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
+                    return
+                }
+
+                if count != 1 {
+                    LoggingPolicy.warning("Expected 1 instance for batched update but found \(count) for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
+                }
+
+                guard let objectToUpdate = objects?.first else {
+                    LoggingPolicy.warning("No object found to update for batched update for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
+                    return
+                }
+
+                updateClosure(objectToUpdate)
+                LoggingPolicy.debug("Successfully applied batched update to \(String(describing: Self.self)) entity with ID \(entityId.uuidString) (not yet saved)", logger: .storage)
+            } catch {
+                LoggingPolicy.error("Batched update error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
+                DefaultCrashReporter.shared.recordError(error, context: ["operation": "batchedUpdate", "entityType": String(describing: Self.self)])
             }
         }
     }
