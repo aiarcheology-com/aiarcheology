@@ -92,6 +92,8 @@ final class DemoDataManager {
                     return
                 }
 
+                LoggingPolicy.debug("Creating demo browsing history entries on background context", logger: .state)
+
                 for page in pages {
                     let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: context)
                     newHistorEntry.bookmarked = false
