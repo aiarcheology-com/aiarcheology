@@ -329,7 +329,7 @@ extension CoreDataManageable where Self: NSManagedObject {
             let isInMemoryStore: Bool = {
                 guard let coordinator = context.persistentStoreCoordinator else { return false }
                 // If there are multiple stores, treat it as in-memory only when *all* are in-memory.
-                return !coordinator.persistentStores.isEmpty &&
+                return coordinator.persistentStores.isEmpty.not &&
                     coordinator.persistentStores.allSatisfy { $0.type == NSInMemoryStoreType }
             }()
 
