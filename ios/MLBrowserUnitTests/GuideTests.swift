@@ -321,10 +321,10 @@ final class GuideTests: XCTestCase {
         await sut.resetApplication()
         
         // Then: browsing history is deleted and recreated
-        // Wait a bit for background task to complete
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Since resetApplication awaits both deleteBrowsingHistory and createDemoDataIfNeeded,
+        // the operations should be complete when we reach this point
         let countAfter = WebHistoryEntry.count(in: dataController.container.viewContext)
-        XCTAssertGreaterThan(countAfter, 0) // Demo data should be recreated
+        XCTAssertGreaterThan(countAfter, 0, "Demo data should be recreated after reset")
     }
 }
 

@@ -146,14 +146,19 @@ final class DataControllerTests: XCTestCase {
         
         await fulfillment(of: [expectation], timeout: 2.0)
         
-        // Give time for merge to complete
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        // Poll for merge completion with timeout
+        let startTime = Date()
+        var count = 0
+        while count == 0 && Date().timeIntervalSince(startTime) < 1.0 {
+            count = WebHistoryEntry.count(
+                in: dataController.container.viewContext,
+                predicate: NSPredicate(format: "entityId == %@", entityId! as CVarArg)
+            )
+            if count == 0 {
+                try? await Task.sleep(nanoseconds: 10_000_000) // 0.01 second
+            }
+        }
         
-        // Verify the change was merged to viewContext
-        let count = WebHistoryEntry.count(
-            in: dataController.container.viewContext,
-            predicate: NSPredicate(format: "entityId == %@", entityId! as CVarArg)
-        )
         XCTAssertEqual(count, 1, "Background context changes should be merged to viewContext")
     }
     
