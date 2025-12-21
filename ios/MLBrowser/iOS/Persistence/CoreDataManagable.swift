@@ -201,14 +201,16 @@ extension CoreDataManageable where Self: NSManagedObject {
 
                 updateClosure(objectToUpdate)
 
-                // Save is called within performAndWait - it will handle its own performAndWait internally
+                // Save inside the same performAndWait to avoid nested calls
+                if context.hasChanges {
+                    try context.save()
+                    LoggingPolicy.debug("Successfully updated \(String(describing: Self.self)) entity with ID \(entityId.uuidString)", logger: .storage)
+                }
             } catch {
                 LoggingPolicy.error("Update error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
                 DefaultCrashReporter.shared.recordError(error, context: ["operation": "update", "entityType": String(describing: Self.self)])
             }
         }
-        save(in: context)
-        LoggingPolicy.debug("Successfully updated \(String(describing: Self.self)) entity with ID \(entityId.uuidString)", logger: .storage)
     }
     
     static func save(in context: NSManagedObjectContext) {
@@ -232,13 +234,13 @@ extension CoreDataManageable where Self: NSManagedObject {
                 let entityToDelete = try context.existingObject(with: objectID)
                 LoggingPolicy.debug("Deleting \(String(describing: Self.self)) entity", logger: .storage)
                 context.delete(entityToDelete)
+                try context.save()
                 LoggingPolicy.info("Successfully deleted \(String(describing: Self.self)) entity", logger: .storage)
             } catch {
-                LoggingPolicy.error("Error fetching object for deletion \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
+                LoggingPolicy.error("Error deleting \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
                 DefaultCrashReporter.shared.recordError(error, context: ["operation": "delete", "entityType": String(describing: Self.self)])
             }
         }
-        save(in: context)
     }
     
     static func deleteAll(in context: NSManagedObjectContext, executeAndMerge: Bool = false) {
@@ -247,8 +249,10 @@ extension CoreDataManageable where Self: NSManagedObject {
             let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
             do {
                 if executeAndMerge.enabled {
+                    // executeAndMergeChanges handles merging deleted objectIDs into context
                     try context.executeAndMergeChanges(using: deleteRequest)
                 } else {
+                    // Batch delete bypasses context - no save needed
                     try context.execute(deleteRequest)
                 }
                 LoggingPolicy.info("Successfully deleted all \(String(describing: Self.self)) entities", logger: .storage)
@@ -257,11 +261,9 @@ extension CoreDataManageable where Self: NSManagedObject {
                 DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteAll", "entityType": String(describing: Self.self)])
             }
         }
-        save(in: context)
     }
     
     static func delete(_ entityId: UUID, in context: NSManagedObjectContext) {
-        nonisolated(unsafe) var didDelete = false
         context.performAndWait {
             let request = Self.fetchRequest()
             request.predicate = NSPredicate(format: "%K == %@", "entityId", entityId as CVarArg)
@@ -274,15 +276,12 @@ extension CoreDataManageable where Self: NSManagedObject {
                 }
 
                 context.delete(objectToDelete)
-                didDelete = true
+                try context.save()
                 LoggingPolicy.debug("Successfully deleted \(String(describing: Self.self)) entity with ID \(entityId.uuidString)", logger: .storage)
             } catch {
                 LoggingPolicy.error("Deletion error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
                 DefaultCrashReporter.shared.recordError(error, context: ["operation": "delete", "entityType": String(describing: Self.self)])
             }
-        }
-        if didDelete {
-            save(in: context)
         }
     }
     
@@ -344,10 +343,10 @@ extension CoreDataManageable where Self: NSManagedObject {
     static func count(in context: NSManagedObjectContext, predicate: NSPredicate? = nil) -> Int {
         nonisolated(unsafe) var result = 0
         // nonisolated(unsafe) because performAndWait is synchronous - predicate won't escape
-        nonisolated(unsafe) let predicateCopy = predicate?.copy() as? NSPredicate
+        nonisolated(unsafe) let predicateRef = predicate
         context.performAndWait {
             let request = Self.fetchRequest()
-            request.predicate = predicateCopy
+            request.predicate = predicateRef
             do {
                 result = try context.count(for: request)
                 LoggingPolicy.debug("Count for \(String(describing: Self.self)): \(result)", logger: .storage)

@@ -64,13 +64,13 @@ final class DemoDataManager {
         ]
 
         // Use background context for batch creation to avoid blocking UI
-        await withCheckedContinuation { continuation in
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             dataController.performBackgroundTask { context in
+                // Use defer to ensure continuation is always resumed exactly once
+                defer { continuation.resume() }
+
                 // Double-check count on background context to avoid race condition
-                guard WebHistoryEntry.count(in: context) == 0 else {
-                    continuation.resume()
-                    return
-                }
+                guard WebHistoryEntry.count(in: context) == 0 else { return }
 
                 for page in pages {
                     let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: context)
@@ -91,7 +91,6 @@ final class DemoDataManager {
                 // Single save after all entries are created (batched)
                 WebHistoryEntry.save(in: context)
                 LoggingPolicy.debug("Browsing history creation completed on background context", logger: .state)
-                continuation.resume()
             }
         }
     }
