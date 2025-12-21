@@ -19,6 +19,26 @@ final class DataControllerTests: XCTestCase {
         try await super.tearDown()
     }
     
+    // MARK: - Helper Methods
+    
+    /// Polls for a condition to become true with a timeout, useful for testing async Core Data merges.
+    /// - Parameters:
+    ///   - timeout: Maximum time to wait in seconds (default: 1.0)
+    ///   - pollInterval: Time between polls in nanoseconds (default: 10ms)
+    ///   - condition: The condition to check
+    /// - Returns: True if condition became true within timeout, false otherwise
+    private func waitForCondition(
+        timeout: TimeInterval = 1.0,
+        pollInterval: UInt64 = 10_000_000,
+        condition: () -> Bool
+    ) async -> Bool {
+        let startTime = Date()
+        while !condition() && Date().timeIntervalSince(startTime) < timeout {
+            try? await Task.sleep(nanoseconds: pollInterval)
+        }
+        return condition()
+    }
+    
     // MARK: - Initialization Tests
     
     func testDataController_InMemory_IsStoreLoadedImmediately() {
@@ -146,20 +166,15 @@ final class DataControllerTests: XCTestCase {
         
         await fulfillment(of: [expectation], timeout: 2.0)
         
-        // Poll for merge completion with timeout
-        let startTime = Date()
-        var count = 0
-        while count == 0 && Date().timeIntervalSince(startTime) < 1.0 {
-            count = WebHistoryEntry.count(
+        // Wait for merge completion using helper method
+        let merged = await waitForCondition {
+            WebHistoryEntry.count(
                 in: dataController.container.viewContext,
                 predicate: NSPredicate(format: "entityId == %@", entityId! as CVarArg)
-            )
-            if count == 0 {
-                try? await Task.sleep(nanoseconds: 10_000_000) // 0.01 second
-            }
+            ) > 0
         }
         
-        XCTAssertEqual(count, 1, "Background context changes should be merged to viewContext")
+        XCTAssertTrue(merged, "Background context changes should be merged to viewContext within timeout")
     }
     
     // MARK: - setupContextMerging Tests

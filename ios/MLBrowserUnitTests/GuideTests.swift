@@ -258,12 +258,15 @@ final class GuideTests: XCTestCase {
     
     func testResetApplication_CompletesSuccessfully() async {
         // Given: initial state
+        let initialMode = sut.mode
         
         // When: reset application is called
         await sut.resetApplication()
         
-        // Then: reset completes without errors
-        XCTAssertTrue(true) // Test passes if no exceptions thrown
+        // Then: reset completes without errors and state is still valid
+        XCTAssertEqual(sut.mode, initialMode, "Mode should remain unchanged after reset")
+        XCTAssertNotNil(sut.settings, "Settings should not be nil after reset")
+        XCTAssertNotNil(sut.deep, "Deep state should not be nil after reset")
     }
     
     func testResetApplication_DisablesDetectionIfEnabled() async {
@@ -320,9 +323,11 @@ final class GuideTests: XCTestCase {
         // When: reset application is called
         await sut.resetApplication()
         
-        // Then: browsing history is deleted and recreated
+        // Then: browsing history is deleted and recreated with demo data
         // Since resetApplication awaits both deleteBrowsingHistory and createDemoDataIfNeeded,
-        // the operations should be complete when we reach this point
+        // the operations should be complete when we reach this point. The resetApplication
+        // method calls createDemoDataIfNeeded after deletion, which populates the store
+        // with demo pages, so we expect a positive count.
         let countAfter = WebHistoryEntry.count(in: dataController.container.viewContext)
         XCTAssertGreaterThan(countAfter, 0, "Demo data should be recreated after reset")
     }
