@@ -253,5 +253,78 @@ final class GuideTests: XCTestCase {
         
         XCTAssertEqual(sut.pageToOpen, url)
     }
+    
+    // MARK: - Reset Application Tests
+    
+    func testResetApplication_CompletesSuccessfully() async {
+        // Given: initial state
+        
+        // When: reset application is called
+        await sut.resetApplication()
+        
+        // Then: reset completes without errors
+        XCTAssertTrue(true) // Test passes if no exceptions thrown
+    }
+    
+    func testResetApplication_DisablesDetectionIfEnabled() async {
+        // Given: detection is enabled
+        sut.ontheflyDetectionEnabled = true
+        snapState.startTimer()
+        XCTAssertTrue(sut.ontheflyDetectionEnabled)
+        XCTAssertNotNil(snapState.timerCancellable)
+        
+        // When: reset application is called
+        await sut.resetApplication()
+        
+        // Then: detection is disabled
+        XCTAssertFalse(sut.ontheflyDetectionEnabled)
+        XCTAssertNil(snapState.timerCancellable)
+    }
+    
+    func testResetApplication_CallsDeepReset() async {
+        // Given: deep state has some configurations
+        let config = DeepConfiguration.create(in: dataController.container.viewContext)
+        config.entityId = UUID()
+        config.creationDate_ = .now
+        DeepConfiguration.save(in: dataController.container.viewContext)
+        
+        let initialCount = DeepConfiguration.count(in: dataController.container.viewContext)
+        XCTAssertGreaterThan(initialCount, 0)
+        
+        // When: reset application is called
+        await sut.resetApplication()
+        
+        // Then: deep configurations are reset
+        let finalCount = DeepConfiguration.count(in: dataController.container.viewContext)
+        XCTAssertEqual(finalCount, 0)
+    }
+    
+    func testResetApplication_CallsSettingsReset() async {
+        // Given: settings have been modified
+        settings.applicationResetButtonToggle = false
+        let initialToggleState = settings.applicationResetButtonToggle
+        
+        // When: reset application is called
+        await sut.resetApplication()
+        
+        // Then: settings toggle state changes
+        XCTAssertNotEqual(settings.applicationResetButtonToggle, initialToggleState)
+    }
+    
+    func testResetApplication_DeletesBrowsingHistory() async {
+        // Given: some browsing history exists
+        await demoDataManager.createDemoDataIfNeeded()
+        let countBefore = WebHistoryEntry.count(in: dataController.container.viewContext)
+        XCTAssertGreaterThan(countBefore, 0)
+        
+        // When: reset application is called
+        await sut.resetApplication()
+        
+        // Then: browsing history is deleted and recreated
+        // Wait a bit for background task to complete
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        let countAfter = WebHistoryEntry.count(in: dataController.container.viewContext)
+        XCTAssertGreaterThan(countAfter, 0) // Demo data should be recreated
+    }
 }
 

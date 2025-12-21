@@ -85,4 +85,99 @@ final class DataControllerTests: XCTestCase {
     func testContainerName_IsMLBrowser() {
         XCTAssertEqual(DataController.containerName, "MLBrowser")
     }
+    
+    // MARK: - performBackgroundTask Tests
+    
+    func testPerformBackgroundTask_ConfiguresContextWithDefaultMergePolicy() async {
+        let dataController = DataController(inMemory: true)
+        let expectation = XCTestExpectation(description: "Background task executes")
+        
+        dataController.performBackgroundTask { context in
+            XCTAssertEqual(context.mergePolicy as? NSMergePolicy, NSMergePolicy.mergeByPropertyObjectTrump)
+            expectation.fulfill()
+        }
+        
+        await fulfillment(of: [expectation], timeout: 1.0)
+    }
+    
+    func testPerformBackgroundTask_ConfiguresContextWithCustomMergePolicy() async {
+        let dataController = DataController(inMemory: true)
+        let expectation = XCTestExpectation(description: "Background task executes")
+        
+        dataController.performBackgroundTask(mergePolicy: .mergeByPropertyStoreTrump) { context in
+            XCTAssertEqual(context.mergePolicy as? NSMergePolicy, NSMergePolicy.mergeByPropertyStoreTrump)
+            expectation.fulfill()
+        }
+        
+        await fulfillment(of: [expectation], timeout: 1.0)
+    }
+    
+    func testPerformBackgroundTask_ExecutesOnBackgroundThread() async {
+        let dataController = DataController(inMemory: true)
+        let expectation = XCTestExpectation(description: "Background task executes")
+        
+        dataController.performBackgroundTask { context in
+            XCTAssertFalse(Thread.isMainThread, "Background task should not execute on main thread")
+            expectation.fulfill()
+        }
+        
+        await fulfillment(of: [expectation], timeout: 1.0)
+    }
+    
+    func testPerformBackgroundTask_MergesChangesToViewContext() async {
+        let dataController = DataController(inMemory: true)
+        await dataController.awaitStoreReady()
+        
+        // Create an entity in background context
+        let expectation = XCTestExpectation(description: "Background task completes")
+        var entityId: UUID?
+        
+        dataController.performBackgroundTask { context in
+            let entry = WebHistoryEntry.create(in: context)
+            entry.entityId = UUID()
+            entry.creationDate_ = .now
+            entry.page = URL(string: "https://example.com")
+            entry.transition(to: .draft)
+            entry.transition(to: .ready)
+            entityId = entry.entityId
+            WebHistoryEntry.save(in: context)
+            expectation.fulfill()
+        }
+        
+        await fulfillment(of: [expectation], timeout: 2.0)
+        
+        // Give time for merge to complete
+        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 second
+        
+        // Verify the change was merged to viewContext
+        let count = WebHistoryEntry.count(
+            in: dataController.container.viewContext,
+            predicate: NSPredicate(format: "entityId == %@", entityId! as CVarArg)
+        )
+        XCTAssertEqual(count, 1, "Background context changes should be merged to viewContext")
+    }
+    
+    // MARK: - setupContextMerging Tests
+    
+    func testSetupContextMerging_EnablesAutomaticMerging() async {
+        let dataController = DataController(inMemory: true)
+        await dataController.awaitStoreReady()
+        
+        XCTAssertTrue(
+            dataController.container.viewContext.automaticallyMergesChangesFromParent,
+            "viewContext should have automaticallyMergesChangesFromParent enabled"
+        )
+    }
+    
+    func testSetupContextMerging_SetsCorrectMergePolicy() async {
+        let dataController = DataController(inMemory: true)
+        await dataController.awaitStoreReady()
+        
+        XCTAssertEqual(
+            dataController.container.viewContext.mergePolicy as? NSMergePolicy,
+            NSMergePolicy.mergeByPropertyObjectTrump,
+            "viewContext should have mergeByPropertyObjectTrump merge policy"
+        )
+    }
 }
+
