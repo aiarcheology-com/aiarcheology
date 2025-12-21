@@ -84,7 +84,13 @@ final class DemoDataManager {
                 defer { continuation.resume() }
 
                 // Double-check count on background context to avoid race condition
-                guard WebHistoryEntry.count(in: context) == 0 else { return }
+                guard WebHistoryEntry.count(in: context) == 0 else {
+                    LoggingPolicy.debug(
+                        "Skipping demo browsing history creation: entries already exist in background context (race condition avoided)",
+                        logger: .state
+                    )
+                    return
+                }
 
                 for page in pages {
                     let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: context)

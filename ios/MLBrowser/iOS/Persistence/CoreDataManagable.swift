@@ -270,10 +270,10 @@ extension CoreDataManageable where Self: NSManagedObject {
             let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
             do {
                 if executeAndMerge.enabled {
-                    // executeAndMergeChanges handles merging deleted objectIDs into context
+                    // Executes batch delete and merges deleted objectIDs into this context; the delete is persisted directly to the store, so no explicit context.save() is required.
                     try context.executeAndMergeChanges(using: deleteRequest)
                 } else {
-                    // Batch delete bypasses context - no save needed
+                    // Executes batch delete directly against the store without merging changes into the context; no explicit context.save() is required here either.
                     try context.execute(deleteRequest)
                 }
                 LoggingPolicy.info("Successfully deleted all \(String(describing: Self.self)) entities", logger: .storage)
@@ -386,11 +386,9 @@ extension CoreDataManageable where Self: NSManagedObject {
     /// - Returns: The number of entities matching the predicate (or all entities if predicate is nil).
     static func count(in context: NSManagedObjectContext, predicate: NSPredicate? = nil) -> Int {
         nonisolated(unsafe) var result = 0
-        // nonisolated(unsafe) because performAndWait is synchronous - predicate won't escape
-        nonisolated(unsafe) let predicateRef = predicate
         context.performAndWait {
             let request = Self.fetchRequest()
-            request.predicate = predicateRef
+            request.predicate = predicate
             do {
                 result = try context.count(for: request)
                 LoggingPolicy.debug("Count for \(String(describing: Self.self)): \(result)", logger: .storage)

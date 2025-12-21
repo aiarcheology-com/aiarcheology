@@ -19,6 +19,26 @@ final class DataControllerTests: XCTestCase {
         try await super.tearDown()
     }
     
+    // MARK: - Helper Methods
+    
+    /// Polls for a condition to become true with a timeout, useful for testing async Core Data merges.
+    /// - Parameters:
+    ///   - timeout: Maximum time to wait in seconds (default: 1.0)
+    ///   - pollInterval: Time between polls in nanoseconds (default: 10ms)
+    ///   - condition: The condition to check
+    /// - Returns: True if condition became true within timeout, false otherwise
+    private func waitForCondition(
+        timeout: TimeInterval = 1.0,
+        pollInterval: UInt64 = 10_000_000,
+        condition: () -> Bool
+    ) async -> Bool {
+        let startTime = Date()
+        while !condition() && Date().timeIntervalSince(startTime) < timeout {
+            try? await Task.sleep(nanoseconds: pollInterval)
+        }
+        return condition()
+    }
+    
     // MARK: - Initialization Tests
     
     func testDataController_InMemory_IsStoreLoadedImmediately() {
@@ -85,4 +105,99 @@ final class DataControllerTests: XCTestCase {
     func testContainerName_IsMLBrowser() {
         XCTAssertEqual(DataController.containerName, "MLBrowser")
     }
+    
+    // MARK: - performBackgroundTask Tests
+    
+    func testPerformBackgroundTask_ConfiguresContextWithDefaultMergePolicy() async {
+        let dataController = DataController(inMemory: true)
+        let expectation = XCTestExpectation(description: "Background task executes")
+        
+        dataController.performBackgroundTask { context in
+            XCTAssertEqual(context.mergePolicy as? NSMergePolicy, NSMergePolicy.mergeByPropertyObjectTrump)
+            expectation.fulfill()
+        }
+        
+        await fulfillment(of: [expectation], timeout: 1.0)
+    }
+    
+    func testPerformBackgroundTask_ConfiguresContextWithCustomMergePolicy() async {
+        let dataController = DataController(inMemory: true)
+        let expectation = XCTestExpectation(description: "Background task executes")
+        
+        dataController.performBackgroundTask(mergePolicy: .mergeByPropertyStoreTrump) { context in
+            XCTAssertEqual(context.mergePolicy as? NSMergePolicy, NSMergePolicy.mergeByPropertyStoreTrump)
+            expectation.fulfill()
+        }
+        
+        await fulfillment(of: [expectation], timeout: 1.0)
+    }
+    
+    func testPerformBackgroundTask_ExecutesOnBackgroundThread() async {
+        let dataController = DataController(inMemory: true)
+        let expectation = XCTestExpectation(description: "Background task executes")
+        
+        dataController.performBackgroundTask { context in
+            XCTAssertFalse(Thread.isMainThread, "Background task should not execute on main thread")
+            expectation.fulfill()
+        }
+        
+        await fulfillment(of: [expectation], timeout: 1.0)
+    }
+    
+    func testPerformBackgroundTask_MergesChangesToViewContext() async {
+        let dataController = DataController(inMemory: true)
+        await dataController.awaitStoreReady()
+        
+        // Create an entity in background context
+        let expectation = XCTestExpectation(description: "Background task completes")
+        var entityId: UUID?
+        
+        dataController.performBackgroundTask { context in
+            let entry = WebHistoryEntry.create(in: context)
+            entry.entityId = UUID()
+            entry.creationDate_ = .now
+            entry.page = URL(string: "https://example.com")
+            entry.transition(to: .draft)
+            entry.transition(to: .ready)
+            entityId = entry.entityId
+            WebHistoryEntry.save(in: context)
+            expectation.fulfill()
+        }
+        
+        await fulfillment(of: [expectation], timeout: 2.0)
+        
+        // Wait for merge completion using helper method
+        let merged = await waitForCondition {
+            WebHistoryEntry.count(
+                in: dataController.container.viewContext,
+                predicate: NSPredicate(format: "entityId == %@", entityId! as CVarArg)
+            ) > 0
+        }
+        
+        XCTAssertTrue(merged, "Background context changes should be merged to viewContext within timeout")
+    }
+    
+    // MARK: - setupContextMerging Tests
+    
+    func testSetupContextMerging_EnablesAutomaticMerging() async {
+        let dataController = DataController(inMemory: true)
+        await dataController.awaitStoreReady()
+        
+        XCTAssertTrue(
+            dataController.container.viewContext.automaticallyMergesChangesFromParent,
+            "viewContext should have automaticallyMergesChangesFromParent enabled"
+        )
+    }
+    
+    func testSetupContextMerging_SetsCorrectMergePolicy() async {
+        let dataController = DataController(inMemory: true)
+        await dataController.awaitStoreReady()
+        
+        XCTAssertEqual(
+            dataController.container.viewContext.mergePolicy as? NSMergePolicy,
+            NSMergePolicy.mergeByPropertyObjectTrump,
+            "viewContext should have mergeByPropertyObjectTrump merge policy"
+        )
+    }
 }
+

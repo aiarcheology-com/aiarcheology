@@ -199,8 +199,10 @@ struct WebScreenView: View {
 		newHistorEntry.bookmarked = false
 		newHistorEntry.creationDate_ = .now
 		newHistorEntry.page = URL(string:websiteUrl.withHTTPS)
+		newHistorEntry.transition(to: .draft)
 		do {
 			try newHistorEntry.validateForInsert()
+			newHistorEntry.transition(to: .ready)
 		}
 		catch {
 			WebHistoryEntry.delete(newHistorEntry, in: moc)
