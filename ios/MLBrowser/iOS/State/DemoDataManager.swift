@@ -100,6 +100,8 @@ final class DemoDataManager {
                     newHistorEntry.creationDate_ = .now
                     newHistorEntry.entityId = UUID()
                     newHistorEntry.page = URL(string: page)
+                    // Lifecycle: transition to draft before validation, then to ready if valid
+                    // If validation fails, the entity is deleted (brief inconsistent state is acceptable)
                     newHistorEntry.transition(to: .draft)
                     do {
                         try newHistorEntry.validateForInsert()
