@@ -47,7 +47,7 @@ final class DataController: ObservableObject {
 
 	init(inMemory: Bool = false) {
 		container = NSPersistentContainer(name: DataController.containerName)
-        
+
         if inMemory {
             let description = NSPersistentStoreDescription()
             description.type = NSInMemoryStoreType
@@ -56,7 +56,21 @@ final class DataController: ObservableObject {
             desc.shouldMigrateStoreAutomatically = true
             desc.shouldInferMappingModelAutomatically = false
         }
-        
+
+		loadStores()
+	}
+
+	/// Initializer for testing with a custom store URL (e.g., temporary SQLite store).
+	init(storeURL: URL) {
+		container = NSPersistentContainer(name: DataController.containerName)
+		let description = NSPersistentStoreDescription(url: storeURL)
+		description.shouldMigrateStoreAutomatically = true
+		description.shouldInferMappingModelAutomatically = true
+		container.persistentStoreDescriptions = [description]
+		loadStores()
+	}
+
+	private func loadStores() {
 		container.loadPersistentStores { [weak self] description, error in
 			if let error = error {
 				// Core Data failure is a critical error that compromises all app functionality

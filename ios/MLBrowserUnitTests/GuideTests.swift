@@ -9,9 +9,19 @@ import XCTest
 import CoreData
 @testable import ML_Browser
 
+/// Creates a DataController with a temporary SQLite store for tests that require
+/// NSBatchDeleteRequest to work (which doesn't work with in-memory stores).
+@MainActor
+func createTempSQLiteDataController() -> (DataController, URL) {
+    let tempDir = FileManager.default.temporaryDirectory
+    let storeURL = tempDir.appendingPathComponent("TestStore-\(UUID().uuidString).sqlite")
+    let dataController = DataController(storeURL: storeURL)
+    return (dataController, storeURL)
+}
+
 @MainActor
 final class GuideTests: XCTestCase {
-    
+
     var settings: Settings!
     var snapState: SnapState!
     var deepState: DeepState!
@@ -19,17 +29,18 @@ final class GuideTests: XCTestCase {
     var dataController: DataController!
     var demoDataManager: DemoDataManager!
     var sut: Guide!
-    
+    private var tempStoreURL: URL?
+
     override func setUp() async throws {
         try await super.setUp()
-        
+
         settings = Settings()
         dataController = DataController(inMemory: true)
         snapState = SnapState(settings: settings)
         deepState = DeepState(dataController: dataController)
         snapAdjustment = SnapAdjustment()
         demoDataManager = DemoDataManager(dataController: dataController)
-        
+
         sut = Guide(
             snap: snapState,
             deep: deepState,
@@ -39,7 +50,7 @@ final class GuideTests: XCTestCase {
             snapAdjustment: snapAdjustment
         )
     }
-    
+
     override func tearDown() async throws {
         snapState.stopTimer()
         sut = nil
@@ -49,7 +60,38 @@ final class GuideTests: XCTestCase {
         deepState = nil
         snapState = nil
         settings = nil
+
+        // Clean up temporary SQLite store if used
+        if let url = tempStoreURL {
+            try? FileManager.default.removeItem(at: url)
+            // Also remove -wal and -shm files
+            try? FileManager.default.removeItem(at: url.appendingPathExtension("wal"))
+            try? FileManager.default.removeItem(at: url.appendingPathExtension("shm"))
+            tempStoreURL = nil
+        }
+
         try await super.tearDown()
+    }
+
+    /// Sets up the test with a temporary SQLite store instead of in-memory.
+    /// Use this for tests that call resetApplication() or other batch delete operations.
+    private func setUpWithSQLiteStore() async {
+        let (sqliteController, storeURL) = createTempSQLiteDataController()
+        tempStoreURL = storeURL
+        dataController = sqliteController
+        await dataController.awaitStoreReady()
+
+        deepState = DeepState(dataController: dataController)
+        demoDataManager = DemoDataManager(dataController: dataController)
+
+        sut = Guide(
+            snap: snapState,
+            deep: deepState,
+            settings: settings,
+            dataController: dataController,
+            demoDataManager: demoDataManager,
+            snapAdjustment: snapAdjustment
+        )
     }
     
     // MARK: - Initialization Tests
@@ -255,74 +297,88 @@ final class GuideTests: XCTestCase {
     }
     
     // MARK: - Reset Application Tests
-    
+    // Note: All resetApplication tests use SQLite store because NSBatchDeleteRequest
+    // (used by deep.reset()) doesn't work with in-memory stores.
+
     func testResetApplication_CompletesSuccessfully() async {
+        await setUpWithSQLiteStore()
+
         // Given: initial state
         let initialMode = sut.mode
-        
+
         // When: reset application is called
         await sut.resetApplication()
-        
+
         // Then: reset completes without errors and state is still valid
         XCTAssertEqual(sut.mode, initialMode, "Mode should remain unchanged after reset")
         XCTAssertNotNil(sut.settings, "Settings should not be nil after reset")
         XCTAssertNotNil(sut.deep, "Deep state should not be nil after reset")
     }
-    
+
     func testResetApplication_DisablesDetectionIfEnabled() async {
+        await setUpWithSQLiteStore()
+
         // Given: detection is enabled
         sut.ontheflyDetectionEnabled = true
         snapState.startTimer()
         XCTAssertTrue(sut.ontheflyDetectionEnabled)
         XCTAssertNotNil(snapState.timerCancellable)
-        
+
         // When: reset application is called
         await sut.resetApplication()
-        
+
         // Then: detection is disabled
         XCTAssertFalse(sut.ontheflyDetectionEnabled)
         XCTAssertNil(snapState.timerCancellable)
     }
-    
+
     func testResetApplication_CallsDeepReset() async {
-        // Given: deep state has some configurations
+        await setUpWithSQLiteStore()
+
+        // Given: deep state has some configurations (non-demo)
         let config = DeepConfiguration.create(in: dataController.container.viewContext)
-        config.entityId = UUID()
+        let configId = UUID()
+        config.entityId = configId
         config.creationDate_ = .now
+        config.demo = false
         DeepConfiguration.save(in: dataController.container.viewContext)
-        
-        let initialCount = DeepConfiguration.count(in: dataController.container.viewContext)
-        XCTAssertGreaterThan(initialCount, 0)
-        
+
+        // Verify the config exists
+        XCTAssertNotNil(DeepConfiguration.select(configId, in: dataController.container.viewContext))
+
         // When: reset application is called
         await sut.resetApplication()
-        
-        // Then: deep configurations are reset
-        let finalCount = DeepConfiguration.count(in: dataController.container.viewContext)
-        XCTAssertEqual(finalCount, 0)
+
+        // Then: the original configuration should be deleted
+        let deletedConfig = DeepConfiguration.select(configId, in: dataController.container.viewContext)
+        XCTAssertNil(deletedConfig, "Original configuration should be deleted after reset")
     }
-    
+
     func testResetApplication_CallsSettingsReset() async {
+        await setUpWithSQLiteStore()
+
         // Given: settings have been modified
         settings.applicationResetButtonToggle = false
         let initialToggleState = settings.applicationResetButtonToggle
-        
+
         // When: reset application is called
         await sut.resetApplication()
-        
+
         // Then: settings toggle state changes
         XCTAssertNotEqual(settings.applicationResetButtonToggle, initialToggleState)
     }
-    
+
     func testResetApplication_DeletesBrowsingHistory() async {
+        await setUpWithSQLiteStore()
+
         // Given: some browsing history exists
         await demoDataManager.createDemoDataIfNeeded()
         let countBefore = WebHistoryEntry.count(in: dataController.container.viewContext)
         XCTAssertGreaterThan(countBefore, 0)
-        
+
         // When: reset application is called
         await sut.resetApplication()
-        
+
         // Then: browsing history is deleted and recreated with demo data
         // Since resetApplication awaits both deleteBrowsingHistory and createDemoDataIfNeeded,
         // the operations should be complete when we reach this point. The resetApplication
