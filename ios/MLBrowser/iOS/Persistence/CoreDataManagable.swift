@@ -165,10 +165,20 @@ protocol CoreDataManageable where Self: NSManagedObject {
     static func delete(_ entity: Self, in context: NSManagedObjectContext)
     static func select(_ entityId: UUID, in context: NSManagedObjectContext) -> Self?
     static func selectAll(in context: NSManagedObjectContext) -> [Self]
+    static func count(in context: NSManagedObjectContext, predicate: NSPredicate?) -> Int
     static func save(in context: NSManagedObjectContext)
 }
 
 extension CoreDataManageable where Self: NSManagedObject {
+    /// Creates a new entity in the specified context.
+    ///
+    /// This method wraps the creation in `performAndWait` to ensure thread safety.
+    /// Note: If called from code already on the context's queue (e.g., within another
+    /// `performAndWait` block), this will result in nested `performAndWait` calls,
+    /// which is safe but slightly less efficient.
+    ///
+    /// - Parameter context: The `NSManagedObjectContext` in which to create the entity.
+    /// - Returns: The newly created entity.
     static func create(in context: NSManagedObjectContext) -> Self {
         nonisolated(unsafe) var entity: Self!
         context.performAndWait {
@@ -178,6 +188,17 @@ extension CoreDataManageable where Self: NSManagedObject {
         return entity
     }
     
+    /// Updates an entity identified by its UUID.
+    ///
+    /// This method performs the update and immediately saves the context.
+    /// **Behavior change**: Unlike the previous implementation, this now saves
+    /// automatically inside the `performAndWait` block, preventing forgotten saves
+    /// but removing the ability to batch multiple updates before saving.
+    ///
+    /// - Parameters:
+    ///   - entityId: The identifier of the entity to update.
+    ///   - context: The `NSManagedObjectContext` in which the update occurs.
+    ///   - updateClosure: A closure that mutates the fetched entity.
     static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: @escaping @Sendable (Self) -> Void) {
         context.performAndWait {
             let request = Self.fetchRequest()
@@ -308,15 +329,30 @@ extension CoreDataManageable where Self: NSManagedObject {
         return result
     }
     
+    /// Selects all entities of this type from the context.
+    ///
+    /// This is a convenience method that calls the enhanced `selectAll` with default parameters.
+    ///
+    /// - Parameter context: The `NSManagedObjectContext` to fetch from.
+    /// - Returns: An array of all entities.
     static func selectAll(in context: NSManagedObjectContext) -> [Self] {
         selectAll(in: context, fetchLimit: nil, fetchBatchSize: 20)
     }
 
-    /// Enhanced selectAll with fetch optimizations
+    /// Selects all entities with fetch optimizations.
+    ///
+    /// - Parameters:
+    ///   - context: The `NSManagedObjectContext` to fetch from.
+    ///   - fetchLimit: Maximum number of results to return. When `nil`, all entities are returned.
+    ///                 Use this for pagination or when you only need a subset of results.
+    ///   - fetchBatchSize: Number of objects to fault into memory at once (default: 20).
+    ///                     This controls memory usage during iteration. Higher values improve
+    ///                     performance for large result sets but use more memory.
+    /// - Returns: An array of entities, limited by `fetchLimit` if specified.
     static func selectAll(
         in context: NSManagedObjectContext,
         fetchLimit: Int?,
-        fetchBatchSize: Int
+        fetchBatchSize: Int = 20
     ) -> [Self] {
         nonisolated(unsafe) var result: [Self] = []
         context.performAndWait {
@@ -339,7 +375,15 @@ extension CoreDataManageable where Self: NSManagedObject {
     }
 
     /// Efficiently counts entities without fetching them into memory.
-    /// Use this instead of `selectAll(in:).count` for better performance.
+    ///
+    /// Use this instead of `selectAll(in:).count` for better performance, especially
+    /// with large datasets. This method executes a lightweight count query that doesn't
+    /// load objects into memory.
+    ///
+    /// - Parameters:
+    ///   - context: The `NSManagedObjectContext` to count in.
+    ///   - predicate: Optional predicate to filter the count. When `nil`, counts all entities.
+    /// - Returns: The number of entities matching the predicate (or all entities if predicate is nil).
     static func count(in context: NSManagedObjectContext, predicate: NSPredicate? = nil) -> Int {
         nonisolated(unsafe) var result = 0
         // nonisolated(unsafe) because performAndWait is synchronous - predicate won't escape

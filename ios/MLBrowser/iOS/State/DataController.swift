@@ -19,11 +19,28 @@ final class DataController: ObservableObject {
 	@Published private(set) var isStoreLoaded = false
 
 	/// Executes work on a background context asynchronously.
-	/// Changes are automatically merged to viewContext after save.
-	/// - Parameter block: The work to perform on the background context
-	func performBackgroundTask(_ block: @escaping @Sendable (NSManagedObjectContext) -> Void) {
+	///
+	/// **Important**: Although `DataController` is marked `@MainActor`, the `block` parameter
+	/// runs on a background thread managed by Core Data. Do not access `@MainActor`-isolated
+	/// properties from within the block without proper synchronization.
+	///
+	/// Changes are automatically merged to `viewContext` after save.
+	///
+	/// - Parameters:
+	///   - mergePolicy: The merge policy to apply to the background context.
+	///                  Defaults to `.mergeByPropertyObjectTrump`, which means
+	///                  in-memory changes win over persistent store changes.
+	///                  This is appropriate for isolated updates where the most
+	///                  recent changes should take precedence. For operations where
+	///                  store changes should win (e.g., destructive operations),
+	///                  consider using `.mergeByPropertyStoreTrump`.
+	///   - block: The work to perform on the configured background context.
+	func performBackgroundTask(
+		mergePolicy: NSMergePolicy = .mergeByPropertyObjectTrump,
+		_ block: @escaping @Sendable (NSManagedObjectContext) -> Void
+	) {
 		container.performBackgroundTask { context in
-			context.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
+			context.mergePolicy = mergePolicy
 			block(context)
 		}
 	}
@@ -64,6 +81,9 @@ final class DataController: ObservableObject {
 	private func setupContextMerging() {
 		// Automatically merge changes from background contexts into viewContext
 		container.viewContext.automaticallyMergesChangesFromParent = true
+		// Set explicit merge policy to ensure consistent conflict resolution
+		// across all contexts (background contexts also use mergeByPropertyObjectTrump by default)
+		container.viewContext.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
 		LoggingPolicy.debug("Core Data context merging enabled", logger: .persistence)
 	}
 	
