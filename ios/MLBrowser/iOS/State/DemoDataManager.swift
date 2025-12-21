@@ -39,12 +39,26 @@ final class DemoDataManager {
         LoggingPolicy.info("Demo data creation complete", logger: .configuration)
     }
     
-    func deleteBrowsingHistory() {
+    /// Deletes all browsing history asynchronously.
+    ///
+    /// Use this method when you need to wait for the deletion to complete
+    /// or handle potential errors.
+    ///
+    /// - Returns: Completes when the deletion operation finishes.
+    func deleteBrowsingHistory() async {
         LoggingPolicy.info("Deleting all browsing history", logger: .state)
-        // Use background context for batch delete to avoid blocking UI
-        dataController.performBackgroundTask { context in
-            WebHistoryEntry.deleteAll(in: context, executeAndMerge: true)
-            LoggingPolicy.debug("Browsing history deletion completed on background context", logger: .state)
+        
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            // Use background context for batch delete to avoid blocking UI
+            // Use mergeByPropertyStoreTrump for destructive operations to ensure
+            // store changes (deletions) take precedence
+            dataController.performBackgroundTask(mergePolicy: .mergeByPropertyStoreTrump) { context in
+                // Use defer to ensure continuation is always resumed exactly once
+                defer { continuation.resume() }
+                
+                WebHistoryEntry.deleteAll(in: context, executeAndMerge: true)
+                LoggingPolicy.debug("Browsing history deletion completed on background context", logger: .state)
+            }
         }
     }
     
