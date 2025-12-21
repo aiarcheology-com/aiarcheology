@@ -19,6 +19,7 @@
   "testTargets" : [
     {
       "parallelizable" : false,
+      "_note" : "Parallelization is disabled to avoid Core Data/background context race conditions observed when unit tests run concurrently. This setting ensures thread-safe test execution with shared Core Data resources.",
       "target" : {
         "containerPath" : "container:MLBrowser.xcodeproj",
         "identifier" : "8AE0BC152A97B0B40086DDF9",
