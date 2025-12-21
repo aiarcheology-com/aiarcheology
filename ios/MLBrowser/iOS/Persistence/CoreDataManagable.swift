@@ -180,6 +180,9 @@ extension CoreDataManageable where Self: NSManagedObject {
     /// - Parameter context: The `NSManagedObjectContext` in which to create the entity.
     /// - Returns: The newly created entity.
     static func create(in context: NSManagedObjectContext) -> Self {
+        // nonisolated(unsafe) is safe here because performAndWait executes synchronously
+        // on the calling thread, blocking until completion. The entity reference won't
+        // escape until after the closure completes.
         nonisolated(unsafe) var entity: Self!
         context.performAndWait {
             LoggingPolicy.debug("Creating new \(String(describing: Self.self)) entity", logger: .storage)
@@ -387,6 +390,9 @@ extension CoreDataManageable where Self: NSManagedObject {
     }
     
     static func select(_ entityId: UUID, in context: NSManagedObjectContext) -> Self? {
+        // nonisolated(unsafe) is safe here because performAndWait executes synchronously,
+        // blocking until the closure completes. The result won't be accessed until after
+        // the performAndWait block finishes.
         nonisolated(unsafe) var result: Self?
         context.performAndWait {
             let request = Self.fetchRequest()
@@ -434,6 +440,8 @@ extension CoreDataManageable where Self: NSManagedObject {
         fetchLimit: Int?,
         fetchBatchSize: Int = 20
     ) -> [Self] {
+        // nonisolated(unsafe) is safe here because performAndWait is synchronous and blocks
+        // until completion. The result array won't be accessed until after the closure finishes.
         nonisolated(unsafe) var result: [Self] = []
         context.performAndWait {
             let request = Self.fetchRequest()
@@ -465,8 +473,10 @@ extension CoreDataManageable where Self: NSManagedObject {
     ///   - predicate: Optional predicate to filter the count. When `nil`, counts all entities.
     /// - Returns: The number of entities matching the predicate (or all entities if predicate is nil).
     static func count(in context: NSManagedObjectContext, predicate: NSPredicate? = nil) -> Int {
+        // nonisolated(unsafe) is safe here because performAndWait is synchronous and blocks
+        // until completion. Both the result and predicateRef won't be accessed/escape until
+        // after the performAndWait block completes.
         nonisolated(unsafe) var result = 0
-        // nonisolated(unsafe) because performAndWait is synchronous - predicate won't escape
         nonisolated(unsafe) let predicateRef = predicate
         context.performAndWait {
             let request = Self.fetchRequest()
