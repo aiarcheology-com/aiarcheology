@@ -50,7 +50,9 @@ final class DemoDataManager {
         
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             // Use background context for batch delete to avoid blocking UI
-            dataController.performBackgroundTask { context in
+            // Use mergeByPropertyStoreTrump for destructive operations to ensure
+            // store changes (deletions) take precedence
+            dataController.performBackgroundTask(mergePolicy: .mergeByPropertyStoreTrump) { context in
                 // Use defer to ensure continuation is always resumed exactly once
                 defer { continuation.resume() }
                 
