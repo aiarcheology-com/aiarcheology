@@ -245,6 +245,18 @@ extension CoreDataManageable where Self: NSManagedObject {
     /// Use this when you want to batch multiple updates and persist them
     /// together by calling `save(in:)` on the same context afterward.
     ///
+    /// Example:
+    /// ```swift
+    /// // Batch multiple updates before saving
+    /// Entity.batchedUpdate(id1, in: context) { entity in
+    ///     entity.property = newValue1
+    /// }
+    /// Entity.batchedUpdate(id2, in: context) { entity in
+    ///     entity.property = newValue2
+    /// }
+    /// Entity.save(in: context) // Save all changes at once
+    /// ```
+    ///
     /// - Parameters:
     ///   - entityId: The identifier of the entity to update.
     ///   - context: The `NSManagedObjectContext` in which the update occurs.
@@ -317,7 +329,7 @@ extension CoreDataManageable where Self: NSManagedObject {
             let isInMemoryStore: Bool = {
                 guard let coordinator = context.persistentStoreCoordinator else { return false }
                 // If there are multiple stores, treat it as in-memory only when *all* are in-memory.
-                return coordinator.persistentStores.isEmpty.not &&
+                return !coordinator.persistentStores.isEmpty &&
                     coordinator.persistentStores.allSatisfy { $0.type == NSInMemoryStoreType }
             }()
 
