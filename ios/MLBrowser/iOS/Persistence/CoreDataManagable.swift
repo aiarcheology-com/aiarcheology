@@ -180,6 +180,9 @@ extension CoreDataManageable where Self: NSManagedObject {
     /// - Parameter context: The `NSManagedObjectContext` in which to create the entity.
     /// - Returns: The newly created entity.
     static func create(in context: NSManagedObjectContext) -> Self {
+        // nonisolated(unsafe) is safe here because performAndWait executes synchronously
+        // on the calling thread, blocking until completion. The entity reference won't
+        // escape until after the closure completes.
         nonisolated(unsafe) var entity: Self!
         context.performAndWait {
             LoggingPolicy.debug("Creating new \(String(describing: Self.self)) entity", logger: .storage)
@@ -194,6 +197,9 @@ extension CoreDataManageable where Self: NSManagedObject {
     /// **Behavior change**: Unlike the previous implementation, this now saves
     /// automatically inside the `performAndWait` block, preventing forgotten saves
     /// but removing the ability to batch multiple updates before saving.
+    ///
+    /// For batching multiple updates before saving, use `batchedUpdate(_:in:with:)` instead,
+    /// which allows you to perform multiple updates and then call `save(in:)` once.
     ///
     /// - Parameters:
     ///   - entityId: The identifier of the entity to update.
@@ -234,6 +240,57 @@ extension CoreDataManageable where Self: NSManagedObject {
         }
     }
     
+    /// Performs an update on the entity without saving the context.
+    ///
+    /// Use this when you want to batch multiple updates and persist them
+    /// together by calling `save(in:)` on the same context afterward.
+    ///
+    /// Example:
+    /// ```swift
+    /// // Batch multiple updates before saving
+    /// Entity.batchedUpdate(id1, in: context) { entity in
+    ///     entity.property = newValue1
+    /// }
+    /// Entity.batchedUpdate(id2, in: context) { entity in
+    ///     entity.property = newValue2
+    /// }
+    /// Entity.save(in: context) // Save all changes at once
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - entityId: The identifier of the entity to update.
+    ///   - context: The `NSManagedObjectContext` in which the update occurs.
+    ///   - updateClosure: A closure that mutates the fetched entity.
+    static func batchedUpdate(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: @escaping @Sendable (Self) -> Void) {
+        context.performAndWait {
+            let request = Self.fetchRequest()
+            request.predicate = NSPredicate(format: "%K == %@", "entityId", entityId as CVarArg)
+
+            do {
+                let objects = try context.fetch(request) as? [Self]
+                guard let count = objects?.count else {
+                    LoggingPolicy.error("Failed to fetch objects for batched update - unexpected nil result for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
+                    return
+                }
+
+                if count != 1 {
+                    LoggingPolicy.warning("Expected 1 instance for batched update but found \(count) for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
+                }
+
+                guard let objectToUpdate = objects?.first else {
+                    LoggingPolicy.warning("No object found to update for batched update for entity \(String(describing: Self.self)) with ID \(entityId.uuidString)", logger: .storage)
+                    return
+                }
+
+                updateClosure(objectToUpdate)
+                LoggingPolicy.debug("Successfully applied batched update to \(String(describing: Self.self)) entity with ID \(entityId.uuidString) (not yet saved)", logger: .storage)
+            } catch {
+                LoggingPolicy.error("Batched update error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
+                DefaultCrashReporter.shared.recordError(error, context: ["operation": "batchedUpdate", "entityType": String(describing: Self.self)])
+            }
+        }
+    }
+    
     static func save(in context: NSManagedObjectContext) {
         context.performAndWait {
             do {
@@ -266,44 +323,6 @@ extension CoreDataManageable where Self: NSManagedObject {
     
     static func deleteAll(in context: NSManagedObjectContext, executeAndMerge: Bool = false) {
         context.performAndWait {
-//            // IMPORTANT:
-//            // `NSBatchDeleteRequest` does not work reliably with `NSInMemoryStoreType` and can crash
-//            // (see unit test guidance + CI flakiness). Fall back to per-object deletion for in-memory.
-//            let isInMemoryStore: Bool = {
-//                guard let coordinator = context.persistentStoreCoordinator else { return false }
-//                // If there are multiple stores, treat it as in-memory only when *all* are in-memory.
-//                return coordinator.persistentStores.isEmpty.not &&
-//                    coordinator.persistentStores.allSatisfy { $0.type == NSInMemoryStoreType }
-//            }()
-//
-//            if isInMemoryStore {
-//                do {
-//                    let fetchRequest: NSFetchRequest<NSFetchRequestResult> = Self.fetchRequest()
-//                    fetchRequest.includesPropertyValues = false
-//                    fetchRequest.returnsObjectsAsFaults = true
-//
-//                    let results = try context.fetch(fetchRequest)
-//                    for object in results {
-//                        guard let managedObject = object as? NSManagedObject else { continue }
-//                        context.delete(managedObject)
-//                    }
-//                    if context.hasChanges {
-//                        try context.save()
-//                    }
-//                    LoggingPolicy.info(
-//                        "Successfully deleted all \(String(describing: Self.self)) entities using in-memory safe deletion (\(results.count) objects)",
-//                        logger: .storage
-//                    )
-//                } catch {
-//                    LoggingPolicy.error(
-//                        "Error deleting all entities \(String(describing: Self.self)) (in-memory fallback): \(error.localizedDescription)",
-//                        logger: .storage
-//                    )
-//                    DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteAll.inMemoryFallback", "entityType": String(describing: Self.self)])
-//                }
-//                return
-//            }
-
             let fetchRequest: NSFetchRequest<NSFetchRequestResult> = Self.fetchRequest()
             let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
             do {
@@ -345,6 +364,9 @@ extension CoreDataManageable where Self: NSManagedObject {
     }
     
     static func select(_ entityId: UUID, in context: NSManagedObjectContext) -> Self? {
+        // nonisolated(unsafe) is safe here because performAndWait executes synchronously,
+        // blocking until the closure completes. The result won't be accessed until after
+        // the performAndWait block finishes.
         nonisolated(unsafe) var result: Self?
         context.performAndWait {
             let request = Self.fetchRequest()
@@ -392,6 +414,8 @@ extension CoreDataManageable where Self: NSManagedObject {
         fetchLimit: Int?,
         fetchBatchSize: Int = 20
     ) -> [Self] {
+        // nonisolated(unsafe) is safe here because performAndWait is synchronous and blocks
+        // until completion. The result array won't be accessed until after the closure finishes.
         nonisolated(unsafe) var result: [Self] = []
         context.performAndWait {
             let request = Self.fetchRequest()
@@ -423,8 +447,10 @@ extension CoreDataManageable where Self: NSManagedObject {
     ///   - predicate: Optional predicate to filter the count. When `nil`, counts all entities.
     /// - Returns: The number of entities matching the predicate (or all entities if predicate is nil).
     static func count(in context: NSManagedObjectContext, predicate: NSPredicate? = nil) -> Int {
+        // nonisolated(unsafe) is safe here because performAndWait is synchronous and blocks
+        // until completion. Both the result and predicateRef won't be accessed/escape until
+        // after the performAndWait block completes.
         nonisolated(unsafe) var result = 0
-        // nonisolated(unsafe) because performAndWait is synchronous - predicate won't escape
         nonisolated(unsafe) let predicateRef = predicate
         context.performAndWait {
             let request = Self.fetchRequest()

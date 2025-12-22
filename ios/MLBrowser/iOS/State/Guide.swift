@@ -68,7 +68,7 @@ final class Guide: ObservableObject {
 		if ontheflyDetectionEnabled {
 			ontheflyDetectionTapped()
 		}
-		deep.reset()
+		await deep.reset()
 		settings.reset()
 		settings.applicationResetButtonToggle.toggle()
 		await demoDataManager.deleteBrowsingHistory()

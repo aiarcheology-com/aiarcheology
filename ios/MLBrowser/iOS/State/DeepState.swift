@@ -123,9 +123,13 @@ final class DeepState: ObservableObject {
 		DeepConfiguration.delete(entity, in: context)
 	}
 	
-	func reset() {
-		let context = dataController.container.viewContext
-		DeepConfiguration.deleteAll(in: context)
+	func reset() async {
+		await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+			dataController.performBackgroundTask { context in
+				defer { continuation.resume() }
+				DeepConfiguration.deleteAll(in: context)
+			}
+		}
 	}
 	
 	func selectConfiguration(_ entityId: UUID) -> DeepConfiguration? {

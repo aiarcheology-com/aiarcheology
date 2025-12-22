@@ -18,7 +18,7 @@
   },
   "testTargets" : [
     {
-      "parallelizable" : false,
+      "parallelizable" : true,
       "target" : {
         "containerPath" : "container:MLBrowser.xcodeproj",
         "identifier" : "8AE0BC152A97B0B40086DDF9",
