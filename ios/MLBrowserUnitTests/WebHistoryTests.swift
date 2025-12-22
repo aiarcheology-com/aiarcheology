@@ -9,14 +9,14 @@ import XCTest
 @testable import ML_Browser
 
 final class WebHistoryTests: XCTestCase {
-    
+
     var testStack: TestCoreDataStack!
-    
+
     override func setUp() {
         super.setUp()
         testStack = TestCoreDataStack()
     }
-    
+
     override func tearDown() {
         testStack = nil
         super.tearDown()

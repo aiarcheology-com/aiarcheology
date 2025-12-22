@@ -140,16 +140,16 @@ final class ActiveDownloadTests: XCTestCase {
 // MARK: - DownloadItem Tests
 
 final class DownloadItemTests: XCTestCase {
-    
+
     var testStack: TestCoreDataStack!
     var context: NSManagedObjectContext!
-    
+
     override func setUp() {
         super.setUp()
         testStack = TestCoreDataStack()
         context = testStack.viewContext
     }
-    
+
     override func tearDown() {
         testStack = nil
         context = nil

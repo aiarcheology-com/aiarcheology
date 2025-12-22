@@ -64,16 +64,14 @@ final class Guide: ObservableObject {
 		presentSettings = true
 	}
 
-    @MainActor func resetApplication() {
+    @MainActor func resetApplication() async {
 		if ontheflyDetectionEnabled {
 			ontheflyDetectionTapped()
 		}
-		deep.reset()
+		await deep.reset()
 		settings.reset()
 		settings.applicationResetButtonToggle.toggle()
-		demoDataManager.deleteBrowsingHistory()
-		Task {
-			await demoDataManager.createDemoDataIfNeeded()
-		}
+		await demoDataManager.deleteBrowsingHistory()
+		await demoDataManager.createDemoDataIfNeeded()
 	}
 }

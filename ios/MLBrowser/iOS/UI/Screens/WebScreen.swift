@@ -183,7 +183,8 @@ struct WebScreenView: View {
     }
 
 	private func createWebHistoryEntry(_ urlString: String, maxEntries: Int) {
-		guard WebHistoryEntry.selectAll(in: moc).count <= maxEntries else {
+		// Use existing @FetchRequest count instead of fetching all objects
+		guard history.count <= maxEntries else {
 			latestError = HistoryError.fullHistory
 			showAlert = true
 			return
@@ -198,8 +199,12 @@ struct WebScreenView: View {
 		newHistorEntry.bookmarked = false
 		newHistorEntry.creationDate_ = .now
 		newHistorEntry.page = URL(string:websiteUrl.withHTTPS)
+		// Lifecycle: transition to draft before validation, then to ready if valid
+		// If validation fails, the entity is deleted (brief inconsistent state is acceptable)
+		newHistorEntry.transition(to: .draft)
 		do {
 			try newHistorEntry.validateForInsert()
+			newHistorEntry.transition(to: .ready)
 		}
 		catch {
 			WebHistoryEntry.delete(newHistorEntry, in: moc)

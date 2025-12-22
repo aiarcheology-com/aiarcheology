@@ -134,7 +134,11 @@ struct SettingsForm: View {
 						Button(action: {
 							self.alertItem = AlertItem(title: Text("Warning"),
 													   message: Text("Resetting the application will erase all data models from the ML Browser except the demo models. Are you sure you want to proceed?"),
-													   primaryButton: .destructive(Text("Restore"), action: guide.resetApplication),
+													   primaryButton: .destructive(Text("Restore"), action: {
+														   Task {
+															   await guide.resetApplication()
+														   }
+													   }),
 													   secondaryButton: .cancel())
 						}) {
 							Text("Restore")
