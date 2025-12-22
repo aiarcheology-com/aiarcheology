@@ -323,44 +323,6 @@ extension CoreDataManageable where Self: NSManagedObject {
     
     static func deleteAll(in context: NSManagedObjectContext, executeAndMerge: Bool = false) {
         context.performAndWait {
-            // IMPORTANT:
-            // `NSBatchDeleteRequest` does not work reliably with `NSInMemoryStoreType` and can crash
-            // (see unit test guidance + CI flakiness). Fall back to per-object deletion for in-memory.
-            let isInMemoryStore: Bool = {
-                guard let coordinator = context.persistentStoreCoordinator else { return false }
-                // If there are multiple stores, treat it as in-memory only when *all* are in-memory.
-                return coordinator.persistentStores.isEmpty.not &&
-                    coordinator.persistentStores.allSatisfy { $0.type == NSInMemoryStoreType }
-            }()
-
-            if isInMemoryStore {
-                do {
-                    let fetchRequest: NSFetchRequest<NSFetchRequestResult> = Self.fetchRequest()
-                    fetchRequest.includesPropertyValues = false
-                    fetchRequest.returnsObjectsAsFaults = true
-
-                    let results = try context.fetch(fetchRequest)
-                    for object in results {
-                        guard let managedObject = object as? NSManagedObject else { continue }
-                        context.delete(managedObject)
-                    }
-                    if context.hasChanges {
-                        try context.save()
-                    }
-                    LoggingPolicy.info(
-                        "Successfully deleted all \(String(describing: Self.self)) entities using in-memory safe deletion (\(results.count) objects)",
-                        logger: .storage
-                    )
-                } catch {
-                    LoggingPolicy.error(
-                        "Error deleting all entities \(String(describing: Self.self)) (in-memory fallback): \(error.localizedDescription)",
-                        logger: .storage
-                    )
-                    DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteAll.inMemoryFallback", "entityType": String(describing: Self.self)])
-                }
-                return
-            }
-
             let fetchRequest: NSFetchRequest<NSFetchRequestResult> = Self.fetchRequest()
             let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
             do {
