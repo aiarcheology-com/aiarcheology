@@ -18,7 +18,7 @@ final class DataController: ObservableObject {
 	/// Core Data has issues when the same model is loaded multiple times.
 	/// Using nonisolated(unsafe) to ensure the model is loaded exactly once per process.
 	nonisolated(unsafe) private static var _sharedModel: NSManagedObjectModel?
-	nonisolated(unsafe) private static let modelLock = NSLock()
+	private static let modelLock = NSLock()
 
 	private static var sharedModel: NSManagedObjectModel {
 		modelLock.lock()

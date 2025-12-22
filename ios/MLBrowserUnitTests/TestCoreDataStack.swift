@@ -11,16 +11,15 @@ import CoreData
 /// Test helper that wraps DataController to provide a consistent Core Data stack.
 /// Uses DataController internally to ensure the shared managed object model is used,
 /// avoiding duplicate entity description issues when running multiple tests.
-@MainActor
 final class TestCoreDataStack {
-    private let dataController: DataController
+    let container: NSPersistentContainer
 
-    var container: NSPersistentContainer {
-        dataController.container
-    }
-
-    init() {
-        dataController = DataController(inMemory: true)
+    nonisolated init() {
+        // Tests always run on the main thread, so we can safely assume main actor isolation
+        container = MainActor.assumeIsolated {
+            let dataController = DataController(inMemory: true)
+            return dataController.container
+        }
     }
 
     var viewContext: NSManagedObjectContext {

@@ -8,7 +8,6 @@
 import XCTest
 @testable import ML_Browser
 
-@MainActor
 final class WebHistoryTests: XCTestCase {
 
     var testStack: TestCoreDataStack!

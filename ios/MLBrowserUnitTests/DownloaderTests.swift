@@ -139,7 +139,6 @@ final class ActiveDownloadTests: XCTestCase {
 
 // MARK: - DownloadItem Tests
 
-@MainActor
 final class DownloadItemTests: XCTestCase {
 
     var testStack: TestCoreDataStack!
@@ -150,7 +149,7 @@ final class DownloadItemTests: XCTestCase {
         testStack = TestCoreDataStack()
         context = testStack.viewContext
     }
-    
+
     override func tearDown() {
         testStack = nil
         context = nil

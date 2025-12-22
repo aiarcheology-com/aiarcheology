@@ -13,7 +13,6 @@ import CoreData
 // We'll use WebHistoryEntry since it conforms to CoreDataManagableWithState
 // and we have it in the model.
 
-@MainActor
 final class CoreDataManagableTests: XCTestCase {
 
     var testStack: TestCoreDataStack!
