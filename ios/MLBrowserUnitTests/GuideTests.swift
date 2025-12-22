@@ -76,10 +76,16 @@ final class GuideTests: XCTestCase {
     /// Sets up the test with a temporary SQLite store instead of in-memory.
     /// Use this for tests that call resetApplication() or other batch delete operations.
     private func setUpWithSQLiteStore() async {
-        // Properly unload the in-memory store before creating the SQLite store
-        // to avoid duplicate entity description issues
+        // Unload the in-memory store before creating the SQLite store to avoid conflicts.
+        // Note: In test environments, store removal failures are typically non-critical
+        // as the old store will be discarded when dataController is replaced.
         for store in dataController.container.persistentStoreCoordinator.persistentStores {
-            try? dataController.container.persistentStoreCoordinator.remove(store)
+            do {
+                try dataController.container.persistentStoreCoordinator.remove(store)
+            } catch {
+                // Log but continue - the old in-memory store will be discarded anyway
+                print("Warning: Failed to remove in-memory store during test setup: \(error)")
+            }
         }
 
         let (sqliteController, storeURL) = createTempSQLiteDataController()

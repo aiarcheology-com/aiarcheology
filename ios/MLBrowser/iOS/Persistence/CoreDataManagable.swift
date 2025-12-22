@@ -327,10 +327,16 @@ extension CoreDataManageable where Self: NSManagedObject {
             let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
             do {
                 if executeAndMerge.enabled {
-                    // Executes batch delete and merges deleted objectIDs into this context; the delete is persisted directly to the store, so no explicit context.save() is required.
+                    // NSBatchDeleteRequest operates directly on the persistent store and persists changes immediately.
+                    // executeAndMerge merges the deleted object IDs into this context so it reflects the deletions.
+                    // No context.save() is needed - the store is already updated.
+                    // Other contexts will only see deletions if they refresh or have automaticallyMergesChangesFromParent enabled.
                     try context.executeAndMergeChanges(using: deleteRequest)
                 } else {
-                    // Executes batch delete directly against the store without merging changes into the context; no explicit context.save() is required here either.
+                    // NSBatchDeleteRequest operates directly on the persistent store and persists changes immediately.
+                    // This context will NOT be updated to reflect the deletions (it retains stale references).
+                    // No context.save() is needed - the store is already updated.
+                    // Other contexts will only see deletions if they refresh or have automaticallyMergesChangesFromParent enabled.
                     try context.execute(deleteRequest)
                 }
                 LoggingPolicy.info("Successfully deleted all \(String(describing: Self.self)) entities", logger: .storage)

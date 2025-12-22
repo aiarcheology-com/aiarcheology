@@ -16,7 +16,15 @@ final class DataController: ObservableObject {
 
 	/// Shared managed object model to avoid loading duplicates in tests.
 	/// Core Data has issues when the same model is loaded multiple times.
-	/// Using nonisolated(unsafe) to ensure the model is loaded exactly once per process.
+	///
+	/// Using nonisolated(unsafe) for _sharedModel is safe here because NSLock provides
+	/// proper synchronization guarantees. The lock ensures only one thread can access
+	/// and modify _sharedModel at a time, preventing data races even though we bypass
+	/// Swift's concurrency checking with nonisolated(unsafe).
+	///
+	/// This approach is necessary because the model needs to be accessed from @MainActor-isolated
+	/// initializers while being shared across all DataController instances to prevent duplicate
+	/// entity descriptions that cause crashes in parallel test execution.
 	nonisolated(unsafe) private static var _sharedModel: NSManagedObjectModel?
 	private static let modelLock = NSLock()
 
