@@ -8,22 +8,21 @@
 import CoreData
 @testable import ML_Browser
 
+/// Test helper that wraps DataController to provide a consistent Core Data stack.
+/// Uses DataController internally to ensure the shared managed object model is used,
+/// avoiding duplicate entity description issues when running multiple tests.
+@MainActor
 final class TestCoreDataStack {
-    let container: NSPersistentContainer
-    
-    init() {
-        container = NSPersistentContainer(name: "MLBrowser")
-        let description = NSPersistentStoreDescription()
-        description.type = NSInMemoryStoreType
-        container.persistentStoreDescriptions = [description]
-        
-        container.loadPersistentStores { _, error in
-            if let error = error {
-                fatalError("Failed to load in-memory store: \(error)")
-            }
-        }
+    private let dataController: DataController
+
+    var container: NSPersistentContainer {
+        dataController.container
     }
-    
+
+    init() {
+        dataController = DataController(inMemory: true)
+    }
+
     var viewContext: NSManagedObjectContext {
         container.viewContext
     }

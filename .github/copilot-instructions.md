@@ -17,3 +17,8 @@
     *   Focus on the branch associated with the pull request you are reviewing.
     *   Ensure that your feedback is relevant to the changes made in that specific branch.
     *   Avoid making assumptions about other branches or parts of the codebase that are not directly related to the PR.
+
+### Diagrams and Visual Aids
+    *   When applicable, use diagrams or visual aids to illustrate complex concepts or workflows.
+    *   Ensure that any visual aids are clear, concise, and directly related to the code being reviewed.
+    *   You can use mermaid syntax to create diagrams in the PR's comments for better clarity.

@@ -16,7 +16,18 @@ final class DataController: ObservableObject {
 
 	/// Shared managed object model to avoid loading duplicates in tests.
 	/// Core Data has issues when the same model is loaded multiple times.
-	private static let sharedModel: NSManagedObjectModel = {
+	/// Using nonisolated(unsafe) to ensure the model is loaded exactly once per process.
+	nonisolated(unsafe) private static var _sharedModel: NSManagedObjectModel?
+	nonisolated(unsafe) private static let modelLock = NSLock()
+
+	private static var sharedModel: NSManagedObjectModel {
+		modelLock.lock()
+		defer { modelLock.unlock() }
+
+		if let model = _sharedModel {
+			return model
+		}
+
 		// Try main bundle first, then fall back to searching all bundles (for tests)
 		let modelURL = Bundle.main.url(forResource: containerName, withExtension: "momd")
 			?? Bundle.allBundles.compactMap { $0.url(forResource: containerName, withExtension: "momd") }.first
@@ -24,8 +35,10 @@ final class DataController: ObservableObject {
 		guard let url = modelURL, let model = NSManagedObjectModel(contentsOf: url) else {
 			fatalError("Failed to load Core Data model '\(containerName).momd'")
 		}
+
+		_sharedModel = model
 		return model
-	}()
+	}
 
 	private(set) var container: NSPersistentContainer
 
