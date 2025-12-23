@@ -59,7 +59,8 @@ struct SentryStatsView: View {
 		}
 		
 		// Convert attoseconds to a fractional number of seconds.
-		let totalSeconds = Double(c.seconds) + Double(c.attoseconds) / 1_000_000_000_000_000_000.0
+		let attosecondsPerSecond = 1_000_000_000_000_000_000.0
+		let totalSeconds = Double(c.seconds) + Double(c.attoseconds) / attosecondsPerSecond
 		
 		// If we have at least one whole second, show fractional seconds with limited precision.
 		if c.seconds != 0 {

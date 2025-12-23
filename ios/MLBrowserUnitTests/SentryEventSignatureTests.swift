@@ -8,6 +8,9 @@ import XCTest
 
 final class SentryEventSignatureTests: XCTestCase {
 	
+	// UUID regex pattern used by SentryEventSignatureBuilder
+	private let uuidPattern = #"(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b"#
+	
 	func testSignatureHex_sameInput_isStable() {
 		let input = SentryEventSignatureInput(
 			errorType: "MyError",
@@ -51,12 +54,12 @@ final class SentryEventSignatureTests: XCTestCase {
 		// Verify that the redaction actually produces identical normalized strings
 		// Both messages should become "Request failed id=<uuid>"
 		let normalized1 = input1.message?.replacingOccurrences(
-			of: #"(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b"#,
+			of: uuidPattern,
 			with: "<uuid>",
 			options: .regularExpression
 		)
 		let normalized2 = input2.message?.replacingOccurrences(
-			of: #"(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b"#,
+			of: uuidPattern,
 			with: "<uuid>",
 			options: .regularExpression
 		)
