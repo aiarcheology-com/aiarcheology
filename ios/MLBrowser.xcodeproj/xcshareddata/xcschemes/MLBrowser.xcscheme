@@ -82,8 +82,6 @@
             ReferencedContainer = "container:MLBrowser.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <!-- Optional opt-in smoke test for Sentry throttling. Disabled by default to avoid sending test events. -->
-      <!-- To enable: set isEnabled="YES" and choose mode: "duplicate" or "global" -->
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "SENTRY_THROTTLE_SMOKE_TEST"
