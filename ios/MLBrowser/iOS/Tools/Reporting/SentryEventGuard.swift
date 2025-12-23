@@ -64,89 +64,7 @@ final class SentryEventGuard: @unchecked Sendable {
 		/// Global server backoff (if known).
 		var serverMuteUntil: ContinuousClock.Instant?
 		
-		var lru: LRU = .init(capacity: 200)
-	}
-	
-	// MARK: - LRU (String -> SignatureState)
-	
-	private struct LRU {
-		final class Node {
-			let key: String
-			var value: SignatureState
-			var prev: Node?
-			var next: Node?
-			
-			init(key: String, value: SignatureState) {
-				self.key = key
-				self.value = value
-			}
-		}
-		
-		var capacity: Int
-		private(set) var map: [String: Node] = [:]
-		private(set) var head: Node?
-		private(set) var tail: Node?
-		
-		init(capacity: Int) {
-			self.capacity = max(1, capacity)
-		}
-		
-		mutating func setCapacity(_ newCapacity: Int) {
-			capacity = max(1, newCapacity)
-			evictIfNeeded()
-		}
-		
-		mutating func withValue(forKey key: String, createIfMissing: () -> SignatureState, _ body: (inout SignatureState) -> Void) {
-			if let node = map[key] {
-				touch(node)
-				body(&node.value)
-				return
-			}
-			
-			let node = Node(key: key, value: createIfMissing())
-			insertAtHead(node)
-			map[key] = node
-			evictIfNeeded()
-			body(&node.value)
-		}
-		
-		private mutating func touch(_ node: Node) {
-			guard head !== node else { return }
-			
-			// Detach
-			let prev = node.prev
-			let next = node.next
-			prev?.next = next
-			next?.prev = prev
-			if tail === node { tail = prev }
-			
-			// Insert at head
-			node.prev = nil
-			node.next = head
-			head?.prev = node
-			head = node
-			
-			if tail == nil { tail = node }
-		}
-		
-		private mutating func insertAtHead(_ node: Node) {
-			node.prev = nil
-			node.next = head
-			head?.prev = node
-			head = node
-			if tail == nil { tail = node }
-		}
-		
-		private mutating func evictIfNeeded() {
-			while map.count > capacity, let tail {
-				// Remove tail
-				map[tail.key] = nil
-				let prev = tail.prev
-				prev?.next = nil
-				self.tail = prev
-				if self.tail == nil { head = nil }
-			}
-		}
+		var lru: LRUCache<String, SignatureState> = .init(capacity: 200)
 	}
 	
 	// MARK: - Logging
@@ -284,6 +202,14 @@ final class SentryEventGuard: @unchecked Sendable {
 		lock.withLock { $0.config }
 	}
 	
+	/// Updates the server-imposed rate limit backoff period.
+	///
+	/// This method is intended for integration with Sentry's `Retry-After` and `X-Sentry-Rate-Limits`
+	/// headers when implementing custom transport layers. The Sentry SDK's built-in transport already
+	/// respects these headers internally, so this method is currently unused but available for future
+	/// custom transport implementations.
+	///
+	/// - Parameter duration: The duration to suppress all events.
 	func updateServerRateLimit(muteFor duration: Duration) {
 		lock.withLock { state in
 			let now = state.clock.now

@@ -33,12 +33,18 @@ final class SentryEventGuardTests: XCTestCase {
 		XCTAssertFalse(d3.isAllowed)
 		XCTAssertEqual(d3.dropReason, .duplicate)
 		
-		// 10th occurrence should be allowed due to sampling (every 10th duplicate)
-		var last: SentryEventGuardDecision = d3
+		// Verify intermediate occurrences (3-9) are dropped
 		for i in 3..<10 {
-			last = sut.decide(signatureHex: sig, now: t0.advanced(by: .seconds(Int64(i))))
+			let decision = sut.decide(signatureHex: sig, now: t0.advanced(by: .seconds(Int64(i))))
+			if i < 9 {
+				// Events 3-8 should be dropped
+				XCTAssertFalse(decision.isAllowed, "Event \(i+1) should be dropped")
+				XCTAssertEqual(decision.dropReason, .duplicate)
+			} else {
+				// 10th occurrence should be allowed due to sampling (every 10th duplicate)
+				XCTAssertTrue(decision.isAllowed, "Event \(i+1) (10th total) should be allowed by sampling")
+			}
 		}
-		XCTAssertTrue(last.isAllowed)
 	}
 	
 	func testDecide_afterCooldown_allowsAgain() {
