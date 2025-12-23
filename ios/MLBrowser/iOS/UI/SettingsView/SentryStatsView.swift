@@ -7,7 +7,7 @@ import SwiftUI
 
 struct SentryStatsView: View {
 	var body: some View {
-		TimelineView(.periodic(from: Date(), by: 1.0)) { _ in
+		TimelineView(.periodic(from: Date(), by: 5.0)) { _ in
 			Form {
 				if let snapshot = SentryThrottleDiagnostics.snapshot() {
 					Section(header: Text("Config")) {
@@ -53,9 +53,27 @@ struct SentryStatsView: View {
 	
 	private func format(_ d: Duration) -> String {
 		let c = d.components
+		// Preserve existing simple formatting when there is no fractional component.
 		if c.attoseconds == 0 {
 			return "\(c.seconds)s"
 		}
-		return "\(c.seconds)s + \(c.attoseconds)as"
+		
+		// Convert attoseconds to a fractional number of seconds.
+		let totalSeconds = Double(c.seconds) + Double(c.attoseconds) / 1_000_000_000_000_000_000.0
+		
+		// If we have at least one whole second, show fractional seconds with limited precision.
+		if c.seconds != 0 {
+			return String(format: "%.3fs", totalSeconds)
+		}
+		
+		// For sub-second durations, show milliseconds with limited precision.
+		let milliseconds = totalSeconds * 1_000.0
+		if milliseconds >= 1.0 {
+			return String(format: "%.3fms", milliseconds)
+		}
+		
+		// For extremely small durations, fall back to microseconds as an integer.
+		let microseconds = totalSeconds * 1_000_000.0
+		return String(format: "%.0fµs", microseconds)
 	}
 }

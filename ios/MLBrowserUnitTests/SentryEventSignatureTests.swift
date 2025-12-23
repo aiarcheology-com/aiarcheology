@@ -19,7 +19,7 @@ final class SentryEventSignatureTests: XCTestCase {
 		let s2 = SentryEventSignatureBuilder.signatureHex(from: input)
 		
 		XCTAssertEqual(s1, s2)
-		XCTAssertEqual(s1?.count, 32) // 16 bytes hex
+		XCTAssertEqual(s1?.count, 32) // 32 hex characters (16 bytes)
 	}
 	
 	func testSignatureHex_redactsUUIDs() {
