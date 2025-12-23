@@ -55,7 +55,8 @@ class DependencyContainer {
 	private static func crashReporterFactory() -> CrashReportingService {
 		// Create crash reporter FIRST - this must happen before anything else
 		let reportingRate: Float = 0.5
-		let reporter: CrashReportingService = (AppEnvironment.isRunningUnderAnyTests || AppEnvironment.isDebugConfiguration)
+		let isThrottlingTestMode = AppEnvironment.sentryThrottleSmokeTestMode?.isEmpty == false
+		let reporter: CrashReportingService = (AppEnvironment.isRunningUnderAnyTests || AppEnvironment.isDebugConfiguration) && isThrottlingTestMode.not
 			? NoOpCrashReportingService()
 			: SentryCrashReportingService(tracesSampleRate: reportingRate)
 
