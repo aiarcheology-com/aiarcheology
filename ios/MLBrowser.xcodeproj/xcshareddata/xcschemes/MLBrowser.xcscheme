@@ -82,6 +82,13 @@
             ReferencedContainer = "container:MLBrowser.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "SENTRY_THROTTLE_SMOKE_TEST"
+            value = "duplicate"
+            isEnabled = "NO">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

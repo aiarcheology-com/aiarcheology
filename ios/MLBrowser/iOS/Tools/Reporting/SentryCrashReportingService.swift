@@ -17,6 +17,9 @@ final class SentryCrashReportingService: CrashReportingService {
 	private let dsn: String?
 	private let enableProfiling: Bool
 	private let tracesSampleRate: Float
+	private let throttleConfig: SentryThrottleConfig
+	private let eventGuard: SentryEventGuard
+	private let breadcrumbGuard: SentryBreadcrumbGuard
 	
 	/// Initialize the Sentry crash reporting service.
 	/// - Parameters:
@@ -26,11 +29,20 @@ final class SentryCrashReportingService: CrashReportingService {
 	init(
 		dsn: String? = nil,
 		tracesSampleRate: Float = 1.0,
-		enableProfiling: Bool = false
+		enableProfiling: Bool = false,
+		throttleConfig: SentryThrottleConfig = .default
 	) {
 		self.dsn = dsn ?? Self.dsnFromInfoPlist()
 		self.tracesSampleRate = tracesSampleRate
 		self.enableProfiling = enableProfiling
+		self.throttleConfig = throttleConfig
+		self.eventGuard = SentryEventGuard(config: throttleConfig)
+		self.breadcrumbGuard = SentryBreadcrumbGuard(
+			perSignatureCooldown: throttleConfig.perSignatureCooldown,
+			perSignatureBurst: throttleConfig.perSignatureBurst,
+			sampleEveryNthDuplicate: throttleConfig.sampleEveryNthDuplicate,
+			signatureCacheLimit: throttleConfig.signatureCacheLimit
+		)
 	}
 	
 	/// Reads the Sentry DSN from Info.plist.
@@ -52,6 +64,14 @@ final class SentryCrashReportingService: CrashReportingService {
 		
 		let tracesSampleRate = self.tracesSampleRate
 		let enableProfiling = self.enableProfiling
+		
+		// Expose guard stats for DEBUG UI (if Sentry is enabled for this build).
+		SentryThrottleDiagnostics.install { [eventGuard] in
+			SentryThrottleDiagnosticsSnapshot(
+				config: eventGuard.configSnapshot(),
+				stats: eventGuard.statsSnapshot()
+			)
+		}
 		
 		SentrySDK.start { options in
 			options.dsn = dsn
@@ -81,13 +101,126 @@ final class SentryCrashReportingService: CrashReportingService {
 			// Enable experimental logging features
 			options.experimental.enableLogs = true
 			
+			// Client-side event throttling + deduplication (iOS 17+ target).
+			// Note: Native crash reports bypass `beforeSend` and are intentionally not throttled.
+			// Note: Sentry Cocoa transport honors `Retry-After` and `X-Sentry-Rate-Limits` internally.
+			let throttleConfig = self.throttleConfig
+			let eventGuard = self.eventGuard
+			options.beforeSend = { event in
+				guard throttleConfig.isEnabled else { return event }
+				
+				guard let input = Self.signatureInput(from: event),
+					  let signatureHex = SentryEventSignatureBuilder.signatureHex(from: input)
+				else {
+					// If we can't build a stable signature, don't risk dropping.
+					return event
+				}
+				
+				let decision = eventGuard.decide(signatureHex: signatureHex)
+				guard decision.isAllowed else { return nil }
+				
+				if throttleConfig.enableSuppressedCountBreadcrumb,
+				   decision.suppressedDuplicatesToReport > 0
+				{
+					let count = decision.suppressedDuplicatesToReport
+					let prefix = String(signatureHex.prefix(8))
+					
+					// Attach minimal context to the event itself.
+					var extra = event.extra ?? [:]
+					extra["sentry_throttle.suppressed_duplicates"] = count
+					extra["sentry_throttle.signature_prefix"] = prefix
+					event.extra = extra
+					
+					let crumb = Breadcrumb()
+					crumb.level = .info
+					crumb.category = "sentry.throttle"
+					crumb.message = "Suppressed \(count) duplicate events (sig=\(prefix))"
+					event.breadcrumbs = (event.breadcrumbs ?? []) + [crumb]
+				}
+				
+				return event
+			}
+			
 			// Uncomment for additional debugging:
 			// options.attachScreenshot = true
 			// options.attachViewHierarchy = true
 		}
 	}
 	
+	// MARK: - Signature Extraction (Sentry -> SDK-agnostic input)
+	
+	private static func signatureInput(from event: Event) -> SentryEventSignatureInput? {
+		// Prefer parsing serialized payload to avoid depending on SDK model accessors.
+		let payload = event.serialize()
+		
+		let message: String? = {
+			if let s = payload["message"] as? String { return s }
+			if let m = payload["message"] as? [String: Any] {
+				return (m["formatted"] as? String) ?? (m["message"] as? String)
+			}
+			return nil
+		}()
+		
+		let (errorType, frames) = extractTypeAndFrames(payload: payload)
+		
+		// Use top 5 frames, symbol names only.
+		let topFrames = Array(frames.suffix(5))
+		return SentryEventSignatureInput(errorType: errorType, message: message, topFrames: topFrames)
+	}
+	
+	private static func extractTypeAndFrames(payload: [String: Any]) -> (String?, [String]) {
+		// 1) Exception stacktrace
+		if let exception = payload["exception"] as? [String: Any],
+		   let values = exception["values"] as? [[String: Any]],
+		   let first = values.first
+		{
+			let type = (first["type"] as? String) ?? (first["value"] as? String)
+			let frames = extractFrames(from: first["stacktrace"])
+			if !frames.isEmpty || type != nil {
+				return (type, frames)
+			}
+		}
+		
+		// 2) Thread stacktrace
+		if let threads = payload["threads"] as? [String: Any],
+		   let values = threads["values"] as? [[String: Any]],
+		   let first = values.first
+		{
+			let frames = extractFrames(from: first["stacktrace"])
+			if !frames.isEmpty {
+				return (nil, frames)
+			}
+		}
+		
+		// 3) Top-level stacktrace (fallback)
+		let frames = extractFrames(from: payload["stacktrace"])
+		return (nil, frames)
+	}
+	
+	private static func extractFrames(from stacktraceAny: Any?) -> [String] {
+		guard let stacktrace = stacktraceAny as? [String: Any],
+			  let frames = stacktrace["frames"] as? [[String: Any]]
+		else { return [] }
+		
+		// Sentry frames are often ordered oldest -> newest. Keep the most recent frames.
+		return frames.compactMap { frame in
+			(frame["function"] as? String) ?? (frame["symbol"] as? String)
+		}
+	}
+	
 	func addBreadcrumb(message: String, level: BreadcrumbLevel, category: String) {
+		// Breadcrumbs do not cost quota, but in an error loop they can flood the breadcrumb ring buffer
+		// and then get attached to the next allowed event. Throttle only error-ish breadcrumbs.
+		if throttleConfig.isEnabled,
+		   (level == .error || level == .fatal),
+		   let signature = SentryEventSignatureBuilder.signatureHex(
+			from: SentryEventSignatureInput(errorType: nil, message: message, topFrames: [])
+		   ),
+		   !breadcrumbGuard.shouldAllow(signatureHex: signature)
+		{
+			return
+		}
+		
 		let crumb = Breadcrumb()
 		crumb.level = level.toSentryLevel()
 		crumb.category = category

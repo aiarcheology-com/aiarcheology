@@ -150,6 +150,14 @@ struct SettingsForm: View {
 						resetButtonColor = .blue
 					}
 				}
+				
+				if AppEnvironment.isAppStoreDistribution.not {
+					Section(header: Text("Debug")) {
+						NavigationLink(destination: SentryStatsView()) {
+							Text("Sentry Stats")
+						}
+					}
+				}
 			}
 			.navigationBarTitle("Settings", displayMode: .inline)
 			.navigationBarItems(trailing: Button(action: {
