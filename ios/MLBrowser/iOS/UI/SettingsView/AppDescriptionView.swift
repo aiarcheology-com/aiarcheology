@@ -101,15 +101,15 @@ struct AppDescriptionView: View {
 		.navigationBarTitle("About", displayMode: .inline)
 	}
 
-	static func appVersion(in bundle: Bundle = .main) -> String {
-		guard let version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
+	static func appVersion() -> String {
+		guard let version = AppEnvironment.shortVersion else {
 			assert(false, "CFBundleShortVersionString should not be missing from info dictionary")
 			return ""
 		}
 		return version
 	}
-	static func appBuild(in bundle: Bundle = .main) -> String {
-		guard let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String else {
+	static func appBuild() -> String {
+		guard let build = AppEnvironment.buildNumber else {
 			assert(false, "CFBundleVersion should not be missing from info dictionary")
 			return ""
 		}

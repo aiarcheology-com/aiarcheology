@@ -14,8 +14,8 @@ struct DeviceInfo {
 		let iosVersion = device.systemVersion
 
 		let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Unknown"
-		let appVersionNumber = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
-		let appBuildNumber = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
+		let appVersionNumber = AppEnvironment.shortVersion ?? "Unknown"
+		let appBuildNumber = AppEnvironment.buildNumber ?? "Unknown"
 
 		let storageStatus = getDeviceStorageStatus()
 

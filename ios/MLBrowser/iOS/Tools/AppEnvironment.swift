@@ -45,6 +45,8 @@ import Foundation
 /// - `Bundle.main.appStoreReceiptURL` can be non-nil even when no receipt exists, so
 ///   we additionally check that the receipt file exists on disk.
 enum AppEnvironment {
+	static let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+	static let buildNumber = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
 
     // MARK: - Compile-time configuration
 
