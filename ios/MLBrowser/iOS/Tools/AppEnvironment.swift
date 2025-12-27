@@ -157,7 +157,31 @@ enum AppEnvironment {
     
     /// True if Sentry throttle smoke test is enabled via env var.
     static var sentryThrottleSmokeTestMode: String? {
-		if isAppStoreDistribution { return nil } // Only allow in non-App Store builds
+		if isAppStoreDistribution { return nil }
 		return ProcessInfo.processInfo.environment["SENTRY_THROTTLE_SMOKE_TEST"]
+	}
+	
+	// MARK: - Sentry Test Environment Variables
+	
+	/// Set `SENTRY_TEST_ERROR=1` to trigger a test error via LoggingPolicy.error at launch.
+	/// Only available in non-App Store builds.
+	static var shouldTriggerTestError: Bool {
+		if isAppStoreDistribution { return false }
+		return ProcessInfo.processInfo.environment["SENTRY_TEST_ERROR"] != nil
+	}
+	
+	/// Set `SENTRY_TEST_CRASH=1` to trigger an immediate crash via SentrySDK.crash() at launch.
+	/// Only available in non-App Store builds.
+	static var shouldTriggerTestCrash: Bool {
+		if isAppStoreDistribution { return false }
+		return ProcessInfo.processInfo.environment["SENTRY_TEST_CRASH"] != nil
+	}
+	
+	/// True if any Sentry test mode is enabled that requires the real crash reporter.
+	/// Includes: throttle smoke test, test error, and test crash modes.
+	static var requiresRealCrashReporter: Bool {
+		sentryThrottleSmokeTestMode?.isEmpty == false
+		|| shouldTriggerTestError
+		|| shouldTriggerTestCrash
 	}
 }

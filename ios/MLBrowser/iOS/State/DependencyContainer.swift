@@ -55,10 +55,9 @@ class DependencyContainer {
 	private static func crashReporterFactory() -> CrashReportingService {
 		// Create crash reporter FIRST - this must happen before anything else
 		let reportingRate: Float = 0.5
-		let isThrottleSmokeTestModeEnabled = AppEnvironment.sentryThrottleSmokeTestMode?.isEmpty == false
 		let isTestOrDebug = AppEnvironment.isRunningUnderAnyTests || AppEnvironment.isDebugConfiguration
-		// In tests/debug we normally disable crash reporting, unless throttle smoke-test mode is enabled.
-		let shouldUseRealReporter = !isTestOrDebug || isThrottleSmokeTestModeEnabled
+		
+		let shouldUseRealReporter = !isTestOrDebug || AppEnvironment.requiresRealCrashReporter
 		let reporter: CrashReportingService = shouldUseRealReporter
 			? SentryCrashReportingService(tracesSampleRate: reportingRate)
 			: NoOpCrashReportingService()
@@ -71,6 +70,8 @@ class DependencyContainer {
 				Observability initialized with reportingRate: \(reportingRate)
 				isDebug: \(AppEnvironment.isDebugConfiguration)
 				isTests: \(AppEnvironment.isRunningUnderAnyTests)
+				requiresRealCrashReporter: \(AppEnvironment.requiresRealCrashReporter)
+				usingRealReporter: \(shouldUseRealReporter)
 				
 			XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 			"""

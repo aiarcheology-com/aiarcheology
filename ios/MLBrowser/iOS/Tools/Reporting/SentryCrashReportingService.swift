@@ -273,12 +273,16 @@ final class SentryCrashReportingService: CrashReportingService {
 		} else {
 			finalMessage = message
 		}
-		SentrySDK.capture(message: finalMessage)
+		SentrySDK.capture(message: finalMessage) { scope in
+			scope.setLevel(.error)
+		}
 	}
 	
 	func captureFault(message: String) {
-		// Faults are critical - capture with error level
-		SentrySDK.capture(message: "[FAULT] \(message)")
+		// Faults are critical - capture with fatal level
+		SentrySDK.capture(message: "[FAULT] \(message)") { scope in
+			scope.setLevel(.fatal)
+		}
 	}
 	
 	func setCustomValue(_ value: String, forKey key: String) {
