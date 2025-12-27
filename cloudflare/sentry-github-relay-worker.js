@@ -185,6 +185,33 @@ function jsonBlock(obj, maxChars) {
   return `${s.slice(0, maxChars)}\n…[truncated]`;
 }
 
+function getTagValue(tagsArray, key) {
+  if (!Array.isArray(tagsArray)) return null;
+  const found = tagsArray.find((t) => t && t.key === key);
+  return found ? found.value ?? null : null;
+}
+
+function redactTagValue(tagKey, value) {
+  // Tag values can contain user identifiers / IPs depending on Sentry settings.
+  // Keep this conservative to avoid leaking PII into GitHub.
+  const SENSITIVE_TAG_KEYS = new Set([
+    "user",
+    "ip_address",
+    "ip",
+    "email",
+    "username",
+    "auth",
+    "authorization",
+    "cookie",
+    "cookies",
+  ]);
+
+  const k = String(tagKey || "").toLowerCase();
+  if (SENSITIVE_TAG_KEYS.has(k)) return "[redacted]";
+  if (typeof value === "string" && value.length > 500) return `${value.slice(0, 500)}…[truncated]`;
+  return value;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -293,8 +320,19 @@ export default {
                   : null;
 
               if (firstEventId) {
-                const eventUrl = `https://sentry.io/api/0/organizations/${org}/events/${firstEventId}/`;
-                eventDetails = await sentryFetch(env, eventUrl, 6000);
+                // Event details endpoint typically requires project context.
+                // Prefer: /api/0/projects/<org>/<project>/events/<eventId>/
+                const projectSlug =
+                  issueDetails?.project?.slug ||
+                  issueDetails?.projectSlug ||
+                  null;
+
+                if (projectSlug) {
+                  const eventUrl = `https://sentry.io/api/0/projects/${org}/${projectSlug}/events/${firstEventId}/`;
+                  eventDetails = await sentryFetch(env, eventUrl, 6000);
+                } else {
+                  console.log("No project slug available for event fetch; skipping event details.");
+                }
               }
             }
           } catch (e) {
@@ -304,6 +342,42 @@ export default {
           const safeIssueDetails = issueDetails ? redact(issueDetails) : null;
           const safeEventDetails = eventDetails ? redact(eventDetails) : null;
 
+          // Issue JSON only lists tag KEYS (and counts). Tag VALUES usually live on the EVENT.
+          // Extract the most useful values from the latest event payload when available.
+          const eventTags = eventDetails?.tags;
+          const keyTags = [
+            ["environment", getTagValue(eventTags, "environment")],
+            ["release", getTagValue(eventTags, "release")],
+            ["dist", getTagValue(eventTags, "dist")],
+            ["os", getTagValue(eventTags, "os")],
+            ["os.name", getTagValue(eventTags, "os.name")],
+            ["os.build", getTagValue(eventTags, "os.build")],
+            ["device", getTagValue(eventTags, "device")],
+            ["device.family", getTagValue(eventTags, "device.family")],
+            ["device.class", getTagValue(eventTags, "device.class")],
+            ["app.environment", getTagValue(eventTags, "app.environment")],
+            ["app.distribution_channel", getTagValue(eventTags, "app.distribution_channel")],
+            // The "user" tag value is usually "id:<uuid>" for iOS and can be useful; keep it separate.
+            ["user_tag", getTagValue(eventTags, "user")],
+          ].filter(([, v]) => v !== null && v !== undefined && v !== "");
+
+          // Dump ALL tags from the latest event (key/value), with light redaction for sensitive keys.
+          const allTagLines = Array.isArray(eventTags)
+            ? eventTags
+                .map((t) => {
+                  const k = t?.key;
+                  const v = redactTagValue(k, t?.value);
+                  if (!k || v === null || v === undefined || v === "") return null;
+                  return `- **${k}**: ${v}`;
+                })
+                .filter(Boolean)
+                .sort((a, b) => a.localeCompare(b))
+            : [];
+
+          // Contexts (OS/device/app/runtime/etc) are on the event payload and are very useful for repro.
+          const contexts = safeEventDetails?.contexts ?? null;
+          const sdk = safeEventDetails?.sdk ?? null;
+
           const enrichedBody = [
             `Created automatically from Sentry.`,
             ``,
@@ -312,6 +386,24 @@ export default {
             issueUrl ? `Link: ${issueUrl}` : null,
             capturedAt ? `Captured at: ${capturedAt}` : null,
             sourceLoc ? `Source: ${sourceLoc}` : null,
+            ``,
+            `## Key tags (from latest event)`,
+            ...(keyTags.length
+              ? keyTags.map(([k, v]) => `- **${k}**: ${v}`)
+              : [`_No event tag values available (event fetch failed or returned no tags)._`]),
+            ``,
+            `## Tags (all from latest event)`,
+            ...(allTagLines.length ? allTagLines : [`_No tags available._`]),
+            ``,
+            `## Contexts (from latest event, redacted)`,
+            "```json",
+            contexts ? jsonBlock(contexts, 12000) : '{"note":"no contexts fetched"}',
+            "```",
+            ``,
+            `## SDK (from latest event, redacted)`,
+            "```json",
+            sdk ? jsonBlock(sdk, 4000) : '{"note":"no sdk fetched"}',
+            "```",
             ``,
             `## Issue JSON (redacted)`,
             "```json",
