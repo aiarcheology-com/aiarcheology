@@ -1,0 +1,349 @@
+// Cloudflare Worker: Sentry issue webhooks -> GitHub Issues
+//
+// Features:
+// - Verifies Sentry webhook signature (best-effort across common formats)
+// - Handles `sentry-hook-resource: issue` webhooks only
+// - Dedupes by searching for a stable marker in existing GitHub issues
+// - Creates a GitHub issue on `action: created` with label `bug`
+// - Sanitizes title by stripping leading "ISO_TIMESTAMP File.swift:123 " when present
+// - Enriches GitHub body by fetching Sentry Issue JSON + latest event JSON (best-effort)
+// - Redacts common sensitive keys and caps JSON size to avoid giant GitHub bodies
+//
+// Required Cloudflare env vars (Settings -> Variables/Secrets):
+// - GH_OWNER
+// - GH_REPO
+// - GITHUB_TOKEN
+// - SENTRY_WEBHOOK_SECRET
+// - SENTRY_API_TOKEN
+//
+// Notes:
+// - If enrichment shows "no issue details fetched", check Worker logs for:
+//   - `hasSentryApiToken: false` (env var not applied to the environment), or
+//   - Sentry API errors (401/403/404) in `Sentry enrichment failed: ...`.
+
+function hexFrom(buf) {
+  return [...new Uint8Array(buf)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function hmacSha256Hex(secret, message) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const mac = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(message)
+  );
+  return hexFrom(mac);
+}
+
+function timingSafeEqual(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return out === 0;
+}
+
+async function verifySentry(request, rawBody, secret) {
+  const sigHeader = request.headers.get("sentry-hook-signature") || "";
+  const ts = request.headers.get("sentry-hook-timestamp") || "";
+  if (!secret || !sigHeader || !ts) return false;
+
+  const sig = sigHeader.trim().replace(/^sha256=/, "").replace(/^v0=/, "");
+
+  // Replay window: 10 minutes
+  const now = Math.floor(Date.now() / 1000);
+  const tsInt = Number(ts);
+  if (!Number.isFinite(tsInt) || Math.abs(now - tsInt) > 600) return false;
+
+  // Try a few common signing formats
+  const candidates = [
+    `${ts}.${rawBody}`,
+    `${ts}:${rawBody}`,
+    `v0:${ts}:${rawBody}`,
+    `v0:${ts}.${rawBody}`,
+    rawBody,
+  ];
+
+  for (const msg of candidates) {
+    const expected = await hmacSha256Hex(secret, msg);
+    if (timingSafeEqual(expected, sig)) return true;
+  }
+
+  return false;
+}
+
+async function ghFetch(env, path, init = {}) {
+  const resp = await fetch(`https://api.github.com${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      Accept: "application/vnd.github+json",
+      "User-Agent": "sentry-github-relay",
+      ...(init.headers || {}),
+    },
+  });
+
+  const text = await resp.text();
+  if (!resp.ok) throw new Error(`GitHub API ${resp.status} ${path} ${text}`);
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchWithTimeout(url, init, timeoutMs) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function sentryFetch(env, url, timeoutMs = 7000) {
+  const resp = await fetchWithTimeout(
+    url,
+    {
+      headers: {
+        Authorization: `Bearer ${env.SENTRY_API_TOKEN}`,
+        Accept: "application/json",
+        "User-Agent": "sentry-github-relay",
+      },
+    },
+    timeoutMs
+  );
+
+  const text = await resp.text();
+  if (!resp.ok) throw new Error(`Sentry API ${resp.status} ${url} ${text}`);
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function redact(obj) {
+  const SENSITIVE_KEYS = new Set([
+    "ip_address",
+    "ipaddress",
+    "email",
+    "username",
+    "user",
+    "request",
+    "cookies",
+    "headers",
+    "authorization",
+    "token",
+    "access_token",
+    "refresh_token",
+    "device_id",
+    "deviceid",
+    "identifierforvendor",
+    "idfv",
+  ]);
+
+  function walk(v, depth) {
+    if (depth > 12) return "[truncated-depth]";
+    if (v === null || v === undefined) return v;
+
+    if (Array.isArray(v)) {
+      return v.slice(0, 200).map((x) => walk(x, depth + 1));
+    }
+
+    if (typeof v === "object") {
+      const out = {};
+      for (const [k, val] of Object.entries(v)) {
+        const lk = String(k).toLowerCase();
+        if (SENSITIVE_KEYS.has(lk)) {
+          out[k] = "[redacted]";
+        } else {
+          out[k] = walk(val, depth + 1);
+        }
+      }
+      return out;
+    }
+
+    if (typeof v === "string" && v.length > 4000) return `${v.slice(0, 4000)}…[truncated]`;
+    return v;
+  }
+
+  return walk(obj, 0);
+}
+
+function jsonBlock(obj, maxChars) {
+  const s = JSON.stringify(obj, null, 2);
+  if (s.length <= maxChars) return s;
+  return `${s.slice(0, maxChars)}\n…[truncated]`;
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    if (url.pathname !== "/sentry/webhook") return new Response("Not Found", { status: 404 });
+    if (request.method === "GET") return new Response("ok", { status: 200 });
+    if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
+
+    const raw = await request.text();
+
+    const ok = await verifySentry(request, raw, env.SENTRY_WEBHOOK_SECRET);
+    if (!ok) return new Response("Unauthorized", { status: 401 });
+
+    const hookResource = request.headers.get("sentry-hook-resource") || "unknown";
+    if (hookResource !== "issue") {
+      return new Response(`ok (ignored resource ${hookResource})`, { status: 200 });
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      return new Response("Bad JSON", { status: 400 });
+    }
+
+    const action = String(payload.action || "unknown");
+    const issue = payload?.data?.issue || payload?.issue;
+
+    const issueId = String(issue?.id || "unknown");
+    if (issueId === "unknown") return new Response("ok (no issue id)", { status: 200 });
+
+    const rawTitle = String(issue?.title || `Sentry issue ${issueId}`);
+
+    // Sanitize leading "ISO_TIMESTAMP File.swift:123 " from Sentry titles
+    const m = rawTitle.match(
+      /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)\s+([A-Za-z0-9_.-]+\.swift:\d+)\s+(.*)$/
+    );
+    const capturedAt = m ? m[1] : null;
+    const sourceLoc = m ? m[2] : null;
+    const issueTitle = m ? m[3] : rawTitle;
+
+    // Prefer the API URL if Sentry provides it; else fallback to permalink.
+    const issueUrl = issue?.url || issue?.permalink || null;
+
+    const marker = `Sentry issue id: ${issueId}`;
+
+    // Dedupe by marker in existing GH issues (GitHub Search requires is:issue)
+    const q = encodeURIComponent(`repo:${env.GH_OWNER}/${env.GH_REPO} is:issue in:body "${marker}"`);
+    const found = await ghFetch(env, `/search/issues?q=${q}`);
+    const existing = found?.items?.[0] ?? null;
+
+    if (existing || action !== "created") {
+      return new Response(JSON.stringify({ ok: true, action, existing: existing?.html_url ?? null }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Create the GitHub issue fast (keep Sentry happy), then enrich asynchronously.
+    const body = [
+      `Created automatically from Sentry.`,
+      ``,
+      `## Sentry`,
+      marker,
+      issueUrl ? `Link: ${issueUrl}` : null,
+      capturedAt ? `Captured at: ${capturedAt}` : null,
+      sourceLoc ? `Source: ${sourceLoc}` : null,
+      ``,
+      `## Details`,
+      `_Enrichment pending…_`,
+    ]
+      .filter((v) => v !== null && v !== "")
+      .join("\n");
+
+    const created = await ghFetch(env, `/repos/${env.GH_OWNER}/${env.GH_REPO}/issues`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: issueTitle, body, labels: ["bug"] }),
+    });
+
+    // Background enrichment (best-effort). Will not delay webhook response.
+    if (ctx && issueUrl && env.SENTRY_API_TOKEN && created?.number) {
+      ctx.waitUntil(
+        (async () => {
+          let issueDetails = null;
+          let eventDetails = null;
+
+          try {
+            console.log("enrich:", {
+              hasIssueUrl: Boolean(issueUrl),
+              hasSentryApiToken: Boolean(env.SENTRY_API_TOKEN),
+              issueId,
+            });
+
+            // 1) Issue JSON
+            issueDetails = await sentryFetch(env, issueUrl, 6000);
+
+            // 2) Latest event JSON (best-effort)
+            const org = issueUrl.match(/\/organizations\/([^/]+)\//)?.[1] || null;
+            if (org) {
+              const eventsListUrl = `https://sentry.io/api/0/organizations/${org}/issues/${issueId}/events/?per_page=1`;
+              const events = await sentryFetch(env, eventsListUrl, 6000);
+              const firstEventId =
+                Array.isArray(events) && events.length > 0
+                  ? events[0].id || events[0].eventID || events[0].eventId
+                  : null;
+
+              if (firstEventId) {
+                const eventUrl = `https://sentry.io/api/0/organizations/${org}/events/${firstEventId}/`;
+                eventDetails = await sentryFetch(env, eventUrl, 6000);
+              }
+            }
+          } catch (e) {
+            console.log("Sentry enrichment failed:", e?.message || String(e));
+          }
+
+          const safeIssueDetails = issueDetails ? redact(issueDetails) : null;
+          const safeEventDetails = eventDetails ? redact(eventDetails) : null;
+
+          const enrichedBody = [
+            `Created automatically from Sentry.`,
+            ``,
+            `## Sentry`,
+            marker,
+            issueUrl ? `Link: ${issueUrl}` : null,
+            capturedAt ? `Captured at: ${capturedAt}` : null,
+            sourceLoc ? `Source: ${sourceLoc}` : null,
+            ``,
+            `## Issue JSON (redacted)`,
+            "```json",
+            safeIssueDetails ? jsonBlock(safeIssueDetails, 45000) : '{"note":"no issue details fetched"}',
+            "```",
+            ``,
+            `## Latest event JSON (redacted, best-effort)`,
+            "```json",
+            safeEventDetails ? jsonBlock(safeEventDetails, 15000) : '{"note":"no event details fetched"}',
+            "```",
+          ]
+            .filter((v) => v !== null && v !== "")
+            .join("\n");
+
+          try {
+            await ghFetch(env, `/repos/${env.GH_OWNER}/${env.GH_REPO}/issues/${created.number}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ body: enrichedBody }),
+            });
+          } catch (e) {
+            console.log("GitHub body update failed:", e?.message || String(e));
+          }
+        })()
+      );
+    }
+
+    return new Response(JSON.stringify({ ok: true, created: created?.html_url }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  },
+};
+
+
