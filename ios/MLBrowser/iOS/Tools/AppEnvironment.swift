@@ -116,9 +116,20 @@ enum AppEnvironment {
         case appStore
         /// Sandbox receipt (`.../sandboxReceipt`) — typically TestFlight, but can also be App Review / sandbox-like.
         case testFlightLike
+        /// Simulator build (no provisioning profile or receipt).
+        case simulator
         /// Could not determine (e.g., no receipt yet)
         case unknown
     }
+	
+	/// True if running in iOS Simulator.
+	static var isSimulator: Bool {
+		#if targetEnvironment(simulator)
+		return true
+		#else
+		return false
+		#endif
+	}
 
     /// True if the bundle contains an embedded provisioning profile.
     /// Store-distributed apps (App Store / TestFlight) typically do not.
@@ -133,27 +144,48 @@ enum AppEnvironment {
     }
 
     /// Best-effort runtime channel detection:
-    /// 1) embedded.mobileprovision present -> developmentLike
-    /// 2) else, if receipt exists -> sandboxReceipt vs receipt
-    /// 3) else unknown
+    /// 1) Simulator -> simulator
+    /// 2) embedded.mobileprovision present -> developmentLike
+    /// 3) receipt exists -> sandboxReceipt (testFlightLike) vs receipt (appStore)
+    /// 4) DEBUG build -> developmentLike (fallback for edge cases)
+    /// 5) else unknown
     static var distributionChannel: DistributionChannel {
+		// Simulator has no provisioning profile or receipt
+		if isSimulator {
+			return .simulator
+		}
+		
+		// Device with provisioning profile = Xcode/AdHoc/Enterprise install
         if hasEmbeddedProvisioningProfile {
             return .developmentLike
         }
 
-        guard let url = Bundle.main.appStoreReceiptURL else { return .unknown }
-        guard FileManager.default.fileExists(atPath: url.path) else { return .unknown }
+		// Check for App Store / TestFlight receipts
+        if let url = Bundle.main.appStoreReceiptURL,
+		   FileManager.default.fileExists(atPath: url.path) {
+			switch url.lastPathComponent {
+			case "sandboxReceipt": return .testFlightLike
+			case "receipt": return .appStore
+			default: break
+			}
+		}
+		
+		// Fallback: DEBUG builds without receipt are likely development
+		if isDebugConfiguration {
+			return .developmentLike
+		}
 
-        switch url.lastPathComponent {
-        case "sandboxReceipt": return .testFlightLike
-        case "receipt": return .appStore
-        default: return .unknown
-        }
+        return .unknown
     }
 
     static var isAppStoreDistribution: Bool { distributionChannel == .appStore }
     static var isTestFlightLikeDistribution: Bool { distributionChannel == .testFlightLike }
-    static var isDevelopmentLikeDistribution: Bool { distributionChannel == .developmentLike }
+    static var isDevelopmentLikeDistribution: Bool {
+		switch distributionChannel {
+		case .developmentLike, .simulator: return true
+		default: return false
+		}
+	}
     
     /// True if Sentry throttle smoke test is enabled via env var.
     static var sentryThrottleSmokeTestMode: String? {

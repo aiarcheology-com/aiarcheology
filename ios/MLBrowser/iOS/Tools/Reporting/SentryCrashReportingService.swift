@@ -26,6 +26,7 @@ final class SentryCrashReportingService: CrashReportingService {
 		case .appStore: return "appstore"
 		case .testFlightLike: return "testflight"
 		case .developmentLike: return "development"
+		case .simulator: return "simulator"
 		case .unknown: return "unknown"
 		}
 	}()
