@@ -21,7 +21,7 @@ final class SentryCrashReportingService: CrashReportingService {
 	private let breadcrumbGuard: SentryBreadcrumbGuard
 	
 	// Environment / distribution labeling
-	let channel: String = {
+	static let channel: String = {
 		switch AppEnvironment.distributionChannel {
 		case .appStore: return "appstore"
 		case .testFlightLike: return "testflight"
@@ -82,6 +82,9 @@ final class SentryCrashReportingService: CrashReportingService {
 				stats: eventGuard.statsSnapshot()
 			)
 		}
+		
+		// Compute environment name once for reuse
+		let envName: String = (Self.channel == "appstore") ? "production" : Self.channel
 		
 		SentrySDK.start { options in
 			options.dsn = dsn
@@ -156,7 +159,6 @@ final class SentryCrashReportingService: CrashReportingService {
 				options.dist = buildNumber
 			}
 			
-			let envName: String = (self.channel == "appstore") ? "production" : self.channel
 			options.environment = envName
 			
 			// Uncomment for additional debugging:
@@ -165,10 +167,9 @@ final class SentryCrashReportingService: CrashReportingService {
 		}
 		
 		SentrySDK.configureScope { scope in
-			let envName: String = (self.channel == "appstore") ? "production" : self.channel
 			scope.setTag(value: String(describing: AppEnvironment.distributionChannel), key: "distribution_channel")
 			scope.setTag(value: envName, key: "app.environment")
-			scope.setTag(value: self.channel, key: "app.distribution_channel")
+			scope.setTag(value: Self.channel, key: "app.distribution_channel")
 			scope.setTag(value: AppEnvironment.isDebugConfiguration ? "debug" : "release", key: "app.build_configuration")
 
 			if let shortVersion = AppEnvironment.shortVersion { scope.setTag(value: shortVersion, key: "app.version") }

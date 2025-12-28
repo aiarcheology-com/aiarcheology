@@ -105,6 +105,8 @@ async function fetchWithTimeout(url, init, timeoutMs) {
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } finally {
+    // clearTimeout is safe even if the timeout has already fired (no-op in that case).
+    // This ensures the timer is cleaned up when the fetch completes successfully before timeout.
     clearTimeout(t);
   }
 }
@@ -220,6 +222,27 @@ export default {
     if (request.method === "GET") return new Response("ok", { status: 200 });
     if (request.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
 
+    // Validate required GitHub-related environment variables early to surface
+    // configuration issues with a clear error instead of opaque runtime failures.
+    const missingEnv = [];
+    if (!env.GH_OWNER) missingEnv.push("GH_OWNER");
+    if (!env.GH_REPO) missingEnv.push("GH_REPO");
+    if (!env.GITHUB_TOKEN) missingEnv.push("GITHUB_TOKEN");
+
+    if (missingEnv.length > 0) {
+      return new Response(
+        `Missing required environment variable(s): ${missingEnv.join(
+          ", ",
+        )}. Please configure them in the Cloudflare Worker settings.`,
+        {
+          status: 500,
+          headers: {
+            "content-type": "text/plain; charset=utf-8",
+          },
+        },
+      );
+    }
+
     const raw = await request.text();
 
     const ok = await verifySentry(request, raw, env.SENTRY_WEBHOOK_SECRET);
@@ -263,7 +286,12 @@ export default {
     const found = await ghFetch(env, `/search/issues?q=${q}`);
     const existing = found?.items?.[0] ?? null;
 
-    if (existing || action !== "created") {
+    const isDuplicate =
+      !!existing &&
+      typeof existing.body === "string" &&
+      existing.body.includes(marker);
+
+    if (isDuplicate || action !== "created") {
       return new Response(JSON.stringify({ ok: true, action, existing: existing?.html_url ?? null }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -286,11 +314,20 @@ export default {
       .filter((v) => v !== null && v !== "")
       .join("\n");
 
-    const created = await ghFetch(env, `/repos/${env.GH_OWNER}/${env.GH_REPO}/issues`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: issueTitle, body, labels: ["bug"] }),
-    });
+    let created = null;
+    try {
+      created = await ghFetch(env, `/repos/${env.GH_OWNER}/${env.GH_REPO}/issues`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: issueTitle, body, labels: ["bug"] }),
+      });
+    } catch (e) {
+      console.error("GitHub issue creation failed:", e);
+      return new Response(JSON.stringify({ ok: false, error: "GitHub issue creation failed" }), {
+        status: 502,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     // Background enrichment (best-effort). Will not delay webhook response.
     if (ctx && issueUrl && env.SENTRY_API_TOKEN && created?.number) {
