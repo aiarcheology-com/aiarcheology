@@ -93,6 +93,12 @@ final class SentryCrashReportingService: CrashReportingService {
 #if DEBUG && false
 			options.debug = true
 			Logger.logger.debug("[Sentry] Initializing with DSN: \(dsn.prefix(50))...")
+			
+			// Session Replay (DEBUG only)
+			options.sessionReplay.onErrorSampleRate = 1.0
+			options.sessionReplay.sessionSampleRate = AppEnvironment.isAppStoreDistribution ? 0.1 : 1.0
+			options.sessionReplay.maskAllText = true
+			options.sessionReplay.maskAllImages = true
 #endif
 			
 			// Adds IP for users.
