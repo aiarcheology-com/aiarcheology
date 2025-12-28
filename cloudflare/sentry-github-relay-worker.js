@@ -193,6 +193,19 @@ function getTagValue(tagsArray, key) {
   return found ? found.value ?? null : null;
 }
 
+function deriveSentryHtmlIssueUrlFromApiUrl(apiUrl) {
+  // From: https://sentry.io/api/0/organizations/<org>/issues/<issueId>/
+  // To:   https://<org>.sentry.io/issues/<issueId>/
+  if (typeof apiUrl !== "string") return null;
+  const m = apiUrl.match(
+    /^https:\/\/sentry\.io\/api\/0\/organizations\/([^/]+)\/issues\/(\d+)\/?/
+  );
+  if (!m) return null;
+  const org = m[1];
+  const issueId = m[2];
+  return `https://${org}.sentry.io/issues/${issueId}/`;
+}
+
 function redactTagValue(tagKey, value) {
   // Tag values can contain user identifiers / IPs depending on Sentry settings.
   // Keep this conservative to avoid leaking PII into GitHub.
@@ -277,7 +290,11 @@ export default {
     const issueTitle = m ? m[3] : rawTitle;
 
     // Prefer the API URL if Sentry provides it; else fallback to permalink.
-    const issueUrl = issue?.url || issue?.permalink || null;
+    const issueApiUrl = issue?.url || null;
+    const issueHtmlUrl =
+      issue?.permalink ||
+      deriveSentryHtmlIssueUrlFromApiUrl(issueApiUrl) ||
+      null;
 
     const marker = `Sentry issue id: ${issueId}`;
 
@@ -304,7 +321,8 @@ export default {
       ``,
       `## Sentry`,
       marker,
-      issueUrl ? `Link: ${issueUrl}` : null,
+      issueHtmlUrl ? `Console: ${issueHtmlUrl}` : null,
+      issueApiUrl ? `API: ${issueApiUrl}` : null,
       capturedAt ? `Captured at: ${capturedAt}` : null,
       sourceLoc ? `Source: ${sourceLoc}` : null,
       ``,
@@ -330,7 +348,7 @@ export default {
     }
 
     // Background enrichment (best-effort). Will not delay webhook response.
-    if (ctx && issueUrl && env.SENTRY_API_TOKEN && created?.number) {
+    if (ctx && issueApiUrl && env.SENTRY_API_TOKEN && created?.number) {
       ctx.waitUntil(
         (async () => {
           let issueDetails = null;
@@ -338,16 +356,16 @@ export default {
 
           try {
             console.log("enrich:", {
-              hasIssueUrl: Boolean(issueUrl),
+              hasIssueUrl: Boolean(issueApiUrl),
               hasSentryApiToken: Boolean(env.SENTRY_API_TOKEN),
               issueId,
             });
 
             // 1) Issue JSON
-            issueDetails = await sentryFetch(env, issueUrl, 6000);
+            issueDetails = await sentryFetch(env, issueApiUrl, 6000);
 
             // 2) Latest event JSON (best-effort)
-            const org = issueUrl.match(/\/organizations\/([^/]+)\//)?.[1] || null;
+            const org = issueApiUrl.match(/\/organizations\/([^/]+)\//)?.[1] || null;
             if (org) {
               const eventsListUrl = `https://sentry.io/api/0/organizations/${org}/issues/${issueId}/events/?per_page=1`;
               const events = await sentryFetch(env, eventsListUrl, 6000);
@@ -420,7 +438,8 @@ export default {
             ``,
             `## Sentry`,
             marker,
-            issueUrl ? `Link: ${issueUrl}` : null,
+            issueHtmlUrl ? `Console: ${issueHtmlUrl}` : null,
+            issueApiUrl ? `API: ${issueApiUrl}` : null,
             capturedAt ? `Captured at: ${capturedAt}` : null,
             sourceLoc ? `Source: ${sourceLoc}` : null,
             ``,
