@@ -179,3 +179,100 @@ final class NoOpCrashReportingService: CrashReportingService {
 		// No-op
 	}
 }
+
+// MARK: - Test Triggers
+
+extension Observability {
+	
+	/// Runs all enabled Sentry test modes based on environment variables.
+	/// Call this after `Observability.start()` in your App's init.
+	///
+	/// Supported environment variables:
+	/// - `SENTRY_TEST_ERROR`: Triggers a test error via `LoggingPolicy.error`
+	/// - `SENTRY_TEST_CRASH`: Triggers an app crash after 1 second delay
+	/// - `SENTRY_THROTTLE_SMOKE_TEST`: Runs throttle/dedup smoke tests (`duplicate` or `global`)
+	static func runTestTriggersIfEnabled() {
+		runSentryTestErrorIfEnabled()
+		runSentryTestCrashIfEnabled()
+		runSentryThrottleSmokeTestIfEnabled()
+	}
+	
+	/// Triggers a test error when `SENTRY_TEST_ERROR` env var is set.
+	/// Each invocation generates a unique error to prevent Sentry from grouping them.
+	private static func runSentryTestErrorIfEnabled() {
+		guard AppEnvironment.shouldTriggerTestError else { return }
+		
+		let uniqueId = UUID().uuidString.prefix(8)
+		let timestamp = ISO8601DateFormatter().string(from: Date())
+		
+		Logger.logger.warning("[SentryTest] SENTRY_TEST_ERROR is set - triggering test error [\(uniqueId)]")
+		LoggingPolicy.error(
+			"Sentry test error [\(uniqueId)] triggered at \(timestamp)",
+			error: NSError(domain: "SentryTestError.\(uniqueId)", code: Int.random(in: 1...9999), userInfo: [
+				NSLocalizedDescriptionKey: "Test error [\(uniqueId)] to verify Sentry integration"
+			]),
+			logger: .lifecycle
+		)
+		Logger.logger.info("[SentryTest] Test error [\(uniqueId)] sent to Sentry")
+	}
+	
+	/// Triggers an app crash when `SENTRY_TEST_CRASH` env var is set.
+	/// Each invocation uses a different crash method to create unique stack traces.
+	private static func runSentryTestCrashIfEnabled() {
+		guard AppEnvironment.shouldTriggerTestCrash else { return }
+		
+		let uniqueId = UUID().uuidString.prefix(8)
+		let crashMethod = Int.random(in: 0...2)
+		
+		Logger.logger.warning("[SentryTest] SENTRY_TEST_CRASH is set - triggering test crash [\(uniqueId)] method \(crashMethod) in 1 second")
+		LoggingPolicy.fault("About to trigger test crash [\(uniqueId)] via SENTRY_TEST_CRASH (method \(crashMethod))", logger: .lifecycle)
+		
+		DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+			Logger.logger.fault("[SentryTest] Triggering crash [\(uniqueId)] now using method \(crashMethod)")
+			
+			switch crashMethod {
+			case 0:
+				fatalError("Sentry test crash [\(uniqueId)]")
+			case 1:
+				preconditionFailure("Sentry test crash [\(uniqueId)]")
+			default:
+				// Explicit crash to create a different crash signature
+				fatalError("Sentry test crash [\(uniqueId)] via method 2 (alternative fatal error)")
+			}
+		}
+	}
+	
+	/// Runs throttle/dedup smoke tests when `SENTRY_THROTTLE_SMOKE_TEST` env var is set.
+	/// - `duplicate`: emits many identical errors (should mostly be deduped)
+	/// - `global`: emits many unique errors (should hit global cap)
+	private static func runSentryThrottleSmokeTestIfEnabled() {
+		guard let mode = AppEnvironment.sentryThrottleSmokeTestMode, !mode.isEmpty else { return }
+		
+		Logger.logger.info("[SentryThrottle] Starting smoke test with mode: \(mode, privacy: .public)")
+		
+		Task.detached(priority: .background) {
+			switch mode {
+			case "duplicate":
+				for _ in 0..<120 {
+					LoggingPolicy.error(
+						"Sentry throttle smoke test (duplicate)",
+						error: NSError(domain: "SentryThrottleSmokeTest", code: 1)
+					)
+				}
+				Logger.logger.info("[SentryThrottle] Smoke test 'duplicate' completed: sent 120 duplicate events")
+				
+			case "global":
+				for i in 0..<200 {
+					LoggingPolicy.error(
+						"Sentry throttle smoke test (global)",
+						error: NSError(domain: "SentryThrottleSmokeTest", code: i)
+					)
+				}
+				Logger.logger.info("[SentryThrottle] Smoke test 'global' completed: sent 200 unique events")
+				
+			default:
+				Logger.logger.warning("Unknown SENTRY_THROTTLE_SMOKE_TEST value: \(mode, privacy: .public)")
+			}
+		}
+	}
+}

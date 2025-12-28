@@ -14,8 +14,7 @@ struct MLBrowser: App {
 	
 	init() {
 		Observability.start(with: DependencyContainer.shared.crashReporter)
-		Self.runSentryThrottleSmokeTestIfEnabled()
-
+		Observability.runTestTriggersIfEnabled()
 		LoggingPolicy.info("MLBrowser app launching", logger: .lifecycle)
 	}
 	
@@ -43,44 +42,6 @@ struct MLBrowser: App {
 					appState.settings.isDetectionPaused = false
 					appState.guide.ontheflyDetectionTapped()
 				}
-			}
-		}
-	}
-	
-	/// Opt-in smoke test to validate Sentry throttling/deduplication.
-	///
-	/// Enable by setting environment variable `SENTRY_THROTTLE_SMOKE_TEST`:
-	/// - `duplicate`: emits many identical errors (should mostly be deduped)
-	/// - `global`: emits many unique errors (should hit global cap)
-	/// Guarded to **Release builds only** to avoid confusion (Debug uses NoOp crash reporter).
-	private static func runSentryThrottleSmokeTestIfEnabled() {
-		let mode = AppEnvironment.sentryThrottleSmokeTestMode
-		guard let mode, !mode.isEmpty else { return }
-		
-		Logger.logger.info("[SentryThrottle] Starting smoke test with mode: \(mode, privacy: .public)")
-		
-		Task.detached(priority: .background) {
-			switch mode {
-			case "duplicate":
-				for _ in 0..<120 {
-					LoggingPolicy.error(
-						"Sentry throttle smoke test (duplicate)",
-						error: NSError(domain: "SentryThrottleSmokeTest", code: 1)
-					)
-				}
-				Logger.logger.info("[SentryThrottle] Smoke test 'duplicate' completed: sent 120 duplicate events")
-				
-			case "global":
-				for i in 0..<200 {
-					LoggingPolicy.error(
-						"Sentry throttle smoke test (global)",
-						error: NSError(domain: "SentryThrottleSmokeTest", code: i)
-					)
-				}
-				Logger.logger.info("[SentryThrottle] Smoke test 'global' completed: sent 200 unique events")
-				
-			default:
-				Logger.logger.warning("Unknown SENTRY_THROTTLE_SMOKE_TEST value: \(mode, privacy: .public)")
 			}
 		}
 	}

@@ -48,4 +48,8 @@ fi
 SCRIPT_DIR="${0:A:h}"
 "${SCRIPT_DIR}/upload_symbols.sh" "$CI_ARCHIVE_PATH"
 
+# Create Sentry release and associate commits (best-effort)
+# This enables commit metadata (commitCount/lastCommit/suspects) on releases/issues.
+"${SCRIPT_DIR}/sentry_release.sh" "$CI_ARCHIVE_PATH" || true
+
 echo "✅ ci_post_xcodebuild.sh completed successfully"

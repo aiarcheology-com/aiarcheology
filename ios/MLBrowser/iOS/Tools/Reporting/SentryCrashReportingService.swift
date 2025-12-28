@@ -13,13 +13,23 @@ import OSLog
 /// Sentry SDK implementation of the CrashReportingService protocol.
 /// Isolates all Sentry-specific code to this single file.
 final class SentryCrashReportingService: CrashReportingService {
-	
 	private let dsn: String?
 	private let enableProfiling: Bool
 	private let tracesSampleRate: Float
 	private let throttleConfig: SentryThrottleConfig
 	private let eventGuard: SentryEventGuard
 	private let breadcrumbGuard: SentryBreadcrumbGuard
+	
+	// Environment / distribution labeling
+	static let channel: String = {
+		switch AppEnvironment.distributionChannel {
+		case .appStore: return "appstore"
+		case .testFlightLike: return "testflight"
+		case .developmentLike: return "development"
+		case .simulator: return "simulator"
+		case .unknown: return "unknown"
+		}
+	}()
 	
 	/// Initialize the Sentry crash reporting service.
 	/// - Parameters:
@@ -73,6 +83,9 @@ final class SentryCrashReportingService: CrashReportingService {
 			)
 		}
 		
+		// Compute environment name once for reuse
+		let envName: String = (Self.channel == "appstore") ? "production" : Self.channel
+		
 		SentrySDK.start { options in
 			options.dsn = dsn
 			
@@ -80,6 +93,12 @@ final class SentryCrashReportingService: CrashReportingService {
 #if DEBUG && false
 			options.debug = true
 			Logger.logger.debug("[Sentry] Initializing with DSN: \(dsn.prefix(50))...")
+			
+			// Session Replay (DEBUG only)
+			options.sessionReplay.onErrorSampleRate = 1.0
+			options.sessionReplay.sessionSampleRate = AppEnvironment.isAppStoreDistribution ? 0.1 : 1.0
+			options.sessionReplay.maskAllText = true
+			options.sessionReplay.maskAllImages = true
 #endif
 			
 			// Adds IP for users.
@@ -141,9 +160,36 @@ final class SentryCrashReportingService: CrashReportingService {
 				return event
 			}
 			
+			if let shortVersion = AppEnvironment.shortVersion, let buildNumber = AppEnvironment.buildNumber {
+				options.releaseName = "mlbrowser@\(shortVersion)+\(buildNumber)"
+				options.dist = buildNumber
+			}
+			
+			options.environment = envName
+			
 			// Uncomment for additional debugging:
 			// options.attachScreenshot = true
 			// options.attachViewHierarchy = true
+		}
+		
+		SentrySDK.configureScope { scope in
+			scope.setTag(value: String(describing: AppEnvironment.distributionChannel), key: "distribution_channel")
+			scope.setTag(value: envName, key: "app.environment")
+			scope.setTag(value: Self.channel, key: "app.distribution_channel")
+			scope.setTag(value: AppEnvironment.isDebugConfiguration ? "debug" : "release", key: "app.build_configuration")
+
+			if let shortVersion = AppEnvironment.shortVersion { scope.setTag(value: shortVersion, key: "app.version") }
+			if let buildNumber = AppEnvironment.buildNumber { scope.setTag(value: buildNumber, key: "app.build") }
+
+			scope.setExtra(value: AppEnvironment.isRunningUnderAnyTests, key: "tests.isRunningUnderAnyTests")
+			scope.setExtra(value: AppEnvironment.isRunningUITests, key: "tests.isRunningUITests")
+			scope.setExtra(value: AppEnvironment.isRunningUnitTests, key: "tests.isRunningUnitTests")
+			scope.setExtra(value: String(describing: AppEnvironment.distributionChannel), key: "app.distributionChannelRaw")
+
+			if let smoke = AppEnvironment.sentryThrottleSmokeTestMode {
+				scope.setTag(value: "1", key: "sentry.throttle_smoke_test")
+				scope.setExtra(value: smoke, key: "sentry.throttle_smoke_test.mode")
+			}
 		}
 	}
 	
@@ -235,12 +281,16 @@ final class SentryCrashReportingService: CrashReportingService {
 		} else {
 			finalMessage = message
 		}
-		SentrySDK.capture(message: finalMessage)
+		SentrySDK.capture(message: finalMessage) { scope in
+			scope.setLevel(.error)
+		}
 	}
 	
 	func captureFault(message: String) {
-		// Faults are critical - capture with error level
-		SentrySDK.capture(message: "[FAULT] \(message)")
+		// Faults are critical - capture with fatal level
+		SentrySDK.capture(message: "[FAULT] \(message)") { scope in
+			scope.setLevel(.fatal)
+		}
 	}
 	
 	func setCustomValue(_ value: String, forKey key: String) {

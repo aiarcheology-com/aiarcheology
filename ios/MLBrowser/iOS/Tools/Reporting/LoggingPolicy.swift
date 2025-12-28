@@ -144,7 +144,7 @@ enum LoggingPolicy {
         logger.logFault(prefixedMessage)
         
         // 2. Remote capture (QUOTA - critical issues)
-        Observability.recordBreadcrumb(prefixedMessage, level: .error, category: category)
+        Observability.recordBreadcrumb(prefixedMessage, level: .fatal, category: category)
         Observability.captureFault(prefixedMessage)
     }
     
