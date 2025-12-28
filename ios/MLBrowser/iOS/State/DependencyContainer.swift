@@ -54,7 +54,7 @@ class DependencyContainer {
 	
 	private static func crashReporterFactory() -> CrashReportingService {
 		// Create crash reporter FIRST - this must happen before anything else
-		let reportingRate: Float = 0.5
+		let reportingRate: Float = 1.0
 		let isTestOrDebug = AppEnvironment.isRunningUnderAnyTests || AppEnvironment.isDebugConfiguration
 		
 		let shouldUseRealReporter = !isTestOrDebug || AppEnvironment.requiresRealCrashReporter
