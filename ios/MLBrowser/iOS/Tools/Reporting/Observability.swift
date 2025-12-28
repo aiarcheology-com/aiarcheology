@@ -236,9 +236,8 @@ extension Observability {
 			case 1:
 				preconditionFailure("Sentry test crash [\(uniqueId)]")
 			default:
-				// Force unwrap nil to create a different crash signature
-				let nilValue: String? = nil
-				_ = nilValue!
+				// Explicit crash to create a different crash signature
+				fatalError("Sentry test crash [\(uniqueId)] via method 2 (alternative fatal error)")
 			}
 		}
 	}
