@@ -3,6 +3,7 @@
 // Features:
 // - Verifies Sentry webhook signature (best-effort across common formats)
 // - Handles `sentry-hook-resource: issue` webhooks only
+// - Filters out simulator AppHang issues (local dev environment noise)
 // - Dedupes by searching for a stable marker in existing GitHub issues
 // - Creates a GitHub issue on `action: created` with label `bug`
 // - Sanitizes title by stripping leading "ISO_TIMESTAMP File.swift:123 " when present
@@ -193,6 +194,35 @@ function getTagValue(tagsArray, key) {
   return found ? found.value ?? null : null;
 }
 
+// Get tag value from webhook format: [["key", "value"], ...]
+function getWebhookTagValue(tagsArray, key) {
+  if (!Array.isArray(tagsArray)) return null;
+  const found = tagsArray.find((t) => Array.isArray(t) && t[0] === key);
+  return found ? found[1] ?? null : null;
+}
+
+// Check if an issue should be filtered out (not forwarded to GitHub)
+// Returns { filtered: boolean, reason: string | null }
+//
+// Filter logic mirrors SentryCrashReportingService.swift:
+// - options.environment is set to envName ("simulator", "production", "testflight", "development", "unknown")
+// - AppHang issues from simulator are local dev noise and should not create GitHub issues
+function shouldFilterIssue(issue) {
+  // Issue metadata from webhook contains tags as [["key", "value"], ...]
+  const tags = issue?.metadata?.value?.tags || issue?.tags || [];
+  
+  const mechanism = getWebhookTagValue(tags, "mechanism");
+  const environment = getWebhookTagValue(tags, "environment");
+  
+  // Filter: AppHang + simulator environment (local dev noise)
+  // Real device issues should still come through even if from development builds
+  if (mechanism === "AppHang" && environment === "simulator") {
+    return { filtered: true, reason: "AppHang from simulator" };
+  }
+  
+  return { filtered: false, reason: null };
+}
+
 function deriveSentryHtmlIssueUrlFromApiUrl(apiUrl) {
   // From: https://sentry.io/api/0/organizations/<org>/issues/<issueId>/
   // To:   https://<org>.sentry.io/issues/<issueId>/
@@ -278,6 +308,16 @@ export default {
 
     const issueId = String(issue?.id || "unknown");
     if (issueId === "unknown") return new Response("ok (no issue id)", { status: 200 });
+
+    // Filter out noise issues (e.g., AppHang from simulator)
+    const filterResult = shouldFilterIssue(issue);
+    if (filterResult.filtered) {
+      console.log(`Filtered issue ${issueId}: ${filterResult.reason}`);
+      return new Response(
+        JSON.stringify({ ok: true, filtered: true, reason: filterResult.reason }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     const rawTitle = String(issue?.title || `Sentry issue ${issueId}`);
 
@@ -404,14 +444,16 @@ export default {
             ["environment", getTagValue(eventTags, "environment")],
             ["release", getTagValue(eventTags, "release")],
             ["dist", getTagValue(eventTags, "dist")],
+            ["distribution_channel", getTagValue(eventTags, "distribution_channel")],
+            ["build_configuration", getTagValue(eventTags, "build_configuration")],
+            ["app_version", getTagValue(eventTags, "app_version")],
+            ["app_build", getTagValue(eventTags, "app_build")],
             ["os", getTagValue(eventTags, "os")],
             ["os.name", getTagValue(eventTags, "os.name")],
             ["os.build", getTagValue(eventTags, "os.build")],
             ["device", getTagValue(eventTags, "device")],
             ["device.family", getTagValue(eventTags, "device.family")],
             ["device.class", getTagValue(eventTags, "device.class")],
-            ["app.environment", getTagValue(eventTags, "app.environment")],
-            ["app.distribution_channel", getTagValue(eventTags, "app.distribution_channel")],
             // The "user" tag value is usually "id:<uuid>" for iOS and can be useful; keep it separate.
             ["user_tag", getTagValue(eventTags, "user")],
           ].filter(([, v]) => v !== null && v !== undefined && v !== "");
