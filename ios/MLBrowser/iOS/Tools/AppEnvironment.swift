@@ -117,8 +117,6 @@ enum AppEnvironment {
         /// Sandbox receipt (`.../sandboxReceipt`) — typically TestFlight, but can also be App Review / sandbox-like.
         case testFlightLike
         /// Simulator build (no provisioning profile or receipt).
-        case simulator
-        /// Could not determine (e.g., no receipt yet)
         case unknown
     }
 	
@@ -150,11 +148,6 @@ enum AppEnvironment {
     /// 4) DEBUG build -> developmentLike (fallback for edge cases)
     /// 5) else unknown
     static var distributionChannel: DistributionChannel {
-		// Simulator has no provisioning profile or receipt
-		if isSimulator {
-			return .simulator
-		}
-		
 		// Device with provisioning profile = Xcode/AdHoc/Enterprise install
         if hasEmbeddedProvisioningProfile {
             return .developmentLike
@@ -182,7 +175,7 @@ enum AppEnvironment {
     static var isTestFlightLikeDistribution: Bool { distributionChannel == .testFlightLike }
     static var isDevelopmentLikeDistribution: Bool {
 		switch distributionChannel {
-		case .developmentLike, .simulator: return true
+		case .developmentLike: return true
 		default: return false
 		}
 	}

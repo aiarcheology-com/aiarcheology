@@ -26,9 +26,18 @@ final class SentryCrashReportingService: CrashReportingService {
 		case .appStore: return "appstore"
 		case .testFlightLike: return "testflight"
 		case .developmentLike: return "development"
-		case .simulator: return "simulator"
 		case .unknown: return "unknown"
 		}
+	}()
+	
+	let envName: String = {
+    if AppEnvironment.isSimulator { return "simulator" }
+    switch AppEnvironment.distributionChannel {
+    case .appStore: return "production"
+    case .testFlightLike: return "testflight"
+    case .developmentLike: return "development"
+    case .unknown: return "unknown"
+    }
 	}()
 	
 	/// Initialize the Sentry crash reporting service.
@@ -82,10 +91,7 @@ final class SentryCrashReportingService: CrashReportingService {
 				stats: eventGuard.statsSnapshot()
 			)
 		}
-		
-		// Compute environment name once for reuse
-		let envName: String = (Self.channel == "appstore") ? "production" : Self.channel
-		
+				
 		SentrySDK.start { options in
 			options.dsn = dsn
 			
@@ -165,7 +171,7 @@ final class SentryCrashReportingService: CrashReportingService {
 				options.dist = buildNumber
 			}
 			
-			options.environment = envName
+			options.environment = self.envName
 			
 			// Uncomment for additional debugging:
 			// options.attachScreenshot = true
@@ -173,18 +179,16 @@ final class SentryCrashReportingService: CrashReportingService {
 		}
 		
 		SentrySDK.configureScope { scope in
+			// distribution_channel: raw enum for debugging (developmentLike, appStore, testFlightLike, unknown)
 			scope.setTag(value: String(describing: AppEnvironment.distributionChannel), key: "distribution_channel")
-			scope.setTag(value: envName, key: "app.environment")
-			scope.setTag(value: Self.channel, key: "app.distribution_channel")
-			scope.setTag(value: AppEnvironment.isDebugConfiguration ? "debug" : "release", key: "app.build_configuration")
+			scope.setTag(value: AppEnvironment.isDebugConfiguration ? "debug" : "release", key: "build_configuration")
 
-			if let shortVersion = AppEnvironment.shortVersion { scope.setTag(value: shortVersion, key: "app.version") }
-			if let buildNumber = AppEnvironment.buildNumber { scope.setTag(value: buildNumber, key: "app.build") }
+			if let shortVersion = AppEnvironment.shortVersion { scope.setTag(value: shortVersion, key: "app_version") }
+			if let buildNumber = AppEnvironment.buildNumber { scope.setTag(value: buildNumber, key: "app_build") }
 
 			scope.setExtra(value: AppEnvironment.isRunningUnderAnyTests, key: "tests.isRunningUnderAnyTests")
 			scope.setExtra(value: AppEnvironment.isRunningUITests, key: "tests.isRunningUITests")
 			scope.setExtra(value: AppEnvironment.isRunningUnitTests, key: "tests.isRunningUnitTests")
-			scope.setExtra(value: String(describing: AppEnvironment.distributionChannel), key: "app.distributionChannelRaw")
 
 			if let smoke = AppEnvironment.sentryThrottleSmokeTestMode {
 				scope.setTag(value: "1", key: "sentry.throttle_smoke_test")
