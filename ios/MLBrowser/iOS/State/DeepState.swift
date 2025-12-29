@@ -179,7 +179,11 @@ final class DeepState: ObservableObject {
 					guard let deleted = notification.userInfo?[NSDeletedObjectsKey] as? Set<NSManagedObject> else { return [] }
 					return deleted.compactMap { obj in
 						guard let config = obj as? DeepConfiguration else { return nil }
-						return (config.objectID, config.entityId, config.demo)
+						// Use primitiveValue to safely access properties on deleted objects.
+						// Direct property access can crash when bridging nil NSUUID to non-optional UUID.
+						guard let entityId = config.primitiveValue(forKey: "entityId") as? UUID else { return nil }
+						let demo = (config.primitiveValue(forKey: "demo") as? Bool) ?? false
+						return (config.objectID, entityId, demo)
 					}
 				}()
 				

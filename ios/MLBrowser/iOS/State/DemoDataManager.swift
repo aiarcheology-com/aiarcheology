@@ -12,22 +12,33 @@ import OSLog
 @MainActor
 final class DemoDataManager {
     let dataController: DataController
-    
+
+    /// Re-entrancy guard to ensure demo data creation runs only once
+    private var isCreatingDemoData = false
+
     init(dataController: DataController) {
         self.dataController = dataController
     }
-    
+
     /// Creates demo data if none exists. Call AFTER Core Data is ready.
     func createDemoDataIfNeeded() async {
+        // Re-entrancy guard: prevent concurrent execution
+        guard !isCreatingDemoData else {
+            LoggingPolicy.debug("Demo data creation already in progress, skipping", logger: .configuration)
+            return
+        }
+        isCreatingDemoData = true
+        defer { isCreatingDemoData = false }
+
         let context = dataController.container.viewContext
-        
+
         // Single source of truth: check Core Data directly
         let existingDemos = DeepConfiguration.selectAll(in: context).filter { $0.demo }
         guard existingDemos.isEmpty else {
-        LoggingPolicy.debug("Demo configurations already exist (\(existingDemos.count) found), skipping creation", logger: .configuration)
+            LoggingPolicy.debug("Demo configurations already exist (\(existingDemos.count) found), skipping creation", logger: .configuration)
             return
         }
-        
+
         LoggingPolicy.info("Creating demo configurations", logger: .configuration)
         
         await loadModelOne()
