@@ -287,34 +287,41 @@ final class DeepState: ObservableObject {
 	private func handleDeletedConfigurations(_ deleted: [(objectID: NSManagedObjectID, entityId: UUID, demo: Bool)]) {
 		for (_, entityId, demo) in deleted {
 			unregisterDriver(driverId: entityId)
-			
-			let fileManager = FileManager.default
-			
-			guard
-				let configurationDirectory = FileManager.deepConfigurationDirectory(id: entityId)?.path(percentEncoded: false),
-				fileManager.fileExists(atPath: configurationDirectory)
-			else {
-				LoggingPolicy.debug("Configuration directory does not exist or path is nil for \(entityId.uuidString)", logger: .state)
-				continue
-			}
-			
+
+			// Skip demo models - they're bundled with the app
 			guard demo.not else {
 				LoggingPolicy.debug("Skipping deletion of demo model for configuration \(entityId.uuidString)", logger: .state)
 				continue
 			}
-			
+
+			// Skip if still referenced by a download item
 			guard DownloadItem.select(entityId, in: dataController.container.viewContext).isNil else {
 				LoggingPolicy.debug("Skipping deletion of model file still referenced by download item for configuration \(entityId.uuidString)", logger: .state)
 				continue
 			}
-			
-			do {
-				try fileManager.removeItem(atPath: configurationDirectory)
-				LoggingPolicy.info("Model file successfully deleted for configuration \(entityId.uuidString)", logger: .state)
-			} catch {
-				let id = error.localizedDescription
-				LoggingPolicy.error("Error deleting model file for configuration \(entityId.uuidString): \(id)", logger: .state)
-				DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteModelFile", "configId": entityId.uuidString])
+
+			// Get directory path before offloading
+			guard let configurationDirectory = FileManager.deepConfigurationDirectory(id: entityId)?.path(percentEncoded: false) else {
+				LoggingPolicy.debug("Configuration directory path is nil for \(entityId.uuidString)", logger: .state)
+				continue
+			}
+
+			// Offload file deletion to background to avoid blocking MainActor
+			Task.detached(priority: .utility) {
+				let fileManager = FileManager.default
+
+				guard fileManager.fileExists(atPath: configurationDirectory) else {
+					LoggingPolicy.debug("Configuration directory does not exist for \(entityId.uuidString)", logger: .state)
+					return
+				}
+
+				do {
+					try fileManager.removeItem(atPath: configurationDirectory)
+					LoggingPolicy.info("Model file successfully deleted for configuration \(entityId.uuidString)", logger: .state)
+				} catch {
+					LoggingPolicy.error("Error deleting model file for configuration \(entityId.uuidString): \(error.localizedDescription)", logger: .state)
+					DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteModelFile", "configId": entityId.uuidString])
+				}
 			}
 		}
 	}
