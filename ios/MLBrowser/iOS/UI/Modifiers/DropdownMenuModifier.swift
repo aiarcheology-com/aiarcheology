@@ -19,6 +19,11 @@ struct DropdownMenuModifier<Item, ItemContent: View, CancelContent: View>: ViewM
 			baseContent
 		} else {
 			GeometryReader { geometry in
+				let dropdownWidth: CGFloat = 0.6 * geometry.size.width
+				let dropdownHeight: CGFloat = 0.4 * geometry.size.height
+				let strokeColor: Color = Color.gray.opacity(0.5)
+				let shadowColor: Color = Color.black.opacity(0.75)
+
 				ZStack(alignment: .top) {
 					baseContent
 					VStack {
@@ -36,16 +41,16 @@ struct DropdownMenuModifier<Item, ItemContent: View, CancelContent: View>: ViewM
 							}
 							.background(backgroundColor)
 						}
-						.frame(width: 0.6 * geometry.size.width, height: 0.4 * geometry.size.height)
+						.frame(width: dropdownWidth, height: dropdownHeight)
 						.padding(5)
 						.background(
 							RoundedRectangle(cornerRadius: 5)
 								.fill(backgroundColor)
 								.overlay(
 									RoundedRectangle(cornerRadius: 5)
-										.stroke(Color.gray.opacity(0.5), lineWidth: 0.5)
+										.stroke(strokeColor, lineWidth: 0.5)
 								)
-								.shadow(color: .black.opacity(0.75), radius: 5, x: 0, y: 0)
+								.shadow(color: shadowColor, radius: 5, x: 0, y: 0)
 						)
 					}
 					.animation(.easeInOut, value: items)
