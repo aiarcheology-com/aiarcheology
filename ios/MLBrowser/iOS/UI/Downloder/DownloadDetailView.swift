@@ -277,7 +277,7 @@ private extension DownloadDetailView {
 	var canImport: Bool {
 		let entityId = item.entityId
 		guard
-			[.complete, .imported].contains(item.state),
+			[.complete, .imported, .importFailed].contains(item.state),
 			let url = item.url, !url.absoluteString.isEmpty,
 			item.doesModelFileExist(),
 			deep.selectConfiguration(entityId).isNil
@@ -305,15 +305,15 @@ private extension DownloadDetailView {
 	static func downloadButtonAttributes(_ state: Downloader.State) -> (enabled: Bool, color: Color, label: String) {
 		switch state {
 		case .notStarted, .imported: return (enabled: true, color: .blue, label: "Download")
-		case .cancelled, .failed, .complete: return (enabled: true, color: .blue, label: "Restart")
+		case .cancelled, .failed, .complete, .importFailed: return (enabled: true, color: .blue, label: "Restart")
 		case .paused: return (enabled: true, color: .green, label: "Continue")
 		case .downloading: return (enabled: true, color: .orange, label: "Pause")
 		}
 	}
-	
+
 	static func cancelButtonAttributes(_ state: Downloader.State) -> (enabled: Bool, color: Color, label: String) {
 		switch state {
-		case .notStarted, .cancelled, .failed, .complete, .imported: return (enabled: false, color: .gray, label: "Cancel")
+		case .notStarted, .cancelled, .failed, .complete, .imported, .importFailed: return (enabled: false, color: .gray, label: "Cancel")
 		case .paused, .downloading: return (enabled: true, color: .red, label: "Cancel")
 		}
 	}
