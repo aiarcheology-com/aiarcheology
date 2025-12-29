@@ -1,25 +1,41 @@
-Test Focus: Stability + Sentry event throttling guardrails
+Test Focus: UI Responsiveness during Model Import
 Build: TBD
 
-This build adds client-side protection against runaway error loops that could spam Sentry events. Normal app logging should be unaffected.
+This build improves UI responsiveness by moving heavy operations (model loading, file copying) off the main thread. The app should feel smoother, especially during model import.
 
 Devices / Platforms
 - iPhone (required)
 - iPad (if available)
 
-1. Core Regression
-- Browse a few websites and confirm the web view loads as expected.
-- Run object detection and verify annotations appear and update normally.
-- Switch models/configurations and verify detection still works.
+1. Model Import (Primary Focus)
+- Import a model from Files (Settings → Add Model → Import from Files)
+  * The "Validating model..." spinner should animate smoothly
+  * The UI should NOT freeze or stutter during import
+  * Try importing larger models if available (.mlpackage files)
+- Download a model from URL
+  * Same expectations: smooth animation, no freezing
 
-2. Sentry Guardrails (QA)
-- If you can see it: Settings → Debug → "Sentry Stats"
-  * Confirm counters update while using the app.
-  * During error bursts, events should be limited and drop counters should increase (duplicate/global/session).
+2. First Launch Experience
+- Delete and reinstall the app (or reset via Settings)
+- On first launch, demo models are loaded automatically
+  * The app should remain responsive during this process
+  * No visible lag or frozen UI
 
-3. Crash / Error Reporting
-- If you hit a repeated error (e.g., a failing loop), the app should remain responsive.
-- Please report any crashes or broken flows with:
-  * What you did (steps)
-  * Approximate time
-  * Screenshot if possible
+3. Core Regression
+- Browse websites and confirm web view loads normally
+- Run object detection and verify annotations appear correctly
+- Switch models/configurations and verify detection works
+- Delete a model configuration and confirm it's removed cleanly
+
+4. Settings & About
+- Open Settings → About → tap the email contact button
+  * Device info should load without freezing the UI
+- Clear browsing data (Settings → Clear Cache)
+  * Should complete quickly without UI stutter
+
+5. Report Issues
+Please report any UI freezes or stutters with:
+  * What you were doing (steps to reproduce)
+  * How long the freeze lasted
+  * Device model and iOS version
+  * Screenshot or screen recording if possible
