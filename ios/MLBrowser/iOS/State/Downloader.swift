@@ -137,7 +137,8 @@ final public class Downloader: NSObject, ObservableObject {
         case failed = "Failed"
         case complete = "Complete"
         case imported = "Imported"
-        
+        case importFailed = "Import failed"
+
         public var id: String { self.rawValue }
     }
     
@@ -259,7 +260,7 @@ final public class Downloader: NSObject, ObservableObject {
     
     func downloadTapped(_ item: DownloadItem) {
         switch item.state {
-        case .notStarted, .failed, .cancelled, .imported: handleEvent(item, .start)
+        case .notStarted, .failed, .cancelled, .imported, .importFailed: handleEvent(item, .start)
         case .downloading: handleEvent(item, .pause)
         case .paused: handleEvent(item, .start)
         case .complete: handleEvent(item, .start)
@@ -276,7 +277,7 @@ final public class Downloader: NSObject, ObservableObject {
     private func handleEvent(_ item: DownloadItem, _ event: Event) {
         switch (item.state, event) {
         case (.notStarted, .start), (.paused, .start), (.cancelled, .start), (.complete, .start), (.failed, .start),
-            (.imported, .start): // TODO: Is it ok to let the user download the file again, when it is already imported?
+            (.imported, .start), (.importFailed, .start):
             startDownload(item)
             
         case (.downloading, .pause):
@@ -527,12 +528,12 @@ extension Downloader: @MainActor ModelProvider {
     func result(_ error: ModelProviderError, id: UUID) {
         guard let item = DownloadItem.select(id, in: dataController.container.viewContext)
         else { return }
-        
+
         switch error {
         case .importSucceeded:
             transitionAndSave(item, to: .imported)
         case .importFailed:
-            break
+            transitionAndSave(item, to: .importFailed)
         }
     }
 }
@@ -628,6 +629,7 @@ extension DownloadItem {
             case State.failed.id: return .failed
             case State.complete.id: return .complete
             case State.imported.id: return .imported
+            case State.importFailed.id: return .importFailed
             default: return defaultReturn
             }
         }

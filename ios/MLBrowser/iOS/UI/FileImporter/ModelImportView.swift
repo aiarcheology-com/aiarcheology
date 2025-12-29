@@ -297,6 +297,7 @@ struct ModelImportView: View {
 				}
 			} catch {
 				await MainActor.run {
+					request.provider.result(.importFailed, id: request.configurationId)
 					errorMessage = error.localizedDescription
 					showErrorAlert = true
 					isLoading = false

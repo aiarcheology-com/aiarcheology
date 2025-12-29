@@ -132,6 +132,16 @@ final class ModelLoadingErrorTests: XCTestCase {
         XCTAssertTrue(error.errorDescription!.contains("Model.mlmodel"))
         XCTAssertTrue(error.errorDescription!.contains("Compilation error"))
     }
+
+    func test_modelTypeNotDetermined_errorDescription_containsFilenameAndGuidance() {
+        let url = URL(fileURLWithPath: "/path/to/YOLOv3.mlmodel")
+        let error = ModelLoadingError.modelTypeNotDetermined(url)
+
+        XCTAssertNotNil(error.errorDescription)
+        XCTAssertTrue(error.errorDescription!.contains("YOLOv3.mlmodel"))
+        XCTAssertTrue(error.errorDescription!.contains("Could not determine model type"))
+        XCTAssertTrue(error.errorDescription!.contains("detector or classifier"))
+    }
 }
 
 // MARK: - ModelLoadingService Tests

@@ -185,11 +185,14 @@ final class DownloadItemTests: XCTestCase {
         
         item.state = .complete
         XCTAssertEqual(item.state, .complete)
-        
+
         item.state = .imported
         XCTAssertEqual(item.state, .imported)
+
+        item.state = .importFailed
+        XCTAssertEqual(item.state, .importFailed)
     }
-    
+
     func testDownloadItemStateIdRoundtrip() {
         let item = DownloadItem.create(in: context)
         
@@ -349,7 +352,7 @@ final class DownloaderTests: XCTestCase {
     func testDownloaderState_AllCases() {
         // Verify all expected states exist
         let states = Downloader.State.allCases
-        
+
         XCTAssertTrue(states.contains(.notStarted))
         XCTAssertTrue(states.contains(.downloading))
         XCTAssertTrue(states.contains(.paused))
@@ -357,6 +360,7 @@ final class DownloaderTests: XCTestCase {
         XCTAssertTrue(states.contains(.failed))
         XCTAssertTrue(states.contains(.complete))
         XCTAssertTrue(states.contains(.imported))
+        XCTAssertTrue(states.contains(.importFailed))
     }
     
     func testDownloaderState_Identifiable() {
@@ -430,19 +434,38 @@ final class DownloaderTests: XCTestCase {
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .cancelled
         DownloadItem.save(in: context)
-        
+
         var sessionCreated = false
         downloader.sessionFactory = { config, delegate, queue in
             sessionCreated = true
             return URLSession(configuration: config, delegate: delegate, delegateQueue: queue)
         }
-        
+
         downloader.downloadTapped(item)
-        
+
         XCTAssertTrue(sessionCreated)
         XCTAssertEqual(item.state, .downloading)
     }
-    
+
+    func testDownloadTapped_ImportFailed_RestartsDownload() {
+        let context = dataController.container.viewContext
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.state = .importFailed
+        DownloadItem.save(in: context)
+
+        var sessionCreated = false
+        downloader.sessionFactory = { config, delegate, queue in
+            sessionCreated = true
+            return URLSession(configuration: config, delegate: delegate, delegateQueue: queue)
+        }
+
+        downloader.downloadTapped(item)
+
+        XCTAssertTrue(sessionCreated)
+        XCTAssertEqual(item.state, .downloading)
+    }
+
     func testDownloadTapped_Paused_ResumesWithResumeData() {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
@@ -741,18 +764,17 @@ final class DownloaderTests: XCTestCase {
         XCTAssertEqual(item.state, .imported)
     }
     
-    func testModelProviderResult_ImportFailed_DoesNotChangeState() {
+    func testModelProviderResult_ImportFailed_TransitionsToImportFailed() {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         let entityId = item.entityId
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .complete
         DownloadItem.save(in: context)
-        
+
         downloader.result(.importFailed, id: entityId)
-        
-        // State should remain complete
-        XCTAssertEqual(item.state, .complete)
+
+        XCTAssertEqual(item.state, .importFailed)
     }
     
     // MARK: - Edge Cases

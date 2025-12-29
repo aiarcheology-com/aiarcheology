@@ -38,6 +38,7 @@ public enum ModelLoadingError: Error, LocalizedError {
     case modelLoadFailed(URL)
     case metadataExtractionFailed(URL)
     case compilationFailed(URL, Error)
+    case modelTypeNotDetermined(URL)
 
     public var errorDescription: String? {
         switch self {
@@ -47,6 +48,8 @@ public enum ModelLoadingError: Error, LocalizedError {
             return "Failed to extract metadata from \(url.lastPathComponent)"
         case .compilationFailed(let url, let underlyingError):
             return "Failed to compile model \(url.lastPathComponent): \(underlyingError.localizedDescription)"
+        case .modelTypeNotDetermined(let url):
+            return "Could not determine model type for \(url.lastPathComponent). The model metadata must specify a supported type (detector or classifier)."
         }
     }
 }
@@ -118,12 +121,19 @@ public actor ModelLoadingService {
 
         let parser = MLModelMetadataParser(metadata: metadata)
 
+        // Validate that model type could be determined
+        let task = parser.task
+        guard task != .invalid else {
+            LoggingPolicy.error("ModelLoadingService: Could not determine model type from metadata", logger: .drivers)
+            throw ModelLoadingError.modelTypeNotDetermined(url)
+        }
+
         let info = ExtractedModelInfo(
             modelVersion: parser.modelVersion,
             modelDescription: parser.value(for: .description) as? String,
             author: parser.value(for: .author) as? String,
             creationDateString: parser.value(for: .date) as? String,
-            task: parser.task
+            task: task
         )
 
         LoggingPolicy.info("ModelLoadingService: Metadata extracted - task=\(info.task.rawValue), author=\(info.author ?? "unknown")", logger: .drivers)
