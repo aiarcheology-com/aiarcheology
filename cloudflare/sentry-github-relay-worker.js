@@ -194,32 +194,50 @@ function getTagValue(tagsArray, key) {
   return found ? found.value ?? null : null;
 }
 
-// Get tag value from webhook format: [["key", "value"], ...]
-function getWebhookTagValue(tagsArray, key) {
-  if (!Array.isArray(tagsArray)) return null;
-  const found = tagsArray.find((t) => Array.isArray(t) && t[0] === key);
-  return found ? found[1] ?? null : null;
-}
-
 // Check if an issue should be filtered out (not forwarded to GitHub)
 // Returns { filtered: boolean, reason: string | null }
 //
 // Filter logic mirrors SentryCrashReportingService.swift:
 // - options.environment is set to envName ("simulator", "production", "testflight", "development", "unknown")
 // - AppHang issues from simulator are local dev noise and should not create GitHub issues
-function shouldFilterIssue(issue) {
-  // Issue metadata from webhook contains tags as [["key", "value"], ...]
-  const tags = issue?.metadata?.value?.tags || issue?.tags || [];
-  
-  const mechanism = getWebhookTagValue(tags, "mechanism");
-  const environment = getWebhookTagValue(tags, "environment");
-  
-  // Filter: AppHang + simulator environment (local dev noise)
-  // Real device issues should still come through even if from development builds
-  if (mechanism === "AppHang" && environment === "simulator") {
-    return { filtered: true, reason: "AppHang from simulator" };
+//
+// Note: Issue webhooks don't include tag VALUES, only tag keys.
+// We must fetch the latest event to get actual values for filtering.
+async function shouldFilterIssue(env, issue) {
+  // Need to fetch event data to get actual tag values
+  const issueApiUrl = issue?.url;
+  if (!issueApiUrl || !env.SENTRY_API_TOKEN) {
+    // Can't fetch event data, don't filter
+    return { filtered: false, reason: null };
   }
-  
+
+  try {
+    const issueId = issue?.id;
+    const org = issueApiUrl.match(/\/organizations\/([^/]+)\//)?.[1];
+    if (!org || !issueId) {
+      return { filtered: false, reason: null };
+    }
+
+    // Fetch latest event
+    const eventsListUrl = `https://sentry.io/api/0/organizations/${org}/issues/${issueId}/events/?per_page=1`;
+    const events = await sentryFetch(env, eventsListUrl, 4000);
+    if (!Array.isArray(events) || events.length === 0) {
+      return { filtered: false, reason: null };
+    }
+
+    // Event tags are in format: [{key: "...", value: "..."}, ...]
+    const eventTags = events[0]?.tags || [];
+    const mechanism = getTagValue(eventTags, "mechanism");
+    const environment = getTagValue(eventTags, "environment");
+
+    // Filter: AppHang + simulator environment (local dev noise)
+    if (mechanism === "AppHang" && environment === "simulator") {
+      return { filtered: true, reason: "AppHang from simulator" };
+    }
+  } catch (e) {
+    console.log("Filter check failed (allowing issue):", e?.message || String(e));
+  }
+
   return { filtered: false, reason: null };
 }
 
@@ -310,7 +328,8 @@ export default {
     if (issueId === "unknown") return new Response("ok (no issue id)", { status: 200 });
 
     // Filter out noise issues (e.g., AppHang from simulator)
-    const filterResult = shouldFilterIssue(issue);
+    // This fetches the latest event to check actual tag values
+    const filterResult = await shouldFilterIssue(env, issue);
     if (filterResult.filtered) {
       console.log(`Filtered issue ${issueId}: ${filterResult.reason}`);
       return new Response(
