@@ -8,47 +8,59 @@
 import UIKit
 
 struct DeviceInfo {
-    @MainActor static func information() -> String {
-		let device = UIDevice.current
-		let deviceModel = DeviceInfo.deviceModelName()
-		let iosVersion = device.systemVersion
+    /// Gathers device information including storage status.
+    ///
+    /// Storage status is fetched off the MainActor to avoid blocking
+    /// the UI thread during file system attribute lookup.
+    @MainActor static func information() async -> String {
+        let device = UIDevice.current
+        let deviceModel = DeviceInfo.deviceModelName()
+        let iosVersion = device.systemVersion
 
-		let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Unknown"
-		let appVersionNumber = AppEnvironment.shortVersion ?? "Unknown"
-		let appBuildNumber = AppEnvironment.buildNumber ?? "Unknown"
+        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Unknown"
+        let appVersionNumber = AppEnvironment.shortVersion ?? "Unknown"
+        let appBuildNumber = AppEnvironment.buildNumber ?? "Unknown"
 
-		let storageStatus = getDeviceStorageStatus()
+        // Fetch storage status off MainActor
+        let storageStatus = await getDeviceStorageStatusAsync()
 
-		let date = getCurrentFormattedDate()
+        let date = getCurrentFormattedDate()
 
-		let info = """
-		   Device Model: \(deviceModel)
-		   iOS Version: \(iosVersion)
-		   App Name: \(appName)
-		   App Version Number: \(appVersionNumber)
-		   App Build Number: \(appBuildNumber)
-		   Current Device Storage Status: \(storageStatus)
-		   Info Gathered to Date: \(date)
-		"""
+        let info = """
+           Device Model: \(deviceModel)
+           iOS Version: \(iosVersion)
+           App Name: \(appName)
+           App Version Number: \(appVersionNumber)
+           App Build Number: \(appBuildNumber)
+           Current Device Storage Status: \(storageStatus)
+           Info Gathered to Date: \(date)
+        """
 
-		return info
-	}
+        return info
+    }
 
-	static func getDeviceStorageStatus() -> String {
-		let fileManager = FileManager.default
-		do {
-			let attributes = try fileManager.attributesOfFileSystem(forPath: NSHomeDirectory())
-			let freeSpace = attributes[.systemFreeSize] as? NSNumber
-			let totalSpace = attributes[.systemSize] as? NSNumber
+    /// Fetches device storage status asynchronously off the MainActor.
+    private static func getDeviceStorageStatusAsync() async -> String {
+        await Task.detached(priority: .utility) {
+            getDeviceStorageStatus()
+        }.value
+    }
 
-			let freeSpaceGB = (freeSpace?.doubleValue ?? 0.0) / 1_000_000_000
-			let totalSpaceGB = (totalSpace?.doubleValue ?? 0.0) / 1_000_000_000
+    static func getDeviceStorageStatus() -> String {
+        let fileManager = FileManager.default
+        do {
+            let attributes = try fileManager.attributesOfFileSystem(forPath: NSHomeDirectory())
+            let freeSpace = attributes[.systemFreeSize] as? NSNumber
+            let totalSpace = attributes[.systemSize] as? NSNumber
 
-			return "Free: \(String(format: "%.2f", freeSpaceGB)) GB, Total: \(String(format: "%.2f", totalSpaceGB)) GB"
-		} catch {
-			return "Storage information could not be retrieved"
-		}
-	}
+            let freeSpaceGB = (freeSpace?.doubleValue ?? 0.0) / 1_000_000_000
+            let totalSpaceGB = (totalSpace?.doubleValue ?? 0.0) / 1_000_000_000
+
+            return "Free: \(String(format: "%.2f", freeSpaceGB)) GB, Total: \(String(format: "%.2f", totalSpaceGB)) GB"
+        } catch {
+            return "Storage information could not be retrieved"
+        }
+    }
 
 	static func getCurrentFormattedDate() -> String {
 		let dateFormatter = DateFormatter()

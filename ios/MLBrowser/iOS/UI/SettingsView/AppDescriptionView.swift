@@ -45,17 +45,18 @@ struct AppDescriptionView: View {
 				}
 				Section(header: Text("Contact")) {
 					Button(action: {
-						let email = emailAddress
-						let subject = "MLBrowser: v" + versionString +
-						" on " + DeviceInfo.deviceModelName() +
-						" " + UIDevice.current.systemVersion
-						let body = DeviceInfo.information()
+						Task { @MainActor in
+							let email = emailAddress
+							let subject = "MLBrowser: v" + versionString +
+							" on " + DeviceInfo.deviceModelName() +
+							" " + UIDevice.current.systemVersion
+							let body = await DeviceInfo.information()
 
+							guard let emailURL = URL(string: "mailto:\(email)?subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "")&body=\(body.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "")") else { return }
 
-						guard let emailURL = URL(string: "mailto:\(email)?subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "")&body=\(body.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "")") else { return }
-
-						if UIApplication.shared.canOpenURL(emailURL as URL) {
-							UIApplication.shared.open(emailURL as URL)
+							if await UIApplication.shared.canOpenURL(emailURL as URL) {
+								await UIApplication.shared.open(emailURL as URL)
+							}
 						}
 					}) {
 						HStack {
