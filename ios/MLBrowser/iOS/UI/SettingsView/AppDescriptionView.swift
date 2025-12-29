@@ -54,8 +54,9 @@ struct AppDescriptionView: View {
 
 							guard let emailURL = URL(string: "mailto:\(email)?subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "")&body=\(body.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "")") else { return }
 
-							if await UIApplication.shared.canOpenURL(emailURL as URL) {
-								await UIApplication.shared.open(emailURL as URL)
+							// canOpenURL is synchronous, but open(_:) is async in iOS 17+
+							if UIApplication.shared.canOpenURL(emailURL) {
+								await UIApplication.shared.open(emailURL)
 							}
 						}
 					}) {

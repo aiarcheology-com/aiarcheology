@@ -336,13 +336,20 @@ struct ModelImportView: View {
 	}
 
 	/// Performs file copy and model loading off the MainActor.
+	///
+	/// Uses `Task.detached` to ensure file I/O runs on a background executor,
+	/// not inherited from the MainActor-isolated call site.
+	///
 	/// - Returns: Tuple of (stored model URL, extracted metadata)
 	private func performOffMainActorWork(sourceURL: URL, configurationId: UUID) async throws -> (URL, ExtractedModelInfo) {
-		// Copy file to Documents if needed (file picker returns source location)
-		// Note: Security-scoped resource access is handled inside storeModelInDocuments
-		let modelURL = try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationId)
+		// Copy file to Documents in a detached task to guarantee off-main execution.
+		// Task.detached doesn't inherit actor context, unlike plain Task { }.
+		// Using userInitiated priority since user is actively waiting for import.
+		let modelURL = try await Task.detached(priority: .userInitiated) {
+			try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationId)
+		}.value
 
-		// Load and validate the model using ModelLoadingService (off MainActor)
+		// Load and validate the model using ModelLoadingService (actor, so off MainActor)
 		let service = ModelLoadingService()
 		let extractedInfo = try await service.loadAndExtractMetadata(from: modelURL, demo: false)
 
