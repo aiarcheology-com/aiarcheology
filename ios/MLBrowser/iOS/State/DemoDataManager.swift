@@ -7,9 +7,7 @@
 
 import Foundation
 import CoreData
-import Vision
 import OSLog
-import CoreML
 
 @MainActor
 final class DemoDataManager {
@@ -139,45 +137,42 @@ final class DemoDataManager {
         await loadModel(from: urlInBundle)
     }
     
-    // TODO: make this nicer, unify with the deep configuration form
+    /// Loads a demo model and creates a Core Data configuration for it.
+    ///
+    /// Model metadata extraction is performed via ModelLoadingService (off MainActor),
+    /// while Core Data entity creation remains on MainActor.
     private func loadModel(from file: URL) async {
         var urlToPossibleDirectory = file.absoluteString
         if urlToPossibleDirectory.hasSuffix("/") {
             urlToPossibleDirectory.removeLast()
         }
-        
+
         guard let url = URL(string: urlToPossibleDirectory) else {
             LoggingPolicy.error("Failed to create URL from string for demo model", logger: .configuration)
             return
         }
-		
-		LoggingPolicy.debug("Loading MLModel from \(url.lastPathComponent)", logger: .configuration)
-        
-        var detector: MLModel?
-        let demo = true
-        
+
+        LoggingPolicy.debug("Loading MLModel from \(url.lastPathComponent)", logger: .configuration)
+
+        // Phase 1: Extract metadata using ModelLoadingService (off MainActor)
+        let extractedInfo: ExtractedModelInfo
         do {
-            detector = try await Detector.loadModel(from: url, demo: demo)
-        }
-        catch {
-            LoggingPolicy.error("Failed to load demo detector model", error: error, logger: .configuration)
+            let service = ModelLoadingService()
+            extractedInfo = try await service.loadAndExtractMetadata(from: url, demo: true)
+        } catch {
+            LoggingPolicy.error("Failed to load demo model metadata", error: error, logger: .configuration)
             return
         }
-        
-        guard let metadata = detector?.modelDescription.metadata else {
-            LoggingPolicy.warning("Demo model loaded but has no metadata", logger: .configuration)
-            return
-        }
-        let parser = MLModelMetadataParser(metadata: metadata)
-        
+
+        // Phase 2: Create Core Data entity (on MainActor - we're already here)
         let configuration = DeepConfiguration.create(in: dataController.container.viewContext)
         configuration.demo = true
         configuration.annotationColor = .yellow
-        configuration.modelVersion = parser.modelVersion
-        configuration.modelDescription = parser.value(for: .description) as? String
-        configuration.author = parser.value(for: .author) as? String
-        configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
-        configuration.modelType = parser.task
+        configuration.modelVersion = extractedInfo.modelVersion
+        configuration.modelDescription = extractedInfo.modelDescription
+        configuration.author = extractedInfo.author
+        configuration.creationDate_ = extractedInfo.creationDateString?.toDate(.createMl)
+        configuration.modelType = extractedInfo.task
         configuration.phaseOutTime = 2
         configuration.selectedSymbol = .circle
         configuration.file_ = URL(string: url.lastPathComponent)
