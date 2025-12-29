@@ -213,7 +213,6 @@ struct SettingsForm: View {
 		}
 	}
 
-	@ViewBuilder
 	private var debugSection: some View {
 		if AppEnvironment.isAppStoreDistribution.not {
 			Section(header: Text("Debug")) {
