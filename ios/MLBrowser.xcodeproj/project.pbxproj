@@ -171,6 +171,8 @@
 		94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4012ECE46C60047B283 /* DependencyContainer.swift */; };
 		94FCC4032ECE46C60047B283 /* DemoDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4002ECE46C60047B283 /* DemoDataManager.swift */; };
 		94FCC4052ECFD7730047B283 /* DriversTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4042ECFD7730047B283 /* DriversTests.swift */; };
+		A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */; };
+		A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */; };
 		94FCC4062ED062CF0047B283 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
 		94FCC4072ED063010047B283 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
 		94FF14922EBBA08700033B5B /* NSManagedObject+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF14912EBBA07800033B5B /* NSManagedObject+Extension.swift */; };
@@ -360,6 +362,8 @@
 		94E6A6762EEE224A008E1B4B /* MLModelMetadataParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLModelMetadataParserTests.swift; sourceTree = "<group>"; };
 		94FCC4002ECE46C60047B283 /* DemoDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManager.swift; sourceTree = "<group>"; };
 		94FCC4012ECE46C60047B283 /* DependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyContainer.swift; sourceTree = "<group>"; };
+		A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingService.swift; sourceTree = "<group>"; };
+		A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingServiceTests.swift; sourceTree = "<group>"; };
 		94FCC4042ECFD7730047B283 /* DriversTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriversTests.swift; sourceTree = "<group>"; };
 		94FF14912EBBA07800033B5B /* NSManagedObject+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSManagedObject+Extension.swift"; sourceTree = "<group>"; };
 		94FFB9D72EE6603B0049A549 /* ObservabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservabilityTests.swift; sourceTree = "<group>"; };
@@ -473,10 +477,19 @@
 				8A1D49AD2ABB878F00C2D7C1 /* Gallery */,
 				8A6C2F7C2AB9EC5000AB26D4 /* Persistence */,
 				8AC650AE2B2B9AB300922648 /* Rendering */,
+				A1B2C3D42F0104A300000001 /* Services */,
 				8A61C5122AB9A85900BF72BE /* State */,
 				8A61C5112AB9A85400BF72BE /* UI */,
 			);
 			path = iOS;
+			sourceTree = "<group>";
+		};
+		A1B2C3D42F0104A300000001 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */,
+			);
+			path = Services;
 			sourceTree = "<group>";
 		};
 		8A61C5112AB9A85400BF72BE /* UI */ = {
@@ -724,6 +737,7 @@
 				94D79C902EE37DBF0027C9FA /* HostPlatformTests.swift */,
 				94E6A6762EEE224A008E1B4B /* MLModelMetadataParserTests.swift */,
 				941C4FBB2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift */,
+				A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */,
 				94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */,
 				942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */,
 				94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */,
@@ -1026,6 +1040,7 @@
 				8A1328242AFAD02800F119C6 /* Sequence+Extensions.swift in Sources */,
 				8AC650A12B2B495B00922648 /* Settings.swift in Sources */,
 				8A8153722B3E272800B3B079 /* ModelProvider.swift in Sources */,
+				A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */,
 				8A1D49BF2ABB87D500C2D7C1 /* ColumnStepper.swift in Sources */,
 				8AC650A72B2B4C5600922648 /* DataController.swift in Sources */,
 				8A81536A2B3CAB3300B3B079 /* ListItemView.swift in Sources */,
@@ -1143,6 +1158,7 @@
 				949DB6E32EE4F1B0002E904E /* DataControllerTests.swift in Sources */,
 				94D79C8C2EE37B0D0027C9FA /* FileManagerExtensionsTests.swift in Sources */,
 				941C4FBC2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift in Sources */,
+				A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */,
 				94D79C942EE37DBF0027C9FA /* HostPlatformTests.swift in Sources */,
 				94D79C952EE37DBF0027C9FA /* BundleExtensionsTests.swift in Sources */,
 				94D79C962EE37DBF0027C9FA /* UIExtensionsTests.swift in Sources */,

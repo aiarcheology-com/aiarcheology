@@ -11,7 +11,7 @@ import SwiftUI
 import Vision
 import OSLog
 
-public enum DeepDriverType: String {
+public enum DeepDriverType: String, Sendable {
 	case detector = "detect"
 	case classificator = "classify"
 	case invalid = "invalid"
