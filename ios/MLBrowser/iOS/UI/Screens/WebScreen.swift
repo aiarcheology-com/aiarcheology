@@ -96,15 +96,13 @@ struct WebScreenView: View {
 			handleAddressBarSubmit()
 		}
 		.alert(isPresented: $showAlert) {
-			showAlert = false
-			return alertForError(latestError)
+			alertForError(latestError)
 		}
 	}
 
 	private var addressBarBorder: some View {
-		let borderColor: Color = Color.gray.opacity(0.75)
-		return RoundedRectangle(cornerRadius: 5)
-			.stroke(borderColor, lineWidth: 0.75)
+		RoundedRectangle(cornerRadius: 5)
+			.stroke(Color.gray.opacity(0.75), lineWidth: 0.75)
 	}
 
 	private func handleInputUrlChange(_ value: String) {
