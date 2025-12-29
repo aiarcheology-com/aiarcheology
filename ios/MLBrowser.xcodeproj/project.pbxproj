@@ -118,16 +118,6 @@
 		942B1DE32EA6BF86005455F9 /* LoggingConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */; };
 		944D74E62EE63344009F3584 /* SentryCrashReportingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944D74E52EE63344009F3584 /* SentryCrashReportingService.swift */; };
 		944D74E72EE63344009F3584 /* Observability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944D74E42EE63344009F3584 /* Observability.swift */; };
-		9A0C1EAA2F3D000200000001 /* SentryThrottleConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000001 /* SentryThrottleConfig.swift */; };
-		9A0C1EAA2F3D000200000002 /* SentryEventSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000002 /* SentryEventSignature.swift */; };
-		9A0C1EAA2F3D000200000003 /* SentryEventGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000003 /* SentryEventGuard.swift */; };
-		9A0C1EAA2F3D000200000004 /* SentryThrottleDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000004 /* SentryThrottleDiagnostics.swift */; };
-		9A0C1EAA2F3D000200000005 /* SentryStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000005 /* SentryStatsView.swift */; };
-		9A0C1EAA2F3D000200000006 /* SentryEventSignatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000006 /* SentryEventSignatureTests.swift */; };
-		9A0C1EAA2F3D000200000008 /* LRUCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000008 /* LRUCache.swift */; };
-		9A0C1EAA2F3D000200000009 /* SentryBreadcrumbGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000009 /* SentryBreadcrumbGuard.swift */; };
-		9A0C1EAA2F3D000200000007 /* SentryEventGuardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000007 /* SentryEventGuardTests.swift */; };
-		9A0C1EAA2F3D00020000000A /* SentryBreadcrumbGuardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D00010000000A /* SentryBreadcrumbGuardTests.swift */; };
 		945C556D2ED5127C007DD8FB /* WebHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */; };
 		945C556F2ED5127C007DD8FB /* TestCoreDataStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */; };
 		945C55702ED5127C007DD8FB /* CoreDataManagableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */; };
@@ -171,12 +161,22 @@
 		94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4012ECE46C60047B283 /* DependencyContainer.swift */; };
 		94FCC4032ECE46C60047B283 /* DemoDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4002ECE46C60047B283 /* DemoDataManager.swift */; };
 		94FCC4052ECFD7730047B283 /* DriversTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4042ECFD7730047B283 /* DriversTests.swift */; };
-		A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */; };
-		A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */; };
 		94FCC4062ED062CF0047B283 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
 		94FCC4072ED063010047B283 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
 		94FF14922EBBA08700033B5B /* NSManagedObject+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF14912EBBA07800033B5B /* NSManagedObject+Extension.swift */; };
 		94FFB9D82EE6603B0049A549 /* ObservabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FFB9D72EE6603B0049A549 /* ObservabilityTests.swift */; };
+		9A0C1EAA2F3D000200000001 /* SentryThrottleConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000001 /* SentryThrottleConfig.swift */; };
+		9A0C1EAA2F3D000200000002 /* SentryEventSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000002 /* SentryEventSignature.swift */; };
+		9A0C1EAA2F3D000200000003 /* SentryEventGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000003 /* SentryEventGuard.swift */; };
+		9A0C1EAA2F3D000200000004 /* SentryThrottleDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000004 /* SentryThrottleDiagnostics.swift */; };
+		9A0C1EAA2F3D000200000005 /* SentryStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000005 /* SentryStatsView.swift */; };
+		9A0C1EAA2F3D000200000006 /* SentryEventSignatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000006 /* SentryEventSignatureTests.swift */; };
+		9A0C1EAA2F3D000200000007 /* SentryEventGuardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000007 /* SentryEventGuardTests.swift */; };
+		9A0C1EAA2F3D000200000008 /* LRUCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000008 /* LRUCache.swift */; };
+		9A0C1EAA2F3D000200000009 /* SentryBreadcrumbGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D000100000009 /* SentryBreadcrumbGuard.swift */; };
+		9A0C1EAA2F3D00020000000A /* SentryBreadcrumbGuardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D00010000000A /* SentryBreadcrumbGuardTests.swift */; };
+		A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */; };
+		A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -313,12 +313,6 @@
 		942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingConfigurationTests.swift; sourceTree = "<group>"; };
 		944D74E42EE63344009F3584 /* Observability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Observability.swift; sourceTree = "<group>"; };
 		944D74E52EE63344009F3584 /* SentryCrashReportingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryCrashReportingService.swift; sourceTree = "<group>"; };
-		9A0C1EAA2F3D000100000001 /* SentryThrottleConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryThrottleConfig.swift; sourceTree = "<group>"; };
-		9A0C1EAA2F3D000100000002 /* SentryEventSignature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryEventSignature.swift; sourceTree = "<group>"; };
-		9A0C1EAA2F3D000100000003 /* SentryEventGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryEventGuard.swift; sourceTree = "<group>"; };
-		9A0C1EAA2F3D000100000004 /* SentryThrottleDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryThrottleDiagnostics.swift; sourceTree = "<group>"; };
-		9A0C1EAA2F3D000100000008 /* LRUCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LRUCache.swift; sourceTree = "<group>"; };
-		9A0C1EAA2F3D000100000009 /* SentryBreadcrumbGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryBreadcrumbGuard.swift; sourceTree = "<group>"; };
 		945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataManagableTests.swift; sourceTree = "<group>"; };
 		945C55692ED5127C007DD8FB /* DeepStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepStateTests.swift; sourceTree = "<group>"; };
 		945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestCoreDataStack.swift; sourceTree = "<group>"; };
@@ -362,16 +356,22 @@
 		94E6A6762EEE224A008E1B4B /* MLModelMetadataParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLModelMetadataParserTests.swift; sourceTree = "<group>"; };
 		94FCC4002ECE46C60047B283 /* DemoDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManager.swift; sourceTree = "<group>"; };
 		94FCC4012ECE46C60047B283 /* DependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyContainer.swift; sourceTree = "<group>"; };
-		A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingService.swift; sourceTree = "<group>"; };
-		A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingServiceTests.swift; sourceTree = "<group>"; };
 		94FCC4042ECFD7730047B283 /* DriversTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriversTests.swift; sourceTree = "<group>"; };
 		94FF14912EBBA07800033B5B /* NSManagedObject+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSManagedObject+Extension.swift"; sourceTree = "<group>"; };
 		94FFB9D72EE6603B0049A549 /* ObservabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservabilityTests.swift; sourceTree = "<group>"; };
+		94FFB9D92EE7009B0049A549 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		9A0C1EAA2F3D000100000001 /* SentryThrottleConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryThrottleConfig.swift; sourceTree = "<group>"; };
+		9A0C1EAA2F3D000100000002 /* SentryEventSignature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryEventSignature.swift; sourceTree = "<group>"; };
+		9A0C1EAA2F3D000100000003 /* SentryEventGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryEventGuard.swift; sourceTree = "<group>"; };
+		9A0C1EAA2F3D000100000004 /* SentryThrottleDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryThrottleDiagnostics.swift; sourceTree = "<group>"; };
+		9A0C1EAA2F3D000100000005 /* SentryStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryStatsView.swift; sourceTree = "<group>"; };
 		9A0C1EAA2F3D000100000006 /* SentryEventSignatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryEventSignatureTests.swift; sourceTree = "<group>"; };
 		9A0C1EAA2F3D000100000007 /* SentryEventGuardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryEventGuardTests.swift; sourceTree = "<group>"; };
+		9A0C1EAA2F3D000100000008 /* LRUCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LRUCache.swift; sourceTree = "<group>"; };
+		9A0C1EAA2F3D000100000009 /* SentryBreadcrumbGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryBreadcrumbGuard.swift; sourceTree = "<group>"; };
 		9A0C1EAA2F3D00010000000A /* SentryBreadcrumbGuardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryBreadcrumbGuardTests.swift; sourceTree = "<group>"; };
-		9A0C1EAA2F3D000100000005 /* SentryStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryStatsView.swift; sourceTree = "<group>"; };
-		94FFB9D92EE7009B0049A549 /* Secrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Secrets.xcconfig; sourceTree = "<group>"; };
+		A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingService.swift; sourceTree = "<group>"; };
+		A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingServiceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -482,14 +482,6 @@
 				8A61C5112AB9A85400BF72BE /* UI */,
 			);
 			path = iOS;
-			sourceTree = "<group>";
-		};
-		A1B2C3D42F0104A300000001 /* Services */ = {
-			isa = PBXGroup;
-			children = (
-				A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */,
-			);
-			path = Services;
 			sourceTree = "<group>";
 		};
 		8A61C5112AB9A85400BF72BE /* UI */ = {
@@ -849,6 +841,14 @@
 			path = Configuration;
 			sourceTree = "<group>";
 		};
+		A1B2C3D42F0104A300000001 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -922,7 +922,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1430;
-				LastUpgradeCheck = 2610;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					8AE0BBFF2A97B0B30086DDF9 = {
 						CreatedOnToolsVersion = 14.3;
@@ -1248,6 +1248,8 @@
 				DEBUG_ACTIVITY_MODE = "";
 				"DEBUG_ACTIVITY_MODE[sdk=iphonesimulator*]" = disable;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
+				EAGER_LINKING = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -1269,19 +1271,12 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xfrontend -warn-long-function-bodies=100 -Xfrontend -warn-long-expression-type-checking=100";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
-				EAGER_LINKING = YES;
-				OTHER_SWIFT_FLAGS = (
-					"$(inherited)",
-					"-Xfrontend",
-					"-warn-long-function-bodies=100",
-					"-Xfrontend",
-					"-warn-long-expression-type-checking=100",
-				);
 			};
 			name = Debug;
 		};
@@ -1321,6 +1316,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEBUG_ACTIVITY_MODE = "";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -1354,7 +1350,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 228;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1394,7 +1389,6 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 228;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -1429,7 +1423,6 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "MLBrowserTests-Info.plist";
 				MARKETING_VERSION = 1.0;
@@ -1450,7 +1443,6 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "MLBrowserTests-Info.plist";
 				MARKETING_VERSION = 1.0;
@@ -1470,7 +1462,6 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = AIA.MLBrowserUITests;
@@ -1489,7 +1480,6 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = ZLR4X4U8UQ;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = AIA.MLBrowserUITests;
