@@ -77,59 +77,59 @@ final class DeviceInfoTests: XCTestCase {
     }
     
     // MARK: - Information Tests
-    
+
     @MainActor
-    func testInformation_ReturnsNonEmptyString() {
-        let info = DeviceInfo.information()
+    func testInformation_ReturnsNonEmptyString() async {
+        let info = await DeviceInfo.information()
         XCTAssertFalse(info.isEmpty, "Device info should not be empty")
     }
-    
+
     @MainActor
-    func testInformation_ContainsDeviceModel() {
-        let info = DeviceInfo.information()
-        XCTAssertTrue(info.contains("Device Model"), 
+    func testInformation_ContainsDeviceModel() async {
+        let info = await DeviceInfo.information()
+        XCTAssertTrue(info.contains("Device Model"),
                       "Info should contain 'Device Model' label")
     }
-    
+
     @MainActor
-    func testInformation_ContainsiOSVersion() {
-        let info = DeviceInfo.information()
-        XCTAssertTrue(info.contains("iOS Version"), 
+    func testInformation_ContainsiOSVersion() async {
+        let info = await DeviceInfo.information()
+        XCTAssertTrue(info.contains("iOS Version"),
                       "Info should contain 'iOS Version' label")
     }
-    
+
     @MainActor
-    func testInformation_ContainsAppName() {
-        let info = DeviceInfo.information()
-        XCTAssertTrue(info.contains("App Name"), 
+    func testInformation_ContainsAppName() async {
+        let info = await DeviceInfo.information()
+        XCTAssertTrue(info.contains("App Name"),
                       "Info should contain 'App Name' label")
     }
-    
+
     @MainActor
-    func testInformation_ContainsAppVersionNumber() {
-        let info = DeviceInfo.information()
-        XCTAssertTrue(info.contains("App Version Number"), 
+    func testInformation_ContainsAppVersionNumber() async {
+        let info = await DeviceInfo.information()
+        XCTAssertTrue(info.contains("App Version Number"),
                       "Info should contain 'App Version Number' label")
     }
-    
+
     @MainActor
-    func testInformation_ContainsAppBuildNumber() {
-        let info = DeviceInfo.information()
-        XCTAssertTrue(info.contains("App Build Number"), 
+    func testInformation_ContainsAppBuildNumber() async {
+        let info = await DeviceInfo.information()
+        XCTAssertTrue(info.contains("App Build Number"),
                       "Info should contain 'App Build Number' label")
     }
-    
+
     @MainActor
-    func testInformation_ContainsStorageStatus() {
-        let info = DeviceInfo.information()
-        XCTAssertTrue(info.contains("Storage Status"), 
+    func testInformation_ContainsStorageStatus() async {
+        let info = await DeviceInfo.information()
+        XCTAssertTrue(info.contains("Storage Status"),
                       "Info should contain 'Storage Status' label")
     }
-    
+
     @MainActor
-    func testInformation_ContainsDate() {
-        let info = DeviceInfo.information()
-        XCTAssertTrue(info.contains("Date"), 
+    func testInformation_ContainsDate() async {
+        let info = await DeviceInfo.information()
+        XCTAssertTrue(info.contains("Date"),
                       "Info should contain 'Date' label")
     }
 }

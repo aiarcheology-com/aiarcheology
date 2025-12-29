@@ -286,21 +286,31 @@ struct ModelImportView: View {
 	private func handlePendingImport(_ request: ModelAcquisitionCoordinator.ImportRequest?) {
 		guard let request else { return }
 		isLoading = true
-		
-		Task { @MainActor in
+
+		Task {
 			do {
 				let info = try await importConfiguration(from: request.url, downloadUrl: request.downloadUrl, id: request.configurationId, provider: request.provider)
-				importedModelInfo = info
+				await MainActor.run {
+					importedModelInfo = info
+					isLoading = false
+					acquisitionCoordinator.markImportHandled()
+				}
 			} catch {
-				errorMessage = error.localizedDescription
-				showErrorAlert = true
+				await MainActor.run {
+					errorMessage = error.localizedDescription
+					showErrorAlert = true
+					isLoading = false
+					acquisitionCoordinator.markImportHandled()
+				}
 			}
-			isLoading = false
-			acquisitionCoordinator.markImportHandled()
 		}
 	}
-	
+
 	/// Import and validate a model configuration
+	///
+	/// This method performs expensive operations (file copy, model compilation/loading)
+	/// off the MainActor for better UI responsiveness.
+	///
 	/// - Parameters:
 	///   - sourceURL: Local file URL of the model
 	///   - downloadUrl: Original download URL (nil for local file imports, non-nil for remote downloads)
@@ -309,44 +319,79 @@ struct ModelImportView: View {
 	/// - Returns: Info about the imported model for display in success alert
 	@discardableResult
 	private func importConfiguration(from sourceURL: URL, downloadUrl: URL?, id: UUID, provider: ModelProvider) async throws -> ImportedModelInfo {
+		// Phase 1: File operations and model loading (off MainActor)
+		// Copy file to Documents and load/validate model metadata
+		let (modelURL, extractedInfo) = try await performOffMainActorWork(sourceURL: sourceURL, configurationId: id)
+
+		// Phase 2: Core Data operations (on MainActor)
+		return try await MainActor.run {
+			try createAndSaveConfiguration(
+				modelURL: modelURL,
+				downloadUrl: downloadUrl,
+				id: id,
+				extractedInfo: extractedInfo,
+				provider: provider
+			)
+		}
+	}
+
+	/// Performs file copy and model loading off the MainActor.
+	///
+	/// Uses `Task.detached` to ensure file I/O runs on a background executor,
+	/// not inherited from the MainActor-isolated call site.
+	///
+	/// - Returns: Tuple of (stored model URL, extracted metadata)
+	private func performOffMainActorWork(sourceURL: URL, configurationId: UUID) async throws -> (URL, ExtractedModelInfo) {
+		// Copy file to Documents in a detached task to guarantee off-main execution.
+		// Task.detached doesn't inherit actor context, unlike plain Task { }.
+		// Using userInitiated priority since user is actively waiting for import.
+		let modelURL = try await Task.detached(priority: .userInitiated) {
+			try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationId)
+		}.value
+
+		// Load and validate the model using ModelLoadingService (actor, so off MainActor)
+		let service = ModelLoadingService()
+		let extractedInfo = try await service.loadAndExtractMetadata(from: modelURL, demo: false)
+
+		return (modelURL, extractedInfo)
+	}
+
+	/// Creates and saves the Core Data configuration entity.
+	/// Must be called on MainActor.
+	@MainActor
+	private func createAndSaveConfiguration(
+		modelURL: URL,
+		downloadUrl: URL?,
+		id: UUID,
+		extractedInfo: ExtractedModelInfo,
+		provider: ModelProvider
+	) throws -> ImportedModelInfo {
 		// Create a new configuration entity
 		let configuration = DeepConfiguration.create(in: moc)
-		
-		// Copy file to Documents if needed (file picker returns source location)
-		let modelURL = try FileManager.storeModelInDocuments(from: sourceURL, configurationId: id)
-		
-		// Load and validate the model
-		let detector = try await Detector.loadModel(from: modelURL)
-		guard let metadata = detector?.modelDescription.metadata else {
-			moc.delete(configuration)
-			throw ImportError.missingMetadata
-		}
-		
-		let parser = MLModelMetadataParser(metadata: metadata)
-		
-		// Populate configuration
+
+		// Populate configuration from extracted metadata
 		configuration.entityId = id
 		configuration.annotationColor = .yellow
-		let description = parser.value(for: .description) as? String
+		let description = extractedInfo.modelDescription
 		configuration.modelDescription = description.isNotBlank ? description : modelURL.lastPathComponent.fileName
-		configuration.modelVersion = parser.modelVersion
-		configuration.author = parser.value(for: .author) as? String
-		configuration.creationDate_ = (parser.value(for: .date) as? String)?.toDate(.createMl)
-		configuration.modelType = parser.task
+		configuration.modelVersion = extractedInfo.modelVersion
+		configuration.author = extractedInfo.author
+		configuration.creationDate_ = extractedInfo.creationDateString?.toDate(.createMl)
+		configuration.modelType = extractedInfo.task
 		configuration.phaseOutTime = 2
 		configuration.selectedSymbol = .circle
-		
+
 		guard let relativePath = try? modelURL.relativePath(from: DeepConfiguration.rootDirectory) else {
 			moc.delete(configuration)
 			LoggingPolicy.error("Failed to compute relative path for model file", logger: .configuration)
 			throw ImportError.invalidPath
 		}
-		
+
 		configuration.file_ = relativePath
 		configuration.downloadURL = downloadUrl
 		configuration.enabled = false
 		configuration.transition(to: .draft)
-		
+
 		// Validate
 		do {
 			try configuration.validateForInsert()
@@ -354,12 +399,12 @@ struct ModelImportView: View {
 		} catch {
 			configuration.lifeCycle = .draft
 		}
-		
+
 		// Save or report failure
 		if configuration.lifeCycle == .ready {
 			deep.saveConfigurations()
 			provider.result(.importSucceeded, id: id)
-			
+
 			return ImportedModelInfo(
 				description: configuration.modelDescription ?? "Unknown",
 				author: configuration.author ?? "Unknown"

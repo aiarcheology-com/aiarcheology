@@ -93,14 +93,18 @@ struct DrawerContent: View {
     
     private var configurationsSection: some View {
         Section("Available Models") {
-            ForEach(configurations, id: \.entityId) { configuration in
+            // Use objectID for identity - it's always valid even for deleted objects.
+            // Using entityId crashes when Core Data nullifies it during deletion.
+            ForEach(configurations, id: \.objectID) { configuration in
+                // Capture entityId early, before any async operations could invalidate it
+                let entityId = configuration.entityId
                 ConfigurationRow(
                     configuration: configuration,
                     onTap: {
-						selectedConfigurationId = configuration.entityId
+                        selectedConfigurationId = entityId
                     },
                     onDelete: {
-						DeepConfiguration.delete(configuration.entityId, in: moc)
+                        DeepConfiguration.delete(entityId, in: moc)
                     }
                 )
             }
