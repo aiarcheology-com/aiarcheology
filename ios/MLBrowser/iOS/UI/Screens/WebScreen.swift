@@ -74,52 +74,59 @@ struct WebScreenView: View {
 	@ToolbarContentBuilder
 	var toolbarContent: some ToolbarContent {
 		ToolbarItem(placement: .principal) {
-			TextField("Search or enter any website name", text: $inputUrl) { isStart in
-				showMenu = isStart
-			}
-			.testability(Testability.TextField.webScreenAddressBar)
-			.environmentObject(appState.guide)
-			.onChange(of: inputUrl) { _, value in
-				if let addressSelected = appState.guide.addressSelected,
-				   inputUrl == addressSelected.absoluteString {
-					// Do not fill in the addressBarMenu if we already have
-					// selected an item.
-					appState.guide.addressSelected = nil
-					appState.guide.addressBarMenu = []
-					return
-				}
-				if history.isEmpty.not, showMenu.enabled {
-				   appState.guide.addressBarMenu = history
-						.filter { $0.page?.absoluteString.contains(value) == true }
-						.compactMap { $0.page }
-				} else {
-					appState.guide.addressBarMenu = []
-				}
-			}
-			.padding(5)
-			.background(.ultraThinMaterial)
-			.overlay(
-				RoundedRectangle(cornerRadius: 5)
-					.stroke(Color.gray.opacity(0.75), lineWidth: 0.75) // Grey border
-			)
-			.textInputAutocapitalization(.never)
-			.disableAutocorrection(true)
-			.onSubmit(of: .text, {
-				self.websiteUrl = inputUrl
-				guard inputUrl.browserInputType == .url else { return } // do not store search terms
-				createWebHistoryEntry(inputUrl, maxEntries: appState.settings.historySize)
-			})
-			.alert(isPresented: $showAlert) {
-				showAlert = false
-				switch latestError {
-					case .fullHistory:
-						return Alert(title: Text("Warning"), message: Text("Browsing history is full. Increase the web browsing history size in Settings, or delete some existing entries from the history."), dismissButton: .default(Text("OK")))
-
-					default:
-						return Alert(title: Text(""))
-				}
-			}
+			addressBarTextField
 		}
+	}
+
+	private var addressBarTextField: some View {
+		TextField("Search or enter any website name", text: $inputUrl) { isStart in
+			showMenu = isStart
+		}
+		.testability(Testability.TextField.webScreenAddressBar)
+		.environmentObject(appState.guide)
+		.onChange(of: inputUrl) { _, value in
+			handleInputUrlChange(value)
+		}
+		.padding(5)
+		.background(.ultraThinMaterial)
+		.overlay(addressBarBorder)
+		.textInputAutocapitalization(.never)
+		.disableAutocorrection(true)
+		.onSubmit(of: .text) {
+			handleAddressBarSubmit()
+		}
+		.alert(isPresented: $showAlert) {
+			showAlert = false
+			return alertForError(latestError)
+		}
+	}
+
+	private var addressBarBorder: some View {
+		let borderColor: Color = Color.gray.opacity(0.75)
+		return RoundedRectangle(cornerRadius: 5)
+			.stroke(borderColor, lineWidth: 0.75)
+	}
+
+	private func handleInputUrlChange(_ value: String) {
+		if let addressSelected = appState.guide.addressSelected,
+		   inputUrl == addressSelected.absoluteString {
+			appState.guide.addressSelected = nil
+			appState.guide.addressBarMenu = []
+			return
+		}
+		if history.isEmpty.not, showMenu.enabled {
+			appState.guide.addressBarMenu = history
+				.filter { $0.page?.absoluteString.contains(value) == true }
+				.compactMap { $0.page }
+		} else {
+			appState.guide.addressBarMenu = []
+		}
+	}
+
+	private func handleAddressBarSubmit() {
+		self.websiteUrl = inputUrl
+		guard inputUrl.browserInputType == .url else { return }
+		createWebHistoryEntry(inputUrl, maxEntries: appState.settings.historySize)
 	}
 
     var body: some View {
@@ -181,6 +188,19 @@ struct WebScreenView: View {
             toolbarContent
         }
     }
+
+	private func alertForError(_ error: HistoryError?) -> Alert {
+		switch error {
+		case .fullHistory:
+			return Alert(
+				title: Text("Warning"),
+				message: Text("Browsing history is full. Increase the web browsing history size in Settings, or delete some existing entries from the history."),
+				dismissButton: .default(Text("OK"))
+			)
+		case .none:
+			return Alert(title: Text(""))
+		}
+	}
 
 	private func createWebHistoryEntry(_ urlString: String, maxEntries: Int) {
 		// Use existing @FetchRequest count instead of fetching all objects

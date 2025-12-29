@@ -97,17 +97,17 @@ extension DeepConfiguration {
 	}
 	
 	static func == (lhs: DeepConfiguration, rhs: DeepConfiguration) -> Bool {
-		return
-			lhs.entityId == rhs.entityId &&
-			lhs.file == rhs.file &&
-			lhs.modelDescription == rhs.modelDescription &&
-			lhs.modelTypeString == rhs.modelTypeString &&
-			lhs.author == rhs.author &&
-			lhs.creationDate == rhs.creationDate &&
-			lhs.annotationColor == rhs.annotationColor &&
-			lhs.phaseOutTime == rhs.phaseOutTime &&
-			lhs.selectedSymbol == rhs.selectedSymbol &&
-			lhs.enabled == rhs.enabled
+		guard lhs.entityId == rhs.entityId else { return false }
+		guard lhs.file == rhs.file else { return false }
+		guard lhs.modelDescription == rhs.modelDescription else { return false }
+		guard lhs.modelTypeString == rhs.modelTypeString else { return false }
+		guard lhs.author == rhs.author else { return false }
+		guard lhs.creationDate == rhs.creationDate else { return false }
+		guard lhs.annotationColor == rhs.annotationColor else { return false }
+		guard lhs.phaseOutTime == rhs.phaseOutTime else { return false }
+		guard lhs.selectedSymbol == rhs.selectedSymbol else { return false }
+		guard lhs.enabled == rhs.enabled else { return false }
+		return true
 	}
 }
 
