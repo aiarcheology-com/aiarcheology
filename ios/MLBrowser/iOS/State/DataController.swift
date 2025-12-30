@@ -53,7 +53,15 @@ final class DataController: ObservableObject {
 	/// Indicates whether the persistent store has been successfully loaded
 	@Published private(set) var isStoreLoaded = false
 
-	/// Tracks whether we've attempted to destroy and reload the store after a migration failure
+	/// Tracks whether we've already destroyed and reloaded the store after a migration failure.
+	///
+	/// This flag is intentionally scoped to the lifetime of a `DataController` instance
+	/// (i.e., a single app session) rather than to a single migration attempt. This ensures
+	/// that we perform at most one destructive "destroy and recreate store" recovery per
+	/// controller lifetime, preventing potential infinite retry loops if the store continues
+	/// to fail migration or loading for non-transient reasons. During development, if the
+	/// data model changes multiple times in one run, subsequent migration failures will not
+	/// trigger another destructive recovery and will instead surface the error.
 	private var didRetryAfterStoreDestruction = false
 
 	/// Determines whether Core Data should automatically infer mapping models for migrations.
@@ -196,17 +204,24 @@ final class DataController: ObservableObject {
 
 			LoggingPolicy.info("Successfully destroyed Core Data store. Creating fresh container and retrying load...", logger: .persistence)
 
-			// Create a fresh container to avoid contaminated coordinator state
-			container = NSPersistentContainer(name: DataController.containerName, managedObjectModel: Self.sharedModel)
+			DispatchQueue.main.async { [weak self] in
+				guard let self = self else { return }
 
-			// Reapply the same configuration
-			if let desc = container.persistentStoreDescriptions.first {
-				desc.shouldMigrateStoreAutomatically = true
-				desc.shouldInferMappingModelAutomatically = shouldInferMappingModelAutomatically
+				// Create a fresh container to avoid contaminated coordinator state
+				self.container = NSPersistentContainer(
+					name: DataController.containerName,
+					managedObjectModel: Self.sharedModel
+				)
+
+				// Reapply the same configuration
+				if let desc = self.container.persistentStoreDescriptions.first {
+					desc.shouldMigrateStoreAutomatically = true
+					desc.shouldInferMappingModelAutomatically = shouldInferMappingModelAutomatically
+				}
+                                
+				// Retry loading with fresh container
+				self.loadStores()
 			}
-
-			// Retry loading with fresh container
-			loadStores()
 		} catch {
 			LoggingPolicy.error("Failed to destroy persistent store: \(error.localizedDescription)", logger: .persistence)
 			LoggingPolicy.criticalFailure("Cannot recover from Core Data migration failure: \(error.localizedDescription)")
