@@ -53,7 +53,15 @@ final class DataController: ObservableObject {
 	/// Indicates whether the persistent store has been successfully loaded
 	@Published private(set) var isStoreLoaded = false
 
-	/// Tracks whether we've attempted to destroy and reload the store after a migration failure
+	/// Tracks whether we've already destroyed and reloaded the store after a migration failure.
+	///
+	/// This flag is intentionally scoped to the lifetime of a `DataController` instance
+	/// (i.e., a single app session) rather than to a single migration attempt. This ensures
+	/// that we perform at most one destructive "destroy and recreate store" recovery per
+	/// controller lifetime, preventing potential infinite retry loops if the store continues
+	/// to fail migration or loading for non-transient reasons. During development, if the
+	/// data model changes multiple times in one run, subsequent migration failures will not
+	/// trigger another destructive recovery and will instead surface the error.
 	private var didRetryAfterStoreDestruction = false
 
 	/// Executes work on a background context asynchronously.
