@@ -140,8 +140,9 @@ final class DataController: ObservableObject {
 		// Check if this is a migration-related error
 		let isMigrationError = nsError.domain == NSCocoaErrorDomain && (
 			nsError.code == NSPersistentStoreIncompatibleVersionHashError || // 134100
-			nsError.code == NSMigrationMissingSourceModelError ||             // 134140
-			nsError.code == NSMigrationError                                  // 134110
+			nsError.code == NSMigrationMissingSourceModelError ||            // 134140
+			nsError.code == NSMigrationError ||              				 // 134110
+			nsError.code == NSPersistentStoreIncompatibleSchemaError
 		)
 
 		// Only attempt recovery in non-App Store builds
@@ -167,7 +168,7 @@ final class DataController: ObservableObject {
 		}
 	}
 
-	/// Destroys the persistent store and retries loading (TestFlight/dev recovery path)
+	/// Destroys the persistent store and retries loading with a fresh container (TestFlight/dev recovery path)
 	private func destroyAndRetryStore(description: NSPersistentStoreDescription) {
 		didRetryAfterStoreDestruction = true
 
@@ -177,23 +178,25 @@ final class DataController: ObservableObject {
 		}
 
 		do {
-			// Destroy the persistent store
+			// Destroy the persistent store (this handles all cleanup including WAL/SHM files)
 			try container.persistentStoreCoordinator.destroyPersistentStore(
 				at: storeURL,
 				ofType: description.type,
 				options: description.options
 			)
 
-			// Also remove associated SQLite files (-wal, -shm)
-			let walURL = storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal")
-			let shmURL = storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm")
+			LoggingPolicy.info("Successfully destroyed Core Data store. Creating fresh container and retrying load...", logger: .persistence)
 
-			try? FileManager.default.removeItem(at: walURL)
-			try? FileManager.default.removeItem(at: shmURL)
+			// Create a fresh container to avoid contaminated coordinator state
+			container = NSPersistentContainer(name: DataController.containerName, managedObjectModel: Self.sharedModel)
 
-			LoggingPolicy.info("Successfully destroyed Core Data store and auxiliary files. Retrying load...", logger: .persistence)
+			// Reapply the same configuration
+			if let desc = container.persistentStoreDescriptions.first {
+				desc.shouldMigrateStoreAutomatically = true
+				desc.shouldInferMappingModelAutomatically = !(AppEnvironment.isAppStoreDistribution || AppEnvironment.isDebugConfiguration)
+			}
 
-			// Retry loading
+			// Retry loading with fresh container
 			loadStores()
 		} catch {
 			LoggingPolicy.error("Failed to destroy persistent store: \(error.localizedDescription)", logger: .persistence)
