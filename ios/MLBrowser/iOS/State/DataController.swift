@@ -53,6 +53,9 @@ final class DataController: ObservableObject {
 	/// Indicates whether the persistent store has been successfully loaded
 	@Published private(set) var isStoreLoaded = false
 
+	/// Tracks whether we've attempted to destroy and reload the store after a migration failure
+	private var didRetryAfterStoreDestruction = false
+
 	/// Executes work on a background context asynchronously.
 	///
 	/// **Important**: Although `DataController` is marked `@MainActor`, the `block` parameter
@@ -89,7 +92,11 @@ final class DataController: ObservableObject {
             container.persistentStoreDescriptions = [description]
         } else if let desc = container.persistentStoreDescriptions.first {
             desc.shouldMigrateStoreAutomatically = true
-            desc.shouldInferMappingModelAutomatically = false
+            // Enable lightweight migration for TestFlight/dev builds; keep strict for App Store
+            // Note: Core Data tries explicit mapping models (.xcmappingmodel) FIRST, then falls
+            // back to inferred migration. This means custom migration policies (e.g.,
+            // FillEntityIdIfNilPolicy for 0.0.0→0.0.1) will still be used when applicable.
+            desc.shouldInferMappingModelAutomatically = !AppEnvironment.isAppStoreDistribution
         }
 
 		loadStores()
@@ -107,22 +114,90 @@ final class DataController: ObservableObject {
 
 	private func loadStores() {
 		container.loadPersistentStores { [weak self] description, error in
+			guard let self = self else { return }
+
 			if let error = error {
-				// Core Data failure is a critical error that compromises all app functionality
-				LoggingPolicy.fault("Core Data failed to load persistent store: \(error.localizedDescription)", logger: .persistence)
-				LoggingPolicy.criticalFailure("Core Data persistent store failed to load: \(error.localizedDescription)")
+				self.handleStoreLoadError(error, description: description)
 			} else {
 				LoggingPolicy.debug("Core Data persistent store loaded successfully: \(description.description)")
 				if Thread.isMainThread {
-					self?.setupContextMerging()
-					self?.isStoreLoaded = true
+					self.setupContextMerging()
+					self.isStoreLoaded = true
 				} else {
 					DispatchQueue.main.async {
-						self?.setupContextMerging()
-						self?.isStoreLoaded = true
+						self.setupContextMerging()
+						self.isStoreLoaded = true
 					}
 				}
 			}
+		}
+	}
+
+	/// Handles Core Data store load errors with optional recovery for migration issues
+	private func handleStoreLoadError(_ error: Error, description: NSPersistentStoreDescription) {
+		let nsError = error as NSError
+
+		// Check if this is a migration-related error
+		let isMigrationError = nsError.domain == NSCocoaErrorDomain && (
+			nsError.code == NSPersistentStoreIncompatibleVersionHashError || // 134100
+			nsError.code == NSMigrationMissingSourceModelError ||             // 134140
+			nsError.code == NSMigrationError                                  // 134110
+		)
+
+		// Only attempt recovery in non-App Store builds
+		let canAttemptRecovery = !AppEnvironment.isAppStoreDistribution &&
+								 isMigrationError &&
+								 !didRetryAfterStoreDestruction
+
+		if canAttemptRecovery {
+			LoggingPolicy.warning(
+				"Core Data migration error detected (code: \(nsError.code)). Attempting to destroy and recreate store: \(error.localizedDescription)",
+				logger: .persistence
+			)
+			destroyAndRetryStore(description: description)
+		} else {
+			// Critical failure - either App Store build or retry already attempted
+			LoggingPolicy.fault("Core Data failed to load persistent store: \(error.localizedDescription)", logger: .persistence)
+
+			if didRetryAfterStoreDestruction {
+				LoggingPolicy.criticalFailure("Core Data persistent store failed to load even after store destruction: \(error.localizedDescription)")
+			} else {
+				LoggingPolicy.criticalFailure("Core Data persistent store failed to load: \(error.localizedDescription)")
+			}
+		}
+	}
+
+	/// Destroys the persistent store and retries loading (TestFlight/dev recovery path)
+	private func destroyAndRetryStore(description: NSPersistentStoreDescription) {
+		didRetryAfterStoreDestruction = true
+
+		guard let storeURL = description.url else {
+			LoggingPolicy.error("Cannot destroy store: no URL found in description", logger: .persistence)
+			LoggingPolicy.criticalFailure("Core Data recovery failed: no store URL")
+		}
+
+		do {
+			// Destroy the persistent store
+			try container.persistentStoreCoordinator.destroyPersistentStore(
+				at: storeURL,
+				ofType: description.type,
+				options: description.options
+			)
+
+			// Also remove associated SQLite files (-wal, -shm)
+			let walURL = storeURL.deletingPathExtension().appendingPathExtension("sqlite-wal")
+			let shmURL = storeURL.deletingPathExtension().appendingPathExtension("sqlite-shm")
+
+			try? FileManager.default.removeItem(at: walURL)
+			try? FileManager.default.removeItem(at: shmURL)
+
+			LoggingPolicy.info("Successfully destroyed Core Data store and auxiliary files. Retrying load...", logger: .persistence)
+
+			// Retry loading
+			loadStores()
+		} catch {
+			LoggingPolicy.error("Failed to destroy persistent store: \(error.localizedDescription)", logger: .persistence)
+			LoggingPolicy.criticalFailure("Cannot recover from Core Data migration failure: \(error.localizedDescription)")
 		}
 	}
 
