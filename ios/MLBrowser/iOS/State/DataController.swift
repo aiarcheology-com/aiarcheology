@@ -187,17 +187,24 @@ final class DataController: ObservableObject {
 
 			LoggingPolicy.info("Successfully destroyed Core Data store. Creating fresh container and retrying load...", logger: .persistence)
 
-			// Create a fresh container to avoid contaminated coordinator state
-			container = NSPersistentContainer(name: DataController.containerName, managedObjectModel: Self.sharedModel)
+			DispatchQueue.main.async { [weak self] in
+				guard let self = self else { return }
 
-			// Reapply the same configuration
-			if let desc = container.persistentStoreDescriptions.first {
-				desc.shouldMigrateStoreAutomatically = true
-				desc.shouldInferMappingModelAutomatically = !(AppEnvironment.isAppStoreDistribution || AppEnvironment.isDebugConfiguration)
+				// Create a fresh container to avoid contaminated coordinator state
+				self.container = NSPersistentContainer(
+					name: DataController.containerName,
+					managedObjectModel: Self.sharedModel
+				)
+
+				// Reapply the same configuration
+				if let desc = self.container.persistentStoreDescriptions.first {
+					desc.shouldMigrateStoreAutomatically = true
+					desc.shouldInferMappingModelAutomatically = !(AppEnvironment.isAppStoreDistribution || AppEnvironment.isDebugConfiguration)
+				}
+
+				// Retry loading with fresh container
+				self.loadStores()
 			}
-
-			// Retry loading with fresh container
-			loadStores()
 		} catch {
 			LoggingPolicy.error("Failed to destroy persistent store: \(error.localizedDescription)", logger: .persistence)
 			LoggingPolicy.criticalFailure("Cannot recover from Core Data migration failure: \(error.localizedDescription)")
