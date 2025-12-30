@@ -142,7 +142,7 @@ final class DataController: ObservableObject {
 			nsError.code == NSPersistentStoreIncompatibleVersionHashError || // 134100
 			nsError.code == NSMigrationMissingSourceModelError ||            // 134140
 			nsError.code == NSMigrationError ||              				 // 134110
-			nsError.code == NSPersistentStoreIncompatibleSchemaError
+			nsError.code == NSPersistentStoreIncompatibleSchemaError         // 134130
 		)
 
 		// Only attempt recovery in non-App Store builds
