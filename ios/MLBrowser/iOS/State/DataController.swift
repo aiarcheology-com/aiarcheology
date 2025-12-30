@@ -215,6 +215,8 @@ final class DataController: ObservableObject {
 			}
 		} catch {
 			LoggingPolicy.error("Failed to destroy persistent store: \(error.localizedDescription)", logger: .persistence)
+			// Reset flag since destruction failed - allows retry if another error occurs in this session
+			didRetryAfterStoreDestruction = false
 			LoggingPolicy.criticalFailure("Cannot recover from Core Data migration failure: \(error.localizedDescription)")
 		}
 	}
