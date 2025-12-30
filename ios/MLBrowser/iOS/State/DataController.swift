@@ -96,7 +96,7 @@ final class DataController: ObservableObject {
             // Note: Core Data tries explicit mapping models (.xcmappingmodel) FIRST, then falls
             // back to inferred migration. This means custom migration policies (e.g.,
             // FillEntityIdIfNilPolicy for 0.0.0→0.0.1) will still be used when applicable.
-            desc.shouldInferMappingModelAutomatically = !AppEnvironment.isAppStoreDistribution
+            desc.shouldInferMappingModelAutomatically = !(AppEnvironment.isAppStoreDistribution || AppEnvironment.isDebugConfiguration)
         }
 
 		loadStores()
