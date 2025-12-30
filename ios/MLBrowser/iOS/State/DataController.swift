@@ -56,6 +56,18 @@ final class DataController: ObservableObject {
 	/// Tracks whether we've attempted to destroy and reload the store after a migration failure
 	private var didRetryAfterStoreDestruction = false
 
+	/// Determines whether Core Data should automatically infer mapping models for migrations.
+	///
+	/// - Returns: `true` for TestFlight/dev builds to enable automatic lightweight migration,
+	///            `false` for App Store and Debug builds to enforce strict migration requirements.
+	///
+	/// **Note**: Core Data tries explicit mapping models (`.xcmappingmodel`) first, then falls
+	/// back to inferred migration. Custom migration policies (e.g., `FillEntityIdIfNilPolicy`)
+	/// will still be used when applicable.
+	private var shouldInferMappingModelAutomatically: Bool {
+		!(AppEnvironment.isAppStoreDistribution || AppEnvironment.isDebugConfiguration)
+	}
+
 	/// Executes work on a background context asynchronously.
 	///
 	/// **Important**: Although `DataController` is marked `@MainActor`, the `block` parameter
@@ -92,11 +104,7 @@ final class DataController: ObservableObject {
             container.persistentStoreDescriptions = [description]
         } else if let desc = container.persistentStoreDescriptions.first {
             desc.shouldMigrateStoreAutomatically = true
-            // Enable lightweight migration for TestFlight/dev builds; keep strict for App Store
-            // Note: Core Data tries explicit mapping models (.xcmappingmodel) FIRST, then falls
-            // back to inferred migration. This means custom migration policies (e.g.,
-            // FillEntityIdIfNilPolicy for 0.0.0→0.0.1) will still be used when applicable.
-            desc.shouldInferMappingModelAutomatically = !(AppEnvironment.isAppStoreDistribution || AppEnvironment.isDebugConfiguration)
+            desc.shouldInferMappingModelAutomatically = shouldInferMappingModelAutomatically
         }
 
 		loadStores()
@@ -107,6 +115,7 @@ final class DataController: ObservableObject {
 		container = NSPersistentContainer(name: DataController.containerName, managedObjectModel: Self.sharedModel)
 		let description = NSPersistentStoreDescription(url: storeURL)
 		description.shouldMigrateStoreAutomatically = true
+		// Tests always use automatic inference for simplicity
 		description.shouldInferMappingModelAutomatically = true
 		container.persistentStoreDescriptions = [description]
 		loadStores()
@@ -193,7 +202,7 @@ final class DataController: ObservableObject {
 			// Reapply the same configuration
 			if let desc = container.persistentStoreDescriptions.first {
 				desc.shouldMigrateStoreAutomatically = true
-				desc.shouldInferMappingModelAutomatically = !(AppEnvironment.isAppStoreDistribution || AppEnvironment.isDebugConfiguration)
+				desc.shouldInferMappingModelAutomatically = shouldInferMappingModelAutomatically
 			}
 
 			// Retry loading with fresh container
