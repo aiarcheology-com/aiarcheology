@@ -10,6 +10,22 @@ set -eo pipefail
 
 echo "🔧 Running ci_post_clone.sh..."
 
+# --- Disable Xcode package plugin + macro validation ---
+# Only do this on Xcode Cloud (avoid mutating local developer machines if run manually)
+if [[ -z "${CI_PRIMARY_REPOSITORY_PATH:-}" ]]; then
+  echo "⏭️  Not running on Xcode Cloud (CI_PRIMARY_REPOSITORY_PATH not set) - skipping Xcode defaults"
+else
+  echo "🔐 Disabling Xcode package plugin + macro validation (CI only)..."
+
+  # Skip Macro Validation
+  defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES
+
+  # Skip Package Plugin Validation
+  defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
+
+  echo "   ✅ Successfully disabled Macro and Plugin validation."
+fi
+
 # --- Install sentry-cli ---
 # Install once here so it's available for all subsequent build actions
 
