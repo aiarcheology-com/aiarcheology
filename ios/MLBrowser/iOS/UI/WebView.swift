@@ -17,9 +17,9 @@ import OSLog
 public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @MainActor Equatable {
 	@EnvironmentObject var webViewRenderer: WebViewRenderer
     var urlString: String
-    var loadStatusChanged: ((Bool, Error?) -> Void)? = nil
-	var lastPage: ((URL) -> Void)? = nil
-	var interactionStateChanged: ((ContentInteractionState) -> Void)? = nil
+    var loadStatusChanged: ((Bool, Error?) -> Void)?
+	var lastPage: ((URL) -> Void)?
+	var interactionStateChanged: ((ContentInteractionState) -> Void)?
 
 	public init(_ urlString: String, lastPage: ((URL) -> Void)? = nil,
                 loadStatusChanged: ((Bool, Error?) -> Void)? = nil,
@@ -142,7 +142,6 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
         }
     }
 
-
     func onLoadStatusChanged(perform: ((Bool, Error?) -> Void)?) -> some View {
         var copy = self
         copy.loadStatusChanged = perform
@@ -218,7 +217,7 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
 
 			func removeJSObjects_agsCuzkCz() {
 				let jsRemoveButton = "document.querySelector('.esri-component.esri-compass.esri-widget').remove();"
-				webView.evaluateJavaScript(jsRemoveButton) { (result, error) in
+				webView.evaluateJavaScript(jsRemoveButton) { (_, error) in
 					if let error = error {
 						LoggingPolicy.debug("Error removing compass button via JavaScript: \(error.localizedDescription)", logger: .ui)
 					}

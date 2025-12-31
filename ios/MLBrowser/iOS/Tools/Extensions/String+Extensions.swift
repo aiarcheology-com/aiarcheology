@@ -55,7 +55,7 @@ extension String {
 	var trimmedString: String {
 		self.trimmingCharacters(in: .whitespacesAndNewlines)
 			.components(separatedBy: .newlines)
-			.filter{!$0.isEmpty}
+			.filter {!$0.isEmpty}
 			.joined(separator: "\n")
 	}
 	
@@ -157,9 +157,9 @@ extension String {
 
 		case emailTimePreview
 
-		var stringFormat:String {
+		var stringFormat: String {
 			switch self {
-						//handle iso Time
+						// handle iso Time
 				case .createMl: return "yyyy-MM-dd'T'HH:mm:ss.SSS"
 				case .birthDateFormatOne: return "dd/MM/YYYY"
 				case .birthDateFormatTwo: return "dd-MM-YYYY"
@@ -176,7 +176,7 @@ extension String {
 				case .standard: return "EEE MMM dd HH:mm:ss Z yyyy"
 				case .custom(let customFormat): return customFormat
 
-						//handle local Time
+						// handle local Time
 				case .localDateTimeSec: return "yyyy-MM-dd HH:mm:ss"
 				case .localTimeWithNoon: return "hh:mm a"
 				case .localDate: return "yyyy-MM-dd"
@@ -187,7 +187,7 @@ extension String {
 		}
 	}
 
-	func toDate(_ format: DateFormatType = .isoDate) -> Date?{
+	func toDate(_ format: DateFormatType = .isoDate) -> Date? {
 		let dateFormatter = DateFormatter()
 		dateFormatter.dateFormat = format.stringFormat
 		let date = dateFormatter.date(from: self)
@@ -200,7 +200,7 @@ extension String {
 		URL(fileURLWithPath: self).deletingPathExtension().lastPathComponent
 	}
 
-	var fileExtension: String{
+	var fileExtension: String {
 		URL(fileURLWithPath: self).pathExtension
 	}
 }

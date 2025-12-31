@@ -7,7 +7,6 @@
 
 import Foundation
 
-
 extension Int {
 	func formatBytesAsHumanReadable() -> String {
 		let byteCountFormatter = ByteCountFormatter()

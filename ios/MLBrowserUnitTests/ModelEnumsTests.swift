@@ -159,4 +159,3 @@ final class AppModeTests: XCTestCase {
         XCTAssertNil(AppMode(rawValue: -1))
     }
 }
-

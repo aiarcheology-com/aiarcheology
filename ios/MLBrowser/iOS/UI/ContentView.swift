@@ -9,7 +9,6 @@ import SwiftUI
 import Combine
 import OSLog
 
-
 private enum ActiveSheet: Identifiable {
     case settings
     case slideshow
@@ -220,7 +219,6 @@ struct ContentView: View {
         }
     }
 }
-
 
 // MARK: - Preview
 

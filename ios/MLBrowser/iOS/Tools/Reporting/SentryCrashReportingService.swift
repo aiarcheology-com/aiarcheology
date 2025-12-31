@@ -145,8 +145,7 @@ final class SentryCrashReportingService: CrashReportingService {
 				guard decision.isAllowed else { return nil }
 				
 				if throttleConfig.enableSuppressedCountBreadcrumb,
-				   decision.suppressedDuplicatesToReport > 0
-				{
+				   decision.suppressedDuplicatesToReport > 0 {
 					let count = decision.suppressedDuplicatesToReport
 					let prefix = String(signatureHex.prefix(8))
 					
@@ -222,8 +221,7 @@ final class SentryCrashReportingService: CrashReportingService {
 		// 1) Exception stacktrace
 		if let exception = payload["exception"] as? [String: Any],
 		   let values = exception["values"] as? [[String: Any]],
-		   let first = values.first
-		{
+		   let first = values.first {
 			let type = (first["type"] as? String) ?? (first["value"] as? String)
 			let frames = extractFrames(from: first["stacktrace"])
 			if !frames.isEmpty || type != nil {
@@ -234,8 +232,7 @@ final class SentryCrashReportingService: CrashReportingService {
 		// 2) Thread stacktrace
 		if let threads = payload["threads"] as? [String: Any],
 		   let values = threads["values"] as? [[String: Any]],
-		   let first = values.first
-		{
+		   let first = values.first {
 			let frames = extractFrames(from: first["stacktrace"])
 			if !frames.isEmpty {
 				return (nil, frames)
@@ -262,12 +259,11 @@ final class SentryCrashReportingService: CrashReportingService {
 		// Breadcrumbs do not cost quota, but in an error loop they can flood the breadcrumb ring buffer
 		// and then get attached to the next allowed event. Throttle only error-ish breadcrumbs.
 		if throttleConfig.isEnabled,
-		   (level == .error || level == .fatal),
+		   level == .error || level == .fatal,
 		   let signature = SentryEventSignatureBuilder.signatureHex(
 			from: SentryEventSignatureInput(errorType: nil, message: message, topFrames: [])
 		   ),
-		   !breadcrumbGuard.shouldAllow(signatureHex: signature)
-		{
+		   !breadcrumbGuard.shouldAllow(signatureHex: signature) {
 			return
 		}
 		

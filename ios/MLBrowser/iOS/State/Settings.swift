@@ -12,8 +12,6 @@ protocol Validatable {
 	func validate() throws
 }
 
-
-
 enum ValidationError: Error {
 	case invalidData(String)
 }
@@ -66,7 +64,6 @@ final class Settings: ObservableObject, Validatable {
 			UserDefaults.standard.set(reopenLastPage, forKey: UserDefaultsKeys.reopenLastPage)
 		}
 	}
-
 
 	@Published public var snapFrequency: Double {
 		didSet {

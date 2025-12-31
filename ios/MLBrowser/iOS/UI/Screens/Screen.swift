@@ -20,4 +20,3 @@ protocol Screen {
 	static func barItems(position: ItemsPosition) -> BarItems
 	static func tabItem(selection: AppMode) -> TabItem
 }
-

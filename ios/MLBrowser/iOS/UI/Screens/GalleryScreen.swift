@@ -32,13 +32,13 @@ struct GalleryScreen: @MainActor Screen {
 		if tabId() == selection {
 			Image(systemName: "rectangle.grid.2x2.fill")
 		} else {
-			Image(systemName:"rectangle.grid.2x2").environment(\.symbolVariants, .none)
+			Image(systemName: "rectangle.grid.2x2").environment(\.symbolVariants, .none)
 		}
 		Text("Examples")
 	}
 }
 
-	//TODO: Only for demo scene
+	// TODO: Only for demo scene
 struct ImageGalleryApp: View {
 	@StateObject var dataModel = DataModel()
 

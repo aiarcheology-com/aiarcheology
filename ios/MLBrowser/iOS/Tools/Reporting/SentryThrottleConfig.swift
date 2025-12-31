@@ -39,5 +39,3 @@ struct SentryThrottleConfig: Sendable {
 	
 	static let `default` = SentryThrottleConfig()
 }
-
-

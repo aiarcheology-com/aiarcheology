@@ -60,8 +60,8 @@ extension View {
 
 extension View {
 	public static func removeFocus() {
-#if os (iOS)
-		UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to:nil, from:nil, for:nil)
+#if os(iOS)
+		UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
 #elseif os(macOS)
 		DispatchQueue.main.async { NSApp.keyWindow?.makeFirstResponder(nil) }
 #endif
@@ -73,7 +73,6 @@ extension View {
 		self.modifier(CopiedToClipboardModifier(copiedText: copiedText, preview: preview))
 	}
 }
-
 
 /// The functions change view's properties based on the result of the isValid closure.
 /// - Parameters:

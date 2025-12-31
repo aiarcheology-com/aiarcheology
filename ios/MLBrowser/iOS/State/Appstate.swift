@@ -10,7 +10,6 @@ import SwiftUI
 import Vision
 import OSLog
 
-
 // Responsible for keeping the data consistency across the app
 // and setting up the demo structures.
 @MainActor

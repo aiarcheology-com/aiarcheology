@@ -33,7 +33,7 @@ struct DropdownMenuModifier<Item, ItemContent: View, CancelContent: View>: ViewM
 						ScrollView {
 							cancelContent()
 							VStack(alignment: .leading) {
-								ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+								ForEach(Array(items.enumerated()), id: \.offset) { _, item in
 									itemContent(item)
 										.padding(5)
 										.transition(.opacity)

@@ -829,4 +829,3 @@ final class DownloaderErrorTests: XCTestCase {
         XCTAssertNotNil(invalidState)
     }
 }
-

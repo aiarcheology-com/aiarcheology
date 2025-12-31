@@ -368,4 +368,3 @@ final class URLExtensionsTests: XCTestCase {
         }
     }
 }
-

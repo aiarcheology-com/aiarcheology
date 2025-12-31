@@ -26,7 +26,7 @@ struct HTMLTextView: View {
 		}
 
 		var attrString = try? AttributedString(nsAttributedString, including: \.uiKit)
-		attrString?.setAttributes(AttributeContainer([NSAttributedString.Key.foregroundColor : Color.primary]))
+		attrString?.setAttributes(AttributeContainer([NSAttributedString.Key.foregroundColor: Color.primary]))
 		return attrString
 	}
 }

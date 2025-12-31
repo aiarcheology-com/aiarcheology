@@ -133,4 +133,3 @@ final class DeviceInfoTests: XCTestCase {
                       "Info should contain 'Date' label")
     }
 }
-

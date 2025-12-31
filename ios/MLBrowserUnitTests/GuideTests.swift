@@ -400,4 +400,3 @@ final class GuideTests: XCTestCase {
         XCTAssertGreaterThan(countAfter, 0, "Demo data should be recreated after reset")
     }
 }
-

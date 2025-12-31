@@ -23,7 +23,6 @@ struct Slide {
 
 }
 
-
 struct SlideshowView: View {
 	@EnvironmentObject var settings: Settings
 	private let slides: [Slide] = [

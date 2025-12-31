@@ -78,7 +78,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 )
             }
         }
-        .onSnapshot { image, frame in
+        .onSnapshot { image, _ in
             // Skip detection while content is being manipulated - geometry is changing
             guard !isInteracting else { return }
             let currentGeneration = detectionGeneration

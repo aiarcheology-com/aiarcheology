@@ -137,7 +137,7 @@ final class DataControllerTests: XCTestCase {
         let dataController = DataController(inMemory: true)
         let expectation = XCTestExpectation(description: "Background task executes")
         
-        dataController.performBackgroundTask { context in
+        dataController.performBackgroundTask { _ in
             XCTAssertFalse(Thread.isMainThread, "Background task should not execute on main thread")
             expectation.fulfill()
         }

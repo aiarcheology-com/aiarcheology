@@ -22,7 +22,7 @@ struct SettingsForm: View {
 		settings.snapFrequency.description,
 		settings.snapAfterAppStart.description,
 		settings.defaultPage?.description ?? "",
-		settings.resetHistory.description,
+		settings.resetHistory.description
 	]}
 
 	var body: some View {
@@ -41,12 +41,12 @@ struct SettingsForm: View {
 				} catch ValidationError.invalidData(let message) {
 					validationErrorMessage = message
 					self.alertItem = AlertItem(title: Text("Error"),
-											 message: Text(validationErrorMessage ?? ""), //TODO optional
+											 message: Text(validationErrorMessage ?? ""), // TODO optional
 											 dismissButton: .default(Text("OK"), action: { validationErrorMessage = nil }))
 				} catch {
 					validationErrorMessage = "An unexpected error occurred."
 					self.alertItem = AlertItem(title: Text("Error"),
-											  message: Text(validationErrorMessage ?? ""), //TODO optional
+											  message: Text(validationErrorMessage ?? ""), // TODO optional
 											  dismissButton: .default(Text("OK"), action: { validationErrorMessage = nil }))
 				}
 			}) {
@@ -249,20 +249,3 @@ struct SettingsForm: View {
 		)
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

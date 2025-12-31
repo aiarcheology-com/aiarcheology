@@ -69,7 +69,7 @@ final class ActiveDownload: Identifiable, Comparable, Hashable, ObservableObject
     }
 }
 
-fileprivate final class DownloaderSessionDelegateProxy: NSObject, URLSessionDownloadDelegate, URLSessionTaskDelegate, @unchecked Sendable {
+private final class DownloaderSessionDelegateProxy: NSObject, URLSessionDownloadDelegate, URLSessionTaskDelegate, @unchecked Sendable {
     weak var owner: Downloader?
     
     init(owner: Downloader) {
@@ -257,7 +257,6 @@ final public class Downloader: NSObject, ObservableObject {
             .eraseToAnyPublisher()
     }
     
-    
     func downloadTapped(_ item: DownloadItem) {
         switch item.state {
         case .notStarted, .failed, .cancelled, .imported, .importFailed: handleEvent(item, .start)
@@ -402,8 +401,7 @@ final public class Downloader: NSObject, ObservableObject {
             if
                 let idString = task.taskDescription,
                 let id = UUID(uuidString: idString),
-                let item = DownloadItem.select(id, in: dataController.container.viewContext)
-            {
+                let item = DownloadItem.select(id, in: dataController.container.viewContext) {
                 // Only reset if it's not in a terminal state (success/failure already handled)
                 if item.state == Downloader.State.downloading || item.state == Downloader.State.paused {
                     transitionAndSave(item, to: Downloader.State.notStarted)

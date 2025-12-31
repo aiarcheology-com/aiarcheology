@@ -10,7 +10,7 @@ import OSLog
 
 // Migration from 0.0.0 to 0.0.1
 
-fileprivate struct MigrationKeys {
+private struct MigrationKeys {
     struct Source {
         static let entityId = "entityId"
         static let modelType = "modelType"

@@ -24,7 +24,7 @@ struct AppDescriptionView: View {
 			Form {
 				Section(header: Text("Application")) {
 					HStack(alignment: .center, spacing: 12) {
-						if let image = UIImage(named: appIcon){
+						if let image = UIImage(named: appIcon) {
 							Image(uiImage: image)
 								.resizable()
 								.aspectRatio(contentMode: .fit)

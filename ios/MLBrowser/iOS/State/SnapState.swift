@@ -56,10 +56,3 @@ class SnapState: ObservableObject {
 		timerCancellable = nil
 	}
 }
-
-
-
-
-
-
-

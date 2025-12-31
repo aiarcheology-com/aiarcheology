@@ -49,11 +49,11 @@ extension CoreDataManagableWithState {
     /// Default state mapping (can be overridden per type by shadowing these helpers).
     fileprivate var allowedTransitions: [CoreDataManageableState: Set<CoreDataManageableState>] {
         [
-            .undefined:    [.empty, .draft],
-            .empty:        [.draft, .deprecated],
-            .draft:        [.ready, .empty, .deprecated],
-            .ready:        [.deprecated],
-            .deprecated:   [.empty] // allow resurrection if needed
+            .undefined: [.empty, .draft],
+            .empty: [.draft, .deprecated],
+            .draft: [.ready, .empty, .deprecated],
+            .ready: [.deprecated],
+            .deprecated: [.empty] // allow resurrection if needed
         ]
     }
         
@@ -154,7 +154,6 @@ extension CoreDataManagableWithState {
         throw container
     }
 }
-
 
 protocol CoreDataManageable where Self: NSManagedObject {
     var entityId: UUID { get }
@@ -472,4 +471,3 @@ extension CoreDataManageable where Self: NSManagedObject {
         return result
     }
 }
-

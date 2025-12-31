@@ -16,7 +16,7 @@ enum ClassificatorError: Error {
 	case coreModelLoadError
 }
 
-fileprivate final class ClassificatorVisionRequestProxy: @unchecked Sendable {
+private final class ClassificatorVisionRequestProxy: @unchecked Sendable {
     weak var owner: Classificator?
     
     init(owner: Classificator) {
@@ -54,7 +54,7 @@ actor Classificator: DeepDriver {
     private var ciImage: CIImage?
     private var mlModel: MLModel?
 
-	func metadata() -> [MLModelMetadataKey : Any]? {
+	func metadata() -> [MLModelMetadataKey: Any]? {
         mlModel?.modelDescription.metadata
 	}
 

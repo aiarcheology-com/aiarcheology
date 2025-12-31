@@ -39,16 +39,14 @@ final class DeepState: ObservableObject {
 						try await driver.loadFile()
 						register(driver: driver, along: config.modelType)
 						LoggingPolicy.info("Driver successfully loaded and registered for configuration \(config.entityId.uuidString)", logger: .drivers)
-					}
-					catch {
+					} catch {
 						LoggingPolicy.error("Failed to load driver for configuration \(config.entityId.uuidString)", error: error, logger: .drivers)
 						DefaultCrashReporter.shared.recordError(error, context: ["operation": "loadDriver", "configId": config.entityId.uuidString])
 						deepStateError = error
 					}
 				}
 			}
-		}
-		catch {
+		} catch {
 			// Send it to the upper layers to show the error to the user
 			LoggingPolicy.error("Error initializing DeepState", error: error, logger: .state)
 			deepStateError = error
@@ -225,8 +223,7 @@ final class DeepState: ObservableObject {
 								register(driver: driver, along: modelType)
 								LoggingPolicy.info("Driver loaded and registered after configuration insert", logger: .drivers)
 							}
-						}
-						catch {
+						} catch {
 							await MainActor.run {
 								LoggingPolicy.error("Failed to load driver after configuration insert", error: error, logger: .drivers)
 								DefaultCrashReporter.shared.recordError(error, context: ["operation": "insertDriver", "configId": entityId.uuidString])
@@ -235,8 +232,7 @@ final class DeepState: ObservableObject {
 						}
 					}
 				}
-			}
-			catch {
+			} catch {
 				LoggingPolicy.error("Error handling configuration insert", error: error, logger: .state)
 				deepStateError = error
 			}
@@ -280,8 +276,7 @@ final class DeepState: ObservableObject {
 						unregisterDriver(driverId: entityId)
 					}
 				}
-			}
-			catch {
+			} catch {
 				LoggingPolicy.error("Error handling configuration update", error: error, logger: .state)
 				deepStateError = error
 			}

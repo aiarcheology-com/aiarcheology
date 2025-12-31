@@ -26,7 +26,7 @@ struct ObservationPointView: View {
 			if showIndentifiers {
 				HStack {
 					ForEach(observation.labels, id: \.self) { label in
-						Text(" \(String(label.identifier.prefix(6)))|") //TODO: put this number in the annotation settings
+						Text(" \(String(label.identifier.prefix(6)))|") // TODO: put this number in the annotation settings
 					}
 					.foregroundColor(color)
 				}
