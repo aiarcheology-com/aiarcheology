@@ -4,23 +4,20 @@ on:
   pull_request:
     paths:
       - "ios/**"
-      - "Tools/**"
+      - ".swiftlint.yml"
       - ".github/workflows/swiftlint.yml"
   workflow_dispatch:
 
 jobs:
   swiftlint:
-    name: SwiftLint (lint)
+    name: SwiftLint
     runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode (default)
-        run: xcodebuild -version
+      - name: Install SwiftLint
+        run: brew install swiftlint
 
-      - name: SwiftLint via SwiftPM Tools package
-        run: |
-          swift --version
-          swift run --package-path Tools -c release swiftlint lint --path ios
-
+      - name: Run SwiftLint
+        run: swiftlint lint --force-exclude ios

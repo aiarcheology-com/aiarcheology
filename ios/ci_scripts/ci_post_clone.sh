@@ -26,6 +26,22 @@ else
   echo "   ✅ Successfully disabled Macro and Plugin validation."
 fi
 
+# --- Install SwiftLint ---
+echo "📦 Installing SwiftLint..."
+
+if command -v swiftlint &> /dev/null; then
+    echo "   ✅ SwiftLint already available: $(which swiftlint)"
+    swiftlint version
+else
+    if command -v brew &> /dev/null; then
+        brew install swiftlint
+        echo "   ✅ SwiftLint installed via Homebrew"
+        swiftlint version
+    else
+        echo "   ⚠️  Homebrew not available, skipping SwiftLint installation"
+    fi
+fi
+
 # --- Install sentry-cli ---
 # Install once here so it's available for all subsequent build actions
 
