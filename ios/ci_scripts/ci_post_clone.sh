@@ -58,6 +58,7 @@ else
     if ! command -v swiftlint &> /dev/null; then
         echo "   Installing SwiftLint fallback..."
         SWIFTLINT_VERSION=$(grep -A 10 '"swiftlint"' "$TOOLS_JSON" | grep '"version"' | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+        SWIFTLINT_SHA256=$(grep -A 10 '"swiftlint"' "$TOOLS_JSON" | grep '"sha256"' | sed -E 's/.*"sha256"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
         
         if [[ -z "$SWIFTLINT_VERSION" ]]; then
             echo "   ❌ Could not extract SwiftLint version from .tools.json"
@@ -65,6 +66,22 @@ else
         fi
         
         curl -fsSL -o /tmp/swiftlint.zip "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip"
+        
+        # Verify SHA256 checksum if available
+        if [[ -n "$SWIFTLINT_SHA256" ]]; then
+            echo "   Verifying SHA256 checksum..."
+            ACTUAL_SHA256=$(shasum -a 256 /tmp/swiftlint.zip | awk '{print $1}')
+            if [[ "$ACTUAL_SHA256" != "$SWIFTLINT_SHA256" ]]; then
+                echo "   ❌ SHA256 checksum mismatch!"
+                echo "      Expected: $SWIFTLINT_SHA256"
+                echo "      Actual:   $ACTUAL_SHA256"
+                exit 1
+            fi
+            echo "   ✅ SHA256 checksum verified"
+        else
+            echo "   ⚠️  No SHA256 checksum provided - skipping integrity verification"
+        fi
+        
         unzip -q /tmp/swiftlint.zip -d /tmp/swiftlint
         cp /tmp/swiftlint/swiftlint /usr/local/bin/swiftlint
         chmod +x /usr/local/bin/swiftlint
@@ -76,6 +93,7 @@ else
     if ! command -v sentry-cli &> /dev/null; then
         echo "   Installing sentry-cli fallback..."
         SENTRY_VERSION=$(grep -A 10 '"sentry-cli"' "$TOOLS_JSON" | grep '"version"' | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+        SENTRY_SHA256=$(grep -A 10 '"sentry-cli"' "$TOOLS_JSON" | grep '"sha256"' | sed -E 's/.*"sha256"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
         
         if [[ -z "$SENTRY_VERSION" ]]; then
             echo "   ❌ Could not extract sentry-cli version from .tools.json"
@@ -83,6 +101,23 @@ else
         fi
         
         curl -fsSL -o /usr/local/bin/sentry-cli "https://github.com/getsentry/sentry-cli/releases/download/${SENTRY_VERSION}/sentry-cli-Darwin-universal"
+        
+        # Verify SHA256 checksum if available
+        if [[ -n "$SENTRY_SHA256" ]]; then
+            echo "   Verifying SHA256 checksum..."
+            ACTUAL_SHA256=$(shasum -a 256 /usr/local/bin/sentry-cli | awk '{print $1}')
+            if [[ "$ACTUAL_SHA256" != "$SENTRY_SHA256" ]]; then
+                echo "   ❌ SHA256 checksum mismatch!"
+                echo "      Expected: $SENTRY_SHA256"
+                echo "      Actual:   $ACTUAL_SHA256"
+                rm /usr/local/bin/sentry-cli
+                exit 1
+            fi
+            echo "   ✅ SHA256 checksum verified"
+        else
+            echo "   ⚠️  No SHA256 checksum provided - skipping integrity verification"
+        fi
+        
         chmod +x /usr/local/bin/sentry-cli
         echo "   ✅ sentry-cli ${SENTRY_VERSION} installed"
     fi

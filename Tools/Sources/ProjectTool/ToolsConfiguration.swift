@@ -20,6 +20,7 @@ struct ToolsConfiguration: Codable {
         let downloadUrl: String
         let downloadType: String  // "zip" or "binary"
         let binaryName: String
+        let sha256: String?  // Optional SHA256 checksum for integrity verification
 
         /// Get the download URL with version interpolated
         func resolvedDownloadUrl() -> String {
@@ -146,6 +147,23 @@ struct ToolsManager {
             throw ExitCode(curlStatus)
         }
 
+        // Verify SHA256 checksum if provided
+        if let expectedSHA256 = spec.sha256 {
+            print("   Verifying SHA256 checksum...")
+            let actualSHA256 = try computeSHA256(of: downloadPath.path)
+            
+            guard actualSHA256 == expectedSHA256 else {
+                print("   ❌ SHA256 checksum mismatch!")
+                print("      Expected: \(expectedSHA256)")
+                print("      Actual:   \(actualSHA256)")
+                print("   ⚠️  This could indicate a compromised download or outdated checksum.")
+                throw ExitCode.failure
+            }
+            print("   ✅ SHA256 checksum verified")
+        } else {
+            print("   ⚠️  No SHA256 checksum provided - skipping integrity verification")
+        }
+
         let destPath = "\(installPath)/\(spec.binaryName)"
 
         switch spec.downloadType {
@@ -236,6 +254,34 @@ struct ToolsManager {
             print("   ❌ Failed to set executable permission")
             throw ExitCode(chmodStatus)
         }
+    }
+
+    /// Compute SHA256 checksum of a file
+    private static func computeSHA256(of filePath: String) throws -> String {
+        let shaTask = Process()
+        shaTask.executableURL = URL(fileURLWithPath: "/usr/bin/shasum")
+        shaTask.arguments = ["-a", "256", filePath]
+
+        let pipe = Pipe()
+        shaTask.standardOutput = pipe
+
+        try shaTask.run()
+        shaTask.waitUntilExit()
+
+        guard shaTask.terminationStatus == 0 else {
+            print("   ❌ Failed to compute SHA256 checksum")
+            throw ExitCode(shaTask.terminationStatus)
+        }
+
+        let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // shasum output format: "hash  filename"
+        if let hash = output?.components(separatedBy: " ").first {
+            return hash
+        }
+
+        throw ExitCode.failure
     }
 
     /// Print tool status with formatting
