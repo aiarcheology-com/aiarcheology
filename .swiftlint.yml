@@ -18,7 +18,6 @@ excluded:
   - ios/**/Carthage
   - ios/**/*.generated.swift
   - Tools
-  - cloudflare
 
 # Reporter type (xcode, json, csv, checkstyle, codeclimate, junit, html, emoji, sonarqube, markdown, github-actions-logging)
 reporter: "xcode"
