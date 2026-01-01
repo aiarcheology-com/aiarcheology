@@ -7,7 +7,7 @@
 import Vision
 
 protocol Driver: Actor {
-	func metadata() -> [MLModelMetadataKey : Any]?
+	func metadata() -> [MLModelMetadataKey: Any]?
     nonisolated var id: UUID { get }
 	func unload() async
 }

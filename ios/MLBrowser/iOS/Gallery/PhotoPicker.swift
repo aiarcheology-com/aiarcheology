@@ -78,4 +78,3 @@ class Coordinator: NSObject, UINavigationControllerDelegate, PHPickerViewControl
         self.parent = parent
     }
 }
-

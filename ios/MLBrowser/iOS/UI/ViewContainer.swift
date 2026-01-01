@@ -14,13 +14,13 @@ struct ViewContainer<Content: View, LeadingItems: View, TrailingItems: View>: Vi
 	let leadingItems: LeadingItems
 	let trailingItems: TrailingItems
 
-	@inlinable public init(@ViewBuilder _ content: () -> Content,
-						   @ViewBuilder leadingItems: () -> LeadingItems,
-						   @ViewBuilder trailingItems: () -> TrailingItems) {
-		self.content = content()
-		self.leadingItems = leadingItems()
-		self.trailingItems = trailingItems()
-	}
+    @inlinable public init(@ViewBuilder _ content: () -> Content,
+                           @ViewBuilder leadingItems: () -> LeadingItems,
+                           @ViewBuilder trailingItems: () -> TrailingItems) {
+        self.content = content()
+        self.leadingItems = leadingItems()
+        self.trailingItems = trailingItems()
+    }
 
 	var body: some View {
 		NavigationStack {

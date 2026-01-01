@@ -7,7 +7,6 @@
 
 import Foundation
 
-
 /// Centralized environment detection for the app (build config, tests, distribution).
 ///
 /// ## Usage / setup

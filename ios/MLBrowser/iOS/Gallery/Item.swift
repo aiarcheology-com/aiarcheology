@@ -12,7 +12,7 @@ struct ItemG: Identifiable {
 }
 
 extension ItemG: Equatable {
-    static func ==(lhs: ItemG, rhs: ItemG) -> Bool {
+    static func == (lhs: ItemG, rhs: ItemG) -> Bool {
         return lhs.id == rhs.id && lhs.id == rhs.id
     }
 }

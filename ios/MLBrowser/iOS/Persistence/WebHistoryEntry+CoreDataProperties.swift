@@ -9,7 +9,6 @@
 import Foundation
 import CoreData
 
-
 extension WebHistoryEntry {
     @nonobjc public class func fetchRequest() -> NSFetchRequest<WebHistoryEntry> {
         return NSFetchRequest<WebHistoryEntry>(entityName: "WebHistoryEntry")
@@ -22,6 +21,6 @@ extension WebHistoryEntry {
     @NSManaged public var lifeCycleString: String
 }
 
-extension WebHistoryEntry : Identifiable {
+extension WebHistoryEntry: Identifiable {
 
 }

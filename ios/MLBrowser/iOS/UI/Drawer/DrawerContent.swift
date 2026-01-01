@@ -164,7 +164,9 @@ private struct ConfigurationRow: View {
                 get: { configuration.enabled },
                 set: { newValue in
                     configuration.enabled = newValue
-                    DeepConfiguration.save(in: configuration.managedObjectContext!)
+                    if let context = configuration.managedObjectContext {
+                        DeepConfiguration.save(in: context)
+                    }
                 }
             ))
             .tint(configuration.annotationColor)

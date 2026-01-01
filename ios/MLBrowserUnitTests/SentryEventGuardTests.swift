@@ -150,5 +150,3 @@ final class SentryEventGuardTests: XCTestCase {
 		XCTAssertTrue(sut.decide(signatureHex: a, now: t0.advanced(by: .seconds(1))).isAllowed)
 	}
 }
-
-

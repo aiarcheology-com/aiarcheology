@@ -49,11 +49,11 @@ extension CoreDataManagableWithState {
     /// Default state mapping (can be overridden per type by shadowing these helpers).
     fileprivate var allowedTransitions: [CoreDataManageableState: Set<CoreDataManageableState>] {
         [
-            .undefined:    [.empty, .draft],
-            .empty:        [.draft, .deprecated],
-            .draft:        [.ready, .empty, .deprecated],
-            .ready:        [.deprecated],
-            .deprecated:   [.empty] // allow resurrection if needed
+            .undefined: [.empty, .draft],
+            .empty: [.draft, .deprecated],
+            .draft: [.ready, .empty, .deprecated],
+            .ready: [.deprecated],
+            .deprecated: [.empty] // allow resurrection if needed
         ]
     }
         
@@ -155,7 +155,6 @@ extension CoreDataManagableWithState {
     }
 }
 
-
 protocol CoreDataManageable where Self: NSManagedObject {
     var entityId: UUID { get }
     static func create(in context: NSManagedObjectContext) -> Self
@@ -183,6 +182,7 @@ extension CoreDataManageable where Self: NSManagedObject {
         // nonisolated(unsafe) is safe here because performAndWait executes synchronously
         // on the calling thread, blocking until completion. The entity reference won't
         // escape until after the closure completes.
+        // swiftlint:disable:next implicitly_unwrapped_optional
         nonisolated(unsafe) var entity: Self!
         context.performAndWait {
             LoggingPolicy.debug("Creating new \(String(describing: Self.self)) entity", logger: .storage)
@@ -472,4 +472,3 @@ extension CoreDataManageable where Self: NSManagedObject {
         return result
     }
 }
-

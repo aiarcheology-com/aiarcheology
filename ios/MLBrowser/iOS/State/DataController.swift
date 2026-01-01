@@ -241,18 +241,19 @@ final class DataController: ObservableObject {
 	}
 	
 	/// Async wrapper that waits for store to be ready
-	func awaitStoreReady() async {
-		guard !isStoreLoaded else { return }
-		
-		await withCheckedContinuation { continuation in
-			var cancellable: AnyCancellable?
-			cancellable = $isStoreLoaded
-				.filter { $0 }
-				.first()
-				.sink { _ in
-					continuation.resume()
-					cancellable?.cancel()
-				}
-		}
-	}
+    func awaitStoreReady() async {
+        guard !isStoreLoaded else { return }
+
+        await withCheckedContinuation { continuation in
+            var cancellable: AnyCancellable?
+            // swiftlint:disable:next first_where
+            cancellable = $isStoreLoaded
+                .filter { $0 }
+                .first()
+                .sink { _ in
+                    continuation.resume()
+                    cancellable?.cancel()
+                }
+        }
+    }
 }

@@ -277,4 +277,3 @@ final class StringExtensionsTests: XCTestCase {
         XCTAssertEqual(String.DateFormatType.createMl.stringFormat, "yyyy-MM-dd'T'HH:mm:ss.SSS")
     }
 }
-

@@ -5,7 +5,6 @@ let package = Package(
     name: "ProjectTool",
     platforms: [.macOS(.v12)],
     dependencies: [
-        // 1. Add the ArgumentParser package
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0")
     ],
     targets: [

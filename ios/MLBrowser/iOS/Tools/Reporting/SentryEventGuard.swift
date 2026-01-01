@@ -232,5 +232,3 @@ final class SentryEventGuard: @unchecked Sendable {
 		Self.decisionLog.warning("drop reason=\(reason.rawValue, privacy: .public) sig=\(prefix, privacy: .public) \(extra, privacy: .public)")
 	}
 }
-
-

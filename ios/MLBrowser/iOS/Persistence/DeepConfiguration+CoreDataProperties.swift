@@ -9,7 +9,6 @@
 import Foundation
 import CoreData
 
-
 extension DeepConfiguration {
 
     @nonobjc public class func fetchRequest() -> NSFetchRequest<DeepConfiguration> {
@@ -32,4 +31,4 @@ extension DeepConfiguration {
     @NSManaged public var lifeCycleString: String
 }
 
-extension DeepConfiguration : Identifiable {}
+extension DeepConfiguration: Identifiable {}

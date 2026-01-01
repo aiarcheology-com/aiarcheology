@@ -5,7 +5,6 @@
 //  Created by Vladimír Slavík on 13.12.23.
 //
 
-
 import UIKit
 import SwiftUI
 import Vision
@@ -17,7 +16,7 @@ public enum DeepDriverType: String, Sendable {
 	case invalid = "invalid"
 }
 
-struct DeepDriverParams : Sendable {
+struct DeepDriverParams: Sendable {
 	var annotationColor: Color = .yellow
 	var entityId: UUID
 	var file: URL?
@@ -61,8 +60,7 @@ extension DeepDriver {
 		do {
 			LoggingPolicy.debug("Loading MLModel from \(compiledModelURL.lastPathComponent)", logger: .drivers)
 			return try await MLModel.load(contentsOf: compiledModelURL, configuration: modelConfiguration)
-		}
-		catch {
+		} catch {
 			LoggingPolicy.error("Error loading MLModel", error: error, logger: .drivers)
 			DefaultCrashReporter.shared.recordError(error, context: ["operation": "loadMLModel", "path": compiledModelURL.lastPathComponent])
 			return nil
@@ -114,12 +112,11 @@ class DeepDrivers: ObservableObject {
 		}
 	}
 	
-	
-	func unregister(driverId: UUID) async {
-		await (classificators + detectors).filter { $0.id == driverId }.first?.unload()
-		detectors = detectors.filter { $0.id != driverId }
-		classificators = classificators.filter { $0.id != driverId }
-	}
+    func unregister(driverId: UUID) async {
+        await (classificators + detectors).first { $0.id == driverId }?.unload()
+        detectors = detectors.filter { $0.id != driverId }
+        classificators = classificators.filter { $0.id != driverId }
+    }
 	
 	func unload(_ driver: DeepDriverType) async {
 		switch driver {

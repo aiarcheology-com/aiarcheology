@@ -475,7 +475,7 @@ final class DownloaderTests: XCTestCase {
         DownloadItem.save(in: context)
         
         // Inject resume data
-        let resumeData = "test resume data".data(using: .utf8)!
+        let resumeData = Data("test resume data".utf8)
         downloader._testInjectResumeData(for: entityId, data: resumeData)
         
         var resumeDataUsed = false
@@ -829,4 +829,3 @@ final class DownloaderErrorTests: XCTestCase {
         XCTAssertNotNil(invalidState)
     }
 }
-

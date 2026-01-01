@@ -162,4 +162,3 @@ final class SnapshotTests: XCTestCase {
         XCTAssertNotNil(snapshot.image)
     }
 }
-

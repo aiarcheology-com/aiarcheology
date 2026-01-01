@@ -236,7 +236,7 @@ extension TestabilityIdentification {
 			switch segmentedControl {
 			case .aSegmentedControl:
 				let items: [SegmentedItem] = [
-					.aSegmentedItem,
+					.aSegmentedItem
 				]
 				return items.indices.contains(index) ? items[index] : nil
 			}

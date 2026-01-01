@@ -16,7 +16,7 @@ enum DetectorError: Error {
 	case coreModelLoadError
 }
 
-fileprivate final class DetectorVisionRequestProxy: @unchecked Sendable {
+private final class DetectorVisionRequestProxy: @unchecked Sendable {
     weak var owner: Detector?
     
     init(owner: Detector) {
@@ -64,8 +64,7 @@ actor Detector: DeepDriver {
         LoggingPolicy.debug("Detector updated with ID \(id)", logger: .drivers)
     }
     
-    
-    func metadata() -> [MLModelMetadataKey : Any]? {
+    func metadata() -> [MLModelMetadataKey: Any]? {
         mlModel?.modelDescription.metadata
     }
     

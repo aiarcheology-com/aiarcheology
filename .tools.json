@@ -1,0 +1,22 @@
+{
+  "tools": {
+    "swiftlint": {
+      "version": "0.62.2",
+      "versionCommand": "swiftlint --version",
+      "versionPattern": "^(\\d+\\.\\d+\\.\\d+)",
+      "downloadUrl": "https://github.com/realm/SwiftLint/releases/download/${version}/portable_swiftlint.zip",
+      "downloadType": "zip",
+      "binaryName": "swiftlint",
+      "sha256": "79625bece2716395d955d34a5993e6c948ef57d0256abe5538aaab82f2ad6b68"
+    },
+    "sentry-cli": {
+      "version": "2.58.2",
+      "versionCommand": "sentry-cli --version",
+      "versionPattern": "(\\d+\\.\\d+\\.\\d+)",
+      "downloadUrl": "https://github.com/getsentry/sentry-cli/releases/download/${version}/sentry-cli-Darwin-universal",
+      "downloadType": "binary",
+      "binaryName": "sentry-cli",
+      "sha256": "5c893f7bc57dbcb87ec941c08420ef07cf485e931238c83cc8fbbe2ba69fec9f"
+    }
+  }
+}

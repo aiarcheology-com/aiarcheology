@@ -210,4 +210,3 @@ final class SnapStateTests: XCTestCase {
         XCTAssertNotNil(sut.snap)
     }
 }
-

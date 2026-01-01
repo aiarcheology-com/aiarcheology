@@ -17,15 +17,15 @@ struct WebScreen: Screen {
 		}
 	}
 
-	@ViewBuilder
-	static func barItems(position: ItemsPosition) -> some View {
-		switch position {
-			case .leading:
-				GlobalToolbarLeading()
-			case .trailing:
-				GlobalToolbarTrailing()
-		}
-	}
+    @ViewBuilder
+    static func barItems(position: ItemsPosition) -> some View {
+        switch position {
+        case .leading:
+            GlobalToolbarLeading()
+        case .trailing:
+            GlobalToolbarTrailing()
+        }
+    }
 
 	static func tabId() -> AppMode {
 		.web
@@ -36,13 +36,12 @@ struct WebScreen: Screen {
 		if tabId() == selection {
 			Image(systemName: "map")
 		} else {
-			Image(systemName:"map").environment(\.symbolVariants, .none)
+			Image(systemName: "map").environment(\.symbolVariants, .none)
 		}
 		Text("Web")
 	}
 
 }
-
 
 enum HistoryError: Error {
 	case fullHistory
@@ -162,7 +161,7 @@ struct WebScreenView: View {
             self.websiteUrl = inputUrl
             appState.guide.addressBarMenu = []
         }
-        .onAppear() {
+        .onAppear {
             showIdentifiers = appState.settings.showIdentifiers
             if hasPerformedInitialAction.not {
                 hasPerformedInitialAction = true
@@ -216,15 +215,14 @@ struct WebScreenView: View {
 		let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: moc)
 		newHistorEntry.bookmarked = false
 		newHistorEntry.creationDate_ = .now
-		newHistorEntry.page = URL(string:websiteUrl.withHTTPS)
+		newHistorEntry.page = URL(string: websiteUrl.withHTTPS)
 		// Lifecycle: transition to draft before validation, then to ready if valid
 		// If validation fails, the entity is deleted (brief inconsistent state is acceptable)
 		newHistorEntry.transition(to: .draft)
 		do {
 			try newHistorEntry.validateForInsert()
 			newHistorEntry.transition(to: .ready)
-		}
-		catch {
+		} catch {
 			WebHistoryEntry.delete(newHistorEntry, in: moc)
 			LoggingPolicy.error("Web history entry validation failed: \(error.localizedDescription)", logger: .state)
 			return
@@ -232,4 +230,3 @@ struct WebScreenView: View {
 		WebHistoryEntry.save(in: moc)
 	}
 }
-

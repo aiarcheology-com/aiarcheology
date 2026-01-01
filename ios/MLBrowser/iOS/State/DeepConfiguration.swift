@@ -42,22 +42,18 @@ extension DeepConfiguration: CoreDataManagableWithState {
 
 // WARN: The class definition (public class DeepConfiguration) is generated from the Core data
 extension DeepConfiguration {
-	public static var rootDirectory: FileManager.SearchPathDirectory {
-		get { .documentDirectory }
-	}
+    public static var rootDirectory: FileManager.SearchPathDirectory { .documentDirectory }
 	
-	public var file: URL? {
-		get {
-			guard let file_ else { return nil}
-			
-			if demo.enabled {
-				return Bundle.main.url(forResource: file_.deletingPathExtension().lastPathComponent,
-									   withExtension: file_.pathExtension)
-			} else {
-				return try? file_.completePath(to: DeepConfiguration.rootDirectory, isDirectory: false)
-			}
-		}
-	}
+    public var file: URL? {
+        guard let file_ else { return nil }
+
+        if demo.enabled {
+            return Bundle.main.url(forResource: file_.deletingPathExtension().lastPathComponent,
+                                   withExtension: file_.pathExtension)
+        } else {
+            return try? file_.completePath(to: DeepConfiguration.rootDirectory, isDirectory: false)
+        }
+    }
 	
 	public var annotationColor: Color {
 		get {

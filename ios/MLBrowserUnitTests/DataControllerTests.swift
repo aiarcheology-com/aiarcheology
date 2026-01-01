@@ -89,6 +89,7 @@ final class DataControllerTests: XCTestCase {
         
         let dataController = DataController(inMemory: true)
         
+        // swiftlint:disable:next first_where
         dataController.$isStoreLoaded
             .filter { $0 }
             .first()
@@ -137,7 +138,7 @@ final class DataControllerTests: XCTestCase {
         let dataController = DataController(inMemory: true)
         let expectation = XCTestExpectation(description: "Background task executes")
         
-        dataController.performBackgroundTask { context in
+        dataController.performBackgroundTask { _ in
             XCTAssertFalse(Thread.isMainThread, "Background task should not execute on main thread")
             expectation.fulfill()
         }

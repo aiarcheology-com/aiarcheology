@@ -22,7 +22,7 @@ final class ModelAcquisitionCoordinator: ObservableObject {
 	struct ImportRequest: Equatable, Identifiable {
 		let id = UUID()
 		let url: URL
-		var downloadUrl: URL? = nil
+		var downloadUrl: URL?
 		let configurationId: UUID
 		let provider: ModelProvider
 		

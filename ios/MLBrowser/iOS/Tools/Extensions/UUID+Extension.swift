@@ -6,7 +6,6 @@
 //
 import Foundation
 
-
 extension UUID {
     static func zeros() -> UUID {
         UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))

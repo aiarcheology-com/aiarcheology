@@ -9,7 +9,6 @@
 import Foundation
 import CoreData
 
-
 extension DownloadItem {
 
     @nonobjc public class func fetchRequest() -> NSFetchRequest<DownloadItem> {
@@ -29,6 +28,6 @@ extension DownloadItem {
 
 }
 
-extension DownloadItem : Identifiable {
+extension DownloadItem: Identifiable {
 
 }

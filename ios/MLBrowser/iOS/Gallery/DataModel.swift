@@ -46,4 +46,3 @@ extension URL {
         return imageExtensions.contains(self.pathExtension.lowercased())
     }
 }
-

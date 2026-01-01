@@ -41,4 +41,3 @@ final class AI_ArcheologyUITests: XCTestCase {
         }
     }
 }
-

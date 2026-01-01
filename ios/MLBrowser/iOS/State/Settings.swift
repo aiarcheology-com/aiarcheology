@@ -12,8 +12,6 @@ protocol Validatable {
 	func validate() throws
 }
 
-
-
 enum ValidationError: Error {
 	case invalidData(String)
 }
@@ -67,7 +65,6 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
-
 	@Published public var snapFrequency: Double {
 		didSet {
 			UserDefaults.standard.set(snapFrequency, forKey: UserDefaultsKeys.snapFrequency)
@@ -120,16 +117,17 @@ final class Settings: ObservableObject, Validatable {
 		let defaultValues: [String: Any] = [
 			UserDefaultsKeys.keepSlideShowActive: true,
 			UserDefaultsKeys.sizeHistory: 30,
-			UserDefaultsKeys.reopenLastPage: false,
-			UserDefaultsKeys.isFirstLaunch: true,
-			UserDefaultsKeys.showIdentifiers: false,
-			UserDefaultsKeys.snapAfterAppStart: false,
-			UserDefaultsKeys.snapFrequency: 3.0,
-			UserDefaultsKeys.resetHistory: false,
-			UserDefaultsKeys.defaultPage: URL(string: "https://www.google.com")!,
-			UserDefaultsKeys.removeAnnotationOnDrag: false,
-			UserDefaultsKeys.entityId: UUID().uuidString
-		]
+            UserDefaultsKeys.reopenLastPage: false,
+            UserDefaultsKeys.isFirstLaunch: true,
+            UserDefaultsKeys.showIdentifiers: false,
+            UserDefaultsKeys.snapAfterAppStart: false,
+            UserDefaultsKeys.snapFrequency: 3.0,
+            UserDefaultsKeys.resetHistory: false,
+            // swiftlint:disable:next force_unwrapping
+            UserDefaultsKeys.defaultPage: URL(string: "https://www.google.com")!,
+            UserDefaultsKeys.removeAnnotationOnDrag: false,
+            UserDefaultsKeys.entityId: UUID().uuidString
+        ]
 
 		// Register default values
 		UserDefaults.standard.register(defaults: defaultValues)

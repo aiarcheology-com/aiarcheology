@@ -80,4 +80,3 @@ class DependencyContainer {
 		return reporter
 	}
 }
-

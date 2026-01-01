@@ -8,11 +8,10 @@
 import UIKit
 
 extension UIApplication {
-	static var firstKeyWindow: UIWindow? {
-		return UIApplication.shared.connectedScenes
-			.compactMap { $0 as? UIWindowScene }
-			.filter { $0.activationState == .foregroundActive }
-			.first?.keyWindow
-
-	}
+    static var firstKeyWindow: UIWindow? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }?
+            .keyWindow
+    }
 }

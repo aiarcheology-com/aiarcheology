@@ -174,21 +174,23 @@ struct ModelImportView: View {
 	
 	// MARK: - Documentation Section
 	
-	private var documentationSection: some View {
-		Section {
-			Link(destination: URL(string: "https://developer.apple.com/documentation/createml")!) {
-				Label("Apple Create ML Documentation", systemImage: "book")
-			}
-			.testability(Testability.Link.newConfigurationAppleDocumentation)
-			
-			Link(destination: URL(string: "https://developer.apple.com/videos/play/wwdc2020/10153/")!) {
-				Label("WWDC: Core ML Converters", systemImage: "play.rectangle")
-			}
-			.testability(Testability.Link.newConfigurationCoreMLConverters)
-		} header: {
-			Text("Learn More")
-		}
-	}
+    // swiftlint:disable force_unwrapping
+    private var documentationSection: some View {
+        Section {
+            Link(destination: URL(string: "https://developer.apple.com/documentation/createml")!) {
+                Label("Apple Create ML Documentation", systemImage: "book")
+            }
+            .testability(Testability.Link.newConfigurationAppleDocumentation)
+
+            Link(destination: URL(string: "https://developer.apple.com/videos/play/wwdc2020/10153/")!) {
+                Label("WWDC: Core ML Converters", systemImage: "play.rectangle")
+            }
+            .testability(Testability.Link.newConfigurationCoreMLConverters)
+        } header: {
+            Text("Learn More")
+        }
+    }
+    // swiftlint:enable force_unwrapping
 	
 	// MARK: - Conversion Section
 	

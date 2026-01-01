@@ -25,7 +25,7 @@ class DefaultRenderer: ObservableObject {
 		if let image = renderer.uiImage {
 			completionHandler(image, nil)
 		} else {
-			completionHandler(nil, nil) //TODO: error handling
+			completionHandler(nil, nil) // TODO: error handling
 		}
 	}
 }

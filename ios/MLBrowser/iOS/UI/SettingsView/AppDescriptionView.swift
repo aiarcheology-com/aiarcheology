@@ -8,14 +8,16 @@
 import SwiftUI
 
 struct AppDescriptionView: View {
-	let versionString: String = appVersion()
-	let buildString: String = appBuild()
-	let appIcon: String = Bundle.main.iconFileName ?? "AppIcon"
-	let emailAddress: String = "info@aiarcheology.com"
-	private static let websiteURL = URL(string: "https://www.aiarcheology.com")!
-	private static let xName = "@aiarcheology"
-	private static let xURL = URL(string: "twitter://user?screen_name=\(xName)")!
-	private static let xWebURL = URL(string: "https://twitter.com/\(xName)")!
+    let versionString: String = appVersion()
+    let buildString: String = appBuild()
+    let appIcon: String = Bundle.main.iconFileName ?? "AppIcon"
+    let emailAddress: String = "info@aiarcheology.com"
+    // swiftlint:disable force_unwrapping
+    private static let websiteURL = URL(string: "https://www.aiarcheology.com")!
+    private static let xName = "@aiarcheology"
+    private static let xURL = URL(string: "twitter://user?screen_name=\(xName)")!
+    private static let xWebURL = URL(string: "https://twitter.com/\(xName)")!
+    // swiftlint:enable force_unwrapping
 
 	@State private var showCopiedPopover = false
 
@@ -24,7 +26,7 @@ struct AppDescriptionView: View {
 			Form {
 				Section(header: Text("Application")) {
 					HStack(alignment: .center, spacing: 12) {
-						if let image = UIImage(named: appIcon){
+						if let image = UIImage(named: appIcon) {
 							Image(uiImage: image)
 								.resizable()
 								.aspectRatio(contentMode: .fit)

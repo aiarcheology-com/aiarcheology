@@ -15,7 +15,7 @@ final class WebCacheCleaner {
     ///
     /// Uses WebKit's bulk removal API for better performance compared to
     /// per-record deletion.
-    @MainActor class func clean() {
+    @MainActor static func clean() {
         // Clear HTTP cookies
         HTTPCookieStorage.shared.removeCookies(since: Date.distantPast)
         LoggingPolicy.info("All HTTP cookies deleted", logger: .storage)

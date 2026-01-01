@@ -90,7 +90,7 @@ private extension DownloadDetailView {
 			.autocapitalization(.none)
 			.disableAutocorrection(true)
 			.multilineTextAlignment(.trailing)
-			.onChange(of: urlText) { oldValue, newValue in
+			.onChange(of: urlText) { _, newValue in
 				item.url = URL(string: newValue)
 				item.transition(to: .draft)
 				item.persist(in: moc)
@@ -321,7 +321,7 @@ private extension DownloadDetailView {
 
 // MARK: - Supporting Views
 
-fileprivate struct ProgressDetailTextView: View {
+private struct ProgressDetailTextView: View {
 	let totalBytesWritten: String
 	let totalBytesExpected: String
 	
@@ -340,4 +340,3 @@ fileprivate struct ProgressDetailTextView: View {
 		}
 	}
 }
-

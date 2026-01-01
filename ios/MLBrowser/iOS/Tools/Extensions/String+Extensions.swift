@@ -55,7 +55,7 @@ extension String {
 	var trimmedString: String {
 		self.trimmingCharacters(in: .whitespacesAndNewlines)
 			.components(separatedBy: .newlines)
-			.filter{!$0.isEmpty}
+			.filter {!$0.isEmpty}
 			.joined(separator: "\n")
 	}
 	
@@ -78,7 +78,7 @@ extension String {
             modifiedInput = "http://\(modifiedInput)"
         }
 
-        if let url = URL(string: modifiedInput), let _ = url.host, url.scheme == "http" || url.scheme == "https" {
+        if let url = URL(string: modifiedInput), url.host != nil, url.scheme == "http" || url.scheme == "https" {
             // Regular Expression for URL validation
             do {
                 let regex = try NSRegularExpression(pattern: "((https?|ftp):\\/\\/)?(www\\.)?[\\w\\-._~:\\/?#\\[\\]@!$&'()*+,;=%]+", options: .caseInsensitive)
@@ -157,37 +157,36 @@ extension String {
 
 		case emailTimePreview
 
-		var stringFormat:String {
-			switch self {
-						//handle iso Time
-				case .createMl: return "yyyy-MM-dd'T'HH:mm:ss.SSS"
-				case .birthDateFormatOne: return "dd/MM/YYYY"
-				case .birthDateFormatTwo: return "dd-MM-YYYY"
-				case .isoYear: return "yyyy"
-				case .isoYearMonth: return "yyyy-MM"
-				case .isoDate: return "yyyy-MM-dd"
-				case .isoDateTime: return "yyyy-MM-dd'T'HH:mmZ"
-				case .isoDateTimeSec: return "yyyy-MM-dd'T'HH:mm:ssZ"
-				case .isoDateTimeMilliSec: return "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-				case .dotNet: return "/Date(%d%f)/"
-				case .rss: return "EEE, d MMM yyyy HH:mm:ss ZZZ"
-				case .altRSS: return "d MMM yyyy HH:mm:ss ZZZ"
-				case .httpHeader: return "EEE, dd MM yyyy HH:mm:ss ZZZ"
-				case .standard: return "EEE MMM dd HH:mm:ss Z yyyy"
-				case .custom(let customFormat): return customFormat
+        var stringFormat: String {
+            switch self {
+            // handle iso Time
+            case .createMl: return "yyyy-MM-dd'T'HH:mm:ss.SSS"
+            case .birthDateFormatOne: return "dd/MM/YYYY"
+            case .birthDateFormatTwo: return "dd-MM-YYYY"
+            case .isoYear: return "yyyy"
+            case .isoYearMonth: return "yyyy-MM"
+            case .isoDate: return "yyyy-MM-dd"
+            case .isoDateTime: return "yyyy-MM-dd'T'HH:mmZ"
+            case .isoDateTimeSec: return "yyyy-MM-dd'T'HH:mm:ssZ"
+            case .isoDateTimeMilliSec: return "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+            case .dotNet: return "/Date(%d%f)/"
+            case .rss: return "EEE, d MMM yyyy HH:mm:ss ZZZ"
+            case .altRSS: return "d MMM yyyy HH:mm:ss ZZZ"
+            case .httpHeader: return "EEE, dd MM yyyy HH:mm:ss ZZZ"
+            case .standard: return "EEE MMM dd HH:mm:ss Z yyyy"
+            case .custom(let customFormat): return customFormat
+            // handle local Time
+            case .localDateTimeSec: return "yyyy-MM-dd HH:mm:ss"
+            case .localTimeWithNoon: return "hh:mm a"
+            case .localDate: return "yyyy-MM-dd"
+            case .localPhotoSave: return "yyyyMMddHHmmss"
+            case .messageRTetriveFormat: return "yyyy-MM-dd'T'HH:mm:ssZZZZZ"
+            case .emailTimePreview: return "dd MMM yyyy, h:mm a"
+            }
+        }
+    }
 
-						//handle local Time
-				case .localDateTimeSec: return "yyyy-MM-dd HH:mm:ss"
-				case .localTimeWithNoon: return "hh:mm a"
-				case .localDate: return "yyyy-MM-dd"
-				case .localPhotoSave: return "yyyyMMddHHmmss"
-				case .messageRTetriveFormat: return "yyyy-MM-dd'T'HH:mm:ssZZZZZ"
-				case .emailTimePreview: return "dd MMM yyyy, h:mm a"
-			}
-		}
-	}
-
-	func toDate(_ format: DateFormatType = .isoDate) -> Date?{
+	func toDate(_ format: DateFormatType = .isoDate) -> Date? {
 		let dateFormatter = DateFormatter()
 		dateFormatter.dateFormat = format.stringFormat
 		let date = dateFormatter.date(from: self)
@@ -200,7 +199,7 @@ extension String {
 		URL(fileURLWithPath: self).deletingPathExtension().lastPathComponent
 	}
 
-	var fileExtension: String{
+	var fileExtension: String {
 		URL(fileURLWithPath: self).pathExtension
 	}
 }
