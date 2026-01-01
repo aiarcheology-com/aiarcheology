@@ -36,7 +36,7 @@ struct SentryStatsView: View {
 					}
 				}
 			}
-			.navigationTitle("Sentry Stats")
+			.navigationTitle(L10n.Settings.Sentry.title)
 		}
 	}
 	

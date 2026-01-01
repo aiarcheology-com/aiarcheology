@@ -159,7 +159,7 @@ struct SettingsForm: View {
 				WebCacheCleaner.clean()
 				cleanCacheButtonColor = .blue
 			}) {
-				Text("Delete")
+				Text(L10n.Common.delete)
 					.bold()
 					.foregroundColor(cleanCacheButtonColor)
 			}
@@ -218,7 +218,7 @@ struct SettingsForm: View {
 		if AppEnvironment.isAppStoreDistribution.not {
 			Section(header: Text("Debug")) {
 				NavigationLink(destination: SentryStatsView()) {
-					Text("Sentry Stats")
+					Text(L10n.Settings.Sentry.title)
 				}
 			}
 		}

@@ -24,19 +24,19 @@ struct BrowserHistoryView: View {
 				List {
 					Section {
 						HStack {
-							Text("Clear Browsing History")
+							Text(L10n.History.Clear.title)
 							Spacer()
 							Button(action: {
 								showingAlert = true
 							}) {
-								Text("Clear")
+								Text(L10n.History.Clear.button)
 									.bold()
 									.foregroundColor(refreshFrom.disabled ? .red : .blue)
 							}
 							.testability(Testability.Button.browsingHistoryClear)
 						}
 					}
-					Section(header: Text("History")) {
+					Section(header: Text(L10n.History.Section.title)) {
 						ForEach(history, id: \.self) { (item: WebHistoryEntry) in
 							let page = item.page?.absoluteString ?? "Unknown Page"
 							HStack {
@@ -77,10 +77,10 @@ struct BrowserHistoryView: View {
 				}
 				.testability(Testability.List.browsingHistoryList)
 				.alert(isPresented: $showingAlert) {
-					Alert(
-						title: Text("Warning"),
-						message: Text("Clear the browsing history?"),
-						primaryButton: .destructive(Text("Clear")) {
+					localizedAlert(
+						title: L10n.Alert.Warning.title,
+						message: L10n.Alert.History.Clear.message,
+						primaryButton: .destructive(Text(L10n.History.Clear.button)) {
 							WebHistoryEntry.deleteAll(in: moc, executeAndMerge: true)
 							refreshFrom.toggle()
 						},
@@ -89,7 +89,7 @@ struct BrowserHistoryView: View {
 				}
 			}
 		}
-		.navigationTitle("Browsing History")
+		.navigationTitle(L10n.History.title)
 		.sheetDismissButton(testability: .browsingHistoryDismiss)
 		}
 }
