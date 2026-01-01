@@ -23,25 +23,23 @@ fi
 ACTION="${1:-lint}"
 shift || true
 
-# Default path is ios/ if no files specified
+# Collect files into array for proper handling of paths with spaces
 if [[ $# -eq 0 ]]; then
-  TARGET_PATH="${REPO_ROOT}/ios"
+  TARGET_FILES=("${REPO_ROOT}/ios")
 else
-  TARGET_PATH="$*"
+  TARGET_FILES=("$@")
 fi
 
 cd "${REPO_ROOT}/ios"
 
 case "${ACTION}" in
   lint)
-    echo "Running SwiftLint lint on ${TARGET_PATH}..."
-    # shellcheck disable=SC2086
-    exec swiftlint lint --force-exclude ${TARGET_PATH}
+    echo "Running SwiftLint lint on ${TARGET_FILES[*]}..."
+    exec swiftlint lint --force-exclude "${TARGET_FILES[@]}"
     ;;
   fix|autocorrect)
-    echo "Running SwiftLint autocorrect on ${TARGET_PATH}..."
-    # shellcheck disable=SC2086
-    exec swiftlint lint --fix --force-exclude ${TARGET_PATH}
+    echo "Running SwiftLint autocorrect on ${TARGET_FILES[*]}..."
+    exec swiftlint lint --fix --force-exclude "${TARGET_FILES[@]}"
     ;;
   *)
     # Pass through any other command directly to swiftlint

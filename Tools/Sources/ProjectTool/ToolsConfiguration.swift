@@ -206,6 +206,17 @@ struct ToolsManager {
             return path.components(separatedBy: "\n").first ?? path
         }
 
+        // Binary not found - provide detailed error information
+        print("   ❌ Binary '\(name)' not found in unzipped directory: \(directory.path)")
+        
+        // List the contents of the directory to aid troubleshooting
+        if let contents = try? FileManager.default.contentsOfDirectory(atPath: directory.path) {
+            print("   📂 Directory contents:")
+            for item in contents {
+                print("      - \(item)")
+            }
+        }
+        
         throw ExitCode.failure
     }
 

@@ -46,10 +46,24 @@ if swift run --package-path Tools ProjectTool setup --install; then
 else
     echo "   ⚠️  ProjectTool setup failed, attempting manual fallback..."
 
-    # Fallback: Install SwiftLint via direct download (pinned version)
+    # Parse .tools.json to extract tool versions dynamically
+    TOOLS_JSON="${CI_PRIMARY_REPOSITORY_PATH:-$(git rev-parse --show-toplevel)}/.tools.json"
+    
+    if [[ ! -f "$TOOLS_JSON" ]]; then
+        echo "   ❌ .tools.json not found at $TOOLS_JSON"
+        exit 1
+    fi
+
+    # Fallback: Install SwiftLint via direct download (version from .tools.json)
     if ! command -v swiftlint &> /dev/null; then
         echo "   Installing SwiftLint fallback..."
-        SWIFTLINT_VERSION="0.62.2"
+        SWIFTLINT_VERSION=$(grep -A 10 '"swiftlint"' "$TOOLS_JSON" | grep '"version"' | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+        
+        if [[ -z "$SWIFTLINT_VERSION" ]]; then
+            echo "   ❌ Could not extract SwiftLint version from .tools.json"
+            exit 1
+        fi
+        
         curl -fsSL -o /tmp/swiftlint.zip "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip"
         unzip -q /tmp/swiftlint.zip -d /tmp/swiftlint
         cp /tmp/swiftlint/swiftlint /usr/local/bin/swiftlint
@@ -58,10 +72,16 @@ else
         echo "   ✅ SwiftLint ${SWIFTLINT_VERSION} installed"
     fi
 
-    # Fallback: Install sentry-cli via direct download (pinned version)
+    # Fallback: Install sentry-cli via direct download (version from .tools.json)
     if ! command -v sentry-cli &> /dev/null; then
         echo "   Installing sentry-cli fallback..."
-        SENTRY_VERSION="2.58.2"
+        SENTRY_VERSION=$(grep -A 10 '"sentry-cli"' "$TOOLS_JSON" | grep '"version"' | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+        
+        if [[ -z "$SENTRY_VERSION" ]]; then
+            echo "   ❌ Could not extract sentry-cli version from .tools.json"
+            exit 1
+        fi
+        
         curl -fsSL -o /usr/local/bin/sentry-cli "https://github.com/getsentry/sentry-cli/releases/download/${SENTRY_VERSION}/sentry-cli-Darwin-universal"
         chmod +x /usr/local/bin/sentry-cli
         echo "   ✅ sentry-cli ${SENTRY_VERSION} installed"
