@@ -856,6 +856,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8AE0BC2A2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowser" */;
 			buildPhases = (
+				946203352F04B4950052CB32 /* SwiftLint (RUN_SWIFTLINT) */,
 				8AE0BBFC2A97B0B30086DDF9 /* Sources */,
 				8AE0BBFD2A97B0B30086DDF9 /* Frameworks */,
 				8AE0BBFE2A97B0B30086DDF9 /* Resources */,
@@ -994,6 +995,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		946203352F04B4950052CB32 /* SwiftLint (RUN_SWIFTLINT) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "SwiftLint (RUN_SWIFTLINT)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "  if [ \"${RUN_SWIFTLINT:-0}\" != \"1\" ]; then\n      echo \"SwiftLint skipped (set RUN_SWIFTLINT=1 in Build Settings)\"\n      exit 0\n  fi\n\n  export PATH=\"/opt/homebrew/bin:$PATH\"\n\n  if ! command -v swiftlint &> /dev/null; then\n      echo \"warning: SwiftLint not installed (brew install swiftlint)\"\n      exit 0\n  fi\n\n  swiftlint lint \"${SRCROOT}\"\n";
+		};
 		C3216188147B480A9E50D242 /* Upload Debug Symbols to Sentry */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -1370,6 +1390,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.aiarcheology.ios;
 				PRODUCT_NAME = "ML Browser";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				RUN_SWIFTLINT = 0;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
@@ -1409,6 +1430,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.aiarcheology.ios;
 				PRODUCT_NAME = "ML Browser";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				RUN_SWIFTLINT = 0;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;

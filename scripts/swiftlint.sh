@@ -30,7 +30,7 @@ else
   TARGET_PATH="$*"
 fi
 
-cd "${REPO_ROOT}"
+cd "${REPO_ROOT}/ios"
 
 case "${ACTION}" in
   lint)

@@ -1,0 +1,80 @@
+# SwiftLint Configuration
+# https://realm.github.io/SwiftLint/rule-directory.html
+
+# Paths to exclude (relative to this config file)
+excluded:
+  - "**/Generated"
+  - "**/DerivedData"
+  - "**/.build"
+  - "**/Pods"
+  - "**/Carthage"
+  - "**/*.generated.swift"
+
+# Rules configuration
+disabled_rules:
+  - trailing_whitespace        # Can be noisy, autocorrect handles it
+  - line_length                # Often impractical for SwiftUI
+  - function_body_length       # Sometimes long functions are clearer
+  - type_body_length           # SwiftUI views can be long
+  - file_length                # Sometimes unavoidable
+
+opt_in_rules:
+  - empty_count                # Prefer isEmpty over count == 0
+  - empty_string               # Prefer isEmpty over string == ""
+  - first_where                # Prefer first(where:) over filter().first
+  - last_where                 # Prefer last(where:) over filter().last
+  - sorted_first_last          # Prefer min()/max() over sorted().first/last
+  - contains_over_first_not_nil # Prefer contains over first != nil
+  - fatal_error_message        # Require message in fatalError
+  - private_outlet             # IBOutlets should be private
+  - private_action             # IBActions should be private
+  - force_unwrapping           # Avoid force unwrapping (tests have their own config)
+  - implicitly_unwrapped_optional  # Avoid implicitly unwrapped optionals (tests have their own config)
+
+# Specific rule configurations
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 50
+    error: 60
+  excluded:
+    - id
+    - x
+    - y
+    - z
+    - i
+    - j
+    - k
+    - a
+    - b
+    - c
+    - db
+    - to
+    - dx
+    - dy
+  allowed_symbols:
+    - "_"  # Allow underscores in names (Core Data backing stores)
+
+type_name:
+  excluded:
+    - "AI_ArcheologyUITests"
+    - "AI_ArcheologyUITestsLaunchTests"
+
+large_tuple:
+  warning: 3
+  error: 4
+
+nesting:
+  type_level:
+    warning: 2
+  function_level:
+    warning: 3
+
+cyclomatic_complexity:
+  warning: 15
+  error: 25
+
+# Reporter type (xcode, json, csv, checkstyle, codeclimate, junit, html, emoji, sonarqube, markdown, github-actions-logging)
+reporter: "xcode"
