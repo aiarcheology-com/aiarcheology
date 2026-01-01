@@ -18,15 +18,6 @@
         "revision" : "8627bbc0e663238d516b541d8fc7edd62a627fde",
         "version" : "8.57.3"
       }
-    },
-    {
-      "identity" : "swiftlintplugins",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/SimplyDanny/SwiftLintPlugins",
-      "state" : {
-        "revision" : "ecafb5b056cb7995324f0d310a61f30661d00cad",
-        "version" : "0.62.2"
-      }
     }
   ],
   "version" : 3

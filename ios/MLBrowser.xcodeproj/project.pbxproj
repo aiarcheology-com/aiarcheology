@@ -950,7 +950,6 @@
 			packageReferences = (
 				94DF06A32E95C1D60024E381 /* XCRemoteSwiftPackageReference "OSLogViewer" */,
 				81666D3A451C4358B0AFB17A /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
-				9462032B2F04913B0052CB32 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
 			);
 			productRefGroup = 8AE0BC012A97B0B30086DDF9 /* Products */;
 			projectDirPath = "";
@@ -1564,14 +1563,6 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 8.0.0;
-			};
-		};
-		9462032B2F04913B0052CB32 /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/SimplyDanny/SwiftLintPlugins";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.62.2;
 			};
 		};
 		94DF06A32E95C1D60024E381 /* XCRemoteSwiftPackageReference "OSLogViewer" */ = {
