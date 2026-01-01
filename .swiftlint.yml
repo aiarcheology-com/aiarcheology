@@ -1,5 +1,9 @@
-# SwiftLint Configuration
+# SwiftLint Configuration (Root)
 # https://realm.github.io/SwiftLint/rule-directory.html
+#
+# This is the root configuration that delegates to ios/.swiftlint.yml
+# for actual linting rules. It ensures consistency across all execution
+# contexts (pre-commit hooks, GitHub Actions, Xcode build phases).
 
 # Paths to include (relative to this config file)
 included:
@@ -14,62 +18,6 @@ excluded:
   - ios/**/Carthage
   - ios/**/*.generated.swift
   - Tools
-
-# Rules configuration
-disabled_rules:
-  - trailing_whitespace        # Can be noisy, autocorrect handles it
-  - line_length                # Often impractical for SwiftUI
-  - function_body_length       # Sometimes long functions are clearer
-  - type_body_length           # SwiftUI views can be long
-  - file_length                # Sometimes unavoidable
-
-opt_in_rules:
-  - empty_count                # Prefer isEmpty over count == 0
-  - empty_string               # Prefer isEmpty over string == ""
-  - first_where                # Prefer first(where:) over filter().first
-  - last_where                 # Prefer last(where:) over filter().last
-  - sorted_first_last          # Prefer min()/max() over sorted().first/last
-  - contains_over_first_not_nil # Prefer contains over first != nil
-  - fatal_error_message        # Require message in fatalError
-  - force_unwrapping           # Warn on force unwrapping (warning only)
-  - implicitly_unwrapped_optional # Warn on implicitly unwrapped optionals
-  - private_outlet             # IBOutlets should be private
-  - private_action             # IBActions should be private
-
-# Specific rule configurations
-identifier_name:
-  min_length:
-    warning: 2
-    error: 1
-  max_length:
-    warning: 50
-    error: 60
-  excluded:
-    - id
-    - x
-    - y
-    - z
-    - i
-    - j
-    - k
-    - db
-    - to
-    - dx
-    - dy
-
-large_tuple:
-  warning: 3
-  error: 4
-
-nesting:
-  type_level:
-    warning: 2
-  function_level:
-    warning: 3
-
-cyclomatic_complexity:
-  warning: 15
-  error: 25
 
 # Reporter type (xcode, json, csv, checkstyle, codeclimate, junit, html, emoji, sonarqube, markdown, github-actions-logging)
 reporter: "xcode"
