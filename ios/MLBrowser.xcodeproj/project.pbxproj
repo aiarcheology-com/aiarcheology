@@ -180,6 +180,8 @@
 		940A10022F0500010000A002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 940A10012F0500010000A001 /* Localizable.xcstrings */; };
 		940A10052F0500010000A005 /* LocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10042F0500010000A004 /* LocalizationTests.swift */; };
 		940A10082F0500020000A008 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10062F0500020000A006 /* L10n.swift */; };
+		940A100C2F0600010000A00C /* L10n+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A100B2F0600010000A00B /* L10n+SwiftUI.swift */; };
+		940A100E2F0600010000A00E /* LocalizationTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -203,6 +205,8 @@
 		940A10012F0500010000A001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		940A10042F0500010000A004 /* LocalizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTests.swift; sourceTree = "<group>"; };
 		940A10062F0500020000A006 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
+		940A100B2F0600010000A00B /* L10n+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "L10n+SwiftUI.swift"; sourceTree = "<group>"; };
+		940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTestHelpers.swift; sourceTree = "<group>"; };
 		8A112CB82ABDE0BB00786384 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
 		8A112CC02AC0757900786384 /* MLBrowser-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "MLBrowser-Info.plist"; sourceTree = SOURCE_ROOT; };
 		8A112CC32AC0852B00786384 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
@@ -616,6 +620,7 @@
 				9489C96D2EA02B0C008C728F /* HostPlatform.swift */,
 				946200EC2ED6FF520047336A /* Testability */,
 				8A112CC12AC0851000786384 /* Extensions */,
+				940A100A2F0600010000A00A /* Localization */,
 				942B1DCF2EA62DEB005455F9 /* Reporting */,
 			);
 			path = Tools;
@@ -872,6 +877,15 @@
 				940A10062F0500020000A006 /* L10n.swift */,
 			);
 			path = Generated;
+			sourceTree = "<group>";
+		};
+		940A100A2F0600010000A00A /* Localization */ = {
+			isa = PBXGroup;
+			children = (
+				940A100B2F0600010000A00B /* L10n+SwiftUI.swift */,
+				940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */,
+			);
+			path = Localization;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1203,6 +1217,8 @@
 				8AD3A8302B2EFA3E0058E018 /* Annotation.swift in Sources */,
 				8AC650AB2B2B4CCB00922648 /* WebHistory.swift in Sources */,
 				940A10082F0500020000A008 /* L10n.swift in Sources */,
+				940A100C2F0600010000A00C /* L10n+SwiftUI.swift in Sources */,
+				940A100E2F0600010000A00E /* LocalizationTestHelpers.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

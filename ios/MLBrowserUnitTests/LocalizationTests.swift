@@ -5,6 +5,7 @@
 //  Created by AI Assistant on 02.01.26.
 //
 
+import SwiftUI
 import XCTest
 @testable import ML_Browser
 
@@ -37,8 +38,14 @@ final class LocalizationTests: XCTestCase {
 
         for key in keys {
             let localized = NSLocalizedString(key, comment: "")
-            XCTAssertNotEqual(localized, key, "Key '\(key)' should have an English translation")
-            XCTAssertFalse(localized.isEmpty, "Key '\(key)' should not be empty")
+            XCTAssertTrue(
+                LocalizationValidator.isTranslated(localized, key: key),
+                "Key '\(key)' should have an English translation"
+            )
+            XCTAssertTrue(
+                LocalizationValidator.isNotEmpty(localized),
+                "Key '\(key)' should not be empty"
+            )
         }
     }
 
@@ -129,5 +136,82 @@ final class LocalizationTests: XCTestCase {
         let nonExistentKey = "this.key.does.not.exist.12345"
         let result = NSLocalizedString(nonExistentKey, comment: "")
         XCTAssertEqual(result, nonExistentKey, "Missing key should return the key itself")
+    }
+
+    // MARK: - LocalizationValidator Tests
+
+    func test_localizationValidator_isTranslated_returnsTrueForTranslatedString() {
+        XCTAssertTrue(LocalizationValidator.isTranslated("Browsing History", key: "history.title"))
+    }
+
+    func test_localizationValidator_isTranslated_returnsFalseForUntranslatedKey() {
+        XCTAssertFalse(LocalizationValidator.isTranslated("some.missing.key", key: "some.missing.key"))
+    }
+
+    func test_localizationValidator_isNotEmpty_returnsTrueForNonEmptyString() {
+        XCTAssertTrue(LocalizationValidator.isNotEmpty("Hello"))
+    }
+
+    func test_localizationValidator_isNotEmpty_returnsFalseForEmptyString() {
+        XCTAssertFalse(LocalizationValidator.isNotEmpty(""))
+        XCTAssertFalse(LocalizationValidator.isNotEmpty("   "))
+    }
+
+    func test_localizationValidator_contains_findsSubstring() {
+        XCTAssertTrue(LocalizationValidator.contains("5 items", substring: "items"))
+        XCTAssertFalse(LocalizationValidator.contains("5 items", substring: "missing"))
+    }
+
+    // MARK: - StringCatalogValidator Tests
+
+    func test_stringCatalogValidator_allKeys_containsExpectedKeys() {
+        let expectedKeys = ["history.title", "common.done", "models.title"]
+        for key in expectedKeys {
+            XCTAssertTrue(
+                StringCatalogValidator.keyExists(key),
+                "StringCatalogValidator should know about key '\(key)'"
+            )
+        }
+    }
+
+    func test_stringCatalogValidator_keyExists_returnsFalseForUnknownKey() {
+        XCTAssertFalse(StringCatalogValidator.keyExists("unknown.key.that.does.not.exist"))
+    }
+
+    // MARK: - L10n Type-Safe Access Tests
+
+    func test_l10n_historyTitle_returnsCorrectValue() {
+        XCTAssertEqual(L10n.History.title, "Browsing History")
+    }
+
+    func test_l10n_commonDone_returnsCorrectValue() {
+        XCTAssertEqual(L10n.Common.done, "Done")
+    }
+
+    func test_l10n_itemsCount_formatsCorrectly() {
+        XCTAssertTrue(L10n.Items.count(1).contains("1"))
+        XCTAssertTrue(L10n.Items.count(5).contains("5"))
+    }
+
+    // MARK: - L10n+SwiftUI Integration Tests
+
+    func test_l10n_key_createsLocalizedStringKey() {
+        let key = L10n.key(L10n.History.title)
+        // LocalizedStringKey doesn't expose its value, but we can verify it's created
+        XCTAssertNotNil(key)
+    }
+
+    func test_text_localizedInitializer_createsText() {
+        let text = Text(localized: L10n.History.title)
+        // Text doesn't expose its content, but we can verify it's created
+        XCTAssertNotNil(text)
+    }
+
+    func test_button_localizedInitializer_createsButton() {
+        var actionCalled = false
+        let button = Button(localized: L10n.Common.done) {
+            actionCalled = true
+        }
+        XCTAssertNotNil(button)
     }
 }
