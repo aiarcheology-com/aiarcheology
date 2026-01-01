@@ -1,0 +1,16 @@
+{
+  "tools": {
+    "swiftlint": {
+      "version": "0.62.2",
+      "brew": "swiftlint",
+      "versionCommand": "swiftlint --version",
+      "versionPattern": "^(\\d+\\.\\d+\\.\\d+)"
+    },
+    "sentry-cli": {
+      "version": "2.58.2",
+      "brew": "getsentry/tools/sentry-cli",
+      "versionCommand": "sentry-cli --version",
+      "versionPattern": "(\\d+\\.\\d+\\.\\d+)"
+    }
+  }
+}

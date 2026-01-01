@@ -10,15 +10,36 @@ From the repository root:
 swift run --package-path Tools ProjectTool setup
 ```
 
+This validates that required tools are installed and configures git. If you need to install missing tools:
+
+```bash
+swift run --package-path Tools ProjectTool setup --install
+```
+
 Then open the project:
 
 ```bash
 open ios/MLBrowser.xcworkspace
 ```
 
+## 📦 Required Tools
+
+Tool versions are pinned in `.tools.json` at the repository root. This ensures consistent tooling across all developers and CI.
+
+| Tool | Purpose |
+|------|---------|
+| `swiftlint` | Swift code linting (pre-commit hook) |
+| `sentry-cli` | Sentry dSYM upload and release management |
+
+To check your current tool versions:
+
+```bash
+swift run --package-path Tools ProjectTool setup
+```
+
 ## 🧰 ProjectTool (all available commands)
 
-`ProjectTool` is a SwiftPM CLI located in `Tools/`. It’s used for repo setup and secret management.
+`ProjectTool` is a SwiftPM CLI located in `Tools/`. It's used for repo setup and secret management.
 
 ### How to run
 
@@ -35,19 +56,23 @@ swift run --package-path Tools ProjectTool --help
 swift run --package-path Tools ProjectTool <command> --help
 ```
 
-### `setup` — post-clone git configuration
+### `setup` — project setup and git configuration
 
 ```bash
-swift run --package-path Tools ProjectTool setup
+swift run --package-path Tools ProjectTool setup [--install]
 ```
 
 What it does:
-- **Marks the CoreData model contents file as "assume unchanged"** to prevent noisy diffs when Xcode rewrites it:
-  - `ios/MLBrowser/iOS/Persistence/MLBrowser.xcdatamodeld/MLBrowser.xcdatamodel/contents`
-- **Configures git to use `.githooks/` for hooks** (enables SwiftLint pre-commit validation):
-  - `git config core.hooksPath .githooks`
+1. **Validates required tools** from `.tools.json`:
+   - Checks if tools are installed
+   - Verifies versions match pinned versions
+   - With `--install`: installs missing tools via Homebrew
 
-If you ever need to undo these manually:
+2. **Configures git** (skipped in CI environments):
+   - Marks the CoreData model contents file as "assume unchanged" to prevent noisy diffs
+   - Configures git to use `.githooks/` for hooks (enables SwiftLint pre-commit validation)
+
+If you ever need to undo the git configuration manually:
 
 ```bash
 # Re-enable tracking for CoreData model

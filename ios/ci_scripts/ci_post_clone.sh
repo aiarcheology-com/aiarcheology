@@ -26,49 +26,43 @@ else
   echo "   ✅ Successfully disabled Macro and Plugin validation."
 fi
 
-# --- Install SwiftLint ---
-echo "📦 Installing SwiftLint..."
+# --- Install required tools via ProjectTool ---
+# Uses .tools.json for version pinning
+# Skips git configuration in CI (detected via CI env var)
 
-if command -v swiftlint &> /dev/null; then
-    echo "   ✅ SwiftLint already available: $(which swiftlint)"
-    swiftlint version
+echo ""
+echo "📦 Running ProjectTool setup..."
+
+cd "${CI_PRIMARY_REPOSITORY_PATH:-$(git rev-parse --show-toplevel)}"
+
+if swift run --package-path Tools ProjectTool setup --install; then
+    echo "   ✅ ProjectTool setup completed"
 else
-    if command -v brew &> /dev/null; then
-        brew install swiftlint
-        echo "   ✅ SwiftLint installed via Homebrew"
-        swiftlint version
-    else
-        echo "   ⚠️  Homebrew not available, skipping SwiftLint installation"
-    fi
-fi
+    echo "   ⚠️  ProjectTool setup failed, attempting manual fallback..."
 
-# --- Install sentry-cli ---
-# Install once here so it's available for all subsequent build actions
-
-echo "📦 Installing sentry-cli..."
-
-if command -v sentry-cli &> /dev/null; then
-    echo "   ✅ sentry-cli already available: $(which sentry-cli)"
-    sentry-cli --version
-else
-    # Try Homebrew first (available on Xcode Cloud macOS images)
-    if command -v brew &> /dev/null; then
-        if brew install getsentry/tools/sentry-cli; then
-            echo "   ✅ sentry-cli installed via Homebrew"
-            sentry-cli --version
-        else
-            echo "   ⚠️  Homebrew installation failed, trying direct download..."
-            # Fallback to direct download
-            curl -sL https://sentry.io/get-cli/ | INSTALL_DIR=/usr/local/bin bash
-            echo "   ✅ sentry-cli installed via direct download"
-            sentry-cli --version
+    # Fallback: Install SwiftLint manually
+    if ! command -v swiftlint &> /dev/null; then
+        if command -v brew &> /dev/null; then
+            brew install swiftlint || echo "   ⚠️  SwiftLint installation failed"
         fi
-    else
-        # Direct download if Homebrew not available
-        curl -sL https://sentry.io/get-cli/ | INSTALL_DIR=/usr/local/bin bash
-        echo "   ✅ sentry-cli installed to /usr/local/bin"
-        sentry-cli --version
+    fi
+
+    # Fallback: Install sentry-cli manually (with curl fallback)
+    if ! command -v sentry-cli &> /dev/null; then
+        if command -v brew &> /dev/null; then
+            brew install getsentry/tools/sentry-cli || \
+                curl -sL https://sentry.io/get-cli/ | INSTALL_DIR=/usr/local/bin bash
+        else
+            curl -sL https://sentry.io/get-cli/ | INSTALL_DIR=/usr/local/bin bash
+        fi
     fi
 fi
 
+# --- Verify tools are available ---
+echo ""
+echo "📋 Verifying tool availability..."
+echo "   swiftlint: $(swiftlint version 2>/dev/null || echo 'not installed')"
+echo "   sentry-cli: $(sentry-cli --version 2>/dev/null || echo 'not installed')"
+
+echo ""
 echo "✅ ci_post_clone.sh completed successfully"

@@ -34,15 +34,102 @@ struct ProjectTool: ParsableCommand {
     )
 }
 
-// --- Subcommand for Git Setup ---
+// --- Subcommand for Setup ---
 
 struct GitSetup: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "setup",
-        abstract: "Performs required post-clone Git configurations."
+        abstract: "Performs project setup: validates/installs tools and configures git."
     )
 
+    @Flag(name: .long, help: "Install missing tools via Homebrew")
+    var install: Bool = false
+
+    /// Check if running in CI environment
+    static var isCI: Bool {
+        ProcessInfo.processInfo.environment["CI"] != nil ||
+        ProcessInfo.processInfo.environment["CI_XCODE_CLOUD"] != nil
+    }
+
     func run() throws {
+        print("🔧 Project Setup")
+        print("")
+
+        // 1. Check/install required tools
+        try setupTools()
+
+        // 2. Configure git (skip in CI - not needed for fresh clones)
+        if GitSetup.isCI {
+            print("")
+            print("⏭️  Skipping git configuration in CI environment")
+        } else {
+            print("")
+            try setupGit()
+        }
+
+        print("")
+        print("✅ Setup complete")
+    }
+
+    private func setupTools() throws {
+        print("📦 Checking required tools...")
+
+        let config = try ToolsManager.loadConfiguration()
+        let results = ToolsManager.checkAllTools(config: config)
+
+        var hasIssues = false
+        var missingTools: [(name: String, spec: ToolsConfiguration.ToolSpec)] = []
+        var outdatedTools: [(name: String, spec: ToolsConfiguration.ToolSpec, currentVersion: String)] = []
+
+        for (name, spec, status) in results {
+            ToolsManager.printToolStatus(name: name, spec: spec, status: status)
+
+            switch status {
+            case .notInstalled:
+                hasIssues = true
+                missingTools.append((name: name, spec: spec))
+            case .installed(let version, let matches):
+                if !matches {
+                    hasIssues = true
+                    outdatedTools.append((name: name, spec: spec, currentVersion: version))
+                }
+            case .versionCheckFailed:
+                hasIssues = true
+            }
+        }
+
+        // Handle missing/outdated tools
+        if hasIssues {
+            if install {
+                print("")
+                print("🔄 Installing/updating tools...")
+
+                for (name, spec) in missingTools {
+                    try ToolsManager.installTool(name: name, spec: spec)
+                }
+
+                for (name, spec, _) in outdatedTools {
+                    try ToolsManager.upgradeTool(name: name, spec: spec)
+                }
+
+                // Re-check after installation
+                print("")
+                print("📦 Verifying installations...")
+                let newResults = ToolsManager.checkAllTools(config: config)
+                for (name, spec, status) in newResults {
+                    ToolsManager.printToolStatus(name: name, spec: spec, status: status)
+                }
+            } else {
+                print("")
+                print("💡 Run with --install to automatically install missing tools:")
+                print("   swift run --package-path Tools ProjectTool setup --install")
+            }
+        }
+    }
+
+    private func setupGit() throws {
+        print("🔗 Configuring git...")
+
         // 1. Set --assume-unchanged for CoreData model file
         let filePath = "./ios/MLBrowser/iOS/Persistence/MLBrowser.xcdatamodeld/MLBrowser.xcdatamodel/contents"
         let assumeUnchangedArgs = ["update-index", "--assume-unchanged", filePath]
@@ -50,9 +137,9 @@ struct GitSetup: ParsableCommand {
         let status1 = try runShellCommand("git", arguments: assumeUnchangedArgs)
 
         if status1 == 0 {
-            print("✅ Git --assume-unchanged set for:\n   \(filePath)")
+            print("   ✅ Git --assume-unchanged set for CoreData model")
         } else {
-            print("❌ Failed to set --assume-unchanged (Exit Code: \(status1))")
+            print("   ❌ Failed to set --assume-unchanged (Exit Code: \(status1))")
             throw ExitCode(status1)
         }
 
@@ -62,9 +149,9 @@ struct GitSetup: ParsableCommand {
         let status2 = try runShellCommand("git", arguments: hooksPathArgs)
 
         if status2 == 0 {
-            print("✅ Git hooks path set to: .githooks/")
+            print("   ✅ Git hooks path set to: .githooks/")
         } else {
-            print("❌ Failed to set hooks path (Exit Code: \(status2))")
+            print("   ❌ Failed to set hooks path (Exit Code: \(status2))")
             throw ExitCode(status2)
         }
     }
