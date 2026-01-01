@@ -33,25 +33,25 @@ struct SettingsForm: View {
 				mlBrowserSection
 				debugSection
 			}
-			.navigationBarTitle("Settings", displayMode: .inline)
+			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
 			.navigationBarItems(trailing: Button(action: {
 				do {
 					try settings.validate()
 					dismiss()
 				} catch ValidationError.invalidData(let message) {
 					validationErrorMessage = message
-					self.alertItem = AlertItem(title: Text("Error"),
+					self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
 											 message: Text(validationErrorMessage ?? ""), // TODO optional
-											 dismissButton: .default(Text("OK"), action: { validationErrorMessage = nil }))
+											 dismissButton: .default(Text(L10n.Common.ok), action: { validationErrorMessage = nil }))
 				} catch {
 					validationErrorMessage = "An unexpected error occurred."
-					self.alertItem = AlertItem(title: Text("Error"),
+					self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
 											  message: Text(validationErrorMessage ?? ""), // TODO optional
-											  dismissButton: .default(Text("OK"), action: { validationErrorMessage = nil }))
+											  dismissButton: .default(Text(L10n.Common.ok), action: { validationErrorMessage = nil }))
 				}
 			}) {
 
-				Text("Dismiss")
+				Text(L10n.Common.dismiss)
 					.bold()
 					.foregroundColor(.blue)
 			}
@@ -60,9 +60,9 @@ struct SettingsForm: View {
 
 			.alert(isPresented: .constant(validationErrorMessage != nil), content: {
 				Alert(
-					title: Text("Validation Error"),
+					title: Text(L10n.Alert.Error.title),
 					message: Text(validationErrorMessage ?? "An error occurred during validation."),
-					dismissButton: .default(Text("OK"), action: {
+					dismissButton: .default(Text(L10n.Common.ok), action: {
 						validationErrorMessage = nil // Reset the error message
 					})
 				)
@@ -79,7 +79,7 @@ struct SettingsForm: View {
 	// MARK: - Sections
 
 	private var annotationSection: some View {
-		Section(header: Text("Annotation")) {
+		Section(header: Text(L10n.Settings.Section.annotation)) {
 			Picker("Frequency", selection: $settings.snapFrequency) {
 				ForEach(1...10, id: \.self) { second in
 					Text("\(second) second\(second > 1 ? "s" : "")").tag(Double(second))
@@ -98,7 +98,7 @@ struct SettingsForm: View {
 	}
 
 	private var webContentSection: some View {
-		Section(header: Text("Web Content")) {
+		Section(header: Text(L10n.Settings.Section.webContent)) {
 			HStack {
 				Text("Default Page")
 				Spacer()
@@ -142,7 +142,7 @@ struct SettingsForm: View {
 				.toolbar {
 					ToolbarItemGroup(placement: .keyboard) {
 						Spacer()
-						Button("Done") {
+						Button(L10n.Common.done) {
 							Self.removeFocus()
 						}
 						.testability(Testability.Button.settingsKeyboardDone)
@@ -171,16 +171,16 @@ struct SettingsForm: View {
 	}
 
 	private var mlBrowserSection: some View {
-		Section(header: Text("ML Browser")) {
+		Section(header: Text(L10n.Settings.Section.mlBrowser)) {
 			NavigationLink(destination: AppDescriptionView()
 				.environment(\.dismissSheet, { dismiss() })) {
-				Text("About")
+				Text(L10n.Settings.about)
 			}
 			.testability(Testability.NavigationLink.settingsAbout)
 			NavigationLink(destination: SlideshowView()
 				.environmentObject(settings)
 				.environment(\.dismissSheet, { dismiss() })) {
-				Text("Introduction")
+				Text(L10n.Settings.introduction)
 			}
 			.testability(Testability.NavigationLink.settingsIntroduction)
 			restoreDefaultsRow
@@ -193,7 +193,7 @@ struct SettingsForm: View {
 			Spacer()
 			Button(action: {
 				self.alertItem = AlertItem(
-					title: Text("Warning"),
+					title: Text(L10n.Alert.Warning.title),
 					message: Text("Resetting the application will erase all data models from the ML Browser except the demo models. Are you sure you want to proceed?"),
 					primaryButton: .destructive(Text("Restore"), action: {
 						Task {
@@ -216,7 +216,7 @@ struct SettingsForm: View {
 	@ViewBuilder
 	private var debugSection: some View {
 		if AppEnvironment.isAppStoreDistribution.not {
-			Section(header: Text("Debug")) {
+			Section(header: Text(L10n.Settings.Section.debug)) {
 				NavigationLink(destination: SentryStatsView()) {
 					Text(L10n.Settings.Sentry.title)
 				}

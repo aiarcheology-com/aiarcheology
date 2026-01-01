@@ -15,6 +15,10 @@ internal enum L10n {
     internal static let tapOrClick = L10n.tr("Localizable", "action.tap_or_click", fallback: "Tap")
   }
   internal enum Alert {
+    internal enum Error {
+      /// Error
+      internal static let title = L10n.tr("Localizable", "alert.error.title", fallback: "Error")
+    }
     internal enum History {
       internal enum Clear {
         /// Clear the browsing history?
@@ -27,10 +31,18 @@ internal enum L10n {
     }
   }
   internal enum Common {
+    /// Cancel
+    internal static let cancel = L10n.tr("Localizable", "common.cancel", fallback: "Cancel")
     /// Delete
     internal static let delete = L10n.tr("Localizable", "common.delete", fallback: "Delete")
+    /// Dismiss
+    internal static let dismiss = L10n.tr("Localizable", "common.dismiss", fallback: "Dismiss")
     /// Done
     internal static let done = L10n.tr("Localizable", "common.done", fallback: "Done")
+    /// Edit
+    internal static let edit = L10n.tr("Localizable", "common.edit", fallback: "Edit")
+    /// OK
+    internal static let ok = L10n.tr("Localizable", "common.ok", fallback: "OK")
   }
   internal enum History {
     /// Browsing History
@@ -57,6 +69,22 @@ internal enum L10n {
     internal static let title = L10n.tr("Localizable", "models.title", fallback: "Models")
   }
   internal enum Settings {
+    /// About
+    internal static let about = L10n.tr("Localizable", "settings.about", fallback: "About")
+    /// Introduction
+    internal static let introduction = L10n.tr("Localizable", "settings.introduction", fallback: "Introduction")
+    /// Settings
+    internal static let title = L10n.tr("Localizable", "settings.title", fallback: "Settings")
+    internal enum Section {
+      /// Annotation
+      internal static let annotation = L10n.tr("Localizable", "settings.section.annotation", fallback: "Annotation")
+      /// Debug
+      internal static let debug = L10n.tr("Localizable", "settings.section.debug", fallback: "Debug")
+      /// ML Browser
+      internal static let mlBrowser = L10n.tr("Localizable", "settings.section.mlBrowser", fallback: "ML Browser")
+      /// Web Content
+      internal static let webContent = L10n.tr("Localizable", "settings.section.webContent", fallback: "Web Content")
+    }
     internal enum Sentry {
       /// Sentry Stats
       internal static let title = L10n.tr("Localizable", "settings.sentry.title", fallback: "Sentry Stats")

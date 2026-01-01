@@ -103,17 +103,29 @@ enum StringCatalogValidator {
     static var allKeys: [String] {
         [
             "action.tap_or_click",
+            "alert.error.title",
             "alert.history.clear.message",
             "alert.warning.title",
+            "common.cancel",
             "common.delete",
+            "common.dismiss",
             "common.done",
+            "common.edit",
+            "common.ok",
             "history.clear.button",
             "history.clear.title",
             "history.section.title",
             "history.title",
             "items.count",
             "models.title",
-            "settings.sentry.title"
+            "settings.about",
+            "settings.introduction",
+            "settings.section.annotation",
+            "settings.section.debug",
+            "settings.section.mlBrowser",
+            "settings.section.webContent",
+            "settings.sentry.title",
+            "settings.title"
         ]
     }
 
