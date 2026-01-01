@@ -179,6 +179,7 @@
 		A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */; };
 		940A10022F0500010000A002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 940A10012F0500010000A001 /* Localizable.xcstrings */; };
 		940A10052F0500010000A005 /* LocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10042F0500010000A004 /* LocalizationTests.swift */; };
+		940A10082F0500020000A008 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10062F0500020000A006 /* L10n.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -201,6 +202,7 @@
 /* Begin PBXFileReference section */
 		940A10012F0500010000A001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		940A10042F0500010000A004 /* LocalizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTests.swift; sourceTree = "<group>"; };
+		940A10062F0500020000A006 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		8A112CB82ABDE0BB00786384 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
 		8A112CC02AC0757900786384 /* MLBrowser-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "MLBrowser-Info.plist"; sourceTree = SOURCE_ROOT; };
 		8A112CC32AC0852B00786384 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
@@ -482,6 +484,7 @@
 				8A6C2F7C2AB9EC5000AB26D4 /* Persistence */,
 				8AC650AE2B2B9AB300922648 /* Rendering */,
 				940A10032F0500010000A003 /* Resources */,
+				940A10072F0500020000A007 /* Generated */,
 				A1B2C3D42F0104A300000001 /* Services */,
 				8A61C5122AB9A85900BF72BE /* State */,
 				8A61C5112AB9A85400BF72BE /* UI */,
@@ -863,6 +866,14 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		940A10072F0500020000A007 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				940A10062F0500020000A006 /* L10n.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -871,6 +882,7 @@
 			buildConfigurationList = 8AE0BC2A2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowser" */;
 			buildPhases = (
 				946203352F04B4950052CB32 /* SwiftLint (RUN_SWIFTLINT) */,
+				940A10092F0500030000A009 /* SwiftGen (RUN_SWIFTGEN) */,
 				8AE0BBFC2A97B0B30086DDF9 /* Sources */,
 				8AE0BBFD2A97B0B30086DDF9 /* Frameworks */,
 				8AE0BBFE2A97B0B30086DDF9 /* Resources */,
@@ -1045,6 +1057,26 @@
 			shellPath = /bin/sh;
 			shellScript = "# Upload Debug Symbols to Sentry\n\n# Skip on CI - ci_post_xcodebuild.sh handles upload there\nif [[ \"${CI:-}\" == \"TRUE\" ]]; then\n    echo \"Skipping Sentry upload (CI environment)\"\n    exit 0\nfi\n\n# Only upload for Release builds\nif [[ \"${CONFIGURATION}\" != \"Release\" ]]; then\n    echo \"Skipping Sentry upload (${CONFIGURATION} build)\"\n    exit 0\nfi\n\n# Use unified upload script\nSCRIPT_PATH=\"${SRCROOT}/ci_scripts/upload_symbols.sh\"\nif [[ -f \"$SCRIPT_PATH\" ]]; then\n    \"$SCRIPT_PATH\" \"$DWARF_DSYM_FOLDER_PATH\"\nelse\n    echo \"warning: upload_symbols.sh not found at $SCRIPT_PATH\"\nfi\n";
 		};
+		940A10092F0500030000A009 /* SwiftGen (RUN_SWIFTGEN) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/MLBrowser/iOS/Resources/Localizable.xcstrings",
+			);
+			name = "SwiftGen (RUN_SWIFTGEN)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/MLBrowser/iOS/Generated/L10n.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${RUN_SWIFTGEN:-0}\" != \"1\" ]; then\n    echo \"SwiftGen skipped (set RUN_SWIFTGEN=1 in Build Settings)\"\n    exit 0\nfi\n\nSCRIPT_PATH=\"${SRCROOT}/../scripts/swiftgen.sh\"\nif [[ -f \"$SCRIPT_PATH\" ]]; then\n    \"$SCRIPT_PATH\" generate\nelse\n    echo \"warning: swiftgen.sh not found at $SCRIPT_PATH\"\nfi\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -1170,6 +1202,7 @@
 				8AC7CDED2AE7FCED00871074 /* SnapState.swift in Sources */,
 				8AD3A8302B2EFA3E0058E018 /* Annotation.swift in Sources */,
 				8AC650AB2B2B4CCB00922648 /* WebHistory.swift in Sources */,
+				940A10082F0500020000A008 /* L10n.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

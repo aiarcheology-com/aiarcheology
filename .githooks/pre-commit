@@ -10,8 +10,8 @@ if ! command -v swiftlint &>/dev/null; then
   exit 1
 fi
 
-# Only run when Swift files are staged
-STAGED_SWIFT_FILES="$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.swift$' || true)"
+# Only run when Swift files are staged (excluding Generated directories)
+STAGED_SWIFT_FILES="$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.swift$' | grep -v '/Generated/' || true)"
 if [[ -z "${STAGED_SWIFT_FILES}" ]]; then
   exit 0
 fi

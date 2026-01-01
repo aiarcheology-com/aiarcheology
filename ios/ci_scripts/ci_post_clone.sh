@@ -89,19 +89,54 @@ else
         echo "   ✅ SwiftLint ${SWIFTLINT_VERSION} installed"
     fi
 
+    # Fallback: Install SwiftGen via direct download (version from .tools.json)
+    if ! command -v swiftgen &> /dev/null; then
+        echo "   Installing SwiftGen fallback..."
+        SWIFTGEN_VERSION=$(grep -A 10 '"swiftgen"' "$TOOLS_JSON" | grep '"version"' | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+        SWIFTGEN_SHA256=$(grep -A 10 '"swiftgen"' "$TOOLS_JSON" | grep '"sha256"' | sed -E 's/.*"sha256"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+
+        if [[ -z "$SWIFTGEN_VERSION" ]]; then
+            echo "   ❌ Could not extract SwiftGen version from .tools.json"
+            exit 1
+        fi
+
+        curl -fsSL -o /tmp/swiftgen.zip "https://github.com/SwiftGen/SwiftGen/releases/download/${SWIFTGEN_VERSION}/swiftgen-${SWIFTGEN_VERSION}.zip"
+
+        # Verify SHA256 checksum if available
+        if [[ -n "$SWIFTGEN_SHA256" ]]; then
+            echo "   Verifying SHA256 checksum..."
+            ACTUAL_SHA256=$(shasum -a 256 /tmp/swiftgen.zip | awk '{print $1}')
+            if [[ "$ACTUAL_SHA256" != "$SWIFTGEN_SHA256" ]]; then
+                echo "   ❌ SHA256 checksum mismatch!"
+                echo "      Expected: $SWIFTGEN_SHA256"
+                echo "      Actual:   $ACTUAL_SHA256"
+                exit 1
+            fi
+            echo "   ✅ SHA256 checksum verified"
+        else
+            echo "   ⚠️  No SHA256 checksum provided - skipping integrity verification"
+        fi
+
+        unzip -q /tmp/swiftgen.zip -d /tmp/swiftgen
+        cp /tmp/swiftgen/bin/swiftgen /usr/local/bin/swiftgen
+        chmod +x /usr/local/bin/swiftgen
+        rm -rf /tmp/swiftgen /tmp/swiftgen.zip
+        echo "   ✅ SwiftGen ${SWIFTGEN_VERSION} installed"
+    fi
+
     # Fallback: Install sentry-cli via direct download (version from .tools.json)
     if ! command -v sentry-cli &> /dev/null; then
         echo "   Installing sentry-cli fallback..."
         SENTRY_VERSION=$(grep -A 10 '"sentry-cli"' "$TOOLS_JSON" | grep '"version"' | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
         SENTRY_SHA256=$(grep -A 10 '"sentry-cli"' "$TOOLS_JSON" | grep '"sha256"' | sed -E 's/.*"sha256"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
-        
+
         if [[ -z "$SENTRY_VERSION" ]]; then
             echo "   ❌ Could not extract sentry-cli version from .tools.json"
             exit 1
         fi
-        
+
         curl -fsSL -o /usr/local/bin/sentry-cli "https://github.com/getsentry/sentry-cli/releases/download/${SENTRY_VERSION}/sentry-cli-Darwin-universal"
-        
+
         # Verify SHA256 checksum if available
         if [[ -n "$SENTRY_SHA256" ]]; then
             echo "   Verifying SHA256 checksum..."
@@ -117,7 +152,7 @@ else
         else
             echo "   ⚠️  No SHA256 checksum provided - skipping integrity verification"
         fi
-        
+
         chmod +x /usr/local/bin/sentry-cli
         echo "   ✅ sentry-cli ${SENTRY_VERSION} installed"
     fi
@@ -127,6 +162,7 @@ fi
 echo ""
 echo "📋 Verifying tool availability..."
 echo "   swiftlint: $(swiftlint version 2>/dev/null || echo 'not installed')"
+echo "   swiftgen: $(swiftgen --version 2>/dev/null || echo 'not installed')"
 echo "   sentry-cli: $(sentry-cli --version 2>/dev/null || echo 'not installed')"
 
 echo ""
