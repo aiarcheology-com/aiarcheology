@@ -43,16 +43,29 @@ struct GitSetup: ParsableCommand {
     )
 
     func run() throws {
+        // 1. Set --assume-unchanged for CoreData model file
         let filePath = "./ios/MLBrowser/iOS/Persistence/MLBrowser.xcdatamodeld/MLBrowser.xcdatamodel/contents"
-        let arguments = ["update-index", "--assume-unchanged", filePath]
-        
-        let status = try runShellCommand("git", arguments: arguments)
+        let assumeUnchangedArgs = ["update-index", "--assume-unchanged", filePath]
 
-        if status == 0 {
-            print("✅ Git **--assume-unchanged** set for:\n   \(filePath)")
+        let status1 = try runShellCommand("git", arguments: assumeUnchangedArgs)
+
+        if status1 == 0 {
+            print("✅ Git --assume-unchanged set for:\n   \(filePath)")
         } else {
-            print("❌ Failed to set **--assume-unchanged** (Exit Code: \(status))")
-            throw ExitCode(status)
+            print("❌ Failed to set --assume-unchanged (Exit Code: \(status1))")
+            throw ExitCode(status1)
+        }
+
+        // 2. Configure git to use .githooks directory for hooks
+        let hooksPathArgs = ["config", "core.hooksPath", ".githooks"]
+
+        let status2 = try runShellCommand("git", arguments: hooksPathArgs)
+
+        if status2 == 0 {
+            print("✅ Git hooks path set to: .githooks/")
+        } else {
+            print("❌ Failed to set hooks path (Exit Code: \(status2))")
+            throw ExitCode(status2)
         }
     }
 }

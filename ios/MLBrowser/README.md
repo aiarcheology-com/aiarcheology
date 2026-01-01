@@ -42,13 +42,19 @@ swift run --package-path Tools ProjectTool setup
 ```
 
 What it does:
-- **Marks the CoreData model contents file as “assume unchanged”** to prevent noisy diffs when Xcode rewrites it:
+- **Marks the CoreData model contents file as "assume unchanged"** to prevent noisy diffs when Xcode rewrites it:
   - `ios/MLBrowser/iOS/Persistence/MLBrowser.xcdatamodeld/MLBrowser.xcdatamodel/contents`
+- **Configures git to use `.githooks/` for hooks** (enables SwiftLint pre-commit validation):
+  - `git config core.hooksPath .githooks`
 
-If you ever need to undo this manually:
+If you ever need to undo these manually:
 
 ```bash
+# Re-enable tracking for CoreData model
 git update-index --no-assume-unchanged ios/MLBrowser/iOS/Persistence/MLBrowser.xcdatamodeld/MLBrowser.xcdatamodel/contents
+
+# Reset hooks path to default
+git config --unset core.hooksPath
 ```
 
 ### `cleanup` — remove SwiftPM build artifacts (local)
