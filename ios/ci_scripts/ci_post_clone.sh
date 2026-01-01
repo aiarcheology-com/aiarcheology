@@ -10,6 +10,12 @@ set -eo pipefail
 
 echo "🔧 Running ci_post_clone.sh..."
 
+# --- Ensure PATH includes common binary locations ---
+# Xcode Cloud may use Intel (/usr/local/bin) or Apple Silicon (/opt/homebrew/bin)
+# ProjectTool installs to /usr/local/bin by default
+export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+echo "   PATH configured for Intel and Apple Silicon compatibility"
+
 # --- Disable Xcode package plugin + macro validation ---
 # Only do this on Xcode Cloud (avoid mutating local developer machines if run manually)
 if [[ -z "${CI_PRIMARY_REPOSITORY_PATH:-}" ]]; then
@@ -40,21 +46,25 @@ if swift run --package-path Tools ProjectTool setup --install; then
 else
     echo "   ⚠️  ProjectTool setup failed, attempting manual fallback..."
 
-    # Fallback: Install SwiftLint manually
+    # Fallback: Install SwiftLint via direct download (pinned version)
     if ! command -v swiftlint &> /dev/null; then
-        if command -v brew &> /dev/null; then
-            brew install swiftlint || echo "   ⚠️  SwiftLint installation failed"
-        fi
+        echo "   Installing SwiftLint fallback..."
+        SWIFTLINT_VERSION="0.62.2"
+        curl -fsSL -o /tmp/swiftlint.zip "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip"
+        unzip -q /tmp/swiftlint.zip -d /tmp/swiftlint
+        cp /tmp/swiftlint/swiftlint /usr/local/bin/swiftlint
+        chmod +x /usr/local/bin/swiftlint
+        rm -rf /tmp/swiftlint /tmp/swiftlint.zip
+        echo "   ✅ SwiftLint ${SWIFTLINT_VERSION} installed"
     fi
 
-    # Fallback: Install sentry-cli manually (with curl fallback)
+    # Fallback: Install sentry-cli via direct download (pinned version)
     if ! command -v sentry-cli &> /dev/null; then
-        if command -v brew &> /dev/null; then
-            brew install getsentry/tools/sentry-cli || \
-                curl -sL https://sentry.io/get-cli/ | INSTALL_DIR=/usr/local/bin bash
-        else
-            curl -sL https://sentry.io/get-cli/ | INSTALL_DIR=/usr/local/bin bash
-        fi
+        echo "   Installing sentry-cli fallback..."
+        SENTRY_VERSION="2.58.2"
+        curl -fsSL -o /usr/local/bin/sentry-cli "https://github.com/getsentry/sentry-cli/releases/download/${SENTRY_VERSION}/sentry-cli-Darwin-universal"
+        chmod +x /usr/local/bin/sentry-cli
+        echo "   ✅ sentry-cli ${SENTRY_VERSION} installed"
     fi
 fi
 

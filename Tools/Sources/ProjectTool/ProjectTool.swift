@@ -42,7 +42,7 @@ struct GitSetup: ParsableCommand {
         abstract: "Performs project setup: validates/installs tools and configures git."
     )
 
-    @Flag(name: .long, help: "Install missing tools via Homebrew")
+    @Flag(name: .long, help: "Install missing or outdated tools (downloads exact pinned versions)")
     var install: Bool = false
 
     /// Check if running in CI environment
@@ -109,7 +109,7 @@ struct GitSetup: ParsableCommand {
                 }
 
                 for (name, spec, _) in outdatedTools {
-                    try ToolsManager.upgradeTool(name: name, spec: spec)
+                    try ToolsManager.installTool(name: name, spec: spec)
                 }
 
                 // Re-check after installation

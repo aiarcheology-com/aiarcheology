@@ -24,7 +24,7 @@ open ios/MLBrowser.xcworkspace
 
 ## 📦 Required Tools
 
-Tool versions are pinned in `.tools.json` at the repository root. This ensures consistent tooling across all developers and CI.
+Tool versions are **strictly pinned** in `.tools.json` at the repository root. This ensures identical tooling across all developers and CI by downloading exact versions from GitHub releases.
 
 | Tool | Purpose |
 |------|---------|
@@ -36,6 +36,14 @@ To check your current tool versions:
 ```bash
 swift run --package-path Tools ProjectTool setup
 ```
+
+To install/update tools to the pinned versions:
+
+```bash
+swift run --package-path Tools ProjectTool setup --install
+```
+
+Tools are installed to `/usr/local/bin`.
 
 ## 🧰 ProjectTool (all available commands)
 
@@ -66,7 +74,7 @@ What it does:
 1. **Validates required tools** from `.tools.json`:
    - Checks if tools are installed
    - Verifies versions match pinned versions
-   - With `--install`: installs missing tools via Homebrew
+   - With `--install`: downloads and installs exact pinned versions from GitHub releases
 
 2. **Configures git** (skipped in CI environments):
    - Marks the CoreData model contents file as "assume unchanged" to prevent noisy diffs
