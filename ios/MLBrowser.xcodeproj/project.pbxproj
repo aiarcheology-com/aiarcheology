@@ -177,6 +177,8 @@
 		9A0C1EAA2F3D00020000000A /* SentryBreadcrumbGuardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D00010000000A /* SentryBreadcrumbGuardTests.swift */; };
 		A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */; };
 		A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */; };
+		940A10022F0500010000A002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 940A10012F0500010000A001 /* Localizable.xcstrings */; };
+		940A10052F0500010000A005 /* LocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10042F0500010000A004 /* LocalizationTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -197,6 +199,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		940A10012F0500010000A001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		940A10042F0500010000A004 /* LocalizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTests.swift; sourceTree = "<group>"; };
 		8A112CB82ABDE0BB00786384 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
 		8A112CC02AC0757900786384 /* MLBrowser-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "MLBrowser-Info.plist"; sourceTree = SOURCE_ROOT; };
 		8A112CC32AC0852B00786384 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
@@ -477,6 +481,7 @@
 				8A1D49AD2ABB878F00C2D7C1 /* Gallery */,
 				8A6C2F7C2AB9EC5000AB26D4 /* Persistence */,
 				8AC650AE2B2B9AB300922648 /* Rendering */,
+				940A10032F0500010000A003 /* Resources */,
 				A1B2C3D42F0104A300000001 /* Services */,
 				8A61C5122AB9A85900BF72BE /* State */,
 				8A61C5112AB9A85400BF72BE /* UI */,
@@ -733,6 +738,7 @@
 				94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */,
 				942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */,
 				94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */,
+				940A10042F0500010000A004 /* LocalizationTests.swift */,
 				94929E842ED65555001A4C63 /* LowerPriorityTests.swift */,
 				94D79C912EE37DBF0027C9FA /* NSManagedObjectExtensionsTests.swift */,
 				94FFB9D72EE6603B0049A549 /* ObservabilityTests.swift */,
@@ -849,6 +855,14 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
+		940A10032F0500010000A003 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				940A10012F0500010000A001 /* Localizable.xcstrings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -944,6 +958,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				de,
 				Base,
 			);
 			mainGroup = 8AE0BBF72A97B0B30086DDF9;
@@ -967,6 +982,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				940A10022F0500010000A002 /* Localizable.xcstrings in Resources */,
 				8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */,
 				8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */,
 				942B1DDB2EA66353005455F9 /* README.md in Resources */,
@@ -1192,6 +1208,7 @@
 				945C55822ED71234007DD8FB /* StringExtensionsTests.swift in Sources */,
 				945C55842ED71234007DD8FB /* SettingsTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
+				940A10052F0500010000A005 /* LocalizationTests.swift in Sources */,
 				94929E772ED633C1001A4C63 /* DeepDriversTests.swift in Sources */,
 				94FFB9D82EE6603B0049A549 /* ObservabilityTests.swift in Sources */,
 				9A0C1EAA2F3D000200000006 /* SentryEventSignatureTests.swift in Sources */,
