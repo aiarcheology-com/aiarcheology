@@ -34,7 +34,7 @@ struct GalleryScreen: @MainActor Screen {
 		} else {
 			Image(systemName: "rectangle.grid.2x2").environment(\.symbolVariants, .none)
 		}
-		Text("Examples")
+		Text(L10n.Tab.examples)
 	}
 }
 

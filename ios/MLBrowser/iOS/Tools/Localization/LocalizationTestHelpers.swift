@@ -105,6 +105,7 @@ enum StringCatalogValidator {
             "action.tap_or_click",
             "alert.error.title",
             "alert.history.clear.message",
+            "alert.history.full.message",
             "alert.warning.title",
             "common.cancel",
             "common.delete",
@@ -117,6 +118,9 @@ enum StringCatalogValidator {
             "history.section.title",
             "history.title",
             "items.count",
+            "models.available.title",
+            "models.empty.message",
+            "models.empty.title",
             "models.title",
             "settings.about",
             "settings.introduction",
@@ -125,7 +129,9 @@ enum StringCatalogValidator {
             "settings.section.mlBrowser",
             "settings.section.webContent",
             "settings.sentry.title",
-            "settings.title"
+            "settings.title",
+            "tab.examples",
+            "tab.web"
         ]
     }
 

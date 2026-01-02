@@ -24,6 +24,10 @@ internal enum L10n {
         /// Clear the browsing history?
         internal static let message = L10n.tr("Localizable", "alert.history.clear.message", fallback: "Clear the browsing history?")
       }
+      internal enum Full {
+        /// Browsing history is full. Increase the web browsing history size in Settings, or delete some existing entries from the history.
+        internal static let message = L10n.tr("Localizable", "alert.history.full.message", fallback: "Browsing history is full. Increase the web browsing history size in Settings, or delete some existing entries from the history.")
+      }
     }
     internal enum Warning {
       /// Warning
@@ -67,6 +71,16 @@ internal enum L10n {
   internal enum Models {
     /// Models
     internal static let title = L10n.tr("Localizable", "models.title", fallback: "Models")
+    internal enum Available {
+      /// Available Models
+      internal static let title = L10n.tr("Localizable", "models.available.title", fallback: "Available Models")
+    }
+    internal enum Empty {
+      /// Tap the + button to add your first ML model.
+      internal static let message = L10n.tr("Localizable", "models.empty.message", fallback: "Tap the + button to add your first ML model.")
+      /// No Models
+      internal static let title = L10n.tr("Localizable", "models.empty.title", fallback: "No Models")
+    }
   }
   internal enum Settings {
     /// About
@@ -89,6 +103,12 @@ internal enum L10n {
       /// Sentry Stats
       internal static let title = L10n.tr("Localizable", "settings.sentry.title", fallback: "Sentry Stats")
     }
+  }
+  internal enum Tab {
+    /// Examples
+    internal static let examples = L10n.tr("Localizable", "tab.examples", fallback: "Examples")
+    /// Web
+    internal static let web = L10n.tr("Localizable", "tab.web", fallback: "Web")
   }
 }
 // swiftlint:enable explicit_type_interface function_parameter_count identifier_name line_length

@@ -492,6 +492,114 @@
           }
         }
       }
+    },
+    "tab.web" : {
+      "comment" : "Tab label for web browser screen",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Web"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Web"
+          }
+        }
+      }
+    },
+    "tab.examples" : {
+      "comment" : "Tab label for examples/gallery screen",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beispiele"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Examples"
+          }
+        }
+      }
+    },
+    "models.empty.title" : {
+      "comment" : "Title shown when no ML models are available",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine Modelle"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Models"
+          }
+        }
+      }
+    },
+    "models.empty.message" : {
+      "comment" : "Message shown when no ML models are available",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tippen Sie auf die + Schaltfläche, um Ihr erstes ML-Modell hinzuzufügen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the + button to add your first ML model."
+          }
+        }
+      }
+    },
+    "models.available.title" : {
+      "comment" : "Section header for available ML models list",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verfügbare Modelle"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available Models"
+          }
+        }
+      }
+    },
+    "alert.history.full.message" : {
+      "comment" : "Alert message when browsing history is full",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Browserverlauf ist voll. Erhöhen Sie die Größe des Browserverlaufs in den Einstellungen oder löschen Sie einige vorhandene Einträge."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Browsing history is full. Increase the web browsing history size in Settings, or delete some existing entries from the history."
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
