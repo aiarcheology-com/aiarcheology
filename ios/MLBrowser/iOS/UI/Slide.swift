@@ -25,19 +25,20 @@ struct Slide {
 
 struct SlideshowView: View {
 	@EnvironmentObject var settings: Settings
-	private let slides: [Slide] = [
-
-		Slide(imageName: "AppLogo", title: "Welcome to ML Browser", description: "The application combines the browsing experience with assisted object detection within web content.", showButton: true, ratio: 0.4, arrows: [.right]),
-		Slide(imageName: "slide0", title: "Open a Web Page", description: "You can open any web page, similar to how you would in a web browser, with content you wish to test using your object detection model."),
-		Slide(imageName: "slide1", title: "Pick an page from the browsing history", description: "Start to write in the address bar and you will see pages from your history."),
-		Slide(imageName: "slide2", title: "Add a New Model", description: "The application is capable of working with Create ML detection models. Click the processor icon in the top left corner, and then plus sign to add a new model."),
-		Slide(imageName: "slide3", title: "Open the Model from the device, or download it.", description: "You can download any Create ML detection model to your Apple device and load it into the ML Browser app. The ML Browser does not send your model anywhere, or collect information. The model is used only for the annotations."),
-		Slide(imageName: "slide4", title: "Activate the Models", description: "In this menu on the left, you can activate any detection model. These detectors work simultaneously on the same web page content."),
-		Slide(imageName: "slide5", title: "Change the Model's Annotation Options", description: "When you select a model from the left menu, you can adjust various annotation options."),
-		Slide(imageName: "slide6", title: "Adjust Screen Image Properties", description: "In some cases, you can aid the detector by altering the browser's rendering properties, such as brightness and contrast."),
-		Slide(imageName: "slide7", title: "Hit the Play Button", description: "After hitting the button, the detectors start to label the web content."),
-		Slide(imageName: "slide8", title: "Annotation", description: "Now, you can browse your favorite web content and look for features that your detection model might recognize.", showButton: true, arrows: [.left])
-	]
+	private var slides: [Slide] {
+		[
+			Slide(imageName: "AppLogo", title: L10n.Slideshow.Slide0.title, description: L10n.Slideshow.Slide0.description, showButton: true, ratio: 0.4, arrows: [.right]),
+			Slide(imageName: "slide0", title: L10n.Slideshow.Slide1.title, description: L10n.Slideshow.Slide1.description),
+			Slide(imageName: "slide1", title: L10n.Slideshow.Slide2.title, description: L10n.Slideshow.Slide2.description),
+			Slide(imageName: "slide2", title: L10n.Slideshow.Slide3.title, description: L10n.Slideshow.Slide3.description),
+			Slide(imageName: "slide3", title: L10n.Slideshow.Slide4.title, description: L10n.Slideshow.Slide4.description),
+			Slide(imageName: "slide4", title: L10n.Slideshow.Slide5.title, description: L10n.Slideshow.Slide5.description),
+			Slide(imageName: "slide5", title: L10n.Slideshow.Slide6.title, description: L10n.Slideshow.Slide6.description),
+			Slide(imageName: "slide6", title: L10n.Slideshow.Slide7.title, description: L10n.Slideshow.Slide7.description),
+			Slide(imageName: "slide7", title: L10n.Slideshow.Slide8.title, description: L10n.Slideshow.Slide8.description),
+			Slide(imageName: "slide8", title: L10n.Slideshow.Slide9.title, description: L10n.Slideshow.Slide9.description, showButton: true, arrows: [.left])
+		]
+	}
 
 	var body: some View {
 		GeometryReader { geometry in

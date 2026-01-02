@@ -155,7 +155,7 @@ struct ConfigurationForm: View {
 			LabeledSlider(label: L10n.Configuration.fadeOutTime, value: $configuration.phaseOutTime, range: 0.2...10)
 			Picker(L10n.Configuration.symbol, selection: $configuration.selectedSymbol) {
 				ForEach(AnnotationSymbol.allCases) { symbol in
-					Text(symbol.rawValue).tag(symbol)
+					Text(symbol.localizedName).tag(symbol)
 				}
 			}
 			.testability(Testability.Picker.configurationFormSymbol)

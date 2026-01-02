@@ -62,13 +62,20 @@ func convert(inputPath: String, outputPath: String) throws {
     let catalog = try JSONDecoder().decode(StringCatalog.self, from: data)
 
     var output = ""
+    var count = 0
     let sourceLanguage = catalog.sourceLanguage
 
     for (key, entry) in catalog.strings.sorted(by: { $0.key < $1.key }) {
+        // Skip auto-extracted entries (only include manually added ones)
+        guard entry.extractionState == "manual" else {
+            continue
+        }
+
         guard let localizations = entry.localizations,
               let localization = localizations[sourceLanguage] else {
             // Fallback: use key as value
             output += "\"\(escapeForStringsFile(key))\" = \"\(escapeForStringsFile(key))\";\n"
+            count += 1
             continue
         }
 
@@ -76,6 +83,7 @@ func convert(inputPath: String, outputPath: String) throws {
         if let stringUnit = localization.stringUnit {
             let value = stringUnit.value
             output += "\"\(escapeForStringsFile(key))\" = \"\(escapeForStringsFile(value))\";\n"
+            count += 1
         }
         // Handle variations (plurals, device variants)
         else if let variations = localization.variations {
@@ -85,6 +93,7 @@ func convert(inputPath: String, outputPath: String) throws {
                let stringUnit = other.stringUnit {
                 let value = stringUnit.value
                 output += "\"\(escapeForStringsFile(key))\" = \"\(escapeForStringsFile(value))\";\n"
+                count += 1
             }
             // For device variants, use "other" as default
             else if let device = variations.device,
@@ -92,20 +101,23 @@ func convert(inputPath: String, outputPath: String) throws {
                     let stringUnit = other.stringUnit {
                 let value = stringUnit.value
                 output += "\"\(escapeForStringsFile(key))\" = \"\(escapeForStringsFile(value))\";\n"
+                count += 1
             } else {
                 // Fallback to key
                 output += "\"\(escapeForStringsFile(key))\" = \"\(escapeForStringsFile(key))\";\n"
+                count += 1
             }
         } else {
             // Fallback to key
             output += "\"\(escapeForStringsFile(key))\" = \"\(escapeForStringsFile(key))\";\n"
+            count += 1
         }
     }
 
     let outputURL = URL(fileURLWithPath: outputPath)
     try output.write(to: outputURL, atomically: true, encoding: .utf8)
 
-    fputs("Converted \(catalog.strings.count) strings to \(outputPath)\n", stderr)
+    fputs("Converted \(count) strings to \(outputPath)\n", stderr)
 }
 
 // MARK: - Main

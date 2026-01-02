@@ -142,6 +142,24 @@ internal enum L10n {
     /// Provide a valid address pointing to a Create ML detection model (.mlmodel)
     internal static let urlHint = L10n.tr("Localizable", "download.urlHint", fallback: "Provide a valid address pointing to a Create ML detection model (.mlmodel)")
   }
+  internal enum DownloadState {
+    /// Cancelled
+    internal static let cancelled = L10n.tr("Localizable", "downloadState.cancelled", fallback: "Cancelled")
+    /// Complete
+    internal static let complete = L10n.tr("Localizable", "downloadState.complete", fallback: "Complete")
+    /// Downloading
+    internal static let downloading = L10n.tr("Localizable", "downloadState.downloading", fallback: "Downloading")
+    /// Failed
+    internal static let failed = L10n.tr("Localizable", "downloadState.failed", fallback: "Failed")
+    /// Imported
+    internal static let imported = L10n.tr("Localizable", "downloadState.imported", fallback: "Imported")
+    /// Import failed
+    internal static let importFailed = L10n.tr("Localizable", "downloadState.importFailed", fallback: "Import failed")
+    /// Not started
+    internal static let notStarted = L10n.tr("Localizable", "downloadState.notStarted", fallback: "Not started")
+    /// Paused
+    internal static let paused = L10n.tr("Localizable", "downloadState.paused", fallback: "Paused")
+  }
   internal enum History {
     /// Browsing History
     internal static let title = L10n.tr("Localizable", "history.title", fallback: "Browsing History")
@@ -261,6 +279,76 @@ internal enum L10n {
       /// Sentry Stats
       internal static let title = L10n.tr("Localizable", "settings.sentry.title", fallback: "Sentry Stats")
     }
+  }
+  internal enum Slideshow {
+    internal enum Slide0 {
+      /// The application combines the browsing experience with assisted object detection within web content.
+      internal static let description = L10n.tr("Localizable", "slideshow.slide0.description", fallback: "The application combines the browsing experience with assisted object detection within web content.")
+      /// Welcome to ML Browser
+      internal static let title = L10n.tr("Localizable", "slideshow.slide0.title", fallback: "Welcome to ML Browser")
+    }
+    internal enum Slide1 {
+      /// You can open any web page, similar to how you would in a web browser, with content you wish to test using your object detection model.
+      internal static let description = L10n.tr("Localizable", "slideshow.slide1.description", fallback: "You can open any web page, similar to how you would in a web browser, with content you wish to test using your object detection model.")
+      /// Open a Web Page
+      internal static let title = L10n.tr("Localizable", "slideshow.slide1.title", fallback: "Open a Web Page")
+    }
+    internal enum Slide2 {
+      /// Start to write in the address bar and you will see pages from your history.
+      internal static let description = L10n.tr("Localizable", "slideshow.slide2.description", fallback: "Start to write in the address bar and you will see pages from your history.")
+      /// Pick a page from the browsing history
+      internal static let title = L10n.tr("Localizable", "slideshow.slide2.title", fallback: "Pick a page from the browsing history")
+    }
+    internal enum Slide3 {
+      /// The application is capable of working with Create ML detection models. Click the processor icon in the top left corner, and then plus sign to add a new model.
+      internal static let description = L10n.tr("Localizable", "slideshow.slide3.description", fallback: "The application is capable of working with Create ML detection models. Click the processor icon in the top left corner, and then plus sign to add a new model.")
+      /// Add a New Model
+      internal static let title = L10n.tr("Localizable", "slideshow.slide3.title", fallback: "Add a New Model")
+    }
+    internal enum Slide4 {
+      /// You can download any Create ML detection model to your Apple device and load it into the ML Browser app. The ML Browser does not send your model anywhere, or collect information. The model is used only for the annotations.
+      internal static let description = L10n.tr("Localizable", "slideshow.slide4.description", fallback: "You can download any Create ML detection model to your Apple device and load it into the ML Browser app. The ML Browser does not send your model anywhere, or collect information. The model is used only for the annotations.")
+      /// Open the Model from the device, or download it.
+      internal static let title = L10n.tr("Localizable", "slideshow.slide4.title", fallback: "Open the Model from the device, or download it.")
+    }
+    internal enum Slide5 {
+      /// In this menu on the left, you can activate any detection model. These detectors work simultaneously on the same web page content.
+      internal static let description = L10n.tr("Localizable", "slideshow.slide5.description", fallback: "In this menu on the left, you can activate any detection model. These detectors work simultaneously on the same web page content.")
+      /// Activate the Models
+      internal static let title = L10n.tr("Localizable", "slideshow.slide5.title", fallback: "Activate the Models")
+    }
+    internal enum Slide6 {
+      /// When you select a model from the left menu, you can adjust various annotation options.
+      internal static let description = L10n.tr("Localizable", "slideshow.slide6.description", fallback: "When you select a model from the left menu, you can adjust various annotation options.")
+      /// Change the Model's Annotation Options
+      internal static let title = L10n.tr("Localizable", "slideshow.slide6.title", fallback: "Change the Model's Annotation Options")
+    }
+    internal enum Slide7 {
+      /// In some cases, you can aid the detector by altering the browser's rendering properties, such as brightness and contrast.
+      internal static let description = L10n.tr("Localizable", "slideshow.slide7.description", fallback: "In some cases, you can aid the detector by altering the browser's rendering properties, such as brightness and contrast.")
+      /// Adjust Screen Image Properties
+      internal static let title = L10n.tr("Localizable", "slideshow.slide7.title", fallback: "Adjust Screen Image Properties")
+    }
+    internal enum Slide8 {
+      /// After hitting the button, the detectors start to label the web content.
+      internal static let description = L10n.tr("Localizable", "slideshow.slide8.description", fallback: "After hitting the button, the detectors start to label the web content.")
+      /// Hit the Play Button
+      internal static let title = L10n.tr("Localizable", "slideshow.slide8.title", fallback: "Hit the Play Button")
+    }
+    internal enum Slide9 {
+      /// Now, you can browse your favorite web content and look for features that your detection model might recognize.
+      internal static let description = L10n.tr("Localizable", "slideshow.slide9.description", fallback: "Now, you can browse your favorite web content and look for features that your detection model might recognize.")
+      /// Annotation
+      internal static let title = L10n.tr("Localizable", "slideshow.slide9.title", fallback: "Annotation")
+    }
+  }
+  internal enum Symbol {
+    /// Circle
+    internal static let circle = L10n.tr("Localizable", "symbol.circle", fallback: "Circle")
+    /// Point
+    internal static let point = L10n.tr("Localizable", "symbol.point", fallback: "Point")
+    /// Square
+    internal static let square = L10n.tr("Localizable", "symbol.square", fallback: "Square")
   }
   internal enum Tab {
     /// Examples

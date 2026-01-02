@@ -1,6 +1,31 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "" : {
+
+    },
+    " %@|" : {
+
+    },
+    "/ %@" : {
+
+    },
+    "%.2f" : {
+
+    },
+    "%lld second%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld second%2$@"
+          }
+        }
+      }
+    },
+    "0-100" : {
+
+    },
     "about.copyright" : {
       "comment" : "Copyright notice in about screen",
       "extractionState" : "manual",
@@ -168,6 +193,9 @@
           }
         }
       }
+    },
+    "Add Model" : {
+
     },
     "adjustment.brightness" : {
       "comment" : "Brightness slider label",
@@ -817,6 +845,150 @@
         }
       }
     },
+    "downloadState.cancelled" : {
+      "comment" : "Download state: cancelled",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abgebrochen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelled"
+          }
+        }
+      }
+    },
+    "downloadState.complete" : {
+      "comment" : "Download state: complete",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abgeschlossen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Complete"
+          }
+        }
+      }
+    },
+    "downloadState.downloading" : {
+      "comment" : "Download state: downloading",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird heruntergeladen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloading"
+          }
+        }
+      }
+    },
+    "downloadState.failed" : {
+      "comment" : "Download state: failed",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fehlgeschlagen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed"
+          }
+        }
+      }
+    },
+    "downloadState.importFailed" : {
+      "comment" : "Download state: import failed",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import fehlgeschlagen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import failed"
+          }
+        }
+      }
+    },
+    "downloadState.imported" : {
+      "comment" : "Download state: imported",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importiert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported"
+          }
+        }
+      }
+    },
+    "downloadState.notStarted" : {
+      "comment" : "Download state: not started",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht gestartet"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not started"
+          }
+        }
+      }
+    },
+    "downloadState.paused" : {
+      "comment" : "Download state: paused",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pausiert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused"
+          }
+        }
+      }
+    },
     "download.error" : {
       "comment" : "Error status label",
       "extractionState" : "manual",
@@ -907,6 +1079,9 @@
         }
       }
     },
+    "Help" : {
+
+    },
     "history.clear.button" : {
       "comment" : "Button text to clear history",
       "extractionState" : "manual",
@@ -978,6 +1153,9 @@
           }
         }
       }
+    },
+    "https://.../mymodel.mlmodel" : {
+
     },
     "import.appleDocumentation" : {
       "comment" : "Link to Apple Create ML documentation",
@@ -1303,6 +1481,12 @@
         }
       }
     },
+    "Loading..." : {
+
+    },
+    "Model Imported" : {
+
+    },
     "models.available.title" : {
       "comment" : "Section header for available ML models list",
       "extractionState" : "manual",
@@ -1374,6 +1558,9 @@
           }
         }
       }
+    },
+    "Search or enter any website name" : {
+
     },
     "sentry.config" : {
       "comment" : "Config section header in Sentry stats",
@@ -1771,6 +1958,420 @@
         }
       }
     },
+    "slideshow.slide0.description" : {
+      "comment" : "Slideshow slide 0 description - Welcome",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Anwendung kombiniert das Browser-Erlebnis mit unterstützter Objekterkennung in Webinhalten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The application combines the browsing experience with assisted object detection within web content."
+          }
+        }
+      }
+    },
+    "slideshow.slide0.title" : {
+      "comment" : "Slideshow slide 0 title - Welcome",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Willkommen bei ML Browser"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Welcome to ML Browser"
+          }
+        }
+      }
+    },
+    "slideshow.slide1.description" : {
+      "comment" : "Slideshow slide 1 description - Open a Web Page",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sie können jede Webseite öffnen, ähnlich wie in einem Webbrowser, mit Inhalten, die Sie mit Ihrem Objekterkennungsmodell testen möchten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can open any web page, similar to how you would in a web browser, with content you wish to test using your object detection model."
+          }
+        }
+      }
+    },
+    "slideshow.slide1.title" : {
+      "comment" : "Slideshow slide 1 title - Open a Web Page",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Webseite öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open a Web Page"
+          }
+        }
+      }
+    },
+    "slideshow.slide2.description" : {
+      "comment" : "Slideshow slide 2 description - Pick from history",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beginnen Sie mit der Eingabe in der Adressleiste und Sie sehen Seiten aus Ihrem Verlauf."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start to write in the address bar and you will see pages from your history."
+          }
+        }
+      }
+    },
+    "slideshow.slide2.title" : {
+      "comment" : "Slideshow slide 2 title - Pick from history",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seite aus dem Verlauf auswählen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pick a page from the browsing history"
+          }
+        }
+      }
+    },
+    "slideshow.slide3.description" : {
+      "comment" : "Slideshow slide 3 description - Add a New Model",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Anwendung kann mit Create ML Erkennungsmodellen arbeiten. Klicken Sie auf das Prozessor-Symbol oben links und dann auf das Pluszeichen, um ein neues Modell hinzuzufügen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The application is capable of working with Create ML detection models. Click the processor icon in the top left corner, and then plus sign to add a new model."
+          }
+        }
+      }
+    },
+    "slideshow.slide3.title" : {
+      "comment" : "Slideshow slide 3 title - Add a New Model",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ein neues Modell hinzufügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a New Model"
+          }
+        }
+      }
+    },
+    "slideshow.slide4.description" : {
+      "comment" : "Slideshow slide 4 description - Open or download model",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sie können jedes Create ML Erkennungsmodell auf Ihr Apple-Gerät herunterladen und in die ML Browser App laden. Der ML Browser sendet Ihr Modell nirgendwohin und sammelt keine Informationen. Das Modell wird nur für die Annotationen verwendet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can download any Create ML detection model to your Apple device and load it into the ML Browser app. The ML Browser does not send your model anywhere, or collect information. The model is used only for the annotations."
+          }
+        }
+      }
+    },
+    "slideshow.slide4.title" : {
+      "comment" : "Slideshow slide 4 title - Open or download model",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Modell vom Gerät öffnen oder herunterladen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the Model from the device, or download it."
+          }
+        }
+      }
+    },
+    "slideshow.slide5.description" : {
+      "comment" : "Slideshow slide 5 description - Activate Models",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In diesem Menü auf der linken Seite können Sie jedes Erkennungsmodell aktivieren. Diese Detektoren arbeiten gleichzeitig auf demselben Webseiteninhalt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In this menu on the left, you can activate any detection model. These detectors work simultaneously on the same web page content."
+          }
+        }
+      }
+    },
+    "slideshow.slide5.title" : {
+      "comment" : "Slideshow slide 5 title - Activate Models",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Modelle aktivieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activate the Models"
+          }
+        }
+      }
+    },
+    "slideshow.slide6.description" : {
+      "comment" : "Slideshow slide 6 description - Annotation Options",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn Sie ein Modell aus dem linken Menü auswählen, können Sie verschiedene Annotationsoptionen anpassen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When you select a model from the left menu, you can adjust various annotation options."
+          }
+        }
+      }
+    },
+    "slideshow.slide6.title" : {
+      "comment" : "Slideshow slide 6 title - Annotation Options",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Annotationsoptionen des Modells ändern"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change the Model's Annotation Options"
+          }
+        }
+      }
+    },
+    "slideshow.slide7.description" : {
+      "comment" : "Slideshow slide 7 description - Image Properties",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In einigen Fällen können Sie dem Detektor helfen, indem Sie die Rendering-Eigenschaften des Browsers wie Helligkeit und Kontrast ändern."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In some cases, you can aid the detector by altering the browser's rendering properties, such as brightness and contrast."
+          }
+        }
+      }
+    },
+    "slideshow.slide7.title" : {
+      "comment" : "Slideshow slide 7 title - Image Properties",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bildschirm-Bildeigenschaften anpassen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adjust Screen Image Properties"
+          }
+        }
+      }
+    },
+    "slideshow.slide8.description" : {
+      "comment" : "Slideshow slide 8 description - Play Button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nachdem Sie die Taste gedrückt haben, beginnen die Detektoren, den Webinhalt zu beschriften."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After hitting the button, the detectors start to label the web content."
+          }
+        }
+      }
+    },
+    "slideshow.slide8.title" : {
+      "comment" : "Slideshow slide 8 title - Play Button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Play-Taste drücken"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hit the Play Button"
+          }
+        }
+      }
+    },
+    "slideshow.slide9.description" : {
+      "comment" : "Slideshow slide 9 description - Annotation",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jetzt können Sie Ihre bevorzugten Webinhalte durchsuchen und nach Merkmalen suchen, die Ihr Erkennungsmodell möglicherweise erkennt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now, you can browse your favorite web content and look for features that your detection model might recognize."
+          }
+        }
+      }
+    },
+    "slideshow.slide9.title" : {
+      "comment" : "Slideshow slide 9 title - Annotation",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annotation"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Annotation"
+          }
+        }
+      }
+    },
+    "symbol.circle" : {
+      "comment" : "Annotation symbol type: Circle",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kreis"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Circle"
+          }
+        }
+      }
+    },
+    "symbol.point" : {
+      "comment" : "Annotation symbol type: Point",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Punkt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Point"
+          }
+        }
+      }
+    },
+    "symbol.square" : {
+      "comment" : "Annotation symbol type: Square",
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quadrat"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Square"
+          }
+        }
+      }
+    },
     "tab.examples" : {
       "comment" : "Tab label for examples/gallery screen",
       "extractionState" : "manual",
@@ -1806,6 +2407,9 @@
           }
         }
       }
+    },
+    "Version %@" : {
+
     }
   },
   "version" : "1.0"

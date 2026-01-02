@@ -125,7 +125,7 @@ private extension DownloadDetailView {
 		HStack {
 			Text(L10n.Download.status)
 			Spacer()
-			Text(item.state.id)
+			Text(item.state.localizedName)
 				.foregroundColor(.gray)
 		}
 	}

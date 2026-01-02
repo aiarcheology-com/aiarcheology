@@ -34,7 +34,7 @@ struct ListItemView: View {
 					Spacer()
 				}
 				HStack {
-					Text(item.state.id)
+					Text(item.state.localizedName)
 						.testability(Testability.Label.listItemState)
 						.foregroundColor(.gray)
 						.font(.caption)
