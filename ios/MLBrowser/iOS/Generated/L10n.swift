@@ -10,6 +10,20 @@ import Foundation
 // swiftlint:disable explicit_type_interface function_parameter_count identifier_name line_length
 // swiftlint:disable nesting type_body_length type_name vertical_whitespace_opening_braces
 internal enum L10n {
+  internal enum About {
+    /// Privacy Policy
+    internal static let privacyPolicy = L10n.tr("Localizable", "about.privacyPolicy", fallback: "Privacy Policy")
+    /// Version
+    internal static let version = L10n.tr("Localizable", "about.version", fallback: "Version")
+    internal enum Section {
+      /// Application
+      internal static let application = L10n.tr("Localizable", "about.section.application", fallback: "Application")
+      /// Contact
+      internal static let contact = L10n.tr("Localizable", "about.section.contact", fallback: "Contact")
+      /// Legal
+      internal static let legal = L10n.tr("Localizable", "about.section.legal", fallback: "Legal")
+    }
+  }
   internal enum Action {
     /// Tap
     internal static let tapOrClick = L10n.tr("Localizable", "action.tap_or_click", fallback: "Tap")
@@ -29,6 +43,10 @@ internal enum L10n {
         internal static let message = L10n.tr("Localizable", "alert.history.full.message", fallback: "Browsing history is full. Increase the web browsing history size in Settings, or delete some existing entries from the history.")
       }
     }
+    internal enum Restore {
+      /// Resetting the application will erase all data models from the ML Browser except the demo models. Are you sure you want to proceed?
+      internal static let message = L10n.tr("Localizable", "alert.restore.message", fallback: "Resetting the application will erase all data models from the ML Browser except the demo models. Are you sure you want to proceed?")
+    }
     internal enum Warning {
       /// Warning
       internal static let title = L10n.tr("Localizable", "alert.warning.title", fallback: "Warning")
@@ -47,6 +65,18 @@ internal enum L10n {
     internal static let edit = L10n.tr("Localizable", "common.edit", fallback: "Edit")
     /// OK
     internal static let ok = L10n.tr("Localizable", "common.ok", fallback: "OK")
+  }
+  internal enum Configuration {
+    /// Configuration
+    internal static let title = L10n.tr("Localizable", "configuration.title", fallback: "Configuration")
+    internal enum Section {
+      /// Annotation
+      internal static let annotation = L10n.tr("Localizable", "configuration.section.annotation", fallback: "Annotation")
+      /// Author
+      internal static let author = L10n.tr("Localizable", "configuration.section.author", fallback: "Author")
+      /// Model
+      internal static let model = L10n.tr("Localizable", "configuration.section.model", fallback: "Model")
+    }
   }
   internal enum History {
     /// Browsing History
@@ -85,8 +115,20 @@ internal enum L10n {
   internal enum Settings {
     /// About
     internal static let about = L10n.tr("Localizable", "settings.about", fallback: "About")
+    /// Default Page
+    internal static let defaultPage = L10n.tr("Localizable", "settings.defaultPage", fallback: "Default Page")
+    /// Delete Cache
+    internal static let deleteCache = L10n.tr("Localizable", "settings.deleteCache", fallback: "Delete Cache")
+    /// History
+    internal static let history = L10n.tr("Localizable", "settings.history", fallback: "History")
+    /// History Limit
+    internal static let historyLimit = L10n.tr("Localizable", "settings.historyLimit", fallback: "History Limit")
     /// Introduction
     internal static let introduction = L10n.tr("Localizable", "settings.introduction", fallback: "Introduction")
+    /// Restore
+    internal static let restore = L10n.tr("Localizable", "settings.restore", fallback: "Restore")
+    /// Restore Defaults
+    internal static let restoreDefaults = L10n.tr("Localizable", "settings.restoreDefaults", fallback: "Restore Defaults")
     /// Settings
     internal static let title = L10n.tr("Localizable", "settings.title", fallback: "Settings")
     internal enum Section {

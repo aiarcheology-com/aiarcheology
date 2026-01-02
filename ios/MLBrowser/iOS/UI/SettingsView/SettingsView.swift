@@ -100,7 +100,7 @@ struct SettingsForm: View {
 	private var webContentSection: some View {
 		Section(header: Text(L10n.Settings.Section.webContent)) {
 			HStack {
-				Text("Default Page")
+				Text(L10n.Settings.defaultPage)
 				Spacer()
 				TextField(defaultWebPlaceholder, text: Binding(
 					get: { settings.defaultPage?.absoluteString ?? "" },
@@ -122,7 +122,7 @@ struct SettingsForm: View {
 			NavigationLink(destination: BrowserHistoryView()
 				.environment(\.dismissSheet, { dismiss() })
 			) {
-				Text("History")
+				Text(L10n.Settings.history)
 			}
 			.testability(Testability.NavigationLink.settingsHistory)
 			deleteCacheRow
@@ -131,7 +131,7 @@ struct SettingsForm: View {
 
 	private var historyLimitRow: some View {
 		HStack {
-			Text("History Limit")
+			Text(L10n.Settings.historyLimit)
 				.foregroundColor(.primary)
 			Spacer()
 			TextField("0-100", value: $settings.historySize, formatter: NumberFormatter.historyLimitFormatter)
@@ -153,7 +153,7 @@ struct SettingsForm: View {
 
 	private var deleteCacheRow: some View {
 		HStack {
-			Text("Delete Cache")
+			Text(L10n.Settings.deleteCache)
 			Spacer()
 			Button(action: {
 				WebCacheCleaner.clean()
@@ -189,13 +189,13 @@ struct SettingsForm: View {
 
 	private var restoreDefaultsRow: some View {
 		HStack {
-			Text("Restore Defaults")
+			Text(L10n.Settings.restoreDefaults)
 			Spacer()
 			Button(action: {
 				self.alertItem = AlertItem(
 					title: Text(L10n.Alert.Warning.title),
-					message: Text("Resetting the application will erase all data models from the ML Browser except the demo models. Are you sure you want to proceed?"),
-					primaryButton: .destructive(Text("Restore"), action: {
+					message: Text(L10n.Alert.Restore.message),
+					primaryButton: .destructive(Text(L10n.Settings.restore), action: {
 						Task {
 							await guide.resetApplication()
 						}
@@ -203,7 +203,7 @@ struct SettingsForm: View {
 					secondaryButton: .cancel()
 				)
 			}) {
-				Text("Restore")
+				Text(L10n.Settings.restore)
 			}
 			.testability(Testability.Button.settingsRestoreDefaults)
 			.buttonStyle(PressableButtonStyle(color: resetButtonColor))

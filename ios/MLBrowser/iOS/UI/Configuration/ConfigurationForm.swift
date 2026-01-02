@@ -121,7 +121,7 @@ struct ConfigurationForm: View {
 			.onChange(of: mergedObservable) {
 				deep.saveConfigurations()
 			}
-			.navigationBarTitle("Configuration", displayMode: .inline)
+			.navigationBarTitle(L10n.Configuration.title, displayMode: .inline)
 			.navigationBarItems(trailing: doneButton)
 		}
 	}
@@ -129,7 +129,7 @@ struct ConfigurationForm: View {
 	// MARK: - Sections
 	
 	private var modelSection: some View {
-		Section(header: Text("Model")) {
+		Section(header: Text(L10n.Configuration.Section.model)) {
 			ConfigurationDetailRow(label: "File", value: "\(configuration.file?.pathComponents.last ?? "")")
 			ConfigurationDetailRow(label: "Description", value: " \(configuration.modelDescription ?? "")")
 			ConfigurationDetailRow(label: "Type", value: " \(configuration.modelType.rawValue)")
@@ -142,14 +142,14 @@ struct ConfigurationForm: View {
 	}
 	
 	private var authorSection: some View {
-		Section(header: Text("Author")) {
+		Section(header: Text(L10n.Configuration.Section.author)) {
 			ConfigurationDetailRow(label: "Author", value: "\(configuration.author ?? "")")
 			ConfigurationDetailRow(label: "Created", value: "\(configuration.creationDate)")
 		}
 	}
 	
 	private var annotationSection: some View {
-		Section(header: Text("Annotation")) {
+		Section(header: Text(L10n.Configuration.Section.annotation)) {
 			ColorPicker("Color", selection: $configuration.annotationColor)
 				.testability(Testability.ColorPicker.configurationFormAnnotationColor)
 			LabeledSlider(label: "Fade Out Time", value: $configuration.phaseOutTime, range: 0.2...10)
