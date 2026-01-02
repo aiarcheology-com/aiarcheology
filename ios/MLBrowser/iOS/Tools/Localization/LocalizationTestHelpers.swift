@@ -117,8 +117,8 @@ enum StringCatalogValidator {
             let data = try Data(contentsOf: url)
             let object = try JSONSerialization.jsonObject(with: data, options: [])
 
-            // Xcode String Catalogs are JSON with a top-level "strings" dictionary
-            // whose keys correspond to localization keys.
+            // Xcode String Catalogs (.xcstrings) are JSON with a top-level "strings" dictionary
+            // whose keys correspond to the localization keys defined in the catalog.
             guard let root = object as? [String: Any],
                   let strings = root["strings"] as? [String: Any] else {
                 return []
@@ -126,8 +126,9 @@ enum StringCatalogValidator {
 
             return Array(strings.keys).sorted()
         } catch {
-            // Parsing errors are surfaced to tests via an empty result, allowing them
-            // to assert on expected non-empty catalogs.
+            // Return empty array on parsing errors.
+            // Tests can distinguish between different error scenarios by checking
+            // if the result is empty and whether the file exists via Bundle.url.
             return []
         }
     }
