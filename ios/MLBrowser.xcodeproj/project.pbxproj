@@ -105,6 +105,11 @@
 		94048A662EE23D3B0064AC55 /* DrawerContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A612EE23D3B0064AC55 /* DrawerContainer.swift */; };
 		94048A672EE23D3B0064AC55 /* DrawerContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A622EE23D3B0064AC55 /* DrawerContent.swift */; };
 		94048A692EE245D60064AC55 /* ModelImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A682EE245D60064AC55 /* ModelImportView.swift */; };
+		940A10022F0500010000A002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 940A10012F0500010000A001 /* Localizable.xcstrings */; };
+		940A10052F0500010000A005 /* LocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10042F0500010000A004 /* LocalizationTests.swift */; };
+		940A10082F0500020000A008 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10062F0500020000A006 /* L10n.swift */; };
+		940A100C2F0600010000A00C /* L10n+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A100B2F0600010000A00B /* L10n+SwiftUI.swift */; };
+		940A100E2F0600010000A00E /* LocalizationTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */; };
 		941C4FBA2EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */; };
 		941C4FBC2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FBB2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift */; };
 		941C4FBE2EDBB0C300066AED /* UTTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */; };
@@ -177,11 +182,6 @@
 		9A0C1EAA2F3D00020000000A /* SentryBreadcrumbGuardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0C1EAA2F3D00010000000A /* SentryBreadcrumbGuardTests.swift */; };
 		A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */; };
 		A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */; };
-		940A10022F0500010000A002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 940A10012F0500010000A001 /* Localizable.xcstrings */; };
-		940A10052F0500010000A005 /* LocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10042F0500010000A004 /* LocalizationTests.swift */; };
-		940A10082F0500020000A008 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10062F0500020000A006 /* L10n.swift */; };
-		940A100C2F0600010000A00C /* L10n+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A100B2F0600010000A00B /* L10n+SwiftUI.swift */; };
-		940A100E2F0600010000A00E /* LocalizationTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -202,11 +202,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		940A10012F0500010000A001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
-		940A10042F0500010000A004 /* LocalizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTests.swift; sourceTree = "<group>"; };
-		940A10062F0500020000A006 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
-		940A100B2F0600010000A00B /* L10n+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "L10n+SwiftUI.swift"; sourceTree = "<group>"; };
-		940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTestHelpers.swift; sourceTree = "<group>"; };
 		8A112CB82ABDE0BB00786384 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
 		8A112CC02AC0757900786384 /* MLBrowser-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "MLBrowser-Info.plist"; sourceTree = SOURCE_ROOT; };
 		8A112CC32AC0852B00786384 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
@@ -310,6 +305,11 @@
 		94048A622EE23D3B0064AC55 /* DrawerContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerContent.swift; sourceTree = "<group>"; };
 		94048A632EE23D3B0064AC55 /* DrawerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerManager.swift; sourceTree = "<group>"; };
 		94048A682EE245D60064AC55 /* ModelImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelImportView.swift; sourceTree = "<group>"; };
+		940A10012F0500010000A001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		940A10042F0500010000A004 /* LocalizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTests.swift; sourceTree = "<group>"; };
+		940A10062F0500020000A006 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
+		940A100B2F0600010000A00B /* L10n+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "L10n+SwiftUI.swift"; sourceTree = "<group>"; };
+		940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTestHelpers.swift; sourceTree = "<group>"; };
 		9415A1E82EE4D736000B65EB /* MLBrowserUITests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MLBrowserUITests.xctestplan; sourceTree = "<group>"; };
 		9415A1E92EE4D736000B65EB /* MLBrowserUnitTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MLBrowserUnitTests.xctestplan; sourceTree = "<group>"; };
 		941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAcquisitionCoordinator.swift; sourceTree = "<group>"; };
@@ -801,6 +801,31 @@
 			path = FileImporter;
 			sourceTree = "<group>";
 		};
+		940A10032F0500010000A003 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				940A10012F0500010000A001 /* Localizable.xcstrings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		940A10072F0500020000A007 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				940A10062F0500020000A006 /* L10n.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
+		940A100A2F0600010000A00A /* Localization */ = {
+			isa = PBXGroup;
+			children = (
+				940A100B2F0600010000A00B /* L10n+SwiftUI.swift */,
+				940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */,
+			);
+			path = Localization;
+			sourceTree = "<group>";
+		};
 		9415A1EA2EE4D736000B65EB /* MLBrowserTestPlan */ = {
 			isa = PBXGroup;
 			children = (
@@ -861,31 +886,6 @@
 				A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */,
 			);
 			path = Services;
-			sourceTree = "<group>";
-		};
-		940A10032F0500010000A003 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				940A10012F0500010000A001 /* Localizable.xcstrings */,
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
-		940A10072F0500020000A007 /* Generated */ = {
-			isa = PBXGroup;
-			children = (
-				940A10062F0500020000A006 /* L10n.swift */,
-			);
-			path = Generated;
-			sourceTree = "<group>";
-		};
-		940A100A2F0600010000A00A /* Localization */ = {
-			isa = PBXGroup;
-			children = (
-				940A100B2F0600010000A00B /* L10n+SwiftUI.swift */,
-				940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */,
-			);
-			path = Localization;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1036,6 +1036,26 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		940A10092F0500030000A009 /* SwiftGen (RUN_SWIFTGEN) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/MLBrowser/iOS/Resources/Localizable.xcstrings",
+			);
+			name = "SwiftGen (RUN_SWIFTGEN)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/MLBrowser/iOS/Generated/L10n.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${RUN_SWIFTGEN:-0}\" != \"1\" ]; then\n    echo \"SwiftGen skipped (set RUN_SWIFTGEN=1 in Build Settings)\"\n    exit 0\nfi\n\nSCRIPT_PATH=\"${SRCROOT}/../scripts/swiftgen.sh\"\nif [[ -f \"$SCRIPT_PATH\" ]]; then\n    \"$SCRIPT_PATH\" generate\nelse\n    echo \"warning: swiftgen.sh not found at $SCRIPT_PATH\"\nfi\n";
+		};
 		946203352F04B4950052CB32 /* SwiftLint (RUN_SWIFTLINT) */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -1070,26 +1090,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Upload Debug Symbols to Sentry\n\n# Skip on CI - ci_post_xcodebuild.sh handles upload there\nif [[ \"${CI:-}\" == \"TRUE\" ]]; then\n    echo \"Skipping Sentry upload (CI environment)\"\n    exit 0\nfi\n\n# Only upload for Release builds\nif [[ \"${CONFIGURATION}\" != \"Release\" ]]; then\n    echo \"Skipping Sentry upload (${CONFIGURATION} build)\"\n    exit 0\nfi\n\n# Use unified upload script\nSCRIPT_PATH=\"${SRCROOT}/ci_scripts/upload_symbols.sh\"\nif [[ -f \"$SCRIPT_PATH\" ]]; then\n    \"$SCRIPT_PATH\" \"$DWARF_DSYM_FOLDER_PATH\"\nelse\n    echo \"warning: upload_symbols.sh not found at $SCRIPT_PATH\"\nfi\n";
-		};
-		940A10092F0500030000A009 /* SwiftGen (RUN_SWIFTGEN) */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/MLBrowser/iOS/Resources/Localizable.xcstrings",
-			);
-			name = "SwiftGen (RUN_SWIFTGEN)";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(SRCROOT)/MLBrowser/iOS/Generated/L10n.swift",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ \"${RUN_SWIFTGEN:-0}\" != \"1\" ]; then\n    echo \"SwiftGen skipped (set RUN_SWIFTGEN=1 in Build Settings)\"\n    exit 0\nfi\n\nSCRIPT_PATH=\"${SRCROOT}/../scripts/swiftgen.sh\"\nif [[ -f \"$SCRIPT_PATH\" ]]; then\n    \"$SCRIPT_PATH\" generate\nelse\n    echo \"warning: swiftgen.sh not found at $SCRIPT_PATH\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1455,6 +1455,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.aiarcheology.ios;
 				PRODUCT_NAME = "ML Browser";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				RUN_SWIFTGEN = 0;
 				RUN_SWIFTLINT = 0;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -1495,6 +1496,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.aiarcheology.ios;
 				PRODUCT_NAME = "ML Browser";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				RUN_SWIFTGEN = 0;
 				RUN_SWIFTLINT = 0;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
