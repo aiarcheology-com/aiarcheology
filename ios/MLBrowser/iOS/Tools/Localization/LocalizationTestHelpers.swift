@@ -153,6 +153,11 @@ enum StringCatalogValidator {
             "configuration.type",
             "configuration.version",
             // Download
+            "download.button.cancel",
+            "download.button.continue",
+            "download.button.download",
+            "download.button.pause",
+            "download.button.restart",
             "download.downloaded",
             "download.error",
             "download.status",

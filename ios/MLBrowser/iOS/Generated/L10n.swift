@@ -141,6 +141,18 @@ internal enum L10n {
     internal static let url = L10n.tr("Localizable", "download.url", fallback: "URL")
     /// Provide a valid address pointing to a Create ML detection model (.mlmodel)
     internal static let urlHint = L10n.tr("Localizable", "download.urlHint", fallback: "Provide a valid address pointing to a Create ML detection model (.mlmodel)")
+    internal enum Button {
+      /// Cancel
+      internal static let cancel = L10n.tr("Localizable", "download.button.cancel", fallback: "Cancel")
+      /// Continue
+      internal static let `continue` = L10n.tr("Localizable", "download.button.continue", fallback: "Continue")
+      /// Download
+      internal static let download = L10n.tr("Localizable", "download.button.download", fallback: "Download")
+      /// Pause
+      internal static let pause = L10n.tr("Localizable", "download.button.pause", fallback: "Pause")
+      /// Restart
+      internal static let restart = L10n.tr("Localizable", "download.button.restart", fallback: "Restart")
+    }
   }
   internal enum DownloadState {
     /// Cancelled

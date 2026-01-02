@@ -304,17 +304,17 @@ private extension DownloadDetailView {
 	
 	static func downloadButtonAttributes(_ state: Downloader.State) -> (enabled: Bool, color: Color, label: String) {
 		switch state {
-		case .notStarted, .imported: return (enabled: true, color: .blue, label: "Download")
-		case .cancelled, .failed, .complete, .importFailed: return (enabled: true, color: .blue, label: "Restart")
-		case .paused: return (enabled: true, color: .green, label: "Continue")
-		case .downloading: return (enabled: true, color: .orange, label: "Pause")
+		case .notStarted, .imported: return (enabled: true, color: .blue, label: L10n.Download.Button.download)
+		case .cancelled, .failed, .complete, .importFailed: return (enabled: true, color: .blue, label: L10n.Download.Button.restart)
+		case .paused: return (enabled: true, color: .green, label: L10n.Download.Button.continue)
+		case .downloading: return (enabled: true, color: .orange, label: L10n.Download.Button.pause)
 		}
 	}
 
 	static func cancelButtonAttributes(_ state: Downloader.State) -> (enabled: Bool, color: Color, label: String) {
 		switch state {
-		case .notStarted, .cancelled, .failed, .complete, .imported, .importFailed: return (enabled: false, color: .gray, label: "Cancel")
-		case .paused, .downloading: return (enabled: true, color: .red, label: "Cancel")
+		case .notStarted, .cancelled, .failed, .complete, .imported, .importFailed: return (enabled: false, color: .gray, label: L10n.Download.Button.cancel)
+		case .paused, .downloading: return (enabled: true, color: .red, label: L10n.Download.Button.cancel)
 		}
 	}
 }
