@@ -10,6 +10,16 @@ set -eo pipefail
 
 echo "🔧 Running ci_post_clone.sh..."
 
+# --- Check for [ci skip] in commit message ---
+# If present, exit early to save build minutes
+COMMIT_MSG=$(git log -1 --pretty=%B 2>/dev/null || echo "")
+if [[ "$COMMIT_MSG" == *"[ci skip]"* ]] || [[ "$COMMIT_MSG" == *"[skip ci]"* ]]; then
+    echo "⏭️  Found [ci skip] in commit message - stopping build"
+    echo "   Commit message: $(git log -1 --pretty=%s 2>/dev/null)"
+    exit 1
+fi
+echo "   ✅ No [ci skip] flag - proceeding with build"
+
 # --- Ensure PATH includes common binary locations ---
 # Xcode Cloud may use Intel (/usr/local/bin) or Apple Silicon (/opt/homebrew/bin)
 # ProjectTool installs to /usr/local/bin by default

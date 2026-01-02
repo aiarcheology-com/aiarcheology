@@ -249,8 +249,8 @@ internal enum L10n {
     internal static let notAvailable = L10n.tr("Localizable", "sentry.notAvailable", fallback: "Sentry throttle diagnostics not available in this build.")
   }
   internal enum Settings {
-    /// About
-    internal static let about = L10n.tr("Localizable", "settings.about", fallback: "About")
+    /// About the app
+    internal static let about = L10n.tr("Localizable", "settings.about", fallback: "About the app")
     /// Default Page
     internal static let defaultPage = L10n.tr("Localizable", "settings.defaultPage", fallback: "Default Page")
     /// Delete Cache
