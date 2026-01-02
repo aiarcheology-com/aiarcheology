@@ -82,7 +82,7 @@ struct SettingsForm: View {
 		Section(header: Text(L10n.Settings.Section.annotation)) {
 			Picker(L10n.Settings.frequency, selection: $settings.snapFrequency) {
 				ForEach(1...10, id: \.self) { second in
-					Text("\(second) second\(second > 1 ? "s" : "")").tag(Double(second))
+					Text(L10n.Settings.Frequency.seconds(second)).tag(Double(second))
 				}
 			}
 			.testability(Testability.Picker.settingsFrequency)

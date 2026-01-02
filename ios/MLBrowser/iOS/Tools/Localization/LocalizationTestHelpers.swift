@@ -201,6 +201,7 @@ enum StringCatalogValidator {
             "settings.defaultPage",
             "settings.deleteCache",
             "settings.frequency",
+            "settings.frequency.seconds",
             "settings.history",
             "settings.historyLimit",
             "settings.introduction",

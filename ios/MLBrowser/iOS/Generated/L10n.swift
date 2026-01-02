@@ -277,6 +277,12 @@ internal enum L10n {
     internal static let showNextTime = L10n.tr("Localizable", "settings.showNextTime", fallback: "Show next time")
     /// Settings
     internal static let title = L10n.tr("Localizable", "settings.title", fallback: "Settings")
+    internal enum Frequency {
+      /// %lld seconds
+      internal static func seconds(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "settings.frequency.seconds", p1, fallback: "%lld seconds")
+      }
+    }
     internal enum Section {
       /// Annotation
       internal static let annotation = L10n.tr("Localizable", "settings.section.annotation", fallback: "Annotation")
