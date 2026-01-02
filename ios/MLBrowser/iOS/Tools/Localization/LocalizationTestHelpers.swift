@@ -98,6 +98,61 @@ enum LocaleTesting {
 /// Validates String Catalog structure and completeness.
 enum StringCatalogValidator {
 
+    /// Returns all localization keys found in a given String Catalog (.xcstrings) file.
+    ///
+    /// This is intended for use in tests to ensure that `allKeys` stays in sync with
+    /// the actual contents of the String Catalog produced by Xcode.
+    ///
+    /// - Parameters:
+    ///   - name: The resource name of the String Catalog (without extension).
+    ///   - bundle: The bundle in which the catalog resides (defaults to `.main`).
+    /// - Returns: An array of keys defined in the catalog. Returns an empty array
+    ///            if the catalog cannot be found or parsed.
+    static func keys(inStringCatalogNamed name: String, in bundle: Bundle = .main) -> [String] {
+        guard let url = bundle.url(forResource: name, withExtension: "xcstrings") else {
+            return []
+        }
+
+        do {
+            let data = try Data(contentsOf: url)
+            let object = try JSONSerialization.jsonObject(with: data, options: [])
+
+            // Xcode String Catalogs (.xcstrings) are JSON with a top-level "strings" dictionary
+            // whose keys correspond to the localization keys defined in the catalog.
+            guard let root = object as? [String: Any],
+                  let strings = root["strings"] as? [String: Any] else {
+                return []
+            }
+
+            return Array(strings.keys).sorted()
+        } catch {
+            // Return empty array on parsing errors.
+            // Tests can distinguish between different error scenarios by checking
+            // if the result is empty and whether the file exists via Bundle.url.
+            return []
+        }
+    }
+
+    /// Returns localization keys that exist in the given String Catalog but are
+    /// missing from `allKeys`.
+    ///
+    /// This helper is designed for unit tests to validate that `allKeys` stays
+    /// synchronized with the catalog contents.
+    ///
+    /// - Parameters:
+    ///   - stringCatalogName: The resource name of the String Catalog (without extension).
+    ///   - bundle: The bundle containing the catalog (defaults to `.main`).
+    /// - Returns: Sorted array of keys that are present in the catalog but not in `allKeys`.
+    static func missingKeysInAllKeys(
+        stringCatalogName: String,
+        bundle: Bundle = .main
+    ) -> [String] {
+        let catalogKeys = Set(keys(inStringCatalogNamed: stringCatalogName, in: bundle))
+        let knownKeys = Set(allKeys)
+        let missing = catalogKeys.subtracting(knownKeys)
+        return Array(missing).sorted()
+    }
+
     /// All known localization keys in the app.
     /// Update this list when adding new keys to the String Catalog.
     static var allKeys: [String] {

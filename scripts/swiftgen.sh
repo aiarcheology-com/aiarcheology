@@ -78,6 +78,12 @@ case "${1:-generate}" in
         echo "Converting xcstrings to strings format..."
         convert_xcstrings_to_strings "$XCSTRINGS_FILE" "$TEMP_STRINGS_FILE"
 
+        # Validate iOS directory exists
+        if [[ ! -d "$IOS_DIR" ]]; then
+            echo "Error: iOS directory not found: $IOS_DIR" >&2
+            exit 1
+        fi
+
         # Run SwiftGen
         echo "Running SwiftGen..."
         cd "$IOS_DIR"
