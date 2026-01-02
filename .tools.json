@@ -9,6 +9,15 @@
       "binaryName": "swiftlint",
       "sha256": "79625bece2716395d955d34a5993e6c948ef57d0256abe5538aaab82f2ad6b68"
     },
+    "swiftgen": {
+      "version": "6.6.3",
+      "versionCommand": "swiftgen --version",
+      "versionPattern": "SwiftGen v(\\d+\\.\\d+\\.\\d+)",
+      "downloadUrl": "https://github.com/SwiftGen/SwiftGen/releases/download/${version}/swiftgen-${version}.zip",
+      "downloadType": "zip",
+      "binaryName": "swiftgen",
+      "sha256": "94391c1b5a845150284be69fa9499fb2600231ac8f6a3ea5da53a4b55ee174df"
+    },
     "sentry-cli": {
       "version": "2.58.2",
       "versionCommand": "sentry-cli --version",

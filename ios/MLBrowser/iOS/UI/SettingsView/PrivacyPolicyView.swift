@@ -17,7 +17,7 @@ struct PrivacyPolicyView: View {
 				HTMLTextView(html: htmlContent)
 					.padding()
 			} else {
-				Text("Privacy Policy not available. Missing in the bundle?")
+				Text(L10n.About.privacyNotAvailable)
 			}
 		}
 	}

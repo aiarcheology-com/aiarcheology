@@ -24,7 +24,7 @@ struct AppDescriptionView: View {
 	var body: some View {
 		VStack {
 			Form {
-				Section(header: Text("Application")) {
+				Section(header: Text(L10n.About.Section.application)) {
 					HStack(alignment: .center, spacing: 12) {
 						if let image = UIImage(named: appIcon) {
 							Image(uiImage: image)
@@ -34,7 +34,7 @@ struct AppDescriptionView: View {
 						}
 						let version = "v\(versionString) \(buildString)"
 						VStack(alignment: .leading) {
-							Text("Version")
+							Text(L10n.About.version)
 								.bold()
 							Text(version)
 						}
@@ -45,7 +45,7 @@ struct AppDescriptionView: View {
 					.accessibilityElement(children: .ignore)
 					.accessibilityLabel("Version \(versionString)")
 				}
-				Section(header: Text("Contact")) {
+				Section(header: Text(L10n.About.Section.contact)) {
 					Button(action: {
 						Task { @MainActor in
 							let email = emailAddress
@@ -86,23 +86,23 @@ struct AppDescriptionView: View {
 							.testability(Testability.Link.appDescriptionTwitter)
 					}
 				}
-				Section(header: Text("Legal")) {
+				Section(header: Text(L10n.About.Section.legal)) {
 					NavigationLink(destination:
 									PrivacyPolicyView(htmlFileName: "privacypolicy")
-						.navigationTitle("Privacy Policy")
+						.navigationTitle(L10n.About.privacyPolicy)
 					) {
-						Text("Privacy Policy")
+						Text(L10n.About.privacyPolicy)
 					}
 					.testability(Testability.NavigationLink.appDescriptionPrivacyPolicy)
 				}
 			}
 			Spacer()
-			Text("Copyright © 2023 by Vladimír Slavík, AI Archeology")
+			Text(L10n.About.copyright)
 				.foregroundColor(.gray)
 				.padding()
 		}
 		.sheetDismissButton(testability: .appDescriptionDismiss)
-		.navigationBarTitle("About", displayMode: .inline)
+		.navigationBarTitle(L10n.Settings.about, displayMode: .inline)
 	}
 
 	static func appVersion() -> String {

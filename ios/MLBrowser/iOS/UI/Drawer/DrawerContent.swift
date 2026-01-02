@@ -40,7 +40,7 @@ struct DrawerContent: View {
     var body: some View {
         NavigationStack {
             configurationList
-                .navigationTitle("Models")
+                .navigationTitle(L10n.Models.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
         }
@@ -77,11 +77,11 @@ struct DrawerContent: View {
                 Image(systemName: "cpu")
                     .font(.largeTitle)
                     .foregroundStyle(.secondary)
-                
-                Text("No Models")
+
+                Text(L10n.Models.Empty.title)
                     .font(.headline)
-                
-                Text("Tap the + button to add your first ML model.")
+
+                Text(L10n.Models.Empty.message)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -92,7 +92,7 @@ struct DrawerContent: View {
     }
     
     private var configurationsSection: some View {
-        Section("Available Models") {
+        Section(L10n.Models.Available.title) {
             // Use objectID for identity - it's always valid even for deleted objects.
             // Using entityId crashes when Core Data nullifies it during deletion.
             ForEach(configurations, id: \.objectID) { configuration in
@@ -126,7 +126,7 @@ struct DrawerContent: View {
         }
         
         ToolbarItem(placement: .topBarTrailing) {
-            Button("Dimiss") {
+            Button(L10n.Common.dismiss) {
                 drawer.close()
             }
             .bold()
@@ -177,12 +177,12 @@ private struct ConfigurationRow: View {
         .buttonStyle(.borderless)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive, action: onDelete) {
-                Label("Delete", systemImage: "trash")
+                Label(L10n.Common.delete, systemImage: "trash")
             }
         }
         .contextMenu {
             Button(role: .destructive, action: onDelete) {
-                Label("Delete", systemImage: "trash")
+                Label(L10n.Common.delete, systemImage: "trash")
             }
         }
     }

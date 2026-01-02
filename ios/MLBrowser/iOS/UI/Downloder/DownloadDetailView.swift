@@ -37,14 +37,14 @@ struct DownloadDetailView: View {
 			}
 			actionButtons
 		}
-		.navigationBarTitle("Model")
+		.navigationBarTitle(L10n.Download.title)
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar { toolbarContent }
 		.onAppear {
 			urlText = item.url?.absoluteString ?? ""
 		}
 		.alert("Help", isPresented: $showAlert) {
-			Button("OK", role: .cancel) { }
+			Button(L10n.Common.ok, role: .cancel) { }
 		} message: {
 			Text(Self.helpMessage)
 		}
@@ -71,12 +71,12 @@ private extension DownloadDetailView {
 	var urlInputSection: some View {
 		Section {
 			HStack {
-				Text("URL")
+				Text(L10n.Download.url)
 				Spacer()
 				urlTextField
 			}
 		} footer: {
-			Text("Provide a valid address pointing to a Create ML detection model (.mlmodel)")
+			Text(L10n.Download.urlHint)
 				.font(.subheadline)
 				.foregroundColor(.gray)
 		}
@@ -99,11 +99,11 @@ private extension DownloadDetailView {
 			.onAppear { validateUrl(urlText) }
 			.toolbar {
 				ToolbarItemGroup(placement: .keyboard) {
-					Button("Clear") { urlText = "" }
+					Button(L10n.Common.clear) { urlText = "" }
 						.foregroundColor(.blue)
 						.testability(Testability.Button.downloadDetailClear)
 					Spacer()
-					Button("Done") { Self.removeFocus() }
+					Button(L10n.Common.done) { Self.removeFocus() }
 						.testability(Testability.Button.downloadDetailDone)
 				}
 			}
@@ -123,16 +123,16 @@ private extension DownloadDetailView {
 	
 	var statusRow: some View {
 		HStack {
-			Text("Status")
+			Text(L10n.Download.status)
 			Spacer()
-			Text(item.state.id)
+			Text(item.state.localizedName)
 				.foregroundColor(.gray)
 		}
 	}
-	
+
 	var downloadedRow: some View {
 		HStack {
-			Text("Downloaded")
+			Text(L10n.Download.downloaded)
 			Spacer()
 			downloadProgressText
 				.foregroundColor(.gray)
@@ -164,7 +164,7 @@ private extension DownloadDetailView {
 	var errorRow: some View {
 		if let error = item.error {
 			HStack {
-				Text("Error")
+				Text(L10n.Download.error)
 					.foregroundColor(.red)
 				Spacer()
 				Text(error)
@@ -251,7 +251,7 @@ private extension DownloadDetailView {
 		} else {
 			ToolbarItem(placement: .topBarLeading) { importButton }
 			ToolbarItem(placement: .topBarTrailing) {
-				Button("Dismiss") { dismiss() }
+				Button(L10n.Common.dismiss) { dismiss() }
 					.bold()
 					.foregroundColor(.blue)
 					.testability(Testability.Button.downloadDetailDismiss)
@@ -260,7 +260,7 @@ private extension DownloadDetailView {
 	}
 	
 	var importButton: some View {
-		Button("Import") {
+		Button(L10n.Common.import) {
 			let entityId = item.entityId
 			guard let file = item.file,
 				  let url = item.url
@@ -304,17 +304,17 @@ private extension DownloadDetailView {
 	
 	static func downloadButtonAttributes(_ state: Downloader.State) -> (enabled: Bool, color: Color, label: String) {
 		switch state {
-		case .notStarted, .imported: return (enabled: true, color: .blue, label: "Download")
-		case .cancelled, .failed, .complete, .importFailed: return (enabled: true, color: .blue, label: "Restart")
-		case .paused: return (enabled: true, color: .green, label: "Continue")
-		case .downloading: return (enabled: true, color: .orange, label: "Pause")
+		case .notStarted, .imported: return (enabled: true, color: .blue, label: L10n.Download.Button.download)
+		case .cancelled, .failed, .complete, .importFailed: return (enabled: true, color: .blue, label: L10n.Download.Button.restart)
+		case .paused: return (enabled: true, color: .green, label: L10n.Download.Button.continue)
+		case .downloading: return (enabled: true, color: .orange, label: L10n.Download.Button.pause)
 		}
 	}
 
 	static func cancelButtonAttributes(_ state: Downloader.State) -> (enabled: Bool, color: Color, label: String) {
 		switch state {
-		case .notStarted, .cancelled, .failed, .complete, .imported, .importFailed: return (enabled: false, color: .gray, label: "Cancel")
-		case .paused, .downloading: return (enabled: true, color: .red, label: "Cancel")
+		case .notStarted, .cancelled, .failed, .complete, .imported, .importFailed: return (enabled: false, color: .gray, label: L10n.Download.Button.cancel)
+		case .paused, .downloading: return (enabled: true, color: .red, label: L10n.Download.Button.cancel)
 		}
 	}
 }

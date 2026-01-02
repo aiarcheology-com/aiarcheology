@@ -38,7 +38,7 @@ struct WebScreen: Screen {
 		} else {
 			Image(systemName: "map").environment(\.symbolVariants, .none)
 		}
-		Text("Web")
+		Text(L10n.Tab.web)
 	}
 
 }
@@ -189,10 +189,10 @@ struct WebScreenView: View {
 	private func alertForError(_ error: HistoryError?) -> Alert {
 		switch error {
 		case .fullHistory:
-			return Alert(
-				title: Text("Warning"),
-				message: Text("Browsing history is full. Increase the web browsing history size in Settings, or delete some existing entries from the history."),
-				dismissButton: .default(Text("OK"))
+			return localizedAlert(
+				title: L10n.Alert.Warning.title,
+				message: L10n.Alert.History.Full.message,
+				primaryButton: .default(Text(L10n.Common.ok))
 			)
 		case .none:
 			return Alert(title: Text(""))

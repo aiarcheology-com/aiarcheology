@@ -89,7 +89,7 @@ struct ContentView: View {
             showErrorAlert = true
         }
         .alert(isPresented: $showErrorAlert) {
-            Alert(title: Text("Error"), message: Text(errorMessage), dismissButton: .default(Text("OK")))
+            Alert(title: Text(L10n.Alert.Error.title), message: Text(errorMessage), dismissButton: .default(Text(L10n.Common.ok)))
         }
         .onAppear {
             handleOnAppear()

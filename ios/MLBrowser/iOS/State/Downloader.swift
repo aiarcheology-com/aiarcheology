@@ -140,6 +140,20 @@ final public class Downloader: NSObject, ObservableObject {
         case importFailed = "Import failed"
 
         public var id: String { self.rawValue }
+
+        /// Localized display name for the download state
+        public var localizedName: String {
+            switch self {
+            case .notStarted: return L10n.DownloadState.notStarted
+            case .downloading: return L10n.DownloadState.downloading
+            case .paused: return L10n.DownloadState.paused
+            case .cancelled: return L10n.DownloadState.cancelled
+            case .failed: return L10n.DownloadState.failed
+            case .complete: return L10n.DownloadState.complete
+            case .imported: return L10n.DownloadState.imported
+            case .importFailed: return L10n.DownloadState.importFailed
+            }
+        }
     }
     
     enum Event {

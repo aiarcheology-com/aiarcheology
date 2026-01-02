@@ -14,7 +14,7 @@ struct SnapAdjustmentView: View {
 	var body: some View {
 		VStack {
 			HStack {
-				Text("Brightness")
+				Text(L10n.Adjustment.brightness)
 					.font(.footnote)
 				Spacer()
 				Text("\(snapAdjustment.brightness, specifier: "%.2f")")
@@ -25,7 +25,7 @@ struct SnapAdjustmentView: View {
 				.testability(Testability.Slider.snapAdjustmentBrightness)
 
 			HStack {
-				Text("Contrast")
+				Text(L10n.Adjustment.contrast)
 					.font(.footnote)
 				Spacer()
 				Text("\(snapAdjustment.contrast, specifier: "%.2f")")
@@ -36,7 +36,7 @@ struct SnapAdjustmentView: View {
 				.testability(Testability.Slider.snapAdjustmentContrast)
 
 			HStack {
-				Text("Saturation")
+				Text(L10n.Adjustment.saturation)
 					.font(.footnote)
 				Spacer()
 				Text("\(snapAdjustment.saturation, specifier: "%.2f")")
@@ -47,7 +47,7 @@ struct SnapAdjustmentView: View {
 				.testability(Testability.Slider.snapAdjustmentSaturation)
 			HStack {
 				Spacer()
-				Button("Reset") {
+				Button(L10n.Common.reset) {
 					resetValues()
 				}
 				.testability(Testability.Button.snapAdjustmentReset)

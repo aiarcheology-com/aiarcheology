@@ -121,7 +121,7 @@ struct ConfigurationForm: View {
 			.onChange(of: mergedObservable) {
 				deep.saveConfigurations()
 			}
-			.navigationBarTitle("Configuration", displayMode: .inline)
+			.navigationBarTitle(L10n.Configuration.title, displayMode: .inline)
 			.navigationBarItems(trailing: doneButton)
 		}
 	}
@@ -129,33 +129,33 @@ struct ConfigurationForm: View {
 	// MARK: - Sections
 	
 	private var modelSection: some View {
-		Section(header: Text("Model")) {
-			ConfigurationDetailRow(label: "File", value: "\(configuration.file?.pathComponents.last ?? "")")
-			ConfigurationDetailRow(label: "Description", value: " \(configuration.modelDescription ?? "")")
-			ConfigurationDetailRow(label: "Type", value: " \(configuration.modelType.rawValue)")
-			ConfigurationDetailRow(label: "Version", value: " \(configuration.modelVersion ?? "")")
+		Section(header: Text(L10n.Configuration.Section.model)) {
+			ConfigurationDetailRow(label: L10n.Configuration.file, value: "\(configuration.file?.pathComponents.last ?? "")")
+			ConfigurationDetailRow(label: L10n.Configuration.description, value: " \(configuration.modelDescription ?? "")")
+			ConfigurationDetailRow(label: L10n.Configuration.type, value: " \(configuration.modelType.rawValue)")
+			ConfigurationDetailRow(label: L10n.Configuration.version, value: " \(configuration.modelVersion ?? "")")
 
 			if let downloadURL = configuration.downloadURL {
-				ExpandableDetailRow(label: "Link", value: downloadURL.absoluteString)
+				ExpandableDetailRow(label: L10n.Configuration.link, value: downloadURL.absoluteString)
 			}
 		}
 	}
 	
 	private var authorSection: some View {
-		Section(header: Text("Author")) {
-			ConfigurationDetailRow(label: "Author", value: "\(configuration.author ?? "")")
-			ConfigurationDetailRow(label: "Created", value: "\(configuration.creationDate)")
+		Section(header: Text(L10n.Configuration.Section.author)) {
+			ConfigurationDetailRow(label: L10n.Configuration.author, value: "\(configuration.author ?? "")")
+			ConfigurationDetailRow(label: L10n.Configuration.created, value: "\(configuration.creationDate)")
 		}
 	}
 	
 	private var annotationSection: some View {
-		Section(header: Text("Annotation")) {
-			ColorPicker("Color", selection: $configuration.annotationColor)
+		Section(header: Text(L10n.Configuration.Section.annotation)) {
+			ColorPicker(L10n.Configuration.color, selection: $configuration.annotationColor)
 				.testability(Testability.ColorPicker.configurationFormAnnotationColor)
-			LabeledSlider(label: "Fade Out Time", value: $configuration.phaseOutTime, range: 0.2...10)
-			Picker("Symbol", selection: $configuration.selectedSymbol) {
+			LabeledSlider(label: L10n.Configuration.fadeOutTime, value: $configuration.phaseOutTime, range: 0.2...10)
+			Picker(L10n.Configuration.symbol, selection: $configuration.selectedSymbol) {
 				ForEach(AnnotationSymbol.allCases) { symbol in
-					Text(symbol.rawValue).tag(symbol)
+					Text(symbol.localizedName).tag(symbol)
 				}
 			}
 			.testability(Testability.Picker.configurationFormSymbol)
@@ -169,7 +169,7 @@ struct ConfigurationForm: View {
 			deep.saveConfigurations()
 			dismiss()
 		}) {
-			Text("Done").bold()
+			Text(L10n.Common.done).bold()
 		}
 		.testability(Testability.Button.configurationFormDone)
 		.tint(.green)

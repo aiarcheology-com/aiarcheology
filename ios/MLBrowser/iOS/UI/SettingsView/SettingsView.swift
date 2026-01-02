@@ -33,25 +33,25 @@ struct SettingsForm: View {
 				mlBrowserSection
 				debugSection
 			}
-			.navigationBarTitle("Settings", displayMode: .inline)
+			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
 			.navigationBarItems(trailing: Button(action: {
 				do {
 					try settings.validate()
 					dismiss()
 				} catch ValidationError.invalidData(let message) {
 					validationErrorMessage = message
-					self.alertItem = AlertItem(title: Text("Error"),
+					self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
 											 message: Text(validationErrorMessage ?? ""), // TODO optional
-											 dismissButton: .default(Text("OK"), action: { validationErrorMessage = nil }))
+											 dismissButton: .default(Text(L10n.Common.ok), action: { validationErrorMessage = nil }))
 				} catch {
 					validationErrorMessage = "An unexpected error occurred."
-					self.alertItem = AlertItem(title: Text("Error"),
+					self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
 											  message: Text(validationErrorMessage ?? ""), // TODO optional
-											  dismissButton: .default(Text("OK"), action: { validationErrorMessage = nil }))
+											  dismissButton: .default(Text(L10n.Common.ok), action: { validationErrorMessage = nil }))
 				}
 			}) {
 
-				Text("Dismiss")
+				Text(L10n.Common.dismiss)
 					.bold()
 					.foregroundColor(.blue)
 			}
@@ -60,9 +60,9 @@ struct SettingsForm: View {
 
 			.alert(isPresented: .constant(validationErrorMessage != nil), content: {
 				Alert(
-					title: Text("Validation Error"),
+					title: Text(L10n.Alert.Error.title),
 					message: Text(validationErrorMessage ?? "An error occurred during validation."),
-					dismissButton: .default(Text("OK"), action: {
+					dismissButton: .default(Text(L10n.Common.ok), action: {
 						validationErrorMessage = nil // Reset the error message
 					})
 				)
@@ -79,10 +79,10 @@ struct SettingsForm: View {
 	// MARK: - Sections
 
 	private var annotationSection: some View {
-		Section(header: Text("Annotation")) {
-			Picker("Frequency", selection: $settings.snapFrequency) {
+		Section(header: Text(L10n.Settings.Section.annotation)) {
+			Picker(L10n.Settings.frequency, selection: $settings.snapFrequency) {
 				ForEach(1...10, id: \.self) { second in
-					Text("\(second) second\(second > 1 ? "s" : "")").tag(Double(second))
+					Text(L10n.Settings.Frequency.seconds(second)).tag(Double(second))
 				}
 			}
 			.testability(Testability.Picker.settingsFrequency)
@@ -90,17 +90,17 @@ struct SettingsForm: View {
 				guide.ontheflyDetectionResetTapped()
 			}
 
-			Toggle("Run At Launch", isOn: $settings.snapAfterAppStart)
+			Toggle(L10n.Settings.runAtLaunch, isOn: $settings.snapAfterAppStart)
 				.testability(Testability.Toggle.settingsRunAtLaunch)
-			Toggle("Show Labels", isOn: $settings.showIdentifiers)
+			Toggle(L10n.Settings.showLabels, isOn: $settings.showIdentifiers)
 				.testability(Testability.Toggle.settingsShowLabels)
 		}
 	}
 
 	private var webContentSection: some View {
-		Section(header: Text("Web Content")) {
+		Section(header: Text(L10n.Settings.Section.webContent)) {
 			HStack {
-				Text("Default Page")
+				Text(L10n.Settings.defaultPage)
 				Spacer()
 				TextField(defaultWebPlaceholder, text: Binding(
 					get: { settings.defaultPage?.absoluteString ?? "" },
@@ -116,13 +116,13 @@ struct SettingsForm: View {
 				.multilineTextAlignment(.trailing)
 				.foregroundColor(.gray)
 			}
-			Toggle("Reopen Last Page", isOn: $settings.reopenLastPage)
+			Toggle(L10n.Settings.reopenLastPage, isOn: $settings.reopenLastPage)
 				.testability(Testability.Toggle.settingsReopenLastPage)
 			historyLimitRow
 			NavigationLink(destination: BrowserHistoryView()
 				.environment(\.dismissSheet, { dismiss() })
 			) {
-				Text("History")
+				Text(L10n.Settings.history)
 			}
 			.testability(Testability.NavigationLink.settingsHistory)
 			deleteCacheRow
@@ -131,7 +131,7 @@ struct SettingsForm: View {
 
 	private var historyLimitRow: some View {
 		HStack {
-			Text("History Limit")
+			Text(L10n.Settings.historyLimit)
 				.foregroundColor(.primary)
 			Spacer()
 			TextField("0-100", value: $settings.historySize, formatter: NumberFormatter.historyLimitFormatter)
@@ -142,7 +142,7 @@ struct SettingsForm: View {
 				.toolbar {
 					ToolbarItemGroup(placement: .keyboard) {
 						Spacer()
-						Button("Done") {
+						Button(L10n.Common.done) {
 							Self.removeFocus()
 						}
 						.testability(Testability.Button.settingsKeyboardDone)
@@ -153,13 +153,13 @@ struct SettingsForm: View {
 
 	private var deleteCacheRow: some View {
 		HStack {
-			Text("Delete Cache")
+			Text(L10n.Settings.deleteCache)
 			Spacer()
 			Button(action: {
 				WebCacheCleaner.clean()
 				cleanCacheButtonColor = .blue
 			}) {
-				Text("Delete")
+				Text(L10n.Common.delete)
 					.bold()
 					.foregroundColor(cleanCacheButtonColor)
 			}
@@ -171,16 +171,16 @@ struct SettingsForm: View {
 	}
 
 	private var mlBrowserSection: some View {
-		Section(header: Text("ML Browser")) {
+		Section(header: Text(L10n.Settings.Section.mlBrowser)) {
 			NavigationLink(destination: AppDescriptionView()
 				.environment(\.dismissSheet, { dismiss() })) {
-				Text("About")
+				Text(L10n.Settings.about)
 			}
 			.testability(Testability.NavigationLink.settingsAbout)
 			NavigationLink(destination: SlideshowView()
 				.environmentObject(settings)
 				.environment(\.dismissSheet, { dismiss() })) {
-				Text("Introduction")
+				Text(L10n.Settings.introduction)
 			}
 			.testability(Testability.NavigationLink.settingsIntroduction)
 			restoreDefaultsRow
@@ -189,13 +189,13 @@ struct SettingsForm: View {
 
 	private var restoreDefaultsRow: some View {
 		HStack {
-			Text("Restore Defaults")
+			Text(L10n.Settings.restoreDefaults)
 			Spacer()
 			Button(action: {
 				self.alertItem = AlertItem(
-					title: Text("Warning"),
-					message: Text("Resetting the application will erase all data models from the ML Browser except the demo models. Are you sure you want to proceed?"),
-					primaryButton: .destructive(Text("Restore"), action: {
+					title: Text(L10n.Alert.Warning.title),
+					message: Text(L10n.Alert.Restore.message),
+					primaryButton: .destructive(Text(L10n.Settings.restore), action: {
 						Task {
 							await guide.resetApplication()
 						}
@@ -203,7 +203,7 @@ struct SettingsForm: View {
 					secondaryButton: .cancel()
 				)
 			}) {
-				Text("Restore")
+				Text(L10n.Settings.restore)
 			}
 			.testability(Testability.Button.settingsRestoreDefaults)
 			.buttonStyle(PressableButtonStyle(color: resetButtonColor))
@@ -216,9 +216,9 @@ struct SettingsForm: View {
 	@ViewBuilder
 	private var debugSection: some View {
 		if AppEnvironment.isAppStoreDistribution.not {
-			Section(header: Text("Debug")) {
+			Section(header: Text(L10n.Settings.Section.debug)) {
 				NavigationLink(destination: SentryStatsView()) {
-					Text("Sentry Stats")
+					Text(L10n.Settings.Sentry.title)
 				}
 			}
 		}

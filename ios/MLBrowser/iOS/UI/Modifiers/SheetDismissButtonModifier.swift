@@ -23,7 +23,7 @@ struct SheetDismissButtonModifier: ViewModifier {
 			.navigationBarItems(trailing: Button(action: {
 				dismissSheet?()
 			}) {
-				Text("Dismiss")
+				Text(L10n.Common.dismiss)
 					.bold()
 					.foregroundColor(.blue)
 			}

@@ -27,14 +27,14 @@ struct ListItemView: View {
 						Text(fileName)
 							.testability(Testability.Label.listItemFileName)
 					} else {
-						Text("Edit")
+						Text(L10n.Common.edit)
 							.testability(Testability.Label.listItemFileName)
 							.foregroundColor(.blue)
 					}
 					Spacer()
 				}
 				HStack {
-					Text(item.state.id)
+					Text(item.state.localizedName)
 						.testability(Testability.Label.listItemState)
 						.foregroundColor(.gray)
 						.font(.caption)

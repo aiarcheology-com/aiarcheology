@@ -105,6 +105,11 @@
 		94048A662EE23D3B0064AC55 /* DrawerContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A612EE23D3B0064AC55 /* DrawerContainer.swift */; };
 		94048A672EE23D3B0064AC55 /* DrawerContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A622EE23D3B0064AC55 /* DrawerContent.swift */; };
 		94048A692EE245D60064AC55 /* ModelImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A682EE245D60064AC55 /* ModelImportView.swift */; };
+		940A10022F0500010000A002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 940A10012F0500010000A001 /* Localizable.xcstrings */; };
+		940A10052F0500010000A005 /* LocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10042F0500010000A004 /* LocalizationTests.swift */; };
+		940A10082F0500020000A008 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10062F0500020000A006 /* L10n.swift */; };
+		940A100C2F0600010000A00C /* L10n+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A100B2F0600010000A00B /* L10n+SwiftUI.swift */; };
+		940A100E2F0600010000A00E /* LocalizationTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */; };
 		941C4FBA2EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */; };
 		941C4FBC2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FBB2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift */; };
 		941C4FBE2EDBB0C300066AED /* UTTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */; };
@@ -300,6 +305,11 @@
 		94048A622EE23D3B0064AC55 /* DrawerContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerContent.swift; sourceTree = "<group>"; };
 		94048A632EE23D3B0064AC55 /* DrawerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerManager.swift; sourceTree = "<group>"; };
 		94048A682EE245D60064AC55 /* ModelImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelImportView.swift; sourceTree = "<group>"; };
+		940A10012F0500010000A001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		940A10042F0500010000A004 /* LocalizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTests.swift; sourceTree = "<group>"; };
+		940A10062F0500020000A006 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
+		940A100B2F0600010000A00B /* L10n+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "L10n+SwiftUI.swift"; sourceTree = "<group>"; };
+		940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTestHelpers.swift; sourceTree = "<group>"; };
 		9415A1E82EE4D736000B65EB /* MLBrowserUITests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MLBrowserUITests.xctestplan; sourceTree = "<group>"; };
 		9415A1E92EE4D736000B65EB /* MLBrowserUnitTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MLBrowserUnitTests.xctestplan; sourceTree = "<group>"; };
 		941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAcquisitionCoordinator.swift; sourceTree = "<group>"; };
@@ -477,6 +487,8 @@
 				8A1D49AD2ABB878F00C2D7C1 /* Gallery */,
 				8A6C2F7C2AB9EC5000AB26D4 /* Persistence */,
 				8AC650AE2B2B9AB300922648 /* Rendering */,
+				940A10032F0500010000A003 /* Resources */,
+				940A10072F0500020000A007 /* Generated */,
 				A1B2C3D42F0104A300000001 /* Services */,
 				8A61C5122AB9A85900BF72BE /* State */,
 				8A61C5112AB9A85400BF72BE /* UI */,
@@ -608,6 +620,7 @@
 				9489C96D2EA02B0C008C728F /* HostPlatform.swift */,
 				946200EC2ED6FF520047336A /* Testability */,
 				8A112CC12AC0851000786384 /* Extensions */,
+				940A100A2F0600010000A00A /* Localization */,
 				942B1DCF2EA62DEB005455F9 /* Reporting */,
 			);
 			path = Tools;
@@ -733,6 +746,7 @@
 				94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */,
 				942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */,
 				94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */,
+				940A10042F0500010000A004 /* LocalizationTests.swift */,
 				94929E842ED65555001A4C63 /* LowerPriorityTests.swift */,
 				94D79C912EE37DBF0027C9FA /* NSManagedObjectExtensionsTests.swift */,
 				94FFB9D72EE6603B0049A549 /* ObservabilityTests.swift */,
@@ -785,6 +799,31 @@
 				94048A682EE245D60064AC55 /* ModelImportView.swift */,
 			);
 			path = FileImporter;
+			sourceTree = "<group>";
+		};
+		940A10032F0500010000A003 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				940A10012F0500010000A001 /* Localizable.xcstrings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		940A10072F0500020000A007 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				940A10062F0500020000A006 /* L10n.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
+		940A100A2F0600010000A00A /* Localization */ = {
+			isa = PBXGroup;
+			children = (
+				940A100B2F0600010000A00B /* L10n+SwiftUI.swift */,
+				940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */,
+			);
+			path = Localization;
 			sourceTree = "<group>";
 		};
 		9415A1EA2EE4D736000B65EB /* MLBrowserTestPlan */ = {
@@ -857,6 +896,7 @@
 			buildConfigurationList = 8AE0BC2A2A97B0B40086DDF9 /* Build configuration list for PBXNativeTarget "MLBrowser" */;
 			buildPhases = (
 				946203352F04B4950052CB32 /* SwiftLint (RUN_SWIFTLINT) */,
+				940A10092F0500030000A009 /* SwiftGen (RUN_SWIFTGEN) */,
 				8AE0BBFC2A97B0B30086DDF9 /* Sources */,
 				8AE0BBFD2A97B0B30086DDF9 /* Frameworks */,
 				8AE0BBFE2A97B0B30086DDF9 /* Resources */,
@@ -944,6 +984,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				de,
 				Base,
 			);
 			mainGroup = 8AE0BBF72A97B0B30086DDF9;
@@ -967,6 +1008,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				940A10022F0500010000A002 /* Localizable.xcstrings in Resources */,
 				8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */,
 				8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */,
 				942B1DDB2EA66353005455F9 /* README.md in Resources */,
@@ -994,6 +1036,26 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		940A10092F0500030000A009 /* SwiftGen (RUN_SWIFTGEN) */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/MLBrowser/iOS/Resources/Localizable.xcstrings",
+			);
+			name = "SwiftGen (RUN_SWIFTGEN)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/MLBrowser/iOS/Generated/L10n.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${RUN_SWIFTGEN:-0}\" != \"1\" ]; then\n    echo \"SwiftGen skipped (set RUN_SWIFTGEN=1 in Build Settings)\"\n    exit 0\nfi\n\nSCRIPT_PATH=\"${SRCROOT}/../scripts/swiftgen.sh\"\nif [[ -f \"$SCRIPT_PATH\" ]]; then\n    \"$SCRIPT_PATH\" generate\nelse\n    echo \"warning: swiftgen.sh not found at $SCRIPT_PATH\"\nfi\n";
+		};
 		946203352F04B4950052CB32 /* SwiftLint (RUN_SWIFTLINT) */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -1154,6 +1216,9 @@
 				8AC7CDED2AE7FCED00871074 /* SnapState.swift in Sources */,
 				8AD3A8302B2EFA3E0058E018 /* Annotation.swift in Sources */,
 				8AC650AB2B2B4CCB00922648 /* WebHistory.swift in Sources */,
+				940A10082F0500020000A008 /* L10n.swift in Sources */,
+				940A100C2F0600010000A00C /* L10n+SwiftUI.swift in Sources */,
+				940A100E2F0600010000A00E /* LocalizationTestHelpers.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1192,6 +1257,7 @@
 				945C55822ED71234007DD8FB /* StringExtensionsTests.swift in Sources */,
 				945C55842ED71234007DD8FB /* SettingsTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
+				940A10052F0500010000A005 /* LocalizationTests.swift in Sources */,
 				94929E772ED633C1001A4C63 /* DeepDriversTests.swift in Sources */,
 				94FFB9D82EE6603B0049A549 /* ObservabilityTests.swift in Sources */,
 				9A0C1EAA2F3D000200000006 /* SentryEventSignatureTests.swift in Sources */,
@@ -1389,6 +1455,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.aiarcheology.ios;
 				PRODUCT_NAME = "ML Browser";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				RUN_SWIFTGEN = 0;
 				RUN_SWIFTLINT = 0;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -1429,6 +1496,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.aiarcheology.ios;
 				PRODUCT_NAME = "ML Browser";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				RUN_SWIFTGEN = 0;
 				RUN_SWIFTLINT = 0;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
