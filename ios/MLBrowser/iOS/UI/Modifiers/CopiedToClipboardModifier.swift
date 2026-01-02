@@ -29,7 +29,7 @@ struct CopiedToClipboardModifier: ViewModifier {
 					// This block is empty to allow the gesture to coexist with others
 			}
 			.popover(isPresented: $showPopover) {
-				Text("Copied: \(preview)")
+				Text(L10n.Clipboard.copied(preview))
 					.padding()
 			}
 	}

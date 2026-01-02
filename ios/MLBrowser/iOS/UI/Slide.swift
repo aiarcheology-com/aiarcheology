@@ -102,7 +102,7 @@ struct SlideshowView: View {
 							.padding(50)
 						Spacer()
 						if slide.showButton {
-							Toggle("Show next time", isOn: $settings.keepSlideShowActive)
+							Toggle(L10n.Settings.showNextTime, isOn: $settings.keepSlideShowActive)
 								.testability(Testability.Toggle.slideshowShowNextTime)
 							.padding(40)
 						}

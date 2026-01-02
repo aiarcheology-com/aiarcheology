@@ -58,7 +58,7 @@ struct ModelImportView: View {
 	var body: some View {
 		NavigationStack {
 			contentList
-				.navigationTitle("Import Model")
+				.navigationTitle(L10n.Import.title)
 				.navigationBarTitleDisplayMode(.inline)
 				.toolbar { toolbarContent }
 		}
@@ -79,8 +79,8 @@ struct ModelImportView: View {
 		.onChange(of: acquisitionCoordinator.pendingImport) { _, request in
 			handlePendingImport(request)
 		}
-		.alert("Error", isPresented: $showErrorAlert) {
-			Button("OK", role: .cancel) { }
+		.alert(L10n.Alert.Error.title, isPresented: $showErrorAlert) {
+			Button(L10n.Common.ok, role: .cancel) { }
 		} message: {
 			Text(errorMessage ?? "An unknown error occurred.")
 		}
@@ -88,15 +88,15 @@ struct ModelImportView: View {
 			get: { importedModelInfo != nil },
 			set: { if !$0 { importedModelInfo = nil } }
 		)) {
-			Button("OK") {
+			Button(L10n.Common.ok) {
 				importedModelInfo = nil
 				dismiss()
 			}
 		} message: {
 			if let info = importedModelInfo {
-				Text("The model \(info.description) from \(info.author) has been successfully imported.")
+				Text(L10n.Import.successWithInfo(info.description, info.author))
 			} else {
-				Text("The model has been imported successfully.")
+				Text(L10n.Import.success)
 			}
 		}
 		.presentationDetents([.large])
@@ -123,9 +123,9 @@ struct ModelImportView: View {
 			} label: {
 				Label {
 					VStack(alignment: .leading, spacing: 4) {
-						Text("Import from Files")
+						Text(L10n.Import.fromFiles)
 							.foregroundStyle(Color(.label))
-						Text("Select a .mlmodel or .mlpackage file")
+						Text(L10n.Import.fromFilesHint)
 							.font(.caption)
 							.foregroundStyle(Color(.secondaryLabel))
 					}
@@ -137,15 +137,15 @@ struct ModelImportView: View {
 			}
 			.buttonStyle(.plain)
 			.testability(Testability.Button.newConfigurationPickDocument)
-			
+
 			Button {
 				acquisitionCoordinator.beginRemoteImport()
 			} label: {
 				Label {
 					VStack(alignment: .leading, spacing: 4) {
-						Text("Download from URL")
+						Text(L10n.Import.fromURL)
 							.foregroundStyle(Color(.label))
-						Text("Download a model from the internet")
+						Text(L10n.Import.fromURLHint)
 							.font(.caption)
 							.foregroundStyle(Color(.secondaryLabel))
 					}
@@ -164,11 +164,11 @@ struct ModelImportView: View {
 	
 	private var instructionsSection: some View {
 		Section {
-			Text("Choose a Create ML model (.mlmodel or .mlpackage) that supports object detection. Other model types are not supported in this version.")
+			Text(L10n.Import.supportedModelsInfo)
 				.font(.subheadline)
 				.foregroundStyle(Color(.secondaryLabel))
 		} header: {
-			Text("Supported Models")
+			Text(L10n.Import.supportedModels)
 		}
 	}
 	
@@ -178,16 +178,16 @@ struct ModelImportView: View {
     private var documentationSection: some View {
         Section {
             Link(destination: URL(string: "https://developer.apple.com/documentation/createml")!) {
-                Label("Apple Create ML Documentation", systemImage: "book")
+                Label(L10n.Import.appleDocumentation, systemImage: "book")
             }
             .testability(Testability.Link.newConfigurationAppleDocumentation)
 
             Link(destination: URL(string: "https://developer.apple.com/videos/play/wwdc2020/10153/")!) {
-                Label("WWDC: Core ML Converters", systemImage: "play.rectangle")
+                Label(L10n.Import.wwdcCoreML, systemImage: "play.rectangle")
             }
             .testability(Testability.Link.newConfigurationCoreMLConverters)
         } header: {
-            Text("Learn More")
+            Text(L10n.Import.learnMore)
         }
     }
     // swiftlint:enable force_unwrapping
@@ -197,10 +197,10 @@ struct ModelImportView: View {
 	private var conversionSection: some View {
 		Section {
 			VStack(alignment: .leading, spacing: 12) {
-				Text("Use this Python code to convert ONNX models:")
+				Text(L10n.Import.onnxConversionHint)
 					.font(.subheadline)
 					.foregroundStyle(Color(.secondaryLabel))
-				
+
 				Text(Self.pythonCode)
 					.font(.system(.caption, design: .monospaced))
 					.padding(12)
@@ -210,7 +210,7 @@ struct ModelImportView: View {
 					.copiedToClipboard(copiedText: Self.pythonCode, preview: String(Self.pythonCode.prefix(80)))
 			}
 		} header: {
-			Text("ONNX Conversion")
+			Text(L10n.Import.onnxConversion)
 		}
 	}
 	
@@ -219,7 +219,7 @@ struct ModelImportView: View {
 	@ToolbarContentBuilder
 	private var toolbarContent: some ToolbarContent {
 		ToolbarItem(placement: .topBarTrailing) {
-			Button("Dismiss") {
+			Button(L10n.Common.dismiss) {
 				dismiss()
 			}
 			.tint(.blue)
@@ -232,9 +232,9 @@ struct ModelImportView: View {
 		ZStack {
 			Color.black.opacity(0.3)
 				.ignoresSafeArea()
-			
+
 			ProgressView {
-				Text("Validating model...")
+				Text(L10n.Import.validating)
 			}
 			.padding(24)
 			.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))

@@ -10,7 +10,7 @@ struct SentryStatsView: View {
 		TimelineView(.periodic(from: Date(), by: 5.0)) { _ in
 			Form {
 				if let snapshot = SentryThrottleDiagnostics.snapshot() {
-					Section(header: Text("Config")) {
+					Section(header: Text(L10n.Sentry.config)) {
 						row("enabled", snapshot.config.isEnabled.description)
 						row("perSignatureCooldown", format(snapshot.config.perSignatureCooldown))
 						row("perSignatureBurst", "\(snapshot.config.perSignatureBurst)")
@@ -20,8 +20,8 @@ struct SentryStatsView: View {
 						row("sampleEveryNthDuplicate", "\(snapshot.config.sampleEveryNthDuplicate)")
 						row("suppressedCountBreadcrumb", snapshot.config.enableSuppressedCountBreadcrumb.description)
 					}
-					
-					Section(header: Text("Counters")) {
+
+					Section(header: Text(L10n.Sentry.counters)) {
 						row("events.attempted", "\(snapshot.stats.attempted)")
 						row("events.sent", "\(snapshot.stats.sent)")
 						row("events.dropped.duplicate", "\(snapshot.stats.droppedDuplicate)")
@@ -31,7 +31,7 @@ struct SentryStatsView: View {
 					}
 				} else {
 					Section {
-						Text("Sentry throttle diagnostics not available in this build.")
+						Text(L10n.Sentry.notAvailable)
 							.foregroundColor(.secondary)
 					}
 				}

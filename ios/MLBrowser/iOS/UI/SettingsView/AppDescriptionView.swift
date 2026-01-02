@@ -97,7 +97,7 @@ struct AppDescriptionView: View {
 				}
 			}
 			Spacer()
-			Text("Copyright © 2023 by Vladimír Slavík, AI Archeology")
+			Text(L10n.About.copyright)
 				.foregroundColor(.gray)
 				.padding()
 		}

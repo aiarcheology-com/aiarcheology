@@ -39,7 +39,7 @@ struct SnapAdjustmentOverlay: View {
         VStack(spacing: 0) {
             // Header with close button
             HStack {
-                Text("Adjustments")
+                Text(L10n.Adjustment.title)
                     .font(.headline)
                     .foregroundStyle(.primary)
                 Spacer()

@@ -80,7 +80,7 @@ struct SettingsForm: View {
 
 	private var annotationSection: some View {
 		Section(header: Text(L10n.Settings.Section.annotation)) {
-			Picker("Frequency", selection: $settings.snapFrequency) {
+			Picker(L10n.Settings.frequency, selection: $settings.snapFrequency) {
 				ForEach(1...10, id: \.self) { second in
 					Text("\(second) second\(second > 1 ? "s" : "")").tag(Double(second))
 				}
@@ -90,9 +90,9 @@ struct SettingsForm: View {
 				guide.ontheflyDetectionResetTapped()
 			}
 
-			Toggle("Run At Launch", isOn: $settings.snapAfterAppStart)
+			Toggle(L10n.Settings.runAtLaunch, isOn: $settings.snapAfterAppStart)
 				.testability(Testability.Toggle.settingsRunAtLaunch)
-			Toggle("Show Labels", isOn: $settings.showIdentifiers)
+			Toggle(L10n.Settings.showLabels, isOn: $settings.showIdentifiers)
 				.testability(Testability.Toggle.settingsShowLabels)
 		}
 	}
@@ -116,7 +116,7 @@ struct SettingsForm: View {
 				.multilineTextAlignment(.trailing)
 				.foregroundColor(.gray)
 			}
-			Toggle("Reopen Last Page", isOn: $settings.reopenLastPage)
+			Toggle(L10n.Settings.reopenLastPage, isOn: $settings.reopenLastPage)
 				.testability(Testability.Toggle.settingsReopenLastPage)
 			historyLimitRow
 			NavigationLink(destination: BrowserHistoryView()

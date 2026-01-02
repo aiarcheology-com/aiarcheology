@@ -126,7 +126,7 @@ struct DrawerContent: View {
         }
         
         ToolbarItem(placement: .topBarTrailing) {
-            Button("Dimiss") {
+            Button(L10n.Common.dismiss) {
                 drawer.close()
             }
             .bold()
@@ -177,12 +177,12 @@ private struct ConfigurationRow: View {
         .buttonStyle(.borderless)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button(role: .destructive, action: onDelete) {
-                Label("Delete", systemImage: "trash")
+                Label(L10n.Common.delete, systemImage: "trash")
             }
         }
         .contextMenu {
             Button(role: .destructive, action: onDelete) {
-                Label("Delete", systemImage: "trash")
+                Label(L10n.Common.delete, systemImage: "trash")
             }
         }
     }

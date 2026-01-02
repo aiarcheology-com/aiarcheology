@@ -41,7 +41,7 @@ struct DownloaderView: View {
                         Button(role: .destructive, action: {
                             delete(item)
                         }) {
-                            Label("Delete", systemImage: "trash")
+                            Label(L10n.Common.delete, systemImage: "trash")
                         }
                         .testability(Testability.Button.downloaderListItemDelete)
                     }
@@ -49,7 +49,7 @@ struct DownloaderView: View {
                         Button(role: .destructive) {
                             delete(item)
                         } label: {
-                            Label("Delete", systemImage: "trash")
+                            Label(L10n.Common.delete, systemImage: "trash")
                         }
                     }
             }
@@ -62,11 +62,11 @@ struct DownloaderView: View {
         .mobileOnly { view in
             view.listStyle(InsetGroupedListStyle())
         }
-        .navigationTitle("Models")
+        .navigationTitle(L10n.Models.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                Button("Done") {
+                Button(L10n.Common.done) {
                     dismiss()
                 }
                 .testability(Testability.Button.downloaderDone)
