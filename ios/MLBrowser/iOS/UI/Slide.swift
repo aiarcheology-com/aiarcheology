@@ -25,20 +25,18 @@ struct Slide {
 
 struct SlideshowView: View {
 	@EnvironmentObject var settings: Settings
-	private var slides: [Slide] {
-		[
-			Slide(imageName: "AppLogo", title: L10n.Slideshow.Slide0.title, description: L10n.Slideshow.Slide0.description, showButton: true, ratio: 0.4, arrows: [.right]),
-			Slide(imageName: "slide0", title: L10n.Slideshow.Slide1.title, description: L10n.Slideshow.Slide1.description),
-			Slide(imageName: "slide1", title: L10n.Slideshow.Slide2.title, description: L10n.Slideshow.Slide2.description),
-			Slide(imageName: "slide2", title: L10n.Slideshow.Slide3.title, description: L10n.Slideshow.Slide3.description),
-			Slide(imageName: "slide3", title: L10n.Slideshow.Slide4.title, description: L10n.Slideshow.Slide4.description),
-			Slide(imageName: "slide4", title: L10n.Slideshow.Slide5.title, description: L10n.Slideshow.Slide5.description),
-			Slide(imageName: "slide5", title: L10n.Slideshow.Slide6.title, description: L10n.Slideshow.Slide6.description),
-			Slide(imageName: "slide6", title: L10n.Slideshow.Slide7.title, description: L10n.Slideshow.Slide7.description),
-			Slide(imageName: "slide7", title: L10n.Slideshow.Slide8.title, description: L10n.Slideshow.Slide8.description),
-			Slide(imageName: "slide8", title: L10n.Slideshow.Slide9.title, description: L10n.Slideshow.Slide9.description, showButton: true, arrows: [.left])
-		]
-	}
+	private let slides: [Slide] = [
+		Slide(imageName: "AppLogo", title: L10n.Slideshow.Slide0.title, description: L10n.Slideshow.Slide0.description, showButton: true, ratio: 0.4, arrows: [.right]),
+		Slide(imageName: "slide0", title: L10n.Slideshow.Slide1.title, description: L10n.Slideshow.Slide1.description),
+		Slide(imageName: "slide1", title: L10n.Slideshow.Slide2.title, description: L10n.Slideshow.Slide2.description),
+		Slide(imageName: "slide2", title: L10n.Slideshow.Slide3.title, description: L10n.Slideshow.Slide3.description),
+		Slide(imageName: "slide3", title: L10n.Slideshow.Slide4.title, description: L10n.Slideshow.Slide4.description),
+		Slide(imageName: "slide4", title: L10n.Slideshow.Slide5.title, description: L10n.Slideshow.Slide5.description),
+		Slide(imageName: "slide5", title: L10n.Slideshow.Slide6.title, description: L10n.Slideshow.Slide6.description),
+		Slide(imageName: "slide6", title: L10n.Slideshow.Slide7.title, description: L10n.Slideshow.Slide7.description),
+		Slide(imageName: "slide7", title: L10n.Slideshow.Slide8.title, description: L10n.Slideshow.Slide8.description),
+		Slide(imageName: "slide8", title: L10n.Slideshow.Slide9.title, description: L10n.Slideshow.Slide9.description, showButton: true, arrows: [.left])
+	]
 
 	var body: some View {
 		GeometryReader { geometry in

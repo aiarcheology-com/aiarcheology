@@ -223,4 +223,44 @@ final class LocalizationTests: XCTestCase {
         let button = Button(localized: L10n.Common.done) { }
         XCTAssertNotNil(button)
     }
+
+    // MARK: - String Catalog Sync Tests
+
+    func test_stringCatalogValidator_allKeys_staysInSyncWithCatalog() {
+        let missing = StringCatalogValidator.missingKeysInAllKeys(
+            stringCatalogName: "Localizable",
+            bundle: .main
+        )
+        
+        XCTAssertTrue(
+            missing.isEmpty,
+            """
+            The following keys are in Localizable.xcstrings but missing from \
+            StringCatalogValidator.allKeys: \(missing.joined(separator: ", "))
+            
+            Please update StringCatalogValidator.allKeys to include these keys.
+            """
+        )
+    }
+
+    func test_stringCatalogValidator_keys_canParseStringCatalog() {
+        let keys = StringCatalogValidator.keys(
+            inStringCatalogNamed: "Localizable",
+            in: .main
+        )
+        
+        XCTAssertFalse(
+            keys.isEmpty,
+            "Should be able to parse keys from Localizable.xcstrings"
+        )
+        
+        // Verify some expected keys are present
+        let expectedKeys = ["history.title", "common.done", "models.title"]
+        for expectedKey in expectedKeys {
+            XCTAssertTrue(
+                keys.contains(expectedKey),
+                "Parsed keys should include '\(expectedKey)'"
+            )
+        }
+    }
 }
