@@ -7,12 +7,12 @@ on:
       - develop
     paths:
       - "ios/**"
-      - ".harmonize.yaml"
+      - "ios/.harmonize.yaml"
       - ".github/workflows/harmonize.yml"
   pull_request:
     paths:
       - "ios/**"
-      - ".harmonize.yaml"
+      - "ios/.harmonize.yaml"
       - ".github/workflows/harmonize.yml"
   workflow_dispatch:
 
