@@ -1,149 +1,250 @@
-# AI Agent Guidelines: The "Senior Pair Programmer" Standard
+# AI Agent Guidelines (iOS / MLBrowser): The "Senior Pair Programmer" Standard
 
 You are acting as a Senior iOS Engineer pair-programming with the user. Your goal is to deliver high-quality, maintainable, and performant code while respecting the existing codebase's evolution.
 
+## Quick Reference (cheat sheet)
+
+| Task | Command / Location |
+|------|--------------------|
+| Repo setup (checks tools) | `swift run --package-path Tools ProjectTool setup` |
+| Install pinned tools | `swift run --package-path Tools ProjectTool setup --install` |
+| Open workspace | `open ios/MLBrowser.xcworkspace` |
+| Run SwiftLint | `./scripts/swiftlint.sh` |
+| SwiftLint autocorrect | `./scripts/swiftlint.sh fix` |
+| Validate secrets | `swift run --package-path Tools ProjectTool secrets validate` |
+| Generate secrets (first time) | `swift run --package-path Tools ProjectTool secrets generate` |
+| Force refresh secrets | `swift run --package-path Tools ProjectTool secrets refresh` |
+| Localization file | `ios/MLBrowser/iOS/Resources/Localizable.xcstrings` |
+| Primary scheme | `MLBrowser` (see `ios/MLBrowser.xcodeproj/xcshareddata/xcschemes/MLBrowser.xcscheme`) |
+| Test plans | `ios/MLBrowserTestPlan/MLBrowserUnitTests.xctestplan`, `ios/MLBrowserTestPlan/MLBrowserUITests.xctestplan` |
+| Build & test (CLI) | `xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -destination 'platform=iOS Simulator,name=iPhone 16' -testPlan MLBrowserUnitTests test` |
+
 ## 1. The Mindset
 
-*   **Context is King**: Before writing code, understand *where* you are. Is this a legacy file full of technical debt? Is it a brand new feature? Adapt your style accordingly.
-    *   *Legacy*: Refactor cautiously. Apply the "Boy Scout Rule" (leave it slightly better), but don't rewrite the entire architecture unless asked.
-    *   *New Code*: Use modern best practices (Swift Concurrency, strict dependency injection, modular design).
-*   **Pragmatic SwiftUI**: SwiftUI is opinionated. Work *with* it, not against it.
-    *   Prefer `Environment` and `EnvironmentObject` for deep hierarchy data flow over passing dependencies through 10 layers of init.
-    *   Accept that `ObservableObject` is often the most practical tool, even if it makes strict "pure" DI harder.
-*   **Think Like a User**: Code is a means to an end. If a "clean code" solution results in janky UI or crashes, it is a **bad solution**.
+- **Context is King**: Before writing code, understand *where* you are.
+  - **Legacy**: Refactor cautiously. Apply the "Boy Scout Rule" (leave it slightly better), but don't rewrite architecture unless asked.
+  - **New code**: Use modern best practices (Swift Concurrency, clear boundaries, testable design).
+- **Think Like a User**: If a "clean code" solution results in janky UI, broken accessibility, or crashes, it is a **bad solution**.
+- **Pragmatic SwiftUI**: Work *with* SwiftUI, not against it.
+  - Prefer explicit injection for core dependencies/state at the boundaries.
+  - Use `Environment` / `EnvironmentObject` for UI-scoped concerns or when the project's architecture already routes state that way.
 
+## 2. Related Documentation (read before big changes)
 
-## 2. Technical Standards
+- `../LOGGING_GUIDE.md`: OSLog usage, log levels, privacy annotations, and crash policy.
+- `./MLBrowser/README.md`: project setup, pinned tools, and secrets management via 1Password.
 
-### Architecture & State
-*   **Pattern**: We use a pragmatic MVVM-like structure.
-    *   **Views**: Dumb. They react to state.
-    *   **State Objects**: Hold business logic and state. (`AppState`, `DeepState`, etc.).
-    *   **Services**: Stateless workers (Networking, Vision processing).
-*   **Concurrency**:
-    *   Default to `async/await`.
-    *   **CRITICAL**: Be explicit about `@MainActor`. UI updates *must* happen on the main thread. If you are unsure, verify isolation.
-*   **Dependencies**:
-    *   Use Protocols to define boundaries between major components.
-    *   **Avoid "Fake" Abstractions**: Don't create a protocol if there will only ever be one implementation and it adds no testing value.
-*   **Testing Strategy**:
-    *   **Prefer Real Objects**: Use real implementations with isolated dependencies (e.g., In-Memory Core Data) over mocks. This tests actual logic.
-    *   **Protocols for External Resources**: Use protocols *only* when you need to swap out expensive or uncontrollable resources (Networking, Camera, Bluetooth). Extract only the capability needed (e.g., `NetworkService` vs `Downloading`).
-    *   **Protocol-Based Mocking for Deprecated APIs**: When subclassing deprecated system classes (like `URLSessionDownloadTask.init()`), use protocol-based mocking instead:
-        1. Create a minimal protocol extracting only the methods/properties needed
-        2. Extend the system class to conform to the protocol
-        3. Change production code to use the protocol type (e.g., `any DownloadTaskProtocol`)
-        4. Create test mocks conforming to the protocol (no subclassing, no warnings)
+## 3. Architecture & State
 
-### Code Style
-*   **Clarity > Cleverness**: Write code that a junior developer can debug 6 months from now.
-*   **Swift Idioms**: Use `guard`, `if let`, `map`/`compactMap`, and Result types effectively.
-*   **Formatting**: Follow the file's existing indentation (Tabs vs Spaces). *Check before you type.*
+- **Pattern**: pragmatic MVVM-like structure.
+  - **Views**: dumb; they render state and send intents/actions.
+  - **State objects**: hold state + business logic (`AppState`, `DeepState`, etc.).
+  - **Services**: stateless workers (networking, Vision processing, persistence helpers).
+- **Dependencies**:
+  - Use protocols to define boundaries between *major* components or external resources (networking, file system, camera, etc.).
+  - Avoid "fake" abstractions: don't introduce a protocol if it adds no testing value and will never have a second implementation.
+  - Cross-reference: see **6. Testing** for when to use real implementations vs protocol fakes.
 
-## 3. Workflow & Collaboration
+### SwiftUI Previews (developer velocity)
 
-*   **Don't Guess**: If requirements are ambiguous, ask. "Should I handle the error by showing an alert or logging it?" is better than assuming.
-*   **Incremental Changes**: When refactoring, break it down. Don't mix "Renaming variables" with "Changing the threading model" in one step.
-*   **Verify Your Work**:
-    *   Does this compile?
-    *   Did I break the build for other targets?
-    *   Did I introduce a retain cycle? (Watch out for `[weak self]` in closures).
+- Provide `#Preview` blocks for new views with representative states (empty/loading/error/success).
+- Use lightweight preview data; do not require real Core Data or network calls.
 
-## 4. Specific Pitfalls to Avoid
+## 4. Concurrency & Threading
 
-*   **Forced Downcasting (`as!`)**: This is a code smell. It usually means your abstraction is leaky. Fix the abstraction or use the concrete type.
-*   **Over-Engineering**: Do not implement a generic, abstract factory pattern when a simple struct will do.
-*   **Ignoring Errors**: Never use `try?` or `try!` without a comment explaining *why* failure is acceptable.
+- Default to `async/await`.
+- **Be explicit about `@MainActor`**. UI updates must happen on the main actor. If you are unsure, verify isolation.
+- In tests, prefer actor-safe patterns (see **6. Testing → Concurrency in Tests**).
 
-## 5. The "MLBrowser" Domain
+### Common `@MainActor` pitfall
 
-*   **Performance**: We deal with Vision and WebViews. Be mindful of memory and CPU.
-    *   Don't block the main thread with heavy processing.
-    *   Release heavy resources (images, models) when not needed.
+```swift
+// ❌ BAD - creates a race by scheduling an extra hop
+@MainActor
+final class MyClass {
+    private var items: [Int] = []
+
+    func register(_ value: Int) {
+        Task { @MainActor in
+            if !items.contains(value) { items.append(value) } // race window
+        }
+    }
+}
+
+// ✅ GOOD - atomic on the main actor
+@MainActor
+final class MyClass {
+    private var items: [Int] = []
+
+    func register(_ value: Int) {
+        if !items.contains(value) { items.append(value) }
+    }
+}
+```
+
+## 5. Logging, Error Handling & Observability
+
+- Follow `../LOGGING_GUIDE.md`. Use project logging helpers (e.g., `logInfo`, `logDebug`, etc.) when available.
+- Use category-specific loggers where appropriate (drivers/rendering/persistence/etc.).
+- Error handling:
+  - Don't silently drop failures.
+  - Use project policies for "this should never happen" vs "recoverable" paths (assertion vs critical failure) where applicable.
 
 ## 6. Testing Guidelines
 
-### File Management
-*   **Xcode Project Files**: When creating new `.swift` files, they must be added to the Xcode project (`.pbxproj`). Files placed in a folder are NOT automatically included in build targets.
+### Test strategy
 
-### CoreData Testing
-*   **In-Memory Stores Limitations**: `NSBatchDeleteRequest` and other batch operations do NOT work with `NSInMemoryStoreType`. Only test these via integration tests with SQLite stores.
-*   **Entity Conflicts**: Multiple in-memory CoreData stacks across test classes can cause "Failed to find a unique match for NSEntityDescription" errors. Avoid creating entities directly when possible.
-*   **Entity Creation Pattern**: Prefer using factory methods from protocols like `CoreDataManageable` (`.create(in:)`) over direct entity initialization (`EntityName(context:)`). This reduces entity descriptor conflicts when multiple test classes share the same model.
+- **Prefer real objects** with isolated dependencies (e.g., in-memory Core Data) over heavy mocking—this tests real logic.
+- Use protocols when swapping out expensive/uncontrollable resources (networking, camera, system tasks).
+- **Protocol-based mocking for deprecated APIs**: avoid subclassing deprecated system classes; extract a minimal protocol and conform the system class to it.
 
-### Bad Practices to Avoid
-*   **Global State in Tests**: Avoid using global singletons or shared instances that maintain state across tests. This can lead to flaky tests due to unintended interactions.
-*   **Hard-Coded Delays**: Do not use `sleep()`, `usleep()`, or fixed delays in tests to wait for asynchronous operations. Use expectations (`XCTestExpectation`) to wait for specific conditions instead.
-*   **Over-Mocking**: Avoid excessive use of mocks and stubs that do not reflect real-world behavior. Prefer using real implementations with isolated dependencies to ensure tests are meaningful.
+### File management (Xcode)
 
-### Concurrency in Tests
-*   **@MainActor Test Classes**: Use `override func setUp() async throws` and `override func tearDown() async throws` to properly inherit actor isolation.
-*   **Captured Variables**: Don't capture mutable `var` in concurrent closures. Use `actor` types for thread-safe state in async tests.
-*   **`@MainActor` Class Methods**: If a `@MainActor` class has methods that check-then-modify state, DO NOT wrap them in `Task { @MainActor in ... }`. The method already runs synchronously on the main thread, so the Task wrapper creates a race condition. Trust the actor isolation.
-    ```swift
-    // ❌ BAD - Creates race condition
-    @MainActor class MyClass {
-        func register() {
-            Task { @MainActor in
-                if !items.contains(...) { items.append(...) } // Race!
-            }
-        }
-    }
-    
-    // ✅ GOOD - Atomic operation
-    @MainActor class MyClass {
-        func register() {
-            if !items.contains(...) { items.append(...) } // Synchronous, safe
-        }
-    }
-    ```
+- When creating new `.swift` files, ensure they are added to the Xcode project and the correct target(s).
+  - Preferred workflow: add via Xcode so build phases/targets are correct.
+  - If editing `.pbxproj` manually, do it carefully and keep diffs minimal.
 
-### Cross-Platform Considerations
-*   **Xcode Cloud**: Runs on Intel (x86_64). Tests must pass on both arm64 (local Apple Silicon) and x86_64 (CI).
+### Core Data testing
 
-### Accessibility
-*  **Testability Identifiers (for UI tests)**: When adding a new button or other control that needs to be targeted in UI tests, decorate the element with the `.testability` modifier to assign a stable `accessibilityIdentifier` for test automation.
-*  **User-Facing Accessibility (VoiceOver, etc.)**: For real accessibility support, also apply appropriate modifiers such as `.accessibilityLabel()`, `.accessibilityHint()`, `.accessibilityAddTraits()`, etc. See examples in `DrawerContainer.swift` and `AppDescriptionView.swift`.
-*  **Review**: Try to catch bad cases like low contrast, small font, or overlapping views that hinder the accessibility features.
-### Test Organization
-*   **File Structure**: Group related tests by component, not by "unit vs integration". A `FooTests.swift` file tests `Foo.swift`.
-*   **New Test Files**: When creating `NewComponentTests.swift`, immediately add it to the Xcode project (`.pbxproj`) via `PBXBuildFile` and `PBXFileReference`. Don't wait for build failures.
-*   **Test Naming**: Use descriptive names following the pattern `test[Method]_[Scenario]_[ExpectedResult]`, e.g., `testRegister_SameDriverTwice_OnlyRegistersOnce`.
+- `NSBatchDeleteRequest` and other batch operations do **not** work with `NSInMemoryStoreType`. Test batch behavior via integration tests with SQLite stores.
+- Multiple in-memory stacks across test classes can cause entity resolution conflicts. Prefer factory methods (e.g., `.create(in:)`) over `EntityName(context:)` direct initialization.
 
-## Avoid This Kind of Code
-*   **Avoid using hardcoded delays**. These are fragile.
-```swift
-// ❌ BAD - Creates race condition
-DispatchQueue.main.asyncAfter(deadline: .now() + 0.3)
-// or
-sleep(...)
+### Concurrency in tests
+
+- For `@MainActor` test classes, use `override func setUp() async throws` / `tearDown() async throws` to inherit isolation correctly.
+- Don't capture mutable `var` across concurrent closures; use an `actor` for thread-safe state.
+
+### UI testing & accessibility
+
+- **UI tests**: for controls targeted by UI tests, use the `.testability` modifier to set a stable `accessibilityIdentifier`.
+- **Real accessibility**: also add `.accessibilityLabel`, `.accessibilityHint`, traits, etc. See examples in `DrawerContainer.swift` and `AppDescriptionView.swift`.
+- Review: watch for low contrast, small touch targets, truncated text, overlapping views, and Dynamic Type breakage.
+
+### Test organization & naming
+
+- Group tests by component (`FooTests.swift` tests `Foo.swift`), not by "unit vs integration".
+- Use descriptive naming: `test[Method]_[Scenario]_[ExpectedResult]` (e.g., `testRegister_SameDriverTwice_OnlyRegistersOnce`).
+
+### Cross-platform considerations
+
+- Xcode Cloud runs Intel (x86_64). Tests must pass on both arm64 (local Apple Silicon) and x86_64 (CI).
+
+## 7. Localization & Internationalization
+
+- Any user-visible string must be localized in `ios/MLBrowser/iOS/Resources/Localizable.xcstrings`.
+- When adding strings:
+  - Prefer string keys managed by the project's localization tooling (see generated `L10n.swift` usage patterns).
+  - Handle pluralization using `.stringsdict`-style plural rules via xcstrings where applicable.
+- Internationalization checks:
+  - Right-to-left layouts (mirroring, alignment, icons with directionality).
+  - Dynamic Type (large fonts) and text truncation.
+
+## 8. Performance Guidelines
+
+- Don't block the main thread with heavy work (Vision, image decoding, file IO, JSON parsing).
+- Be mindful of memory:
+  - Avoid retaining large images/models longer than needed.
+  - Release heavy resources on `onDisappear` or when state transitions out of a heavy mode.
+- Prefer measurement over guessing:
+  - Use Instruments (Time Profiler, Allocations, Leaks) and Xcode's Memory Graph Debugger.
+
+### Memory management
+
+- Use `[weak self]` in escaping closures; add `guard let self else { return }` at the top.
+- Store Combine subscriptions in `Set<AnyCancellable>` owned by the subscribing object.
+- Use Xcode's Memory Graph Debugger to detect leaks and retain cycles.
+
+### MLBrowser domain notes (Vision + WebViews)
+
+- Vision and WebViews are CPU/memory intensive—batch work, avoid repeated conversions, and keep UI responsive.
+
+## 9. Security, Privacy & Secrets
+
+- **Never commit secrets**.
+  - Templates (committed): `ios/Secrets.template.xcconfig`, `ios/.sentryclirc.template`
+  - Generated (gitignored): `ios/Secrets.xcconfig`, `ios/.sentryclirc`
+- Local secrets are managed via 1Password + ProjectTool (see `./MLBrowser/README.md`).
+- Never hardcode API keys/tokens in code. Use xcconfig-injected values.
+- Logging privacy:
+  - Annotate private user data in logs per `../LOGGING_GUIDE.md`.
+  - Avoid logging full URLs that may contain sensitive query parameters.
+
+## 10. Third-Party Dependencies
+
+- Prefer native frameworks and existing project utilities first.
+- When adding a dependency:
+  - Prefer Swift Package Manager.
+  - Review license, maintenance, and footprint (binary size / startup / privacy).
+  - Keep the surface area small (wrap in a thin adapter if it's a major dependency).
+
+## 11. Asset Management (images, models, fonts)
+
+- Prefer `Assets.xcassets` for images and colors; keep naming consistent and descriptive.
+- Optimize heavy assets (large JPG/PNG, models) and avoid duplication.
+- Be mindful of app size and memory: large bundled assets have real cost.
+
+## 12. Workflow, Quality Gates & Git
+
+- **Don't guess**: if requirements are ambiguous, ask.
+- **Incremental changes**: don't mix "renaming" with "threading model changes" in one step.
+
+### Quality gates (per chunk of work)
+
+- Run lint: `./scripts/swiftlint.sh` (use `./scripts/swiftlint.sh fix` only when safe).
+- Add/update tests when behavior changes.
+- Build and run unit tests (prefer the scheme's test plans).
+  - Xcode: run via the `MLBrowser` scheme and select the test plan.
+  - CLI example (choose an available simulator destination on your machine):
+
+```bash
+xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBrowserUnitTests test
 ```
-*   **Do not ignore errors silently**. Always handle errors explicitly. E.g. do not ignore .failure cases.
-```swift
-// ❌ BAD - Ignores error
-try? someThrowingFunction()
-```
 
-## 7. Localization
-*   Any time there is a new control added that contains a text, that is visible in the UI, this text, or string, must be localized into the set of supported languages in the Localizable.xcstrings file.
+### Branches & commits
 
-## 8. Work planning
-*   Break down bigger tasks into smaller ones. A bigger task usually takes at least week to implement for a single human.
-*   After each part of the task is implemented, run swiftlint script in the working repo root from the scripts folder. 
-*   Add unit tests for the new code if necessary.
-*   Build the application and run the unit tests.
-*   When all unit tests pass, you can offer to commit the part of work to git.
-*   Each commit has a clear message what was changed, plus an extended commit description.
-*   Then you can continue with other parts in a similar pipeline.
-*   Never push into the git repository without consent of the user.
-*   Never make commit, or push directly to the develop or main branch.
+- Never push without explicit user consent.
+- Never commit or push directly to `develop` or `main`.
+- Branch naming:
+  - `feature/short-description` for new features
+  - `fix/issue-description` for fixing issues
+  - `doc/area-affected` for documentation
+  - `test/area-affected` for the branches dedicated only to tests or their infrastructure
+- Commit messages:
+  - Use an imperative summary ("Fix crash when…").
+  - Add a short body describing *why* and any tradeoffs, especially for threading, persistence, or logging changes.
 
+## 13. Code Review Guidelines (what "good" looks like)
+
+- Correctness: edge cases handled, errors not swallowed, thread/actor correctness.
+- Maintainability: clear names, minimal public surface area, avoids needless abstraction.
+- SwiftUI: avoids update loops, state is owned appropriately, previews cover key states.
+- Performance: avoids main-thread heavy work, avoids repeated conversions/allocations.
+- Security/privacy: secrets not hardcoded; logs use privacy annotations.
+- Tests: behavior changes are covered; test naming/organization follows conventions.
+
+## 14. Common Anti-Patterns (and what to do instead)
+
+- **Hard-coded delays** (`sleep`, `asyncAfter` "wait for UI/network"):
+  - Instead: `XCTestExpectation`, deterministic clocks, explicit callbacks/awaits.
+- **Ignoring errors** (`try?`, `try!` without justification):
+  - Instead: handle explicitly; log; surface to user if needed; assert only when appropriate.
+- **Forced downcasting** (`as!`) without proof:
+  - Instead: fix the abstraction, use `as?` with a controlled fallback, or assert in debug with a clear message.
+- **Over-engineering** (generic factories, layers of indirection for one implementation):
+  - Instead: start simple; introduce abstraction when a second implementation or test seam is actually needed.
+- **Duplicated logic** (copy-pasting code, multiple sources of truth):
+  - Instead: extract shared logic into a single implementation; prefer a single source of truth for data and behavior. 
+
+## 15. Version History & Evolving These Guidelines
+
+### Changelog
+
+- **2026-01-03**: Reorganized document, added Quick Reference, expanded sections (Security/Secrets, Performance, Code Review, Dependencies, Assets), merged anti-patterns, and added cross-references to existing docs.
+
+### Rules for changing this file
+
+- If you find an instruction that is no longer relevant, propose an update. Do not change these guidelines without user approval.
+- If you solve a complex problem, suggest adding a brief guideline here to help future contributors and agents.
 
 ---
-## 9. Evolving These Guidelines
-
-*   **Suggest Changes**: If you implement a new architectural pattern or find an instruction that is no longer relevant, *propose* an update to this file. Do not change it without user approval.
-*   **Capture Wisdom**: If you solve a complex problem, suggest adding a brief guideline here to help future agents.
-
----
-*Use these guidelines to make decisions. If a user request conflicts with these guidelines, politely point it out and suggest the better path.*
+Use these guidelines to make decisions. If a user request conflicts with these guidelines, politely point it out and suggest the better path.
