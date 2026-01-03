@@ -12,6 +12,7 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
     *   Accept that `ObservableObject` is often the most practical tool, even if it makes strict "pure" DI harder.
 *   **Think Like a User**: Code is a means to an end. If a "clean code" solution results in janky UI or crashes, it is a **bad solution**.
 
+
 ## 2. Technical Standards
 
 ### Architecture & State
@@ -123,10 +124,23 @@ sleep(...)
 try? someThrowingFunction()
 ```
 
+## 7. Localization
+*   Any time there is a new control added that contains a text, that is visible in the UI, this text, or string, must be localized into the set of supported languages in the Localizable.xcstrings file.
+
+## 8. Work planning
+*   Break down bigger tasks into smaller ones. A bigger task usually takes at least week to implement for a single human.
+*   After each part of the task is implemented, run swiftlint script in the working repo root from the scripts folder. 
+*   Add unit tests for the new code if necessary.
+*   Build the application and run the unit tests.
+*   When all unit tests pass, you can offer to commit the part of work to git.
+*   Each commit has a clear message what was changed, plus an extended commit description.
+*   Then you can continue with other parts in a similar pipeline.
+*   Never push into the git repository without consent of the user.
+*   Never make commit, or push directly to the develop or main branch.
 
 
 ---
-## 7. Evolving These Guidelines
+## 9. Evolving These Guidelines
 
 *   **Suggest Changes**: If you implement a new architectural pattern or find an instruction that is no longer relevant, *propose* an update to this file. Do not change it without user approval.
 *   **Capture Wisdom**: If you solve a complex problem, suggest adding a brief guideline here to help future agents.
