@@ -65,8 +65,8 @@ SIMULATOR_NAME=""
 # Format: "    iPhone 16 (UUID) (Booted/Shutdown)"
 while IFS= read -r line; do
     if [[ "$line" =~ $PREFERRED_SIMULATOR ]]; then
-        # Extract UUID from the line
-        if [[ "$line" =~ \(([A-F0-9-]{36})\) ]]; then
+        # Extract UUID from the line (supports both upper and lowercase hex)
+        if [[ "$line" =~ \(([A-Fa-f0-9-]{36})\) ]]; then
             SIMULATOR_ID="${BASH_REMATCH[1]}"
             SIMULATOR_NAME="$PREFERRED_SIMULATOR"
             break
@@ -79,7 +79,7 @@ if [[ -z "$SIMULATOR_ID" ]]; then
     echo "Warning: ${PREFERRED_SIMULATOR} simulator not found. Using first available iPhone simulator."
     while IFS= read -r line; do
         if [[ "$line" =~ iPhone ]]; then
-            if [[ "$line" =~ \(([A-F0-9-]{36})\) ]]; then
+            if [[ "$line" =~ \(([A-Fa-f0-9-]{36})\) ]]; then
                 SIMULATOR_ID="${BASH_REMATCH[1]}"
                 # Extract name (everything before the first parenthesis)
                 SIMULATOR_NAME=$(echo "$line" | sed 's/ *(.*//' | xargs)
@@ -99,18 +99,29 @@ echo "Simulator: ${SIMULATOR_NAME} (${SIMULATOR_ID})"
 echo ""
 
 # Run only the ArchitectureTests test class using simulator ID for reliable matching
-xcodebuild test \
-    -workspace ios/MLBrowser.xcworkspace \
-    -scheme MLBrowser \
-    -destination "platform=iOS Simulator,id=${SIMULATOR_ID}" \
-    -only-testing:MLBrowserUnitTests/ArchitectureTests \
-    ${VERBOSE} \
-    | xcpretty --color 2>/dev/null || xcodebuild test \
+if command -v xcpretty >/dev/null 2>&1; then
+    xcodebuild test \
+        -workspace ios/MLBrowser.xcworkspace \
+        -scheme MLBrowser \
+        -destination "platform=iOS Simulator,id=${SIMULATOR_ID}" \
+        -only-testing:MLBrowserUnitTests/ArchitectureTests \
+        ${VERBOSE} \
+        | xcpretty --color
+    TEST_EXIT_CODE="${PIPESTATUS[0]}"
+else
+    xcodebuild test \
         -workspace ios/MLBrowser.xcworkspace \
         -scheme MLBrowser \
         -destination "platform=iOS Simulator,id=${SIMULATOR_ID}" \
         -only-testing:MLBrowserUnitTests/ArchitectureTests \
         ${VERBOSE}
+    TEST_EXIT_CODE=$?
+fi
 
 echo ""
-echo "Harmonize architectural tests completed."
+if [[ $TEST_EXIT_CODE -eq 0 ]]; then
+    echo "Harmonize architectural tests completed successfully."
+else
+    echo "Harmonize architectural tests failed."
+fi
+exit $TEST_EXIT_CODE

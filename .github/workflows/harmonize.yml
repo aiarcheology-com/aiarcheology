@@ -33,7 +33,8 @@ jobs:
         id: simulator
         run: |
           # Extract iPhone 16 simulator ID for reliable destination matching
-          SIMULATOR_ID=$(xcrun simctl list devices available | grep "iPhone 16 " | head -1 | grep -oE '[A-F0-9-]{36}')
+          # Use case-insensitive regex to match both upper and lowercase UUIDs
+          SIMULATOR_ID=$(xcrun simctl list devices available | grep "iPhone 16 " | head -1 | grep -oEi '[A-F0-9-]{36}')
           echo "Found simulator ID: $SIMULATOR_ID"
           echo "id=$SIMULATOR_ID" >> $GITHUB_OUTPUT
 
