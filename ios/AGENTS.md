@@ -210,6 +210,7 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
   - `doc/area-affected` for documentation
   - `test/area-affected` for the branches dedicated only to tests or their infrastructure
 - Commit messages:
+  - Include an issue ID prefix in the form `[AIA-XXXX]` or `[AIA-XXXX, AIA-YYYY]` for multiple related issues.
   - Use an imperative summary ("Fix crash when…").
   - Add a short body describing *why* and any tradeoffs, especially for threading, persistence, or logging changes.
 
