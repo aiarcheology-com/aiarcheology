@@ -1,0 +1,64 @@
+name: Harmonize
+
+on:
+  push:
+    branches-ignore:
+      - "copilot/**"
+    paths:
+      - "ios/**"
+      - ".harmonize.yaml"
+      - ".github/workflows/harmonize.yml"
+  pull_request:
+    paths:
+      - "ios/**"
+      - ".harmonize.yaml"
+      - ".github/workflows/harmonize.yml"
+  workflow_dispatch:
+
+jobs:
+  harmonize:
+    name: Architectural Lint
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.2.app/Contents/Developer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode Version
+        run: xcodebuild -version
+
+      - name: List Available Simulators
+        run: xcrun simctl list devices available | grep -E "iPhone" | head -5
+
+      - name: Install xcpretty
+        run: gem install xcpretty
+
+      - name: Resolve SPM Packages
+        working-directory: ios
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -workspace MLBrowser.xcworkspace \
+            -scheme MLBrowser \
+            -clonedSourcePackagesDirPath ../SourcePackages
+
+      - name: Run Harmonize Tests
+        working-directory: ios
+        run: |
+          xcodebuild test \
+            -workspace MLBrowser.xcworkspace \
+            -scheme MLBrowser \
+            -destination "platform=iOS Simulator,name=iPhone 16" \
+            -only-testing:MLBrowserUnitTests/ArchitectureTests \
+            -clonedSourcePackagesDirPath ../SourcePackages \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            | xcpretty --color || exit ${PIPESTATUS[0]}
+
+      - name: Upload Test Results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harmonize-test-results
+          path: ios/TestResults.xcresult

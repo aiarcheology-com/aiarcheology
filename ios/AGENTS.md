@@ -11,6 +11,7 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 | Open workspace | `open ios/MLBrowser.xcworkspace` |
 | Run SwiftLint | `./scripts/swiftlint.sh` |
 | SwiftLint autocorrect | `./scripts/swiftlint.sh fix` |
+| Run Harmonize (architecture) | `./scripts/harmonize.sh` |
 | Validate secrets | `swift run --package-path Tools ProjectTool secrets validate` |
 | Generate secrets (first time) | `swift run --package-path Tools ProjectTool secrets generate` |
 | Force refresh secrets | `swift run --package-path Tools ProjectTool secrets refresh` |
@@ -129,7 +130,51 @@ final class MyClass {
 
 - Xcode Cloud runs Intel (x86_64). Tests must pass on both arm64 (local Apple Silicon) and x86_64 (CI).
 
-## 7. Localization & Internationalization
+## 7. Harmonize (Architectural Linting)
+
+Harmonize enforces architectural rules as unit tests. Unlike SwiftLint (regex-based style rules), Harmonize provides semantic analysis of code structure.
+
+### Running Harmonize
+
+```bash
+./scripts/harmonize.sh          # Run architectural tests
+./scripts/harmonize.sh --verbose # Detailed output
+```
+
+### Current Rules (in `ArchitectureTests.swift`)
+
+| Rule | What It Enforces |
+|------|------------------|
+| State objects are `@MainActor` | Thread-safe UI updates for `*State` classes |
+| Services are actors | Heavy work runs off main thread |
+| Views are structs | SwiftUI value-type design |
+| ObservableObjects have descriptive suffixes | Clear naming (`*State`, `*Manager`, etc.) |
+| CoreData classes in Persistence folder | Code organization |
+| Extensions are organized | Discoverable utility code |
+
+### Philosophy: Guidelines, Not Dogma
+
+Harmonize rules are **architectural guidelines**, not unbreakable constraints. When a rule conflicts with pragmatic design:
+
+1. **Evaluate the trade-off**: Is the violation intentional and justified?
+2. **Document exceptions**: Add a comment explaining why the exception exists.
+3. **Consider renaming**: Sometimes a name change resolves the conflict (e.g., a background-only "State" class should be renamed).
+
+Example of justified exception:
+```swift
+// Note: SnapState doesn't need @MainActor because it only
+// manages timer state via Combine, not direct UI bindings.
+class SnapState: ObservableObject { ... }
+```
+
+### Adding New Rules
+
+Add rules to `ios/MLBrowserUnitTests/ArchitectureTests.swift`. Each rule should:
+- Have a clear, actionable error message
+- Reference the relevant AGENTS.md section
+- Suggest how to fix or when exceptions are acceptable
+
+## 8. Localization & Internationalization
 
 - Any user-visible string must be localized in `ios/MLBrowser/iOS/Resources/Localizable.xcstrings`.
 - When adding strings:
@@ -139,7 +184,7 @@ final class MyClass {
   - Right-to-left layouts (mirroring, alignment, icons with directionality).
   - Dynamic Type (large fonts) and text truncation.
 
-## 8. Performance Guidelines
+## 9. Performance Guidelines
 
 - Don't block the main thread with heavy work (Vision, image decoding, file IO, JSON parsing).
 - Be mindful of memory:
@@ -158,7 +203,7 @@ final class MyClass {
 
 - Vision and WebViews are CPU/memory intensive—batch work, avoid repeated conversions, and keep UI responsive.
 
-## 9. Security, Privacy & Secrets
+## 10. Security, Privacy & Secrets
 
 - **Never commit secrets**.
   - Templates (committed): `ios/Secrets.template.xcconfig`, `ios/.sentryclirc.template`
@@ -169,7 +214,7 @@ final class MyClass {
   - Annotate private user data in logs per `../LOGGING_GUIDE.md`.
   - Avoid logging full URLs that may contain sensitive query parameters.
 
-## 10. Third-Party Dependencies
+## 11. Third-Party Dependencies
 
 - Prefer native frameworks and existing project utilities first.
 - When adding a dependency:
@@ -177,13 +222,13 @@ final class MyClass {
   - Review license, maintenance, and footprint (binary size / startup / privacy).
   - Keep the surface area small (wrap in a thin adapter if it's a major dependency).
 
-## 11. Asset Management (images, models, fonts)
+## 12. Asset Management (images, models, fonts)
 
 - Prefer `Assets.xcassets` for images and colors; keep naming consistent and descriptive.
 - Optimize heavy assets (large JPG/PNG, models) and avoid duplication.
 - Be mindful of app size and memory: large bundled assets have real cost.
 
-## 12. Workflow, Quality Gates & Git
+## 13. Workflow, Quality Gates & Git
 
 - **Don't guess**: if requirements are ambiguous, ask.
 - **Incremental changes**: don't mix "renaming" with "threading model changes" in one step.
@@ -191,6 +236,7 @@ final class MyClass {
 ### Quality gates (per chunk of work)
 
 - Run lint: `./scripts/swiftlint.sh` (use `./scripts/swiftlint.sh fix` only when safe).
+- Run architectural lint: `./scripts/harmonize.sh` (for significant structural changes).
 - Add/update tests when behavior changes.
 - Build and run unit tests (prefer the scheme's test plans).
   - Xcode: run via the `MLBrowser` scheme and select the test plan.
@@ -214,7 +260,7 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
   - Use an imperative summary ("Fix crash when…").
   - Add a short body describing *why* and any tradeoffs, especially for threading, persistence, or logging changes.
 
-## 13. Code Review Guidelines (what "good" looks like)
+## 14. Code Review Guidelines (what "good" looks like)
 
 - Correctness: edge cases handled, errors not swallowed, thread/actor correctness.
 - Maintainability: clear names, minimal public surface area, avoids needless abstraction.
@@ -223,7 +269,7 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
 - Security/privacy: secrets not hardcoded; logs use privacy annotations.
 - Tests: behavior changes are covered; test naming/organization follows conventions.
 
-## 14. Common Anti-Patterns (and what to do instead)
+## 15. Common Anti-Patterns (and what to do instead)
 
 - **Hard-coded delays** (`sleep`, `asyncAfter` "wait for UI/network"):
   - Instead: `XCTestExpectation`, deterministic clocks, explicit callbacks/awaits.
@@ -236,10 +282,11 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
 - **Duplicated logic** (copy-pasting code, multiple sources of truth):
   - Instead: extract shared logic into a single implementation; prefer a single source of truth for data and behavior. 
 
-## 15. Version History & Evolving These Guidelines
+## 16. Version History & Evolving These Guidelines
 
 ### Changelog
 
+- **2026-01-03**: Added Harmonize architectural linting (section 7), updated section numbering.
 - **2026-01-03**: Reorganized document, added Quick Reference, expanded sections (Security/Secrets, Performance, Code Review, Dependencies, Assets), merged anti-patterns, and added cross-references to existing docs.
 
 ### Rules for changing this file
