@@ -149,8 +149,8 @@ Harmonize enforces architectural rules as unit tests. Unlike SwiftLint (regex-ba
 | Services are actors | Heavy work runs off main thread |
 | Views are structs | SwiftUI value-type design |
 | ObservableObjects have descriptive suffixes | Clear naming (`*State`, `*Manager`, etc.) |
-| CoreData classes in Persistence folder | Code organization |
-| Extensions are organized | Discoverable utility code |
+| CoreData entity classes exist | Core Data entities compile and are discoverable |
+| Planned: extensions are organized | Future rule for extension file structure |
 
 ### Philosophy: Guidelines, Not Dogma
 
