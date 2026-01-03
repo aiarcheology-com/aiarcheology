@@ -33,13 +33,13 @@ final class ArchitectureTests: XCTestCase {
     ///
     /// **Exceptions**: Consider if a "State" class is intentionally designed for background
     /// operations—in that case, rename it to avoid the "State" suffix.
-    func testStateObjectsAreMainActor() throws {
+    func testStateObjectsAreMainActor() {
         let stateClasses = Harmonize.productionCode().classes()
             .withSuffix("State")
             // Exclude SnapState which intentionally manages timer state via Combine
             .withoutName(["SnapState"])
 
-        try stateClasses.assertTrue(
+        stateClasses.assertTrue(
             message: """
                 State objects should be @MainActor for thread-safe UI updates.
                 If this is intentional, consider renaming to avoid 'State' suffix.
@@ -59,7 +59,7 @@ final class ArchitectureTests: XCTestCase {
     ///
     /// Note: This test verifies no regular classes have "Service" suffix.
     /// Services should be defined as `actor ServiceName`, not `class ServiceName`.
-    func testNoServiceClasses() throws {
+    func testNoServiceClasses() {
         // Services should be actors, not classes
         // This test ensures no new classes are created with Service suffix
         let serviceClasses = Harmonize.productionCode().classes()
@@ -83,7 +83,7 @@ final class ArchitectureTests: XCTestCase {
     ///
     /// **Rationale**: Clear naming helps developers understand a type's purpose.
     /// State objects, Managers, and Controllers are common ObservableObject patterns.
-    func testObservableObjectsHaveDescriptiveSuffixes() throws {
+    func testObservableObjectsHaveDescriptiveSuffixes() {
         let allowedSuffixes = [
             "State", "Manager", "Controller", "Settings", "Guide",
             "Drivers", "Model", "Coordinator", "Downloader", "Adjustment",
@@ -101,7 +101,7 @@ final class ArchitectureTests: XCTestCase {
             return
         }
 
-        try observableClasses.assertTrue(
+        observableClasses.assertTrue(
             message: """
                 ObservableObject classes should have descriptive suffixes.
                 Allowed: \(allowedSuffixes.joined(separator: ", "))
@@ -120,7 +120,7 @@ final class ArchitectureTests: XCTestCase {
     ///
     /// **Rationale**: SwiftUI is designed around value-type Views. Using structs enables
     /// SwiftUI's diffing algorithm to work efficiently and prevents reference-type issues.
-    func testNoClassesNamedView() throws {
+    func testNoClassesNamedView() {
         // Check that no classes are named *View (views should be structs)
         let viewClasses = Harmonize.productionCode().classes()
             .withSuffix("View")
@@ -136,7 +136,7 @@ final class ArchitectureTests: XCTestCase {
     }
 
     /// Verify that View structs exist in the project.
-    func testViewStructsExist() throws {
+    func testViewStructsExist() {
         let viewStructs = Harmonize.productionCode().structs()
             .withSuffix("View")
 
@@ -152,7 +152,7 @@ final class ArchitectureTests: XCTestCase {
     ///
     /// Note: CoreData classes are in files named `*+CoreDataClass.swift` but the
     /// actual class names are the entity names (e.g., `DeepConfiguration`).
-    func testCoreDataEntitiesExist() throws {
+    func testCoreDataEntitiesExist() {
         let knownCoreDataEntities = ["DeepConfiguration", "DownloadItem", "WebHistoryEntry"]
 
         for entityName in knownCoreDataEntities {
@@ -172,7 +172,7 @@ final class ArchitectureTests: XCTestCase {
     ///
     /// **Rationale**: Centralizing dependency creation makes testing easier
     /// and prevents multiple instances of singletons.
-    func testDependencyContainerExists() throws {
+    func testDependencyContainerExists() {
         let containers = Harmonize.productionCode().classes()
             .withName("DependencyContainer")
 
@@ -185,7 +185,7 @@ final class ArchitectureTests: XCTestCase {
     // MARK: - 6. Protocol Conformance Rules
 
     /// Driver implementations should conform to the Driver protocol.
-    func testDriverProtocolConformance() throws {
+    func testDriverProtocolConformance() {
         let driverProtocol = Harmonize.productionCode().protocols()
             .withName("Driver")
 
@@ -196,7 +196,7 @@ final class ArchitectureTests: XCTestCase {
     }
 
     /// DeepDriver protocol should exist for ML model drivers.
-    func testDeepDriverProtocolExists() throws {
+    func testDeepDriverProtocolExists() {
         let deepDriverProtocol = Harmonize.productionCode().protocols()
             .withName("DeepDriver")
 
