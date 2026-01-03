@@ -37,7 +37,7 @@ final class ArchitectureTests: XCTestCase {
         let stateClasses = Harmonize.productionCode().classes()
             .withSuffix("State")
             // Exclude SnapState which intentionally manages timer state via Combine
-            .withoutName(["SnapState", "SnapAdjustment"])
+            .withoutName(["SnapState"])
 
         try stateClasses.assertTrue(
             message: """
