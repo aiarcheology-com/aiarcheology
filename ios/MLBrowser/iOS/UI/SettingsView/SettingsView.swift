@@ -26,7 +26,7 @@ struct SettingsForm: View {
 	]}
 
 	var body: some View {
-		NavigationView {
+		NavigationStack {
 			Form {
 				annotationSection
 				webContentSection
@@ -34,29 +34,31 @@ struct SettingsForm: View {
 				debugSection
 			}
 			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
-			.navigationBarItems(trailing: Button(action: {
-				do {
-					try settings.validate()
-					dismiss()
-				} catch ValidationError.invalidData(let message) {
-					validationErrorMessage = message
-					self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
-											 message: Text(validationErrorMessage ?? ""), // TODO optional
-											 dismissButton: .default(Text(L10n.Common.ok), action: { validationErrorMessage = nil }))
-				} catch {
-					validationErrorMessage = "An unexpected error occurred."
-					self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
-											  message: Text(validationErrorMessage ?? ""), // TODO optional
-											  dismissButton: .default(Text(L10n.Common.ok), action: { validationErrorMessage = nil }))
+			.toolbar {
+				ToolbarItem(placement: .topBarTrailing) {
+					Button(action: {
+						do {
+							try settings.validate()
+							dismiss()
+						} catch ValidationError.invalidData(let message) {
+							validationErrorMessage = message
+							self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
+													 message: Text(validationErrorMessage ?? ""), // TODO optional
+													 dismissButton: .default(Text(L10n.Common.ok), action: { validationErrorMessage = nil }))
+						} catch {
+							validationErrorMessage = "An unexpected error occurred."
+							self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
+													  message: Text(validationErrorMessage ?? ""), // TODO optional
+													  dismissButton: .default(Text(L10n.Common.ok), action: { validationErrorMessage = nil }))
+						}
+					}) {
+						Text(L10n.Common.dismiss)
+							.bold()
+							.foregroundColor(.blue)
+					}
+					.testability(Testability.Button.settingsDismiss)
 				}
-			}) {
-
-				Text(L10n.Common.dismiss)
-					.bold()
-					.foregroundColor(.blue)
 			}
-			.testability(Testability.Button.settingsDismiss)
-			)
 
 			.alert(isPresented: .constant(validationErrorMessage != nil), content: {
 				Alert(
