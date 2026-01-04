@@ -124,7 +124,7 @@ public actor ModelLoadingService {
         // Validate that model type could be determined
         let task = parser.task
         guard task != .invalid else {
-            LoggingPolicy.error("ModelLoadingService: Could not determine model type from metadata", logger: .drivers)
+            LoggingPolicy.error("ModelLoadingService: Could not determine model type (detect/classify) from metadata", logger: .drivers)
             throw ModelLoadingError.modelTypeNotDetermined(url)
         }
 
