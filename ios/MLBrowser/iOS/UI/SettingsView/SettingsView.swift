@@ -26,7 +26,7 @@ struct SettingsForm: View {
 	]}
 
 	var body: some View {
-		NavigationView {
+		NavigationStack {
 			Form {
 				annotationSection
 				webContentSection
