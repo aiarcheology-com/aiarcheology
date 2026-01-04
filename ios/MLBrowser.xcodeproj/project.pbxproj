@@ -107,6 +107,7 @@
 		94048A692EE245D60064AC55 /* ModelImportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A682EE245D60064AC55 /* ModelImportView.swift */; };
 		940A10022F0500010000A002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 940A10012F0500010000A001 /* Localizable.xcstrings */; };
 		940A10052F0500010000A005 /* LocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10042F0500010000A004 /* LocalizationTests.swift */; };
+		94ARCH0012F04000300000003 /* ArchitectureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94ARCH0022F04000400000004 /* ArchitectureTests.swift */; };
 		940A10082F0500020000A008 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10062F0500020000A006 /* L10n.swift */; };
 		940A100C2F0600010000A00C /* L10n+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A100B2F0600010000A00B /* L10n+SwiftUI.swift */; };
 		940A100E2F0600010000A00E /* LocalizationTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */; };
@@ -307,6 +308,7 @@
 		94048A682EE245D60064AC55 /* ModelImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelImportView.swift; sourceTree = "<group>"; };
 		940A10012F0500010000A001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		940A10042F0500010000A004 /* LocalizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTests.swift; sourceTree = "<group>"; };
+		94ARCH0022F04000400000004 /* ArchitectureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchitectureTests.swift; sourceTree = "<group>"; };
 		940A10062F0500020000A006 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		940A100B2F0600010000A00B /* L10n+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "L10n+SwiftUI.swift"; sourceTree = "<group>"; };
 		940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTestHelpers.swift; sourceTree = "<group>"; };
@@ -724,6 +726,7 @@
 			isa = PBXGroup;
 			children = (
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
+				94ARCH0022F04000400000004 /* ArchitectureTests.swift */,
 				94D79C8E2EE37DBF0027C9FA /* BundleExtensionsTests.swift */,
 				945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */,
 				94D79C8F2EE37DBF0027C9FA /* CrashReporterTests.swift */,
@@ -932,6 +935,7 @@
 			);
 			name = MLBrowserUnitTests;
 			packageProductDependencies = (
+				94HARM0022F04000200000002 /* Harmonize */,
 			);
 			productName = MLBrowserTests;
 			productReference = 8AE0BC162A97B0B40086DDF9 /* MLBrowserUnitTests.xctest */;
@@ -991,6 +995,7 @@
 			packageReferences = (
 				94DF06A32E95C1D60024E381 /* XCRemoteSwiftPackageReference "OSLogViewer" */,
 				81666D3A451C4358B0AFB17A /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+				94HARM0012F04000100000001 /* XCRemoteSwiftPackageReference "Harmonize" */,
 			);
 			productRefGroup = 8AE0BC012A97B0B30086DDF9 /* Products */;
 			projectDirPath = "";
@@ -1089,7 +1094,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Upload Debug Symbols to Sentry\n\n# Skip on CI - ci_post_xcodebuild.sh handles upload there\nif [[ \"${CI:-}\" == \"TRUE\" ]]; then\n    echo \"Skipping Sentry upload (CI environment)\"\n    exit 0\nfi\n\n# Only upload for Release builds\nif [[ \"${CONFIGURATION}\" != \"Release\" ]]; then\n    echo \"Skipping Sentry upload (${CONFIGURATION} build)\"\n    exit 0\nfi\n\n# Use unified upload script\nSCRIPT_PATH=\"${SRCROOT}/ci_scripts/upload_symbols.sh\"\nif [[ -f \"$SCRIPT_PATH\" ]]; then\n    \"$SCRIPT_PATH\" \"$DWARF_DSYM_FOLDER_PATH\"\nelse\n    echo \"warning: upload_symbols.sh not found at $SCRIPT_PATH\"\nfi\n";
+			shellScript = "# Upload Debug Symbols to Sentry\n\n# Skip on CI - ci_post_xcodebuild.sh handles upload there\nif [[ \"${CI:-}\" == \"TRUE\" ]]; then\n    echo \"Skipping Sentry upload (CI environment)\"\n    exit 0\nfi\n\n# Only upload for Release builds\nif [[ \"${CONFIGURATION}\" != \"Release\" ]]; then\n    echo \"Skipping Sentry upload (${CONFIGURATION} build)\"\n    exit 0\nfi\n\n# Skip during test runs\nif [[ -n \"${XCTestConfigurationFilePath:-}\" ]] || [[ \"${ACTION:-}\" == \"test\" ]]; then\n    echo \"Skipping Sentry upload (test run)\"\n    exit 0\nfi\n\n# Use unified upload script\nSCRIPT_PATH=\"${SRCROOT}/ci_scripts/upload_symbols.sh\"\nif [[ -f \"$SCRIPT_PATH\" ]]; then\n    \"$SCRIPT_PATH\" \"$DWARF_DSYM_FOLDER_PATH\"\nelse\n    echo \"warning: upload_symbols.sh not found at $SCRIPT_PATH\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1258,6 +1263,7 @@
 				945C55842ED71234007DD8FB /* SettingsTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
 				940A10052F0500010000A005 /* LocalizationTests.swift in Sources */,
+				94ARCH0012F04000300000003 /* ArchitectureTests.swift in Sources */,
 				94929E772ED633C1001A4C63 /* DeepDriversTests.swift in Sources */,
 				94FFB9D82EE6603B0049A549 /* ObservabilityTests.swift in Sources */,
 				9A0C1EAA2F3D000200000006 /* SentryEventSignatureTests.swift in Sources */,
@@ -1641,9 +1647,22 @@
 				minimumVersion = 1.1.3;
 			};
 		};
+		94HARM0012F04000100000001 /* XCRemoteSwiftPackageReference "Harmonize" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/perrystreetsoftware/Harmonize.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.1;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		94HARM0022F04000200000002 /* Harmonize */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 94HARM0012F04000100000001 /* XCRemoteSwiftPackageReference "Harmonize" */;
+			productName = Harmonize;
+		};
 		C868B4879FC9440AA740CFDD /* Sentry */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 81666D3A451C4358B0AFB17A /* XCRemoteSwiftPackageReference "sentry-cocoa" */;

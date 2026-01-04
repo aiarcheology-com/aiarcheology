@@ -11,6 +11,7 @@ import Combine
 
 // MARK: - SnapAdjustment Tests
 
+@MainActor
 final class SnapAdjustmentTests: XCTestCase {
     
     // MARK: - Default Values Tests
