@@ -356,7 +356,12 @@ final public class Downloader: NSObject, ObservableObject {
     func cancelDownload(_ item: DownloadItem) {
         let entityId = item.entityId
         guard let current = activeDownloads[entityId] else {
-            if item.state == .paused || item.state == .downloading { transitionAndSave(item, to: .notStarted) }
+            // Cancelling from paused state (no active download)
+            if item.state == .paused || item.state == .downloading {
+                resetDownloadState(item)
+                pausedDownloads.removeValue(forKey: entityId)
+                transitionAndSave(item, to: .cancelled)
+            }
             return
         }
         
@@ -434,10 +439,13 @@ final public class Downloader: NSObject, ObservableObject {
             switch nsError.code {
             case NSURLErrorCancelled:
                 LoggingPolicy.debug("Download cancelled for item \(download.id.uuidString)", logger: .networking)
-                Self.persistDownloadState(from: download, to: item)
                 if pausedDownloads[id] != nil {
+                    // Pausing: preserve progress state
+                    Self.persistDownloadState(from: download, to: item)
                     transitionAndSave(item, to: .paused)
                 } else {
+                    // True cancel: reset progress and clear state
+                    resetDownloadState(item)
                     transitionAndSave(item, to: .cancelled)
                 }
             case NSURLErrorNotConnectedToInternet:
@@ -523,6 +531,15 @@ final public class Downloader: NSObject, ObservableObject {
         item.progress = download.progress
         item.totalBytesWritten = Int64(download.totalBytesWritten)
         item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
+    }
+    
+    /// Resets download progress state to initial values (used when cancelling)
+    private func resetDownloadState(_ item: DownloadItem) {
+        item.progress = 0.0
+        item.totalBytesWritten = 0
+        item.totalBytesExpectedToWrite = 0
+        item.file_ = nil
+        item.error = nil
     }
     
     // Optional: global access if needed by closures
