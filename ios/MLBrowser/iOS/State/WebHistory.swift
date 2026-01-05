@@ -52,12 +52,16 @@ extension WebHistoryEntry: CoreDataManagableWithState {
 extension WebHistoryEntry {
     public override func validateForInsert() throws {
         try super.validateForInsert()
-        try throwIfInvalid()
+        if lifeCycle == .ready {
+            try throwIfInvalid()
+        }
     }
     
     public override func validateForUpdate() throws {
         try super.validateForUpdate()
-        try throwIfInvalid()
+        if lifeCycle == .ready {
+            try throwIfInvalid()
+        }
     }
 }
 
