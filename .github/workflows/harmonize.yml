@@ -25,7 +25,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .spm-cache
-          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          key: ${{ runner.os }}-spm-${{ hashFiles('ios/**/Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-spm-
 
