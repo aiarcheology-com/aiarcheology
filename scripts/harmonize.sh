@@ -66,10 +66,14 @@ echo ""
 #   "Harmonize is unable to read the files of your project. This may be caused by App Sandboxing."
 #
 # Running on macOS avoids this and is the intended execution environment for architecture lint.
+#
+# Code signing is disabled for CI compatibility (GitHub Actions runners lack dev certificates).
 xcodebuild test \
     -workspace ios/MLBrowser.xcworkspace \
     -scheme MLBrowserArchitectureTests \
     -destination "platform=macOS" \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGNING_ALLOWED=NO \
     ${VERBOSE}
 TEST_EXIT_CODE=$?
 
