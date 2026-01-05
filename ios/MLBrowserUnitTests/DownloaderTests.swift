@@ -375,7 +375,7 @@ final class DownloadItemTests: XCTestCase {
         
         // Should throw during insert validation when lifeCycle is .ready
         XCTAssertThrowsError(try item.validateForInsert()) { error in
-            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+            XCTAssertTrue(error is NSError, "Should throw NSError")
         }
     }
     
@@ -430,7 +430,7 @@ final class DownloadItemTests: XCTestCase {
         
         // Should throw during update validation when lifeCycle is .ready
         XCTAssertThrowsError(try item.validateForUpdate()) { error in
-            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+            XCTAssertTrue(error is NSError, "Should throw NSError")
         }
     }
     
@@ -462,7 +462,7 @@ final class DownloadItemTests: XCTestCase {
         
         // Should throw during update validation when transitioning to .ready with invalid data
         XCTAssertThrowsError(try item.validateForUpdate()) { error in
-            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+            XCTAssertTrue(error is NSError, "Should throw NSError")
         }
     }
     

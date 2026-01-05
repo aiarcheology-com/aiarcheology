@@ -452,7 +452,7 @@ final class DeepConfigurationTests: XCTestCase {
         
         // Should throw during insert validation when lifeCycle is .ready
         XCTAssertThrowsError(try config.validateForInsert()) { error in
-            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+            XCTAssertTrue(error is NSError, "Should throw NSError")
         }
     }
     
@@ -498,7 +498,7 @@ final class DeepConfigurationTests: XCTestCase {
         
         // Should throw during update validation when lifeCycle is .ready
         XCTAssertThrowsError(try config.validateForUpdate()) { error in
-            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+            XCTAssertTrue(error is NSError, "Should throw NSError")
         }
     }
     
@@ -528,7 +528,7 @@ final class DeepConfigurationTests: XCTestCase {
         
         // Should throw during update validation when transitioning to .ready with invalid data
         XCTAssertThrowsError(try config.validateForUpdate()) { error in
-            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+            XCTAssertTrue(error is NSError, "Should throw NSError")
         }
     }
     

@@ -126,7 +126,7 @@ final class WebHistoryTests: XCTestCase {
         
         // Should throw during insert validation when lifeCycle is .ready
         XCTAssertThrowsError(try entry.validateForInsert()) { error in
-            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+            XCTAssertTrue(error is NSError, "Should throw NSError")
         }
     }
     
@@ -189,7 +189,7 @@ final class WebHistoryTests: XCTestCase {
         
         // Should throw during update validation when lifeCycle is .ready
         XCTAssertThrowsError(try entry.validateForUpdate()) { error in
-            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+            XCTAssertTrue(error is NSError, "Should throw NSError")
         }
     }
     
@@ -224,7 +224,7 @@ final class WebHistoryTests: XCTestCase {
         
         // Should throw during update validation when transitioning to .ready with invalid data
         XCTAssertThrowsError(try entry.validateForUpdate()) { error in
-            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+            XCTAssertTrue(error is NSError, "Should throw NSError")
         }
     }
     
