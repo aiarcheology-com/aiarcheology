@@ -11,9 +11,9 @@ struct ListItemView: View {
 	@EnvironmentObject var download: Downloader
 	@ObservedObject var item: DownloadItem
 	@State private var progress: Double = 0.0
-    
+
     private let entityId: UUID
-    
+
     init(item: DownloadItem) {
         self.item = item
         self.entityId = item.entityId
@@ -40,16 +40,31 @@ struct ListItemView: View {
 						.font(.caption)
 					Spacer()
 				}
-				if progress > 0.0 {
-					ProgressView(value: [.complete, .imported].contains(item.state) ? 1.0 : progress)
+				if progressValue > 0.0 {
+					ProgressView(value: progressValue)
 						.testability(Testability.ProgressView.listItemProgress)
 						.progressViewStyle(LinearProgressViewStyle(tint: .green))
 						.frame(height: 5)
 				}
 			}
-			.onReceive(download.progressPublisher(for: entityId)) { newProgress in // Core data properties are optional
+			.onReceive(download.progressPublisher(for: entityId)) { newProgress in
 				progress = newProgress
 			}
+		}
+	}
+
+	/// Returns the appropriate progress value based on download state:
+	/// - Complete/Imported: 1.0
+	/// - Downloading: live progress from publisher
+	/// - Paused/Other: persisted progress from CoreData
+	private var progressValue: Double {
+		switch item.state {
+		case .complete, .imported:
+			return 1.0
+		case .downloading:
+			return progress
+		default:
+			return item.progress
 		}
 	}
 }

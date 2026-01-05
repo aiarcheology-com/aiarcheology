@@ -264,10 +264,8 @@ final public class Downloader: NSObject, ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
 
-                guard !downloadTasks.isEmpty else {
-                    LoggingPolicy.debug("No background download tasks to reconnect", logger: .networking)
-                    return
-                }
+                // Build a set of active task IDs for quick lookup
+                var activeTaskIds = Set<UUID>()
 
                 for task in downloadTasks {
                     guard
@@ -278,6 +276,7 @@ final public class Downloader: NSObject, ObservableObject {
                         continue
                     }
 
+                    activeTaskIds.insert(id)
                     self.activeDownloads[id] = ActiveDownload(task: task, itemId: id)
 
                     if let item = DownloadItem.select(id, in: self.dataController.container.viewContext),
@@ -286,7 +285,47 @@ final public class Downloader: NSObject, ObservableObject {
                     }
                 }
 
-                LoggingPolicy.info("Reconnected \(downloadTasks.count) background download task(s)", logger: .networking)
+                if !downloadTasks.isEmpty {
+                    LoggingPolicy.info("Reconnected \(downloadTasks.count) background download task(s)", logger: .networking)
+                }
+
+                // Recover orphaned downloads: items marked as .downloading but with no active task
+                self.recoverOrphanedDownloads(activeTaskIds: activeTaskIds)
+            }
+        }
+    }
+
+    /// Recovers downloads that were interrupted by an abrupt app termination.
+    ///
+    /// Checks for items in `.downloading` state that have no corresponding background task.
+    /// - Items with `resumeData`: transition to `.paused` (can be resumed)
+    /// - Items without `resumeData`: transition to `.failed` (must restart)
+    private func recoverOrphanedDownloads(activeTaskIds: Set<UUID>) {
+        let ctx = dataController.container.viewContext
+        let fetchRequest = DownloadItem.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "%K == %@", #keyPath(DownloadItem.state_), State.downloading.rawValue)
+
+        guard let downloadingItems = try? ctx.fetch(fetchRequest) else { return }
+
+        for item in downloadingItems {
+            let entityId = item.entityId
+
+            // Skip items that have an active background task
+            guard !activeTaskIds.contains(entityId) else { continue }
+
+            if item.resumeData != nil {
+                // Has resume data: transition to paused (user can resume)
+                LoggingPolicy.info("Recovered orphaned download \(entityId.uuidString) with resume data -> paused", logger: .networking)
+                transitionAndSave(item, to: .paused)
+            } else if item.progress > 0 {
+                // Partial progress but no resume data: mark as failed with helpful message
+                LoggingPolicy.warning("Orphaned download \(entityId.uuidString) has no resume data -> failed", logger: .networking)
+                item.error = L10n.Download.Error.interruptedNoResumeData
+                transitionAndSave(item, to: .failed)
+            } else {
+                // No progress: reset to not started
+                LoggingPolicy.info("Orphaned download \(entityId.uuidString) with no progress -> not started", logger: .networking)
+                transitionAndSave(item, to: .notStarted)
             }
         }
     }
