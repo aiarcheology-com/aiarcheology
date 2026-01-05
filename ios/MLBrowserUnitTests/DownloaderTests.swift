@@ -337,6 +337,148 @@ final class DownloadItemTests: XCTestCase {
         let fetched = DownloadItem.select(id, in: context)
         XCTAssertNil(fetched)
     }
+    
+    // MARK: - Lifecycle-Aware Validation Tests
+    
+    func testValidateForInsert_EmptyLifeCycle_DoesNotThrowForInvalidData() throws {
+        let item = DownloadItem(context: context)
+        item.entityId = UUID()
+        item.lifeCycle = .empty
+        // Missing required fields (no URL, no file)
+        item.url = nil
+        item.file = nil
+        
+        // Should not throw during insert validation when lifeCycle is .empty
+        XCTAssertNoThrow(try item.validateForInsert())
+    }
+    
+    func testValidateForInsert_DraftLifeCycle_DoesNotThrowForInvalidData() throws {
+        let item = DownloadItem(context: context)
+        item.entityId = UUID()
+        item.lifeCycle = .draft
+        // Missing required fields (no file, even though state is complete)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.state = .complete
+        item.file = nil
+        
+        // Should not throw during insert validation when lifeCycle is .draft
+        XCTAssertNoThrow(try item.validateForInsert())
+    }
+    
+    func testValidateForInsert_ReadyLifeCycle_ThrowsForInvalidData() throws {
+        let item = DownloadItem(context: context)
+        item.entityId = UUID()
+        item.lifeCycle = .ready
+        item.state = .complete
+        // Missing required file field
+        item.file = nil
+        
+        // Should throw during insert validation when lifeCycle is .ready
+        XCTAssertThrowsError(try item.validateForInsert()) { error in
+            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+        }
+    }
+    
+    func testValidateForInsert_ReadyLifeCycle_DoesNotThrowForValidData() throws {
+        let item = DownloadItem(context: context)
+        item.entityId = UUID()
+        item.lifeCycle = .ready
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.file = URL(fileURLWithPath: "/tmp/test.mlmodel")
+        item.state = .complete
+        
+        // Should not throw during insert validation when data is valid
+        XCTAssertNoThrow(try item.validateForInsert())
+    }
+    
+    func testValidateForUpdate_EmptyLifeCycle_DoesNotThrowForInvalidData() throws {
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        try context.save()
+        
+        // Make invalid and change to empty lifecycle
+        item.file = nil
+        item.lifeCycle = .empty
+        
+        // Should not throw during update validation when lifeCycle is .empty
+        XCTAssertNoThrow(try item.validateForUpdate())
+    }
+    
+    func testValidateForUpdate_DraftLifeCycle_DoesNotThrowForInvalidData() throws {
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.lifeCycle = .draft
+        try context.save()
+        
+        // Make invalid while in draft lifecycle
+        item.file = nil
+        item.state = .complete
+        
+        // Should not throw during update validation when lifeCycle is .draft
+        XCTAssertNoThrow(try item.validateForUpdate())
+    }
+    
+    func testValidateForUpdate_ReadyLifeCycle_ThrowsForInvalidData() throws {
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.file = URL(fileURLWithPath: "/tmp/test.mlmodel")
+        item.lifeCycle = .ready
+        try context.save()
+        
+        // Make invalid while in ready state
+        item.file = nil
+        
+        // Should throw during update validation when lifeCycle is .ready
+        XCTAssertThrowsError(try item.validateForUpdate()) { error in
+            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+        }
+    }
+    
+    func testValidateForUpdate_ReadyLifeCycle_DoesNotThrowForValidData() throws {
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.file = URL(fileURLWithPath: "/tmp/test.mlmodel")
+        item.lifeCycle = .ready
+        try context.save()
+        
+        // Update with valid data
+        item.progress = 1.0
+        
+        // Should not throw during update validation when data is valid
+        XCTAssertNoThrow(try item.validateForUpdate())
+    }
+    
+    func testValidateForUpdate_TransitioningToReady_ThrowsForInvalidData() throws {
+        let item = DownloadItem(context: context)
+        item.entityId = UUID()
+        item.lifeCycle = .draft
+        item.state = .complete
+        // Missing required file
+        item.file = nil
+        try context.save()
+        
+        // Transition to ready with invalid data
+        item.lifeCycle = .ready
+        
+        // Should throw during update validation when transitioning to .ready with invalid data
+        XCTAssertThrowsError(try item.validateForUpdate()) { error in
+            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+        }
+    }
+    
+    func testValidateForUpdate_TransitioningToReady_DoesNotThrowForValidData() throws {
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.file = URL(fileURLWithPath: "/tmp/test.mlmodel")
+        item.lifeCycle = .draft
+        try context.save()
+        
+        // Transition to ready with valid data
+        item.lifeCycle = .ready
+        
+        // Should not throw during update validation when transitioning to .ready with valid data
+        XCTAssertNoThrow(try item.validateForUpdate())
+    }
 }
 
 // MARK: - Downloader Tests

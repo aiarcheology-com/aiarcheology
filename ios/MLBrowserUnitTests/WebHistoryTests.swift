@@ -86,4 +86,161 @@ final class WebHistoryTests: XCTestCase {
         // Implementation: case (nil, _): return true. So nil < any date.
         XCTAssertTrue(entryNil < entry1)
     }
+    
+    // MARK: - Lifecycle-Aware Validation Tests
+    
+    func testValidateForInsert_EmptyLifeCycle_DoesNotThrowForInvalidData() throws {
+        let context = testStack.viewContext
+        let entry = WebHistoryEntry(context: context)
+        entry.entityId = UUID()
+        entry.lifeCycle = .empty
+        // Missing required fields
+        entry.page = nil
+        entry.creationDate_ = nil
+        
+        // Should not throw during insert validation when lifeCycle is .empty
+        XCTAssertNoThrow(try entry.validateForInsert())
+    }
+    
+    func testValidateForInsert_DraftLifeCycle_DoesNotThrowForInvalidData() throws {
+        let context = testStack.viewContext
+        let entry = WebHistoryEntry(context: context)
+        entry.entityId = UUID()
+        entry.lifeCycle = .draft
+        // Missing required fields
+        entry.page = nil
+        entry.creationDate_ = nil
+        
+        // Should not throw during insert validation when lifeCycle is .draft
+        XCTAssertNoThrow(try entry.validateForInsert())
+    }
+    
+    func testValidateForInsert_ReadyLifeCycle_ThrowsForInvalidData() throws {
+        let context = testStack.viewContext
+        let entry = WebHistoryEntry(context: context)
+        entry.entityId = UUID()
+        entry.lifeCycle = .ready
+        // Missing required fields
+        entry.page = nil
+        entry.creationDate_ = nil
+        
+        // Should throw during insert validation when lifeCycle is .ready
+        XCTAssertThrowsError(try entry.validateForInsert()) { error in
+            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+        }
+    }
+    
+    func testValidateForInsert_ReadyLifeCycle_DoesNotThrowForValidData() throws {
+        let context = testStack.viewContext
+        let entry = WebHistoryEntry(context: context)
+        entry.entityId = UUID()
+        entry.lifeCycle = .ready
+        entry.page = URL(string: "https://example.com")
+        entry.creationDate_ = Date()
+        
+        // Should not throw during insert validation when data is valid
+        XCTAssertNoThrow(try entry.validateForInsert())
+    }
+    
+    func testValidateForUpdate_EmptyLifeCycle_DoesNotThrowForInvalidData() throws {
+        let context = testStack.viewContext
+        let entry = WebHistoryEntry(context: context)
+        entry.entityId = UUID()
+        entry.page = URL(string: "https://example.com")
+        entry.creationDate_ = Date()
+        entry.lifeCycle = .draft
+        try context.save()
+        
+        // Make invalid and change to empty lifecycle
+        entry.page = nil
+        entry.lifeCycle = .empty
+        
+        // Should not throw during update validation when lifeCycle is .empty
+        XCTAssertNoThrow(try entry.validateForUpdate())
+    }
+    
+    func testValidateForUpdate_DraftLifeCycle_DoesNotThrowForInvalidData() throws {
+        let context = testStack.viewContext
+        let entry = WebHistoryEntry(context: context)
+        entry.entityId = UUID()
+        entry.page = URL(string: "https://example.com")
+        entry.creationDate_ = Date()
+        entry.lifeCycle = .draft
+        try context.save()
+        
+        // Make invalid while in draft lifecycle
+        entry.page = nil
+        
+        // Should not throw during update validation when lifeCycle is .draft
+        XCTAssertNoThrow(try entry.validateForUpdate())
+    }
+    
+    func testValidateForUpdate_ReadyLifeCycle_ThrowsForInvalidData() throws {
+        let context = testStack.viewContext
+        let entry = WebHistoryEntry(context: context)
+        entry.entityId = UUID()
+        entry.page = URL(string: "https://example.com")
+        entry.creationDate_ = Date()
+        entry.lifeCycle = .ready
+        try context.save()
+        
+        // Make invalid while in ready state
+        entry.page = nil
+        
+        // Should throw during update validation when lifeCycle is .ready
+        XCTAssertThrowsError(try entry.validateForUpdate()) { error in
+            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+        }
+    }
+    
+    func testValidateForUpdate_ReadyLifeCycle_DoesNotThrowForValidData() throws {
+        let context = testStack.viewContext
+        let entry = WebHistoryEntry(context: context)
+        entry.entityId = UUID()
+        entry.page = URL(string: "https://example.com")
+        entry.creationDate_ = Date()
+        entry.lifeCycle = .ready
+        try context.save()
+        
+        // Update with valid data
+        entry.page = URL(string: "https://updated.com")
+        
+        // Should not throw during update validation when data is valid
+        XCTAssertNoThrow(try entry.validateForUpdate())
+    }
+    
+    func testValidateForUpdate_TransitioningToReady_ThrowsForInvalidData() throws {
+        let context = testStack.viewContext
+        let entry = WebHistoryEntry(context: context)
+        entry.entityId = UUID()
+        entry.lifeCycle = .draft
+        // Missing required fields
+        entry.page = nil
+        entry.creationDate_ = nil
+        try context.save()
+        
+        // Transition to ready with invalid data
+        entry.lifeCycle = .ready
+        
+        // Should throw during update validation when transitioning to .ready with invalid data
+        XCTAssertThrowsError(try entry.validateForUpdate()) { error in
+            XCTAssertTrue(error is CoreDataManagableValidationError, "Should throw CoreDataManagableValidationError")
+        }
+    }
+    
+    func testValidateForUpdate_TransitioningToReady_DoesNotThrowForValidData() throws {
+        let context = testStack.viewContext
+        let entry = WebHistoryEntry(context: context)
+        entry.entityId = UUID()
+        entry.page = URL(string: "https://example.com")
+        entry.creationDate_ = Date()
+        entry.lifeCycle = .draft
+        try context.save()
+        
+        // Transition to ready with valid data
+        entry.lifeCycle = .ready
+        
+        // Should not throw during update validation when transitioning to .ready with valid data
+        XCTAssertNoThrow(try entry.validateForUpdate())
+    }
 }
