@@ -346,7 +346,7 @@ final class DownloadItemTests: XCTestCase {
         item.lifeCycle = .empty
         // Missing required fields (no URL, no file)
         item.url = nil
-        item.file = nil
+        item.file_ = nil
         
         // Should not throw during insert validation when lifeCycle is .empty
         XCTAssertNoThrow(try item.validateForInsert())
@@ -359,7 +359,7 @@ final class DownloadItemTests: XCTestCase {
         // Missing required fields (no file, even though state is complete)
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .complete
-        item.file = nil
+        item.file_ = nil
         
         // Should not throw during insert validation when lifeCycle is .draft
         XCTAssertNoThrow(try item.validateForInsert())
@@ -371,12 +371,10 @@ final class DownloadItemTests: XCTestCase {
         item.lifeCycle = .ready
         item.state = .complete
         // Missing required file field
-        item.file = nil
+        item.file_ = nil
         
         // Should throw during insert validation when lifeCycle is .ready
-        XCTAssertThrowsError(try item.validateForInsert()) { error in
-            XCTAssertTrue(error is NSError, "Should throw NSError")
-        }
+        XCTAssertThrowsError(try item.validateForInsert())
     }
     
     func testValidateForInsert_ReadyLifeCycle_DoesNotThrowForValidData() throws {
@@ -384,7 +382,7 @@ final class DownloadItemTests: XCTestCase {
         item.entityId = UUID()
         item.lifeCycle = .ready
         item.url = URL(string: "https://example.com/model.mlmodel")!
-        item.file = URL(fileURLWithPath: "/tmp/test.mlmodel")
+        item.file_ = URL(fileURLWithPath: "/tmp/test.mlmodel")
         item.state = .complete
         
         // Should not throw during insert validation when data is valid
@@ -397,7 +395,7 @@ final class DownloadItemTests: XCTestCase {
         try context.save()
         
         // Make invalid and change to empty lifecycle
-        item.file = nil
+        item.file_ = nil
         item.lifeCycle = .empty
         
         // Should not throw during update validation when lifeCycle is .empty
@@ -411,7 +409,7 @@ final class DownloadItemTests: XCTestCase {
         try context.save()
         
         // Make invalid while in draft lifecycle
-        item.file = nil
+        item.file_ = nil
         item.state = .complete
         
         // Should not throw during update validation when lifeCycle is .draft
@@ -421,23 +419,22 @@ final class DownloadItemTests: XCTestCase {
     func testValidateForUpdate_ReadyLifeCycle_ThrowsForInvalidData() throws {
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
-        item.file = URL(fileURLWithPath: "/tmp/test.mlmodel")
+        item.file_ = URL(fileURLWithPath: "/tmp/test.mlmodel")
         item.lifeCycle = .ready
+        item.state = .complete
         try context.save()
-        
+
         // Make invalid while in ready state
-        item.file = nil
-        
+        item.file_ = nil
+
         // Should throw during update validation when lifeCycle is .ready
-        XCTAssertThrowsError(try item.validateForUpdate()) { error in
-            XCTAssertTrue(error is NSError, "Should throw NSError")
-        }
+        XCTAssertThrowsError(try item.validateForUpdate())
     }
-    
+
     func testValidateForUpdate_ReadyLifeCycle_DoesNotThrowForValidData() throws {
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
-        item.file = URL(fileURLWithPath: "/tmp/test.mlmodel")
+        item.file_ = URL(fileURLWithPath: "/tmp/test.mlmodel")
         item.lifeCycle = .ready
         try context.save()
         
@@ -454,22 +451,20 @@ final class DownloadItemTests: XCTestCase {
         item.lifeCycle = .draft
         item.state = .complete
         // Missing required file
-        item.file = nil
+        item.file_ = nil
         try context.save()
         
         // Transition to ready with invalid data
         item.lifeCycle = .ready
         
         // Should throw during update validation when transitioning to .ready with invalid data
-        XCTAssertThrowsError(try item.validateForUpdate()) { error in
-            XCTAssertTrue(error is NSError, "Should throw NSError")
-        }
+        XCTAssertThrowsError(try item.validateForUpdate())
     }
-    
+
     func testValidateForUpdate_TransitioningToReady_DoesNotThrowForValidData() throws {
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
-        item.file = URL(fileURLWithPath: "/tmp/test.mlmodel")
+        item.file_ = URL(fileURLWithPath: "/tmp/test.mlmodel")
         item.lifeCycle = .draft
         try context.save()
         
@@ -713,7 +708,6 @@ final class DownloaderTests: XCTestCase {
     func testResumeData_LoadedFromCoreData_WhenResuming() {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
-        let entityId = item.entityId
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .paused
         item.progress = 0.5

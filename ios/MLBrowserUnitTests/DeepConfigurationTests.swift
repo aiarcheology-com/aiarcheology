@@ -451,9 +451,7 @@ final class DeepConfigurationTests: XCTestCase {
         config.modelTypeString = nil
         
         // Should throw during insert validation when lifeCycle is .ready
-        XCTAssertThrowsError(try config.validateForInsert()) { error in
-            XCTAssertTrue(error is NSError, "Should throw NSError")
-        }
+        XCTAssertThrowsError(try config.validateForInsert())
     }
     
     func testValidateForInsert_ReadyLifeCycle_DoesNotThrowForValidData() throws {
@@ -497,9 +495,7 @@ final class DeepConfigurationTests: XCTestCase {
         config.file_ = nil
         
         // Should throw during update validation when lifeCycle is .ready
-        XCTAssertThrowsError(try config.validateForUpdate()) { error in
-            XCTAssertTrue(error is NSError, "Should throw NSError")
-        }
+        XCTAssertThrowsError(try config.validateForUpdate())
     }
     
     func testValidateForUpdate_ReadyLifeCycle_DoesNotThrowForValidData() throws {
@@ -527,9 +523,7 @@ final class DeepConfigurationTests: XCTestCase {
         config.lifeCycle = .ready
         
         // Should throw during update validation when transitioning to .ready with invalid data
-        XCTAssertThrowsError(try config.validateForUpdate()) { error in
-            XCTAssertTrue(error is NSError, "Should throw NSError")
-        }
+        XCTAssertThrowsError(try config.validateForUpdate())
     }
     
     func testValidateForUpdate_TransitioningToReady_DoesNotThrowForValidData() throws {

@@ -125,9 +125,7 @@ final class WebHistoryTests: XCTestCase {
         entry.creationDate_ = nil
         
         // Should throw during insert validation when lifeCycle is .ready
-        XCTAssertThrowsError(try entry.validateForInsert()) { error in
-            XCTAssertTrue(error is NSError, "Should throw NSError")
-        }
+        XCTAssertThrowsError(try entry.validateForInsert())
     }
     
     func testValidateForInsert_ReadyLifeCycle_DoesNotThrowForValidData() throws {
@@ -183,16 +181,14 @@ final class WebHistoryTests: XCTestCase {
         entry.creationDate_ = Date()
         entry.lifeCycle = .ready
         try context.save()
-        
-        // Make invalid while in ready state
-        entry.page = nil
-        
+
+        // Make invalid while in ready state (creationDate_ is required, page nil is allowed)
+        entry.creationDate_ = nil
+
         // Should throw during update validation when lifeCycle is .ready
-        XCTAssertThrowsError(try entry.validateForUpdate()) { error in
-            XCTAssertTrue(error is NSError, "Should throw NSError")
-        }
+        XCTAssertThrowsError(try entry.validateForUpdate())
     }
-    
+
     func testValidateForUpdate_ReadyLifeCycle_DoesNotThrowForValidData() throws {
         let context = testStack.viewContext
         let entry = WebHistoryEntry(context: context)
@@ -223,11 +219,9 @@ final class WebHistoryTests: XCTestCase {
         entry.lifeCycle = .ready
         
         // Should throw during update validation when transitioning to .ready with invalid data
-        XCTAssertThrowsError(try entry.validateForUpdate()) { error in
-            XCTAssertTrue(error is NSError, "Should throw NSError")
-        }
+        XCTAssertThrowsError(try entry.validateForUpdate())
     }
-    
+
     func testValidateForUpdate_TransitioningToReady_DoesNotThrowForValidData() throws {
         let context = testStack.viewContext
         let entry = WebHistoryEntry(context: context)
