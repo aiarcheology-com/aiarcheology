@@ -19,6 +19,7 @@ extension DownloadItem {
     @NSManaged public var error: String?
     @NSManaged public var file_: URL?
     @NSManaged public var progress: Double
+    @NSManaged public var resumeData: Data?
     @NSManaged public var state_: String?
     @NSManaged public var stateChanged_: Date?
     @NSManaged public var totalBytesExpectedToWrite: Int64

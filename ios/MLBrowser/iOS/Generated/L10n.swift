@@ -11,8 +11,8 @@ import Foundation
 // swiftlint:disable nesting type_body_length type_name vertical_whitespace_opening_braces
 internal enum L10n {
   internal enum About {
-    /// Copyright © 2023 by Vladimír Slavík, AI Archeology
-    internal static let copyright = L10n.tr("Localizable", "about.copyright", fallback: "Copyright © 2023 by Vladimír Slavík, AI Archeology")
+    /// Copyright © 2026 by Vladimír Slavík, AI Archeology
+    internal static let copyright = L10n.tr("Localizable", "about.copyright", fallback: "Copyright © 2026 by Vladimír Slavík, AI Archeology")
     /// Privacy Policy not available. Missing in the bundle?
     internal static let privacyNotAvailable = L10n.tr("Localizable", "about.privacyNotAvailable", fallback: "Privacy Policy not available. Missing in the bundle?")
     /// Privacy Policy
@@ -152,6 +152,10 @@ internal enum L10n {
       internal static let pause = L10n.tr("Localizable", "download.button.pause", fallback: "Pause")
       /// Restart
       internal static let restart = L10n.tr("Localizable", "download.button.restart", fallback: "Restart")
+    }
+    internal enum Error {
+      /// Download was interrupted and cannot be resumed. Please restart the download.
+      internal static let interruptedNoResumeData = L10n.tr("Localizable", "download.error.interruptedNoResumeData", fallback: "Download was interrupted and cannot be resumed. Please restart the download.")
     }
   }
   internal enum DownloadState {

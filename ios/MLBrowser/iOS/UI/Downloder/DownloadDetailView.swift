@@ -55,13 +55,31 @@ struct DownloadDetailView: View {
 
 private extension DownloadDetailView {
 	var progressHeader: some View {
-		ProgressView(value: [.complete, .imported].contains(item.state) ? 1.0 : progress)
+		ProgressView(value: progressValue)
 			.testability(Testability.ProgressView.downloadDetailProgress)
 			.progressViewStyle(LinearProgressViewStyle(tint: .green))
 			.frame(height: 5)
 			.onReceive(downloader.progressPublisher(for: item.entityId)) { newProgress in
 				progress = newProgress
 			}
+	}
+	
+	/// Returns the appropriate progress value based on download state:
+	/// - Complete/Imported: 1.0
+	/// - Downloading: live progress from publisher
+	/// - Paused/Other: persisted progress from CoreData
+	///
+	/// This prevents the progress bar from resetting to 0.0 when pausing.
+	var progressValue: Double {
+		switch item.state {
+		case .complete, .imported:
+			return 1.0
+		case .downloading:
+			return progress
+		default:
+			// When paused or in other states, use the persisted progress
+			return item.progress
+		}
 	}
 }
 

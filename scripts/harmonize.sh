@@ -55,68 +55,27 @@ done
 
 cd "${REPO_ROOT}"
 
-# Find an available iOS simulator by ID for reliable matching
-# Prefer iPhone 16, fall back to any available iPhone
-PREFERRED_SIMULATOR="iPhone 16"
-SIMULATOR_ID=""
-SIMULATOR_NAME=""
-
-# Get the simulator ID for reliable destination matching
-# Format: "    iPhone 16 (UUID) (Booted/Shutdown)"
-while IFS= read -r line; do
-    if [[ "$line" =~ $PREFERRED_SIMULATOR ]]; then
-        # Extract UUID from the line (supports both upper and lowercase hex)
-        if [[ "$line" =~ \(([A-Fa-f0-9-]{36})\) ]]; then
-            SIMULATOR_ID="${BASH_REMATCH[1]}"
-            SIMULATOR_NAME="$PREFERRED_SIMULATOR"
-            break
-        fi
-    fi
-done < <(xcrun simctl list devices available 2>/dev/null)
-
-# Fall back to first available iPhone if preferred not found
-if [[ -z "$SIMULATOR_ID" ]]; then
-    echo "Warning: ${PREFERRED_SIMULATOR} simulator not found. Using first available iPhone simulator."
-    while IFS= read -r line; do
-        if [[ "$line" =~ iPhone ]]; then
-            if [[ "$line" =~ \(([A-Fa-f0-9-]{36})\) ]]; then
-                SIMULATOR_ID="${BASH_REMATCH[1]}"
-                # Extract name (everything before the first parenthesis)
-                SIMULATOR_NAME=$(echo "$line" | sed 's/ *(.*//' | xargs)
-                break
-            fi
-        fi
-    done < <(xcrun simctl list devices available 2>/dev/null)
-fi
-
-if [[ -z "$SIMULATOR_ID" ]]; then
-    echo "Error: No iPhone simulator found. Please install one via Xcode." >&2
-    exit 1
-fi
-
 echo "Running Harmonize architectural tests..."
-echo "Simulator: ${SIMULATOR_NAME} (${SIMULATOR_ID})"
+echo "Destination: macOS (recommended for Harmonize file access)"
 echo ""
 
-# Run only the ArchitectureTests test class using simulator ID for reliable matching
-if command -v xcpretty >/dev/null 2>&1; then
-    xcodebuild test \
-        -workspace ios/MLBrowser.xcworkspace \
-        -scheme MLBrowser \
-        -destination "platform=iOS Simulator,id=${SIMULATOR_ID}" \
-        -only-testing:MLBrowserUnitTests/ArchitectureTests \
-        ${VERBOSE} \
-        | xcpretty --color
-    TEST_EXIT_CODE="${PIPESTATUS[0]}"
-else
-    xcodebuild test \
-        -workspace ios/MLBrowser.xcworkspace \
-        -scheme MLBrowser \
-        -destination "platform=iOS Simulator,id=${SIMULATOR_ID}" \
-        -only-testing:MLBrowserUnitTests/ArchitectureTests \
-        ${VERBOSE}
-    TEST_EXIT_CODE=$?
-fi
+# Run Harmonize tests using the dedicated test plan.
+#
+# IMPORTANT: Harmonize reads project source files from disk. On iOS Simulator, the test runner
+# is sandboxed and can't read your repository, causing failures like:
+#   "Harmonize is unable to read the files of your project. This may be caused by App Sandboxing."
+#
+# Running on macOS avoids this and is the intended execution environment for architecture lint.
+#
+# Code signing is disabled for CI compatibility (GitHub Actions runners lack dev certificates).
+xcodebuild test \
+    -workspace ios/MLBrowser.xcworkspace \
+    -scheme MLBrowserArchitectureTests \
+    -destination "platform=macOS" \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGNING_ALLOWED=NO \
+    ${VERBOSE}
+TEST_EXIT_CODE=$?
 
 echo ""
 if [[ $TEST_EXIT_CODE -eq 0 ]]; then

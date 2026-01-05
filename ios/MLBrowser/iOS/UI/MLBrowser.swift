@@ -7,9 +7,35 @@
 
 import SwiftUI
 import OSLog
+import UIKit
+
+// MARK: - App Delegate bridge (Background URLSession)
+
+/// Needed for background `URLSession` to relaunch the app and deliver download completion callbacks.
+final class BackgroundDownloadAppDelegate: NSObject, UIApplicationDelegate {
+	@MainActor
+	func application(
+		_ application: UIApplication,
+		handleEventsForBackgroundURLSession identifier: String,
+		completionHandler: @escaping () -> Void
+	) {
+		// Only handle our downloader session; otherwise, release immediately.
+		guard identifier == Downloader.backgroundSessionIdentifier else {
+			completionHandler()
+			return
+		}
+
+		Task { @MainActor in
+			let downloader = DependencyContainer.shared.downloader
+			downloader.backgroundSessionCompletionHandler = completionHandler
+			downloader.reconnectBackgroundSession()
+		}
+	}
+}
 
 @main
 struct MLBrowser: App {
+	@UIApplicationDelegateAdaptor(BackgroundDownloadAppDelegate.self) var appDelegate
 	@StateObject var appState = AppState()
 	
 	init() {
@@ -42,6 +68,12 @@ struct MLBrowser: App {
 					appState.settings.isDetectionPaused = false
 					appState.guide.ontheflyDetectionTapped()
 				}
+			}
+			.task {
+				// Reconnect to background URLSession tasks after app launch.
+				// (No-op during XCTest runs; gated inside Downloader.)
+				await appState.dataController.awaitStoreReady()
+				appState.downloader.reconnectBackgroundSession()
 			}
 		}
 	}

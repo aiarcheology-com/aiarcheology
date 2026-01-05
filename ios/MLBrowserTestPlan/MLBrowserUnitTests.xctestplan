@@ -19,6 +19,9 @@
   "testTargets" : [
     {
       "parallelizable" : true,
+      "skippedTests" : [
+        "ArchitectureTests"
+      ],
       "target" : {
         "containerPath" : "container:MLBrowser.xcodeproj",
         "identifier" : "8AE0BC152A97B0B40086DDF9",

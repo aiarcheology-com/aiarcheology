@@ -5611,6 +5611,18 @@
         }
       }
     },
+    "download.error.interruptedNoResumeData": {
+      "comment": "Error message when download was interrupted and cannot be resumed",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download was interrupted and cannot be resumed. Please restart the download."
+          }
+        }
+      }
+    },
     "download.status": {
       "comment": "Status label in download view",
       "extractionState": "manual",

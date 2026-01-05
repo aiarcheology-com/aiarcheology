@@ -125,6 +125,14 @@ private final class DownloaderSessionDelegateProxy: NSObject, URLSessionDownload
             owner?.handleDownloadCompletion(itemId: id, fileURL: fileResult)
         }
     }
+
+    /// Called when all background URLSession events have been delivered to the app.
+    /// We must call the completion handler captured in `application(_:handleEventsForBackgroundURLSession:completionHandler:)`.
+    func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
+        Task { @MainActor [weak owner] in
+            owner?.backgroundSessionDidFinishEvents()
+        }
+    }
 }
 
 @MainActor
@@ -161,13 +169,42 @@ final public class Downloader: NSObject, ObservableObject {
         case pause
         case cancel
     }
+
+    // MARK: - Background URLSession
+
+    /// Single background session identifier for all download tasks.
+    static let backgroundSessionIdentifier = "com.aiarcheology.mlbrowser.download"
+
+    /// Background sessions are disabled under XCTest runs (stability + determinism).
+    static var shouldUseBackgroundSession: Bool {
+        !AppEnvironment.isRunningUnderAnyTests
+    }
     
     let dataController: DataController
     @Published private(set) var activeDownloads: [UUID: ActiveDownload] = [:]
-    private var pausedDownloads: [UUID: Data] = [:]
     
     private let networkMonitor = NWPathMonitor()
     private lazy var delegateProxy: DownloaderSessionDelegateProxy = DownloaderSessionDelegateProxy(owner: self)
+
+    /// Completion handler provided by iOS when the app is relaunched to process background session events.
+    /// Must be called once all background events are handled.
+    var backgroundSessionCompletionHandler: (() -> Void)?
+
+    private lazy var foregroundSession: URLSession = {
+        let configuration = URLSessionConfiguration.default
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 1
+        return URLSession(configuration: configuration, delegate: delegateProxy, delegateQueue: queue)
+    }()
+
+    private lazy var backgroundSession: URLSession = {
+        let configuration = URLSessionConfiguration.background(withIdentifier: Self.backgroundSessionIdentifier)
+        configuration.sessionSendsLaunchEvents = true
+        configuration.isDiscretionary = false
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 1
+        return URLSession(configuration: configuration, delegate: delegateProxy, delegateQueue: queue)
+    }()
     
     // Test hook
     var sessionFactory: ((URLSessionConfiguration, URLSessionDelegate?, OperationQueue?) -> URLSession)?
@@ -210,6 +247,98 @@ final public class Downloader: NSObject, ObservableObject {
         } else {
             return "Internet"
         }
+    }
+
+    // MARK: - Background session management
+
+    /// Reconnects to tasks in the background session and restores `activeDownloads`.
+    ///
+    /// Call this on app launch and when iOS relaunches the app for background URLSession events.
+    func reconnectBackgroundSession() {
+        guard Self.shouldUseBackgroundSession else {
+            LoggingPolicy.debug("Skipping background session reconnection (tests)", logger: .networking)
+            return
+        }
+
+        // Note: backgroundSession is a lazy property. Accessing it here is safe because:
+        // 1. This method is called after Downloader initialization completes
+        // 2. The lazy property initialization is thread-safe
+        // 3. The delegateProxy (also lazy) will be initialized when backgroundSession is created
+        backgroundSession.getTasksWithCompletionHandler { [weak self] _, _, downloadTasks in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+
+                // Build a set of active task IDs for quick lookup
+                var activeTaskIds = Set<UUID>()
+
+                for task in downloadTasks {
+                    guard
+                        let idString = task.taskDescription,
+                        let id = UUID(uuidString: idString)
+                    else {
+                        LoggingPolicy.warning("Background download task missing/invalid taskDescription", logger: .networking)
+                        continue
+                    }
+
+                    activeTaskIds.insert(id)
+                    self.activeDownloads[id] = ActiveDownload(task: task, itemId: id)
+
+                    if let item = DownloadItem.select(id, in: self.dataController.container.viewContext),
+                       item.state != .downloading {
+                        self.transitionAndSave(item, to: .downloading)
+                    }
+                }
+
+                if !downloadTasks.isEmpty {
+                    LoggingPolicy.info("Reconnected \(downloadTasks.count) background download task(s)", logger: .networking)
+                }
+
+                // Recover orphaned downloads: items marked as .downloading but with no active task
+                self.recoverOrphanedDownloads(activeTaskIds: activeTaskIds)
+            }
+        }
+    }
+
+    /// Recovers downloads that were interrupted by an abrupt app termination.
+    ///
+    /// Checks for items in `.downloading` state that have no corresponding background task.
+    /// - Items with `resumeData`: transition to `.paused` (can be resumed)
+    /// - Items without `resumeData`: transition to `.failed` (must restart)
+    private func recoverOrphanedDownloads(activeTaskIds: Set<UUID>) {
+        let ctx = dataController.container.viewContext
+        let fetchRequest = DownloadItem.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "%K == %@", #keyPath(DownloadItem.state_), State.downloading.rawValue)
+
+        guard let downloadingItems = try? ctx.fetch(fetchRequest) else { return }
+
+        for item in downloadingItems {
+            let entityId = item.entityId
+
+            // Skip items that have an active background task
+            guard !activeTaskIds.contains(entityId) else { continue }
+
+            if item.resumeData != nil {
+                // Has resume data: transition to paused (user can resume)
+                LoggingPolicy.info("Recovered orphaned download \(entityId.uuidString) with resume data -> paused", logger: .networking)
+                transitionAndSave(item, to: .paused)
+            } else if item.progress > 0 {
+                // Partial progress but no resume data: mark as failed with helpful message
+                LoggingPolicy.warning("Orphaned download \(entityId.uuidString) has no resume data -> failed", logger: .networking)
+                item.error = L10n.Download.Error.interruptedNoResumeData
+                transitionAndSave(item, to: .failed)
+            } else {
+                // No progress: reset to not started
+                LoggingPolicy.info("Orphaned download \(entityId.uuidString) with no progress -> not started", logger: .networking)
+                transitionAndSave(item, to: .notStarted)
+            }
+        }
+    }
+
+    /// Called by the URLSession delegate when the background session finished delivering all events.
+    func backgroundSessionDidFinishEvents() {
+        guard let handler = backgroundSessionCompletionHandler else { return }
+        backgroundSessionCompletionHandler = nil
+        handler()
     }
     
     func progressPublisher(for itemId: UUID?) -> AnyPublisher<Double, Never> {
@@ -327,21 +456,23 @@ final public class Downloader: NSObject, ObservableObject {
             item.move()
         }
         
-        let configuration = URLSessionConfiguration.default
-        let queue = OperationQueue()
         let session: URLSession
         if let factory = sessionFactory {
+            let configuration = URLSessionConfiguration.default
+            let queue = OperationQueue()
             session = factory(configuration, delegateProxy, queue)
+        } else if Self.shouldUseBackgroundSession {
+            session = backgroundSession
         } else {
-            session = URLSession(configuration: configuration, delegate: delegateProxy, delegateQueue: queue)
+            session = foregroundSession
         }
         
         let downloadTask: URLSessionDownloadTask
         let entityId = item.entityId
-        if let pausedData = pausedDownloads[entityId] {
-            downloadTask = session.downloadTask(withResumeData: pausedData)
-            pausedDownloads.removeValue(forKey: entityId)
-            LoggingPolicy.debug("Resuming download from paused state", logger: .networking)
+        if let resumeData = item.resumeData {
+            downloadTask = session.downloadTask(withResumeData: resumeData)
+            item.resumeData = nil  // Clear after using
+            LoggingPolicy.debug("Resuming download from paused state (loaded from CoreData)", logger: .networking)
         } else {
             downloadTask = session.downloadTask(with: url)
         }
@@ -356,7 +487,11 @@ final public class Downloader: NSObject, ObservableObject {
     func cancelDownload(_ item: DownloadItem) {
         let entityId = item.entityId
         guard let current = activeDownloads[entityId] else {
-            if item.state == .paused || item.state == .downloading { transitionAndSave(item, to: .notStarted) }
+            // Cancelling from paused state (no active download)
+            if item.state == .paused || item.state == .downloading {
+                resetDownloadState(item)  // Also clears resumeData from CoreData
+                transitionAndSave(item, to: .cancelled)
+            }
             return
         }
         
@@ -388,7 +523,12 @@ final public class Downloader: NSObject, ObservableObject {
                 return
             }
             Task { @MainActor in
-                Downloader.current?.pausedDownloads[entityId] = data
+                guard let self = Downloader.current else { return }
+                if let item = DownloadItem.select(entityId, in: self.dataController.container.viewContext) {
+                    item.resumeData = data
+                    self.saveDownloadContext()
+                    LoggingPolicy.debug("Resume data saved to CoreData for item \(entityId.uuidString)", logger: .networking)
+                }
             }
         }
         
@@ -434,10 +574,13 @@ final public class Downloader: NSObject, ObservableObject {
             switch nsError.code {
             case NSURLErrorCancelled:
                 LoggingPolicy.debug("Download cancelled for item \(download.id.uuidString)", logger: .networking)
-                Self.persistDownloadState(from: download, to: item)
-                if pausedDownloads[id] != nil {
+                if item.resumeData != nil {
+                    // Pausing: preserve progress state (resume data already saved to CoreData)
+                    Self.persistDownloadState(from: download, to: item)
                     transitionAndSave(item, to: .paused)
                 } else {
+                    // True cancel: reset progress and clear state
+                    resetDownloadState(item)
                     transitionAndSave(item, to: .cancelled)
                 }
             case NSURLErrorNotConnectedToInternet:
@@ -508,7 +651,7 @@ final public class Downloader: NSObject, ObservableObject {
             transitionAndSave(item, to: .failed)
         }
         
-        pausedDownloads.removeValue(forKey: itemId)
+        item.resumeData = nil  // Clear any stale resume data
         activeDownloads.removeValue(forKey: itemId)
     }
     
@@ -525,13 +668,25 @@ final public class Downloader: NSObject, ObservableObject {
         item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
     }
     
+    /// Resets download progress state to initial values (used when cancelling)
+    private func resetDownloadState(_ item: DownloadItem) {
+        item.progress = 0.0
+        item.totalBytesWritten = 0
+        item.totalBytesExpectedToWrite = 0
+        item.file_ = nil
+        item.error = nil
+        item.resumeData = nil
+    }
+    
     // Optional: global access if needed by closures
     static weak var current: Downloader?
 
     // MARK: - Test helpers
     /// Injects resume data for a given item ID to simulate a paused state in tests.
     func _testInjectResumeData(for id: UUID, data: Data = Data()) {
-        pausedDownloads[id] = data
+        guard let item = DownloadItem.select(id, in: dataController.container.viewContext) else { return }
+        item.resumeData = data
+        saveDownloadContext()
     }
 }
 

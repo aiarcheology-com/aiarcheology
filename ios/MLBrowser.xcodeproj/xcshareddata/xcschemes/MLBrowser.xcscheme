@@ -36,6 +36,9 @@
          <TestPlanReference
             reference = "container:MLBrowserTestPlan/MLBrowserUITests.xctestplan">
          </TestPlanReference>
+         <TestPlanReference
+            reference = "container:MLBrowserTestPlan/MLBrowserUnitTestsHarmonize.xctestplan">
+         </TestPlanReference>
       </TestPlans>
       <Testables>
          <TestableReference
