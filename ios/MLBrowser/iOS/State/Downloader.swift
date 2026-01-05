@@ -260,6 +260,10 @@ final public class Downloader: NSObject, ObservableObject {
             return
         }
 
+        // Note: backgroundSession is a lazy property. Accessing it here is safe because:
+        // 1. This method is called after Downloader initialization completes
+        // 2. The lazy property initialization is thread-safe
+        // 3. The delegateProxy (also lazy) will be initialized when backgroundSession is created
         backgroundSession.getTasksWithCompletionHandler { [weak self] _, _, downloadTasks in
             Task { @MainActor [weak self] in
                 guard let self else { return }

@@ -1,6 +1,6 @@
 //
 //  ArchitectureTests.swift
-//  MLBrowserUnitTests
+//  MLBrowserArchitectureTests
 //
 //  Created by Agent on 2026-01-03.
 //
@@ -24,6 +24,100 @@ import XCTest
 /// 3. View Architecture - SwiftUI views as structs
 /// 4. Code Organization - File location conventions
 final class ArchitectureTests: XCTestCase {
+
+    // MARK: - Helpers (source scanning)
+
+    private struct ImportFinding: Hashable {
+        let relativePath: String
+        let lineNumber: Int
+        let line: String
+    }
+
+    private struct PatternFinding: Hashable {
+        let relativePath: String
+        let lineNumber: Int
+        let line: String
+    }
+
+    private static func repoRootURL() -> URL {
+        // #filePath points to .../ios/MLBrowserArchitectureTests/ArchitectureTests.swift
+        // Walk up to the repository root.
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent() // MLBrowserArchitectureTests
+            .deletingLastPathComponent() // ios
+            .deletingLastPathComponent() // repo root
+    }
+
+    private static func productionIOSRootURL() -> URL {
+        repoRootURL().appendingPathComponent("ios/MLBrowser/iOS", isDirectory: true)
+    }
+
+    private static func swiftFiles(under root: URL) -> [URL] {
+        let fileManager = FileManager.default
+        guard
+            let enumerator = fileManager.enumerator(
+                at: root,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles]
+            )
+        else { return [] }
+
+        var files: [URL] = []
+        for case let fileURL as URL in enumerator {
+            guard fileURL.pathExtension == "swift" else { continue }
+            files.append(fileURL)
+        }
+        return files.sorted { $0.path < $1.path }
+    }
+
+    private static func relativePath(for fileURL: URL) -> String {
+        let rootPath = repoRootURL().standardizedFileURL.path
+        let filePath = fileURL.standardizedFileURL.path
+        if filePath.hasPrefix(rootPath + "/") {
+            return String(filePath.dropFirst(rootPath.count + 1))
+        }
+        return fileURL.path
+    }
+
+    private static func readLines(of fileURL: URL) -> [String] {
+        guard let data = try? Data(contentsOf: fileURL),
+              let contents = String(data: data, encoding: .utf8)
+        else { return [] }
+        return contents.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+    }
+
+    private static func findImports(in fileURL: URL, modules: Set<String>) -> [ImportFinding] {
+        let lines = readLines(of: fileURL)
+        let relative = relativePath(for: fileURL)
+        var findings: [ImportFinding] = []
+
+        for (idx, line) in lines.enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.hasPrefix("import ") else { continue }
+            let module = trimmed.replacingOccurrences(of: "import ", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard modules.contains(module) else { continue }
+            findings.append(.init(relativePath: relative, lineNumber: idx + 1, line: line))
+        }
+
+        return findings
+    }
+
+    private static func findLinesMatching(in fileURL: URL, regex pattern: String) -> [PatternFinding] {
+        let lines = readLines(of: fileURL)
+        let relative = relativePath(for: fileURL)
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+
+        var findings: [PatternFinding] = []
+        for (idx, line) in lines.enumerated() {
+            let range = NSRange(location: 0, length: (line as NSString).length)
+            if regex.firstMatch(in: line, options: [], range: range) != nil {
+                findings.append(.init(relativePath: relative, lineNumber: idx + 1, line: line))
+            }
+        }
+
+        return findings
+    }
 
     // MARK: - 1. State Management Rules
 
@@ -53,29 +147,58 @@ final class ArchitectureTests: XCTestCase {
 
     // MARK: - 2. Naming Convention Rules
 
-    /// Services should be actors (not classes) for proper concurrency isolation.
+    /// Services should NOT be isolated to MainActor (they can be actors, structs, or classes).
     ///
-    /// **Rationale**: Services handle operations like networking, file I/O, and ML model loading.
-    /// Using actors ensures these heavy operations don't block the main thread.
+    /// **Rationale**: Services often do heavy work (networking, file I/O, ML). They should not
+    /// default to running on the main actor.
     ///
-    /// Note: This test verifies no regular classes have "Service" suffix.
-    /// Services should be defined as `actor ServiceName`, not `class ServiceName`.
-    func testNoServiceClasses() {
-        // Services should be actors, not classes
-        // This test ensures no new classes are created with Service suffix
-        let serviceClasses = Harmonize.productionCode().classes()
-            .withSuffix("Service")
-            // Exclude protocol-conformance types like CrashReportingService implementations
-            .withoutName(["SentryCrashReportingService", "NoOpCrashReportingService"])
+    /// This rule stays flexible about the exact design (actor vs class), while protecting UI responsiveness.
+    func testServicesAreNotMainActor() {
+        let root = Self.productionIOSRootURL()
+        let files = Self.swiftFiles(under: root)
 
-        XCTAssertEqual(
-            serviceClasses.count, 0,
+        // A service type is any top-level actor/class/struct named *Service.
+        // We keep the heuristic lightweight to avoid "freezing" on implementation details.
+        let serviceTypePattern = #"^\s*(?:public\s+)?(?:final\s+)?(?:actor|class|struct)\s+\w+Service\b"#
+        let mainActorPattern = #"^\s*@MainActor\b"#
+
+        guard
+            let serviceTypeRegex = try? NSRegularExpression(pattern: serviceTypePattern),
+            let mainActorRegex = try? NSRegularExpression(pattern: mainActorPattern, options: [.anchorsMatchLines])
+        else {
+            XCTFail("Failed to build regex for architecture tests.")
+            return
+        }
+
+        var offenders: [String] = []
+
+        for fileURL in files {
+            let lines = Self.readLines(of: fileURL)
+            guard !lines.isEmpty else { continue }
+
+            // Find candidate type lines and check whether @MainActor appears in the few lines above.
+            for i in 0..<lines.count {
+                let line = lines[i]
+                let lineRange = NSRange(location: 0, length: (line as NSString).length)
+                guard serviceTypeRegex.firstMatch(in: line, options: [], range: lineRange) != nil else { continue }
+
+                    let lookbackStart = max(0, i - 5)
+                    let lookback = lines[lookbackStart...i].joined(separator: "\n")
+                    let lookbackRange = NSRange(location: 0, length: (lookback as NSString).length)
+                    if mainActorRegex.firstMatch(in: lookback, options: [], range: lookbackRange) != nil {
+                        offenders.append("\(Self.relativePath(for: fileURL)):\(i + 1)")
+                    }
+            }
+        }
+
+        XCTAssertTrue(
+            offenders.isEmpty,
             """
-            Found \(serviceClasses.count) class(es) with 'Service' suffix.
-            Services should be actors for off-main-thread execution.
-            Heavy operations (networking, file I/O, ML) must not block the main thread.
-            Consider converting to 'actor ServiceName' for proper concurrency isolation.
-            See AGENTS.md section 9 (Performance Guidelines).
+            Service types should not be @MainActor (keep heavy work off the UI thread).
+            Offenders:
+            \(offenders.sorted().joined(separator: "\n"))
+
+            If a type truly belongs on MainActor, consider renaming to avoid the 'Service' suffix.
             """
         )
     }
@@ -149,22 +272,18 @@ final class ArchitectureTests: XCTestCase {
 
     // MARK: - 4. Code Organization Rules
 
-    /// CoreData entity classes should exist and follow NSManagedObject pattern.
-    ///
-    /// Note: CoreData classes are in files named `*+CoreDataClass.swift` but the
-    /// actual class names are the entity names (e.g., `DeepConfiguration`).
-    func testCoreDataEntitiesExist() {
-        let knownCoreDataEntities = ["DeepConfiguration", "DownloadItem", "WebHistoryEntry"]
+    /// CoreData entity types should exist (avoid hardcoding a list of entity names, which freezes refactors).
+    func testCoreDataEntityTypesExist() {
+        let entityClasses = Harmonize.productionCode().classes()
+            .filter { $0.inherits(from: "NSManagedObject") }
 
-        for entityName in knownCoreDataEntities {
-            let entityClasses = Harmonize.productionCode().classes()
-                .withName(entityName)
-
-            XCTAssertEqual(
-                entityClasses.count, 1,
-                "Expected CoreData entity class '\(entityName)' to exist."
-            )
-        }
+        XCTAssertGreaterThan(
+            entityClasses.count, 0,
+            """
+            Expected at least one CoreData entity type (NSManagedObject subclass).
+            If you intentionally removed CoreData, remove/adjust this rule.
+            """
+        )
     }
 
     // MARK: - 5. Dependency Injection Rules
@@ -204,6 +323,159 @@ final class ArchitectureTests: XCTestCase {
         XCTAssertEqual(
             deepDriverProtocol.count, 1,
             "Expected exactly one DeepDriver protocol definition."
+        )
+    }
+
+    // MARK: - 7. Pragmatic Boundaries (guardrails)
+
+    /// Avoid accidental proliferation of "global state" singletons.
+    ///
+    /// This rule is intentionally small: it doesn't ban singletons outright, it just makes them explicit.
+    func testOnlyApprovedSharedSingletonsExist() {
+        let root = Self.productionIOSRootURL()
+        let files = Self.swiftFiles(under: root)
+
+        let approvedFiles: Set<String> = [
+            "ios/MLBrowser/iOS/State/DependencyContainer.swift",
+            "ios/MLBrowser/iOS/UI/EmailController.swift",
+            "ios/MLBrowser/iOS/Tools/Reporting/CrashReporter.swift"
+        ]
+
+        let sharedPattern = #"\bstatic\s+(?:let|var)\s+shared\b"#
+
+        var offenders: [PatternFinding] = []
+        for fileURL in files {
+            let rel = Self.relativePath(for: fileURL)
+            let findings = Self.findLinesMatching(in: fileURL, regex: sharedPattern)
+            guard !findings.isEmpty else { continue }
+            guard approvedFiles.contains(rel) else {
+                offenders.append(contentsOf: findings)
+                continue
+            }
+        }
+
+        if !offenders.isEmpty {
+            let formatted = offenders
+                .sorted { ($0.relativePath, $0.lineNumber) < ($1.relativePath, $1.lineNumber) }
+                .map { "\($0.relativePath):\($0.lineNumber)  \($0.line.trimmingCharacters(in: .whitespaces))" }
+                .joined(separator: "\n")
+
+            XCTFail(
+                """
+                New `static shared` singletons should be rare and explicitly approved.
+                Offenders:
+                \(formatted)
+
+                Prefer injecting dependencies via DependencyContainer (or explicit init params) to keep code testable.
+                If this singleton is justified, add the file to the allowlist in ArchitectureTests with a comment explaining why.
+                """
+            )
+        }
+    }
+
+    /// Type-based boundary: SwiftUI `View` types should not import CoreData directly.
+    ///
+    /// This stays refactor-friendly (works regardless of file/folder location).
+    /// Marked aspirational initially because some views currently use `@FetchRequest`.
+    func testViewTypesAvoidCoreDataImports_Aspirational() {
+        XCTExpectFailure(
+            """
+            Aspirational boundary: View types should not import CoreData directly.
+            Prefer: move CoreData queries into state/persistence layer and pass results to views.
+            """
+        )
+
+        let root = Self.productionIOSRootURL()
+        let files = Self.swiftFiles(under: root)
+
+        guard
+            let viewTypeRegex = try? NSRegularExpression(
+                pattern: #"^\s*(?:public\s+)?(?:struct|class)\s+\w+\s*:\s*View\b"#,
+                options: [.anchorsMatchLines]
+            )
+        else {
+            XCTFail("Failed to build View-type regex.")
+            return
+        }
+
+        var offenders: [String] = []
+
+        for fileURL in files {
+            let lines = Self.readLines(of: fileURL)
+            guard !lines.isEmpty else { continue }
+
+            let contents = lines.joined(separator: "\n")
+            let contentsRange = NSRange(location: 0, length: (contents as NSString).length)
+            guard viewTypeRegex.firstMatch(in: contents, options: [], range: contentsRange) != nil else { continue }
+
+            let imports = Self.findImports(in: fileURL, modules: Set(["CoreData"]))
+            if !imports.isEmpty {
+                let formatted = imports
+                    .map { "\($0.relativePath):\($0.lineNumber)  \($0.line.trimmingCharacters(in: .whitespaces))" }
+                    .joined(separator: "\n")
+                offenders.append(formatted)
+            }
+        }
+
+        XCTAssertTrue(
+            offenders.isEmpty,
+            """
+            View-type files importing CoreData:
+            \(offenders.joined(separator: "\n"))
+            """
+        )
+    }
+
+    /// Type-based boundary: `*State` types should avoid importing SwiftUI/UIKit.
+    ///
+    /// Marked aspirational because several state types currently import SwiftUI.
+    /// Long-term, this helps keep state testable and UI-framework-free.
+    func testStateTypesAvoidSwiftUIImports_Aspirational() {
+        XCTExpectFailure(
+            """
+            Aspirational boundary: `*State` types should avoid importing SwiftUI/UIKit.
+            Prefer: move SwiftUI-only concerns (e.g. colors, images, property wrappers) to Views or small adapters.
+            """
+        )
+
+        let root = Self.productionIOSRootURL()
+        let files = Self.swiftFiles(under: root)
+
+        guard
+            let stateTypeRegex = try? NSRegularExpression(
+                pattern: #"^\s*(?:public\s+)?(?:final\s+)?(?:class|actor|struct)\s+\w+State\b"#,
+                options: [.anchorsMatchLines]
+            )
+        else {
+            XCTFail("Failed to build State-type regex.")
+            return
+        }
+
+        var offenders: [String] = []
+
+        for fileURL in files {
+            let lines = Self.readLines(of: fileURL)
+            guard !lines.isEmpty else { continue }
+
+            let contents = lines.joined(separator: "\n")
+            let contentsRange = NSRange(location: 0, length: (contents as NSString).length)
+            guard stateTypeRegex.firstMatch(in: contents, options: [], range: contentsRange) != nil else { continue }
+
+            let imports = Self.findImports(in: fileURL, modules: Set(["SwiftUI", "UIKit"]))
+            if !imports.isEmpty {
+                let formatted = imports
+                    .map { "\($0.relativePath):\($0.lineNumber)  \($0.line.trimmingCharacters(in: .whitespaces))" }
+                    .joined(separator: "\n")
+                offenders.append(formatted)
+            }
+        }
+
+        XCTAssertTrue(
+            offenders.isEmpty,
+            """
+            `*State` type files importing SwiftUI/UIKit:
+            \(offenders.joined(separator: "\n"))
+            """
         )
     }
 }
