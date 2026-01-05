@@ -68,12 +68,21 @@ echo ""
 # Running on macOS avoids this and is the intended execution environment for architecture lint.
 #
 # Code signing is disabled for CI compatibility (GitHub Actions runners lack dev certificates).
+#
+# SPM_CACHE_PATH: Optional environment variable to specify SPM package cache location (for CI).
+
+SPM_CACHE_ARG=""
+if [[ -n "${SPM_CACHE_PATH:-}" ]]; then
+    SPM_CACHE_ARG="-clonedSourcePackagesDirPath ${SPM_CACHE_PATH}"
+fi
+
 xcodebuild test \
     -workspace ios/MLBrowser.xcworkspace \
     -scheme MLBrowserArchitectureTests \
     -destination "platform=macOS" \
     CODE_SIGNING_REQUIRED=NO \
     CODE_SIGNING_ALLOWED=NO \
+    ${SPM_CACHE_ARG} \
     ${VERBOSE}
 TEST_EXIT_CODE=$?
 
