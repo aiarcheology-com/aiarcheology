@@ -13,6 +13,7 @@
 //
 
 import Harmonize
+import HarmonizeSemantics
 import XCTest
 
 /// Architectural rules for the MLBrowser codebase.

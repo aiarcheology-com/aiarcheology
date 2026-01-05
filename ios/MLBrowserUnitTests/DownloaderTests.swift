@@ -232,6 +232,27 @@ final class DownloadItemTests: XCTestCase {
         XCTAssertEqual(item.error, errorMessage)
     }
     
+    func testDownloadItemResumeDataStorage() {
+        let item = DownloadItem.create(in: context)
+        
+        // Initially nil
+        XCTAssertNil(item.resumeData)
+        
+        // Set resume data
+        let testData = Data("test resume data for persistence".utf8)
+        item.resumeData = testData
+        DownloadItem.save(in: context)
+        
+        // Verify stored
+        XCTAssertEqual(item.resumeData, testData)
+        
+        // Clear resume data
+        item.resumeData = nil
+        DownloadItem.save(in: context)
+        
+        XCTAssertNil(item.resumeData)
+    }
+    
     func testDownloadItemValidationReport_NotStarted() {
         let item = DownloadItem.create(in: context)
         item.state = .notStarted
@@ -514,18 +535,22 @@ final class DownloaderTests: XCTestCase {
         // The task.cancel() is called which triggers delegate methods asynchronously
     }
     
-    func testCancelTapped_Paused_ReturnsToNotStarted() {
+    func testCancelTapped_Paused_TransitionsToCancelled() {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .paused
+        item.progress = 0.5
+        item.resumeData = Data("test".utf8)
         DownloadItem.save(in: context)
         
         // There's no active download for paused state
         downloader.cancelTapped(item)
         
-        // When there's no active download and item is paused, it should reset
-        XCTAssertEqual(item.state, .notStarted)
+        // When cancelling from paused state, should reset progress and transition to cancelled
+        XCTAssertEqual(item.state, .cancelled)
+        XCTAssertEqual(item.progress, 0.0, "Progress should be reset when cancelling")
+        XCTAssertNil(item.resumeData, "Resume data should be cleared when cancelling")
     }
     
     func testCancelTapped_NotStarted_DoesNothing() {
@@ -539,6 +564,115 @@ final class DownloaderTests: XCTestCase {
         
         // Should remain in not started state
         XCTAssertEqual(item.state, .notStarted)
+    }
+    
+    // MARK: - Resume Data Persistence Tests
+    
+    func testResumeData_LoadedFromCoreData_WhenResuming() {
+        let context = dataController.container.viewContext
+        let item = DownloadItem.create(in: context)
+        let entityId = item.entityId
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.state = .paused
+        item.progress = 0.5
+        item.totalBytesWritten = 500
+        item.totalBytesExpectedToWrite = 1000
+        
+        // Simulate persisted resume data (as if app was killed while paused)
+        let testResumeData = Data("resume data from CoreData".utf8)
+        item.resumeData = testResumeData
+        DownloadItem.save(in: context)
+        
+        var sessionCreated = false
+        downloader.sessionFactory = { config, delegate, queue in
+            sessionCreated = true
+            return URLSession(configuration: config, delegate: delegate, delegateQueue: queue)
+        }
+        
+        // Resume download - should use resume data from CoreData
+        downloader.downloadTapped(item)
+        
+        XCTAssertTrue(sessionCreated, "Session should be created when resuming")
+        XCTAssertEqual(item.state, .downloading)
+        XCTAssertNil(item.resumeData, "Resume data should be cleared after using")
+    }
+    
+    func testResumeData_ClearedFromCoreData_WhenCancelling() {
+        let context = dataController.container.viewContext
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.state = .paused
+        item.progress = 0.75
+        item.resumeData = Data("test resume data".utf8)
+        DownloadItem.save(in: context)
+        
+        XCTAssertNotNil(item.resumeData, "Resume data should exist before cancelling")
+        
+        downloader.cancelTapped(item)
+        
+        XCTAssertEqual(item.state, .cancelled)
+        XCTAssertNil(item.resumeData, "Resume data should be cleared when cancelling")
+        XCTAssertEqual(item.progress, 0.0, "Progress should be reset when cancelling")
+    }
+    
+    func testResumeData_SurvivesDownloaderReinitialization() {
+        // This tests that resume data persists across "app restarts" (simulated by creating new Downloader)
+        let context = dataController.container.viewContext
+        let item = DownloadItem.create(in: context)
+        let entityId = item.entityId
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.state = .paused
+        item.progress = 0.6
+        item.resumeData = Data("persisted resume data".utf8)
+        DownloadItem.save(in: context)
+        
+        // Create a new Downloader (simulates app restart)
+        let newDownloader = Downloader(dataController: dataController)
+        
+        var sessionCreated = false
+        newDownloader.sessionFactory = { config, delegate, queue in
+            sessionCreated = true
+            return URLSession(configuration: config, delegate: delegate, delegateQueue: queue)
+        }
+        
+        // Re-fetch item (simulates fresh fetch after restart)
+        guard let refetchedItem = DownloadItem.select(entityId, in: context) else {
+            XCTFail("Item should exist in CoreData")
+            return
+        }
+        
+        // Verify resume data survived
+        XCTAssertNotNil(refetchedItem.resumeData, "Resume data should persist in CoreData")
+        XCTAssertEqual(refetchedItem.state, .paused)
+        
+        // Resume download
+        newDownloader.downloadTapped(refetchedItem)
+        
+        XCTAssertTrue(sessionCreated, "Session should be created with persisted resume data")
+        XCTAssertEqual(refetchedItem.state, .downloading)
+    }
+    
+    func testTestHelper_InjectResumeData_SavesToCoreData() {
+        let context = dataController.container.viewContext
+        let item = DownloadItem.create(in: context)
+        let entityId = item.entityId
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.state = .paused
+        DownloadItem.save(in: context)
+        
+        XCTAssertNil(item.resumeData, "Resume data should be nil initially")
+        
+        // Use test helper to inject resume data
+        let testData = Data("injected via test helper".utf8)
+        downloader._testInjectResumeData(for: entityId, data: testData)
+        
+        // Re-fetch to verify persistence
+        guard let refetchedItem = DownloadItem.select(entityId, in: context) else {
+            XCTFail("Item should exist")
+            return
+        }
+        
+        XCTAssertEqual(refetchedItem.resumeData, testData, "Test helper should save resume data to CoreData")
     }
     
     // MARK: - Progress Publisher Tests
@@ -813,6 +947,41 @@ final class DownloaderTests: XCTestCase {
         
         // Should not crash
         downloader.sessionTaskDidComplete(session: session, task: mockTask, error: nil)
+    }
+
+    // MARK: - Background URLSession plumbing
+
+    func testBackgroundSessionIdentifier_HasExpectedValue() {
+        XCTAssertEqual(Downloader.backgroundSessionIdentifier, "com.aiarcheology.mlbrowser.download")
+    }
+
+    func testBackgroundSessionDidFinishEvents_CallsCompletionHandlerAndClearsIt() {
+        let expectation = XCTestExpectation(description: "Background completion handler called")
+
+        downloader.backgroundSessionCompletionHandler = {
+            expectation.fulfill()
+        }
+
+        downloader.backgroundSessionDidFinishEvents()
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertNil(downloader.backgroundSessionCompletionHandler, "Completion handler should be cleared after being called")
+    }
+
+    func testBackgroundSessionDidFinishEvents_WhenNoHandler_DoesNothing() {
+        downloader.backgroundSessionCompletionHandler = nil
+        downloader.backgroundSessionDidFinishEvents() // should not crash
+    }
+
+    func testReconnectBackgroundSession_IsNoOpUnderTests() {
+        // In unit tests, Downloader.shouldUseBackgroundSession is expected to be false
+        // (gated by AppEnvironment.isRunningUnderAnyTests).
+        XCTAssertFalse(Downloader.shouldUseBackgroundSession)
+
+        // Should return early and not crash / mutate downloads.
+        let before = downloader.activeDownloads
+        downloader.reconnectBackgroundSession()
+        XCTAssertEqual(before.keys.sorted(), downloader.activeDownloads.keys.sorted())
     }
 }
 
