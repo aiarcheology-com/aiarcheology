@@ -260,6 +260,13 @@ final public class Downloader: NSObject, ObservableObject {
             return
         }
 
+        // Ensure the Downloader is fully initialized before accessing lazy backgroundSession.
+        // This prevents potential issues if called from the app delegate during early app lifecycle.
+        guard delegateProxy.owner != nil else {
+            LoggingPolicy.warning("Downloader not fully initialized, skipping background session reconnection", logger: .networking)
+            return
+        }
+
         backgroundSession.getTasksWithCompletionHandler { [weak self] _, _, downloadTasks in
             Task { @MainActor [weak self] in
                 guard let self else { return }

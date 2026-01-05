@@ -68,6 +68,9 @@ private extension DownloadDetailView {
 	/// - Complete/Imported: 1.0
 	/// - Downloading: live progress from publisher
 	/// - Paused/Other: persisted progress from CoreData
+	///
+	/// This prevents the progress bar from resetting to 0.0 when pausing,
+	/// which is the core issue being fixed in this PR.
 	var progressValue: Double {
 		switch item.state {
 		case .complete, .imported:

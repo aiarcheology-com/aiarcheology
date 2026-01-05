@@ -13,6 +13,7 @@ import UIKit
 
 /// Needed for background `URLSession` to relaunch the app and deliver download completion callbacks.
 final class BackgroundDownloadAppDelegate: NSObject, UIApplicationDelegate {
+	@MainActor
 	func application(
 		_ application: UIApplication,
 		handleEventsForBackgroundURLSession identifier: String,
