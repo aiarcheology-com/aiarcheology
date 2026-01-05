@@ -53,15 +53,15 @@ extension WebHistoryEntry {
     public override func validateForInsert() throws {
         try super.validateForInsert()
         if lifeCycle == .ready {
-			try throwIfInvalid()
-		}
+            try throwIfInvalid()
+        }
     }
     
     public override func validateForUpdate() throws {
         try super.validateForUpdate()
         if lifeCycle == .ready {
-			try throwIfInvalid()
-		}
+            try throwIfInvalid()
+        }
     }
 }
 

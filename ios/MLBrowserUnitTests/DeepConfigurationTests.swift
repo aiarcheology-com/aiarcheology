@@ -416,6 +416,127 @@ final class DeepConfigurationTests: XCTestCase {
         XCTAssertEqual(results.first?.author, "Updated Author")
     }
     
+    // MARK: - Lifecycle-Aware Validation Tests
+    
+    func testValidateForInsert_EmptyLifeCycle_DoesNotThrowForInvalidData() throws {
+        let config = DeepConfiguration(context: context)
+        config.entityId = UUID()
+        config.lifeCycle = .empty
+        // Missing required fields
+        config.file_ = nil
+        config.modelTypeString = nil
+        
+        // Should not throw during insert validation when lifeCycle is .empty
+        XCTAssertNoThrow(try config.validateForInsert())
+    }
+    
+    func testValidateForInsert_DraftLifeCycle_DoesNotThrowForInvalidData() throws {
+        let config = DeepConfiguration(context: context)
+        config.entityId = UUID()
+        config.lifeCycle = .draft
+        // Missing required fields
+        config.file_ = nil
+        config.modelTypeString = nil
+        
+        // Should not throw during insert validation when lifeCycle is .draft
+        XCTAssertNoThrow(try config.validateForInsert())
+    }
+    
+    func testValidateForInsert_ReadyLifeCycle_ThrowsForInvalidData() throws {
+        let config = DeepConfiguration(context: context)
+        config.entityId = UUID()
+        config.lifeCycle = .ready
+        // Missing required fields
+        config.file_ = nil
+        config.modelTypeString = nil
+        
+        // Should throw during insert validation when lifeCycle is .ready
+        XCTAssertThrowsError(try config.validateForInsert())
+    }
+    
+    func testValidateForInsert_ReadyLifeCycle_DoesNotThrowForValidData() throws {
+        let config = createValidConfiguration()
+        config.lifeCycle = .ready
+        
+        // Should not throw during insert validation when data is valid
+        XCTAssertNoThrow(try config.validateForInsert())
+    }
+    
+    func testValidateForUpdate_EmptyLifeCycle_DoesNotThrowForInvalidData() throws {
+        let config = createValidConfiguration()
+        try context.save()
+        
+        // Make invalid and change to empty lifecycle
+        config.file_ = nil
+        config.lifeCycle = .empty
+        
+        // Should not throw during update validation when lifeCycle is .empty
+        XCTAssertNoThrow(try config.validateForUpdate())
+    }
+    
+    func testValidateForUpdate_DraftLifeCycle_DoesNotThrowForInvalidData() throws {
+        let config = createValidConfiguration()
+        try context.save()
+        
+        // Make invalid but keep draft lifecycle
+        config.file_ = nil
+        config.lifeCycle = .draft
+        
+        // Should not throw during update validation when lifeCycle is .draft
+        XCTAssertNoThrow(try config.validateForUpdate())
+    }
+    
+    func testValidateForUpdate_ReadyLifeCycle_ThrowsForInvalidData() throws {
+        let config = createValidConfiguration()
+        config.lifeCycle = .ready
+        try context.save()
+        
+        // Make invalid while in ready state
+        config.file_ = nil
+        
+        // Should throw during update validation when lifeCycle is .ready
+        XCTAssertThrowsError(try config.validateForUpdate())
+    }
+    
+    func testValidateForUpdate_ReadyLifeCycle_DoesNotThrowForValidData() throws {
+        let config = createValidConfiguration()
+        config.lifeCycle = .ready
+        try context.save()
+        
+        // Update with valid data
+        config.author = "Updated Author"
+        
+        // Should not throw during update validation when data is valid
+        XCTAssertNoThrow(try config.validateForUpdate())
+    }
+    
+    func testValidateForUpdate_TransitioningToReady_ThrowsForInvalidData() throws {
+        let config = DeepConfiguration(context: context)
+        config.entityId = UUID()
+        config.lifeCycle = .draft
+        // Missing required fields
+        config.file_ = nil
+        config.modelTypeString = nil
+        try context.save()
+        
+        // Transition to ready with invalid data
+        config.lifeCycle = .ready
+        
+        // Should throw during update validation when transitioning to .ready with invalid data
+        XCTAssertThrowsError(try config.validateForUpdate())
+    }
+    
+    func testValidateForUpdate_TransitioningToReady_DoesNotThrowForValidData() throws {
+        let config = createValidConfiguration()
+        try context.save()
+        
+        // Transition to ready with valid data
+        config.lifeCycle = .ready
+        
+        // Should not throw during update validation when transitioning to .ready with valid data
+        XCTAssertNoThrow(try config.validateForUpdate())
+    }
+    
     // MARK: - CoreDataManagable Protocol Tests
     
     func testSelectAll_ReturnsAllConfigurations() throws {
