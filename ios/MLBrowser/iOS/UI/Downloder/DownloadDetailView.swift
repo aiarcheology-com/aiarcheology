@@ -278,7 +278,8 @@ private extension DownloadDetailView {
 	}
 	
 	var importButton: some View {
-		Button(L10n.Common.import) {
+		let isImported = item.state == .imported
+		return Button(isImported ? L10n.Common.imported : L10n.Common.import) {
 			let entityId = item.entityId
 			guard let file = item.file,
 				  let url = item.url

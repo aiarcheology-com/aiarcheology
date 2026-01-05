@@ -91,6 +91,8 @@ internal enum L10n {
     internal static let edit = L10n.tr("Localizable", "common.edit", fallback: "Edit")
     /// Import
     internal static let `import` = L10n.tr("Localizable", "common.import", fallback: "Import")
+    /// Imported
+    internal static let imported = L10n.tr("Localizable", "common.imported", fallback: "Imported")
     /// OK
     internal static let ok = L10n.tr("Localizable", "common.ok", fallback: "OK")
     /// Reset
