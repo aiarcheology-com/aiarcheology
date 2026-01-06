@@ -16,6 +16,7 @@
       "downloadUrl": "https://github.com/SwiftGen/SwiftGen/releases/download/${version}/swiftgen-${version}.zip",
       "downloadType": "zip",
       "binaryName": "swiftgen",
+      "bundleDir": "bin",
       "sha256": "94391c1b5a845150284be69fa9499fb2600231ac8f6a3ea5da53a4b55ee174df"
     },
     "sentry-cli": {

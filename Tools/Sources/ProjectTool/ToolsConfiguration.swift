@@ -20,6 +20,7 @@ struct ToolsConfiguration: Codable {
         let downloadUrl: String
         let downloadType: String  // "zip" or "binary"
         let binaryName: String
+        let bundleDir: String?  // Optional: directory containing the binary and its resources (e.g., "bin" for SwiftGen)
         let sha256: String?  // Optional SHA256 checksum for integrity verification
 
         /// Get the download URL with version interpolated
@@ -42,7 +43,39 @@ enum ToolStatus {
 struct ToolsManager {
 
     static let configPath = "./.tools.json"
-    static let installPath = "/usr/local/bin"
+
+    /// Returns the install path for standalone binaries.
+    /// Prefers /usr/local/bin if writable, otherwise falls back to ~/.local/bin
+    static var installPath: String {
+        let systemPath = "/usr/local/bin"
+        let userPath = NSHomeDirectory() + "/.local/bin"
+
+        // Check if /usr/local/bin is writable
+        if FileManager.default.isWritableFile(atPath: systemPath) {
+            return systemPath
+        }
+
+        // Create ~/.local/bin if it doesn't exist
+        if !FileManager.default.fileExists(atPath: userPath) {
+            try? FileManager.default.createDirectory(atPath: userPath, withIntermediateDirectories: true)
+        }
+
+        return userPath
+    }
+
+    /// Returns the install path for bundled tools (tools that need their resource bundles).
+    /// Always uses ~/.local/lib/<toolname>/ to keep bundles organized
+    static func bundledToolPath(for toolName: String) -> String {
+        let basePath = NSHomeDirectory() + "/.local/lib"
+        let toolPath = basePath + "/" + toolName
+
+        // Create directory if it doesn't exist
+        if !FileManager.default.fileExists(atPath: toolPath) {
+            try? FileManager.default.createDirectory(atPath: toolPath, withIntermediateDirectories: true)
+        }
+
+        return toolPath
+    }
 
     /// Load tools configuration from .tools.json
     static func loadConfiguration() throws -> ToolsConfiguration {
@@ -60,28 +93,57 @@ struct ToolsManager {
 
     /// Check if a tool is installed and get its version
     static func checkTool(name: String, spec: ToolsConfiguration.ToolSpec) -> ToolStatus {
-        // Check if command exists
-        let whichTask = Process()
-        whichTask.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        whichTask.arguments = ["which", name]
-        whichTask.standardOutput = FileHandle.nullDevice
-        whichTask.standardError = FileHandle.nullDevice
+        // Determine the command to check version
+        var versionCommand = spec.versionCommand
 
-        do {
-            try whichTask.run()
-            whichTask.waitUntilExit()
+        // For bundled tools, check the bundled location first
+        if let bundleDir = spec.bundleDir {
+            let bundledBinaryPath = bundledToolPath(for: name) + "/" + bundleDir + "/" + spec.binaryName
+            if FileManager.default.fileExists(atPath: bundledBinaryPath) {
+                // Use the bundled binary for version check
+                versionCommand = bundledBinaryPath + " --version"
+            } else {
+                // Check if command exists in PATH as fallback
+                let whichTask = Process()
+                whichTask.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                whichTask.arguments = ["which", name]
+                whichTask.standardOutput = FileHandle.nullDevice
+                whichTask.standardError = FileHandle.nullDevice
 
-            if whichTask.terminationStatus != 0 {
+                do {
+                    try whichTask.run()
+                    whichTask.waitUntilExit()
+                    if whichTask.terminationStatus != 0 {
+                        return .notInstalled
+                    }
+                } catch {
+                    return .notInstalled
+                }
+            }
+        } else {
+            // Check if command exists in PATH
+            let whichTask = Process()
+            whichTask.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            whichTask.arguments = ["which", name]
+            whichTask.standardOutput = FileHandle.nullDevice
+            whichTask.standardError = FileHandle.nullDevice
+
+            do {
+                try whichTask.run()
+                whichTask.waitUntilExit()
+
+                if whichTask.terminationStatus != 0 {
+                    return .notInstalled
+                }
+            } catch {
                 return .notInstalled
             }
-        } catch {
-            return .notInstalled
         }
 
         // Get version
         let versionTask = Process()
         versionTask.executableURL = URL(fileURLWithPath: "/bin/bash")
-        versionTask.arguments = ["-c", spec.versionCommand]
+        versionTask.arguments = ["-c", versionCommand]
 
         let pipe = Pipe()
         versionTask.standardOutput = pipe
@@ -164,8 +226,6 @@ struct ToolsManager {
             print("   ⚠️  No SHA256 checksum provided - skipping integrity verification")
         }
 
-        let destPath = "\(installPath)/\(spec.binaryName)"
-
         switch spec.downloadType {
         case "zip":
             // Unzip and find the binary
@@ -178,22 +238,63 @@ struct ToolsManager {
                 throw ExitCode(unzipStatus)
             }
 
+            // Handle bundled tools differently (e.g., SwiftGen needs its resource bundle)
+            if let bundleDir = spec.bundleDir {
+                let sourceBundleDir = unzipDir.appendingPathComponent(bundleDir)
+                let destBundleDir = bundledToolPath(for: name) + "/" + bundleDir
+
+                // Remove existing bundle directory if present
+                if FileManager.default.fileExists(atPath: destBundleDir) {
+                    try FileManager.default.removeItem(atPath: destBundleDir)
+                }
+
+                // Copy entire bundle directory
+                try FileManager.default.copyItem(atPath: sourceBundleDir.path, toPath: destBundleDir)
+
+                // Make the binary executable
+                let binaryPath = destBundleDir + "/" + spec.binaryName
+                let chmodStatus = try runShellCommand("chmod", arguments: ["+x", binaryPath])
+                guard chmodStatus == 0 else {
+                    print("   ❌ Failed to set executable permission")
+                    throw ExitCode(chmodStatus)
+                }
+
+                print("   ✅ Installed \(name) v\(spec.version) to \(destBundleDir)")
+                return
+            }
+
+            // Standard binary installation
+            let destPath = "\(installPath)/\(spec.binaryName)"
+
             // Find the binary in the unzipped contents
             let binaryPath = try findBinary(named: spec.binaryName, in: unzipDir)
 
             // Move to install path
             try installBinary(from: binaryPath, to: destPath)
 
+            print("   ✅ Installed \(name) v\(spec.version) to \(destPath)")
+            printPathWarningIfNeeded(destPath)
+
         case "binary":
+            let destPath = "\(installPath)/\(spec.binaryName)"
             // Direct binary download - just move and chmod
             try installBinary(from: downloadPath.path, to: destPath)
+
+            print("   ✅ Installed \(name) v\(spec.version) to \(destPath)")
+            printPathWarningIfNeeded(destPath)
 
         default:
             print("   ❌ Unknown download type: \(spec.downloadType)")
             throw ExitCode.failure
         }
+    }
 
-        print("   ✅ Installed \(name) v\(spec.version) to \(destPath)")
+    /// Print a warning if the tool was installed to a user directory that may need PATH update
+    private static func printPathWarningIfNeeded(_ destPath: String) {
+        let userPath = NSHomeDirectory() + "/.local/bin"
+        if destPath.hasPrefix(userPath) {
+            print("   💡 Note: Installed to ~/.local/bin - ensure it's in your PATH")
+        }
     }
 
     /// Find a binary by name in a directory (recursive)
