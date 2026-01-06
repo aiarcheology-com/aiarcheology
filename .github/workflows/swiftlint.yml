@@ -24,11 +24,13 @@ jobs:
         with:
           path: /tmp/swiftlint
           key: ${{ runner.os }}-swiftlint-${{ hashFiles('.tools.json') }}
-          restore-keys: |
-            ${{ runner.os }}-swiftlint-
 
       - name: Install SwiftLint
         run: |
+          # Use cached SwiftLint binary if available.
+          # The binary is originally downloaded and checksum-verified before being stored
+          # in the GitHub Actions cache. We rely on GitHub's cache integrity guarantees
+          # here, so we intentionally skip re-validating the SHA256 for cached artifacts.
           if [ -f /tmp/swiftlint/swiftlint ]; then
             echo "✅ Using cached SwiftLint"
           else
