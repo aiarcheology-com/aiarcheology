@@ -103,4 +103,40 @@ final class ColorExtensionsTests: XCTestCase {
 		XCTAssertLessThanOrEqual(blue, 1.0)
 		XCTAssertEqual(alpha, 1.0, accuracy: 0.0001)
 	}
+
+	func testRandomColor_RespectsCustomRange() {
+		// Test with custom range 0.0...0.5 (darker colors, as used in DeepConfiguration)
+		let numSamples = 10
+		for _ in 0..<numSamples {
+			let color = Color.random(range: 0.0...0.5)
+			let result = rgba(color)
+			
+			// All RGB components should be within the specified range
+			XCTAssertGreaterThanOrEqual(result.r, 0.0, "Red component should be >= 0.0")
+			XCTAssertLessThanOrEqual(result.r, 0.5, "Red component should be <= 0.5")
+			XCTAssertGreaterThanOrEqual(result.g, 0.0, "Green component should be >= 0.0")
+			XCTAssertLessThanOrEqual(result.g, 0.5, "Green component should be <= 0.5")
+			XCTAssertGreaterThanOrEqual(result.b, 0.0, "Blue component should be >= 0.0")
+			XCTAssertLessThanOrEqual(result.b, 0.5, "Blue component should be <= 0.5")
+			XCTAssertEqual(result.a, 1.0, accuracy: 0.0001)
+		}
+	}
+
+	func testUIColorRandom_RespectsCustomRange() {
+		// Test UIColor.random() with custom range
+		let numSamples = 10
+		for _ in 0..<numSamples {
+			let color = UIColor.random(range: 0.0...0.5)
+			var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+			XCTAssertTrue(color.getRed(&red, green: &green, blue: &blue, alpha: &alpha))
+			
+			XCTAssertGreaterThanOrEqual(red, 0.0, "Red component should be >= 0.0")
+			XCTAssertLessThanOrEqual(red, 0.5, "Red component should be <= 0.5")
+			XCTAssertGreaterThanOrEqual(green, 0.0, "Green component should be >= 0.0")
+			XCTAssertLessThanOrEqual(green, 0.5, "Green component should be <= 0.5")
+			XCTAssertGreaterThanOrEqual(blue, 0.0, "Blue component should be >= 0.0")
+			XCTAssertLessThanOrEqual(blue, 0.5, "Blue component should be <= 0.5")
+			XCTAssertEqual(alpha, 1.0, accuracy: 0.0001)
+		}
+	}
 }
