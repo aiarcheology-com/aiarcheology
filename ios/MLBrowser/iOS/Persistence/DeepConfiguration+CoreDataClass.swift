@@ -16,6 +16,6 @@ final public class DeepConfiguration: NSManagedObject {
         super.awakeFromInsert()
         self.entityId = UUID()
         self.lifeCycleString = CoreDataManageableState.empty.rawValue
-        self.annotationColor = Color.random(opacity: 1.0, range: 0.0...0.5)
+        self.annotationColor = Color.random(opacity: 1.0, range: 0.1...0.6)
     }
 }
