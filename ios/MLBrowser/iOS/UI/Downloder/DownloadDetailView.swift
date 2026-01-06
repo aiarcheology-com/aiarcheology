@@ -18,6 +18,7 @@ struct DownloadDetailView: View {
 	@ObservedObject var item: DownloadItem
 	let onImport: ImportHandler
 	
+	@FocusState private var isUrlFieldFocused: Bool
 	@State private var showAlert = false
 	@State private var urlText: String = ""
 	@State private var isFormValid: Bool = false
@@ -115,16 +116,7 @@ private extension DownloadDetailView {
 				validateUrl(newValue)
 			}
 			.onAppear { validateUrl(urlText) }
-			.toolbar {
-				ToolbarItemGroup(placement: .keyboard) {
-					Button(L10n.Common.clear) { urlText = "" }
-						.foregroundColor(.blue)
-						.testability(Testability.Button.downloadDetailClear)
-					Spacer()
-					Button(L10n.Common.done) { Self.removeFocus() }
-						.testability(Testability.Button.downloadDetailDone)
-				}
-			}
+			.focused($isUrlFieldFocused)
 	}
 }
 
@@ -273,6 +265,21 @@ private extension DownloadDetailView {
 					.bold()
 					.foregroundColor(.blue)
 					.testability(Testability.Button.downloadDetailDismiss)
+			}
+		}
+		
+		ToolbarItemGroup(placement: .keyboard) {
+			if isUrlFieldFocused {
+				Button(L10n.Common.clear) {
+					urlText = ""
+				}
+				.foregroundColor(.blue)
+				.testability(Testability.Button.downloadDetailClear)
+				Spacer()
+				Button(L10n.Common.done) {
+					isUrlFieldFocused = false
+				}
+				.testability(Testability.Button.downloadDetailDone)
 			}
 		}
 	}

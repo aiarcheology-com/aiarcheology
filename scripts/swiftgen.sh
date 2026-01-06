@@ -16,9 +16,14 @@ OUTPUT_FILE="${IOS_DIR}/MLBrowser/iOS/Generated/L10n.swift"
 
 # Check for SwiftGen installation
 find_swiftgen() {
-    # Check common locations
-    if command -v swiftgen &>/dev/null; then
-        echo "swiftgen"
+    # Check common locations (order matters - prefer bundled installations first)
+    local user_lib="${HOME}/.local/lib/swiftgen/bin/swiftgen"
+    if [[ -x "$user_lib" ]]; then
+        echo "$user_lib"
+        return 0
+    elif [[ -x "/tmp/swiftgen/bin/swiftgen" ]]; then
+        # CI/GitHub Actions location
+        echo "/tmp/swiftgen/bin/swiftgen"
         return 0
     elif [[ -x "/opt/homebrew/bin/swiftgen" ]]; then
         echo "/opt/homebrew/bin/swiftgen"
@@ -26,8 +31,8 @@ find_swiftgen() {
     elif [[ -x "/usr/local/bin/swiftgen" ]]; then
         echo "/usr/local/bin/swiftgen"
         return 0
-    elif [[ -x "/tmp/swiftgen/bin/swiftgen" ]]; then
-        echo "/tmp/swiftgen/bin/swiftgen"
+    elif command -v swiftgen &>/dev/null; then
+        echo "swiftgen"
         return 0
     fi
     return 1
