@@ -12,9 +12,10 @@ aiasetup() { swift run --package-path Tools ProjectTool setup; }
 aiaswiftlint() { ./scripts/swiftlint.sh "$@"; }
 aiaswiftgen() { ./scripts/swiftgen.sh generate; }
 aiaharmonize() { ./scripts/harmonize.sh "$@"; }
+aiaunittests() { ./scripts/unittest.sh "$@"; }
 aiapipeline() {
-    echo "🔄 Running aiapipeline: swiftgen → swiftlint → harmonize"
-    aiaswiftgen && aiaswiftlint && aiaharmonize
+    echo "🔄 Running aiapipeline: swiftgen → swiftlint → harmonize → unittests"
+    aiaswiftgen && aiaswiftlint && aiaharmonize && aiaunittests
 }
 
-export -f aiasetup aiaswiftlint aiaswiftgen aiaharmonize aiapipeline
+export -f aiasetup aiaswiftlint aiaswiftgen aiaharmonize aiaunittests aiapipeline

@@ -374,7 +374,6 @@ struct ModelImportView: View {
 
 		// Populate configuration from extracted metadata
 		configuration.entityId = id
-		configuration.annotationColor = .yellow
 		let description = extractedInfo.modelDescription
 		configuration.modelDescription = description.isNotBlank ? description : modelURL.lastPathComponent.fileName
 		configuration.modelVersion = extractedInfo.modelVersion

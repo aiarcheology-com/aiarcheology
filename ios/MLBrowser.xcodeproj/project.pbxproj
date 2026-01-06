@@ -147,6 +147,8 @@
 		94929E832ED65555001A4C63 /* LowerPriorityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E842ED65555001A4C63 /* LowerPriorityTests.swift */; };
 		949DB6E22EE4F1B0002E904E /* DemoDataManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949DB6E12EE4F1B0002E904E /* DemoDataManagerTests.swift */; };
 		949DB6E32EE4F1B0002E904E /* DataControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949DB6E02EE4F1B0002E904E /* DataControllerTests.swift */; };
+		94AE91762F0D9E2F00B326B7 /* Color+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AE91752F0D9E2800B326B7 /* Color+Extension.swift */; };
+		94AE91782F0DA08300B326B7 /* ColorExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AE91772F0DA08300B326B7 /* ColorExtensionsTests.swift */; };
 		94BAD1842EB0ED3D0079869F /* UUID+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BAD1832EB0ED370079869F /* UUID+Extension.swift */; };
 		94D567C82F09E6B400514E08 /* Harmonize in Frameworks */ = {isa = PBXBuildFile; productRef = 94HARM0022F04000200000002 /* Harmonize */; };
 		94D567CC2F0B1E0E00514E08 /* MLBrowser_0.0.0_0.0.1.xcmappingmodel in Sources */ = {isa = PBXBuildFile; fileRef = 94D567CB2F0B1E0E00514E08 /* MLBrowser_0.0.0_0.0.1.xcmappingmodel */; };
@@ -352,6 +354,8 @@
 		94929E842ED65555001A4C63 /* LowerPriorityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LowerPriorityTests.swift; sourceTree = "<group>"; };
 		949DB6E02EE4F1B0002E904E /* DataControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataControllerTests.swift; sourceTree = "<group>"; };
 		949DB6E12EE4F1B0002E904E /* DemoDataManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManagerTests.swift; sourceTree = "<group>"; };
+		94AE91752F0D9E2800B326B7 /* Color+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Extension.swift"; sourceTree = "<group>"; };
+		94AE91772F0DA08300B326B7 /* ColorExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensionsTests.swift; sourceTree = "<group>"; };
 		94BAD1832EB0ED370079869F /* UUID+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UUID+Extension.swift"; sourceTree = "<group>"; };
 		94D567CB2F0B1E0E00514E08 /* MLBrowser_0.0.0_0.0.1.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = MLBrowser_0.0.0_0.0.1.xcmappingmodel; sourceTree = "<group>"; };
 		94D567D12F0C0AEE00514E08 /* MLBrowserArchitectureTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MLBrowserArchitectureTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -439,6 +443,7 @@
 				94FF14912EBBA07800033B5B /* NSManagedObject+Extension.swift */,
 				8AC393C62B2BA05300C9BA57 /* UI */,
 				8A112CC52AC0863300786384 /* Bool+Extensions.swift */,
+				94AE91752F0D9E2800B326B7 /* Color+Extension.swift */,
 				8A7740D22B1894B3002E90D9 /* Bundle+Extension.swift */,
 				8A1328252AFE3D9A00F119C6 /* CGRect+Extension.swift */,
 				8A1328272B010B8C00F119C6 /* EnvironmentObject+Extensions.swift */,
@@ -746,6 +751,7 @@
 			children = (
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
 				94D79C8E2EE37DBF0027C9FA /* BundleExtensionsTests.swift */,
+				94AE91772F0DA08300B326B7 /* ColorExtensionsTests.swift */,
 				945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */,
 				94D79C8F2EE37DBF0027C9FA /* CrashReporterTests.swift */,
 				949DB6E02EE4F1B0002E904E /* DataControllerTests.swift */,
@@ -1225,6 +1231,7 @@
 				8A13281F2AF265DE00F119C6 /* GlobalToolbar.swift in Sources */,
 				8AC393C52B2BA01100C9BA57 /* NumberFormater+Extension.swift in Sources */,
 				8A13282A2B052C7900F119C6 /* ConfigurationForm.swift in Sources */,
+				94AE91762F0D9E2F00B326B7 /* Color+Extension.swift in Sources */,
 				941C4FBA2EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift in Sources */,
 				94713D982EA2F33E00713068 /* ImportHandler.swift in Sources */,
 				8A13280F2AF142C600F119C6 /* WebScreen.swift in Sources */,
@@ -1306,6 +1313,7 @@
 				94929E7E2ED63ADE001A4C63 /* SnapStateTests.swift in Sources */,
 				94929E7F2ED63ADE001A4C63 /* GalleryModelTests.swift in Sources */,
 				94929E802ED63ADE001A4C63 /* GuideTests.swift in Sources */,
+				94AE91782F0DA08300B326B7 /* ColorExtensionsTests.swift in Sources */,
 				949DB6E22EE4F1B0002E904E /* DemoDataManagerTests.swift in Sources */,
 				949DB6E32EE4F1B0002E904E /* DataControllerTests.swift in Sources */,
 				94D79C8C2EE37B0D0027C9FA /* FileManagerExtensionsTests.swift in Sources */,

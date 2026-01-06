@@ -293,8 +293,13 @@ final class DeepState: ObservableObject {
 				continue
 			}
 
-			// Skip if still referenced by a download item
-			guard DownloadItem.select(entityId, in: dataController.container.viewContext).isNil else {
+			// If referenced by a download item, transition it back to .complete and skip file deletion
+			if let downloadItem = DownloadItem.select(entityId, in: dataController.container.viewContext) {
+				if downloadItem.state == .imported {
+					downloadItem.state = .complete
+					DownloadItem.save(in: dataController.container.viewContext)
+					LoggingPolicy.debug("Transitioned download item to .complete for deleted configuration \(entityId.uuidString)", logger: .state)
+				}
 				LoggingPolicy.debug("Skipping deletion of model file still referenced by download item for configuration \(entityId.uuidString)", logger: .state)
 				continue
 			}

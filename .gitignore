@@ -97,3 +97,6 @@ fastlane/test_output
 
 iOSInjectionProject/
 /ios/MLBrowser.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+
+# Local derived data cache for faster builds
+.deriveddata/
