@@ -46,7 +46,7 @@ struct ToolsManager {
 
     /// Returns the install path for standalone binaries.
     /// Prefers /usr/local/bin if writable, otherwise falls back to ~/.local/bin
-    static var installPath: String {
+    static func getInstallPath() throws -> String {
         let systemPath = "/usr/local/bin"
         let userPath = NSHomeDirectory() + "/.local/bin"
 
@@ -60,8 +60,9 @@ struct ToolsManager {
             do {
                 try FileManager.default.createDirectory(atPath: userPath, withIntermediateDirectories: true)
             } catch {
-                print("⚠️  Warning: Failed to create directory at \(userPath): \(error.localizedDescription)")
-                print("   Subsequent operations may fail. Please check directory permissions.")
+                print("❌ Failed to create directory at \(userPath): \(error.localizedDescription)")
+                print("   Please check directory permissions.")
+                throw ExitCode.failure
             }
         }
 
@@ -70,7 +71,7 @@ struct ToolsManager {
 
     /// Returns the install path for bundled tools (tools that need their resource bundles).
     /// Always uses ~/.local/lib/<toolname>/ to keep bundles organized
-    static func bundledToolPath(for toolName: String) -> String {
+    static func bundledToolPath(for toolName: String) throws -> String {
         let basePath = NSHomeDirectory() + "/.local/lib"
         let toolPath = basePath + "/" + toolName
 
@@ -79,8 +80,9 @@ struct ToolsManager {
             do {
                 try FileManager.default.createDirectory(atPath: toolPath, withIntermediateDirectories: true)
             } catch {
-                print("⚠️  Warning: Failed to create directory at \(toolPath): \(error.localizedDescription)")
-                print("   Subsequent operations may fail. Please check directory permissions.")
+                print("❌ Failed to create directory at \(toolPath): \(error.localizedDescription)")
+                print("   Please check directory permissions.")
+                throw ExitCode.failure
             }
         }
 
@@ -107,8 +109,9 @@ struct ToolsManager {
         var versionCommand = spec.versionCommand
 
         // For bundled tools, check the bundled location first
-        if let bundleDir = spec.bundleDir {
-            let bundledBinaryPath = bundledToolPath(for: name) + "/" + bundleDir + "/" + spec.binaryName
+        if let bundleDir = spec.bundleDir,
+           let toolPath = try? bundledToolPath(for: name) {
+            let bundledBinaryPath = toolPath + "/" + bundleDir + "/" + spec.binaryName
             if FileManager.default.fileExists(atPath: bundledBinaryPath) {
                 // Use the bundled binary for version check, preserving configured flags
                 let components = spec.versionCommand.split(whereSeparator: { $0.isWhitespace })
@@ -279,7 +282,7 @@ struct ToolsManager {
                     throw ExitCode.failure
                 }
                 
-                let destBundleDir = bundledToolPath(for: name) + "/" + bundleDir
+                let destBundleDir = try bundledToolPath(for: name) + "/" + bundleDir
 
                 // Remove existing bundle directory if present
                 if FileManager.default.fileExists(atPath: destBundleDir) {
@@ -302,7 +305,7 @@ struct ToolsManager {
             }
 
             // Standard binary installation
-            let destPath = "\(installPath)/\(spec.binaryName)"
+            let destPath = "\(try getInstallPath())/\(spec.binaryName)"
 
             // Find the binary in the unzipped contents
             let binaryPath = try findBinary(named: spec.binaryName, in: unzipDir)
@@ -314,7 +317,7 @@ struct ToolsManager {
             printPathWarningIfNeeded(destPath)
 
         case "binary":
-            let destPath = "\(installPath)/\(spec.binaryName)"
+            let destPath = "\(try getInstallPath())/\(spec.binaryName)"
             // Direct binary download - just move and chmod
             try installBinary(from: downloadPath.path, to: destPath)
 

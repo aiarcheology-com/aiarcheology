@@ -7,10 +7,14 @@
 PATH_add "$HOME/.local/bin"
 PATH_add "$HOME/.local/lib/swiftgen/bin"
 
-# Project aliases
-setup() { swift run --package-path Tools ProjectTool setup; }
-lint() { ./scripts/swiftlint.sh "$@"; }
-gen() { ./scripts/swiftgen.sh generate; }
-harm() { ./scripts/harmonize.sh "$@"; }
+# Project aliases (prefixed with 'aia' to avoid conflicts)
+aiasetup() { swift run --package-path Tools ProjectTool setup; }
+aiaswiftlint() { ./scripts/swiftlint.sh "$@"; }
+aiaswiftgen() { ./scripts/swiftgen.sh generate; }
+aiaharmonize() { ./scripts/harmonize.sh "$@"; }
+aiapipeline() {
+    echo "🔄 Running aiapipeline: swiftgen → swiftlint → harmonize"
+    aiaswiftgen && aiaswiftlint && aiaharmonize
+}
 
-export -f setup lint gen harm
+export -f aiasetup aiaswiftlint aiaswiftgen aiaharmonize aiapipeline

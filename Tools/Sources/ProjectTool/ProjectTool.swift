@@ -169,7 +169,7 @@ struct GitSetup: ParsableCommand {
 
         // Ask user if they want to use aliases
         print("🔗 Would you like to use short command aliases in this project?")
-        print("   Available: setup, lint, gen, harm")
+        print("   Available: aiasetup, aiaswiftlint, aiaswiftgen, aiaharmonize, aiapipeline")
         print("   Enable aliases? [y/N]: ", terminator: "")
 
         guard let response = readLine()?.lowercased(), response == "y" || response == "yes" else {
@@ -226,7 +226,11 @@ struct GitSetup: ParsableCommand {
 
         if allowTask.terminationStatus == 0 {
             print("   ✅ Directory aliases enabled")
-            print("   Available commands: setup, lint, gen, harm")
+            print("   Available commands: aiasetup, aiaswiftlint, aiaswiftgen, aiaharmonize, aiapipeline")
+            print("")
+            print("   To activate now, run:")
+            print("      eval \"$(direnv export zsh)\"")
+            print("   Or simply: cd . ")
         } else {
             print("   ⚠️  direnv allow failed - run manually: direnv allow")
         }
