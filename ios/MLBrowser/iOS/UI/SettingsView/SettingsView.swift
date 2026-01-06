@@ -64,7 +64,7 @@ struct SettingsForm: View {
 					if isHistoryLimitFocused {
 						Spacer()
 						Button(L10n.Common.done) {
-							Self.removeFocus()
+							isHistoryLimitFocused = false
 						}
 						.testability(Testability.Button.settingsKeyboardDone)
 					}
