@@ -64,7 +64,7 @@ enum Observability {
 	/// This ensures any thread that sees _isStarted==true will also see _service set.
 	private nonisolated(unsafe) static var _service: CrashReportingService?
 	
-	/// Lock protects only the initialization path to prevent double-start.
+	/// Lock protects ONLY the initialization path to prevent double-start.
 	/// After initialization, _service can be read lock-free (it never changes).
 	private static let initLock = OSAllocatedUnfairLock<Void>(initialState: ())
 	private nonisolated(unsafe) static var _isStarted = false
