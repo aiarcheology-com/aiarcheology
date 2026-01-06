@@ -84,6 +84,11 @@ for runtime, devices in data.get('devices', {}).items():
             sys.exit(0)
 " 2>/dev/null)
 
+if [[ -z "${SIMULATOR_NAME}" ]]; then
+    echo "⚠️  Warning: Unable to determine simulator name for ID ${SIMULATOR_ID}. Using fallback label." >&2
+    SIMULATOR_NAME="Unknown iOS Simulator"
+fi
+
 echo "Running MLBrowser unit tests..."
 echo "Destination: ${SIMULATOR_NAME} (${SIMULATOR_ID})"
 echo ""

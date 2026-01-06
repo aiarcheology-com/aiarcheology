@@ -25,6 +25,9 @@ extension Color {
 	
 	/// Returns a random sRGB color.
 	/// Uses UIColor internally for proper Core Data compatibility.
+	/// - Parameters:
+	///   - opacity: Opacity value in the 0.0...1.0 range. Values outside the range are clamped.
+	///   - range: The range from which RGB component values are randomly selected. Default is 0.0...1.0 for full spectrum colors. Use a narrower range (e.g., 0.0...0.5) for darker colors.
 	static func random(opacity: Double = 1.0, range: ClosedRange<CGFloat> = 0.0...1.0) -> Color {
 		Color(UIColor.random(alpha: opacity, range: range))
 	}
@@ -32,6 +35,9 @@ extension Color {
 
 extension UIColor {
 	/// Returns a random sRGB color.
+	/// - Parameters:
+	///   - alpha: Alpha (opacity) value in the 0.0...1.0 range. Values outside the range are clamped.
+	///   - range: The range from which RGB component values are randomly selected. Default is 0.0...1.0 for full spectrum colors. Use a narrower range (e.g., 0.0...0.5) for darker colors.
 	static func random(alpha: CGFloat = 1.0, range: ClosedRange<CGFloat> = 0.0...1.0) -> UIColor {
 		UIColor(
 			red: CGFloat.random(in: range),

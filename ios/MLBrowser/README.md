@@ -126,7 +126,7 @@ During `setup`, you'll be prompted to enable short command aliases. If enabled:
 | `aiaswiftgen` | `./scripts/swiftgen.sh generate` |
 | `aiaharmonize` | `./scripts/harmonize.sh` |
 | `aiaunittests` | `./scripts/unittest.sh` |
-| `aiapipeline` | `aiaswiftgen && aiaswiftlint && aiaharmonize` |
+| `aiapipeline` | `aiaswiftgen && aiaswiftlint && aiaharmonize && aiaunittests` |
 
 The `.envrc` file is gitignored (local preference). When you `cd` into the project directory, direnv automatically loads the aliases. When you leave, they're unloaded.
 
