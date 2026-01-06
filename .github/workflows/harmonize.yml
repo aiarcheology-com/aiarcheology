@@ -1,7 +1,7 @@
 name: Harmonize
 
 on:
-  pull_request:
+  push:
     branches-ignore:
       - "copilot/**"
     paths:
