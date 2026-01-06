@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   swiftlint:
-    name: SwiftLint
+    name: Code Analysis
     runs-on: macos-latest
     steps:
       - name: Checkout
