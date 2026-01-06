@@ -169,7 +169,7 @@ struct GitSetup: ParsableCommand {
 
         // Ask user if they want to use aliases
         print("🔗 Would you like to use short command aliases in this project?")
-        print("   Available: aiasetup, aiaswiftlint, aiaswiftgen, aiaharmonize, aiapipeline")
+        print("   Available: aiasetup, aiaswiftlint, aiaswiftgen, aiaharmonize, aiaunittests, aiapipeline")
         print("   Enable aliases? [y/N]: ", terminator: "")
 
         guard let response = readLine()?.lowercased(), response == "y" || response == "yes" else {
@@ -226,7 +226,7 @@ struct GitSetup: ParsableCommand {
 
         if allowTask.terminationStatus == 0 {
             print("   ✅ Directory aliases enabled")
-            print("   Available commands: aiasetup, aiaswiftlint, aiaswiftgen, aiaharmonize, aiapipeline")
+            print("   Available commands: aiasetup, aiaswiftlint, aiaswiftgen, aiaharmonize, aiaunittests, aiapipeline")
             print("")
             print("   To activate now, run:")
             print("      eval \"$(direnv export zsh)\"")
@@ -253,18 +253,35 @@ struct GitSetup: ParsableCommand {
     }
 }
 
-// --- Optional Cleanup Subcommand (Example) ---
+// --- Cleanup Subcommand ---
 
 struct Cleanup: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "cleanup",
-        abstract: "Cleans project build artifacts and Swift caches."
+        abstract: "Cleans project build artifacts, caches, and local configuration."
     )
 
     func run() throws {
-        print("🧹 Cleaning up SwiftPM build artifacts...")
-        // Example of running another command
-        try runShellCommand("rm", arguments: ["-rf", ".build"])
+        print("🧹 Cleaning up project artifacts...")
+        print("")
+
+        // Items to clean
+        let cleanupItems: [(path: String, description: String)] = [
+            (".build", "SwiftPM build artifacts"),
+            (".deriveddata", "Xcode derived data cache"),
+            (".envrc", "Local directory aliases")
+        ]
+
+        for item in cleanupItems {
+            if FileManager.default.fileExists(atPath: item.path) {
+                try runShellCommand("rm", arguments: ["-rf", item.path])
+                print("   ✅ Removed \(item.path) (\(item.description))")
+            } else {
+                print("   ⏭️  Skipped \(item.path) (not found)")
+            }
+        }
+
+        print("")
         print("✅ Cleanup complete.")
     }
 }

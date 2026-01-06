@@ -17,6 +17,7 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 | Localization file | `ios/MLBrowser/iOS/Resources/Localizable.xcstrings` |
 | Primary scheme | `MLBrowser` (see `ios/MLBrowser.xcodeproj/xcshareddata/xcschemes/MLBrowser.xcscheme`) |
 | Test plans | `ios/MLBrowserTestPlan/MLBrowserUnitTests.xctestplan`, `ios/MLBrowserTestPlan/MLBrowserUITests.xctestplan` |
+| Run unit tests (CLI) | `./scripts/unittest.sh` or `./scripts/unittest.sh --verbose` |
 | Build & test (CLI) | `xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -destination 'platform=iOS Simulator,name=iPhone 16' -testPlan MLBrowserUnitTests test` |
 
 ## 1. The Mindset

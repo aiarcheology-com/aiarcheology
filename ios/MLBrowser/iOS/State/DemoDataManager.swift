@@ -178,7 +178,6 @@ final class DemoDataManager {
         // Phase 2: Create Core Data entity (on MainActor - we're already here)
         let configuration = DeepConfiguration.create(in: dataController.container.viewContext)
         configuration.demo = true
-        configuration.annotationColor = .yellow
         configuration.modelVersion = extractedInfo.modelVersion
         configuration.modelDescription = extractedInfo.modelDescription
         configuration.author = extractedInfo.author

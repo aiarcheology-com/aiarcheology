@@ -8,6 +8,7 @@
 
 import Foundation
 import CoreData
+import SwiftUI
 
 @objc(DeepConfiguration)
 final public class DeepConfiguration: NSManagedObject {
@@ -15,5 +16,6 @@ final public class DeepConfiguration: NSManagedObject {
         super.awakeFromInsert()
         self.entityId = UUID()
         self.lifeCycleString = CoreDataManageableState.empty.rawValue
+        self.annotationColor = Color.random(opacity: 1.0, range: 0.0...0.5)
     }
 }
