@@ -5,15 +5,14 @@ on:
     branches-ignore:
       - "copilot/**"
     paths:
-      - "**.swift"
-      - "**.c"
-      - "**.cc"
-      - "**.cpp"
-      - "**.h"
-      - "**.m"
-      - "**.mm"  
+      - "ios/**/*.swift"
+      - "ios/**/*.c"
+      - "ios/**/*.cc"
+      - "ios/**/*.cpp"
+      - "ios/**/*.h"
+      - "ios/**/*.m"
+      - "ios/**/*.mm"
       - ".harmonize.yaml"
-      - "ios/**"
       - "scripts/harmonize.sh"
       - ".github/workflows/harmonize.yml"
   workflow_dispatch:
