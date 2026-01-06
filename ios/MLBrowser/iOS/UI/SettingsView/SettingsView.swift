@@ -11,6 +11,7 @@ struct SettingsForm: View {
 	@Environment(\.dismiss) private var dismiss
 	@EnvironmentObject var settings: Settings
 	@EnvironmentObject var guide: Guide
+	@FocusState private var isHistoryLimitFocused: Bool
 	@State private var defaultWebPlaceholder: String = "www.google.com"
 	@State private var validationErrorMessage: String?
 	@State private var resetButtonColor: Color = .red
@@ -57,6 +58,17 @@ struct SettingsForm: View {
 							.foregroundColor(.blue)
 					}
 					.testability(Testability.Button.settingsDismiss)
+				}
+				
+				ToolbarItemGroup(placement: .keyboard) {
+					if isHistoryLimitFocused {
+						Spacer()
+						Button(L10n.Common.done) {
+							isHistoryLimitFocused = false
+							Self.removeFocus()
+						}
+						.testability(Testability.Button.settingsKeyboardDone)
+					}
 				}
 			}
 
@@ -141,15 +153,7 @@ struct SettingsForm: View {
 				.multilineTextAlignment(.trailing)
 				.keyboardType(.numberPad)
 				.foregroundColor(.gray)
-				.toolbar {
-					ToolbarItemGroup(placement: .keyboard) {
-						Spacer()
-						Button(L10n.Common.done) {
-							Self.removeFocus()
-						}
-						.testability(Testability.Button.settingsKeyboardDone)
-					}
-				}
+				.focused($isHistoryLimitFocused)
 		}
 	}
 
