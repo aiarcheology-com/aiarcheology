@@ -112,18 +112,13 @@ struct ToolsManager {
             if FileManager.default.fileExists(atPath: bundledBinaryPath) {
                 // Use the bundled binary for version check, preserving configured flags
                 let components = spec.versionCommand.split(whereSeparator: { $0.isWhitespace })
-                if components.isEmpty {
-                    // No configured command; just use the bundled binary path
+                if components.count <= 1 {
+                    // No arguments configured; just use the bundled binary path
                     versionCommand = bundledBinaryPath
                 } else {
+                    // Replace the command name with the bundled path, keep all original arguments
                     let arguments = components.dropFirst()
-                    if arguments.isEmpty {
-                        // Only a command name was configured; replace it with the bundled path
-                        versionCommand = bundledBinaryPath
-                    } else {
-                        // Replace the command name with the bundled path, keep all original arguments
-                        versionCommand = bundledBinaryPath + " " + arguments.joined(separator: " ")
-                    }
+                    versionCommand = bundledBinaryPath + " " + arguments.joined(separator: " ")
                 }
             } else {
                 // Check if command exists in PATH as fallback
