@@ -1,7 +1,7 @@
 name: SwiftLint
 
 on:
-  push:
+  pull_request:
     branches-ignore:
       - "copilot/**"
     paths:
@@ -10,9 +10,13 @@ on:
       - ".github/workflows/swiftlint.yml"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   swiftlint:
-    name: SwiftLint
+    name: Code Analysis
     runs-on: macos-latest
     steps:
       - name: Checkout

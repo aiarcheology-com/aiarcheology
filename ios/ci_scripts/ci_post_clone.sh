@@ -51,7 +51,7 @@ echo "📦 Running ProjectTool setup..."
 
 cd "${CI_PRIMARY_REPOSITORY_PATH:-$(git rev-parse --show-toplevel)}"
 
-if swift run --package-path Tools ProjectTool setup --install; then
+if swift run --package-path Tools ProjectTool setup; then
     echo "   ✅ ProjectTool setup completed"
 else
     echo "   ⚠️  ProjectTool setup failed, attempting manual fallback..."

@@ -6,8 +6,7 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 
 | Task | Command / Location |
 |------|--------------------|
-| Repo setup (checks tools) | `swift run --package-path Tools ProjectTool setup` |
-| Install pinned tools | `swift run --package-path Tools ProjectTool setup --install` |
+| Repo setup (installs tools) | `swift run --package-path Tools ProjectTool setup` |
 | Open workspace | `open ios/MLBrowser.xcworkspace` |
 | Run SwiftLint | `./scripts/swiftlint.sh` |
 | SwiftLint autocorrect | `./scripts/swiftlint.sh fix` |

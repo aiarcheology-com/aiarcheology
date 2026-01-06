@@ -30,6 +30,9 @@ DerivedData/
 .AppleDouble
 .LSOverride
 
+# direnv (local shell aliases)
+.envrc
+
 ## App packaging
 *.ipa
 *.dSYM.zip
