@@ -39,11 +39,8 @@ struct ProjectTool: ParsableCommand {
 struct GitSetup: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "setup",
-        abstract: "Performs project setup: validates/installs tools and configures git."
+        abstract: "Performs project setup: installs tools and configures git."
     )
-
-    @Flag(name: .long, help: "Install missing or outdated tools (downloads exact pinned versions)")
-    var install: Bool = false
 
     /// Check if running in CI environment
     static var isCI: Bool {
@@ -65,6 +62,10 @@ struct GitSetup: ParsableCommand {
         } else {
             print("")
             try setupGit()
+
+            // 3. Optionally setup direnv for directory aliases
+            print("")
+            try setupDirenv()
         }
 
         print("")
@@ -98,31 +99,25 @@ struct GitSetup: ParsableCommand {
             }
         }
 
-        // Handle missing/outdated tools
+        // Install missing/outdated tools
         if hasIssues {
-            if install {
-                print("")
-                print("🔄 Installing/updating tools...")
+            print("")
+            print("🔄 Installing/updating tools...")
 
-                for (name, spec) in missingTools {
-                    try ToolsManager.installTool(name: name, spec: spec)
-                }
+            for (name, spec) in missingTools {
+                try ToolsManager.installTool(name: name, spec: spec)
+            }
 
-                for (name, spec, _) in outdatedTools {
-                    try ToolsManager.installTool(name: name, spec: spec)
-                }
+            for (name, spec, _) in outdatedTools {
+                try ToolsManager.installTool(name: name, spec: spec)
+            }
 
-                // Re-check after installation
-                print("")
-                print("📦 Verifying installations...")
-                let newResults = ToolsManager.checkAllTools(config: config)
-                for (name, spec, status) in newResults {
-                    ToolsManager.printToolStatus(name: name, spec: spec, status: status)
-                }
-            } else {
-                print("")
-                print("💡 Run with --install to automatically install missing tools:")
-                print("   swift run --package-path Tools ProjectTool setup --install")
+            // Re-check after installation
+            print("")
+            print("📦 Verifying installations...")
+            let newResults = ToolsManager.checkAllTools(config: config)
+            for (name, spec, status) in newResults {
+                ToolsManager.printToolStatus(name: name, spec: spec, status: status)
             }
         }
     }
@@ -153,6 +148,103 @@ struct GitSetup: ParsableCommand {
         } else {
             print("   ❌ Failed to set hooks path (Exit Code: \(status2))")
             throw ExitCode(status2)
+        }
+    }
+
+    private func setupDirenv() throws {
+        let envrcPath = "./.envrc"
+        let templatePath = "./.envrc.template"
+
+        // Check if .envrc already exists
+        if FileManager.default.fileExists(atPath: envrcPath) {
+            print("🔗 Directory aliases already configured (.envrc exists)")
+            return
+        }
+
+        // Check if template exists
+        guard FileManager.default.fileExists(atPath: templatePath) else {
+            print("⏭️  Skipping directory aliases (.envrc.template not found)")
+            return
+        }
+
+        // Ask user if they want to use aliases
+        print("🔗 Would you like to use short command aliases in this project?")
+        print("   Available: setup, lint, gen, harm")
+        print("   Enable aliases? [y/N]: ", terminator: "")
+
+        guard let response = readLine()?.lowercased(), response == "y" || response == "yes" else {
+            print("   ⏭️  Skipped directory aliases")
+            return
+        }
+
+        // Check if direnv is installed
+        let direnvInstalled = isDirenvInstalled()
+
+        if !direnvInstalled {
+            print("   direnv is required but not installed.")
+            print("   Install direnv now? [y/N]: ", terminator: "")
+
+            guard let installResponse = readLine()?.lowercased(), installResponse == "y" || installResponse == "yes" else {
+                print("   ⏭️  Skipped - direnv not installed")
+                return
+            }
+
+            // Install direnv via Homebrew
+            print("   Installing direnv via Homebrew...")
+            let brewStatus = try runShellCommand("brew", arguments: ["install", "direnv"])
+
+            guard brewStatus == 0 else {
+                print("   ❌ Failed to install direnv")
+                print("   Try manually: brew install direnv")
+                return
+            }
+
+            print("   ✅ direnv installed")
+            print("")
+            print("   ⚠️  Add this to your ~/.zshrc to activate direnv:")
+            print("      eval \"$(direnv hook zsh)\"")
+            print("")
+        }
+
+        // Copy template to .envrc
+        do {
+            try FileManager.default.copyItem(atPath: templatePath, toPath: envrcPath)
+            print("   ✅ Created .envrc from template")
+        } catch {
+            print("   ❌ Failed to create .envrc: \(error.localizedDescription)")
+            return
+        }
+
+        // Run direnv allow
+        print("-> Executing: direnv allow")
+        let allowTask = Process()
+        allowTask.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        allowTask.arguments = ["direnv", "allow"]
+
+        try allowTask.run()
+        allowTask.waitUntilExit()
+
+        if allowTask.terminationStatus == 0 {
+            print("   ✅ Directory aliases enabled")
+            print("   Available commands: setup, lint, gen, harm")
+        } else {
+            print("   ⚠️  direnv allow failed - run manually: direnv allow")
+        }
+    }
+
+    private func isDirenvInstalled() -> Bool {
+        let whichTask = Process()
+        whichTask.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        whichTask.arguments = ["which", "direnv"]
+        whichTask.standardOutput = FileHandle.nullDevice
+        whichTask.standardError = FileHandle.nullDevice
+
+        do {
+            try whichTask.run()
+            whichTask.waitUntilExit()
+            return whichTask.terminationStatus == 0
+        } catch {
+            return false
         }
     }
 }

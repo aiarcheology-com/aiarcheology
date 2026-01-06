@@ -1,0 +1,16 @@
+# Directory-specific aliases for aiarcheology project
+# This file is loaded automatically by direnv when entering the directory
+#
+# To enable: direnv allow
+
+# Add local binaries to PATH
+PATH_add "$HOME/.local/bin"
+PATH_add "$HOME/.local/lib/swiftgen/bin"
+
+# Project aliases
+setup() { swift run --package-path Tools ProjectTool setup; }
+lint() { ./scripts/swiftlint.sh "$@"; }
+gen() { ./scripts/swiftgen.sh generate; }
+harm() { ./scripts/harmonize.sh "$@"; }
+
+export -f setup lint gen harm

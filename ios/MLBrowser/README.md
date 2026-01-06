@@ -10,11 +10,7 @@ From the repository root:
 swift run --package-path Tools ProjectTool setup
 ```
 
-This validates that required tools are installed and configures git. If you need to install missing tools:
-
-```bash
-swift run --package-path Tools ProjectTool setup --install
-```
+This installs required tools and configures git.
 
 Then open the project:
 
@@ -31,19 +27,13 @@ Tool versions are **strictly pinned** in `.tools.json` at the repository root. T
 | `swiftlint` | Swift code linting (pre-commit hook) |
 | `sentry-cli` | Sentry dSYM upload and release management |
 
-To check your current tool versions:
+To check and install tools:
 
 ```bash
 swift run --package-path Tools ProjectTool setup
 ```
 
-To install/update tools to the pinned versions:
-
-```bash
-swift run --package-path Tools ProjectTool setup --install
-```
-
-Tools are installed to `/usr/local/bin`.
+Tools are installed to `~/.local/bin` or `/usr/local/bin` (if writable).
 
 ## 🧰 ProjectTool (all available commands)
 
