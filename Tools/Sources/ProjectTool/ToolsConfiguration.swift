@@ -57,7 +57,12 @@ struct ToolsManager {
 
         // Create ~/.local/bin if it doesn't exist
         if !FileManager.default.fileExists(atPath: userPath) {
-            try? FileManager.default.createDirectory(atPath: userPath, withIntermediateDirectories: true)
+            do {
+                try FileManager.default.createDirectory(atPath: userPath, withIntermediateDirectories: true)
+            } catch {
+                print("⚠️  Warning: Failed to create directory at \(userPath): \(error.localizedDescription)")
+                print("   Subsequent operations may fail. Please check directory permissions.")
+            }
         }
 
         return userPath
@@ -71,7 +76,12 @@ struct ToolsManager {
 
         // Create directory if it doesn't exist
         if !FileManager.default.fileExists(atPath: toolPath) {
-            try? FileManager.default.createDirectory(atPath: toolPath, withIntermediateDirectories: true)
+            do {
+                try FileManager.default.createDirectory(atPath: toolPath, withIntermediateDirectories: true)
+            } catch {
+                print("⚠️  Warning: Failed to create directory at \(toolPath): \(error.localizedDescription)")
+                print("   Subsequent operations may fail. Please check directory permissions.")
+            }
         }
 
         return toolPath
@@ -100,8 +110,16 @@ struct ToolsManager {
         if let bundleDir = spec.bundleDir {
             let bundledBinaryPath = bundledToolPath(for: name) + "/" + bundleDir + "/" + spec.binaryName
             if FileManager.default.fileExists(atPath: bundledBinaryPath) {
-                // Use the bundled binary for version check
-                versionCommand = bundledBinaryPath + " --version"
+                // Use the bundled binary for version check, preserving configured flags
+                let components = spec.versionCommand.split(whereSeparator: { $0.isWhitespace })
+                if components.count <= 1 {
+                    // No arguments configured; just use the bundled binary path
+                    versionCommand = bundledBinaryPath
+                } else {
+                    // Replace the command name with the bundled path, keep all original arguments
+                    let arguments = components.dropFirst()
+                    versionCommand = bundledBinaryPath + " " + arguments.joined(separator: " ")
+                }
             } else {
                 // Check if command exists in PATH as fallback
                 let whichTask = Process()
@@ -241,6 +259,26 @@ struct ToolsManager {
             // Handle bundled tools differently (e.g., SwiftGen needs its resource bundle)
             if let bundleDir = spec.bundleDir {
                 let sourceBundleDir = unzipDir.appendingPathComponent(bundleDir)
+                
+                // Verify bundleDir exists in the downloaded archive
+                guard FileManager.default.fileExists(atPath: sourceBundleDir.path) else {
+                    print("   ❌ Expected bundle directory '\(bundleDir)' not found in archive")
+                    print("   📂 Archive structure (at \(unzipDir.path)):")
+                    if let contents = try? FileManager.default.contentsOfDirectory(atPath: unzipDir.path) {
+                        for item in contents {
+                            let itemPath = unzipDir.appendingPathComponent(item).path
+                            var isDirectory: ObjCBool = false
+                            if FileManager.default.fileExists(atPath: itemPath, isDirectory: &isDirectory) {
+                                let typeIndicator = isDirectory.boolValue ? "📁" : "📄"
+                                print("      \(typeIndicator) \(item)")
+                            }
+                        }
+                    }
+                    print("   ⚠️  The archive structure doesn't match the expected format.")
+                    print("      Expected to find a '\(bundleDir)' directory containing '\(spec.binaryName)'")
+                    throw ExitCode.failure
+                }
+                
                 let destBundleDir = bundledToolPath(for: name) + "/" + bundleDir
 
                 // Remove existing bundle directory if present
