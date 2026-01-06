@@ -277,7 +277,6 @@ private extension DownloadDetailView {
 				.testability(Testability.Button.downloadDetailClear)
 				Spacer()
 				Button(L10n.Common.done) {
-					isUrlFieldFocused = false
 					Self.removeFocus()
 				}
 				.testability(Testability.Button.downloadDetailDone)
