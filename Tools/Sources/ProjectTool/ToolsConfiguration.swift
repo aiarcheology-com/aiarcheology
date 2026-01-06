@@ -263,12 +263,19 @@ struct ToolsManager {
                 // Verify bundleDir exists in the downloaded archive
                 guard FileManager.default.fileExists(atPath: sourceBundleDir.path) else {
                     print("   ❌ Expected bundle directory '\(bundleDir)' not found in archive")
-                    print("   📂 Archive contents:")
+                    print("   📂 Archive structure (at \(unzipDir.path)):")
                     if let contents = try? FileManager.default.contentsOfDirectory(atPath: unzipDir.path) {
                         for item in contents {
-                            print("      - \(item)")
+                            let itemPath = unzipDir.appendingPathComponent(item).path
+                            var isDirectory: ObjCBool = false
+                            if FileManager.default.fileExists(atPath: itemPath, isDirectory: &isDirectory) {
+                                let typeIndicator = isDirectory.boolValue ? "📁" : "📄"
+                                print("      \(typeIndicator) \(item)")
+                            }
                         }
                     }
+                    print("   ⚠️  The archive structure doesn't match the expected format.")
+                    print("      Expected to find a '\(bundleDir)' directory containing '\(spec.binaryName)'")
                     throw ExitCode.failure
                 }
                 
