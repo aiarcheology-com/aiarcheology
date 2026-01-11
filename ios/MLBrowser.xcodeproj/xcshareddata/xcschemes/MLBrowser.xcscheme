@@ -94,7 +94,7 @@
          <EnvironmentVariable
             key = "SENTRY_TEST_ERROR"
             value = "1"
-            isEnabled = "NO">
+            isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "SENTRY_TEST_CRASH"

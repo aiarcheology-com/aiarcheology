@@ -6,6 +6,7 @@
 // - Filters out simulator AppHang issues (local dev environment noise)
 // - Dedupes by searching for a stable marker in existing GitHub issues
 // - Creates a GitHub issue on `action: created` with label `bug`
+// - Adds the issue to a GitHub Project V2 board (if GH_PROJECT_ID is set)
 // - Sanitizes title by stripping leading "ISO_TIMESTAMP File.swift:123 " when present
 // - Enriches GitHub body by fetching Sentry Issue JSON + latest event JSON (best-effort)
 // - Redacts common sensitive keys and caps JSON size to avoid giant GitHub bodies
@@ -13,14 +14,19 @@
 // Required Cloudflare env vars (Settings -> Variables/Secrets):
 // - GH_OWNER
 // - GH_REPO
-// - GITHUB_TOKEN
+// - GITHUB_TOKEN (needs repo + project scopes)
 // - SENTRY_WEBHOOK_SECRET
 // - SENTRY_API_TOKEN
+//
+// Optional Cloudflare env vars:
+// - GH_PROJECT_ID (GitHub Project V2 node ID, e.g., PVT_kwDODw8uZM4BMCyN)
+//   Get this via: gh api graphql -f query='{ organization(login: "YOUR_ORG") { projectsV2(first: 10) { nodes { id number title } } } }'
 //
 // Notes:
 // - If enrichment shows "no issue details fetched", check Worker logs for:
 //   - `hasSentryApiToken: false` (env var not applied to the environment), or
 //   - Sentry API errors (401/403/404) in `Sentry enrichment failed: ...`.
+// - If issues are not added to the project, check that GITHUB_TOKEN has `project` scope.
 
 function hexFrom(buf) {
   return [...new Uint8Array(buf)]
@@ -98,6 +104,39 @@ async function ghFetch(env, path, init = {}) {
   } catch {
     return null;
   }
+}
+
+async function addIssueToProject(env, issueNodeId) {
+  const projectId = env.GH_PROJECT_ID;
+  if (!projectId || !issueNodeId) return null;
+
+  const query = `
+    mutation AddItemToProject($projectId: ID!, $contentId: ID!) {
+      addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+        item { id }
+      }
+    }
+  `;
+
+  const resp = await fetch("https://api.github.com/graphql", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      "Content-Type": "application/json",
+      "User-Agent": "sentry-github-relay",
+      "GraphQL-Features": "projects_next_graphql",
+    },
+    body: JSON.stringify({
+      query,
+      variables: { projectId, contentId: issueNodeId },
+    }),
+  });
+
+  const result = await resp.json();
+  if (result.errors) {
+    throw new Error(`GraphQL error: ${JSON.stringify(result.errors)}`);
+  }
+  return result;
 }
 
 async function fetchWithTimeout(url, init, timeoutMs) {
@@ -404,6 +443,17 @@ export default {
         status: 502,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    // Add issue to project board
+    if (created?.node_id && env.GH_PROJECT_ID) {
+      try {
+        await addIssueToProject(env, created.node_id);
+        console.log(`Added issue ${created.number} to project ${env.GH_PROJECT_ID}`);
+      } catch (e) {
+        console.log("Failed to add issue to project:", e?.message || String(e));
+        // Don't fail the webhook if project addition fails
+      }
     }
 
     // Background enrichment (best-effort). Will not delay webhook response.
