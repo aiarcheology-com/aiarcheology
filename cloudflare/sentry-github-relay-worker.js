@@ -366,8 +366,29 @@ export default {
     const issueId = String(issue?.id || "unknown");
     if (issueId === "unknown") return new Response("ok (no issue id)", { status: 200 });
 
+    const marker = `Sentry issue id: ${issueId}`;
+
+    // Dedupe by marker in existing GH issues (GitHub Search requires is:issue)
+    // Check duplicates FIRST to avoid unnecessary Sentry API calls for already-tracked issues
+    const q = encodeURIComponent(`repo:${env.GH_OWNER}/${env.GH_REPO} is:issue in:body "${marker}"`);
+    const found = await ghFetch(env, `/search/issues?q=${q}`);
+    const existing = found?.items?.[0] ?? null;
+
+    const isDuplicate =
+      !!existing &&
+      typeof existing.body === "string" &&
+      existing.body.includes(marker);
+
+    if (isDuplicate || action !== "created") {
+      return new Response(JSON.stringify({ ok: true, action, existing: existing?.html_url ?? null }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     // Filter out noise issues (e.g., AppHang from simulator)
     // This fetches the latest event to check actual tag values
+    // Only runs for new issues (not duplicates) to save Sentry API quota
     const filterResult = await shouldFilterIssue(env, issue);
     if (filterResult.filtered) {
       console.log(`Filtered issue ${issueId}: ${filterResult.reason}`);
@@ -393,25 +414,6 @@ export default {
       issue?.permalink ||
       deriveSentryHtmlIssueUrlFromApiUrl(issueApiUrl) ||
       null;
-
-    const marker = `Sentry issue id: ${issueId}`;
-
-    // Dedupe by marker in existing GH issues (GitHub Search requires is:issue)
-    const q = encodeURIComponent(`repo:${env.GH_OWNER}/${env.GH_REPO} is:issue in:body "${marker}"`);
-    const found = await ghFetch(env, `/search/issues?q=${q}`);
-    const existing = found?.items?.[0] ?? null;
-
-    const isDuplicate =
-      !!existing &&
-      typeof existing.body === "string" &&
-      existing.body.includes(marker);
-
-    if (isDuplicate || action !== "created") {
-      return new Response(JSON.stringify({ ok: true, action, existing: existing?.html_url ?? null }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
 
     // Create the GitHub issue fast (keep Sentry happy), then enrich asynchronously.
     const body = [
