@@ -80,9 +80,9 @@ In Cloudflare Worker **Settings → Variables**, set:
 
 - `GH_OWNER`: `aiarcheology-com` (organization name)
 - `GH_REPO`: `aiarcheology` (repository name)
-- `GITHUB_TOKEN`: GitHub Personal Access Token with `repo` and `project` scopes (store as **Secret**)
-  - Required scopes: `repo` (create/update issues), `project` (add to Projects V2)
-  - Create at: GitHub → Settings → Developer settings → Personal access tokens
+- `GITHUB_TOKEN`: GitHub Personal Access Token (store as **Secret**)
+  - Required scope: `repo` (create/update issues)
+  - Optional scope: `project` (add to Projects V2 when `GH_PROJECT_ID` is configured)
 - `GH_PROJECT_ID` (optional): GitHub Project V2 node ID (e.g., `PVT_kwDODw8uZM4BMCyN`)
   - Get via: `gh api graphql -f query='{ organization(login: "aiarcheology-com") { projectsV2(first: 10) { nodes { id number title } } } }'`
   - If not set, issues will still be created but not automatically added to the project
