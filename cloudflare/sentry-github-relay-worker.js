@@ -14,7 +14,7 @@
 // Required Cloudflare env vars (Settings -> Variables/Secrets):
 // - GH_OWNER
 // - GH_REPO
-// - GITHUB_TOKEN (needs repo + project scopes)
+// - GITHUB_TOKEN (needs repo scope; project scope only required if GH_PROJECT_ID is set)
 // - SENTRY_WEBHOOK_SECRET
 //
 // Optional Cloudflare env vars:
