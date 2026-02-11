@@ -124,7 +124,6 @@ async function addIssueToProject(env, issueNodeId) {
       Authorization: `Bearer ${env.GITHUB_TOKEN}`,
       "Content-Type": "application/json",
       "User-Agent": "sentry-github-relay",
-      "GraphQL-Features": "projects_next_graphql",
     },
     body: JSON.stringify({
       query,
