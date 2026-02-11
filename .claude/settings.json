@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cat ios/AGENTS.md",
+            "command": "echo 'Reminder: Please review ios/AGENTS.md for agent usage and guidelines before submitting.'",
             "timeout": 5
           }
         ]
