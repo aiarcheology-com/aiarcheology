@@ -375,6 +375,14 @@ export default {
     const issueId = String(issue?.id || "unknown");
     if (issueId === "unknown") return new Response("ok (no issue id)", { status: 200 });
 
+    // Return early for non-created actions to avoid consuming GitHub search quota
+    if (action !== "created") {
+      return new Response(JSON.stringify({ ok: true, action }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const marker = `Sentry issue id: ${issueId}`;
 
     // Dedupe by marker in existing GH issues (GitHub Search requires is:issue)
@@ -388,7 +396,7 @@ export default {
       typeof existing.body === "string" &&
       existing.body.includes(marker);
 
-    if (isDuplicate || action !== "created") {
+    if (isDuplicate) {
       return new Response(JSON.stringify({ ok: true, action, existing: existing?.html_url ?? null }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
