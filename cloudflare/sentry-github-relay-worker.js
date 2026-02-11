@@ -16,9 +16,9 @@
 // - GH_REPO
 // - GITHUB_TOKEN (needs repo + project scopes)
 // - SENTRY_WEBHOOK_SECRET
-// - SENTRY_API_TOKEN
 //
 // Optional Cloudflare env vars:
+// - SENTRY_API_TOKEN (required only for enrichment: fetching Sentry Issue JSON + latest event JSON)
 // - GH_PROJECT_ID (GitHub Project V2 node ID, e.g., PVT_kwDODw8uZM4BMCyN)
 //   Get this via: gh api graphql -f query='{ organization(login: "YOUR_ORG") { projectsV2(first: 10) { nodes { id number title } } } }'
 //
