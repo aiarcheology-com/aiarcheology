@@ -378,7 +378,7 @@ export default {
     // Dedupe by marker in existing GH issues (GitHub Search requires is:issue)
     // Check duplicates FIRST to avoid unnecessary Sentry API calls for already-tracked issues
     const q = encodeURIComponent(`repo:${env.GH_OWNER}/${env.GH_REPO} is:issue in:body "${marker}"`);
-    const found = await ghFetch(env, `/search/issues?q=${q}`);
+    const found = await ghFetch(env, `/search/issues?q=${q}&per_page=1&page=1`);
     const existing = found?.items?.[0] ?? null;
 
     const isDuplicate =
