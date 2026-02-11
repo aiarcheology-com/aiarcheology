@@ -132,5 +132,6 @@ The Worker sanitizes the base title before GitHub Actions prefixes it.
 - **Sentry grouping**: GitHub issues are created on `issue.created`. If you trigger the same stacktrace again, Sentry will usually group it into an existing issue and no new GitHub issue will be created.
 - **Time limits**: the Worker responds quickly and runs enrichment in the background to avoid webhook cancellations.
 - **Privacy**: enrichment JSON is **redacted** and **size-capped**. If you want more/less redaction, edit `redact()` and `jsonBlock()` in the Worker.
+- **Monitoring**: Project addition failures are logged via `console.error` for better visibility in Cloudflare Worker logs. Monitor these errors as they may indicate permissions issues with the GitHub token or project configuration.
 
 

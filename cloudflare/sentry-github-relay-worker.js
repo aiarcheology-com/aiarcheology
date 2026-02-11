@@ -462,7 +462,8 @@ export default {
         await addIssueToProject(env, created.node_id);
         console.log(`Added issue ${created.number} to project ${env.GH_PROJECT_ID}`);
       } catch (e) {
-        console.log("Failed to add issue to project:", e?.message || String(e));
+        // Log as error for better monitoring visibility (e.g., may indicate permissions issue)
+        console.error(`Failed to add issue ${created.number} to project ${env.GH_PROJECT_ID}:`, e?.message || String(e));
         // Don't fail the webhook if project addition fails
       }
     }
