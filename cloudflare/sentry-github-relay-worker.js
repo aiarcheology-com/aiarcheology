@@ -14,11 +14,11 @@
 // Required Cloudflare env vars (Settings -> Variables/Secrets):
 // - GH_OWNER
 // - GH_REPO
-// - GITHUB_TOKEN (needs repo + project scopes)
+// - GITHUB_TOKEN (needs repo scope; project scope only required if GH_PROJECT_ID is set)
 // - SENTRY_WEBHOOK_SECRET
-// - SENTRY_API_TOKEN
 //
 // Optional Cloudflare env vars:
+// - SENTRY_API_TOKEN (required only for enrichment: fetching Sentry Issue JSON + latest event JSON)
 // - GH_PROJECT_ID (GitHub Project V2 node ID, e.g., PVT_kwDODw8uZM4BMCyN)
 //   Get this via: gh api graphql -f query='{ organization(login: "YOUR_ORG") { projectsV2(first: 10) { nodes { id number title } } } }'
 //
@@ -131,6 +131,14 @@ async function addIssueToProject(env, issueNodeId) {
     }),
   });
 
+  if (!resp.ok) {
+    const bodyText = await resp.text().catch(() => "");
+    const snippet = bodyText.length > 500 ? bodyText.slice(0, 500) + "…" : bodyText;
+    throw new Error(
+      `GitHub GraphQL HTTP error ${resp.status} ${resp.statusText || ""}`.trim() +
+        (snippet ? `: ${snippet}` : "")
+    );
+  }
   const result = await resp.json();
   if (result.errors) {
     throw new Error(`GraphQL error: ${JSON.stringify(result.errors)}`);

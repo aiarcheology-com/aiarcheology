@@ -10,7 +10,7 @@ This folder contains the Cloudflare Worker that turns **Sentry Issue webhooks** 
 flowchart LR
   A[iOS app<br>Observability → Sentry SDK] -->|event/crash| B[Sentry Project<br>Issues grouping]
   B -->|issue.created webhook<br>sentry-hook-resource: issue| C[Cloudflare Worker<br>sentry-github-relay]
-  C -->|create issue label: bug| D[GitHub Issues<br>aiarcheology/aiarcheology]
+  C -->|create issue label: bug| D[GitHub Issues<br>aiarcheology-com/aiarcheology]
   C -->|fetch issue + latest event JSON<br>Sentry API token| B
   C -->|PATCH body with enrichment| D
   C -->|GraphQL: addProjectV2ItemById<br>if GH_PROJECT_ID set| E[GitHub Project V2]
@@ -80,9 +80,9 @@ In Cloudflare Worker **Settings → Variables**, set:
 
 - `GH_OWNER`: `aiarcheology-com` (organization name)
 - `GH_REPO`: `aiarcheology` (repository name)
-- `GITHUB_TOKEN`: GitHub Personal Access Token with `repo` and `project` scopes (store as **Secret**)
-  - Required scopes: `repo` (create/update issues), `project` (add to Projects V2)
-  - Create at: GitHub → Settings → Developer settings → Personal access tokens
+- `GITHUB_TOKEN`: GitHub Personal Access Token (store as **Secret**)
+  - Required scope: `repo` (create/update issues)
+  - Optional scope: `project` (add to Projects V2 when `GH_PROJECT_ID` is configured)
 - `GH_PROJECT_ID` (optional): GitHub Project V2 node ID (e.g., `PVT_kwDODw8uZM4BMCyN`)
   - Get via: `gh api graphql -f query='{ organization(login: "aiarcheology-com") { projectsV2(first: 10) { nodes { id number title } } } }'`
   - If not set, issues will still be created but not automatically added to the project
