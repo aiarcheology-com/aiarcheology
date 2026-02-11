@@ -132,6 +132,14 @@ async function addIssueToProject(env, issueNodeId) {
     }),
   });
 
+  if (!resp.ok) {
+    const bodyText = await resp.text().catch(() => "");
+    const snippet = bodyText.length > 500 ? bodyText.slice(0, 500) + "…" : bodyText;
+    throw new Error(
+      `GitHub GraphQL HTTP error ${resp.status} ${resp.statusText || ""}`.trim() +
+        (snippet ? `: ${snippet}` : "")
+    );
+  }
   const result = await resp.json();
   if (result.errors) {
     throw new Error(`GraphQL error: ${JSON.stringify(result.errors)}`);
