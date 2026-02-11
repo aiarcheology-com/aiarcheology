@@ -141,7 +141,9 @@ async function addIssueToProject(env, issueNodeId) {
   }
   const result = await resp.json();
   if (result.errors) {
-    throw new Error(`GraphQL error: ${JSON.stringify(result.errors)}`);
+    throw new Error(
+      `GraphQL error adding issue ${issueNodeId} to project ${projectId}: ${JSON.stringify(result.errors)}`
+    );
   }
   return result;
 }
