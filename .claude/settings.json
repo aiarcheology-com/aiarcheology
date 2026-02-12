@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'REMINDER: Read ios/AGENTS.md for project-specific guidelines before starting work. Key sections: Architecture (MVVM), Testing, Localization, Work Planning (run swiftlint, build, test before commits).'",
+            "command": "echo 'Reminder: Please review ios/AGENTS.md for agent usage and guidelines before submitting.'",
             "timeout": 5
           }
         ]

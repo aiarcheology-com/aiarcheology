@@ -6,6 +6,7 @@
 // - Filters out simulator AppHang issues (local dev environment noise)
 // - Dedupes by searching for a stable marker in existing GitHub issues
 // - Creates a GitHub issue on `action: created` with label `bug`
+// - Adds the issue to a GitHub Project V2 board (if GH_PROJECT_ID is set)
 // - Sanitizes title by stripping leading "ISO_TIMESTAMP File.swift:123 " when present
 // - Enriches GitHub body by fetching Sentry Issue JSON + latest event JSON (best-effort)
 // - Redacts common sensitive keys and caps JSON size to avoid giant GitHub bodies
@@ -13,14 +14,19 @@
 // Required Cloudflare env vars (Settings -> Variables/Secrets):
 // - GH_OWNER
 // - GH_REPO
-// - GITHUB_TOKEN
+// - GITHUB_TOKEN (needs repo scope; project scope only required if GH_PROJECT_ID is set)
 // - SENTRY_WEBHOOK_SECRET
-// - SENTRY_API_TOKEN
+//
+// Optional Cloudflare env vars:
+// - SENTRY_API_TOKEN (required only for enrichment: fetching Sentry Issue JSON + latest event JSON)
+// - GH_PROJECT_ID (GitHub Project V2 node ID, e.g., PVT_kwDODw8uZM4BMCyN)
+//   Get this via: gh api graphql -f query='{ organization(login: "YOUR_ORG") { projectsV2(first: 10) { nodes { id number title } } } }'
 //
 // Notes:
 // - If enrichment shows "no issue details fetched", check Worker logs for:
 //   - `hasSentryApiToken: false` (env var not applied to the environment), or
 //   - Sentry API errors (401/403/404) in `Sentry enrichment failed: ...`.
+// - If issues are not added to the project, check that GITHUB_TOKEN has `project` scope.
 
 function hexFrom(buf) {
   return [...new Uint8Array(buf)]
@@ -98,6 +104,48 @@ async function ghFetch(env, path, init = {}) {
   } catch {
     return null;
   }
+}
+
+async function addIssueToProject(env, issueNodeId) {
+  const projectId = env.GH_PROJECT_ID;
+  if (!projectId || !issueNodeId) return null;
+
+  const query = `
+    mutation AddItemToProject($projectId: ID!, $contentId: ID!) {
+      addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+        item { id }
+      }
+    }
+  `;
+
+  const resp = await fetch("https://api.github.com/graphql", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      "Content-Type": "application/json",
+      "User-Agent": "sentry-github-relay",
+    },
+    body: JSON.stringify({
+      query,
+      variables: { projectId, contentId: issueNodeId },
+    }),
+  });
+
+  if (!resp.ok) {
+    const bodyText = await resp.text().catch(() => "");
+    const snippet = bodyText.length > 500 ? bodyText.slice(0, 500) + "…" : bodyText;
+    throw new Error(
+      `GitHub GraphQL HTTP error ${resp.status} ${resp.statusText || ""}`.trim() +
+        (snippet ? `: ${snippet}` : "")
+    );
+  }
+  const result = await resp.json();
+  if (result.errors) {
+    throw new Error(
+      `GraphQL error adding issue ${issueNodeId} to project ${projectId}: ${JSON.stringify(result.errors)}`
+    );
+  }
+  return result;
 }
 
 async function fetchWithTimeout(url, init, timeoutMs) {
@@ -327,8 +375,37 @@ export default {
     const issueId = String(issue?.id || "unknown");
     if (issueId === "unknown") return new Response("ok (no issue id)", { status: 200 });
 
+    // Return early for non-created actions to avoid consuming GitHub search quota
+    if (action !== "created") {
+      return new Response(JSON.stringify({ ok: true, action }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const marker = `Sentry issue id: ${issueId}`;
+
+    // Dedupe by marker in existing GH issues (GitHub Search requires is:issue)
+    // Check duplicates FIRST to avoid unnecessary Sentry API calls for already-tracked issues
+    const q = encodeURIComponent(`repo:${env.GH_OWNER}/${env.GH_REPO} is:issue in:body "${marker}"`);
+    const found = await ghFetch(env, `/search/issues?q=${q}&per_page=1&page=1`);
+    const existing = found?.items?.[0] ?? null;
+
+    const isDuplicate =
+      !!existing &&
+      typeof existing.body === "string" &&
+      existing.body.includes(marker);
+
+    if (isDuplicate) {
+      return new Response(JSON.stringify({ ok: true, action, existing: existing?.html_url ?? null }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     // Filter out noise issues (e.g., AppHang from simulator)
     // This fetches the latest event to check actual tag values
+    // Only runs for new issues (not duplicates) to save Sentry API quota
     const filterResult = await shouldFilterIssue(env, issue);
     if (filterResult.filtered) {
       console.log(`Filtered issue ${issueId}: ${filterResult.reason}`);
@@ -354,25 +431,6 @@ export default {
       issue?.permalink ||
       deriveSentryHtmlIssueUrlFromApiUrl(issueApiUrl) ||
       null;
-
-    const marker = `Sentry issue id: ${issueId}`;
-
-    // Dedupe by marker in existing GH issues (GitHub Search requires is:issue)
-    const q = encodeURIComponent(`repo:${env.GH_OWNER}/${env.GH_REPO} is:issue in:body "${marker}"`);
-    const found = await ghFetch(env, `/search/issues?q=${q}`);
-    const existing = found?.items?.[0] ?? null;
-
-    const isDuplicate =
-      !!existing &&
-      typeof existing.body === "string" &&
-      existing.body.includes(marker);
-
-    if (isDuplicate || action !== "created") {
-      return new Response(JSON.stringify({ ok: true, action, existing: existing?.html_url ?? null }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
 
     // Create the GitHub issue fast (keep Sentry happy), then enrich asynchronously.
     const body = [
@@ -404,6 +462,18 @@ export default {
         status: 502,
         headers: { "Content-Type": "application/json" },
       });
+    }
+
+    // Add issue to project board
+    if (created?.node_id && env.GH_PROJECT_ID) {
+      try {
+        await addIssueToProject(env, created.node_id);
+        console.log(`Added issue ${created.number} to project ${env.GH_PROJECT_ID}`);
+      } catch (e) {
+        // Log as error for better monitoring visibility (e.g., may indicate permissions issue)
+        console.error(`Failed to add issue ${created.number} to project ${env.GH_PROJECT_ID}:`, e?.message || String(e));
+        // Don't fail the webhook if project addition fails
+      }
     }
 
     // Background enrichment (best-effort). Will not delay webhook response.

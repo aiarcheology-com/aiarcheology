@@ -10,10 +10,10 @@ This folder contains the Cloudflare Worker that turns **Sentry Issue webhooks** 
 flowchart LR
   A[iOS app<br>Observability → Sentry SDK] -->|event/crash| B[Sentry Project<br>Issues grouping]
   B -->|issue.created webhook<br>sentry-hook-resource: issue| C[Cloudflare Worker<br>sentry-github-relay]
-  C -->|create issue label: bug| D[GitHub Issues<br>aiarcheology/aiarcheology]
+  C -->|create issue label: bug| D[GitHub Issues<br>aiarcheology-com/aiarcheology]
   C -->|fetch issue + latest event JSON<br>Sentry API token| B
   C -->|PATCH body with enrichment| D
-  D -->|Auto-add workflow<br>label: bug| E[GitHub Project]
+  C -->|GraphQL: addProjectV2ItemById<br>if GH_PROJECT_ID set| E[GitHub Project V2]
   D -->|AIA-#### title normalization<br>repo workflow| F[GitHub Actions<br>auto-issue-key.yml]
 ```
 
@@ -23,7 +23,7 @@ flowchart LR
 - **Dedupe**: one GitHub issue per Sentry issue group (uses a stable marker in the GitHub issue body).
 - **Readable titles**: strips a leading `ISO_TIMESTAMP File.swift:line` prefix from Sentry titles (when present) and moves those details into the body.
 - **Richer context**: fetches additional structured data via Sentry REST API and stores a redacted + size-capped JSON snapshot in the GitHub issue body.
-- **Project automation**: GitHub Project can auto-add new issues by label.
+- **Project integration**: automatically adds issues to GitHub Project V2 via GraphQL (optional, requires `GH_PROJECT_ID` env var).
 
 ## 1) Cloudflare Worker setup
 
@@ -78,9 +78,14 @@ In Cloudflare Worker **Settings → Variables**, set:
 
 ### GitHub
 
-- `GH_OWNER`: `aiarcheology`
-- `GH_REPO`: `aiarcheology`
-- `GITHUB_TOKEN`: GitHub token with permission to create and update issues in the repo (store as **Secret**)
+- `GH_OWNER`: `aiarcheology-com` (organization name)
+- `GH_REPO`: `aiarcheology` (repository name)
+- `GITHUB_TOKEN`: GitHub Personal Access Token (store as **Secret**)
+  - Required scope: `repo` (for creating/updating issues)
+  - Additional scope needed only if using `GH_PROJECT_ID`: `project` (for adding issues to GitHub Projects V2)
+- `GH_PROJECT_ID` (optional): GitHub Project V2 node ID (e.g., `PVT_kwDODw8uZM4BMCyN`)
+  - Get via: `gh api graphql -f query='{ organization(login: "aiarcheology-com") { projectsV2(first: 10) { nodes { id number title } } } }'`
+  - If not set, issues will still be created but not automatically added to the project
 
 ### Sentry
 
@@ -97,16 +102,24 @@ The Worker creates issues with label:
 
 Adjust in `cloudflare/sentry-github-relay-worker.js` if you want different labeling.
 
-### Auto-add to GitHub Project
+### Adding issues to GitHub Project V2
 
-In your GitHub Project (Projects v2):
+**Option 1: Direct integration (recommended)**
+
+The Worker automatically adds issues to your project when `GH_PROJECT_ID` is configured:
+- Uses GitHub GraphQL API (`addProjectV2ItemById` mutation)
+- Requires `GITHUB_TOKEN` with **both** `repo` and `project` scopes
+- Adds issue immediately after creation
+
+**Option 2: GitHub Project workflow (alternative)**
+
+If you prefer not to use direct integration, you can use GitHub's built-in automation:
 
 1. Open Project → **Workflows**
 2. Add **Auto-add to project** workflow
-3. Filter example:
-   - `is:issue is:open label:bug`
+3. Filter example: `is:issue is:open label:bug`
 
-This automatically adds Sentry-created issues to your Project.
+Note: Both methods work, but direct integration is faster and more reliable.
 
 ### Optional: title normalization / key prefix
 
@@ -119,5 +132,6 @@ The Worker sanitizes the base title before GitHub Actions prefixes it.
 - **Sentry grouping**: GitHub issues are created on `issue.created`. If you trigger the same stacktrace again, Sentry will usually group it into an existing issue and no new GitHub issue will be created.
 - **Time limits**: the Worker responds quickly and runs enrichment in the background to avoid webhook cancellations.
 - **Privacy**: enrichment JSON is **redacted** and **size-capped**. If you want more/less redaction, edit `redact()` and `jsonBlock()` in the Worker.
+- **Monitoring**: Project addition failures are logged via `console.error` for better visibility in Cloudflare Worker logs. Monitor these errors as they may indicate permissions issues with the GitHub token or project configuration.
 
 
