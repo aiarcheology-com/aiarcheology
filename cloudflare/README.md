@@ -81,8 +81,8 @@ In Cloudflare Worker **Settings → Variables**, set:
 - `GH_OWNER`: `aiarcheology-com` (organization name)
 - `GH_REPO`: `aiarcheology` (repository name)
 - `GITHUB_TOKEN`: GitHub Personal Access Token (store as **Secret**)
-  - Required scope: `repo` (create/update issues)
-  - Optional scope: `project` (add to Projects V2 when `GH_PROJECT_ID` is configured)
+  - Required scope: `repo` (for creating/updating issues)
+  - Additional scope needed only if using `GH_PROJECT_ID`: `project` (for adding issues to GitHub Projects V2)
 - `GH_PROJECT_ID` (optional): GitHub Project V2 node ID (e.g., `PVT_kwDODw8uZM4BMCyN`)
   - Get via: `gh api graphql -f query='{ organization(login: "aiarcheology-com") { projectsV2(first: 10) { nodes { id number title } } } }'`
   - If not set, issues will still be created but not automatically added to the project
@@ -108,7 +108,7 @@ Adjust in `cloudflare/sentry-github-relay-worker.js` if you want different label
 
 The Worker automatically adds issues to your project when `GH_PROJECT_ID` is configured:
 - Uses GitHub GraphQL API (`addProjectV2ItemById` mutation)
-- Requires `GITHUB_TOKEN` with `project` scope
+- Requires `GITHUB_TOKEN` with **both** `repo` and `project` scopes
 - Adds issue immediately after creation
 
 **Option 2: GitHub Project workflow (alternative)**
