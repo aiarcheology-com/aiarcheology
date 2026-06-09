@@ -66,16 +66,7 @@ extension DeepDriver {
 			return nil
 		}
 	}
-	func updateConfiguration(_ newConfiguration: DeepConfiguration) async {
-		self.params = DeepDriverParams(
-			annotationColor: newConfiguration.annotationColor,
-			entityId: newConfiguration.entityId,
-			file: newConfiguration.file,
-			phaseOutTime: newConfiguration.phaseOutTime,
-			selectedSymbol: newConfiguration.selectedSymbol
-		)
-		LoggingPolicy.debug("Configuration updated for driver \(newConfiguration.entityId.uuidString)", logger: .drivers)
-	}
+
 }
 
 // Drivers factory
@@ -107,8 +98,15 @@ class DeepDrivers: ObservableObject {
 		if drivers.count >= 2 {
 			LoggingPolicy.warning("Multiple drivers found with same configuration.entityId: \(entityId.uuidString)", logger: .drivers)
 		}
+		let params = DeepDriverParams(
+			annotationColor: configuration.annotationColor,
+			entityId: configuration.entityId,
+			file: configuration.file,
+			phaseOutTime: configuration.phaseOutTime,
+			selectedSymbol: configuration.selectedSymbol
+		)
 		Task {
-			await drivers.first?.updateConfiguration(configuration)
+			await drivers.first?.updateConfiguration(params)
 		}
 	}
 	
