@@ -705,20 +705,24 @@ extension Downloader: @MainActor ModelProvider {
 extension DownloadItem: CoreDataManagableWithState {
     func validationReport() -> CoreDataManagableValidationReport {
         guard lifeCycle == .draft || lifeCycle == .ready else { return .init(issues: nil) }
-        
+
         var issues: [CoreDataManagableValidationIssue] = []
-        
+
         // Only validate if download has started or completed
         guard state != .notStarted else { return .init(issues: nil) }
-        
-        if file.isNil || file?.absoluteString.isEmpty == true {
+
+        // The model file only exists once the download finished. Requiring it for
+        // in-flight states (.downloading/.paused/...) made validateForUpdate throw on
+        // every mid-download save — including the resume-data persistence on pause.
+        if [.complete, .imported].contains(state),
+           file.isNil || file?.absoluteString.isEmpty == true {
             issues.append(.init(key: "file", message: "Model file is required."))
         }
-        
+
         if url.isNil || url?.absoluteString.isEmpty == true {
             issues.append(.init(key: "url", message: "Model's url is required."))
         }
-        
+
         return .init(issues: issues)
     }
 }

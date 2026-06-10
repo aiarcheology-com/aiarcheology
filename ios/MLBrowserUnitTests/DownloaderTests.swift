@@ -264,17 +264,41 @@ final class DownloadItemTests: XCTestCase {
         XCTAssertTrue(report.isValid)
     }
     
-    func testDownloadItemValidationReport_DownloadingWithoutFile() {
+    func testDownloadItemValidationReport_DownloadingWithoutFile_IsValid() {
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.state = .downloading
+        item.lifeCycle = .ready
+
+        let report = item.validationReport()
+
+        // The file does not exist until the download finishes; mid-download
+        // states must validate (and therefore save) without it.
+        XCTAssertTrue(report.isValid)
+    }
+
+    func testDownloadItemValidationReport_DownloadingWithoutURL_IsNotValid() {
         let item = DownloadItem.create(in: context)
         item.state = .downloading
-        item.lifeCycle = .draft
-        
+        item.lifeCycle = .ready
+
         let report = item.validationReport()
-        
-        // Downloading without file should have issues
+
         XCTAssertFalse(report.isValid)
-        XCTAssertNotNil(report.issues)
-        XCTAssertTrue(report.issues?.contains { $0.key == "file" } ?? false)
+        XCTAssertTrue(report.issues?.contains { $0.key == "url" } ?? false)
+    }
+
+    func testSave_ReadyLifeCycle_Downloading_DoesNotThrow() throws {
+        // Regression: starting a download promotes lifeCycle to .ready and state to
+        // .downloading while file_ is still nil; saves during the download (state
+        // transition, resume-data persistence) must not throw.
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.lifeCycle = .ready
+        item.state = .downloading
+        item.file_ = nil
+
+        XCTAssertNoThrow(try DownloadItem.save(in: context))
     }
     
     func testDownloadItemValidationReport_CompleteWithURL_NoFile() {
