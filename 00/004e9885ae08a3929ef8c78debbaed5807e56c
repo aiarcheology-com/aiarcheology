@@ -1,0 +1,21 @@
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_f24988eb446598::t_8dd49166ca3e49 1090
+  s_f24988eb446598::t_add9c900a1ae38 1471,1541
+  s_f24988eb446598::t_745ddfad83ceef 1759,1784
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "00004e9885ae08a3929ef8c78debbaed5807e56c",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
