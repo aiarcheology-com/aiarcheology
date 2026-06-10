@@ -22,6 +22,7 @@ struct FloatingChromeButton: View {
 
 	private static let diameter: CGFloat = 52
 	private static let margin: CGFloat = 16
+	private static let coordinateSpace = "floatingChromeButtonArea"
 
 	var body: some View {
 		// Deliberately not a Button: a Button claims the touch and an attached
@@ -58,6 +59,7 @@ struct FloatingChromeButton: View {
 				.accessibilityLabel(L10n.Browser.FloatingButton.label)
 				.position(displayedPosition(in: geometry.size))
 		}
+		.coordinateSpace(name: Self.coordinateSpace)
 	}
 
 	/// The committed position (or the default corner), re-clamped every render so
@@ -69,7 +71,11 @@ struct FloatingChromeButton: View {
 	}
 
 	private func drag(in size: CGSize) -> some Gesture {
-		DragGesture()
+		// The gesture is attached to the view it moves; measuring the
+		// translation in the view's own (moving) space feeds the movement
+		// back into the gesture and the button vibrates. The named, stable
+		// coordinate space breaks that loop.
+		DragGesture(minimumDistance: 10, coordinateSpace: .named(Self.coordinateSpace))
 			.updating($dragOffset) { value, state, _ in
 				state = value.translation
 			}
