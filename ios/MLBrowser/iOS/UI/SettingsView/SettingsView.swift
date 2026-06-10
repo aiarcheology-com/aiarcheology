@@ -13,7 +13,6 @@ struct SettingsForm: View {
 	@EnvironmentObject var guide: Guide
 	@FocusState private var isHistoryLimitFocused: Bool
 	@State private var defaultWebPlaceholder: String = "www.google.com"
-	@State private var validationErrorMessage: String?
 	@State private var resetButtonColor: Color = .red
 	@State private var cleanCacheButtonColor: Color = .red
 	@State private var alertItem: AlertItem?
@@ -42,15 +41,13 @@ struct SettingsForm: View {
 							try settings.validate()
 							dismiss()
 						} catch ValidationError.invalidData(let message) {
-							validationErrorMessage = message
 							self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
-													 message: Text(validationErrorMessage ?? ""), // TODO optional
-													 dismissButton: .default(Text(L10n.Common.ok), action: { validationErrorMessage = nil }))
+													 message: Text(message),
+													 dismissButton: .default(Text(L10n.Common.ok)))
 						} catch {
-							validationErrorMessage = "An unexpected error occurred."
 							self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
-													  message: Text(validationErrorMessage ?? ""), // TODO optional
-													  dismissButton: .default(Text(L10n.Common.ok), action: { validationErrorMessage = nil }))
+													  message: Text("An unexpected error occurred."),
+													  dismissButton: .default(Text(L10n.Common.ok)))
 						}
 					}) {
 						Text(L10n.Common.dismiss)
@@ -71,15 +68,6 @@ struct SettingsForm: View {
 				}
 			}
 
-			.alert(isPresented: .constant(validationErrorMessage != nil), content: {
-				Alert(
-					title: Text(L10n.Alert.Error.title),
-					message: Text(validationErrorMessage ?? "An error occurred during validation."),
-					dismissButton: .default(Text(L10n.Common.ok), action: {
-						validationErrorMessage = nil // Reset the error message
-					})
-				)
-			})
 			.onChange(of: mergedObservable) {
 				resetButtonColor = .red
 			}

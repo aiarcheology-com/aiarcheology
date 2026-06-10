@@ -23,7 +23,6 @@
 		8A1328222AF7023D00F119C6 /* Optional+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1328212AF7023D00F119C6 /* Optional+Extensions.swift */; };
 		8A1328242AFAD02800F119C6 /* Sequence+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1328232AFAD02800F119C6 /* Sequence+Extensions.swift */; };
 		8A1328262AFE3D9A00F119C6 /* CGRect+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1328252AFE3D9A00F119C6 /* CGRect+Extension.swift */; };
-		8A1328282B010B8C00F119C6 /* EnvironmentObject+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1328272B010B8C00F119C6 /* EnvironmentObject+Extensions.swift */; };
 		8A13282A2B052C7900F119C6 /* ConfigurationForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1328292B052C7800F119C6 /* ConfigurationForm.swift */; };
 		8A1D49B92ABB87D500C2D7C1 /* FileManagerExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49AF2ABB87D400C2D7C1 /* FileManagerExtensions.swift */; };
 		8A1D49BA2ABB87D500C2D7C1 /* GridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B02ABB87D400C2D7C1 /* GridView.swift */; };
@@ -224,7 +223,6 @@
 		8A1328212AF7023D00F119C6 /* Optional+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Optional+Extensions.swift"; sourceTree = "<group>"; };
 		8A1328232AFAD02800F119C6 /* Sequence+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sequence+Extensions.swift"; sourceTree = "<group>"; };
 		8A1328252AFE3D9A00F119C6 /* CGRect+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGRect+Extension.swift"; sourceTree = "<group>"; };
-		8A1328272B010B8C00F119C6 /* EnvironmentObject+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "EnvironmentObject+Extensions.swift"; sourceTree = "<group>"; };
 		8A1328292B052C7800F119C6 /* ConfigurationForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationForm.swift; sourceTree = "<group>"; };
 		8A1D49AF2ABB87D400C2D7C1 /* FileManagerExtensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileManagerExtensions.swift; sourceTree = "<group>"; };
 		8A1D49B02ABB87D400C2D7C1 /* GridView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GridView.swift; sourceTree = "<group>"; };
@@ -446,7 +444,6 @@
 				94AE91752F0D9E2800B326B7 /* Color+Extension.swift */,
 				8A7740D22B1894B3002E90D9 /* Bundle+Extension.swift */,
 				8A1328252AFE3D9A00F119C6 /* CGRect+Extension.swift */,
-				8A1328272B010B8C00F119C6 /* EnvironmentObject+Extensions.swift */,
 				8A1328212AF7023D00F119C6 /* Optional+Extensions.swift */,
 				94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */,
 				8A1328232AFAD02800F119C6 /* Sequence+Extensions.swift */,
@@ -1286,7 +1283,6 @@
 				8AC393D62B2BA33400C9BA57 /* Annotator.swift in Sources */,
 				94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */,
 				94FCC4032ECE46C60047B283 /* DemoDataManager.swift in Sources */,
-				8A1328282B010B8C00F119C6 /* EnvironmentObject+Extensions.swift in Sources */,
 				8AC7CDED2AE7FCED00871074 /* SnapState.swift in Sources */,
 				8AD3A8302B2EFA3E0058E018 /* Annotation.swift in Sources */,
 				8AC650AB2B2B4CCB00922648 /* WebHistory.swift in Sources */,

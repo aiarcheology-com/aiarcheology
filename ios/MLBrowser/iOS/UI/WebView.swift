@@ -107,12 +107,9 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
 		webView.scrollView.delegate = context.coordinator
 		webViewRenderer.webView = webView
 
-		if let url = URL(string: urlString) {
-			DispatchQueue.main.async {
-				webView.load(URLRequest(url: url))
-			}
-		}
-
+		// No initial load here: SwiftUI guarantees updateUIView runs right after makeUIView,
+		// so loading in both places fired a duplicate request (and this path bypassed the
+		// withHTTPS/browserInputType normalization).
         return webView
     }
 
@@ -124,6 +121,10 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
 		if uiView.scrollView.delegate == nil {
 			uiView.scrollView.delegate = context.coordinator
 		}
+
+		// updateUIView also runs when unrelated SwiftUI state changes; only reload
+		// when the input actually changed, otherwise the page reloads spuriously.
+		guard context.coordinator.lastLoadedInput != urlString else { return }
 
         func load(_ urlString: String) {
             guard let url = URL(string: urlString.withHTTPS) else { return }
@@ -140,6 +141,7 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
         case .unusable:
             return
         }
+		context.coordinator.lastLoadedInput = urlString
     }
 
     func onLoadStatusChanged(perform: ((Bool, Error?) -> Void)?) -> some View {
@@ -151,6 +153,8 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
     public class Coordinator: NSObject, WKNavigationDelegate, UIScrollViewDelegate, WKScriptMessageHandler {
         let parent: MLWebView
 		var lastContentOffsetY: CGFloat = 0
+		/// The last input string that triggered a load; used by updateUIView to skip redundant reloads.
+		var lastLoadedInput: String?
 		private var isScrolling = false
 
         init(_ parent: MLWebView) {
