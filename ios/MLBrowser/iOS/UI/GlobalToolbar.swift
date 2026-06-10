@@ -47,7 +47,10 @@ struct GlobalToolbarTrailing: View {
 	@State private var showPopoverAdjustment = false
 
 	var body: some View {
-		HStack {
+		// Explicit spacing and 44pt minimum frames: the bare SF Symbol buttons
+		// measure as small as 19x36pt with an 8pt gap, below the recommended
+		// hit-target size, and sat visibly cramped on Dynamic Island devices.
+		HStack(spacing: 16) {
 			detectionButton
 			// Snap adjustments only apply while snapshots are being taken:
 			// browser mode shows the play button alone, detection mode adds
@@ -74,6 +77,8 @@ struct GlobalToolbarTrailing: View {
 							isAnimating.toggle()
 						}
 					}
+					.frame(minWidth: 44, minHeight: 44)
+					.contentShape(Rectangle())
 			}
 			.testability(Testability.Button.globalToolbarPauseDetection)
 		} else {
@@ -82,6 +87,8 @@ struct GlobalToolbarTrailing: View {
 			}) {
 				Image(systemName: "play")
 					.foregroundColor(.gray)
+					.frame(minWidth: 44, minHeight: 44)
+					.contentShape(Rectangle())
 			}
 			.testability(Testability.Button.globalToolbarPlayDetection)
 		}
@@ -101,6 +108,8 @@ struct GlobalToolbarTrailing: View {
 		}) {
 			Image(systemName: "pencil.tip.crop.circle")
 				.foregroundColor(.gray)
+				.frame(minWidth: 44, minHeight: 44)
+				.contentShape(Rectangle())
 		}
 		.testability(Testability.Button.globalToolbarAdjustments)
 		.popover(isPresented: $showPopoverAdjustment) {

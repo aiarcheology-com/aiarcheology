@@ -97,6 +97,7 @@
 		8AE0BC082A97B0B40086DDF9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8AE0BC072A97B0B40086DDF9 /* Assets.xcassets */; };
 		8AE0BC0B2A97B0B40086DDF9 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8AE0BC0A2A97B0B40086DDF9 /* Preview Assets.xcassets */; };
 		8AE0BC252A97B0B40086DDF9 /* AI_ArcheologyUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */; };
+		8A4F0E142F110A0200ABCDEF /* BrowserRevampUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */; };
 		8AE0BC272A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */; };
 		8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */; };
 		8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */; };
@@ -303,6 +304,7 @@
 		8AE0BC162A97B0B40086DDF9 /* MLBrowserUnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MLBrowserUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AE0BC202A97B0B40086DDF9 /* MLBrowserUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MLBrowserUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_ArcheologyUITests.swift; sourceTree = "<group>"; };
+		8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserRevampUITests.swift; sourceTree = "<group>"; };
 		8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_ArcheologyUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = HroudaDetector15.mlpackage; sourceTree = "<group>"; };
 		8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = AIArcheology.mlpackage; sourceTree = "<group>"; };
@@ -798,6 +800,7 @@
 			isa = PBXGroup;
 			children = (
 				8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */,
+				8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */,
 				8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */,
 			);
 			path = MLBrowserUITests;
@@ -1350,6 +1353,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8AE0BC252A97B0B40086DDF9 /* AI_ArcheologyUITests.swift in Sources */,
+				8A4F0E142F110A0200ABCDEF /* BrowserRevampUITests.swift in Sources */,
 				8AE0BC272A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift in Sources */,
 				94FCC4072ED063010047B283 /* OSLog+Extensions.swift in Sources */,
 				942B1DDF2EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */,
