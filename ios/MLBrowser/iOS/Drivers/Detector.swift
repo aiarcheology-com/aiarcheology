@@ -99,8 +99,17 @@ actor Detector: DeepDriver {
             return
         }
 
+        // Without a handler there is no frame to process. Bail out before reading
+        // detectionRequest.results — VNRequest retains the previous run's results,
+        // so an optional-chained no-op perform would re-report the prior frame.
+        guard let handler else {
+            LoggingPolicy.debug("Detection skipped: no frame to process", logger: .drivers)
+            observations = []
+            return
+        }
+
         do {
-            try handler?.perform([detectionRequest])
+            try handler.perform([detectionRequest])
             // perform() completes synchronously, so results can be read directly here.
             // The previous Task-based completion proxy raced with readers and could
             // deliver the prior frame's observations.

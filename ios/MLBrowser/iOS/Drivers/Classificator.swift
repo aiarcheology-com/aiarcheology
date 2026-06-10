@@ -99,8 +99,17 @@ actor Classificator: DeepDriver {
             return
         }
 
+        // Without a handler there is no frame to process. Bail out before reading
+        // classificationRequest.results — VNRequest retains the previous run's results,
+        // so an optional-chained no-op perform would re-report the prior frame.
+        guard let handler else {
+            LoggingPolicy.debug("Classification skipped: no frame to process", logger: .drivers)
+            observations = []
+            return
+        }
+
         do {
-            try handler?.perform([classificationRequest])
+            try handler.perform([classificationRequest])
             // perform() completes synchronously, so results can be read directly here.
             // The previous Task-based completion proxy raced with readers and could
             // deliver the prior frame's observations.

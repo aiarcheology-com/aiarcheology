@@ -53,6 +53,12 @@ final class ActiveDownload: Identifiable, Comparable, Hashable, ObservableObject
     // reference here silently broke pause/cancel whenever the ref was released early.
     let task: any DownloadTaskProtocol
 
+    /// Set before cancel(byProducingResumeData:) so the completion delegate can
+    /// distinguish a pause from a true cancel. Checking `item.resumeData` alone races:
+    /// the resume data is persisted via an async MainActor Task that may run after
+    /// the cancelled-completion callback.
+    var isPausing = false
+
     init(task: any DownloadTaskProtocol, itemId: UUID) {
         self.task = task
         self.itemId = itemId
@@ -511,6 +517,10 @@ final public class Downloader: NSObject, ObservableObject {
 
         LoggingPolicy.debug("Pausing download for item \(entityId.uuidString)", logger: .networking)
 
+        // Mark the intent BEFORE cancelling so sessionTaskDidComplete cannot mistake
+        // this pause for a true cancel (the resume data lands asynchronously).
+        download.isPausing = true
+
         // Sendable closure used by URLSession to deliver resume data.
         let storeResumeData: @Sendable (Data?) -> Void = { [weak self, entityId] data in
             guard let data else {
@@ -559,8 +569,11 @@ final public class Downloader: NSObject, ObservableObject {
         switch nsError.code {
         case NSURLErrorCancelled:
             LoggingPolicy.debug("Download cancelled for item \(id.uuidString)", logger: .networking)
-            if item.resumeData != nil {
-                // Pausing: preserve progress state (resume data already saved to CoreData)
+            // isPausing is the authoritative signal (set synchronously before the cancel);
+            // resumeData is the fallback for completions delivered after a relaunch,
+            // when no in-memory ActiveDownload entry exists.
+            if download?.isPausing == true || item.resumeData != nil {
+                // Pausing: preserve progress state (resume data is saved separately)
                 if let download {
                     Self.persistDownloadState(from: download, to: item)
                 }
