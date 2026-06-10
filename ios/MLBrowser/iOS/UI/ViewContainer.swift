@@ -10,13 +10,16 @@ import SwiftUI
 struct ViewContainer<Content: View, LeadingItems: View, TrailingItems: View>: View {
 	@EnvironmentObject var appState: AppState
 
+	let barsHidden: Bool
 	let content: Content
 	let leadingItems: LeadingItems
 	let trailingItems: TrailingItems
 
-    @inlinable public init(@ViewBuilder _ content: () -> Content,
+    @inlinable public init(barsHidden: Bool = false,
+                           @ViewBuilder _ content: () -> Content,
                            @ViewBuilder leadingItems: () -> LeadingItems,
                            @ViewBuilder trailingItems: () -> TrailingItems) {
+        self.barsHidden = barsHidden
         self.content = content()
         self.leadingItems = leadingItems()
         self.trailingItems = trailingItems()
@@ -33,6 +36,7 @@ struct ViewContainer<Content: View, LeadingItems: View, TrailingItems: View>: Vi
 						trailingItems
 					}
 				}
+				.toolbar(barsHidden ? .hidden : .visible, for: .navigationBar)
 		}
 	}
 }

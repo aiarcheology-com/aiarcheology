@@ -25,6 +25,12 @@ final class Guide: ObservableObject {
 	@Published var addressSelected: URL?
 	@Published var contentInteractionState: ContentInteractionState = .idle
 	@Published var showSnapAdjustment: Bool = false
+	/// Whether the browser chrome (navigation bar with address field and buttons) is visible.
+	/// Only meaningful while `ontheflyDetectionEnabled` is true; always reset to `true`
+	/// when detection stops. Uniform rule: every detection start hides chrome, every stop
+	/// shows it — regardless of initiator (user tap, auto-start, background/foreground
+	/// cycle, application reset). Views mutate it via `chromeToggleTapped()`.
+	@Published private(set) var chromeVisible: Bool = true
 
 	init(snap: SnapState, deep: DeepState, settings: Settings, dataController: DataController, demoDataManager: DemoDataManager, snapAdjustment: SnapAdjustment) {
 		self.snap = snap
@@ -34,6 +40,13 @@ final class Guide: ObservableObject {
         self.demoDataManager = demoDataManager
         self.snapAdjustment = snapAdjustment
 	}
+
+	/// Fullscreen = detection running and chrome hidden (the default while detecting).
+	var isFullscreen: Bool { ontheflyDetectionEnabled && chromeVisible.not }
+
+	/// The floating chrome-toggle button accompanies detection for its whole duration,
+	/// regardless of whether the chrome is currently revealed.
+	var showsFloatingChromeButton: Bool { ontheflyDetectionEnabled }
 
 	func togglingSideMenu() {
 		presentedSideMenu.toggle()
@@ -54,10 +67,19 @@ final class Guide: ObservableObject {
     @MainActor func ontheflyDetectionTapped() {
 		ontheflyDetectionEnabled.toggle()
 		if ontheflyDetectionEnabled {
+			chromeVisible = false
 			snap.startTimer()
 		} else {
+			chromeVisible = true
+			// An open adjustment overlay would be orphaned once its toolbar
+			// button disappears with detection mode.
+			showSnapAdjustment = false
 			snap.stopTimer()
 		}
+	}
+
+	func chromeToggleTapped() {
+		chromeVisible.toggle()
 	}
 
 	func settingsTapped() {

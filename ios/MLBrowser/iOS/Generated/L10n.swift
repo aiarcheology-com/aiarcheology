@@ -72,6 +72,12 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "alert.warning.title", fallback: "Warning")
     }
   }
+  internal enum Browser {
+    internal enum FloatingButton {
+      /// Show or hide browser controls
+      internal static let label = L10n.tr("Localizable", "browser.floatingButton.label", fallback: "Show or hide browser controls")
+    }
+  }
   internal enum Clipboard {
     /// Copied: %@
     internal static func copied(_ p1: Any) -> String {

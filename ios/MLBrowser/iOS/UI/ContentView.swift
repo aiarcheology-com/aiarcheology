@@ -34,6 +34,11 @@ struct ContentView: View {
     @State private var saturation = SnapAdjustment.defaultSaturation
     @State private var showSnapAdjustment = false
     @State private var activeSheet: ActiveSheet?
+    // Fullscreen detection mode (one-way bridges from Guide; the view only reads):
+    @State private var detectionEnabled = false
+    @State private var chromeVisible = true
+    @State private var selectedMode = AppMode.web
+    @State private var floatingButtonPosition: CGPoint?
     
     init() {
         Backports.Appearance
@@ -67,6 +72,15 @@ struct ContentView: View {
             guard appState.guide.showSnapAdjustment != newValue else { return }
             appState.guide.showSnapAdjustment = newValue
         }
+        .onReceive(appState.guide.$ontheflyDetectionEnabled) { enabled in
+            withAnimation { detectionEnabled = enabled }
+        }
+        .onReceive(appState.guide.$chromeVisible) { visible in
+            withAnimation { chromeVisible = visible }
+        }
+        .onReceive(appState.guide.$mode) { mode in
+            selectedMode = mode
+        }
         .onReceive(appState.guide.$presentedSideMenu) { shouldOpen in
             // Bridge from Guide's presentedSideMenu to new DrawerManager
             // Guard against sync loops
@@ -97,12 +111,17 @@ struct ContentView: View {
     }
     
     // MARK: - Main Content
-    
+
+    /// Fullscreen = detection running with chrome hidden, on the web tab only.
+    private var fullscreenActive: Bool {
+        detectionEnabled && chromeVisible.not && selectedMode == .web
+    }
+
     private var mainContent: some View {
         ZStack {
             TabView(selection: $appState.guide.mode) {
                 ForEach(AppMode.tabOrder) { mode in
-                    ViewContainer({
+                    ViewContainer(barsHidden: detectionEnabled && chromeVisible.not && mode == .web, {
                         Screens.content(mode)
                             .onReceive(appState.snapAdjustment.$brightness) { newValue in
                                 brightness = newValue
@@ -137,7 +156,16 @@ struct ContentView: View {
             
             // Address bar dropdown menu
             addressBarDropdown
+
+            // Chrome toggle for fullscreen detection mode; only its 52pt frame
+            // is hit-testable, all other touches reach the web view.
+            if detectionEnabled && selectedMode == .web {
+                FloatingChromeButton(position: $floatingButtonPosition)
+                    .environmentObject(appState.guide)
+                    .transition(.opacity)
+            }
         }
+        .statusBarHidden(fullscreenActive)
         // Snap adjustment overlay for iPhone (compact width)
         // On iPad/Mac, this is handled via popover in GlobalToolbarTrailing
         .snapAdjustmentOverlay(
