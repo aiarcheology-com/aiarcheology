@@ -1,0 +1,21 @@
+scripts/unittest.sh
+  s_f24988eb446598::t_8620deea6c7d69 129-133,136-137,139
+scripts/harmonize.sh
+  s_f24988eb446598::t_e7337af3b69dc6 92-96,99-100,102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "0cef195e7edb33f6d594ad482af719bb497a947e",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
