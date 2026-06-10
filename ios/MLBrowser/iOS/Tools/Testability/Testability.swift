@@ -100,9 +100,10 @@ extension TestabilityIdentification {
 		case globalToolbarPlayDetection
 		case globalToolbarPauseDetection
 		case globalToolbarAdjustments
-		case globalToolbarSettings
 		// Floating Chrome Button
 		case floatingChromeToggle
+		// Drawer
+		case drawerSettings
 		// Snap Adjustment
 		case snapAdjustmentReset
 		case snapAdjustmentOverlayDismiss

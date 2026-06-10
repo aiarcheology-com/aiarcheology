@@ -50,7 +50,6 @@ struct GlobalToolbarTrailing: View {
 		HStack {
 			detectionButton
 			adjustmentButton
-			settingsButton
 		}
 	}
 	
@@ -105,17 +104,5 @@ struct GlobalToolbarTrailing: View {
 				.frame(width: 280)
 				.environmentObject(guide.snapAdjustment)
 		}
-	}
-	
-	// MARK: - Settings Button
-	
-	private var settingsButton: some View {
-		Button(action: {
-			guide.settingsTapped()
-		}) {
-			Image(systemName: "gearshape")
-				.foregroundColor(.gray)
-		}
-		.testability(Testability.Button.globalToolbarSettings)
 	}
 }

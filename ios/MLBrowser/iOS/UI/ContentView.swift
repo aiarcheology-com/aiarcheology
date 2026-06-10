@@ -53,6 +53,7 @@ struct ContentView: View {
         } menu: {
             DrawerContent()
                 .environment(drawer)
+                .environmentObject(appState.guide)
                 .environmentObject(appState.deep)
                 .environmentObject(appState.downloader)
         }
