@@ -1,0 +1,33 @@
+ios/MLBrowser/iOS/UI/GlobalToolbar.swift
+  s_f24988eb446598::t_2aaea8e8d9cde4 90-91
+  s_f24988eb446598::t_a207195c65aceb 111-112
+  s_f24988eb446598::t_c23fc40b41b8ba 50-53
+  s_f24988eb446598::t_50005b228a2aa8 80-81
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_f24988eb446598::t_1c96f4966ec929 100
+  s_f24988eb446598::t_40c07dbc790698 329
+  s_f24988eb446598::t_5b9b0d9d1e0b09 847
+  s_f24988eb446598::t_2041e9bf4fab8e 1444
+ios/MLBrowserUITests/BrowserRevampUITests.swift
+  s_f24988eb446598::t_a65ba478b84f3a 83-84
+  s_f24988eb446598::t_7ae27b1266385b 23
+  s_f24988eb446598::t_32cf77f084630a 36-47
+  s_f24988eb446598::t_55897f6f2bf1f7 1-22,24-35,48-82,85-93,95-134
+  s_f24988eb446598::t_5d50fde328a2e8 94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "9a0d50871f16261ea7b9df40beace20d056b9a62",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
