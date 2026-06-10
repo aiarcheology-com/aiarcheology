@@ -201,8 +201,9 @@ struct WebScreenView: View {
 
 	private func createWebHistoryEntry(_ urlString: String, maxEntries: Int) {
 		// Duplicate check first: re-visiting an existing page must not trip the limit alert.
+		// Entries are stored with the https-normalized URL, so compare the same form.
 		guard
-			history.contains(where: { $0.page?.absoluteString == urlString }).not else {
+			history.contains(where: { $0.page?.absoluteString == urlString.withHTTPS }).not else {
 			return
 		}
 

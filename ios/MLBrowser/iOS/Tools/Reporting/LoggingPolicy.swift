@@ -129,9 +129,10 @@ enum LoggingPolicy {
         // The error description is appended locally for readability; the remote capture
         // receives the clean message because the crash-reporting service appends the
         // description itself (appending here too produced "msg: desc: desc" in Sentry).
+        // System error descriptions often embed the failing URL — redact those too.
         let localMessage: String
         if let error = error {
-            localMessage = "\(prefixedMessage): \(error.localizedDescription)"
+            localMessage = "\(prefixedMessage): \(LogRedactor.redactingURLs(error.localizedDescription))"
         } else {
             localMessage = prefixedMessage
         }

@@ -80,8 +80,11 @@ actor Detector: DeepDriver {
     }
 
     func process(image: UIImage) async {
-        // Clear stale results: a new frame must never report the previous frame's detections.
+        // Clear stale state: a new frame must never report the previous frame's
+        // detections, and a failed conversion must not leave the old handler around
+        // (detect() would silently re-run the previous frame).
         observations = []
+        handler = nil
         ciImage = CIImage(image: image)
         guard let ciImage else {
             LoggingPolicy.warning("Failed to create CIImage from UIImage", logger: .drivers)

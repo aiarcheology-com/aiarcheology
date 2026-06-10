@@ -206,6 +206,10 @@ final class DemoDataManager {
             try DeepConfiguration.save(in: self.dataController.container.viewContext)
         } catch {
             LoggingPolicy.error("Failed to save demo configuration", error: error, logger: .configuration)
+            // Remove the pending insert so a later, unrelated save cannot persist a
+            // half-configured demo entry. (No context-wide rollback: it would discard
+            // unrelated pending changes.)
+            self.dataController.container.viewContext.delete(configuration)
             return
         }
         LoggingPolicy.debug("Demo configuration life cycle: \(configuration.lifeCycle)", logger: .configuration)

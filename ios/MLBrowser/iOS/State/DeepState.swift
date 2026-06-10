@@ -37,8 +37,9 @@ final class DeepState: ObservableObject {
 				Task {
 					do {
 						try await driver.loadFile()
-						// The configuration may have been deleted (e.g. reset) while loading.
-						guard selectConfiguration(config.entityId) != nil else {
+						// The configuration may have been deleted (e.g. reset) or disabled
+						// while the model was loading.
+						guard let current = selectConfiguration(config.entityId), current.enabled else {
 							await driver.unload()
 							return
 						}
@@ -254,8 +255,9 @@ final class DeepState: ObservableObject {
 						do {
 							try await driver.loadFile()
 							await MainActor.run {
-								// The configuration may have been deleted (e.g. reset) while loading.
-								guard selectConfiguration(entityId) != nil else {
+								// The configuration may have been deleted (e.g. reset) or
+								// disabled while the model was loading.
+								guard let current = selectConfiguration(entityId), current.enabled else {
 									Task { await driver.unload() }
 									return
 								}
@@ -299,8 +301,9 @@ final class DeepState: ObservableObject {
 					Task {
 						do {
 							try await driver.loadFile()
-							// The configuration may have been deleted (e.g. reset) while loading.
-							guard selectConfiguration(entityId) != nil else {
+							// The configuration may have been deleted (e.g. reset) or
+							// disabled while the model was loading.
+							guard let current = selectConfiguration(entityId), current.enabled else {
 								await driver.unload()
 								return
 							}

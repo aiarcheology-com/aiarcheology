@@ -49,7 +49,8 @@ final class DefaultCrashReporter: CrashReporter, Sendable {
 		// Route through Observability for remote reporting
 		Observability.captureError(message, error: error)
 
-		// Also log locally (with the description for readability)
-		Logger.app.logError("\(message): \(error.localizedDescription)")
+		// Also log locally (with the description for readability). OSLog is public and
+		// system error descriptions often embed the failing URL — redact before logging.
+		Logger.app.logError("\(message): \(LogRedactor.redactingURLs(error.localizedDescription))")
 	}
 }
