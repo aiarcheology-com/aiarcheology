@@ -23,27 +23,32 @@ class WebViewRenderer: DefaultRenderer {
         super.init()
     }
 
-	@MainActor override func render<Content>(_ content: Content, completionHandler: @escaping (UIImage?, Error?) -> Void) where Content: View {
+	@MainActor override func render<Content>(_ content: Content, scale: CGFloat, completionHandler: @escaping @MainActor (UIImage?, Error?) -> Void) where Content: View {
 		guard let webView = webView else {
 			completionHandler(nil, nil) // TODO: error handling
 			return
 		}
 
+		// Capture the adjustment values on the main actor before hopping off it.
+		let brightness = snapAdjustment.brightness
+		let contrast = snapAdjustment.contrast
+		let saturation = snapAdjustment.saturation
+
 		let config = WKSnapshotConfiguration()
-		webView.takeSnapshot(with: config) { [weak self] image, error in
-			guard let self else {
-				LoggingPolicy.warning("WebViewRenderer deallocated during snapshot operation", logger: .rendering)
+		webView.takeSnapshot(with: config) { image, error in
+			guard let image else {
+				completionHandler(nil, error)
 				return
 			}
-			if let image = image {
-					// The takeSnapshot func does not take in account the changes in the SwiftUI
-					// api (brightness, contrast, saturation) and has to be explicitly set here:
-				let updatedImage = image.adjusted(brightness: self.snapAdjustment.brightness,
-												  contrast: self.snapAdjustment.contrast,
-												  saturation: self.snapAdjustment.saturation)
-				completionHandler(updatedImage, error)
-			} else {
-				completionHandler(nil, error)
+			// The takeSnapshot func does not take in account the changes in the SwiftUI
+			// api (brightness, contrast, saturation) and has to be explicitly set here.
+			// The Core Image render is expensive — run it off the main thread; the
+			// @MainActor completion handler hops back to the main actor automatically.
+			Task.detached(priority: .userInitiated) {
+				let updatedImage = image.adjusted(brightness: brightness,
+												  contrast: contrast,
+												  saturation: saturation)
+				await completionHandler(updatedImage, error)
 			}
 		}
 	}
