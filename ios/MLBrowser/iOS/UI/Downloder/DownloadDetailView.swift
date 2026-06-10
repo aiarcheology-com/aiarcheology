@@ -327,8 +327,9 @@ private extension DownloadDetailView {
 		do {
 			try item.persist(in: moc)
 		} catch {
+			// Log the technical error; show the user a friendly, localized message.
 			LoggingPolicy.error("Failed to persist download item URL", error: error, logger: .networking)
-			item.error = error.localizedDescription
+			item.error = L10n.Download.Error.persistFailed
 		}
 	}
 

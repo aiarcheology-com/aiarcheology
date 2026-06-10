@@ -46,7 +46,7 @@ struct SettingsForm: View {
 													 dismissButton: .default(Text(L10n.Common.ok)))
 						} catch {
 							self.alertItem = AlertItem(title: Text(L10n.Alert.Error.title),
-													  message: Text("An unexpected error occurred."),
+													  message: Text(L10n.Alert.Error.unexpected),
 													  dismissButton: .default(Text(L10n.Common.ok)))
 						}
 					}) {

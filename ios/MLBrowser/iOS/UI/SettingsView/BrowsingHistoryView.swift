@@ -84,10 +84,10 @@ struct BrowserHistoryView: View {
 							do {
 								// moc is the viewContext, so merging into [self] is sufficient here.
 								try WebHistoryEntry.deleteAll(in: moc)
+								refreshFrom.toggle()
 							} catch {
 								LoggingPolicy.error("Failed to clear browsing history", error: error, logger: .state)
 							}
-							refreshFrom.toggle()
 						},
 						secondaryButton: .cancel()
 					)
