@@ -98,6 +98,12 @@ final class BrowserRevampUITests: XCTestCase {
 		XCTAssertTrue(floating.isHittable, "Floating button must stay usable after dragging")
 		XCTAssertNotEqual(before.origin, floating.frame.origin, "Floating button should be movable")
 
+		// A plain swipe (no long press) must also drag the button.
+		let beforeSwipe = floating.frame
+		floating.swipeLeft()
+		XCTAssertNotEqual(beforeSwipe.origin, floating.frame.origin, "A plain swipe must drag the button")
+		XCTAssertTrue(floating.isHittable)
+
 		// Stop detection: browser mode restores, floating button leaves.
 		floating.tap()
 		XCTAssertTrue(pause.waitForExistence(timeout: 5))
