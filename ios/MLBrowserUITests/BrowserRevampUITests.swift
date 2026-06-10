@@ -53,10 +53,10 @@ final class BrowserRevampUITests: XCTestCase {
 	func testFullscreenDetectionFlow_TogglesChromeAndRestoresBrowserMode() throws {
 		let app = launchApp()
 
-		// Browser mode: play button only, no adjustment control.
+		// Browser mode: play button plus the always-available adjustment control.
 		let play = app.buttons[Identifier.play]
 		XCTAssertTrue(play.waitForExistence(timeout: 10), "Browser mode should show the play button")
-		XCTAssertFalse(app.buttons[Identifier.adjustments].exists, "Adjustment is detection-only")
+		XCTAssertTrue(app.buttons[Identifier.adjustments].exists, "Adjustment is available in browser mode too")
 		XCTAssertFalse(app.buttons[Identifier.floatingToggle].exists, "Floating button is detection-only")
 
 		// Start detection: chrome hides, floating button appears.
@@ -110,7 +110,7 @@ final class BrowserRevampUITests: XCTestCase {
 		pause.tap()
 		XCTAssertTrue(play.waitForExistence(timeout: 5), "Stopping detection restores browser mode")
 		XCTAssertTrue(waitForDisappearance(of: floating, timeout: 5), "Floating button leaves with detection")
-		XCTAssertFalse(app.buttons[Identifier.adjustments].exists)
+		XCTAssertTrue(app.buttons[Identifier.adjustments].exists, "Adjustment stays available in browser mode")
 	}
 
 	@MainActor
@@ -122,6 +122,11 @@ final class BrowserRevampUITests: XCTestCase {
 		sideMenu.tap()
 
 		let drawerSettings = app.buttons[Identifier.drawerSettings]
+		if !drawerSettings.waitForExistence(timeout: 5) {
+			// List rows are created lazily; in landscape the Settings section
+			// sits below the fold until the drawer list is scrolled.
+			app.cells.firstMatch.swipeUp()
+		}
 		XCTAssertTrue(drawerSettings.waitForExistence(timeout: 5), "Drawer must contain the Settings entry")
 		drawerSettings.tap()
 

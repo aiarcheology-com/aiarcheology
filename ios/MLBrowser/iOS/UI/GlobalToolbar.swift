@@ -55,12 +55,9 @@ struct GlobalToolbarTrailing: View {
 		// hit-target size, and sat visibly cramped on Dynamic Island devices.
 		HStack(spacing: 16) {
 			detectionButton
-			// Snap adjustments only apply while snapshots are being taken:
-			// browser mode shows the play button alone, detection mode adds
-			// the adjustment control.
-			if guide.ontheflyDetectionEnabled {
-				adjustmentButton
-			}
+			// Always available: users adjust brightness/contrast/saturation
+			// of the content also while no detection runs.
+			adjustmentButton
 		}
 	}
 	
