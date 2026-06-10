@@ -1,0 +1,122 @@
+ios/MLBrowserUnitTests/DownloaderTests.swift
+  s_f24988eb446598::t_dbe9df638077f0 952
+  s_f24988eb446598::t_cc4dc25a680ae0 1038
+  s_f24988eb446598::t_c3076ae4418044 590
+  s_f24988eb446598::t_db48b2740f93e7 694
+  s_f24988eb446598::t_a35581543e095a 552
+  s_f24988eb446598::t_2e66b91582cef4 571
+  s_f24988eb446598::t_bff5f4247cb6b9 245,252,538,557,576,595,614,634,660,683,699,721,744,764,798,879,925,958,996,1031,1044,1058
+  s_f24988eb446598::t_754cd46f70566b 755
+  s_f24988eb446598::t_9c1bc7654a4f40 919
+  s_f24988eb446598::t_75bebf49b4f334 533
+  s_f24988eb446598::t_45e4b75c48b2ef 709
+  s_f24988eb446598::t_3cf6a6dc739b5f 1025
+  s_f24988eb446598::t_14f021fb5920f8 873
+  s_f24988eb446598::t_d055a940c7e533 737
+  s_f24988eb446598::t_126c4069765291 676
+  s_f24988eb446598::t_3a7b0b5eabe768 236
+  s_f24988eb446598::t_7858ee28cde9bd 125,128,130-133,135-137
+  s_f24988eb446598::t_7c8b85cc6bfc97 990
+  s_f24988eb446598::t_3a5c87e211edf4 792
+  s_f24988eb446598::t_b896f2661dd9f3 609
+  s_f24988eb446598::t_9deeb287700cb6 628
+  s_f24988eb446598::t_f1c6b6eee099a4 655
+  s_f24988eb446598::t_81fbfced05b0ca 1053
+ios/MLBrowser/iOS/UI/SettingsView/BrowsingHistoryView.swift
+  s_f24988eb446598::t_9b713566f93268 84-89
+ios/MLBrowser/iOS/State/DeepState.swift
+  s_f24988eb446598::t_616ec036a27390 116-121
+  s_f24988eb446598::t_f590554b1b804a 257-261
+  s_f24988eb446598::t_c7736cabe4ab9b 96-97
+  s_f24988eb446598::t_1a009cf6f0ee40 169-174
+  s_f24988eb446598::t_967888095fa9ab 318
+  s_f24988eb446598::t_a1f5bb3cc398c9 344-349
+  s_f24988eb446598::t_d345d9ccd86222 302-306
+  s_f24988eb446598::t_aa43574ab278dd 135-138,140-147,150-159
+  s_f24988eb446598::t_88f6f454059965 40-44
+ios/MLBrowser/iOS/UI/Downloder/DownloadDetailView.swift
+  s_f24988eb446598::t_63edfcb1bd326f 242
+  s_f24988eb446598::t_d3e02f503fec19 326-331,333-342,346
+  s_f24988eb446598::t_7d13989808b76f 113-114,119-124
+ios/MLBrowserUnitTests/GuideTests.swift
+  s_f24988eb446598::t_24ea65db737a0e 356
+  s_f24988eb446598::t_17288074e0e0d2 347
+ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift
+  s_f24988eb446598::t_99f6d961c5abe6 168-172
+ios/MLBrowserUnitTests/CoreDataManagableTests.swift
+  s_f24988eb446598::t_49d8fdadf1b589 131,154
+  s_f24988eb446598::t_a79db84b281c00 145
+  s_f24988eb446598::t_d1b724ac5b6c6d 90
+  s_f24988eb446598::t_0938147ab94f9b 99
+  s_f24988eb446598::t_5c7cb3526f52c4 112
+ios/MLBrowserUnitTests/DeepStateTests.swift
+  s_f24988eb446598::t_337ee1a65045c4 60
+ios/MLBrowser/iOS/State/Downloader.swift
+  s_f24988eb446598::t_636d9baf6f6c69 746-750
+  s_f24988eb446598::t_ba3def81bf2962 458-459
+  s_f24988eb446598::t_d698e4673067aa 616-622,626,630,632-634,637-643,645,649-651,654
+  s_f24988eb446598::t_995e341768d3f4 504-505,507,511,513,515,520-521,529-530
+  s_f24988eb446598::t_7a683319cec885 52-55
+  s_f24988eb446598::t_8d3affa6838582 444-448
+  s_f24988eb446598::t_f32f7e55218ef6 487-489
+  s_f24988eb446598::t_6702e482331051 537,542-549,552-564,567-576,579-587
+  s_f24988eb446598::t_e1def9e78111a9 264-267
+  s_f24988eb446598::t_b0533f54fefa4e 606-610
+ios/MLBrowserUnitTests/DemoDataManagerTests.swift
+  s_f24988eb446598::t_990a52761f254b 39
+  s_f24988eb446598::t_e19221e3bb0391 42-44
+  s_f24988eb446598::t_0cdbd06ec3c01a 48
+ios/MLBrowser/iOS/State/DataController.swift
+  s_f24988eb446598::t_7d8a6b71362b0e 160-161,163
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift
+  s_f24988eb446598::t_d5bc25f6831f02 231-235
+  s_f24988eb446598::t_8cda6c9db8434c 203-205,209-212
+ios/MLBrowser/iOS/Persistence/Migration/0.0.0-0.0.1/FillEntityIdIfNilPolicy.swift
+  s_f24988eb446598::t_6ebad1740f77d0 69-84
+  s_f24988eb446598::t_48770fbfad6e92 27-30,37,39-41
+ios/MLBrowser/iOS/Tools/Extensions/NSManagedObjectContext+Extensions.swift
+  s_f24988eb446598::t_4432dda0de44be 13,15-22,24,28
+ios/MLBrowser/iOS/State/DemoDataManager.swift
+  s_f24988eb446598::t_40e1f968fda4e4 205-210
+  s_f24988eb446598::t_641b17eddd39c9 64-66,70-78
+  s_f24988eb446598::t_a222370b77cc77 134-139
+ios/MLBrowser/iOS/Persistence/CoreDataManagable.swift
+  s_f24988eb446598::t_378d8496c073da 161
+  s_f24988eb446598::t_455a57c1c2a916 168
+  s_f24988eb446598::t_fc534be9d37a65 208-211,242,245-246
+  s_f24988eb446598::t_a8395455688314 343-356,361,366,369-370
+  s_f24988eb446598::t_587082bcdc78a5 124
+  s_f24988eb446598::t_20a2eba40fa57a 162
+  s_f24988eb446598::t_ff0904f12f04b6 301-309,319,322-323
+ios/MLBrowser/iOS/Drivers/DeepDriver.swift
+  s_f24988eb446598::t_ec5a3815b86107 95,101-105
+  s_f24988eb446598::t_ba26aa000143dc 113-130
+ios/MLBrowserUnitTests/DataControllerTests.swift
+  s_f24988eb446598::t_5c4dccbd9683fb 164-168
+  s_f24988eb446598::t_8d9be3bd19ccf3 279
+  s_f24988eb446598::t_c94fc3e7101d25 350
+  s_f24988eb446598::t_bd3804972457b1 357
+  s_f24988eb446598::t_27a435fd5e01a7 376
+  s_f24988eb446598::t_9dcf7fecc38171 230,250,269,293,319,342,368,392
+  s_f24988eb446598::t_429963a933a078 331
+  s_f24988eb446598::t_0d3289c1d9a00d 237
+  s_f24988eb446598::t_e5e516893225ac 219
+  s_f24988eb446598::t_530c321b097215 303
+  s_f24988eb446598::t_795780b044010b 258
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "8976337cb9d6cca1c475a23bbcffde305725d995",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
