@@ -40,6 +40,13 @@ struct FloatingChromeButton: View {
 					.fill(.ultraThinMaterial)
 					.opacity(0.7)
 			)
+			// Border and shadow keep the button findable on pages that match
+			// the material's tone (a white sheet made it nearly invisible).
+			.overlay(
+				Circle()
+					.strokeBorder(Color.primary.opacity(0.25), lineWidth: 1)
+			)
+			.shadow(color: Color.black.opacity(0.3), radius: 6, y: 2)
 			.testability(Testability.Button.floatingChromeToggle)
 			.accessibilityLabel(L10n.Browser.FloatingButton.label)
 			.position(displayedPosition(in: geometry.size))

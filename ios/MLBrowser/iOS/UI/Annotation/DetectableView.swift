@@ -77,9 +77,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                     showIdentifiers: showIdentifiers
                 )
             }
-            .onChange(of: geometry.size) { _, _ in
+            .onChange(of: geometry.size) { old, new in
                 // Layout changed (chrome shown/hidden, rotation): results captured
                 // against the previous geometry would draw misaligned boxes.
+                LoggingPolicy.debug("GeometrySizeChange: \(old.width)x\(old.height) -> \(new.width)x\(new.height)", logger: .ui)
                 detectionGeneration &+= 1
                 detectedObservations.removeAll()
             }
