@@ -217,7 +217,8 @@ struct WebScreenView: View {
 		let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: moc)
 		newHistorEntry.bookmarked = false
 		newHistorEntry.creationDate_ = .now
-		newHistorEntry.page = URL(string: websiteUrl.withHTTPS)
+		// Use the function parameter — the same value the duplicate check above compared.
+		newHistorEntry.page = URL(string: urlString.withHTTPS)
 		// Lifecycle: transition to draft before validation, then to ready if valid
 		// If validation fails, the entity is deleted (brief inconsistent state is acceptable)
 		newHistorEntry.transition(to: .draft)

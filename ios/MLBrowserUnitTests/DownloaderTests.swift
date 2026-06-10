@@ -288,6 +288,19 @@ final class DownloadItemTests: XCTestCase {
         XCTAssertTrue(report.issues?.contains { $0.key == "url" } ?? false)
     }
 
+    func testDownloadItemValidationReport_ImportFailedWithoutFile_IsNotValid() {
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.state = .importFailed
+        item.lifeCycle = .ready
+
+        let report = item.validationReport()
+
+        // .importFailed implies a finished download — the file must exist for retry.
+        XCTAssertFalse(report.isValid)
+        XCTAssertTrue(report.issues?.contains { $0.key == "file" } ?? false)
+    }
+
     func testSave_ReadyLifeCycle_Downloading_DoesNotThrow() throws {
         // Regression: starting a download promotes lifeCycle to .ready and state to
         // .downloading while file_ is still nil; saves during the download (state

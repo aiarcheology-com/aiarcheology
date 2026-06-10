@@ -727,7 +727,8 @@ extension DownloadItem: CoreDataManagableWithState {
         // The model file only exists once the download finished. Requiring it for
         // in-flight states (.downloading/.paused/...) made validateForUpdate throw on
         // every mid-download save — including the resume-data persistence on pause.
-        if [.complete, .imported].contains(state),
+        // .importFailed also implies a finished download (the UI offers retry from it).
+        if [.complete, .imported, .importFailed].contains(state),
            file.isNil || file?.absoluteString.isEmpty == true {
             issues.append(.init(key: "file", message: "Model file is required."))
         }
