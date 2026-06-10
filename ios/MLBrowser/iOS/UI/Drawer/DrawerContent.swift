@@ -165,7 +165,14 @@ private struct ConfigurationRow: View {
                 set: { newValue in
                     configuration.enabled = newValue
                     if let context = configuration.managedObjectContext {
-                        DeepConfiguration.save(in: context)
+                        do {
+                            try DeepConfiguration.save(in: context)
+                        } catch {
+                            LoggingPolicy.error("Failed to save configuration toggle", error: error, logger: .configuration)
+                            // Reload from the store so the toggle reflects the persisted
+                            // state instead of silently diverging from it.
+                            context.refresh(configuration, mergeChanges: false)
+                        }
                     }
                 }
             ))

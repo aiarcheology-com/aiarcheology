@@ -9,6 +9,24 @@
 import Foundation
 import OSLog
 
+/// Strips sensitive parts from log messages before they reach OSLog (public) or Sentry.
+///
+/// URLs may carry tokens or signed query parameters (e.g. S3/CloudFront presigned links),
+/// so query strings and fragments are removed from any http(s) URL embedded in a message.
+/// Use `LoggingPolicy.debugPrivate` when the full URL is needed for local debugging.
+enum LogRedactor {
+    private static let urlQueryPattern = try? NSRegularExpression(
+        pattern: #"(https?://[^\s?#]+)[?#]\S*"#,
+        options: [.caseInsensitive]
+    )
+
+    static func redactingURLs(_ message: String) -> String {
+        guard let regex = urlQueryPattern else { return message }
+        let range = NSRange(message.startIndex..., in: message)
+        return regex.stringByReplacingMatches(in: message, options: [], range: range, withTemplate: "$1")
+    }
+}
+
 /// Centralized logging policy and crash handling guidelines.
 ///
 /// Each log level routes to:
@@ -39,11 +57,11 @@ enum LoggingPolicy {
         file: String = #file,
         line: UInt = #line
     ) {
-        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
-        
+        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + LogRedactor.redactingURLs(message)
+
         // 1. Local (Console.app / Xcode)
         logger.logDebug(prefixedMessage)
-        
+
         // 2. Remote breadcrumb (FREE - only uploaded with crash/error events)
         Observability.recordBreadcrumb(prefixedMessage, level: .debug, category: category)
     }
@@ -62,11 +80,11 @@ enum LoggingPolicy {
         file: String = #file,
         line: UInt = #line
     ) {
-        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
-        
+        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + LogRedactor.redactingURLs(message)
+
         // 1. Local
         logger.logInfo(prefixedMessage)
-        
+
         // 2. Remote breadcrumb (FREE)
         Observability.recordBreadcrumb(prefixedMessage, level: .info, category: category)
     }
@@ -84,11 +102,11 @@ enum LoggingPolicy {
         file: String = #file,
         line: UInt = #line
     ) {
-        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
-        
+        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + LogRedactor.redactingURLs(message)
+
         // 1. Local
         logger.logWarning(prefixedMessage)
-        
+
         // 2. Remote breadcrumb (FREE)
         Observability.recordBreadcrumb(prefixedMessage, level: .warning, category: category)
     }
@@ -107,20 +125,24 @@ enum LoggingPolicy {
         file: String = #file,
         line: UInt = #line
     ) {
-        let baseMessage: String
+        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + LogRedactor.redactingURLs(message)
+        // The error description is appended locally for readability; the remote capture
+        // receives the clean message because the crash-reporting service appends the
+        // description itself (appending here too produced "msg: desc: desc" in Sentry).
+        // System error descriptions often embed the failing URL — redact those too.
+        let localMessage: String
         if let error = error {
-            baseMessage = "\(message): \(error.localizedDescription)"
+            localMessage = "\(prefixedMessage): \(LogRedactor.redactingURLs(error.localizedDescription))"
         } else {
-            baseMessage = message
+            localMessage = prefixedMessage
         }
-        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + baseMessage
-        
+
         // 1. Local
-        logger.logError(prefixedMessage)
-        
+        logger.logError(localMessage)
+
         // 2. Remote capture (QUOTA - counts toward event limit)
         // Also add as breadcrumb for context in future events
-        Observability.recordBreadcrumb(prefixedMessage, level: .error, category: category)
+        Observability.recordBreadcrumb(localMessage, level: .error, category: category)
         Observability.captureError(prefixedMessage, error: error)
     }
     
@@ -138,11 +160,11 @@ enum LoggingPolicy {
         file: String = #file,
         line: UInt = #line
     ) {
-        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
-        
+        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + LogRedactor.redactingURLs(message)
+
         // 1. Local
         logger.logFault(prefixedMessage)
-        
+
         // 2. Remote capture (QUOTA - critical issues)
         Observability.recordBreadcrumb(prefixedMessage, level: .fatal, category: category)
         Observability.captureFault(prefixedMessage)

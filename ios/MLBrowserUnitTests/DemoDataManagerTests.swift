@@ -36,15 +36,16 @@ final class DemoDataManagerTests: XCTestCase {
     
     // MARK: - createDemoDataIfNeeded Tests
     
-    func testCreateDemoDataIfNeeded_WhenDemosExist_DoesNotCreateDuplicates() async {
+    func testCreateDemoDataIfNeeded_WhenDemosExist_DoesNotCreateDuplicates() async throws {
         let context = dataController.container.viewContext
         
-        // Create a demo configuration manually
+        // Create a demo configuration manually. Keep it in .draft: a .ready lifecycle
+        // requires a valid file/model type, and save(in:) now surfaces validation errors
+        // instead of swallowing them. The duplicate check only filters on `demo`.
         let existingDemo = DeepConfiguration.create(in: context)
         existingDemo.demo = true
         existingDemo.transition(to: .draft)
-        existingDemo.transition(to: .ready)
-        DeepConfiguration.save(in: context)
+        try DeepConfiguration.save(in: context)
         
         let initialCount = DeepConfiguration.selectAll(in: context).filter { $0.demo }.count
         XCTAssertEqual(initialCount, 1)

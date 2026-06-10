@@ -32,7 +32,9 @@ extension URL {
 			relativePath.removeFirst()
 		}
 
-		guard let urlEncoded = relativePath.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else {
+		// .urlPathAllowed keeps "/" and "." intact; .alphanumerics encoded them
+		// ("model.mlmodelc" → "model%2Emlmodelc") and only round-tripped by accident.
+		guard let urlEncoded = relativePath.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
 			throw CocoaError(.fileWriteUnknown)
 		}
 

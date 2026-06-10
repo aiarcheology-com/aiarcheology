@@ -114,17 +114,7 @@ final class ViewExtensionsTests: XCTestCase {
     }
     
     // MARK: - Centering Extensions Compile Tests
-    
-    func test_centerVerticalyInParentView_compiles() {
-        let view = Text("Test").centerVerticalyInParentView()
-        XCTAssertNotNil(view)
-    }
-    
-    func test_centerHorizontalyInParentView_compiles() {
-        let view = Text("Test").centerHorizontalyInParentView()
-        XCTAssertNotNil(view)
-    }
-    
+
     func test_centerInParentView_compiles() {
         let view = Text("Test").centerInParentView()
         XCTAssertNotNil(view)
@@ -182,17 +172,6 @@ final class ViewExtensionsTests: XCTestCase {
         XCTAssertNotNil(result)
     }
     
-    // MARK: - onAppearAndOnChange Tests
-    
-    func test_onAppearAndOnChange_compiles() {
-        var callCount = 0
-        let view = Text("Test").onAppearAndOnChange(of: 5) { _ in
-            callCount += 1
-        }
-        
-        XCTAssertNotNil(view)
-    }
-    
     // MARK: - copiedToClipboard Tests
     
     func test_copiedToClipboard_compiles() {
@@ -226,52 +205,8 @@ final class UIApplicationExtensionsTests: XCTestCase {
 // MARK: - Image+Extensions Tests
 
 final class ImageExtensionsTests: XCTestCase {
-    
+
     func test_imageExtension_exists() {
         XCTAssertTrue(true, "Image extension compiles correctly")
-    }
-}
-
-// MARK: - View Snapshot Tests
-
-@MainActor
-final class ViewSnapshotTests: XCTestCase {
-    
-    func test_snapshot_returnsUIImage() {
-        let view = Text("Test")
-        
-        let snapshot = view.snapshot()
-        
-        XCTAssertNotNil(snapshot)
-    }
-    
-    func test_snapshot_hasNonZeroSize() {
-        let view = Text("Hello World")
-        
-        let snapshot = view.snapshot()
-        
-        XCTAssertGreaterThan(snapshot.size.width, 0)
-        XCTAssertGreaterThan(snapshot.size.height, 0)
-    }
-    
-    func test_snapshot_differentViews_produceDifferentSizes() {
-        let smallView = Text("Hi")
-        let largeView = Text("This is a much longer text that should produce a wider snapshot")
-        
-        let smallSnapshot = smallView.snapshot()
-        let largeSnapshot = largeView.snapshot()
-        
-        XCTAssertNotEqual(smallSnapshot.size, largeSnapshot.size)
-    }
-    
-    func test_snapshot_coloredView_returnsImage() {
-        let view = Rectangle()
-            .fill(Color.blue)
-            .frame(width: 100, height: 100)
-        
-        let snapshot = view.snapshot()
-        
-        XCTAssertEqual(snapshot.size.width, 100, accuracy: 1.0)
-        XCTAssertEqual(snapshot.size.height, 100, accuracy: 1.0)
     }
 }

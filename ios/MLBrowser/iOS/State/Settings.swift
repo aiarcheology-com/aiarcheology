@@ -176,6 +176,7 @@ final class Settings: ObservableObject, Validatable {
 		defaultPage = URL(string: "https://www.google.com")
 		removeAnnotationOnDrag = false
 		entityId = UUID()
+		lastPage = nil
 
 		UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.lastPage)
 		UserDefaults.standard.set(keepSlideShowActive, forKey: UserDefaultsKeys.keepSlideShowActive)

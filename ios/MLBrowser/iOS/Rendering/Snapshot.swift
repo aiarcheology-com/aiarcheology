@@ -30,6 +30,7 @@ extension EnvironmentValues {
 // when wrapping another View
 struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Never {
 	@Environment(\.snapshotProvider) private var snapshotProvider
+	@Environment(\.displayScale) private var displayScale
 	private unowned var renderer: DefaultRenderer
 
 	private let publisher: P
@@ -51,7 +52,7 @@ struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Ne
 	}
 
 	@MainActor private func render(in frame: CGRect) {
-		renderer.render(content) { image, error in
+		renderer.render(content, scale: displayScale) { image, error in
 			if let image = image, error == nil {
 				snapshotProvider?(image, frame)
 			} else {
@@ -67,19 +68,5 @@ extension View {
 		environment(\.snapshotProvider, { image, frame in
 			action(image, frame)
 		})
-	}
-		// The snapshot is made from a complete view and driven by an explicit publisher
-	func onSnapshot<P>(_ publisher: P, perform action: @escaping (UIImage) -> Void) -> some View where P: Publisher, P.Failure == Never {
-		self.onReceive(publisher) { _ in
-			Task { @MainActor in
-				@Environment(\.displayScale) var displayScale
-				let renderer = ImageRenderer(content: self)
-				renderer.scale = displayScale
-				renderer.isOpaque = false
-				if let uiImage = renderer.uiImage {
-					action(uiImage)
-				}
-			}
-		}
 	}
 }

@@ -344,7 +344,7 @@ final class GuideTests: XCTestCase {
         XCTAssertNil(snapState.timerCancellable)
     }
 
-    func testResetApplication_CallsDeepReset() async {
+    func testResetApplication_CallsDeepReset() async throws {
         await setUpWithSQLiteStore()
 
         // Given: deep state has some configurations (non-demo)
@@ -353,7 +353,7 @@ final class GuideTests: XCTestCase {
         config.entityId = configId
         config.creationDate_ = .now
         config.demo = false
-        DeepConfiguration.save(in: dataController.container.viewContext)
+        try DeepConfiguration.save(in: dataController.container.viewContext)
 
         // Verify the config exists
         XCTAssertNotNil(DeepConfiguration.select(configId, in: dataController.container.viewContext))

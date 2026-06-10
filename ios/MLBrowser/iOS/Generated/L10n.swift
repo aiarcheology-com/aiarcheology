@@ -50,6 +50,8 @@ internal enum L10n {
     internal enum Error {
       /// Error
       internal static let title = L10n.tr("Localizable", "alert.error.title", fallback: "Error")
+      /// An unexpected error occurred.
+      internal static let unexpected = L10n.tr("Localizable", "alert.error.unexpected", fallback: "An unexpected error occurred.")
     }
     internal enum History {
       internal enum Clear {
@@ -158,6 +160,8 @@ internal enum L10n {
     internal enum Error {
       /// Download was interrupted and cannot be resumed. Please restart the download.
       internal static let interruptedNoResumeData = L10n.tr("Localizable", "download.error.interruptedNoResumeData", fallback: "Download was interrupted and cannot be resumed. Please restart the download.")
+      /// Unable to save the URL. Please try again.
+      internal static let persistFailed = L10n.tr("Localizable", "download.error.persistFailed", fallback: "Unable to save the URL. Please try again.")
     }
   }
   internal enum DownloadState {

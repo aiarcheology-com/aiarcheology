@@ -202,22 +202,6 @@ final class SentryEventGuard: @unchecked Sendable {
 		lock.withLock { $0.config }
 	}
 	
-	/// Updates the server-imposed rate limit backoff period.
-	///
-	/// This method is intended for integration with Sentry's `Retry-After` and `X-Sentry-Rate-Limits`
-	/// headers when implementing custom transport layers. The Sentry SDK's built-in transport already
-	/// respects these headers internally, so this method is currently unused but available for future
-	/// custom transport implementations.
-	///
-	/// - Parameter duration: The duration to suppress all events.
-	func updateServerRateLimit(muteFor duration: Duration) {
-		lock.withLock { state in
-			let now = state.clock.now
-			state.serverMuteUntil = now.advanced(by: duration)
-			Self.rateLimitLog.warning("Server rate-limit mute enabled for \(String(describing: duration), privacy: .public)")
-		}
-	}
-	
 	// MARK: - Helpers
 	
 	private func pruneGlobalWindow(state: inout State, now: ContinuousClock.Instant) {

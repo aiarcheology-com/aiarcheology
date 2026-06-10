@@ -16,33 +16,6 @@ enum DetectorError: Error {
 	case coreModelLoadError
 }
 
-private final class DetectorVisionRequestProxy: @unchecked Sendable {
-    weak var owner: Detector?
-    
-    init(owner: Detector) {
-        self.owner = owner
-    }
-    
-    func handleCompletion(request: VNRequest, error: Error?) {
-        if let error = error {
-            LoggingPolicy.error("Object detection request failed", error: error, logger: .drivers)
-            DefaultCrashReporter.shared.recordError(error, context: ["operation": "detection"])
-            return
-        }
-        
-        guard let observations = request.results as? [VNRecognizedObjectObservation] else {
-            LoggingPolicy.warning("Detection request results could not be cast to VNRecognizedObjectObservation", logger: .drivers)
-            return
-        }
-        
-        Task {
-            guard let owner = self.owner else { return }
-            await owner.updateDetectionResults(observations: observations)
-            LoggingPolicy.debug("Detection completed with \(observations.count) observations", logger: .drivers)
-        }
-    }
-}
-
 actor Detector: DeepDriver {
     let id: UUID
     var params: DeepDriverParams
@@ -73,44 +46,45 @@ actor Detector: DeepDriver {
             LoggingPolicy.error("Detector loadFile failed: file path is nil", logger: .drivers)
             throw DetectorError.loadError
         }
-        
-        LoggingPolicy.debug("Loading detector model from \(path.absoluteString)", logger: .drivers)
-        
+
+        // Log file name only: container paths can embed user data (see LOGGING_GUIDE.md).
+        LoggingPolicy.debug("Loading detector model from \(path.lastPathComponent)", logger: .drivers)
+
         guard let model = try await Self.loadModel(from: path, demo: params.demo) else {
-            LoggingPolicy.error("Failed to load ML model from \(path.absoluteString)", logger: .drivers)
+            LoggingPolicy.error("Failed to load ML model from \(path.lastPathComponent)", logger: .drivers)
             throw DetectorError.loadError
         }
-        
+
         LoggingPolicy.debug("Model successfully loaded from \(path.lastPathComponent)", logger: .drivers)
-        
+
+        mlModel = model
         objectDetectionModel = try VNCoreMLModel(for: model)
-        
+
         guard let detecionModel = objectDetectionModel else {
             LoggingPolicy.error("Failed to create VNCoreMLModel from loaded model", logger: .drivers)
             throw DetectorError.coreModelLoadError
         }
-        
-        let proxy = DetectorVisionRequestProxy(owner: self)
-        detectionRequest = VNCoreMLRequest(model: detecionModel) { [proxy] request, error in
-            proxy.handleCompletion(request: request, error: error)
-        }
+
+        detectionRequest = VNCoreMLRequest(model: detecionModel)
         detectionRequest?.imageCropAndScaleOption = .scaleFit
     }
-    
-    // Made internal so the proxy can call it.
-    func updateDetectionResults(observations: [VNRecognizedObjectObservation] = []) {
-        self.ciImage = nil
-        self.observations = observations
-    }
-    
+
     func unload() async {
         ciImage = nil
+        handler = nil
         detectionRequest = nil
         objectDetectionModel = nil
+        mlModel = nil
+        observations = []
         LoggingPolicy.debug("Detector unloaded", logger: .drivers)
     }
-    
+
     func process(image: UIImage) async {
+        // Clear stale state: a new frame must never report the previous frame's
+        // detections, and a failed conversion must not leave the old handler around
+        // (detect() would silently re-run the previous frame).
+        observations = []
+        handler = nil
         ciImage = CIImage(image: image)
         guard let ciImage else {
             LoggingPolicy.warning("Failed to create CIImage from UIImage", logger: .drivers)
@@ -118,19 +92,35 @@ actor Detector: DeepDriver {
         }
         handler = VNImageRequestHandler(ciImage: ciImage)
     }
-    
+
     func detect() async {
         guard let detectionRequest else {
             LoggingPolicy.debug("Detection skipped: detection request not initialized", logger: .drivers)
             return
         }
-        
+
+        // Without a handler there is no frame to process. Bail out before reading
+        // detectionRequest.results — VNRequest retains the previous run's results,
+        // so an optional-chained no-op perform would re-report the prior frame.
+        guard let handler else {
+            LoggingPolicy.debug("Detection skipped: no frame to process", logger: .drivers)
+            observations = []
+            return
+        }
+
         do {
-            try handler?.perform([detectionRequest])
+            try handler.perform([detectionRequest])
+            // perform() completes synchronously, so results can be read directly here.
+            // The previous Task-based completion proxy raced with readers and could
+            // deliver the prior frame's observations.
+            observations = (detectionRequest.results as? [VNRecognizedObjectObservation]) ?? []
+            LoggingPolicy.debug("Detection completed with \(observations.count) observations", logger: .drivers)
         } catch {
             LoggingPolicy.error("Failed to perform detection", error: error, logger: .drivers)
             DefaultCrashReporter.shared.recordError(error, context: ["operation": "performDetection"])
+            observations = []
         }
+        ciImage = nil
     }
     
     func run() async {

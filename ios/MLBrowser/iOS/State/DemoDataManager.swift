@@ -61,12 +61,21 @@ final class DemoDataManager {
             // Use background context for batch delete to avoid blocking UI
             // Use mergeByPropertyStoreTrump for destructive operations to ensure
             // store changes (deletions) take precedence
+            // The viewContext reference is only handed to
+            // mergeChanges(fromRemoteContextSave:into:), which is safe to call cross-queue.
+            let viewContext = dataController.container.viewContext
             dataController.performBackgroundTask(mergePolicy: .mergeByPropertyStoreTrump) { context in
                 // Use defer to ensure continuation is always resumed exactly once
                 defer { continuation.resume() }
-                
-                WebHistoryEntry.deleteAll(in: context, executeAndMerge: true)
-                LoggingPolicy.debug("Browsing history deletion completed on background context", logger: .state)
+
+                do {
+                    // Merge into the viewContext too: batch deletes bypass context saves, so
+                    // automaticallyMergesChangesFromParent does NOT propagate them.
+                    try WebHistoryEntry.deleteAll(in: context, mergingInto: [viewContext])
+                    LoggingPolicy.debug("Browsing history deletion completed on background context", logger: .state)
+                } catch {
+                    LoggingPolicy.error("Browsing history deletion failed", error: error, logger: .state)
+                }
             }
         }
     }
@@ -122,8 +131,12 @@ final class DemoDataManager {
                 }
 
                 // Single save after all entries are created (batched)
-                WebHistoryEntry.save(in: context)
-                LoggingPolicy.debug("Browsing history creation completed on background context", logger: .state)
+                do {
+                    try WebHistoryEntry.save(in: context)
+                    LoggingPolicy.debug("Browsing history creation completed on background context", logger: .state)
+                } catch {
+                    LoggingPolicy.error("Failed to save demo browsing history", error: error, logger: .state)
+                }
             }
         }
     }
@@ -189,7 +202,16 @@ final class DemoDataManager {
         configuration.enabled = false
         configuration.transition(to: .draft)
         configuration.transition(to: .ready)
-        DeepConfiguration.save(in: self.dataController.container.viewContext)
+        do {
+            try DeepConfiguration.save(in: self.dataController.container.viewContext)
+        } catch {
+            LoggingPolicy.error("Failed to save demo configuration", error: error, logger: .configuration)
+            // Remove the pending insert so a later, unrelated save cannot persist a
+            // half-configured demo entry. (No context-wide rollback: it would discard
+            // unrelated pending changes.)
+            self.dataController.container.viewContext.delete(configuration)
+            return
+        }
         LoggingPolicy.debug("Demo configuration life cycle: \(configuration.lifeCycle)", logger: .configuration)
         LoggingPolicy.info("Demo configuration created successfully for \(url.lastPathComponent)", logger: .configuration)
     }

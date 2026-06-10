@@ -81,8 +81,13 @@ struct BrowserHistoryView: View {
 						title: L10n.Alert.Warning.title,
 						message: L10n.Alert.History.Clear.message,
 						primaryButton: .destructive(Text(L10n.History.Clear.button)) {
-							WebHistoryEntry.deleteAll(in: moc, executeAndMerge: true)
-							refreshFrom.toggle()
+							do {
+								// moc is the viewContext, so merging into [self] is sufficient here.
+								try WebHistoryEntry.deleteAll(in: moc)
+								refreshFrom.toggle()
+							} catch {
+								LoggingPolicy.error("Failed to clear browsing history", error: error, logger: .state)
+							}
 						},
 						secondaryButton: .cancel()
 					)

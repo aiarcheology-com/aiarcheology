@@ -122,18 +122,19 @@ final class ActiveDownloadTests: XCTestCase {
         XCTAssertTrue(set.contains(sameIdDownload))
     }
     
-    func testActiveDownloadWeakTaskReference() async {
+    func testActiveDownloadRetainsTask() async {
         let itemId = UUID()
         var mockTask: MockDownloadTask? = MockDownloadTask(taskDescription: itemId.uuidString)
-        
+
         let download = ActiveDownload(task: mockTask!, itemId: itemId)
-        XCTAssertNotNil(download.task)
-        
-        // Release the task
+
+        // Release the external reference — ActiveDownload must keep the task alive
+        // so pause/cancel keep working for the lifetime of the download.
+        weak var weakTask = mockTask
         mockTask = nil
-        
-        // The weak reference should be nil now
-        XCTAssertNil(download.task)
+
+        XCTAssertNotNil(weakTask, "ActiveDownload should retain its task")
+        XCTAssertTrue(download.task === weakTask)
     }
 }
 
@@ -232,7 +233,7 @@ final class DownloadItemTests: XCTestCase {
         XCTAssertEqual(item.error, errorMessage)
     }
     
-    func testDownloadItemResumeDataStorage() {
+    func testDownloadItemResumeDataStorage() throws {
         let item = DownloadItem.create(in: context)
         
         // Initially nil
@@ -241,14 +242,14 @@ final class DownloadItemTests: XCTestCase {
         // Set resume data
         let testData = Data("test resume data for persistence".utf8)
         item.resumeData = testData
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         // Verify stored
         XCTAssertEqual(item.resumeData, testData)
         
         // Clear resume data
         item.resumeData = nil
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         XCTAssertNil(item.resumeData)
     }
@@ -263,17 +264,54 @@ final class DownloadItemTests: XCTestCase {
         XCTAssertTrue(report.isValid)
     }
     
-    func testDownloadItemValidationReport_DownloadingWithoutFile() {
+    func testDownloadItemValidationReport_DownloadingWithoutFile_IsValid() {
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.state = .downloading
+        item.lifeCycle = .ready
+
+        let report = item.validationReport()
+
+        // The file does not exist until the download finishes; mid-download
+        // states must validate (and therefore save) without it.
+        XCTAssertTrue(report.isValid)
+    }
+
+    func testDownloadItemValidationReport_DownloadingWithoutURL_IsNotValid() {
         let item = DownloadItem.create(in: context)
         item.state = .downloading
-        item.lifeCycle = .draft
-        
+        item.lifeCycle = .ready
+
         let report = item.validationReport()
-        
-        // Downloading without file should have issues
+
         XCTAssertFalse(report.isValid)
-        XCTAssertNotNil(report.issues)
+        XCTAssertTrue(report.issues?.contains { $0.key == "url" } ?? false)
+    }
+
+    func testDownloadItemValidationReport_ImportFailedWithoutFile_IsNotValid() {
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.state = .importFailed
+        item.lifeCycle = .ready
+
+        let report = item.validationReport()
+
+        // .importFailed implies a finished download — the file must exist for retry.
+        XCTAssertFalse(report.isValid)
         XCTAssertTrue(report.issues?.contains { $0.key == "file" } ?? false)
+    }
+
+    func testSave_ReadyLifeCycle_Downloading_DoesNotThrow() throws {
+        // Regression: starting a download promotes lifeCycle to .ready and state to
+        // .downloading while file_ is still nil; saves during the download (state
+        // transition, resume-data persistence) must not throw.
+        let item = DownloadItem.create(in: context)
+        item.url = URL(string: "https://example.com/model.mlmodel")!
+        item.lifeCycle = .ready
+        item.state = .downloading
+        item.file_ = nil
+
+        XCTAssertNoThrow(try DownloadItem.save(in: context))
     }
     
     func testDownloadItemValidationReport_CompleteWithURL_NoFile() {
@@ -529,12 +567,12 @@ final class DownloaderTests: XCTestCase {
     
     // MARK: - Download Tap Behavior Tests
     
-    func testDownloadTapped_NotStarted_StartsDownload() {
+    func testDownloadTapped_NotStarted_StartsDownload() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .notStarted
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         var sessionCreated = false
         downloader.sessionFactory = { config, delegate, queue in
@@ -548,12 +586,12 @@ final class DownloaderTests: XCTestCase {
         XCTAssertEqual(item.state, .downloading)
     }
     
-    func testDownloadTapped_Downloading_PausesDownload() {
+    func testDownloadTapped_Downloading_PausesDownload() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .notStarted
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         // Start download first
         downloader.sessionFactory = { config, delegate, queue in
@@ -567,12 +605,12 @@ final class DownloaderTests: XCTestCase {
         XCTAssertFalse(downloader.activeDownloads.isEmpty)
     }
     
-    func testDownloadTapped_Failed_RestartsDownload() {
+    func testDownloadTapped_Failed_RestartsDownload() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .failed
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         var sessionCreated = false
         downloader.sessionFactory = { config, delegate, queue in
@@ -586,12 +624,12 @@ final class DownloaderTests: XCTestCase {
         XCTAssertEqual(item.state, .downloading)
     }
     
-    func testDownloadTapped_Cancelled_RestartsDownload() {
+    func testDownloadTapped_Cancelled_RestartsDownload() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .cancelled
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
 
         var sessionCreated = false
         downloader.sessionFactory = { config, delegate, queue in
@@ -605,12 +643,12 @@ final class DownloaderTests: XCTestCase {
         XCTAssertEqual(item.state, .downloading)
     }
 
-    func testDownloadTapped_ImportFailed_RestartsDownload() {
+    func testDownloadTapped_ImportFailed_RestartsDownload() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .importFailed
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
 
         var sessionCreated = false
         downloader.sessionFactory = { config, delegate, queue in
@@ -624,13 +662,13 @@ final class DownloaderTests: XCTestCase {
         XCTAssertEqual(item.state, .downloading)
     }
 
-    func testDownloadTapped_Paused_ResumesWithResumeData() {
+    func testDownloadTapped_Paused_ResumesWithResumeData() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         let entityId = item.entityId
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .paused
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         // Inject resume data
         let resumeData = Data("test resume data".utf8)
@@ -651,12 +689,12 @@ final class DownloaderTests: XCTestCase {
     
     // MARK: - Cancel Tests
     
-    func testCancelTapped_Downloading_Cancels() {
+    func testCancelTapped_Downloading_Cancels() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .notStarted
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         // Start download first
         downloader.sessionFactory = { config, delegate, queue in
@@ -672,14 +710,14 @@ final class DownloaderTests: XCTestCase {
         // The task.cancel() is called which triggers delegate methods asynchronously
     }
     
-    func testCancelTapped_Paused_TransitionsToCancelled() {
+    func testCancelTapped_Paused_TransitionsToCancelled() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .paused
         item.progress = 0.5
         item.resumeData = Data("test".utf8)
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         // There's no active download for paused state
         downloader.cancelTapped(item)
@@ -690,12 +728,12 @@ final class DownloaderTests: XCTestCase {
         XCTAssertNil(item.resumeData, "Resume data should be cleared when cancelling")
     }
     
-    func testCancelTapped_NotStarted_DoesNothing() {
+    func testCancelTapped_NotStarted_DoesNothing() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .notStarted
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         downloader.cancelTapped(item)
         
@@ -705,7 +743,7 @@ final class DownloaderTests: XCTestCase {
     
     // MARK: - Resume Data Persistence Tests
     
-    func testResumeData_LoadedFromCoreData_WhenResuming() {
+    func testResumeData_LoadedFromCoreData_WhenResuming() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
@@ -717,7 +755,7 @@ final class DownloaderTests: XCTestCase {
         // Simulate persisted resume data (as if app was killed while paused)
         let testResumeData = Data("resume data from CoreData".utf8)
         item.resumeData = testResumeData
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         var sessionCreated = false
         downloader.sessionFactory = { config, delegate, queue in
@@ -733,14 +771,14 @@ final class DownloaderTests: XCTestCase {
         XCTAssertNil(item.resumeData, "Resume data should be cleared after using")
     }
     
-    func testResumeData_ClearedFromCoreData_WhenCancelling() {
+    func testResumeData_ClearedFromCoreData_WhenCancelling() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .paused
         item.progress = 0.75
         item.resumeData = Data("test resume data".utf8)
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         XCTAssertNotNil(item.resumeData, "Resume data should exist before cancelling")
         
@@ -751,7 +789,7 @@ final class DownloaderTests: XCTestCase {
         XCTAssertEqual(item.progress, 0.0, "Progress should be reset when cancelling")
     }
     
-    func testResumeData_SurvivesDownloaderReinitialization() {
+    func testResumeData_SurvivesDownloaderReinitialization() throws {
         // This tests that resume data persists across "app restarts" (simulated by creating new Downloader)
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
@@ -760,7 +798,7 @@ final class DownloaderTests: XCTestCase {
         item.state = .paused
         item.progress = 0.6
         item.resumeData = Data("persisted resume data".utf8)
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         // Create a new Downloader (simulates app restart)
         let newDownloader = Downloader(dataController: dataController)
@@ -788,13 +826,13 @@ final class DownloaderTests: XCTestCase {
         XCTAssertEqual(refetchedItem.state, .downloading)
     }
     
-    func testTestHelper_InjectResumeData_SavesToCoreData() {
+    func testTestHelper_InjectResumeData_SavesToCoreData() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         let entityId = item.entityId
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .paused
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         XCTAssertNil(item.resumeData, "Resume data should be nil initially")
         
@@ -869,13 +907,13 @@ final class DownloaderTests: XCTestCase {
     
     // MARK: - Session Delegate Forwarding Tests
     
-    func testSessionDownloadDidWriteData_UpdatesActiveDownload() {
+    func testSessionDownloadDidWriteData_UpdatesActiveDownload() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         let entityId = item.entityId
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .notStarted
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         var capturedSession: URLSession?
         downloader.sessionFactory = { config, delegate, queue in
@@ -915,13 +953,13 @@ final class DownloaderTests: XCTestCase {
         XCTAssertEqual(activeDownload.totalBytesExpected, 1000)
     }
     
-    func testSessionTaskDidComplete_CancelledError_TransitionsToPausedOrCancelled() {
+    func testSessionTaskDidComplete_CancelledError_TransitionsToPausedOrCancelled() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         let entityId = item.entityId
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .notStarted
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         var capturedSession: URLSession?
         downloader.sessionFactory = { config, delegate, queue in
@@ -948,13 +986,13 @@ final class DownloaderTests: XCTestCase {
         XCTAssertTrue(downloader.activeDownloads.isEmpty)
     }
     
-    func testSessionTaskDidComplete_NoInternetError_TransitionsToFailed() {
+    func testSessionTaskDidComplete_NoInternetError_TransitionsToFailed() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         let entityId = item.entityId
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .notStarted
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         var capturedSession: URLSession?
         downloader.sessionFactory = { config, delegate, queue in
@@ -986,13 +1024,13 @@ final class DownloaderTests: XCTestCase {
     
     // MARK: - Download Completion Tests
     
-    func testHandleDownloadCompletion_Failure_TransitionsToFailed() {
+    func testHandleDownloadCompletion_Failure_TransitionsToFailed() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         let entityId = item.entityId
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .notStarted
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         // Start download to create active download
         downloader.sessionFactory = { config, delegate, queue in
@@ -1021,26 +1059,26 @@ final class DownloaderTests: XCTestCase {
     
     // MARK: - ModelProvider Tests
     
-    func testModelProviderResult_ImportSucceeded() {
+    func testModelProviderResult_ImportSucceeded() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         let entityId = item.entityId
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .complete
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         downloader.result(.importSucceeded, id: entityId)
         
         XCTAssertEqual(item.state, .imported)
     }
     
-    func testModelProviderResult_ImportFailed_TransitionsToImportFailed() {
+    func testModelProviderResult_ImportFailed_TransitionsToImportFailed() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         let entityId = item.entityId
         item.url = URL(string: "https://example.com/model.mlmodel")!
         item.state = .complete
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
 
         downloader.result(.importFailed, id: entityId)
 
@@ -1049,12 +1087,12 @@ final class DownloaderTests: XCTestCase {
     
     // MARK: - Edge Cases
     
-    func testStartDownload_NilURL_DoesNotCrash() {
+    func testStartDownload_NilURL_DoesNotCrash() throws {
         let context = dataController.container.viewContext
         let item = DownloadItem.create(in: context)
         item.url = nil
         item.state = .notStarted
-        DownloadItem.save(in: context)
+        try DownloadItem.save(in: context)
         
         // Should not crash, just log error
         downloader.downloadTapped(item)

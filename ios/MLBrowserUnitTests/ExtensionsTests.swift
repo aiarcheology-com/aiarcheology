@@ -362,9 +362,36 @@ final class URLExtensionsTests: XCTestCase {
     
     func testRelativePath_ThrowsForPathNotInDirectory() {
         let url = URL(fileURLWithPath: "/some/random/path/file.txt")
-        
+
         XCTAssertThrowsError(try url.relativePath(from: .documentDirectory)) { error in
             XCTAssertTrue(error is CocoaError)
+        }
+    }
+
+    func testRelativePath_CompletePath_RoundTripsSpecialCharacters() throws {
+        let documents = try FileManager.default.url(
+            for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        )
+
+        // Dots, nested paths, spaces, unicode, '%' and '#' must all survive the
+        // relativePath -> completePath round trip (.urlPathAllowed keeps '/' and '.').
+        let candidates = [
+            "model.mlmodelc",
+            "Configurations/ABC-123/model.mlmodelc",
+            "folder name/my model.mlmodel",
+            "složka/モデル.mlmodel",
+            "odd%name/file#1.bin"
+        ]
+
+        for candidate in candidates {
+            let absolute = documents.appendingPathComponent(candidate)
+            let relative = try absolute.relativePath(from: .documentDirectory)
+            let completed = try relative.completePath(to: .documentDirectory, isDirectory: false)
+            XCTAssertEqual(
+                completed.standardizedFileURL.path,
+                absolute.standardizedFileURL.path,
+                "Round trip failed for \(candidate)"
+            )
         }
     }
 }

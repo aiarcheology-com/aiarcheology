@@ -94,22 +94,10 @@ final class SentryCrashReportingService: CrashReportingService {
 				
 		SentrySDK.start { options in
 			options.dsn = dsn
-			
-			// Enable debug logging in DEBUG builds
-#if DEBUG && false
-			options.debug = true
-			Logger.logger.debug("[Sentry] Initializing with DSN: \(dsn.prefix(50))...")
-			
-			// Session Replay (DEBUG only)
-			options.sessionReplay.onErrorSampleRate = 1.0
-			options.sessionReplay.sessionSampleRate = AppEnvironment.isAppStoreDistribution ? 0.1 : 1.0
-			options.sessionReplay.maskAllText = true
-			options.sessionReplay.maskAllImages = true
-#endif
-			
-			// Adds IP for users.
-			// For more information: https://docs.sentry.io/platforms/apple/data-management/data-collected/
-			options.sendDefaultPii = true
+
+			// Privacy: do not attach user IP or other default PII to events.
+			// https://docs.sentry.io/platforms/apple/data-management/data-collected/
+			options.sendDefaultPii = false
 			
 			// Performance monitoring sample rate
 			options.tracesSampleRate = NSNumber(value: tracesSampleRate)
@@ -131,7 +119,23 @@ final class SentryCrashReportingService: CrashReportingService {
 			// Note: Sentry Cocoa transport honors `Retry-After` and `X-Sentry-Rate-Limits` internally.
 			let throttleConfig = self.throttleConfig
 			let eventGuard = self.eventGuard
+
+			// Privacy: strip URL query strings/fragments from breadcrumbs regardless of
+			// where they were recorded (defense in depth on top of LogRedactor at the
+			// LoggingPolicy layer — third-party SDK breadcrumbs bypass that layer).
+			options.beforeBreadcrumb = { crumb in
+				if let message = crumb.message {
+					crumb.message = LogRedactor.redactingURLs(message)
+				}
+				return crumb
+			}
+
 			options.beforeSend = { event in
+				// URL sanitization runs unconditionally — independent of throttling.
+				if let message = event.message {
+					event.message = SentryMessage(formatted: LogRedactor.redactingURLs(message.formatted))
+				}
+
 				guard throttleConfig.isEnabled else { return event }
 				
 				guard let input = Self.signatureInput(from: event),

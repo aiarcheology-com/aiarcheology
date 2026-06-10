@@ -16,33 +16,6 @@ enum ClassificatorError: Error {
 	case coreModelLoadError
 }
 
-private final class ClassificatorVisionRequestProxy: @unchecked Sendable {
-    weak var owner: Classificator?
-    
-    init(owner: Classificator) {
-        self.owner = owner
-    }
-    
-    func handleCompletion(request: VNRequest, error: Error?) {
-        if let error = error {
-            LoggingPolicy.error("Classification request failed", error: error, logger: .drivers)
-            DefaultCrashReporter.shared.recordError(error, context: ["operation": "classification"])
-            return
-        }
-        
-        guard let observations = request.results as? [VNClassificationObservation] else {
-            LoggingPolicy.warning("Classification request results could not be cast to VNClassificationObservation", logger: .drivers)
-            return
-        }
-        
-        Task {
-            guard let owner = self.owner else { return }
-            await owner.updateClassificationResults(observations: observations)
-            LoggingPolicy.debug("Classification completed with \(observations.count) observations", logger: .drivers)
-        }
-    }
-}
-
 actor Classificator: DeepDriver {
     let id: UUID
     var params: DeepDriverParams
@@ -74,39 +47,44 @@ actor Classificator: DeepDriver {
             LoggingPolicy.error("Classificator loadFile failed: file path is nil", logger: .drivers)
             throw ClassificatorError.loadError
         }
-        
-        LoggingPolicy.debug("Loading classificator model from \(path.absoluteString)", logger: .drivers)
-        
+
+        // Log file name only: container paths can embed user data (see LOGGING_GUIDE.md).
+        LoggingPolicy.debug("Loading classificator model from \(path.lastPathComponent)", logger: .drivers)
+
         guard let model = try await Self.loadModel(from: path, demo: params.demo) else {
-            LoggingPolicy.error("Failed to load ML model from \(path.absoluteString)", logger: .drivers)
+            LoggingPolicy.error("Failed to load ML model from \(path.lastPathComponent)", logger: .drivers)
             throw ClassificatorError.loadError
         }
-        
+
         LoggingPolicy.debug("Model successfully loaded from \(path.lastPathComponent)", logger: .drivers)
         self.mlModel = model
         classificationModel = try VNCoreMLModel(for: model)
-        
+
         guard let classificationModel = classificationModel else {
             LoggingPolicy.error("Failed to create VNCoreMLModel from loaded model", logger: .drivers)
             throw ClassificatorError.coreModelLoadError
         }
-        
-        let proxy = ClassificatorVisionRequestProxy(owner: self)
-        classificationRequest = VNCoreMLRequest(model: classificationModel) { [proxy] request, error in
-            proxy.handleCompletion(request: request, error: error)
-        }
+
+        classificationRequest = VNCoreMLRequest(model: classificationModel)
         classificationRequest?.imageCropAndScaleOption = .centerCrop
 	}
 
 	func unload() async {
         ciImage = nil
+        handler = nil
         classificationRequest = nil
         classificationModel = nil
         mlModel = nil
+        observations = []
         LoggingPolicy.debug("Classificator unloaded", logger: .drivers)
 	}
 
 	func process(image: UIImage) async {
+        // Clear stale state: a new frame must never report the previous frame's
+        // classifications, and a failed conversion must not leave the old handler
+        // around (classify() would silently re-run the previous frame).
+        observations = []
+        handler = nil
         ciImage = CIImage(image: image)
         guard let ciImage else {
             LoggingPolicy.warning("Failed to create CIImage from UIImage", logger: .drivers)
@@ -114,24 +92,35 @@ actor Classificator: DeepDriver {
         }
         handler = VNImageRequestHandler(ciImage: ciImage)
 	}
-    
-    func updateClassificationResults(observations: [VNClassificationObservation] = []) {
-        self.ciImage = nil
-        self.observations = observations
-    }
 
 	func classify() async {
         guard let classificationRequest else {
             LoggingPolicy.debug("Classification skipped: classification request not initialized", logger: .drivers)
             return
         }
-        
+
+        // Without a handler there is no frame to process. Bail out before reading
+        // classificationRequest.results — VNRequest retains the previous run's results,
+        // so an optional-chained no-op perform would re-report the prior frame.
+        guard let handler else {
+            LoggingPolicy.debug("Classification skipped: no frame to process", logger: .drivers)
+            observations = []
+            return
+        }
+
         do {
-            try handler?.perform([classificationRequest])
+            try handler.perform([classificationRequest])
+            // perform() completes synchronously, so results can be read directly here.
+            // The previous Task-based completion proxy raced with readers and could
+            // deliver the prior frame's observations.
+            observations = (classificationRequest.results as? [VNClassificationObservation]) ?? []
+            LoggingPolicy.debug("Classification completed with \(observations.count) observations", logger: .drivers)
         } catch {
             LoggingPolicy.error("Failed to perform classification", error: error, logger: .drivers)
             DefaultCrashReporter.shared.recordError(error, context: ["operation": "performClassification"])
+            observations = []
         }
+        ciImage = nil
 	}
 
 	func run() async {

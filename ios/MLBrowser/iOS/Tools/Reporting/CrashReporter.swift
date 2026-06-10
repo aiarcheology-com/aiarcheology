@@ -27,12 +27,6 @@ enum BreadcrumbLevel: String, Sendable {
 protocol CrashReporter: Sendable {
 	/// Records a non-fatal error for later analysis
 	func recordError(_ error: Error, context: [String: Any]?)
-	
-	/// Records a custom message as a breadcrumb for debugging
-	func recordBreadcrumb(_ message: String, level: BreadcrumbLevel)
-	
-	/// Sets custom user attributes for crash reports
-	func setCustomValue(_ value: String, forKey key: String)
 }
 
 /// Default implementation that delegates to Observability.
@@ -47,39 +41,16 @@ final class DefaultCrashReporter: CrashReporter, Sendable {
 		if let context = context {
 			contextString = " context: " + context.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
 		}
-		
-		let message = "Non-fatal error recorded: \(error.localizedDescription)\(contextString)"
-		
+
+		// The crash-reporting service appends error.localizedDescription itself;
+		// embedding it here too produced "msg: desc: desc" in captured events.
+		let message = "Non-fatal error recorded\(contextString)"
+
 		// Route through Observability for remote reporting
 		Observability.captureError(message, error: error)
-		
-		// Also log locally
-		Logger.app.logError(message)
-	}
-	
-	func recordBreadcrumb(_ message: String, level: BreadcrumbLevel) {
-		// Route through Observability
-		Observability.recordBreadcrumb(message, level: level, category: "app.breadcrumb")
-		
-		// Also log locally based on level
-		switch level {
-		case .none:
-			break
-		case .debug:
-			Logger.app.logDebug("Breadcrumb: \(message)")
-		case .info:
-			Logger.app.logInfo("Breadcrumb: \(message)")
-		case .warning:
-			Logger.app.logWarning("Breadcrumb: \(message)")
-		case .error:
-			Logger.app.logError("Breadcrumb: \(message)")
-		case .fatal:
-			Logger.app.logFault("Breadcrumb: \(message)")
-		}
-	}
-	
-	func setCustomValue(_ value: String, forKey key: String) {
-		Observability.setCustomValue(value, forKey: key)
-		Logger.app.logDebug("Custom attribute set: \(key)=\(value)")
+
+		// Also log locally (with the description for readability). OSLog is public and
+		// system error descriptions often embed the failing URL — redact before logging.
+		Logger.app.logError("\(message): \(LogRedactor.redactingURLs(error.localizedDescription))")
 	}
 }

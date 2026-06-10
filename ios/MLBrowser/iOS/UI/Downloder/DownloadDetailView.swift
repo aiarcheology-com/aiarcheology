@@ -110,11 +110,18 @@ private extension DownloadDetailView {
 			.disableAutocorrection(true)
 			.multilineTextAlignment(.trailing)
 			.onChange(of: urlText) { _, newValue in
+				// In-memory updates + cheap validation only; persisting on every
+				// keystroke writes to disk per typed character.
 				item.url = URL(string: newValue)
 				item.transition(to: .draft)
-				item.persist(in: moc)
 				validateUrl(newValue)
 			}
+			.onChange(of: isUrlFieldFocused) { _, focused in
+				if !focused {
+					persistUrl()
+				}
+			}
+			.onSubmit { persistUrl() }
 			.onAppear { validateUrl(urlText) }
 			.focused($isUrlFieldFocused)
 	}
@@ -232,6 +239,7 @@ private extension DownloadDetailView {
 		return Button(attributes.label) {
 			Task {
 				item.error = nil
+				persistUrl()
 				downloader.downloadTapped(item)
 			}
 		}
@@ -315,17 +323,28 @@ private extension DownloadDetailView {
 // MARK: - Validation & Button Attributes
 
 private extension DownloadDetailView {
+	func persistUrl() {
+		do {
+			try item.persist(in: moc)
+		} catch {
+			// Log the technical error; show the user a friendly, localized message.
+			LoggingPolicy.error("Failed to persist download item URL", error: error, logger: .networking)
+			item.error = L10n.Download.Error.persistFailed
+		}
+	}
+
 	func validateUrl(_ value: String) {
-		let invalidURLs = ["https:", "http:", "https://", "http://", "https:/", "http:/"]
-		if invalidURLs.contains(value) {
+		// URLComponents parsing replaces the canOpenURL sync IPC per keystroke and
+		// enforces an http(s) scheme allow-list for the download sink.
+		guard let components = URLComponents(string: value),
+			  let scheme = components.scheme?.lowercased(),
+			  ["http", "https"].contains(scheme),
+			  let host = components.host, !host.isEmpty
+		else {
 			isFormValid = false
 			return
 		}
-		guard let url = URL(string: value) else {
-			isFormValid = false
-			return
-		}
-		isFormValid = UIApplication.shared.canOpenURL(url)
+		isFormValid = true
 	}
 	
 	static func downloadButtonAttributes(_ state: Downloader.State) -> (enabled: Bool, color: Color, label: String) {

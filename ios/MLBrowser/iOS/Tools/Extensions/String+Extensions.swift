@@ -78,17 +78,11 @@ extension String {
             modifiedInput = "http://\(modifiedInput)"
         }
 
+        // URL(string:) + host + scheme checks are the actual validation; the regex that used
+        // to follow matched any candidate that already passed them (every term was optional),
+        // so it was a no-op — and its NSRange used grapheme count, breaking on non-BMP input.
         if let url = URL(string: modifiedInput), url.host != nil, url.scheme == "http" || url.scheme == "https" {
-            // Regular Expression for URL validation
-            do {
-                let regex = try NSRegularExpression(pattern: "((https?|ftp):\\/\\/)?(www\\.)?[\\w\\-._~:\\/?#\\[\\]@!$&'()*+,;=%]+", options: .caseInsensitive)
-                if regex.firstMatch(in: modifiedInput, options: [], range: NSRange(location: 0, length: modifiedInput.count)) != nil {
-                    return .url
-                }
-            } catch {
-                Logger.app.logError("URL regex pattern failed to compile: \(error.localizedDescription)")
-                // Fall through to return .searchTerm if regex fails
-            }
+            return .url
         }
 
         return .searchTerm

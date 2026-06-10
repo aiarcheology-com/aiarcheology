@@ -121,7 +121,7 @@ extension CoreDataManagableWithState {
     }
 
     /// Persist helper (since we’re on NSManagedObject we have a context handy).
-    func persist(in context: NSManagedObjectContext) { Self.save(in: context) }
+    func persist(in context: NSManagedObjectContext) throws { try Self.save(in: context) }
     
     /// Validation throwing helper for Core Data hooks.
     func throwIfInvalid() throws {
@@ -158,14 +158,14 @@ extension CoreDataManagableWithState {
 protocol CoreDataManageable where Self: NSManagedObject {
     var entityId: UUID { get }
     static func create(in context: NSManagedObjectContext) -> Self
-    static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: @escaping @Sendable (Self) -> Void)
-    static func deleteAll(in context: NSManagedObjectContext, executeAndMerge: Bool)
+    static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: @escaping @Sendable (Self) -> Void) throws
+    static func deleteAll(in context: NSManagedObjectContext, mergingInto additionalContexts: [NSManagedObjectContext]) throws
     static func delete(_ entityId: UUID, in context: NSManagedObjectContext)
     static func delete(_ entity: Self, in context: NSManagedObjectContext)
     static func select(_ entityId: UUID, in context: NSManagedObjectContext) -> Self?
     static func selectAll(in context: NSManagedObjectContext) -> [Self]
     static func count(in context: NSManagedObjectContext, predicate: NSPredicate?) -> Int
-    static func save(in context: NSManagedObjectContext)
+    static func save(in context: NSManagedObjectContext) throws
 }
 
 extension CoreDataManageable where Self: NSManagedObject {
@@ -205,7 +205,10 @@ extension CoreDataManageable where Self: NSManagedObject {
     ///   - entityId: The identifier of the entity to update.
     ///   - context: The `NSManagedObjectContext` in which the update occurs.
     ///   - updateClosure: A closure that mutates the fetched entity.
-    static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: @escaping @Sendable (Self) -> Void) {
+    static func update(_ entityId: UUID, in context: NSManagedObjectContext, with updateClosure: @escaping @Sendable (Self) -> Void) throws {
+        // nonisolated(unsafe) is safe here because performAndWait executes synchronously,
+        // blocking until the closure completes.
+        nonisolated(unsafe) var updateError: Error?
         context.performAndWait {
             let request = Self.fetchRequest()
             request.predicate = NSPredicate(format: "%K == %@", "entityId", entityId as CVarArg)
@@ -236,7 +239,11 @@ extension CoreDataManageable where Self: NSManagedObject {
             } catch {
                 LoggingPolicy.error("Update error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
                 DefaultCrashReporter.shared.recordError(error, context: ["operation": "update", "entityType": String(describing: Self.self)])
+                updateError = error
             }
+        }
+        if let updateError {
+            throw updateError
         }
     }
     
@@ -291,7 +298,15 @@ extension CoreDataManageable where Self: NSManagedObject {
         }
     }
     
-    static func save(in context: NSManagedObjectContext) {
+    /// Saves pending changes in the context.
+    ///
+    /// - Throws: The underlying Core Data save error (e.g. validation failures). A failed save
+    ///   leaves ALL pending changes unsaved, so callers must surface the failure rather than
+    ///   silently continuing — one invalid object otherwise blocks every future save.
+    static func save(in context: NSManagedObjectContext) throws {
+        // nonisolated(unsafe) is safe here because performAndWait executes synchronously,
+        // blocking until the closure completes.
+        nonisolated(unsafe) var saveError: Error?
         context.performAndWait {
             do {
                 if context.hasChanges {
@@ -301,7 +316,11 @@ extension CoreDataManageable where Self: NSManagedObject {
             } catch {
                 LoggingPolicy.error("CoreData save error for \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
                 DefaultCrashReporter.shared.recordError(error, context: ["operation": "save", "entityType": String(describing: Self.self)])
+                saveError = error
             }
+        }
+        if let saveError {
+            throw saveError
         }
     }
     
@@ -321,29 +340,34 @@ extension CoreDataManageable where Self: NSManagedObject {
         }
     }
     
-    static func deleteAll(in context: NSManagedObjectContext, executeAndMerge: Bool = false) {
+    /// Batch-deletes all entities of this type and merges the deletions into this context
+    /// plus every context in `additionalContexts`.
+    ///
+    /// NSBatchDeleteRequest operates directly on the persistent store and bypasses context
+    /// saves, so `automaticallyMergesChangesFromParent` does NOT propagate the deletions.
+    /// Pass the viewContext (and any other long-lived context) in `additionalContexts`,
+    /// otherwise it keeps zombie references that can resurrect the deleted rows on save.
+    ///
+    /// - Throws: An error if the batch delete fails; callers must decide how to recover.
+    static func deleteAll(in context: NSManagedObjectContext, mergingInto additionalContexts: [NSManagedObjectContext] = []) throws {
+        // nonisolated(unsafe) is safe here because performAndWait executes synchronously,
+        // blocking until the closure completes (same pattern as select/selectAll above).
+        nonisolated(unsafe) var deleteError: Error?
+        let contexts = additionalContexts
         context.performAndWait {
             let fetchRequest: NSFetchRequest<NSFetchRequestResult> = Self.fetchRequest()
             let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
             do {
-                if executeAndMerge.enabled {
-                    // NSBatchDeleteRequest operates directly on the persistent store and persists changes immediately.
-                    // executeAndMerge merges the deleted object IDs into this context so it reflects the deletions.
-                    // No context.save() is needed - the store is already updated.
-                    // Other contexts will only see deletions if they refresh or have automaticallyMergesChangesFromParent enabled.
-                    try context.executeAndMergeChanges(using: deleteRequest)
-                } else {
-                    // NSBatchDeleteRequest operates directly on the persistent store and persists changes immediately.
-                    // This context will NOT be updated to reflect the deletions (it retains stale references).
-                    // No context.save() is needed - the store is already updated.
-                    // Other contexts will only see deletions if they refresh or have automaticallyMergesChangesFromParent enabled.
-                    try context.execute(deleteRequest)
-                }
+                try context.executeAndMergeChanges(using: deleteRequest, into: contexts)
                 LoggingPolicy.info("Successfully deleted all \(String(describing: Self.self)) entities", logger: .storage)
             } catch {
                 LoggingPolicy.error("Error deleting all entities \(String(describing: Self.self)): \(error.localizedDescription)", logger: .storage)
                 DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteAll", "entityType": String(describing: Self.self)])
+                deleteError = error
             }
+        }
+        if let deleteError {
+            throw deleteError
         }
     }
     

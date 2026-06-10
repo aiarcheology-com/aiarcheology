@@ -126,13 +126,15 @@ if [[ -n "${VERBOSE}" ]]; then
     XCODEBUILD_ARGS+=("${VERBOSE}")
 fi
 
-xcodebuild "${XCODEBUILD_ARGS[@]}"
-TEST_EXIT_CODE=$?
-
-echo ""
-if [[ $TEST_EXIT_CODE -eq 0 ]]; then
+# Under `set -e`, a plain `xcodebuild ...; TEST_EXIT_CODE=$?` aborts before the capture,
+# so the failure branch is dead code. The if-form disables errexit for the command and
+# preserves the exact xcodebuild exit code (e.g. 65 for test failures).
+if xcodebuild "${XCODEBUILD_ARGS[@]}"; then
+    echo ""
     echo "Unit tests completed successfully."
 else
+    TEST_EXIT_CODE=$?
+    echo ""
     echo "Unit tests failed."
+    exit $TEST_EXIT_CODE
 fi
-exit $TEST_EXIT_CODE

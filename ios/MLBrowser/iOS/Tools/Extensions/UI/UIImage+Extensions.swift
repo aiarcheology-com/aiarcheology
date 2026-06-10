@@ -9,6 +9,10 @@ import UIKit
 import CoreImage
 
 extension UIImage {
+	/// Shared rendering context: creating a CIContext is expensive (GPU pipeline setup)
+	/// and this method runs on every detection snapshot. CIContext is thread-safe.
+	private static let adjustmentContext = CIContext(options: nil)
+
 	func adjusted(brightness: CGFloat? = nil, contrast: CGFloat? = nil, saturation: CGFloat? = nil) -> UIImage {
 		guard let ciImage = CIImage(image: self) else { return self }
 
@@ -25,7 +29,7 @@ extension UIImage {
 		}
 
 		guard let outputImage = filter?.outputImage,
-			  let cgImage = CIContext(options: nil).createCGImage(outputImage, from: outputImage.extent) else {
+			  let cgImage = Self.adjustmentContext.createCGImage(outputImage, from: outputImage.extent) else {
 			return self
 		}
 

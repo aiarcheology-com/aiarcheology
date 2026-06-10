@@ -200,22 +200,25 @@ struct WebScreenView: View {
 	}
 
 	private func createWebHistoryEntry(_ urlString: String, maxEntries: Int) {
-		// Use existing @FetchRequest count instead of fetching all objects
-		guard history.count <= maxEntries else {
-			latestError = HistoryError.fullHistory
-			showAlert = true
+		// Duplicate check first: re-visiting an existing page must not trip the limit alert.
+		// Entries are stored with the https-normalized URL, so compare the same form.
+		guard
+			history.contains(where: { $0.page?.absoluteString == urlString.withHTTPS }).not else {
 			return
 		}
 
-		guard
-			history.contains(where: { $0.page?.absoluteString == urlString }).not else {
+		// Use existing @FetchRequest count instead of fetching all objects
+		guard history.count < maxEntries else {
+			latestError = HistoryError.fullHistory
+			showAlert = true
 			return
 		}
 
 		let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: moc)
 		newHistorEntry.bookmarked = false
 		newHistorEntry.creationDate_ = .now
-		newHistorEntry.page = URL(string: websiteUrl.withHTTPS)
+		// Use the function parameter — the same value the duplicate check above compared.
+		newHistorEntry.page = URL(string: urlString.withHTTPS)
 		// Lifecycle: transition to draft before validation, then to ready if valid
 		// If validation fails, the entity is deleted (brief inconsistent state is acceptable)
 		newHistorEntry.transition(to: .draft)
@@ -227,6 +230,10 @@ struct WebScreenView: View {
 			LoggingPolicy.error("Web history entry validation failed: \(error.localizedDescription)", logger: .state)
 			return
 		}
-		WebHistoryEntry.save(in: moc)
+		do {
+			try WebHistoryEntry.save(in: moc)
+		} catch {
+			LoggingPolicy.error("Failed to save web history entry", error: error, logger: .state)
+		}
 	}
 }

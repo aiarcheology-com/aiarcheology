@@ -92,22 +92,17 @@ class DeepDrivers: ObservableObject {
 		}
 	}
 	
-	func update(configuration: DeepConfiguration) {
+	func update(configuration: DeepConfiguration) async {
 		let entityId = configuration.entityId
 		let drivers = (detectors + classificators).filter { $0.id == entityId }
 		if drivers.count >= 2 {
 			LoggingPolicy.warning("Multiple drivers found with same configuration.entityId: \(entityId.uuidString)", logger: .drivers)
 		}
-		let params = DeepDriverParams(
-			annotationColor: configuration.annotationColor,
-			entityId: configuration.entityId,
-			file: configuration.file,
-			phaseOutTime: configuration.phaseOutTime,
-			selectedSymbol: configuration.selectedSymbol
-		)
-		Task {
-			await drivers.first?.updateConfiguration(params)
-		}
+		// toDriverParams() preserves ALL fields (including `demo`, which the previous
+		// manual construction silently reset). Awaiting keeps rapid successive updates
+		// ordered — the old fire-and-forget Task could apply an older config last.
+		let params = configuration.toDriverParams()
+		await drivers.first?.updateConfiguration(params)
 	}
 	
     func unregister(driverId: UUID) async {
@@ -115,6 +110,24 @@ class DeepDrivers: ObservableObject {
         detectors = detectors.filter { $0.id != driverId }
         classificators = classificators.filter { $0.id != driverId }
     }
+
+	/// Unloads and removes every registered driver.
+	///
+	/// Needed after batch deletes (e.g. application reset): NSBatchDeleteRequest bypasses
+	/// `NSManagedObjectContextObjectsDidChange`, so per-configuration unregistration never fires.
+	func unregisterAll() async {
+		// Snapshot on the main actor, clear immediately so no new work targets stale drivers
+		let snapshot = detectors + classificators
+		detectors = []
+		classificators = []
+		await withTaskGroup(of: Void.self) { group in
+			for driver in snapshot {
+				group.addTask {
+					await driver.unload()
+				}
+			}
+		}
+	}
 	
 	func unload(_ driver: DeepDriverType) async {
 		switch driver {

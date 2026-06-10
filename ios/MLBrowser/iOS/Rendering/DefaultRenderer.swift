@@ -17,10 +17,12 @@ class DefaultRenderer: ObservableObject {
 	init() {
 	}
 
-	@MainActor func render<Content>(_ content: Content, completionHandler: @escaping (UIImage?, Error?) -> Void) where Content: View {
-		@Environment(\.displayScale) var displayScale
+	/// - Parameter scale: The display scale to render at. Must be read from a View's
+	///   `@Environment(\.displayScale)` — declaring the property wrapper inside a function
+	///   returns the default (1.0), which silently produced 1x snapshots on Retina screens.
+	@MainActor func render<Content>(_ content: Content, scale: CGFloat, completionHandler: @escaping @MainActor (UIImage?, Error?) -> Void) where Content: View {
 		let renderer = ImageRenderer(content: content)
-		renderer.scale = displayScale
+		renderer.scale = scale
 		renderer.isOpaque = false
 		if let image = renderer.uiImage {
 			completionHandler(image, nil)
