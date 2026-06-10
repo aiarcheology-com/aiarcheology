@@ -1,0 +1,24 @@
+ios/MLBrowser/iOS/UI/GlobalToolbar.swift
+  s_f24988eb446598::t_9824481aea7b1a 58-60
+ios/MLBrowserUITests/BrowserRevampUITests.swift
+  s_f24988eb446598::t_2be85e65b2299d 126-129
+  s_f24988eb446598::t_5232129d980057 56,59
+  s_f24988eb446598::t_4f1dff5f0ceb94 113
+  s_f24988eb446598::t_810f724cdd2b75 125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "a034d33cbb1bd612ba21ad4e788ce0240276ca28",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
