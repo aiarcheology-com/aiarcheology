@@ -1,0 +1,22 @@
+ios/MLBrowser/iOS/UI/GlobalToolbar.swift
+  s_f24988eb446598::t_5177941fdba0e5 78-79,81
+  s_f24988eb446598::t_d9c19f9c42dcfc 26-30,32
+ios/MLBrowser/iOS/Rendering/WebViewRenderer.swift
+  s_f24988eb446598::t_52b65d96ded198 37-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "c7be02d84f0032c90a1048048d3ded074cba3dbc",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
