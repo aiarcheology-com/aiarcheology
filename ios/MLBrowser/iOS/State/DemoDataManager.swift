@@ -61,9 +61,9 @@ final class DemoDataManager {
             // Use background context for batch delete to avoid blocking UI
             // Use mergeByPropertyStoreTrump for destructive operations to ensure
             // store changes (deletions) take precedence
-            // nonisolated(unsafe): the viewContext reference is only handed to
+            // The viewContext reference is only handed to
             // mergeChanges(fromRemoteContextSave:into:), which is safe to call cross-queue.
-            nonisolated(unsafe) let viewContext = dataController.container.viewContext
+            let viewContext = dataController.container.viewContext
             dataController.performBackgroundTask(mergePolicy: .mergeByPropertyStoreTrump) { context in
                 // Use defer to ensure continuation is always resumed exactly once
                 defer { continuation.resume() }

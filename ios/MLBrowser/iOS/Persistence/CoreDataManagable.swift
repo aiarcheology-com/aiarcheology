@@ -353,7 +353,7 @@ extension CoreDataManageable where Self: NSManagedObject {
         // nonisolated(unsafe) is safe here because performAndWait executes synchronously,
         // blocking until the closure completes (same pattern as select/selectAll above).
         nonisolated(unsafe) var deleteError: Error?
-        nonisolated(unsafe) let contexts = additionalContexts
+        let contexts = additionalContexts
         context.performAndWait {
             let fetchRequest: NSFetchRequest<NSFetchRequestResult> = Self.fetchRequest()
             let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)

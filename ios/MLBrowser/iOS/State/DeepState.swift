@@ -133,9 +133,9 @@ final class DeepState: ObservableObject {
 	}
 	
 	func reset() async {
-		// nonisolated(unsafe): the viewContext reference is only handed to
+		// The viewContext reference is only handed to
 		// mergeChanges(fromRemoteContextSave:into:), which is safe to call cross-queue.
-		nonisolated(unsafe) let viewContext = dataController.container.viewContext
+		let viewContext = dataController.container.viewContext
 		let deleteError: Error? = await withCheckedContinuation { continuation in
 			dataController.performBackgroundTask { context in
 				do {
