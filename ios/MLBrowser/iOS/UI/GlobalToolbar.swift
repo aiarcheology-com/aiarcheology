@@ -49,7 +49,12 @@ struct GlobalToolbarTrailing: View {
 	var body: some View {
 		HStack {
 			detectionButton
-			adjustmentButton
+			// Snap adjustments only apply while snapshots are being taken:
+			// browser mode shows the play button alone, detection mode adds
+			// the adjustment control.
+			if guide.ontheflyDetectionEnabled {
+				adjustmentButton
+			}
 		}
 	}
 	
