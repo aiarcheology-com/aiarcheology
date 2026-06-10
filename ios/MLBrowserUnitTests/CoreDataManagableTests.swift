@@ -87,7 +87,7 @@ final class CoreDataManagableTests: XCTestCase {
         XCTAssertEqual(item.suggestedNextState(), .ready)
     }
     
-    func testCRUDOperations() {
+    func testCRUDOperations() throws {
         let context = testStack.viewContext
 
         // Create
@@ -96,7 +96,7 @@ final class CoreDataManagableTests: XCTestCase {
         XCTAssertNotNil(id)
 
         // Update
-        WebHistoryEntry.update(id, in: context) { entry in
+        try WebHistoryEntry.update(id, in: context) { entry in
             entry.page = URL(string: "https://updated.com")
         }
 
@@ -109,7 +109,7 @@ final class CoreDataManagableTests: XCTestCase {
         XCTAssertNil(deleted)
     }
 
-    func testCountMethod() {
+    func testCountMethod() throws {
         let context = testStack.viewContext
 
         // Initially should be empty
@@ -128,7 +128,7 @@ final class CoreDataManagableTests: XCTestCase {
         entry3.page = URL(string: "https://example3.com")
         entry3.creationDate_ = Date()
 
-        WebHistoryEntry.save(in: context)
+        try WebHistoryEntry.save(in: context)
 
         // Should count 3 entries
         XCTAssertEqual(WebHistoryEntry.count(in: context), 3)
@@ -142,7 +142,7 @@ final class CoreDataManagableTests: XCTestCase {
         XCTAssertEqual(WebHistoryEntry.count(in: context), 2)
     }
 
-    func testSelectAllWithFetchLimit() {
+    func testSelectAllWithFetchLimit() throws {
         let context = testStack.viewContext
 
         // Create 5 entries
@@ -151,7 +151,7 @@ final class CoreDataManagableTests: XCTestCase {
             entry.page = URL(string: "https://example\(i).com")
             entry.creationDate_ = Date()
         }
-        WebHistoryEntry.save(in: context)
+        try WebHistoryEntry.save(in: context)
 
         // Fetch all - should return 5
         let allEntries = WebHistoryEntry.selectAll(in: context)

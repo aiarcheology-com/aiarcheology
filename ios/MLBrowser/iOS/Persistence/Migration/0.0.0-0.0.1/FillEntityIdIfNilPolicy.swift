@@ -24,16 +24,21 @@ private struct MigrationKeys {
     }
 }
 
+enum MigrationError: Error {
+    case missingDestinationEntityName(mapping: String)
+}
+
 @objc(FillEntityIdIfNilPolicy)
 final class FillEntityIdIfNilPolicy: NSEntityMigrationPolicy {
     override func createDestinationInstances(forSource source: NSManagedObject,
                                              in mapping: NSEntityMapping,
                                              manager: NSMigrationManager) throws {
 		LoggingPolicy.info("Starting FillEntityIdIfNilPolicy migration for mapping: \(mapping.name ?? "unknown")", logger: .storage)
-        
+
         guard let destName = mapping.destinationEntityName else {
-			LoggingPolicy.warning("No destination entity name found, skipping migration", logger: .storage)
-            return
+            // Silently dropping the source row would lose user data; fail the migration instead.
+            LoggingPolicy.error("No destination entity name found for mapping \(mapping.name ?? "unknown")", logger: .storage)
+            throw MigrationError.missingDestinationEntityName(mapping: mapping.name ?? "unknown")
         }
         let destination = NSEntityDescription.insertNewObject(forEntityName: destName,
                                                               into: manager.destinationContext)
@@ -61,10 +66,23 @@ final class FillEntityIdIfNilPolicy: NSEntityMigrationPolicy {
             destination.setValue(model, forKey: MigrationKeys.Destination.modelTypeString)
         }
         
-        if source.value(forKey: MigrationKeys.Source.readyToValidate) is Bool { /* removed */ }
+        // Lifecycle: legacy rows may be incomplete (nil file, missing model type, ...).
+        // Setting .ready unconditionally makes validateForInsert() throw at migration save,
+        // which fails the WHOLE migration — in App Store builds that is an unrecoverable
+        // crash loop. Only promote rows that actually pass validation; park the rest in .draft.
+        let legacyReadyToValidate = source.value(forKey: MigrationKeys.Source.readyToValidate) as? Bool
 
-        destination.setValue(CoreDataManageableState.ready.rawValue, forKey: MigrationKeys.Destination.lifeCycleString)
-        
+        if legacyReadyToValidate == false {
+            destination.setValue(CoreDataManageableState.draft.rawValue, forKey: MigrationKeys.Destination.lifeCycleString)
+        } else {
+            destination.setValue(CoreDataManageableState.ready.rawValue, forKey: MigrationKeys.Destination.lifeCycleString)
+            if let stateful = destination as? any CoreDataManagableWithState,
+               stateful.validationReport().isValid.not {
+                LoggingPolicy.warning("Migrated \(destName) row would fail .ready validation; downgrading to .draft", logger: .storage)
+                destination.setValue(CoreDataManageableState.draft.rawValue, forKey: MigrationKeys.Destination.lifeCycleString)
+            }
+        }
+
         manager.associate(sourceInstance: source, withDestinationInstance: destination, for: mapping)
         
         LoggingPolicy.info("Completed migration for entity \(destName)", logger: .storage)

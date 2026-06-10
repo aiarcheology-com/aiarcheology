@@ -57,7 +57,7 @@ final class DeepStateTests: XCTestCase {
         let config = deepState.createConfiguration()
         config.modelType = .detector
         config.enabled = false
-        DeepConfiguration.save(in: dataController.container.viewContext)
+        try DeepConfiguration.save(in: dataController.container.viewContext)
         
         // Expectation: Driver should NOT be registered yet
         XCTAssertTrue(deepState.drivers.detectors.isEmpty)

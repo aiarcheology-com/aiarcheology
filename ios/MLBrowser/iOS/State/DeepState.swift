@@ -37,6 +37,11 @@ final class DeepState: ObservableObject {
 				Task {
 					do {
 						try await driver.loadFile()
+						// The configuration may have been deleted (e.g. reset) while loading.
+						guard selectConfiguration(config.entityId) != nil else {
+							await driver.unload()
+							return
+						}
 						register(driver: driver, along: config.modelType)
 						LoggingPolicy.info("Driver successfully loaded and registered for configuration \(config.entityId.uuidString)", logger: .drivers)
 					} catch {
@@ -88,8 +93,8 @@ final class DeepState: ObservableObject {
 		drivers.register(driver: driver, along: along)
 	}
 	
-	private func updaterDriver(with configuration: DeepConfiguration) {
-		drivers.update(configuration: configuration)
+	private func updaterDriver(with configuration: DeepConfiguration) async {
+		await drivers.update(configuration: configuration)
 	}
 	
 	private func unregisterDriver(driverId: UUID) {
@@ -108,7 +113,12 @@ final class DeepState: ObservableObject {
 		updateClosure: @Sendable @escaping (DeepConfiguration) -> Void
 	) {
 		let context = dataController.container.viewContext
-		DeepConfiguration.update(entityId, in: context, with: updateClosure)
+		do {
+			try DeepConfiguration.update(entityId, in: context, with: updateClosure)
+		} catch {
+			// Surface to the UI; a failed save would otherwise silently block all future saves.
+			deepStateError = error
+		}
 	}
 	
 	func deleteConfiguration(_ entityId: UUID) {
@@ -122,12 +132,31 @@ final class DeepState: ObservableObject {
 	}
 	
 	func reset() async {
-		await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+		// nonisolated(unsafe): the viewContext reference is only handed to
+		// mergeChanges(fromRemoteContextSave:into:), which is safe to call cross-queue.
+		nonisolated(unsafe) let viewContext = dataController.container.viewContext
+		let deleteError: Error? = await withCheckedContinuation { continuation in
 			dataController.performBackgroundTask { context in
-				defer { continuation.resume() }
-				DeepConfiguration.deleteAll(in: context)
+				do {
+					// Merge into the viewContext too: batch deletes bypass context saves, so
+					// automaticallyMergesChangesFromParent does NOT propagate them.
+					try DeepConfiguration.deleteAll(in: context, mergingInto: [viewContext])
+					continuation.resume(returning: nil)
+				} catch {
+					continuation.resume(returning: error)
+				}
 			}
 		}
+
+		if let deleteError {
+			// Rows may still exist; keep drivers registered so state stays consistent.
+			deepStateError = deleteError
+			return
+		}
+
+		// Batch deletes emit no NSManagedObjectContextObjectsDidChange notification,
+		// so handleDeletedConfigurations never fires — unregister drivers explicitly.
+		await drivers.unregisterAll()
 	}
 	
 	func selectConfiguration(_ entityId: UUID) -> DeepConfiguration? {
@@ -137,7 +166,12 @@ final class DeepState: ObservableObject {
 	
 	func saveConfigurations() {
 		let context = dataController.container.viewContext
-		return DeepConfiguration.save(in: context)
+		do {
+			try DeepConfiguration.save(in: context)
+		} catch {
+			// Surface to the UI; a failed save would otherwise silently block all future saves.
+			deepStateError = error
+		}
 	}
 	
 	func allConfigurations() -> [DeepConfiguration] {
@@ -220,6 +254,11 @@ final class DeepState: ObservableObject {
 						do {
 							try await driver.loadFile()
 							await MainActor.run {
+								// The configuration may have been deleted (e.g. reset) while loading.
+								guard selectConfiguration(entityId) != nil else {
+									Task { await driver.unload() }
+									return
+								}
 								register(driver: driver, along: modelType)
 								LoggingPolicy.info("Driver loaded and registered after configuration insert", logger: .drivers)
 							}
@@ -260,6 +299,11 @@ final class DeepState: ObservableObject {
 					Task {
 						do {
 							try await driver.loadFile()
+							// The configuration may have been deleted (e.g. reset) while loading.
+							guard selectConfiguration(entityId) != nil else {
+								await driver.unload()
+								return
+							}
 							self.register(driver: driver, along: modelType)
 							LoggingPolicy.info("Driver loaded and registered after configuration update", logger: .drivers)
 						} catch {
@@ -271,7 +315,7 @@ final class DeepState: ObservableObject {
 				} else {
 					if enabled {
 						guard let config = selectConfiguration(entityId) else { continue }
-						updaterDriver(with: config)
+						await updaterDriver(with: config)
 					} else {
 						unregisterDriver(driverId: entityId)
 					}
@@ -297,8 +341,12 @@ final class DeepState: ObservableObject {
 			if let downloadItem = DownloadItem.select(entityId, in: dataController.container.viewContext) {
 				if downloadItem.state == .imported {
 					downloadItem.state = .complete
-					DownloadItem.save(in: dataController.container.viewContext)
-					LoggingPolicy.debug("Transitioned download item to .complete for deleted configuration \(entityId.uuidString)", logger: .state)
+					do {
+						try DownloadItem.save(in: dataController.container.viewContext)
+						LoggingPolicy.debug("Transitioned download item to .complete for deleted configuration \(entityId.uuidString)", logger: .state)
+					} catch {
+						deepStateError = error
+					}
 				}
 				LoggingPolicy.debug("Skipping deletion of model file still referenced by download item for configuration \(entityId.uuidString)", logger: .state)
 				continue

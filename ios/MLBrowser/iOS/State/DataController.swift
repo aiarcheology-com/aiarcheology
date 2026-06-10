@@ -157,9 +157,10 @@ final class DataController: ObservableObject {
 		// Check if this is a migration-related error
 		let isMigrationError = nsError.domain == NSCocoaErrorDomain && (
 			nsError.code == NSPersistentStoreIncompatibleVersionHashError || // 134100
-			nsError.code == NSMigrationMissingSourceModelError ||            // 134140
+			nsError.code == NSMigrationMissingSourceModelError ||            // 134130
+			nsError.code == NSMigrationMissingMappingModelError ||           // 134140
 			nsError.code == NSMigrationError ||              				 // 134110
-			nsError.code == NSPersistentStoreIncompatibleSchemaError         // 134130
+			nsError.code == NSPersistentStoreIncompatibleSchemaError         // 134020
 		)
 
 		// Only attempt recovery in non-App Store builds

@@ -161,7 +161,11 @@ final class DataControllerTests: XCTestCase {
             entry.page = URL(string: "https://example.com")
             entry.transition(to: .draft)
             entry.transition(to: .ready)
-            WebHistoryEntry.save(in: context)
+            do {
+                try WebHistoryEntry.save(in: context)
+            } catch {
+                XCTFail("Saving in background context failed: \(error)")
+            }
             expectation.fulfill()
         }
         
@@ -212,7 +216,7 @@ final class DataControllerTests: XCTestCase {
         XCTAssertEqual(count, 0)
     }
 
-    func testCount_ReturnsCorrectNumber_AfterCreatingEntities() {
+    func testCount_ReturnsCorrectNumber_AfterCreatingEntities() throws {
         let dataController = DataController(inMemory: true)
         let context = dataController.container.viewContext
 
@@ -223,14 +227,14 @@ final class DataControllerTests: XCTestCase {
             entry.creationDate_ = .now
             entry.page = URL(string: "https://example\(i).com")
         }
-        WebHistoryEntry.save(in: context)
+        try WebHistoryEntry.save(in: context)
 
         let count = WebHistoryEntry.count(in: context)
 
         XCTAssertEqual(count, 3)
     }
 
-    func testCount_WithPredicate_FiltersCorrectly() {
+    func testCount_WithPredicate_FiltersCorrectly() throws {
         let dataController = DataController(inMemory: true)
         let context = dataController.container.viewContext
 
@@ -243,7 +247,7 @@ final class DataControllerTests: XCTestCase {
             entry.creationDate_ = .now
             entry.page = URL(string: "https://example\(i).com")
         }
-        WebHistoryEntry.save(in: context)
+        try WebHistoryEntry.save(in: context)
 
         let predicate = NSPredicate(format: "entityId == %@", targetId as CVarArg)
         let filteredCount = WebHistoryEntry.count(in: context, predicate: predicate)
@@ -251,7 +255,7 @@ final class DataControllerTests: XCTestCase {
         XCTAssertEqual(filteredCount, 1)
     }
 
-    func testCount_WithPredicate_ReturnsZero_WhenNoMatch() {
+    func testCount_WithPredicate_ReturnsZero_WhenNoMatch() throws {
         let dataController = DataController(inMemory: true)
         let context = dataController.container.viewContext
 
@@ -262,7 +266,7 @@ final class DataControllerTests: XCTestCase {
             entry.creationDate_ = .now
             entry.page = URL(string: "https://example\(i).com")
         }
-        WebHistoryEntry.save(in: context)
+        try WebHistoryEntry.save(in: context)
 
         // Search for a non-existent ID
         let nonExistentId = UUID()
@@ -272,7 +276,7 @@ final class DataControllerTests: XCTestCase {
         XCTAssertEqual(filteredCount, 0)
     }
 
-    func testCount_ReflectsChanges_AfterDeletion() {
+    func testCount_ReflectsChanges_AfterDeletion() throws {
         let dataController = DataController(inMemory: true)
         let context = dataController.container.viewContext
 
@@ -286,7 +290,7 @@ final class DataControllerTests: XCTestCase {
             entry.page = URL(string: "https://example\(i).com")
             entityIds.append(id)
         }
-        WebHistoryEntry.save(in: context)
+        try WebHistoryEntry.save(in: context)
 
         XCTAssertEqual(WebHistoryEntry.count(in: context), 3)
 
@@ -296,7 +300,7 @@ final class DataControllerTests: XCTestCase {
         XCTAssertEqual(WebHistoryEntry.count(in: context), 2)
     }
 
-    func testCount_ReflectsChanges_AfterDeleteAll() {
+    func testCount_ReflectsChanges_AfterDeleteAll() throws {
         // Note: NSBatchDeleteRequest (used by deleteAll) does not work with NSInMemoryStoreType.
         // We test the count behavior by manually deleting entities one by one instead.
         let dataController = DataController(inMemory: true)
@@ -312,7 +316,7 @@ final class DataControllerTests: XCTestCase {
             entry.page = URL(string: "https://example\(i).com")
             entityIds.append(id)
         }
-        WebHistoryEntry.save(in: context)
+        try WebHistoryEntry.save(in: context)
 
         XCTAssertEqual(WebHistoryEntry.count(in: context), 5)
 
@@ -324,7 +328,7 @@ final class DataControllerTests: XCTestCase {
         XCTAssertEqual(WebHistoryEntry.count(in: context), 0)
     }
 
-    func testCount_WorksWithDifferentEntityTypes() {
+    func testCount_WorksWithDifferentEntityTypes() throws {
         let dataController = DataController(inMemory: true)
         let context = dataController.container.viewContext
 
@@ -335,7 +339,7 @@ final class DataControllerTests: XCTestCase {
             entry.creationDate_ = .now
             entry.page = URL(string: "https://example\(i).com")
         }
-        WebHistoryEntry.save(in: context)
+        try WebHistoryEntry.save(in: context)
 
         // Create DeepConfiguration entities
         for _ in 0..<3 {
@@ -343,14 +347,14 @@ final class DataControllerTests: XCTestCase {
             config.entityId = UUID()
             config.creationDate_ = .now
         }
-        DeepConfiguration.save(in: context)
+        try DeepConfiguration.save(in: context)
 
         // Verify counts are independent
         XCTAssertEqual(WebHistoryEntry.count(in: context), 2)
         XCTAssertEqual(DeepConfiguration.count(in: context), 3)
     }
 
-    func testCount_WithNilPredicate_CountsAll() {
+    func testCount_WithNilPredicate_CountsAll() throws {
         let dataController = DataController(inMemory: true)
         let context = dataController.container.viewContext
 
@@ -361,7 +365,7 @@ final class DataControllerTests: XCTestCase {
             entry.creationDate_ = .now
             entry.page = URL(string: "https://example\(i).com")
         }
-        WebHistoryEntry.save(in: context)
+        try WebHistoryEntry.save(in: context)
 
         // Explicitly pass nil predicate
         let count = WebHistoryEntry.count(in: context, predicate: nil)
@@ -369,7 +373,7 @@ final class DataControllerTests: XCTestCase {
         XCTAssertEqual(count, 4)
     }
 
-    func testCount_WithComplexPredicate_FiltersCorrectly() {
+    func testCount_WithComplexPredicate_FiltersCorrectly() throws {
         let dataController = DataController(inMemory: true)
         let context = dataController.container.viewContext
 
@@ -385,7 +389,7 @@ final class DataControllerTests: XCTestCase {
                 : cutoffDate.addingTimeInterval(Double(i) * 3600)
             entry.page = URL(string: "https://example\(i).com")
         }
-        WebHistoryEntry.save(in: context)
+        try WebHistoryEntry.save(in: context)
 
         // Count entries created before cutoff
         let predicate = NSPredicate(format: "creationDate_ < %@", cutoffDate as NSDate)
