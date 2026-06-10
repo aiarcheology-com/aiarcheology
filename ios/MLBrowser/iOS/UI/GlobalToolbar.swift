@@ -23,10 +23,13 @@ struct GlobalToolbarLeading: View {
 					Image(systemName: "cpu")
 						.foregroundColor(animationChange ? Color.blue : Color.gray)
 						.scaleEffect(animationChange ? 1.1 : 1)
+						// Value-scoped: `withAnimation(.repeatForever)` in onAppear
+						// leaks the forever animation into unrelated layout
+						// changes of the same transaction (the chrome show/hide
+						// transition kept oscillating — AIA-0011 review finding).
+						.animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: animationChange)
 						.onAppear {
-							withAnimation(Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-								animationChange.toggle()
-							}
+							animationChange.toggle()
 						}
 				} else {
 					Image(systemName: "cpu").foregroundColor(.gray)
@@ -72,10 +75,10 @@ struct GlobalToolbarTrailing: View {
 				Image(systemName: "pause")
 					.foregroundColor(isAnimating ? Color.blue : Color.gray)
 					.scaleEffect(isAnimating ? 1.1 : 1)
+					// Value-scoped for the same reason as the leading cpu icon.
+					.animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: isAnimating)
 					.onAppear {
-						withAnimation(Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-							isAnimating.toggle()
-						}
+						isAnimating.toggle()
 					}
 					.frame(minWidth: 44, minHeight: 44)
 					.contentShape(Rectangle())

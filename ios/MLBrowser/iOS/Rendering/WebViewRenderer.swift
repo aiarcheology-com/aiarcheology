@@ -34,6 +34,15 @@ class WebViewRenderer: DefaultRenderer {
 		let contrast = snapAdjustment.contrast
 		let saturation = snapAdjustment.saturation
 
+		let scroll = webView.scrollView
+		LoggingPolicy.debug(
+			"WebViewGeometry: bounds=\(webView.bounds.size.width)x\(webView.bounds.size.height)"
+			+ " originY=\(webView.convert(CGPoint.zero, to: nil).y)"
+			+ " offsetY=\(scroll.contentOffset.y)"
+			+ " insetTop=\(scroll.adjustedContentInset.top) insetBottom=\(scroll.adjustedContentInset.bottom)",
+			logger: .ui
+		)
+
 		let config = WKSnapshotConfiguration()
 		webView.takeSnapshot(with: config) { image, error in
 			guard let image else {
