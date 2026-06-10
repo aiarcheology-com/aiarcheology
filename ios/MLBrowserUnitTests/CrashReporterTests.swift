@@ -73,74 +73,22 @@ final class DefaultCrashReporterTests: XCTestCase {
         sut.recordError(TestError.somethingWentWrong, context: ["type": "custom"])
     }
     
-    // MARK: - recordBreadcrumb Tests
-    
-    func test_recordBreadcrumb_debugLevel_doesNotCrash() {
-        sut.recordBreadcrumb("Debug message", level: .debug)
-    }
-    
-    func test_recordBreadcrumb_infoLevel_doesNotCrash() {
-        sut.recordBreadcrumb("Info message", level: .info)
-    }
-    
-    func test_recordBreadcrumb_warningLevel_doesNotCrash() {
-        sut.recordBreadcrumb("Warning message", level: .warning)
-    }
-    
-    func test_recordBreadcrumb_errorLevel_doesNotCrash() {
-        sut.recordBreadcrumb("Error message", level: .error)
-    }
-    
-    func test_recordBreadcrumb_emptyMessage_doesNotCrash() {
-        sut.recordBreadcrumb("", level: .info)
-    }
-    
-    func test_recordBreadcrumb_longMessage_doesNotCrash() {
-        let longMessage = String(repeating: "A", count: 10000)
-        sut.recordBreadcrumb(longMessage, level: .info)
-    }
-    
-    // MARK: - setCustomValue Tests
-    
-    func test_setCustomValue_normalKeyValue_doesNotCrash() {
-        sut.setCustomValue("testValue", forKey: "testKey")
-    }
-    
-    func test_setCustomValue_emptyKey_doesNotCrash() {
-        sut.setCustomValue("value", forKey: "")
-    }
-    
-    func test_setCustomValue_emptyValue_doesNotCrash() {
-        sut.setCustomValue("", forKey: "key")
-    }
-    
-    func test_setCustomValue_multipleValues_doesNotCrash() {
-        sut.setCustomValue("value1", forKey: "key1")
-        sut.setCustomValue("value2", forKey: "key2")
-        sut.setCustomValue("value3", forKey: "key3")
-    }
-    
-    func test_setCustomValue_overwriteKey_doesNotCrash() {
-        sut.setCustomValue("original", forKey: "key")
-        sut.setCustomValue("updated", forKey: "key")
-    }
-    
     // MARK: - Protocol Conformance Tests
-    
+
     func test_conformsToCrashReporter() {
         let reporter: CrashReporter = DefaultCrashReporter.shared
-        
+
         XCTAssertNotNil(reporter)
     }
-    
+
     func test_isSendable() {
         // DefaultCrashReporter should be Sendable for safe concurrent access
         let reporter = DefaultCrashReporter.shared
-        
+
         Task {
-            reporter.recordBreadcrumb("From task", level: .info)
+            reporter.recordError(NSError(domain: "Test", code: 1), context: nil)
         }
-        
+
         // If this compiles, the Sendable conformance is valid
         XCTAssertNotNil(reporter)
     }
@@ -160,10 +108,8 @@ final class CrashReporterProtocolTests: XCTestCase {
     
     func test_protocolMethods_areCallable() {
         let reporter: CrashReporter = DefaultCrashReporter.shared
-        
+
         // All protocol methods should be callable
         reporter.recordError(NSError(domain: "Test", code: 1), context: nil)
-        reporter.recordBreadcrumb("Test", level: .info)
-        reporter.setCustomValue("value", forKey: "key")
     }
 }
