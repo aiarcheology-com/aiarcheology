@@ -2287,9 +2287,6 @@
         }
       }
     },
-    "An unexpected error occurred." : {
-
-    },
     "clipboard.copied" : {
       "comment" : "Message shown when text is copied to clipboard",
       "extractionState" : "manual",
