@@ -28,9 +28,11 @@ struct LocationSheetView: View {
 
 	let onOpen: (String) -> Void
 
-	@State private var searchText: String
+	/// Starts empty: the current URL stays visible in the address display behind the
+	/// sheet, and staying on the page is just a dismiss.
+	@State private var searchText = ""
 	/// Debounced copy of `searchText` that actually drives the filter.
-	@State private var filterText: String
+	@State private var filterText = ""
 	@State private var sortOrder: SortOrder = .recent
 	@State private var fullURLs = true
 	/// Host whose recorded visit trail is pushed as the detail (programmatic navigation —
@@ -38,10 +40,8 @@ struct LocationSheetView: View {
 	@State private var trailHost: String?
 	@FocusState private var searchFocused: Bool
 
-	init(initialText: String, onOpen: @escaping (String) -> Void) {
+	init(onOpen: @escaping (String) -> Void) {
 		self.onOpen = onOpen
-		_searchText = State(initialValue: initialText)
-		_filterText = State(initialValue: "")
 	}
 
 	var body: some View {
@@ -80,8 +80,6 @@ struct LocationSheetView: View {
 
 	private var inputRow: some View {
 		HStack(spacing: 8) {
-			// Not auto-focused: focusing puts the cursor at the end and scrolls the
-			// prefilled URL there — unfocused, the URL displays from its beginning.
 			TextField(L10n.Browser.Location.placeholder, text: $searchText)
 				.testability(Testability.TextField.locationSheetInput)
 				.textInputAutocapitalization(.never)
