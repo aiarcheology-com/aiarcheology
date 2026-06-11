@@ -1,0 +1,26 @@
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_f24988eb446598::t_f851161a6739ba 2773-2784
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_f24988eb446598::t_babf0fab3d022f 124-125
+ios/MLBrowser/iOS/UI/LocationSheetView.swift
+  s_f24988eb446598::t_bced433d438bea 166-173
+  s_f24988eb446598::t_1c684eed8effe9 304-311
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_f24988eb446598::t_50b7211923e6ff 121,123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "beb9e3405b6a1e4add228b0ce02b4c515e6ee841",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
