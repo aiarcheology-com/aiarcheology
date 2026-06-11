@@ -35,6 +35,7 @@ struct LocationSheetView: View {
 	/// Host whose recorded visit trail is pushed as the detail (programmatic navigation —
 	/// a NavigationLink in the row would make the List add its own disclosure chevron).
 	@State private var trailHost: String?
+	@FocusState private var searchFocused: Bool
 
 	init(initialText: String, onOpen: @escaping (String) -> Void) {
 		self.onOpen = onOpen
@@ -86,6 +87,7 @@ struct LocationSheetView: View {
 				.disableAutocorrection(true)
 				.keyboardType(.URL)
 				.submitLabel(.go)
+				.focused($searchFocused)
 				.onSubmit(of: .text) {
 					open(searchText)
 				}
@@ -141,6 +143,9 @@ struct LocationSheetView: View {
 							Text(page.absoluteString)
 								.lineLimit(fullURLs ? nil : 1)
 								.truncationMode(.middle)
+								// Explicit: inside a button label, wrapped lines
+								// center-align by default.
+								.multilineTextAlignment(.leading)
 								.foregroundColor(.primary)
 							HStack {
 								if let date = entry.creationDate_ {
@@ -164,6 +169,10 @@ struct LocationSheetView: View {
 				// Borderless buttons keep the two tap targets independent in the row.
 				if let host = page.host {
 					Button {
+						// Resign the input session before the push — transferring it
+						// mid-transition makes UIKit log keyboard-placeholder
+						// constraint breaks (system-internal, but noisy).
+						searchFocused = false
 						trailHost = host
 					} label: {
 						Image(systemName: "info.circle")
@@ -253,6 +262,7 @@ private struct VisitTrailView: View {
 					} label: {
 						VStack(alignment: .leading, spacing: 2) {
 							Text(page.absoluteString)
+								.multilineTextAlignment(.leading)
 								.foregroundColor(.primary)
 							if let date = visit.creationDate_ {
 								Text(date, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
