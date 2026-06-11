@@ -20,11 +20,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Cache SwiftLint
         id: cache-swiftlint
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /tmp/swiftlint
           key: ${{ runner.os }}-swiftlint-${{ hashFiles('.tools.json') }}
