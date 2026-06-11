@@ -1,0 +1,62 @@
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_f24988eb446598::t_96b5ec3a4ea374 43-46
+  s_f24988eb446598::t_115871c83de8e0 617
+  s_f24988eb446598::t_b8fc6400408c6c 592-593
+  s_f24988eb446598::t_3fd672c8613933 821
+  s_f24988eb446598::t_d786079eb7f358 1379-1381
+  s_f24988eb446598::t_fd1625ad93f6d9 1416
+  s_f24988eb446598::t_1894a80041ef19 269-272
+ios/MLBrowserUnitTests/BrowserStateTests.swift
+  s_f24988eb446598::t_182f051de2b794 67
+  s_f24988eb446598::t_6586d3a41efd20 16-26,33
+  s_f24988eb446598::t_6a53c205877ed3 104,109-111,115
+  s_f24988eb446598::t_6f0a600c02303f 1-15,27-32,34-66,68-72,75,81,83-103,105-108,112-113,116-126,128,136-246
+  s_f24988eb446598::t_b09656dc6d7eed 73-74,76,79-80,82
+  s_f24988eb446598::t_d41fd4da0a9f36 114
+  s_f24988eb446598::t_7533e0ed7a47b7 77-78
+ios/MLBrowser/iOS/State/BrowserState.swift
+  s_f24988eb446598::t_af58a9840e9d0c 1-14,17-176,183-193
+  s_f24988eb446598::t_1647a70a1bcc34 177-182
+  s_f24988eb446598::t_ad6337e7faff57 16
+ios/MLBrowser/iOS/UI/FloatingNavBar.swift
+  s_f24988eb446598::t_3858ae7c528c3d 1-27,34-36,43-71,78-85,93-150
+  s_f24988eb446598::t_aed84b2f379832 28-33,37-42
+  s_f24988eb446598::t_5fe25284e98a06 86-92
+  s_f24988eb446598::t_6ee4a951558374 72-77
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_f24988eb446598::t_d7ec5d716db736 80-105
+ios/MLBrowser/iOS/UI/ContentView.swift
+  s_f24988eb446598::t_48801b30b0ae13 22
+  s_f24988eb446598::t_e705efe94045f0 163-169
+  s_f24988eb446598::t_fcf2559d3e9f1e 42
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_f24988eb446598::t_f6e8e3e24096a7 2302-2421
+ios/MLBrowser/iOS/State/Appstate.swift
+  s_f24988eb446598::t_27d7f7680ad415 28
+ios/MLBrowser/iOS/UI/LocationSheetView.swift
+  s_f24988eb446598::t_10870a138b56f5 1-176
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift
+  s_f24988eb446598::t_c5793e406248c6 26,53,60-61,74-87,104,125-126,129-130,134-141,143,151-159,173-177,179-185,219-314
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_f24988eb446598::t_e57e6a07ce06d7 208-209
+  s_f24988eb446598::t_c5feca1e5890c0 105-119
+ios/MLBrowser/iOS/UI/WebView.swift
+  s_f24988eb446598::t_33b7171fd29ed2 19-20,29,42,49,57,67,73,81,88,100,103,106,108,111-114,122-129,139-143,147-150,153,155,157,161,170,173-177,189,231-232,236,266,268-335,339
+  s_f24988eb446598::t_d92998a1ae10d5 24-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "a52e9fb660bb80f842251afde3b8232abf33fdaf",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
