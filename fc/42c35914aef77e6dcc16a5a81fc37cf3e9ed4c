@@ -1,0 +1,46 @@
+ios/MLBrowser/iOS/State/VisitTrail.swift
+  s_f24988eb446598::t_eec54a169d38da 22
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_f24988eb446598::t_b9d37623b6b17b 2485-2496
+  s_f24988eb446598::t_044ee496514bb0 2401-2412
+  s_f24988eb446598::t_66fc4282f86df3 2425-2436
+ios/MLBrowserUnitTests/BrowserStateTests.swift
+  s_f24988eb446598::t_3951c635089b05 246-253,256
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift
+  s_f24988eb446598::t_7d5781668b18f5 140
+  s_f24988eb446598::t_e3faaf500dd43c 248-249
+ios/MLBrowser/iOS/State/BrowserState.swift
+  s_f24988eb446598::t_b4fee3ade62702 189-190
+  s_f24988eb446598::t_1e6ed055a21839 15,18,20,22-27,29
+  s_f24988eb446598::t_d338758a2ffcb5 71
+ios/MLBrowser/iOS/UI/WebView.swift
+  s_f24988eb446598::t_9f746f32862b06 146-151
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_f24988eb446598::t_348c0c1cc924dc 123
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_f24988eb446598::t_e85a8583105fba 89-90,95-98,114-115
+ios/MLBrowser/iOS/UI/LocationSheetView.swift
+  s_f24988eb446598::t_35f455ab0e1bd1 23
+  s_f24988eb446598::t_bcf943be913f8b 221-227
+  s_f24988eb446598::t_896b4e9472b6bc 460-461,468,471-476
+  s_f24988eb446598::t_77546bf8404488 179-184
+  s_f24988eb446598::t_cd7042eab31592 154-157
+  s_f24988eb446598::t_f8ec62adf2896a 159
+  s_f24988eb446598::t_619f4f29fc1ab1 269
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "fc42c35914aef77e6dcc16a5a81fc37cf3e9ed4c",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
