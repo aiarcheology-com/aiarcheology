@@ -2299,6 +2299,126 @@
         }
       }
     },
+    "browser.location.fullUrls" : {
+      "comment" : "Accessibility label for the location sheet button that toggles full multiline URLs",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full URLs"
+          }
+        }
+      }
+    },
+    "browser.location.open" : {
+      "comment" : "Confirmation button that opens the typed URL or search term",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open"
+          }
+        }
+      }
+    },
+    "browser.location.placeholder" : {
+      "comment" : "Placeholder of the location sheet input and the empty address display",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search or enter website name"
+          }
+        }
+      }
+    },
+    "browser.location.sort.alphabetical" : {
+      "comment" : "Location sheet history sort order: alphabetical",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alphabetical"
+          }
+        }
+      }
+    },
+    "browser.location.sort.recent" : {
+      "comment" : "Location sheet history sort order: most recent first",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent"
+          }
+        }
+      }
+    },
+    "browser.location.title" : {
+      "comment" : "Title of the location sheet (Safari-style search surface)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search"
+          }
+        }
+      }
+    },
+    "browser.navigation.back" : {
+      "comment" : "Accessibility label of the browser back button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back"
+          }
+        }
+      }
+    },
+    "browser.navigation.forward" : {
+      "comment" : "Accessibility label of the browser forward button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forward"
+          }
+        }
+      }
+    },
+    "browser.navigation.reload" : {
+      "comment" : "Accessibility label of the browser reload button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reload"
+          }
+        }
+      }
+    },
+    "browser.navigation.stop" : {
+      "comment" : "Accessibility label of the browser stop button (shown while loading)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
+          }
+        }
+      }
+    },
     "clipboard.copied" : {
       "comment" : "Message shown when text is copied to clipboard",
       "extractionState" : "manual",

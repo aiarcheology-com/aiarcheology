@@ -25,6 +25,7 @@ final class AppState: ObservableObject {
 	lazy var snap: SnapState = DependencyContainer.shared.snapState
 	lazy var renderer = DefaultRenderer()
 	lazy var webViewRenderer = WebViewRenderer(snapAdjustment: self.snapAdjustment)
+	lazy var browserState = BrowserState(settings: self.settings)
 	lazy var deep: DeepState = DependencyContainer.shared.deepState
 	lazy var dataController: DataController = DependencyContainer.shared.dataController
 	lazy var settings: Settings = DependencyContainer.shared.settings

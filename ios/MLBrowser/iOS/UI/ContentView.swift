@@ -18,15 +18,14 @@ private enum ActiveSheet: Identifiable {
 
 struct ContentView: View {
     // environment:
-    @Environment(\.colorScheme) var colorScheme
     @Environment(\.dismiss) var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     // app model:
     @EnvironmentObject var appState: AppState
     // drawer:
     @State private var drawer = DrawerManager()
     // sheets, alerts and menus:
     @State private var showErrorAlert = false
-    @State private var addressBarMenu: [URL] = []
     @State private var errorMessage = ""
     // content manipulation:
     @State private var brightness = SnapAdjustment.defaultBrightness
@@ -40,6 +39,7 @@ struct ContentView: View {
     @State private var fullscreenFeatureEnabled = true
     @State private var selectedMode = AppMode.web
     @State private var floatingButtonPosition: CGPoint?
+    @State private var floatingNavBarPosition: CGPoint?
     
     init() {
         Backports.Appearance
@@ -150,6 +150,7 @@ struct ContentView: View {
                     trailingItems: {
                         Screens.barItems(mode, position: .trailing)
                             .environmentObject(appState.guide)
+                            .environmentObject(appState.browserState)
                     })
                     .tabItem {
                         Screens.tabItem(mode, selection: appState.guide.mode)
@@ -159,8 +160,13 @@ struct ContentView: View {
                 .toolbar(AppMode.tabOrder.count == 1 ? .hidden : .visible, for: .tabBar)
             }
             
-            // Address bar dropdown menu
-            addressBarDropdown
+            // Floating back/reload/forward capsule for compact widths — part of the
+            // chrome, so fullscreen detection hides it together with the bars.
+            if selectedMode == .web && horizontalSizeClass == .compact && chromeVisible {
+                FloatingNavBar(position: $floatingNavBarPosition)
+                    .environmentObject(appState.browserState)
+                    .transition(.opacity)
+            }
 
             // Chrome toggle for fullscreen detection mode; only its 52pt frame
             // is hit-testable, all other touches reach the web view.
@@ -177,44 +183,6 @@ struct ContentView: View {
             isPresented: $showSnapAdjustment,
             snapAdjustment: appState.snapAdjustment
         )
-    }
-    
-    // MARK: - Address Bar Dropdown
-    
-    private var addressBarDropdown: some View {
-        Color.clear
-            .onReceive(appState.guide.$addressBarMenu) { urls in
-                addressBarMenu = urls
-            }
-            .dropDownMenu(
-                items: addressBarMenu,
-                backgroundColor: colorScheme == .dark ? .black : .white,
-                cancelContent: {
-                    HStack {
-                        Spacer()
-                        Button {
-                            appState.guide.addressBarMenu = []
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                        }
-                        .testability(Testability.Button.contentViewAddressBarCancel)
-                        .foregroundColor(.gray)
-                        .padding(EdgeInsets(top: 20, leading: 0, bottom: 0, trailing: 25))
-                    }
-                },
-                itemContent: { item in
-                    Button {
-                        appState.guide.historySelected(item)
-                    } label: {
-                        Text(item.absoluteString.trimmedString)
-                            .foregroundColor(.gray)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                        Spacer()
-                    }
-                    .testability(Testability.Button.contentViewAddressBarHistoryItem)
-                }
-            )
     }
     
     // MARK: - Sheets

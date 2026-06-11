@@ -77,6 +77,32 @@ internal enum L10n {
       /// Show or hide browser controls
       internal static let label = L10n.tr("Localizable", "browser.floatingButton.label", fallback: "Show or hide browser controls")
     }
+    internal enum Location {
+      /// Full URLs
+      internal static let fullUrls = L10n.tr("Localizable", "browser.location.fullUrls", fallback: "Full URLs")
+      /// Open
+      internal static let `open` = L10n.tr("Localizable", "browser.location.open", fallback: "Open")
+      /// Search or enter website name
+      internal static let placeholder = L10n.tr("Localizable", "browser.location.placeholder", fallback: "Search or enter website name")
+      /// Search
+      internal static let title = L10n.tr("Localizable", "browser.location.title", fallback: "Search")
+      internal enum Sort {
+        /// Alphabetical
+        internal static let alphabetical = L10n.tr("Localizable", "browser.location.sort.alphabetical", fallback: "Alphabetical")
+        /// Recent
+        internal static let recent = L10n.tr("Localizable", "browser.location.sort.recent", fallback: "Recent")
+      }
+    }
+    internal enum Navigation {
+      /// Back
+      internal static let back = L10n.tr("Localizable", "browser.navigation.back", fallback: "Back")
+      /// Forward
+      internal static let forward = L10n.tr("Localizable", "browser.navigation.forward", fallback: "Forward")
+      /// Reload
+      internal static let reload = L10n.tr("Localizable", "browser.navigation.reload", fallback: "Reload")
+      /// Stop
+      internal static let stop = L10n.tr("Localizable", "browser.navigation.stop", fallback: "Stop")
+    }
   }
   internal enum Clipboard {
     /// Copied: %@

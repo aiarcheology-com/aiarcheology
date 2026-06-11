@@ -127,8 +127,6 @@ final class GuideTests: XCTestCase {
         XCTAssertNil(sut.selectedConfigurationId)
         XCTAssertFalse(sut.presentSettings)
         XCTAssertNil(sut.pageToOpen)
-        XCTAssertTrue(sut.addressBarMenu.isEmpty)
-        XCTAssertNil(sut.addressSelected)
         XCTAssertTrue(sut.chromeVisible)
         XCTAssertFalse(sut.isFullscreen)
         XCTAssertFalse(sut.showsFloatingChromeButton)
@@ -180,38 +178,6 @@ final class GuideTests: XCTestCase {
         sut.settingsTapped()
         
         XCTAssertTrue(sut.presentSettings)
-    }
-    
-    // MARK: - History Selection Tests
-    
-    func testHistorySelected_SetsAddressSelected() {
-        let url = URL(string: "https://example.com")!
-        
-        sut.historySelected(url)
-        
-        XCTAssertEqual(sut.addressSelected, url)
-    }
-    
-    func testHistorySelected_ClearsAddressBarMenu() {
-        sut.addressBarMenu = [
-            URL(string: "https://one.com")!,
-            URL(string: "https://two.com")!
-        ]
-        let url = URL(string: "https://example.com")!
-        
-        sut.historySelected(url)
-        
-        XCTAssertTrue(sut.addressBarMenu.isEmpty)
-    }
-    
-    func testHistorySelected_UpdatesBothProperties() {
-        sut.addressBarMenu = [URL(string: "https://old.com")!]
-        let newUrl = URL(string: "https://new.com")!
-        
-        sut.historySelected(newUrl)
-        
-        XCTAssertEqual(sut.addressSelected, newUrl)
-        XCTAssertTrue(sut.addressBarMenu.isEmpty)
     }
     
     // MARK: - On-the-fly Detection Tests
