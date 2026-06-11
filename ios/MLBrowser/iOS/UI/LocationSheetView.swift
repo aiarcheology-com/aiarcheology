@@ -408,11 +408,18 @@ private struct VisitTrailView: View {
 		.navigationTitle(domain)
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar {
-			ToolbarItemGroup(placement: .navigationBarTrailing) {
+			ToolbarItem(placement: .navigationBarTrailing) {
 				Button(L10n.Browser.Location.data) {
 					presentDataSheet = true
 				}
 				.testability(Testability.Button.visitTrailData)
+			}
+			// Separate glass capsules: without the spacer the system coalesces
+			// adjacent trailing items into one shared pill.
+			if #available(iOS 26.0, *) {
+				ToolbarSpacer(.fixed, placement: .navigationBarTrailing)
+			}
+			ToolbarItem(placement: .navigationBarTrailing) {
 				Button(role: .destructive) {
 					confirmDeleteSite = true
 				} label: {
