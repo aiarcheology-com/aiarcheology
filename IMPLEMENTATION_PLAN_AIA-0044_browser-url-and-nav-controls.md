@@ -1,6 +1,6 @@
 # Browser URL bar live updates + navigation controls — AIA-0044 (with AIA-0277 architecture review)
 
-*Status: FINAL — consensus after 1 Codex review (9 findings) + 5 grill rounds (23 objections, 22 accepted, 1 rebutted as user-owned sequencing). Round-5 fixes applied exactly as the reviewer pre-accepted them. Plan only — no code changes on this branch yet.*
+*Status: IMPLEMENTED (commit a52e9fb) — consensus plan after 1 Codex review (9 findings) + 5 grill rounds (23 objections, 22 accepted, 1 rebutted as user-owned sequencing), plus the 2026-06-11 location-sheet user decisions. Implementation notes: the read-only address display dissolved the focused-TextField writer table (editing is sheet-local now); WebKit emits no reliable KVO for canGoBack/canGoForward on same-document navigations, so BrowserState re-reads them on every URL change; pushState entries do not register in the back-forward list for loadHTMLString documents (test-environment limitation, documented in BrowserStateTests).*
 
 ## Context
 
