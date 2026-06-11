@@ -1,0 +1,20 @@
+ios/MLBrowser/iOS/UI/LocationSheetView.swift
+  s_f24988eb446598::t_aa334186c03d00 227
+  s_f24988eb446598::t_92d1d08b2fa0ea 160-163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "f6d047f8fe7baf9d30d153547ba5fcd1b2c90e0c",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
