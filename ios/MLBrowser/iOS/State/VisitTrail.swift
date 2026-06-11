@@ -19,7 +19,7 @@ extension WebVisit: CoreDataManagableWithState {
 		var issues: [CoreDataManagableValidationIssue] = []
 
 		if page.isNil {
-			issues.append(.init(key: "url", message: "Visit page url is nil."))
+			issues.append(.init(key: "url", message: "Visit page URL is nil."))
 		}
 
 		if creationDate_.isNil {

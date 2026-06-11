@@ -143,7 +143,12 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
 		guard context.coordinator.lastLoadedGeneration != request.generation else { return }
 
         func load(_ urlString: String) {
-            guard let url = URL(string: urlString.withHTTPS) else { return }
+            guard let url = URL(string: urlString.withHTTPS) else {
+				// Fail open: a pending user load would otherwise strand the
+				// address-display gate with no navigation to ever settle it.
+				browserState.navigationIssued(nil)
+				return
+			}
 			// Synchronous load: updateUIView already runs on the main thread, and the
 			// returned navigation token keys the user-load display gate.
 			let navigation = uiView.load(URLRequest(url: url))

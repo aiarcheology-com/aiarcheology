@@ -20,6 +20,7 @@ struct LocationSheetView: View {
 
 	@Environment(\.dismiss) private var dismiss
 	@Environment(\.managedObjectContext) private var moc
+	@EnvironmentObject private var settings: Settings
 	@FetchRequest(
 		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: false)],
 		predicate: NSPredicate(format: "page != nil AND creationDate_ != nil"),
@@ -150,8 +151,12 @@ struct LocationSheetView: View {
 								if let date = entry.creationDate_ {
 									Text(date, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
 								}
+								if page == settings.defaultPage {
+									Image(systemName: "house.fill")
+										.font(.caption2)
+								}
 								Spacer()
-								Text("\(entry.visitCount)×")
+								Text(L10n.Browser.Location.visitCount(Int(entry.visitCount)))
 							}
 							.font(.caption)
 							.foregroundStyle(.secondary)
@@ -171,6 +176,12 @@ struct LocationSheetView: View {
 						Label(L10n.Common.copy, systemImage: "doc.on.doc")
 					}
 					.testability(Testability.Button.locationSheetCopyUrl)
+					Button {
+						settings.defaultPage = page
+					} label: {
+						Label(L10n.Browser.Location.setHomePage, systemImage: "house")
+					}
+					.testability(Testability.Button.locationSheetSetHomePage)
 					Button(role: .destructive) {
 						deleteEntry(entry)
 					} label: {
@@ -207,6 +218,13 @@ struct LocationSheetView: View {
 					Label(L10n.Common.delete, systemImage: "trash")
 				}
 				.testability(Testability.Button.locationSheetDeleteEntry)
+				Button {
+					settings.defaultPage = page
+				} label: {
+					Label(L10n.Browser.Location.setHomePage, systemImage: "house")
+				}
+				.tint(.blue)
+				.testability(Testability.Button.locationSheetSetHomePage)
 			}
 		}
 	}
@@ -248,6 +266,7 @@ struct LocationSheetView: View {
 		} label: {
 			Image(systemName: "arrow.up.arrow.down")
 		}
+		.accessibilityLabel(L10n.Browser.Location.Sort.label)
 		.testability(Testability.Button.locationSheetSortOrder)
 	}
 
@@ -438,18 +457,23 @@ private struct VisitTrailView: View {
 
 	/// Deletes everything this app stored about the site: its history entries and the
 	/// recorded visit trail. (Cookies/site data live in the separate Data sheet.)
+	/// One context save for the whole batch — per-row `delete(_:in:)` would fetch and
+	/// save for every object.
 	private func deleteSiteHistory() {
 		let matchesDomain: (String?) -> Bool = { host in
 			guard let host else { return false }
 			return host == domain || host.hasSuffix("." + domain)
 		}
 
-		visits.forEach { visit in
-			WebVisit.delete(visit.entityId, in: moc)
-		}
+		visits.forEach(moc.delete)
 		WebHistoryEntry.selectAll(in: moc)
 			.filter { matchesDomain($0.page?.host) }
-			.forEach { WebHistoryEntry.delete($0.entityId, in: moc) }
+			.forEach(moc.delete)
+		do {
+			try WebVisit.save(in: moc)
+		} catch {
+			LoggingPolicy.error("Failed to delete the site's history", error: error, logger: .state)
+		}
 
 		// The detail's subject is gone; pop back to the history list.
 		dismiss()

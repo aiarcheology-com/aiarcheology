@@ -150,9 +150,16 @@ final class BrowserStateTests: XCTestCase {
         let otherWebView = WKWebView()
         sut.attach(otherWebView)
 
-        // The originally attached web view must no longer publish into the mirrors.
+        // The originally attached web view must no longer publish into the mirrors —
+        // an inverted expectation bounds the negative check without a bare sleep.
+        let noEmission = expectation(description: "detached web view must not publish")
+        noEmission.isInverted = true
+        sut.$currentURL
+            .first(where: { $0 == Self.baseURL })
+            .sink { _ in noEmission.fulfill() }
+            .store(in: &cancellables)
         webView.loadHTMLString(Self.html, baseURL: Self.baseURL)
-        try? await Task.sleep(for: .milliseconds(500))
+        await fulfillment(of: [noEmission], timeout: 1)
 
         XCTAssertNotEqual(sut.currentURL, Self.baseURL)
     }
@@ -236,10 +243,17 @@ final class BrowserStateTests: XCTestCase {
     func testGate_BlocksDisplayedURLWhilePending() async {
         sut.userLoadRequested("https://example.com/picked")
 
-        // KVO emissions while the gate is set must not overwrite the display.
+        // KVO emissions while the gate is set must not overwrite the display —
+        // an inverted expectation bounds the negative check without a bare sleep.
+        let notOverwritten = expectation(description: "display gate must hold")
+        notOverwritten.isInverted = true
+        sut.$displayedURL
+            .first(where: { $0 == Self.baseURL })
+            .sink { _ in notOverwritten.fulfill() }
+            .store(in: &cancellables)
         webView.loadHTMLString(Self.html, baseURL: Self.baseURL)
         await waitForCurrentURL { $0 == Self.baseURL }
-        try? await Task.sleep(for: .milliseconds(300))
+        await fulfillment(of: [notOverwritten], timeout: 0.5)
 
         XCTAssertEqual(sut.displayedURL, URL(string: "https://example.com/picked"))
     }

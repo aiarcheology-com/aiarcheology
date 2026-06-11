@@ -12,16 +12,21 @@ import Combine
 /// A user-initiated load request with identity: re-submitting the same string after the
 /// page drifted away (History API) must still perform a real load, so the web view dedups
 /// on `generation`, never on the input string.
-/// Public because `MLWebView`'s public initializer takes it.
+/// Fully public because `MLWebView`'s public initializer takes it.
 public struct LoadRequest: Equatable, Sendable {
 	/// Raw user input; normalization (https prefix, search fallback) happens at load time.
-	let input: String
+	public let input: String
 	/// Bumped on every submit / history pick.
-	let generation: UInt64
+	public let generation: UInt64
 
-	static let initial = LoadRequest(input: "", generation: 0)
+	public init(input: String, generation: UInt64) {
+		self.input = input
+		self.generation = generation
+	}
 
-	func next(_ input: String) -> LoadRequest {
+	public static let initial = LoadRequest(input: "", generation: 0)
+
+	public func next(_ input: String) -> LoadRequest {
 		LoadRequest(input: input, generation: generation + 1)
 	}
 }
@@ -63,6 +68,7 @@ final class BrowserState: ObservableObject {
 		self.webView = webView
 
 		webView.publisher(for: \.url)
+			.removeDuplicates()
 			.receive(on: DispatchQueue.main)
 			.sink { [weak self] url in
 				self?.urlChanged(url)
@@ -180,7 +186,8 @@ final class BrowserState: ObservableObject {
 			canGoBack = webView.canGoBack
 			canGoForward = webView.canGoForward
 		}
-		guard let url, isRestorable(url) else { return }
+		// Each write lands in UserDefaults (Settings.didSet) — skip unchanged values.
+		guard let url, isRestorable(url), settings.lastPage != url else { return }
 		// Restorable ≠ displayed: persisting from the KVO stream (instead of didFinish)
 		// makes "reopen last page" restore the exact map position, but only URLs that
 		// can actually be reopened qualify.

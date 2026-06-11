@@ -2398,6 +2398,18 @@
         }
       }
     },
+    "browser.location.setHomePage" : {
+      "comment" : "Row action making the URL the browser's home page (default page)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set as Home Page"
+          }
+        }
+      }
+    },
     "browser.location.sort.alphabetical" : {
       "comment" : "Location sheet history sort order: alphabetical",
       "extractionState" : "manual",
@@ -2406,6 +2418,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Alphabetical"
+          }
+        }
+      }
+    },
+    "browser.location.sort.label" : {
+      "comment" : "Accessibility label of the icon-only sort menu in the location sheet",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sort order"
           }
         }
       }
@@ -2454,6 +2478,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No visits recorded yet"
+          }
+        }
+      }
+    },
+    "browser.location.visitCount" : {
+      "comment" : "How many times a history entry was visited, e.g. 7x",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld×"
           }
         }
       }

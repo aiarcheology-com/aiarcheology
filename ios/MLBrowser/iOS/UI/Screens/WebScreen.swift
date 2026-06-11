@@ -137,6 +137,7 @@ struct WebScreenView: View {
             LocationSheetView { input in
                 openRequested(input)
             }
+            .environmentObject(appState.settings)
         }
         .alert(isPresented: $showAlert) {
             alertForError(latestError)
@@ -244,7 +245,8 @@ private struct WebAddressDisplay: View {
 				.contentShape(Rectangle())
 		}
 		.buttonStyle(.plain)
-		.accessibilityLabel(L10n.Browser.Location.placeholder)
+		// VoiceOver reads the actual URL, not just the affordance.
+		.accessibilityLabel(browserState.displayedURL?.absoluteString ?? L10n.Browser.Location.placeholder)
 		.testability(Testability.Button.webScreenAddressBar)
 	}
 }

@@ -86,10 +86,16 @@ internal enum L10n {
       internal static let `open` = L10n.tr("Localizable", "browser.location.open", fallback: "Open")
       /// Search or enter website name
       internal static let placeholder = L10n.tr("Localizable", "browser.location.placeholder", fallback: "Search or enter website name")
+      /// Set as Home Page
+      internal static let setHomePage = L10n.tr("Localizable", "browser.location.setHomePage", fallback: "Set as Home Page")
       /// Page Address
       internal static let title = L10n.tr("Localizable", "browser.location.title", fallback: "Page Address")
       /// All visits
       internal static let trail = L10n.tr("Localizable", "browser.location.trail", fallback: "All visits")
+      /// %lld×
+      internal static func visitCount(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "browser.location.visitCount", p1, fallback: "%lld×")
+      }
       internal enum DataSheet {
         /// Delete Cookies
         internal static let deleteCookies = L10n.tr("Localizable", "browser.location.dataSheet.deleteCookies", fallback: "Delete Cookies")
@@ -105,6 +111,8 @@ internal enum L10n {
       internal enum Sort {
         /// Alphabetical
         internal static let alphabetical = L10n.tr("Localizable", "browser.location.sort.alphabetical", fallback: "Alphabetical")
+        /// Sort order
+        internal static let label = L10n.tr("Localizable", "browser.location.sort.label", fallback: "Sort order")
         /// Recent
         internal static let recent = L10n.tr("Localizable", "browser.location.sort.recent", fallback: "Recent")
       }
