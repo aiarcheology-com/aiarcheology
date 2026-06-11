@@ -1,8 +1,12 @@
-# AI Archeology
+# ML Browser
 
-AI Archeology (app target **ML Browser**) is an iOS app that combines a web browser with on-device machine learning: the user loads any CoreML object-detection model (image classification is planned), and Vision runs it against snapshots of the rendered page on a configurable timer, drawing the detections directly over the web content. No images leave the device.
+ML Browser is an iOS app that combines a web browser with on-device machine learning: the user loads any CoreML object-detection model (image classification is planned), and Vision runs it against snapshots of the rendered page on a configurable timer, drawing the detections directly over the web content. No images leave the device.
 
 The flagship use case — and where the name comes from — is archeology: browsing LIDAR / terrain-map sites with the bundled demo models to spot features such as burial mounds. But the app is model-agnostic; any imported detection model works the same way on any web content.
+
+<p align="center">
+  <img src="ExampleScreenshot.jpg" alt="AI Archeology example">
+</p>
 
 ## Repository layout
 
