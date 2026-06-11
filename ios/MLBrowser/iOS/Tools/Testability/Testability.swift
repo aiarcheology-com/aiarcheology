@@ -120,6 +120,10 @@ extension TestabilityIdentification {
 		case locationSheetVisitTrail
 		case locationSheetCopyUrl
 		case locationSheetDeleteEntry
+		case locationSheetData
+		case locationSheetDeleteHistory
+		case dataSheetDeleteCookies
+		case dataSheetDismiss
 		case visitTrailItem
 		case visitTrailCopyUrl
 		case visitTrailDeleteEntry

@@ -27,6 +27,8 @@ struct LocationSheetView: View {
 	private var history: FetchedResults<WebHistoryEntry>
 
 	let onOpen: (String) -> Void
+	/// Deletes the complete browsing history including the recorded visit trail.
+	let onDeleteHistory: () async -> Void
 
 	@State private var searchText: String
 	/// Debounced copy of `searchText` that actually drives the filter.
@@ -36,10 +38,15 @@ struct LocationSheetView: View {
 	/// Host whose recorded visit trail is pushed as the detail (programmatic navigation —
 	/// a NavigationLink in the row would make the List add its own disclosure chevron).
 	@State private var trailHost: String?
+	@State private var presentDataSheet = false
+	@State private var confirmDeleteHistory = false
 	@FocusState private var searchFocused: Bool
 
-	init(initialText: String, onOpen: @escaping (String) -> Void) {
+	init(initialText: String,
+		 onOpen: @escaping (String) -> Void,
+		 onDeleteHistory: @escaping () async -> Void) {
 		self.onOpen = onOpen
+		self.onDeleteHistory = onDeleteHistory
 		_searchText = State(initialValue: initialText)
 		_filterText = State(initialValue: "")
 	}
@@ -72,6 +79,34 @@ struct LocationSheetView: View {
 					}
 					.testability(Testability.Button.locationSheetDismiss)
 				}
+				ToolbarItemGroup(placement: .bottomBar) {
+					Button(L10n.Browser.Location.data) {
+						presentDataSheet = true
+					}
+					.testability(Testability.Button.locationSheetData)
+					Spacer()
+					Button(role: .destructive) {
+						confirmDeleteHistory = true
+					} label: {
+						Text(L10n.Common.delete)
+							.foregroundColor(.red)
+					}
+					.testability(Testability.Button.locationSheetDeleteHistory)
+				}
+			}
+			.confirmationDialog(
+				L10n.Browser.Location.DeleteHistory.confirm,
+				isPresented: $confirmDeleteHistory,
+				titleVisibility: .visible
+			) {
+				Button(L10n.Common.delete, role: .destructive) {
+					Task {
+						await onDeleteHistory()
+					}
+				}
+			}
+			.sheet(isPresented: $presentDataSheet) {
+				WebsiteDataView()
 			}
 		}
 	}
@@ -261,6 +296,52 @@ struct LocationSheetView: View {
 		}
 		.accessibilityLabel(L10n.Browser.Location.fullUrls)
 		.testability(Testability.Button.locationSheetFullUrls)
+	}
+}
+
+// MARK: - Website data
+
+/// Website-data management: today a single action — deleting cookies, caches and other
+/// data the visited pages stored (via the existing `WebCacheCleaner`).
+private struct WebsiteDataView: View {
+	@Environment(\.dismiss) private var dismiss
+	@State private var cleaned = false
+
+	var body: some View {
+		NavigationStack {
+			List {
+				Section {
+					Button(role: .destructive) {
+						WebCacheCleaner.clean()
+						cleaned = true
+					} label: {
+						HStack {
+							Text(L10n.Browser.Location.DataSheet.deleteCookies)
+							if cleaned {
+								Spacer()
+								Image(systemName: "checkmark")
+									.foregroundStyle(.secondary)
+							}
+						}
+					}
+					.disabled(cleaned)
+					.testability(Testability.Button.dataSheetDeleteCookies)
+				} footer: {
+					Text(L10n.Browser.Location.DataSheet.description)
+				}
+			}
+			.navigationTitle(L10n.Browser.Location.DataSheet.title)
+			.navigationBarTitleDisplayMode(.inline)
+			.toolbar {
+				ToolbarItem(placement: .navigationBarTrailing) {
+					Button(action: { dismiss() }) {
+						Text(L10n.Common.dismiss)
+							.bold()
+					}
+					.testability(Testability.Button.dataSheetDismiss)
+				}
+			}
+		}
 	}
 }
 

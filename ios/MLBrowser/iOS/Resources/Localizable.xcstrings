@@ -2302,6 +2302,66 @@
         }
       }
     },
+    "browser.location.data" : {
+      "comment" : "Location sheet button opening the website-data sheet",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data"
+          }
+        }
+      }
+    },
+    "browser.location.dataSheet.deleteCookies" : {
+      "comment" : "Button deleting cookies and other website data",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Cookies"
+          }
+        }
+      }
+    },
+    "browser.location.dataSheet.description" : {
+      "comment" : "Explains what the Delete Cookies button removes",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removes cookies, caches and other data stored by visited websites. Pages may sign you out."
+          }
+        }
+      }
+    },
+    "browser.location.dataSheet.title" : {
+      "comment" : "Title of the website-data sheet",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Website Data"
+          }
+        }
+      }
+    },
+    "browser.location.deleteHistory.confirm" : {
+      "comment" : "Confirmation dialog title before deleting the complete browsing history",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete the complete browsing history?"
+          }
+        }
+      }
+    },
     "browser.location.fullUrls" : {
       "comment" : "Accessibility label for the location sheet button that toggles full multiline URLs",
       "extractionState" : "manual",

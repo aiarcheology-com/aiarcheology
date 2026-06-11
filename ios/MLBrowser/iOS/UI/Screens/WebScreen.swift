@@ -134,9 +134,16 @@ struct WebScreenView: View {
             }
         }
         .sheet(isPresented: $presentLocationSheet) {
-            LocationSheetView(initialText: appState.browserState.displayedURL?.absoluteString ?? "") { input in
-                openRequested(input)
-            }
+            LocationSheetView(
+                initialText: appState.browserState.displayedURL?.absoluteString ?? "",
+                onOpen: { input in
+                    openRequested(input)
+                },
+                onDeleteHistory: {
+                    // Deletes entries and the recorded visit trail together.
+                    await appState.demoDataManager.deleteBrowsingHistory()
+                }
+            )
         }
         .alert(isPresented: $showAlert) {
             alertForError(latestError)

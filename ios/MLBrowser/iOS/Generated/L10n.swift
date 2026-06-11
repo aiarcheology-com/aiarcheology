@@ -78,6 +78,8 @@ internal enum L10n {
       internal static let label = L10n.tr("Localizable", "browser.floatingButton.label", fallback: "Show or hide browser controls")
     }
     internal enum Location {
+      /// Data
+      internal static let data = L10n.tr("Localizable", "browser.location.data", fallback: "Data")
       /// Full URLs
       internal static let fullUrls = L10n.tr("Localizable", "browser.location.fullUrls", fallback: "Full URLs")
       /// Open
@@ -88,6 +90,18 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "browser.location.title", fallback: "Search")
       /// All visits
       internal static let trail = L10n.tr("Localizable", "browser.location.trail", fallback: "All visits")
+      internal enum DataSheet {
+        /// Delete Cookies
+        internal static let deleteCookies = L10n.tr("Localizable", "browser.location.dataSheet.deleteCookies", fallback: "Delete Cookies")
+        /// Removes cookies, caches and other data stored by visited websites. Pages may sign you out.
+        internal static let description = L10n.tr("Localizable", "browser.location.dataSheet.description", fallback: "Removes cookies, caches and other data stored by visited websites. Pages may sign you out.")
+        /// Website Data
+        internal static let title = L10n.tr("Localizable", "browser.location.dataSheet.title", fallback: "Website Data")
+      }
+      internal enum DeleteHistory {
+        /// Delete the complete browsing history?
+        internal static let confirm = L10n.tr("Localizable", "browser.location.deleteHistory.confirm", fallback: "Delete the complete browsing history?")
+      }
       internal enum Sort {
         /// Alphabetical
         internal static let alphabetical = L10n.tr("Localizable", "browser.location.sort.alphabetical", fallback: "Alphabetical")
