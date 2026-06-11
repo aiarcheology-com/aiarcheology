@@ -163,6 +163,14 @@ struct LocationSheetView: View {
 				}
 				.buttonStyle(.borderless)
 				.testability(Testability.Button.locationSheetHistoryItem)
+				.contextMenu {
+					Button {
+						UIPasteboard.general.string = page.absoluteString
+					} label: {
+						Label(L10n.Common.copy, systemImage: "doc.on.doc")
+					}
+					.testability(Testability.Button.locationSheetCopyUrl)
+				}
 
 				// Detail-disclosure into the recorded trail of this site — every URL
 				// the page settled on (map pans included), to replay the movement.
@@ -293,6 +301,14 @@ private struct VisitTrailView: View {
 						}
 					}
 					.testability(Testability.Button.visitTrailItem)
+					.contextMenu {
+						Button {
+							UIPasteboard.general.string = page.absoluteString
+						} label: {
+							Label(L10n.Common.copy, systemImage: "doc.on.doc")
+						}
+						.testability(Testability.Button.visitTrailCopyUrl)
+					}
 				}
 			}
 		}

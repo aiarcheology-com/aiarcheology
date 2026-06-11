@@ -121,6 +121,8 @@ internal enum L10n {
     internal static let cancel = L10n.tr("Localizable", "common.cancel", fallback: "Cancel")
     /// Clear
     internal static let clear = L10n.tr("Localizable", "common.clear", fallback: "Clear")
+    /// Copy
+    internal static let copy = L10n.tr("Localizable", "common.copy", fallback: "Copy")
     /// Delete
     internal static let delete = L10n.tr("Localizable", "common.delete", fallback: "Delete")
     /// Dismiss

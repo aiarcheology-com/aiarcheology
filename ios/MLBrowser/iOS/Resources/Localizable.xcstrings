@@ -2770,6 +2770,18 @@
         }
       }
     },
+    "common.copy" : {
+      "comment" : "Generic copy-to-clipboard action",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
+          }
+        }
+      }
+    },
     "common.delete" : {
       "comment" : "Generic delete action",
       "extractionState" : "manual",
