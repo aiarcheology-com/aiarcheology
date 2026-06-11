@@ -105,6 +105,12 @@ final class MyClass {
   - Preferred workflow: add via Xcode so build phases/targets are correct.
   - If editing `.pbxproj` manually, do it carefully and keep diffs minimal.
 
+### Core Data model versioning
+
+- **Add a new model version only when the previous version has already been released** (shipped to real users). While a model version is unreleased, fold schema changes into it in place — dev installations are simply reset, and the destroy-and-recreate recovery in `DataController` covers stale local stores.
+- A new (post-release) model version requires the full migration step: a new `MLBrowser_x.y.z.xcdatamodel`, an explicit `.xcmappingmodel` under `Persistence/Migration/<from>-<to>/` generated **in Xcode** (its model-version hashes are tool-computed; never hand-write it), and any custom `NSEntityMigrationPolicy` wiring — see `Migration/0.0.0-0.0.1/` as the template. Release builds run with mapping inference disabled, so a missing mapping fails migration for real users.
+- Editing a model version in place invalidates the version hashes any existing mapping models reference for it; regenerate affected mappings if their source/target changed.
+
 ### Core Data testing
 
 - `NSBatchDeleteRequest` and other batch operations do **not** work with `NSInMemoryStoreType`. Test batch behavior via integration tests with SQLite stores.
@@ -286,6 +292,7 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
 
 ### Changelog
 
+- **2026-06-11**: Added Core Data model versioning rules (new model version only after the previous one shipped; unreleased versions are edited in place; explicit Xcode-generated mapping models required per released migration step).
 - **2026-06-11**: Branch naming now documents the issue-key segment (`<type>/AIA-XXXX/desc`) matching actual practice; removed the stale Intel/x86_64 Xcode Cloud claim; cheat-sheet `xcodebuild` example no longer hardcodes a simulator model.
 - **2026-01-03**: Added Harmonize architectural linting (section 7), updated section numbering.
 - **2026-01-03**: Reorganized document, added Quick Reference, expanded sections (Security/Secrets, Performance, Code Review, Dependencies, Assets), merged anti-patterns, and added cross-references to existing docs.
