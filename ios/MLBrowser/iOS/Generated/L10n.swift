@@ -94,6 +94,10 @@ internal enum L10n {
         /// Recent
         internal static let recent = L10n.tr("Localizable", "browser.location.sort.recent", fallback: "Recent")
       }
+      internal enum Trail {
+        /// No visits recorded yet
+        internal static let empty = L10n.tr("Localizable", "browser.location.trail.empty", fallback: "No visits recorded yet")
+      }
     }
     internal enum Navigation {
       /// Back

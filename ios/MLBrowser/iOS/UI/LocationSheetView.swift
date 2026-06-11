@@ -238,23 +238,44 @@ struct LocationSheetView: View {
 /// The complete recorded trail of one site — every URL the page settled on, including
 /// the History-API changes a map application makes while panning. Tapping a row reopens
 /// that exact URL, replaying the position.
+///
+/// Matching is by shared registrable domain, not exact host: map portals commonly
+/// redirect (geoportal.bayern.de → atlas.bayern.de), and the panning happens on the
+/// redirected host while the history entry keeps the typed one. Heuristic: the last two
+/// host labels — sites under two-part public suffixes (e.g. *.co.uk) may over-match.
 private struct VisitTrailView: View {
 	@FetchRequest private var visits: FetchedResults<WebVisit>
 
-	let host: String
+	private let domain: String
 	let onOpen: (String) -> Void
 
 	init(host: String, onOpen: @escaping (String) -> Void) {
-		self.host = host
 		self.onOpen = onOpen
+		let domain = Self.registrableDomain(of: host)
+		self.domain = domain
 		_visits = FetchRequest(
 			sortDescriptors: [NSSortDescriptor(keyPath: \WebVisit.creationDate_, ascending: false)],
-			predicate: NSPredicate(format: "host == %@ AND page != nil AND creationDate_ != nil", host),
+			predicate: NSPredicate(
+				format: "(host == %@ OR host ENDSWITH %@) AND page != nil AND creationDate_ != nil",
+				domain, "." + domain
+			),
 			animation: .default)
+	}
+
+	private static func registrableDomain(of host: String) -> String {
+		let labels = host.split(separator: ".")
+		guard labels.count > 2 else { return host }
+		return labels.suffix(2).joined(separator: ".")
 	}
 
 	var body: some View {
 		List {
+			if visits.isEmpty {
+				Text(L10n.Browser.Location.Trail.empty)
+					.foregroundStyle(.secondary)
+					.frame(maxWidth: .infinity, alignment: .center)
+					.padding(.vertical, 32)
+			}
 			ForEach(visits, id: \.objectID) { visit in
 				if let page = visit.page {
 					Button {
@@ -276,7 +297,7 @@ private struct VisitTrailView: View {
 			}
 		}
 		.listStyle(.plain)
-		.navigationTitle(host)
+		.navigationTitle(domain)
 		.navigationBarTitleDisplayMode(.inline)
 	}
 }

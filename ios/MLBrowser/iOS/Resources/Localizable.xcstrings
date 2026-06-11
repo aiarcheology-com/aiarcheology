@@ -2386,6 +2386,18 @@
         }
       }
     },
+    "browser.location.trail.empty" : {
+      "comment" : "Shown in the visit-trail detail when nothing was recorded for the site yet",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No visits recorded yet"
+          }
+        }
+      }
+    },
     "browser.navigation.back" : {
       "comment" : "Accessibility label of the browser back button",
       "extractionState" : "manual",
