@@ -137,7 +137,9 @@ final class Settings: ObservableObject, Validatable {
             UserDefaultsKeys.defaultPage: URL(string: "https://www.google.com")!,
             UserDefaultsKeys.removeAnnotationOnDrag: false,
             UserDefaultsKeys.entityId: UUID().uuidString,
-            UserDefaultsKeys.fullscreenDetection: true
+            // Off by default: hitting play and losing the chrome surprises
+            // first-time users; fullscreen detection is an opt-in.
+            UserDefaultsKeys.fullscreenDetection: false
         ]
 
 		// Register default values
@@ -189,7 +191,7 @@ final class Settings: ObservableObject, Validatable {
 		removeAnnotationOnDrag = false
 		entityId = UUID()
 		lastPage = nil
-		fullscreenDetection = true
+		fullscreenDetection = false
 
 		UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.lastPage)
 		UserDefaults.standard.set(keepSlideShowActive, forKey: UserDefaultsKeys.keepSlideShowActive)
