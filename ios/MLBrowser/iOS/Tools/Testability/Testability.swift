@@ -119,8 +119,10 @@ extension TestabilityIdentification {
 		case locationSheetFullUrls
 		case locationSheetVisitTrail
 		case locationSheetCopyUrl
+		case locationSheetDeleteEntry
 		case visitTrailItem
 		case visitTrailCopyUrl
+		case visitTrailDeleteEntry
 		// Drawer
 		case drawerSettings
 		// Snap Adjustment

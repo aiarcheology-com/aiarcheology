@@ -19,6 +19,7 @@ struct LocationSheetView: View {
 	}
 
 	@Environment(\.dismiss) private var dismiss
+	@Environment(\.managedObjectContext) private var moc
 	@FetchRequest(
 		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: false)],
 		predicate: NSPredicate(format: "page != nil AND creationDate_ != nil"),
@@ -163,6 +164,8 @@ struct LocationSheetView: View {
 				}
 				.buttonStyle(.borderless)
 				.testability(Testability.Button.locationSheetHistoryItem)
+				// Context menu doubles every action for iPad-on-Mac, where swipe
+				// actions are not reachable with a mouse (right-click opens it).
 				.contextMenu {
 					Button {
 						UIPasteboard.general.string = page.absoluteString
@@ -170,6 +173,12 @@ struct LocationSheetView: View {
 						Label(L10n.Common.copy, systemImage: "doc.on.doc")
 					}
 					.testability(Testability.Button.locationSheetCopyUrl)
+					Button(role: .destructive) {
+						deleteEntry(entry)
+					} label: {
+						Label(L10n.Common.delete, systemImage: "trash")
+					}
+					.testability(Testability.Button.locationSheetDeleteEntry)
 				}
 
 				// Detail-disclosure into the recorded trail of this site — every URL
@@ -193,7 +202,21 @@ struct LocationSheetView: View {
 					.testability(Testability.Button.locationSheetVisitTrail)
 				}
 			}
+			.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+				Button(role: .destructive) {
+					deleteEntry(entry)
+				} label: {
+					Label(L10n.Common.delete, systemImage: "trash")
+				}
+				.testability(Testability.Button.locationSheetDeleteEntry)
+			}
 		}
+	}
+
+	private func deleteEntry(_ entry: WebHistoryEntry) {
+		// Capture the id before deletion — Core Data nullifies attributes on delete.
+		let entityId = entry.entityId
+		WebHistoryEntry.delete(entityId, in: moc)
 	}
 
 	/// Best-effort site icon from the conventional /favicon.ico location; sites that
@@ -252,6 +275,7 @@ struct LocationSheetView: View {
 /// redirected host while the history entry keeps the typed one. Heuristic: the last two
 /// host labels — sites under two-part public suffixes (e.g. *.co.uk) may over-match.
 private struct VisitTrailView: View {
+	@Environment(\.managedObjectContext) private var moc
 	@FetchRequest private var visits: FetchedResults<WebVisit>
 
 	private let domain: String
@@ -308,6 +332,20 @@ private struct VisitTrailView: View {
 							Label(L10n.Common.copy, systemImage: "doc.on.doc")
 						}
 						.testability(Testability.Button.visitTrailCopyUrl)
+						Button(role: .destructive) {
+							deleteVisit(visit)
+						} label: {
+							Label(L10n.Common.delete, systemImage: "trash")
+						}
+						.testability(Testability.Button.visitTrailDeleteEntry)
+					}
+					.swipeActions(edge: .trailing, allowsFullSwipe: true) {
+						Button(role: .destructive) {
+							deleteVisit(visit)
+						} label: {
+							Label(L10n.Common.delete, systemImage: "trash")
+						}
+						.testability(Testability.Button.visitTrailDeleteEntry)
 					}
 				}
 			}
@@ -315,5 +353,11 @@ private struct VisitTrailView: View {
 		.listStyle(.plain)
 		.navigationTitle(domain)
 		.navigationBarTitleDisplayMode(.inline)
+	}
+
+	private func deleteVisit(_ visit: WebVisit) {
+		// Capture the id before deletion — Core Data nullifies attributes on delete.
+		let entityId = visit.entityId
+		WebVisit.delete(entityId, in: moc)
 	}
 }
