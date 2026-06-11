@@ -12,6 +12,8 @@
 		8A112CC42AC0852B00786384 /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CC32AC0852B00786384 /* String+Extensions.swift */; };
 		8A112CC62AC0863300786384 /* Bool+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CC52AC0863300786384 /* Bool+Extensions.swift */; };
 		8A112CCB2AC2BCBC00786384 /* Detector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CCA2AC2BCBC00786384 /* Detector.swift */; };
+		8A4F0E262F110A0500ABCDEF /* DetectionTiling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E252F110A0500ABCDEF /* DetectionTiling.swift */; };
+		8A4F0E282F110A0500ABCDEF /* DetectionTilingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E272F110A0500ABCDEF /* DetectionTilingTests.swift */; };
 		8A112CCD2AC30E3E00786384 /* View+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CCC2AC30E3E00786384 /* View+Extensions.swift */; };
 		8A13280F2AF142C600F119C6 /* WebScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A13280E2AF142C600F119C6 /* WebScreen.swift */; };
 		8A1328112AF142FF00F119C6 /* GalleryScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1328102AF142FF00F119C6 /* GalleryScreen.swift */; };
@@ -221,6 +223,8 @@
 		8A112CC32AC0852B00786384 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
 		8A112CC52AC0863300786384 /* Bool+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Bool+Extensions.swift"; sourceTree = "<group>"; };
 		8A112CCA2AC2BCBC00786384 /* Detector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detector.swift; sourceTree = "<group>"; };
+		8A4F0E252F110A0500ABCDEF /* DetectionTiling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionTiling.swift; sourceTree = "<group>"; };
+		8A4F0E272F110A0500ABCDEF /* DetectionTilingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionTilingTests.swift; sourceTree = "<group>"; };
 		8A112CCC2AC30E3E00786384 /* View+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "View+Extensions.swift"; sourceTree = "<group>"; };
 		8A13280E2AF142C600F119C6 /* WebScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebScreen.swift; sourceTree = "<group>"; };
 		8A1328102AF142FF00F119C6 /* GalleryScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryScreen.swift; sourceTree = "<group>"; };
@@ -482,6 +486,7 @@
 			children = (
 				8AC650952B2A43DB00922648 /* Demo Models */,
 				8AC6509A2B2B3D9900922648 /* Classificator.swift */,
+				8A4F0E252F110A0500ABCDEF /* DetectionTiling.swift */,
 				8A112CCA2AC2BCBC00786384 /* Detector.swift */,
 				8AC650962B2A442A00922648 /* DeepDriver.swift */,
 				8AC650982B2A453200922648 /* Driver.swift */,
@@ -786,6 +791,7 @@
 				94929E742ED633C1001A4C63 /* ExtensionsTests.swift */,
 				94D79C8B2EE37B0D0027C9FA /* FileManagerExtensionsTests.swift */,
 				8A4F0E1B2F110A0300ABCDEF /* BrowserStateTests.swift */,
+				8A4F0E272F110A0500ABCDEF /* DetectionTilingTests.swift */,
 				94929E7A2ED63ADE001A4C63 /* GalleryModelTests.swift */,
 				8A4F0E232F110A0400ABCDEF /* VisitTrailRecorderTests.swift */,
 				94929E7B2ED63ADE001A4C63 /* GuideTests.swift */,
@@ -1287,6 +1293,7 @@
 				94D79C8A2EE36BF40027C9FA /* SnapAdjustmentOverlay.swift in Sources */,
 				8AC650A32B2B4BB000922648 /* DeepState.swift in Sources */,
 				8A112CCB2AC2BCBC00786384 /* Detector.swift in Sources */,
+				8A4F0E262F110A0500ABCDEF /* DetectionTiling.swift in Sources */,
 				8A7740D52B18AEB8002E90D9 /* Image+Extensions.swift in Sources */,
 				94BAD1842EB0ED3D0079869F /* UUID+Extension.swift in Sources */,
 				8A81536C2B3CAB6F00B3B079 /* DownloadDetailView.swift in Sources */,
@@ -1341,6 +1348,7 @@
 				945C55802ED61234007DD8FB /* DownloaderTests.swift in Sources */,
 				94929E7E2ED63ADE001A4C63 /* SnapStateTests.swift in Sources */,
 				8A4F0E1C2F110A0300ABCDEF /* BrowserStateTests.swift in Sources */,
+				8A4F0E282F110A0500ABCDEF /* DetectionTilingTests.swift in Sources */,
 				8A4F0E242F110A0400ABCDEF /* VisitTrailRecorderTests.swift in Sources */,
 				94929E7F2ED63ADE001A4C63 /* GalleryModelTests.swift in Sources */,
 				94929E802ED63ADE001A4C63 /* GuideTests.swift in Sources */,
