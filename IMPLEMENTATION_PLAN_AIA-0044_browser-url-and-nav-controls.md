@@ -266,6 +266,19 @@ dissolves most of the focused-TextField writer races — the bar is no longer ed
   committed loads. Intended (restores map position) but called out for review.
 - **Two floating controls**: no collision logic (trade-off above).
 
+## Release-time obligation — Core Data model v0.0.2 (added 2026-06-11)
+
+This branch introduced model version `MLBrowser_0.0.2` (`WebHistoryEntry.visitCount` + the
+`WebVisit` trail entity). **Only model 0.0.0 has ever shipped** (user decision: no
+0.0.1→0.0.2 mapping needed — 0.0.1 stores exist only on dev machines, where the
+destroy-and-recreate recovery is acceptable). What MUST happen **before the next App Store
+release** (release builds run with mapping inference disabled):
+
+- Generate `MLBrowser_0.0.0_0.0.2.xcmappingmodel` in Xcode (File → New → Mapping Model,
+  source 0.0.0 → target 0.0.2) and wire `FillEntityIdIfNilPolicy` on the entity mappings
+  the same way `Migration/0.0.0-0.0.1/` does — explicit mappings do **not** chain, so the
+  existing 0.0.0→0.0.1 mapping does not cover users migrating straight to 0.0.2.
+
 ## Verification
 
 1. **Unit tests** (`BrowserStateTests`, real `WKWebView` on simulator with local HTML):
