@@ -33,6 +33,7 @@ final class Settings: ObservableObject, Validatable {
 		static let defaultPage = "defaultPage"
 		static let removeAnnotationOnDrag = "removeAnnotationOnDrag"
 		static let entityId = "entityId"
+		static let fullscreenDetection = "fullscreenDetection"
 	}
 
 	public var isFirstLaunchMarked: Bool = false
@@ -101,6 +102,15 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	/// When enabled, starting detection hides the browser chrome (fullscreen mode
+	/// with the floating toggle button). When disabled, detection runs with the
+	/// chrome visible and no floating button is shown.
+	@Published public var fullscreenDetection: Bool {
+		didSet {
+			UserDefaults.standard.set(fullscreenDetection, forKey: UserDefaultsKeys.fullscreenDetection)
+		}
+	}
+
 	@Published public var entityId: UUID? {
 		didSet {
 			UserDefaults.standard.set(entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
@@ -126,7 +136,8 @@ final class Settings: ObservableObject, Validatable {
             // swiftlint:disable:next force_unwrapping
             UserDefaultsKeys.defaultPage: URL(string: "https://www.google.com")!,
             UserDefaultsKeys.removeAnnotationOnDrag: false,
-            UserDefaultsKeys.entityId: UUID().uuidString
+            UserDefaultsKeys.entityId: UUID().uuidString,
+            UserDefaultsKeys.fullscreenDetection: true
         ]
 
 		// Register default values
@@ -142,6 +153,7 @@ final class Settings: ObservableObject, Validatable {
 		self.defaultPage = UserDefaults.standard.url(forKey: UserDefaultsKeys.defaultPage)
 		self.lastPage = UserDefaults.standard.url(forKey: UserDefaultsKeys.lastPage)
 		self.removeAnnotationOnDrag = UserDefaults.standard.bool(forKey: UserDefaultsKeys.removeAnnotationOnDrag)
+		self.fullscreenDetection = UserDefaults.standard.bool(forKey: UserDefaultsKeys.fullscreenDetection)
 		if let uuidString = UserDefaults.standard.string(forKey: UserDefaultsKeys.entityId),
 		   let uuid = UUID(uuidString: uuidString) {
 			self.entityId = uuid
@@ -177,6 +189,7 @@ final class Settings: ObservableObject, Validatable {
 		removeAnnotationOnDrag = false
 		entityId = UUID()
 		lastPage = nil
+		fullscreenDetection = true
 
 		UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.lastPage)
 		UserDefaults.standard.set(keepSlideShowActive, forKey: UserDefaultsKeys.keepSlideShowActive)
@@ -190,5 +203,6 @@ final class Settings: ObservableObject, Validatable {
 		UserDefaults.standard.set(defaultPage, forKey: UserDefaultsKeys.defaultPage)
 		UserDefaults.standard.set(removeAnnotationOnDrag, forKey: UserDefaultsKeys.removeAnnotationOnDrag)
 		UserDefaults.standard.set(entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
+		UserDefaults.standard.set(fullscreenDetection, forKey: UserDefaultsKeys.fullscreenDetection)
 	}
 }

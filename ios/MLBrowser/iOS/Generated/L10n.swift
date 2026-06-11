@@ -273,6 +273,8 @@ internal enum L10n {
     internal static let deleteCache = L10n.tr("Localizable", "settings.deleteCache", fallback: "Delete Cache")
     /// Frequency
     internal static let frequency = L10n.tr("Localizable", "settings.frequency", fallback: "Frequency")
+    /// Fullscreen Detection
+    internal static let fullscreenDetection = L10n.tr("Localizable", "settings.fullscreenDetection", fallback: "Fullscreen Detection")
     /// History
     internal static let history = L10n.tr("Localizable", "settings.history", fallback: "History")
     /// History Limit

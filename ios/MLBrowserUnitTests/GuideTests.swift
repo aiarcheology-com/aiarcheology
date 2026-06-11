@@ -35,6 +35,9 @@ final class GuideTests: XCTestCase {
         try await super.setUp()
 
         settings = Settings()
+        // Settings persists to UserDefaults.standard; pin the default so tests
+        // that flip the flag cannot leak into later tests via the suite's defaults.
+        settings.fullscreenDetection = true
         dataController = DataController(inMemory: true)
         snapState = SnapState(settings: settings)
         deepState = DeepState(dataController: dataController)
@@ -328,8 +331,54 @@ final class GuideTests: XCTestCase {
         XCTAssertTrue(sut.isFullscreen)
     }
 
+    // MARK: - Fullscreen Detection Setting
+
+    func testOntheflyDetectionTapped_Start_KeepsChrome_WhenFullscreenDetectionDisabled() {
+        settings.fullscreenDetection = false
+
+        sut.ontheflyDetectionTapped()
+
+        XCTAssertTrue(sut.ontheflyDetectionEnabled)
+        XCTAssertTrue(sut.chromeVisible, "Disabled feature keeps the chrome visible during detection")
+        XCTAssertFalse(sut.isFullscreen)
+        XCTAssertFalse(sut.showsFloatingChromeButton, "No floating button when the feature is off")
+    }
+
+    func testFullscreenDetectionSettingChanged_DisablingMidDetection_RestoresChrome() {
+        sut.ontheflyDetectionTapped()
+        XCTAssertFalse(sut.chromeVisible)
+
+        settings.fullscreenDetection = false
+        sut.fullscreenDetectionSettingChanged()
+
+        XCTAssertTrue(sut.chromeVisible)
+        XCTAssertTrue(sut.ontheflyDetectionEnabled, "Changing the setting must not stop detection")
+        XCTAssertFalse(sut.showsFloatingChromeButton)
+    }
+
+    func testFullscreenDetectionSettingChanged_EnablingMidDetection_EntersFullscreen() {
+        settings.fullscreenDetection = false
+        sut.ontheflyDetectionTapped()
+        XCTAssertTrue(sut.chromeVisible)
+
+        settings.fullscreenDetection = true
+        sut.fullscreenDetectionSettingChanged()
+
+        XCTAssertFalse(sut.chromeVisible)
+        XCTAssertTrue(sut.isFullscreen)
+    }
+
+    func testFullscreenDetectionSettingChanged_WhileDetectionOff_IsNoOp() {
+        settings.fullscreenDetection = false
+
+        sut.fullscreenDetectionSettingChanged()
+
+        XCTAssertTrue(sut.chromeVisible)
+        XCTAssertFalse(sut.ontheflyDetectionEnabled)
+    }
+
     // MARK: - On-the-fly Detection Reset Tests
-    
+
     func testOntheflyDetectionResetTapped_WhenEnabled_RestartsTimer() {
         sut.ontheflyDetectionEnabled = true
         snapState.startTimer()

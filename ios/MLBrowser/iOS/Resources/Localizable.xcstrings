@@ -11056,6 +11056,18 @@
         }
       }
     },
+    "settings.fullscreenDetection" : {
+      "comment" : "Toggle for the fullscreen detection feature (hide browser chrome while detection runs)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fullscreen Detection"
+          }
+        }
+      }
+    },
     "settings.history" : {
       "comment" : "Navigation link to history screen",
       "extractionState" : "manual",

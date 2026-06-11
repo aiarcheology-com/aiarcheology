@@ -37,6 +37,7 @@ struct ContentView: View {
     // Fullscreen detection mode (one-way bridges from Guide; the view only reads):
     @State private var detectionEnabled = false
     @State private var chromeVisible = true
+    @State private var fullscreenFeatureEnabled = true
     @State private var selectedMode = AppMode.web
     @State private var floatingButtonPosition: CGPoint?
     
@@ -78,6 +79,9 @@ struct ContentView: View {
         }
         .onReceive(appState.guide.$chromeVisible) { visible in
             withAnimation { chromeVisible = visible }
+        }
+        .onReceive(appState.settings.$fullscreenDetection) { enabled in
+            withAnimation { fullscreenFeatureEnabled = enabled }
         }
         .onReceive(appState.guide.$mode) { mode in
             selectedMode = mode
@@ -160,7 +164,7 @@ struct ContentView: View {
 
             // Chrome toggle for fullscreen detection mode; only its 52pt frame
             // is hit-testable, all other touches reach the web view.
-            if detectionEnabled && selectedMode == .web {
+            if detectionEnabled && fullscreenFeatureEnabled && selectedMode == .web {
                 FloatingChromeButton(position: $floatingButtonPosition)
                     .environmentObject(appState.guide)
                     .transition(.opacity)

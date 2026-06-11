@@ -125,6 +125,7 @@ extension TestabilityIdentification {
 		case settingsRunAtLaunch
 		case settingsShowLabels
 		case settingsReopenLastPage
+		case settingsFullscreenDetection
 		// Slideshow
 		case slideshowShowNextTime
 		// Side Menu Cell
