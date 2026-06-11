@@ -36,5 +36,13 @@
         <attribute name="entityId" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="lifeCycleString" attributeType="String"/>
         <attribute name="page" optional="YES" attributeType="URI"/>
+        <attribute name="visitCount" attributeType="Integer 64" defaultValueString="1" usesScalarValueType="YES"/>
+    </entity>
+    <entity name="WebVisit" representedClassName="WebVisit" syncable="YES">
+        <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="entityId" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="host" optional="YES" attributeType="String"/>
+        <attribute name="lifeCycleString" attributeType="String"/>
+        <attribute name="page" optional="YES" attributeType="URI"/>
     </entity>
 </model>

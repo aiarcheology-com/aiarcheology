@@ -102,14 +102,36 @@ extension TestabilityIdentification {
 		case globalToolbarAdjustments
 		// Floating Chrome Button
 		case floatingChromeToggle
+		// Floating Nav Bar
+		case floatingNavBack
+		case floatingNavForward
+		case floatingNavReload
+		// Web Screen
+		case webScreenAddressBar
+		case webToolbarBack
+		case webToolbarForward
+		case webToolbarReload
+		// Location Sheet
+		case locationSheetOpen
+		case locationSheetDismiss
+		case locationSheetHistoryItem
+		case locationSheetSortOrder
+		case locationSheetFullUrls
+		case locationSheetVisitTrail
+		case locationSheetCopyUrl
+		case locationSheetDeleteEntry
+		case locationSheetSetHomePage
+		case visitTrailData
+		case visitTrailDeleteSite
+		case dataSheetDeleteCookies
+		case visitTrailItem
+		case visitTrailCopyUrl
+		case visitTrailDeleteEntry
 		// Drawer
 		case drawerSettings
 		// Snap Adjustment
 		case snapAdjustmentReset
 		case snapAdjustmentOverlayDismiss
-		// Content View
-		case contentViewAddressBarCancel
-		case contentViewAddressBarHistoryItem
 		// Slideshow
 		case slideshowSwipeLeft
 		case slideshowSwipeRight
@@ -193,8 +215,8 @@ extension TestabilityIdentification {
 		// Settings
 		case settingsDefaultPage
 		case settingsHistoryLimit
-		// Web Screen
-		case webScreenAddressBar
+		// Location Sheet
+		case locationSheetInput
 	}
 	
 	enum Stepper: String, TestabilityIdentification {

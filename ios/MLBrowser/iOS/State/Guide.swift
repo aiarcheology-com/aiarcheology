@@ -21,8 +21,6 @@ final class Guide: ObservableObject {
 	@Published var selectedConfigurationId: UUID?
 	@Published var presentSettings: Bool = false
 	@Published var pageToOpen: URL?
-	@Published var addressBarMenu: [URL] = []
-	@Published var addressSelected: URL?
 	@Published var contentInteractionState: ContentInteractionState = .idle
 	@Published var showSnapAdjustment: Bool = false
 	/// Whether the browser chrome (navigation bar with address field and buttons) is visible.
@@ -59,11 +57,6 @@ final class Guide: ObservableObject {
 			snap.stopTimer()
 			snap.startTimer()
 		}
-	}
-
-	func historySelected(_ item: URL) {
-		addressSelected = item
-		addressBarMenu = []
 	}
 
     @MainActor func ontheflyDetectionTapped() {

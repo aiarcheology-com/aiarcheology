@@ -143,11 +143,15 @@ struct DrawerContent: View {
         }
         
         ToolbarItem(placement: .topBarTrailing) {
-            Button(L10n.Common.dismiss) {
+            // A plain cross balances the leading plus symbol, keeping the inline
+            // title visually centered between the two.
+            Button {
                 drawer.close()
+            } label: {
+                Image(systemName: "xmark")
             }
-            .bold()
             .tint(.blue)
+            .accessibilityLabel(L10n.Common.dismiss)
         }
     }
 }

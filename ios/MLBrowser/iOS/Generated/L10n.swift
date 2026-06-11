@@ -77,6 +77,60 @@ internal enum L10n {
       /// Show or hide browser controls
       internal static let label = L10n.tr("Localizable", "browser.floatingButton.label", fallback: "Show or hide browser controls")
     }
+    internal enum Location {
+      /// Data
+      internal static let data = L10n.tr("Localizable", "browser.location.data", fallback: "Data")
+      /// Full URLs
+      internal static let fullUrls = L10n.tr("Localizable", "browser.location.fullUrls", fallback: "Full URLs")
+      /// Open
+      internal static let `open` = L10n.tr("Localizable", "browser.location.open", fallback: "Open")
+      /// Search or enter website name
+      internal static let placeholder = L10n.tr("Localizable", "browser.location.placeholder", fallback: "Search or enter website name")
+      /// Set as Home Page
+      internal static let setHomePage = L10n.tr("Localizable", "browser.location.setHomePage", fallback: "Set as Home Page")
+      /// Page Address
+      internal static let title = L10n.tr("Localizable", "browser.location.title", fallback: "Page Address")
+      /// All visits
+      internal static let trail = L10n.tr("Localizable", "browser.location.trail", fallback: "All visits")
+      /// %lld×
+      internal static func visitCount(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "browser.location.visitCount", p1, fallback: "%lld×")
+      }
+      internal enum DataSheet {
+        /// Delete Cookies
+        internal static let deleteCookies = L10n.tr("Localizable", "browser.location.dataSheet.deleteCookies", fallback: "Delete Cookies")
+        /// Removes cookies, caches and other data stored by this website. Its pages may sign you out.
+        internal static let description = L10n.tr("Localizable", "browser.location.dataSheet.description", fallback: "Removes cookies, caches and other data stored by this website. Its pages may sign you out.")
+        /// Website Data
+        internal static let title = L10n.tr("Localizable", "browser.location.dataSheet.title", fallback: "Website Data")
+      }
+      internal enum DeleteHistory {
+        /// Delete the browsing history of this website?
+        internal static let confirm = L10n.tr("Localizable", "browser.location.deleteHistory.confirm", fallback: "Delete the browsing history of this website?")
+      }
+      internal enum Sort {
+        /// Alphabetical
+        internal static let alphabetical = L10n.tr("Localizable", "browser.location.sort.alphabetical", fallback: "Alphabetical")
+        /// Sort order
+        internal static let label = L10n.tr("Localizable", "browser.location.sort.label", fallback: "Sort order")
+        /// Recent
+        internal static let recent = L10n.tr("Localizable", "browser.location.sort.recent", fallback: "Recent")
+      }
+      internal enum Trail {
+        /// No visits recorded yet
+        internal static let empty = L10n.tr("Localizable", "browser.location.trail.empty", fallback: "No visits recorded yet")
+      }
+    }
+    internal enum Navigation {
+      /// Back
+      internal static let back = L10n.tr("Localizable", "browser.navigation.back", fallback: "Back")
+      /// Forward
+      internal static let forward = L10n.tr("Localizable", "browser.navigation.forward", fallback: "Forward")
+      /// Reload
+      internal static let reload = L10n.tr("Localizable", "browser.navigation.reload", fallback: "Reload")
+      /// Stop
+      internal static let stop = L10n.tr("Localizable", "browser.navigation.stop", fallback: "Stop")
+    }
   }
   internal enum Clipboard {
     /// Copied: %@
@@ -89,6 +143,8 @@ internal enum L10n {
     internal static let cancel = L10n.tr("Localizable", "common.cancel", fallback: "Cancel")
     /// Clear
     internal static let clear = L10n.tr("Localizable", "common.clear", fallback: "Clear")
+    /// Copy
+    internal static let copy = L10n.tr("Localizable", "common.copy", fallback: "Copy")
     /// Delete
     internal static let delete = L10n.tr("Localizable", "common.delete", fallback: "Delete")
     /// Dismiss

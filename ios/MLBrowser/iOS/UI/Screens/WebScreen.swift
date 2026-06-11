@@ -50,17 +50,15 @@ enum HistoryError: Error {
 import Vision
 struct WebScreenView: View {
 	@Environment(\.managedObjectContext) var moc
+	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
 	@FetchRequest(
 		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: false)],
 		predicate: NSPredicate(format: "page != nil AND creationDate_ != nil"),
 		animation: .default)
 	private var history: FetchedResults<WebHistoryEntry>
 	@EnvironmentObject var appState: AppState
-	@State private var webScreenUpdate: Bool = false
-	@State private var websiteUrl: String = "https://www.google.com"
-	@State private var isWebsiteLoading: Bool = false
-	@State private var inputUrl: String = ""
-	@State private var showMenu: Bool = false
+	@State private var loadRequest = LoadRequest(input: "https://www.google.com", generation: 0)
+	@State private var presentLocationSheet: Bool = false
 	@State private var latestError: HistoryError?
 	@State private var showAlert: Bool = false
 	@State private var hasPerformedInitialAction = false
@@ -73,57 +71,23 @@ struct WebScreenView: View {
 	@ToolbarContentBuilder
 	var toolbarContent: some ToolbarContent {
 		ToolbarItem(placement: .principal) {
-			addressBarTextField
+			// Regular width groups BACK | ADDRESS | FORWARD | RELOAD together — all
+			// browser actions in one cluster, mentally separate from the detection
+			// buttons in the trailing group; compact relies on the floating capsule.
+			HStack(spacing: 8) {
+				if horizontalSizeClass == .regular {
+					WebBackButton()
+				}
+				WebAddressDisplay {
+					presentLocationSheet = true
+				}
+				if horizontalSizeClass == .regular {
+					WebForwardButton()
+					WebReloadStopButton()
+				}
+			}
+			.environmentObject(appState.browserState)
 		}
-	}
-
-	private var addressBarTextField: some View {
-		TextField("Search or enter any website name", text: $inputUrl) { isStart in
-			showMenu = isStart
-		}
-		.testability(Testability.TextField.webScreenAddressBar)
-		.environmentObject(appState.guide)
-		.onChange(of: inputUrl) { _, value in
-			handleInputUrlChange(value)
-		}
-		.padding(5)
-		.background(.ultraThinMaterial)
-		.overlay(addressBarBorder)
-		.textInputAutocapitalization(.never)
-		.disableAutocorrection(true)
-		.onSubmit(of: .text) {
-			handleAddressBarSubmit()
-		}
-		.alert(isPresented: $showAlert) {
-			alertForError(latestError)
-		}
-	}
-
-	private var addressBarBorder: some View {
-		RoundedRectangle(cornerRadius: 5)
-			.stroke(Color.gray.opacity(0.75), lineWidth: 0.75)
-	}
-
-	private func handleInputUrlChange(_ value: String) {
-		if let addressSelected = appState.guide.addressSelected,
-		   inputUrl == addressSelected.absoluteString {
-			appState.guide.addressSelected = nil
-			appState.guide.addressBarMenu = []
-			return
-		}
-		if history.isEmpty.not, showMenu.enabled {
-			appState.guide.addressBarMenu = history
-				.filter { $0.page?.absoluteString.contains(value) == true }
-				.compactMap { $0.page }
-		} else {
-			appState.guide.addressBarMenu = []
-		}
-	}
-
-	private func handleAddressBarSubmit() {
-		self.websiteUrl = inputUrl
-		guard inputUrl.browserInputType == .url else { return }
-		createWebHistoryEntry(inputUrl, maxEntries: appState.settings.historySize)
 	}
 
     var body: some View {
@@ -139,9 +103,7 @@ struct WebScreenView: View {
                 appState.guide.contentInteractionState = state
             }
         ) { interactionState in
-            MLWebView(websiteUrl, lastPage: { urlPage in
-                appState.settings.lastPage = urlPage
-            }, loadStatusChanged: { loading, error in
+            MLWebView(loadRequest, loadStatusChanged: { loading, error in
 				LoggingPolicy.debug("WebView loading status changed: \(loading ? "loading" : "loaded")", logger: .ui)
                 if let error = error {
 					LoggingPolicy.error("WebView loading error: \(error.localizedDescription)", logger: .ui)
@@ -155,12 +117,6 @@ struct WebScreenView: View {
         .onReceive(appState.settings.$showIdentifiers) { value in
             showIdentifiers = value
         }
-        .onReceive(appState.guide.$addressSelected) { address in
-            guard let address else { return }
-            inputUrl = address.absoluteString
-            self.websiteUrl = inputUrl
-            appState.guide.addressBarMenu = []
-        }
         .onAppear {
             showIdentifiers = appState.settings.showIdentifiers
             if hasPerformedInitialAction.not {
@@ -168,23 +124,47 @@ struct WebScreenView: View {
                 if
                     appState.settings.reopenLastPage.enabled,
                     let lastPage = appState.settings.lastPage {
-                    inputUrl = lastPage.absoluteString
-                    self.websiteUrl = inputUrl
+                    // Not a user load: the display gate stays open and KVO fills the bar.
+                    if loadRequest.input != lastPage.absoluteString {
+                        loadRequest = loadRequest.next(lastPage.absoluteString)
+                    }
                 } else {
                     guard let defaultPage = appState.settings.defaultPage?.absoluteString else { return }
-                    inputUrl = defaultPage
-                    self.websiteUrl = inputUrl
-                    createWebHistoryEntry(inputUrl, maxEntries: appState.settings.historySize)
+                    // No generation bump when the initial request already targets the
+                    // default page — it would reload the same URL a second time.
+                    if loadRequest.input != defaultPage {
+                        loadRequest = loadRequest.next(defaultPage)
+                    }
+                    createOrRefreshWebHistoryEntry(defaultPage, maxEntries: appState.settings.historySize)
                 }
             }
         }
+        .sheet(isPresented: $presentLocationSheet) {
+            LocationSheetView { input in
+                openRequested(input)
+            }
+            .environmentObject(appState.settings)
+        }
+        .alert(isPresented: $showAlert) {
+            alertForError(latestError)
+        }
         .environmentObject(appState.webViewRenderer)
+        .environmentObject(appState.browserState)
         .navigationBarTitle("", displayMode: .inline)
         .clipped()
         .toolbar {
             toolbarContent
         }
     }
+
+	/// The location sheet confirmed an input (Open button, return key, or history pick).
+	private func openRequested(_ input: String) {
+		guard input.browserInputType != .unusable else { return }
+		appState.browserState.userLoadRequested(input)
+		loadRequest = loadRequest.next(input)
+		guard input.browserInputType == .url else { return }
+		createOrRefreshWebHistoryEntry(input, maxEntries: appState.settings.historySize)
+	}
 
 	private func alertForError(_ error: HistoryError?) -> Alert {
 		switch error {
@@ -199,11 +179,20 @@ struct WebScreenView: View {
 		}
 	}
 
-	private func createWebHistoryEntry(_ urlString: String, maxEntries: Int) {
-		// Duplicate check first: re-visiting an existing page must not trip the limit alert.
+	/// Records the URL at the moment it is entered in the address bar — deliberately
+	/// before the page loads (a never-finishing page still belongs to the history).
+	/// Re-entering an existing URL refreshes its timestamp instead of being skipped,
+	/// so the Recent ordering in the location sheet reflects actual use.
+	private func createOrRefreshWebHistoryEntry(_ urlString: String, maxEntries: Int) {
 		// Entries are stored with the https-normalized URL, so compare the same form.
-		guard
-			history.contains(where: { $0.page?.absoluteString == urlString.withHTTPS }).not else {
+		if let existing = history.first(where: { $0.page?.absoluteString == urlString.withHTTPS }) {
+			existing.creationDate_ = .now
+			existing.visitCount += 1
+			do {
+				try WebHistoryEntry.save(in: moc)
+			} catch {
+				LoggingPolicy.error("Failed to refresh web history entry timestamp", error: error, logger: .state)
+			}
 			return
 		}
 
@@ -217,6 +206,7 @@ struct WebScreenView: View {
 		let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: moc)
 		newHistorEntry.bookmarked = false
 		newHistorEntry.creationDate_ = .now
+		newHistorEntry.visitCount = 1
 		// Use the function parameter — the same value the duplicate check above compared.
 		newHistorEntry.page = URL(string: urlString.withHTTPS)
 		// Lifecycle: transition to draft before validation, then to ready if valid
@@ -235,5 +225,94 @@ struct WebScreenView: View {
 		} catch {
 			LoggingPolicy.error("Failed to save web history entry", error: error, logger: .state)
 		}
+	}
+}
+
+// MARK: - Browser chrome components
+
+/// Read-only URL display at maximum width; tapping it presents the location sheet.
+private struct WebAddressDisplay: View {
+	@EnvironmentObject var browserState: BrowserState
+	let action: () -> Void
+
+	var body: some View {
+		Button(action: action) {
+			Text(browserState.displayedURL?.absoluteString ?? L10n.Browser.Location.placeholder)
+				.lineLimit(1)
+				.truncationMode(.middle)
+				.foregroundColor(browserState.displayedURL == nil ? .secondary : .primary)
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.padding(5)
+				.background(.ultraThinMaterial)
+				.overlay(
+					RoundedRectangle(cornerRadius: 5)
+						.stroke(Color.gray.opacity(0.75), lineWidth: 0.75)
+				)
+				.contentShape(Rectangle())
+		}
+		.buttonStyle(.plain)
+		// VoiceOver reads the actual URL, not just the affordance.
+		.accessibilityLabel(browserState.displayedURL?.absoluteString ?? L10n.Browser.Location.placeholder)
+		.testability(Testability.Button.webScreenAddressBar)
+	}
+}
+
+private struct WebBackButton: View {
+	@EnvironmentObject var browserState: BrowserState
+
+	var body: some View {
+		Button(action: {
+			browserState.goBackTapped()
+		}) {
+			Image(systemName: "chevron.left")
+				.foregroundColor(.gray)
+				.frame(minWidth: 44, minHeight: 44)
+				.contentShape(Rectangle())
+		}
+		.disabled(browserState.canGoBack.not)
+		.accessibilityLabel(L10n.Browser.Navigation.back)
+		.testability(Testability.Button.webToolbarBack)
+	}
+}
+
+private struct WebForwardButton: View {
+	@EnvironmentObject var browserState: BrowserState
+
+	var body: some View {
+		Button(action: {
+			browserState.goForwardTapped()
+		}) {
+			Image(systemName: "chevron.right")
+				.foregroundColor(.gray)
+				.frame(minWidth: 44, minHeight: 44)
+				.contentShape(Rectangle())
+		}
+		.disabled(browserState.canGoForward.not)
+		.accessibilityLabel(L10n.Browser.Navigation.forward)
+		.testability(Testability.Button.webToolbarForward)
+	}
+}
+
+/// Reload/stop, part of the browser cluster around the address display (regular width
+/// only — compact has the floating capsule). Lives in the principal group so it reads
+/// as a browser action, not a detection one.
+private struct WebReloadStopButton: View {
+	@EnvironmentObject var browserState: BrowserState
+
+	var body: some View {
+		Button(action: {
+			if browserState.isLoading {
+				browserState.stopTapped()
+			} else {
+				browserState.reloadTapped()
+			}
+		}) {
+			Image(systemName: browserState.isLoading ? "xmark" : "arrow.clockwise")
+				.foregroundColor(.gray)
+				.frame(minWidth: 44, minHeight: 44)
+				.contentShape(Rectangle())
+		}
+		.accessibilityLabel(browserState.isLoading ? L10n.Browser.Navigation.stop : L10n.Browser.Navigation.reload)
+		.testability(Testability.Button.webToolbarReload)
 	}
 }

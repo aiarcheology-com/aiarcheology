@@ -2299,6 +2299,246 @@
         }
       }
     },
+    "browser.location.data" : {
+      "comment" : "Location sheet button opening the website-data sheet",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data"
+          }
+        }
+      }
+    },
+    "browser.location.dataSheet.deleteCookies" : {
+      "comment" : "Button deleting cookies and other website data",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Cookies"
+          }
+        }
+      }
+    },
+    "browser.location.dataSheet.description" : {
+      "comment" : "Explains what the Delete Cookies button removes (one website)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removes cookies, caches and other data stored by this website. Its pages may sign you out."
+          }
+        }
+      }
+    },
+    "browser.location.dataSheet.title" : {
+      "comment" : "Title of the website-data sheet",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Website Data"
+          }
+        }
+      }
+    },
+    "browser.location.deleteHistory.confirm" : {
+      "comment" : "Confirmation dialog title before deleting one website's history and trail",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete the browsing history of this website?"
+          }
+        }
+      }
+    },
+    "browser.location.fullUrls" : {
+      "comment" : "Accessibility label for the location sheet button that toggles full multiline URLs",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full URLs"
+          }
+        }
+      }
+    },
+    "browser.location.open" : {
+      "comment" : "Confirmation button that opens the typed URL or search term",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open"
+          }
+        }
+      }
+    },
+    "browser.location.placeholder" : {
+      "comment" : "Placeholder of the location sheet input and the empty address display",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search or enter website name"
+          }
+        }
+      }
+    },
+    "browser.location.setHomePage" : {
+      "comment" : "Row action making the URL the browser's home page (default page)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set as Home Page"
+          }
+        }
+      }
+    },
+    "browser.location.sort.alphabetical" : {
+      "comment" : "Location sheet history sort order: alphabetical",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alphabetical"
+          }
+        }
+      }
+    },
+    "browser.location.sort.label" : {
+      "comment" : "Accessibility label of the icon-only sort menu in the location sheet",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sort order"
+          }
+        }
+      }
+    },
+    "browser.location.sort.recent" : {
+      "comment" : "Location sheet history sort order: most recent first",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent"
+          }
+        }
+      }
+    },
+    "browser.location.title" : {
+      "comment" : "Title of the location sheet (Safari-style search surface)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page Address"
+          }
+        }
+      }
+    },
+    "browser.location.trail" : {
+      "comment" : "Accessibility label of the chevron opening a site's complete visit trail",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All visits"
+          }
+        }
+      }
+    },
+    "browser.location.trail.empty" : {
+      "comment" : "Shown in the visit-trail detail when nothing was recorded for the site yet",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No visits recorded yet"
+          }
+        }
+      }
+    },
+    "browser.location.visitCount" : {
+      "comment" : "How many times a history entry was visited, e.g. 7x",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld×"
+          }
+        }
+      }
+    },
+    "browser.navigation.back" : {
+      "comment" : "Accessibility label of the browser back button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back"
+          }
+        }
+      }
+    },
+    "browser.navigation.forward" : {
+      "comment" : "Accessibility label of the browser forward button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forward"
+          }
+        }
+      }
+    },
+    "browser.navigation.reload" : {
+      "comment" : "Accessibility label of the browser reload button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reload"
+          }
+        }
+      }
+    },
+    "browser.navigation.stop" : {
+      "comment" : "Accessibility label of the browser stop button (shown while loading)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
+          }
+        }
+      }
+    },
     "clipboard.copied" : {
       "comment" : "Message shown when text is copied to clipboard",
       "extractionState" : "manual",
@@ -2619,6 +2859,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "清除"
+          }
+        }
+      }
+    },
+    "common.copy" : {
+      "comment" : "Generic copy-to-clipboard action",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
           }
         }
       }
@@ -5755,18 +6007,6 @@
         }
       }
     },
-    "download.error.persistFailed" : {
-      "comment" : "Shown when saving the download URL to storage fails",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unable to save the URL. Please try again."
-          }
-        }
-      }
-    },
     "download.error.interruptedNoResumeData" : {
       "comment" : "Error message when download was interrupted and cannot be resumed",
       "extractionState" : "manual",
@@ -5775,6 +6015,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Download was interrupted and cannot be resumed. Please restart the download."
+          }
+        }
+      }
+    },
+    "download.error.persistFailed" : {
+      "comment" : "Shown when saving the download URL to storage fails",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to save the URL. Please try again."
           }
         }
       }
@@ -9984,9 +10236,6 @@
           }
         }
       }
-    },
-    "Search or enter any website name" : {
-
     },
     "sentry.config" : {
       "comment" : "Config section header in Sentry stats",

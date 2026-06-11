@@ -72,6 +72,8 @@ final class DemoDataManager {
                     // Merge into the viewContext too: batch deletes bypass context saves, so
                     // automaticallyMergesChangesFromParent does NOT propagate them.
                     try WebHistoryEntry.deleteAll(in: context, mergingInto: [viewContext])
+                    // The visit trail belongs to the browsing history; clear it together.
+                    try WebVisit.deleteAll(in: context, mergingInto: [viewContext])
                     LoggingPolicy.debug("Browsing history deletion completed on background context", logger: .state)
                 } catch {
                     LoggingPolicy.error("Browsing history deletion failed", error: error, logger: .state)

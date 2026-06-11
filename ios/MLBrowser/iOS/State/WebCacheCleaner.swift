@@ -28,4 +28,23 @@ final class WebCacheCleaner {
         }
     }
 
+    /// Clears cookies, cache and other website data for one site only.
+    ///
+    /// `domain` is the registrable domain (e.g. "bayern.de") — WebKit's data records
+    /// are keyed exactly that way (`displayName`), so subdomains are covered.
+    @MainActor static func clean(domain: String) async {
+        let store = WKWebsiteDataStore.default()
+        let dataTypes = WKWebsiteDataStore.allWebsiteDataTypes()
+        let records = await store.dataRecords(ofTypes: dataTypes)
+        let matching = records.filter { $0.displayName == domain }
+        await store.removeData(ofTypes: dataTypes, for: matching)
+
+        let cookieStorage = HTTPCookieStorage.shared
+        cookieStorage.cookies?
+            .filter { $0.domain == domain || $0.domain.hasSuffix("." + domain) || $0.domain == "." + domain }
+            .forEach { cookieStorage.deleteCookie($0) }
+
+        LoggingPolicy.info("Website data cleared for one domain (\(matching.count) records)", logger: .storage)
+    }
+
 }
