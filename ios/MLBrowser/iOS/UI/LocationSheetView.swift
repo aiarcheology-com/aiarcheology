@@ -32,7 +32,9 @@ struct LocationSheetView: View {
 	@State private var filterText: String
 	@State private var sortOrder: SortOrder = .recent
 	@State private var fullURLs = true
-	@FocusState private var searchFocused: Bool
+	/// Host whose recorded visit trail is pushed as the detail (programmatic navigation —
+	/// a NavigationLink in the row would make the List add its own disclosure chevron).
+	@State private var trailHost: String?
 
 	init(initialText: String, onOpen: @escaping (String) -> Void) {
 		self.onOpen = onOpen
@@ -53,7 +55,7 @@ struct LocationSheetView: View {
 			}
 			.navigationTitle(L10n.Browser.Location.title)
 			.navigationBarTitleDisplayMode(.inline)
-			.navigationDestination(for: String.self) { host in
+			.navigationDestination(item: $trailHost) { host in
 				VisitTrailView(host: host, onOpen: open)
 			}
 			.toolbar {
@@ -70,25 +72,20 @@ struct LocationSheetView: View {
 				}
 			}
 		}
-		.task {
-			// Focus after the sheet's presentation transition; focusing immediately in
-			// onAppear is unreliable inside sheets.
-			try? await Task.sleep(for: .milliseconds(450))
-			searchFocused = true
-		}
 	}
 
 	// MARK: - Input
 
 	private var inputRow: some View {
 		HStack(spacing: 8) {
+			// Not auto-focused: focusing puts the cursor at the end and scrolls the
+			// prefilled URL there — unfocused, the URL displays from its beginning.
 			TextField(L10n.Browser.Location.placeholder, text: $searchText)
 				.testability(Testability.TextField.locationSheetInput)
 				.textInputAutocapitalization(.never)
 				.disableAutocorrection(true)
 				.keyboardType(.URL)
 				.submitLabel(.go)
-				.focused($searchFocused)
 				.onSubmit(of: .text) {
 					open(searchText)
 				}
@@ -159,18 +156,22 @@ struct LocationSheetView: View {
 					.frame(maxWidth: .infinity, alignment: .leading)
 					.contentShape(Rectangle())
 				}
+				.buttonStyle(.borderless)
 				.testability(Testability.Button.locationSheetHistoryItem)
 
-				// The recorded trail of this site — every URL the page settled on
-				// (map pans included), to replay the movement.
+				// Detail-disclosure into the recorded trail of this site — every URL
+				// the page settled on (map pans included), to replay the movement.
+				// Borderless buttons keep the two tap targets independent in the row.
 				if let host = page.host {
-					NavigationLink(value: host) {
-						Image(systemName: "chevron.right")
+					Button {
+						trailHost = host
+					} label: {
+						Image(systemName: "info.circle")
 							.foregroundStyle(.secondary)
 							.frame(minWidth: 32, minHeight: 32)
 							.contentShape(Rectangle())
 					}
-					.buttonStyle(.plain)
+					.buttonStyle(.borderless)
 					.accessibilityLabel(L10n.Browser.Location.trail)
 					.testability(Testability.Button.locationSheetVisitTrail)
 				}
