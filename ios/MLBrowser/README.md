@@ -1,6 +1,8 @@
-# 📱 MLBrowser iOS App
+# 📱 MLBrowser iOS App — setup & tooling reference
 
-This repository contains the MLBrowser iOS app and its supporting tooling.
+This document covers first-time project setup, the `ProjectTool` CLI, pinned
+developer tools, helper scripts, and secrets management. For what the app is
+and an overview of the repository, see the [root README](../../README.md).
 
 ## 🛠️ Initial project setup (required)
 
