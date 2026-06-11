@@ -1,0 +1,44 @@
+ios/MLBrowser/iOS/State/Settings.swift
+  s_f24988eb446598::t_fea3f9275632e8 139-140
+  s_f24988eb446598::t_1d04f145119d32 192
+  s_f24988eb446598::t_64223950badd1a 206
+  s_f24988eb446598::t_165865b6194e9d 156
+  s_f24988eb446598::t_30c195d7d0a53e 36
+  s_f24988eb446598::t_42aae6a4a9db9b 105-113
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_f24988eb446598::t_428492e2e4f4a3 11059-11070
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_f24988eb446598::t_1459291e4d891b 276-277
+ios/MLBrowserUnitTests/GuideTests.swift
+  s_f24988eb446598::t_94bf1db1103e8e 334-379,381
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift
+  s_f24988eb446598::t_2b6ab173ab7d65 122-127
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_f24988eb446598::t_eba416e9fc05ad 128
+ios/MLBrowser/iOS/State/Guide.swift
+  s_f24988eb446598::t_dbd7bc77fbcb48 30-33
+  s_f24988eb446598::t_d913bd1ca23c0e 49-50
+  s_f24988eb446598::t_bca1d777ff6c0a 72
+  s_f24988eb446598::t_22a42fe47cfb06 87-94
+  s_f24988eb446598::t_c69829c3addfe3 51
+ios/MLBrowser/iOS/UI/ContentView.swift
+  s_f24988eb446598::t_d6e00fcfac4029 83-85
+  s_f24988eb446598::t_a519b6af80ef25 167
+  s_f24988eb446598::t_4400f7a5cacf27 40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "35157986b189cbfadb98a963f2a52aaa1712d9c2",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
