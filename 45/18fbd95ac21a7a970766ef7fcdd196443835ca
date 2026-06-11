@@ -1,0 +1,36 @@
+IMPLEMENTATION_PLAN_AIA-0044_browser-url-and-nav-controls.md
+  s_f24988eb446598::t_8498dad57dd6b7 1-2,4-54,59-65,71-72,75-76,126-128,177,179-183,209-215,218-222,228,230,232-235,244-246,278
+  s_f24988eb446598::t_33b9277a104135 138,143-147
+  s_f24988eb446598::t_a8b520f26758e3 131-136,141-142,173-176
+  s_f24988eb446598::t_ab273bbf117c36 225
+  s_f24988eb446598::t_0761ea4c88790e 256-262
+  s_f24988eb446598::t_b9bc455baa3faf 118-125
+  s_f24988eb446598::t_e2fdbe5a6f0279 149-167
+  s_f24988eb446598::t_6510af4f682b5f 253-255
+  s_f24988eb446598::t_6688c45ff5e5ce 55-58,66-70,73-74,98-117,129-130,178,184-208,216-217,223-224,227,229,231,236-243,247-252,263,270-277
+  s_f24988eb446598::t_43e7923d12a934 148,168-172
+  s_f24988eb446598::t_2568cab08d40f1 90
+  s_f24988eb446598::t_00ea0647b528cd 3
+  s_f24988eb446598::t_acfd7cbc39effe 139-140
+  s_f24988eb446598::t_71c923dd99c678 226
+  s_f24988eb446598::t_ab1ad3f8859ad4 85-89
+  s_f24988eb446598::t_373a0b6c80c721 137
+  s_f24988eb446598::t_c07628a6c1be9b 264-269
+  s_f24988eb446598::t_79490a30dd8288 77-84,91-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "4518fbd95ac21a7a970766ef7fcdd196443835ca",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
