@@ -217,11 +217,16 @@ private struct ConfigurationRow: View {
 #Preview {
     let manager = DrawerManager()
     manager.isOpen = true
-    
+    let state = AppState()
+
     return DrawerContainer(manager: manager) {
         Color.blue.opacity(0.2)
     } menu: {
         DrawerContent()
             .environment(manager)
+            .environmentObject(state.guide)
+            .environmentObject(state.deep)
+            .environmentObject(state.downloader)
+            .environment(\.managedObjectContext, state.dataController.container.viewContext)
     }
 }

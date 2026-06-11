@@ -63,7 +63,12 @@ final class BrowserRevampUITests: XCTestCase {
 		play.tap()
 		let floating = app.buttons[Identifier.floatingToggle]
 		XCTAssertTrue(floating.waitForExistence(timeout: 5), "Fullscreen must show the floating chrome toggle")
-		XCTAssertFalse(app.buttons[Identifier.play].isHittable, "Navigation bar should be hidden in fullscreen")
+		// The floating button and the chrome hide animate independently, so
+		// wait for the bar to finish hiding instead of asserting immediately.
+		XCTAssertTrue(
+			waitForDisappearance(of: app.buttons[Identifier.play], timeout: 5),
+			"Navigation bar should be hidden in fullscreen"
+		)
 
 		// Reveal chrome mid-detection: pause + adjustment are back, detection keeps running.
 		floating.tap()

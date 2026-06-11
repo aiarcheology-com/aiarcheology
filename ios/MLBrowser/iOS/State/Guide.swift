@@ -78,7 +78,7 @@ final class Guide: ObservableObject {
 		}
 	}
 
-	func chromeToggleTapped() {
+	@MainActor func chromeToggleTapped() {
 		chromeVisible.toggle()
 	}
 

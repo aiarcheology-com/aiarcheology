@@ -55,8 +55,10 @@ struct FloatingChromeButton: View {
 					guide.chromeToggleTapped()
 				}
 				.accessibilityAddTraits(.isButton)
-				.testability(Testability.Button.floatingChromeToggle)
+				// Label before testability: under UI testing the helper overrides
+				// the label with the identifier, which tests rely on.
 				.accessibilityLabel(L10n.Browser.FloatingButton.label)
+				.testability(Testability.Button.floatingChromeToggle)
 				.position(displayedPosition(in: geometry.size))
 		}
 		.coordinateSpace(name: Self.coordinateSpace)
