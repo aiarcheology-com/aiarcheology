@@ -123,7 +123,6 @@ extension TestabilityIdentification {
 		case visitTrailData
 		case visitTrailDeleteSite
 		case dataSheetDeleteCookies
-		case dataSheetDismiss
 		case visitTrailItem
 		case visitTrailCopyUrl
 		case visitTrailDeleteEntry

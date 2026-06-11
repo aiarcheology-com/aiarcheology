@@ -267,50 +267,39 @@ struct LocationSheetView: View {
 // MARK: - Website data
 
 /// Website-data management for one site: deletes the cookies, caches and other data
-/// that this site's pages stored (domain-scoped `WebCacheCleaner`).
+/// that this site's pages stored (domain-scoped `WebCacheCleaner`). Pushed onto the
+/// location sheet's navigation stack — the system back button returns to the trail.
 private struct WebsiteDataView: View {
-	@Environment(\.dismiss) private var dismiss
 	@State private var cleaned = false
 
 	let domain: String
 
 	var body: some View {
-		NavigationStack {
-			List {
-				Section {
-					Button(role: .destructive) {
-						Task {
-							await WebCacheCleaner.clean(domain: domain)
-							cleaned = true
-						}
-					} label: {
-						HStack {
-							Text(L10n.Browser.Location.DataSheet.deleteCookies)
-							if cleaned {
-								Spacer()
-								Image(systemName: "checkmark")
-									.foregroundStyle(.secondary)
-							}
+		List {
+			Section {
+				Button(role: .destructive) {
+					Task {
+						await WebCacheCleaner.clean(domain: domain)
+						cleaned = true
+					}
+				} label: {
+					HStack {
+						Text(L10n.Browser.Location.DataSheet.deleteCookies)
+						if cleaned {
+							Spacer()
+							Image(systemName: "checkmark")
+								.foregroundStyle(.secondary)
 						}
 					}
-					.disabled(cleaned)
-					.testability(Testability.Button.dataSheetDeleteCookies)
-				} footer: {
-					Text(L10n.Browser.Location.DataSheet.description)
 				}
-			}
-			.navigationTitle(domain)
-			.navigationBarTitleDisplayMode(.inline)
-			.toolbar {
-				ToolbarItem(placement: .navigationBarTrailing) {
-					Button(action: { dismiss() }) {
-						Text(L10n.Common.dismiss)
-							.bold()
-					}
-					.testability(Testability.Button.dataSheetDismiss)
-				}
+				.disabled(cleaned)
+				.testability(Testability.Button.dataSheetDeleteCookies)
+			} footer: {
+				Text(L10n.Browser.Location.DataSheet.description)
 			}
 		}
+		.navigationTitle(L10n.Browser.Location.DataSheet.title)
+		.navigationBarTitleDisplayMode(.inline)
 	}
 }
 
@@ -438,7 +427,7 @@ private struct VisitTrailView: View {
 				deleteSiteHistory()
 			}
 		}
-		.sheet(isPresented: $presentDataSheet) {
+		.navigationDestination(isPresented: $presentDataSheet) {
 			WebsiteDataView(domain: domain)
 		}
 	}
