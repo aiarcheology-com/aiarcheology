@@ -150,7 +150,6 @@ struct ContentView: View {
                     trailingItems: {
                         Screens.barItems(mode, position: .trailing)
                             .environmentObject(appState.guide)
-                            .environmentObject(appState.browserState)
                     })
                     .tabItem {
                         Screens.tabItem(mode, selection: appState.guide.mode)

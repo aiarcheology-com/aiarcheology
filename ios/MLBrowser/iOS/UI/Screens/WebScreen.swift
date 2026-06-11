@@ -23,7 +23,7 @@ struct WebScreen: Screen {
         case .leading:
             GlobalToolbarLeading()
         case .trailing:
-            WebToolbarTrailing()
+            GlobalToolbarTrailing()
         }
     }
 
@@ -71,8 +71,9 @@ struct WebScreenView: View {
 	@ToolbarContentBuilder
 	var toolbarContent: some ToolbarContent {
 		ToolbarItem(placement: .principal) {
-			// Regular width groups BACK | ADDRESS | FORWARD together (not BACK next to
-			// CPU or FORWARD next to PLAY); compact relies on the floating capsule.
+			// Regular width groups BACK | ADDRESS | FORWARD | RELOAD together — all
+			// browser actions in one cluster, mentally separate from the detection
+			// buttons in the trailing group; compact relies on the floating capsule.
 			HStack(spacing: 8) {
 				if horizontalSizeClass == .regular {
 					WebBackButton()
@@ -82,6 +83,7 @@ struct WebScreenView: View {
 				}
 				if horizontalSizeClass == .regular {
 					WebForwardButton()
+					WebReloadStopButton()
 				}
 			}
 			.environmentObject(appState.browserState)
@@ -281,23 +283,13 @@ private struct WebForwardButton: View {
 	}
 }
 
-/// Trailing bar for the web tab: reload/stop (regular width only — compact has the
-/// floating capsule) ahead of the shared detection/adjustment buttons. Composed here so
-/// `GlobalToolbarTrailing` stays browser-free for the Gallery.
-struct WebToolbarTrailing: View {
+/// Reload/stop, part of the browser cluster around the address display (regular width
+/// only — compact has the floating capsule). Lives in the principal group so it reads
+/// as a browser action, not a detection one.
+private struct WebReloadStopButton: View {
 	@EnvironmentObject var browserState: BrowserState
-	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
 	var body: some View {
-		HStack(spacing: 16) {
-			if horizontalSizeClass == .regular {
-				reloadStopButton
-			}
-			GlobalToolbarTrailing()
-		}
-	}
-
-	private var reloadStopButton: some View {
 		Button(action: {
 			if browserState.isLoading {
 				browserState.stopTapped()
