@@ -266,18 +266,15 @@ dissolves most of the focused-TextField writer races — the bar is no longer ed
   committed loads. Intended (restores map position) but called out for review.
 - **Two floating controls**: no collision logic (trade-off above).
 
-## Release-time obligation — Core Data model v0.0.2 (added 2026-06-11)
+## Core Data note (final, 2026-06-11)
 
-This branch introduced model version `MLBrowser_0.0.2` (`WebHistoryEntry.visitCount` + the
-`WebVisit` trail entity). **Only model 0.0.0 has ever shipped** (user decision: no
-0.0.1→0.0.2 mapping needed — 0.0.1 stores exist only on dev machines, where the
-destroy-and-recreate recovery is acceptable). What MUST happen **before the next App Store
-release** (release builds run with mapping inference disabled):
-
-- Generate `MLBrowser_0.0.0_0.0.2.xcmappingmodel` in Xcode (File → New → Mapping Model,
-  source 0.0.0 → target 0.0.2) and wire `FillEntityIdIfNilPolicy` on the entity mappings
-  the same way `Migration/0.0.0-0.0.1/` does — explicit mappings do **not** chain, so the
-  existing 0.0.0→0.0.1 mapping does not cover users migrating straight to 0.0.2.
+`WebHistoryEntry.visitCount` and the `WebVisit` trail entity were folded **into the
+existing, unreleased model version `MLBrowser_0.0.1`** (user decision: the app is not in
+production; old installations are simply reset/removed, so no new model version and no
+new mapping model). Consequence, accepted: the in-place edit changes 0.0.1's version
+hashes, so the committed `Migration/0.0.0-0.0.1` mapping model no longer matches the new
+0.0.1 — if migrating real 0.0.0 stores ever becomes a requirement, that mapping must be
+regenerated in Xcode (with `FillEntityIdIfNilPolicy` re-wired).
 
 ## Verification
 

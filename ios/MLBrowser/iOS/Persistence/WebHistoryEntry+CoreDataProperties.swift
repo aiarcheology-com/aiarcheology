@@ -19,7 +19,7 @@ extension WebHistoryEntry {
     @NSManaged public var entityId: UUID
     @NSManaged public var page: URL?
     @NSManaged public var lifeCycleString: String
-    /// How many times the URL was entered in the address bar (model v0.0.2, default 1).
+    /// How many times the URL was entered in the address bar (default 1).
     @NSManaged public var visitCount: Int64
 }
 
