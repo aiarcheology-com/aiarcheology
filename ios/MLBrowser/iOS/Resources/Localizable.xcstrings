@@ -2327,13 +2327,13 @@
       }
     },
     "browser.location.dataSheet.description" : {
-      "comment" : "Explains what the Delete Cookies button removes",
+      "comment" : "Explains what the Delete Cookies button removes (one website)",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Removes cookies, caches and other data stored by visited websites. Pages may sign you out."
+            "value" : "Removes cookies, caches and other data stored by this website. Its pages may sign you out."
           }
         }
       }
@@ -2351,13 +2351,13 @@
       }
     },
     "browser.location.deleteHistory.confirm" : {
-      "comment" : "Confirmation dialog title before deleting the complete browsing history",
+      "comment" : "Confirmation dialog title before deleting one website's history and trail",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Delete the complete browsing history?"
+            "value" : "Delete the browsing history of this website?"
           }
         }
       }

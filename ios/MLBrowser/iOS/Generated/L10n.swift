@@ -93,14 +93,14 @@ internal enum L10n {
       internal enum DataSheet {
         /// Delete Cookies
         internal static let deleteCookies = L10n.tr("Localizable", "browser.location.dataSheet.deleteCookies", fallback: "Delete Cookies")
-        /// Removes cookies, caches and other data stored by visited websites. Pages may sign you out.
-        internal static let description = L10n.tr("Localizable", "browser.location.dataSheet.description", fallback: "Removes cookies, caches and other data stored by visited websites. Pages may sign you out.")
+        /// Removes cookies, caches and other data stored by this website. Its pages may sign you out.
+        internal static let description = L10n.tr("Localizable", "browser.location.dataSheet.description", fallback: "Removes cookies, caches and other data stored by this website. Its pages may sign you out.")
         /// Website Data
         internal static let title = L10n.tr("Localizable", "browser.location.dataSheet.title", fallback: "Website Data")
       }
       internal enum DeleteHistory {
-        /// Delete the complete browsing history?
-        internal static let confirm = L10n.tr("Localizable", "browser.location.deleteHistory.confirm", fallback: "Delete the complete browsing history?")
+        /// Delete the browsing history of this website?
+        internal static let confirm = L10n.tr("Localizable", "browser.location.deleteHistory.confirm", fallback: "Delete the browsing history of this website?")
       }
       internal enum Sort {
         /// Alphabetical

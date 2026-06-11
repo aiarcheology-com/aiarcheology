@@ -27,8 +27,6 @@ struct LocationSheetView: View {
 	private var history: FetchedResults<WebHistoryEntry>
 
 	let onOpen: (String) -> Void
-	/// Deletes the complete browsing history including the recorded visit trail.
-	let onDeleteHistory: () async -> Void
 
 	@State private var searchText: String
 	/// Debounced copy of `searchText` that actually drives the filter.
@@ -38,15 +36,10 @@ struct LocationSheetView: View {
 	/// Host whose recorded visit trail is pushed as the detail (programmatic navigation —
 	/// a NavigationLink in the row would make the List add its own disclosure chevron).
 	@State private var trailHost: String?
-	@State private var presentDataSheet = false
-	@State private var confirmDeleteHistory = false
 	@FocusState private var searchFocused: Bool
 
-	init(initialText: String,
-		 onOpen: @escaping (String) -> Void,
-		 onDeleteHistory: @escaping () async -> Void) {
+	init(initialText: String, onOpen: @escaping (String) -> Void) {
 		self.onOpen = onOpen
-		self.onDeleteHistory = onDeleteHistory
 		_searchText = State(initialValue: initialText)
 		_filterText = State(initialValue: "")
 	}
@@ -79,34 +72,6 @@ struct LocationSheetView: View {
 					}
 					.testability(Testability.Button.locationSheetDismiss)
 				}
-				ToolbarItemGroup(placement: .bottomBar) {
-					Button(L10n.Browser.Location.data) {
-						presentDataSheet = true
-					}
-					.testability(Testability.Button.locationSheetData)
-					Spacer()
-					Button(role: .destructive) {
-						confirmDeleteHistory = true
-					} label: {
-						Text(L10n.Common.delete)
-							.foregroundColor(.red)
-					}
-					.testability(Testability.Button.locationSheetDeleteHistory)
-				}
-			}
-			.confirmationDialog(
-				L10n.Browser.Location.DeleteHistory.confirm,
-				isPresented: $confirmDeleteHistory,
-				titleVisibility: .visible
-			) {
-				Button(L10n.Common.delete, role: .destructive) {
-					Task {
-						await onDeleteHistory()
-					}
-				}
-			}
-			.sheet(isPresented: $presentDataSheet) {
-				WebsiteDataView()
 			}
 		}
 	}
@@ -301,19 +266,23 @@ struct LocationSheetView: View {
 
 // MARK: - Website data
 
-/// Website-data management: today a single action — deleting cookies, caches and other
-/// data the visited pages stored (via the existing `WebCacheCleaner`).
+/// Website-data management for one site: deletes the cookies, caches and other data
+/// that this site's pages stored (domain-scoped `WebCacheCleaner`).
 private struct WebsiteDataView: View {
 	@Environment(\.dismiss) private var dismiss
 	@State private var cleaned = false
+
+	let domain: String
 
 	var body: some View {
 		NavigationStack {
 			List {
 				Section {
 					Button(role: .destructive) {
-						WebCacheCleaner.clean()
-						cleaned = true
+						Task {
+							await WebCacheCleaner.clean(domain: domain)
+							cleaned = true
+						}
 					} label: {
 						HStack {
 							Text(L10n.Browser.Location.DataSheet.deleteCookies)
@@ -330,7 +299,7 @@ private struct WebsiteDataView: View {
 					Text(L10n.Browser.Location.DataSheet.description)
 				}
 			}
-			.navigationTitle(L10n.Browser.Location.DataSheet.title)
+			.navigationTitle(domain)
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
 				ToolbarItem(placement: .navigationBarTrailing) {
@@ -357,10 +326,14 @@ private struct WebsiteDataView: View {
 /// host labels — sites under two-part public suffixes (e.g. *.co.uk) may over-match.
 private struct VisitTrailView: View {
 	@Environment(\.managedObjectContext) private var moc
+	@Environment(\.dismiss) private var dismiss
 	@FetchRequest private var visits: FetchedResults<WebVisit>
 
 	private let domain: String
 	let onOpen: (String) -> Void
+
+	@State private var presentDataSheet = false
+	@State private var confirmDeleteSite = false
 
 	init(host: String, onOpen: @escaping (String) -> Void) {
 		self.onOpen = onOpen
@@ -434,11 +407,58 @@ private struct VisitTrailView: View {
 		.listStyle(.plain)
 		.navigationTitle(domain)
 		.navigationBarTitleDisplayMode(.inline)
+		.toolbar {
+			ToolbarItemGroup(placement: .bottomBar) {
+				Button(L10n.Browser.Location.data) {
+					presentDataSheet = true
+				}
+				.testability(Testability.Button.visitTrailData)
+				Spacer()
+				Button(role: .destructive) {
+					confirmDeleteSite = true
+				} label: {
+					Text(L10n.Common.delete)
+						.foregroundColor(.red)
+				}
+				.testability(Testability.Button.visitTrailDeleteSite)
+			}
+		}
+		.confirmationDialog(
+			L10n.Browser.Location.DeleteHistory.confirm,
+			isPresented: $confirmDeleteSite,
+			titleVisibility: .visible
+		) {
+			Button(L10n.Common.delete, role: .destructive) {
+				deleteSiteHistory()
+			}
+		}
+		.sheet(isPresented: $presentDataSheet) {
+			WebsiteDataView(domain: domain)
+		}
 	}
 
 	private func deleteVisit(_ visit: WebVisit) {
 		// Capture the id before deletion — Core Data nullifies attributes on delete.
 		let entityId = visit.entityId
 		WebVisit.delete(entityId, in: moc)
+	}
+
+	/// Deletes everything this app stored about the site: its history entries and the
+	/// recorded visit trail. (Cookies/site data live in the separate Data sheet.)
+	private func deleteSiteHistory() {
+		let matchesDomain: (String?) -> Bool = { host in
+			guard let host else { return false }
+			return host == domain || host.hasSuffix("." + domain)
+		}
+
+		visits.forEach { visit in
+			WebVisit.delete(visit.entityId, in: moc)
+		}
+		WebHistoryEntry.selectAll(in: moc)
+			.filter { matchesDomain($0.page?.host) }
+			.forEach { WebHistoryEntry.delete($0.entityId, in: moc) }
+
+		// The detail's subject is gone; pop back to the history list.
+		dismiss()
 	}
 }
