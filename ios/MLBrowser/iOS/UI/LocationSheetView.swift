@@ -138,7 +138,15 @@ struct LocationSheetView: View {
 					open(page.absoluteString)
 				} label: {
 					HStack(alignment: .top, spacing: 10) {
-						favicon(for: page)
+						// Leading column: favicon, with the home indicator beneath it
+						// (same green house as the Browsing History screen).
+						VStack(spacing: 8) {
+							favicon(for: page)
+							if page == settings.defaultPage {
+								Image(systemName: "house")
+									.foregroundColor(.green)
+							}
+						}
 						VStack(alignment: .leading, spacing: 2) {
 							Text(page.absoluteString)
 								.lineLimit(fullURLs ? nil : 1)
@@ -156,11 +164,6 @@ struct LocationSheetView: View {
 							}
 							.font(.caption)
 							.foregroundStyle(.secondary)
-						}
-						// Same home indicator as the Browsing History screen.
-						if page == settings.defaultPage {
-							Image(systemName: "house")
-								.foregroundColor(.green)
 						}
 					}
 					.frame(maxWidth: .infinity, alignment: .leading)
