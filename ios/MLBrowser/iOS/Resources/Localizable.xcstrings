@@ -2371,6 +2371,18 @@
         }
       }
     },
+    "browser.location.trail" : {
+      "comment" : "Accessibility label of the chevron opening a site's complete visit trail",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All visits"
+          }
+        }
+      }
+    },
     "browser.navigation.back" : {
       "comment" : "Accessibility label of the browser back button",
       "extractionState" : "manual",
@@ -5875,18 +5887,6 @@
         }
       }
     },
-    "download.error.persistFailed" : {
-      "comment" : "Shown when saving the download URL to storage fails",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unable to save the URL. Please try again."
-          }
-        }
-      }
-    },
     "download.error.interruptedNoResumeData" : {
       "comment" : "Error message when download was interrupted and cannot be resumed",
       "extractionState" : "manual",
@@ -5895,6 +5895,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Download was interrupted and cannot be resumed. Please restart the download."
+          }
+        }
+      }
+    },
+    "download.error.persistFailed" : {
+      "comment" : "Shown when saving the download URL to storage fails",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unable to save the URL. Please try again."
           }
         }
       }
@@ -10104,9 +10116,6 @@
           }
         }
       }
-    },
-    "Search or enter any website name" : {
-
     },
     "sentry.config" : {
       "comment" : "Config section header in Sentry stats",

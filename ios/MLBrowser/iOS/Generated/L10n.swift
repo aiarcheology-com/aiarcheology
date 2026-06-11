@@ -86,6 +86,8 @@ internal enum L10n {
       internal static let placeholder = L10n.tr("Localizable", "browser.location.placeholder", fallback: "Search or enter website name")
       /// Search
       internal static let title = L10n.tr("Localizable", "browser.location.title", fallback: "Search")
+      /// All visits
+      internal static let trail = L10n.tr("Localizable", "browser.location.trail", fallback: "All visits")
       internal enum Sort {
         /// Alphabetical
         internal static let alphabetical = L10n.tr("Localizable", "browser.location.sort.alphabetical", fallback: "Alphabetical")

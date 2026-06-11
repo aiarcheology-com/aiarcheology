@@ -180,6 +180,7 @@ struct WebScreenView: View {
 		// Entries are stored with the https-normalized URL, so compare the same form.
 		if let existing = history.first(where: { $0.page?.absoluteString == urlString.withHTTPS }) {
 			existing.creationDate_ = .now
+			existing.visitCount += 1
 			do {
 				try WebHistoryEntry.save(in: moc)
 			} catch {
@@ -198,6 +199,7 @@ struct WebScreenView: View {
 		let newHistorEntry: WebHistoryEntry = WebHistoryEntry.create(in: moc)
 		newHistorEntry.bookmarked = false
 		newHistorEntry.creationDate_ = .now
+		newHistorEntry.visitCount = 1
 		// Use the function parameter — the same value the duplicate check above compared.
 		newHistorEntry.page = URL(string: urlString.withHTTPS)
 		// Lifecycle: transition to draft before validation, then to ready if valid

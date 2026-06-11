@@ -26,6 +26,7 @@ final class AppState: ObservableObject {
 	lazy var renderer = DefaultRenderer()
 	lazy var webViewRenderer = WebViewRenderer(snapAdjustment: self.snapAdjustment)
 	lazy var browserState = BrowserState(settings: self.settings)
+	lazy var visitTrail = VisitTrailRecorder(browserState: self.browserState, dataController: self.dataController)
 	lazy var deep: DeepState = DependencyContainer.shared.deepState
 	lazy var dataController: DataController = DependencyContainer.shared.dataController
 	lazy var settings: Settings = DependencyContainer.shared.settings
@@ -50,8 +51,11 @@ final class AppState: ObservableObject {
 		
 		// 2. Create demo data if needed (checked against Core Data, not UserDefaults)
 		await demoDataManager.createDemoDataIfNeeded()
-		
-		// 3. Signal ready
+
+		// 3. Start recording the browsing trail (lazy — must be touched to subscribe)
+		_ = visitTrail
+
+		// 4. Signal ready
 		isReady = true
 		LoggingPolicy.debug("AppState ready", logger: .lifecycle)
 	}

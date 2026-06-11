@@ -53,6 +53,9 @@ struct LocationSheetView: View {
 			}
 			.navigationTitle(L10n.Browser.Location.title)
 			.navigationBarTitleDisplayMode(.inline)
+			.navigationDestination(for: String.self) { host in
+				VisitTrailView(host: host, onOpen: open)
+			}
 			.toolbar {
 				ToolbarItemGroup(placement: .navigationBarLeading) {
 					sortMenu
@@ -131,23 +134,68 @@ struct LocationSheetView: View {
 	@ViewBuilder
 	private func historyRow(_ entry: WebHistoryEntry) -> some View {
 		if let page = entry.page {
-			Button {
-				open(page.absoluteString)
-			} label: {
-				VStack(alignment: .leading, spacing: 2) {
-					Text(page.absoluteString)
-						.lineLimit(fullURLs ? nil : 1)
-						.truncationMode(.middle)
-						.foregroundColor(.primary)
-					if let date = entry.creationDate_ {
-						Text(date, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
+			HStack(spacing: 10) {
+				Button {
+					open(page.absoluteString)
+				} label: {
+					HStack(alignment: .top, spacing: 10) {
+						favicon(for: page)
+						VStack(alignment: .leading, spacing: 2) {
+							Text(page.absoluteString)
+								.lineLimit(fullURLs ? nil : 1)
+								.truncationMode(.middle)
+								.foregroundColor(.primary)
+							HStack {
+								if let date = entry.creationDate_ {
+									Text(date, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
+								}
+								Spacer()
+								Text("\(entry.visitCount)×")
+							}
 							.font(.caption)
 							.foregroundStyle(.secondary)
+						}
 					}
+					.frame(maxWidth: .infinity, alignment: .leading)
+					.contentShape(Rectangle())
+				}
+				.testability(Testability.Button.locationSheetHistoryItem)
+
+				// The recorded trail of this site — every URL the page settled on
+				// (map pans included), to replay the movement.
+				if let host = page.host {
+					NavigationLink(value: host) {
+						Image(systemName: "chevron.right")
+							.foregroundStyle(.secondary)
+							.frame(minWidth: 32, minHeight: 32)
+							.contentShape(Rectangle())
+					}
+					.buttonStyle(.plain)
+					.accessibilityLabel(L10n.Browser.Location.trail)
+					.testability(Testability.Button.locationSheetVisitTrail)
 				}
 			}
-			.testability(Testability.Button.locationSheetHistoryItem)
 		}
+	}
+
+	/// Best-effort site icon from the conventional /favicon.ico location; sites that
+	/// only declare an icon via <link rel="icon"> fall back to the globe symbol.
+	private func favicon(for page: URL) -> some View {
+		AsyncImage(url: faviconURL(for: page)) { image in
+			image
+				.resizable()
+				.scaledToFit()
+		} placeholder: {
+			Image(systemName: "globe")
+				.foregroundStyle(.secondary)
+		}
+		.frame(width: 20, height: 20)
+		.clipShape(RoundedRectangle(cornerRadius: 4))
+	}
+
+	private func faviconURL(for page: URL) -> URL? {
+		guard let host = page.host else { return nil }
+		return URL(string: "https://\(host)/favicon.ico")
 	}
 
 	// MARK: - Toolbar controls
@@ -172,5 +220,52 @@ struct LocationSheetView: View {
 		}
 		.accessibilityLabel(L10n.Browser.Location.fullUrls)
 		.testability(Testability.Button.locationSheetFullUrls)
+	}
+}
+
+// MARK: - Visit trail detail
+
+/// The complete recorded trail of one site — every URL the page settled on, including
+/// the History-API changes a map application makes while panning. Tapping a row reopens
+/// that exact URL, replaying the position.
+private struct VisitTrailView: View {
+	@FetchRequest private var visits: FetchedResults<WebVisit>
+
+	let host: String
+	let onOpen: (String) -> Void
+
+	init(host: String, onOpen: @escaping (String) -> Void) {
+		self.host = host
+		self.onOpen = onOpen
+		_visits = FetchRequest(
+			sortDescriptors: [NSSortDescriptor(keyPath: \WebVisit.creationDate_, ascending: false)],
+			predicate: NSPredicate(format: "host == %@ AND page != nil AND creationDate_ != nil", host),
+			animation: .default)
+	}
+
+	var body: some View {
+		List {
+			ForEach(visits, id: \.objectID) { visit in
+				if let page = visit.page {
+					Button {
+						onOpen(page.absoluteString)
+					} label: {
+						VStack(alignment: .leading, spacing: 2) {
+							Text(page.absoluteString)
+								.foregroundColor(.primary)
+							if let date = visit.creationDate_ {
+								Text(date, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
+									.font(.caption)
+									.foregroundStyle(.secondary)
+							}
+						}
+					}
+					.testability(Testability.Button.visitTrailItem)
+				}
+			}
+		}
+		.listStyle(.plain)
+		.navigationTitle(host)
+		.navigationBarTitleDisplayMode(.inline)
 	}
 }

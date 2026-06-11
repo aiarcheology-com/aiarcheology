@@ -117,6 +117,8 @@ extension TestabilityIdentification {
 		case locationSheetHistoryItem
 		case locationSheetSortOrder
 		case locationSheetFullUrls
+		case locationSheetVisitTrail
+		case visitTrailItem
 		// Drawer
 		case drawerSettings
 		// Snap Adjustment
