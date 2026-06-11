@@ -1,0 +1,19 @@
+IMPLEMENTATION_PLAN_AIA-0044_browser-url-and-nav-controls.md
+  s_f24988eb446598::t_2035e1ad8d2dc3 269-281
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "c0e01040fe63473321ea0b0d93f6ca8f3f60be8c",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
