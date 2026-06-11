@@ -151,15 +151,16 @@ struct LocationSheetView: View {
 								if let date = entry.creationDate_ {
 									Text(date, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
 								}
-								if page == settings.defaultPage {
-									Image(systemName: "house.fill")
-										.font(.caption2)
-								}
 								Spacer()
 								Text(L10n.Browser.Location.visitCount(Int(entry.visitCount)))
 							}
 							.font(.caption)
 							.foregroundStyle(.secondary)
+						}
+						// Same home indicator as the Browsing History screen.
+						if page == settings.defaultPage {
+							Image(systemName: "house")
+								.foregroundColor(.green)
 						}
 					}
 					.frame(maxWidth: .infinity, alignment: .leading)
@@ -223,7 +224,7 @@ struct LocationSheetView: View {
 				} label: {
 					Label(L10n.Browser.Location.setHomePage, systemImage: "house")
 				}
-				.tint(.blue)
+				.tint(.green)
 				.testability(Testability.Button.locationSheetSetHomePage)
 			}
 		}
