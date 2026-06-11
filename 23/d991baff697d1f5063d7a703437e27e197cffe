@@ -1,0 +1,20 @@
+ios/AGENTS.md
+  s_f24988eb446598::t_54422e6dc08863 295
+  s_f24988eb446598::t_f6bcb3701c6f08 108-113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "23d991baff697d1f5063d7a703437e27e197cffe",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
