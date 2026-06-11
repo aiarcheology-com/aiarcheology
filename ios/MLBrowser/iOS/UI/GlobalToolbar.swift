@@ -23,10 +23,13 @@ struct GlobalToolbarLeading: View {
 					Image(systemName: "cpu")
 						.foregroundColor(animationChange ? Color.blue : Color.gray)
 						.scaleEffect(animationChange ? 1.1 : 1)
+						// Value-scoped: `withAnimation(.repeatForever)` in onAppear
+						// leaks the forever animation into unrelated layout
+						// changes of the same transaction (the chrome show/hide
+						// transition kept oscillating — AIA-0011 review finding).
+						.animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: animationChange)
 						.onAppear {
-							withAnimation(Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-								animationChange.toggle()
-							}
+							animationChange.toggle()
 						}
 				} else {
 					Image(systemName: "cpu").foregroundColor(.gray)
@@ -47,10 +50,14 @@ struct GlobalToolbarTrailing: View {
 	@State private var showPopoverAdjustment = false
 
 	var body: some View {
-		HStack {
+		// Explicit spacing and 44pt minimum frames: the bare SF Symbol buttons
+		// measure as small as 19x36pt with an 8pt gap, below the recommended
+		// hit-target size, and sat visibly cramped on Dynamic Island devices.
+		HStack(spacing: 16) {
 			detectionButton
+			// Always available: users adjust brightness/contrast/saturation
+			// of the content also while no detection runs.
 			adjustmentButton
-			settingsButton
 		}
 	}
 	
@@ -65,11 +72,13 @@ struct GlobalToolbarTrailing: View {
 				Image(systemName: "pause")
 					.foregroundColor(isAnimating ? Color.blue : Color.gray)
 					.scaleEffect(isAnimating ? 1.1 : 1)
+					// Value-scoped for the same reason as the leading cpu icon.
+					.animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: isAnimating)
 					.onAppear {
-						withAnimation(Animation.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-							isAnimating.toggle()
-						}
+						isAnimating.toggle()
 					}
+					.frame(minWidth: 44, minHeight: 44)
+					.contentShape(Rectangle())
 			}
 			.testability(Testability.Button.globalToolbarPauseDetection)
 		} else {
@@ -78,6 +87,8 @@ struct GlobalToolbarTrailing: View {
 			}) {
 				Image(systemName: "play")
 					.foregroundColor(.gray)
+					.frame(minWidth: 44, minHeight: 44)
+					.contentShape(Rectangle())
 			}
 			.testability(Testability.Button.globalToolbarPlayDetection)
 		}
@@ -97,6 +108,8 @@ struct GlobalToolbarTrailing: View {
 		}) {
 			Image(systemName: "pencil.tip.crop.circle")
 				.foregroundColor(.gray)
+				.frame(minWidth: 44, minHeight: 44)
+				.contentShape(Rectangle())
 		}
 		.testability(Testability.Button.globalToolbarAdjustments)
 		.popover(isPresented: $showPopoverAdjustment) {
@@ -105,17 +118,5 @@ struct GlobalToolbarTrailing: View {
 				.frame(width: 280)
 				.environmentObject(guide.snapAdjustment)
 		}
-	}
-	
-	// MARK: - Settings Button
-	
-	private var settingsButton: some View {
-		Button(action: {
-			guide.settingsTapped()
-		}) {
-			Image(systemName: "gearshape")
-				.foregroundColor(.gray)
-		}
-		.testability(Testability.Button.globalToolbarSettings)
 	}
 }

@@ -2287,6 +2287,18 @@
         }
       }
     },
+    "browser.floatingButton.label" : {
+      "comment" : "Accessibility label for the floating button that toggles browser chrome during detection",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show or hide browser controls"
+          }
+        }
+      }
+    },
     "clipboard.copied" : {
       "comment" : "Message shown when text is copied to clipboard",
       "extractionState" : "manual",
@@ -11040,6 +11052,18 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "settings.fullscreenDetection" : {
+      "comment" : "Toggle for the fullscreen detection feature (hide browser chrome while detection runs)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fullscreen Detection"
           }
         }
       }

@@ -20,6 +20,7 @@
 		8A13281B2AF1598500F119C6 /* ViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A13281A2AF1598500F119C6 /* ViewContainer.swift */; };
 		8A13281D2AF159E100F119C6 /* NavigationBarItems.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A13281C2AF159E100F119C6 /* NavigationBarItems.swift */; };
 		8A13281F2AF265DE00F119C6 /* GlobalToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A13281E2AF265DE00F119C6 /* GlobalToolbar.swift */; };
+		8A4F0E122F110A0100ABCDEF /* FloatingChromeButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E112F110A0100ABCDEF /* FloatingChromeButton.swift */; };
 		8A1328222AF7023D00F119C6 /* Optional+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1328212AF7023D00F119C6 /* Optional+Extensions.swift */; };
 		8A1328242AFAD02800F119C6 /* Sequence+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1328232AFAD02800F119C6 /* Sequence+Extensions.swift */; };
 		8A1328262AFE3D9A00F119C6 /* CGRect+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1328252AFE3D9A00F119C6 /* CGRect+Extension.swift */; };
@@ -96,6 +97,7 @@
 		8AE0BC082A97B0B40086DDF9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8AE0BC072A97B0B40086DDF9 /* Assets.xcassets */; };
 		8AE0BC0B2A97B0B40086DDF9 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8AE0BC0A2A97B0B40086DDF9 /* Preview Assets.xcassets */; };
 		8AE0BC252A97B0B40086DDF9 /* AI_ArcheologyUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */; };
+		8A4F0E142F110A0200ABCDEF /* BrowserRevampUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */; };
 		8AE0BC272A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */; };
 		8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */; };
 		8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */; };
@@ -220,6 +222,7 @@
 		8A13281A2AF1598500F119C6 /* ViewContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewContainer.swift; sourceTree = "<group>"; };
 		8A13281C2AF159E100F119C6 /* NavigationBarItems.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationBarItems.swift; sourceTree = "<group>"; };
 		8A13281E2AF265DE00F119C6 /* GlobalToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalToolbar.swift; sourceTree = "<group>"; };
+		8A4F0E112F110A0100ABCDEF /* FloatingChromeButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingChromeButton.swift; sourceTree = "<group>"; };
 		8A1328212AF7023D00F119C6 /* Optional+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Optional+Extensions.swift"; sourceTree = "<group>"; };
 		8A1328232AFAD02800F119C6 /* Sequence+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sequence+Extensions.swift"; sourceTree = "<group>"; };
 		8A1328252AFE3D9A00F119C6 /* CGRect+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CGRect+Extension.swift"; sourceTree = "<group>"; };
@@ -301,6 +304,7 @@
 		8AE0BC162A97B0B40086DDF9 /* MLBrowserUnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MLBrowserUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AE0BC202A97B0B40086DDF9 /* MLBrowserUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MLBrowserUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_ArcheologyUITests.swift; sourceTree = "<group>"; };
+		8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserRevampUITests.swift; sourceTree = "<group>"; };
 		8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI_ArcheologyUITestsLaunchTests.swift; sourceTree = "<group>"; };
 		8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = HroudaDetector15.mlpackage; sourceTree = "<group>"; };
 		8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = AIArcheology.mlpackage; sourceTree = "<group>"; };
@@ -534,6 +538,7 @@
 				8A13281A2AF1598500F119C6 /* ViewContainer.swift */,
 				8A13281C2AF159E100F119C6 /* NavigationBarItems.swift */,
 				8A13281E2AF265DE00F119C6 /* GlobalToolbar.swift */,
+				8A4F0E112F110A0100ABCDEF /* FloatingChromeButton.swift */,
 				8A7740D62B1908DD002E90D9 /* SnapAdjustmentView.swift */,
 				94D79C892EE36BF40027C9FA /* SnapAdjustmentOverlay.swift */,
 				8A4256E32B1E0BA3009153B1 /* EmailController.swift */,
@@ -795,6 +800,7 @@
 			isa = PBXGroup;
 			children = (
 				8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */,
+				8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */,
 				8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */,
 			);
 			path = MLBrowserUITests;
@@ -1226,6 +1232,7 @@
 				8A1D49BA2ABB87D500C2D7C1 /* GridView.swift in Sources */,
 				8AC393CC2B2BA1C700C9BA57 /* Snapshot.swift in Sources */,
 				8A13281F2AF265DE00F119C6 /* GlobalToolbar.swift in Sources */,
+				8A4F0E122F110A0100ABCDEF /* FloatingChromeButton.swift in Sources */,
 				8AC393C52B2BA01100C9BA57 /* NumberFormater+Extension.swift in Sources */,
 				8A13282A2B052C7900F119C6 /* ConfigurationForm.swift in Sources */,
 				94AE91762F0D9E2F00B326B7 /* Color+Extension.swift in Sources */,
@@ -1346,6 +1353,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8AE0BC252A97B0B40086DDF9 /* AI_ArcheologyUITests.swift in Sources */,
+				8A4F0E142F110A0200ABCDEF /* BrowserRevampUITests.swift in Sources */,
 				8AE0BC272A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift in Sources */,
 				94FCC4072ED063010047B283 /* OSLog+Extensions.swift in Sources */,
 				942B1DDF2EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */,

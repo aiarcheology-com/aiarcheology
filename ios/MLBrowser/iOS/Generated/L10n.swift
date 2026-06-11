@@ -72,6 +72,12 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "alert.warning.title", fallback: "Warning")
     }
   }
+  internal enum Browser {
+    internal enum FloatingButton {
+      /// Show or hide browser controls
+      internal static let label = L10n.tr("Localizable", "browser.floatingButton.label", fallback: "Show or hide browser controls")
+    }
+  }
   internal enum Clipboard {
     /// Copied: %@
     internal static func copied(_ p1: Any) -> String {
@@ -267,6 +273,8 @@ internal enum L10n {
     internal static let deleteCache = L10n.tr("Localizable", "settings.deleteCache", fallback: "Delete Cache")
     /// Frequency
     internal static let frequency = L10n.tr("Localizable", "settings.frequency", fallback: "Frequency")
+    /// Fullscreen Detection
+    internal static let fullscreenDetection = L10n.tr("Localizable", "settings.fullscreenDetection", fallback: "Fullscreen Detection")
     /// History
     internal static let history = L10n.tr("Localizable", "settings.history", fallback: "History")
     /// History Limit

@@ -77,6 +77,15 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                     showIdentifiers: showIdentifiers
                 )
             }
+            .onChange(of: geometry.size) { old, new in
+                // Layout changed (chrome shown/hidden, rotation): results captured
+                // against the previous geometry would draw misaligned boxes.
+                #if DEBUG
+                LoggingPolicy.debug("GeometrySizeChange: \(old.width)x\(old.height) -> \(new.width)x\(new.height)", logger: .ui)
+                #endif
+                detectionGeneration &+= 1
+                detectedObservations.removeAll()
+            }
         }
         .onSnapshot { image, _ in
             // Skip detection while content is being manipulated - geometry is changing

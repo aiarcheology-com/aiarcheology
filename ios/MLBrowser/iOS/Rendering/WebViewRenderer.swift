@@ -7,7 +7,6 @@
 
 import WebKit
 import SwiftUI
-import OSLog
 
 protocol WebViewRenderable {
 	var webViewRenderer: WebViewRenderer { get }

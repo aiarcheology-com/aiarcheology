@@ -16,6 +16,7 @@ import CoreData
 struct DrawerContent: View {
     @Environment(\.managedObjectContext) private var moc
     @Environment(DrawerManager.self) private var drawer
+    @EnvironmentObject private var guide: Guide
     @EnvironmentObject private var deep: DeepState
     @EnvironmentObject private var downloader: Downloader
     
@@ -67,8 +68,24 @@ struct DrawerContent: View {
             } else {
                 configurationsSection
             }
+
+            // Intentionally outside the configurations branch: Settings must be
+            // reachable even when no models are imported yet.
+            settingsSection
         }
         .listStyle(.insetGrouped)
+    }
+
+    private var settingsSection: some View {
+        Section {
+            Button {
+                drawer.close()
+                guide.settingsTapped()
+            } label: {
+                Label(L10n.Settings.title, systemImage: "gearshape")
+            }
+            .testability(Testability.Button.drawerSettings)
+        }
     }
     
     private var emptyStateView: some View {
@@ -200,11 +217,16 @@ private struct ConfigurationRow: View {
 #Preview {
     let manager = DrawerManager()
     manager.isOpen = true
-    
+    let state = AppState()
+
     return DrawerContainer(manager: manager) {
         Color.blue.opacity(0.2)
     } menu: {
         DrawerContent()
             .environment(manager)
+            .environmentObject(state.guide)
+            .environmentObject(state.deep)
+            .environmentObject(state.downloader)
+            .environment(\.managedObjectContext, state.dataController.container.viewContext)
     }
 }
