@@ -18,7 +18,7 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 | Primary scheme | `MLBrowser` (see `ios/MLBrowser.xcodeproj/xcshareddata/xcschemes/MLBrowser.xcscheme`) |
 | Test plans | `ios/MLBrowserTestPlan/MLBrowserUnitTests.xctestplan`, `ios/MLBrowserTestPlan/MLBrowserUITests.xctestplan` |
 | Run unit tests (CLI) | `./scripts/unittest.sh` or `./scripts/unittest.sh --verbose` |
-| Build & test (CLI) | `xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -destination 'platform=iOS Simulator,name=iPhone 16' -testPlan MLBrowserUnitTests test` |
+| Build & test (CLI) | `xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -destination 'platform=iOS Simulator,id=<UDID from xcrun simctl list devices available>' -testPlan MLBrowserUnitTests test` (or just use `./scripts/unittest.sh`, which picks a simulator automatically) |
 
 ## 1. The Mindset
 
@@ -128,7 +128,7 @@ final class MyClass {
 
 ### Cross-platform considerations
 
-- Xcode Cloud runs Intel (x86_64). Tests must pass on both arm64 (local Apple Silicon) and x86_64 (CI).
+- Don't depend on architecture- or machine-specific behavior (CPU architecture, available simulators, locale, timing): tests must pass both locally and on Xcode Cloud CI runners.
 
 ## 7. Harmonize (Architectural Linting)
 
@@ -250,11 +250,11 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
 
 - Never push without explicit user consent.
 - Never commit or push directly to `develop` or `main`.
-- Branch naming:
-  - `feature/short-description` for new features
-  - `fix/issue-description` for fixing issues
-  - `doc/area-affected` for documentation
-  - `test/area-affected` for the branches dedicated only to tests or their infrastructure
+- Branch naming: `<type>/AIA-XXXX/short-description` — include the issue key as its own path segment (e.g. `feature/AIA-0011/browser-fullscreen-revamp`).
+  - `feature/AIA-XXXX/short-description` for new features
+  - `fix/AIA-XXXX/issue-description` for fixing issues
+  - `doc/AIA-XXXX/area-affected` for documentation
+  - `test/AIA-XXXX/area-affected` for the branches dedicated only to tests or their infrastructure
 - Commit messages:
   - Include an issue ID prefix in the form `[AIA-XXXX]` or `[AIA-XXXX, AIA-YYYY]` for multiple related issues.
   - Use an imperative summary ("Fix crash when…").
@@ -286,6 +286,7 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
 
 ### Changelog
 
+- **2026-06-11**: Branch naming now documents the issue-key segment (`<type>/AIA-XXXX/desc`) matching actual practice; removed the stale Intel/x86_64 Xcode Cloud claim; cheat-sheet `xcodebuild` example no longer hardcodes a simulator model.
 - **2026-01-03**: Added Harmonize architectural linting (section 7), updated section numbering.
 - **2026-01-03**: Reorganized document, added Quick Reference, expanded sections (Security/Secrets, Performance, Code Review, Dependencies, Assets), merged anti-patterns, and added cross-references to existing docs.
 
