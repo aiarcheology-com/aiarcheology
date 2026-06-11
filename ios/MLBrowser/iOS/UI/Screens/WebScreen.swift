@@ -125,10 +125,16 @@ struct WebScreenView: View {
                     appState.settings.reopenLastPage.enabled,
                     let lastPage = appState.settings.lastPage {
                     // Not a user load: the display gate stays open and KVO fills the bar.
-                    loadRequest = loadRequest.next(lastPage.absoluteString)
+                    if loadRequest.input != lastPage.absoluteString {
+                        loadRequest = loadRequest.next(lastPage.absoluteString)
+                    }
                 } else {
                     guard let defaultPage = appState.settings.defaultPage?.absoluteString else { return }
-                    loadRequest = loadRequest.next(defaultPage)
+                    // No generation bump when the initial request already targets the
+                    // default page — it would reload the same URL a second time.
+                    if loadRequest.input != defaultPage {
+                        loadRequest = loadRequest.next(defaultPage)
+                    }
                     createOrRefreshWebHistoryEntry(defaultPage, maxEntries: appState.settings.historySize)
                 }
             }

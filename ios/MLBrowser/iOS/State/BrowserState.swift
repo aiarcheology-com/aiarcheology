@@ -67,8 +67,16 @@ final class BrowserState: ObservableObject {
 		subscriptions.removeAll()
 		self.webView = webView
 
+		// One KVO observation feeds all three URL paths. A CurrentValueSubject (not
+		// .share()) so every downstream gets the current value regardless of
+		// subscription order.
+		let urlSubject = CurrentValueSubject<URL?, Never>(webView.url)
 		webView.publisher(for: \.url)
 			.removeDuplicates()
+			.subscribe(urlSubject)
+			.store(in: &subscriptions)
+
+		urlSubject
 			.receive(on: DispatchQueue.main)
 			.sink { [weak self] url in
 				self?.urlChanged(url)
@@ -79,8 +87,7 @@ final class BrowserState: ObservableObject {
 		// follows a settled signal — map SPAs rewrite the URL many times per gesture,
 		// and per-emission writes would churn storage. Trade-off: a kill within the
 		// settle window loses at most the final pan step.
-		webView.publisher(for: \.url)
-			.removeDuplicates()
+		urlSubject
 			.debounce(for: .seconds(1), scheduler: DispatchQueue.main)
 			.sink { [weak self] url in
 				self?.persistLastPage(url)
@@ -89,8 +96,7 @@ final class BrowserState: ObservableObject {
 
 		// Display path: throttled (latest wins) so a map firing replaceState per
 		// inertial-move frame cannot thrash the address bar, yet the bar stays live.
-		webView.publisher(for: \.url)
-			.removeDuplicates()
+		urlSubject
 			.throttle(for: .milliseconds(100), scheduler: DispatchQueue.main, latest: true)
 			.sink { [weak self] url in
 				guard let self, self.isUserLoadPending.not else { return }
@@ -176,8 +182,11 @@ final class BrowserState: ObservableObject {
 		if let navigation {
 			pendingNavigation = navigation
 		} else {
-			// Should not happen for http(s) loads; fail open so the gate cannot stick.
+			// Should not happen for http(s) loads; fail open so the gate cannot
+			// stick — and resync the display, since no navigation will ever
+			// update KVO for the requested URL it may be showing.
 			isUserLoadPending = false
+			displayedURL = currentURL
 		}
 	}
 

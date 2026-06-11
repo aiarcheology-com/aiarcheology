@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 import CoreData
 
 /// Safari-style location surface: the read-only address display in the top bar presents

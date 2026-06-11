@@ -8,6 +8,7 @@
 
 import Foundation
 import SwiftUI
+import UIKit
 import WebKit
 import Combine
 import Vision
