@@ -207,14 +207,38 @@ the bar simply retains the typed text (today's effective behavior, now explicit)
   `mode == .web && compact && chromeVisible`. In fullscreen detection it disappears with the
   rest of the chrome (the floating chrome toggle stays, as today).
 
-### Dropdown replacement — phase 3 (separate PR, recommended follow-up)
+### Location sheet (dropdown replacement) — NOW IN SCOPE (user decisions, 2026-06-11)
 
-Replace `DropdownMenuModifier` with the Safari-style location UX the issue itself proposes:
-idle address bar renders as a **read-only label (host or trimmed URL)**; tapping it presents a
-sheet/overlay with a focused `TextField` + live-filtered history list (driving the existing
-`@FetchRequest`). This deletes `Guide.addressBarMenu`/`addressSelected` cross-view plumbing and
-the modifier. Kept out of phases 1–2 so the AIA-0044 fix isn't hostage to a UX redesign — and
-the user is mid-UI-redesign elsewhere; this phase should be sequenced with that work.
+The user pulled phase 3 into this branch with a concrete spec (supersedes the deferral and
+dissolves most of the focused-TextField writer races — the bar is no longer editable):
+
+- The top-bar address becomes a **read-only display at maximum width**; tapping it presents a
+  **sheet** (Safari-iOS "Search" table pattern) — on iPhone, iPad, *and* the
+  iPad-on-Mac build (real desktop Safari uses an inline dropdown, but the sheet is acceptable
+  there per user decision).
+- Sheet contents: focused `TextField` (search-or-URL) with an explicit **[Open]** confirmation
+  (return key + button, disabled for `.unusable` input); history list driven by the existing
+  `@FetchRequest`; typing **filters with debounce (~250 ms)**; sort toggle **Recent ↔ A–Z**;
+  rows show the URL **fully visible (multiline)** with a toggle to collapse to one line, plus
+  the entry's **timestamp**.
+- **Timestamp**: `creationDate_` is "when the URL was entered in the address bar"; re-entering
+  an existing URL **updates its timestamp** (today duplicates are skipped entirely), shown in
+  the sheet rows. No schema change.
+- **History on submit stands** (recorded even if the page never finishes loading — confirmed).
+- The bar shows the *requested* URL while a user load is pending, else throttled `currentURL`
+  (the navigation-identity gate from the grilled design drives this display switch).
+- This deletes `Guide.addressBarMenu`/`addressSelected`, the `ContentView` dropdown overlay,
+  and `DropdownMenuModifier` (+ its Testability ids).
+- **Regular width grouping (revised)**: `[BACK][ADDRESS][FORWARD]` sit **together** in the
+  principal slot — not BACK next to CPU / FORWARD next to PLAY. Reload/stop joins the trailing
+  group before PLAY/EDIT. Compact keeps the floating capsule.
+- **JS dialogs un-suppressed**: the web view gets a `WKUIDelegate` implementing
+  alert/confirm/prompt panels (presented via `UIAlertController` from the web view's window),
+  working on iOS and iPad-on-Mac.
+- **Redirects**: handled — KVO `\.url` tracks server redirects through provisional → commit,
+  and `didFailProvisionalNavigation` covers redirect failures.
+- Escape hatch (user-approved): if anything is too stretched on iOS 17, the deployment target
+  may be raised (drops iOS 17 support).
 
 ## Files touched (phases 1–2)
 
