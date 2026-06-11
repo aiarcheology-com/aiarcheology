@@ -408,12 +408,11 @@ private struct VisitTrailView: View {
 		.navigationTitle(domain)
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar {
-			ToolbarItemGroup(placement: .bottomBar) {
+			ToolbarItemGroup(placement: .navigationBarTrailing) {
 				Button(L10n.Browser.Location.data) {
 					presentDataSheet = true
 				}
 				.testability(Testability.Button.visitTrailData)
-				Spacer()
 				Button(role: .destructive) {
 					confirmDeleteSite = true
 				} label: {
