@@ -1,0 +1,62 @@
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_f24988eb446598::t_bd4fa71da78a26 120-121
+ios/MLBrowser/iOS/UI/LocationSheetView.swift
+  s_f24988eb446598::t_bce339521e5f5e 200
+  s_f24988eb446598::t_c0165aa1b4f5eb 56-58
+  s_f24988eb446598::t_ecbe85dd0e45a3 225-270
+  s_f24988eb446598::t_27623b525a14d5 137-154,157,159-175
+ios/MLBrowser/iOS/State/Appstate.swift
+  s_f24988eb446598::t_b4b02e60d53d5c 54-58
+  s_f24988eb446598::t_f82836906569c6 29
+ios/MLBrowser/iOS/Persistence/WebVisit+CoreDataProperties.swift
+  s_f24988eb446598::t_7559327c8b589a 1-26
+ios/MLBrowser/iOS/Persistence/WebVisit+CoreDataClass.swift
+  s_f24988eb446598::t_22799a33fa7fa7 1-21
+ios/MLBrowser/iOS/State/VisitTrail.swift
+  s_f24988eb446598::t_78efcce9580c1f 81-84
+  s_f24988eb446598::t_6fa085eb86ce3f 1-39,41-80,85-99
+  s_f24988eb446598::t_957151c2856023 40
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift
+  s_f24988eb446598::t_ea8024f872fed9 202
+  s_f24988eb446598::t_a32dca1a4f75b2 183
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_f24988eb446598::t_6413b4978ed382 283-286
+  s_f24988eb446598::t_0d57dbfd751e87 835
+  s_f24988eb446598::t_8d4ae92d874f9a 1288-1290
+  s_f24988eb446598::t_000e6f374e0f45 52-55
+  s_f24988eb446598::t_7fd0df4a4447de 627
+  s_f24988eb446598::t_65e2289a6e0b37 657-658
+  s_f24988eb446598::t_90089d5364cb25 404
+  s_f24988eb446598::t_f206c328201f77 1433
+  s_f24988eb446598::t_99f19cbdfaddc0 1949,1953
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_f24988eb446598::t_a141ffea17348c 89-90
+ios/MLBrowser/iOS/Persistence/MLBrowser.xcdatamodeld/MLBrowser_0.0.2.xcdatamodel/contents
+  s_f24988eb446598::t_5f1738c83db81f 1-40,48
+  s_f24988eb446598::t_f733b9bd16284d 41-47
+ios/MLBrowser/iOS/State/DemoDataManager.swift
+  s_f24988eb446598::t_0355535cabb2b1 75-76
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_f24988eb446598::t_ebab1d8ee10632 2374-2385
+ios/MLBrowser/iOS/Persistence/WebHistoryEntry+CoreDataProperties.swift
+  s_f24988eb446598::t_0fd8cc62b8b3a9 22-23
+ios/MLBrowserUnitTests/VisitTrailRecorderTests.swift
+  s_f24988eb446598::t_3b922da3763787 95
+  s_f24988eb446598::t_8f00b4c08428f2 1-94,96-97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "b5d15b2381ce770501e1a8e70dc8e61cb53d8b1f",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
