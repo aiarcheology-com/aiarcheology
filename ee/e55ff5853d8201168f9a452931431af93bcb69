@@ -1,0 +1,23 @@
+.github/workflows/auto-issue-key.yml
+  s_f24988eb446598::t_abb25895c55b30 31,71
+.github/workflows/swiftlint.yml
+  s_f24988eb446598::t_abb25895c55b30 23,27
+.github/workflows/harmonize.yml
+  s_f24988eb446598::t_abb25895c55b30 30,41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "eee55ff5853d8201168f9a452931431af93bcb69",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
