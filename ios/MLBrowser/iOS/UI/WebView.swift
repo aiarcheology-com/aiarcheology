@@ -143,7 +143,10 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
 		guard context.coordinator.lastLoadedGeneration != request.generation else { return }
 
         func load(_ urlString: String) {
-            guard let url = URL(string: urlString.withHTTPS) else {
+			// Host check is defense-in-depth (browserInputType only classifies
+			// host-carrying input as .url): a host-less URL like "https://" would
+			// issue a navigation that is guaranteed to fail.
+            guard let url = URL(string: urlString.withHTTPS), url.host != nil else {
 				// Fail open: a pending user load would otherwise strand the
 				// address-display gate with no navigation to ever settle it.
 				browserState.navigationIssued(nil)

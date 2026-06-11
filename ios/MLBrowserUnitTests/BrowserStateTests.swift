@@ -176,9 +176,14 @@ final class BrowserStateTests: XCTestCase {
 
     // MARK: - lastPage persistence
 
-    func testLastPage_PersistsEligibleURL() async {
+    func testLastPage_PersistsEligibleURL_AfterSettling() async {
         await loadTestPage()
 
+        // Persistence is debounced (storage-churn protection); poll past the window.
+        let deadline = Date().addingTimeInterval(5)
+        while settings.lastPage != Self.baseURL && Date() < deadline {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
         XCTAssertEqual(settings.lastPage, Self.baseURL)
     }
 
@@ -186,6 +191,8 @@ final class BrowserStateTests: XCTestCase {
         webView.load(URLRequest(url: URL(string: "about:blank")!))
         await waitForCurrentURL { $0?.absoluteString == "about:blank" }
 
+        // Wait out the persistence debounce before asserting nothing was written.
+        try? await Task.sleep(for: .milliseconds(1400))
         XCTAssertNil(settings.lastPage)
     }
 

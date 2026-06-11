@@ -75,6 +75,18 @@ final class BrowserState: ObservableObject {
 			}
 			.store(in: &subscriptions)
 
+		// Persistence path: lastPage lands in UserDefaults (Settings.didSet), so it
+		// follows a settled signal — map SPAs rewrite the URL many times per gesture,
+		// and per-emission writes would churn storage. Trade-off: a kill within the
+		// settle window loses at most the final pan step.
+		webView.publisher(for: \.url)
+			.removeDuplicates()
+			.debounce(for: .seconds(1), scheduler: DispatchQueue.main)
+			.sink { [weak self] url in
+				self?.persistLastPage(url)
+			}
+			.store(in: &subscriptions)
+
 		// Display path: throttled (latest wins) so a map firing replaceState per
 		// inertial-move frame cannot thrash the address bar, yet the bar stays live.
 		webView.publisher(for: \.url)
@@ -146,7 +158,11 @@ final class BrowserState: ObservableObject {
 	func userLoadRequested(_ input: String) {
 		isUserLoadPending = true
 		pendingNavigation = nil
-		if input.browserInputType == .url, let requested = URL(string: input.withHTTPS) {
+		// isRestorable: defense-in-depth — only host-carrying http(s) URLs may be
+		// shown as the request (browserInputType should already guarantee it).
+		if input.browserInputType == .url,
+		   let requested = URL(string: input.withHTTPS),
+		   isRestorable(requested) {
 			displayedURL = requested
 		}
 		// Search terms keep the previous display until the search page commits.
@@ -186,11 +202,13 @@ final class BrowserState: ObservableObject {
 			canGoBack = webView.canGoBack
 			canGoForward = webView.canGoForward
 		}
-		// Each write lands in UserDefaults (Settings.didSet) — skip unchanged values.
+	}
+
+	/// Restorable ≠ displayed: persisting from the (debounced) KVO stream instead of
+	/// didFinish makes "reopen last page" restore the exact map position, but only URLs
+	/// that can actually be reopened qualify.
+	private func persistLastPage(_ url: URL?) {
 		guard let url, isRestorable(url), settings.lastPage != url else { return }
-		// Restorable ≠ displayed: persisting from the KVO stream (instead of didFinish)
-		// makes "reopen last page" restore the exact map position, but only URLs that
-		// can actually be reopened qualify.
 		settings.lastPage = url
 	}
 
