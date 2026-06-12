@@ -248,6 +248,48 @@ final class VisionRectTransformTests: XCTestCase {
     }
 }
 
+// MARK: - Pick-mode detection hit test
+
+final class FindingPickHitTestTests: XCTestCase {
+    private let size = CGSize(width: 1000, height: 1000)
+
+    private func observation(_ box: CGRect) -> DetectedObject {
+        DetectedObject(uuid: UUID(), labels: [], confidence: 0.5, boundingBox: box, regionIndex: 0)
+    }
+
+    private func results(_ boxes: [CGRect]) -> [DetectionResult] {
+        [(observations: boxes.map(observation), params: DeepDriverParams(entityId: UUID()))]
+    }
+
+    func testTapInsideBox_ReturnsIt() {
+        // Vision box (0.2, 0.2, 0.4, 0.4) → view rect (200, 400, 400, 400).
+        let box = CGRect(x: 0.2, y: 0.2, width: 0.4, height: 0.4)
+        let hit = FindingCapture.detection(at: CGPoint(x: 400, y: 600), in: size, results: results([box]))
+        XCTAssertEqual(hit?.observation.boundingBox, box)
+    }
+
+    func testNestedBoxes_SmallestWins() {
+        let outer = CGRect(x: 0.1, y: 0.1, width: 0.8, height: 0.8)
+        let inner = CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2)
+        // Center of the view is inside both.
+        let hit = FindingCapture.detection(at: CGPoint(x: 500, y: 500), in: size, results: results([outer, inner]))
+        XCTAssertEqual(hit?.observation.boundingBox, inner)
+    }
+
+    func testTinyBox_PickableWithinMinimumTarget() {
+        // 10×10pt box centered at (500, 500); the tap is 15pt off — outside the
+        // exact rect but inside the 44pt minimum target.
+        let tiny = CGRect(x: 0.495, y: 0.495, width: 0.01, height: 0.01)
+        let hit = FindingCapture.detection(at: CGPoint(x: 515, y: 500), in: size, results: results([tiny]))
+        XCTAssertEqual(hit?.observation.boundingBox, tiny)
+    }
+
+    func testTapOutsideAllBoxes_ReturnsNil() {
+        let box = CGRect(x: 0.2, y: 0.2, width: 0.2, height: 0.2)
+        XCTAssertNil(FindingCapture.detection(at: CGPoint(x: 950, y: 50), in: size, results: results([box])))
+    }
+}
+
 // MARK: - Orphan sweep
 
 @MainActor

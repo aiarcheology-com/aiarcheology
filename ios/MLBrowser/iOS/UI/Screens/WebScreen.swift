@@ -71,6 +71,9 @@ struct WebScreenView: View {
 	/// Pick mode (Find/Store button): the next tap on the content marks the
 	/// place to store — independent of whether detection is running.
 	@State private var findPickActive: Bool = false
+	/// Mirror of DetectableView's displayed frame (updated on every apply/clear):
+	/// pick mode hit-tests its boxes and reuses its snapshot.
+	@State private var appliedFrame: AppliedDetectionFrame?
 
 	init() {
 		Backports.Appearance.textField()
@@ -108,16 +111,8 @@ struct WebScreenView: View {
             showIdentifiers: showIdentifiers,
             tiledDetection: tiledDetection,
             isCapturingFinding: $isCapturingFinding,
-            onDetectionTapped: { observation, params, frame in
-                // DetectableView froze the frame before this runs; stop the timer
-                // and present the save dialog with everything captured at tap time.
-                appState.guide.findingCaptureStarted()
-                findingCapture = FindingCapture(
-                    observation: observation,
-                    params: params,
-                    frame: frame,
-                    pageURL: appState.browserState.displayedURL
-                )
+            onFrameChanged: { frame in
+                appliedFrame = frame
             },
             onInteractionStateChanged: { state in
                 // Optionally propagate to Guide for other UI components to observe
@@ -197,7 +192,11 @@ struct WebScreenView: View {
         }
         .overlay {
             if findPickActive {
-                FindPickOverlay(onPick: manualPick, onCancel: cancelFindPick)
+                FindPickOverlay(
+                    results: appliedFrame?.results ?? [],
+                    onPick: pick,
+                    onCancel: cancelFindPick
+                )
             }
         }
         .alert(isPresented: $showAlert) {
@@ -212,24 +211,55 @@ struct WebScreenView: View {
         }
     }
 
-	/// The user marked a place manually (Find/Store button → tap). A fresh snapshot
-	/// is taken — there may be no detection frame at all — and the save sheet opens
-	/// with a synthetic observation around the tapped point (no class, no driver).
-	private func manualPick(at location: CGPoint, in size: CGSize) {
+	/// The user marked a place in pick mode — the ONLY capture path (direct taps on
+	/// annotations would clash with the web app's own gestures, like panning a map).
+	/// A tap inside a frozen detection box snaps to that detection, preserving its
+	/// class/confidence/driver; anywhere else becomes a synthetic manual observation.
+	private func pick(at location: CGPoint, in size: CGSize) {
 		findPickActive = false
+
+		// Snap to a displayed detection: the frozen frame's snapshot is the exact
+		// image its boxes came from, so the pair is coherent by construction.
+		if let frame = appliedFrame,
+		   let hit = FindingCapture.detection(at: location, in: size, results: frame.results) {
+			findingCapture = FindingCapture(
+				observation: hit.observation,
+				params: hit.params,
+				frame: frame,
+				pageURL: appState.browserState.displayedURL
+			)
+			return
+		}
+
+		manualPick(at: location, in: size)
+	}
+
+	/// No detection under the tap: a synthetic observation around the point (no
+	/// class, no driver). The frozen frame's snapshot is reused when detection is
+	/// running; otherwise a fresh one is taken — there may be no frame at all.
+	private func manualPick(at location: CGPoint, in size: CGSize) {
+		let observation = DetectedObject(
+			uuid: UUID(),
+			labels: [],
+			confidence: 0,
+			boundingBox: FindingCapture.manualBox(at: location, in: size),
+			regionIndex: 0
+		)
+		if let frame = appliedFrame {
+			findingCapture = FindingCapture(
+				observation: observation,
+				params: nil,
+				frame: frame,
+				pageURL: appState.browserState.displayedURL
+			)
+			return
+		}
 		appState.webViewRenderer.render(EmptyView(), scale: 1) { image, error in
 			guard let image else {
 				LoggingPolicy.error("Manual finding pick: snapshot failed", error: error, logger: .ui)
 				cancelFindPick()
 				return
 			}
-			let observation = DetectedObject(
-				uuid: UUID(),
-				labels: [],
-				confidence: 0,
-				boundingBox: FindingCapture.manualBox(at: location, in: size),
-				regionIndex: 0
-			)
 			findingCapture = FindingCapture(
 				observation: observation,
 				params: nil,
@@ -320,10 +350,13 @@ struct WebScreenView: View {
 
 // MARK: - Find pick overlay
 
-/// Captures ONE tap on the content to mark the place of a manual finding.
+/// Captures ONE tap on the content to mark the place of a finding. The frozen
+/// frame's detection boxes are re-drawn SOLID (the live annotations have faded
+/// by now) so the user can aim at one; a tap inside snaps to that detection.
 /// Slightly dimmed so the mode is visible; scroll/zoom are intentionally
 /// blocked while picking — Cancel leaves the mode.
 private struct FindPickOverlay: View {
+	let results: [DetectionResult]
 	let onPick: (CGPoint, CGSize) -> Void
 	let onCancel: () -> Void
 
@@ -338,7 +371,22 @@ private struct FindPickOverlay: View {
 								onPick(value.location, geometry.size)
 							}
 					)
+				detectionBoxes(in: geometry.size)
 				hint
+			}
+		}
+	}
+
+	@ViewBuilder
+	private func detectionBoxes(in size: CGSize) -> some View {
+		ForEach(Array(results.enumerated()), id: \.offset) { _, group in
+			ForEach(group.observations, id: \.uuid) { observation in
+				let rect = observation.boundingBox.visionRect(in: size)
+				Rectangle()
+					.stroke(group.params.annotationColor, lineWidth: 3)
+					.frame(width: rect.width, height: rect.height)
+					.position(x: rect.midX, y: rect.midY)
+					.allowsHitTesting(false)
 			}
 		}
 	}

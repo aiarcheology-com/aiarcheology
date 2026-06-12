@@ -12,17 +12,9 @@ struct AnnotationViewBuilder: View {
 	var geometry: GeometryProxy
 	var params: DeepDriverParams
 	var showIndentifiers: Bool
-	/// Present only on screens that support saving findings; without it no hit
-	/// area exists and every touch falls through to the content below.
-	var onTap: (() -> Void)?
-
-	/// The symbol views fade to opacity 0 (un-hit-testable) over `phaseOutTime`;
-	/// this separate window ends the explicit hit area at the same moment, so an
-	/// invisible annotation never silently swallows taps/pans meant for the page.
-	@State private var tapWindowOpen = true
 
     var body: some View {
-        ZStack {
+        Group {
             switch params.selectedSymbol {
             case .circle:
                 ObservationCircleView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime, showIndentifiers: showIndentifiers)
@@ -31,39 +23,8 @@ struct AnnotationViewBuilder: View {
             case .point:
                 ObservationPointView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime, showIndentifiers: showIndentifiers)
             }
-            if let onTap, tapWindowOpen {
-                tapTarget(action: onTap)
-            }
         }
     }
-
-	/// A sized clear hit area over the bounding box. The symbol views themselves are
-	/// not tappable: clear fills and faded strokes have no hittable pixels. Known
-	/// trade-off: a pan STARTING inside a visible box is claimed by this layer and
-	/// won't scroll the page (boxes are small; capture is the primary intent there).
-	private func tapTarget(action: @escaping () -> Void) -> some View {
-		let rect = observation.viewRect(in: geometry.size)
-		return Color.clear
-			.frame(width: max(rect.width, 44), height: max(rect.height, 44))
-			.position(x: rect.midX, y: rect.midY)
-			.contentShape(Rectangle())
-			.onTapGesture(perform: action)
-			.task {
-				// Mirrors the symbol's fade duration; new detections arrive as new
-				// view identities (uuid-keyed ForEach), restarting the window.
-				try? await Task.sleep(for: .seconds(params.phaseOutTime))
-				tapWindowOpen = false
-			}
-			.accessibilityLabel(observation.primaryLabelIdentifier ?? L10n.Finding.detection)
-			.testability(Testability.Button.annotationDetection)
-	}
-}
-
-extension DetectedObject {
-	/// View-space rect for the Vision-normalized full-image bounding box.
-	func viewRect(in size: CGSize) -> CGRect {
-		boundingBox.visionRect(in: size)
-	}
 }
 
 extension CGRect {

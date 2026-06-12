@@ -48,23 +48,36 @@ Validation (`validationReport()`): `page` is http(s), box coordinates finite wit
 
 Replace `detectedObservations: [DetectionResult]` with **one source of truth**: `appliedFrame: AppliedDetectionFrame?` (struct: `image: UIImage`, `results: [DetectionResult]`, `date: Date`). It is written **only** at the existing apply site (the completion closure of `drivers.detect(on:tiledDetection:completion:)` inside the `detectionQueue.enqueue` pass, DetectableView.swift:101-113), after BOTH existing guards (generation, `!isInteracting`) plus a new `guard !isCapturingFinding`. `AnnotationOverlay` renders from `appliedFrame` — the cached image and the on-screen boxes can never diverge by construction.
 
-### 4. Tappable annotations
+### 4. Capture entry: the Find/Store button (REVISED during implementation)
 
-- Each observation view gets an explicit **sized clear hit element** (`.frame` of the box size, `.position(center)`, `.contentShape(Rectangle())`, `.onTapGesture`) — there is no implicit hittable container, and the visible border fades to opacity 0 (un-hit-testable) over `phaseOutTime`.
-- The hit element is disabled when the fade completes (`withAnimation(_:completion:)` flips `allowsHitTesting` off) — no invisible dead zones blocking links/pans after the box disappears; tappable exactly while visible ("tap the breathing location", per the issue). Boxes are re-applied every detection pass, restarting visibility.
-- Callback `onDetectionTapped(DetectedObject, DeepDriverParams)` up through `AnnotationOverlay` → `DetectableView` → screen.
-- The center/size transform (`(midX·W, (1−midY)·H)` center, `(w·W, h·H)` size) is extracted into one shared helper used by the live views, the hit element, and the static highlight — no drift.
-- **Named trade-off:** a pan starting inside a visible detection box does not scroll the page (boxes are small; capture is the primary intent). Fallback if simulator testing shows annoyance: non-hit-testable overlay + `SpatialTapGesture` in `simultaneousGesture` with manual box hit-testing (double-delivers the tap to the page).
+Direct taps on annotations were implemented first and then **removed**: hit-testable
+annotation overlays clash with the web apps' own gestures (map taps/pans). The ONLY
+capture entry is the Find/Store button (`plus.viewfinder`):
 
-### 5. Tap → pause → `SaveFindingSheet`
+- Regular widths: in `GlobalToolbarTrailing`. Compact: a fourth item in the
+  `FloatingNavBar` capsule (the top bar has no room there, AIA-0183).
+- Tap → pick mode: detection passes freeze, the content dims under a hint banner,
+  and the frozen frame's boxes are re-drawn **solid** in the overlay (the live
+  annotations have faded). The next tap picks the place; Cancel exits.
+- A tap **inside a frozen detection box** snaps to that detection (smallest box
+  wins when nested; every box counts as ≥44pt) — class/confidence/driver preserved.
+- A tap **outside all boxes** becomes a synthetic manual observation (64pt box
+  around the point, no class, no driver); works with detection off too — the
+  frozen frame's snapshot is reused when present, otherwise a fresh one is taken
+  via `WebViewRenderer`.
+- Annotations themselves are pure visuals again — every touch falls through to
+  the page outside pick mode.
 
-Capture ownership is split: `DetectableView` owns the freeze; `Guide` only owns the timer.
+### 5. Pick → pause → `SaveFindingSheet`
 
-Tap handler (one synchronous MainActor block, in this order):
-1. Read `appliedFrame` (the displayed, historical frame — not a future completion).
-2. `isCapturingFinding = true` — gates the apply site, the `geometry.size` clearer (line 88), the `interactionState` clearer (line 120), and new enqueues in `onSnapshot`.
-3. `Guide.findingCaptureStarted()` — stops the snap timer (`cancelPending()` + generation bump happen locally in DetectableView; `stopTimer()` alone doesn't stop an in-flight pass, and `done()` chains a coalesced pending pass even after the timer stops).
-4. Present the sheet with the captured `(frame, detection, params)`.
+Capture ownership is split: the screen owns pick mode and the freeze flag;
+`DetectableView` owns the frame and mirrors it out via `onFrameChanged`
+(single write path, mirror can't diverge); `Guide` only owns the timer.
+
+Entering pick mode (one synchronous MainActor block, in this order):
+1. `isCapturingFinding = true` — gates the apply site, the `geometry.size` clearer, the `interactionState` clearer, and new enqueues in `onSnapshot`.
+2. `Guide.findingCaptureStarted()` — stops the snap timer (`stopTimer()` alone doesn't stop an in-flight pass; the freeze gate discards its result).
+3. The pick overlay appears; its tap resolves to a detection or a manual box and presents the sheet with the mirrored frozen `(frame, observation, params?)`.
 
 Sheet contents: URL read-only (`BrowserState.displayedURL` at tap time), label free text starting **empty** with suggestion chips = distinct stored user labels ∪ the tapped detection's `primaryLabelIdentifier` (single top-confidence class only — the full label list would pollute suggestions), note, manual GPS field, snapshot preview with the highlight **drawn fresh at full opacity** from the captured `boundingBox` via the shared transform mapped into the aspect-fitted rendered image rect (not the container).
 
@@ -88,7 +101,7 @@ Dismiss (every path, including interactive swipe) → `isCapturingFinding = fals
 
 ## Known limitations (named, accepted)
 
-- Pan starting inside a visible box doesn't scroll the page (fallback variant documented in §4).
+- Pick mode intentionally blocks scroll/zoom until a tap or Cancel (annotations outside pick mode never claim touches — see §4 revision).
 - Rotation during the save sheet cosmetically misaligns the frozen boxes behind it.
 - GPS is manual in v1; URL-derived prefill deferred.
 - Suggestions before the first save = only the tapped detection's class.

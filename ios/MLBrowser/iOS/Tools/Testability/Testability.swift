@@ -132,8 +132,6 @@ extension TestabilityIdentification {
 		// Drawer
 		case drawerSettings
 		case drawerFindings
-		// Annotation
-		case annotationDetection
 		// Save Finding
 		case saveFindingSave
 		case saveFindingCancel

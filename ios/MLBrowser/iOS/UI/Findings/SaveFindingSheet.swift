@@ -20,6 +20,33 @@ struct FindingCapture: Identifiable {
 
 	var id: UUID { observation.uuid }
 
+	/// The displayed detection whose box contains the tap — the smallest one wins
+	/// when boxes nest, and every box counts as at least 44pt so small detections
+	/// stay pickable. nil when the tap lands outside all boxes.
+	static func detection(
+		at location: CGPoint,
+		in size: CGSize,
+		results: [DetectionResult],
+		minimumTarget: CGFloat = 44
+	) -> (observation: DetectedObject, params: DeepDriverParams)? {
+		var best: (observation: DetectedObject, params: DeepDriverParams, area: CGFloat)?
+		for group in results {
+			for observation in group.observations {
+				let rect = observation.boundingBox.visionRect(in: size)
+				let target = rect.insetBy(
+					dx: min(0, (rect.width - minimumTarget) / 2),
+					dy: min(0, (rect.height - minimumTarget) / 2)
+				)
+				guard target.contains(location) else { continue }
+				let area = rect.width * rect.height
+				if best == nil || area < best!.area {
+					best = (observation, group.params, area)
+				}
+			}
+		}
+		return best.map { ($0.observation, $0.params) }
+	}
+
 	/// A Vision-normalized box centered on a manual tap (top-left view
 	/// coordinates), clamped fully inside the unit rect so validation holds.
 	/// The view and the snapshot share the same aspect, so view-normalized
