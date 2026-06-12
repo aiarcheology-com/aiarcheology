@@ -167,6 +167,21 @@ final class TileLayoutDedupTests: XCTestCase {
 		XCTAssertEqual(Set(result.map(\.uuid)), Set([left.uuid, right.uuid]))
 	}
 
+	func testDedup_UnlabeledBoxes_AreNeverSuppressed() {
+		// nil == nil must not make two unlabeled cross-region detections compete.
+		let first = DetectedObject(
+			uuid: UUID(), labels: [], confidence: 0.9,
+			boundingBox: CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2), regionIndex: 0
+		)
+		let second = DetectedObject(
+			uuid: UUID(), labels: [], confidence: 0.5,
+			boundingBox: CGRect(x: 0.41, y: 0.41, width: 0.2, height: 0.2), regionIndex: 4
+		)
+
+		let result = TileLayout.dedupAcrossRegions([first, second])
+		XCTAssertEqual(Set(result.map(\.uuid)), Set([first.uuid, second.uuid]))
+	}
+
 	func testDedup_SingleObject_PassesThrough() {
 		let only = object(confidence: 0.4, box: CGRect(x: 0.1, y: 0.1, width: 0.2, height: 0.2), region: 5)
 		XCTAssertEqual(TileLayout.dedupAcrossRegions([only]).map(\.uuid), [only.uuid])

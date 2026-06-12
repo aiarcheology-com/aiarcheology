@@ -146,7 +146,11 @@ enum TileLayout {
 	// MARK: - Geometry helpers
 
 	private static func competing(_ lhs: DetectedObject, _ rhs: DetectedObject) -> Bool {
-		lhs.regionIndex != rhs.regionIndex && lhs.primaryLabelIdentifier == rhs.primaryLabelIdentifier
+		// Unlabeled observations never compete: nil == nil must not let two unlabeled
+		// detections from different regions suppress each other.
+		guard let lhsLabel = lhs.primaryLabelIdentifier,
+			  let rhsLabel = rhs.primaryLabelIdentifier else { return false }
+		return lhs.regionIndex != rhs.regionIndex && lhsLabel == rhsLabel
 	}
 
 	private static func area(of rect: CGRect) -> CGFloat {

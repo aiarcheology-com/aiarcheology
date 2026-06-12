@@ -121,16 +121,23 @@ actor Detector: DeepDriver {
                     regionIndex: index
                 ))
             }
+            // DEBUG-only: a steady-state detection loop would otherwise flood the
+            // remote breadcrumb buffer with timing entries (the latency measurements
+            // these exist for happen in debug builds).
+            #if DEBUG
             LoggingPolicy.debug(
                 "Region \(index) detected \(regionObservations.count) objects in \(Date.now.timeIntervalSince(regionStart))s",
                 logger: .drivers
             )
+            #endif
         }
         let results = TileLayout.dedupAcrossRegions(collected)
+        #if DEBUG
         LoggingPolicy.debug(
             "Detection over \(regions.count) regions completed with \(results.count) objects (\(collected.count) raw) in \(Date.now.timeIntervalSince(start))s",
             logger: .drivers
         )
+        #endif
         return results
     }
 
