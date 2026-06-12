@@ -216,18 +216,16 @@ struct WebScreenView: View {
 	/// A tap inside a frozen detection box snaps to that detection, preserving its
 	/// class/confidence/driver; anywhere else becomes a synthetic manual observation.
 	private func pick(at location: CGPoint, in size: CGSize) {
-		findPickActive = false
-
 		// Snap to a displayed detection: the frozen frame's snapshot is the exact
 		// image its boxes came from, so the pair is coherent by construction.
 		if let frame = appliedFrame,
 		   let hit = FindingCapture.detection(at: location, in: size, results: frame.results) {
-			findingCapture = FindingCapture(
+			present(FindingCapture(
 				observation: hit.observation,
 				params: hit.params,
 				frame: frame,
 				pageURL: appState.browserState.displayedURL
-			)
+			))
 			return
 		}
 
@@ -246,12 +244,12 @@ struct WebScreenView: View {
 			regionIndex: 0
 		)
 		if let frame = appliedFrame {
-			findingCapture = FindingCapture(
+			present(FindingCapture(
 				observation: observation,
 				params: nil,
 				frame: frame,
 				pageURL: appState.browserState.displayedURL
-			)
+			))
 			return
 		}
 		appState.webViewRenderer.render(EmptyView(), scale: 1) { image, error in
@@ -260,13 +258,21 @@ struct WebScreenView: View {
 				cancelFindPick()
 				return
 			}
-			findingCapture = FindingCapture(
+			present(FindingCapture(
 				observation: observation,
 				params: nil,
 				frame: AppliedDetectionFrame(image: image, results: []),
 				pageURL: appState.browserState.displayedURL
-			)
+			))
 		}
+	}
+
+	/// Pick mode ends only when the capture is ready (or cancelled): the overlay
+	/// keeps blocking scroll/zoom while the fresh-snapshot path is in flight, so
+	/// the captured image cannot drift from the tapped location.
+	private func present(_ capture: FindingCapture) {
+		findPickActive = false
+		findingCapture = capture
 	}
 
 	/// Leaves pick mode without storing: unfreeze and resume (the sheet path

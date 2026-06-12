@@ -78,7 +78,8 @@ struct FindingsListView: View {
 
 	private var filteredFindings: [Finding] {
 		guard let filterLabel else { return Array(findings) }
-		return findings.filter { $0.label_ == filterLabel }
+		// Case-insensitive, matching the chips' identity (distinctLabels).
+		return findings.filter { $0.label_?.caseInsensitiveCompare(filterLabel) == .orderedSame }
 	}
 
 	private var filterChips: some View {
@@ -239,7 +240,9 @@ private struct FindingDetailView: View {
 			}
 			if let detectionClass = finding.detectionClass {
 				Section(L10n.Finding.detection) {
-					Text("\(detectionClass) (\(Int(finding.detectionConfidence * 100))%)")
+					// verbatim: class names are model vocabulary, not localizable —
+					// and plain interpolation gets auto-extracted into the catalog.
+					Text(verbatim: "\(detectionClass) (\(Int(finding.detectionConfidence * 100))%)")
 						.foregroundStyle(.secondary)
 				}
 			}
@@ -362,9 +365,12 @@ extension Finding {
 			let image = FindingScreenshotStore.load(filename: screenshotFilename),
 			let cgImage = image.cgImage
 		else { return nil }
-		let pixelSize = CGSize(width: cgImage.width, height: cgImage.height)
-		let pixelRect = normalizedBox.visionRect(in: pixelSize).integral
-		guard let crop = cgImage.cropping(to: pixelRect) else { return nil }
+		let bounds = CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height)
+		// `.integral` can round an edge-touching rect past the image bounds;
+		// intersect so the crop request is always fully inside (croppedCapture
+		// in SaveFindingSheet does the same).
+		let pixelRect = normalizedBox.visionRect(in: bounds.size).integral.intersection(bounds)
+		guard pixelRect.width > 0, pixelRect.height > 0, let crop = cgImage.cropping(to: pixelRect) else { return nil }
 		return UIImage(cgImage: crop)
 	}
 }

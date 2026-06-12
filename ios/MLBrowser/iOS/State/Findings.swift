@@ -33,8 +33,9 @@ extension Finding: CoreDataManagableWithState {
             issues.append(.init(key: "detectionConfidence", message: "Confidence is outside 0...1."))
         }
 
-        if let filename = screenshotFilename, filename != Finding.screenshotFilename(for: entityId) {
-            issues.append(.init(key: "screenshotFilename", message: "Filename does not match the entity id."))
+        // Required: a finding without its screenshot reference is unusable.
+        if screenshotFilename != Finding.screenshotFilename(for: entityId) {
+            issues.append(.init(key: "screenshotFilename", message: "Filename is missing or does not match the entity id."))
         }
 
         return .init(issues: issues)
@@ -98,11 +99,14 @@ extension Finding {
             // in-memory test store behaves identically (and trim-collisions merge).
             do {
                 let rows = try context.fetch(request)
+                // Case-insensitive identity (first-seen casing wins), matching the
+                // case-insensitive list filter — otherwise "Fortification" and
+                // "fortification" would produce two chips.
                 var seen = Set<String>()
                 result = rows
                     .compactMap { $0["label_"] as? String }
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .filter { $0.isEmpty.not && seen.insert($0).inserted }
+                    .filter { $0.isEmpty.not && seen.insert($0.lowercased()).inserted }
                     .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
             } catch {
                 LoggingPolicy.error("Failed to fetch distinct finding labels", error: error, logger: .storage)

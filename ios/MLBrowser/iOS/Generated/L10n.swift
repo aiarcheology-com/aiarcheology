@@ -284,8 +284,8 @@ internal enum L10n {
     /// Findings
     internal static let title = L10n.tr("Localizable", "findings.title", fallback: "Findings")
     internal enum Empty {
-      /// Tap a detected location in the web content to store it here.
-      internal static let message = L10n.tr("Localizable", "findings.empty.message", fallback: "Tap a detected location in the web content to store it here.")
+      /// Use the Find button, then tap the place in the web content to store it here.
+      internal static let message = L10n.tr("Localizable", "findings.empty.message", fallback: "Use the Find button, then tap the place in the web content to store it here.")
       /// No Findings Yet
       internal static let title = L10n.tr("Localizable", "findings.empty.title", fallback: "No Findings Yet")
     }

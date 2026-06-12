@@ -94,6 +94,13 @@ final class FindingValidationTests: XCTestCase {
         XCTAssertFalse(finding.validationReport().isValid)
     }
 
+    func testMissingScreenshotFilename_FailsValidation() {
+        let finding = makeValidFinding()
+        finding.screenshotFilename = nil
+        finding.transition(to: .draft)
+        XCTAssertFalse(finding.validationReport().isValid)
+    }
+
     /// The save-sheet failure path: an invalid finding at .ready makes the context
     /// save throw, and deleting the pending object must leave nothing behind for a
     /// later unrelated save to commit.
@@ -149,6 +156,9 @@ final class FindingLabelTests: XCTestCase {
         try insertFinding(label: "fields")
         try insertFinding(label: "fields")
         try insertFinding(label: "  fields  ")
+        // Case variants are ONE chip (first-seen casing wins) — the list filter
+        // is case-insensitive too.
+        try insertFinding(label: "Fields")
         try insertFinding(label: "   ")
         try insertFinding(label: nil)
 

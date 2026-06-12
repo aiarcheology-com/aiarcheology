@@ -13,16 +13,6 @@
     "%.2f" : {
 
     },
-    "%@ (%lld%%)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ (%2$lld%%)"
-          }
-        }
-      }
-    },
     "0-100" : {
 
     },
@@ -7512,7 +7502,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tap a detected location in the web content to store it here."
+            "value" : "Use the Find button, then tap the place in the web content to store it here."
           }
         }
       }

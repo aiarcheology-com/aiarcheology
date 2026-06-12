@@ -140,6 +140,16 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 }
             }
         }
+        .onChange(of: isCapturingFinding.wrappedValue) { _, capturing in
+            // Entering a capture must also invalidate work already in flight:
+            // the freeze gate alone only discards results WHILE it is set — a
+            // pre-freeze pass (or its coalesced successor) finishing after the
+            // capture ends would briefly apply a stale frame over the fresh one.
+            if capturing {
+                detectionGeneration &+= 1
+                detectionQueue.cancelPending()
+            }
+        }
         .onChange(of: interactionState) { _, state in
             // While the save dialog is up the frame stays frozen (interaction events
             // can still arrive from the web view as the sheet animates in).
