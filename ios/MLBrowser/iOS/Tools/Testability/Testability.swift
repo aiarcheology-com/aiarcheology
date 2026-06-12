@@ -145,6 +145,7 @@ extension TestabilityIdentification {
 		case findingsFilterLabel
 		case findingsDeleteEntry
 		case findingsOpenPage
+		case findingDetailSave
 		// Snap Adjustment
 		case snapAdjustmentReset
 		case snapAdjustmentOverlayDismiss
@@ -240,6 +241,10 @@ extension TestabilityIdentification {
 		case saveFindingLabel
 		case saveFindingNote
 		case saveFindingGps
+		// Finding Detail
+		case findingDetailLabel
+		case findingDetailNote
+		case findingDetailGps
 	}
 	
 	enum Stepper: String, TestabilityIdentification {

@@ -197,11 +197,18 @@ struct FindingsListView: View {
 // MARK: - Detail
 
 /// One stored finding: the full snapshot with the detection highlighted live
-/// (drawn from the stored bounding box — never baked into the image), all fields,
-/// and the way back to the captured page.
+/// (drawn from the stored bounding box — never baked into the image), the
+/// editable text fields, and the way back to the captured page. Edits are
+/// committed by the explicit Save button — never implicitly on navigation.
 private struct FindingDetailView: View {
+	@Environment(\.managedObjectContext) private var moc
 	@ObservedObject var finding: Finding
 	let onOpenPage: (URL) -> Void
+
+	@State private var label = ""
+	@State private var note = ""
+	@State private var gps = ""
+	@State private var saveFailed = false
 
 	var body: some View {
 		List {
@@ -216,17 +223,25 @@ private struct FindingDetailView: View {
 						.padding(.vertical, 32)
 				}
 			}
-			if let label = finding.label_ {
-				labeledRow(L10n.Finding.label, value: label)
+			Section(L10n.Finding.label) {
+				TextField(L10n.Finding.labelPlaceholder, text: $label)
+					.testability(Testability.TextField.findingDetailLabel)
 			}
-			if let note = finding.note_ {
-				labeledRow(L10n.Finding.note, value: note)
+			Section(L10n.Finding.note) {
+				TextField(L10n.Finding.notePlaceholder, text: $note, axis: .vertical)
+					.lineLimit(3...6)
+					.testability(Testability.TextField.findingDetailNote)
 			}
-			if let gps = finding.gps_ {
-				labeledRow(L10n.Finding.gps, value: gps)
+			Section(L10n.Finding.gps) {
+				TextField(L10n.Finding.gpsPlaceholder, text: $gps)
+					.keyboardType(.numbersAndPunctuation)
+					.testability(Testability.TextField.findingDetailGps)
 			}
 			if let detectionClass = finding.detectionClass {
-				labeledRow(L10n.Finding.detection, value: "\(detectionClass) (\(Int(finding.detectionConfidence * 100))%)")
+				Section(L10n.Finding.detection) {
+					Text("\(detectionClass) (\(Int(finding.detectionConfidence * 100))%)")
+						.foregroundStyle(.secondary)
+				}
 			}
 			if let page = finding.page {
 				Section(L10n.Finding.page) {
@@ -251,15 +266,55 @@ private struct FindingDetailView: View {
 		}
 		.navigationTitle(finding.label_ ?? finding.detectionClass ?? L10n.Findings.title)
 		.navigationBarTitleDisplayMode(.inline)
+		.toolbar {
+			ToolbarItem(placement: .navigationBarTrailing) {
+				Button(action: saveEdits) {
+					Text(L10n.Finding.Save.action)
+						.bold()
+				}
+				.disabled(hasChanges.not)
+				.testability(Testability.Button.findingDetailSave)
+			}
+		}
+		.alert(L10n.Finding.Save.error, isPresented: $saveFailed) {
+			Button(L10n.Common.ok, role: .cancel) {}
+		}
+		.onAppear(perform: seedFields)
 	}
 
-	private func labeledRow(_ title: String, value: String) -> some View {
-		VStack(alignment: .leading, spacing: 2) {
-			Text(title)
-				.font(.caption)
-				.foregroundStyle(.secondary)
-			Text(value)
+	// MARK: - Editing
+
+	private var hasChanges: Bool {
+		normalized(label) != finding.label_
+			|| normalized(note) != finding.note_
+			|| normalized(gps) != finding.gps_
+	}
+
+	private func seedFields() {
+		label = finding.label_ ?? ""
+		note = finding.note_ ?? ""
+		gps = finding.gps_ ?? ""
+	}
+
+	private func saveEdits() {
+		finding.label_ = normalized(label)
+		finding.note_ = normalized(note)
+		finding.gps_ = normalized(gps)
+		do {
+			try Finding.save(in: moc)
+		} catch {
+			LoggingPolicy.error("Failed to save finding edits", error: error, logger: .storage)
+			// Reload from the store so the fields reflect the persisted state
+			// instead of silently diverging from it (ConfigurationRow precedent).
+			moc.refresh(finding, mergeChanges: false)
+			seedFields()
+			saveFailed = true
 		}
+	}
+
+	private func normalized(_ text: String) -> String? {
+		let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+		return trimmed.isEmpty ? nil : trimmed
 	}
 }
 
