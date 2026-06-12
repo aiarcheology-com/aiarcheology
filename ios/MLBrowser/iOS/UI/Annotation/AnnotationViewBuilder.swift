@@ -9,7 +9,7 @@ import SwiftUI
 import Vision
 
 struct AnnotationViewBuilder: View {
-	var observation: VNRecognizedObjectObservation
+	var observation: DetectedObject
 	var geometry: GeometryProxy
 	var params: DeepDriverParams
 	var showIndentifiers: Bool

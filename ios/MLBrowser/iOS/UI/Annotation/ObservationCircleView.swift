@@ -9,7 +9,7 @@ import SwiftUI
 import Vision
 
 struct ObservationCircleView: View {
-	var observation: VNRecognizedObjectObservation
+	var observation: DetectedObject
 	var geometry: GeometryProxy
 	var color: Color
 	var phaseOutTime: CFTimeInterval
