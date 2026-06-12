@@ -39,7 +39,7 @@ struct FindingCapture: Identifiable {
 				)
 				guard target.contains(location) else { continue }
 				let area = rect.width * rect.height
-				if best == nil || area < best!.area {
+				if area < (best?.area ?? .infinity) {
 					best = (observation, group.params, area)
 				}
 			}
