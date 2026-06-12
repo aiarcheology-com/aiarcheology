@@ -1,0 +1,19 @@
+ios/MLBrowser/iOS/Tools/Reporting/LoggingPolicy.swift
+  s_f24988eb446598::t_866beb9ea80f48 52-55,65,68-69,71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "5333c00e041c8890532dcee90985646306057b80",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
