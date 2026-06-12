@@ -328,9 +328,6 @@ struct HighlightedSnapshotView: View {
 	let image: UIImage
 	let normalizedBox: CGRect
 	let color: Color
-	/// The save form exposes this on a slider — a solid rectangle can hide the
-	/// very detail the user wants to inspect before storing.
-	var opacity: Double = 1
 
 	var body: some View {
 		Image(uiImage: image)
@@ -340,7 +337,7 @@ struct HighlightedSnapshotView: View {
 				GeometryReader { imageGeometry in
 					let rect = normalizedBox.visionRect(in: imageGeometry.size)
 					Rectangle()
-						.stroke(color.opacity(opacity), lineWidth: 2)
+						.stroke(color, lineWidth: 2)
 						.frame(width: rect.width, height: rect.height)
 						.position(x: rect.midX, y: rect.midY)
 				}

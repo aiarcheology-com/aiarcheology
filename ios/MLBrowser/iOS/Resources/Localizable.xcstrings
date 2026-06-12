@@ -13,6 +13,16 @@
     "%.2f" : {
 
     },
+    "%@ (%lld%%)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$lld%%)"
+          }
+        }
+      }
+    },
     "0-100" : {
 
     },
@@ -7479,6 +7489,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Save Finding"
+          }
+        }
+      }
+    },
+    "finding.zoom" : {
+      "comment" : "Accessibility label of the crop zoom slider in the save-finding dialog",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom"
           }
         }
       }

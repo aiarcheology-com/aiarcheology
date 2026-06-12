@@ -186,6 +186,7 @@ extension TestabilityIdentification {
 		case snapAdjustmentSaturation
 		// Save Finding
 		case saveFindingHighlightOpacity
+		case saveFindingZoom
 	}
 	
 	enum ColorPicker: String, TestabilityIdentification {

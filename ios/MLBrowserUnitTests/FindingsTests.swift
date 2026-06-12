@@ -248,6 +248,62 @@ final class VisionRectTransformTests: XCTestCase {
     }
 }
 
+// MARK: - Crop math
+
+final class FindingCropMathTests: XCTestCase {
+    private let unit = CGRect(x: 0, y: 0, width: 1, height: 1)
+    private let fitted = CGSize(width: 400, height: 200)
+
+    func testCropRect_ScaleOne_IsUnitRect() {
+        XCTAssertEqual(FindingCapture.cropRect(scale: 1, offset: .zero, fitted: fitted), unit)
+    }
+
+    func testCropRect_ZoomTwoCentered_IsCenterQuarter() {
+        let crop = FindingCapture.cropRect(scale: 2, offset: .zero, fitted: fitted)
+        XCTAssertEqual(crop.minX, 0.25, accuracy: 0.001)
+        XCTAssertEqual(crop.minY, 0.25, accuracy: 0.001)
+        XCTAssertEqual(crop.width, 0.5, accuracy: 0.001)
+        XCTAssertEqual(crop.height, 0.5, accuracy: 0.001)
+    }
+
+    func testCropRect_PanMovesWindowOpposite_AndClamps() {
+        // Image dragged fully right at 2×: the window reaches the LEFT edge.
+        let maxOffset = CGSize(width: fitted.width * (2 - 1) / 2, height: 0)
+        let crop = FindingCapture.cropRect(scale: 2, offset: maxOffset, fitted: fitted)
+        XCTAssertEqual(crop.minX, 0, accuracy: 0.001)
+        // Excessive offsets clamp instead of leaving the image.
+        let over = FindingCapture.cropRect(scale: 2, offset: CGSize(width: 10_000, height: -10_000), fitted: fitted)
+        XCTAssertEqual(over.minX, 0, accuracy: 0.001)
+        XCTAssertEqual(over.maxY, 1, accuracy: 0.001)
+    }
+
+    func testRemappedBox_InsideCrop_RenormalizesWithYFlip() {
+        // Crop = top-left quadrant (top-left coords). A Vision box in the image's
+        // upper-left area: vision y 0.5...0.75 → top-left y 0.25...0.5.
+        let crop = CGRect(x: 0, y: 0, width: 0.5, height: 0.5)
+        let visionBox = CGRect(x: 0.1, y: 0.5, width: 0.2, height: 0.25)
+
+        let remapped = FindingCapture.remappedBox(visionBox, into: crop)
+
+        XCTAssertEqual(remapped.minX, 0.2, accuracy: 0.001)   // 0.1 / 0.5
+        XCTAssertEqual(remapped.width, 0.4, accuracy: 0.001)  // 0.2 / 0.5
+        XCTAssertEqual(remapped.height, 0.5, accuracy: 0.001) // 0.25 / 0.5
+        // top-left y 0.25/0.5 = 0.5, height 0.5 → vision y = 1 − 0.5 − 0.5 = 0.
+        XCTAssertEqual(remapped.minY, 0, accuracy: 0.001)
+    }
+
+    func testRemappedBox_OutsideCrop_FallsBackToWholeCrop() {
+        let crop = CGRect(x: 0, y: 0, width: 0.25, height: 0.25)
+        let visionBox = CGRect(x: 0.6, y: 0.1, width: 0.2, height: 0.2)
+        XCTAssertEqual(FindingCapture.remappedBox(visionBox, into: crop), unit)
+    }
+
+    func testRemappedBox_NoCrop_IsUnchanged() {
+        let visionBox = CGRect(x: 0.3, y: 0.4, width: 0.1, height: 0.2)
+        XCTAssertEqual(FindingCapture.remappedBox(visionBox, into: unit), visionBox)
+    }
+}
+
 // MARK: - Pick-mode detection hit test
 
 final class FindingPickHitTestTests: XCTestCase {
