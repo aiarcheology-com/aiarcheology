@@ -1,0 +1,27 @@
+IMPLEMENTATION_PLAN_AIA-0217_split-detection-into-5-sub-images.md
+  s_f24988eb446598::t_dbf80374c914ec 1-3
+  s_f24988eb446598::t_31657a513838bd 15
+ios/MLBrowserUnitTests/SettingsTests.swift
+  s_f24988eb446598::t_39fff42a70630b 74-77,80
+ios/MLBrowser/iOS/UI/Annotation/DetectableView.swift
+  s_f24988eb446598::t_35a7536e7c67c4 91-94
+ios/MLBrowser/iOS/Drivers/DetectionTiling.swift
+  s_f24988eb446598::t_bf170079cc3d08 128-133
+  s_f24988eb446598::t_e25f91dc173e03 109-115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "1244930eb73930cc46166dd5d3618dc9bd8cb5e2",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
