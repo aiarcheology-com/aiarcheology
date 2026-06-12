@@ -35,9 +35,20 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     /// Callback to receive interaction state changes. DetectableView manages state internally.
     private let onInteractionStateChanged: ((ContentInteractionState) -> Void)?
 
+    /// True while a finding-save dialog is up. Owned by the presenting screen (it
+    /// clears the flag on sheet dismiss); while set, the displayed frame is frozen:
+    /// nothing may clear or replace `appliedFrame` (geometry/interaction clearers,
+    /// the apply site, and new enqueues are all gated on it).
+    private var isCapturingFinding: Binding<Bool>
+
+    /// The user tapped a detection annotation. Receives the tapped observation, the
+    /// producing driver's params, and the displayed frame (snapshot + results) the
+    /// observation came from — read BEFORE the freeze, so it cannot be a later frame.
+    private let onDetectionTapped: ((DetectedObject, DeepDriverParams, AppliedDetectionFrame) -> Void)?
+
     @ViewBuilder let content: (Binding<ContentInteractionState>) -> Content
 
-    @State private var detectedObservations: [DetectionResult] = []
+    @State private var appliedFrame: AppliedDetectionFrame?
     @State private var interactionState: ContentInteractionState = .idle
     @State private var detectionGeneration: UInt64 = 0
     @State private var detectionQueue = SnapshotDetectionQueue()
@@ -49,6 +60,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         trigger: P,
         showIdentifiers: Bool,
         tiledDetection: Bool = false,
+        isCapturingFinding: Binding<Bool> = .constant(false),
+        onDetectionTapped: ((DetectedObject, DeepDriverParams, AppliedDetectionFrame) -> Void)? = nil,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
         @ViewBuilder content: @escaping (Binding<ContentInteractionState>) -> Content
     ) {
@@ -57,6 +70,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
         self.tiledDetection = tiledDetection
+        self.isCapturingFinding = isCapturingFinding
+        self.onDetectionTapped = onDetectionTapped
         self.onInteractionStateChanged = onInteractionStateChanged
         self.content = content
     }
@@ -75,17 +90,22 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 
                 // Annotation overlay - SAME geometry scope guarantees coordinate alignment
                 AnnotationOverlay(
-                    observations: detectedObservations,
+                    observations: appliedFrame?.results ?? [],
                     geometry: geometry,
-                    showIdentifiers: showIdentifiers
+                    showIdentifiers: showIdentifiers,
+                    onTap: annotationTapHandler
                 )
             }
             .onChange(of: geometry.size) { old, new in
+                // The save dialog freezes the displayed frame; a rotation underneath
+                // merely misaligns the frozen boxes behind the sheet (cosmetic), while
+                // clearing them would defeat the freeze.
+                guard isCapturingFinding.wrappedValue.not else { return }
                 // Layout changed (chrome shown/hidden, rotation): results captured
                 // against the previous geometry would draw misaligned boxes.
                 LoggingPolicy.debug("GeometrySizeChange: \(old.width)x\(old.height) -> \(new.width)x\(new.height)", logger: .ui)
                 detectionGeneration &+= 1
-                detectedObservations.removeAll()
+                appliedFrame = nil
                 // A coalesced snapshot was captured against the old geometry; if it
                 // started later it would read the NEW generation and its stale boxes
                 // would pass the guard below.
@@ -95,6 +115,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         .onSnapshot { image, _ in
             // Skip detection while content is being manipulated - geometry is changing
             guard !isInteracting else { return }
+            // The frozen frame must outlive the save dialog; new passes resume with
+            // the timer once the capture ends.
+            guard isCapturingFinding.wrappedValue.not else { return }
             // The queue serializes passes and coalesces snapshots arriving mid-pass to
             // the newest one: a tiled pass (6 inferences × N detectors) can outlast the
             // snapshot cadence, and overlapping passes would apply out of order.
@@ -108,16 +131,24 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                     }
                     // Double-check interaction state before applying results
                     guard !isInteracting else { return }
-                    detectedObservations = observations
+                    // A pass that slipped past the guards before the tap froze the
+                    // frame must not repaint the boxes the user is looking at.
+                    guard isCapturingFinding.wrappedValue.not else { return }
+                    // Image and results are applied as ONE value: the cached snapshot
+                    // is always the exact frame the displayed boxes came from, so a
+                    // tap can never pair boxes with a newer image.
+                    appliedFrame = AppliedDetectionFrame(image: image, results: observations)
                 }
             }
         }
         .onChange(of: interactionState) { _, state in
-            if state.isInteracting {
+            // While the save dialog is up the frame stays frozen (interaction events
+            // can still arrive from the web view as the sheet animates in).
+            if state.isInteracting && isCapturingFinding.wrappedValue.not {
                 // Invalidate any in-flight detections
                 detectionGeneration &+= 1
                 // Clear annotations immediately when interaction starts
-                detectedObservations.removeAll()
+                appliedFrame = nil
                 // A coalesced snapshot was captured pre-interaction — stale geometry.
                 detectionQueue.cancelPending()
             }
@@ -125,6 +156,34 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             onInteractionStateChanged?(state)
         }
     }
+
+    /// Annotations are hit-testable only when a tap consumer exists; on other
+    /// screens every touch falls through to the content.
+    private var annotationTapHandler: ((DetectedObject, DeepDriverParams) -> Void)? {
+        guard onDetectionTapped != nil else { return nil }
+        return { observation, params in
+            detectionTapped(observation, params)
+        }
+    }
+
+    /// Tap on an annotation: hand the displayed frame out FIRST, then freeze — the
+    /// frame is read before anything can invalidate it, and the freeze (plus the
+    /// generation bump) discards whatever an in-flight pass delivers afterwards.
+    private func detectionTapped(_ observation: DetectedObject, _ params: DeepDriverParams) {
+        guard let frame = appliedFrame else { return }
+        isCapturingFinding.wrappedValue = true
+        detectionGeneration &+= 1
+        detectionQueue.cancelPending()
+        onDetectionTapped?(observation, params, frame)
+    }
+}
+
+/// One displayed detection frame: the snapshot and the results detected ON that
+/// snapshot, applied together so they can never diverge. The save-finding flow
+/// captures this value at tap time.
+struct AppliedDetectionFrame {
+    let image: UIImage
+    let results: [DetectionResult]
 }
 
 // MARK: - SwiftUI Gesture-based Interaction Tracking
@@ -185,6 +244,7 @@ struct AnnotationOverlay: View {
     let observations: [DetectionResult]
     let geometry: GeometryProxy
     let showIdentifiers: Bool
+    var onTap: ((DetectedObject, DeepDriverParams) -> Void)?
 
     var body: some View {
         ForEach(Array(observations.enumerated()), id: \.offset) { _, observationGroup in
@@ -193,10 +253,16 @@ struct AnnotationOverlay: View {
                     observation: detection,
                     geometry: geometry,
                     params: observationGroup.params,
-                    showIndentifiers: showIdentifiers
+                    showIndentifiers: showIdentifiers,
+                    onTap: tapAction(for: detection, params: observationGroup.params)
                 )
             }
         }
+    }
+
+    private func tapAction(for detection: DetectedObject, params: DeepDriverParams) -> (() -> Void)? {
+        guard let onTap else { return nil }
+        return { onTap(detection, params) }
     }
 }
 
