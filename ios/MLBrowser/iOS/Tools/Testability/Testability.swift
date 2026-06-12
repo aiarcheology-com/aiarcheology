@@ -148,6 +148,7 @@ extension TestabilityIdentification {
 		case settingsShowLabels
 		case settingsReopenLastPage
 		case settingsFullscreenDetection
+		case settingsTiledDetection
 		// Slideshow
 		case slideshowShowNextTime
 		// Side Menu Cell

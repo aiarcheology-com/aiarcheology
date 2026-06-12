@@ -95,6 +95,8 @@ struct SettingsForm: View {
 				.testability(Testability.Toggle.settingsRunAtLaunch)
 			Toggle(L10n.Settings.showLabels, isOn: $settings.showIdentifiers)
 				.testability(Testability.Toggle.settingsShowLabels)
+			Toggle(L10n.Settings.tiledDetection, isOn: $settings.tiledDetection)
+				.testability(Testability.Toggle.settingsTiledDetection)
 		}
 	}
 
