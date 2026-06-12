@@ -40,6 +40,11 @@ actor ResultsCollector<T: VNObservation> {
 
 typealias ObservationParams = (observations: [VNObservation], params: DeepDriverParams)
 
+/// Detect-path result: remapped value-type observations (see `DetectedObject`) per driver.
+/// The classify path keeps `ObservationParams` — tiling does not apply to whole-image
+/// classification.
+typealias DetectionResult = (observations: [DetectedObject], params: DeepDriverParams)
+
 protocol DeepDriver: Driver, Sendable {
 	var params: DeepDriverParams { get set }
 	var observations: [VNObservation] { get set }
@@ -159,27 +164,27 @@ class DeepDrivers: ObservableObject {
 	// This is the core function that takes a 2D image and detects objects in the scene.
 	// For that functionality, the driver should be already registered and loaded. That is
 	// controlled by the driver's related DeepConfiguation instance in CoreData.
-	func detect(on image: UIImage, completion: @escaping ([ObservationParams]) -> Void) {
+	// With tiledDetection the image is detected over 6 regions (4 quadrants + center +
+	// full frame, AIA-0217); otherwise over the full frame only.
+	func detect(on image: UIImage, tiledDetection: Bool, completion: @escaping ([DetectionResult]) -> Void) {
 		Task {
-			let resultsCollector = ResultsCollector<VNRecognizedObjectObservation>()
-			
+			let regions = TileLayout.regions(tiled: tiledDetection)
+			// The loop is serial inside one task — a plain array suffices (the actor
+			// collector remains for the classify path's matching shape).
+			var results: [DetectionResult] = []
+
 			for detector in detectors {
 				guard let detector = detector as? Detector else {
 					continue
 				}
-				await detector.process(image: image)
-				
-				await detector.detect()
-				let observations = await detector.observations
-				
+				let observations = await detector.detect(image: image, regions: regions)
+
 				guard observations.isEmpty.not else { continue }  // TODO: log
-				
-				guard let observations = observations as? [VNRecognizedObjectObservation] else { continue }
+
 				let result = await (observations: observations, params: detector.params)
-				await resultsCollector.append(result)
+				results.append(result)
 			}
-			
-			let results = await resultsCollector.collectedResults
+
 			await MainActor.run {
 				completion(results)
 			}

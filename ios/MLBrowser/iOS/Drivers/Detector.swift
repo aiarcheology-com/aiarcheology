@@ -79,6 +79,61 @@ actor Detector: DeepDriver {
         LoggingPolicy.debug("Detector unloaded", logger: .drivers)
     }
 
+    /// The detect path's only entry point: image conversion, the region loop, coordinate
+    /// remap, and cross-region dedup happen inside one actor-isolated call, so a concurrent
+    /// frame can never swap the handler between processing and detection (the old
+    /// `process`/`detect` pair raced exactly that way — magnified 6× by tiling).
+    func detect(image: UIImage, regions: [CGRect]) async -> [DetectedObject] {
+        guard let detectionRequest else {
+            LoggingPolicy.debug("Detection skipped: detection request not initialized", logger: .drivers)
+            return []
+        }
+        guard let ciImage = CIImage(image: image) else {
+            LoggingPolicy.warning("Failed to create CIImage from UIImage", logger: .drivers)
+            return []
+        }
+        // A thrown perform must not leak a region's ROI into the next frame.
+        defer { detectionRequest.regionOfInterest = TileLayout.fullFrame }
+
+        let handler = VNImageRequestHandler(ciImage: ciImage)
+        let start = Date.now
+        var collected: [DetectedObject] = []
+        for (index, region) in regions.enumerated() {
+            detectionRequest.regionOfInterest = region
+            let regionStart = Date.now
+            do {
+                try handler.perform([detectionRequest])
+            } catch {
+                // One failed region must not abort the frame — and its results must not
+                // be consumed: VNRequest retains the previous run's results on failure.
+                LoggingPolicy.error("Failed to perform detection for region \(index)", error: error, logger: .drivers)
+                DefaultCrashReporter.shared.recordError(error, context: ["operation": "performDetection", "region": "\(index)"])
+                continue
+            }
+            let regionObservations = (detectionRequest.results as? [VNRecognizedObjectObservation]) ?? []
+            for observation in regionObservations {
+                guard let box = TileLayout.remap(observation.boundingBox, into: region) else { continue }
+                collected.append(DetectedObject(
+                    uuid: observation.uuid,
+                    labels: observation.labels.map { DetectedObject.Label(identifier: $0.identifier, confidence: $0.confidence) },
+                    confidence: observation.confidence,
+                    boundingBox: box,
+                    regionIndex: index
+                ))
+            }
+            LoggingPolicy.debug(
+                "Region \(index) detected \(regionObservations.count) objects in \(Date.now.timeIntervalSince(regionStart))s",
+                logger: .drivers
+            )
+        }
+        let results = TileLayout.dedupAcrossRegions(collected)
+        LoggingPolicy.debug(
+            "Detection over \(regions.count) regions completed with \(results.count) objects (\(collected.count) raw) in \(Date.now.timeIntervalSince(start))s",
+            logger: .drivers
+        )
+        return results
+    }
+
     func process(image: UIImage) async {
         // Clear stale state: a new frame must never report the previous frame's
         // detections, and a failed conversion must not leave the old handler around
