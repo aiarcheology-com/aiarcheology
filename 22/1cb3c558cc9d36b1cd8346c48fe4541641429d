@@ -1,0 +1,29 @@
+ios/MLBrowser/iOS/State/Guide.swift
+  s_f24988eb446598::t_87d8c2444ca11d 80-104
+ios/MLBrowser/iOS/UI/Annotation/DetectableView.swift
+  s_f24988eb446598::t_e304b9451d479d 38-48,51,63-64,73-74
+  s_f24988eb446598::t_a24399fe866db6 93,95,100-103,108,118-120,134-140,145-147,151,159,169-186
+  s_f24988eb446598::t_59b109eb12dcd2 96
+  s_f24988eb446598::t_a3f7bb7c553f3f 160-168
+  s_f24988eb446598::t_f72d926842cd49 247,256
+  s_f24988eb446598::t_8e86d2d3656e47 257
+ios/MLBrowser/iOS/UI/Annotation/AnnotationViewBuilder.swift
+  s_f24988eb446598::t_34de4564e808b4 15-22,25,34-36,39-64,75,80-81
+  s_f24988eb446598::t_dba7c86b798f63 65-74,76-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "221cb3c558cc9d36b1cd8346c48fe4541641429d",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
