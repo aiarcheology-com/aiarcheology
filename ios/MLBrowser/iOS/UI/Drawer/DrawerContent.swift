@@ -34,7 +34,10 @@ struct DrawerContent: View {
     
     /// Controls the model import sheet
     @State private var showImport = false
-    
+
+    /// Controls the findings inventory sheet
+    @State private var showFindings = false
+
     /// The configuration ID to show in detail sheet
     @State private var selectedConfigurationId: UUID?
     
@@ -57,6 +60,15 @@ struct DrawerContent: View {
                     .environmentObject(config)
             }
         }
+        .sheet(isPresented: $showFindings) {
+            FindingsListView { url in
+                // Open the captured page: tear down this sheet and the drawer,
+                // then hand the URL to the web screen via the Guide.
+                showFindings = false
+                drawer.close()
+                guide.pageToOpen = url
+            }
+        }
     }
     
     // MARK: - Configuration List
@@ -69,11 +81,23 @@ struct DrawerContent: View {
                 configurationsSection
             }
 
-            // Intentionally outside the configurations branch: Settings must be
-            // reachable even when no models are imported yet.
+            // Intentionally outside the configurations branch: Findings and
+            // Settings must be reachable even when no models are imported yet.
+            findingsSection
             settingsSection
         }
         .listStyle(.insetGrouped)
+    }
+
+    private var findingsSection: some View {
+        Section {
+            Button {
+                showFindings = true
+            } label: {
+                Label(L10n.Findings.title, systemImage: "archivebox")
+            }
+            .testability(Testability.Button.drawerFindings)
+        }
     }
 
     private var settingsSection: some View {

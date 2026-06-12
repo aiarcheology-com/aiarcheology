@@ -244,6 +244,48 @@ internal enum L10n {
     /// Paused
     internal static let paused = L10n.tr("Localizable", "downloadState.paused", fallback: "Paused")
   }
+  internal enum Finding {
+    /// Detection
+    internal static let detection = L10n.tr("Localizable", "finding.detection", fallback: "Detection")
+    /// GPS
+    internal static let gps = L10n.tr("Localizable", "finding.gps", fallback: "GPS")
+    /// 48.800000, 19.530000
+    internal static let gpsPlaceholder = L10n.tr("Localizable", "finding.gpsPlaceholder", fallback: "48.800000, 19.530000")
+    /// Label
+    internal static let label = L10n.tr("Localizable", "finding.label", fallback: "Label")
+    /// Add a label (e.g. fortification)
+    internal static let labelPlaceholder = L10n.tr("Localizable", "finding.labelPlaceholder", fallback: "Add a label (e.g. fortification)")
+    /// Note
+    internal static let note = L10n.tr("Localizable", "finding.note", fallback: "Note")
+    /// Notes about this finding
+    internal static let notePlaceholder = L10n.tr("Localizable", "finding.notePlaceholder", fallback: "Notes about this finding")
+    /// Page
+    internal static let page = L10n.tr("Localizable", "finding.page", fallback: "Page")
+    internal enum Save {
+      /// Save
+      internal static let action = L10n.tr("Localizable", "finding.save.action", fallback: "Save")
+      /// Could not save the finding.
+      internal static let error = L10n.tr("Localizable", "finding.save.error", fallback: "Could not save the finding.")
+      /// Save Finding
+      internal static let title = L10n.tr("Localizable", "finding.save.title", fallback: "Save Finding")
+    }
+  }
+  internal enum Findings {
+    /// Open Page
+    internal static let openPage = L10n.tr("Localizable", "findings.openPage", fallback: "Open Page")
+    /// Findings
+    internal static let title = L10n.tr("Localizable", "findings.title", fallback: "Findings")
+    internal enum Empty {
+      /// Tap a detected location in the web content to store it here.
+      internal static let message = L10n.tr("Localizable", "findings.empty.message", fallback: "Tap a detected location in the web content to store it here.")
+      /// No Findings Yet
+      internal static let title = L10n.tr("Localizable", "findings.empty.title", fallback: "No Findings Yet")
+    }
+    internal enum Filter {
+      /// All
+      internal static let all = L10n.tr("Localizable", "findings.filter.all", fallback: "All")
+    }
+  }
   internal enum History {
     /// Browsing History
     internal static let title = L10n.tr("Localizable", "history.title", fallback: "Browsing History")

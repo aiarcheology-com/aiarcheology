@@ -64,6 +64,10 @@ struct WebScreenView: View {
 	@State private var hasPerformedInitialAction = false
 	@State private var showIdentifiers: Bool = false
 	@State private var tiledDetection: Bool = false
+	/// The tapped detection being saved; non-nil presents the save sheet.
+	@State private var findingCapture: FindingCapture?
+	/// Freezes DetectableView's displayed frame while the save sheet is up.
+	@State private var isCapturingFinding: Bool = false
 
 	init() {
 		Backports.Appearance.textField()
@@ -100,6 +104,18 @@ struct WebScreenView: View {
             trigger: appState.snap.combinedPublishers,
             showIdentifiers: showIdentifiers,
             tiledDetection: tiledDetection,
+            isCapturingFinding: $isCapturingFinding,
+            onDetectionTapped: { observation, params, frame in
+                // DetectableView froze the frame before this runs; stop the timer
+                // and present the save dialog with everything captured at tap time.
+                appState.guide.findingCaptureStarted()
+                findingCapture = FindingCapture(
+                    observation: observation,
+                    params: params,
+                    frame: frame,
+                    pageURL: appState.browserState.displayedURL
+                )
+            },
             onInteractionStateChanged: { state in
                 // Optionally propagate to Guide for other UI components to observe
                 appState.guide.contentInteractionState = state
@@ -150,6 +166,22 @@ struct WebScreenView: View {
                 openRequested(input)
             }
             .environmentObject(appState.settings)
+        }
+        .sheet(item: $findingCapture, onDismiss: {
+            // Every dismissal path (Save, Cancel, interactive swipe) ends the
+            // capture: unfreeze the displayed frame, then resume the timer —
+            // its immediate snapshot replaces the frozen frame right away.
+            isCapturingFinding = false
+            appState.guide.findingCaptureEnded()
+        }) { capture in
+            SaveFindingSheet(capture: capture)
+        }
+        .onReceive(appState.guide.$pageToOpen) { url in
+            // A finding's "open page" action lands here (the findings UI cannot
+            // reach the web view directly).
+            guard let url else { return }
+            appState.guide.pageToOpen = nil
+            openRequested(url.absoluteString)
         }
         .alert(isPresented: $showAlert) {
             alertForError(latestError)

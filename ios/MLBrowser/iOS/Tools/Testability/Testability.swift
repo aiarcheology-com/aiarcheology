@@ -129,6 +129,19 @@ extension TestabilityIdentification {
 		case visitTrailDeleteEntry
 		// Drawer
 		case drawerSettings
+		case drawerFindings
+		// Annotation
+		case annotationDetection
+		// Save Finding
+		case saveFindingSave
+		case saveFindingCancel
+		case saveFindingSuggestion
+		// Findings
+		case findingsDismiss
+		case findingsItem
+		case findingsFilterLabel
+		case findingsDeleteEntry
+		case findingsOpenPage
 		// Snap Adjustment
 		case snapAdjustmentReset
 		case snapAdjustmentOverlayDismiss
@@ -218,6 +231,10 @@ extension TestabilityIdentification {
 		case settingsHistoryLimit
 		// Location Sheet
 		case locationSheetInput
+		// Save Finding
+		case saveFindingLabel
+		case saveFindingNote
+		case saveFindingGps
 	}
 	
 	enum Stepper: String, TestabilityIdentification {
