@@ -154,11 +154,16 @@ final class BrowserStateTests: XCTestCase {
         // Bounded sleep, NOT an inverted expectation: awaiting fulfillment of an
         // inverted expectation from a @MainActor test stalls the main thread on
         // Xcode Cloud (watchdog kill after the 10-minute allowance); Task.sleep
-        // suspends instead and checks the same negative.
+        // suspends instead. Recording every emission (not just the final value)
+        // catches even a transient publish that something later overwrites.
+        var sawBaseURL = false
+        sut.$currentURL
+            .sink { if $0 == Self.baseURL { sawBaseURL = true } }
+            .store(in: &cancellables)
         webView.loadHTMLString(Self.html, baseURL: Self.baseURL)
         try? await Task.sleep(for: .seconds(1))
 
-        XCTAssertNotEqual(sut.currentURL, Self.baseURL)
+        XCTAssertFalse(sawBaseURL, "Detached web view must not publish into the mirrors")
     }
 
     func testCancelSubscriptions_IsIdentityGuarded() async {

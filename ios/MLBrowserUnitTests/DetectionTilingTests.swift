@@ -81,6 +81,7 @@ final class TileLayoutRemapTests: XCTestCase {
 		XCTAssertLessThanOrEqual(remapped.maxX, 1.0)
 		XCTAssertLessThanOrEqual(remapped.maxY, 1.0)
 		XCTAssertGreaterThan(remapped.width, 0)
+		XCTAssertGreaterThan(remapped.height, 0)
 	}
 
 	func testRemap_RejectsNonFiniteBox() {
