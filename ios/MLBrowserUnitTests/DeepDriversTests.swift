@@ -310,14 +310,14 @@ final class DeepDriversTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Detection completed")
         let image = UIImage(systemName: "star") ?? UIImage()
         
-        sut.detect(on: image) { results in
+        sut.detect(on: image, tiledDetection: false) { results in
             XCTAssertTrue(results.isEmpty)
             expectation.fulfill()
         }
-        
+
         await fulfillment(of: [expectation], timeout: 2.0)
     }
-    
+
     func testClassifyWithNoClassificators_ReturnsEmptyResults() async {
         let expectation = XCTestExpectation(description: "Classification completed")
         let image = UIImage(systemName: "star") ?? UIImage()
@@ -340,7 +340,7 @@ final class DeepDriversTests: XCTestCase {
 
         let image = UIImage(systemName: "star") ?? UIImage()
 
-        sut.detect(on: image) { results in
+        sut.detect(on: image, tiledDetection: true) { results in
             // Without a loaded model, detection should return empty
             XCTAssertTrue(results.isEmpty)
             expectation.fulfill()

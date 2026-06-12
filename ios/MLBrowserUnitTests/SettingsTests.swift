@@ -62,6 +62,20 @@ final class SettingsTests: XCTestCase {
         settings.reset()
         XCTAssertFalse(settings.removeAnnotationOnDrag)
     }
+
+    func testSettings_DefaultTiledDetection_IsFalse() {
+        settings.reset()
+        XCTAssertFalse(settings.tiledDetection)
+    }
+
+    func testSettings_TiledDetection_PersistsAndResets() {
+        settings.reset()
+        settings.tiledDetection = true
+        XCTAssertTrue(UserDefaults.standard.bool(forKey: "tiledDetection"))
+        settings.reset()
+        XCTAssertFalse(settings.tiledDetection)
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: "tiledDetection"))
+    }
     
     func testSettings_DefaultPage_IsGoogle() {
         settings.reset()
