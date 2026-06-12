@@ -19,6 +19,7 @@ struct DrawerContent: View {
     @EnvironmentObject private var guide: Guide
     @EnvironmentObject private var deep: DeepState
     @EnvironmentObject private var downloader: Downloader
+    @EnvironmentObject private var settings: Settings
     
     @FetchRequest(
         entity: DeepConfiguration.entity(),
@@ -34,7 +35,14 @@ struct DrawerContent: View {
     
     /// Controls the model import sheet
     @State private var showImport = false
-    
+
+    /// Controls the findings inventory sheet
+    @State private var showFindings = false
+
+    /// Controls the settings sheet (presented here, not at ContentView level,
+    /// so the drawer stays open behind it — same behavior as Findings)
+    @State private var showSettings = false
+
     /// The configuration ID to show in detail sheet
     @State private var selectedConfigurationId: UUID?
     
@@ -57,6 +65,20 @@ struct DrawerContent: View {
                     .environmentObject(config)
             }
         }
+        .sheet(isPresented: $showFindings) {
+            FindingsListView { url in
+                // Open the captured page: tear down this sheet and the drawer,
+                // then hand the URL to the web screen via the Guide.
+                showFindings = false
+                drawer.close()
+                guide.pageToOpen = url
+            }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsForm()
+                .environmentObject(settings)
+                .environmentObject(guide)
+        }
     }
     
     // MARK: - Configuration List
@@ -69,18 +91,29 @@ struct DrawerContent: View {
                 configurationsSection
             }
 
-            // Intentionally outside the configurations branch: Settings must be
-            // reachable even when no models are imported yet.
+            // Intentionally outside the configurations branch: Findings and
+            // Settings must be reachable even when no models are imported yet.
+            findingsSection
             settingsSection
         }
         .listStyle(.insetGrouped)
     }
 
+    private var findingsSection: some View {
+        Section {
+            Button {
+                showFindings = true
+            } label: {
+                Label(L10n.Findings.title, systemImage: "archivebox")
+            }
+            .testability(Testability.Button.drawerFindings)
+        }
+    }
+
     private var settingsSection: some View {
         Section {
             Button {
-                drawer.close()
-                guide.settingsTapped()
+                showSettings = true
             } label: {
                 Label(L10n.Settings.title, systemImage: "gearshape")
             }
@@ -231,6 +264,7 @@ private struct ConfigurationRow: View {
             .environmentObject(state.guide)
             .environmentObject(state.deep)
             .environmentObject(state.downloader)
+            .environmentObject(state.settings)
             .environment(\.managedObjectContext, state.dataController.container.viewContext)
     }
 }

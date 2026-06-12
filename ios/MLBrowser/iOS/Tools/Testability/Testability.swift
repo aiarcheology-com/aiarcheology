@@ -100,12 +100,14 @@ extension TestabilityIdentification {
 		case globalToolbarPlayDetection
 		case globalToolbarPauseDetection
 		case globalToolbarAdjustments
+		case globalToolbarFind
 		// Floating Chrome Button
 		case floatingChromeToggle
 		// Floating Nav Bar
 		case floatingNavBack
 		case floatingNavForward
 		case floatingNavReload
+		case floatingNavFind
 		// Web Screen
 		case webScreenAddressBar
 		case webToolbarBack
@@ -129,6 +131,19 @@ extension TestabilityIdentification {
 		case visitTrailDeleteEntry
 		// Drawer
 		case drawerSettings
+		case drawerFindings
+		// Save Finding
+		case saveFindingSave
+		case saveFindingCancel
+		case saveFindingSuggestion
+		case findPickCancel
+		// Findings
+		case findingsDismiss
+		case findingsItem
+		case findingsFilterLabel
+		case findingsDeleteEntry
+		case findingsOpenPage
+		case findingDetailSave
 		// Snap Adjustment
 		case snapAdjustmentReset
 		case snapAdjustmentOverlayDismiss
@@ -169,6 +184,9 @@ extension TestabilityIdentification {
 		case snapAdjustmentBrightness
 		case snapAdjustmentContrast
 		case snapAdjustmentSaturation
+		// Save Finding
+		case saveFindingHighlightOpacity
+		case saveFindingZoom
 	}
 	
 	enum ColorPicker: String, TestabilityIdentification {
@@ -218,6 +236,14 @@ extension TestabilityIdentification {
 		case settingsHistoryLimit
 		// Location Sheet
 		case locationSheetInput
+		// Save Finding
+		case saveFindingLabel
+		case saveFindingNote
+		case saveFindingGps
+		// Finding Detail
+		case findingDetailLabel
+		case findingDetailNote
+		case findingDetailGps
 	}
 	
 	enum Stepper: String, TestabilityIdentification {

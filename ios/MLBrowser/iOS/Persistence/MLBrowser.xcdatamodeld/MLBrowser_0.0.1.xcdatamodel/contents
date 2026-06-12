@@ -30,6 +30,23 @@
         <attribute name="totalBytesWritten" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="url" optional="YES" attributeType="URI"/>
     </entity>
+    <entity name="Finding" representedClassName="Finding" syncable="YES">
+        <attribute name="boxHeight" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="boxWidth" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="boxX" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="boxY" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="detectionClass" optional="YES" attributeType="String"/>
+        <attribute name="detectionConfidence" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
+        <attribute name="entityId" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="gps_" optional="YES" attributeType="String"/>
+        <attribute name="label_" optional="YES" attributeType="String"/>
+        <attribute name="lifeCycleString" attributeType="String"/>
+        <attribute name="modelId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="note_" optional="YES" attributeType="String"/>
+        <attribute name="page" optional="YES" attributeType="URI"/>
+        <attribute name="screenshotFilename" optional="YES" attributeType="String"/>
+    </entity>
     <entity name="WebHistoryEntry" representedClassName="WebHistoryEntry" syncable="YES">
         <attribute name="bookmarked" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="creationDate_" optional="YES" attributeType="Date" usesScalarValueType="NO"/>

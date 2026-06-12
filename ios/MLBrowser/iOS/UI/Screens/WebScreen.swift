@@ -64,6 +64,16 @@ struct WebScreenView: View {
 	@State private var hasPerformedInitialAction = false
 	@State private var showIdentifiers: Bool = false
 	@State private var tiledDetection: Bool = false
+	/// The tapped detection being saved; non-nil presents the save sheet.
+	@State private var findingCapture: FindingCapture?
+	/// Freezes DetectableView's displayed frame while the save sheet is up.
+	@State private var isCapturingFinding: Bool = false
+	/// Pick mode (Find/Store button): the next tap on the content marks the
+	/// place to store — independent of whether detection is running.
+	@State private var findPickActive: Bool = false
+	/// Mirror of DetectableView's displayed frame (updated on every apply/clear):
+	/// pick mode hit-tests its boxes and reuses its snapshot.
+	@State private var appliedFrame: AppliedDetectionFrame?
 
 	init() {
 		Backports.Appearance.textField()
@@ -100,6 +110,10 @@ struct WebScreenView: View {
             trigger: appState.snap.combinedPublishers,
             showIdentifiers: showIdentifiers,
             tiledDetection: tiledDetection,
+            isCapturingFinding: $isCapturingFinding,
+            onFrameChanged: { frame in
+                appliedFrame = frame
+            },
             onInteractionStateChanged: { state in
                 // Optionally propagate to Guide for other UI components to observe
                 appState.guide.contentInteractionState = state
@@ -151,6 +165,48 @@ struct WebScreenView: View {
             }
             .environmentObject(appState.settings)
         }
+        .sheet(item: $findingCapture, onDismiss: {
+            // Every dismissal path (Save, Cancel, interactive swipe) ends the
+            // capture: unfreeze the displayed frame, then resume the timer —
+            // its immediate snapshot replaces the frozen frame right away.
+            isCapturingFinding = false
+            appState.guide.findingCaptureEnded()
+        }) { capture in
+            SaveFindingSheet(capture: capture)
+        }
+        .onReceive(appState.guide.$pageToOpen) { url in
+            // A finding's "open page" action lands here (the findings UI cannot
+            // reach the web view directly).
+            guard let url else { return }
+            appState.guide.pageToOpen = nil
+            openRequested(url.absoluteString)
+        }
+        .onReceive(appState.guide.$findModeRequested) { requested in
+            guard requested else { return }
+            appState.guide.findModeRequested = false
+            // Freeze exactly like an annotation tap would: detection passes pause
+            // and the displayed frame holds while the user picks the place.
+            isCapturingFinding = true
+            appState.guide.findingCaptureStarted()
+            findPickActive = true
+        }
+        .overlay {
+            if findPickActive {
+                FindPickOverlay(
+                    results: appliedFrame?.results ?? [],
+                    onPick: pick,
+                    onCancel: cancelFindPick
+                )
+            }
+        }
+        .onDisappear {
+            // The screen can be unmounted mid-capture (mode switch): without
+            // this, the snap timer would stay paused and the pick/sheet state
+            // would leak into the next appearance.
+            guard findPickActive || isCapturingFinding || findingCapture != nil else { return }
+            findingCapture = nil
+            cancelFindPick()
+        }
         .alert(isPresented: $showAlert) {
             alertForError(latestError)
         }
@@ -162,6 +218,78 @@ struct WebScreenView: View {
             toolbarContent
         }
     }
+
+	/// The user marked a place in pick mode — the ONLY capture path (direct taps on
+	/// annotations would clash with the web app's own gestures, like panning a map).
+	/// A tap inside a frozen detection box snaps to that detection, preserving its
+	/// class/confidence/driver; anywhere else becomes a synthetic manual observation.
+	private func pick(at location: CGPoint, in size: CGSize) {
+		// Snap to a displayed detection: the frozen frame's snapshot is the exact
+		// image its boxes came from, so the pair is coherent by construction.
+		if let frame = appliedFrame,
+		   let hit = FindingCapture.detection(at: location, in: size, results: frame.results) {
+			present(FindingCapture(
+				observation: hit.observation,
+				params: hit.params,
+				frame: frame,
+				pageURL: appState.browserState.displayedURL
+			))
+			return
+		}
+
+		manualPick(at: location, in: size)
+	}
+
+	/// No detection under the tap: a synthetic observation around the point (no
+	/// class, no driver). The frozen frame's snapshot is reused when detection is
+	/// running; otherwise a fresh one is taken — there may be no frame at all.
+	private func manualPick(at location: CGPoint, in size: CGSize) {
+		let observation = DetectedObject(
+			uuid: UUID(),
+			labels: [],
+			confidence: 0,
+			boundingBox: FindingCapture.manualBox(at: location, in: size),
+			regionIndex: 0
+		)
+		if let frame = appliedFrame {
+			present(FindingCapture(
+				observation: observation,
+				params: nil,
+				frame: frame,
+				pageURL: appState.browserState.displayedURL
+			))
+			return
+		}
+		appState.webViewRenderer.render(EmptyView(), scale: 1) { image, error in
+			guard let image else {
+				LoggingPolicy.error("Manual finding pick: snapshot failed", error: error, logger: .ui)
+				cancelFindPick()
+				return
+			}
+			present(FindingCapture(
+				observation: observation,
+				params: nil,
+				frame: AppliedDetectionFrame(image: image, results: []),
+				pageURL: appState.browserState.displayedURL
+			))
+		}
+	}
+
+	/// Pick mode ends only when the capture is ready (or cancelled): the overlay
+	/// keeps blocking scroll/zoom while the fresh-snapshot path is in flight, so
+	/// the captured image cannot drift from the tapped location.
+	private func present(_ capture: FindingCapture) {
+		findPickActive = false
+		findingCapture = capture
+	}
+
+	/// Leaves pick mode without storing: unfreeze and resume (the sheet path
+	/// does the same via its onDismiss).
+	private func cancelFindPick() {
+		findPickActive = false
+		isCapturingFinding = false
+		appState.guide.findingCaptureEnded()
+	}
 
 	/// The location sheet confirmed an input (Open button, return key, or history pick).
 	private func openRequested(_ input: String) {
@@ -231,6 +359,65 @@ struct WebScreenView: View {
 		} catch {
 			LoggingPolicy.error("Failed to save web history entry", error: error, logger: .state)
 		}
+	}
+}
+
+// MARK: - Find pick overlay
+
+/// Captures ONE tap on the content to mark the place of a finding. The frozen
+/// frame's detection boxes are re-drawn SOLID (the live annotations have faded
+/// by now) so the user can aim at one; a tap inside snaps to that detection.
+/// Slightly dimmed so the mode is visible; scroll/zoom are intentionally
+/// blocked while picking — Cancel leaves the mode.
+private struct FindPickOverlay: View {
+	let results: [DetectionResult]
+	let onPick: (CGPoint, CGSize) -> Void
+	let onCancel: () -> Void
+
+	var body: some View {
+		GeometryReader { geometry in
+			ZStack(alignment: .top) {
+				Color.black.opacity(0.15)
+					.contentShape(Rectangle())
+					.gesture(
+						SpatialTapGesture()
+							.onEnded { value in
+								onPick(value.location, geometry.size)
+							}
+					)
+				detectionBoxes(in: geometry.size)
+				hint
+			}
+		}
+	}
+
+	@ViewBuilder
+	private func detectionBoxes(in size: CGSize) -> some View {
+		ForEach(Array(results.enumerated()), id: \.offset) { _, group in
+			ForEach(group.observations, id: \.uuid) { observation in
+				let rect = observation.boundingBox.visionRect(in: size)
+				Rectangle()
+					.stroke(group.params.annotationColor, lineWidth: 3)
+					.frame(width: rect.width, height: rect.height)
+					.position(x: rect.midX, y: rect.midY)
+					.allowsHitTesting(false)
+			}
+		}
+	}
+
+	private var hint: some View {
+		HStack(spacing: 12) {
+			Image(systemName: "plus.viewfinder")
+			Text(L10n.Finding.Pick.hint)
+			Button(L10n.Common.cancel, action: onCancel)
+				.bold()
+				.testability(Testability.Button.findPickCancel)
+		}
+		.padding(.horizontal, 16)
+		.padding(.vertical, 10)
+		.background(.regularMaterial, in: Capsule())
+		.padding(.top, 12)
+		.frame(maxWidth: .infinity)
 	}
 }
 

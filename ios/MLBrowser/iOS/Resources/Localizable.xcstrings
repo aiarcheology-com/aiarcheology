@@ -7327,6 +7327,234 @@
         }
       }
     },
+    "finding.detection" : {
+      "comment" : "Generic name for a detected object (fallback labels, accessibility)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detection"
+          }
+        }
+      }
+    },
+    "finding.gps" : {
+      "comment" : "GPS section title in the save-finding dialog",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GPS"
+          }
+        }
+      }
+    },
+    "finding.gpsPlaceholder" : {
+      "comment" : "Placeholder for the manual GPS coordinates field",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "48.800000, 19.530000"
+          }
+        }
+      }
+    },
+    "finding.highlightOpacity" : {
+      "comment" : "Accessibility label of the highlight-opacity slider in the save-finding dialog",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Highlight Opacity"
+          }
+        }
+      }
+    },
+    "finding.label" : {
+      "comment" : "Label section title in the save-finding dialog",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Label"
+          }
+        }
+      }
+    },
+    "finding.labelPlaceholder" : {
+      "comment" : "Placeholder for the finding label field",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a label (e.g. fortification)"
+          }
+        }
+      }
+    },
+    "finding.note" : {
+      "comment" : "Note section title in the save-finding dialog",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Note"
+          }
+        }
+      }
+    },
+    "finding.notePlaceholder" : {
+      "comment" : "Placeholder for the finding note field",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notes about this finding"
+          }
+        }
+      }
+    },
+    "finding.page" : {
+      "comment" : "Page section title (the captured URL)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page"
+          }
+        }
+      }
+    },
+    "finding.pick.hint" : {
+      "comment" : "Banner shown in pick mode: the next tap marks the place to store",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the place to store"
+          }
+        }
+      }
+    },
+    "finding.save.action" : {
+      "comment" : "Save button in the save-finding dialog",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save"
+          }
+        }
+      }
+    },
+    "finding.save.error" : {
+      "comment" : "Alert shown when storing a finding fails",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not save the finding."
+          }
+        }
+      }
+    },
+    "finding.save.title" : {
+      "comment" : "Title of the save-finding dialog",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save Finding"
+          }
+        }
+      }
+    },
+    "finding.zoom" : {
+      "comment" : "Accessibility label of the crop zoom slider in the save-finding dialog",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom"
+          }
+        }
+      }
+    },
+    "findings.empty.message" : {
+      "comment" : "Empty-state message of the findings inventory",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use the Find button, then tap the place in the web content to store it here."
+          }
+        }
+      }
+    },
+    "findings.empty.title" : {
+      "comment" : "Empty-state title of the findings inventory",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Findings Yet"
+          }
+        }
+      }
+    },
+    "findings.filter.all" : {
+      "comment" : "Filter chip that shows all findings",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
+          }
+        }
+      }
+    },
+    "findings.openPage" : {
+      "comment" : "Button that reopens the page a finding was captured on",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Page"
+          }
+        }
+      }
+    },
+    "findings.title" : {
+      "comment" : "Title of the findings inventory list",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Findings"
+          }
+        }
+      }
+    },
     "Help" : {
 
     },

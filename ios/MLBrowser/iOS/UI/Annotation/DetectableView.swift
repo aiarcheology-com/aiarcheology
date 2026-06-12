@@ -35,9 +35,20 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     /// Callback to receive interaction state changes. DetectableView manages state internally.
     private let onInteractionStateChanged: ((ContentInteractionState) -> Void)?
 
+    /// True while a finding capture (pick mode or save dialog) is active. Owned by
+    /// the presenting screen; while set, the displayed frame is frozen: nothing may
+    /// clear or replace `appliedFrame` (geometry/interaction clearers, the apply
+    /// site, and new enqueues are all gated on it).
+    private var isCapturingFinding: Binding<Bool>
+
+    /// Mirrors every write/clear of the displayed frame to the presenting screen —
+    /// the find-pick flow hit-tests the frozen frame's boxes and reuses its
+    /// snapshot, and the mirror can never diverge from what's drawn.
+    private let onFrameChanged: ((AppliedDetectionFrame?) -> Void)?
+
     @ViewBuilder let content: (Binding<ContentInteractionState>) -> Content
 
-    @State private var detectedObservations: [DetectionResult] = []
+    @State private var appliedFrame: AppliedDetectionFrame?
     @State private var interactionState: ContentInteractionState = .idle
     @State private var detectionGeneration: UInt64 = 0
     @State private var detectionQueue = SnapshotDetectionQueue()
@@ -49,6 +60,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         trigger: P,
         showIdentifiers: Bool,
         tiledDetection: Bool = false,
+        isCapturingFinding: Binding<Bool> = .constant(false),
+        onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
         @ViewBuilder content: @escaping (Binding<ContentInteractionState>) -> Content
     ) {
@@ -57,6 +70,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
         self.tiledDetection = tiledDetection
+        self.isCapturingFinding = isCapturingFinding
+        self.onFrameChanged = onFrameChanged
         self.onInteractionStateChanged = onInteractionStateChanged
         self.content = content
     }
@@ -75,17 +90,21 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 
                 // Annotation overlay - SAME geometry scope guarantees coordinate alignment
                 AnnotationOverlay(
-                    observations: detectedObservations,
+                    observations: appliedFrame?.results ?? [],
                     geometry: geometry,
                     showIdentifiers: showIdentifiers
                 )
             }
             .onChange(of: geometry.size) { old, new in
+                // The save dialog freezes the displayed frame; a rotation underneath
+                // merely misaligns the frozen boxes behind the sheet (cosmetic), while
+                // clearing them would defeat the freeze.
+                guard isCapturingFinding.wrappedValue.not else { return }
                 // Layout changed (chrome shown/hidden, rotation): results captured
                 // against the previous geometry would draw misaligned boxes.
                 LoggingPolicy.debug("GeometrySizeChange: \(old.width)x\(old.height) -> \(new.width)x\(new.height)", logger: .ui)
                 detectionGeneration &+= 1
-                detectedObservations.removeAll()
+                setAppliedFrame(nil)
                 // A coalesced snapshot was captured against the old geometry; if it
                 // started later it would read the NEW generation and its stale boxes
                 // would pass the guard below.
@@ -95,6 +114,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         .onSnapshot { image, _ in
             // Skip detection while content is being manipulated - geometry is changing
             guard !isInteracting else { return }
+            // The frozen frame must outlive the save dialog; new passes resume with
+            // the timer once the capture ends.
+            guard isCapturingFinding.wrappedValue.not else { return }
             // The queue serializes passes and coalesces snapshots arriving mid-pass to
             // the newest one: a tiled pass (6 inferences × N detectors) can outlast the
             // snapshot cadence, and overlapping passes would apply out of order.
@@ -108,16 +130,34 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                     }
                     // Double-check interaction state before applying results
                     guard !isInteracting else { return }
-                    detectedObservations = observations
+                    // A pass that slipped past the guards before the tap froze the
+                    // frame must not repaint the boxes the user is looking at.
+                    guard isCapturingFinding.wrappedValue.not else { return }
+                    // Image and results are applied as ONE value: the cached snapshot
+                    // is always the exact frame the displayed boxes came from, so a
+                    // pick can never pair boxes with a newer image.
+                    setAppliedFrame(AppliedDetectionFrame(image: image, results: observations))
                 }
             }
         }
+        .onChange(of: isCapturingFinding.wrappedValue) { _, capturing in
+            // Entering a capture must also invalidate work already in flight:
+            // the freeze gate alone only discards results WHILE it is set — a
+            // pre-freeze pass (or its coalesced successor) finishing after the
+            // capture ends would briefly apply a stale frame over the fresh one.
+            if capturing {
+                detectionGeneration &+= 1
+                detectionQueue.cancelPending()
+            }
+        }
         .onChange(of: interactionState) { _, state in
-            if state.isInteracting {
+            // While the save dialog is up the frame stays frozen (interaction events
+            // can still arrive from the web view as the sheet animates in).
+            if state.isInteracting && isCapturingFinding.wrappedValue.not {
                 // Invalidate any in-flight detections
                 detectionGeneration &+= 1
                 // Clear annotations immediately when interaction starts
-                detectedObservations.removeAll()
+                setAppliedFrame(nil)
                 // A coalesced snapshot was captured pre-interaction — stale geometry.
                 detectionQueue.cancelPending()
             }
@@ -125,6 +165,21 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             onInteractionStateChanged?(state)
         }
     }
+
+    /// Single write path for the displayed frame: the screen's mirror is updated
+    /// in the same statement, so the two can never diverge.
+    private func setAppliedFrame(_ frame: AppliedDetectionFrame?) {
+        appliedFrame = frame
+        onFrameChanged?(frame)
+    }
+}
+
+/// One displayed detection frame: the snapshot and the results detected ON that
+/// snapshot, applied together so they can never diverge. The save-finding flow
+/// captures this value at tap time.
+struct AppliedDetectionFrame {
+    let image: UIImage
+    let results: [DetectionResult]
 }
 
 // MARK: - SwiftUI Gesture-based Interaction Tracking

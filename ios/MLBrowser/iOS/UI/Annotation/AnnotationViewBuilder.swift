@@ -26,3 +26,18 @@ struct AnnotationViewBuilder: View {
         }
     }
 }
+
+extension CGRect {
+	/// Interprets self as a Vision-normalized rect (bottom-left origin) and maps it
+	/// into a top-left-origin space of the given size — view points or image pixels.
+	/// Shared by the live annotations' hit areas, the save-sheet/detail highlight,
+	/// and the inventory's thumbnail crop so the transforms cannot drift.
+	func visionRect(in size: CGSize) -> CGRect {
+		CGRect(
+			x: minX * size.width,
+			y: (1 - maxY) * size.height,
+			width: width * size.width,
+			height: height * size.height
+		)
+	}
+}

@@ -10,9 +10,8 @@ import Combine
 import OSLog
 
 private enum ActiveSheet: Identifiable {
-    case settings
     case slideshow
-    
+
     var id: Int { hashValue }
 }
 
@@ -57,13 +56,11 @@ struct ContentView: View {
                 .environmentObject(appState.guide)
                 .environmentObject(appState.deep)
                 .environmentObject(appState.downloader)
+                .environmentObject(appState.settings)
         }
         .environment(drawer)
         .sheet(item: $activeSheet) { sheet in
             sheetContent(for: sheet)
-        }
-        .onReceive(appState.guide.$presentSettings) { present in
-            activeSheet = present ? .settings : nil
         }
         .onReceive(appState.guide.$showSnapAdjustment) { show in
             // Bridge from Guide's showSnapAdjustment to local state for proper observation
@@ -162,9 +159,11 @@ struct ContentView: View {
             // Floating back/reload/forward capsule for compact widths — part of the
             // chrome, so fullscreen detection hides it together with the bars.
             if selectedMode == .web && horizontalSizeClass == .compact && chromeVisible {
-                FloatingNavBar(position: $floatingNavBarPosition)
-                    .environmentObject(appState.browserState)
-                    .transition(.opacity)
+                FloatingNavBar(position: $floatingNavBarPosition, onFind: {
+                    appState.guide.findTapped()
+                })
+                .environmentObject(appState.browserState)
+                .transition(.opacity)
             }
 
             // Chrome toggle for fullscreen detection mode; only its 52pt frame
@@ -193,11 +192,6 @@ struct ContentView: View {
             SlideshowView()
                 .centerInParentView()
                 .environmentObject(appState.settings)
-            
-        case .settings:
-            SettingsForm()
-                .environmentObject(appState.settings)
-                .environmentObject(appState.guide)
         }
     }
     

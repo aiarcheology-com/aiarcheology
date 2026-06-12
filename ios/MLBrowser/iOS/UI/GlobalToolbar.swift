@@ -46,6 +46,7 @@ struct GlobalToolbarLeading: View {
 
 struct GlobalToolbarTrailing: View {
 	@EnvironmentObject var guide: Guide
+	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
 	@State private var isAnimating = false
 	@State private var showPopoverAdjustment = false
 
@@ -54,11 +55,33 @@ struct GlobalToolbarTrailing: View {
 		// measure as small as 19x36pt with an 8pt gap, below the recommended
 		// hit-target size, and sat visibly cramped on Dynamic Island devices.
 		HStack(spacing: 16) {
+			// Compact widths have no room (AIA-0183) — there the Find button
+			// lives in the floating navigation capsule instead.
+			if horizontalSizeClass == .regular {
+				findButton
+			}
 			detectionButton
 			// Always available: users adjust brightness/contrast/saturation
 			// of the content also while no detection runs.
 			adjustmentButton
 		}
+	}
+
+	// MARK: - Find Button
+
+	/// Starts the store-a-finding pick mode: the next tap on the content marks
+	/// the place to store (works with or without detection running).
+	private var findButton: some View {
+		Button(action: {
+			guide.findTapped()
+		}) {
+			Image(systemName: "plus.viewfinder")
+				.foregroundColor(.gray)
+				.frame(minWidth: 44, minHeight: 44)
+				.contentShape(Rectangle())
+		}
+		.accessibilityLabel(L10n.Finding.Save.title)
+		.testability(Testability.Button.globalToolbarFind)
 	}
 	
 	// MARK: - Detection Button

@@ -19,7 +19,6 @@ final class Guide: ObservableObject {
 	@Published var presentedSideMenu: Bool = false
 	@Published var ontheflyDetectionEnabled: Bool = false
 	@Published var selectedConfigurationId: UUID?
-	@Published var presentSettings: Bool = false
 	@Published var pageToOpen: URL?
 	@Published var contentInteractionState: ContentInteractionState = .idle
 	@Published var showSnapAdjustment: Bool = false
@@ -77,16 +76,46 @@ final class Guide: ObservableObject {
 		chromeVisible.toggle()
 	}
 
+	/// The Find/Store button (top bar on regular widths, floating capsule on
+	/// compact) was tapped: the web screen enters pick mode — the next tap on the
+	/// content marks the place to store. Consumed and reset by WebScreen.
+	@Published var findModeRequested: Bool = false
+
+	@MainActor func findTapped() {
+		findModeRequested = true
+	}
+
+	/// Detection was running when the finding-save dialog opened; only then does
+	/// ending the capture resume the timer.
+	private var detectionWasRunningBeforeCapture = false
+
+	/// A finding-save dialog opened: stop the snapshot timer so no new passes start.
+	/// Only the timer is owned here — the displayed-frame freeze (generation bump,
+	/// queue cancellation, apply gating) lives in DetectableView, which owns that state.
+	@MainActor func findingCaptureStarted() {
+		detectionWasRunningBeforeCapture = ontheflyDetectionEnabled
+		if ontheflyDetectionEnabled {
+			snap.stopTimer()
+		}
+	}
+
+	/// The finding-save dialog closed: resume only if detection was running before
+	/// AND is still enabled (a background auto-pause may have turned it off meanwhile).
+	/// `startTimer()` fires an immediate snapshot, so the frozen frame is replaced
+	/// right away.
+	@MainActor func findingCaptureEnded() {
+		if detectionWasRunningBeforeCapture && ontheflyDetectionEnabled {
+			snap.startTimer()
+		}
+		detectionWasRunningBeforeCapture = false
+	}
+
 	/// Applies a change of `settings.fullscreenDetection` to a running detection:
 	/// enabling the feature enters fullscreen, disabling it restores the chrome.
 	/// A no-op while detection is off (`chromeVisible` is already true then).
 	@MainActor func fullscreenDetectionSettingChanged() {
 		guard ontheflyDetectionEnabled else { return }
 		chromeVisible = settings.fullscreenDetection.not
-	}
-
-	func settingsTapped() {
-		presentSettings = true
 	}
 
     @MainActor func resetApplication() async {

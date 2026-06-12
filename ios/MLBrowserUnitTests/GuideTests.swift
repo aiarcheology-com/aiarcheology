@@ -125,7 +125,6 @@ final class GuideTests: XCTestCase {
         XCTAssertFalse(sut.presentedSideMenu)
         XCTAssertFalse(sut.ontheflyDetectionEnabled)
         XCTAssertNil(sut.selectedConfigurationId)
-        XCTAssertFalse(sut.presentSettings)
         XCTAssertNil(sut.pageToOpen)
         XCTAssertTrue(sut.chromeVisible)
         XCTAssertFalse(sut.isFullscreen)
@@ -161,23 +160,6 @@ final class GuideTests: XCTestCase {
         
         sut.togglingSideMenu()
         XCTAssertTrue(sut.presentedSideMenu)
-    }
-    
-    // MARK: - Settings Tests
-    
-    func testSettingsTapped_ShowsSettings() {
-        XCTAssertFalse(sut.presentSettings)
-        
-        sut.settingsTapped()
-        
-        XCTAssertTrue(sut.presentSettings)
-    }
-    
-    func testSettingsTapped_CalledTwice_StaysTrue() {
-        sut.settingsTapped()
-        sut.settingsTapped()
-        
-        XCTAssertTrue(sut.presentSettings)
     }
     
     // MARK: - On-the-fly Detection Tests
