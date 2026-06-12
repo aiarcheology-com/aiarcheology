@@ -1,0 +1,23 @@
+ios/MLBrowser/iOS/Drivers/Detector.swift
+  s_f24988eb446598::t_0cdcc9b1a75814 124-127,132,135,140
+ios/MLBrowser/iOS/Drivers/DetectionTiling.swift
+  s_f24988eb446598::t_bf6c8a35f6dabb 149-153
+ios/MLBrowserUnitTests/DetectionTilingTests.swift
+  s_f24988eb446598::t_59c93fb0b00be2 170-184
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "84aeabf03789bf24e878cd941422a1f74e5b3239",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
