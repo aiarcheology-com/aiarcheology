@@ -19,6 +19,7 @@ struct DrawerContent: View {
     @EnvironmentObject private var guide: Guide
     @EnvironmentObject private var deep: DeepState
     @EnvironmentObject private var downloader: Downloader
+    @EnvironmentObject private var settings: Settings
     
     @FetchRequest(
         entity: DeepConfiguration.entity(),
@@ -37,6 +38,10 @@ struct DrawerContent: View {
 
     /// Controls the findings inventory sheet
     @State private var showFindings = false
+
+    /// Controls the settings sheet (presented here, not at ContentView level,
+    /// so the drawer stays open behind it — same behavior as Findings)
+    @State private var showSettings = false
 
     /// The configuration ID to show in detail sheet
     @State private var selectedConfigurationId: UUID?
@@ -68,6 +73,11 @@ struct DrawerContent: View {
                 drawer.close()
                 guide.pageToOpen = url
             }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsForm()
+                .environmentObject(settings)
+                .environmentObject(guide)
         }
     }
     
@@ -103,8 +113,7 @@ struct DrawerContent: View {
     private var settingsSection: some View {
         Section {
             Button {
-                drawer.close()
-                guide.settingsTapped()
+                showSettings = true
             } label: {
                 Label(L10n.Settings.title, systemImage: "gearshape")
             }
@@ -255,6 +264,7 @@ private struct ConfigurationRow: View {
             .environmentObject(state.guide)
             .environmentObject(state.deep)
             .environmentObject(state.downloader)
+            .environmentObject(state.settings)
             .environment(\.managedObjectContext, state.dataController.container.viewContext)
     }
 }

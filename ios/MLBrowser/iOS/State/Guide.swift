@@ -19,7 +19,6 @@ final class Guide: ObservableObject {
 	@Published var presentedSideMenu: Bool = false
 	@Published var ontheflyDetectionEnabled: Bool = false
 	@Published var selectedConfigurationId: UUID?
-	@Published var presentSettings: Bool = false
 	@Published var pageToOpen: URL?
 	@Published var contentInteractionState: ContentInteractionState = .idle
 	@Published var showSnapAdjustment: Bool = false
@@ -108,10 +107,6 @@ final class Guide: ObservableObject {
 	@MainActor func fullscreenDetectionSettingChanged() {
 		guard ontheflyDetectionEnabled else { return }
 		chromeVisible = settings.fullscreenDetection.not
-	}
-
-	func settingsTapped() {
-		presentSettings = true
 	}
 
     @MainActor func resetApplication() async {
