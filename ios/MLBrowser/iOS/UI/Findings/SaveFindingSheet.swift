@@ -58,12 +58,17 @@ struct SaveFindingSheet: View {
 	@State private var gps = ""
 	@State private var suggestions: [String] = []
 	@State private var saveFailed = false
+	/// Preview-only: lets the user dim or hide the highlight rectangle to see
+	/// what's underneath it. Not persisted — the stored highlight is always
+	/// drawn live from the bounding box.
+	@State private var highlightOpacity: Double = 1
 
 	var body: some View {
 		NavigationStack {
 			Form {
 				Section {
 					preview
+					opacitySlider
 				}
 				Section(L10n.Finding.page) {
 					Text(capture.pageURL?.absoluteString ?? "")
@@ -126,9 +131,20 @@ struct SaveFindingSheet: View {
 			image: capture.frame.image,
 			normalizedBox: capture.observation.boundingBox,
 			// Manual picks have no producing driver; red matches the detail view.
-			color: capture.params?.annotationColor ?? .red
+			color: capture.params?.annotationColor ?? .red,
+			opacity: highlightOpacity
 		)
 		.frame(maxHeight: 260)
+	}
+
+	private var opacitySlider: some View {
+		HStack(spacing: 12) {
+			Image(systemName: "square.dashed")
+				.foregroundStyle(.secondary)
+			Slider(value: $highlightOpacity, in: 0...1)
+				.testability(Testability.Slider.saveFindingHighlightOpacity)
+		}
+		.accessibilityLabel(L10n.Finding.highlightOpacity)
 	}
 
 	// MARK: - Labels

@@ -251,6 +251,8 @@ internal enum L10n {
     internal static let gps = L10n.tr("Localizable", "finding.gps", fallback: "GPS")
     /// 48.800000, 19.530000
     internal static let gpsPlaceholder = L10n.tr("Localizable", "finding.gpsPlaceholder", fallback: "48.800000, 19.530000")
+    /// Highlight Opacity
+    internal static let highlightOpacity = L10n.tr("Localizable", "finding.highlightOpacity", fallback: "Highlight Opacity")
     /// Label
     internal static let label = L10n.tr("Localizable", "finding.label", fallback: "Label")
     /// Add a label (e.g. fortification)
