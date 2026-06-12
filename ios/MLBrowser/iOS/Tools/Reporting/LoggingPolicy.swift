@@ -49,7 +49,10 @@ enum LoggingPolicy {
     /// - Verbose diagnostic information
     /// - Development-only messages
     ///
-    /// Remote: Breadcrumb only (FREE)
+    /// Remote: Breadcrumb in DEBUG builds only — debug-level messages may fire in hot
+    /// loops (e.g. per-detection-pass timings) and would flood the production
+    /// breadcrumb buffer, crowding out the trail that matters when a crash uploads.
+    /// The gate lives here so call sites never need their own `#if DEBUG`.
     static func debug(
         _ message: String,
         logger: Logger = .app,
@@ -59,11 +62,13 @@ enum LoggingPolicy {
     ) {
         let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + LogRedactor.redactingURLs(message)
 
-        // 1. Local (Console.app / Xcode)
+        // 1. Local (Console.app / Xcode; release builds discard debug-level os.log)
         logger.logDebug(prefixedMessage)
 
-        // 2. Remote breadcrumb (FREE - only uploaded with crash/error events)
+#if DEBUG
+        // 2. Remote breadcrumb (only uploaded with crash/error events)
         Observability.recordBreadcrumb(prefixedMessage, level: .debug, category: category)
+#endif
     }
     
     /// Use `.info` or `.notice` for:
