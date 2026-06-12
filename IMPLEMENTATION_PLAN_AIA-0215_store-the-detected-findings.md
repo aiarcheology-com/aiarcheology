@@ -17,9 +17,9 @@ The user taps a detected annotation over the web content → detection pauses wi
 
 ## Implementation
 
-### 1. Core Data — `Finding` entity (migration is NOT trivially lightweight)
+### 1. Core Data — `Finding` entity (added to the existing 0.0.1 model)
 
-New model version `MLBrowser_0.0.2`, additive entity `Finding` following `CoreDataManagableWithState`:
+Only **0.0.0 is released** (user-confirmed) — `MLBrowser_0.0.1` is still mutable, so `Finding` is added **directly to `MLBrowser_0.0.1.xcdatamodel`**; no new model version. Entity follows `CoreDataManagableWithState`:
 
 - `entityId: UUID`, `lifeCycleString: String`, `creationDate_: Date`
 - `page: URI` — the remote web URL (`WebHistoryEntry.page` precedent; **never** a file URI)
@@ -29,13 +29,11 @@ New model version `MLBrowser_0.0.2`, additive entity `Finding` following `CoreDa
 - `modelId: UUID?` — `DeepDriverParams.entityId` of the producing configuration (provenance; multiple detectors run concurrently)
 - `boxX/boxY/boxWidth/boxHeight: Double` — **full-image Vision-normalized** (`DetectedObject.boundingBox` is already remapped by `TileLayout.remap`, Detector.swift:115; `regionIndex` is provenance only)
 
-**Migration (Codex-confirmed blockers):** `DataController.shouldInferMappingModelAutomatically` is `false` for App Store **and Debug** builds (DataController.swift:75-77) — inference alone will not migrate production stores. Required:
+**Migration:** `DataController.shouldInferMappingModelAutomatically` is `false` for App Store **and Debug** builds (DataController.swift:75-77), so the explicit `0.0.0→0.0.1` mapping carries the release path. Changing the 0.0.1 destination model **invalidates the existing `.xcmappingmodel`** (NSMappingModel lookup matches both models' entity hashes) — it must be updated/regenerated with an additive `Finding` entity mapping, keeping the `FillEntityIdIfNilPolicy` assignments (the policy code itself should need no change: `Finding` has no source entity; update it only if necessary).
 
-- Explicit mapping model `MLBrowser_0.0.1_to_0.0.2.xcmappingmodel` (Xcode-generated; all existing entities pass-through, `Finding` added).
-- Direct `MLBrowser_0.0.0_to_0.0.2.xcmappingmodel` reusing `FillEntityIdIfNilPolicy` — Core Data does not chain mappings and the existing policy targets exactly 0.0.1, so 0.0.0 stores would otherwise dead-end (App Store builds crash; dev builds destroy the store).
-- `.xccurrentversion` → 0.0.2.
+Existing dev/TestFlight 0.0.1 stores: user-confirmed expendable — wiped data on dev devices is fine (Debug builds hit the one-time destroy-and-recreate recovery; TestFlight migrates via inference anyway). Only released 0.0.0 stores must survive, via the updated mapping model.
 
-**Test gate:** the migration test must NOT use `DataController(storeURL:)` — it forces inference on (line 127) and non-App-Store builds destroy-and-recreate on failure (false pass). Build a bare `NSPersistentContainer` with production-equivalent options (`shouldInferMappingModelAutomatically = false`), seed a 0.0.1 store (and a 0.0.0 store) with rows, open with the 0.0.2 model, assert every row survives. 
+**Test gate:** the migration test must NOT use `DataController(storeURL:)` — it forces inference on (line 127) and non-App-Store builds destroy-and-recreate on failure (false pass). Build a bare `NSPersistentContainer` with production-equivalent options (`shouldInferMappingModelAutomatically = false`), seed a 0.0.0 store with rows, open with the updated 0.0.1 model, assert every row survives and `entityId`s are filled. 
 
 Validation (`validationReport()`): `page` is http(s), box coordinates finite within the unit rect, confidence in 0...1, `screenshotFilename == "\(entityId).png"`, `creationDate_` non-nil.
 
@@ -85,7 +83,7 @@ Dismiss (every path, including interactive swipe) → `isCapturingFinding = fals
 ### 7. Plumbing & tests
 
 - L10n keys (en, surgical `Localizable.xcstrings` insertion + `scripts/swiftgen.sh`), `Testability` ids, manual pbxproj registration (+ `plutil -lint`).
-- Unit tests: `Finding` lifecycle/validation; **migration gate from step 1 (0.0.1→0.0.2 and 0.0.0→0.0.2, production-equivalent options, rows survive)**; failed-insert cleanup (no pending object, no PNG); suggestion union; crop transform with an off-center box (Y-flip) against `cgImage` dims; aspect-fit highlight mapping; pause invalidation (apply discarded when `isCapturingFinding`); apply-site cache coherence.
+- Unit tests: `Finding` lifecycle/validation; **migration gate from step 1 (0.0.0→0.0.1 with the updated model, production-equivalent options, rows survive)**; failed-insert cleanup (no pending object, no PNG); suggestion union; crop transform with an off-center box (Y-flip) against `cgImage` dims; aspect-fit highlight mapping; pause invalidation (apply discarded when `isCapturingFinding`); apply-site cache coherence.
 - Local gates before any push: `scripts/swiftlint.sh`, `scripts/harmonize.sh`, unit tests with the explicit simulator destination. No push without explicit user OK.
 
 ## Known limitations (named, accepted)
