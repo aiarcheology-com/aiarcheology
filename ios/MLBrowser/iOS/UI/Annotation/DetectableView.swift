@@ -7,7 +7,6 @@
 
 import SwiftUI
 import Combine
-import Vision
 import OSLog
 
 /// Tracks whether content is being actively manipulated (scroll, drag, zoom, etc.)
@@ -31,22 +30,25 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     let drivers: DeepDrivers
     let trigger: P
     let showIdentifiers: Bool
-    
+    let tiledDetection: Bool
+
     /// Callback to receive interaction state changes. DetectableView manages state internally.
     private let onInteractionStateChanged: ((ContentInteractionState) -> Void)?
-    
+
     @ViewBuilder let content: (Binding<ContentInteractionState>) -> Content
-    
-    @State private var detectedObservations: [ObservationParams] = []
+
+    @State private var detectedObservations: [DetectionResult] = []
     @State private var interactionState: ContentInteractionState = .idle
     @State private var detectionGeneration: UInt64 = 0
-    
+    @State private var detectionQueue = SnapshotDetectionQueue()
+
     /// Initializer with interaction state callback - content receives a binding to update state
     init(
         renderer: DefaultRenderer,
         drivers: DeepDrivers,
         trigger: P,
         showIdentifiers: Bool,
+        tiledDetection: Bool = false,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
         @ViewBuilder content: @escaping (Binding<ContentInteractionState>) -> Content
     ) {
@@ -54,6 +56,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         self.drivers = drivers
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
+        self.tiledDetection = tiledDetection
         self.onInteractionStateChanged = onInteractionStateChanged
         self.content = content
     }
@@ -80,25 +83,33 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             .onChange(of: geometry.size) { old, new in
                 // Layout changed (chrome shown/hidden, rotation): results captured
                 // against the previous geometry would draw misaligned boxes.
-                #if DEBUG
                 LoggingPolicy.debug("GeometrySizeChange: \(old.width)x\(old.height) -> \(new.width)x\(new.height)", logger: .ui)
-                #endif
                 detectionGeneration &+= 1
                 detectedObservations.removeAll()
+                // A coalesced snapshot was captured against the old geometry; if it
+                // started later it would read the NEW generation and its stale boxes
+                // would pass the guard below.
+                detectionQueue.cancelPending()
             }
         }
         .onSnapshot { image, _ in
             // Skip detection while content is being manipulated - geometry is changing
             guard !isInteracting else { return }
-            let currentGeneration = detectionGeneration
-            drivers.detect(on: image) { observations in
-                // Discard if interaction started since detection began (stale results)
-                guard detectionGeneration == currentGeneration else {
-                    return
+            // The queue serializes passes and coalesces snapshots arriving mid-pass to
+            // the newest one: a tiled pass (6 inferences × N detectors) can outlast the
+            // snapshot cadence, and overlapping passes would apply out of order.
+            detectionQueue.enqueue(image) { image, done in
+                let currentGeneration = detectionGeneration
+                drivers.detect(on: image, tiledDetection: tiledDetection) { observations in
+                    done()
+                    // Discard if interaction started since detection began (stale results)
+                    guard detectionGeneration == currentGeneration else {
+                        return
+                    }
+                    // Double-check interaction state before applying results
+                    guard !isInteracting else { return }
+                    detectedObservations = observations
                 }
-                // Double-check interaction state before applying results
-                guard !isInteracting else { return }
-                detectedObservations = observations
             }
         }
         .onChange(of: interactionState) { _, state in
@@ -107,6 +118,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 detectionGeneration &+= 1
                 // Clear annotations immediately when interaction starts
                 detectedObservations.removeAll()
+                // A coalesced snapshot was captured pre-interaction — stale geometry.
+                detectionQueue.cancelPending()
             }
             // Notify external observer if provided
             onInteractionStateChanged?(state)
@@ -169,21 +182,55 @@ extension View {
 /// Annotation overlay that renders detection results
 /// Extracted to be used within the same GeometryReader scope as the detected content
 struct AnnotationOverlay: View {
-    let observations: [ObservationParams]
+    let observations: [DetectionResult]
     let geometry: GeometryProxy
     let showIdentifiers: Bool
-    
+
     var body: some View {
         ForEach(Array(observations.enumerated()), id: \.offset) { _, observationGroup in
-            ForEach(observationGroup.observations, id: \.uuid) { observation in
-                if let detection = observation as? VNRecognizedObjectObservation {
-                    AnnotationViewBuilder(
-                        observation: detection,
-                        geometry: geometry,
-                        params: observationGroup.params,
-                        showIndentifiers: showIdentifiers
-                    )
-                }
+            ForEach(observationGroup.observations, id: \.uuid) { detection in
+                AnnotationViewBuilder(
+                    observation: detection,
+                    geometry: geometry,
+                    params: observationGroup.params,
+                    showIndentifiers: showIdentifiers
+                )
+            }
+        }
+    }
+}
+
+/// Serializes detection passes: at most one in flight, with snapshots arriving mid-pass
+/// coalesced to the newest (latest wins, no queue growth). Applying results in completion
+/// order is what made overlapping passes able to deliver frame A's boxes after frame B's.
+@MainActor
+final class SnapshotDetectionQueue {
+    typealias Pass = @MainActor (UIImage, _ done: @escaping @MainActor () -> Void) -> Void
+
+    private(set) var inFlight = false
+    private var pendingImage: UIImage?
+
+    func enqueue(_ image: UIImage, pass: @escaping Pass) {
+        guard inFlight.not else {
+            pendingImage = image
+            return
+        }
+        start(image, pass: pass)
+    }
+
+    /// Drops a coalesced snapshot (e.g. interaction started — its geometry is stale).
+    func cancelPending() {
+        pendingImage = nil
+    }
+
+    private func start(_ image: UIImage, pass: @escaping Pass) {
+        inFlight = true
+        pass(image) { [weak self] in
+            guard let self else { return }
+            self.inFlight = false
+            if let next = self.pendingImage {
+                self.pendingImage = nil
+                self.start(next, pass: pass)
             }
         }
     }

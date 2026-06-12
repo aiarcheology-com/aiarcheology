@@ -63,6 +63,7 @@ struct WebScreenView: View {
 	@State private var showAlert: Bool = false
 	@State private var hasPerformedInitialAction = false
 	@State private var showIdentifiers: Bool = false
+	@State private var tiledDetection: Bool = false
 
 	init() {
 		Backports.Appearance.textField()
@@ -98,6 +99,7 @@ struct WebScreenView: View {
             drivers: appState.deep.drivers,
             trigger: appState.snap.combinedPublishers,
             showIdentifiers: showIdentifiers,
+            tiledDetection: tiledDetection,
             onInteractionStateChanged: { state in
                 // Optionally propagate to Guide for other UI components to observe
                 appState.guide.contentInteractionState = state
@@ -117,8 +119,12 @@ struct WebScreenView: View {
         .onReceive(appState.settings.$showIdentifiers) { value in
             showIdentifiers = value
         }
+        .onReceive(appState.settings.$tiledDetection) { value in
+            tiledDetection = value
+        }
         .onAppear {
             showIdentifiers = appState.settings.showIdentifiers
+            tiledDetection = appState.settings.tiledDetection
             if hasPerformedInitialAction.not {
                 hasPerformedInitialAction = true
                 if

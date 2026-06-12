@@ -95,6 +95,14 @@ struct SettingsForm: View {
 				.testability(Testability.Toggle.settingsRunAtLaunch)
 			Toggle(L10n.Settings.showLabels, isOn: $settings.showIdentifiers)
 				.testability(Testability.Toggle.settingsShowLabels)
+			Toggle(L10n.Settings.tiledDetection, isOn: $settings.tiledDetection)
+				.testability(Testability.Toggle.settingsTiledDetection)
+			Toggle(L10n.Settings.fullscreenDetection, isOn: $settings.fullscreenDetection)
+				.testability(Testability.Toggle.settingsFullscreenDetection)
+				.onChange(of: settings.fullscreenDetection) {
+					// Apply to a detection that is already running.
+					guide.fullscreenDetectionSettingChanged()
+				}
 		}
 	}
 
@@ -119,12 +127,6 @@ struct SettingsForm: View {
 			}
 			Toggle(L10n.Settings.reopenLastPage, isOn: $settings.reopenLastPage)
 				.testability(Testability.Toggle.settingsReopenLastPage)
-			Toggle(L10n.Settings.fullscreenDetection, isOn: $settings.fullscreenDetection)
-				.testability(Testability.Toggle.settingsFullscreenDetection)
-				.onChange(of: settings.fullscreenDetection) {
-					// Apply to a detection that is already running.
-					guide.fullscreenDetectionSettingChanged()
-				}
 			historyLimitRow
 			NavigationLink(destination: BrowserHistoryView()
 				.environment(\.dismissSheet, { dismiss() })

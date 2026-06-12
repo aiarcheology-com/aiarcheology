@@ -12829,6 +12829,18 @@
         }
       }
     },
+    "settings.tiledDetection" : {
+      "comment" : "Toggle for tiled detection (detect over 4 quadrants + center + full frame instead of one full-frame pass)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiled Detection"
+          }
+        }
+      }
+    },
     "settings.title" : {
       "comment" : "Navigation title for settings screen",
       "extractionState" : "manual",

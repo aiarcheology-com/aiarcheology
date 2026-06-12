@@ -150,18 +150,20 @@ final class BrowserStateTests: XCTestCase {
         let otherWebView = WKWebView()
         sut.attach(otherWebView)
 
-        // The originally attached web view must no longer publish into the mirrors —
-        // an inverted expectation bounds the negative check without a bare sleep.
-        let noEmission = expectation(description: "detached web view must not publish")
-        noEmission.isInverted = true
+        // The originally attached web view must no longer publish into the mirrors.
+        // Bounded sleep, NOT an inverted expectation: awaiting fulfillment of an
+        // inverted expectation from a @MainActor test stalls the main thread on
+        // Xcode Cloud (watchdog kill after the 10-minute allowance); Task.sleep
+        // suspends instead. Recording every emission (not just the final value)
+        // catches even a transient publish that something later overwrites.
+        var sawBaseURL = false
         sut.$currentURL
-            .first(where: { $0 == Self.baseURL })
-            .sink { _ in noEmission.fulfill() }
+            .sink { if $0 == Self.baseURL { sawBaseURL = true } }
             .store(in: &cancellables)
         webView.loadHTMLString(Self.html, baseURL: Self.baseURL)
-        await fulfillment(of: [noEmission], timeout: 1)
+        try? await Task.sleep(for: .seconds(1))
 
-        XCTAssertNotEqual(sut.currentURL, Self.baseURL)
+        XCTAssertFalse(sawBaseURL, "Detached web view must not publish into the mirrors")
     }
 
     func testCancelSubscriptions_IsIdentityGuarded() async {
@@ -250,17 +252,12 @@ final class BrowserStateTests: XCTestCase {
     func testGate_BlocksDisplayedURLWhilePending() async {
         sut.userLoadRequested("https://example.com/picked")
 
-        // KVO emissions while the gate is set must not overwrite the display —
-        // an inverted expectation bounds the negative check without a bare sleep.
-        let notOverwritten = expectation(description: "display gate must hold")
-        notOverwritten.isInverted = true
-        sut.$displayedURL
-            .first(where: { $0 == Self.baseURL })
-            .sink { _ in notOverwritten.fulfill() }
-            .store(in: &cancellables)
+        // KVO emissions while the gate is set must not overwrite the display.
+        // Bounded sleep, NOT an inverted expectation — see
+        // testReattach_CancelsOldWebViewMirrors for the Xcode Cloud stall.
         webView.loadHTMLString(Self.html, baseURL: Self.baseURL)
         await waitForCurrentURL { $0 == Self.baseURL }
-        await fulfillment(of: [notOverwritten], timeout: 0.5)
+        try? await Task.sleep(for: .milliseconds(500))
 
         XCTAssertEqual(sut.displayedURL, URL(string: "https://example.com/picked"))
     }

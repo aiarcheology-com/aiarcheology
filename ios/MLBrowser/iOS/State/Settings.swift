@@ -34,6 +34,7 @@ final class Settings: ObservableObject, Validatable {
 		static let removeAnnotationOnDrag = "removeAnnotationOnDrag"
 		static let entityId = "entityId"
 		static let fullscreenDetection = "fullscreenDetection"
+		static let tiledDetection = "tiledDetection"
 	}
 
 	public var isFirstLaunchMarked: Bool = false
@@ -111,6 +112,15 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	/// AIA-0217: when enabled, each detection snapshot runs through 6 regions (4 quadrants
+	/// + center + full frame) instead of one full-frame pass — edge artifacts reach the
+	/// model at roughly double resolution at the cost of 6× inference per snapshot.
+	@Published public var tiledDetection: Bool {
+		didSet {
+			UserDefaults.standard.set(tiledDetection, forKey: UserDefaultsKeys.tiledDetection)
+		}
+	}
+
 	@Published public var entityId: UUID? {
 		didSet {
 			UserDefaults.standard.set(entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
@@ -139,7 +149,11 @@ final class Settings: ObservableObject, Validatable {
             UserDefaultsKeys.entityId: UUID().uuidString,
             // Off by default: hitting play and losing the chrome surprises
             // first-time users; fullscreen detection is an opt-in.
-            UserDefaultsKeys.fullscreenDetection: false
+            UserDefaultsKeys.fullscreenDetection: false,
+            // On by default: simulator verification confirmed the edge-detection win
+            // (AIA-0217 plan, decision 1); the toggle exists to opt out of the 6x
+            // inference cost.
+            UserDefaultsKeys.tiledDetection: true
         ]
 
 		// Register default values
@@ -156,6 +170,7 @@ final class Settings: ObservableObject, Validatable {
 		self.lastPage = UserDefaults.standard.url(forKey: UserDefaultsKeys.lastPage)
 		self.removeAnnotationOnDrag = UserDefaults.standard.bool(forKey: UserDefaultsKeys.removeAnnotationOnDrag)
 		self.fullscreenDetection = UserDefaults.standard.bool(forKey: UserDefaultsKeys.fullscreenDetection)
+		self.tiledDetection = UserDefaults.standard.bool(forKey: UserDefaultsKeys.tiledDetection)
 		if let uuidString = UserDefaults.standard.string(forKey: UserDefaultsKeys.entityId),
 		   let uuid = UUID(uuidString: uuidString) {
 			self.entityId = uuid
@@ -192,6 +207,7 @@ final class Settings: ObservableObject, Validatable {
 		entityId = UUID()
 		lastPage = nil
 		fullscreenDetection = false
+		tiledDetection = true
 
 		UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.lastPage)
 		UserDefaults.standard.set(keepSlideShowActive, forKey: UserDefaultsKeys.keepSlideShowActive)
@@ -206,5 +222,6 @@ final class Settings: ObservableObject, Validatable {
 		UserDefaults.standard.set(removeAnnotationOnDrag, forKey: UserDefaultsKeys.removeAnnotationOnDrag)
 		UserDefaults.standard.set(entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
 		UserDefaults.standard.set(fullscreenDetection, forKey: UserDefaultsKeys.fullscreenDetection)
+		UserDefaults.standard.set(tiledDetection, forKey: UserDefaultsKeys.tiledDetection)
 	}
 }

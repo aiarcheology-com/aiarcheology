@@ -349,6 +349,8 @@ internal enum L10n {
     internal static let showLabels = L10n.tr("Localizable", "settings.showLabels", fallback: "Show Labels")
     /// Show next time
     internal static let showNextTime = L10n.tr("Localizable", "settings.showNextTime", fallback: "Show next time")
+    /// Tiled Detection
+    internal static let tiledDetection = L10n.tr("Localizable", "settings.tiledDetection", fallback: "Tiled Detection")
     /// Settings
     internal static let title = L10n.tr("Localizable", "settings.title", fallback: "Settings")
     internal enum Frequency {

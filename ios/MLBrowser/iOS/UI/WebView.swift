@@ -290,7 +290,11 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
 		// iOS, iPadOS, and the iPad-on-Mac build alike. Every path calls the completion
 		// handler — WebKit hangs the page's JavaScript otherwise.
 
-		public func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+		// Signatures must match the SDK requirement exactly (incl. @MainActor @Sendable
+		// on the completion handlers) — a "nearly matching" method is not a protocol
+		// witness and the dialogs would be silently suppressed again.
+		@MainActor
+		public func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor @Sendable () -> Void) {
 			guard let presenter = Self.topViewController(of: webView) else {
 				completionHandler()
 				return
@@ -302,7 +306,8 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
 			presenter.present(alert, animated: true)
 		}
 
-		public func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+		@MainActor
+		public func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor @Sendable (Bool) -> Void) {
 			guard let presenter = Self.topViewController(of: webView) else {
 				completionHandler(false)
 				return
@@ -317,7 +322,8 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
 			presenter.present(alert, animated: true)
 		}
 
-		public func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (String?) -> Void) {
+		@MainActor
+		public func webView(_ webView: WKWebView, runJavaScriptTextInputPanelWithPrompt prompt: String, defaultText: String?, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor @Sendable (String?) -> Void) {
 			guard let presenter = Self.topViewController(of: webView) else {
 				completionHandler(nil)
 				return
