@@ -150,9 +150,10 @@ final class Settings: ObservableObject, Validatable {
             // Off by default: hitting play and losing the chrome surprises
             // first-time users; fullscreen detection is an opt-in.
             UserDefaultsKeys.fullscreenDetection: false,
-            // Off until the on-device verification proves the edge-detection win
-            // at acceptable latency (AIA-0217 plan, decision 1).
-            UserDefaultsKeys.tiledDetection: false
+            // On by default: simulator verification confirmed the edge-detection win
+            // (AIA-0217 plan, decision 1); the toggle exists to opt out of the 6x
+            // inference cost.
+            UserDefaultsKeys.tiledDetection: true
         ]
 
 		// Register default values
@@ -206,7 +207,7 @@ final class Settings: ObservableObject, Validatable {
 		entityId = UUID()
 		lastPage = nil
 		fullscreenDetection = false
-		tiledDetection = false
+		tiledDetection = true
 
 		UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.lastPage)
 		UserDefaults.standard.set(keepSlideShowActive, forKey: UserDefaultsKeys.keepSlideShowActive)
