@@ -514,20 +514,32 @@ final class FindingMigrationTests: XCTestCase {
         let seedContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
         seedContext.persistentStoreCoordinator = seedCoordinator
 
-        var seeded = 0
+        // Seed every entity the FillEntityIdIfNilPolicy migrates.
+        let seededEntities = ["WebHistoryEntry", "DeepConfiguration", "DownloadItem"]
+        var seedError: Error?
         seedContext.performAndWait {
-            for index in 0..<3 {
-                let entry = NSManagedObject(
-                    entity: sourceModel.entitiesByName["WebHistoryEntry"]!,
-                    insertInto: seedContext
-                )
-                entry.setValue(URL(string: "https://example.com/\(index)"), forKey: "page")
-                entry.setValue(Date(), forKey: "creationDate_")
+            for entityName in seededEntities {
+                for index in 0..<3 {
+                    let entity = sourceModel.entitiesByName[entityName]!
+                    let row = NSManagedObject(entity: entity, insertInto: seedContext)
+                    if entity.attributesByName["page"] != nil {
+                        row.setValue(URL(string: "https://example.com/\(index)"), forKey: "page")
+                    }
+                    if entity.attributesByName["creationDate_"] != nil {
+                        row.setValue(Date(), forKey: "creationDate_")
+                    }
+                }
             }
-            try? seedContext.save()
-            seeded = 3
+            do {
+                try seedContext.save()
+            } catch {
+                seedError = error
+            }
         }
-        XCTAssertEqual(seeded, 3)
+        if let seedError {
+            XCTFail("Seeding the 0.0.0 store failed: \(seedError)")
+            return
+        }
         for store in seedCoordinator.persistentStores {
             try seedCoordinator.remove(store)
         }
@@ -555,13 +567,16 @@ final class FindingMigrationTests: XCTestCase {
         )
         guard loadError == nil else { return }
 
-        // 3. Every seeded row survived and the policy filled entityIds.
+        // 3. Every seeded row survived and the policy filled entityIds —
+        //    for ALL entities FillEntityIdIfNilPolicy is assigned to.
         let context = container.viewContext
-        let request = NSFetchRequest<NSManagedObject>(entityName: "WebHistoryEntry")
-        let migrated = try context.fetch(request)
-        XCTAssertEqual(migrated.count, 3)
-        for row in migrated {
-            XCTAssertNotNil(row.value(forKey: "entityId"), "FillEntityIdIfNilPolicy did not fill entityId")
+        for entityName in seededEntities {
+            let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+            let migrated = try context.fetch(request)
+            XCTAssertEqual(migrated.count, 3, "\(entityName) rows did not survive the migration")
+            for row in migrated {
+                XCTAssertNotNil(row.value(forKey: "entityId"), "FillEntityIdIfNilPolicy did not fill entityId on \(entityName)")
+            }
         }
 
         // 4. The new Finding entity is usable in the migrated store.

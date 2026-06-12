@@ -199,6 +199,14 @@ struct WebScreenView: View {
                 )
             }
         }
+        .onDisappear {
+            // The screen can be unmounted mid-capture (mode switch): without
+            // this, the snap timer would stay paused and the pick/sheet state
+            // would leak into the next appearance.
+            guard findPickActive || isCapturingFinding || findingCapture != nil else { return }
+            findingCapture = nil
+            cancelFindPick()
+        }
         .alert(isPresented: $showAlert) {
             alertForError(latestError)
         }
