@@ -71,10 +71,13 @@ final class SettingsTests: XCTestCase {
     func testSettings_TiledDetection_PersistsAndResets() {
         settings.reset()
         settings.tiledDetection = false
-        XCTAssertFalse(UserDefaults.standard.bool(forKey: "tiledDetection"))
+        // The registered default is true, so a fresh instance reading false proves the
+        // value was actually persisted (bool(forKey:) alone returns false for a
+        // missing key and would pass vacuously).
+        XCTAssertFalse(Settings().tiledDetection)
         settings.reset()
         XCTAssertTrue(settings.tiledDetection)
-        XCTAssertTrue(UserDefaults.standard.bool(forKey: "tiledDetection"))
+        XCTAssertTrue(Settings().tiledDetection)
     }
     
     func testSettings_DefaultPage_IsGoogle() {

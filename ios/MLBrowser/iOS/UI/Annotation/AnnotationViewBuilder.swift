@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import Vision
 
 struct AnnotationViewBuilder: View {
 	var observation: DetectedObject

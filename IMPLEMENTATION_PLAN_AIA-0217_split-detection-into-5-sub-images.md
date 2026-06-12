@@ -1,4 +1,6 @@
-# AIA-0217 — Split detection content into 5 sub-images
+# AIA-0217 — Split detection content into tiled sub-images (final: 6 regions)
+
+*(The issue proposed 5 images; decision 2 added a full-frame pass — 4 quadrants + center + full frame.)*
 
 Issue: [#217](https://github.com/aiarcheology-com/aiarcheology/issues/217) · Branch: `feature/AIA-0217/split-detection-content-into-5-sub-images` · Status: APPROVED FOR IMPLEMENTATION (Codex round 1 folded in; user decisions confirmed 2026-06-12)
 
@@ -10,7 +12,7 @@ Detection misses artifacts near the snapshot edges (left/right/top/bottom), espe
 
 ## Approach
 
-Run the detector over **5 regions** of the same snapshot — 4 quadrants + 1 center region of identical size — and merge the results back into full-image coordinates. Each region reaches the model at roughly 2× the effective resolution of today's full-frame pass.
+Run the detector over **6 regions** of the same snapshot — 4 quadrants + 1 center region of identical size + a full-frame pass (decision 2) — and merge the results back into full-image coordinates. Each half-size region reaches the model at roughly 2× the effective resolution of today's full-frame pass.
 
 **Mechanism: `VNCoreMLRequest.regionOfInterest`, not physical crops.** One `VNImageRequestHandler` per frame; per region we set `regionOfInterest` and `perform` serially. Vision does the cropping internally — no 5× `CIImage` cropping cost, no extra image copies. Because every region scales both image dimensions by 0.5, each region keeps the original snapshot's aspect ratio, so `.scaleFit` letterboxing padding is unchanged while content resolution roughly doubles (Codex-confirmed). Observations returned under an ROI are normalized **to the ROI**, so each box is remapped to full-image normalized space:
 

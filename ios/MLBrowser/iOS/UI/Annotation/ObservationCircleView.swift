@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import Vision
 
 struct ObservationCircleView: View {
 	var observation: DetectedObject

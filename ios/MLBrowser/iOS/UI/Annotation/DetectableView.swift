@@ -7,7 +7,6 @@
 
 import SwiftUI
 import Combine
-import Vision
 import OSLog
 
 /// Tracks whether content is being actively manipulated (scroll, drag, zoom, etc.)
@@ -89,6 +88,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 #endif
                 detectionGeneration &+= 1
                 detectedObservations.removeAll()
+                // A coalesced snapshot was captured against the old geometry; if it
+                // started later it would read the NEW generation and its stale boxes
+                // would pass the guard below.
+                detectionQueue.cancelPending()
             }
         }
         .onSnapshot { image, _ in

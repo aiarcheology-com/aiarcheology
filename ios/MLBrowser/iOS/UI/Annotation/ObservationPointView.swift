@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import Vision
 
 struct ObservationPointView: View {
 	var observation: DetectedObject

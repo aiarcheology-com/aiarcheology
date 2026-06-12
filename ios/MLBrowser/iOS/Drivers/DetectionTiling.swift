@@ -106,7 +106,13 @@ enum TileLayout {
 		// The stage fires only when the candidate is meaningfully smaller (a clipped
 		// partial) — near-equal-area duplicates would otherwise be dropped by sort
 		// order instead of by confidence; those belong to stage 2.
-		let byArea = objects.sorted { area(of: $0.boundingBox) > area(of: $1.boundingBox) }
+		// Ties break on uuid so equal inputs in any order produce the same result set
+		// (Swift's sort is not stable).
+		let byArea = objects.sorted {
+			let lhs = area(of: $0.boundingBox)
+			let rhs = area(of: $1.boundingBox)
+			return lhs == rhs ? $0.uuid.uuidString > $1.uuid.uuidString : lhs > rhs
+		}
 		for candidate in byArea {
 			let contained = survivors.contains { kept in
 				competing(kept, candidate)
@@ -119,7 +125,12 @@ enum TileLayout {
 		}
 
 		var kept = [DetectedObject]()
-		let byConfidence = survivors.sorted { $0.confidence > $1.confidence }
+		let byConfidence = survivors.sorted {
+			if $0.confidence != $1.confidence { return $0.confidence > $1.confidence }
+			let lhs = area(of: $0.boundingBox)
+			let rhs = area(of: $1.boundingBox)
+			return lhs == rhs ? $0.uuid.uuidString > $1.uuid.uuidString : lhs > rhs
+		}
 		for candidate in byConfidence {
 			let suppressed = kept.contains { winner in
 				competing(winner, candidate)

@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import Vision
 
 struct ObservationRectangleView: View {
 	var observation: DetectedObject
