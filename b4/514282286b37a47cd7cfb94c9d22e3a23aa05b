@@ -1,0 +1,28 @@
+IMPLEMENTATION_PLAN_AIA-0217_split-detection-into-5-sub-images.md
+  s_f24988eb446598::t_7b3b81fa4baf06 1-2,4-6,10-14,16-18,21,35-40,42-48,50,53,55-58,60,63,69,71,73,75-81,86,88,92-94,100,103-107,110,112-116
+  s_f24988eb446598::t_6517dbf2331254 41
+  s_f24988eb446598::t_60835d405969d0 49,51-52,54,59,61-62,64-68,70
+  s_f24988eb446598::t_f43e6ff654142e 95-99,101-102
+  s_f24988eb446598::t_5f2b583a371b57 15,19-20,22-34
+  s_f24988eb446598::t_3b52414f4915d1 108-109,111
+  s_f24988eb446598::t_3b4dc172119c3d 72,74
+  s_f24988eb446598::t_1a34b72f66b815 82-85,87,89-91
+  s_f24988eb446598::t_806a3003c6be97 7-9
+  s_f24988eb446598::t_4ad44eb2320e03 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "b4514282286b37a47cd7cfb94c9d22e3a23aa05b",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
