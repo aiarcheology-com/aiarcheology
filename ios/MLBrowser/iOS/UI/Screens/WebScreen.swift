@@ -146,7 +146,7 @@ struct WebScreenView: View {
             }
         }
         .sheet(isPresented: $presentLocationSheet) {
-            LocationSheetView { input in
+            LocationSheetView(currentURL: appState.browserState.displayedURL?.absoluteString) { input in
                 openRequested(input)
             }
             .environmentObject(appState.settings)

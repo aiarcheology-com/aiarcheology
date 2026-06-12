@@ -30,9 +30,10 @@ struct LocationSheetView: View {
 
 	let onOpen: (String) -> Void
 
-	/// Starts empty: the current URL stays visible in the address display behind the
-	/// sheet, and staying on the page is just a dismiss.
-	@State private var searchText = ""
+	/// Prefilled with the active page URL and selected on the automatic focus
+	/// (Safari-style), so copying or tweaking it is immediate; staying on the page
+	/// is still just a dismiss.
+	@State private var searchText: String
 	/// Debounced copy of `searchText` that actually drives the filter.
 	@State private var filterText = ""
 	@State private var sortOrder: SortOrder = .recent
@@ -41,9 +42,19 @@ struct LocationSheetView: View {
 	/// a NavigationLink in the row would make the List add its own disclosure chevron).
 	@State private var trailHost: String?
 	@FocusState private var searchFocused: Bool
+	/// The active page URL the field was prefilled with. It must not act as a history
+	/// filter — the list would collapse to just the current page until the first edit.
+	private let prefilledURL: String
+	/// Select-all applies only to the automatic focus on appear; a later tap into the
+	/// field places the cursor normally.
+	@State private var selectAllOnFocus: Bool
 
-	init(onOpen: @escaping (String) -> Void) {
+	init(currentURL: String? = nil, onOpen: @escaping (String) -> Void) {
 		self.onOpen = onOpen
+		let prefilled = currentURL ?? ""
+		self.prefilledURL = prefilled
+		_searchText = State(initialValue: prefilled)
+		_selectAllOnFocus = State(initialValue: prefilled.isEmpty.not)
 	}
 
 	var body: some View {
@@ -92,6 +103,13 @@ struct LocationSheetView: View {
 				.onSubmit(of: .text) {
 					open(searchText)
 				}
+				.onReceive(NotificationCenter.default.publisher(for: UITextField.textDidBeginEditingNotification)) { notification in
+					// SwiftUI has no select-all API; reach the backing UITextField the
+					// moment it becomes first responder (this sheet's only text field).
+					guard selectAllOnFocus, let field = notification.object as? UITextField else { return }
+					selectAllOnFocus = false
+					field.selectAll(nil)
+				}
 				.padding(8)
 				.background(.ultraThinMaterial)
 				.clipShape(RoundedRectangle(cornerRadius: 8))
@@ -104,11 +122,18 @@ struct LocationSheetView: View {
 		}
 		.padding(.horizontal)
 		.padding(.vertical, 8)
+		.onAppear {
+			// Focus only when prefilled: the selected URL is ready to copy or replace.
+			// With no active page the field stays unfocused, as before.
+			if prefilledURL.isEmpty.not {
+				searchFocused = true
+			}
+		}
 		.task(id: searchText) {
 			// Debounce: a fresh keystroke cancels this task, so the filter only follows
 			// once typing pauses.
 			try? await Task.sleep(for: .milliseconds(250))
-			filterText = searchText
+			filterText = searchText == prefilledURL ? "" : searchText
 		}
 	}
 
