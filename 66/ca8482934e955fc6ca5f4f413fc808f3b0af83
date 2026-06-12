@@ -1,0 +1,22 @@
+IMPLEMENTATION_PLAN_AIA-0215_store-the-detected-findings.md
+  s_f24988eb446598::t_de96b0a4ce81ec 86
+  s_f24988eb446598::t_c2c2d4681eacba 34
+  s_f24988eb446598::t_e125df0fa8c373 20,22
+  s_f24988eb446598::t_299b6d405b01c6 32,36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "66ca8482934e955fc6ca5f4f413fc808f3b0af83",
+  "prompts": {},
+  "sessions": {
+    "s_f24988eb446598": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f6969323-7619-4820-aff1-ee64c5fb7399",
+        "model": "claude-fable-5"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
