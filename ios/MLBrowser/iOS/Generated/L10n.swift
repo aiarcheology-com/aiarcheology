@@ -261,6 +261,10 @@ internal enum L10n {
     internal static let notePlaceholder = L10n.tr("Localizable", "finding.notePlaceholder", fallback: "Notes about this finding")
     /// Page
     internal static let page = L10n.tr("Localizable", "finding.page", fallback: "Page")
+    internal enum Pick {
+      /// Tap the place to store
+      internal static let hint = L10n.tr("Localizable", "finding.pick.hint", fallback: "Tap the place to store")
+    }
     internal enum Save {
       /// Save
       internal static let action = L10n.tr("Localizable", "finding.save.action", fallback: "Save")

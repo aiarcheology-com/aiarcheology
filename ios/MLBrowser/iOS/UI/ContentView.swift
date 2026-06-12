@@ -159,9 +159,11 @@ struct ContentView: View {
             // Floating back/reload/forward capsule for compact widths — part of the
             // chrome, so fullscreen detection hides it together with the bars.
             if selectedMode == .web && horizontalSizeClass == .compact && chromeVisible {
-                FloatingNavBar(position: $floatingNavBarPosition)
-                    .environmentObject(appState.browserState)
-                    .transition(.opacity)
+                FloatingNavBar(position: $floatingNavBarPosition, onFind: {
+                    appState.guide.findTapped()
+                })
+                .environmentObject(appState.browserState)
+                .transition(.opacity)
             }
 
             // Chrome toggle for fullscreen detection mode; only its 52pt frame

@@ -76,6 +76,15 @@ final class Guide: ObservableObject {
 		chromeVisible.toggle()
 	}
 
+	/// The Find/Store button (top bar on regular widths, floating capsule on
+	/// compact) was tapped: the web screen enters pick mode — the next tap on the
+	/// content marks the place to store. Consumed and reset by WebScreen.
+	@Published var findModeRequested: Bool = false
+
+	@MainActor func findTapped() {
+		findModeRequested = true
+	}
+
 	/// Detection was running when the finding-save dialog opened; only then does
 	/// ending the capture resume the timer.
 	private var detectionWasRunningBeforeCapture = false

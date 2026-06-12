@@ -8,16 +8,38 @@
 import SwiftUI
 import CoreData
 
-/// Everything captured at the moment the user tapped a detection annotation:
-/// the tapped observation, the producing driver's params, the displayed frame
+/// Everything captured at the moment the user marked a finding: the observation
+/// (a tapped detection, or a synthetic one built around a manual pick), the
+/// producing driver's params (nil for manual picks), the displayed frame
 /// (snapshot + results, frame-coherent by construction) and the page URL.
 struct FindingCapture: Identifiable {
 	let observation: DetectedObject
-	let params: DeepDriverParams
+	let params: DeepDriverParams?
 	let frame: AppliedDetectionFrame
 	let pageURL: URL?
 
 	var id: UUID { observation.uuid }
+
+	/// A Vision-normalized box centered on a manual tap (top-left view
+	/// coordinates), clamped fully inside the unit rect so validation holds.
+	/// The view and the snapshot share the same aspect, so view-normalized
+	/// coordinates are snapshot-normalized coordinates.
+	static func manualBox(at location: CGPoint, in size: CGSize, side: CGFloat = 64) -> CGRect {
+		guard size.width > 0, size.height > 0 else {
+			return CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2)
+		}
+		let width = min(side / size.width, 1)
+		let height = min(side / size.height, 1)
+		let centerX = location.x / size.width
+		// Vision's origin is bottom-left; the tap arrives top-left.
+		let centerY = 1 - location.y / size.height
+		return CGRect(
+			x: min(max(0, centerX - width / 2), 1 - width),
+			y: min(max(0, centerY - height / 2), 1 - height),
+			width: width,
+			height: height
+		)
+	}
 }
 
 /// Save dialog for a tapped detection (AIA-0215): stores the finding as a Core Data
@@ -103,7 +125,8 @@ struct SaveFindingSheet: View {
 		HighlightedSnapshotView(
 			image: capture.frame.image,
 			normalizedBox: capture.observation.boundingBox,
-			color: capture.params.annotationColor
+			// Manual picks have no producing driver; red matches the detail view.
+			color: capture.params?.annotationColor ?? .red
 		)
 		.frame(maxHeight: 260)
 	}
@@ -172,7 +195,7 @@ struct SaveFindingSheet: View {
 		finding.gps_ = normalized(gps)
 		finding.detectionClass = capture.observation.primaryLabelIdentifier
 		finding.detectionConfidence = Double(capture.observation.labels.first?.confidence ?? capture.observation.confidence)
-		finding.modelId = capture.params.entityId
+		finding.modelId = capture.params?.entityId
 		let box = capture.observation.boundingBox
 		finding.boxX = box.minX
 		finding.boxY = box.minY

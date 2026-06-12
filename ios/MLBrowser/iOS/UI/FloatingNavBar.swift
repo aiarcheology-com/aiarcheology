@@ -14,11 +14,15 @@ import SwiftUI
 struct FloatingNavBar: View {
 	@EnvironmentObject var browserState: BrowserState
 	@Binding var position: CGPoint?
+	/// Starts the store-a-finding pick mode — compact widths have no room for the
+	/// Find button in the top bar, so it lives here with the navigation items.
+	let onFind: () -> Void
 
 	@GestureState private var dragOffset: CGSize = .zero
 
 	private static let height: CGFloat = 52
-	private static let width: CGFloat = 3 * 56
+	private static let width: CGFloat = 4 * 56
+	private static let itemCount: CGFloat = 4
 	private static let margin: CGFloat = 16
 	private static let coordinateSpace = "floatingNavBarArea"
 
@@ -41,6 +45,14 @@ struct FloatingNavBar: View {
 					testability: .floatingNavForward
 				) {
 					browserState.goForwardTapped()
+				}
+				navItem(
+					systemImage: "plus.viewfinder",
+					enabled: true,
+					label: L10n.Finding.Save.title,
+					testability: .floatingNavFind
+				) {
+					onFind()
 				}
 			}
 			.frame(width: Self.width, height: Self.height)
@@ -96,7 +108,7 @@ struct FloatingNavBar: View {
 			.font(.system(size: 18, weight: .semibold))
 			.foregroundStyle(.primary)
 			.opacity(enabled ? 1 : 0.35)
-			.frame(width: Self.width / 3, height: Self.height)
+			.frame(width: Self.width / Self.itemCount, height: Self.height)
 			.contentShape(Rectangle())
 			.onTapGesture {
 				guard enabled else { return }

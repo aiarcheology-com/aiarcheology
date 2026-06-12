@@ -100,12 +100,14 @@ extension TestabilityIdentification {
 		case globalToolbarPlayDetection
 		case globalToolbarPauseDetection
 		case globalToolbarAdjustments
+		case globalToolbarFind
 		// Floating Chrome Button
 		case floatingChromeToggle
 		// Floating Nav Bar
 		case floatingNavBack
 		case floatingNavForward
 		case floatingNavReload
+		case floatingNavFind
 		// Web Screen
 		case webScreenAddressBar
 		case webToolbarBack
@@ -136,6 +138,7 @@ extension TestabilityIdentification {
 		case saveFindingSave
 		case saveFindingCancel
 		case saveFindingSuggestion
+		case findPickCancel
 		// Findings
 		case findingsDismiss
 		case findingsItem

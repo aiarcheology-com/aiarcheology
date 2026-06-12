@@ -187,6 +187,29 @@ final class VisionRectTransformTests: XCTestCase {
         XCTAssertEqual(rect.height, 150, accuracy: 0.001)
     }
 
+    func testManualBox_CenterTap_FlipsYAndCenters() {
+        // Tap near the TOP of a 1000×500 view → high Vision Y.
+        let box = FindingCapture.manualBox(at: CGPoint(x: 500, y: 50), in: CGSize(width: 1000, height: 500), side: 64)
+
+        XCTAssertEqual(box.midX, 0.5, accuracy: 0.001)
+        XCTAssertEqual(box.midY, 0.9, accuracy: 0.001) // 1 − 50/500
+        XCTAssertEqual(box.width, 0.064, accuracy: 0.001)
+        XCTAssertEqual(box.height, 0.128, accuracy: 0.001)
+    }
+
+    func testManualBox_CornerTap_StaysInsideUnitRect() {
+        let size = CGSize(width: 400, height: 800)
+        for corner in [CGPoint.zero, CGPoint(x: 400, y: 0), CGPoint(x: 0, y: 800), CGPoint(x: 400, y: 800)] {
+            let box = FindingCapture.manualBox(at: corner, in: size)
+            XCTAssertGreaterThanOrEqual(box.minX, 0)
+            XCTAssertGreaterThanOrEqual(box.minY, 0)
+            XCTAssertLessThanOrEqual(box.maxX, 1)
+            XCTAssertLessThanOrEqual(box.maxY, 1)
+            XCTAssertGreaterThan(box.width, 0)
+            XCTAssertGreaterThan(box.height, 0)
+        }
+    }
+
     func testVisionRect_FullFrame_IsIdentity() {
         let rect = CGRect(x: 0, y: 0, width: 1, height: 1).visionRect(in: CGSize(width: 640, height: 480))
         XCTAssertEqual(rect, CGRect(x: 0, y: 0, width: 640, height: 480))

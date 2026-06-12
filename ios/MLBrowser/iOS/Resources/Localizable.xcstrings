@@ -7423,6 +7423,18 @@
         }
       }
     },
+    "finding.pick.hint" : {
+      "comment" : "Banner shown in pick mode: the next tap marks the place to store",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the place to store"
+          }
+        }
+      }
+    },
     "finding.save.action" : {
       "comment" : "Save button in the save-finding dialog",
       "extractionState" : "manual",

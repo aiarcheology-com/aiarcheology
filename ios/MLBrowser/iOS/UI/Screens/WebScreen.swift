@@ -68,6 +68,9 @@ struct WebScreenView: View {
 	@State private var findingCapture: FindingCapture?
 	/// Freezes DetectableView's displayed frame while the save sheet is up.
 	@State private var isCapturingFinding: Bool = false
+	/// Pick mode (Find/Store button): the next tap on the content marks the
+	/// place to store — independent of whether detection is running.
+	@State private var findPickActive: Bool = false
 
 	init() {
 		Backports.Appearance.textField()
@@ -183,6 +186,20 @@ struct WebScreenView: View {
             appState.guide.pageToOpen = nil
             openRequested(url.absoluteString)
         }
+        .onReceive(appState.guide.$findModeRequested) { requested in
+            guard requested else { return }
+            appState.guide.findModeRequested = false
+            // Freeze exactly like an annotation tap would: detection passes pause
+            // and the displayed frame holds while the user picks the place.
+            isCapturingFinding = true
+            appState.guide.findingCaptureStarted()
+            findPickActive = true
+        }
+        .overlay {
+            if findPickActive {
+                FindPickOverlay(onPick: manualPick, onCancel: cancelFindPick)
+            }
+        }
         .alert(isPresented: $showAlert) {
             alertForError(latestError)
         }
@@ -194,6 +211,41 @@ struct WebScreenView: View {
             toolbarContent
         }
     }
+
+	/// The user marked a place manually (Find/Store button → tap). A fresh snapshot
+	/// is taken — there may be no detection frame at all — and the save sheet opens
+	/// with a synthetic observation around the tapped point (no class, no driver).
+	private func manualPick(at location: CGPoint, in size: CGSize) {
+		findPickActive = false
+		appState.webViewRenderer.render(EmptyView(), scale: 1) { image, error in
+			guard let image else {
+				LoggingPolicy.error("Manual finding pick: snapshot failed", error: error, logger: .ui)
+				cancelFindPick()
+				return
+			}
+			let observation = DetectedObject(
+				uuid: UUID(),
+				labels: [],
+				confidence: 0,
+				boundingBox: FindingCapture.manualBox(at: location, in: size),
+				regionIndex: 0
+			)
+			findingCapture = FindingCapture(
+				observation: observation,
+				params: nil,
+				frame: AppliedDetectionFrame(image: image, results: []),
+				pageURL: appState.browserState.displayedURL
+			)
+		}
+	}
+
+	/// Leaves pick mode without storing: unfreeze and resume (the sheet path
+	/// does the same via its onDismiss).
+	private func cancelFindPick() {
+		findPickActive = false
+		isCapturingFinding = false
+		appState.guide.findingCaptureEnded()
+	}
 
 	/// The location sheet confirmed an input (Open button, return key, or history pick).
 	private func openRequested(_ input: String) {
@@ -263,6 +315,47 @@ struct WebScreenView: View {
 		} catch {
 			LoggingPolicy.error("Failed to save web history entry", error: error, logger: .state)
 		}
+	}
+}
+
+// MARK: - Find pick overlay
+
+/// Captures ONE tap on the content to mark the place of a manual finding.
+/// Slightly dimmed so the mode is visible; scroll/zoom are intentionally
+/// blocked while picking — Cancel leaves the mode.
+private struct FindPickOverlay: View {
+	let onPick: (CGPoint, CGSize) -> Void
+	let onCancel: () -> Void
+
+	var body: some View {
+		GeometryReader { geometry in
+			ZStack(alignment: .top) {
+				Color.black.opacity(0.15)
+					.contentShape(Rectangle())
+					.gesture(
+						SpatialTapGesture()
+							.onEnded { value in
+								onPick(value.location, geometry.size)
+							}
+					)
+				hint
+			}
+		}
+	}
+
+	private var hint: some View {
+		HStack(spacing: 12) {
+			Image(systemName: "plus.viewfinder")
+			Text(L10n.Finding.Pick.hint)
+			Button(L10n.Common.cancel, action: onCancel)
+				.bold()
+				.testability(Testability.Button.findPickCancel)
+		}
+		.padding(.horizontal, 16)
+		.padding(.vertical, 10)
+		.background(.regularMaterial, in: Capsule())
+		.padding(.top, 12)
+		.frame(maxWidth: .infinity)
 	}
 }
 
