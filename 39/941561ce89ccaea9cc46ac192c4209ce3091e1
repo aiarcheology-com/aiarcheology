@@ -1,0 +1,67 @@
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_c55b2e88071d91::t_9057962022d391 268-271
+ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift
+  s_c55b2e88071d91::t_c442cc98533aec 76-79
+ios/MLBrowser/iOS/UI/Findings/SaveFindingSheet.swift
+  s_c55b2e88071d91::t_4883f0767ffddd 301
+  s_c55b2e88071d91::t_6b8ced95eb2588 147-150
+  s_c55b2e88071d91::t_474a91487b06f9 119-121
+  s_c55b2e88071d91::t_64405b5d02a8a0 188
+ios/MLBrowser/iOS/State/Findings.swift
+  s_c55b2e88071d91::t_b2f0d1bbdbaf53 28-31
+ios/MLBrowser/iOS/State/FindingExporter.swift
+  s_c55b2e88071d91::t_e0fd82e86349ad 25
+  s_c55b2e88071d91::t_cbff08fe9f6b34 40,52
+  s_c55b2e88071d91::t_e425963bf1a511 207
+  s_c55b2e88071d91::t_7ba6cb89e12ce2 187
+  s_c55b2e88071d91::t_cb044bc79be61c 68
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_c55b2e88071d91::t_99d7d4253a6e5d 7390-7413
+ios/MLBrowser/iOS/Persistence/Finding+CoreDataProperties.swift
+  s_c55b2e88071d91::t_e8ad5875f1ddd5 44-48
+ios/MLBrowserUnitTests/FindingsTests.swift
+  s_c55b2e88071d91::t_58a35d76944be1 55-61
+  s_c55b2e88071d91::t_aa54cedfcea750 149
+  s_c55b2e88071d91::t_b07d8ccea6287d 33
+  s_c55b2e88071d91::t_47c99c8472bf20 384
+ios/MLBrowser/iOS/UI/Findings/ActivityShareSheet.swift
+  s_c55b2e88071d91::t_11cb382adcd8f7 11-12,18-30,32-39,42-59
+ios/MLBrowser/iOS/UI/Findings/FindingsListView.swift
+  s_c55b2e88071d91::t_098dd8e9f75ee8 284
+  s_c55b2e88071d91::t_179ce645288a35 179
+  s_c55b2e88071d91::t_49700919749580 212-214
+  s_c55b2e88071d91::t_1482c9829d7e1b 374
+  s_c55b2e88071d91::t_45d9a03882269f 427-441
+  s_c55b2e88071d91::t_44b954d1be5d3d 366
+  s_c55b2e88071d91::t_1ea4376b4d85f5 354
+  s_c55b2e88071d91::t_5e5916984c9a6f 387-388,393-396,398,405
+  s_c55b2e88071d91::t_124facaf739d9f 473-478
+  s_c55b2e88071d91::t_c6fccf430fbcc4 83
+  s_c55b2e88071d91::t_e0d569e20d357c 307-310
+  s_c55b2e88071d91::t_1cad135b7fd365 367
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_c55b2e88071d91::t_9794730a3b1e2e 243,248
+ios/MLBrowserUnitTests/FindingExporterTests.swift
+  s_c55b2e88071d91::t_e064cfd9d48257 93-99
+  s_c55b2e88071d91::t_3b1cac34dc7277 114-115,117
+ios/MLBrowser/iOS/UI/Findings/FindingShareCard.swift
+  s_c55b2e88071d91::t_459c14c5311128 19
+ios/MLBrowser/iOS/Persistence/MLBrowser.xcdatamodeld/MLBrowser_0.0.1.xcdatamodel/contents
+  s_c55b2e88071d91::t_05673d70e2c991 49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "39941561ce89ccaea9cc46ac192c4209ce3091e1",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
