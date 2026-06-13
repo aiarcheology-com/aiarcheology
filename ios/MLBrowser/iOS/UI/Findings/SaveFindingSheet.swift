@@ -47,21 +47,28 @@ struct FindingCapture: Identifiable {
 		return best.map { ($0.observation, $0.params) }
 	}
 
-	/// The visible window of the crop editor as a normalized TOP-LEFT rect.
-	/// `scale` ≥ 1 zooms the image under the fixed viewport; `offset` (view
-	/// points, against the fitted size) pans it. Scale 1 ⇒ the unit rect (no crop).
-	static func cropRect(scale: CGFloat, offset: CGSize, fitted: CGSize) -> CGRect {
-		guard scale > 1, fitted.width > 0, fitted.height > 0 else { return CGRect(x: 0, y: 0, width: 1, height: 1) }
-		let side = 1 / scale
+	/// The visible window of the crop editor as a normalized TOP-LEFT rect of the
+	/// image. The image is aspect-FILLED to `cover` (so it covers the `fitted`
+	/// viewport with no letterbox), then zoomed by `scale` and panned by `offset`
+	/// (view points). The window is what the viewport shows — its aspect matches
+	/// the viewport, so saving it is WYSIWYG. Each axis is independent because the
+	/// covered image overflows the viewport on one axis even at scale 1.
+	static func cropRect(scale: CGFloat, offset: CGSize, fitted: CGSize, cover: CGSize) -> CGRect {
+		guard fitted.width > 0, fitted.height > 0, cover.width > 0, cover.height > 0 else {
+			return CGRect(x: 0, y: 0, width: 1, height: 1)
+		}
+		let scaledWidth = cover.width * scale
+		let scaledHeight = cover.height * scale
+		let windowWidth = min(1, fitted.width / scaledWidth)
+		let windowHeight = min(1, fitted.height / scaledHeight)
 		// A positive offset moves the image right/down — the window left/up.
-		let centerX = 0.5 - offset.width / (fitted.width * scale)
-		let centerY = 0.5 - offset.height / (fitted.height * scale)
+		let centerX = 0.5 - offset.width / scaledWidth
+		let centerY = 0.5 - offset.height / scaledHeight
 		return CGRect(
-			x: min(max(0, centerX - side / 2), 1 - side),
-			y: min(max(0, centerY - side / 2), 1 - side),
-			width: side,
-			// Both axes shrink by the same factor — the crop keeps the image aspect.
-			height: side
+			x: min(max(0, centerX - windowWidth / 2), 1 - windowWidth),
+			y: min(max(0, centerY - windowHeight / 2), 1 - windowHeight),
+			width: windowWidth,
+			height: windowHeight
 		)
 	}
 
@@ -116,6 +123,9 @@ struct SaveFindingSheet: View {
 
 	let capture: FindingCapture
 
+	/// Required, user-facing name shown in the inventory; Save is blocked until it
+	/// is non-empty.
+	@State private var title = ""
 	/// Starts empty (user decision): suggestions cover both the detection's class
 	/// and previously used labels.
 	@State private var label = ""
@@ -140,6 +150,10 @@ struct SaveFindingSheet: View {
 					preview
 					opacitySlider
 					zoomSlider
+				}
+				Section(L10n.Finding.title) {
+					TextField(L10n.Finding.titlePlaceholder, text: $title)
+						.testability(Testability.TextField.saveFindingTitle)
 				}
 				Section(L10n.Finding.page) {
 					Text(capture.pageURL?.absoluteString ?? "")
@@ -171,6 +185,7 @@ struct SaveFindingSheet: View {
 					Button(L10n.Common.cancel) {
 						dismiss()
 					}
+					.tint(.blue)
 					.testability(Testability.Button.saveFindingCancel)
 				}
 				ToolbarItem(placement: .navigationBarTrailing) {
@@ -178,6 +193,8 @@ struct SaveFindingSheet: View {
 						Text(L10n.Finding.Save.action)
 							.bold()
 					}
+					.tint(.green)
+					.disabled(trimmedTitle.isEmpty)
 					.testability(Testability.Button.saveFindingSave)
 				}
 			}
@@ -207,7 +224,7 @@ struct SaveFindingSheet: View {
 			zoom: $zoom,
 			cropRect: $cropRect
 		)
-		.frame(maxHeight: 260)
+		.frame(height: 420)
 	}
 
 	private var opacitySlider: some View {
@@ -290,6 +307,7 @@ struct SaveFindingSheet: View {
 		finding.creationDate_ = .now
 		finding.page = capture.pageURL
 		finding.screenshotFilename = filename
+		finding.title = trimmedTitle
 		finding.label_ = normalized(label)
 		finding.note_ = normalized(note)
 		finding.gps_ = normalized(gps)
@@ -318,6 +336,10 @@ struct SaveFindingSheet: View {
 	private func normalized(_ text: String) -> String? {
 		let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
 		return trimmed.isEmpty ? nil : trimmed
+	}
+
+	private var trimmedTitle: String {
+		title.trimmingCharacters(in: .whitespacesAndNewlines)
 	}
 
 	/// Bakes the editor's crop at save time: the stored PNG IS the cropped region
@@ -368,66 +390,64 @@ private struct CropAdjustableSnapshot: View {
 
 	static let zoomRange: ClosedRange<CGFloat> = 1...8
 
-	private var imageAspect: CGFloat {
-		guard image.size.height > 0 else { return 1 }
-		return image.size.width / image.size.height
-	}
-
 	var body: some View {
 		GeometryReader { geometry in
 			content(fitted: geometry.size)
 		}
-		.aspectRatio(imageAspect, contentMode: .fit)
 		.frame(maxWidth: .infinity)
 	}
 
 	@ViewBuilder
 	private func content(fitted: CGSize) -> some View {
 		let scale = clampZoom(zoom * pinchFactor)
+		// Aspect-fill the viewport (no letterbox); the visible window is the crop.
+		let cover = fitted.coverSize(for: image.size)
 		let shownOffset = clampOffset(
 			CGSize(width: offset.width + dragDelta.width, height: offset.height + dragDelta.height),
 			scale: scale,
+			cover: cover,
 			fitted: fitted
 		)
 		let base = ZStack {
 			Image(uiImage: image)
 				.resizable()
-			highlight(in: fitted, scale: scale)
+				.frame(width: cover.width, height: cover.height)
+			highlight(in: cover, scale: scale)
 		}
-		.frame(width: fitted.width, height: fitted.height)
+		.frame(width: cover.width, height: cover.height)
 		.scaleEffect(scale)
 		.offset(shownOffset)
 		.frame(width: fitted.width, height: fitted.height)
 		.clipped()
 		.contentShape(Rectangle())
-		.gesture(pinch(fitted: fitted))
+		.gesture(pinch(cover: cover, fitted: fitted))
 		.onTapGesture(count: 2) {
 			zoom = 1
 			offset = .zero
 		}
 		.onChange(of: zoom) { _, newZoom in
 			// The slider can zoom out from under a panned image.
-			offset = clampOffset(offset, scale: newZoom, fitted: fitted)
-			publishCrop(fitted: fitted)
+			offset = clampOffset(offset, scale: newZoom, cover: cover, fitted: fitted)
+			publishCrop(fitted: fitted, cover: cover)
 		}
 		.onChange(of: offset) { _, _ in
-			publishCrop(fitted: fitted)
+			publishCrop(fitted: fitted, cover: cover)
 		}
 		.onAppear {
-			publishCrop(fitted: fitted)
+			publishCrop(fitted: fitted, cover: cover)
 		}
 
 		// Pan only engages once zoomed in — at scale 1 a drag on the image
 		// would just steal the form's scroll.
 		if zoom > 1.001 {
-			base.highPriorityGesture(drag(fitted: fitted))
+			base.highPriorityGesture(drag(cover: cover, fitted: fitted))
 		} else {
 			base
 		}
 	}
 
-	private func highlight(in fitted: CGSize, scale: CGFloat) -> some View {
-		let rect = normalizedBox.visionRect(in: fitted)
+	private func highlight(in cover: CGSize, scale: CGFloat) -> some View {
+		let rect = normalizedBox.visionRect(in: cover)
 		// Divided by the zoom so the stroke keeps its visual weight when scaled.
 		return Rectangle()
 			.stroke(color.opacity(highlightOpacity), lineWidth: 2 / scale)
@@ -437,18 +457,18 @@ private struct CropAdjustableSnapshot: View {
 
 	// MARK: Gestures
 
-	private func pinch(fitted: CGSize) -> some Gesture {
+	private func pinch(cover: CGSize, fitted: CGSize) -> some Gesture {
 		MagnificationGesture()
 			.updating($pinchFactor) { value, state, _ in
 				state = value
 			}
 			.onEnded { value in
 				zoom = clampZoom(zoom * value)
-				offset = clampOffset(offset, scale: zoom, fitted: fitted)
+				offset = clampOffset(offset, scale: zoom, cover: cover, fitted: fitted)
 			}
 	}
 
-	private func drag(fitted: CGSize) -> some Gesture {
+	private func drag(cover: CGSize, fitted: CGSize) -> some Gesture {
 		DragGesture()
 			.updating($dragDelta) { value, state, _ in
 				state = value.translation
@@ -457,6 +477,7 @@ private struct CropAdjustableSnapshot: View {
 				offset = clampOffset(
 					CGSize(width: offset.width + value.translation.width, height: offset.height + value.translation.height),
 					scale: zoom,
+					cover: cover,
 					fitted: fitted
 				)
 			}
@@ -468,18 +489,17 @@ private struct CropAdjustableSnapshot: View {
 		min(max(Self.zoomRange.lowerBound, value), Self.zoomRange.upperBound)
 	}
 
-	/// Keeps the crop window fully inside the image: the scaled image may never
-	/// reveal an edge inside the fixed viewport.
-	private func clampOffset(_ value: CGSize, scale: CGFloat, fitted: CGSize) -> CGSize {
-		let maxX = fitted.width * (scale - 1) / 2
-		let maxY = fitted.height * (scale - 1) / 2
+	/// Keeps the covered, scaled image from revealing an edge inside the viewport.
+	private func clampOffset(_ value: CGSize, scale: CGFloat, cover: CGSize, fitted: CGSize) -> CGSize {
+		let maxX = max(0, (cover.width * scale - fitted.width) / 2)
+		let maxY = max(0, (cover.height * scale - fitted.height) / 2)
 		return CGSize(
 			width: min(max(-maxX, value.width), maxX),
 			height: min(max(-maxY, value.height), maxY)
 		)
 	}
 
-	private func publishCrop(fitted: CGSize) {
-		cropRect = FindingCapture.cropRect(scale: zoom, offset: offset, fitted: fitted)
+	private func publishCrop(fitted: CGSize, cover: CGSize) {
+		cropRect = FindingCapture.cropRect(scale: zoom, offset: offset, fitted: fitted, cover: cover)
 	}
 }

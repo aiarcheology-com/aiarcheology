@@ -143,7 +143,12 @@ extension TestabilityIdentification {
 		case findingsFilterLabel
 		case findingsDeleteEntry
 		case findingsOpenPage
+		case findingsExport
+		case findingsShareEntry
 		case findingDetailSave
+		case findingDetailShare
+		case findingShareConfirm
+		case findingShareCancel
 		// Snap Adjustment
 		case snapAdjustmentReset
 		case snapAdjustmentOverlayDismiss
@@ -175,6 +180,9 @@ extension TestabilityIdentification {
 		case settingsFrequency
 		// Configuration Form
 		case configurationFormSymbol
+		// Finding Share Composer
+		case findingShareTheme
+		case findingShareLayout
 	}
 	
 	enum Slider: String, TestabilityIdentification {
@@ -187,6 +195,9 @@ extension TestabilityIdentification {
 		// Save Finding
 		case saveFindingHighlightOpacity
 		case saveFindingZoom
+		case findingDetailHighlightOpacity
+		case findingDetailZoom
+		case findingShareZoom
 	}
 	
 	enum ColorPicker: String, TestabilityIdentification {
@@ -237,10 +248,12 @@ extension TestabilityIdentification {
 		// Location Sheet
 		case locationSheetInput
 		// Save Finding
+		case saveFindingTitle
 		case saveFindingLabel
 		case saveFindingNote
 		case saveFindingGps
 		// Finding Detail
+		case findingDetailTitle
 		case findingDetailLabel
 		case findingDetailNote
 		case findingDetailGps

@@ -3631,6 +3631,18 @@
         }
       }
     },
+    "common.share" : {
+      "comment" : "Generic share action",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share"
+          }
+        }
+      }
+    },
     "common.reset" : {
       "comment" : "Generic reset action",
       "extractionState" : "manual",
@@ -7375,6 +7387,93 @@
         }
       }
     },
+    "finding.share.title" : {
+      "comment" : "Navigation title of the share-composer sheet",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Share Finding" }
+        }
+      }
+    },
+    "finding.share.theme" : {
+      "comment" : "Picker label: light vs dark share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Theme" }
+        }
+      }
+    },
+    "finding.share.layout" : {
+      "comment" : "Picker label: portrait vs landscape share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Layout" }
+        }
+      }
+    },
+    "finding.share.light" : {
+      "comment" : "Light theme option for the share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Light" }
+        }
+      }
+    },
+    "finding.share.dark" : {
+      "comment" : "Dark theme option for the share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Dark" }
+        }
+      }
+    },
+    "finding.share.portrait" : {
+      "comment" : "Portrait layout option for the share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Portrait" }
+        }
+      }
+    },
+    "finding.share.landscape" : {
+      "comment" : "Landscape layout option for the share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Landscape" }
+        }
+      }
+    },
+    "finding.title" : {
+      "comment" : "Title section header in the save-finding and finding-detail dialogs (the finding's required name)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Title"
+          }
+        }
+      }
+    },
+    "finding.titlePlaceholder" : {
+      "comment" : "Placeholder for the required finding title field",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name this finding"
+          }
+        }
+      }
+    },
     "finding.label" : {
       "comment" : "Label section title in the save-finding dialog",
       "extractionState" : "manual",
@@ -7527,6 +7626,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "All"
+          }
+        }
+      }
+    },
+    "findings.export" : {
+      "comment" : "Toolbar button that exports the filtered findings as a ZIP",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export"
+          }
+        }
+      }
+    },
+    "findings.export.error" : {
+      "comment" : "Alert shown when exporting findings fails",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not export the findings."
           }
         }
       }

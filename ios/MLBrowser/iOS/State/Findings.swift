@@ -25,6 +25,10 @@ extension Finding: CoreDataManagableWithState {
             issues.append(.init(key: "creationDate", message: "Creation date is nil."))
         }
 
+        if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            issues.append(.init(key: "title", message: "Title is required."))
+        }
+
         if isUnitRect(x: boxX, y: boxY, width: boxWidth, height: boxHeight).not {
             issues.append(.init(key: "boundingBox", message: "Bounding box is outside the unit rect."))
         }
