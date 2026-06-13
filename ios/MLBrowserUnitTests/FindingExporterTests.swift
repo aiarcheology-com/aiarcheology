@@ -90,6 +90,13 @@ final class FindingExporterTests: XCTestCase {
 		XCTAssertTrue(rows[1]["screenshot"] is NSNull)
 	}
 
+	func testEncodeJSON_includesTitle() throws {
+		let snap = FindingSnapshot(id: UUID(), title: "Old Fort")
+		let data = try FindingExporter.encodeJSON([snap], copiedIds: [])
+		let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+		XCTAssertEqual(rows.first?["title"] as? String, "Old Fort")
+	}
+
 	// MARK: - CSV escaping
 
 	func testCsvField_escapesCommaQuoteAndNewlines() {
@@ -104,10 +111,10 @@ final class FindingExporterTests: XCTestCase {
 		let lines = csv.components(separatedBy: "\r\n")
 
 		XCTAssertEqual(lines.count, 2, "header + one row")
-		XCTAssertTrue(lines[0].hasPrefix("id,label,note,gps,page,detectionClass,confidence,date,boxX,boxY,boxWidth,boxHeight,screenshot"))
-		// label/note/gps/page/detectionClass/date/screenshot are nil → empty cells.
+		XCTAssertTrue(lines[0].hasPrefix("id,title,label,note,gps,page,detectionClass,confidence,date,boxX,boxY,boxWidth,boxHeight,screenshot"))
+		// title defaults to empty here, and label/note/gps/page/detectionClass/date/screenshot are nil → empty cells.
 		let cells = lines[1].components(separatedBy: ",")
-		XCTAssertEqual(cells[1], "", "label cell empty")
+		XCTAssertEqual(cells[1], "", "title cell empty")
 		XCTAssertEqual(cells.last, "", "screenshot cell empty")
 	}
 

@@ -16,7 +16,7 @@ import SwiftUI
 struct FindingShareCard: View {
 	let image: UIImage?
 	let normalizedBox: CGRect
-	let label: String?
+	let title: String
 	let detectionClass: String?
 	let confidence: Double
 	let host: String?
@@ -55,10 +55,6 @@ struct FindingShareCard: View {
 		.background(Color(.systemBackground))
 	}
 
-	private var title: String {
-		label ?? detectionClass ?? L10n.Finding.detection
-	}
-
 	@ViewBuilder
 	private var imageSlot: some View {
 		ZStack {
@@ -93,7 +89,7 @@ extension FindingShareCard {
 		let card = FindingShareCard(
 			image: FindingScreenshotStore.load(filename: finding.screenshotFilename),
 			normalizedBox: finding.normalizedBox,
-			label: finding.label_,
+			title: finding.displayTitle,
 			detectionClass: finding.detectionClass,
 			confidence: finding.detectionConfidence,
 			host: finding.page?.host,

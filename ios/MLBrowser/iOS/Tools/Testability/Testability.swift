@@ -240,10 +240,12 @@ extension TestabilityIdentification {
 		// Location Sheet
 		case locationSheetInput
 		// Save Finding
+		case saveFindingTitle
 		case saveFindingLabel
 		case saveFindingNote
 		case saveFindingGps
 		// Finding Detail
+		case findingDetailTitle
 		case findingDetailLabel
 		case findingDetailNote
 		case findingDetailGps

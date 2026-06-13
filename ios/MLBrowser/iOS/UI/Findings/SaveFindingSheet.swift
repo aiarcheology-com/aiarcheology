@@ -116,6 +116,9 @@ struct SaveFindingSheet: View {
 
 	let capture: FindingCapture
 
+	/// Required, user-facing name shown in the inventory; Save is blocked until it
+	/// is non-empty.
+	@State private var title = ""
 	/// Starts empty (user decision): suggestions cover both the detection's class
 	/// and previously used labels.
 	@State private var label = ""
@@ -140,6 +143,10 @@ struct SaveFindingSheet: View {
 					preview
 					opacitySlider
 					zoomSlider
+				}
+				Section(L10n.Finding.title) {
+					TextField(L10n.Finding.titlePlaceholder, text: $title)
+						.testability(Testability.TextField.saveFindingTitle)
 				}
 				Section(L10n.Finding.page) {
 					Text(capture.pageURL?.absoluteString ?? "")
@@ -178,6 +185,7 @@ struct SaveFindingSheet: View {
 						Text(L10n.Finding.Save.action)
 							.bold()
 					}
+					.disabled(trimmedTitle.isEmpty)
 					.testability(Testability.Button.saveFindingSave)
 				}
 			}
@@ -290,6 +298,7 @@ struct SaveFindingSheet: View {
 		finding.creationDate_ = .now
 		finding.page = capture.pageURL
 		finding.screenshotFilename = filename
+		finding.title = trimmedTitle
 		finding.label_ = normalized(label)
 		finding.note_ = normalized(note)
 		finding.gps_ = normalized(gps)
@@ -318,6 +327,10 @@ struct SaveFindingSheet: View {
 	private func normalized(_ text: String) -> String? {
 		let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
 		return trimmed.isEmpty ? nil : trimmed
+	}
+
+	private var trimmedTitle: String {
+		title.trimmingCharacters(in: .whitespacesAndNewlines)
 	}
 
 	/// Bakes the editor's crop at save time: the stored PNG IS the cropped region

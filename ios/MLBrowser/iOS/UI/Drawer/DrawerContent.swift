@@ -73,6 +73,10 @@ struct DrawerContent: View {
                 drawer.close()
                 guide.pageToOpen = url
             }
+            // Re-inject the context: on Mac (Designed for iPad) SwiftUI does not
+            // reliably carry \.managedObjectContext across the sheet boundary, so
+            // the fetch/distinctLabels would hit the empty default context and crash.
+            .environment(\.managedObjectContext, moc)
         }
         .sheet(isPresented: $showSettings) {
             SettingsForm()

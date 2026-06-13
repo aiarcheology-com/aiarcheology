@@ -30,6 +30,7 @@ final class FindingValidationTests: XCTestCase {
     private func makeValidFinding() -> Finding {
         let finding = Finding.create(in: moc)
         finding.creationDate_ = .now
+        finding.title = "Test Finding"
         finding.page = URL(string: "https://zbgis.skgeodesy.sk/mkzbgis/sk/teren")
         finding.screenshotFilename = Finding.screenshotFilename(for: finding.entityId)
         finding.boxX = 0.25
@@ -49,6 +50,13 @@ final class FindingValidationTests: XCTestCase {
         XCTAssertEqual(finding.lifeCycle, .ready)
         try Finding.save(in: moc)
         XCTAssertEqual(Finding.count(in: moc, predicate: nil), 1)
+    }
+
+    func testMissingTitle_FailsValidation() {
+        let finding = makeValidFinding()
+        finding.title = "   " // whitespace-only is treated as empty
+        finding.transition(to: .draft)
+        XCTAssertFalse(finding.validationReport().isValid)
     }
 
     func testBoxOutsideUnitRect_FailsValidation() {
@@ -138,6 +146,7 @@ final class FindingLabelTests: XCTestCase {
     private func insertFinding(label: String?) throws {
         let finding = Finding.create(in: moc)
         finding.creationDate_ = .now
+        finding.title = "Test Finding"
         finding.page = URL(string: "https://example.com/map")
         finding.screenshotFilename = Finding.screenshotFilename(for: finding.entityId)
         finding.boxX = 0.1
@@ -372,6 +381,7 @@ final class FindingScreenshotStoreTests: XCTestCase {
         // Referenced file: row exists.
         let finding = Finding.create(in: moc)
         finding.creationDate_ = .now
+        finding.title = "Test Finding"
         finding.page = URL(string: "https://example.com")
         finding.boxX = 0.1
         finding.boxY = 0.1

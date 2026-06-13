@@ -41,6 +41,11 @@ extension Finding {
     /// Filename under Documents/Findings — always "<entityId>.png"; the full path
     /// is resolved against the current Documents directory at read time.
     @NSManaged public var screenshotFilename: String?
+    /// The finding's required, user-facing name shown in the inventory list. Stored
+    /// non-optional (empty-string default at the Core Data level); a `ready` finding
+    /// is validated to be non-empty. Distinct from `label_`, which stays an optional
+    /// filter tag.
+    @NSManaged public var title: String
 }
 
 extension Finding: Identifiable {

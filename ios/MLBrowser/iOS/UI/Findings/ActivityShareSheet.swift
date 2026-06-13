@@ -8,26 +8,54 @@
 import SwiftUI
 import UIKit
 
-/// A share payload presented modally — the modal presentation itself is what
-/// serializes exports/shares (a second one cannot start while this sheet is up).
-/// `[Any]` activity items are not `Identifiable`, so this wrapper carries them
-/// through `.sheet(item:)`.
+/// A share payload carried through the imperative presenter. `[Any]` activity
+/// items are not `Identifiable`, so this wrapper gives them a stable identity.
 struct FindingSharePayload: Identifiable {
 	let id = UUID()
 	let items: [Any]
 }
 
-/// Thin `UIViewControllerRepresentable` over `UIActivityViewController` — the
-/// system share sheet. Share contract v1 is a plain `[Any]` of images / URLs
-/// (no `LPLinkMetadata` rich preview; that is a named follow-up trade-off).
-struct ActivityShareSheet: UIViewControllerRepresentable {
-	let items: [Any]
+extension View {
+	/// Presents the system share sheet for `payload` when it becomes non-nil.
+	///
+	/// `UIActivityViewController` is presented imperatively from a backing
+	/// controller rather than wrapped in a SwiftUI `.sheet`: on Mac/iPad the
+	/// `.sheet` route collides with the activity controller's own presentation
+	/// ("a share sheet is already visible") and provides no popover anchor. This
+	/// presenter guards against a double-present and clears `payload` when the
+	/// sheet finishes.
+	func findingShareSheet(_ payload: Binding<FindingSharePayload?>) -> some View {
+		background(ActivitySharePresenter(payload: payload))
+	}
+}
 
-	func makeUIViewController(context: Context) -> UIActivityViewController {
-		UIActivityViewController(activityItems: items, applicationActivities: nil)
+/// Backing representable that owns the presentation. Lives in the view hierarchy
+/// (via `.background`) so it has a real window/controller to present from and a
+/// view to anchor the iPad/Mac popover to.
+private struct ActivitySharePresenter: UIViewControllerRepresentable {
+	@Binding var payload: FindingSharePayload?
+
+	func makeUIViewController(context: Context) -> UIViewController {
+		UIViewController()
 	}
 
-	func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
-		// Nothing to update — the items are fixed for the lifetime of the sheet.
+	func updateUIViewController(_ host: UIViewController, context: Context) {
+		// Only present when there is a payload and nothing is already up — the
+		// guard is what prevents the "already visible" double-present.
+		guard let payload, host.presentedViewController == nil else { return }
+
+		let controller = UIActivityViewController(activityItems: payload.items, applicationActivities: nil)
+		controller.completionWithItemsHandler = { _, _, _, _ in
+			// Clear on the next runloop tick: mutating SwiftUI state from inside
+			// updateUIViewController's synchronous path is not allowed.
+			DispatchQueue.main.async { self.payload = nil }
+		}
+		// iPad / Mac present the activity sheet as a popover and require an anchor.
+		if let popover = controller.popoverPresentationController {
+			popover.sourceView = host.view
+			popover.sourceRect = CGRect(x: host.view.bounds.midX, y: host.view.bounds.midY, width: 0, height: 0)
+			popover.permittedArrowDirections = []
+		}
+		host.present(controller, animated: true)
 	}
 }

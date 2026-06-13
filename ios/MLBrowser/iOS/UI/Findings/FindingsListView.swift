@@ -80,9 +80,7 @@ struct FindingsListView: View {
 			// is dismissed before this list can open, so it never races a save.
 			FindingScreenshotStore.sweepOrphans(in: moc)
 		}
-		.sheet(item: $sharePayload) { payload in
-			ActivityShareSheet(items: payload.items)
-		}
+		.findingShareSheet($sharePayload)
 		.alert(L10n.Findings.Export.error, isPresented: $exportFailed) {
 			Button(L10n.Common.ok, role: .cancel) {}
 		}
@@ -99,7 +97,7 @@ struct FindingsListView: View {
 			ProgressView()
 		} else {
 			Button(action: exportFindings) {
-				Label(L10n.Findings.export, systemImage: "square.and.arrow.up")
+				Text(L10n.Findings.export)
 			}
 			.disabled(filteredFindings.isEmpty)
 			.testability(Testability.Button.findingsExport)
@@ -178,7 +176,7 @@ struct FindingsListView: View {
 			HStack(spacing: 12) {
 				thumbnail(finding)
 				VStack(alignment: .leading, spacing: 2) {
-					Text(finding.label_ ?? finding.detectionClass ?? L10n.Finding.detection)
+					Text(finding.displayTitle)
 						.foregroundStyle(.primary)
 					if let page = finding.page, let host = page.host {
 						Text(host)
@@ -211,7 +209,9 @@ struct FindingsListView: View {
 			.tint(.blue)
 			.testability(Testability.Button.findingsShareEntry)
 		}
-		.contextMenu {
+		// Right-click is the Mac idiom; on touch the leading swipe is the share
+		// affordance, so the context menu is Mac-only.
+		.macContextMenu {
 			Button {
 				share(finding)
 			} label: {
@@ -281,6 +281,7 @@ private struct FindingDetailView: View {
 	@ObservedObject var finding: Finding
 	let onOpenPage: (URL) -> Void
 
+	@State private var title = ""
 	@State private var label = ""
 	@State private var note = ""
 	@State private var gps = ""
@@ -302,6 +303,10 @@ private struct FindingDetailView: View {
 						.frame(maxWidth: .infinity)
 						.padding(.vertical, 32)
 				}
+			}
+			Section(L10n.Finding.title) {
+				TextField(L10n.Finding.titlePlaceholder, text: $title)
+					.testability(Testability.TextField.findingDetailTitle)
 			}
 			Section(L10n.Finding.label) {
 				TextField(L10n.Finding.labelPlaceholder, text: $label)
@@ -346,7 +351,7 @@ private struct FindingDetailView: View {
 				}
 			}
 		}
-		.navigationTitle(finding.label_ ?? finding.detectionClass ?? L10n.Findings.title)
+		.navigationTitle(finding.displayTitle)
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar {
 			ToolbarItemGroup(placement: .navigationBarTrailing) {
@@ -358,16 +363,15 @@ private struct FindingDetailView: View {
 					Text(L10n.Finding.Save.action)
 						.bold()
 				}
-				.disabled(hasChanges.not)
+				.disabled(hasChanges.not || trimmedTitle.isEmpty)
+				.tint(.green)
 				.testability(Testability.Button.findingDetailSave)
 			}
 		}
 		.alert(L10n.Finding.Save.error, isPresented: $saveFailed) {
 			Button(L10n.Common.ok, role: .cancel) {}
 		}
-		.sheet(item: $sharePayload) { payload in
-			ActivityShareSheet(items: payload.items)
-		}
+		.findingShareSheet($sharePayload)
 		.onAppear(perform: seedFields)
 	}
 
@@ -380,18 +384,25 @@ private struct FindingDetailView: View {
 	// MARK: - Editing
 
 	private var hasChanges: Bool {
-		normalized(label) != finding.label_
+		trimmedTitle != finding.title
+			|| normalized(label) != finding.label_
 			|| normalized(note) != finding.note_
 			|| normalized(gps) != finding.gps_
 	}
 
+	private var trimmedTitle: String {
+		title.trimmingCharacters(in: .whitespacesAndNewlines)
+	}
+
 	private func seedFields() {
+		title = finding.title
 		label = finding.label_ ?? ""
 		note = finding.note_ ?? ""
 		gps = finding.gps_ ?? ""
 	}
 
 	private func saveEdits() {
+		finding.title = trimmedTitle
 		finding.label_ = normalized(label)
 		finding.note_ = normalized(note)
 		finding.gps_ = normalized(gps)
@@ -410,6 +421,21 @@ private struct FindingDetailView: View {
 	private func normalized(_ text: String) -> String? {
 		let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
 		return trimmed.isEmpty ? nil : trimmed
+	}
+}
+
+// MARK: - Mac-only context menu
+
+private extension View {
+	/// Attaches a context menu only when running on a Mac (right-click is the Mac
+	/// idiom). On touch the menu is suppressed — the leading swipe shares instead.
+	@ViewBuilder
+	func macContextMenu<MenuItems: View>(@ViewBuilder _ menuItems: () -> MenuItems) -> some View {
+		if ProcessInfo.processInfo.isiOSAppOnMac || ProcessInfo.processInfo.isMacCatalystApp {
+			contextMenu(menuItems: menuItems)
+		} else {
+			self
+		}
 	}
 }
 
@@ -444,6 +470,12 @@ struct HighlightedSnapshotView: View {
 // MARK: - Crop helpers
 
 extension Finding {
+	/// The user-facing name. `title` is required for new findings; the fallback
+	/// only covers any legacy/empty row so the list never shows a blank line.
+	var displayTitle: String {
+		title.isEmpty ? (label_ ?? detectionClass ?? L10n.Finding.detection) : title
+	}
+
 	/// The stored bounding box as a Vision-normalized full-image rect.
 	var normalizedBox: CGRect {
 		CGRect(x: boxX, y: boxY, width: boxWidth, height: boxHeight)

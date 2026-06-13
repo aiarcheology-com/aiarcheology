@@ -22,6 +22,7 @@ struct FindingSnapshot: Sendable, Equatable {
 	}
 
 	let id: UUID
+	let title: String
 	let label: String?
 	let note: String?
 	let gps: String?
@@ -36,6 +37,7 @@ struct FindingSnapshot: Sendable, Equatable {
 
 	init(
 		id: UUID,
+		title: String = "",
 		label: String? = nil,
 		note: String? = nil,
 		gps: String? = nil,
@@ -47,6 +49,7 @@ struct FindingSnapshot: Sendable, Equatable {
 		screenshotSourceURL: URL? = nil
 	) {
 		self.id = id
+		self.title = title
 		self.label = label
 		self.note = note
 		self.gps = gps
@@ -62,6 +65,7 @@ struct FindingSnapshot: Sendable, Equatable {
 	/// queue (the viewContext is MainActor-bound), hence the isolation.
 	@MainActor init(_ finding: Finding) {
 		id = finding.entityId
+		title = finding.title
 		label = finding.label_
 		note = finding.note_
 		gps = finding.gps_
@@ -142,6 +146,7 @@ enum FindingExporter {
 	/// omitted) so consumers see a stable schema across every row.
 	private struct Row: Encodable {
 		let id: String
+		let title: String
 		let label: String?
 		let note: String?
 		let gps: String?
@@ -153,7 +158,7 @@ enum FindingExporter {
 		let screenshot: String?
 
 		enum CodingKeys: String, CodingKey {
-			case id, label, note, gps, page, detectionClass, confidence, date, box, screenshot
+			case id, title, label, note, gps, page, detectionClass, confidence, date, box, screenshot
 		}
 
 		// Explicit `encode` (not the synthesized `encodeIfPresent`) so nil fields
@@ -161,6 +166,7 @@ enum FindingExporter {
 		func encode(to encoder: Encoder) throws {
 			var container = encoder.container(keyedBy: CodingKeys.self)
 			try container.encode(id, forKey: .id)
+			try container.encode(title, forKey: .title)
 			try container.encode(label, forKey: .label)
 			try container.encode(note, forKey: .note)
 			try container.encode(gps, forKey: .gps)
@@ -178,6 +184,7 @@ enum FindingExporter {
 		let rows = snapshots.map { snapshot in
 			Row(
 				id: snapshot.id.uuidString,
+				title: snapshot.title,
 				label: snapshot.label,
 				note: snapshot.note,
 				gps: snapshot.gps,
@@ -197,7 +204,7 @@ enum FindingExporter {
 	// MARK: - CSV
 
 	private static let csvColumns = [
-		"id", "label", "note", "gps", "page", "detectionClass",
+		"id", "title", "label", "note", "gps", "page", "detectionClass",
 		"confidence", "date", "boxX", "boxY", "boxWidth", "boxHeight", "screenshot"
 	]
 
@@ -207,6 +214,7 @@ enum FindingExporter {
 		for snapshot in snapshots {
 			let fields: [String?] = [
 				snapshot.id.uuidString,
+				snapshot.title,
 				snapshot.label,
 				snapshot.note,
 				snapshot.gps,

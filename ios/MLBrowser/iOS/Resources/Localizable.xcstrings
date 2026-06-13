@@ -7387,6 +7387,30 @@
         }
       }
     },
+    "finding.title" : {
+      "comment" : "Title section header in the save-finding and finding-detail dialogs (the finding's required name)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Title"
+          }
+        }
+      }
+    },
+    "finding.titlePlaceholder" : {
+      "comment" : "Placeholder for the required finding title field",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name this finding"
+          }
+        }
+      }
+    },
     "finding.label" : {
       "comment" : "Label section title in the save-finding dialog",
       "extractionState" : "manual",
