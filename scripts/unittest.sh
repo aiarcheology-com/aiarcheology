@@ -51,18 +51,28 @@ done
 
 cd "${REPO_ROOT}"
 
-# Find the first available iPhone simulator (using simctl for speed)
+# Pick the available iPhone simulator on the NEWEST iOS runtime. Selecting the
+# first available iPhone is unsafe: simctl reports devices on runtimes below the
+# app's deployment target as "available", but xcodebuild rejects them as
+# destinations ("Unable to find a destination matching..."). The newest runtime
+# is always >= the deployment target on a sane install.
 SIMULATOR_ID=$(xcrun simctl list devices available -j 2>/dev/null | \
     python3 -c "
-import json, sys
+import json, re, sys
 data = json.load(sys.stdin)
+best = None  # ((major, minor), udid)
 for runtime, devices in data.get('devices', {}).items():
-    if 'iOS' in runtime and 'tvOS' not in runtime and 'watchOS' not in runtime:
-        for d in devices:
-            if d.get('isAvailable') and 'iPhone' in d.get('name', ''):
-                print(d['udid'])
-                sys.exit(0)
-sys.exit(1)
+    match = re.search(r'iOS-(\d+)-(\d+)', runtime)
+    if not match:
+        continue
+    version = (int(match.group(1)), int(match.group(2)))
+    for d in devices:
+        if d.get('isAvailable') and 'iPhone' in d.get('name', ''):
+            if best is None or version > best[0]:
+                best = (version, d['udid'])
+if best is None:
+    sys.exit(1)
+print(best[1])
 " 2>/dev/null)
 
 if [[ -z "${SIMULATOR_ID}" ]]; then
