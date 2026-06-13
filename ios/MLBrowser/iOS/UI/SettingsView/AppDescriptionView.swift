@@ -24,77 +24,9 @@ struct AppDescriptionView: View {
 	var body: some View {
 		VStack {
 			Form {
-				Section(header: Text(L10n.About.Section.application)) {
-					HStack(alignment: .center, spacing: 12) {
-						if let image = UIImage(named: appIcon) {
-							Image(uiImage: image)
-								.resizable()
-								.aspectRatio(contentMode: .fit)
-								.clipShape(RoundedRectangle(cornerRadius: 8))
-						}
-						let version = "v\(versionString) \(buildString)"
-						VStack(alignment: .leading) {
-							Text(L10n.About.version)
-								.bold()
-							Text(version)
-						}
-						.copiedToClipboard(copiedText: version, preview: version)
-						.foregroundColor(.primary)
-					}
-					.fixedSize()
-					.accessibilityElement(children: .ignore)
-					.accessibilityLabel("Version \(versionString)")
-				}
-				Section(header: Text(L10n.About.Section.contact)) {
-					Button(action: {
-						Task { @MainActor in
-							let email = emailAddress
-							let subject = "MLBrowser: v" + versionString +
-							" on " + DeviceInfo.deviceModelName() +
-							" " + UIDevice.current.systemVersion
-							let body = await DeviceInfo.information()
-
-							guard let emailURL = URL(string: "mailto:\(email)?subject=\(subject.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "")&body=\(body.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? "")") else { return }
-
-							// canOpenURL is synchronous, but open(_:) is async in iOS 17+
-							if UIApplication.shared.canOpenURL(emailURL) {
-								await UIApplication.shared.open(emailURL)
-							}
-						}
-					}) {
-						HStack {
-							Image(systemName: "envelope.fill")
-							Text(emailAddress)
-						}
-					}
-					.testability(Testability.Button.appDescriptionEmailContact)
-
-					HStack {
-						Image(systemName: "globe")
-							.foregroundColor(.blue)
-						Link(Self.websiteURL.absoluteString, destination: Self.websiteURL)
-							.testability(Testability.Link.appDescriptionWebsite)
-					}
-
-					HStack {
-						Image(templateName: "Twitter")
-							.resizable()
-							.scaledToFit()
-							.frame(maxWidth: 20, maxHeight: 19)
-							.foregroundColor(.primary)
-						Link(Self.xName, destination: Self.xWebURL)
-							.testability(Testability.Link.appDescriptionTwitter)
-					}
-				}
-				Section(header: Text(L10n.About.Section.legal)) {
-					NavigationLink(destination:
-									PrivacyPolicyView(htmlFileName: "privacypolicy")
-						.navigationTitle(L10n.About.privacyPolicy)
-					) {
-						Text(L10n.About.privacyPolicy)
-					}
-					.testability(Testability.NavigationLink.appDescriptionPrivacyPolicy)
-				}
+				applicationSection
+				contactSection
+				legalSection
 			}
 			Spacer()
 			Text(L10n.About.copyright)
@@ -103,6 +35,89 @@ struct AppDescriptionView: View {
 		}
 		.sheetDismissButton(testability: .appDescriptionDismiss)
 		.navigationBarTitle(L10n.Settings.about, displayMode: .inline)
+	}
+
+	private var applicationSection: some View {
+		Section(header: Text(L10n.About.Section.application)) {
+			HStack(alignment: .center, spacing: 12) {
+				if let image = UIImage(named: appIcon) {
+					Image(uiImage: image)
+						.resizable()
+						.aspectRatio(contentMode: .fit)
+						.clipShape(RoundedRectangle(cornerRadius: 8))
+				}
+				let version = "v\(versionString) \(buildString)"
+				VStack(alignment: .leading) {
+					Text(L10n.About.version)
+						.bold()
+					Text(version)
+				}
+				.copiedToClipboard(copiedText: version, preview: version)
+				.foregroundColor(.primary)
+			}
+			.fixedSize()
+			.accessibilityElement(children: .ignore)
+			.accessibilityLabel("Version \(versionString)")
+		}
+	}
+
+	private var contactSection: some View {
+		Section(header: Text(L10n.About.Section.contact)) {
+			Button(action: { Task { @MainActor in await composeSupportEmail() } }) {
+				HStack {
+					Image(systemName: "envelope.fill")
+					Text(emailAddress)
+				}
+			}
+			.testability(Testability.Button.appDescriptionEmailContact)
+
+			HStack {
+				Image(systemName: "globe")
+					.foregroundColor(.blue)
+				Link(Self.websiteURL.absoluteString, destination: Self.websiteURL)
+					.testability(Testability.Link.appDescriptionWebsite)
+			}
+
+			HStack {
+				Image(templateName: "Twitter")
+					.resizable()
+					.scaledToFit()
+					.frame(maxWidth: 20, maxHeight: 19)
+					.foregroundColor(.primary)
+				Link(Self.xName, destination: Self.xWebURL)
+					.testability(Testability.Link.appDescriptionTwitter)
+			}
+		}
+	}
+
+	private var legalSection: some View {
+		Section(header: Text(L10n.About.Section.legal)) {
+			NavigationLink(destination:
+							PrivacyPolicyView(htmlFileName: "privacypolicy")
+				.navigationTitle(L10n.About.privacyPolicy)
+			) {
+				Text(L10n.About.privacyPolicy)
+			}
+			.testability(Testability.NavigationLink.appDescriptionPrivacyPolicy)
+		}
+	}
+
+	/// Opens the system mail composer pre-filled with app/device diagnostics.
+	@MainActor
+	private func composeSupportEmail() async {
+		let subject = "MLBrowser: v" + versionString +
+		" on " + DeviceInfo.deviceModelName() +
+		" " + UIDevice.current.systemVersion
+		let body = await DeviceInfo.information()
+		let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ""
+		let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ""
+
+		guard let emailURL = URL(string: "mailto:\(emailAddress)?subject=\(encodedSubject)&body=\(encodedBody)") else { return }
+
+		// canOpenURL is synchronous, but open(_:) is async in iOS 17+
+		if UIApplication.shared.canOpenURL(emailURL) {
+			await UIApplication.shared.open(emailURL)
+		}
 	}
 
 	static func appVersion() -> String {

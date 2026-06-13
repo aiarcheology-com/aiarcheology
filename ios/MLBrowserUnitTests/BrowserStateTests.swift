@@ -84,13 +84,8 @@ final class BrowserStateTests: XCTestCase {
     }
 
     /// Runs JavaScript once the document is ready.
-    private func evaluate(_ script: String) async {
-        let expectation = expectation(description: "javascript")
-        webView.evaluateJavaScript(script) { _, error in
-            XCTAssertNil(error, "JavaScript failed: \(String(describing: error))")
-            expectation.fulfill()
-        }
-        await fulfillment(of: [expectation], timeout: 10)
+    private func evaluate(_ script: String) async throws {
+        _ = try await webView.evaluateJavaScript(script)
     }
 
     // MARK: - KVO mirrors
@@ -101,7 +96,7 @@ final class BrowserStateTests: XCTestCase {
         XCTAssertEqual(sut.currentURL, Self.baseURL)
     }
 
-    func testPushState_UpdatesCurrentURL() async {
+    func testPushState_UpdatesCurrentURL() async throws {
         await loadTestPage()
 
         // The central AIA-0044 assumption: same-document History-API navigations
@@ -109,16 +104,16 @@ final class BrowserStateTests: XCTestCase {
         // (canGoBack is NOT asserted here: WKWebView does not register pushState
         // entries in the back-forward list for loadHTMLString documents — real
         // http(s) documents do; covered by manual verification on the map sites.)
-        await evaluate("history.pushState({}, '', '/page2')")
+        try await evaluate("history.pushState({}, '', '/page2')")
         await waitForCurrentURL { $0?.path == "/page2" }
 
         XCTAssertEqual(sut.currentURL?.path, "/page2")
     }
 
-    func testReplaceState_UpdatesCurrentURL() async {
+    func testReplaceState_UpdatesCurrentURL() async throws {
         await loadTestPage()
 
-        await evaluate("history.replaceState({}, '', '/moved?x=1')")
+        try await evaluate("history.replaceState({}, '', '/moved?x=1')")
         await waitForCurrentURL { $0?.path == "/moved" }
 
         XCTAssertEqual(sut.currentURL?.query, "x=1")

@@ -150,9 +150,17 @@ final class FindingExporterTests: XCTestCase {
 	/// archive's layout without decompressing entry contents.
 	private func entryNames(of url: URL) throws -> [String] {
 		let bytes = [UInt8](try Data(contentsOf: url))
-		func u16(_ offset: Int) -> Int { Int(bytes[offset]) | (Int(bytes[offset + 1]) << 8) }
+		func u16(_ offset: Int) -> Int {
+			let b0 = Int(bytes[offset])
+			let b1 = Int(bytes[offset + 1]) << 8
+			return b0 | b1
+		}
 		func u32(_ offset: Int) -> Int {
-			Int(bytes[offset]) | (Int(bytes[offset + 1]) << 8) | (Int(bytes[offset + 2]) << 16) | (Int(bytes[offset + 3]) << 24)
+			let b0 = Int(bytes[offset])
+			let b1 = Int(bytes[offset + 1]) << 8
+			let b2 = Int(bytes[offset + 2]) << 16
+			let b3 = Int(bytes[offset + 3]) << 24
+			return b0 | b1 | b2 | b3
 		}
 
 		let eocdSignature: [UInt8] = [0x50, 0x4B, 0x05, 0x06]

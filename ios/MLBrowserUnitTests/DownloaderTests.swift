@@ -130,7 +130,8 @@ final class ActiveDownloadTests: XCTestCase {
 
         // Release the external reference — ActiveDownload must keep the task alive
         // so pause/cancel keep working for the lifetime of the download.
-        weak var weakTask = mockTask
+        weak var weakTask: MockDownloadTask?
+        weakTask = mockTask
         mockTask = nil
 
         XCTAssertNotNil(weakTask, "ActiveDownload should retain its task")

@@ -429,11 +429,13 @@ private struct WebAddressDisplay: View {
 	let action: () -> Void
 
 	var body: some View {
+		let urlText = browserState.displayedURL?.absoluteString ?? L10n.Browser.Location.placeholder
+		let textColor: Color = browserState.displayedURL == nil ? .secondary : .primary
 		Button(action: action) {
-			Text(browserState.displayedURL?.absoluteString ?? L10n.Browser.Location.placeholder)
+			Text(urlText)
 				.lineLimit(1)
 				.truncationMode(.middle)
-				.foregroundColor(browserState.displayedURL == nil ? .secondary : .primary)
+				.foregroundColor(textColor)
 				.frame(maxWidth: .infinity, alignment: .leading)
 				.padding(5)
 				.background(.ultraThinMaterial)
@@ -445,7 +447,7 @@ private struct WebAddressDisplay: View {
 		}
 		.buttonStyle(.plain)
 		// VoiceOver reads the actual URL, not just the affordance.
-		.accessibilityLabel(browserState.displayedURL?.absoluteString ?? L10n.Browser.Location.placeholder)
+		.accessibilityLabel(urlText)
 		.testability(Testability.Button.webScreenAddressBar)
 	}
 }
