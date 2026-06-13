@@ -109,10 +109,19 @@ struct AppDescriptionView: View {
 		" on " + DeviceInfo.deviceModelName() +
 		" " + UIDevice.current.systemVersion
 		let body = await DeviceInfo.information()
-		let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ""
-		let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ""
 
-		guard let emailURL = URL(string: "mailto:\(emailAddress)?subject=\(encodedSubject)&body=\(encodedBody)") else { return }
+		// URLComponents encodes the subject/body with the correct query-component
+		// rules; `.urlPathAllowed` leaves reserved characters like & and = intact
+		// and corrupts the resulting mailto link.
+		var components = URLComponents()
+		components.scheme = "mailto"
+		components.path = emailAddress
+		components.queryItems = [
+			URLQueryItem(name: "subject", value: subject),
+			URLQueryItem(name: "body", value: body)
+		]
+
+		guard let emailURL = components.url else { return }
 
 		// canOpenURL is synchronous, but open(_:) is async in iOS 17+
 		if UIApplication.shared.canOpenURL(emailURL) {
