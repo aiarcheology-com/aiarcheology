@@ -100,6 +100,12 @@ extension FindingShareCard {
 			var items: [Any] = []
 			if let image { items.append(image) }
 			if let page { items.append(page) }
+			// Nothing to share (render failed AND no page) → don't present an empty
+			// activity sheet; completion isn't called, so no payload is set.
+			guard items.isEmpty.not else {
+				LoggingPolicy.warning("No share content for finding: card render failed and no page URL", logger: .storage)
+				return
+			}
 			completion(items)
 		}
 	}
