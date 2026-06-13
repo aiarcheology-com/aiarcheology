@@ -12,7 +12,7 @@ struct ObservationRectangleView: View {
 	var geometry: GeometryProxy
 	var color: Color
 	var phaseOutTime: CFTimeInterval
-	var showIndentifiers: Bool
+	var showIdentifiers: Bool
 
 	@State private var animate = false
 
@@ -26,7 +26,7 @@ struct ObservationRectangleView: View {
 		)
 
 		VStack {
-			if showIndentifiers {
+			if showIdentifiers {
 				HStack {
 					ForEach(observation.labels, id: \.self) { label in
 						Text(" \(String(label.identifier.prefix(6)))|")

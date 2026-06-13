@@ -12,14 +12,14 @@ struct ObservationCircleView: View {
 	var geometry: GeometryProxy
 	var color: Color
 	var phaseOutTime: CFTimeInterval
-	var showIndentifiers: Bool
+	var showIdentifiers: Bool
 
 	@State private var animate = false
 
 	var body: some View {
 		let center = boundingBoxCenter
 		ZStack {
-			if showIndentifiers {
+			if showIdentifiers {
 				labels(at: center)
 			}
 			pulsingCircle(at: center)

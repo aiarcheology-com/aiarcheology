@@ -12,7 +12,7 @@ struct ObservationPointView: View {
 	var geometry: GeometryProxy
 	var color: Color
 	var phaseOutTime: CFTimeInterval
-	var showIndentifiers: Bool
+	var showIdentifiers: Bool
 
 	@State private var animate = false
 
@@ -22,7 +22,7 @@ struct ObservationPointView: View {
 		let center = CGPoint(x: boundingBox.midX * geometry.size.width,
 							 y: (1 - boundingBox.midY) * geometry.size.height)
 		ZStack {
-			if showIndentifiers {
+			if showIdentifiers {
 				HStack {
 					ForEach(observation.labels, id: \.self) { label in
 						Text(" \(String(label.identifier.prefix(6)))|") // TODO: put this number in the annotation settings

@@ -43,7 +43,9 @@ struct BrowserHistoryView: View {
 				}) {
 					Text(L10n.History.Clear.button)
 						.bold()
-						.foregroundColor(refreshFrom.disabled ? .red : .blue)
+						// Destructive action (clears all history) — stable red, matching
+						// the alert's destructive confirm button.
+						.foregroundColor(.red)
 				}
 				.testability(Testability.Button.browsingHistoryClear)
 			}
