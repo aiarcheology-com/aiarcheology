@@ -283,6 +283,22 @@ internal enum L10n {
       /// Save Finding
       internal static let title = L10n.tr("Localizable", "finding.save.title", fallback: "Save Finding")
     }
+    internal enum Share {
+      /// Dark
+      internal static let dark = L10n.tr("Localizable", "finding.share.dark", fallback: "Dark")
+      /// Landscape
+      internal static let landscape = L10n.tr("Localizable", "finding.share.landscape", fallback: "Landscape")
+      /// Layout
+      internal static let layout = L10n.tr("Localizable", "finding.share.layout", fallback: "Layout")
+      /// Light
+      internal static let light = L10n.tr("Localizable", "finding.share.light", fallback: "Light")
+      /// Portrait
+      internal static let portrait = L10n.tr("Localizable", "finding.share.portrait", fallback: "Portrait")
+      /// Theme
+      internal static let theme = L10n.tr("Localizable", "finding.share.theme", fallback: "Theme")
+      /// Share Finding
+      internal static let title = L10n.tr("Localizable", "finding.share.title", fallback: "Share Finding")
+    }
   }
   internal enum Findings {
     /// Export

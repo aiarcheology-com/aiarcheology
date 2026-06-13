@@ -273,12 +273,14 @@ final class FindingCropMathTests: XCTestCase {
     private let unit = CGRect(x: 0, y: 0, width: 1, height: 1)
     private let fitted = CGSize(width: 400, height: 200)
 
-    func testCropRect_ScaleOne_IsUnitRect() {
-        XCTAssertEqual(FindingCapture.cropRect(scale: 1, offset: .zero, fitted: fitted), unit)
+    // cover == fitted models an image whose aspect already matches the viewport,
+    // so the cover formula reduces to the simple zoom/pan case.
+    func testCropRect_ScaleOne_CoverMatchesViewport_IsUnitRect() {
+        XCTAssertEqual(FindingCapture.cropRect(scale: 1, offset: .zero, fitted: fitted, cover: fitted), unit)
     }
 
     func testCropRect_ZoomTwoCentered_IsCenterQuarter() {
-        let crop = FindingCapture.cropRect(scale: 2, offset: .zero, fitted: fitted)
+        let crop = FindingCapture.cropRect(scale: 2, offset: .zero, fitted: fitted, cover: fitted)
         XCTAssertEqual(crop.minX, 0.25, accuracy: 0.001)
         XCTAssertEqual(crop.minY, 0.25, accuracy: 0.001)
         XCTAssertEqual(crop.width, 0.5, accuracy: 0.001)
@@ -288,12 +290,22 @@ final class FindingCropMathTests: XCTestCase {
     func testCropRect_PanMovesWindowOpposite_AndClamps() {
         // Image dragged fully right at 2×: the window reaches the LEFT edge.
         let maxOffset = CGSize(width: fitted.width * (2 - 1) / 2, height: 0)
-        let crop = FindingCapture.cropRect(scale: 2, offset: maxOffset, fitted: fitted)
+        let crop = FindingCapture.cropRect(scale: 2, offset: maxOffset, fitted: fitted, cover: fitted)
         XCTAssertEqual(crop.minX, 0, accuracy: 0.001)
         // Excessive offsets clamp instead of leaving the image.
-        let over = FindingCapture.cropRect(scale: 2, offset: CGSize(width: 10_000, height: -10_000), fitted: fitted)
+        let over = FindingCapture.cropRect(scale: 2, offset: CGSize(width: 10_000, height: -10_000), fitted: fitted, cover: fitted)
         XCTAssertEqual(over.minX, 0, accuracy: 0.001)
         XCTAssertEqual(over.maxY, 1, accuracy: 0.001)
+    }
+
+    func testCropRect_CoverOverflowAxis_ScaleOne_CropsOverflowCentered() {
+        // Covered image is twice as tall as the viewport: at scale 1 the window is
+        // full width but only the centered middle of the height (no letterbox).
+        let cover = CGSize(width: 400, height: 800)
+        let crop = FindingCapture.cropRect(scale: 1, offset: .zero, fitted: fitted, cover: cover)
+        XCTAssertEqual(crop.width, 1, accuracy: 0.001)
+        XCTAssertEqual(crop.height, 0.25, accuracy: 0.001)
+        XCTAssertEqual(crop.minY, 0.375, accuracy: 0.001)
     }
 
     func testRemappedBox_InsideCrop_RenormalizesWithYFlip() {

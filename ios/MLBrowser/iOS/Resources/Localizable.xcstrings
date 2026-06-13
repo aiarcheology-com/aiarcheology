@@ -7387,6 +7387,69 @@
         }
       }
     },
+    "finding.share.title" : {
+      "comment" : "Navigation title of the share-composer sheet",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Share Finding" }
+        }
+      }
+    },
+    "finding.share.theme" : {
+      "comment" : "Picker label: light vs dark share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Theme" }
+        }
+      }
+    },
+    "finding.share.layout" : {
+      "comment" : "Picker label: portrait vs landscape share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Layout" }
+        }
+      }
+    },
+    "finding.share.light" : {
+      "comment" : "Light theme option for the share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Light" }
+        }
+      }
+    },
+    "finding.share.dark" : {
+      "comment" : "Dark theme option for the share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Dark" }
+        }
+      }
+    },
+    "finding.share.portrait" : {
+      "comment" : "Portrait layout option for the share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Portrait" }
+        }
+      }
+    },
+    "finding.share.landscape" : {
+      "comment" : "Landscape layout option for the share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Landscape" }
+        }
+      }
+    },
     "finding.title" : {
       "comment" : "Title section header in the save-finding and finding-detail dialogs (the finding's required name)",
       "extractionState" : "manual",

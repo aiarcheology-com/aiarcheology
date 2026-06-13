@@ -44,11 +44,23 @@ private struct ActivitySharePresenter: UIViewControllerRepresentable {
 		// guard is what prevents the "already visible" double-present.
 		guard let payload, host.presentedViewController == nil else { return }
 
+		// UIActivityViewController crashes with no items; bail and clear instead.
+		guard payload.items.isEmpty.not else {
+			DispatchQueue.main.async {
+				if self.payload?.id == payload.id { self.payload = nil }
+			}
+			return
+		}
+
+		let presentedID = payload.id
 		let controller = UIActivityViewController(activityItems: payload.items, applicationActivities: nil)
 		controller.completionWithItemsHandler = { _, _, _, _ in
-			// Clear on the next runloop tick: mutating SwiftUI state from inside
-			// updateUIViewController's synchronous path is not allowed.
-			DispatchQueue.main.async { self.payload = nil }
+			// Clear on the next runloop tick (can't mutate SwiftUI state inside the
+			// synchronous update), and only if a newer share hasn't replaced this
+			// one — otherwise a second share triggered during dismissal is dropped.
+			DispatchQueue.main.async {
+				if self.payload?.id == presentedID { self.payload = nil }
+			}
 		}
 		// iPad / Mac present the activity sheet as a popover and require an anchor.
 		if let popover = controller.popoverPresentationController {
