@@ -31,6 +31,15 @@ struct FindingsListView: View {
 	/// nil = no filter (all findings, including unlabeled ones).
 	@State private var filterLabel: String?
 
+	@Environment(\.displayScale) private var displayScale
+	@Environment(\.colorScheme) private var colorScheme
+
+	/// Drives the system share sheet for both the ZIP export and per-row sharing.
+	/// The modal presentation is what serializes them — only one can be up at a time.
+	@State private var sharePayload: FindingSharePayload?
+	@State private var isExporting = false
+	@State private var exportFailed = false
+
 	var body: some View {
 		NavigationStack {
 			VStack(spacing: 0) {
@@ -50,6 +59,9 @@ struct FindingsListView: View {
 			.navigationTitle(L10n.Findings.title)
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
+				ToolbarItem(placement: .navigationBarLeading) {
+					exportButton
+				}
 				ToolbarItem(placement: .navigationBarTrailing) {
 					Button(action: { dismiss() }) {
 						Text(L10n.Common.dismiss)
@@ -67,6 +79,53 @@ struct FindingsListView: View {
 			// failed file deletes. Runs on the viewContext/MainActor; the save sheet
 			// is dismissed before this list can open, so it never races a save.
 			FindingScreenshotStore.sweepOrphans(in: moc)
+		}
+		.sheet(item: $sharePayload) { payload in
+			ActivityShareSheet(items: payload.items)
+		}
+		.alert(L10n.Findings.Export.error, isPresented: $exportFailed) {
+			Button(L10n.Common.ok, role: .cancel) {}
+		}
+	}
+
+	// MARK: - Export & share
+
+	/// Exports the CURRENTLY FILTERED findings (not the raw fetch) as a ZIP. The
+	/// snapshot is taken synchronously on the MainActor at tap time; the heavy
+	/// zip build runs detached so the UI stays responsive.
+	@ViewBuilder
+	private var exportButton: some View {
+		if isExporting {
+			ProgressView()
+		} else {
+			Button(action: exportFindings) {
+				Label(L10n.Findings.export, systemImage: "square.and.arrow.up")
+			}
+			.disabled(filteredFindings.isEmpty)
+			.testability(Testability.Button.findingsExport)
+		}
+	}
+
+	private func exportFindings() {
+		let snapshots = filteredFindings.map(FindingSnapshot.init)
+		isExporting = true
+		Task {
+			do {
+				let url = try await Task.detached(priority: .userInitiated) {
+					try FindingExporter.makeZip(from: snapshots)
+				}.value
+				sharePayload = FindingSharePayload(items: [url])
+			} catch {
+				LoggingPolicy.error("Failed to export findings", error: error, logger: .storage)
+				exportFailed = true
+			}
+			isExporting = false
+		}
+	}
+
+	private func share(_ finding: Finding) {
+		FindingShareCard.shareItems(for: finding, scale: displayScale, colorScheme: colorScheme) { items in
+			sharePayload = FindingSharePayload(items: items)
 		}
 	}
 
@@ -143,6 +202,22 @@ struct FindingsListView: View {
 			}
 			.testability(Testability.Button.findingsDeleteEntry)
 		}
+		.swipeActions(edge: .leading) {
+			Button {
+				share(finding)
+			} label: {
+				Label(L10n.Common.share, systemImage: "square.and.arrow.up")
+			}
+			.tint(.blue)
+			.testability(Testability.Button.findingsShareEntry)
+		}
+		.contextMenu {
+			Button {
+				share(finding)
+			} label: {
+				Label(L10n.Common.share, systemImage: "square.and.arrow.up")
+			}
+		}
 	}
 
 	@ViewBuilder
@@ -211,6 +286,10 @@ private struct FindingDetailView: View {
 	@State private var gps = ""
 	@State private var saveFailed = false
 
+	@Environment(\.displayScale) private var displayScale
+	@Environment(\.colorScheme) private var colorScheme
+	@State private var sharePayload: FindingSharePayload?
+
 	var body: some View {
 		List {
 			Section {
@@ -270,7 +349,11 @@ private struct FindingDetailView: View {
 		.navigationTitle(finding.label_ ?? finding.detectionClass ?? L10n.Findings.title)
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar {
-			ToolbarItem(placement: .navigationBarTrailing) {
+			ToolbarItemGroup(placement: .navigationBarTrailing) {
+				Button(action: shareFinding) {
+					Label(L10n.Common.share, systemImage: "square.and.arrow.up")
+				}
+				.testability(Testability.Button.findingDetailShare)
 				Button(action: saveEdits) {
 					Text(L10n.Finding.Save.action)
 						.bold()
@@ -282,7 +365,16 @@ private struct FindingDetailView: View {
 		.alert(L10n.Finding.Save.error, isPresented: $saveFailed) {
 			Button(L10n.Common.ok, role: .cancel) {}
 		}
+		.sheet(item: $sharePayload) { payload in
+			ActivityShareSheet(items: payload.items)
+		}
 		.onAppear(perform: seedFields)
+	}
+
+	private func shareFinding() {
+		FindingShareCard.shareItems(for: finding, scale: displayScale, colorScheme: colorScheme) { items in
+			sharePayload = FindingSharePayload(items: items)
+		}
 	}
 
 	// MARK: - Editing

@@ -3631,6 +3631,18 @@
         }
       }
     },
+    "common.share" : {
+      "comment" : "Generic share action",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share"
+          }
+        }
+      }
+    },
     "common.reset" : {
       "comment" : "Generic reset action",
       "extractionState" : "manual",
@@ -7527,6 +7539,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "All"
+          }
+        }
+      }
+    },
+    "findings.export" : {
+      "comment" : "Toolbar button that exports the filtered findings as a ZIP",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export"
+          }
+        }
+      }
+    },
+    "findings.export.error" : {
+      "comment" : "Alert shown when exporting findings fails",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not export the findings."
           }
         }
       }

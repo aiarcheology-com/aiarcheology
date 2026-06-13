@@ -161,6 +161,8 @@ internal enum L10n {
     internal static let ok = L10n.tr("Localizable", "common.ok", fallback: "OK")
     /// Reset
     internal static let reset = L10n.tr("Localizable", "common.reset", fallback: "Reset")
+    /// Share
+    internal static let share = L10n.tr("Localizable", "common.share", fallback: "Share")
   }
   internal enum Configuration {
     /// Author
@@ -279,6 +281,8 @@ internal enum L10n {
     }
   }
   internal enum Findings {
+    /// Export
+    internal static let export = L10n.tr("Localizable", "findings.export", fallback: "Export")
     /// Open Page
     internal static let openPage = L10n.tr("Localizable", "findings.openPage", fallback: "Open Page")
     /// Findings
@@ -288,6 +292,10 @@ internal enum L10n {
       internal static let message = L10n.tr("Localizable", "findings.empty.message", fallback: "Use the Find button, then tap the place in the web content to store it here.")
       /// No Findings Yet
       internal static let title = L10n.tr("Localizable", "findings.empty.title", fallback: "No Findings Yet")
+    }
+    internal enum Export {
+      /// Could not export the findings.
+      internal static let error = L10n.tr("Localizable", "findings.export.error", fallback: "Could not export the findings.")
     }
     internal enum Filter {
       /// All

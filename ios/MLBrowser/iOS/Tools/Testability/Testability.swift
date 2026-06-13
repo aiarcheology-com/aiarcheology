@@ -143,7 +143,10 @@ extension TestabilityIdentification {
 		case findingsFilterLabel
 		case findingsDeleteEntry
 		case findingsOpenPage
+		case findingsExport
+		case findingsShareEntry
 		case findingDetailSave
+		case findingDetailShare
 		// Snap Adjustment
 		case snapAdjustmentReset
 		case snapAdjustmentOverlayDismiss
