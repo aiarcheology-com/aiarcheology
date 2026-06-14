@@ -71,7 +71,7 @@ final class SettingsUITests: UITestCase {
         XCTAssertTrue(scrollTo(AID.settingsHistory))
         element(AID.settingsHistory).tap()
         XCTAssertTrue(
-            app.navigationBars[AID.historyTitle].waitForExistence(timeout: 10),
+            app.buttons[AID.historyClear].waitForExistence(timeout: 10),
             "History submenu not shown"
         )
     }

@@ -82,8 +82,7 @@ enum AID {
 	static let settingsRestoreDefaults = "_AIA:Button.SettingsRestoreDefaults"
 
 	// Browsing history
-	static let historyTitle = "Browsing History"   // navigation-bar title (anchors the screen)
-	static let historyClear = "_AIA:Button.BrowsingHistoryClear"
+	static let historyClear = "_AIA:Button.BrowsingHistoryClear"   // also anchors the screen's presence
 	static let historyDeleteEntry = "_AIA:Button.BrowsingHistoryDeleteEntry"
 	static let historyItem = "_AIA:Label.BrowsingHistoryItem"
 	static let configDescription = "_AIA:Label.SideMenuCellDescription"

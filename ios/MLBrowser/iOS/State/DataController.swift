@@ -161,7 +161,10 @@ final class DataController: ObservableObject {
 		guard let storeURL = description.url else { return }
 		// First UI-test launch on a clean simulator has no prior store — nothing to destroy.
 		// Skip so the success path stays quiet and only genuine destroy failures are logged.
-		guard FileManager.default.fileExists(atPath: storeURL.path) else { return }
+		// Check the SQLite sidecars too: a partial prior cleanup can leave -wal/-shm without the
+		// base .sqlite, and those must still be cleared to avoid inconsistent state next launch.
+		let storeFiles = [storeURL.path, storeURL.path + "-wal", storeURL.path + "-shm"]
+		guard storeFiles.contains(where: { FileManager.default.fileExists(atPath: $0) }) else { return }
 		do {
 			try container.persistentStoreCoordinator.destroyPersistentStore(
 				at: storeURL,

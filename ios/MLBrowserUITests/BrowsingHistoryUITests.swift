@@ -17,7 +17,7 @@ final class BrowsingHistoryUITests: UITestCase {
         XCTAssertTrue(scrollTo(AID.settingsHistory), "History link missing", file: file, line: line)
         element(AID.settingsHistory).tap()
         XCTAssertTrue(
-            app.navigationBars[AID.historyTitle].waitForExistence(timeout: 10),
+            app.buttons[AID.historyClear].waitForExistence(timeout: 10),
             "History screen not shown", file: file, line: line
         )
     }

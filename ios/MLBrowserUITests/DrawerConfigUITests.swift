@@ -22,8 +22,15 @@ final class DrawerConfigUITests: UITestCase {
         launch()
         openDrawer()
         XCTAssertTrue(waitForSeededConfigurations(), "Demo configurations were not seeded")
-        // DemoDataManager seeds exactly two demo models: AIArcheology + HroudaDetector15.
-        XCTAssertEqual(modelToggles().count, 2, "Expected two seeded demo models in the drawer")
+        // DemoDataManager seeds two demo models (AIArcheology + HroudaDetector15) sequentially
+        // and asynchronously (CoreML metadata extraction), so wait for both toggles to appear
+        // before asserting the count — otherwise the second model may still be seeding.
+        let bothSeeded = NSPredicate(format: "count == 2")
+        let expectation = XCTNSPredicateExpectation(predicate: bothSeeded, object: modelToggles())
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [expectation], timeout: 20), .completed,
+            "Expected two seeded demo models in the drawer"
+        )
     }
 
     func testDrawer_toggleModelEnabled_flipsState() {
