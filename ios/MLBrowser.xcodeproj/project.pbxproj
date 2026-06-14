@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		94E018910000000000000002 /* DetectionEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000001 /* DetectionEngineTests.swift */; };
+		94E018910000000000000004 /* terrain_iphone.png in Resources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000003 /* terrain_iphone.png */; };
+		94E018910000000000000006 /* terrain_ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000005 /* terrain_ipad.png */; };
 		510BEBE08AE94921B256AD77 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = C868B4879FC9440AA740CFDD /* Sentry */; };
 		8A112CB92ABDE0BB00786384 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CB82ABDE0BB00786384 /* WebView.swift */; };
 		8A112CC42AC0852B00786384 /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CC32AC0852B00786384 /* String+Extensions.swift */; };
@@ -230,6 +233,9 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		94E018910000000000000001 /* DetectionEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionEngineTests.swift; sourceTree = "<group>"; };
+		94E018910000000000000003 /* terrain_iphone.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = terrain_iphone.png; sourceTree = "<group>"; };
+		94E018910000000000000005 /* terrain_ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = terrain_ipad.png; sourceTree = "<group>"; };
 		8A112CB82ABDE0BB00786384 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
 		8A112CC02AC0757900786384 /* MLBrowser-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "MLBrowser-Info.plist"; sourceTree = SOURCE_ROOT; };
 		8A112CC32AC0852B00786384 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
@@ -826,6 +832,8 @@
 				94929E732ED633C1001A4C63 /* DeepDriversTests.swift */,
 				945C55692ED5127C007DD8FB /* DeepStateTests.swift */,
 				949DB6E12EE4F1B0002E904E /* DemoDataManagerTests.swift */,
+				94E018910000000000000001 /* DetectionEngineTests.swift */,
+				94E018910000000000000007 /* Fixtures */,
 				94929E792ED63ADE001A4C63 /* DeviceInfoTests.swift */,
 				945C557F2ED61234007DD8FB /* DownloaderTests.swift */,
 				94FCC4042ECFD7730047B283 /* DriversTests.swift */,
@@ -864,6 +872,15 @@
 				8AB3EADF2B4450B9001083D1 /* MLBrowserTests-Info.plist */,
 			);
 			path = MLBrowserUnitTests;
+			sourceTree = "<group>";
+		};
+		94E018910000000000000007 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				94E018910000000000000003 /* terrain_iphone.png */,
+				94E018910000000000000005 /* terrain_ipad.png */,
+			);
+			path = Fixtures;
 			sourceTree = "<group>";
 		};
 		8AE0BC232A97B0B40086DDF9 /* MLBrowserUITests */ = {
@@ -1163,6 +1180,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				94E018910000000000000004 /* terrain_iphone.png in Resources */,
+				94E018910000000000000006 /* terrain_ipad.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1436,6 +1455,7 @@
 				945C55862ED71234007DD8FB /* DeepConfigurationTests.swift in Sources */,
 				94FCC4052ECFD7730047B283 /* DriversTests.swift in Sources */,
 				945C55882ED71234007DD8FB /* TestabilityTests.swift in Sources */,
+				94E018910000000000000002 /* DetectionEngineTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
