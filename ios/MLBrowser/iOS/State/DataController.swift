@@ -159,6 +159,9 @@ final class DataController: ObservableObject {
 	/// `.sqlite`, which would leak the sidecar files and yield a half-empty store next launch.
 	private func destroyUITestStore(_ description: NSPersistentStoreDescription) {
 		guard let storeURL = description.url else { return }
+		// First UI-test launch on a clean simulator has no prior store — nothing to destroy.
+		// Skip so the success path stays quiet and only genuine destroy failures are logged.
+		guard FileManager.default.fileExists(atPath: storeURL.path) else { return }
 		do {
 			try container.persistentStoreCoordinator.destroyPersistentStore(
 				at: storeURL,
@@ -255,8 +258,13 @@ final class DataController: ObservableObject {
 					managedObjectModel: Self.sharedModel
 				)
 
-				// Reapply the same configuration
-				if let desc = self.container.persistentStoreDescriptions.first {
+				// Reapply the same configuration. Under UI tests, pin the dedicated UI-test store
+				// again so the retry never falls back to the default (production) store location —
+				// preserving the "never touch the production store" isolation guarantee even on the
+				// migration-recovery path.
+				if AppEnvironment.isRunningUITests {
+					self.container.persistentStoreDescriptions = [Self.uiTestStoreDescription()]
+				} else if let desc = self.container.persistentStoreDescriptions.first {
 					desc.shouldMigrateStoreAutomatically = true
 					desc.shouldInferMappingModelAutomatically = shouldInferMappingModelAutomatically
 				}
