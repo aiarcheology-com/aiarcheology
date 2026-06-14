@@ -1,0 +1,61 @@
+ios/MLBrowser/iOS/State/DataController.swift
+  s_c55b2e88071d91::t_f1f1a52da3112f 113-121
+  s_c55b2e88071d91::t_943d58966adc8a 141-167
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_c55b2e88071d91::t_57f6f2232ff506 234-235
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_c55b2e88071d91::t_07044934eafdb4 259-262
+  s_c55b2e88071d91::t_d22536360e34e4 928-931
+  s_c55b2e88071d91::t_c9f7100682983a 10-13
+  s_c55b2e88071d91::t_8f5f4cafede383 1550-1553
+ios/MLBrowserUITests/DrawerConfigUITests.swift
+  s_c55b2e88071d91::t_43ef79262dc22c 14-18,26
+  s_c55b2e88071d91::t_e36fb984a9e5e9 1-13,19-25,27-32,34-35,44-45
+  s_c55b2e88071d91::t_8f13b1fc7c726b 36-43
+  s_c55b2e88071d91::t_774230ac42b1c2 33
+ios/MLBrowserUITests/BrowsingHistoryUITests.swift
+  s_c55b2e88071d91::t_86288cfd60b8f7 25-27
+  s_c55b2e88071d91::t_485be7ae05adfb 1-18,23-24,28-32,34-35,42-43,49-50
+  s_c55b2e88071d91::t_3d2d6464330a3a 36-41,44-48
+  s_c55b2e88071d91::t_c2501161d7bf4c 19-22
+ios/MLBrowserUITests/SettingsUITests.swift
+  s_c55b2e88071d91::t_09a7a4d4cb63e0 1-42,45-72,77-94
+  s_c55b2e88071d91::t_557cee96cce5d5 43-44
+  s_c55b2e88071d91::t_876e13b343e8b3 73-76
+ios/MLBrowserUITests/UI_TESTING_PLAN_AIA-0305.md
+  s_c55b2e88071d91::t_7b1638174beec1 1-38,60-68,70-75
+  s_c55b2e88071d91::t_db31c0af4a6d5c 69
+  s_c55b2e88071d91::t_57101feb1a63b3 39-59
+ios/MLBrowserUITests/AddressBarUITests.swift
+  s_c55b2e88071d91::t_bc48f81c9971c6 1-54
+ios/MLBrowser/iOS/UI/SettingsView/BrowsingHistoryView.swift
+  s_c55b2e88071d91::t_34d5b771f4eb73 28-31
+  s_c55b2e88071d91::t_d3723991c410b9 71
+ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift
+  s_c55b2e88071d91::t_b08db48b5d8f09 249,258
+  s_c55b2e88071d91::t_3ff126e620b41c 218
+ios/MLBrowserUITests/UITestSupport.swift
+  s_c55b2e88071d91::t_4607abd93075a5 85
+  s_c55b2e88071d91::t_125de45b600890 288-292
+  s_c55b2e88071d91::t_281c292aa779ce 88-89,279-287,293-295
+  s_c55b2e88071d91::t_440c78df03ff87 62-84,86-87,90-96
+  s_c55b2e88071d91::t_415c4b6377cad7 259-278
+  s_c55b2e88071d91::t_e5652e910993e0 253,258
+  s_c55b2e88071d91::t_a6535105844c0e 232-252,254-257,296
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "b4d2fc9ddda60c5d5ef34b90fac4ddc06da9fd96",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
