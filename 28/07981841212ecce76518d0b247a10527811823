@@ -1,0 +1,38 @@
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_c55b2e88071d91::t_d2ff89c03d1979 301-302
+ios/MLBrowserUITests/NavigationUITests.swift
+  s_c55b2e88071d91::t_89d83eec0503ad 5-6
+ios/MLBrowser/iOS/UI/GlobalToolbar.swift
+  s_c55b2e88071d91::t_6ca86f07d1581a 57-59
+ios/MLBrowser/iOS/UI/ContentView.swift
+  s_c55b2e88071d91::t_a630b82b0bc740 117
+  s_c55b2e88071d91::t_9143455cc1c632 184-185,188-189,197-204
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift
+  s_c55b2e88071d91::t_a84de5dcd3bdff 53-55,89-90,92,98
+ios/MLBrowser/iOS/UI/FloatingNavBar.swift
+  s_c55b2e88071d91::t_697c5a073bd16c 161
+  s_c55b2e88071d91::t_104bd2cb283412 117
+  s_c55b2e88071d91::t_00f4ad36e51440 53-61,64
+  s_c55b2e88071d91::t_91c54b48a4f108 17-19,26,30-31
+  s_c55b2e88071d91::t_bbb70a8f166073 20
+ios/MLBrowserUITests/UITestSupport.swift
+  s_c55b2e88071d91::t_52ea633586ba0a 42
+  s_c55b2e88071d91::t_ca309ef6ab3d2d 119,122-124
+  s_c55b2e88071d91::t_6430685558446c 60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "2807981841212ecce76518d0b247a10527811823",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
