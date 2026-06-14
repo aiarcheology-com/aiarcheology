@@ -43,7 +43,7 @@ final class Settings: ObservableObject, Validatable {
 
 	@Published public var keepSlideShowActive: Bool {
 		didSet {
-			UserDefaults.standard.set(keepSlideShowActive, forKey: UserDefaultsKeys.keepSlideShowActive)
+			defaults.set(keepSlideShowActive, forKey: UserDefaultsKeys.keepSlideShowActive)
 		}
 	}
 
@@ -51,55 +51,55 @@ final class Settings: ObservableObject, Validatable {
 
 	@Published public var historySize: Int {
 		didSet {
-			UserDefaults.standard.set(historySize, forKey: UserDefaultsKeys.sizeHistory)
+			defaults.set(historySize, forKey: UserDefaultsKeys.sizeHistory)
 		}
 	}
 
 	@Published public var snapAfterAppStart: Bool {
 		didSet {
-			UserDefaults.standard.set(snapAfterAppStart, forKey: UserDefaultsKeys.snapAfterAppStart)
+			defaults.set(snapAfterAppStart, forKey: UserDefaultsKeys.snapAfterAppStart)
 		}
 	}
 
 	@Published public var reopenLastPage: Bool {
 		didSet {
-			UserDefaults.standard.set(reopenLastPage, forKey: UserDefaultsKeys.reopenLastPage)
+			defaults.set(reopenLastPage, forKey: UserDefaultsKeys.reopenLastPage)
 		}
 	}
 
 	@Published public var snapFrequency: Double {
 		didSet {
-			UserDefaults.standard.set(snapFrequency, forKey: UserDefaultsKeys.snapFrequency)
+			defaults.set(snapFrequency, forKey: UserDefaultsKeys.snapFrequency)
 		}
 	}
 
 	@Published public var resetHistory: Bool {
 		didSet {
-			UserDefaults.standard.set(resetHistory, forKey: UserDefaultsKeys.resetHistory)
+			defaults.set(resetHistory, forKey: UserDefaultsKeys.resetHistory)
 		}
 	}
 
 	@Published public var defaultPage: URL? {
 		didSet {
-			UserDefaults.standard.set(defaultPage, forKey: UserDefaultsKeys.defaultPage)
+			defaults.set(defaultPage, forKey: UserDefaultsKeys.defaultPage)
 		}
 	}
 
 	@Published public var lastPage: URL? {
 		didSet {
-			UserDefaults.standard.set(lastPage, forKey: UserDefaultsKeys.lastPage)
+			defaults.set(lastPage, forKey: UserDefaultsKeys.lastPage)
 		}
 	}
 
 	@Published public var removeAnnotationOnDrag: Bool {
 		didSet {
-			UserDefaults.standard.set(removeAnnotationOnDrag, forKey: UserDefaultsKeys.removeAnnotationOnDrag)
+			defaults.set(removeAnnotationOnDrag, forKey: UserDefaultsKeys.removeAnnotationOnDrag)
 		}
 	}
 
 	@Published public var showIdentifiers: Bool {
 		didSet {
-			UserDefaults.standard.set(showIdentifiers, forKey: UserDefaultsKeys.showIdentifiers)
+			defaults.set(showIdentifiers, forKey: UserDefaultsKeys.showIdentifiers)
 		}
 	}
 
@@ -108,7 +108,7 @@ final class Settings: ObservableObject, Validatable {
 	/// chrome visible and no floating button is shown.
 	@Published public var fullscreenDetection: Bool {
 		didSet {
-			UserDefaults.standard.set(fullscreenDetection, forKey: UserDefaultsKeys.fullscreenDetection)
+			defaults.set(fullscreenDetection, forKey: UserDefaultsKeys.fullscreenDetection)
 		}
 	}
 
@@ -117,23 +117,46 @@ final class Settings: ObservableObject, Validatable {
 	/// model at roughly double resolution at the cost of 6× inference per snapshot.
 	@Published public var tiledDetection: Bool {
 		didSet {
-			UserDefaults.standard.set(tiledDetection, forKey: UserDefaultsKeys.tiledDetection)
+			defaults.set(tiledDetection, forKey: UserDefaultsKeys.tiledDetection)
 		}
 	}
 
 	@Published public var entityId: UUID? {
 		didSet {
-			UserDefaults.standard.set(entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
+			defaults.set(entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
 		}
 	}
 
 	@Published public var isFirstLaunch: Bool { // is being reseted in MLBrowser
 		didSet {
-			UserDefaults.standard.set(isFirstLaunch, forKey: UserDefaultsKeys.isFirstLaunch)
+			defaults.set(isFirstLaunch, forKey: UserDefaultsKeys.isFirstLaunch)
 		}
 	}
 
+	/// Persistence store. Real builds use `.standard`; UI-test launches use an ephemeral
+	/// suite so test config never pollutes (or is polluted by) the simulator's real
+	/// defaults (AIA-0298).
+	private let defaults: UserDefaults
+
+	private static let uiTestSuiteName = "com.aiarcheology.uitests"
+
 	init() {
+		// UI-test launches get an ephemeral suite, cleared each launch, so deterministic
+		// test state never touches the real `standard` domain (AIA-0298).
+		let defaults: UserDefaults
+		if AppEnvironment.isRunningUITests {
+			// Fail fast: silently falling back to .standard would defeat the isolation and
+			// re-pollute the simulator's real defaults (AIA-0298).
+			guard let suite = UserDefaults(suiteName: Self.uiTestSuiteName) else {
+				fatalError("Could not create UI-test UserDefaults suite '\(Self.uiTestSuiteName)'")
+			}
+			suite.removePersistentDomain(forName: Self.uiTestSuiteName)
+			defaults = suite
+		} else {
+			defaults = .standard
+		}
+		self.defaults = defaults
+
 		let defaultValues: [String: Any] = [
 			UserDefaultsKeys.keepSlideShowActive: true,
 			UserDefaultsKeys.sizeHistory: 30,
@@ -157,21 +180,21 @@ final class Settings: ObservableObject, Validatable {
         ]
 
 		// Register default values
-		UserDefaults.standard.register(defaults: defaultValues)
-		self.keepSlideShowActive = UserDefaults.standard.bool(forKey: UserDefaultsKeys.keepSlideShowActive)
-		self.historySize = UserDefaults.standard.integer(forKey: UserDefaultsKeys.sizeHistory)
-		self.reopenLastPage = UserDefaults.standard.bool(forKey: UserDefaultsKeys.reopenLastPage)
-		self.isFirstLaunch = UserDefaults.standard.bool(forKey: UserDefaultsKeys.isFirstLaunch)
-		self.showIdentifiers = UserDefaults.standard.bool(forKey: UserDefaultsKeys.showIdentifiers)
-		self.snapAfterAppStart = UserDefaults.standard.bool(forKey: UserDefaultsKeys.snapAfterAppStart)
-		self.snapFrequency = UserDefaults.standard.double(forKey: UserDefaultsKeys.snapFrequency)
-		self.resetHistory = UserDefaults.standard.bool(forKey: UserDefaultsKeys.resetHistory)
-		self.defaultPage = UserDefaults.standard.url(forKey: UserDefaultsKeys.defaultPage)
-		self.lastPage = UserDefaults.standard.url(forKey: UserDefaultsKeys.lastPage)
-		self.removeAnnotationOnDrag = UserDefaults.standard.bool(forKey: UserDefaultsKeys.removeAnnotationOnDrag)
-		self.fullscreenDetection = UserDefaults.standard.bool(forKey: UserDefaultsKeys.fullscreenDetection)
-		self.tiledDetection = UserDefaults.standard.bool(forKey: UserDefaultsKeys.tiledDetection)
-		if let uuidString = UserDefaults.standard.string(forKey: UserDefaultsKeys.entityId),
+		defaults.register(defaults: defaultValues)
+		self.keepSlideShowActive = defaults.bool(forKey: UserDefaultsKeys.keepSlideShowActive)
+		self.historySize = defaults.integer(forKey: UserDefaultsKeys.sizeHistory)
+		self.reopenLastPage = defaults.bool(forKey: UserDefaultsKeys.reopenLastPage)
+		self.isFirstLaunch = defaults.bool(forKey: UserDefaultsKeys.isFirstLaunch)
+		self.showIdentifiers = defaults.bool(forKey: UserDefaultsKeys.showIdentifiers)
+		self.snapAfterAppStart = defaults.bool(forKey: UserDefaultsKeys.snapAfterAppStart)
+		self.snapFrequency = defaults.double(forKey: UserDefaultsKeys.snapFrequency)
+		self.resetHistory = defaults.bool(forKey: UserDefaultsKeys.resetHistory)
+		self.defaultPage = defaults.url(forKey: UserDefaultsKeys.defaultPage)
+		self.lastPage = defaults.url(forKey: UserDefaultsKeys.lastPage)
+		self.removeAnnotationOnDrag = defaults.bool(forKey: UserDefaultsKeys.removeAnnotationOnDrag)
+		self.fullscreenDetection = defaults.bool(forKey: UserDefaultsKeys.fullscreenDetection)
+		self.tiledDetection = defaults.bool(forKey: UserDefaultsKeys.tiledDetection)
+		if let uuidString = defaults.string(forKey: UserDefaultsKeys.entityId),
 		   let uuid = UUID(uuidString: uuidString) {
 			self.entityId = uuid
 		}
@@ -187,10 +210,17 @@ final class Settings: ObservableObject, Validatable {
 		if (snapFrequency >= 1.0 && snapFrequency <= 10.0).not {
 			throw ValidationError.invalidData("Settings's snapFrequency is required between 1.0 and 10.0!")
 		}
-		if defaultPage.isNotNil &&
-			defaultPage?.absoluteString.isEmpty == false &&
-			(defaultPage?.absoluteString.browserInputType == .url).not {
-			throw ValidationError.invalidData("Settings's defaultPage with valid URL is required.")
+		// A blank home page is valid: allow empty/nil and about:blank (any case). Otherwise
+		// the value must be a *loadable* URL — a real http(s) input WITH a host. "https://"
+		// classifies as `.url` but has no host and can never load, so require host != nil
+		// (AIA-0298).
+		if let page = defaultPage?.absoluteString,
+			page.isEmpty == false,
+			page.lowercased() != "about:blank" {
+			let isLoadableURL = page.browserInputType == .url && defaultPage?.host() != nil
+			if isLoadableURL.not {
+				throw ValidationError.invalidData("Settings's defaultPage must be empty, about:blank, or a valid URL with a host.")
+			}
 		}
 		if entityId.isNil || entityId?.uuidString.isEmpty == true {
 			throw ValidationError.invalidData("Settings's entityId is required.")
@@ -215,19 +245,19 @@ final class Settings: ObservableObject, Validatable {
 		fullscreenDetection = false
 		tiledDetection = true
 
-		UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.lastPage)
-		UserDefaults.standard.set(keepSlideShowActive, forKey: UserDefaultsKeys.keepSlideShowActive)
-		UserDefaults.standard.set(historySize, forKey: UserDefaultsKeys.sizeHistory)
-		UserDefaults.standard.set(reopenLastPage, forKey: UserDefaultsKeys.reopenLastPage)
-		UserDefaults.standard.set(isFirstLaunch, forKey: UserDefaultsKeys.isFirstLaunch)
-		UserDefaults.standard.set(showIdentifiers, forKey: UserDefaultsKeys.showIdentifiers)
-		UserDefaults.standard.set(snapAfterAppStart, forKey: UserDefaultsKeys.snapAfterAppStart)
-		UserDefaults.standard.set(snapFrequency, forKey: UserDefaultsKeys.snapFrequency)
-		UserDefaults.standard.set(resetHistory, forKey: UserDefaultsKeys.resetHistory)
-		UserDefaults.standard.set(defaultPage, forKey: UserDefaultsKeys.defaultPage)
-		UserDefaults.standard.set(removeAnnotationOnDrag, forKey: UserDefaultsKeys.removeAnnotationOnDrag)
-		UserDefaults.standard.set(entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
-		UserDefaults.standard.set(fullscreenDetection, forKey: UserDefaultsKeys.fullscreenDetection)
-		UserDefaults.standard.set(tiledDetection, forKey: UserDefaultsKeys.tiledDetection)
+		defaults.removeObject(forKey: UserDefaultsKeys.lastPage)
+		defaults.set(keepSlideShowActive, forKey: UserDefaultsKeys.keepSlideShowActive)
+		defaults.set(historySize, forKey: UserDefaultsKeys.sizeHistory)
+		defaults.set(reopenLastPage, forKey: UserDefaultsKeys.reopenLastPage)
+		defaults.set(isFirstLaunch, forKey: UserDefaultsKeys.isFirstLaunch)
+		defaults.set(showIdentifiers, forKey: UserDefaultsKeys.showIdentifiers)
+		defaults.set(snapAfterAppStart, forKey: UserDefaultsKeys.snapAfterAppStart)
+		defaults.set(snapFrequency, forKey: UserDefaultsKeys.snapFrequency)
+		defaults.set(resetHistory, forKey: UserDefaultsKeys.resetHistory)
+		defaults.set(defaultPage, forKey: UserDefaultsKeys.defaultPage)
+		defaults.set(removeAnnotationOnDrag, forKey: UserDefaultsKeys.removeAnnotationOnDrag)
+		defaults.set(entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
+		defaults.set(fullscreenDetection, forKey: UserDefaultsKeys.fullscreenDetection)
+		defaults.set(tiledDetection, forKey: UserDefaultsKeys.tiledDetection)
 	}
 }
