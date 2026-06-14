@@ -42,13 +42,13 @@ final class BrowsingHistoryUITests: UITestCase {
     // after deletion` in BrowsingHistoryView (the @FetchRequest doesn't refresh after the
     // per-row delete). Re-enable once that refresh is fixed; the test logic is ready.
     func testHistory_deleteEntry_removesIt() throws {
-        throw XCTSkip("History list does not refresh after a per-row delete (existing app TODO).")
+        throw XCTSkip("Blocked by AIA-0307: history list does not refresh after a per-row delete. Re-enable when fixed.")
     }
 
     // Deferred. Clear-all deletes the entries but the list does not empty in the UI: the clear
     // path uses a store-level deleteAll that bypasses the @FetchRequest's change tracking (same
     // root cause as the per-row delete). Re-enable once history refresh is fixed.
     func testHistory_clearAll_emptiesList() throws {
-        throw XCTSkip("History list does not refresh after clear-all (existing app TODO).")
+        throw XCTSkip("Blocked by AIA-0307: history list does not refresh after clear-all. Re-enable when fixed.")
     }
 }

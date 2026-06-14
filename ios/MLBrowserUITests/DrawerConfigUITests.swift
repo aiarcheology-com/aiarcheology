@@ -40,6 +40,6 @@ final class DrawerConfigUITests: UITestCase {
     // once the drawer exposes a non-swipe delete affordance or the gesture conflict is
     // resolved. (Model deletion itself is covered at the unit level.)
     func testDrawer_deleteModel_removesCell() throws {
-        throw XCTSkip("Drawer's drag gesture intercepts row swipe-to-delete in XCUITest; see comment.")
+        throw XCTSkip("Blocked by AIA-0308: drawer drag gesture intercepts the row swipe-to-delete in XCUITest. Re-enable when fixed.")
     }
 }
