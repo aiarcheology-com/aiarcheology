@@ -114,6 +114,7 @@ struct ContentView: View {
         .checkpoint(.horizontalSizeClass, value: horizontalSizeClass == .regular ? "regular" : "compact")
         .checkpoint(.fullscreenFeatureEnabled, value: fullscreenFeatureEnabled ? "true" : "false")
         .checkpoint(.appMode, value: selectedMode == .web ? "web" : "gallery")
+        .checkpoint(.deviceIdiom, value: HostPlatform.current.isiPhone ? "phone" : "pad")
     }
     
     // MARK: - Main Content
@@ -180,17 +181,27 @@ struct ContentView: View {
             .environmentObject(appState)
     }
 
-    // Floating back/reload/forward capsule for compact widths — part of the
-    // chrome, so fullscreen detection hides it together with the bars.
+    // Floating back/reload/forward(/find) capsule. Unlike the rest of the chrome, it
+    // stays visible in fullscreen — that's where it also carries Find (the top bar is gone).
     @ViewBuilder
     private var floatingNavBar: some View {
-        if selectedMode == .web && horizontalSizeClass == .compact && chromeVisible {
-            FloatingNavBar(position: $floatingNavBarPosition, onFind: {
+        if showsNavCapsule {
+            FloatingNavBar(position: $floatingNavBarPosition, showsFind: fullscreenActive, onFind: {
                 appState.guide.findTapped()
             })
             .environmentObject(appState.browserState)
             .transition(.opacity)
         }
+    }
+
+    /// The navigation capsule shows on iPhone in normal mode (the top bar has no room for
+    /// back/forward/reload there), and on *every* device in fullscreen, where the top bar —
+    /// and its Find button — are hidden, so the capsule also carries Find. iPad/Mac keep
+    /// navigation in the top bar in normal mode (AIA-0294).
+    private var showsNavCapsule: Bool {
+        guard selectedMode == .web else { return false }
+        if fullscreenActive { return true }
+        return HostPlatform.current.isiPhone && chromeVisible
     }
 
     // Chrome toggle for fullscreen detection mode; only its 52pt frame

@@ -298,6 +298,8 @@ extension TestabilityIdentification {
 		case fullscreenFeatureEnabled
 		/// The current `AppMode` raw value.
 		case appMode
+		/// `phone` / `pad` — the device idiom that drives chrome layout (AIA-0294).
+		case deviceIdiom
 	}
 	
 	enum MenuItem: String, TestabilityIdentification {
