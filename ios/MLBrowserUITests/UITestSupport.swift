@@ -123,6 +123,21 @@ class UITestCase: XCTestCase {
 	/// assertions (iPhone uses the capsule; iPad/Mac put navigation in the top bar).
 	var isPhoneIdiom: Bool { checkpointValue(AID.cpDeviceIdiom) == "phone" }
 
+	/// Waits until the app window reports landscape dimensions, so geometry-based
+	/// assertions run only after a rotation has actually re-laid out. The size-class and
+	/// idiom checkpoints don't change on iPhone rotation, so they can't serve as the
+	/// settle signal — the window aspect can.
+	@discardableResult
+	func waitForLandscape(timeout: TimeInterval = 10) -> Bool {
+		let isLandscape = NSPredicate { object, _ in
+			guard let window = object as? XCUIElement else { return false }
+			let frame = window.frame
+			return frame.width > frame.height
+		}
+		let expectation = XCTNSPredicateExpectation(predicate: isLandscape, object: app.windows.firstMatch)
+		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+	}
+
 	// MARK: Layout assertions
 
 	/// Asserts the listed button identifiers exist (non-zero width) and are laid out

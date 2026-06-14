@@ -7,10 +7,12 @@
 
 import SwiftUI
 
-/// A movable, semi-transparent back | reload/stop | forward capsule for compact widths,
-/// where the top bar has no room for navigation buttons. Same interaction pattern as
-/// `FloatingChromeButton`: only the capsule's own frame is hit-testable, the drag engages
-/// after 10 pt of movement, still touches fall through to the per-icon taps.
+/// A movable, semi-transparent back | reload/stop | forward (| find) capsule. Shown on
+/// iPhone in normal mode (the top bar has no room for navigation there) and on every
+/// device in fullscreen, where the top bar is hidden so the capsule also carries Find
+/// (`showsFind`). Same interaction pattern as `FloatingChromeButton`: only the capsule's
+/// own frame is hit-testable, the drag engages after 10 pt of movement, and other touches
+/// fall through to the per-icon taps.
 struct FloatingNavBar: View {
 	@EnvironmentObject var browserState: BrowserState
 	@Binding var position: CGPoint?

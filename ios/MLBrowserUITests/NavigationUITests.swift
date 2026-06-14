@@ -32,7 +32,7 @@ final class NavigationUITests: UITestCase {
 		XCTAssertTrue(app.buttons[AID.cpu].waitForExistence(timeout: 15))
 
 		XCUIDevice.shared.orientation = .landscapeLeft
-		_ = checkpointValue(AID.cpDeviceIdiom) // let layout settle after rotation
+		XCTAssertTrue(waitForLandscape(), "App should re-lay out in landscape before asserting geometry")
 		XCTAssertTrue(app.buttons[AID.cpu].waitForExistence(timeout: 10))
 
 		assertNormalModeComposition()
