@@ -50,7 +50,9 @@ enum HistoryError: Error {
 import Vision
 struct WebScreenView: View {
 	@Environment(\.managedObjectContext) var moc
-	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
+	/// iPad and Mac place BACK/FORWARD/RELOAD in the top bar; iPhone keeps them in the
+	/// floating capsule, so the top bar has room for the address + Find (AIA-0294).
+	private var showsTopBarNavigation: Bool { HostPlatform.current.isiPhone == false }
 	@FetchRequest(
 		sortDescriptors: [NSSortDescriptor(keyPath: \WebHistoryEntry.creationDate_, ascending: false)],
 		predicate: NSPredicate(format: "page != nil AND creationDate_ != nil"),
@@ -84,17 +86,16 @@ struct WebScreenView: View {
 	@ToolbarContentBuilder
 	var toolbarContent: some ToolbarContent {
 		ToolbarItem(placement: .principal) {
-			// Regular width groups BACK | ADDRESS | FORWARD | RELOAD together — all
-			// browser actions in one cluster, mentally separate from the detection
-			// buttons in the trailing group; compact relies on the floating capsule.
+			// iPad/Mac group BACK | ADDRESS | FORWARD | RELOAD together; iPhone shows only
+			// the address here and relies on the floating capsule for navigation.
 			HStack(spacing: 8) {
-				if horizontalSizeClass == .regular {
+				if showsTopBarNavigation {
 					WebBackButton()
 				}
 				WebAddressDisplay {
 					presentLocationSheet = true
 				}
-				if horizontalSizeClass == .regular {
+				if showsTopBarNavigation {
 					WebForwardButton()
 					WebReloadStopButton()
 				}
