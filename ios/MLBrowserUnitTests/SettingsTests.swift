@@ -276,10 +276,19 @@ final class SettingsTests: XCTestCase {
         settings.snapFrequency = 5.0
         settings.defaultPage = nil
         settings.entityId = UUID()
-        
+
         XCTAssertNoThrow(try settings.validate())
     }
-    
+
+    func testValidate_AboutBlankDefaultPage_DoesNotThrow() {
+        // A blank home page is a supported state (AIA-0298): about:blank must not block dismiss.
+        settings.snapFrequency = 5.0
+        settings.defaultPage = URL(string: "about:blank")
+        settings.entityId = UUID()
+
+        XCTAssertNoThrow(try settings.validate())
+    }
+
     // MARK: - Reset Tests
     
     func testReset_RestoresAllDefaultValues() {
