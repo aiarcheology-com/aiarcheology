@@ -34,8 +34,10 @@ final class AddressBarUITests: UITestCase {
     func testLocationSheet_showsSeededHistory() {
         launch()
         openLocationSheet()
-        let firstItem = app.buttons.matching(identifier: AID.locationHistoryItem).firstMatch
-        XCTAssertTrue(firstItem.waitForExistence(timeout: 10), "Seeded history not shown in location sheet")
+        let items = app.buttons.matching(identifier: AID.locationHistoryItem)
+        XCTAssertTrue(items.firstMatch.waitForExistence(timeout: 10), "Seeded history not shown in location sheet")
+        // Multiple items, not just one. Exact count not asserted (lazy List realization).
+        XCTAssertGreaterThanOrEqual(items.count, 2, "Expected multiple seeded history items")
     }
 
     func testLocationSheet_toggleFullUrls_keepsHistoryVisible() {

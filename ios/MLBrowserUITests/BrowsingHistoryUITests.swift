@@ -31,6 +31,10 @@ final class BrowsingHistoryUITests: UITestCase {
         launch()
         openHistory()
         XCTAssertTrue(historyRows().firstMatch.waitForExistence(timeout: 10), "No seeded history entries shown")
+        // Assert multiple rows populate, not just one. Exact count is deliberately not asserted:
+        // a SwiftUI List realizes only on-screen rows, so the query reflects visible rows, not the
+        // six seeded entries.
+        XCTAssertGreaterThanOrEqual(historyRows().count, 2, "Expected multiple seeded history entries")
     }
 
     // Deferred. The delete swipe action is found and tapped, but the list does not update —

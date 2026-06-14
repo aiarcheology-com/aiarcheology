@@ -267,6 +267,10 @@ class UITestCase: XCTestCase {
 	/// Scrolls the screen (swiping up) until the identified element exists, capped at
 	/// `maxSwipes`. SwiftUI `Form`/`List` realize off-screen rows lazily, so an element below
 	/// the fold may not exist until scrolled toward.
+	///
+	/// Precondition: only scrolls *down* (content up). Callers that scroll to several elements
+	/// must request them in top-to-bottom order; this helper cannot return to an element already
+	/// scrolled past. Swiping up never triggers a sheet's interactive (downward) dismiss.
 	@discardableResult
 	func scrollTo(_ id: String, maxSwipes: Int = 8) -> Bool {
 		let target = element(id)
@@ -285,13 +289,18 @@ class UITestCase: XCTestCase {
 		let toggle = app.switches.matching(identifier: id).firstMatch
 		guard toggle.waitForExistence(timeout: timeout) else { return false }
 		let before = (toggle.value as? String) ?? ""
-		// Tap the control's trailing edge, not the element center: a labelled Form Toggle's
-		// accessibility element spans the whole row, so a center tap lands on the label and
-		// never flips the switch (a `.labelsHidden()` toggle is unaffected — 0.9 is still on
-		// the control).
-		toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
 		let flipped = NSPredicate(format: "value != %@", before)
-		let expectation = XCTNSPredicateExpectation(predicate: flipped, object: toggle)
-		return XCTWaiter().wait(for: [expectation], timeout: 5) == .completed
+
+		// A `.labelsHidden()` Toggle (e.g. the drawer cell) is a control-only element, so a plain
+		// tap flips it. A labelled Form Toggle's accessibility element spans the whole row, so a
+		// center tap lands on the label and no-ops — fall back to tapping the trailing edge where
+		// the switch control sits. Trying the plain tap first keeps this resilient to a row
+		// gaining a trailing accessory that would shift the control off the 0.9 fraction.
+		toggle.tap()
+		if XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: flipped, object: toggle)], timeout: 2) == .completed {
+			return true
+		}
+		toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+		return XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: flipped, object: toggle)], timeout: 5) == .completed
 	}
 }

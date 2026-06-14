@@ -141,9 +141,14 @@ final class DataController: ObservableObject {
 	/// Store description for UI-test runs: a dedicated SQLite file in Caches, kept separate from
 	/// the real store so tests never read or clobber production data.
 	private static func uiTestStoreDescription() -> NSPersistentStoreDescription {
-		let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+		guard let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+			fatalError("UI-test store: caches directory unavailable")
+		}
 		let storeURL = cachesURL.appendingPathComponent("UITests-\(containerName).sqlite")
 		let description = NSPersistentStoreDescription(url: storeURL)
+		// Set the type explicitly so destroyPersistentStore can never be a no-op against a
+		// different default store type if Core Data's default changes.
+		description.type = NSSQLiteStoreType
 		description.shouldMigrateStoreAutomatically = true
 		description.shouldInferMappingModelAutomatically = true
 		return description
