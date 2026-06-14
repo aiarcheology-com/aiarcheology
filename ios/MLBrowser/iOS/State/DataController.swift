@@ -110,6 +110,15 @@ final class DataController: ObservableObject {
             let description = NSPersistentStoreDescription()
             description.type = NSInMemoryStoreType
             container.persistentStoreDescriptions = [description]
+        } else if AppEnvironment.isRunningUITests {
+            // UI tests run against a dedicated, disposable store so every launch starts from a
+            // clean, demo-seeded baseline — the Core Data analogue of the ephemeral UserDefaults
+            // suite (AIA-0298). The production store is never touched. Destroy any prior UI-test
+            // store first (WAL/SHM-safe via the coordinator, not a raw file delete), then the
+            // fresh load below recreates it empty and DemoDataManager reseeds it.
+            let description = Self.uiTestStoreDescription()
+            container.persistentStoreDescriptions = [description]
+            destroyUITestStore(description)
         } else if let desc = container.persistentStoreDescriptions.first {
             desc.shouldMigrateStoreAutomatically = true
             desc.shouldInferMappingModelAutomatically = shouldInferMappingModelAutomatically
@@ -127,6 +136,47 @@ final class DataController: ObservableObject {
 		description.shouldInferMappingModelAutomatically = true
 		container.persistentStoreDescriptions = [description]
 		loadStores()
+	}
+
+	/// Store description for UI-test runs: a dedicated SQLite file in Caches, kept separate from
+	/// the real store so tests never read or clobber production data.
+	private static func uiTestStoreDescription() -> NSPersistentStoreDescription {
+		guard let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
+			fatalError("UI-test store: caches directory unavailable")
+		}
+		let storeURL = cachesURL.appendingPathComponent("UITests-\(containerName).sqlite")
+		let description = NSPersistentStoreDescription(url: storeURL)
+		// Set the type explicitly so destroyPersistentStore can never be a no-op against a
+		// different default store type if Core Data's default changes.
+		description.type = NSSQLiteStoreType
+		description.shouldMigrateStoreAutomatically = true
+		description.shouldInferMappingModelAutomatically = true
+		return description
+	}
+
+	/// Destroys the UI-test store before loading so each launch starts empty. Uses the
+	/// coordinator's `destroyPersistentStore` (handles WAL/SHM) rather than deleting the bare
+	/// `.sqlite`, which would leak the sidecar files and yield a half-empty store next launch.
+	private func destroyUITestStore(_ description: NSPersistentStoreDescription) {
+		guard let storeURL = description.url else { return }
+		// First UI-test launch on a clean simulator has no prior store — nothing to destroy.
+		// Skip so the success path stays quiet and only genuine destroy failures are logged.
+		// Check the SQLite sidecars too: a partial prior cleanup can leave -wal/-shm without the
+		// base .sqlite, and those must still be cleared to avoid inconsistent state next launch.
+		let storeFiles = [storeURL.path, storeURL.path + "-wal", storeURL.path + "-shm"]
+		guard storeFiles.contains(where: { FileManager.default.fileExists(atPath: $0) }) else { return }
+		do {
+			try container.persistentStoreCoordinator.destroyPersistentStore(
+				at: storeURL,
+				ofType: description.type,
+				options: description.options
+			)
+		} catch {
+			// If we can't reset the UI-test store, the per-launch isolation guarantee is broken:
+			// continuing into loadStores() would reopen the prior run's data and make mutating UI
+			// tests order-dependent. Fail the launch loudly instead. (UI-test-only path.)
+			LoggingPolicy.criticalFailure("Failed to reset UI-test store; aborting to preserve isolation: \(error.localizedDescription)")
+		}
 	}
 
 	private func loadStores() {
@@ -214,8 +264,13 @@ final class DataController: ObservableObject {
 					managedObjectModel: Self.sharedModel
 				)
 
-				// Reapply the same configuration
-				if let desc = self.container.persistentStoreDescriptions.first {
+				// Reapply the same configuration. Under UI tests, pin the dedicated UI-test store
+				// again so the retry never falls back to the default (production) store location —
+				// preserving the "never touch the production store" isolation guarantee even on the
+				// migration-recovery path.
+				if AppEnvironment.isRunningUITests {
+					self.container.persistentStoreDescriptions = [Self.uiTestStoreDescription()]
+				} else if let desc = self.container.persistentStoreDescriptions.first {
 					desc.shouldMigrateStoreAutomatically = true
 					desc.shouldInferMappingModelAutomatically = shouldInferMappingModelAutomatically
 				}

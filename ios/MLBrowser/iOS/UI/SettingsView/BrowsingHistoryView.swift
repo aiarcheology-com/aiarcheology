@@ -25,7 +25,10 @@ struct BrowserHistoryView: View {
 					clearSection
 					historySection
 				}
-				.testability(Testability.List.browsingHistoryList)
+				// NB: a `.testability` on the List propagates its identifier onto every row,
+				// clobbering the per-row / button identifiers UI tests rely on. Row- and
+				// control-level identifiers (browsingHistoryItem, browsingHistoryClear, …) are
+				// the testability surface here; the screen is anchored by its navigation title.
 				.alert(isPresented: $showingAlert) { clearAlert }
 			}
 		}
@@ -65,6 +68,7 @@ struct BrowserHistoryView: View {
 		let page = item.page?.absoluteString ?? "Unknown Page"
 		HStack {
 			Text(page)
+				.testability(Testability.Label.browsingHistoryItem)
 				.swipeActions {
 					Button(action: {
 						UIPasteboard.general.string = page

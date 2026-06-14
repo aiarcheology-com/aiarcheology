@@ -215,6 +215,7 @@ private struct ConfigurationRow: View {
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .truncationMode(.tail)
+                    .testability(Testability.Label.sideMenuCellDescription)
                 
                 if let author = configuration.author {
                     Text(author)
@@ -245,6 +246,7 @@ private struct ConfigurationRow: View {
             ))
             .tint(configuration.annotationColor)
             .labelsHidden()
+            .testability(Testability.Toggle.sideMenuCellEnabled)
         }
         .contentShape(Rectangle())
         .onTapGesture { onTap() }
@@ -253,6 +255,7 @@ private struct ConfigurationRow: View {
             Button(role: .destructive, action: onDelete) {
                 Label(L10n.Common.delete, systemImage: "trash")
             }
+            .testability(Testability.Button.sideMenuDeleteConfiguration)
         }
         .contextMenu {
             Button(role: .destructive, action: onDelete) {
