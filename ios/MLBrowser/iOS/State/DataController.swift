@@ -169,7 +169,10 @@ final class DataController: ObservableObject {
 				options: description.options
 			)
 		} catch {
-			LoggingPolicy.error("Failed to destroy UI-test store: \(error.localizedDescription)", logger: .persistence)
+			// If we can't reset the UI-test store, the per-launch isolation guarantee is broken:
+			// continuing into loadStores() would reopen the prior run's data and make mutating UI
+			// tests order-dependent. Fail the launch loudly instead. (UI-test-only path.)
+			LoggingPolicy.criticalFailure("Failed to reset UI-test store; aborting to preserve isolation: \(error.localizedDescription)")
 		}
 	}
 

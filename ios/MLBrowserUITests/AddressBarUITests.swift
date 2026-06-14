@@ -40,7 +40,12 @@ final class AddressBarUITests: UITestCase {
         XCTAssertGreaterThanOrEqual(items.count, 2, "Expected multiple seeded history items")
     }
 
-    func testLocationSheet_toggleFullUrls_keepsHistoryVisible() {
+    // Smoke check: the full-URLs control is present and interactive, and toggling the display
+    // mode keeps the location sheet functional (history still listed). The per-row host↔full-URL
+    // truncation change itself is not asserted: each row button carries its testability identifier
+    // as its accessibility label, so the underlying URL text isn't reliably observable here.
+    // Verifying the visual truncation belongs to a snapshot test, not an XCUITest assertion.
+    func testLocationSheet_toggleFullUrls_keepsSheetFunctional() {
         launch()
         openLocationSheet()
         let firstItem = app.buttons.matching(identifier: AID.locationHistoryItem).firstMatch
@@ -48,9 +53,13 @@ final class AddressBarUITests: UITestCase {
 
         let fullUrls = app.buttons[AID.locationFullUrls]
         XCTAssertTrue(fullUrls.waitForExistence(timeout: 5), "Full-URLs toggle missing")
+        XCTAssertTrue(fullUrls.isHittable, "Full-URLs toggle is not interactive")
         fullUrls.tap()
 
-        // History remains listed after toggling the display mode.
-        XCTAssertTrue(app.buttons.matching(identifier: AID.locationHistoryItem).firstMatch.waitForExistence(timeout: 5))
+        // The sheet stays functional and history is still listed after toggling the display mode.
+        XCTAssertTrue(
+            app.buttons.matching(identifier: AID.locationHistoryItem).firstMatch.waitForExistence(timeout: 5),
+            "History no longer listed after toggling display mode"
+        )
     }
 }
