@@ -67,18 +67,28 @@ enum AID {
 /// Base class for ML Browser UI tests. Subclasses call `launch(...)` and use the helpers
 /// below. Orientation is reset to portrait around every test so rotation never leaks into
 /// the next one.
+///
+/// `@MainActor`: UI testing drives `XCUIApplication`/`XCUIElement`/`XCUIDevice`, which are
+/// main-actor isolated, so the whole case runs on the main actor (Apple's recommended
+/// pattern). This also clears the Swift 6 isolation warnings the helpers would otherwise emit.
+@MainActor
 class UITestCase: XCTestCase {
 
 	var app: XCUIApplication!
 
-	override func setUpWithError() throws {
+	// Async setUp/tearDown (not the `…WithError` overrides) so they inherit the class's
+	// `@MainActor` isolation — the `…WithError` variants override nonisolated XCTestCase
+	// methods and would stay nonisolated, re-introducing the Swift 6 isolation warnings.
+	override func setUp() async throws {
+		try await super.setUp()
 		continueAfterFailure = false
 		XCUIDevice.shared.orientation = .portrait
 	}
 
-	override func tearDownWithError() throws {
+	override func tearDown() async throws {
 		XCUIDevice.shared.orientation = .portrait
 		app = nil
+		try await super.tearDown()
 	}
 
 	/// Launches the app with a deterministic configuration. The default config applies the
