@@ -152,7 +152,8 @@ struct WebScreenView: View {
                     if loadRequest.input != lastPage.absoluteString {
                         loadRequest = loadRequest.next(lastPage.absoluteString)
                     }
-                } else if let defaultPage = appState.settings.defaultPage?.absoluteString {
+                } else if let defaultPage = appState.settings.defaultPage?.absoluteString,
+                    defaultPage.lowercased() != "about:blank" {
                     intendedPageKind = "home"
                     // No generation bump when the initial request already targets the
                     // default page — it would reload the same URL a second time.
@@ -161,6 +162,8 @@ struct WebScreenView: View {
                     }
                     createOrRefreshWebHistoryEntry(defaultPage, maxEntries: appState.settings.historySize)
                 } else {
+                    // No home page, or an explicit about:blank — stay blank rather than
+                    // search-treating "about:blank" in the load pipeline (AIA-0298).
                     intendedPageKind = "blank"
                 }
             }

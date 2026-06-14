@@ -276,10 +276,35 @@ final class SettingsTests: XCTestCase {
         settings.snapFrequency = 5.0
         settings.defaultPage = nil
         settings.entityId = UUID()
-        
+
         XCTAssertNoThrow(try settings.validate())
     }
-    
+
+    func testValidate_AboutBlankDefaultPage_DoesNotThrow() {
+        // A blank home page is a supported state (AIA-0298): about:blank must not block dismiss.
+        settings.snapFrequency = 5.0
+        settings.defaultPage = URL(string: "about:blank")
+        settings.entityId = UUID()
+
+        XCTAssertNoThrow(try settings.validate())
+    }
+
+    func testValidate_DefaultPageWithoutHost_ThrowsError() {
+        // A scheme-only URL ("https://") has no host and can never load, so it must fail
+        // validation even though browserInputType may classify it as `.url` (AIA-0298).
+        settings.snapFrequency = 5.0
+        settings.defaultPage = URL(string: "https://")
+        settings.entityId = UUID()
+
+        XCTAssertThrowsError(try settings.validate()) { error in
+            guard case ValidationError.invalidData(let message) = error else {
+                XCTFail("Expected ValidationError.invalidData")
+                return
+            }
+            XCTAssertTrue(message.contains("defaultPage"))
+        }
+    }
+
     // MARK: - Reset Tests
     
     func testReset_RestoresAllDefaultValues() {
