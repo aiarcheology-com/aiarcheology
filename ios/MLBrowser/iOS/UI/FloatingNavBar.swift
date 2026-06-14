@@ -14,17 +14,21 @@ import SwiftUI
 struct FloatingNavBar: View {
 	@EnvironmentObject var browserState: BrowserState
 	@Binding var position: CGPoint?
-	/// Starts the store-a-finding pick mode — compact widths have no room for the
-	/// Find button in the top bar, so it lives here with the navigation items.
+	/// Find joins the capsule only in fullscreen, where the top bar (and its Find button)
+	/// are hidden. In normal mode the capsule is back/reload/forward only (AIA-0294).
+	let showsFind: Bool
+	/// Starts the store-a-finding pick mode (used when Find lives in the capsule).
 	let onFind: () -> Void
 
 	@GestureState private var dragOffset: CGSize = .zero
 
 	private static let height: CGFloat = 52
-	private static let width: CGFloat = 4 * 56
-	private static let itemCount: CGFloat = 4
+	private static let itemWidth: CGFloat = 56
 	private static let margin: CGFloat = 16
 	private static let coordinateSpace = "floatingNavBarArea"
+
+	private var itemCount: CGFloat { showsFind ? 4 : 3 }
+	private var barWidth: CGFloat { itemCount * Self.itemWidth }
 
 	var body: some View {
 		GeometryReader { geometry in
@@ -46,16 +50,18 @@ struct FloatingNavBar: View {
 				) {
 					browserState.goForwardTapped()
 				}
-				navItem(
-					systemImage: "plus.viewfinder",
-					enabled: true,
-					label: L10n.Finding.Save.title,
-					testability: .floatingNavFind
-				) {
-					onFind()
+				if showsFind {
+					navItem(
+						systemImage: "plus.viewfinder",
+						enabled: true,
+						label: L10n.Finding.Save.title,
+						testability: .floatingNavFind
+					) {
+						onFind()
+					}
 				}
 			}
-			.frame(width: Self.width, height: Self.height)
+			.frame(width: barWidth, height: Self.height)
 			.background(
 				// Translucency on the background only — icons keep full opacity so they
 				// stay legible over busy web content.
@@ -108,7 +114,7 @@ struct FloatingNavBar: View {
 			.font(.system(size: 18, weight: .semibold))
 			.foregroundStyle(.primary)
 			.opacity(enabled ? 1 : 0.35)
-			.frame(width: Self.width / Self.itemCount, height: Self.height)
+			.frame(width: Self.itemWidth, height: Self.height)
 			.contentShape(Rectangle())
 			.onTapGesture {
 				guard enabled else { return }
@@ -152,7 +158,7 @@ struct FloatingNavBar: View {
 	}
 
 	private func clamp(_ point: CGPoint, in size: CGSize) -> CGPoint {
-		let halfWidth = Self.width / 2
+		let halfWidth = barWidth / 2
 		let halfHeight = Self.height / 2
 		return CGPoint(
 			x: min(max(point.x, halfWidth + Self.margin), max(size.width - halfWidth - Self.margin, halfWidth + Self.margin)),

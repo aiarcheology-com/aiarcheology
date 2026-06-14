@@ -39,6 +39,7 @@ enum AID {
 	static let cpSizeClass = "_AIA:Checkpoint.HorizontalSizeClass"
 	static let cpFullscreen = "_AIA:Checkpoint.FullscreenFeatureEnabled"
 	static let cpAppMode = "_AIA:Checkpoint.AppMode"
+	static let cpDeviceIdiom = "_AIA:Checkpoint.DeviceIdiom"
 
 	// Top toolbar (real Buttons)
 	static let cpu = "_AIA:Button.GlobalToolbarSideMenu"
@@ -56,6 +57,7 @@ enum AID {
 	static let floatForward = "_AIA:Button.FloatingNavForward"
 	static let floatReload = "_AIA:Button.FloatingNavReload"
 	static let floatFind = "_AIA:Button.FloatingNavFind"
+	static let chromeToggle = "_AIA:Button.FloatingChromeToggle"
 
 	static func slide(_ index: Int) -> String { "_AIA:View.SlideshowSlide#\(index)" }
 }
@@ -114,9 +116,12 @@ class UITestCase: XCTestCase {
 		return (element.value as? String) ?? element.label
 	}
 
-	/// The active horizontal size class, read from the in-app checkpoint. Drives the
-	/// size-class-adaptive composition assertions.
+	/// The active horizontal size class, read from the in-app checkpoint.
 	var isRegularWidth: Bool { checkpointValue(AID.cpSizeClass) == "regular" }
+
+	/// The device idiom, read from the in-app checkpoint. Drives the chrome-composition
+	/// assertions (iPhone uses the capsule; iPad/Mac put navigation in the top bar).
+	var isPhoneIdiom: Bool { checkpointValue(AID.cpDeviceIdiom) == "phone" }
 
 	// MARK: Layout assertions
 
