@@ -46,7 +46,6 @@ struct GlobalToolbarLeading: View {
 
 struct GlobalToolbarTrailing: View {
 	@EnvironmentObject var guide: Guide
-	@Environment(\.horizontalSizeClass) private var horizontalSizeClass
 	@State private var isAnimating = false
 	@State private var showPopoverAdjustment = false
 
@@ -55,11 +54,9 @@ struct GlobalToolbarTrailing: View {
 		// measure as small as 19x36pt with an 8pt gap, below the recommended
 		// hit-target size, and sat visibly cramped on Dynamic Island devices.
 		HStack(spacing: 16) {
-			// Compact widths have no room (AIA-0183) — there the Find button
-			// lives in the floating navigation capsule instead.
-			if horizontalSizeClass == .regular {
-				findButton
-			}
+			// Find lives in the top bar in normal mode on every device (AIA-0294); in
+			// fullscreen the bar is hidden, so it moves to the floating capsule instead.
+			findButton
 			detectionButton
 			// Always available: users adjust brightness/contrast/saturation
 			// of the content also while no detection runs.

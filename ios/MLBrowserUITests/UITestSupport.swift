@@ -39,6 +39,7 @@ enum AID {
 	static let cpSizeClass = "_AIA:Checkpoint.HorizontalSizeClass"
 	static let cpFullscreen = "_AIA:Checkpoint.FullscreenFeatureEnabled"
 	static let cpAppMode = "_AIA:Checkpoint.AppMode"
+	static let cpDeviceIdiom = "_AIA:Checkpoint.DeviceIdiom"
 
 	// Top toolbar (real Buttons)
 	static let cpu = "_AIA:Button.GlobalToolbarSideMenu"
@@ -56,6 +57,7 @@ enum AID {
 	static let floatForward = "_AIA:Button.FloatingNavForward"
 	static let floatReload = "_AIA:Button.FloatingNavReload"
 	static let floatFind = "_AIA:Button.FloatingNavFind"
+	static let chromeToggle = "_AIA:Button.FloatingChromeToggle"
 
 	static func slide(_ index: Int) -> String { "_AIA:View.SlideshowSlide#\(index)" }
 }
@@ -114,9 +116,27 @@ class UITestCase: XCTestCase {
 		return (element.value as? String) ?? element.label
 	}
 
-	/// The active horizontal size class, read from the in-app checkpoint. Drives the
-	/// size-class-adaptive composition assertions.
+	/// The active horizontal size class, read from the in-app checkpoint.
 	var isRegularWidth: Bool { checkpointValue(AID.cpSizeClass) == "regular" }
+
+	/// The device idiom, read from the in-app checkpoint. Drives the chrome-composition
+	/// assertions (iPhone uses the capsule; iPad/Mac put navigation in the top bar).
+	var isPhoneIdiom: Bool { checkpointValue(AID.cpDeviceIdiom) == "phone" }
+
+	/// Waits until the app window reports landscape dimensions, so geometry-based
+	/// assertions run only after a rotation has actually re-laid out. The size-class and
+	/// idiom checkpoints don't change on iPhone rotation, so they can't serve as the
+	/// settle signal — the window aspect can.
+	@discardableResult
+	func waitForLandscape(timeout: TimeInterval = 10) -> Bool {
+		let isLandscape = NSPredicate { object, _ in
+			guard let window = object as? XCUIElement else { return false }
+			let frame = window.frame
+			return frame.width > frame.height
+		}
+		let expectation = XCTNSPredicateExpectation(predicate: isLandscape, object: app.windows.firstMatch)
+		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+	}
 
 	// MARK: Layout assertions
 
