@@ -153,6 +153,7 @@
 		944D74E62EE63344009F3584 /* SentryCrashReportingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944D74E52EE63344009F3584 /* SentryCrashReportingService.swift */; };
 		944D74E72EE63344009F3584 /* Observability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944D74E42EE63344009F3584 /* Observability.swift */; };
 		945C556D2ED5127C007DD8FB /* WebHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */; };
+		94AA03070000000000000002 /* BrowsingHistoryRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AA03070000000000000001 /* BrowsingHistoryRefreshTests.swift */; };
 		945C556F2ED5127C007DD8FB /* TestCoreDataStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */; };
 		945C55702ED5127C007DD8FB /* CoreDataManagableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */; };
 		945C55712ED5127C007DD8FB /* DeepStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55692ED5127C007DD8FB /* DeepStateTests.swift */; };
@@ -391,6 +392,7 @@
 		945C55692ED5127C007DD8FB /* DeepStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepStateTests.swift; sourceTree = "<group>"; };
 		945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestCoreDataStack.swift; sourceTree = "<group>"; };
 		945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebHistoryTests.swift; sourceTree = "<group>"; };
+		94AA03070000000000000001 /* BrowsingHistoryRefreshTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowsingHistoryRefreshTests.swift; sourceTree = "<group>"; };
 		945C557F2ED61234007DD8FB /* DownloaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloaderTests.swift; sourceTree = "<group>"; };
 		945C55812ED71234007DD8FB /* StringExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringExtensionsTests.swift; sourceTree = "<group>"; };
 		945C55832ED71234007DD8FB /* SettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTests.swift; sourceTree = "<group>"; };
@@ -877,6 +879,7 @@
 				94D79C932EE37DBF0027C9FA /* UIExtensionsTests.swift */,
 				941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */,
 				945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */,
+				94AA03070000000000000001 /* BrowsingHistoryRefreshTests.swift */,
 				8AB3EADF2B4450B9001083D1 /* MLBrowserTests-Info.plist */,
 			);
 			path = MLBrowserUnitTests;
@@ -1425,6 +1428,7 @@
 				94FCC4062ED062CF0047B283 /* OSLog+Extensions.swift in Sources */,
 				942B1DE32EA6BF86005455F9 /* LoggingConfigurationTests.swift in Sources */,
 				945C556D2ED5127C007DD8FB /* WebHistoryTests.swift in Sources */,
+				94AA03070000000000000002 /* BrowsingHistoryRefreshTests.swift in Sources */,
 				941C4FBE2EDBB0C300066AED /* UTTypeTests.swift in Sources */,
 				945C556F2ED5127C007DD8FB /* TestCoreDataStack.swift in Sources */,
 				945C55702ED5127C007DD8FB /* CoreDataManagableTests.swift in Sources */,

@@ -1,6 +1,38 @@
 # Implementation Plan — AIA-0307: Browsing History list not refreshing after deletion
 
-> Status: FINAL (post-grill, 3 rounds → SHIP), **reconciled against `develop` with #310 + #311 merged**. Plan only — no code changes yet.
+> Status: IMPLEMENTED. The verify-first investigation below was carried out; the outcome diverged
+> from the ticket's premise — see **Outcome** next.
+
+## Outcome (what the investigation actually found)
+
+The reported "list does not refresh after delete/clear-all" bug is **not reproducible on current
+`develop`**. Evidence gathered while implementing:
+
+- **Clear-all refreshes correctly in the UI** — `testHistory_clearAll_emptiesList` (XCUITest) passes:
+  the list empties in place. (The batch delete merges into the viewContext via
+  `executeAndMergeChanges`, which the `@FetchRequest` observes.)
+- **Per-row delete persists and refreshes the FRC** — proven deterministically at the unit level by
+  `BrowsingHistoryRefreshTests`: `delete(id, in: viewContext)` drops the row from the store
+  (`storeCount` 6→5) and the backing `NSFetchedResultsController` reflects it once it gets a normal
+  run-loop turn (as SwiftUI's `@FetchRequest` always does). A non-vacuity guard (batch delete
+  **without** the merge leaves the FRC unchanged) proves the assertions aren't satisfied by a store
+  re-fetch.
+- **The only real artifacts were the stale `@State refreshFrom` + its `// TODO` and the dead
+  `refreshFrom.toggle()`** — removed.
+- **The per-row delete UI e2e is NOT automatable** (harness limitation, not an app bug): the trailing
+  swipe actions reveal, but XCUITest cannot fire the *middle* destructive trash button (a full swipe
+  only auto-triggers the trailing-edge action = copy). Proven by reopening the screen and seeing the
+  store unchanged (count 6→6→6). That test is `XCTSkip`-ped with this reason and cross-referenced to
+  the swipe-to-delete testability work in AIA-0308; its data path is fully covered by the unit tests.
+
+Net delivery: removed the stale TODO/`refreshFrom`; added `BrowsingHistoryRefreshTests` (4 unit
+tests: per-row, clear-all, store-fetched per-row, non-vacuity guard); added the passing
+`testHistory_clearAll_emptiesList` UI test; kept `testHistory_deleteEntry_removesIt` as a documented
+skip. No data-layer fix was needed (Step 3 was a confirmed no-op).
+
+---
+
+> Original plan (post-grill, 3 rounds → SHIP), reconciled against `develop` with #310 + #311 merged.
 
 ## ⚠️ Reconciliation note (this plan was first drafted against stale `develop`)
 
