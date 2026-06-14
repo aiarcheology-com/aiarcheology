@@ -210,13 +210,17 @@ final class Settings: ObservableObject, Validatable {
 		if (snapFrequency >= 1.0 && snapFrequency <= 10.0).not {
 			throw ValidationError.invalidData("Settings's snapFrequency is required between 1.0 and 10.0!")
 		}
-		// A blank home page is valid: allow empty/nil and about:blank. Only reject a
-		// non-empty, non-blank value that isn't a parseable URL (AIA-0298).
+		// A blank home page is valid: allow empty/nil and about:blank (any case). Otherwise
+		// the value must be a *loadable* URL — a real http(s) input WITH a host. "https://"
+		// classifies as `.url` but has no host and can never load, so require host != nil
+		// (AIA-0298).
 		if let page = defaultPage?.absoluteString,
 			page.isEmpty == false,
-			page != "about:blank",
-			page.browserInputType != .url {
-			throw ValidationError.invalidData("Settings's defaultPage must be empty, about:blank, or a valid URL.")
+			page.lowercased() != "about:blank" {
+			let isLoadableURL = page.browserInputType == .url && defaultPage?.host() != nil
+			if isLoadableURL.not {
+				throw ValidationError.invalidData("Settings's defaultPage must be empty, about:blank, or a valid URL with a host.")
+			}
 		}
 		if entityId.isNil || entityId?.uuidString.isEmpty == true {
 			throw ValidationError.invalidData("Settings's entityId is required.")

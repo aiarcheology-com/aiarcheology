@@ -289,6 +289,22 @@ final class SettingsTests: XCTestCase {
         XCTAssertNoThrow(try settings.validate())
     }
 
+    func testValidate_DefaultPageWithoutHost_ThrowsError() {
+        // A scheme-only URL ("https://") has no host and can never load, so it must fail
+        // validation even though browserInputType may classify it as `.url` (AIA-0298).
+        settings.snapFrequency = 5.0
+        settings.defaultPage = URL(string: "https://")
+        settings.entityId = UUID()
+
+        XCTAssertThrowsError(try settings.validate()) { error in
+            guard case ValidationError.invalidData(let message) = error else {
+                XCTFail("Expected ValidationError.invalidData")
+                return
+            }
+            XCTAssertTrue(message.contains("defaultPage"))
+        }
+    }
+
     // MARK: - Reset Tests
     
     func testReset_RestoresAllDefaultValues() {

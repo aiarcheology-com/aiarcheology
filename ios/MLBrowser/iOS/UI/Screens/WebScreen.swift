@@ -153,7 +153,7 @@ struct WebScreenView: View {
                         loadRequest = loadRequest.next(lastPage.absoluteString)
                     }
                 } else if let defaultPage = appState.settings.defaultPage?.absoluteString,
-                    defaultPage != "about:blank" {
+                    defaultPage.lowercased() != "about:blank" {
                     intendedPageKind = "home"
                     // No generation bump when the initial request already targets the
                     // default page — it would reload the same URL a second time.
