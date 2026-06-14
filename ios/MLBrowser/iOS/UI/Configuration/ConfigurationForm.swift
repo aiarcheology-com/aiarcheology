@@ -169,10 +169,10 @@ struct ConfigurationForm: View {
 			deep.saveConfigurations()
 			dismiss()
 		}) {
-			Text(L10n.Common.done).bold()
+			Text(L10n.Common.dismiss)
 		}
 		.testability(Testability.Button.configurationFormDone)
-		.tint(.green)
+		.tint(.blue)
 	}
 }
 
