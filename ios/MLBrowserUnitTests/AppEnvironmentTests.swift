@@ -35,20 +35,6 @@ final class AppEnvironmentTests: XCTestCase {
         XCTAssertEqual(first, second)
     }
     
-    func test_isCompiledForUnitTests_returnsBool() {
-        let isUnitTest = AppEnvironment.isCompiledForUnitTests
-        
-        // Value depends on whether -D UNIT_TESTING flag is set
-        XCTAssertTrue(isUnitTest || !isUnitTest)
-    }
-    
-    func test_isCompiledForUITests_returnsBool() {
-        let isUITest = AppEnvironment.isCompiledForUITests
-        
-        // Value depends on whether -D UI_TESTING flag is set
-        XCTAssertTrue(isUITest || !isUITest)
-    }
-    
     // MARK: - Runtime Detection Tests
     
     func test_isRunningUnderAnyTests_returnsTrueInTestEnvironment() {

@@ -62,6 +62,8 @@ struct WebScreenView: View {
 	@State private var latestError: HistoryError?
 	@State private var showAlert: Bool = false
 	@State private var hasPerformedInitialAction = false
+	/// UI-test introspection: which page the browser decided to load (home/last/blank).
+	@State private var intendedPageKind = ""
 	@State private var showIdentifiers: Bool = false
 	@State private var tiledDetection: Bool = false
 	/// The tapped detection being saved; non-nil presents the save sheet.
@@ -144,21 +146,25 @@ struct WebScreenView: View {
                 if
                     appState.settings.reopenLastPage.enabled,
                     let lastPage = appState.settings.lastPage {
+                    intendedPageKind = "last"
                     // Not a user load: the display gate stays open and KVO fills the bar.
                     if loadRequest.input != lastPage.absoluteString {
                         loadRequest = loadRequest.next(lastPage.absoluteString)
                     }
-                } else {
-                    guard let defaultPage = appState.settings.defaultPage?.absoluteString else { return }
+                } else if let defaultPage = appState.settings.defaultPage?.absoluteString {
+                    intendedPageKind = "home"
                     // No generation bump when the initial request already targets the
                     // default page — it would reload the same URL a second time.
                     if loadRequest.input != defaultPage {
                         loadRequest = loadRequest.next(defaultPage)
                     }
                     createOrRefreshWebHistoryEntry(defaultPage, maxEntries: appState.settings.historySize)
+                } else {
+                    intendedPageKind = "blank"
                 }
             }
         }
+        .checkpoint(.intendedPageKind, value: intendedPageKind)
         .sheet(isPresented: $presentLocationSheet) {
             LocationSheetView(currentURL: appState.browserState.displayedURL?.absoluteString) { input in
                 openRequested(input)

@@ -31,6 +31,12 @@ final class BrowserRevampUITests: XCTestCase {
 	private func launchApp() -> XCUIApplication {
 		let app = XCUIApplication()
 		app.launchEnvironment["UI_TESTING"] = "1"
+		// This flow exercises fullscreen detection, which is off by default. Opt in
+		// deterministically through the shared launch config rather than relying on
+		// whatever value happens to be persisted on the simulator (AIA-0189).
+		if let data = try? JSONEncoder().encode(LaunchConfig(fullscreenDetection: true)) {
+			app.launchEnvironment["UI_TEST_CONFIG"] = String(data: data, encoding: .utf8)
+		}
 		app.launch()
 
 		// First launch shows the welcome slideshow. Its dismiss modifier renders
