@@ -110,6 +110,15 @@ final class DataController: ObservableObject {
             let description = NSPersistentStoreDescription()
             description.type = NSInMemoryStoreType
             container.persistentStoreDescriptions = [description]
+        } else if AppEnvironment.isRunningUITests {
+            // UI tests run against a dedicated, disposable store so every launch starts from a
+            // clean, demo-seeded baseline — the Core Data analogue of the ephemeral UserDefaults
+            // suite (AIA-0298). The production store is never touched. Destroy any prior UI-test
+            // store first (WAL/SHM-safe via the coordinator, not a raw file delete), then the
+            // fresh load below recreates it empty and DemoDataManager reseeds it.
+            let description = Self.uiTestStoreDescription()
+            container.persistentStoreDescriptions = [description]
+            destroyUITestStore(description)
         } else if let desc = container.persistentStoreDescriptions.first {
             desc.shouldMigrateStoreAutomatically = true
             desc.shouldInferMappingModelAutomatically = shouldInferMappingModelAutomatically
@@ -127,6 +136,33 @@ final class DataController: ObservableObject {
 		description.shouldInferMappingModelAutomatically = true
 		container.persistentStoreDescriptions = [description]
 		loadStores()
+	}
+
+	/// Store description for UI-test runs: a dedicated SQLite file in Caches, kept separate from
+	/// the real store so tests never read or clobber production data.
+	private static func uiTestStoreDescription() -> NSPersistentStoreDescription {
+		let cachesURL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+		let storeURL = cachesURL.appendingPathComponent("UITests-\(containerName).sqlite")
+		let description = NSPersistentStoreDescription(url: storeURL)
+		description.shouldMigrateStoreAutomatically = true
+		description.shouldInferMappingModelAutomatically = true
+		return description
+	}
+
+	/// Destroys the UI-test store before loading so each launch starts empty. Uses the
+	/// coordinator's `destroyPersistentStore` (handles WAL/SHM) rather than deleting the bare
+	/// `.sqlite`, which would leak the sidecar files and yield a half-empty store next launch.
+	private func destroyUITestStore(_ description: NSPersistentStoreDescription) {
+		guard let storeURL = description.url else { return }
+		do {
+			try container.persistentStoreCoordinator.destroyPersistentStore(
+				at: storeURL,
+				ofType: description.type,
+				options: description.options
+			)
+		} catch {
+			LoggingPolicy.error("Failed to destroy UI-test store: \(error.localizedDescription)", logger: .persistence)
+		}
 	}
 
 	private func loadStores() {

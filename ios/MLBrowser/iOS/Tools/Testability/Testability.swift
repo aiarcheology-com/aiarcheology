@@ -231,6 +231,8 @@ extension TestabilityIdentification {
 		case downloadDetailProgressExpected
 		// Side Menu Cell
 		case sideMenuCellDescription
+		// Browsing History row
+		case browsingHistoryItem
 		// List Item
 		case listItemFileName
 		case listItemState

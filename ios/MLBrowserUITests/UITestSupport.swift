@@ -59,6 +59,41 @@ enum AID {
 	static let floatFind = "_AIA:Button.FloatingNavFind"
 	static let chromeToggle = "_AIA:Button.FloatingChromeToggle"
 
+	// Drawer
+	static let drawerSettings = "_AIA:Button.DrawerSettings"
+	static let drawerFindings = "_AIA:Button.DrawerFindings"
+	static let configEnabledToggle = "_AIA:Toggle.SideMenuCellEnabled"
+	static let configDelete = "_AIA:Button.SideMenuDeleteConfiguration"
+
+	// Settings
+	static let settingsDismiss = "_AIA:Button.SettingsDismiss"
+	static let settingsShowLabels = "_AIA:Toggle.SettingsShowLabels"
+	static let settingsRunAtLaunch = "_AIA:Toggle.SettingsRunAtLaunch"
+	static let settingsTiledDetection = "_AIA:Toggle.SettingsTiledDetection"
+	static let settingsFullscreenDetection = "_AIA:Toggle.SettingsFullscreenDetection"
+	static let settingsReopenLastPage = "_AIA:Toggle.SettingsReopenLastPage"
+	static let settingsFrequency = "_AIA:Picker.SettingsFrequency"
+	static let settingsDefaultPage = "_AIA:TextField.SettingsDefaultPage"
+	static let settingsHistoryLimit = "_AIA:TextField.SettingsHistoryLimit"
+	static let settingsHistory = "_AIA:NavigationLink.SettingsHistory"
+	static let settingsAbout = "_AIA:NavigationLink.SettingsAbout"
+	static let settingsIntroduction = "_AIA:NavigationLink.SettingsIntroduction"
+	static let settingsDeleteCache = "_AIA:Button.SettingsDeleteCache"
+	static let settingsRestoreDefaults = "_AIA:Button.SettingsRestoreDefaults"
+
+	// Browsing history
+	static let historyTitle = "Browsing History"   // navigation-bar title (anchors the screen)
+	static let historyClear = "_AIA:Button.BrowsingHistoryClear"
+	static let historyDeleteEntry = "_AIA:Button.BrowsingHistoryDeleteEntry"
+	static let historyItem = "_AIA:Label.BrowsingHistoryItem"
+	static let configDescription = "_AIA:Label.SideMenuCellDescription"
+
+	// Location / address sheet
+	static let locationInput = "_AIA:TextField.LocationSheetInput"
+	static let locationDismiss = "_AIA:Button.LocationSheetDismiss"
+	static let locationHistoryItem = "_AIA:Button.LocationSheetHistoryItem"
+	static let locationFullUrls = "_AIA:Button.LocationSheetFullUrls"
+
 	static func slide(_ index: Int) -> String { "_AIA:View.SlideshowSlide#\(index)" }
 }
 
@@ -193,5 +228,70 @@ class UITestCase: XCTestCase {
 		let predicate = NSPredicate(format: "exists == false")
 		let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
 		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+	}
+
+	// MARK: Navigation helpers
+
+	/// Opens the left drawer (side menu) and waits for it to appear.
+	func openDrawer(file: StaticString = #filePath, line: UInt = #line) {
+		let menu = app.buttons[AID.cpu]
+		XCTAssertTrue(menu.waitForExistence(timeout: 10), "Side-menu button missing", file: file, line: line)
+		menu.tap()
+		XCTAssertTrue(app.buttons[AID.drawerSettings].waitForExistence(timeout: 10), "Drawer did not open", file: file, line: line)
+	}
+
+	/// Opens the drawer and taps through to the Settings sheet.
+	func openSettings(file: StaticString = #filePath, line: UInt = #line) {
+		openDrawer(file: file, line: line)
+		app.buttons[AID.drawerSettings].tap()
+		XCTAssertTrue(
+			app.buttons[AID.settingsDismiss].waitForExistence(timeout: 10),
+			"Settings sheet did not appear", file: file, line: line
+		)
+	}
+
+	/// Waits for demo data to finish seeding, signalled by the first configuration toggle
+	/// appearing in the open drawer. Seeding is async (real CoreML metadata extraction), so the
+	/// timeout is generous. Call with the drawer already open.
+	@discardableResult
+	func waitForSeededConfigurations(timeout: TimeInterval = 20) -> Bool {
+		app.switches.matching(identifier: AID.configEnabledToggle).firstMatch.waitForExistence(timeout: timeout)
+	}
+
+	/// An element of any type by identifier (SwiftUI maps `accessibilityIdentifier` onto a
+	/// range of underlying element types, so `app.buttons[...]` alone is too narrow).
+	func element(_ id: String) -> XCUIElement {
+		app.descendants(matching: .any)[id]
+	}
+
+	/// Scrolls the screen (swiping up) until the identified element exists, capped at
+	/// `maxSwipes`. SwiftUI `Form`/`List` realize off-screen rows lazily, so an element below
+	/// the fold may not exist until scrolled toward.
+	@discardableResult
+	func scrollTo(_ id: String, maxSwipes: Int = 8) -> Bool {
+		let target = element(id)
+		var swipes = 0
+		while target.exists == false && swipes < maxSwipes {
+			app.swipeUp()
+			swipes += 1
+		}
+		return target.exists
+	}
+
+	/// Taps a switch by identifier and asserts its value flips. Returns false if the switch is
+	/// missing or the value did not change.
+	@discardableResult
+	func flipSwitch(_ id: String, timeout: TimeInterval = 10) -> Bool {
+		let toggle = app.switches.matching(identifier: id).firstMatch
+		guard toggle.waitForExistence(timeout: timeout) else { return false }
+		let before = (toggle.value as? String) ?? ""
+		// Tap the control's trailing edge, not the element center: a labelled Form Toggle's
+		// accessibility element spans the whole row, so a center tap lands on the label and
+		// never flips the switch (a `.labelsHidden()` toggle is unaffected — 0.9 is still on
+		// the control).
+		toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+		let flipped = NSPredicate(format: "value != %@", before)
+		let expectation = XCTNSPredicateExpectation(predicate: flipped, object: toggle)
+		return XCTWaiter().wait(for: [expectation], timeout: 5) == .completed
 	}
 }
