@@ -1,0 +1,21 @@
+ios/MLBrowser/iOS/State/Settings.swift
+  s_c55b2e88071d91::t_bf1092ebfc11d9 46,54,60,66,72,78,84,90,96,102,111,120,126,132,136-142,144-155,179-193,209-215,240-253
+ios/MLBrowserUnitTests/SettingsTests.swift
+  s_c55b2e88071d91::t_dc0a4bfb4eda33 279,282-291
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "65819b97dd5d9c25a426c10f35815c0429c255a5",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
