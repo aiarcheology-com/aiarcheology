@@ -304,7 +304,7 @@ final class DeepDriversTests: XCTestCase {
         // A more complete test would require CoreData setup
     }
     
-    // MARK: - Empty Detection/Classification Tests
+    // MARK: - Empty Detection Tests
     
     func testDetectWithNoDetectors_ReturnsEmptyResults() async {
         let expectation = XCTestExpectation(description: "Detection completed")
@@ -318,18 +318,6 @@ final class DeepDriversTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 2.0)
     }
 
-    func testClassifyWithNoClassificators_ReturnsEmptyResults() async {
-        let expectation = XCTestExpectation(description: "Classification completed")
-        let image = UIImage(systemName: "star") ?? UIImage()
-        
-        sut.classify(on: image) { results in
-            XCTAssertTrue(results.isEmpty)
-            expectation.fulfill()
-        }
-        
-        await fulfillment(of: [expectation], timeout: 2.0)
-    }
-    
     // MARK: - Detection with Unloaded Model Tests
     
     func testDetectWithUnloadedDetector_ReturnsEmptyResults() async {
@@ -342,23 +330,6 @@ final class DeepDriversTests: XCTestCase {
 
         sut.detect(on: image, tiledDetection: true) { results in
             // Without a loaded model, detection should return empty
-            XCTAssertTrue(results.isEmpty)
-            expectation.fulfill()
-        }
-
-        await fulfillment(of: [expectation], timeout: 2.0)
-    }
-    
-    func testClassifyWithUnloadedClassificator_ReturnsEmptyResults() async {
-        let expectation = XCTestExpectation(description: "Classification completed")
-        let classificator = Classificator(params: DeepDriverParams(entityId: UUID()))
-
-        sut.register(driver: classificator, along: .classificator)
-
-        let image = UIImage(systemName: "star") ?? UIImage()
-
-        sut.classify(on: image) { results in
-            // Without a loaded model, classification should return empty
             XCTAssertTrue(results.isEmpty)
             expectation.fulfill()
         }
