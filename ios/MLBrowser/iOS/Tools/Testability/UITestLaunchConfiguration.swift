@@ -98,7 +98,12 @@ struct UITestLaunchConfiguration: Codable {
 			settings.reopenLastPage = false
 		case .last:
 			settings.reopenLastPage = true
-			settings.lastPage = config.lastPage.flatMap { URL(string: $0) }
+			// Trap rather than silently fall back to the home page (which would let a
+			// misconfigured `.last` scenario pass while asserting the wrong behavior).
+			guard let lastPageString = config.lastPage, let url = URL(string: lastPageString) else {
+				fatalError("\(environmentKey) pageScenario=.last requires a parseable lastPage")
+			}
+			settings.lastPage = url
 		case .home, .none:
 			if let override = config.defaultPageOverride, let url = URL(string: override) {
 				settings.defaultPage = url

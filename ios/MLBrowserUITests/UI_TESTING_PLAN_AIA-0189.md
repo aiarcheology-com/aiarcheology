@@ -18,8 +18,11 @@ top of it. Three pillars:
 
 ## Existing facts this plan builds on (verified)
 
-- `AppEnvironment.isRunningUITests` is `true` only when XCTest drives the process **and**
-  `launchEnvironment["UI_TESTING"] == "1"` (`AppEnvironment.swift:92`). Inert in production.
+- `AppEnvironment.isRunningUITests` is `true` when `launchEnvironment["UI_TESTING"] == "1"`.
+  (The earlier `&& XCTestConfigurationFilePath != nil` condition was removed — that variable
+  is absent in the app-under-test process, which is separate from the test runner, so it made
+  the flag always false in the app. The `UI_TESTING` marker can't be injected into a sandboxed
+  production app, so the gate stays inert in production.)
 - `Testability` enum maps Swift cases → a11y identifiers like `_AIA:Button.GlobalToolbarPlayDetection`
   (`Testability.swift`). `.testability(...)` sets `accessibilityIdentifier` (+ label under UI tests).
 - `Settings` is a singleton built exactly once via `DependencyContainer.shared.settings = { Settings() }`,
@@ -82,7 +85,7 @@ draft: "This document is not complete… improved after the first version.")
 | `fullscreenDetection` | `false` | matches issue precondition (detection-off, fullscreen-off) |
 | `reopenLastPage` | `false` | deterministic page decision |
 | `lastPage` | `nil` | "" |
-| `defaultPage` | `https://example.com` (offline-safe placeholder) | deterministic home; never real network render asserted |
+| `defaultPage` | `about:blank` (`baselineHome`) | deterministic home with zero network; tests assert the load *decision*, not the render |
 | `historySize` | `30` | fixed |
 | `tiledDetection` | `true` | determinism (no UI impact) |
 
@@ -117,9 +120,10 @@ draft: "This document is not complete… improved after the first version.")
 | `fullscreenFeatureEnabled` | `ContentView` | `true` / `false` |
 | `appMode` | `ContentView` | current `AppMode` |
 | `horizontalSizeClass` | `ContentView` | `compact` / `regular` |
-| `wizardPresented` | slideshow sheet | `true` when presented |
 
 - Naming: `intendedPageKind` (not "loadedPageKind") — it asserts the load **decision**, not render success.
+- Wizard *presence* is not a checkpoint: it's asserted directly via the per-slide identity
+  (`Testability.View.slideshowSlide` index 0), which only exists when the slideshow is shown.
 
 ## Pillar 3 — Page Objects + tests
 
@@ -138,8 +142,9 @@ draft: "This document is not complete… improved after the first version.")
 
 ### Test list (first version)
 
-1. **Wizard — dismiss**: `presentWizard`; assert `wizardPresented`; drag-down dismiss (the existing
-   `BrowserRevampUITests` pattern — the sheet has no nav bar); assert it's gone.
+1. **Wizard — dismiss**: `presentWizard`; assert slide 0 (`slideshowSlide` index 0) is present;
+   drag-down dismiss (the existing `BrowserRevampUITests` pattern — the sheet has no nav bar);
+   assert it's gone.
 2. **Wizard — scroll all slides**: `presentWizard`; **add `.testability(Testability.View.slideshowSlide,
    index:)` to each slide container** (`Slide.swift:109`); `.swipeLeft()` through all slides asserting
    each indexed slide via `waitForExistence`; end on dismiss. (Dead arrow buttons ignored.)
