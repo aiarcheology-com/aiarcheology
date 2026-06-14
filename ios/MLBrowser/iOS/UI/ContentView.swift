@@ -123,56 +123,13 @@ struct ContentView: View {
         ZStack {
             TabView(selection: $appState.guide.mode) {
                 ForEach(AppMode.tabOrder) { mode in
-                    ViewContainer(barsHidden: detectionEnabled && chromeVisible.not && mode == .web, {
-                        Screens.content(mode)
-                            .onReceive(appState.snapAdjustment.$brightness) { newValue in
-                                brightness = newValue
-                            }
-                            .onReceive(appState.snapAdjustment.$contrast) { newValue in
-                                contrast = newValue
-                            }
-                            .onReceive(appState.snapAdjustment.$saturation) { newValue in
-                                saturation = newValue
-                            }
-                            .brightness(brightness)
-                            .contrast(contrast)
-                            .saturation(saturation)
-                            .environmentObject(appState)
-                    },
-                    leadingItems: {
-                        Screens.barItems(mode, position: .leading)
-                            .environmentObject(appState.guide)
-                            .environmentObject(appState.downloader)
-                    },
-                    trailingItems: {
-                        Screens.barItems(mode, position: .trailing)
-                            .environmentObject(appState.guide)
-                    })
-                    .tabItem {
-                        Screens.tabItem(mode, selection: appState.guide.mode)
-                    }
-                    .tag(mode)
+                    modeTab(mode)
                 }
                 .toolbar(AppMode.tabOrder.count == 1 ? .hidden : .visible, for: .tabBar)
             }
-            
-            // Floating back/reload/forward capsule for compact widths — part of the
-            // chrome, so fullscreen detection hides it together with the bars.
-            if selectedMode == .web && horizontalSizeClass == .compact && chromeVisible {
-                FloatingNavBar(position: $floatingNavBarPosition, onFind: {
-                    appState.guide.findTapped()
-                })
-                .environmentObject(appState.browserState)
-                .transition(.opacity)
-            }
 
-            // Chrome toggle for fullscreen detection mode; only its 52pt frame
-            // is hit-testable, all other touches reach the web view.
-            if detectionEnabled && fullscreenFeatureEnabled && selectedMode == .web {
-                FloatingChromeButton(position: $floatingButtonPosition)
-                    .environmentObject(appState.guide)
-                    .transition(.opacity)
-            }
+            floatingNavBar
+            floatingChromeButton
         }
         .statusBarHidden(fullscreenActive)
         // Snap adjustment overlay for iPhone (compact width)
@@ -181,6 +138,66 @@ struct ContentView: View {
             isPresented: $showSnapAdjustment,
             snapAdjustment: appState.snapAdjustment
         )
+    }
+
+    private func modeTab(_ mode: AppMode) -> some View {
+        ViewContainer(barsHidden: detectionEnabled && chromeVisible.not && mode == .web, {
+            modeScreen(mode)
+        },
+        leadingItems: {
+            Screens.barItems(mode, position: .leading)
+                .environmentObject(appState.guide)
+                .environmentObject(appState.downloader)
+        },
+        trailingItems: {
+            Screens.barItems(mode, position: .trailing)
+                .environmentObject(appState.guide)
+        })
+        .tabItem {
+            Screens.tabItem(mode, selection: appState.guide.mode)
+        }
+        .tag(mode)
+    }
+
+    private func modeScreen(_ mode: AppMode) -> some View {
+        Screens.content(mode)
+            .onReceive(appState.snapAdjustment.$brightness) { newValue in
+                brightness = newValue
+            }
+            .onReceive(appState.snapAdjustment.$contrast) { newValue in
+                contrast = newValue
+            }
+            .onReceive(appState.snapAdjustment.$saturation) { newValue in
+                saturation = newValue
+            }
+            .brightness(brightness)
+            .contrast(contrast)
+            .saturation(saturation)
+            .environmentObject(appState)
+    }
+
+    // Floating back/reload/forward capsule for compact widths — part of the
+    // chrome, so fullscreen detection hides it together with the bars.
+    @ViewBuilder
+    private var floatingNavBar: some View {
+        if selectedMode == .web && horizontalSizeClass == .compact && chromeVisible {
+            FloatingNavBar(position: $floatingNavBarPosition, onFind: {
+                appState.guide.findTapped()
+            })
+            .environmentObject(appState.browserState)
+            .transition(.opacity)
+        }
+    }
+
+    // Chrome toggle for fullscreen detection mode; only its 52pt frame
+    // is hit-testable, all other touches reach the web view.
+    @ViewBuilder
+    private var floatingChromeButton: some View {
+        if detectionEnabled && fullscreenFeatureEnabled && selectedMode == .web {
+            FloatingChromeButton(position: $floatingButtonPosition)
+                .environmentObject(appState.guide)
+                .transition(.opacity)
+        }
     }
     
     // MARK: - Sheets

@@ -297,93 +297,17 @@ private struct FindingDetailView: View {
 
 	var body: some View {
 		List {
-			Section {
-				if let image = FindingScreenshotStore.load(filename: finding.screenshotFilename) {
-					InspectableHighlightedSnapshot(
-						image: image,
-						normalizedBox: finding.normalizedBox,
-						color: .red,
-						zoom: $snapshotZoom,
-						highlightOpacity: $highlightOpacity
-					)
-					// Definite height: the cover layout uses a GeometryReader, which
-					// collapses to nothing under a maxHeight cap inside a List row.
-					.frame(height: 420)
-					opacitySlider
-					zoomSlider
-				} else {
-					Image(systemName: "photo")
-						.font(.largeTitle)
-						.foregroundStyle(.secondary)
-						.frame(maxWidth: .infinity)
-						.padding(.vertical, 32)
-				}
-			}
-			Section(L10n.Finding.title) {
-				TextField(L10n.Finding.titlePlaceholder, text: $title)
-					.testability(Testability.TextField.findingDetailTitle)
-			}
-			Section(L10n.Finding.label) {
-				TextField(L10n.Finding.labelPlaceholder, text: $label)
-					.testability(Testability.TextField.findingDetailLabel)
-			}
-			Section(L10n.Finding.note) {
-				TextField(L10n.Finding.notePlaceholder, text: $note, axis: .vertical)
-					.lineLimit(3...6)
-					.testability(Testability.TextField.findingDetailNote)
-			}
-			Section(L10n.Finding.gps) {
-				TextField(L10n.Finding.gpsPlaceholder, text: $gps)
-					.keyboardType(.numbersAndPunctuation)
-					.testability(Testability.TextField.findingDetailGps)
-			}
-			if let detectionClass = finding.detectionClass {
-				Section(L10n.Finding.detection) {
-					// verbatim: class names are model vocabulary, not localizable —
-					// and plain interpolation gets auto-extracted into the catalog.
-					Text(verbatim: "\(detectionClass) (\(Int(finding.detectionConfidence * 100))%)")
-						.foregroundStyle(.secondary)
-				}
-			}
-			if let page = finding.page {
-				Section(L10n.Finding.page) {
-					Text(page.absoluteString)
-						.font(.caption)
-						.foregroundStyle(.secondary)
-						.contextMenu {
-							Button {
-								UIPasteboard.general.string = page.absoluteString
-							} label: {
-								Label(L10n.Common.copy, systemImage: "doc.on.doc")
-							}
-						}
-					Button {
-						onOpenPage(page)
-					} label: {
-						Label(L10n.Findings.openPage, systemImage: "safari")
-					}
-					.testability(Testability.Button.findingsOpenPage)
-				}
-			}
+			snapshotSection
+			titleSection
+			labelSection
+			noteSection
+			gpsSection
+			detectionSection
+			pageSection
 		}
 		.navigationTitle(finding.displayTitle)
 		.navigationBarTitleDisplayMode(.inline)
-		.toolbar {
-			ToolbarItemGroup(placement: .navigationBarTrailing) {
-				Button(action: shareFinding) {
-					Label(L10n.Common.share, systemImage: "square.and.arrow.up")
-				}
-				.tint(.blue)
-				.testability(Testability.Button.findingDetailShare)
-				Button(action: saveEdits) {
-					Text(L10n.Finding.Save.action)
-						.bold()
-				}
-				.disabled(hasChanges.not || trimmedTitle.isEmpty)
-				.tint(.green)
-				.testability(Testability.Button.findingDetailSave)
-			}
-		}
+		.toolbar { toolbarContent }
 		.alert(L10n.Finding.Save.error, isPresented: $saveFailed) {
 			Button(L10n.Common.ok, role: .cancel) {}
 		}
@@ -391,6 +315,116 @@ private struct FindingDetailView: View {
 			FindingShareComposer(subject: subject)
 		}
 		.onAppear(perform: seedFields)
+	}
+
+	@ViewBuilder
+	private var snapshotSection: some View {
+		Section {
+			if let image = FindingScreenshotStore.load(filename: finding.screenshotFilename) {
+				InspectableHighlightedSnapshot(
+					image: image,
+					normalizedBox: finding.normalizedBox,
+					color: .red,
+					zoom: $snapshotZoom,
+					highlightOpacity: $highlightOpacity
+				)
+				// Definite height: the cover layout uses a GeometryReader, which
+				// collapses to nothing under a maxHeight cap inside a List row.
+				.frame(height: 420)
+				opacitySlider
+				zoomSlider
+			} else {
+				Image(systemName: "photo")
+					.font(.largeTitle)
+					.foregroundStyle(.secondary)
+					.frame(maxWidth: .infinity)
+					.padding(.vertical, 32)
+			}
+		}
+	}
+
+	private var titleSection: some View {
+		Section(L10n.Finding.title) {
+			TextField(L10n.Finding.titlePlaceholder, text: $title)
+				.testability(Testability.TextField.findingDetailTitle)
+		}
+	}
+
+	private var labelSection: some View {
+		Section(L10n.Finding.label) {
+			TextField(L10n.Finding.labelPlaceholder, text: $label)
+				.testability(Testability.TextField.findingDetailLabel)
+		}
+	}
+
+	private var noteSection: some View {
+		Section(L10n.Finding.note) {
+			TextField(L10n.Finding.notePlaceholder, text: $note, axis: .vertical)
+				.lineLimit(3...6)
+				.testability(Testability.TextField.findingDetailNote)
+		}
+	}
+
+	private var gpsSection: some View {
+		Section(L10n.Finding.gps) {
+			TextField(L10n.Finding.gpsPlaceholder, text: $gps)
+				.keyboardType(.numbersAndPunctuation)
+				.testability(Testability.TextField.findingDetailGps)
+		}
+	}
+
+	@ViewBuilder
+	private var detectionSection: some View {
+		if let detectionClass = finding.detectionClass {
+			Section(L10n.Finding.detection) {
+				// verbatim: class names are model vocabulary, not localizable —
+				// and plain interpolation gets auto-extracted into the catalog.
+				Text(verbatim: "\(detectionClass) (\(Int(finding.detectionConfidence * 100))%)")
+					.foregroundStyle(.secondary)
+			}
+		}
+	}
+
+	@ViewBuilder
+	private var pageSection: some View {
+		if let page = finding.page {
+			Section(L10n.Finding.page) {
+				Text(page.absoluteString)
+					.font(.caption)
+					.foregroundStyle(.secondary)
+					.contextMenu {
+						Button {
+							UIPasteboard.general.string = page.absoluteString
+						} label: {
+							Label(L10n.Common.copy, systemImage: "doc.on.doc")
+						}
+					}
+				Button {
+					onOpenPage(page)
+				} label: {
+					Label(L10n.Findings.openPage, systemImage: "safari")
+				}
+				.testability(Testability.Button.findingsOpenPage)
+			}
+		}
+	}
+
+	@ToolbarContentBuilder
+	private var toolbarContent: some ToolbarContent {
+		ToolbarItemGroup(placement: .navigationBarTrailing) {
+			Button(action: shareFinding) {
+				Label(L10n.Common.share, systemImage: "square.and.arrow.up")
+			}
+			.tint(.blue)
+			.testability(Testability.Button.findingDetailShare)
+			Button(action: saveEdits) {
+				Text(L10n.Finding.Save.action)
+					.bold()
+			}
+			.disabled(hasChanges.not || trimmedTitle.isEmpty)
+			.tint(.green)
+			.testability(Testability.Button.findingDetailSave)
+		}
 	}
 
 	private func shareFinding() {

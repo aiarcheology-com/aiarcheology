@@ -248,7 +248,7 @@ struct AnnotationOverlay: View {
                     observation: detection,
                     geometry: geometry,
                     params: observationGroup.params,
-                    showIndentifiers: showIdentifiers
+                    showIdentifiers: showIdentifiers
                 )
             }
         }

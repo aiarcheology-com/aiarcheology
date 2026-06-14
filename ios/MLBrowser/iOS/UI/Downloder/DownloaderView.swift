@@ -32,28 +32,7 @@ struct DownloaderView: View {
     var body: some View {
         // List of downloaded files, or currently being downloaded:
         List(downloadItems, id: \.entityId) { item in
-            NavigationLink(destination:
-                DownloadDetailView(item: item, onImport: onImport)
-                    .environmentObject(downloader)
-            ) {
-                ListItemView(item: item)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive, action: {
-                            delete(item)
-                        }) {
-                            Label(L10n.Common.delete, systemImage: "trash")
-                        }
-                        .testability(Testability.Button.downloaderListItemDelete)
-                    }
-                    .contextMenu {
-                        Button(role: .destructive) {
-                            delete(item)
-                        } label: {
-                            Label(L10n.Common.delete, systemImage: "trash")
-                        }
-                    }
-            }
-            .testability(Testability.NavigationLink.downloaderListItem)
+            downloadRow(item)
         }
         .testability(Testability.List.downloaderList)
         .macOnly { view in
@@ -64,24 +43,52 @@ struct DownloaderView: View {
         }
         .navigationTitle(L10n.Models.title)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button(L10n.Common.done) {
-                    dismiss()
+        .toolbar { toolbarContent }
+    }
+
+    private func downloadRow(_ item: DownloadItem) -> some View {
+        NavigationLink(destination:
+            DownloadDetailView(item: item, onImport: onImport)
+                .environmentObject(downloader)
+        ) {
+            ListItemView(item: item)
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(role: .destructive, action: {
+                        delete(item)
+                    }) {
+                        Label(L10n.Common.delete, systemImage: "trash")
+                    }
+                    .testability(Testability.Button.downloaderListItemDelete)
                 }
-                .testability(Testability.Button.downloaderDone)
-                .bold()
-                .foregroundColor(.blue)
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    _ = DownloadItem.create(in: moc)
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .foregroundColor(.blue)
+                .contextMenu {
+                    Button(role: .destructive) {
+                        delete(item)
+                    } label: {
+                        Label(L10n.Common.delete, systemImage: "trash")
+                    }
                 }
-                .testability(Testability.Button.downloaderAddDownload)
+        }
+        .testability(Testability.NavigationLink.downloaderListItem)
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Button(L10n.Common.done) {
+                dismiss()
             }
+            .testability(Testability.Button.downloaderDone)
+            .bold()
+            .foregroundColor(.blue)
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                _ = DownloadItem.create(in: moc)
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundColor(.blue)
+            }
+            .testability(Testability.Button.downloaderAddDownload)
         }
     }
     

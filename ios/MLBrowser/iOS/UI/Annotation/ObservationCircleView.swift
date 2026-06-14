@@ -12,40 +12,56 @@ struct ObservationCircleView: View {
 	var geometry: GeometryProxy
 	var color: Color
 	var phaseOutTime: CFTimeInterval
-	var showIndentifiers: Bool
+	var showIdentifiers: Bool
 
 	@State private var animate = false
 
 	var body: some View {
+		let center = boundingBoxCenter
+		ZStack {
+			if showIdentifiers {
+				labels(at: center)
+			}
+			pulsingCircle(at: center)
+		}
+	}
+
+	/// Center of the observation's bounding box in the view's coordinate space
+	/// (Vision's bottom-left origin flipped to UIKit's top-left).
+	private var boundingBoxCenter: CGPoint {
 		let boundingBox = observation.boundingBox
-			// Calculate the center of the bounding box
-		let center = CGPoint(
+		return CGPoint(
 			x: boundingBox.midX * geometry.size.width,
 			y: (1 - boundingBox.midY) * geometry.size.height
 		)
+	}
 
-		ZStack {
-			if showIndentifiers {
-				HStack {
-					ForEach(observation.labels, id: \.self) { label in
-						Text(" \(String(label.identifier.prefix(6)))|")
-					}
-					.foregroundColor(color)
-				}
-				.position(center)
+	private func labels(at center: CGPoint) -> some View {
+		HStack {
+			ForEach(observation.labels, id: \.self) { label in
+				Text(" \(String(label.identifier.prefix(6)))|")
 			}
-			Circle()
-				.stroke(color, lineWidth: animate ? 6 : 2)
-				.scaleEffect(animate ? 4 : 1)
-				.opacity(animate ? 0 : 1)
-				.frame(width: 30, height: 30)
-				.position(center)
-				.blur(radius: animate ? 3 : 0)
-				.onAppear {
-					withAnimation(.easeInOut(duration: phaseOutTime)) {
-						animate = true
-					}
-				}
+			.foregroundColor(color)
 		}
+		.position(center)
+	}
+
+	private func pulsingCircle(at center: CGPoint) -> some View {
+		let lineWidth: CGFloat = animate ? 6 : 2
+		let scale: CGFloat = animate ? 4 : 1
+		let circleOpacity: Double = animate ? 0 : 1
+		let blurRadius: CGFloat = animate ? 3 : 0
+		return Circle()
+			.stroke(color, lineWidth: lineWidth)
+			.scaleEffect(scale)
+			.opacity(circleOpacity)
+			.frame(width: 30, height: 30)
+			.position(center)
+			.blur(radius: blurRadius)
+			.onAppear {
+				withAnimation(.easeInOut(duration: phaseOutTime)) {
+					animate = true
+				}
+			}
 	}
 }

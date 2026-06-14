@@ -6,7 +6,7 @@
 //
 
 import XCTest
-import CoreData
+@preconcurrency import CoreData
 import UIKit
 @testable import ML_Browser
 
@@ -538,8 +538,7 @@ final class FindingMigrationTests: XCTestCase {
 
         // Seed every entity the FillEntityIdIfNilPolicy migrates.
         let seededEntities = ["WebHistoryEntry", "DeepConfiguration", "DownloadItem"]
-        var seedError: Error?
-        seedContext.performAndWait {
+        try seedContext.performAndWait {
             for entityName in seededEntities {
                 for index in 0..<3 {
                     let entity = sourceModel.entitiesByName[entityName]!
@@ -552,15 +551,7 @@ final class FindingMigrationTests: XCTestCase {
                     }
                 }
             }
-            do {
-                try seedContext.save()
-            } catch {
-                seedError = error
-            }
-        }
-        if let seedError {
-            XCTFail("Seeding the 0.0.0 store failed: \(seedError)")
-            return
+            try seedContext.save()
         }
         for store in seedCoordinator.persistentStores {
             try seedCoordinator.remove(store)
