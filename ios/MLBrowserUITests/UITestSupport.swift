@@ -80,6 +80,7 @@ class UITestCase: XCTestCase {
 	// `@MainActor` isolation — the `…WithError` variants override nonisolated XCTestCase
 	// methods and would stay nonisolated, re-introducing the Swift 6 isolation warnings.
 	override func setUp() async throws {
+		try await super.setUp()
 		continueAfterFailure = false
 		XCUIDevice.shared.orientation = .portrait
 	}
@@ -87,6 +88,7 @@ class UITestCase: XCTestCase {
 	override func tearDown() async throws {
 		XCUIDevice.shared.orientation = .portrait
 		app = nil
+		try await super.tearDown()
 	}
 
 	/// Launches the app with a deterministic configuration. The default config applies the
