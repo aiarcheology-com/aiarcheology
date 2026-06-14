@@ -1,0 +1,36 @@
+ios/IMPLEMENTATION_PLAN_AIA-0308.md
+  s_c55b2e88071d91::t_0653657a8274c8 73-82
+  s_c55b2e88071d91::t_1d6d5112c38e31 143-153,156-157
+  s_c55b2e88071d91::t_64dc3ce0f4cd94 303-305
+  s_c55b2e88071d91::t_0e0300ab1ed4e3 259-262
+  s_c55b2e88071d91::t_6bac56f4f00311 1-2,4-29,53-60,65-72,90-116,121-124,136,142,154-155,158-165,175-176,179-180,206,216-239,245-258,270-271
+  s_c55b2e88071d91::t_db0a97047455e9 287-302
+  s_c55b2e88071d91::t_d654a945ac1223 181-205
+  s_c55b2e88071d91::t_8225e2f33fcc36 166-174
+  s_c55b2e88071d91::t_9ca235b1cf6aa5 207-215
+  s_c55b2e88071d91::t_37f32b062e559a 117-120,125-135,137-141
+  s_c55b2e88071d91::t_b67a90fd87c658 3
+  s_c55b2e88071d91::t_031ebe4fa90e1c 263-269
+  s_c55b2e88071d91::t_f4c186456dddeb 61-64
+  s_c55b2e88071d91::t_4a9dc00ede9530 30-52
+  s_c55b2e88071d91::t_9d765d7dcee0bf 177-178
+  s_c55b2e88071d91::t_28691220c60165 272-286
+  s_c55b2e88071d91::t_39a303f18d48b7 240-244
+  s_c55b2e88071d91::t_f05bd4a58d9198 83-89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "f62eb12ae7388eedfc5d8941fce2906f5b743dd8",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
