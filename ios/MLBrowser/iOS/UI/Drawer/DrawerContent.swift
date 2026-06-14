@@ -101,6 +101,11 @@ struct DrawerContent: View {
             settingsSection
         }
         .listStyle(.insetGrouped)
+        // The drawer is a fixed-width panel anchored at the leading edge. In landscape the
+        // List would otherwise inset its content by the device's leading safe area (the
+        // Dynamic Island side), wasting a gutter inside the panel. The panel is the safe
+        // container here, so let the List span its full width in both orientations.
+        .ignoresSafeArea(.container, edges: .horizontal)
     }
 
     private var findingsSection: some View {
@@ -208,11 +213,15 @@ private struct ConfigurationRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(configuration.modelDescription ?? "Unnamed Model")
                     .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
                 
                 if let author = configuration.author {
                     Text(author)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
             }
             

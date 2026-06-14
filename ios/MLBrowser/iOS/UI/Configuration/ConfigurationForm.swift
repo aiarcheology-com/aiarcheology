@@ -122,7 +122,7 @@ struct ConfigurationForm: View {
 				deep.saveConfigurations()
 			}
 			.navigationBarTitle(L10n.Configuration.title, displayMode: .inline)
-			.navigationBarItems(trailing: doneButton)
+			.navigationBarItems(trailing: dismissButton)
 		}
 	}
 	
@@ -164,15 +164,15 @@ struct ConfigurationForm: View {
 	
 	// MARK: - Navigation
 	
-	private var doneButton: some View {
+	private var dismissButton: some View {
 		Button(action: {
 			deep.saveConfigurations()
 			dismiss()
 		}) {
-			Text(L10n.Common.done).bold()
+			Text(L10n.Common.dismiss)
 		}
-		.testability(Testability.Button.configurationFormDone)
-		.tint(.green)
+		.testability(Testability.Button.configurationFormDismiss)
+		.tint(.blue)
 	}
 }
 
