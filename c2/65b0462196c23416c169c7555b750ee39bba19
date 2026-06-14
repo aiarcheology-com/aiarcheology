@@ -1,0 +1,52 @@
+ios/MLBrowser/iOS/State/Settings.swift
+  s_c55b2e88071d91::t_3fe51451511572 178-183
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_c55b2e88071d91::t_b4985606131cf6 43-45,290-292,922-924,1542-1544
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift
+  s_c55b2e88071d91::t_b9505140aa5dc3 65-66
+  s_c55b2e88071d91::t_0b63deb0cd88f2 149,154-155
+  s_c55b2e88071d91::t_021704cac95538 162-163,167
+ios/MLBrowser/iOS/Tools/Testability/Checkpoint.swift
+  s_c55b2e88071d91::t_a894160cd06900 1-48
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_c55b2e88071d91::t_dddfdd73ce3c5a 284-300
+ios/MLBrowser/iOS/UI/ContentView.swift
+  s_c55b2e88071d91::t_e69ba83d5f94b6 113-116
+ios/MLBrowserUITests/NavigationUITests.swift
+  s_c55b2e88071d91::t_95c27f32acb0ef 1-81
+ios/MLBrowserUITests/UITestSupport.swift
+  s_c55b2e88071d91::t_b38308c28dc007 1-167
+ios/MLBrowser/iOS/UI/Slide.swift
+  s_c55b2e88071d91::t_b05f24c3a3937e 112-113
+ios/MLBrowser/iOS/Tools/Testability/UITestLaunchConfiguration.swift
+  s_c55b2e88071d91::t_f6b18ea874f694 73-74
+  s_c55b2e88071d91::t_712c0ea64851af 1-72,75-112
+ios/MLBrowserUITests/BrowserRevampUITests.swift
+  s_c55b2e88071d91::t_d4f2ce17659691 34-39
+ios/MLBrowserUITests/UI_TESTING_PLAN_AIA-0189.md
+  s_c55b2e88071d91::t_b73151ad2150a0 1-192
+ios/MLBrowserUITests/WizardUITests.swift
+  s_c55b2e88071d91::t_a1b7d9eb27dc29 46-51
+  s_c55b2e88071d91::t_80a3c61f8fc16b 1-45,52-53
+ios/MLBrowser/iOS/Tools/AppEnvironment.swift
+  s_c55b2e88071d91::t_14bd26d5e78b48 32
+  s_c55b2e88071d91::t_c6b40a7d2e0cc9 67-71
+  s_c55b2e88071d91::t_a9b1effce3f8d8 18
+  s_c55b2e88071d91::t_1d403155572240 27-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "c265b0462196c23416c169c7555b750ee39bba19",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
