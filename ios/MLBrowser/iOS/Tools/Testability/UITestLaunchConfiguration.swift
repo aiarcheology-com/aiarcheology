@@ -26,9 +26,10 @@ struct UITestLaunchConfiguration: Codable {
 	/// test config can never silently pass.
 	static let currentVersion = 1
 
-	/// The baseline home URL — `about:blank`, so a "home page is set" launch makes a load
-	/// **decision** without any network traffic (tests assert the decision, not the render).
-	static let baselineHome = "about:blank"
+	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
+	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
+	/// assert the decision (`intendedPageKind`), not the render, so the page is never awaited.
+	static let baselineHome = "https://example.com"
 
 	static let environmentKey = "UI_TEST_CONFIG"
 

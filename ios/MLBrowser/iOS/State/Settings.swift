@@ -145,7 +145,11 @@ final class Settings: ObservableObject, Validatable {
 		// test state never touches the real `standard` domain (AIA-0298).
 		let defaults: UserDefaults
 		if AppEnvironment.isRunningUITests {
-			let suite = UserDefaults(suiteName: Self.uiTestSuiteName) ?? .standard
+			// Fail fast: silently falling back to .standard would defeat the isolation and
+			// re-pollute the simulator's real defaults (AIA-0298).
+			guard let suite = UserDefaults(suiteName: Self.uiTestSuiteName) else {
+				fatalError("Could not create UI-test UserDefaults suite '\(Self.uiTestSuiteName)'")
+			}
 			suite.removePersistentDomain(forName: Self.uiTestSuiteName)
 			defaults = suite
 		} else {

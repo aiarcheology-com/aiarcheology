@@ -78,4 +78,15 @@ final class NavigationUITests: UITestCase {
 			"No default page should produce a `blank` load decision"
 		)
 	}
+
+	/// An about:blank default page is treated as the blank-home state — not loaded as a
+	/// page (which would search-treat "about:blank" in the load pipeline). AIA-0298.
+	@MainActor
+	func testAboutBlankDefaultPage_treatedAsBlank() {
+		launch(LaunchConfig(defaultPageOverride: "about:blank"))
+		XCTAssertTrue(
+			waitForCheckpoint(AID.cpIntendedPageKind, equals: "blank"),
+			"about:blank should resolve to a blank home page"
+		)
+	}
 }
