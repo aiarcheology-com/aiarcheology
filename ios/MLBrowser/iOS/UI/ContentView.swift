@@ -110,6 +110,10 @@ struct ContentView: View {
         .onAppear {
             handleOnAppear()
         }
+        // UI-test introspection (inert outside UI tests).
+        .checkpoint(.horizontalSizeClass, value: horizontalSizeClass == .regular ? "regular" : "compact")
+        .checkpoint(.fullscreenFeatureEnabled, value: fullscreenFeatureEnabled ? "true" : "false")
+        .checkpoint(.appMode, value: selectedMode == .web ? "web" : "gallery")
     }
     
     // MARK: - Main Content

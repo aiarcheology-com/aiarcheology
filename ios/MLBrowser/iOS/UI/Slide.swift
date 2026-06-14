@@ -109,6 +109,8 @@ struct SlideshowView: View {
 					.frame(width: geometry.size.width, height: geometry.size.height)
 					.cornerRadius(15)
 					.shadow(radius: 10)
+					// Per-slide identity for UI tests (the arrow buttons are decorative).
+					.testability(Testability.View.slideshowSlide, index: index)
 				}
 			}
 		.tabViewStyle(PageTabViewStyle())

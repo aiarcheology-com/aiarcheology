@@ -40,6 +40,9 @@
 		8A4256E62B1E0C4C009153B1 /* UIApplication+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256E52B1E0C4C009153B1 /* UIApplication+Extensions.swift */; };
 		8A4F0E122F110A0100ABCDEF /* FloatingChromeButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E112F110A0100ABCDEF /* FloatingChromeButton.swift */; };
 		8A4F0E142F110A0200ABCDEF /* BrowserRevampUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */; };
+		94E018900000000000000002 /* UITestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018900000000000000001 /* UITestSupport.swift */; };
+		94E018900000000000000004 /* WizardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018900000000000000003 /* WizardUITests.swift */; };
+		94E018900000000000000006 /* NavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018900000000000000005 /* NavigationUITests.swift */; };
 		8A4F0E162F110A0300ABCDEF /* BrowserState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E152F110A0300ABCDEF /* BrowserState.swift */; };
 		8A4F0E182F110A0300ABCDEF /* FloatingNavBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E172F110A0300ABCDEF /* FloatingNavBar.swift */; };
 		8A4F0E1A2F110A0300ABCDEF /* LocationSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E192F110A0300ABCDEF /* LocationSheetView.swift */; };
@@ -262,6 +265,9 @@
 		8A4256E52B1E0C4C009153B1 /* UIApplication+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplication+Extensions.swift"; sourceTree = "<group>"; };
 		8A4F0E112F110A0100ABCDEF /* FloatingChromeButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingChromeButton.swift; sourceTree = "<group>"; };
 		8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserRevampUITests.swift; sourceTree = "<group>"; };
+		94E018900000000000000001 /* UITestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestSupport.swift; sourceTree = "<group>"; };
+		94E018900000000000000003 /* WizardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WizardUITests.swift; sourceTree = "<group>"; };
+		94E018900000000000000005 /* NavigationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationUITests.swift; sourceTree = "<group>"; };
 		8A4F0E152F110A0300ABCDEF /* BrowserState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserState.swift; sourceTree = "<group>"; };
 		8A4F0E172F110A0300ABCDEF /* FloatingNavBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingNavBar.swift; sourceTree = "<group>"; };
 		8A4F0E192F110A0300ABCDEF /* LocationSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSheetView.swift; sourceTree = "<group>"; };
@@ -869,6 +875,9 @@
 			children = (
 				8AE0BC242A97B0B40086DDF9 /* AI_ArcheologyUITests.swift */,
 				8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */,
+				94E018900000000000000001 /* UITestSupport.swift */,
+				94E018900000000000000003 /* WizardUITests.swift */,
+				94E018900000000000000005 /* NavigationUITests.swift */,
 				8AE0BC262A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift */,
 			);
 			path = MLBrowserUITests;
@@ -1442,6 +1451,9 @@
 			files = (
 				8AE0BC252A97B0B40086DDF9 /* AI_ArcheologyUITests.swift in Sources */,
 				8A4F0E142F110A0200ABCDEF /* BrowserRevampUITests.swift in Sources */,
+				94E018900000000000000002 /* UITestSupport.swift in Sources */,
+				94E018900000000000000004 /* WizardUITests.swift in Sources */,
+				94E018900000000000000006 /* NavigationUITests.swift in Sources */,
 				8AE0BC272A97B0B40086DDF9 /* AI_ArcheologyUITestsLaunchTests.swift in Sources */,
 				94FCC4072ED063010047B283 /* OSLog+Extensions.swift in Sources */,
 				942B1DDF2EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */,

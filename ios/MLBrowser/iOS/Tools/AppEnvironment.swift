@@ -15,15 +15,7 @@ import Foundation
 /// Xcode defines `DEBUG` for Debug builds.
 /// `AppEnvironment.isDebugConfiguration` is `true` only there.
 ///
-/// ### 2) Compile-time “is test build?” flags (optional)
-/// Add Swift flags per target (usually in Debug):
-/// - Unit Test target → Build Settings → Other Swift Flags: `-D UNIT_TESTING`
-/// - UI Test target   → Build Settings → Other Swift Flags: `-D UI_TESTING`
-///
-/// `isCompiledForUnitTests` / `isCompiledForUITests` become compile-time constants
-/// that the optimizer can strip from non-test builds.
-///
-/// ### 3) Runtime UI-test vs unit-test detection
+/// ### 2) Runtime UI-test vs unit-test detection
 /// In the UI test target’s `setUp` (or before launching):
 ///
 /// ```swift
@@ -32,10 +24,12 @@ import Foundation
 /// app.launch()
 /// ```
 ///
-/// Inside the app process, `isRunningUITests` / `isRunningUnitTests` use the XCTest
-/// environment plus that `UI_TESTING` marker.
+/// Inside the app process, `isRunningUITests` reads only that `UI_TESTING` marker — the
+/// app under test is a separate process from the runner and does not see the XCTest
+/// environment. `isRunningUnitTests` reads the XCTest environment, which *is* present
+/// because unit tests run in-process.
 ///
-/// ### 4) Runtime distribution channel detection (App Store vs TestFlight-like vs Dev/AdHoc)
+/// ### 3) Runtime distribution channel detection (App Store vs TestFlight-like vs Dev/AdHoc)
 /// - Store-distributed apps typically do NOT include `embedded.mobileprovision`.
 ///   If it exists → treat as development-like (Xcode / AdHoc / Enterprise).
 /// - Otherwise, inspect the receipt filename:
@@ -58,26 +52,6 @@ enum AppEnvironment {
         #endif
     }()
 
-    /// True when the code was compiled for the Unit Test target
-    /// (requires `-D UNIT_TESTING` in that target’s Swift flags).
-    static let isCompiledForUnitTests: Bool = {
-        #if UNIT_TESTING
-        return true
-        #else
-        return false
-        #endif
-    }()
-
-    /// True when the code was compiled for the UI Test target
-    /// (requires `-D UI_TESTING` in that target’s Swift flags).
-    static let isCompiledForUITests: Bool = {
-        #if UI_TESTING
-        return true
-        #else
-        return false
-        #endif
-    }()
-
     // MARK: - Runtime detection (tests)
 
     /// True whenever *any* XCTest bundle is driving this process.
@@ -90,9 +64,11 @@ enum AppEnvironment {
     /// Requires the UI test target to set:
     ///     app.launchEnvironment["UI_TESTING"] = "1"
     static var isRunningUITests: Bool {
-        let env = ProcessInfo.processInfo.environment
-        return env["XCTestConfigurationFilePath"] != nil &&
-               env["UI_TESTING"] == "1"
+        // The app under test runs in a SEPARATE process from the UI-test runner, so
+        // `XCTestConfigurationFilePath` is not present here — only the `UI_TESTING`
+        // launch-environment marker the UI-test target sets. Gating on that marker alone
+        // is safe: launch environment cannot be injected into a sandboxed production app.
+        ProcessInfo.processInfo.environment["UI_TESTING"] == "1"
     }
 
     /// True when the app is currently being *unit*-tested (not UI-tested).

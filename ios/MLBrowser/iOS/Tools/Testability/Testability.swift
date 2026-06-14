@@ -281,6 +281,23 @@ extension TestabilityIdentification {
 	
 	enum View: String, TestabilityIdentification {
 		case aView
+		// Slideshow / welcome wizard — one identifier per slide via `index:`.
+		case slideshowSlide
+	}
+
+	/// State-introspection probes for UI tests. A `.checkpoint(_:value:)` modifier
+	/// publishes the current value of one of these as a hidden accessibility element
+	/// (`_AIA:Checkpoint.<Case>`), so a UI test can assert internal state that is not
+	/// otherwise reachable through the visible accessibility tree. Inert outside UI tests.
+	enum Checkpoint: String, TestabilityIdentification {
+		/// Which page the browser decided to load at launch: `home` / `last` / `blank`.
+		case intendedPageKind
+		/// `compact` / `regular` — the active horizontal size class.
+		case horizontalSizeClass
+		/// `true` / `false` — whether fullscreen detection is enabled in settings.
+		case fullscreenFeatureEnabled
+		/// The current `AppMode` raw value.
+		case appMode
 	}
 	
 	enum MenuItem: String, TestabilityIdentification {

@@ -175,6 +175,12 @@ final class Settings: ObservableObject, Validatable {
 		   let uuid = UUID(uuidString: uuidString) {
 			self.entityId = uuid
 		}
+
+		// UI-test seam: overwrite the just-loaded values with a deterministic baseline
+		// (+ scenario deltas) so persisted state can't bleed between test launches.
+		// No-op outside UI tests. Safe here because Settings is the leaf singleton built
+		// before any consumer (Guide/BrowserState) reads it.
+		UITestLaunchConfiguration.applyIfNeeded(to: self)
 	}
 
 	func validate() throws {
