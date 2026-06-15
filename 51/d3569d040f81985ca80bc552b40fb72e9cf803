@@ -1,0 +1,36 @@
+ios/MLBrowserUITests/UITestSupport.swift
+  s_c55b2e88071d91::t_f7ee3543562529 43
+ios/MLBrowser/iOS/UI/Annotation/DetectableView.swift
+  s_c55b2e88071d91::t_27a472a62b7827 82-88
+  s_c55b2e88071d91::t_b03475f7ad2380 178
+  s_c55b2e88071d91::t_5017a0119ac023 174-177
+ios/MLBrowserUITests/DetectionCountCheckpointUITests.swift
+  s_c55b2e88071d91::t_f09058d5b59874 1-23
+ios/IMPLEMENTATION_PLAN_AIA-0317.md
+  s_c55b2e88071d91::t_bcd5b46e5027e8 25,27-37,39-49,52-55,58-63
+  s_c55b2e88071d91::t_825d55ee7d46c6 3-4
+  s_c55b2e88071d91::t_f2e278e4c6f05e 1-2,5-24,26,38,50-51,56-57
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_c55b2e88071d91::t_ac1ff7c26c0bf4 305-307
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_c55b2e88071d91::t_9828e5cc0eea15 266
+  s_c55b2e88071d91::t_6b4e1d7c091c4c 13
+  s_c55b2e88071d91::t_7d3a9c7ca77fda 1576
+  s_c55b2e88071d91::t_7addf1f727a391 950
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "51d3569d040f81985ca80bc552b40fb72e9cf803",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
