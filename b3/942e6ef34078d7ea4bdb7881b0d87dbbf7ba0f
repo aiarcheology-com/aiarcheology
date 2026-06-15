@@ -1,0 +1,56 @@
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift
+  s_c55b2e88071d91::t_91543bc98f7cdf 180-186
+  s_c55b2e88071d91::t_fb968ab8f9485f 69
+  s_c55b2e88071d91::t_6c05c40d73b4a5 148-155
+ios/MLBrowserUITests/UITestSupport.swift
+  s_c55b2e88071d91::t_890913464e852d 22,25,31
+  s_c55b2e88071d91::t_4033f6666f0a3f 45
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_c55b2e88071d91::t_ca60597ffefb49 953
+  s_c55b2e88071d91::t_3680ca59fad5a6 45
+  s_c55b2e88071d91::t_cd9f98193bcfab 267
+  s_c55b2e88071d91::t_82455b8f4ce5c2 1281
+  s_c55b2e88071d91::t_733f73019f15f4 13
+  s_c55b2e88071d91::t_0b66964ede9031 605
+  s_c55b2e88071d91::t_ec3db447246995 299
+  s_c55b2e88071d91::t_577f764de64814 1580
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_c55b2e88071d91::t_d82fef2c20fdfb 305-307
+ios/MLBrowserUITests/LocalPageUITests.swift
+  s_c55b2e88071d91::t_ecc7d7e8900a65 1-30
+ios/MLBrowser/iOS/UI/WebView.swift
+  s_c55b2e88071d91::t_c4ecbed20f326b 146-156
+ios/MLBrowser/iOS/State/BrowserState.swift
+  s_c55b2e88071d91::t_e9c440c64686aa 21-23,25,28,36-40
+ios/MLBrowser/iOS/Resources/UITestFixtures/uitest_page.html
+  s_c55b2e88071d91::t_65c57c8e6a8c93 1-22
+ios/MLBrowser/iOS/Tools/Testability/UITestLaunchConfiguration.swift
+  s_c55b2e88071d91::t_12e21fa177001c 27
+  s_c55b2e88071d91::t_2e62f22bb0ddba 40-42
+  s_c55b2e88071d91::t_e5187a30f6b3b9 55-57
+  s_c55b2e88071d91::t_134302af41ae59 118-126
+ios/MLBrowser/iOS/State/Settings.swift
+  s_c55b2e88071d91::t_bbbdc31972a72b 94-100
+ios/IMPLEMENTATION_PLAN_AIA-0316.md
+  s_c55b2e88071d91::t_bb8b0ce0631179 7-40,46-50,53-54,65-76,87,99-103,106-112
+  s_c55b2e88071d91::t_3f119c12cf114e 1-2,5-6,97-98,104-105
+  s_c55b2e88071d91::t_c8257e20191755 77-86,88-96
+  s_c55b2e88071d91::t_92791d778238c8 3-4
+  s_c55b2e88071d91::t_dc812a2bec25de 41-45,51-52,55-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "b3942e6ef34078d7ea4bdb7881b0d87dbbf7ba0f",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
