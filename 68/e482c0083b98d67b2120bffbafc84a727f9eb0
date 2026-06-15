@@ -1,0 +1,39 @@
+ios/MLBrowser/iOS/Tools/Testability/StubDownloadURLProtocol.swift
+  s_c55b2e88071d91::t_37df00ed3cf350 1-22,24-27,29-54
+  s_c55b2e88071d91::t_b04caecbb6cd06 23,28
+ios/MLBrowser/iOS/State/Downloader.swift
+  s_c55b2e88071d91::t_c3516780eb6cca 203-211,217-219,221-223
+  s_c55b2e88071d91::t_5c1b7d45d496e9 220
+ios/MLBrowser/iOS/Tools/Testability/UITestLaunchConfiguration.swift
+  s_c55b2e88071d91::t_c4df220b333b7c 54-56
+  s_c55b2e88071d91::t_e8207abbbb238f 27
+ios/MLBrowserUITests/UITestSupport.swift
+  s_c55b2e88071d91::t_16a16828013a8c 24,30
+ios/MLBrowserUnitTests/StubDownloadURLProtocolTests.swift
+  s_c55b2e88071d91::t_fc35d0c416aabf 1-81
+ios/IMPLEMENTATION_PLAN_AIA-0318.md
+  s_c55b2e88071d91::t_f6816bd04d7808 1-2,6-25,34,51-52,76-90
+  s_c55b2e88071d91::t_766b1a6aba04f8 26-33,35-50,53-75
+  s_c55b2e88071d91::t_385dbb559b5e56 3-5
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_c55b2e88071d91::t_af250dea72d18f 1519
+  s_c55b2e88071d91::t_ebe43f22ec3d9b 429
+  s_c55b2e88071d91::t_c15780c537b88c 926
+  s_c55b2e88071d91::t_a819b9c0e42579 168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "68e482c0083b98d67b2120bffbafc84a727f9eb0",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
