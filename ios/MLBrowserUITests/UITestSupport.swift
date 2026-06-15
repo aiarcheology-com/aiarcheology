@@ -21,12 +21,13 @@ struct LaunchConfig: Encodable {
 		case last
 	}
 
-	var version = 1
+	var version = 2
 	var presentWizard: Bool?
 	var pageScenario: PageScenario?
 	var defaultPageOverride: String?
 	var lastPage: String?
 	var fullscreenDetection: Bool?
+	var stubDownloads: Bool?
 }
 
 // MARK: - Accessibility identifiers

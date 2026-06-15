@@ -200,10 +200,27 @@ final public class Downloader: NSObject, ObservableObject {
 
     private lazy var foregroundSession: URLSession = {
         let configuration = URLSessionConfiguration.default
+        // AIA-0318 UI-test harness: when the `stubDownloads` launch flag is set, intercept downloads
+        // with StubDownloadURLProtocol so tests never hit the network. UI-test downloads already use
+        // this foreground session (shouldUseBackgroundSession is false under tests), and URLProtocol
+        // works with .default sessions (not background ones). Inert otherwise (returns base).
+        configuration.protocolClasses = Self.foregroundProtocolClasses(
+            base: configuration.protocolClasses ?? [],
+            isUITest: AppEnvironment.isRunningUITests,
+            stubDownloads: UITestLaunchConfiguration.fromEnvironment?.stubDownloads == true
+        )
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = 1
         return URLSession(configuration: configuration, delegate: delegateProxy, delegateQueue: queue)
     }()
+
+    /// Pure decision for the foreground session's protocol classes (AIA-0318). Prepends the
+    /// download stub only under UI tests with the `stubDownloads` flag, preserving the existing
+    /// classes; otherwise returns `base` unchanged. Extracted so the gating is unit-testable.
+    nonisolated static func foregroundProtocolClasses(base: [AnyClass], isUITest: Bool, stubDownloads: Bool) -> [AnyClass] {
+        guard isUITest, stubDownloads else { return base }
+        return [StubDownloadURLProtocol.self] + base
+    }
 
     private lazy var backgroundSession: URLSession = {
         let configuration = URLSessionConfiguration.background(withIdentifier: Self.backgroundSessionIdentifier)
