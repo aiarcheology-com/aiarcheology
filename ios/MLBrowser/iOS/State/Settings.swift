@@ -91,6 +91,13 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	/// A bundled local-HTML page the browser should load on launch instead of the home page.
+	/// Set only by `UITestLaunchConfiguration.applyIfNeeded` under `AppEnvironment.isRunningUITests`
+	/// (AIA-0316 UI-test harness); deliberately **not** persisted to `UserDefaults` and never read in
+	/// shipping. Carried separately from `defaultPage` so it skips persistence, the address-bar/
+	/// validation host checks, and history creation.
+	public var launchFixtureURL: URL?
+
 	@Published public var removeAnnotationOnDrag: Bool {
 		didSet {
 			defaults.set(removeAnnotationOnDrag, forKey: UserDefaultsKeys.removeAnnotationOnDrag)

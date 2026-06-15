@@ -66,6 +66,7 @@ struct WebScreenView: View {
 	@State private var hasPerformedInitialAction = false
 	/// UI-test introspection: which page the browser decided to load (home/last/blank).
 	@State private var intendedPageKind = ""
+	@State private var currentPageFile = ""
 	@State private var showIdentifiers: Bool = false
 	@State private var tiledDetection: Bool = false
 	/// The tapped detection being saved; non-nil presents the save sheet.
@@ -144,7 +145,14 @@ struct WebScreenView: View {
             tiledDetection = appState.settings.tiledDetection
             if hasPerformedInitialAction.not {
                 hasPerformedInitialAction = true
-                if
+                if let fixtureURL = appState.settings.launchFixtureURL {
+                    // AIA-0316 UI-test harness: load a bundled local-HTML fixture directly via
+                    // loadFileURL. Highest precedence, and deliberately NOT recorded in history.
+                    intendedPageKind = "localFixture"
+                    if loadRequest.fileURL != fixtureURL {
+                        loadRequest = loadRequest.nextFile(fixtureURL)
+                    }
+                } else if
                     appState.settings.reopenLastPage.enabled,
                     let lastPage = appState.settings.lastPage {
                     intendedPageKind = "last"
@@ -169,6 +177,13 @@ struct WebScreenView: View {
             }
         }
         .checkpoint(.intendedPageKind, value: intendedPageKind)
+        // Mirror the live URL's file name into a @State so the checkpoint re-renders on every
+        // navigation (WebScreenView observes appState, not browserState directly). The `\.url` KVO
+        // path fires for host-less file:// URLs too, so this reflects local fixtures (AIA-0316).
+        .onReceive(appState.browserState.$currentURL) { url in
+            currentPageFile = url?.lastPathComponent ?? ""
+        }
+        .checkpoint(.currentPageFile, value: currentPageFile)
         .sheet(isPresented: $presentLocationSheet) {
             LocationSheetView(currentURL: appState.browserState.displayedURL?.absoluteString) { input in
                 openRequested(input)

@@ -10,6 +10,7 @@
 		94E018910000000000000011 /* DrawerConfigUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000010 /* DrawerConfigUITests.swift */; };
 		94E018910000000000000013 /* SettingsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000012 /* SettingsUITests.swift */; };
 		94E018910000000000000015 /* BrowsingHistoryUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000014 /* BrowsingHistoryUITests.swift */; };
+		94F1631600000000000000B2 /* LocalPageUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F1631600000000000000B1 /* LocalPageUITests.swift */; };
 		94E018910000000000000017 /* AddressBarUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000016 /* AddressBarUITests.swift */; };
 		94E018910000000000000002 /* DetectionEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000001 /* DetectionEngineTests.swift */; };
 		94E018910000000000000004 /* terrain_iphone.png in Resources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000003 /* terrain_iphone.png */; };
@@ -41,6 +42,7 @@
 		8A1D49C12ABB87D500C2D7C1 /* Item.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1D49B72ABB87D500C2D7C1 /* Item.swift */; };
 		8A1EF7132B1E203E00B0967B /* Slide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A1EF7122B1E203E00B0967B /* Slide.swift */; };
 		8A31559A2B1F9EFA00EA9110 /* privacypolicy.html in Resources */ = {isa = PBXBuildFile; fileRef = 8A3155992B1F9EFA00EA9110 /* privacypolicy.html */; };
+		94F1631600000000000000A2 /* uitest_page.html in Resources */ = {isa = PBXBuildFile; fileRef = 94F1631600000000000000A1 /* uitest_page.html */; };
 		8A3C366B2B3C594200E5AF2D /* Int+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3C366A2B3C594200E5AF2D /* Int+Extensions.swift */; };
 		8A4256DE2B1D3090009153B1 /* WebCacheCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256DD2B1D3090009153B1 /* WebCacheCleaner.swift */; };
 		8A4256E42B1E0BA3009153B1 /* EmailController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256E32B1E0BA3009153B1 /* EmailController.swift */; };
@@ -240,6 +242,7 @@
 		94E018910000000000000010 /* DrawerConfigUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerConfigUITests.swift; sourceTree = "<group>"; };
 		94E018910000000000000012 /* SettingsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsUITests.swift; sourceTree = "<group>"; };
 		94E018910000000000000014 /* BrowsingHistoryUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowsingHistoryUITests.swift; sourceTree = "<group>"; };
+		94F1631600000000000000B1 /* LocalPageUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPageUITests.swift; sourceTree = "<group>"; };
 		94E018910000000000000016 /* AddressBarUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressBarUITests.swift; sourceTree = "<group>"; };
 		94E018910000000000000001 /* DetectionEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionEngineTests.swift; sourceTree = "<group>"; };
 		94E018910000000000000003 /* terrain_iphone.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = terrain_iphone.png; sourceTree = "<group>"; };
@@ -271,6 +274,7 @@
 		8A1D49B72ABB87D500C2D7C1 /* Item.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Item.swift; sourceTree = "<group>"; };
 		8A1EF7122B1E203E00B0967B /* Slide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Slide.swift; sourceTree = "<group>"; };
 		8A3155992B1F9EFA00EA9110 /* privacypolicy.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = privacypolicy.html; path = iOS/Documents/privacypolicy.html; sourceTree = "<group>"; };
+		94F1631600000000000000A1 /* uitest_page.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = uitest_page.html; path = iOS/Resources/UITestFixtures/uitest_page.html; sourceTree = "<group>"; };
 		8A3C366A2B3C594200E5AF2D /* Int+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Int+Extensions.swift"; sourceTree = "<group>"; };
 		8A4256DD2B1D3090009153B1 /* WebCacheCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebCacheCleaner.swift; sourceTree = "<group>"; };
 		8A4256E32B1E0BA3009153B1 /* EmailController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailController.swift; sourceTree = "<group>"; };
@@ -554,6 +558,7 @@
 				942B1DD92EA66353005455F9 /* LOGGING_GUIDE.md */,
 				942B1DDA2EA66353005455F9 /* README.md */,
 				8A3155992B1F9EFA00EA9110 /* privacypolicy.html */,
+				94F1631600000000000000A1 /* uitest_page.html */,
 			);
 			name = Documents;
 			sourceTree = "<group>";
@@ -901,6 +906,7 @@
 				94E018910000000000000010 /* DrawerConfigUITests.swift */,
 				94E018910000000000000012 /* SettingsUITests.swift */,
 				94E018910000000000000014 /* BrowsingHistoryUITests.swift */,
+				94F1631600000000000000B1 /* LocalPageUITests.swift */,
 				94E018910000000000000016 /* AddressBarUITests.swift */,
 			);
 			path = MLBrowserUITests;
@@ -1185,6 +1191,7 @@
 				8AE0BC0B2A97B0B40086DDF9 /* Preview Assets.xcassets in Resources */,
 				8AE0BC082A97B0B40086DDF9 /* Assets.xcassets in Resources */,
 				8A31559A2B1F9EFA00EA9110 /* privacypolicy.html in Resources */,
+				94F1631600000000000000A2 /* uitest_page.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1482,6 +1489,7 @@
 				94E018910000000000000011 /* DrawerConfigUITests.swift in Sources */,
 				94E018910000000000000013 /* SettingsUITests.swift in Sources */,
 				94E018910000000000000015 /* BrowsingHistoryUITests.swift in Sources */,
+				94F1631600000000000000B2 /* LocalPageUITests.swift in Sources */,
 				94E018910000000000000017 /* AddressBarUITests.swift in Sources */,
 				94FCC4072ED063010047B283 /* OSLog+Extensions.swift in Sources */,
 				942B1DDF2EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */,
