@@ -40,6 +40,7 @@ enum AID {
 	static let cpFullscreen = "_AIA:Checkpoint.FullscreenFeatureEnabled"
 	static let cpAppMode = "_AIA:Checkpoint.AppMode"
 	static let cpDeviceIdiom = "_AIA:Checkpoint.DeviceIdiom"
+	static let cpDetectionCount = "_AIA:Checkpoint.DetectionCount"
 
 	// Top toolbar (real Buttons)
 	static let cpu = "_AIA:Button.GlobalToolbarSideMenu"

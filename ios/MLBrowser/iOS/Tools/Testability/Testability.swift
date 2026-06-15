@@ -302,6 +302,9 @@ extension TestabilityIdentification {
 		case appMode
 		/// `phone` / `pad` — the device idiom that drives chrome layout (AIA-0294).
 		case deviceIdiom
+		/// Count of currently rendered detection annotations (AIA-0317). Lets UI tests assert
+		/// `>= 1` after a detection run; `0` when none are drawn.
+		case detectionCount
 	}
 	
 	enum MenuItem: String, TestabilityIdentification {
