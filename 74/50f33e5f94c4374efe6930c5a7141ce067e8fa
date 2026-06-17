@@ -1,0 +1,23 @@
+ios/IMPLEMENTATION_PLAN_AIA-0318.md
+  s_c55b2e88071d91::t_c4b6b5b3b4b16a 3-4
+  s_c55b2e88071d91::t_dfbedbdf4ad41b 27-30
+  s_c55b2e88071d91::t_33d552f7fae3d5 70-72
+ios/MLBrowser/iOS/State/Downloader.swift
+  s_c55b2e88071d91::t_43a62194d6f112 206-218
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "7450f33e5f94c4374efe6930c5a7141ce067e8fa",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
