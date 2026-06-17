@@ -171,13 +171,17 @@ final class BrowsingHistoryRefreshTests: XCTestCase {
         let frc = try makeHistoryFRC()
         XCTAssertEqual(frc.fetchedObjects?.count, 5)
 
-        try viewContext.performAndWait {
+        // Bind a local so the performAndWait closure doesn't capture `self` or reference the
+        // @MainActor `viewContext` computed property from within a @Sendable closure (Swift 6
+        // warnings). Mirrors the clean `backgroundContext` usage above.
+        let context = viewContext
+        try context.performAndWait {
             let fetchRequest: NSFetchRequest<NSFetchRequestResult> = WebHistoryEntry.fetchRequest()
             let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
             deleteRequest.resultType = .resultTypeObjectIDs
             // Deliberately NOT calling mergeChanges(fromRemoteContextSave:into:) — the store rows
             // are gone, but the viewContext is never notified.
-            _ = try viewContext.execute(deleteRequest)
+            _ = try context.execute(deleteRequest)
         }
 
         XCTAssertEqual(
