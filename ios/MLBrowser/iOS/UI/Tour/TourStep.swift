@@ -23,6 +23,15 @@ enum TourAnchorID: String, Hashable, CaseIterable, Sendable {
 	/// inside a `List` cell wouldn't reach the overlay); the step spotlights `.demoModels` via
 	/// `TourStep.spotlightFallback` instead.
 	case enableModelToggle
+	/// The PLAY / start-detection button in the top toolbar.
+	case playButton
+	/// The Find button in the top toolbar (enters finding-capture mode).
+	case findButton
+	/// The capture step's logical identity (no published anchor — a no-dim step where the user
+	/// taps the live map). Used for the step's checkpoint only.
+	case captureArea
+	/// The closing step's logical identity (no anchor — a centered "you're all set" bubble).
+	case finished
 }
 
 /// Where the coach-mark bubble sits relative to the spotlight cutout.
@@ -52,17 +61,23 @@ enum AdvanceCondition: Sendable {
 	/// The highlighted demo model's enable toggle went false→true (step 4). Driven by
 	/// `TourState.userEnabledModel()`, not by a polled app-state change.
 	case modelEnabled
+	/// Detection started (step 5: tapping PLAY). Overlay-driven: the cutout tap both starts
+	/// detection and advances.
+	case detectionStarted
+	/// Finding-capture mode entered (step 6: tapping Find). Overlay-driven likewise.
+	case pickModeEntered
+	/// A finding was saved (step 7). Not overlay-driven — the user taps the live map (a no-dim
+	/// step) and saves in the sheet; the view layer signals via `TourState.findingDidSave()`.
+	case findingSaved
 
 	/// Whether the overlay drives this action via a transparent tap target over the cutout.
-	/// `.drawerOpened` is overlay-driven: a tap on the spotlighted models button opens the
-	/// drawer (the button itself is in a separate UIKit layer a pass-through tap can't reach,
-	/// and the drawer is closed so the overlay tap target works). `.modelEnabled` is **not**:
-	/// the toggle sits inside the open drawer beneath the dim, where neither a pass-through tap
-	/// nor an overlay tap target reaches it — that step is driven by the bubble's button instead.
+	/// True for actions on toolbar buttons a pass-through tap can't reach (`.drawerOpened`,
+	/// `.detectionStarted`, `.pickModeEntered`): the overlay performs the action and advances.
+	/// False for `.modelEnabled` (bubble-driven) and `.findingSaved` (no-dim, user taps the map).
 	var isOverlayDriven: Bool {
 		switch self {
-		case .drawerOpened: return true
-		case .modelEnabled: return false
+		case .drawerOpened, .detectionStarted, .pickModeEntered: return true
+		case .modelEnabled, .findingSaved: return false
 		}
 	}
 }
@@ -87,6 +102,11 @@ struct TourStep: Identifiable, Sendable {
 	/// step keeps its own identity (`.enableModelToggle`, for checkpoints) but spotlights the
 	/// `.demoModels` section, whose hole covers the toggles so the real tap passes through.
 	let spotlightFallback: TourAnchorID?
+	/// Whether this step dims the background. `false` for a step where the user must tap the live
+	/// app (the map capture step): the overlay then renders only the bubble, blocking nothing.
+	let dimsBackground: Bool
+	/// Title of the bubble's primary button (defaults to "Next"; the closing step uses "Done").
+	let primaryButtonTitle: String
 
 	init(
 		target: TourAnchorID,
@@ -94,7 +114,9 @@ struct TourStep: Identifiable, Sendable {
 		placement: TourBubblePlacement,
 		advance: TourAdvance,
 		fallbackAfter: TimeInterval = 8,
-		spotlightFallback: TourAnchorID? = nil
+		spotlightFallback: TourAnchorID? = nil,
+		dimsBackground: Bool = true,
+		primaryButtonTitle: String = L10n.Tour.next
 	) {
 		self.id = target
 		self.bubbleText = bubbleText
@@ -102,6 +124,8 @@ struct TourStep: Identifiable, Sendable {
 		self.advance = advance
 		self.fallbackAfter = fallbackAfter
 		self.spotlightFallback = spotlightFallback
+		self.dimsBackground = dimsBackground
+		self.primaryButtonTitle = primaryButtonTitle
 	}
 }
 
@@ -141,6 +165,36 @@ extension TourStep {
 				// its hole covers the toggles, so the user's tap passes through to one.
 				advance: .userAction(.modelEnabled),
 				spotlightFallback: .demoModels
+			),
+			TourStep(
+				target: .playButton,
+				bubbleText: L10n.Tour.Play.text,
+				placement: .below,
+				// Overlay-driven: tapping the spotlighted PLAY button starts detection.
+				advance: .userAction(.detectionStarted)
+			),
+			TourStep(
+				target: .findButton,
+				bubbleText: L10n.Tour.Find.text,
+				placement: .below,
+				// Overlay-driven: tapping Find enters finding-capture (pick) mode.
+				advance: .userAction(.pickModeEntered)
+			),
+			TourStep(
+				target: .captureArea,
+				bubbleText: L10n.Tour.Capture.text,
+				placement: .bottom,
+				// No dim: the user taps the live map to capture a finding; advances once a
+				// finding is actually saved (FindingDidSave), so cancelling just lets them retry.
+				advance: .userAction(.findingSaved),
+				dimsBackground: false
+			),
+			TourStep(
+				target: .finished,
+				bubbleText: L10n.Tour.Finished.text,
+				placement: .bottom,
+				advance: .scripted,
+				primaryButtonTitle: L10n.Common.done
 			)
 		]
 	}

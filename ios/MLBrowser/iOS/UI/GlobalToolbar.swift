@@ -80,6 +80,7 @@ struct GlobalToolbarTrailing: View {
 		}
 		.accessibilityLabel(L10n.Finding.Save.title)
 		.testability(Testability.Button.globalToolbarFind)
+		.tourTarget(.findButton)
 	}
 	
 	// MARK: - Detection Button
@@ -112,6 +113,7 @@ struct GlobalToolbarTrailing: View {
 					.contentShape(Rectangle())
 			}
 			.testability(Testability.Button.globalToolbarPlayDetection)
+			.tourTarget(.playButton)
 		}
 	}
 	

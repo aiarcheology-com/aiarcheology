@@ -288,10 +288,14 @@ enum StringCatalogValidator {
             "tab.web",
             // Tour (AIA-0333)
             "tour.addressBar.text",
+            "tour.capture.text",
             "tour.demoModels.text",
             "tour.enableModel.text",
+            "tour.find.text",
+            "tour.finished.text",
             "tour.modelsButton.text",
             "tour.next",
+            "tour.play.text",
             "tour.skip"
         ]
     }

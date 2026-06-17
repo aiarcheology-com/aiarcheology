@@ -51,27 +51,31 @@ private struct TourOverlayModifier: ViewModifier {
 		let rect = anchor.map { proxy[$0] }
 
 		ZStack(alignment: .topLeading) {
-			// Dim taps are swallowed but never terminate the tour — the user can only leave
-			// via the explicit Skip button (AIA-0333).
-			TourSpotlight(cutout: rect)
+			// A no-dim step (e.g. the map-capture step) renders ONLY the bubble — no dim, no
+			// cutout, no hit-blocking — so the user's tap reaches the live app beneath.
+			if step.dimsBackground {
+				// Dim taps are swallowed but never terminate the tour — the user can only leave
+				// via the explicit Skip button (AIA-0333).
+				TourSpotlight(cutout: rect)
 
-			// Cutout-tap fallback for overlay-driven `.userAction` steps: a transparent button
-			// over the hole drives the action when a pass-through tap cannot reach the real
-			// control (e.g. the models button, hosted in a separate layer). Conditions that are
-			// NOT overlay-driven (the model toggle) keep pure pass-through so the user's tap
-			// reaches the real control. See `TourState.performCutoutAction()`.
-			if let rect, case .userAction(let condition) = step.advance, condition.isOverlayDriven {
-				Color.clear
-					.contentShape(Rectangle())
-					.frame(width: rect.width, height: rect.height)
-					.offset(x: rect.minX, y: rect.minY)
-					.onTapGesture { tour.performCutoutAction() }
+				// Cutout-tap fallback for overlay-driven `.userAction` steps: a transparent button
+				// over the hole drives the action when a pass-through tap cannot reach the real
+				// control (e.g. the models button, hosted in a separate layer). Conditions that are
+				// NOT overlay-driven (the model toggle) keep pure pass-through so the user's tap
+				// reaches the real control. See `TourState.performCutoutAction()`.
+				if let rect, case .userAction(let condition) = step.advance, condition.isOverlayDriven {
+					Color.clear
+						.contentShape(Rectangle())
+						.frame(width: rect.width, height: rect.height)
+						.offset(x: rect.minX, y: rect.minY)
+						.onTapGesture { tour.performCutoutAction() }
+				}
 			}
 
 			// The bubble (which carries Skip / Next) always renders so a step can never become
 			// a dead-end blank dim — if the target anchor hasn't settled yet it is centered
 			// instead of pointing at a cutout.
-			bubble(step: step, cutout: rect, container: proxy.size)
+			bubble(step: step, cutout: step.dimsBackground ? rect : nil, container: proxy.size)
 		}
 	}
 
@@ -87,6 +91,7 @@ private struct TourOverlayModifier: ViewModifier {
 
 		TourBubble(
 			text: step.bubbleText,
+			nextTitle: step.primaryButtonTitle,
 			showsNext: tour.showsNextButton,
 			onNext: { tour.bubblePrimaryTapped() },
 			onSkip: { tour.skip() }

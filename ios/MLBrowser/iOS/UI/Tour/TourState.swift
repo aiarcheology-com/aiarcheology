@@ -47,6 +47,7 @@ final class TourState {
 
 	private let defaults: UserDefaults
 	private weak var drawer: DrawerManager?
+	private weak var guide: Guide?
 
 	/// Enables a demo model on the user's behalf for the overlay-driven enable step. The model
 	/// toggle lives inside the drawer beneath the overlay, where a tap can't pass through, so
@@ -77,8 +78,9 @@ final class TourState {
 
 	/// Wires the live drawer so the tour can open/close it and observe its state. Called
 	/// once from the view layer where the `DrawerManager` is created.
-	func bind(drawer: DrawerManager) {
+	func bind(drawer: DrawerManager, guide: Guide? = nil) {
 		self.drawer = drawer
+		if let guide { self.guide = guide }
 	}
 
 	/// Registers the drawer's "enable a demo model" action for the overlay-driven enable step.
@@ -202,9 +204,10 @@ final class TourState {
 		switch condition {
 		case .drawerOpened:
 			return drawer?.isOpen == true
-		case .modelEnabled:
-			// Driven by `userEnabledModel()`; there is no app-state poll for this, so a plain
-			// `evaluate()` never satisfies it.
+		case .modelEnabled, .detectionStarted, .pickModeEntered, .findingSaved:
+			// Not polled by `evaluate()`: `.modelEnabled` is bubble-driven; `.detectionStarted`
+			// and `.pickModeEntered` advance from `performCutoutAction`; `.findingSaved` advances
+			// from `findingDidSave()`. None are satisfied by a plain `evaluate()`.
 			return false
 		}
 	}
@@ -221,12 +224,29 @@ final class TourState {
 			// Opening via the manager flows through ContentView's drawer observer, which pokes
 			// `evaluate()` and advances the step.
 			drawer?.open()
-		case .modelEnabled:
-			// Not overlay-driven (see AdvanceCondition.isOverlayDriven): the model toggle sits
-			// beneath the dim where neither a pass-through tap nor an overlay tap target reaches
-			// it. This step is driven by the bubble's primary button instead (bubblePrimaryTapped).
+		case .detectionStarted:
+			// Tapping the spotlighted PLAY button starts detection; advance immediately (the
+			// overlay performed the action, so we don't poll the resulting state).
+			guide?.ontheflyDetectionTapped()
+			advance()
+		case .pickModeEntered:
+			// Tapping the spotlighted Find button enters finding-capture mode; advance.
+			guide?.findTapped()
+			advance()
+		case .modelEnabled, .findingSaved:
+			// Not overlay-driven (see AdvanceCondition.isOverlayDriven): `.modelEnabled` is driven
+			// by the bubble's primary button; `.findingSaved` by `findingDidSave()` after the user
+			// taps the live map (a no-dim step) and saves. Nothing to do here.
 			break
 		}
+	}
+
+	/// Called by the view layer when a ready `Finding` is newly saved. Advances the capture step
+	/// (and only that step), so cancelling the save sheet leaves the user on it to retry.
+	func findingDidSave() {
+		guard isActive, let step = currentStep else { return }
+		guard case .userAction(.findingSaved) = step.advance else { return }
+		advance()
 	}
 
 	/// The bubble's primary ("Next") button. For the enable-model step — whose control can't be
@@ -235,7 +255,9 @@ final class TourState {
 	func bubblePrimaryTapped() {
 		guard isActive, let step = currentStep else { return }
 		if case .userAction(.modelEnabled) = step.advance {
-			_ = enableModelHook?() // best-effort; finish the tour regardless
+			_ = enableModelHook?() // best-effort; advance regardless
+			// The next step (PLAY) lives in the main chrome, so close the drawer the user opened.
+			drawer?.close()
 		}
 		advance()
 	}

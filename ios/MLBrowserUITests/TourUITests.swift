@@ -61,12 +61,12 @@ final class TourUITests: UITestCase {
 		)
 	}
 
-	/// The full happy path: address bar → models button → demo models → enable model → finish.
-	/// Covers the enable-model step (previously a blank dim with no reachable target) and asserts
-	/// that flipping the highlighted toggle — a pass-through tap to the real control — finishes
-	/// the tour. Captures a screenshot at every step for visual verification of the spotlight.
+	/// The full happy path: address bar → models button → demo models → enable model → start
+	/// detection → capture mode → tap the map → save a finding → finish. Exercises every advance
+	/// mechanism (scripted Next, overlay-driven cutout taps, bubble-driven enable, the no-dim map
+	/// tap, and the saved-finding signal). Captures a screenshot at every step.
 	@MainActor
-	func testTour_fullHappyPath_enableModelFinishes() {
+	func testTour_fullHappyPath_throughSaveFinding() {
 		launch(LaunchConfig(startOnboardingTour: true))
 
 		XCTAssertTrue(element(AID.tourBubble).waitForExistence(timeout: 15), "Tour should start")
@@ -85,34 +85,41 @@ final class TourUITests: UITestCase {
 		XCTAssertTrue(waitForSeededConfigurations(), "A demo model row should seed")
 		attach("03-demoModels")
 
-		// Step 3 → 4 (scripted): the previously-blank step. The bubble must still render — a
-		// `.userAction` step with an unresolved anchor must never be a dead-end dim.
+		// Step 3 → 4 (scripted): the enable-model step still shows its bubble (not a blank dim).
 		element(AID.tourNext).tap()
-		XCTAssertTrue(
-			waitForCheckpoint(AID.cpTourStep, equals: "enableModelToggle", timeout: 10),
-			"Should advance to the enable-model step"
-		)
-		XCTAssertTrue(
-			element(AID.tourBubble).waitForExistence(timeout: 5),
-			"Enable-model step must show its bubble, not a blank dim"
-		)
+		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "enableModelToggle", timeout: 10))
+		XCTAssertTrue(element(AID.tourBubble).waitForExistence(timeout: 5), "Enable step must show its bubble")
 		attach("04-enableModelToggle")
 
-		// The payoff: the enable step's primary button enables a demo model and finishes the
-		// tour. (The toggle sits beneath the dim and can't be tapped through the overlay, so the
-		// bubble drives the action.)
-		XCTAssertTrue(element(AID.tourNext).waitForExistence(timeout: 5), "Enable step should show its primary button")
+		// Step 4 → 5: the bubble button enables a demo model, closes the drawer, advances to PLAY.
 		element(AID.tourNext).tap()
-		XCTAssertTrue(
-			waitForDisappearance(of: element(AID.tourBubble)),
-			"The enable-model button should finish the tour"
-		)
-		// A demo model is now actually enabled.
-		XCTAssertTrue(
-			app.switches.matching(NSPredicate(format: "identifier == %@ AND value == %@", AID.configEnabledToggle, "1")).firstMatch.waitForExistence(timeout: 5),
-			"A demo model should be enabled after the step"
-		)
-		attach("05-finished")
+		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "playButton", timeout: 10), "Should advance to PLAY")
+		attach("05-playButton")
+
+		// Step 5 → 6: overlay-driven tap on PLAY starts detection.
+		app.buttons[AID.play].tap()
+		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "findButton", timeout: 10), "Should advance to Find")
+		attach("06-findButton")
+
+		// Step 6 → 7: overlay-driven tap on Find enters capture mode.
+		app.buttons[AID.findTop].tap()
+		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "captureArea", timeout: 10), "Should advance to capture")
+		attach("07-captureArea")
+
+		// Step 7: no-dim step — tap the live map to capture a finding, which opens the Save sheet.
+		app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)).tap()
+		let titleField = app.textFields[AID.saveFindingTitle]
+		XCTAssertTrue(titleField.waitForExistence(timeout: 10), "Save sheet should appear after tapping the map")
+		titleField.tap()
+		titleField.typeText("Tour finding")
+		app.buttons[AID.saveFindingSave].tap()
+
+		// Saving the finding advances to the closing step; Done finishes the tour.
+		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "finished", timeout: 10), "Saving should advance to the closing step")
+		attach("08-finished")
+		element(AID.tourNext).tap()
+		XCTAssertTrue(waitForDisappearance(of: element(AID.tourBubble)), "Done should end the tour")
+		attach("09-done")
 	}
 
 	/// Captures a named, always-kept screenshot attachment for visual review in the result bundle.

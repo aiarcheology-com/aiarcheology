@@ -17,6 +17,16 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
     // drawer:
     @State private var drawer = DrawerManager()
+    // Ready findings — the onboarding tour's capture step advances when this count increases
+    // (a finding was saved). AIA-0333.
+    @FetchRequest(
+        sortDescriptors: [],
+        predicate: NSPredicate(
+            format: "%K == %@",
+            #keyPath(Finding.lifeCycleString),
+            CoreDataManageableState.ready.rawValue
+        )
+    ) private var readyFindings: FetchedResults<Finding>
     // sheets, alerts and menus:
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
@@ -97,6 +107,13 @@ struct ContentView: View {
             guard appState.guide.presentedSideMenu != isOpen else { return }
             appState.guide.presentedSideMenu = isOpen
         }
+        .onChange(of: readyFindings.count) { oldCount, newCount in
+            // Tour hook (AIA-0333): a finding was saved → advance the capture step. Edge-triggered,
+            // so pre-existing findings never fire it; `findingDidSave` only acts on that step.
+            if newCount > oldCount {
+                appState.tour.findingDidSave()
+            }
+        }
         .onReceive(appState.deep.deepStateErrorPublisher) { error in
             guard let error else { return }
             errorMessage = error.localizedDescription
@@ -117,9 +134,11 @@ struct ContentView: View {
     
     // MARK: - Main Content
 
-    /// Fullscreen = detection running with chrome hidden, on the web tab only.
+    /// Fullscreen = detection running with chrome hidden, on the web tab only. Suppressed while
+    /// the onboarding tour is active so the toolbar (PLAY / Find) stays visible (AIA-0333); the
+    /// user's `fullscreenDetection` setting is untouched.
     private var fullscreenActive: Bool {
-        detectionEnabled && chromeVisible.not && selectedMode == .web
+        detectionEnabled && chromeVisible.not && selectedMode == .web && appState.tour.isActive.not
     }
 
     private var mainContent: some View {
@@ -144,7 +163,7 @@ struct ContentView: View {
     }
 
     private func modeTab(_ mode: AppMode) -> some View {
-        ViewContainer(barsHidden: detectionEnabled && chromeVisible.not && mode == .web, {
+        ViewContainer(barsHidden: detectionEnabled && chromeVisible.not && mode == .web && appState.tour.isActive.not, {
             modeScreen(mode)
         },
         leadingItems: {
@@ -206,7 +225,7 @@ struct ContentView: View {
     // is hit-testable, all other touches reach the web view.
     @ViewBuilder
     private var floatingChromeButton: some View {
-        if detectionEnabled && fullscreenFeatureEnabled && selectedMode == .web {
+        if detectionEnabled && fullscreenFeatureEnabled && selectedMode == .web && appState.tour.isActive.not {
             FloatingChromeButton(position: $floatingButtonPosition)
                 .environmentObject(appState.guide)
                 .transition(.opacity)
@@ -233,7 +252,7 @@ struct ContentView: View {
         // The production auto-start decision runs earlier, in `AppState.initialize()`, so the
         // onboarding demo page is staged before this view appears. Here we only bind the live
         // drawer and honor the UI-test launch flag.
-        appState.tour.bind(drawer: drawer)
+        appState.tour.bind(drawer: drawer, guide: appState.guide)
         if AppEnvironment.isRunningUITests, UITestLaunchConfiguration.shouldStartOnboardingTour {
             appState.tour.start()
         }

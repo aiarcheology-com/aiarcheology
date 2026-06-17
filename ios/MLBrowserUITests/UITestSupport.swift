@@ -98,6 +98,10 @@ enum AID {
 	static let tourNext = "_AIA:Button.TourNext"
 	static let cpTourStep = "_AIA:Checkpoint.TourStep"
 
+	// Save-finding sheet (AIA-0333 capture step)
+	static let saveFindingTitle = "_AIA:TextField.SaveFindingTitle"
+	static let saveFindingSave = "_AIA:Button.SaveFindingSave"
+
 	// Location / address sheet
 	static let locationInput = "_AIA:TextField.LocationSheetInput"
 	static let locationDismiss = "_AIA:Button.LocationSheetDismiss"

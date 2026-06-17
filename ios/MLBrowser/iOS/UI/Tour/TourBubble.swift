@@ -12,6 +12,8 @@ import SwiftUI
 /// user-action steps).
 struct TourBubble: View {
 	let text: String
+	/// Title of the primary (advance) button — "Next" for most steps, "Done" for the last.
+	var nextTitle: String = L10n.Tour.next
 	let showsNext: Bool
 	let onNext: () -> Void
 	let onSkip: () -> Void
@@ -35,7 +37,7 @@ struct TourBubble: View {
 				Spacer()
 
 				if showsNext {
-					Button(L10n.Tour.next, action: onNext)
+					Button(nextTitle, action: onNext)
 						.fontWeight(.bold)
 						.foregroundColor(.green)
 						.testability(Testability.Button.tourNext)

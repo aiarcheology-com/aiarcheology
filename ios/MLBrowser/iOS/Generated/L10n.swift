@@ -473,6 +473,10 @@ internal enum L10n {
       /// Type a page address here — a Bavaria LiDAR page is already in your history.
       internal static let text = L10n.tr("Localizable", "tour.addressBar.text", fallback: "Type a page address here — a Bavaria LiDAR page is already in your history.")
     }
+    internal enum Capture {
+      /// Now tap anywhere on the map to mark your finding.
+      internal static let text = L10n.tr("Localizable", "tour.capture.text", fallback: "Now tap anywhere on the map to mark your finding.")
+    }
     internal enum DemoModels {
       /// These are your detection models, ready to go.
       internal static let text = L10n.tr("Localizable", "tour.demoModels.text", fallback: "These are your detection models, ready to go.")
@@ -481,9 +485,21 @@ internal enum L10n {
       /// Switch a model on to start using it.
       internal static let text = L10n.tr("Localizable", "tour.enableModel.text", fallback: "Switch a model on to start using it.")
     }
+    internal enum Find {
+      /// Tap here to capture a finding.
+      internal static let text = L10n.tr("Localizable", "tour.find.text", fallback: "Tap here to capture a finding.")
+    }
+    internal enum Finished {
+      /// That's it — you saved your first finding! You're all set.
+      internal static let text = L10n.tr("Localizable", "tour.finished.text", fallback: "That's it — you saved your first finding! You're all set.")
+    }
     internal enum ModelsButton {
       /// Tap here to download or configure your detection models.
       internal static let text = L10n.tr("Localizable", "tour.modelsButton.text", fallback: "Tap here to download or configure your detection models.")
+    }
+    internal enum Play {
+      /// Tap to start detecting features on the page.
+      internal static let text = L10n.tr("Localizable", "tour.play.text", fallback: "Tap to start detecting features on the page.")
     }
   }
 }

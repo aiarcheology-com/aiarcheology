@@ -13672,6 +13672,54 @@
         }
       }
     },
+    "tour.capture.text" : {
+      "comment" : "AIA-0333 tour bubble: capture-a-finding step",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now tap anywhere on the map to mark your finding."
+          }
+        }
+      }
+    },
+    "tour.find.text" : {
+      "comment" : "AIA-0333 tour bubble: find/capture-mode step",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap here to capture a finding."
+          }
+        }
+      }
+    },
+    "tour.finished.text" : {
+      "comment" : "AIA-0333 tour bubble: closing step",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That's it — you saved your first finding! You're all set."
+          }
+        }
+      }
+    },
+    "tour.play.text" : {
+      "comment" : "AIA-0333 tour bubble: start-detection step",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to start detecting features on the page."
+          }
+        }
+      }
+    },
     "tour.demoModels.text" : {
       "comment" : "AIA-0333 tour bubble: demo models step",
       "extractionState" : "manual",
