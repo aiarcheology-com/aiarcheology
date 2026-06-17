@@ -1,0 +1,20 @@
+ios/MLBrowserUITests/DrawerConfigUITests.swift
+  s_c55b2e88071d91::t_52e66447c1b5d2 49-78
+  s_c55b2e88071d91::t_0c2e0490d75a0a 43-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "bf33db163aabf28a9ea5102d2dd559614f3f7c29",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": null
+    }
+  }
+}
