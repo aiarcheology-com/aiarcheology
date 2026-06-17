@@ -39,6 +39,9 @@ final class BrowsingHistoryRefreshTests: XCTestCase {
         storeURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("HistoryRefreshTest-\(UUID().uuidString).sqlite")
         controller = DataController(storeURL: storeURL)
+        // SQLite stores load synchronously (shouldAddStoreAsynchronously defaults false), but await
+        // readiness explicitly so the stack is deterministically ready before any fetch/save.
+        await controller.awaitStoreReady()
     }
 
     override func tearDown() async throws {
