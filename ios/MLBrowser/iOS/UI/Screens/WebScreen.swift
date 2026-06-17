@@ -507,6 +507,7 @@ private struct WebAddressDisplay: View {
 		// VoiceOver reads the actual URL, not just the affordance.
 		.accessibilityLabel(urlText)
 		.testability(Testability.Button.webScreenAddressBar)
+		.tourTarget(.addressBar)
 	}
 }
 

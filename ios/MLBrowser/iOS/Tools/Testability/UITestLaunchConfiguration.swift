@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 2
+	static let currentVersion = 3
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -44,8 +44,10 @@ struct UITestLaunchConfiguration: Codable {
 
 	var version: Int = currentVersion
 
-	/// Present the welcome wizard (`keepSlideShowActive = true`). Baseline skips it.
-	var presentWizard: Bool?
+	/// Force-start the interactive onboarding tour on launch, bypassing the
+	/// `hasSeenOnboardingTour` gate (AIA-0333). Baseline leaves the tour off. Consumed by the
+	/// view layer (`ContentView.handleOnAppear`) via ``shouldStartOnboardingTour``.
+	var startOnboardingTour: Bool?
 	/// Which page the browser should decide to load. `nil` keeps the baseline (home).
 	var pageScenario: PageScenario?
 	/// Optional custom home URL for `pageScenario == .home`.
@@ -87,7 +89,6 @@ struct UITestLaunchConfiguration: Codable {
 		let config = fromEnvironment ?? UITestLaunchConfiguration()
 
 		// 1) Full baseline — every setting the tests depend on, re-applied every launch.
-		settings.keepSlideShowActive = false
 		settings.snapAfterAppStart = false
 		settings.isDetectionPaused = false
 		settings.fullscreenDetection = false
@@ -98,10 +99,6 @@ struct UITestLaunchConfiguration: Codable {
 		settings.tiledDetection = true
 
 		// 2) Scenario deltas.
-		if config.presentWizard == true {
-			settings.keepSlideShowActive = true
-		}
-
 		switch config.pageScenario {
 		case .blank:
 			settings.defaultPage = nil
@@ -132,5 +129,12 @@ struct UITestLaunchConfiguration: Codable {
 		if let fullscreen = config.fullscreenDetection {
 			settings.fullscreenDetection = fullscreen
 		}
+	}
+
+	/// Whether this launch should force-start the onboarding tour (AIA-0333). The single
+	/// consumer of `startOnboardingTour`. Always false outside UI tests.
+	static var shouldStartOnboardingTour: Bool {
+		guard AppEnvironment.isRunningUITests else { return false }
+		return fromEnvironment?.startOnboardingTour == true
 	}
 }

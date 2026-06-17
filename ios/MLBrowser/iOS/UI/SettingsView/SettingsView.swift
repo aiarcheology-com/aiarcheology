@@ -9,6 +9,8 @@ import SwiftUI
 
 struct SettingsForm: View {
 	@Environment(\.dismiss) private var dismiss
+	@Environment(DrawerManager.self) private var drawer
+	@Environment(TourState.self) private var tour
 	@EnvironmentObject var settings: Settings
 	@EnvironmentObject var guide: Guide
 	@FocusState private var isHistoryLimitFocused: Bool
@@ -178,14 +180,22 @@ struct SettingsForm: View {
 				Text(L10n.Settings.about)
 			}
 			.testability(Testability.NavigationLink.settingsAbout)
-			NavigationLink(destination: SlideshowView()
-				.environmentObject(settings)
-				.environment(\.dismissSheet, { dismiss() })) {
-				Text(L10n.Settings.introduction)
-			}
-			.testability(Testability.NavigationLink.settingsIntroduction)
+			replayOnboardingRow
 			restoreDefaultsRow
 		}
+	}
+
+	/// Replays the interactive onboarding tour (AIA-0333). Dismisses Settings and closes the
+	/// drawer first so the tour's first step (the address bar) is visible underneath.
+	private var replayOnboardingRow: some View {
+		Button {
+			dismiss()
+			drawer.close()
+			tour.start()
+		} label: {
+			Text(L10n.Settings.replayOnboarding)
+		}
+		.testability(Testability.NavigationLink.settingsIntroduction)
 	}
 
 	private var restoreDefaultsRow: some View {

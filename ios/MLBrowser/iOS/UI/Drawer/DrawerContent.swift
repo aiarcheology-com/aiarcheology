@@ -16,6 +16,7 @@ import CoreData
 struct DrawerContent: View {
     @Environment(\.managedObjectContext) private var moc
     @Environment(DrawerManager.self) private var drawer
+    @Environment(TourState.self) private var tour
     @EnvironmentObject private var guide: Guide
     @EnvironmentObject private var deep: DeepState
     @EnvironmentObject private var downloader: Downloader
@@ -82,6 +83,8 @@ struct DrawerContent: View {
             SettingsForm()
                 .environmentObject(settings)
                 .environmentObject(guide)
+                .environment(drawer)
+                .environment(tour)
         }
     }
     
@@ -154,11 +157,13 @@ struct DrawerContent: View {
         Section(L10n.Models.Available.title) {
             // Use objectID for identity - it's always valid even for deleted objects.
             // Using entityId crashes when Core Data nullifies it during deletion.
-            ForEach(configurations, id: \.objectID) { configuration in
+            ForEach(Array(configurations.enumerated()), id: \.element.objectID) { index, configuration in
                 // Capture entityId early, before any async operations could invalidate it
                 let entityId = configuration.entityId
                 ConfigurationRow(
                     configuration: configuration,
+                    // The onboarding tour spotlights the first model's enable toggle (AIA-0333).
+                    isTourToggleTarget: index == 0,
                     onTap: {
                         selectedConfigurationId = entityId
                     },
@@ -168,6 +173,8 @@ struct DrawerContent: View {
                 )
             }
         }
+        // The tour spotlights the whole demo-models list at the "these are your models" step.
+        .tourTarget(.demoModels)
     }
     
     // MARK: - Toolbar
@@ -205,6 +212,8 @@ struct DrawerContent: View {
 /// swipe actions to coexist with Toggle on all platforms.
 private struct ConfigurationRow: View {
     @ObservedObject var configuration: DeepConfiguration
+    /// Marks this row's enable toggle as the onboarding-tour spotlight target (AIA-0333).
+    var isTourToggleTarget: Bool = false
     let onTap: () -> Void
     let onDelete: () -> Void
     
@@ -247,6 +256,7 @@ private struct ConfigurationRow: View {
             .tint(configuration.annotationColor)
             .labelsHidden()
             .testability(Testability.Toggle.sideMenuCellEnabled)
+            .tourTargetIf(isTourToggleTarget, .enableModelToggle)
         }
         .contentShape(Rectangle())
         .onTapGesture { onTap() }

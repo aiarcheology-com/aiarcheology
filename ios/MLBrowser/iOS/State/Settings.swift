@@ -22,7 +22,6 @@ final class Settings: ObservableObject, Validatable {
 	private enum UserDefaultsKeys {
 		static let lastPage = "lastPage"
 		static let isDetectionPaused = "isDetectionPaused"
-		static let keepSlideShowActive = "keepSlideShowActive"
 		static let reopenLastPage = "reopenLastPage"
 		static let isFirstLaunch = "isFirstLaunch"
 		static let showIdentifiers = "showIdentifiers"
@@ -40,12 +39,6 @@ final class Settings: ObservableObject, Validatable {
 	public var isFirstLaunchMarked: Bool = false
 
 	@Published public var isDetectionPaused: Bool = false
-
-	@Published public var keepSlideShowActive: Bool {
-		didSet {
-			defaults.set(keepSlideShowActive, forKey: UserDefaultsKeys.keepSlideShowActive)
-		}
-	}
 
 	@Published public var applicationResetButtonToggle: Bool = false
 
@@ -165,7 +158,6 @@ final class Settings: ObservableObject, Validatable {
 		self.defaults = defaults
 
 		let defaultValues: [String: Any] = [
-			UserDefaultsKeys.keepSlideShowActive: true,
 			UserDefaultsKeys.sizeHistory: 30,
             UserDefaultsKeys.reopenLastPage: false,
             UserDefaultsKeys.isFirstLaunch: true,
@@ -188,7 +180,6 @@ final class Settings: ObservableObject, Validatable {
 
 		// Register default values
 		defaults.register(defaults: defaultValues)
-		self.keepSlideShowActive = defaults.bool(forKey: UserDefaultsKeys.keepSlideShowActive)
 		self.historySize = defaults.integer(forKey: UserDefaultsKeys.sizeHistory)
 		self.reopenLastPage = defaults.bool(forKey: UserDefaultsKeys.reopenLastPage)
 		self.isFirstLaunch = defaults.bool(forKey: UserDefaultsKeys.isFirstLaunch)
@@ -236,7 +227,6 @@ final class Settings: ObservableObject, Validatable {
 
 	func reset() {
 		isDetectionPaused = false
-		keepSlideShowActive = true
 		historySize = 30
 		reopenLastPage = false
 		isFirstLaunchMarked = false
@@ -253,7 +243,6 @@ final class Settings: ObservableObject, Validatable {
 		tiledDetection = true
 
 		defaults.removeObject(forKey: UserDefaultsKeys.lastPage)
-		defaults.set(keepSlideShowActive, forKey: UserDefaultsKeys.keepSlideShowActive)
 		defaults.set(historySize, forKey: UserDefaultsKeys.sizeHistory)
 		defaults.set(reopenLastPage, forKey: UserDefaultsKeys.reopenLastPage)
 		defaults.set(isFirstLaunch, forKey: UserDefaultsKeys.isFirstLaunch)

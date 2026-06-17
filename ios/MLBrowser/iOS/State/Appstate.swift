@@ -34,7 +34,11 @@ final class AppState: ObservableObject {
 	lazy var downloader: Downloader = DependencyContainer.shared.downloader
     
     lazy var demoDataManager: DemoDataManager = DependencyContainer.shared.demoDataManager
-	
+
+	/// Interactive onboarding spotlight tour (AIA-0333). Replaces the old slideshow as the
+	/// first-launch experience and is re-runnable from Settings.
+	lazy var tour = TourState()
+
 	/// Indicates whether the app initialization is complete
 	@Published private(set) var isReady = false
 	

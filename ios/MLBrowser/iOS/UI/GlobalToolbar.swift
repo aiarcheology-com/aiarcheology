@@ -36,6 +36,7 @@ struct GlobalToolbarLeading: View {
 				}
 			}
 			.testability(Testability.Button.globalToolbarSideMenu)
+			.tourTarget(.modelsButton)
 		}
 		.onReceive(download.$activeDownloads) { newValue in
 			isAnimating = newValue.isEmpty.not

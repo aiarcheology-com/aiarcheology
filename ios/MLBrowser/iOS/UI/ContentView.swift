@@ -9,12 +9,6 @@ import SwiftUI
 import Combine
 import OSLog
 
-private enum ActiveSheet: Identifiable {
-    case slideshow
-
-    var id: Int { hashValue }
-}
-
 struct ContentView: View {
     // environment:
     @Environment(\.dismiss) var dismiss
@@ -31,7 +25,6 @@ struct ContentView: View {
     @State private var contrast = SnapAdjustment.defaultContrast
     @State private var saturation = SnapAdjustment.defaultSaturation
     @State private var showSnapAdjustment = false
-    @State private var activeSheet: ActiveSheet?
     // Fullscreen detection mode (one-way bridges from Guide; the view only reads):
     @State private var detectionEnabled = false
     @State private var chromeVisible = true
@@ -53,15 +46,16 @@ struct ContentView: View {
         } menu: {
             DrawerContent()
                 .environment(drawer)
+                .environment(appState.tour)
                 .environmentObject(appState.guide)
                 .environmentObject(appState.deep)
                 .environmentObject(appState.downloader)
                 .environmentObject(appState.settings)
         }
         .environment(drawer)
-        .sheet(item: $activeSheet) { sheet in
-            sheetContent(for: sheet)
-        }
+        // The single root attachment of the onboarding tour overlay (AIA-0333). Inert while
+        // the tour is inactive.
+        .tourOverlay(appState.tour)
         .onReceive(appState.guide.$showSnapAdjustment) { show in
             // Bridge from Guide's showSnapAdjustment to local state for proper observation
             showSnapAdjustment = show
@@ -94,6 +88,9 @@ struct ContentView: View {
             }
         }
         .onChange(of: drawer.isOpen) { _, isOpen in
+            // Tour hook (AIA-0333): a user-originated drawer toggle. Clears any tour
+            // drawer-ownership and lets the drawer-open step advance.
+            appState.tour.userToggledDrawer()
             // Sync drawer state back to Guide for any dependent code
             // Guard against sync loops
             guard appState.guide.presentedSideMenu != isOpen else { return }
@@ -215,33 +212,30 @@ struct ContentView: View {
         }
     }
     
-    // MARK: - Sheets
-    
-    @ViewBuilder
-    private func sheetContent(for sheet: ActiveSheet) -> some View {
-        switch sheet {
-        case .slideshow:
-            SlideshowView()
-                .centerInParentView()
-                .environmentObject(appState.settings)
-        }
-    }
-    
     // MARK: - Lifecycle
-    
+
     private func handleOnAppear() {
         // Should be called only once after the app start
         guard appState.snap.delayedTimer.not else { return }
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
             if appState.settings.snapAfterAppStart {
                 appState.guide.ontheflyDetectionTapped()
             }
             appState.snap.delayedTimer = true
         }
-        
-        if appState.settings.keepSlideShowActive {
-            activeSheet = .slideshow
+
+        // Onboarding tour (AIA-0333): bind the live drawer. Under UI tests the tour starts
+        // only when a test explicitly opts in via `startOnboardingTour`, so the overlay never
+        // covers the chrome other tests assert against. In shipping, run the first-launch
+        // gate/migration decision.
+        appState.tour.bind(drawer: drawer)
+        if AppEnvironment.isRunningUITests {
+            if UITestLaunchConfiguration.shouldStartOnboardingTour {
+                appState.tour.start()
+            }
+        } else {
+            appState.tour.migrateAndAutostartIfNeeded()
         }
     }
 }

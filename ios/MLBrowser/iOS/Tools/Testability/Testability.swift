@@ -152,13 +152,12 @@ extension TestabilityIdentification {
 		// Snap Adjustment
 		case snapAdjustmentReset
 		case snapAdjustmentOverlayDismiss
-		// Slideshow
-		case slideshowSwipeLeft
-		case slideshowSwipeRight
+		// Onboarding Tour
+		case tourSkip
+		case tourNext
 		// Grid View
 		case gridViewRemoveItem
 		// Dismiss
-		case slideShowDismiss
 		case appDescriptionDismiss
 	}
 	
@@ -169,8 +168,6 @@ extension TestabilityIdentification {
 		case settingsReopenLastPage
 		case settingsFullscreenDetection
 		case settingsTiledDetection
-		// Slideshow
-		case slideshowShowNextTime
 		// Side Menu Cell
 		case sideMenuCellEnabled
 	}
@@ -283,8 +280,8 @@ extension TestabilityIdentification {
 	
 	enum View: String, TestabilityIdentification {
 		case aView
-		// Slideshow / welcome wizard — one identifier per slide via `index:`.
-		case slideshowSlide
+		// Onboarding tour coach-mark bubble.
+		case tourBubble
 	}
 
 	/// State-introspection probes for UI tests. A `.checkpoint(_:value:)` modifier
@@ -308,8 +305,10 @@ extension TestabilityIdentification {
 		/// Count of currently rendered detection annotations (AIA-0317). Lets UI tests assert
 		/// `>= 1` after a detection run; `0` when none are drawn.
 		case detectionCount
+		/// The active onboarding-tour step's target id (e.g. `addressBar`); absent when no tour runs (AIA-0333).
+		case tourStep
 	}
-	
+
 	enum MenuItem: String, TestabilityIdentification {
 		case aMenuItem
 	}

@@ -22,8 +22,8 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 2
-	var presentWizard: Bool?
+	var version = 3
+	var startOnboardingTour: Bool?
 	var pageScenario: PageScenario?
 	var defaultPageOverride: String?
 	var lastPage: String?
@@ -92,13 +92,17 @@ enum AID {
 	static let historyItem = "_AIA:Label.BrowsingHistoryItem"
 	static let configDescription = "_AIA:Label.SideMenuCellDescription"
 
+	// Onboarding tour (AIA-0333)
+	static let tourBubble = "_AIA:View.TourBubble"
+	static let tourSkip = "_AIA:Button.TourSkip"
+	static let tourNext = "_AIA:Button.TourNext"
+	static let cpTourStep = "_AIA:Checkpoint.TourStep"
+
 	// Location / address sheet
 	static let locationInput = "_AIA:TextField.LocationSheetInput"
 	static let locationDismiss = "_AIA:Button.LocationSheetDismiss"
 	static let locationHistoryItem = "_AIA:Button.LocationSheetHistoryItem"
 	static let locationFullUrls = "_AIA:Button.LocationSheetFullUrls"
-
-	static func slide(_ index: Int) -> String { "_AIA:View.SlideshowSlide#\(index)" }
 }
 
 // MARK: - Base case
