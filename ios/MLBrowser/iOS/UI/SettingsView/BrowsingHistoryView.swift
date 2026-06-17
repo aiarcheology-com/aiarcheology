@@ -15,7 +15,6 @@ struct BrowserHistoryView: View {
 		animation: .default)
 	private var history: FetchedResults<WebHistoryEntry>
 	@EnvironmentObject var settings: Settings
-	@State private var refreshFrom: Bool = false // TODO: history is not being reloaded after deletion
 	@State private var showingAlert = false
 
 	var body: some View {
@@ -110,7 +109,6 @@ struct BrowserHistoryView: View {
 				do {
 					// moc is the viewContext, so merging into [self] is sufficient here.
 					try WebHistoryEntry.deleteAll(in: moc)
-					refreshFrom.toggle()
 				} catch {
 					LoggingPolicy.error("Failed to clear browsing history", error: error, logger: .state)
 				}

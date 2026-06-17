@@ -19,14 +19,16 @@ struct LaunchConfig: Encodable {
 		case home
 		case blank
 		case last
+		case localFixture
 	}
 
-	var version = 1
+	var version = 2
 	var presentWizard: Bool?
 	var pageScenario: PageScenario?
 	var defaultPageOverride: String?
 	var lastPage: String?
 	var fullscreenDetection: Bool?
+	var fixtureName: String?
 }
 
 // MARK: - Accessibility identifiers
@@ -40,6 +42,7 @@ enum AID {
 	static let cpFullscreen = "_AIA:Checkpoint.FullscreenFeatureEnabled"
 	static let cpAppMode = "_AIA:Checkpoint.AppMode"
 	static let cpDeviceIdiom = "_AIA:Checkpoint.DeviceIdiom"
+	static let cpCurrentPageFile = "_AIA:Checkpoint.CurrentPageFile"
 	static let cpDetectionCount = "_AIA:Checkpoint.DetectionCount"
 
 	// Top toolbar (real Buttons)
