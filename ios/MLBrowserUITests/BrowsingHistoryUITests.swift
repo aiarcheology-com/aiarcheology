@@ -15,9 +15,19 @@ final class BrowsingHistoryUITests: UITestCase {
     private func openHistory(file: StaticString = #filePath, line: UInt = #line) {
         openSettings(file: file, line: line)
         XCTAssertTrue(scrollTo(AID.settingsHistory), "History link missing", file: file, line: line)
-        element(AID.settingsHistory).tap()
+        // The History push happens inside the just-presented Settings sheet; on slow/cold (CI) sims
+        // the first NavigationLink tap can be dropped while the sheet's NavigationStack is still
+        // settling, leaving the screen un-pushed. Retry until the History anchor appears (the link
+        // is gone once the push lands, so a stale re-tap can't happen).
+        let clearButton = app.buttons[AID.historyClear]
+        for _ in 0..<3 where clearButton.exists == false {
+            let link = element(AID.settingsHistory)
+            guard link.exists else { break }
+            link.tap()
+            _ = clearButton.waitForExistence(timeout: 6)
+        }
         XCTAssertTrue(
-            app.buttons[AID.historyClear].waitForExistence(timeout: 10),
+            clearButton.waitForExistence(timeout: 4),
             "History screen not shown", file: file, line: line
         )
     }
