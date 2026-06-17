@@ -10,11 +10,15 @@ import SwiftUI
 /// The full-screen dim with a rounded-rectangle cutout around the spotlighted element.
 ///
 /// Hit-testing (the highest-risk piece): the interaction shape is the dim area **with the
-/// cutout excluded** (`.contentShape(.interaction, _, eoFill: true)`). Taps inside the
-/// cutout fall through to the real control beneath it in the ZStack; taps on the dim are
-/// swallowed and forwarded to the optional `onDimTap` (used for a "tap outside to skip"
-/// affordance). The content shape is set on the **drawing layer itself** — no full-screen
-/// ancestor hit-tests as a rectangle over the hole.
+/// cutout excluded** (`.contentShape(.interaction, _, eoFill: true)`). Taps on the dim land on
+/// this layer and are absorbed (so they can't reach the dimmed app, and — by design — never
+/// dismiss the tour: only the explicit Skip button does). Taps inside the cutout are outside
+/// the interaction shape, so they fall through to the real control beneath.
+///
+/// Deliberately **no** tap gesture: a `.onTapGesture` here is recognized over the full bounding
+/// rect regardless of `.contentShape(.interaction, eoFill:)`, which swallowed cutout taps and
+/// stopped them reaching the spotlighted control (AIA-0333). The bare content shape absorbs
+/// dim-area taps without that side effect.
 struct TourSpotlight: View {
 	/// Cutout rect in the overlay's coordinate space. `nil` dims the whole screen (no hole).
 	let cutout: CGRect?
@@ -22,8 +26,6 @@ struct TourSpotlight: View {
 	var cornerRadius: CGFloat = 10
 	/// Padding added around the target rect so the control isn't cropped by the hole edge.
 	var inset: CGFloat = 6
-	/// Invoked when the dimmed (non-cutout) area is tapped.
-	var onDimTap: () -> Void = {}
 
 	var body: some View {
 		GeometryReader { proxy in
@@ -39,7 +41,6 @@ struct TourSpotlight: View {
 				// Hit-test the dim-with-hole shape on this very layer. eoFill excludes the
 				// cutout, so taps there pass through to the control beneath.
 				.contentShape(.interaction, path, eoFill: true)
-				.onTapGesture { onDimTap() }
 				.ignoresSafeArea()
 				.animation(.easeInOut(duration: 0.2), value: cutout)
 		}

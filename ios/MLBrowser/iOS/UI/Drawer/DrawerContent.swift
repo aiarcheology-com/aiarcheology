@@ -109,6 +109,12 @@ struct DrawerContent: View {
         // Dynamic Island side), wasting a gutter inside the panel. The panel is the safe
         // container here, so let the List span its full width in both orientations.
         .ignoresSafeArea(.container, edges: .horizontal)
+        // The tour's enable-model step is overlay-driven (the toggle can't be tapped through
+        // the spotlight), so register the action that enables a demo model on its behalf.
+        .onAppear {
+            let context = moc
+            tour.bindEnableModel { enableFirstReadyDemoModel(in: context) }
+        }
     }
 
     private var findingsSection: some View {
@@ -157,13 +163,11 @@ struct DrawerContent: View {
         Section(L10n.Models.Available.title) {
             // Use objectID for identity - it's always valid even for deleted objects.
             // Using entityId crashes when Core Data nullifies it during deletion.
-            ForEach(Array(configurations.enumerated()), id: \.element.objectID) { index, configuration in
+            ForEach(Array(configurations.enumerated()), id: \.element.objectID) { _, configuration in
                 // Capture entityId early, before any async operations could invalidate it
                 let entityId = configuration.entityId
                 ConfigurationRow(
                     configuration: configuration,
-                    // The onboarding tour spotlights the first model's enable toggle (AIA-0333).
-                    isTourToggleTarget: index == 0,
                     tour: tour,
                     onTap: {
                         selectedConfigurationId = entityId
@@ -206,6 +210,30 @@ struct DrawerContent: View {
     }
 }
 
+// MARK: - Tour enable action
+
+/// Enables the most-recent ready demo model that isn't already on, for the onboarding tour's
+/// overlay-driven enable step (AIA-0333). Mirrors the list's sort (newest first) so it targets
+/// the top spotlighted row. Returns `true` if a model was enabled.
+private func enableFirstReadyDemoModel(in context: NSManagedObjectContext) -> Bool {
+    let candidate = DeepConfiguration.selectAll(in: context)
+        .filter { $0.demo
+            && $0.lifeCycleString == CoreDataManageableState.ready.rawValue
+            && $0.enabled == false }
+        // Newest first, matching the list's sort, so it targets the top spotlighted row.
+        .max { ($0.creationDate_ ?? .distantPast) < ($1.creationDate_ ?? .distantPast) }
+    guard let target = candidate else { return false }
+    target.enabled = true
+    do {
+        try DeepConfiguration.save(in: context)
+        return true
+    } catch {
+        LoggingPolicy.error("Failed to enable demo model during onboarding tour", error: error, logger: .configuration)
+        context.refresh(target, mergeChanges: false)
+        return false
+    }
+}
+
 // MARK: - Configuration Row
 
 /// A single row in the configurations list.
@@ -213,9 +241,7 @@ struct DrawerContent: View {
 /// swipe actions to coexist with Toggle on all platforms.
 private struct ConfigurationRow: View {
     @ObservedObject var configuration: DeepConfiguration
-    /// Marks this row's enable toggle as the onboarding-tour spotlight target (AIA-0333).
-    var isTourToggleTarget: Bool = false
-    /// The tour engine, poked when the highlighted target model is enabled (AIA-0333).
+    /// The tour engine, poked when a demo model is enabled during the enable-model step (AIA-0333).
     var tour: TourState?
     let onTap: () -> Void
     let onDelete: () -> Void
@@ -245,9 +271,10 @@ private struct ConfigurationRow: View {
                 set: { newValue in
                     let wasEnabled = configuration.enabled
                     configuration.enabled = newValue
-                    // Tour hook (AIA-0333): when the spotlighted demo model goes false→true,
-                    // advance the enable-model step. The toggle keeps its state (the payoff).
-                    if isTourToggleTarget, wasEnabled == false, newValue {
+                    // Tour hook (AIA-0333): enabling any demo model (false→true) advances the
+                    // enable-model step — the spotlight highlights the whole section. The toggle
+                    // keeps its state (the payoff). A no-op outside that step (see userEnabledModel).
+                    if wasEnabled == false, newValue {
                         tour?.userEnabledModel()
                     }
                     if let context = configuration.managedObjectContext {
@@ -265,7 +292,6 @@ private struct ConfigurationRow: View {
             .tint(configuration.annotationColor)
             .labelsHidden()
             .testability(Testability.Toggle.sideMenuCellEnabled)
-            .tourTargetIf(isTourToggleTarget, .enableModelToggle)
         }
         .contentShape(Rectangle())
         .onTapGesture { onTap() }

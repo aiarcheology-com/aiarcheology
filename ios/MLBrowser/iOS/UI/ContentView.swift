@@ -230,13 +230,12 @@ struct ContentView: View {
         // only when a test explicitly opts in via `startOnboardingTour`, so the overlay never
         // covers the chrome other tests assert against. In shipping, run the first-launch
         // gate/migration decision.
+        // The production auto-start decision runs earlier, in `AppState.initialize()`, so the
+        // onboarding demo page is staged before this view appears. Here we only bind the live
+        // drawer and honor the UI-test launch flag.
         appState.tour.bind(drawer: drawer)
-        if AppEnvironment.isRunningUITests {
-            if UITestLaunchConfiguration.shouldStartOnboardingTour {
-                appState.tour.start()
-            }
-        } else {
-            appState.tour.migrateAndAutostartIfNeeded()
+        if AppEnvironment.isRunningUITests, UITestLaunchConfiguration.shouldStartOnboardingTour {
+            appState.tour.start()
         }
     }
 }

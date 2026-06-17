@@ -198,10 +198,28 @@ final class TourStateTests: XCTestCase {
 		let tour = TourState(steps: steps, defaults: defaults)
 		tour.start()
 		XCTAssertEqual(tour.currentIndex, 0)
-		XCTAssertFalse(tour.showsNextButton, "Enable step hides Next until enable or timeout")
+		// The enable step is driven by the bubble's primary button (the toggle can't be tapped
+		// through the overlay), so the button is available immediately — not gated on a timeout.
+		XCTAssertTrue(tour.showsNextButton, "Enable step shows its primary button immediately")
 
 		tour.userEnabledModel()
 		XCTAssertEqual(tour.currentIndex, 1, "Enabling the highlighted model advances the enable step")
+	}
+
+	func testBubblePrimary_onEnableStep_invokesEnableHookAndFinishes() {
+		let steps = [
+			TourStep(target: .enableModelToggle, bubbleText: "enable", placement: .above,
+					 advance: .userAction(.modelEnabled))
+		]
+		let tour = TourState(steps: steps, defaults: defaults)
+		var enableCalls = 0
+		tour.bindEnableModel { enableCalls += 1; return true }
+		tour.start()
+
+		tour.bubblePrimaryTapped()
+		XCTAssertEqual(enableCalls, 1, "The enable step's primary button enables a demo model")
+		XCTAssertFalse(tour.isActive, "Tapping it finishes the tour (last step)")
+		XCTAssertTrue(tour.hasSeenTour, "Finishing seeds the gate")
 	}
 
 	func testUserEnabledModel_noopWhenNotOnEnableStep() {
@@ -217,17 +235,19 @@ final class TourStateTests: XCTestCase {
 		XCTAssertEqual(tour.currentIndex, 0, "Enabling a model off the enable step must not advance")
 	}
 
-	func testUserEnabledModel_timeoutStillSurfacesNext() async {
+	func testOverlayDrivenStep_timeoutStillSurfacesNext() async {
+		// The overlay-driven step (drawer open) hides Next until acted on, but a timeout must
+		// still surface it so the step can never deadlock.
 		let steps = [
-			TourStep(target: .enableModelToggle, bubbleText: "enable", placement: .above,
-					 advance: .userAction(.modelEnabled), fallbackAfter: 0.1)
+			TourStep(target: .modelsButton, bubbleText: "open", placement: .below,
+					 advance: .userAction(.drawerOpened), fallbackAfter: 0.1)
 		]
 		let tour = TourState(steps: steps, defaults: defaults)
 		tour.start()
-		XCTAssertFalse(tour.showsNextButton)
+		XCTAssertFalse(tour.showsNextButton, "Overlay-driven step hides Next until acted on or timed out")
 
 		try? await Task.sleep(nanoseconds: 300_000_000)
-		XCTAssertTrue(tour.showsNextButton, "The enable step's timeout must still surface Next (no deadlock)")
+		XCTAssertTrue(tour.showsNextButton, "The timeout must still surface Next (no deadlock)")
 	}
 
 	// MARK: - Gate & migration (object(forKey:))

@@ -259,7 +259,6 @@ enum StringCatalogValidator {
             "settings.frequency.seconds",
             "settings.history",
             "settings.historyLimit",
-            "settings.introduction",
             "settings.reopenLastPage",
             "settings.restore",
             "settings.restoreDefaults",
@@ -270,29 +269,7 @@ enum StringCatalogValidator {
             "settings.section.webContent",
             "settings.sentry.title",
             "settings.showLabels",
-            "settings.showNextTime",
             "settings.title",
-            // Slideshow
-            "slideshow.slide0.description",
-            "slideshow.slide0.title",
-            "slideshow.slide1.description",
-            "slideshow.slide1.title",
-            "slideshow.slide2.description",
-            "slideshow.slide2.title",
-            "slideshow.slide3.description",
-            "slideshow.slide3.title",
-            "slideshow.slide4.description",
-            "slideshow.slide4.title",
-            "slideshow.slide5.description",
-            "slideshow.slide5.title",
-            "slideshow.slide6.description",
-            "slideshow.slide6.title",
-            "slideshow.slide7.description",
-            "slideshow.slide7.title",
-            "slideshow.slide8.description",
-            "slideshow.slide8.title",
-            "slideshow.slide9.description",
-            "slideshow.slide9.title",
             // Symbol
             "symbol.circle",
             "symbol.point",
@@ -308,7 +285,14 @@ enum StringCatalogValidator {
             "downloadState.paused",
             // Tab
             "tab.examples",
-            "tab.web"
+            "tab.web",
+            // Tour (AIA-0333)
+            "tour.addressBar.text",
+            "tour.demoModels.text",
+            "tour.enableModel.text",
+            "tour.modelsButton.text",
+            "tour.next",
+            "tour.skip"
         ]
     }
 

@@ -182,6 +182,15 @@ struct WebScreenView: View {
                     if loadRequest.fileURL != fixtureURL {
                         loadRequest = loadRequest.nextFile(fixtureURL)
                     }
+                } else if let onboardingPage = appState.settings.onboardingInitialPage?.absoluteString {
+                    // First-launch onboarding (AIA-0333): load the demo page the tour points at,
+                    // taking precedence over the home page. Set deterministically before the UI
+                    // appears, so it never races the default-page load.
+                    intendedPageKind = "onboarding"
+                    if loadRequest.input != onboardingPage {
+                        loadRequest = loadRequest.next(onboardingPage)
+                    }
+                    createOrRefreshWebHistoryEntry(onboardingPage, maxEntries: appState.settings.historySize)
                 } else if
                     appState.settings.reopenLastPage.enabled,
                     let lastPage = appState.settings.lastPage {

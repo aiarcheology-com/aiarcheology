@@ -48,6 +48,12 @@ final class TourState {
 	private let defaults: UserDefaults
 	private weak var drawer: DrawerManager?
 
+	/// Enables a demo model on the user's behalf for the overlay-driven enable step. The model
+	/// toggle lives inside the drawer beneath the overlay, where a tap can't pass through, so
+	/// the drawer registers this hook and the overlay calls it. Returns `true` if a model was
+	/// enabled (so the step can advance).
+	private var enableModelHook: (() -> Bool)?
+
 	/// The current step, or `nil` when inactive / past the end.
 	var currentStep: TourStep? {
 		guard isActive, steps.indices.contains(currentIndex) else { return nil }
@@ -75,6 +81,11 @@ final class TourState {
 		self.drawer = drawer
 	}
 
+	/// Registers the drawer's "enable a demo model" action for the overlay-driven enable step.
+	func bindEnableModel(_ hook: @escaping () -> Bool) {
+		self.enableModelHook = hook
+	}
+
 	// MARK: - Gate & migration
 
 	/// Whether the tour has already run to a terminal state for this install.
@@ -89,17 +100,21 @@ final class TourState {
 	/// - Otherwise, if the gate is unseen, auto-start the tour.
 	///
 	/// Idempotent: once the gate exists this is a no-op.
-	func migrateAndAutostartIfNeeded() {
-		if hasSeenTour { return }
+	///
+	/// - Returns: `true` if it started the tour, so the caller can stage the onboarding page.
+	@discardableResult
+	func migrateAndAutostartIfNeeded() -> Bool {
+		if hasSeenTour { return false }
 
 		// Legacy opt-out: the user turned the old slideshow off. Don't re-onboard them.
 		if defaults.object(forKey: Self.legacySlideshowKey) != nil,
 		   defaults.bool(forKey: Self.legacySlideshowKey) == false {
 			markSeen()
-			return
+			return false
 		}
 
 		start()
+		return true
 	}
 
 	private func markSeen() {
@@ -160,9 +175,16 @@ final class TourState {
 		case .scripted:
 			// Teaching step: Next is available immediately.
 			showsNextButton = true
-		case .userAction:
+		case .userAction(let condition) where condition.isOverlayDriven:
+			// The user performs the real action on the spotlighted control (e.g. opens the
+			// drawer). Next surfaces only as a no-deadlock fallback after the timeout.
 			showsNextButton = false
 			scheduleTimeout(for: step, generation: stepGeneration)
+		case .userAction:
+			// Non-overlay-driven action whose control can't be reached through the overlay
+			// (the model toggle, beneath the dim). The bubble's primary button drives it, so
+			// it's available immediately.
+			showsNextButton = true
 		}
 	}
 
@@ -200,10 +222,22 @@ final class TourState {
 			// `evaluate()` and advances the step.
 			drawer?.open()
 		case .modelEnabled:
-			// No overlay-driven enable: the user must flip the highlighted model's toggle. The
-			// per-step timeout still surfaces Next, so the step can't deadlock.
+			// Not overlay-driven (see AdvanceCondition.isOverlayDriven): the model toggle sits
+			// beneath the dim where neither a pass-through tap nor an overlay tap target reaches
+			// it. This step is driven by the bubble's primary button instead (bubblePrimaryTapped).
 			break
 		}
+	}
+
+	/// The bubble's primary ("Next") button. For the enable-model step — whose control can't be
+	/// tapped through the overlay — this enables a demo model on the user's behalf, then advances.
+	/// For every other step it just advances.
+	func bubblePrimaryTapped() {
+		guard isActive, let step = currentStep else { return }
+		if case .userAction(.modelEnabled) = step.advance {
+			_ = enableModelHook?() // best-effort; finish the tour regardless
+		}
+		advance()
 	}
 
 	// MARK: - Timeout (no-deadlock fallback)

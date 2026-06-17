@@ -56,6 +56,14 @@ final class AppState: ObservableObject {
 		// 2. Create demo data if needed (checked against Core Data, not UserDefaults)
 		await demoDataManager.createDemoDataIfNeeded()
 
+		// 2b. First-launch onboarding tour (AIA-0333). Decided here — before `isReady` flips
+		// and the UI appears — so the onboarding demo page is staged deterministically ahead of
+		// WebScreen's initial load (no race). UI-test launches start the tour from ContentView
+		// via the launch flag instead, so skip the production auto-start path here.
+		if AppEnvironment.isRunningUITests == false, tour.migrateAndAutostartIfNeeded() {
+			settings.onboardingInitialPage = DemoDataManager.onboardingDemoPage
+		}
+
 		// 3. Start recording the browsing trail (lazy — must be touched to subscribe)
 		_ = visitTrail
 

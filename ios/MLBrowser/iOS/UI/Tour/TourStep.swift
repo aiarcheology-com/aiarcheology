@@ -19,7 +19,9 @@ enum TourAnchorID: String, Hashable, CaseIterable, Sendable {
 	case modelsButton
 	/// The list of demo detection models inside the drawer.
 	case demoModels
-	/// The enable toggle of the first demo model.
+	/// The enable-model step's logical identity. Not published as a `.tourTarget` (an anchor
+	/// inside a `List` cell wouldn't reach the overlay); the step spotlights `.demoModels` via
+	/// `TourStep.spotlightFallback` instead.
 	case enableModelToggle
 }
 
@@ -46,6 +48,19 @@ enum AdvanceCondition: Sendable {
 	/// The highlighted demo model's enable toggle went false→true (step 4). Driven by
 	/// `TourState.userEnabledModel()`, not by a polled app-state change.
 	case modelEnabled
+
+	/// Whether the overlay drives this action via a transparent tap target over the cutout.
+	/// `.drawerOpened` is overlay-driven: a tap on the spotlighted models button opens the
+	/// drawer (the button itself is in a separate UIKit layer a pass-through tap can't reach,
+	/// and the drawer is closed so the overlay tap target works). `.modelEnabled` is **not**:
+	/// the toggle sits inside the open drawer beneath the dim, where neither a pass-through tap
+	/// nor an overlay tap target reaches it — that step is driven by the bubble's button instead.
+	var isOverlayDriven: Bool {
+		switch self {
+		case .drawerOpened: return true
+		case .modelEnabled: return false
+		}
+	}
 }
 
 /// One scripted step of the tour.
@@ -62,19 +77,27 @@ struct TourStep: Identifiable, Sendable {
 	/// Seconds before the step surfaces a **Next** button as a no-deadlock fallback.
 	/// `.scripted` steps show **Next** immediately, so this only matters for `.userAction`.
 	let fallbackAfter: TimeInterval
+	/// Anchor to spotlight when `target`'s own anchor doesn't resolve. Needed because an
+	/// `anchorPreference` published from *inside* a `List` cell (e.g. a model row's toggle)
+	/// does not propagate to the root overlay — only `Section`-level anchors do. The enable
+	/// step keeps its own identity (`.enableModelToggle`, for checkpoints) but spotlights the
+	/// `.demoModels` section, whose hole covers the toggles so the real tap passes through.
+	let spotlightFallback: TourAnchorID?
 
 	init(
 		target: TourAnchorID,
 		bubbleText: String,
 		placement: TourBubblePlacement,
 		advance: TourAdvance,
-		fallbackAfter: TimeInterval = 8
+		fallbackAfter: TimeInterval = 8,
+		spotlightFallback: TourAnchorID? = nil
 	) {
 		self.id = target
 		self.bubbleText = bubbleText
 		self.placement = placement
 		self.advance = advance
 		self.fallbackAfter = fallbackAfter
+		self.spotlightFallback = spotlightFallback
 	}
 }
 
@@ -107,8 +130,11 @@ extension TourStep {
 				target: .enableModelToggle,
 				bubbleText: L10n.Tour.EnableModel.text,
 				placement: .above,
-				// The payoff action: enabling the highlighted demo model advances the tour.
-				advance: .userAction(.modelEnabled)
+				// The payoff action: enabling a demo model advances the tour. The toggle's own
+				// anchor can't escape the List, so spotlight the demo-models section instead —
+				// its hole covers the toggles, so the user's tap passes through to one.
+				advance: .userAction(.modelEnabled),
+				spotlightFallback: .demoModels
 			)
 		]
 	}

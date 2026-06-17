@@ -28,6 +28,10 @@ private struct TourOverlayModifier: ViewModifier {
 					GeometryReader { proxy in
 						overlay(step: step, anchors: anchors, proxy: proxy)
 					}
+					// Resolve anchors and draw in full-screen coordinates. Without this the
+					// GeometryReader sits in safe-area space while `TourSpotlight` draws with
+					// `.ignoresSafeArea()`, so every cutout was shifted up by the top inset.
+					.ignoresSafeArea()
 					.transition(.opacity)
 					// UI-test introspection: the active step's target id.
 					.checkpoint(.tourStep, value: step.target.rawValue)
@@ -41,16 +45,22 @@ private struct TourOverlayModifier: ViewModifier {
 		anchors: [TourAnchorID: Anchor<CGRect>],
 		proxy: GeometryProxy
 	) -> some View {
-		let rect = anchors[step.target].map { proxy[$0] }
+		// Prefer the step's own target anchor; fall back to its `spotlightFallback` when that
+		// anchor can't resolve (e.g. a List-cell target — see `TourStep.spotlightFallback`).
+		let anchor = anchors[step.target] ?? step.spotlightFallback.flatMap { anchors[$0] }
+		let rect = anchor.map { proxy[$0] }
 
 		ZStack(alignment: .topLeading) {
-			TourSpotlight(cutout: rect, onDimTap: { tour.skip() })
+			// Dim taps are swallowed but never terminate the tour — the user can only leave
+			// via the explicit Skip button (AIA-0333).
+			TourSpotlight(cutout: rect)
 
-			// Cutout-tap fallback for `.userAction` steps: a transparent button over the hole
-			// drives the action when a pass-through tap cannot reach the real control (e.g. a
-			// toolbar button hosted in a separate layer). `.scripted` steps keep pure
-			// pass-through. See `TourState.performCutoutAction()`.
-			if let rect, case .userAction = step.advance {
+			// Cutout-tap fallback for overlay-driven `.userAction` steps: a transparent button
+			// over the hole drives the action when a pass-through tap cannot reach the real
+			// control (e.g. the models button, hosted in a separate layer). Conditions that are
+			// NOT overlay-driven (the model toggle) keep pure pass-through so the user's tap
+			// reaches the real control. See `TourState.performCutoutAction()`.
+			if let rect, case .userAction(let condition) = step.advance, condition.isOverlayDriven {
 				Color.clear
 					.contentShape(Rectangle())
 					.frame(width: rect.width, height: rect.height)
@@ -58,26 +68,27 @@ private struct TourOverlayModifier: ViewModifier {
 					.onTapGesture { tour.performCutoutAction() }
 			}
 
-			// Gate the bubble on a settled, non-nil anchor (mid-animation caveat): no anchor
-			// yet → dim only, no mis-placed bubble.
-			if let rect {
-				bubble(step: step, cutout: rect, container: proxy.size)
-			}
+			// The bubble (which carries Skip / Next) always renders so a step can never become
+			// a dead-end blank dim — if the target anchor hasn't settled yet it is centered
+			// instead of pointing at a cutout.
+			bubble(step: step, cutout: rect, container: proxy.size)
 		}
 	}
 
 	@ViewBuilder
-	private func bubble(step: TourStep, cutout: CGRect, container: CGSize) -> some View {
+	private func bubble(step: TourStep, cutout: CGRect?, container: CGSize) -> some View {
 		let bubbleWidth: CGFloat = 300
 		let spacing: CGFloat = 16
-		// Clamp horizontally so the bubble stays on-screen near edge targets.
-		let proposedX = cutout.midX - bubbleWidth / 2
+		// Clamp horizontally so the bubble stays on-screen near edge targets. With no settled
+		// anchor, center it.
+		let anchorX = cutout?.midX ?? container.width / 2
+		let proposedX = anchorX - bubbleWidth / 2
 		let x = min(max(proposedX, spacing), max(spacing, container.width - bubbleWidth - spacing))
 
 		TourBubble(
 			text: step.bubbleText,
 			showsNext: tour.showsNextButton,
-			onNext: { tour.advance() },
+			onNext: { tour.bubblePrimaryTapped() },
 			onSkip: { tour.skip() }
 		)
 		.frame(width: bubbleWidth, alignment: .leading)
@@ -110,7 +121,8 @@ private struct TourBubbleHeightKey: PreferenceKey {
 /// Positions the bubble above or below the cutout, kept inside the container vertically.
 private struct BubbleVerticalOffset: ViewModifier {
 	let placement: TourBubblePlacement
-	let cutout: CGRect
+	/// The resolved cutout, or `nil` when the target anchor hasn't settled (bubble centers).
+	let cutout: CGRect?
 	let container: CGSize
 	let spacing: CGFloat
 	/// Measured bubble height (0 until the first layout pass reports it).
@@ -122,6 +134,10 @@ private struct BubbleVerticalOffset: ViewModifier {
 	}
 
 	private var yOffset: CGFloat {
+		guard let cutout else {
+			// No settled anchor: center the bubble vertically.
+			return max(spacing, (container.height - bubbleHeight) / 2)
+		}
 		switch placement {
 		case .below:
 			// Keep the whole measured bubble inside the bottom edge.
