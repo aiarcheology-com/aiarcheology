@@ -1,0 +1,23 @@
+ios/MLBrowserUITests/WizardUITests.swift
+  s_c55b2e88071d91::t_32ee9f65d2588c 42-48
+ios/MLBrowser/iOS/UI/Annotation/DetectableView.swift
+  s_c55b2e88071d91::t_48315026f7c9cc 178-181
+ios/IMPLEMENTATION_PLAN_AIA-0317.md
+  s_c55b2e88071d91::t_8b80d3c13cf47d 3-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "819577a489c2d9634325faa7d71c291b2889b0d2",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
