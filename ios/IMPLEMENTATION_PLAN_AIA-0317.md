@@ -1,6 +1,7 @@
 # Implementation Plan — AIA-0317: UI-test harness — live detection-count checkpoint
 
-> Status: FINAL — SHIP (grill-master: r1 REVISE → r2 SHIP; codex-reviewed). Prerequisite harness B
+> Status: FINAL — SHIP (grill-master: r1 REVISE → r2 SHIP; codex review requested but the CLI ran
+> long/inconclusive, so the two grill rounds are the review of record). Prerequisite harness B
 > for AIA-0309. Independent of AIA-0316/0318. Small: reuses the existing checkpoint infrastructure.
 
 ## Goal

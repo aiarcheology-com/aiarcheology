@@ -175,7 +175,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // root (outside the ZStack's SnapableGroup), so the 1pt marker is never in the detection
         // snapshot. Reads the same `appliedFrame.results` that feeds AnnotationOverlay, so the
         // count equals the visible annotation total (0 when none).
-        .checkpoint(.detectionCount, value: String(renderedDetectionCount))
+        // Gate the O(n) reduce on `isRunningUITests` so production view updates don't pay for a
+        // value only the UI-test checkpoint marker reads (the marker itself already renders only
+        // under UI tests).
+        .checkpoint(.detectionCount, value: AppEnvironment.isRunningUITests ? String(renderedDetectionCount) : "")
     }
 
     /// Single write path for the displayed frame: the screen's mirror is updated
