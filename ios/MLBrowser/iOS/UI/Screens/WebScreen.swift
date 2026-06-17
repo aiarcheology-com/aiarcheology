@@ -191,6 +191,9 @@ struct WebScreenView: View {
                         loadRequest = loadRequest.next(onboardingPage)
                     }
                     createOrRefreshWebHistoryEntry(onboardingPage, maxEntries: appState.settings.historySize)
+                    // One-shot: clear it so a later WebScreen re-creation (tab/mode switch) doesn't
+                    // re-force the onboarding page over the user's real home/last page.
+                    appState.settings.onboardingInitialPage = nil
                 } else if
                     appState.settings.reopenLastPage.enabled,
                     let lastPage = appState.settings.lastPage {

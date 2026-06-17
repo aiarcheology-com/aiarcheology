@@ -115,7 +115,7 @@ sequenceDiagram
 
     Tgt->>PK: publish bounds anchor (layout-driven)
     OVL->>PK: read anchors[currentStep.target]
-    Note over OVL: anchor nil (mid drawer-open animation)<br/>→ dim only, bubble withheld
+    Note over OVL: anchor nil (mid drawer-open animation)<br/>→ cutout withheld, bubble still shown (centered)
     OVL->>OVL: resolve rect = proxy[anchor]
     OVL->>OVL: TourSpotlight(cutout) + TourBubble(measured height clamp)
     OVL-->>TS: .checkpoint(.tourStep) for UI tests

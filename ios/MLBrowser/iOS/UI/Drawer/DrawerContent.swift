@@ -163,7 +163,7 @@ struct DrawerContent: View {
         Section(L10n.Models.Available.title) {
             // Use objectID for identity - it's always valid even for deleted objects.
             // Using entityId crashes when Core Data nullifies it during deletion.
-            ForEach(Array(configurations.enumerated()), id: \.element.objectID) { _, configuration in
+            ForEach(configurations, id: \.objectID) { configuration in
                 // Capture entityId early, before any async operations could invalidate it
                 let entityId = configuration.entityId
                 ConfigurationRow(

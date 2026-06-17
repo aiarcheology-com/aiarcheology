@@ -11,9 +11,11 @@ import SwiftUI
 /// anchor via `overlayPreferenceValue`, then renders the dim+cutout and the coach-mark
 /// bubble positioned relative to the cutout.
 ///
-/// The drawer-step bubble (and any in-drawer target) is gated on a **non-nil resolved
-/// anchor**: `anchorPreference` reports in-flight frames during the drawer-open animation,
-/// so the bubble only appears once the target has a settled, resolvable frame.
+/// The **bubble always renders** so a step can never become a dead-end blank dim: when the
+/// target anchor hasn't settled yet (e.g. mid drawer-open animation) the cutout is withheld but
+/// the bubble is centered instead of pointing at a hole. A `dimsBackground == false` step (the
+/// map-capture step) renders only the bubble — no dim, no cutout — so the user's tap reaches the
+/// live app beneath.
 private struct TourOverlayModifier: ViewModifier {
 	@Bindable var tour: TourState
 
