@@ -38,9 +38,14 @@ final class WizardUITests: UITestCase {
 		XCTAssertTrue(app.descendants(matching: .any)[AID.slide(0)].waitForExistence(timeout: 15), "Wizard should present")
 
 		for index in 1..<slideCount {
-			app.swipeLeft()
 			let slide = app.descendants(matching: .any)[AID.slide(index)]
-			XCTAssertTrue(slide.waitForExistence(timeout: 5), "Slide \(index) should be reachable by swiping")
+			// A single swipe can be dropped on a cold/slow (CI) sim — the gesture outpaces the
+			// paging animation, leaving the next slide un-realized. Retry until it pages in.
+			for _ in 0..<3 where slide.exists == false {
+				app.swipeLeft()
+				_ = slide.waitForExistence(timeout: 5)
+			}
+			XCTAssertTrue(slide.exists, "Slide \(index) should be reachable by swiping")
 		}
 
 		// Paging unloads distant pages, so the first slide is no longer in the tree — this

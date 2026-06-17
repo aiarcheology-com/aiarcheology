@@ -305,6 +305,9 @@ extension TestabilityIdentification {
 		/// Last path component of the live web view URL (e.g. `uitest_page.html`). Lets UI tests
 		/// confirm which page is actually loaded — including host-less `file://` fixtures (AIA-0316).
 		case currentPageFile
+		/// Count of currently rendered detection annotations (AIA-0317). Lets UI tests assert
+		/// `>= 1` after a detection run; `0` when none are drawn.
+		case detectionCount
 	}
 	
 	enum MenuItem: String, TestabilityIdentification {
