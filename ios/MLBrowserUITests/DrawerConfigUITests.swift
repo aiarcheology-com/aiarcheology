@@ -60,14 +60,19 @@ final class DrawerConfigUITests: UITestCase {
             "Expected two seeded demo models before delete"
         )
 
-        // Swipe the first model row to reveal its trailing delete action, then tap it.
+        // Swipe the first model row to delete it. With `allowsFullSwipe: true` a fast swipe may
+        // commit the delete outright without leaving the trailing button visible; a partial swipe
+        // instead reveals the button to tap. Handle both: tap the button if it reveals, otherwise
+        // the full swipe already deleted. The post-condition (one model remains) is the source of
+        // truth either way — and still fails if the swipe does nothing (the AIA-0308 regression).
         let firstRow = app.staticTexts.matching(identifier: AID.configDescription).firstMatch
         XCTAssertTrue(firstRow.waitForExistence(timeout: 5), "No model row to swipe")
         firstRow.swipeLeft()
 
         let deleteButton = app.buttons[AID.configDelete]
-        XCTAssertTrue(deleteButton.waitForExistence(timeout: 5), "Swipe did not reveal the row delete action")
-        deleteButton.tap()
+        if deleteButton.waitForExistence(timeout: 5) {
+            deleteButton.tap()
+        }
 
         // Exactly one model should remain after deleting one.
         let oneRemains = NSPredicate(format: "count == 1")
