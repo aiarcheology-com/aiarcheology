@@ -79,9 +79,9 @@ final class TourStateTests: XCTestCase {
 		tour.evaluate()
 		XCTAssertEqual(tour.currentIndex, 0)
 
-		// Drawer opens → the user-toggle hook advances the step.
+		// Drawer opens → re-evaluating advances the step.
 		drawer.isOpen = true
-		tour.userToggledDrawer()
+		tour.evaluate()
 		XCTAssertEqual(tour.currentIndex, 1, "Drawer opening should satisfy .drawerOpened and advance")
 	}
 
@@ -150,33 +150,84 @@ final class TourStateTests: XCTestCase {
 		)
 	}
 
-	// MARK: - Cleanup
+	// MARK: - Drawer left untouched on finish
 
-	func testCleanup_userOpenedDrawer_finishLeavesItOpen() {
+	func testFinish_leavesDrawerUntouched() {
+		// This slice never opens the drawer itself, so finish/skip must not close a drawer the
+		// user opened (no staging machinery to revert).
 		let drawer = DrawerManager()
 		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
 		tour.bind(drawer: drawer)
 		tour.start()
 
-		// User opens the drawer (not the tour) → ownership cleared.
 		drawer.isOpen = true
-		tour.userToggledDrawer()
-
 		tour.finish()
-		XCTAssertTrue(drawer.isOpen, "Finish must leave a user-opened drawer as the user left it")
+		XCTAssertTrue(drawer.isOpen, "Finish must leave the drawer exactly as the user left it")
 	}
 
-	func testCleanup_tourOpenedDrawer_finishClosesIt() {
-		let drawer = DrawerManager()
-		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
-		tour.bind(drawer: drawer)
+	// MARK: - Zero / non-positive fallback (no UInt64 trap)
+
+	func testTimeout_zeroFallback_surfacesNextImmediately() {
+		let steps = [
+			TourStep(target: .modelsButton, bubbleText: "act", placement: .below,
+					 advance: .userAction(.drawerOpened), fallbackAfter: 0)
+		]
+		let tour = TourState(steps: steps, defaults: defaults)
 		tour.start()
+		XCTAssertTrue(tour.showsNextButton, "A zero fallback must surface Next immediately, never trap UInt64")
+	}
 
-		tour.openDrawerForTour()
-		XCTAssertTrue(drawer.isOpen)
+	func testTimeout_negativeFallback_surfacesNextImmediately() {
+		let steps = [
+			TourStep(target: .modelsButton, bubbleText: "act", placement: .below,
+					 advance: .userAction(.drawerOpened), fallbackAfter: -5)
+		]
+		let tour = TourState(steps: steps, defaults: defaults)
+		tour.start()
+		XCTAssertTrue(tour.showsNextButton, "A negative fallback must surface Next immediately, never trap UInt64")
+	}
 
-		tour.finish()
-		XCTAssertFalse(drawer.isOpen, "Finish should close a drawer the tour itself opened")
+	// MARK: - modelEnabled advance (step 4 payoff)
+
+	func testUserEnabledModel_advancesOnEnableStep() {
+		let steps = [
+			TourStep(target: .enableModelToggle, bubbleText: "enable", placement: .above,
+					 advance: .userAction(.modelEnabled), fallbackAfter: 5),
+			TourStep(target: .demoModels, bubbleText: "done", placement: .below, advance: .scripted)
+		]
+		let tour = TourState(steps: steps, defaults: defaults)
+		tour.start()
+		XCTAssertEqual(tour.currentIndex, 0)
+		XCTAssertFalse(tour.showsNextButton, "Enable step hides Next until enable or timeout")
+
+		tour.userEnabledModel()
+		XCTAssertEqual(tour.currentIndex, 1, "Enabling the highlighted model advances the enable step")
+	}
+
+	func testUserEnabledModel_noopWhenNotOnEnableStep() {
+		// A model enabled while the tour is on a different (e.g. drawer-open) step must not advance.
+		let steps = [
+			TourStep(target: .modelsButton, bubbleText: "open", placement: .below,
+					 advance: .userAction(.drawerOpened), fallbackAfter: 5),
+			TourStep(target: .demoModels, bubbleText: "next", placement: .below, advance: .scripted)
+		]
+		let tour = TourState(steps: steps, defaults: defaults)
+		tour.start()
+		tour.userEnabledModel()
+		XCTAssertEqual(tour.currentIndex, 0, "Enabling a model off the enable step must not advance")
+	}
+
+	func testUserEnabledModel_timeoutStillSurfacesNext() async {
+		let steps = [
+			TourStep(target: .enableModelToggle, bubbleText: "enable", placement: .above,
+					 advance: .userAction(.modelEnabled), fallbackAfter: 0.1)
+		]
+		let tour = TourState(steps: steps, defaults: defaults)
+		tour.start()
+		XCTAssertFalse(tour.showsNextButton)
+
+		try? await Task.sleep(nanoseconds: 300_000_000)
+		XCTAssertTrue(tour.showsNextButton, "The enable step's timeout must still surface Next (no deadlock)")
 	}
 
 	// MARK: - Gate & migration (object(forKey:))

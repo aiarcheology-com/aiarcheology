@@ -17,6 +17,10 @@ import SwiftUI
 private struct TourOverlayModifier: ViewModifier {
 	@Bindable var tour: TourState
 
+	/// Measured height of the current bubble, read back via `TourBubbleHeightKey`. Used to
+	/// clamp the bubble on-screen so long / localized / Dynamic-Type copy can't push it off.
+	@State private var bubbleHeight: CGFloat = 0
+
 	func body(content: Content) -> some View {
 		content
 			.overlayPreferenceValue(TourAnchorPreferenceKey.self) { anchors in
@@ -78,8 +82,28 @@ private struct TourOverlayModifier: ViewModifier {
 		)
 		.frame(width: bubbleWidth, alignment: .leading)
 		.fixedSize(horizontal: false, vertical: true)
+		.background(
+			GeometryReader { geo in
+				Color.clear.preference(key: TourBubbleHeightKey.self, value: geo.size.height)
+			}
+		)
+		.onPreferenceChange(TourBubbleHeightKey.self) { bubbleHeight = $0 }
 		.offset(x: x)
-		.modifier(BubbleVerticalOffset(placement: step.placement, cutout: cutout, container: container, spacing: spacing))
+		.modifier(BubbleVerticalOffset(
+			placement: step.placement,
+			cutout: cutout,
+			container: container,
+			spacing: spacing,
+			bubbleHeight: bubbleHeight
+		))
+	}
+}
+
+/// The measured rendered height of `TourBubble`, used to clamp it on-screen.
+private struct TourBubbleHeightKey: PreferenceKey {
+	static let defaultValue: CGFloat = 0
+	static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+		value = max(value, nextValue())
 	}
 }
 
@@ -89,6 +113,8 @@ private struct BubbleVerticalOffset: ViewModifier {
 	let cutout: CGRect
 	let container: CGSize
 	let spacing: CGFloat
+	/// Measured bubble height (0 until the first layout pass reports it).
+	let bubbleHeight: CGFloat
 
 	func body(content: Content) -> some View {
 		content.alignmentGuide(.top) { _ in 0 }
@@ -98,10 +124,12 @@ private struct BubbleVerticalOffset: ViewModifier {
 	private var yOffset: CGFloat {
 		switch placement {
 		case .below:
-			return min(cutout.maxY + spacing, container.height - 120)
+			// Keep the whole measured bubble inside the bottom edge.
+			let maxTop = max(spacing, container.height - bubbleHeight - spacing)
+			return min(cutout.maxY + spacing, maxTop)
 		case .above:
-			// Estimate bubble height; clamp so it never goes off the top.
-			return max(cutout.minY - spacing - 120, spacing)
+			// Use the measured height so long / localized / Dynamic-Type copy can't go off the top.
+			return max(cutout.minY - spacing - bubbleHeight, spacing)
 		}
 	}
 }

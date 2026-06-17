@@ -42,14 +42,15 @@ final class TourUITests: UITestCase {
 			"Should advance to the models-button step"
 		)
 
-		// Tap inside the cutout (the real CPU button). With eoFill pass-through this reaches
-		// the button beneath the dim and opens the drawer.
+		// Tapping inside the cutout hits the overlay's transparent tap target, which calls
+		// `performCutoutAction()` (overlay-drives-action fallback) and opens the drawer — the
+		// toolbar button is hosted in a separate layer that a tap can't reach through the dim.
 		app.buttons[AID.cpu].tap()
 
-		// Pass-through worked iff the drawer actually opened.
+		// The fallback worked iff the drawer actually opened.
 		XCTAssertTrue(
 			app.buttons[AID.drawerSettings].waitForExistence(timeout: 10),
-			"Drawer should be open after the cutout tap passed through"
+			"Drawer should be open after the cutout tap drove the action"
 		)
 
 		// The drawer opening is the step's advance condition → the tour moves to the

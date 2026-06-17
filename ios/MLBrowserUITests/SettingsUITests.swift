@@ -24,7 +24,7 @@ final class SettingsUITests: UITestCase {
         AID.settingsHistoryLimit,
         AID.settingsDeleteCache,
         AID.settingsAbout,
-        AID.settingsIntroduction,
+        AID.settingsReplayOnboarding,
         AID.settingsRestoreDefaults
     ]
 
@@ -59,10 +59,10 @@ final class SettingsUITests: UITestCase {
     func testSettings_replayOnboarding_startsTour() {
         launch()
         openSettings()
-        XCTAssertTrue(scrollTo(AID.settingsIntroduction))
+        XCTAssertTrue(scrollTo(AID.settingsReplayOnboarding))
         // The "Replay onboarding" row dismisses Settings + drawer and starts the tour
         // (AIA-0333); its first bubble appears over the address bar.
-        element(AID.settingsIntroduction).tap()
+        element(AID.settingsReplayOnboarding).tap()
         XCTAssertTrue(
             element(AID.tourBubble).waitForExistence(timeout: 10),
             "Replaying onboarding should start the tour"

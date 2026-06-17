@@ -164,6 +164,7 @@ struct DrawerContent: View {
                     configuration: configuration,
                     // The onboarding tour spotlights the first model's enable toggle (AIA-0333).
                     isTourToggleTarget: index == 0,
+                    tour: tour,
                     onTap: {
                         selectedConfigurationId = entityId
                     },
@@ -214,6 +215,8 @@ private struct ConfigurationRow: View {
     @ObservedObject var configuration: DeepConfiguration
     /// Marks this row's enable toggle as the onboarding-tour spotlight target (AIA-0333).
     var isTourToggleTarget: Bool = false
+    /// The tour engine, poked when the highlighted target model is enabled (AIA-0333).
+    var tour: TourState?
     let onTap: () -> Void
     let onDelete: () -> Void
     
@@ -240,7 +243,13 @@ private struct ConfigurationRow: View {
             Toggle("", isOn: Binding(
                 get: { configuration.enabled },
                 set: { newValue in
+                    let wasEnabled = configuration.enabled
                     configuration.enabled = newValue
+                    // Tour hook (AIA-0333): when the spotlighted demo model goes false→true,
+                    // advance the enable-model step. The toggle keeps its state (the payoff).
+                    if isTourToggleTarget, wasEnabled == false, newValue {
+                        tour?.userEnabledModel()
+                    }
                     if let context = configuration.managedObjectContext {
                         do {
                             try DeepConfiguration.save(in: context)

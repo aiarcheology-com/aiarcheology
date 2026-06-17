@@ -9,7 +9,7 @@ import SwiftUI
 import Observation
 
 /// Drives the interactive onboarding tour: owns the ordered steps, the current index,
-/// the per-step no-deadlock timeout, the gate flag, and the drawer-staging cleanup.
+/// the per-step no-deadlock timeout, and the gate flag.
 ///
 /// `@MainActor` (and named `*State`, so the architecture rule requires it): every mutation
 /// touches UI-driving state and the `DrawerManager`, both main-actor isolated.
@@ -32,10 +32,6 @@ final class TourState {
 
 	/// Whether the tour overlay is currently shown.
 	private(set) var isActive: Bool = false
-
-	/// True only while the **tour** opened the drawer. Cleared on any user-originated
-	/// drawer toggle so finish/skip never closes a drawer the user wanted open.
-	private(set) var tourOwnsDrawer: Bool = false
 
 	/// Whether the current step has surfaced its **Next** fallback button. Always true for
 	/// `.scripted` steps; flips to true for `.userAction` steps once the timeout fires.
@@ -118,7 +114,6 @@ final class TourState {
 		guard steps.isEmpty == false else { return }
 		currentIndex = 0
 		isActive = true
-		tourOwnsDrawer = false
 		beginStep()
 	}
 
@@ -149,7 +144,9 @@ final class TourState {
 		isActive = false
 		showsNextButton = false
 		markSeen()
-		cleanUpStagingIfNeeded()
+		// Drawer-staging cleanup returns when a future tour step opens the drawer itself; in
+		// this slice the user always opens the drawer, so the tour never owns it and there is
+		// nothing to revert on finish/skip.
 	}
 
 	// MARK: - Step setup & advance evaluation
@@ -183,6 +180,10 @@ final class TourState {
 		switch condition {
 		case .drawerOpened:
 			return drawer?.isOpen == true
+		case .modelEnabled:
+			// Driven by `userEnabledModel()`; there is no app-state poll for this, so a plain
+			// `evaluate()` never satisfies it.
+			return false
 		}
 	}
 
@@ -195,9 +196,13 @@ final class TourState {
 		guard case .userAction(let condition) = step.advance else { return }
 		switch condition {
 		case .drawerOpened:
-			// Opening via the manager flows through ContentView's drawer observer, which calls
-			// `userToggledDrawer()` and advances the step.
+			// Opening via the manager flows through ContentView's drawer observer, which pokes
+			// `evaluate()` and advances the step.
 			drawer?.open()
+		case .modelEnabled:
+			// No overlay-driven enable: the user must flip the highlighted model's toggle. The
+			// per-step timeout still surfaces Next, so the step can't deadlock.
+			break
 		}
 	}
 
@@ -205,8 +210,15 @@ final class TourState {
 
 	private func scheduleTimeout(for step: TourStep, generation: Int) {
 		let delay = step.fallbackAfter
+		// A non-finite or non-positive delay must never reach `UInt64(...)` (it traps on
+		// NaN/∞/negative). Surface Next immediately instead of sleeping.
+		guard delay.isFinite, delay > 0 else {
+			showsNextButton = true
+			return
+		}
+		let nanoseconds = UInt64(delay * 1_000_000_000)
 		timeoutTask = Task { [weak self] in
-			try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+			try? await Task.sleep(nanoseconds: nanoseconds)
 			guard Task.isCancelled == false else { return }
 			guard let self else { return }
 			// Generation guard: a stale timeout must not surface Next on a later step.
@@ -220,31 +232,14 @@ final class TourState {
 		timeoutTask = nil
 	}
 
-	// MARK: - Drawer staging
+	// MARK: - User-action hooks
 
-	/// The tour opened the drawer itself (e.g. on replay, before the models step). Marks
-	/// ownership so finish/skip can revert it.
-	func openDrawerForTour() {
-		guard let drawer else { return }
-		if drawer.isOpen == false {
-			tourOwnsDrawer = true
-			drawer.open()
-		}
-	}
-
-	/// Called from the view layer on any **user-originated** drawer toggle (drawer button,
-	/// scrim tap, close button). Clears tour ownership — the user now owns the drawer — and
-	/// re-evaluates the current step (the drawer-open step advances here).
-	func userToggledDrawer() {
-		tourOwnsDrawer = false
-		evaluate()
-	}
-
-	private func cleanUpStagingIfNeeded() {
-		// Only revert a drawer the tour itself opened and the user never took over.
-		if tourOwnsDrawer {
-			drawer?.close()
-			tourOwnsDrawer = false
-		}
+	/// Called from the model row's enable toggle when the highlighted demo model goes
+	/// false→true. Advances the enable-model step iff its condition is `.modelEnabled`. A
+	/// no-op otherwise, so a stray enable elsewhere in the tour can't skip a step.
+	func userEnabledModel() {
+		guard isActive, let step = currentStep else { return }
+		guard case .userAction(.modelEnabled) = step.advance else { return }
+		advance()
 	}
 }

@@ -88,9 +88,10 @@ struct ContentView: View {
             }
         }
         .onChange(of: drawer.isOpen) { _, isOpen in
-            // Tour hook (AIA-0333): a user-originated drawer toggle. Clears any tour
-            // drawer-ownership and lets the drawer-open step advance.
-            appState.tour.userToggledDrawer()
+            // Tour hook (AIA-0333): re-evaluate the active step on any drawer change. In this
+            // slice only the user opens the drawer, so advancing the `.drawerOpened` step
+            // regardless of initiator is correct.
+            appState.tour.evaluate()
             // Sync drawer state back to Guide for any dependent code
             // Guard against sync loops
             guard appState.guide.presentedSideMenu != isOpen else { return }

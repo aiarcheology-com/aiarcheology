@@ -43,6 +43,9 @@ enum TourAdvance: Sendable {
 enum AdvanceCondition: Sendable {
 	/// The drawer transitioned to open (step 2: tapping the models button).
 	case drawerOpened
+	/// The highlighted demo model's enable toggle went false→true (step 4). Driven by
+	/// `TourState.userEnabledModel()`, not by a polled app-state change.
+	case modelEnabled
 }
 
 /// One scripted step of the tour.
@@ -104,7 +107,8 @@ extension TourStep {
 				target: .enableModelToggle,
 				bubbleText: L10n.Tour.EnableModel.text,
 				placement: .above,
-				advance: .scripted
+				// The payoff action: enabling the highlighted demo model advances the tour.
+				advance: .userAction(.modelEnabled)
 			)
 		]
 	}

@@ -195,7 +195,7 @@ struct SettingsForm: View {
 		} label: {
 			Text(L10n.Settings.replayOnboarding)
 		}
-		.testability(Testability.NavigationLink.settingsIntroduction)
+		.testability(Testability.Button.settingsReplayOnboarding)
 	}
 
 	private var restoreDefaultsRow: some View {

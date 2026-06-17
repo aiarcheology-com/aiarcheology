@@ -82,7 +82,7 @@ enum AID {
 	static let settingsHistoryLimit = "_AIA:TextField.SettingsHistoryLimit"
 	static let settingsHistory = "_AIA:NavigationLink.SettingsHistory"
 	static let settingsAbout = "_AIA:NavigationLink.SettingsAbout"
-	static let settingsIntroduction = "_AIA:NavigationLink.SettingsIntroduction"
+	static let settingsReplayOnboarding = "_AIA:Button.SettingsReplayOnboarding"
 	static let settingsDeleteCache = "_AIA:Button.SettingsDeleteCache"
 	static let settingsRestoreDefaults = "_AIA:Button.SettingsRestoreDefaults"
 

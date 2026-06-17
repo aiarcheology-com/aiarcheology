@@ -87,6 +87,7 @@ extension TestabilityIdentification {
 		case settingsDeleteCache
 		case settingsRestoreDefaults
 		case settingsKeyboardDone
+		case settingsReplayOnboarding
 		// Browsing History
 		case browsingHistoryClear
 		case browsingHistoryDismiss
@@ -214,7 +215,6 @@ extension TestabilityIdentification {
 		// Settings
 		case settingsHistory
 		case settingsAbout
-		case settingsIntroduction
 		// App Description
 		case appDescriptionPrivacyPolicy
 		// Downloader
