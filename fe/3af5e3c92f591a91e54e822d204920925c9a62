@@ -1,0 +1,67 @@
+ios/MLBrowser/iOS/State/Appstate.swift
+  s_c55b2e88071d91::t_608c2679168148 59-66
+ios/MLBrowserUnitTests/TourStateTests.swift
+  s_c55b2e88071d91::t_8ee99b74db2a38 238-240,242-243,247,250
+  s_c55b2e88071d91::t_ee0c930f6d6fdf 201-203,209-222
+ios/MLBrowser/iOS/UI/Tour/TourOverlay.swift
+  s_c55b2e88071d91::t_8ae37357f74529 31-34
+  s_c55b2e88071d91::t_59b2ce5236ea77 54-56,71-74,79,82-85
+  s_c55b2e88071d91::t_860df27fb5a043 58-63
+  s_c55b2e88071d91::t_25e249b29ce37c 91
+  s_c55b2e88071d91::t_4f9d76c68c5251 124-125,137-140
+  s_c55b2e88071d91::t_8f367d05b2e379 48-51
+ios/MLBrowser/iOS/UI/ContentView.swift
+  s_c55b2e88071d91::t_dc762b2694e6dc 233-235,237-238
+ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift
+  s_c55b2e88071d91::t_8e8b974ca4316a 244
+  s_c55b2e88071d91::t_72f479edb8a11a 277
+  s_c55b2e88071d91::t_fa011d931ba16c 223-224
+  s_c55b2e88071d91::t_d9cecabd53b02e 112-117
+  s_c55b2e88071d91::t_35f06951be4fb0 213-222,225-236
+  s_c55b2e88071d91::t_06053292f2c167 166
+ios/MLBrowser/iOS/State/Settings.swift
+  s_c55b2e88071d91::t_162ab33e7001ef 94-100
+ios/MLBrowser/iOS/Tools/Localization/LocalizationTestHelpers.swift
+  s_c55b2e88071d91::t_785a3971ec144d 288-295
+ios/MLBrowser/iOS/UI/Tour/ARCHITECTURE.md
+  s_c55b2e88071d91::t_41026d0a18bbd6 1-136,152-153
+  s_c55b2e88071d91::t_9b0e91e94a9488 137-151
+ios/MLBrowserUITests/TourUITests.swift
+  s_c55b2e88071d91::t_72cee28a8dce94 109,111-113
+  s_c55b2e88071d91::t_3189d5106dcb0c 64-100,106-107,114-125
+ios/MLBrowser/iOS/UI/Tour/TourStep.swift
+  s_c55b2e88071d91::t_c8dc8b240ca36d 22-24
+  s_c55b2e88071d91::t_5389528fadb3fb 80-85,92-93,100
+  s_c55b2e88071d91::t_d295b244957e0e 52-57,61
+  s_c55b2e88071d91::t_4fc13e08429b47 51,58-60,62-63
+ios/MLBrowser/iOS/State/DemoDataManager.swift
+  s_c55b2e88071d91::t_2c97fcd851e7c0 17
+  s_c55b2e88071d91::t_d9015e7ce6086c 18-19
+  s_c55b2e88071d91::t_b70e0588c117e9 14-16
+  s_c55b2e88071d91::t_75b3d4c1384503 100
+ios/MLBrowser/iOS/UI/Tour/TourState.swift
+  s_c55b2e88071d91::t_738f71c15a699e 178-180,183-187
+  s_c55b2e88071d91::t_3b257991213dae 103-107,113,117
+  s_c55b2e88071d91::t_fdf6892d95b43e 225-227,232-240
+  s_c55b2e88071d91::t_6924d366f725a6 84-88
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift
+  s_c55b2e88071d91::t_aad3cb94c8ff12 185-193
+ios/MLBrowser/iOS/UI/Tour/TourSpotlight.swift
+  s_c55b2e88071d91::t_dfbb057ead10e8 13-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "fe3af5e3c92f591a91e54e822d204920925c9a62",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
