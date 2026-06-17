@@ -29,6 +29,10 @@ enum TourAnchorID: String, Hashable, CaseIterable, Sendable {
 enum TourBubblePlacement: Sendable {
 	case above
 	case below
+	/// Pinned near the bottom of the screen, independent of the cutout. Used when the cutout is
+	/// near the top (e.g. the drawer's model list) so the bubble doesn't cover the very content
+	/// it describes.
+	case bottom
 }
 
 /// How a step is allowed to advance to the next one.
@@ -123,13 +127,15 @@ extension TourStep {
 			TourStep(
 				target: .demoModels,
 				bubbleText: L10n.Tour.DemoModels.text,
-				placement: .below,
+				// Bottom-pinned: the model list sits at the top of the drawer, so a bubble next to
+				// it would cover the very models it describes.
+				placement: .bottom,
 				advance: .scripted
 			),
 			TourStep(
 				target: .enableModelToggle,
 				bubbleText: L10n.Tour.EnableModel.text,
-				placement: .above,
+				placement: .bottom,
 				// The payoff action: enabling a demo model advances the tour. The toggle's own
 				// anchor can't escape the List, so spotlight the demo-models section instead —
 				// its hole covers the toggles, so the user's tap passes through to one.

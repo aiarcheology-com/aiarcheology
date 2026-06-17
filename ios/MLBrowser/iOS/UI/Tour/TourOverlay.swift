@@ -83,7 +83,7 @@ private struct TourOverlayModifier: ViewModifier {
 		// anchor, center it.
 		let anchorX = cutout?.midX ?? container.width / 2
 		let proposedX = anchorX - bubbleWidth / 2
-		let x = min(max(proposedX, spacing), max(spacing, container.width - bubbleWidth - spacing))
+		let clampedX = min(max(proposedX, spacing), max(spacing, container.width - bubbleWidth - spacing))
 
 		TourBubble(
 			text: step.bubbleText,
@@ -99,7 +99,7 @@ private struct TourOverlayModifier: ViewModifier {
 			}
 		)
 		.onPreferenceChange(TourBubbleHeightKey.self) { bubbleHeight = $0 }
-		.offset(x: x)
+		.offset(x: clampedX)
 		.modifier(BubbleVerticalOffset(
 			placement: step.placement,
 			cutout: cutout,
@@ -134,20 +134,28 @@ private struct BubbleVerticalOffset: ViewModifier {
 	}
 
 	private var yOffset: CGFloat {
-		guard let cutout else {
-			// No settled anchor: center the bubble vertically.
-			return max(spacing, (container.height - bubbleHeight) / 2)
-		}
 		switch placement {
+		case .bottom:
+			// Pinned near the bottom, clear of the home indicator, regardless of the cutout —
+			// keeps top-anchored content (the drawer's model list) fully visible.
+			return max(spacing, container.height - bubbleHeight - homeIndicatorClearance)
 		case .below:
+			guard let cutout else { return centeredY }
 			// Keep the whole measured bubble inside the bottom edge.
 			let maxTop = max(spacing, container.height - bubbleHeight - spacing)
 			return min(cutout.maxY + spacing, maxTop)
 		case .above:
+			guard let cutout else { return centeredY }
 			// Use the measured height so long / localized / Dynamic-Type copy can't go off the top.
 			return max(cutout.minY - spacing - bubbleHeight, spacing)
 		}
 	}
+
+	/// Centered vertically — used when a cutout-relative placement has no settled anchor.
+	private var centeredY: CGFloat { max(spacing, (container.height - bubbleHeight) / 2) }
+
+	/// Bottom margin that keeps the bubble (and its Skip/Next buttons) clear of the home indicator.
+	private var homeIndicatorClearance: CGFloat { 44 }
 }
 
 extension View {
