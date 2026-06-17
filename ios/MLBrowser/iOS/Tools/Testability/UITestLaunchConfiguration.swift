@@ -37,6 +37,9 @@ struct UITestLaunchConfiguration: Codable {
 		case home
 		case blank
 		case last
+		/// Load a bundled local-HTML fixture via `WKWebView.loadFileURL` (AIA-0316). Requires
+		/// `fixtureName`. Network-free; mutually exclusive with the other scenarios.
+		case localFixture
 	}
 
 	var version: Int = currentVersion
@@ -49,6 +52,9 @@ struct UITestLaunchConfiguration: Codable {
 	var defaultPageOverride: String?
 	/// The page to seed for `pageScenario == .last`.
 	var lastPage: String?
+	/// Resource base name of the bundled HTML fixture for `pageScenario == .localFixture`
+	/// (e.g. `"uitest_page"` → `uitest_page.html` in the app bundle).
+	var fixtureName: String?
 	/// Override fullscreen-detection setting. `nil` keeps the baseline (off).
 	var fullscreenDetection: Bool?
 	/// Route model downloads through `StubDownloadURLProtocol` (AIA-0318) so tests never hit the
@@ -112,6 +118,15 @@ struct UITestLaunchConfiguration: Codable {
 			if let override = config.defaultPageOverride, let url = URL(string: override) {
 				settings.defaultPage = url
 			}
+		case .localFixture:
+			// Load a bundled local-HTML fixture from the app bundle. Trap rather than fall back to a
+			// network page, so a misconfigured fixture can never silently pass. Carried on a transient
+			// `launchFixtureURL` (not `defaultPage`) to skip persistence, validation, and history.
+			guard let name = config.fixtureName,
+				  let url = Bundle.main.url(forResource: name, withExtension: "html") else {
+				fatalError("\(environmentKey) pageScenario=.localFixture requires a bundled HTML fixture named '\(config.fixtureName ?? "<nil>")'")
+			}
+			settings.launchFixtureURL = url
 		}
 
 		if let fullscreen = config.fullscreenDetection {

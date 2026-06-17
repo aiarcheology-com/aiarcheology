@@ -79,6 +79,13 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     private var isInteracting: Bool {
         interactionState.isInteracting
     }
+
+    /// Total rendered detection annotations across all result groups — the same `appliedFrame`
+    /// results `AnnotationOverlay` draws. Extracted from `body` so the checkpoint expression stays
+    /// within the type-checker budget (AIA-0317).
+    private var renderedDetectionCount: Int {
+        (appliedFrame?.results ?? []).reduce(0) { $0 + $1.observations.count }
+    }
     
     var body: some View {
         return GeometryReader { geometry in
@@ -164,6 +171,14 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             // Notify external observer if provided
             onInteractionStateChanged?(state)
         }
+        // AIA-0317: publish the live rendered-annotation count for UI tests. Attached at the body
+        // root (outside the ZStack's SnapableGroup), so the 1pt marker is never in the detection
+        // snapshot. Reads the same `appliedFrame.results` that feeds AnnotationOverlay, so the
+        // count equals the visible annotation total (0 when none).
+        // Gate the O(n) reduce on `isRunningUITests` so production view updates don't pay for a
+        // value only the UI-test checkpoint marker reads (the marker itself already renders only
+        // under UI tests).
+        .checkpoint(.detectionCount, value: AppEnvironment.isRunningUITests ? String(renderedDetectionCount) : "")
     }
 
     /// Single write path for the displayed frame: the screen's mirror is updated

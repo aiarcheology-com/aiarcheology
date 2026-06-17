@@ -18,16 +18,26 @@ public struct LoadRequest: Equatable, Sendable {
 	public let input: String
 	/// Bumped on every submit / history pick.
 	public let generation: UInt64
+	/// When set, the request is a direct local-file load (`loadFileURL`), bypassing the string
+	/// classification in `MLWebView`. UI-test harness only (AIA-0316); `nil` for every normal load.
+	public let fileURL: URL?
 
-	public init(input: String, generation: UInt64) {
+	public init(input: String, generation: UInt64, fileURL: URL? = nil) {
 		self.input = input
 		self.generation = generation
+		self.fileURL = fileURL
 	}
 
 	public static let initial = LoadRequest(input: "", generation: 0)
 
 	public func next(_ input: String) -> LoadRequest {
 		LoadRequest(input: input, generation: generation + 1)
+	}
+
+	/// A direct local-file load. `input` carries the URL string for display/dedup only; the load
+	/// is performed via `WKWebView.loadFileURL`, not the string path.
+	public func nextFile(_ url: URL) -> LoadRequest {
+		LoadRequest(input: url.absoluteString, generation: generation + 1, fileURL: url)
 	}
 }
 

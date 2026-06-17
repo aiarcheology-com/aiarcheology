@@ -143,6 +143,17 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
 		// perform a real load (and the navigation-settled gate relies on it).
 		guard context.coordinator.lastLoadedGeneration != request.generation else { return }
 
+		// Direct local-file load (AIA-0316 UI-test harness): a `file://` URL has no host and would
+		// be mangled by `withHTTPS` / classified as a search term in the string path below, so it
+		// must use `loadFileURL`. Read access is scoped to the file itself. Dispatched before the
+		// `browserInputType` switch; `nil` for every normal load.
+		if let fileURL = request.fileURL {
+			let navigation = uiView.loadFileURL(fileURL, allowingReadAccessTo: fileURL)
+			browserState.navigationIssued(navigation)
+			context.coordinator.lastLoadedGeneration = request.generation
+			return
+		}
+
         func load(_ urlString: String) {
 			// Host check is defense-in-depth (browserInputType only classifies
 			// host-carrying input as .url): a host-less URL like "https://" would
