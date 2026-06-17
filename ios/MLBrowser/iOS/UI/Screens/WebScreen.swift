@@ -180,7 +180,10 @@ struct WebScreenView: View {
         // Mirror the live URL's file name into a @State so the checkpoint re-renders on every
         // navigation (WebScreenView observes appState, not browserState directly). The `\.url` KVO
         // path fires for host-less file:// URLs too, so this reflects local fixtures (AIA-0316).
+        // Gated on `isRunningUITests`: this is UI-test-only introspection, so it must not write
+        // @State (and trigger re-renders) on every URL change during normal browsing (e.g. SPAs).
         .onReceive(appState.browserState.$currentURL) { url in
+            guard AppEnvironment.isRunningUITests else { return }
             currentPageFile = url?.lastPathComponent ?? ""
         }
         .checkpoint(.currentPageFile, value: currentPageFile)
