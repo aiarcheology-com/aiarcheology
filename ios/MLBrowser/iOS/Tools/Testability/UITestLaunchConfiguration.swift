@@ -57,6 +57,9 @@ struct UITestLaunchConfiguration: Codable {
 	var fixtureName: String?
 	/// Override fullscreen-detection setting. `nil` keeps the baseline (off).
 	var fullscreenDetection: Bool?
+	/// Route model downloads through `StubDownloadURLProtocol` (AIA-0318) so tests never hit the
+	/// network. `nil`/`false` keeps the real network path.
+	var stubDownloads: Bool?
 
 	/// Decoded from the launch environment, or `nil` if absent. Traps on malformed input
 	/// or version mismatch — a UI test must never proceed on a misread configuration.

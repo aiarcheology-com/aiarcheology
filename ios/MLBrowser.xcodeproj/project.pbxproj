@@ -50,9 +50,6 @@
 		8A4256E62B1E0C4C009153B1 /* UIApplication+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256E52B1E0C4C009153B1 /* UIApplication+Extensions.swift */; };
 		8A4F0E122F110A0100ABCDEF /* FloatingChromeButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E112F110A0100ABCDEF /* FloatingChromeButton.swift */; };
 		8A4F0E142F110A0200ABCDEF /* BrowserRevampUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */; };
-		94E018900000000000000002 /* UITestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018900000000000000001 /* UITestSupport.swift */; };
-		94E018900000000000000004 /* WizardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018900000000000000003 /* WizardUITests.swift */; };
-		94E018900000000000000006 /* NavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018900000000000000005 /* NavigationUITests.swift */; };
 		8A4F0E162F110A0300ABCDEF /* BrowserState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E152F110A0300ABCDEF /* BrowserState.swift */; };
 		8A4F0E182F110A0300ABCDEF /* FloatingNavBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E172F110A0300ABCDEF /* FloatingNavBar.swift */; };
 		8A4F0E1A2F110A0300ABCDEF /* LocationSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E192F110A0300ABCDEF /* LocationSheetView.swift */; };
@@ -156,6 +153,7 @@
 		944D74E62EE63344009F3584 /* SentryCrashReportingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944D74E52EE63344009F3584 /* SentryCrashReportingService.swift */; };
 		944D74E72EE63344009F3584 /* Observability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944D74E42EE63344009F3584 /* Observability.swift */; };
 		945C556D2ED5127C007DD8FB /* WebHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */; };
+		94F1631800000000000000D2 /* StubDownloadURLProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F1631800000000000000D1 /* StubDownloadURLProtocolTests.swift */; };
 		94AA03070000000000000002 /* BrowsingHistoryRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AA03070000000000000001 /* BrowsingHistoryRefreshTests.swift */; };
 		945C556F2ED5127C007DD8FB /* TestCoreDataStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */; };
 		945C55702ED5127C007DD8FB /* CoreDataManagableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */; };
@@ -200,6 +198,16 @@
 		94D79C992EE37DBF0027C9FA /* NSManagedObjectExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79C912EE37DBF0027C9FA /* NSManagedObjectExtensionsTests.swift */; };
 		94D79C9A2EE37DBF0027C9FA /* AppEnvironmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */; };
 		94DF06A22E95C1090024E381 /* OSLog+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */; };
+		94E018900000000000000002 /* UITestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018900000000000000001 /* UITestSupport.swift */; };
+		94E018900000000000000004 /* WizardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018900000000000000003 /* WizardUITests.swift */; };
+		94E018900000000000000006 /* NavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018900000000000000005 /* NavigationUITests.swift */; };
+		94E018910000000000000002 /* DetectionEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000001 /* DetectionEngineTests.swift */; };
+		94E018910000000000000004 /* terrain_iphone.png in Resources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000003 /* terrain_iphone.png */; };
+		94E018910000000000000006 /* terrain_ipad.png in Resources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000005 /* terrain_ipad.png */; };
+		94E018910000000000000011 /* DrawerConfigUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000010 /* DrawerConfigUITests.swift */; };
+		94E018910000000000000013 /* SettingsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000012 /* SettingsUITests.swift */; };
+		94E018910000000000000015 /* BrowsingHistoryUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000014 /* BrowsingHistoryUITests.swift */; };
+		94E018910000000000000017 /* AddressBarUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E018910000000000000016 /* AddressBarUITests.swift */; };
 		94E6A66D2EEE1EEB008E1B4B /* MetadataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E6A66C2EEE1EE6008E1B4B /* MetadataParser.swift */; };
 		94E6A6772EEE224A008E1B4B /* MLModelMetadataParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E6A6762EEE224A008E1B4B /* MLModelMetadataParserTests.swift */; };
 		94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4012ECE46C60047B283 /* DependencyContainer.swift */; };
@@ -284,9 +292,6 @@
 		8A4256E52B1E0C4C009153B1 /* UIApplication+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplication+Extensions.swift"; sourceTree = "<group>"; };
 		8A4F0E112F110A0100ABCDEF /* FloatingChromeButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingChromeButton.swift; sourceTree = "<group>"; };
 		8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserRevampUITests.swift; sourceTree = "<group>"; };
-		94E018900000000000000001 /* UITestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestSupport.swift; sourceTree = "<group>"; };
-		94E018900000000000000003 /* WizardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WizardUITests.swift; sourceTree = "<group>"; };
-		94E018900000000000000005 /* NavigationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationUITests.swift; sourceTree = "<group>"; };
 		8A4F0E152F110A0300ABCDEF /* BrowserState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserState.swift; sourceTree = "<group>"; };
 		8A4F0E172F110A0300ABCDEF /* FloatingNavBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingNavBar.swift; sourceTree = "<group>"; };
 		8A4F0E192F110A0300ABCDEF /* LocationSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSheetView.swift; sourceTree = "<group>"; };
@@ -398,6 +403,7 @@
 		945C55692ED5127C007DD8FB /* DeepStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepStateTests.swift; sourceTree = "<group>"; };
 		945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestCoreDataStack.swift; sourceTree = "<group>"; };
 		945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebHistoryTests.swift; sourceTree = "<group>"; };
+		94F1631800000000000000D1 /* StubDownloadURLProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDownloadURLProtocolTests.swift; sourceTree = "<group>"; };
 		94AA03070000000000000001 /* BrowsingHistoryRefreshTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowsingHistoryRefreshTests.swift; sourceTree = "<group>"; };
 		945C557F2ED61234007DD8FB /* DownloaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloaderTests.swift; sourceTree = "<group>"; };
 		945C55812ED71234007DD8FB /* StringExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringExtensionsTests.swift; sourceTree = "<group>"; };
@@ -438,6 +444,16 @@
 		94D79C922EE37DBF0027C9FA /* SequenceExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SequenceExtensionsTests.swift; sourceTree = "<group>"; };
 		94D79C932EE37DBF0027C9FA /* UIExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIExtensionsTests.swift; sourceTree = "<group>"; };
 		94DF06A12E95C0FE0024E381 /* OSLog+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OSLog+Extensions.swift"; sourceTree = "<group>"; };
+		94E018900000000000000001 /* UITestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestSupport.swift; sourceTree = "<group>"; };
+		94E018900000000000000003 /* WizardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WizardUITests.swift; sourceTree = "<group>"; };
+		94E018900000000000000005 /* NavigationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationUITests.swift; sourceTree = "<group>"; };
+		94E018910000000000000001 /* DetectionEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionEngineTests.swift; sourceTree = "<group>"; };
+		94E018910000000000000003 /* terrain_iphone.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = terrain_iphone.png; sourceTree = "<group>"; };
+		94E018910000000000000005 /* terrain_ipad.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = terrain_ipad.png; sourceTree = "<group>"; };
+		94E018910000000000000010 /* DrawerConfigUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerConfigUITests.swift; sourceTree = "<group>"; };
+		94E018910000000000000012 /* SettingsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsUITests.swift; sourceTree = "<group>"; };
+		94E018910000000000000014 /* BrowsingHistoryUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowsingHistoryUITests.swift; sourceTree = "<group>"; };
+		94E018910000000000000016 /* AddressBarUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressBarUITests.swift; sourceTree = "<group>"; };
 		94E6A66C2EEE1EE6008E1B4B /* MetadataParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataParser.swift; sourceTree = "<group>"; };
 		94E6A6762EEE224A008E1B4B /* MLModelMetadataParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLModelMetadataParserTests.swift; sourceTree = "<group>"; };
 		94FCC4002ECE46C60047B283 /* DemoDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManager.swift; sourceTree = "<group>"; };
@@ -886,19 +902,11 @@
 				94D79C932EE37DBF0027C9FA /* UIExtensionsTests.swift */,
 				941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */,
 				945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */,
+				94F1631800000000000000D1 /* StubDownloadURLProtocolTests.swift */,
 				94AA03070000000000000001 /* BrowsingHistoryRefreshTests.swift */,
 				8AB3EADF2B4450B9001083D1 /* MLBrowserTests-Info.plist */,
 			);
 			path = MLBrowserUnitTests;
-			sourceTree = "<group>";
-		};
-		94E018910000000000000007 /* Fixtures */ = {
-			isa = PBXGroup;
-			children = (
-				94E018910000000000000003 /* terrain_iphone.png */,
-				94E018910000000000000005 /* terrain_ipad.png */,
-			);
-			path = Fixtures;
 			sourceTree = "<group>";
 		};
 		8AE0BC232A97B0B40086DDF9 /* MLBrowserUITests */ = {
@@ -1028,6 +1036,15 @@
 			children = (
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		94E018910000000000000007 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				94E018910000000000000003 /* terrain_iphone.png */,
+				94E018910000000000000005 /* terrain_ipad.png */,
+			);
+			path = Fixtures;
 			sourceTree = "<group>";
 		};
 		A1B2C3D42F0104A300000001 /* Services */ = {
@@ -1438,6 +1455,7 @@
 				94FCC4062ED062CF0047B283 /* OSLog+Extensions.swift in Sources */,
 				942B1DE32EA6BF86005455F9 /* LoggingConfigurationTests.swift in Sources */,
 				945C556D2ED5127C007DD8FB /* WebHistoryTests.swift in Sources */,
+				94F1631800000000000000D2 /* StubDownloadURLProtocolTests.swift in Sources */,
 				94AA03070000000000000002 /* BrowsingHistoryRefreshTests.swift in Sources */,
 				941C4FBE2EDBB0C300066AED /* UTTypeTests.swift in Sources */,
 				945C556F2ED5127C007DD8FB /* TestCoreDataStack.swift in Sources */,

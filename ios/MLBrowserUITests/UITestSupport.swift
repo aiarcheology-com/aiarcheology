@@ -29,6 +29,7 @@ struct LaunchConfig: Encodable {
 	var lastPage: String?
 	var fullscreenDetection: Bool?
 	var fixtureName: String?
+	var stubDownloads: Bool?
 }
 
 // MARK: - Accessibility identifiers
