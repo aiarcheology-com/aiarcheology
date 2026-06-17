@@ -1,0 +1,56 @@
+ios/MLBrowser/iOS/UI/Tour/TourOverlay.swift
+  s_c55b2e88071d91::t_f9e0ff817ebc41 94
+  s_c55b2e88071d91::t_eb1e1db61597bb 54-59,61-72,78
+ios/MLBrowser/iOS/Tools/Localization/LocalizationTestHelpers.swift
+  s_c55b2e88071d91::t_2133ab86d49ad9 291,294-295,298
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_c55b2e88071d91::t_74df9a65909a2b 13675-13722
+ios/MLBrowserUITests/TourUITests.swift
+  s_c55b2e88071d91::t_98e53d4c2f9051 64-67,69,88,90-91,94,96-122
+ios/IMPLEMENTATION_PLAN_AIA-0333-finding.md
+  s_c55b2e88071d91::t_ae45cddb1b1971 19-31,33-42,44-53
+  s_c55b2e88071d91::t_edfd75ad1d5e2f 1-18,32,43,54-73
+ios/MLBrowser/iOS/UI/Tour/TourState.swift
+  s_c55b2e88071d91::t_17fd6b6e8842ff 207-210
+  s_c55b2e88071d91::t_e747c236e52371 227-239,244-249
+  s_c55b2e88071d91::t_7e332f462ef4a1 258-260
+  s_c55b2e88071d91::t_194e7626f483a2 81,83
+  s_c55b2e88071d91::t_39894635dad662 50
+ios/MLBrowserUITests/UITestSupport.swift
+  s_c55b2e88071d91::t_3e825bfef62176 101-104
+ios/MLBrowser/iOS/UI/Tour/TourBubble.swift
+  s_c55b2e88071d91::t_000f0ec7a57e5d 15-16
+  s_c55b2e88071d91::t_4bd6c6898ee534 40
+ios/MLBrowser/iOS/UI/GlobalToolbar.swift
+  s_c55b2e88071d91::t_dcf5efea9950c3 83
+ios/MLBrowser/iOS/UI/Tour/TourStep.swift
+  s_c55b2e88071d91::t_debcf4ecf418fe 168-197
+  s_c55b2e88071d91::t_4f1f15830a0f98 26-34
+  s_c55b2e88071d91::t_b6637277f3065e 64-71,74-76,79-80
+  s_c55b2e88071d91::t_f65c14eb084f93 105-109,117-119,127-128
+ios/MLBrowser/iOS/UI/ContentView.swift
+  s_c55b2e88071d91::t_f10f4a8729e477 20-29
+  s_c55b2e88071d91::t_174e903d2fe9b3 228
+  s_c55b2e88071d91::t_a6d03bba96ef29 110-116
+  s_c55b2e88071d91::t_5aa6207d2f09be 166
+  s_c55b2e88071d91::t_bd6759b79fc233 137-139,141
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_c55b2e88071d91::t_d496c17bbeefcc 476-479
+  s_c55b2e88071d91::t_19436f639f9bb5 488-495,500-502
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "5475871da32ee5955d6097a1cb21420b4c712014",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
