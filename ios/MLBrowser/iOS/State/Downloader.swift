@@ -203,12 +203,19 @@ final public class Downloader: NSObject, ObservableObject {
         // AIA-0318 UI-test harness: when the `stubDownloads` launch flag is set, intercept downloads
         // with StubDownloadURLProtocol so tests never hit the network. UI-test downloads already use
         // this foreground session (shouldUseBackgroundSession is false under tests), and URLProtocol
-        // works with .default sessions (not background ones). Inert otherwise (returns base).
-        configuration.protocolClasses = Self.foregroundProtocolClasses(
-            base: configuration.protocolClasses ?? [],
-            isUITest: AppEnvironment.isRunningUITests,
-            stubDownloads: UITestLaunchConfiguration.fromEnvironment?.stubDownloads == true
-        )
+        // works with .default sessions (not background ones).
+        //
+        // Gated on `isRunningUITests` so the shipping/normal path is completely untouched: it neither
+        // reassigns `protocolClasses` (which would turn Foundation's default `nil` into `[]` and drop
+        // the built-in protocols) nor decodes `UI_TEST_CONFIG` (which would `fatalError` on malformed
+        // input outside UI tests).
+        if AppEnvironment.isRunningUITests {
+            configuration.protocolClasses = Self.foregroundProtocolClasses(
+                base: configuration.protocolClasses ?? [],
+                isUITest: true,
+                stubDownloads: UITestLaunchConfiguration.fromEnvironment?.stubDownloads == true
+            )
+        }
         let queue = OperationQueue()
         queue.maxConcurrentOperationCount = 1
         return URLSession(configuration: configuration, delegate: delegateProxy, delegateQueue: queue)

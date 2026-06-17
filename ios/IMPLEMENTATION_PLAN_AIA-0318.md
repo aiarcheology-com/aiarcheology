@@ -1,6 +1,7 @@
 # Implementation Plan — AIA-0318: UI-test harness — model-download mock/stub
 
-> Status: FINAL — SHIP (grill-master: r1 REVISE → r2 SHIP; codex-reviewed). Prerequisite harness C
+> Status: FINAL — SHIP (grill-master: r1 REVISE → r2 SHIP; codex review requested but the CLI ran
+> long/inconclusive, so the two grill rounds are the review of record). Prerequisite harness C
 > for AIA-0309. Independent of AIA-0316/0317. (r2 note folded in: the unit test asserts the delivered
 > file is non-empty before byte-equality, so an empty temp file can't false-pass.)
 
@@ -23,8 +24,10 @@ wired so `Downloader` uses it only under UI tests with the flag set. Production 
 
 ## Plan
 ### Step 1 — `StubDownloadURLProtocol`
-- New `StubDownloadURLProtocol: URLProtocol` (app target, UI-test-only). `canInit(with:)` returns
-  true only when active (see Step 2 gating). `startLoading` synthesizes an `HTTPURLResponse` (200,
+- New `StubDownloadURLProtocol: URLProtocol` (app target, UI-test-only). `canInit(with:)` claims
+  any http(s) request; it is a pure predicate and does not know about gating — inertness in
+  shipping comes entirely from the protocol never being inserted into a session's `protocolClasses`
+  unless gated in (Step 2). `startLoading` synthesizes an `HTTPURLResponse` (200,
   `Content-Length` = payload size), calls `client?.urlProtocol(_:didReceive:cacheStoragePolicy:)`,
   `client?.urlProtocol(_:didLoad:)` with a tiny fixed payload, then
   `client?.urlProtocolDidFinishLoading(_:)`. `stopLoading` is a no-op. For a **`downloadTask`** the
@@ -64,7 +67,9 @@ wired so `Downloader` uses it only under UI tests with the flag set. Production 
   2. **Gating logic:** assert `foregroundProtocolClasses` prepends the stub only when
      `isUITest && stubDownloads` are both true, and returns `base` unchanged otherwise (covers the
      shipping/normal-test guard — the one piece of novel wiring).
-  3. **Inert when not active:** `canInit` returns false when the protocol is not gated in.
+  3. **`canInit` scope:** `canInit` only claims http(s) requests (it is a pure predicate; it is
+     never *asked* in shipping because the protocol isn't inserted into any session's
+     `protocolClasses` unless gated in — that membership, not `canInit`, is what makes it inert).
 
 ### Step 5 — Named scope boundary (not a buried gap)
 - This PR ships the **deterministic download source + the gating logic, both unit-tested**. Driving
