@@ -40,13 +40,46 @@ final class DrawerConfigUITests: UITestCase {
         XCTAssertTrue(flipSwitch(AID.configEnabledToggle), "Model enabled toggle did not change state")
     }
 
-    // Deferred. The model rows are real cells (description label + enabled switch are both
-    // queryable), but a leftward swipe never reveals the row's delete action: the custom
-    // drawer panel's own drag gesture intercepts the swipe. Confirmed via the accessibility
-    // tree — the swipe leaves the drawer open and the delete button never appears. Re-enable
-    // once the drawer exposes a non-swipe delete affordance or the gesture conflict is
-    // resolved. (Model deletion itself is covered at the unit level.)
-    func testDrawer_deleteModel_removesCell() throws {
-        throw XCTSkip("Blocked by AIA-0308: drawer drag gesture intercepts the row swipe-to-delete in XCUITest. Re-enable when fixed.")
+    // AIA-0308: a leftward swipe on a model row reveals the trailing delete action and removes that
+    // row. Originally skipped at AIA-0305 because the swipe never revealed the delete under XCUITest
+    // (suspected drawer-panel drag-gesture conflict). Re-investigated for AIA-0308: the swipe now
+    // reveals reliably (5/5 iterations) with no app-code change — the row's swipe-actions and the
+    // panel's swipe-to-close coexist under the current toolchain. This test re-enables and locks
+    // that behavior. (On-device swipe feel is verified separately.)
+    func testDrawer_deleteModel_removesCell() {
+        launch()
+        openDrawer()
+        XCTAssertTrue(waitForSeededConfigurations(), "Demo configurations were not seeded")
+
+        // Both demo models seed asynchronously; wait for both toggles so the pre-delete count is
+        // stable (same pattern as testDrawer_listsTwoSeededDemoModels).
+        let bothSeeded = NSPredicate(format: "count == 2")
+        let seededExpectation = XCTNSPredicateExpectation(predicate: bothSeeded, object: modelToggles())
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [seededExpectation], timeout: 20), .completed,
+            "Expected two seeded demo models before delete"
+        )
+
+        // Swipe the first model row to delete it. With `allowsFullSwipe: true` a fast swipe may
+        // commit the delete outright without leaving the trailing button visible; a partial swipe
+        // instead reveals the button to tap. Handle both: tap the button if it reveals, otherwise
+        // the full swipe already deleted. The post-condition (one model remains) is the source of
+        // truth either way — and still fails if the swipe does nothing (the AIA-0308 regression).
+        let firstRow = app.staticTexts.matching(identifier: AID.configDescription).firstMatch
+        XCTAssertTrue(firstRow.waitForExistence(timeout: 5), "No model row to swipe")
+        firstRow.swipeLeft()
+
+        let deleteButton = app.buttons[AID.configDelete]
+        if deleteButton.waitForExistence(timeout: 5) {
+            deleteButton.tap()
+        }
+
+        // Exactly one model should remain after deleting one.
+        let oneRemains = NSPredicate(format: "count == 1")
+        let deletedExpectation = XCTNSPredicateExpectation(predicate: oneRemains, object: modelToggles())
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [deletedExpectation], timeout: 10), .completed,
+            "Deleting one model should leave exactly one toggle"
+        )
     }
 }
