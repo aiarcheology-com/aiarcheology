@@ -47,6 +47,28 @@ enum HistoryError: Error {
 	case fullHistory
 }
 
+/// The log level a WebView load error should be reported at.
+enum WebViewLoadErrorLevel {
+	case debug
+	case error
+}
+
+/// Decides whether a WebView load error is a benign cancellation (downgrade to
+/// `.debug`) or a genuine failure (`.error`, captured by Sentry).
+///
+/// `NSURLErrorCancelled` (-999) fires when a load is superseded by navigating away,
+/// reloading, or a redirect — it is not a failure, so it was flooding Sentry as a
+/// fake error (AIA-0296). Only this exact domain+code is downgraded; everything else
+/// (no connection, timeout, DNS, TLS, etc.) still logs at `.error`. `URLError(.cancelled)`
+/// is covered too via its `NSURLErrorDomain`/`-999` bridging.
+func webViewLoadErrorLevel(for error: Error) -> WebViewLoadErrorLevel {
+	let nsError = error as NSError
+	if nsError.domain == NSURLErrorDomain, nsError.code == NSURLErrorCancelled {
+		return .debug
+	}
+	return .error
+}
+
 import Vision
 struct WebScreenView: View {
 	@Environment(\.managedObjectContext) var moc
@@ -126,7 +148,15 @@ struct WebScreenView: View {
             MLWebView(loadRequest, loadStatusChanged: { loading, error in
 				LoggingPolicy.debug("WebView loading status changed: \(loading ? "loading" : "loaded")", logger: .ui)
                 if let error = error {
-					LoggingPolicy.error("WebView loading error: \(error.localizedDescription)", logger: .ui)
+					switch webViewLoadErrorLevel(for: error) {
+					case .debug:
+						// Benign cancellation (load superseded by navigating away / reload /
+						// redirect). Downgraded so it stops being captured as a Sentry error
+						// (AIA-0296) — genuine load failures still log at .error below.
+						LoggingPolicy.debug("WebView loading cancelled: \(error.localizedDescription)", logger: .ui)
+					case .error:
+						LoggingPolicy.error("WebView loading error: \(error.localizedDescription)", logger: .ui)
+					}
                 }
             }, interactionStateChanged: { state in
                 // Update DetectableView's internal state via binding

@@ -169,6 +169,7 @@
 		94713D982EA2F33E00713068 /* ImportHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94713D972EA2F33A00713068 /* ImportHandler.swift */; };
 		9489C96E2EA02B1A008C728F /* HostPlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9489C96D2EA02B0C008C728F /* HostPlatform.swift */; };
 		94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */; };
+		94AB0C2960296000000A0002 /* WebViewLoadErrorLevelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AB0C2960296000000A0001 /* WebViewLoadErrorLevelTests.swift */; };
 		94929E772ED633C1001A4C63 /* DeepDriversTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E732ED633C1001A4C63 /* DeepDriversTests.swift */; };
 		94929E782ED633C1001A4C63 /* ExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E742ED633C1001A4C63 /* ExtensionsTests.swift */; };
 		94929E7E2ED63ADE001A4C63 /* SnapStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94929E7D2ED63ADE001A4C63 /* SnapStateTests.swift */; };
@@ -419,6 +420,7 @@
 		94929E732ED633C1001A4C63 /* DeepDriversTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepDriversTests.swift; sourceTree = "<group>"; };
 		94929E742ED633C1001A4C63 /* ExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionsTests.swift; sourceTree = "<group>"; };
 		94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingPolicyTests.swift; sourceTree = "<group>"; };
+		94AB0C2960296000000A0001 /* WebViewLoadErrorLevelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewLoadErrorLevelTests.swift; sourceTree = "<group>"; };
 		94929E792ED63ADE001A4C63 /* DeviceInfoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInfoTests.swift; sourceTree = "<group>"; };
 		94929E7A2ED63ADE001A4C63 /* GalleryModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryModelTests.swift; sourceTree = "<group>"; };
 		94929E7B2ED63ADE001A4C63 /* GuideTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuideTests.swift; sourceTree = "<group>"; };
@@ -886,6 +888,7 @@
 				94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */,
 				942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */,
 				94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */,
+				94AB0C2960296000000A0001 /* WebViewLoadErrorLevelTests.swift */,
 				940A10042F0500010000A004 /* LocalizationTests.swift */,
 				94929E842ED65555001A4C63 /* LowerPriorityTests.swift */,
 				94D79C912EE37DBF0027C9FA /* NSManagedObjectExtensionsTests.swift */,
@@ -1489,6 +1492,7 @@
 				945C55822ED71234007DD8FB /* StringExtensionsTests.swift in Sources */,
 				945C55842ED71234007DD8FB /* SettingsTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
+				94AB0C2960296000000A0002 /* WebViewLoadErrorLevelTests.swift in Sources */,
 				940A10052F0500010000A005 /* LocalizationTests.swift in Sources */,
 				94929E772ED633C1001A4C63 /* DeepDriversTests.swift in Sources */,
 				94FFB9D82EE6603B0049A549 /* ObservabilityTests.swift in Sources */,
