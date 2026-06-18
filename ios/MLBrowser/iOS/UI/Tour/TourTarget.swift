@@ -27,15 +27,4 @@ extension View {
 	func tourTarget(_ id: TourAnchorID) -> some View {
 		anchorPreference(key: TourAnchorPreferenceKey.self, value: .bounds) { [id: $0] }
 	}
-
-	/// Marks this view as a tour target only when `condition` holds — e.g. the first row in a
-	/// list. Avoids every row publishing the same anchor.
-	@ViewBuilder
-	func tourTargetIf(_ condition: Bool, _ id: TourAnchorID) -> some View {
-		if condition {
-			tourTarget(id)
-		} else {
-			self
-		}
-	}
 }

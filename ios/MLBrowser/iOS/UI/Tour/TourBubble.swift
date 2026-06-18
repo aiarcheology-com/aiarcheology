@@ -8,8 +8,8 @@
 import SwiftUI
 
 /// The coach-mark speech bubble: localized copy, an always-present **Skip**, and a
-/// conditional **Next** (shown immediately for scripted steps, after the timeout for
-/// user-action steps).
+/// conditional **Next** (shown immediately for teaching steps, and only once the user has
+/// performed the action for action steps).
 struct TourBubble: View {
 	let text: String
 	/// Title of the primary (advance) button — "Next" for most steps, "Done" for the last.

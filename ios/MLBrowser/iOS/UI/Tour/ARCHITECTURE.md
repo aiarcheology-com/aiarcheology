@@ -1,9 +1,10 @@
 # Onboarding Tour — Architecture (AIA-0333)
 
-Interactive coach-mark / spotlight onboarding: a full-screen dimming overlay with a cutout
-around one target element plus a pointing bubble, driven by an `@Observable @MainActor` state
-machine. All tour code lives in `ios/MLBrowser/iOS/UI/Tour/`; the only spray into existing views is
-one `.tourOverlay(...)` at the root, `.tourTarget(...)` markers on targets, and three small hooks.
+Interactive coach-mark / spotlight onboarding: a dimming overlay (four rects around a cutout) plus
+a pointing bubble, driven by an `@Observable @MainActor` state machine. All tour code lives in
+`ios/MLBrowser/iOS/UI/Tour/`; the spray into existing views is `.tourOverlay(...)` at the root (and
+once inside the finding sheet), `.tourTarget(...)` markers on targets, and a few small hooks. The
+interaction model is real-action-gated — see §2 and `IMPLEMENTATION_PLAN_AIA-0333-rebuild.md`.
 
 ## 1. Component / ownership map
 
@@ -16,22 +17,23 @@ flowchart TB
 
     subgraph Engine["Tour/ module (encapsulated)"]
         TS["TourState<br/>@Observable @MainActor"]
-        STEPS["TourStep.slice : [TourStep]<br/>addressBar → modelsButton →<br/>demoModels → enableModelToggle"]
-        ADV["TourAdvance / AdvanceCondition<br/>.scripted | .userAction(.drawerOpened|.modelEnabled)"]
+        STEPS["TourStep.slice : [TourStep]<br/>addressBar → modelsButton → demoModels →<br/>enableModelToggle → playButton → findButton →<br/>captureArea → saveButton → finished"]
+        ADV["TourAdvance / AdvanceCondition<br/>.scripted | .userAction(drawerOpened|modelEnabled|<br/>detectionStarted|pickModeEntered|captureStarted|findingSaved)"]
         OVL["TourOverlayModifier<br/>(.tourOverlay at root)"]
         SPOT["TourSpotlight<br/>dim + cutout"]
         BUB["TourBubble<br/>text + Next + Skip"]
         PK["TourAnchorPreferenceKey<br/>[TourAnchorID: Anchor&lt;CGRect&gt;]"]
-        TGT[".tourTarget(_:) / .tourTargetIf(_:_:)"]
+        TGT[".tourTarget(_:)"]
     end
 
     subgraph App["Existing app (integration points)"]
         AS["AppState @MainActor<br/>owns tour"]
         CV["ContentView"]
         DM["DrawerManager<br/>@Observable"]
-        GT["GlobalToolbar<br/>CPU/models button"]
-        WS["WebScreen<br/>address bar"]
-        DC["DrawerContent<br/>demo models + enable toggle"]
+        GT["GlobalToolbar<br/>CPU / PLAY / Find buttons"]
+        WS["WebScreen<br/>address bar + map"]
+        DC["DrawerContent<br/>demo models (drawer)"]
+        SFS["SaveFindingSheet<br/>Save button (in-sheet tour layer)"]
         SV["SettingsView<br/>Replay onboarding"]
     end
 
@@ -41,53 +43,60 @@ flowchart TB
     TS -->|reads/writes| gate
     TS -->|one-shot migrate| legacy
     TS -. weak .-> DM
+    TS -. weak .-> GD["Guide"]
 
     CV -->|.tourOverlay tour| OVL
+    SFS -->|.tourOverlay tour, inSheet| OVL
     OVL -->|reads anchors| PK
     OVL --> SPOT
     OVL --> BUB
 
-    GT -->|.tourTarget .modelsButton| TGT
+    GT -->|.tourTarget .modelsButton / .playButton / .findButton| TGT
     WS -->|.tourTarget .addressBar| TGT
-    DC -->|.tourTarget .demoModels / .enableModelToggle| TGT
+    DC -->|.tourTarget .demoModels (whole drawer)| TGT
+    SFS -->|.tourTarget .saveButton| TGT
     TGT -->|anchorPreference .bounds| PK
 
     CV -->|.task migrateAndAutostartIfNeeded| TS
-    CV -->|onChange drawer.isOpen → evaluate| TS
-    DC -->|toggle set → userEnabledModel| TS
+    CV -->|onChange drawer.isOpen / onReceive detection,findMode → evaluate/pickModeDidStart| TS
+    DC -->|cutout tap → performCutoutAction (enable)| TS
+    SFS -->|onAppear captureDidStart / save → findingDidSave| TS
     SV -->|Replay button → start| TS
-    GT -->|tap opens drawer| DM
 ```
 
-## 2. State machine (slice lifecycle)
+## 2. State machine + the interaction model
 
 `start()` does **not** flip the gate — only a terminal state (`finish`/`skip`) does, so an
-interrupted/backgrounded tour re-arms. Every step also has **Skip**; `.userAction` steps surface a
-**Next** fallback after `fallbackAfter` (default 8s, generation-guarded) so no step can deadlock.
+interrupted/backgrounded tour re-arms. **Every step's bubble has a Next**, shown immediately for
+teaching (`.scripted`) steps and **only once the user performs the step's action** for `.userAction`
+steps; **Skip** is the only dismissal (there is no timeout fallback). Because a tap can't reach a
+toolbar button or the drawer toggle *through* the overlay, action steps are **overlay-driven**:
+tapping the spotlight runs the real action (`performCutoutAction`), whose effect reveals Next. The
+two sheet-coupled steps (capture / save) **auto-advance** (the modal sheet covers the bubble).
 
 ```mermaid
 stateDiagram-v2
     [*] --> Inactive
     Inactive --> AddressBar : start()<br/>(first-launch auto / Replay)
 
-    AddressBar --> ModelsButton : Next (.scripted)
-    ModelsButton --> DemoModels : drawer.isOpen → evaluate()<br/>(or timeout→Next, or cutout fallback)
-    DemoModels --> EnableToggle : Next (.scripted)
-    EnableToggle --> Finished : model enabled false→true<br/>userEnabledModel() (or timeout→Next)
+    AddressBar --> ModelsButton : Next (teaching)
+    ModelsButton --> DemoModels : tap CPU → drawer opens → Next reveal → Next
+    DemoModels --> EnableToggle : Next (teaching)
+    EnableToggle --> PlayButton : tap spotlight → enable model → Next reveal → Next (drawer closes)
+    PlayButton --> FindButton : tap PLAY → detection on → Next reveal → Next
+    FindButton --> CaptureArea : tap Find → pick mode (auto-advance)
+    CaptureArea --> SaveButton : tap map → sheet opens (auto-advance)
+    SaveButton --> Finished : tap Save → finding saved (auto-advance)
+    Finished --> [*] : Done → markSeen()
 
+    SaveButton --> CaptureArea : sheet cancelled (captureCancelled)
     AddressBar --> Terminated : Skip
-    ModelsButton --> Terminated : Skip
-    DemoModels --> Terminated : Skip
-    EnableToggle --> Terminated : Skip
+    Terminated --> [*] : markSeen()
 
-    Finished --> Inactive : markSeen()
-    Terminated --> Inactive : markSeen()
-    Inactive --> [*]
-
-    note right of EnableToggle
-        Enabled model PERSISTS (the payoff).
-        No drawer-staging cleanup in the slice
-        (the user opens the drawer at ModelsButton).
+    note right of SaveButton
+        Save is spotlit inside the finding sheet
+        (a second in-sheet tour layer; visual-only
+        dim so the Title field stays reachable).
     end note
 ```
 
@@ -120,14 +129,13 @@ sequenceDiagram
     OVL->>OVL: TourSpotlight(cutout) + TourBubble(measured height clamp)
     OVL-->>TS: .checkpoint(.tourStep) for UI tests
 
-    alt .scripted step
+    alt teaching (.scripted) step
         U->>TS: tap Next → advance()
-    else .userAction step
-        U->>U: perform real action (tap CPU / toggle model)
-        Note over U,TS: action also drives the real app<br/>(cutout pass-through, or overlay fallback performCutoutAction())
-        U-->>TS: evaluate() / userEnabledModel()
-        TS->>TS: condition satisfied → advance()
-        Note over TS: else after fallbackAfter → showsNextButton (generation-guarded)
+    else action (.userAction) step
+        U->>OVL: tap the spotlight cutout
+        OVL->>TS: performCutoutAction() → runs the real action (open drawer / enable / detect / pick)
+        TS->>TS: effect observed (evaluate / pickModeDidStart / userEnabledModel) → reveal Next
+        U->>TS: tap Next → advance()  (capture/save steps auto-advance instead)
     end
     TS->>OVL: currentStep changes → re-render (or finish → overlay inert)
 ```
@@ -140,14 +148,18 @@ sequenceDiagram
   the tour. An interrupted tour re-arms (the gate flips only on a terminal state).
 - **Bubble always renders:** the coach-mark (with Skip/Next) shows even before the target anchor
   resolves (centered), so a step can never be a dead-end blank dim.
-- **Hit-test reality (measured, not assumed):** eoFill cutout pass-through does **not** deliver taps
-  to controls beneath this overlay. So:
-  - `.scripted` steps advance via the bubble's **Next**.
-  - `.userAction(.drawerOpened)` is overlay-driven — a transparent tap target over the models-button
-    cutout calls `performCutoutAction()` → opens the drawer (works because the drawer is closed).
-  - `.userAction(.modelEnabled)` is **bubble-driven**: the toggle sits inside the open drawer beneath
-    the dim where no tap reaches it, so the bubble's button enables a demo model (`enableModelHook`,
-    registered by the drawer) and finishes. Its spotlight uses `spotlightFallback: .demoModels`
-    because an anchor inside a `List` cell doesn't propagate to the overlay.
-- **Slice scope:** address bar → models button → demo models → enable toggle. Remaining steps
-  (settings/label-shape → play → find → finding form → save → list → share) are follow-ups.
+- **Four-rectangle dim:** the dim is four rects around the cutout (no view over the hole) + a focus
+  stroke; lighter in dark mode. A tap still can't reach a UIKit toolbar button / the drawer toggle
+  *through* the overlay (measured; XCUITest can't either), so action steps are **overlay-driven**:
+  - `.drawerOpened` / `.detectionStarted` / `.pickModeEntered` — a transparent tap target over the
+    cutout calls `performCutoutAction()` to run the real action; its effect (observed by ContentView)
+    reveals Next. `findModeRequested` is a transient pulse, so it's signalled via `pickModeDidStart()`
+    rather than polled. The Find step auto-advances into the map step.
+  - `.modelEnabled` — tapping the spotlit drawer enables a demo model (`enableModelHook`) and reveals
+    Next; spotlight uses `spotlightFallback: .demoModels` (a List-cell anchor can't reach the overlay).
+  - `.captureStarted` (no-dim map tap) and `.findingSaved` (real Save under the in-sheet step's
+    **non-blocking** dim) reach the real control directly and **auto-advance**.
+- **In-sheet step:** the Save sheet is modal above the root overlay, so it hosts its own
+  `.tourOverlay(_, inSheet: true)`; the root skips `rendersInSheet` steps.
+- **Full flow:** address bar → models button → demo models → enable model → PLAY → Find → tap map →
+  save finding → done. Further steps (settings/label-shape, share, findings list) remain follow-ups.

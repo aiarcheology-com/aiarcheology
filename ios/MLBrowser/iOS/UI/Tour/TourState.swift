@@ -8,8 +8,9 @@
 import SwiftUI
 import Observation
 
-/// Drives the interactive onboarding tour: owns the ordered steps, the current index,
-/// the per-step no-deadlock timeout, and the gate flag.
+/// Drives the interactive onboarding tour: owns the ordered steps, the current index, whether
+/// the bubble's **Next** is shown, and the "seen" gate. Action steps reveal Next only once the
+/// user performs the real action (signalled by the view layer); Skip is the only dismissal.
 ///
 /// `@MainActor` (and named `*State`, so the architecture rule requires it): every mutation
 /// touches UI-driving state and the `DrawerManager`, both main-actor isolated.

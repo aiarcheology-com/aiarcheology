@@ -25,10 +25,11 @@ final class TourUITests: UITestCase {
 		)
 	}
 
-	/// The models-button step: tapping the **real** CPU button (the four-rectangle dim leaves the
-	/// hole genuinely tappable) opens the drawer, which reveals **Next**; tapping Next advances.
+	/// The models-button step: tapping the spotlighted CPU button (overlay-driven — a tap can't
+	/// reach the toolbar button through the overlay, so the overlay runs the action) opens the
+	/// drawer, which reveals **Next**; tapping Next advances.
 	@MainActor
-	func testTour_modelsButtonStep_realTapOpensDrawerThenNextAdvances() {
+	func testTour_modelsButtonStep_opensDrawerThenNextAdvances() {
 		launch(LaunchConfig(startOnboardingTour: true))
 		XCTAssertTrue(element(AID.tourBubble).waitForExistence(timeout: 15), "Tour should start")
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "addressBar"))
@@ -41,7 +42,7 @@ final class TourUITests: UITestCase {
 		XCTAssertFalse(element(AID.tourNext).waitForExistence(timeout: 2),
 					   "Next is hidden until the drawer is opened")
 
-		// Tap the real CPU button (reachable through the open hole) → the drawer opens.
+		// Tap the spotlighted CPU button (the overlay runs the action) → the drawer opens.
 		app.buttons[AID.cpu].tap()
 		XCTAssertTrue(app.buttons[AID.drawerSettings].waitForExistence(timeout: 10), "Drawer should open")
 
@@ -70,7 +71,7 @@ final class TourUITests: UITestCase {
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "modelsButton"))
 		attach("02-modelsButton")
 
-		// 2 → 3: tap the real CPU button (opens drawer) → Next reveals → tap Next.
+		// 2 → 3: tap the spotlighted CPU button (overlay opens the drawer) → Next reveals → tap Next.
 		app.buttons[AID.cpu].tap()
 		XCTAssertTrue(app.buttons[AID.drawerSettings].waitForExistence(timeout: 10), "Drawer should open")
 		XCTAssertTrue(waitForSeededConfigurations(), "A demo model row should seed")
@@ -83,19 +84,20 @@ final class TourUITests: UITestCase {
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "enableModelToggle", timeout: 10))
 		attach("04-enableModelToggle")
 
-		// 4 → 5: flip the real toggle → Next reveals → tap Next (the drawer closes on advance).
-		XCTAssertTrue(flipSwitch(AID.configEnabledToggle), "Should enable a demo model via the real toggle")
+		// 4 → 5: tap a model toggle (the overlay enables a demo model) → Next reveals → tap Next
+		// (the drawer closes on advance).
+		XCTAssertTrue(flipSwitch(AID.configEnabledToggle), "Should enable a demo model")
 		tapNextWhenRevealed()
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "playButton", timeout: 10))
 		attach("05-playButton")
 
-		// 5 → 6: tap the real PLAY button → Next reveals → tap Next.
+		// 5 → 6: tap the spotlighted PLAY button (overlay starts detection) → Next reveals → tap Next.
 		app.buttons[AID.play].tap()
 		tapNextWhenRevealed()
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "findButton", timeout: 10))
 		attach("06-findButton")
 
-		// 6 → 7: tap the real Find button → enters capture mode → auto-advances to the map step.
+		// 6 → 7: tap the spotlighted Find button (overlay enters capture mode) → auto-advances to the map step.
 		app.buttons[AID.findTop].tap()
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "captureArea", timeout: 10))
 		attach("07-captureArea")

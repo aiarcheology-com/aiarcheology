@@ -278,9 +278,10 @@ private struct ConfigurationRow: View {
                 set: { newValue in
                     let wasEnabled = configuration.enabled
                     configuration.enabled = newValue
-                    // Tour hook (AIA-0333): enabling any demo model (false→true) advances the
-                    // enable-model step — the spotlight highlights the whole section. The toggle
-                    // keeps its state (the payoff). A no-op outside that step (see userEnabledModel).
+                    // Tour hook (AIA-0333): if a model is enabled via a real toggle tap during the
+                    // enable step, reveal the bubble's Next. (The step is normally overlay-driven —
+                    // tapping the spotlight enables a model — so this is the pass-through path; a
+                    // no-op outside that step. See userEnabledModel.)
                     if wasEnabled == false, newValue {
                         tour?.userEnabledModel()
                     }

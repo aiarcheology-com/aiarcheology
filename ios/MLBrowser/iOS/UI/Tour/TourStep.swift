@@ -144,8 +144,8 @@ struct TourStep: Identifiable, Sendable {
 }
 
 extension TourStep {
-	/// The first vertical slice (AIA-0333): address bar → models button → demo models →
-	/// enable toggle. Remaining steps are explicit follow-ups.
+	/// The full onboarding flow (AIA-0333): address bar → models button → demo models →
+	/// enable a model → start detection → capture mode → tap the map → save a finding → done.
 	@MainActor
 	static var slice: [TourStep] {
 		[
@@ -174,9 +174,9 @@ extension TourStep {
 				target: .enableModelToggle,
 				bubbleText: L10n.Tour.EnableModel.text,
 				placement: .bottom,
-				// The payoff action: enabling a demo model advances the tour. The toggle's own
-				// anchor can't escape the List, so spotlight the demo-models section instead —
-				// its hole covers the toggles, so the user's tap passes through to one.
+				// The payoff: enabling a demo model. Overlay-driven (a tap can't reach the toggle
+				// through the overlay), so tapping the spotlight enables a model and reveals Next.
+				// The toggle anchor can't escape the List, so spotlight the demo-models (drawer).
 				advance: .userAction(.modelEnabled),
 				spotlightFallback: .demoModels
 			),
