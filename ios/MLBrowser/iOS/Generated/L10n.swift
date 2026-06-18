@@ -465,6 +465,8 @@ internal enum L10n {
     internal static let web = L10n.tr("Localizable", "tab.web", fallback: "Web")
   }
   internal enum Tour {
+    /// My demo finding
+    internal static let defaultFindingTitle = L10n.tr("Localizable", "tour.defaultFindingTitle", fallback: "My demo finding")
     /// Next
     internal static let next = L10n.tr("Localizable", "tour.next", fallback: "Next")
     /// Skip
@@ -502,8 +504,8 @@ internal enum L10n {
       internal static let text = L10n.tr("Localizable", "tour.play.text", fallback: "Tap to start detecting features on the page.")
     }
     internal enum Save {
-      /// Name your finding, then tap Save.
-      internal static let text = L10n.tr("Localizable", "tour.save.text", fallback: "Name your finding, then tap Save.")
+      /// Tap Save to store your finding.
+      internal static let text = L10n.tr("Localizable", "tour.save.text", fallback: "Tap Save to store your finding.")
     }
   }
 }

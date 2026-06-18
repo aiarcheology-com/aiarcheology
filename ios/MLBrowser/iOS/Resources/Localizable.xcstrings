@@ -13720,6 +13720,18 @@
         }
       }
     },
+    "tour.defaultFindingTitle" : {
+      "comment" : "AIA-0333 tour: pre-filled finding title so Save is immediately enabled",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My demo finding"
+          }
+        }
+      }
+    },
     "tour.save.text" : {
       "comment" : "AIA-0333 tour bubble: save-the-finding step (in the sheet)",
       "extractionState" : "manual",
@@ -13727,7 +13739,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Name your finding, then tap Save."
+            "value" : "Tap Save to store your finding."
           }
         }
       }

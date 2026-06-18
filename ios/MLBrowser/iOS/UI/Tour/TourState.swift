@@ -54,6 +54,10 @@ final class TourState {
 		return steps[currentIndex]
 	}
 
+	/// Whether the tour is currently on the in-sheet "save the finding" step — the finding sheet
+	/// reads this to pre-fill a title so its spotlighted Save button is immediately enabled.
+	var isOnSaveStep: Bool { currentStep?.target == .saveButton }
+
 	/// UI-test launches share the ephemeral suite `Settings` clears each launch, so the gate
 	/// key never bleeds across scenarios (AIA-0298 isolation, mirrored here).
 	private static let uiTestSuiteName = "com.aiarcheology.uitests"

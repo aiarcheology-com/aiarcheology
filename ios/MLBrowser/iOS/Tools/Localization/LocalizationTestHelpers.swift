@@ -289,6 +289,7 @@ enum StringCatalogValidator {
             // Tour (AIA-0333)
             "tour.addressBar.text",
             "tour.capture.text",
+            "tour.defaultFindingTitle",
             "tour.demoModels.text",
             "tour.enableModel.text",
             "tour.find.text",

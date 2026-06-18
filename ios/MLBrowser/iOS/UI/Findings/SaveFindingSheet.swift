@@ -215,7 +215,14 @@ struct SaveFindingSheet: View {
 		// The sheet hosts its own tour layer (it's modal above the root overlay) to spotlight the
 		// Save step; appearing fulfills the "tap the map" step (AIA-0333).
 		.tourOverlay(tour, inSheet: true)
-		.onAppear { tour.captureDidStart() }
+		.onAppear {
+			tour.captureDidStart()
+			// During the tour, pre-fill a title so the spotlighted Save is immediately enabled
+			// (the dimmed Title field is reachable but not obvious) — AIA-0333.
+			if tour.isOnSaveStep, title.isEmpty {
+				title = L10n.Tour.defaultFindingTitle
+			}
+		}
 	}
 
 	// MARK: - Preview
