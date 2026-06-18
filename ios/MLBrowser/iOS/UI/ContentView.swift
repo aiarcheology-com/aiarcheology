@@ -153,7 +153,13 @@ struct ContentView: View {
     }
 
     private func modeTab(_ mode: AppMode) -> some View {
-        ViewContainer(barsHidden: detectionEnabled && chromeVisible.not && mode == .web && appState.tour.isActive.not, {
+        // Fullscreen detection for this tab: detection running, chrome hidden, web tab, no tour.
+        let fullscreen = detectionEnabled && chromeVisible.not && mode == .web && appState.tour.isActive.not
+        return ViewContainer(
+            barsHidden: fullscreen,
+            // Only iPhone reserves enough safe area to leave visible blank margins around the
+            // map in fullscreen; iPad/Mac are unaffected and keep their default layout (AIA-0336).
+            contentIgnoresSafeArea: fullscreen && HostPlatform.current.isiPhone, {
             modeScreen(mode)
         },
         leadingItems: {
