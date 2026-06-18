@@ -20,6 +20,7 @@ import SwiftUI
 /// stopped them reaching the spotlighted control (AIA-0333). The bare content shape absorbs
 /// dim-area taps without that side effect.
 struct TourSpotlight: View {
+	@Environment(\.colorScheme) private var colorScheme
 	/// Cutout rect in the overlay's coordinate space. `nil` dims the whole screen (no hole).
 	let cutout: CGRect?
 	/// Corner radius of the cutout.
@@ -27,13 +28,17 @@ struct TourSpotlight: View {
 	/// Padding added around the target rect so the control isn't cropped by the hole edge.
 	var inset: CGFloat = 6
 
+	/// Lighter dim in dark mode — a 0.55 black scrim on an already-dark UI reads as pitch black
+	/// and loses the focused area; 0.4 keeps the spotlight legible (AIA-0333).
+	private var dimOpacity: CGFloat { colorScheme == .dark ? 0.4 : 0.55 }
+
 	var body: some View {
 		GeometryReader { proxy in
 			let full = CGRect(origin: .zero, size: proxy.size)
 			let hole = cutout.map { $0.insetBy(dx: -inset, dy: -inset) }
 			let path = dimPath(full: full, hole: hole)
 
-			Color.black.opacity(0.55)
+			Color.black.opacity(dimOpacity)
 				.mask(
 					// Reverse mask: keep everything except the hole.
 					path.fill(style: FillStyle(eoFill: true))

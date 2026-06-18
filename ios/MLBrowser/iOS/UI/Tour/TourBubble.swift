@@ -51,5 +51,8 @@ struct TourBubble: View {
 				.fill(.regularMaterial)
 				.shadow(radius: 8)
 		)
+		// Keep the coach-mark light in dark mode too: a light bubble with dark text reads as a
+		// clear callout over the dimmed screen, instead of a dark-on-dark material (AIA-0333).
+		.environment(\.colorScheme, .light)
 	}
 }

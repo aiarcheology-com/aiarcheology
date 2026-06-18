@@ -129,6 +129,14 @@ final class TourState {
 	/// interrupted/backgrounded tour must re-arm; the gate flips only on finish/skip.
 	func start() {
 		guard steps.isEmpty == false else { return }
+		// Reset to a clean state so the scripted flow isn't fighting live UI (esp. on Replay):
+		// close the drawer, stop any running detection. Fullscreen is suppressed for the whole
+		// active window via the `isActive` render gate in ContentView. (drawer/guide are nil on
+		// the first-launch autostart — already clean — and bound by the time Replay runs.)
+		drawer?.close()
+		if guide?.ontheflyDetectionEnabled == true {
+			guide?.ontheflyDetectionTapped()
+		}
 		currentIndex = 0
 		isActive = true
 		beginStep()

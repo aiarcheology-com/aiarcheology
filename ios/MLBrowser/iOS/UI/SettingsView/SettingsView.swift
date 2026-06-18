@@ -193,7 +193,9 @@ struct SettingsForm: View {
 			drawer.close()
 			tour.start()
 		} label: {
+			// Match the other row labels' color (the default button tint renders it gray here).
 			Text(L10n.Settings.replayOnboarding)
+				.foregroundStyle(.primary)
 		}
 		.testability(Testability.Button.settingsReplayOnboarding)
 	}
