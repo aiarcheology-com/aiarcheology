@@ -199,8 +199,12 @@ final class TourStateTests: XCTestCase {
 		XCTAssertEqual(tour.currentIndex, 1, "Saving a finding auto-advances the save step")
 	}
 
-	func testCaptureCancelled_revertsSaveStepToCapture() {
+	func testCaptureCancelled_rewindsToFindStepToReArmPickMode() {
+		// Dismissing the sheet tears down pick mode, so the cancel path rewinds to the Find step
+		// (not the map step) — re-tapping Find re-arms capture mode. (Codex review finding.)
 		let steps = [
+			TourStep(target: .findButton, bubbleText: "tap find", placement: .below,
+					 advance: .userAction(.pickModeEntered), autoAdvancesOnAction: true),
 			TourStep(target: .captureArea, bubbleText: "tap map", placement: .bottom,
 					 advance: .userAction(.captureStarted), dimsBackground: false, autoAdvancesOnAction: true),
 			TourStep(target: .saveButton, bubbleText: "save", placement: .below,
@@ -208,10 +212,12 @@ final class TourStateTests: XCTestCase {
 		]
 		let tour = TourState(steps: steps, defaults: defaults)
 		tour.start()
+		tour.pickModeDidStart()
+		XCTAssertEqual(tour.currentIndex, 1, "Entering pick mode auto-advances to the map step")
 		tour.captureDidStart()
-		XCTAssertEqual(tour.currentIndex, 1)
+		XCTAssertEqual(tour.currentIndex, 2, "Tapping the map auto-advances to the save step")
 		tour.captureCancelled()
-		XCTAssertEqual(tour.currentIndex, 0, "Cancelling the sheet returns to the capture step")
+		XCTAssertEqual(tour.currentIndex, 0, "Cancelling the sheet rewinds to the Find step to re-arm pick mode")
 	}
 
 	func testCaptureCancelled_noopAfterSave() {

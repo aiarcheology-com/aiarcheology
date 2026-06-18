@@ -264,13 +264,18 @@ final class TourState {
 		actionFulfilled(step)
 	}
 
-	/// The finding sheet was dismissed without saving (Cancel / swipe). If still on the in-sheet
-	/// save step, step back to the capture step so the user can tap the map again. No-op once a
-	/// finding was saved (the step has already advanced).
+	/// The finding sheet was dismissed without saving (Cancel / swipe). No-op once a finding was
+	/// saved (the step has already advanced). Otherwise rewind to the **Find** step rather than the
+	/// map step: dismissing the sheet tears down capture (pick) mode, so the map step would have no
+	/// pick overlay listening; re-tapping the spotlighted Find re-arms capture mode and
+	/// auto-advances back to the map step. (Codex review finding.)
 	func captureCancelled() {
 		guard isActive, let step = currentStep, case .userAction(.findingSaved) = step.advance else { return }
-		guard currentIndex > 0 else { return }
-		currentIndex -= 1
+		guard let findIndex = steps[..<currentIndex].lastIndex(where: {
+			if case .userAction(.pickModeEntered) = $0.advance { return true }
+			return false
+		}) else { return }
+		currentIndex = findIndex
 		beginStep()
 	}
 
