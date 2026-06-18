@@ -146,8 +146,8 @@ struct WebScreenView: View {
 			}
 			.environmentObject(appState.browserState)
 			// Gap to the neighboring cpu / detection toolbar buttons. The explicit footprint
-			// forces the stretch the `.principal` placement won't give on iPhone/Mac; the
-			// address inside fills it. iPad keeps its natural fill (principalWidth == nil).
+			// forces the stretch the `.principal` placement won't give on any idiom; the
+			// address inside fills it. principalWidth is nil only until the width is measured.
 			.padding(.horizontal, principalWidth == nil ? 0 : Self.principalGap)
 			.frame(width: principalWidth)
 		}

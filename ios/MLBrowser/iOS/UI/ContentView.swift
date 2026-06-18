@@ -159,18 +159,20 @@ struct ContentView: View {
             barsHidden: fullscreen,
             // Only iPhone reserves enough safe area to leave visible blank margins around the
             // map in fullscreen; iPad/Mac are unaffected and keep their default layout (AIA-0336).
-            contentIgnoresSafeArea: fullscreen && HostPlatform.current.isiPhone, {
-            modeScreen(mode)
-        },
-        leadingItems: {
-            Screens.barItems(mode, position: .leading)
-                .environmentObject(appState.guide)
-                .environmentObject(appState.downloader)
-        },
-        trailingItems: {
-            Screens.barItems(mode, position: .trailing)
-                .environmentObject(appState.guide)
-        })
+            contentIgnoresSafeArea: fullscreen && HostPlatform.current.isiPhone,
+            {
+                modeScreen(mode)
+            },
+            leadingItems: {
+                Screens.barItems(mode, position: .leading)
+                    .environmentObject(appState.guide)
+                    .environmentObject(appState.downloader)
+            },
+            trailingItems: {
+                Screens.barItems(mode, position: .trailing)
+                    .environmentObject(appState.guide)
+            }
+        )
         .tabItem {
             Screens.tabItem(mode, selection: appState.guide.mode)
         }
