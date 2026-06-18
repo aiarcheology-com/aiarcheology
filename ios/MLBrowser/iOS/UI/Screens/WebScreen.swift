@@ -102,8 +102,9 @@ struct WebScreenView: View {
 	/// pick mode hit-tests its boxes and reuses its snapshot.
 	@State private var appliedFrame: AppliedDetectionFrame?
 	/// Live width of the screen content area (== the navigation bar width). The `.principal`
-	/// toolbar item collapses to its content width instead of filling on iPhone and Mac, so the
-	/// principal cluster is sized explicitly from this (AIA-0294 follow-up). iPad already fills.
+	/// toolbar item collapses to its content width instead of filling on every idiom, so the
+	/// principal cluster is sized explicitly from this (AIA-0294 follow-up). A proper custom
+	/// top bar (`safeAreaInset`) is the real fix, tracked in AIA-0339; this is the stopgap.
 	@State private var topBarWidth: CGFloat = 0
 
 	/// Horizontal space the leading (cpu ≈ 68pt) + trailing (find/detection/adjust ≈ 166pt)
@@ -115,10 +116,10 @@ struct WebScreenView: View {
 	/// Breathing room between the address cluster and each neighboring toolbar button.
 	private static let principalGap: CGFloat = 12
 
-	/// Explicit footprint for the `.principal` cluster on iPhone/Mac, where it won't stretch;
-	/// `nil` on iPad, where it already fills and `maxWidth: .infinity` is correct.
+	/// Explicit footprint for the `.principal` cluster, which won't stretch on any idiom.
+	/// `nil` only until the width is measured.
 	private var principalWidth: CGFloat? {
-		guard HostPlatform.current.isiPad == false, topBarWidth > 0 else { return nil }
+		guard topBarWidth > 0 else { return nil }
 		return max(Self.minPrincipalWidth, topBarWidth - Self.principalSideReserve)
 	}
 
