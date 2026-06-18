@@ -97,6 +97,16 @@ final class TourUITests: UITestCase {
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "findButton", timeout: 10))
 		attach("06-findButton")
 
+		// Wait for detection to actually apply a frame before entering capture mode. The manual map
+		// pick then reuses that frame synchronously; without an applied frame it falls back to a
+		// fresh snapshot that can silently fail (presenting no Save sheet) on a slow CI runner
+		// mid-page-load — the flake this de-flakes. Detection freezes once capture mode is entered,
+		// so this must come before the Find tap (AIA-0333).
+		XCTAssertTrue(
+			waitForCheckpoint(AID.cpDetectionFrameApplied, equals: "true", timeout: 30),
+			"Detection should apply a frame before capture so the manual pick is deterministic"
+		)
+
 		// 6 → 7: tap the spotlighted Find button (overlay enters capture mode) → auto-advances to the map step.
 		app.buttons[AID.findTop].tap()
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "captureArea", timeout: 10))

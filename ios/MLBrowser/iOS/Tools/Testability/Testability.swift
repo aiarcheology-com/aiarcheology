@@ -307,6 +307,11 @@ extension TestabilityIdentification {
 		case detectionCount
 		/// The active onboarding-tour step's target id (e.g. `addressBar`); absent when no tour runs (AIA-0333).
 		case tourStep
+		/// `true` once a detection cycle has applied a frame, so a manual finding pick uses that
+		/// frame synchronously instead of the fragile fresh-snapshot fallback. Lets UI tests wait
+		/// for detection to warm up before tapping the map, de-flaking the tour happy path on slow
+		/// CI runners (AIA-0333).
+		case detectionFrameApplied
 	}
 
 	enum MenuItem: String, TestabilityIdentification {

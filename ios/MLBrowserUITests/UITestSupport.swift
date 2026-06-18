@@ -45,6 +45,7 @@ enum AID {
 	static let cpDeviceIdiom = "_AIA:Checkpoint.DeviceIdiom"
 	static let cpCurrentPageFile = "_AIA:Checkpoint.CurrentPageFile"
 	static let cpDetectionCount = "_AIA:Checkpoint.DetectionCount"
+	static let cpDetectionFrameApplied = "_AIA:Checkpoint.DetectionFrameApplied"
 
 	// Top toolbar (real Buttons)
 	static let cpu = "_AIA:Button.GlobalToolbarSideMenu"

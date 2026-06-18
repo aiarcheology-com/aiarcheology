@@ -229,6 +229,10 @@ struct WebScreenView: View {
             currentPageFile = url?.lastPathComponent ?? ""
         }
         .checkpoint(.currentPageFile, value: currentPageFile)
+        // Surfaces whether detection has applied a frame yet, so UI tests can wait for it before a
+        // manual finding pick (which uses the applied frame synchronously, avoiding the fragile
+        // fresh-snapshot fallback) — AIA-0333.
+        .checkpoint(.detectionFrameApplied, value: (appliedFrame != nil).description)
         .sheet(isPresented: $presentLocationSheet) {
             LocationSheetView(currentURL: appState.browserState.displayedURL?.absoluteString) { input in
                 openRequested(input)
