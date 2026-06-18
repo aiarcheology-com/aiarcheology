@@ -101,6 +101,27 @@ struct WebScreenView: View {
 	/// Mirror of DetectableView's displayed frame (updated on every apply/clear):
 	/// pick mode hit-tests its boxes and reuses its snapshot.
 	@State private var appliedFrame: AppliedDetectionFrame?
+	/// Live width of the screen content area (== the navigation bar width). The `.principal`
+	/// toolbar item collapses to its content width instead of filling on every idiom, so the
+	/// principal cluster is sized explicitly from this (AIA-0294 follow-up). A proper custom
+	/// top bar (`safeAreaInset`) is the real fix, tracked in AIA-0339; this is the stopgap.
+	@State private var topBarWidth: CGFloat = 0
+
+	/// Horizontal space the leading (cpu ≈ 68pt) + trailing (find/detection/adjust ≈ 166pt)
+	/// toolbar clusters and the bar's margins occupy. The principal footprint is the rest;
+	/// inside it the address fills whatever the BACK/FORWARD/RELOAD buttons (iPad/Mac) leave.
+	private static let principalSideReserve: CGFloat = 240
+	/// Small floor to avoid a degenerate/zero footprint in extreme layouts.
+	private static let minPrincipalWidth: CGFloat = 120
+	/// Breathing room between the address cluster and each neighboring toolbar button.
+	private static let principalGap: CGFloat = 12
+
+	/// Explicit footprint for the `.principal` cluster, which won't stretch on any idiom.
+	/// `nil` only until the width is measured.
+	private var principalWidth: CGFloat? {
+		guard topBarWidth > 0 else { return nil }
+		return max(Self.minPrincipalWidth, topBarWidth - Self.principalSideReserve)
+	}
 
 	init() {
 		Backports.Appearance.textField()
@@ -124,6 +145,11 @@ struct WebScreenView: View {
 				}
 			}
 			.environmentObject(appState.browserState)
+			// Gap to the neighboring cpu / detection toolbar buttons. The explicit footprint
+			// forces the stretch the `.principal` placement won't give on any idiom; the
+			// address inside fills it. principalWidth is nil only until the width is measured.
+			.padding(.horizontal, principalWidth == nil ? 0 : Self.principalGap)
+			.frame(width: principalWidth)
 		}
 	}
 
@@ -291,6 +317,15 @@ struct WebScreenView: View {
         .environmentObject(appState.browserState)
         .navigationBarTitle("", displayMode: .inline)
         .clipped()
+        // The content area spans the navigation bar width; capture it to size the address bar,
+        // since the `.principal` item won't stretch on iPhone. Updates on rotation.
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { topBarWidth = proxy.size.width }
+                    .onChange(of: proxy.size.width) { _, newWidth in topBarWidth = newWidth }
+            }
+        }
         .toolbar {
             toolbarContent
         }
