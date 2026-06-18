@@ -70,9 +70,10 @@ struct ContentView: View {
             // Tour hook (AIA-0333): detection starting fulfills the PLAY step → reveal Next.
             appState.tour.evaluate()
         }
-        .onReceive(appState.guide.$findModeRequested) { _ in
-            // Tour hook (AIA-0333): entering capture mode fulfills the Find step → reveal Next.
-            appState.tour.evaluate()
+        .onReceive(appState.guide.$findModeRequested) { requested in
+            // Tour hook (AIA-0333): `findModeRequested` is a transient pulse (reset to false by
+            // WebScreen), so act on the pulse value rather than polling it later.
+            if requested { appState.tour.pickModeDidStart() }
         }
         .onReceive(appState.guide.$chromeVisible) { visible in
             withAnimation { chromeVisible = visible }

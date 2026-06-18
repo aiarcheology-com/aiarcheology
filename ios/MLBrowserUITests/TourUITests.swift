@@ -91,9 +91,8 @@ final class TourUITests: UITestCase {
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "findButton", timeout: 10))
 		attach("06-findButton")
 
-		// 6 → 7: tap the real Find button → Next reveals → tap Next.
+		// 6 → 7: tap the real Find button → enters capture mode → auto-advances to the map step.
 		app.buttons[AID.findTop].tap()
-		tapNextWhenRevealed()
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "captureArea", timeout: 10))
 		attach("07-captureArea")
 

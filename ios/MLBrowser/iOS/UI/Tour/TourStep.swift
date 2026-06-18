@@ -191,8 +191,11 @@ extension TourStep {
 				target: .findButton,
 				bubbleText: L10n.Tour.Find.text,
 				placement: .below,
-				// Overlay-driven: tapping Find enters finding-capture (pick) mode.
-				advance: .userAction(.pickModeEntered)
+				// Overlay-driven: tapping Find enters capture (pick) mode. Find + the map tap are
+				// one continuous pick interaction, so this auto-advances straight to the (tappable)
+				// map step rather than asking for a Next in between.
+				advance: .userAction(.pickModeEntered),
+				autoAdvancesOnAction: true
 			),
 			TourStep(
 				target: .captureArea,

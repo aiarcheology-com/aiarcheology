@@ -161,6 +161,19 @@ final class TourStateTests: XCTestCase {
 
 	// MARK: - Sheet-coupled steps auto-advance
 
+	func testPickModeDidStart_autoAdvancesFindStep() {
+		let steps = [
+			TourStep(target: .findButton, bubbleText: "find", placement: .below,
+					 advance: .userAction(.pickModeEntered), autoAdvancesOnAction: true),
+			TourStep(target: .captureArea, bubbleText: "tap map", placement: .bottom,
+					 advance: .userAction(.captureStarted), dimsBackground: false, autoAdvancesOnAction: true)
+		]
+		let tour = TourState(steps: steps, defaults: defaults)
+		tour.start()
+		tour.pickModeDidStart()
+		XCTAssertEqual(tour.currentIndex, 1, "Entering capture mode auto-advances the Find step to the map step")
+	}
+
 	func testCaptureDidStart_autoAdvancesCaptureStep() {
 		let steps = [
 			TourStep(target: .captureArea, bubbleText: "tap map", placement: .bottom,

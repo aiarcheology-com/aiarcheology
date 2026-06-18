@@ -206,11 +206,10 @@ final class TourState {
 			return drawer?.isOpen == true
 		case .detectionStarted:
 			return guide?.ontheflyDetectionEnabled == true
-		case .pickModeEntered:
-			return guide?.findModeRequested == true
-		case .modelEnabled, .captureStarted, .findingSaved:
-			// Event-driven (no app-state poll): signalled by userEnabledModel() / captureDidStart()
-			// / findingDidSave() respectively.
+		case .pickModeEntered, .modelEnabled, .captureStarted, .findingSaved:
+			// Event-driven (no app-state poll — `findModeRequested` is a transient pulse, so it
+			// can't be polled here): signalled by pickModeDidStart() / userEnabledModel() /
+			// captureDidStart() / findingDidSave() respectively.
 			return false
 		}
 	}
@@ -238,6 +237,13 @@ final class TourState {
 	/// The highlighted model's enable toggle went on (real tap, if it ever reaches). Reveals Next.
 	func userEnabledModel() {
 		guard isActive, let step = currentStep, case .userAction(.modelEnabled) = step.advance else { return }
+		actionFulfilled(step)
+	}
+
+	/// Finding-capture (pick) mode was entered (the user tapped Find). `findModeRequested` is a
+	/// transient pulse, so the view layer signals this on the pulse rather than polling.
+	func pickModeDidStart() {
+		guard isActive, let step = currentStep, case .userAction(.pickModeEntered) = step.advance else { return }
 		actionFulfilled(step)
 	}
 
