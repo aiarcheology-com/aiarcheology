@@ -19,7 +19,7 @@ Add **Clerk-based authentication + access gating** at app launch, on Clerk's **f
 | Clerk free tier, **no custom backend in v1** | Gate on Clerk user `publicMetadata`; backend only needed in Phase 2 for StoreKit verification. |
 | Gate via **`User.publicMetadata.access`** (read from the Clerk `User` object, not a JWT claim) | Avoids editing the session-token JWT template (custom claims may be a paid feature); the SDK exposes `User` directly. |
 | **Ban** via Clerk Dashboard `banUser()` | Free; revokes all sessions. No push event — detected via session-refresh failure. |
-| **Email-only** sign-in for v1 | Google/social login triggers Apple Guideline 4.8 (must offer Sign in with Apple). Email-only avoids that obligation until we choose to add it. |
+| **Multi-provider sign-in** (email, phone/SMS, Google, Facebook, Apple SSO) — user-enabled in Clerk | Apple Guideline **4.8 is satisfied because Sign in with Apple is included** alongside Google/Facebook. **Keep Apple SSO enabled as long as any social provider is offered**, or App Review rejects. Adds native setup (redirect scheme, Apple capability, Facebook app) — see "Sign-in providers" below. |
 | **TestFlight** for Phase 1 distribution | A closed app behind mandatory login + early-user allowlist resembles beta/early-access; Apple says that belongs on TestFlight, not the public App Store (avoids a 5.1.1 reject). |
 | **StoreKit 2** for Phase 2 subscriptions (not Clerk Billing/Stripe) | Apple Guideline 3.1.1 mandates IAP for consumer digital unlocks; Clerk Billing is also beta/USD-only/no-tax. |
 | Users overview = **Clerk Dashboard** for v1 | Free hosted user list/search/ban/metadata. (In-app admin surface deferred — see Open Questions.) |
@@ -27,7 +27,7 @@ Add **Clerk-based authentication + access gating** at app launch, on Clerk's **f
 ## Architecture
 
 - **`AuthState`** — `@MainActor` observable state object (Harmonize rule: `*State` types are `@MainActor`). Holds the launch-gate state machine: `checkingSession → signedOut → offline → locked → ready`.
-- **`ClerkService`** — `actor` (Harmonize rule: services are actors). Wraps Clerk SDK: hydrate session, force-refresh, email sign-in/out, read `User.publicMetadata`.
+- **`ClerkService`** — `actor` (Harmonize rule: services are actors). Wraps Clerk SDK: hydrate session, force-refresh, sign-in/out (all enabled providers), read `User.publicMetadata`.
 - **Root gate** — in `MLBrowser.swift`'s `WindowGroup`, *after* `appState.isReady`, branch on `AuthState`:
   - `signedOut` → Sign-in screen
   - `locked` → Locked screen (banned / no `access`)
@@ -43,7 +43,15 @@ Add **Clerk-based authentication + access gating** at app launch, on Clerk's **f
 4. **Root gate in `MLBrowser.swift`.** Route Sign-in / Locked / Offline / `ContentView`. → verify: each state renders the right screen.
 5. **Entitlement read.** After session refresh, read `Clerk.shared.user?.publicMetadata["access"]`; allowed → `ready`, else → `locked`. Set the flag per user in the Clerk Dashboard. → verify: toggling the flag flips the gate on next launch/foreground.
 6. **Validation / revocation mechanism.** Force-refresh the session at launch and on foreground (`getToken(forceRefresh:)` / `session.reload()`) — this round-trips to Clerk's token endpoint (server-side validation; refuses revoked sessions). Refresh failure → `locked`/`signedOut`. **Revocation takes effect at next launch or foreground refresh; a foregrounded session lags ≤ one refresh interval.** → verify: ban a test user in the Dashboard, confirm lockout on next foreground.
-7. **Account lifecycle.** Email sign-in/out; **in-app account deletion** (Apple Guideline 5.1.1(v), required once account creation exists). → verify: delete-account flow removes the Clerk user.
+7. **Account lifecycle.** Sign-in via ClerkKitUI prebuilt flow exposing all enabled providers (email, phone, Google, Facebook, Apple); sign-out; **in-app account deletion** (Apple Guideline 5.1.1(v), required once account creation exists). → verify: delete-account flow removes the Clerk user.
+
+### Sign-in providers & required native setup (user enabled email, phone, Google, Facebook, Apple)
+
+- **Apple SSO** — add the **"Sign in with Apple" capability** in Xcode + provisioning; Clerk uses native `ASAuthorization`. **Must remain enabled while Google/Facebook are offered (Apple 4.8).**
+- **Google / Facebook** — web OAuth via `ASWebAuthenticationSession`; requires the **redirect-URL allowlist** entry in Clerk (`com.aiarcheology…`, already added) + a **matching custom URL scheme in `Info.plist`**. Facebook additionally needs a Facebook Developer app configured in Clerk (and Facebook's own app review for production).
+- **Phone/SMS** — sends real SMS; **check Clerk free-tier SMS limits/cost** (the one method with per-message charges).
+- **App Review demo account** — must be **email/password** (reviewers cannot complete Google/Facebook OAuth).
+- **UI tests** — never automate OAuth; rely on the `#if DEBUG` mock-auth path (step 9) + optionally one email-code E2E against a Clerk test instance.
 8. **Offline behavior.** v1 **fails closed** offline ("Needs connection"). **⚠️ Acknowledged regression:** the app today runs on-device ML on cached content offline; gating removes that. Scoped to the gated TestFlight beta. **Refinement before any public/field use:** entitled-user offline grace (last-good validation in Keychain, bounded expiry). → verify: airplane-mode launch shows the offline screen; (refinement) entitled user within grace still enters.
 9. **UI-test bypass.** Mock auth path **`#if DEBUG` only**, compiled out of release/TestFlight, selected by a launch argument, so existing UI tests keep running. → verify: `grep`/`nm` the archived (Release) build proves the mock path is absent; UI tests pass.
 10. **App Store strategy.** Phase 1 ships via **TestFlight**. Public submission deferred until open signup + a maintained reviewer demo account (a live Clerk user with `access=true`, owner-rotated). → verify: TestFlight build installs and gates correctly.
