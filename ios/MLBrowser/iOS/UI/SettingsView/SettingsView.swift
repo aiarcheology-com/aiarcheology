@@ -193,10 +193,12 @@ struct SettingsForm: View {
 			drawer.close()
 			tour.start()
 		} label: {
-			// Match the other row labels' color (the default button tint renders it gray here).
 			Text(L10n.Settings.replayOnboarding)
 				.foregroundStyle(.primary)
 		}
+		// `.plain` keeps the label its natural (primary) color like the other rows; the default
+		// list-button style rendered it gray here.
+		.buttonStyle(.plain)
 		.testability(Testability.Button.settingsReplayOnboarding)
 	}
 

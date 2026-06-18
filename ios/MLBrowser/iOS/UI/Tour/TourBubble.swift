@@ -37,10 +37,12 @@ struct TourBubble: View {
 				Spacer()
 
 				if showsNext {
-					Button(nextTitle, action: onNext)
-						.fontWeight(.bold)
-						.foregroundColor(.green)
-						.testability(Testability.Button.tourNext)
+					Button(action: onNext) {
+						Text(nextTitle).fontWeight(.semibold)
+					}
+					.buttonStyle(.borderedProminent)
+					.tint(.blue)
+					.testability(Testability.Button.tourNext)
 				}
 			}
 		}
