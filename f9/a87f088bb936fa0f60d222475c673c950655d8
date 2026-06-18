@@ -1,0 +1,20 @@
+ios/MLBrowser/iOS/State/DemoDataManager.swift
+  s_c55b2e88071d91::t_c711a4a4ba290b 103
+  s_c55b2e88071d91::t_9ec642560b974e 14-16,19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "f9a87f088bb936fa0f60d222475c673c950655d8",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
