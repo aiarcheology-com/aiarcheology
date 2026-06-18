@@ -1,0 +1,19 @@
+ios/MLBrowser/iOS/UI/WebView.swift
+  s_c55b2e88071d91::t_a84e40fae2329e 107-112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "de4a6f620f0c320af93505b5769fd2cc3043006b",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
