@@ -101,22 +101,25 @@ struct WebScreenView: View {
 	/// Mirror of DetectableView's displayed frame (updated on every apply/clear):
 	/// pick mode hit-tests its boxes and reuses its snapshot.
 	@State private var appliedFrame: AppliedDetectionFrame?
-	/// Live width of the screen content area (== the navigation bar width). On iPhone the
-	/// `.principal` toolbar item collapses to its content width instead of filling, so the
-	/// address bar is sized explicitly from this (AIA-0294 follow-up).
+	/// Live width of the screen content area (== the navigation bar width). The `.principal`
+	/// toolbar item collapses to its content width instead of filling on iPhone and Mac, so the
+	/// principal cluster is sized explicitly from this (AIA-0294 follow-up). iPad already fills.
 	@State private var topBarWidth: CGFloat = 0
 
-	/// Horizontal space the leading (cpu) + trailing (find/detection/adjust) toolbar clusters
-	/// and the bar's own margins reserve, so the explicit address width never overlaps them.
-	private static let addressSideReserve: CGFloat = 240
-	/// Floor so the address never collapses narrower than its current iPhone-portrait width.
-	private static let minAddressWidth: CGFloat = 160
+	/// Horizontal space the leading (cpu ≈ 68pt) + trailing (find/detection/adjust ≈ 166pt)
+	/// toolbar clusters and the bar's margins occupy. The principal footprint is the rest;
+	/// inside it the address fills whatever the BACK/FORWARD/RELOAD buttons (iPad/Mac) leave.
+	private static let principalSideReserve: CGFloat = 240
+	/// Small floor to avoid a degenerate/zero footprint in extreme layouts.
+	private static let minPrincipalWidth: CGFloat = 120
+	/// Breathing room between the address cluster and each neighboring toolbar button.
+	private static let principalGap: CGFloat = 12
 
-	/// Explicit address-bar width for iPhone, where `.principal` won't stretch; `nil` on
-	/// iPad/Mac, where the principal already fills and `maxWidth: .infinity` is correct.
-	private var addressBarWidth: CGFloat? {
-		guard HostPlatform.current.isiPhone, topBarWidth > 0 else { return nil }
-		return max(Self.minAddressWidth, topBarWidth - Self.addressSideReserve)
+	/// Explicit footprint for the `.principal` cluster on iPhone/Mac, where it won't stretch;
+	/// `nil` on iPad, where it already fills and `maxWidth: .infinity` is correct.
+	private var principalWidth: CGFloat? {
+		guard HostPlatform.current.isiPad == false, topBarWidth > 0 else { return nil }
+		return max(Self.minPrincipalWidth, topBarWidth - Self.principalSideReserve)
 	}
 
 	init() {
@@ -132,7 +135,7 @@ struct WebScreenView: View {
 				if showsTopBarNavigation {
 					WebBackButton()
 				}
-				WebAddressDisplay(width: addressBarWidth) {
+				WebAddressDisplay {
 					presentLocationSheet = true
 				}
 				if showsTopBarNavigation {
@@ -141,6 +144,11 @@ struct WebScreenView: View {
 				}
 			}
 			.environmentObject(appState.browserState)
+			// Gap to the neighboring cpu / detection toolbar buttons. The explicit footprint
+			// forces the stretch the `.principal` placement won't give on iPhone/Mac; the
+			// address inside fills it. iPad keeps its natural fill (principalWidth == nil).
+			.padding(.horizontal, principalWidth == nil ? 0 : Self.principalGap)
+			.frame(width: principalWidth)
 		}
 	}
 
@@ -529,9 +537,6 @@ private struct FindPickOverlay: View {
 /// Read-only URL display at maximum width; tapping it presents the location sheet.
 private struct WebAddressDisplay: View {
 	@EnvironmentObject var browserState: BrowserState
-	/// Explicit width for iPhone, where the `.principal` toolbar item won't stretch; `nil`
-	/// on iPad/Mac, where the principal fills and `maxWidth: .infinity` is correct.
-	var width: CGFloat?
 	let action: () -> Void
 
 	var body: some View {
@@ -542,8 +547,7 @@ private struct WebAddressDisplay: View {
 				.lineLimit(1)
 				.truncationMode(.middle)
 				.foregroundColor(textColor)
-				.frame(width: width, alignment: .leading)
-				.frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
+				.frame(maxWidth: .infinity, alignment: .leading)
 				.padding(5)
 				.background(.ultraThinMaterial)
 				.overlay(
