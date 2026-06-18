@@ -296,6 +296,7 @@ enum StringCatalogValidator {
             "tour.modelsButton.text",
             "tour.next",
             "tour.play.text",
+            "tour.save.text",
             "tour.skip"
         ]
     }

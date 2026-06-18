@@ -30,6 +30,9 @@ enum TourAnchorID: String, Hashable, CaseIterable, Sendable {
 	/// The capture step's logical identity (no published anchor — a no-dim step where the user
 	/// taps the live map). Used for the step's checkpoint only.
 	case captureArea
+	/// The Save button inside the finding sheet. Published by `SaveFindingSheet`, which hosts its
+	/// own tour layer (the sheet is modal above the root overlay).
+	case saveButton
 	/// The closing step's logical identity (no anchor — a centered "you're all set" bubble).
 	case finished
 }
@@ -48,36 +51,36 @@ enum TourBubblePlacement: Sendable {
 enum TourAdvance: Sendable {
 	/// A pure/teaching transition: the bubble shows a **Next** button immediately.
 	case scripted
-	/// The user performs a real action; advance fires when `condition` becomes true.
-	/// A per-step timeout still surfaces **Next** so the step can never deadlock.
+	/// The user performs the real action; the bubble's **Next** appears only once `condition`
+	/// holds (or, for sheet-coupled steps, the step auto-advances). The user does the real thing.
 	case userAction(AdvanceCondition)
 }
 
-/// Explicit, named completion predicate for a `.userAction` step. Evaluated on the main
-/// actor whenever `TourState.evaluate()` is poked by an observed app-state change.
+/// Explicit, named completion predicate for a `.userAction` step. The user performs the real
+/// action on the real control; these signal when it's done (revealing Next, or auto-advancing).
 enum AdvanceCondition: Sendable {
-	/// The drawer transitioned to open (step 2: tapping the models button).
+	/// The drawer transitioned to open (the user tapped the models button).
 	case drawerOpened
-	/// The highlighted demo model's enable toggle went false→true (step 4). Driven by
-	/// `TourState.userEnabledModel()`, not by a polled app-state change.
+	/// The highlighted demo model's enable toggle went false→true (the user flipped it).
 	case modelEnabled
-	/// Detection started (step 5: tapping PLAY). Overlay-driven: the cutout tap both starts
-	/// detection and advances.
+	/// Detection started (the user tapped PLAY) — `guide.ontheflyDetectionEnabled`.
 	case detectionStarted
-	/// Finding-capture mode entered (step 6: tapping Find). Overlay-driven likewise.
+	/// Finding-capture mode entered (the user tapped Find) — `guide.findModeRequested`.
 	case pickModeEntered
-	/// A finding was saved (step 7). Not overlay-driven — the user taps the live map (a no-dim
-	/// step) and saves in the sheet; the view layer signals via `TourState.findingDidSave()`.
+	/// The finding-capture sheet appeared (the user tapped the map). Auto-advances the step.
+	case captureStarted
+	/// A finding was saved (the user tapped Save inside the sheet). Auto-advances the step.
 	case findingSaved
 
-	/// Whether the overlay drives this action via a transparent tap target over the cutout.
-	/// True for actions on toolbar buttons a pass-through tap can't reach (`.drawerOpened`,
-	/// `.detectionStarted`, `.pickModeEntered`): the overlay performs the action and advances.
-	/// False for `.modelEnabled` (bubble-driven) and `.findingSaved` (no-dim, user taps the map).
+	/// Whether the overlay performs this action via a transparent tap target over the cutout.
+	/// True for controls a tap can't reach through the overlay (toolbar buttons; the drawer
+	/// toggle): tapping the spotlight runs the real action, which then reveals **Next**. False
+	/// for `.captureStarted` (no-dim map tap) and `.findingSaved` (the real Save, reachable under
+	/// the in-sheet step's non-blocking dim).
 	var isOverlayDriven: Bool {
 		switch self {
-		case .drawerOpened, .detectionStarted, .pickModeEntered: return true
-		case .modelEnabled, .findingSaved: return false
+		case .drawerOpened, .detectionStarted, .pickModeEntered, .modelEnabled: return true
+		case .captureStarted, .findingSaved: return false
 		}
 	}
 }
@@ -93,18 +96,25 @@ struct TourStep: Identifiable, Sendable {
 	let placement: TourBubblePlacement
 	/// How this step advances.
 	let advance: TourAdvance
-	/// Seconds before the step surfaces a **Next** button as a no-deadlock fallback.
-	/// `.scripted` steps show **Next** immediately, so this only matters for `.userAction`.
-	let fallbackAfter: TimeInterval
 	/// Anchor to spotlight when `target`'s own anchor doesn't resolve. Needed because an
 	/// `anchorPreference` published from *inside* a `List` cell (e.g. a model row's toggle)
-	/// does not propagate to the root overlay — only `Section`-level anchors do. The enable
-	/// step keeps its own identity (`.enableModelToggle`, for checkpoints) but spotlights the
-	/// `.demoModels` section, whose hole covers the toggles so the real tap passes through.
+	/// does not propagate to the root overlay. The enable step keeps its own identity
+	/// (`.enableModelToggle`, for checkpoints) but spotlights `.demoModels`.
 	let spotlightFallback: TourAnchorID?
 	/// Whether this step dims the background. `false` for a step where the user must tap the live
 	/// app (the map capture step): the overlay then renders only the bubble, blocking nothing.
 	let dimsBackground: Bool
+	/// Whether the dim swallows taps on the dimmed area. `false` makes the dim **visual only** so
+	/// the user can still interact with everything beneath it — used for the in-sheet save step,
+	/// where Save is spotlighted but the title field must stay reachable.
+	let dimBlocksTaps: Bool
+	/// When the step's action fires, advance immediately instead of revealing **Next**. True for
+	/// the two sheet-coupled steps (capture / save), where the modal sheet covers the bubble so a
+	/// Next is impossible — the real map/Save tap is the advance.
+	let autoAdvancesOnAction: Bool
+	/// Rendered by the finding sheet's own tour layer, not the root overlay (the sheet is modal
+	/// above the root). The root overlay skips these steps.
+	let rendersInSheet: Bool
 	/// Title of the bubble's primary button (defaults to "Next"; the closing step uses "Done").
 	let primaryButtonTitle: String
 
@@ -113,18 +123,22 @@ struct TourStep: Identifiable, Sendable {
 		bubbleText: String,
 		placement: TourBubblePlacement,
 		advance: TourAdvance,
-		fallbackAfter: TimeInterval = 8,
 		spotlightFallback: TourAnchorID? = nil,
 		dimsBackground: Bool = true,
+		dimBlocksTaps: Bool = true,
+		autoAdvancesOnAction: Bool = false,
+		rendersInSheet: Bool = false,
 		primaryButtonTitle: String = L10n.Tour.next
 	) {
 		self.id = target
 		self.bubbleText = bubbleText
 		self.placement = placement
 		self.advance = advance
-		self.fallbackAfter = fallbackAfter
 		self.spotlightFallback = spotlightFallback
 		self.dimsBackground = dimsBackground
+		self.dimBlocksTaps = dimBlocksTaps
+		self.autoAdvancesOnAction = autoAdvancesOnAction
+		self.rendersInSheet = rendersInSheet
 		self.primaryButtonTitle = primaryButtonTitle
 	}
 }
@@ -184,10 +198,23 @@ extension TourStep {
 				target: .captureArea,
 				bubbleText: L10n.Tour.Capture.text,
 				placement: .bottom,
-				// No dim: the user taps the live map to capture a finding; advances once a
-				// finding is actually saved (FindingDidSave), so cancelling just lets them retry.
+				// No dim: the user taps the live map. The Save sheet then opens and covers the
+				// bubble, so this step auto-advances the instant capture starts.
+				advance: .userAction(.captureStarted),
+				dimsBackground: false,
+				autoAdvancesOnAction: true
+			),
+			TourStep(
+				target: .saveButton,
+				bubbleText: L10n.Tour.Save.text,
+				placement: .below,
+				// Spotlit inside the finding sheet (the sheet hosts its own tour layer). Tapping
+				// the real Save saves the finding and dismisses the sheet, so this auto-advances.
+				// Visual-only dim so the title field stays reachable (Save is disabled until named).
 				advance: .userAction(.findingSaved),
-				dimsBackground: false
+				dimBlocksTaps: false,
+				autoAdvancesOnAction: true,
+				rendersInSheet: true
 			),
 			TourStep(
 				target: .finished,

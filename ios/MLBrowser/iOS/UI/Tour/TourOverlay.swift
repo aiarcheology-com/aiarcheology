@@ -18,6 +18,9 @@ import SwiftUI
 /// live app beneath.
 private struct TourOverlayModifier: ViewModifier {
 	@Bindable var tour: TourState
+	/// `false` for the root overlay (renders non-sheet steps); `true` for the overlay hosted
+	/// inside the finding sheet (renders only `rendersInSheet` steps).
+	var inSheet: Bool = false
 
 	/// Measured height of the current bubble, read back via `TourBubbleHeightKey`. Used to
 	/// clamp the bubble on-screen so long / localized / Dynamic-Type copy can't push it off.
@@ -26,7 +29,9 @@ private struct TourOverlayModifier: ViewModifier {
 	func body(content: Content) -> some View {
 		content
 			.overlayPreferenceValue(TourAnchorPreferenceKey.self) { anchors in
-				if tour.isActive, let step = tour.currentStep {
+				// The sheet's `rendersInSheet` step is drawn only by the in-sheet overlay (the
+				// sheet is modal above the root); the root draws every other step.
+				if tour.isActive, let step = tour.currentStep, step.rendersInSheet == inSheet {
 					GeometryReader { proxy in
 						overlay(step: step, anchors: anchors, proxy: proxy)
 					}
@@ -53,24 +58,24 @@ private struct TourOverlayModifier: ViewModifier {
 		let rect = anchor.map { proxy[$0] }
 
 		ZStack(alignment: .topLeading) {
-			// A no-dim step (e.g. the map-capture step) renders ONLY the bubble — no dim, no
-			// cutout, no hit-blocking — so the user's tap reaches the live app beneath.
+			// A no-dim step (the map-capture step) renders ONLY the bubble — no dim, no hole-block —
+			// so the user's tap reaches the live app beneath.
 			if step.dimsBackground {
-				// Dim taps are swallowed but never terminate the tour — the user can only leave
-				// via the explicit Skip button (AIA-0333).
-				TourSpotlight(cutout: rect)
+				// Four-rectangle dim with an open hole: the real control in the hole is tappable.
+				TourSpotlight(cutout: rect, blocksTaps: step.dimBlocksTaps)
 
-				// Cutout-tap fallback for overlay-driven `.userAction` steps: a transparent button
-				// over the hole drives the action when a pass-through tap cannot reach the real
-				// control (e.g. the models button, hosted in a separate layer). Conditions that are
-				// NOT overlay-driven (the model toggle) keep pure pass-through so the user's tap
-				// reaches the real control. See `TourState.performCutoutAction()`.
-				if let rect, case .userAction(let condition) = step.advance, condition.isOverlayDriven {
+				// A transparent tap target over the cutout. Teaching (`.scripted`) steps swallow
+				// the tap so the spotlighted element isn't interactive (the user just taps Next —
+				// this also stops the address-bar step from opening the location sheet).
+				// Overlay-driven action steps run the real action (a tap can't reach the toolbar
+				// button / drawer toggle through the overlay); the action's effect then reveals
+				// Next. See `TourState.performCutoutAction()`.
+				if let rect, cutoutTapTarget(for: step) != nil {
 					Color.clear
 						.contentShape(Rectangle())
 						.frame(width: rect.width, height: rect.height)
 						.offset(x: rect.minX, y: rect.minY)
-						.onTapGesture { tour.performCutoutAction() }
+						.onTapGesture { cutoutTapTarget(for: step)?() }
 				}
 			}
 
@@ -79,6 +84,18 @@ private struct TourOverlayModifier: ViewModifier {
 			// instead of pointing at a cutout.
 			bubble(step: step, cutout: step.dimsBackground ? rect : nil, container: proxy.size)
 		}
+	}
+
+	/// The action (if any) for a transparent tap target over the cutout:
+	/// - teaching (`.scripted`) → a no-op that swallows the tap (the element isn't interactive);
+	/// - overlay-driven action → run the real action via `performCutoutAction()`;
+	/// - non-overlay-driven action (map / in-sheet Save) → `nil` (the user taps the real control).
+	private func cutoutTapTarget(for step: TourStep) -> (() -> Void)? {
+		if case .scripted = step.advance { return { } }
+		if case .userAction(let condition) = step.advance, condition.isOverlayDriven {
+			return { tour.performCutoutAction() }
+		}
+		return nil
 	}
 
 	@ViewBuilder
@@ -167,7 +184,8 @@ private struct BubbleVerticalOffset: ViewModifier {
 
 extension View {
 	/// Attaches the tour overlay once at the app root. Inert while the tour is inactive.
-	func tourOverlay(_ tour: TourState) -> some View {
-		modifier(TourOverlayModifier(tour: tour))
+	/// `inSheet: true` is used inside the finding sheet to render the in-sheet step (Save) only.
+	func tourOverlay(_ tour: TourState, inSheet: Bool = false) -> some View {
+		modifier(TourOverlayModifier(tour: tour, inSheet: inSheet))
 	}
 }

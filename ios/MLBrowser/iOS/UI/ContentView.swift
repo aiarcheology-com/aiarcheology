@@ -17,16 +17,6 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
     // drawer:
     @State private var drawer = DrawerManager()
-    // Ready findings — the onboarding tour's capture step advances when this count increases
-    // (a finding was saved). AIA-0333.
-    @FetchRequest(
-        sortDescriptors: [],
-        predicate: NSPredicate(
-            format: "%K == %@",
-            #keyPath(Finding.lifeCycleString),
-            CoreDataManageableState.ready.rawValue
-        )
-    ) private var readyFindings: FetchedResults<Finding>
     // sheets, alerts and menus:
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
@@ -77,6 +67,12 @@ struct ContentView: View {
         }
         .onReceive(appState.guide.$ontheflyDetectionEnabled) { enabled in
             withAnimation { detectionEnabled = enabled }
+            // Tour hook (AIA-0333): detection starting fulfills the PLAY step → reveal Next.
+            appState.tour.evaluate()
+        }
+        .onReceive(appState.guide.$findModeRequested) { _ in
+            // Tour hook (AIA-0333): entering capture mode fulfills the Find step → reveal Next.
+            appState.tour.evaluate()
         }
         .onReceive(appState.guide.$chromeVisible) { visible in
             withAnimation { chromeVisible = visible }
@@ -106,13 +102,6 @@ struct ContentView: View {
             // Guard against sync loops
             guard appState.guide.presentedSideMenu != isOpen else { return }
             appState.guide.presentedSideMenu = isOpen
-        }
-        .onChange(of: readyFindings.count) { oldCount, newCount in
-            // Tour hook (AIA-0333): a finding was saved → advance the capture step. Edge-triggered,
-            // so pre-existing findings never fire it; `findingDidSave` only acts on that step.
-            if newCount > oldCount {
-                appState.tour.findingDidSave()
-            }
         }
         .onReceive(appState.deep.deepStateErrorPublisher) { error in
             guard let error else { return }

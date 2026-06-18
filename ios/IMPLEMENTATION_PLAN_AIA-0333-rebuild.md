@@ -11,10 +11,15 @@ On-device testing reshaped the tour's interaction model. This plan captures the 
 - **No timeout/Next fallback** on action steps: the real control is reliably tappable (see dim),
   so Skip is the escape if needed.
 
-## Foundation: four-rectangle dim (DONE)
-`TourSpotlight` now draws four dim rects around the cutout instead of one cut-out layer, so the
-hole has **no overlay view** and the real control there is genuinely tappable (the old eoFill
-layer still hit-tested over the hole). A thin stroke outlines the focus (also helps dark mode).
+## Foundation: four-rectangle dim + how actions actually fire (DONE)
+`TourSpotlight` draws four dim rects around the cutout (a thin stroke outlines the focus; lighter
+in dark mode). **Reality check:** even with a true hole, a tap does NOT reach a UIKit toolbar
+button or the drawer toggle through the SwiftUI overlay (verified — and XCUITest can't tap through
+either). So action steps are **overlay-driven**: a transparent tap target over the cutout runs the
+real action (`performCutoutAction`), whose *effect* (drawer opens / detection on / pick mode /
+model enabled) then **reveals Next**; the user taps Next to advance. Visually it's "tap the
+highlighted control → Next appears." The in-sheet Save step uses a **non-blocking (visual-only)
+dim** so the real Save (and the Title field) stay tappable.
 
 ## Per-step plan
 | # | Step | Kind | Bubble / Next | Focus | Interactive control |

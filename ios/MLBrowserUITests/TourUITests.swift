@@ -25,46 +25,34 @@ final class TourUITests: UITestCase {
 		)
 	}
 
-	/// Tapping inside the spotlight cutout on the models-button step opens the drawer (via the
-	/// overlay-drives-action fallback, since the toolbar button is hosted in a separate layer
-	/// and a pass-through tap does not reach it), which advances the tour to the in-drawer
-	/// demo-models step (re-anchored after the open animation).
+	/// The models-button step: tapping the **real** CPU button (the four-rectangle dim leaves the
+	/// hole genuinely tappable) opens the drawer, which reveals **Next**; tapping Next advances.
 	@MainActor
-	func testTour_cutoutTapOpensDrawer() {
+	func testTour_modelsButtonStep_realTapOpensDrawerThenNextAdvances() {
 		launch(LaunchConfig(startOnboardingTour: true))
 		XCTAssertTrue(element(AID.tourBubble).waitForExistence(timeout: 15), "Tour should start")
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "addressBar"))
 
-		// Step 1 is a teaching step: advance with Next to reach the models-button step.
+		// Teaching step: Next is available immediately.
 		element(AID.tourNext).tap()
-		XCTAssertTrue(
-			waitForCheckpoint(AID.cpTourStep, equals: "modelsButton"),
-			"Should advance to the models-button step"
-		)
+		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "modelsButton"))
 
-		// Tapping inside the cutout hits the overlay's transparent tap target, which calls
-		// `performCutoutAction()` (overlay-drives-action fallback) and opens the drawer — the
-		// toolbar button is hosted in a separate layer that a tap can't reach through the dim.
+		// Next must NOT be shown yet — the user hasn't performed the action.
+		XCTAssertFalse(element(AID.tourNext).waitForExistence(timeout: 2),
+					   "Next is hidden until the drawer is opened")
+
+		// Tap the real CPU button (reachable through the open hole) → the drawer opens.
 		app.buttons[AID.cpu].tap()
+		XCTAssertTrue(app.buttons[AID.drawerSettings].waitForExistence(timeout: 10), "Drawer should open")
 
-		// The fallback worked iff the drawer actually opened.
-		XCTAssertTrue(
-			app.buttons[AID.drawerSettings].waitForExistence(timeout: 10),
-			"Drawer should be open after the cutout tap drove the action"
-		)
-
-		// The drawer opening is the step's advance condition → the tour moves to the
-		// demo-models step, whose bubble re-anchors only after the open animation settles.
-		XCTAssertTrue(
-			waitForCheckpoint(AID.cpTourStep, equals: "demoModels", timeout: 15),
-			"Opening the drawer should advance the tour to the demo-models step"
-		)
+		// Opening the drawer reveals Next; tapping it advances to the demo-models step.
+		tapNextWhenRevealed()
+		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "demoModels", timeout: 15))
 	}
 
-	/// The full happy path: address bar → models button → demo models → enable model → start
-	/// detection → capture mode → tap the map → save a finding → finish. Exercises every advance
-	/// mechanism (scripted Next, overlay-driven cutout taps, bubble-driven enable, the no-dim map
-	/// tap, and the saved-finding signal). Captures a screenshot at every step.
+	/// The full happy path with the real-action model: every action step requires the real tap,
+	/// then reveals Next. address bar → models button → demo models → enable model → start
+	/// detection → capture mode → tap the map → save a finding (in the sheet) → finish.
 	@MainActor
 	func testTour_fullHappyPath_throughSaveFinding() {
 		launch(LaunchConfig(startOnboardingTour: true))
@@ -73,53 +61,66 @@ final class TourUITests: UITestCase {
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "addressBar"))
 		attach("01-addressBar")
 
-		// Step 1 → 2 (scripted).
+		// 1 → 2 (teaching): Next immediately.
 		element(AID.tourNext).tap()
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "modelsButton"))
 		attach("02-modelsButton")
 
-		// Step 2 → 3: the overlay-driven cutout tap opens the drawer.
+		// 2 → 3: tap the real CPU button (opens drawer) → Next reveals → tap Next.
 		app.buttons[AID.cpu].tap()
 		XCTAssertTrue(app.buttons[AID.drawerSettings].waitForExistence(timeout: 10), "Drawer should open")
-		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "demoModels", timeout: 15))
 		XCTAssertTrue(waitForSeededConfigurations(), "A demo model row should seed")
+		tapNextWhenRevealed()
+		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "demoModels", timeout: 15))
 		attach("03-demoModels")
 
-		// Step 3 → 4 (scripted): the enable-model step still shows its bubble (not a blank dim).
+		// 3 → 4 (teaching): Next immediately.
 		element(AID.tourNext).tap()
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "enableModelToggle", timeout: 10))
-		XCTAssertTrue(element(AID.tourBubble).waitForExistence(timeout: 5), "Enable step must show its bubble")
 		attach("04-enableModelToggle")
 
-		// Step 4 → 5: the bubble button enables a demo model, closes the drawer, advances to PLAY.
-		element(AID.tourNext).tap()
-		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "playButton", timeout: 10), "Should advance to PLAY")
+		// 4 → 5: flip the real toggle → Next reveals → tap Next (the drawer closes on advance).
+		XCTAssertTrue(flipSwitch(AID.configEnabledToggle), "Should enable a demo model via the real toggle")
+		tapNextWhenRevealed()
+		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "playButton", timeout: 10))
 		attach("05-playButton")
 
-		// Step 5 → 6: overlay-driven tap on PLAY starts detection.
+		// 5 → 6: tap the real PLAY button → Next reveals → tap Next.
 		app.buttons[AID.play].tap()
-		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "findButton", timeout: 10), "Should advance to Find")
+		tapNextWhenRevealed()
+		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "findButton", timeout: 10))
 		attach("06-findButton")
 
-		// Step 6 → 7: overlay-driven tap on Find enters capture mode.
+		// 6 → 7: tap the real Find button → Next reveals → tap Next.
 		app.buttons[AID.findTop].tap()
-		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "captureArea", timeout: 10), "Should advance to capture")
+		tapNextWhenRevealed()
+		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "captureArea", timeout: 10))
 		attach("07-captureArea")
 
-		// Step 7: no-dim step — tap the live map to capture a finding, which opens the Save sheet.
+		// 7 → 8: tap the live map → the Save sheet opens → auto-advances to the in-sheet save step.
 		app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4)).tap()
 		let titleField = app.textFields[AID.saveFindingTitle]
 		XCTAssertTrue(titleField.waitForExistence(timeout: 10), "Save sheet should appear after tapping the map")
+		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "saveButton", timeout: 10), "Should advance to the in-sheet save step")
+		attach("08-saveButton")
+
+		// 8 → 9: name it + tap the real Save → auto-advances to the closing step.
 		titleField.tap()
 		titleField.typeText("Tour finding")
 		app.buttons[AID.saveFindingSave].tap()
-
-		// Saving the finding advances to the closing step; Done finishes the tour.
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "finished", timeout: 10), "Saving should advance to the closing step")
-		attach("08-finished")
+		attach("09-finished")
+
+		// 9: Done finishes the tour.
 		element(AID.tourNext).tap()
 		XCTAssertTrue(waitForDisappearance(of: element(AID.tourBubble)), "Done should end the tour")
-		attach("09-done")
+	}
+
+	/// Waits for the bubble's Next to be revealed (after the step's real action) and taps it.
+	private func tapNextWhenRevealed() {
+		let next = element(AID.tourNext)
+		XCTAssertTrue(next.waitForExistence(timeout: 10), "Next should reveal after the step's action")
+		next.tap()
 	}
 
 	/// Captures a named, always-kept screenshot attachment for visual review in the result bundle.

@@ -13720,6 +13720,18 @@
         }
       }
     },
+    "tour.save.text" : {
+      "comment" : "AIA-0333 tour bubble: save-the-finding step (in the sheet)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name your finding, then tap Save."
+          }
+        }
+      }
+    },
     "tour.demoModels.text" : {
       "comment" : "AIA-0333 tour bubble: demo models step",
       "extractionState" : "manual",

@@ -33,26 +33,18 @@ final class TourState {
 	/// Whether the tour overlay is currently shown.
 	private(set) var isActive: Bool = false
 
-	/// Whether the current step has surfaced its **Next** fallback button. Always true for
-	/// `.scripted` steps; flips to true for `.userAction` steps once the timeout fires.
+	/// Whether the current step's bubble shows its **Next** button. True immediately for teaching
+	/// (`.scripted`) steps; for `.userAction` steps it flips to true only once the user performs
+	/// the real action, so Next can never advance the tour out of sync with the UI (AIA-0333).
 	private(set) var showsNextButton: Bool = false
-
-	/// Bumped on every step change / terminal transition. A timeout task captures the value
-	/// it was scheduled under and re-checks it after `Task.sleep`, so a stale timeout from a
-	/// previous step can never mutate a later one (Codex finding).
-	private var stepGeneration: Int = 0
-
-	/// The cancellable per-step timeout. Cancelled on advance/finish/skip.
-	private var timeoutTask: Task<Void, Never>?
 
 	private let defaults: UserDefaults
 	private weak var drawer: DrawerManager?
 	private weak var guide: Guide?
 
-	/// Enables a demo model on the user's behalf for the overlay-driven enable step. The model
-	/// toggle lives inside the drawer beneath the overlay, where a tap can't pass through, so
-	/// the drawer registers this hook and the overlay calls it. Returns `true` if a model was
-	/// enabled (so the step can advance).
+	/// Enables a demo model for the overlay-driven enable step (the toggle can't be tapped
+	/// through the overlay). The drawer registers this; the overlay calls it when its cutout is
+	/// tapped. Returns `true` if a model was enabled.
 	private var enableModelHook: (() -> Bool)?
 
 	/// The current step, or `nil` when inactive / past the end.
@@ -165,46 +157,46 @@ final class TourState {
 	}
 
 	private func terminate() {
-		cancelTimeout()
 		isActive = false
 		showsNextButton = false
 		markSeen()
-		// Drawer-staging cleanup returns when a future tour step opens the drawer itself; in
-		// this slice the user always opens the drawer, so the tour never owns it and there is
-		// nothing to revert on finish/skip.
 	}
 
 	// MARK: - Step setup & advance evaluation
 
 	private func beginStep() {
-		cancelTimeout()
-		stepGeneration += 1
 		guard let step = currentStep else { return }
+		// PLAY lives in the main chrome, so close the drawer the user opened on the prior step.
+		if step.target == .playButton { drawer?.close() }
 
 		switch step.advance {
 		case .scripted:
 			// Teaching step: Next is available immediately.
 			showsNextButton = true
-		case .userAction(let condition) where condition.isOverlayDriven:
-			// The user performs the real action on the spotlighted control (e.g. opens the
-			// drawer). Next surfaces only as a no-deadlock fallback after the timeout.
-			showsNextButton = false
-			scheduleTimeout(for: step, generation: stepGeneration)
 		case .userAction:
-			// Non-overlay-driven action whose control can't be reached through the overlay
-			// (the model toggle, beneath the dim). The bubble's primary button drives it, so
-			// it's available immediately.
-			showsNextButton = true
+			// Action step: Next stays hidden until the user performs the real action, so it can
+			// never advance the tour out of sync with the UI.
+			showsNextButton = false
 		}
 	}
 
-	/// Re-evaluates the current `.userAction` step against an app-state change. The view
-	/// layer pokes this from the observers it already has (e.g. drawer open/close).
+	/// Poked by the view layer when observed app state changes (drawer opened, detection started,
+	/// capture mode entered). Reveals **Next** once the current action step's condition holds —
+	/// the user then taps Next — or auto-advances the sheet-coupled steps (capture / save), which
+	/// can't show a Next because the modal sheet covers the bubble.
 	func evaluate() {
 		guard isActive, let step = currentStep else { return }
-		guard case .userAction(let condition) = step.advance else { return }
-		if isSatisfied(condition) {
+		guard case .userAction(let condition) = step.advance, isSatisfied(condition) else { return }
+		actionFulfilled(step)
+	}
+
+	/// Marks the current action step's required action as done: auto-advance for sheet steps,
+	/// otherwise reveal Next for the user to tap.
+	private func actionFulfilled(_ step: TourStep) {
+		if step.autoAdvancesOnAction {
 			advance()
+		} else {
+			showsNextButton = true
 		}
 	}
 
@@ -212,98 +204,69 @@ final class TourState {
 		switch condition {
 		case .drawerOpened:
 			return drawer?.isOpen == true
-		case .modelEnabled, .detectionStarted, .pickModeEntered, .findingSaved:
-			// Not polled by `evaluate()`: `.modelEnabled` is bubble-driven; `.detectionStarted`
-			// and `.pickModeEntered` advance from `performCutoutAction`; `.findingSaved` advances
-			// from `findingDidSave()`. None are satisfied by a plain `evaluate()`.
+		case .detectionStarted:
+			return guide?.ontheflyDetectionEnabled == true
+		case .pickModeEntered:
+			return guide?.findModeRequested == true
+		case .modelEnabled, .captureStarted, .findingSaved:
+			// Event-driven (no app-state poll): signalled by userEnabledModel() / captureDidStart()
+			// / findingDidSave() respectively.
 			return false
 		}
 	}
 
-	/// Fallback path for the current `.userAction` step: the overlay drives the highlighted
-	/// action itself when a tap inside the cutout cannot pass through to the real control
-	/// (e.g. a toolbar button hosted in a separate layer). Documented trade-off: this bypasses
-	/// the control's own disabled/accessibility state, so it is a fallback, not the default.
+	/// Performs the current step's overlay-driven action (its spotlighted control can't be tapped
+	/// through the overlay). The action's effect then reveals **Next**: drawer/detection/pick-mode
+	/// changes are observed by the view layer, which pokes `evaluate()`; the model-enable has no
+	/// such observer, so it reveals Next directly. The user then taps Next to advance.
 	func performCutoutAction() {
-		guard isActive, let step = currentStep else { return }
-		guard case .userAction(let condition) = step.advance else { return }
+		guard isActive, let step = currentStep, case .userAction(let condition) = step.advance else { return }
 		switch condition {
 		case .drawerOpened:
-			// Opening via the manager flows through ContentView's drawer observer, which pokes
-			// `evaluate()` and advances the step.
 			drawer?.open()
 		case .detectionStarted:
-			// Tapping the spotlighted PLAY button starts detection; advance immediately (the
-			// overlay performed the action, so we don't poll the resulting state).
 			guide?.ontheflyDetectionTapped()
-			advance()
 		case .pickModeEntered:
-			// Tapping the spotlighted Find button enters finding-capture mode; advance.
 			guide?.findTapped()
-			advance()
-		case .modelEnabled, .findingSaved:
-			// Not overlay-driven (see AdvanceCondition.isOverlayDriven): `.modelEnabled` is driven
-			// by the bubble's primary button; `.findingSaved` by `findingDidSave()` after the user
-			// taps the live map (a no-dim step) and saves. Nothing to do here.
-			break
+		case .modelEnabled:
+			if enableModelHook?() == true { actionFulfilled(step) }
+		case .captureStarted, .findingSaved:
+			break // not overlay-driven
 		}
 	}
 
-	/// Called by the view layer when a ready `Finding` is newly saved. Advances the capture step
-	/// (and only that step), so cancelling the save sheet leaves the user on it to retry.
-	func findingDidSave() {
-		guard isActive, let step = currentStep else { return }
-		guard case .userAction(.findingSaved) = step.advance else { return }
-		advance()
-	}
-
-	/// The bubble's primary ("Next") button. For the enable-model step — whose control can't be
-	/// tapped through the overlay — this enables a demo model on the user's behalf, then advances.
-	/// For every other step it just advances.
-	func bubblePrimaryTapped() {
-		guard isActive, let step = currentStep else { return }
-		if case .userAction(.modelEnabled) = step.advance {
-			_ = enableModelHook?() // best-effort; advance regardless
-			// The next step (PLAY) lives in the main chrome, so close the drawer the user opened.
-			drawer?.close()
-		}
-		advance()
-	}
-
-	// MARK: - Timeout (no-deadlock fallback)
-
-	private func scheduleTimeout(for step: TourStep, generation: Int) {
-		let delay = step.fallbackAfter
-		// A non-finite or non-positive delay must never reach `UInt64(...)` (it traps on
-		// NaN/∞/negative). Surface Next immediately instead of sleeping.
-		guard delay.isFinite, delay > 0 else {
-			showsNextButton = true
-			return
-		}
-		let nanoseconds = UInt64(delay * 1_000_000_000)
-		timeoutTask = Task { [weak self] in
-			try? await Task.sleep(nanoseconds: nanoseconds)
-			guard Task.isCancelled == false else { return }
-			guard let self else { return }
-			// Generation guard: a stale timeout must not surface Next on a later step.
-			guard generation == self.stepGeneration else { return }
-			self.showsNextButton = true
-		}
-	}
-
-	private func cancelTimeout() {
-		timeoutTask?.cancel()
-		timeoutTask = nil
-	}
-
-	// MARK: - User-action hooks
-
-	/// Called from the model row's enable toggle when the highlighted demo model goes
-	/// false→true. Advances the enable-model step iff its condition is `.modelEnabled`. A
-	/// no-op otherwise, so a stray enable elsewhere in the tour can't skip a step.
+	/// The highlighted model's enable toggle went on (real tap, if it ever reaches). Reveals Next.
 	func userEnabledModel() {
-		guard isActive, let step = currentStep else { return }
-		guard case .userAction(.modelEnabled) = step.advance else { return }
+		guard isActive, let step = currentStep, case .userAction(.modelEnabled) = step.advance else { return }
+		actionFulfilled(step)
+	}
+
+	/// The finding-capture sheet appeared (the user tapped the map). Advances the capture step.
+	func captureDidStart() {
+		guard isActive, let step = currentStep, case .userAction(.captureStarted) = step.advance else { return }
+		actionFulfilled(step)
+	}
+
+	/// A ready `Finding` was newly saved (the user tapped Save). Advances the in-sheet save step.
+	func findingDidSave() {
+		guard isActive, let step = currentStep, case .userAction(.findingSaved) = step.advance else { return }
+		actionFulfilled(step)
+	}
+
+	/// The finding sheet was dismissed without saving (Cancel / swipe). If still on the in-sheet
+	/// save step, step back to the capture step so the user can tap the map again. No-op once a
+	/// finding was saved (the step has already advanced).
+	func captureCancelled() {
+		guard isActive, let step = currentStep, case .userAction(.findingSaved) = step.advance else { return }
+		guard currentIndex > 0 else { return }
+		currentIndex -= 1
+		beginStep()
+	}
+
+	/// The bubble's **Next** button — only visible for teaching steps or once an action step's
+	/// real action is done, so this simply advances.
+	func bubblePrimaryTapped() {
+		guard isActive else { return }
 		advance()
 	}
 }

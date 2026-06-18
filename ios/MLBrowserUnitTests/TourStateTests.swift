@@ -64,7 +64,7 @@ final class TourStateTests: XCTestCase {
 
 	// MARK: - AdvanceCondition
 
-	func testEvaluate_advancesOnlyWhenDrawerConditionMet() {
+	func testEvaluate_revealsNextWhenConditionMet_thenNextAdvances() {
 		let drawer = DrawerManager()
 		let steps = [
 			TourStep(target: .modelsButton, bubbleText: "open it", placement: .below,
@@ -74,15 +74,22 @@ final class TourStateTests: XCTestCase {
 		let tour = TourState(steps: steps, defaults: defaults)
 		tour.bind(drawer: drawer)
 		tour.start()
+		XCTAssertFalse(tour.showsNextButton, "Action step hides Next until the real action")
 
 		// Condition not yet met: evaluate is a no-op.
 		tour.evaluate()
+		XCTAssertFalse(tour.showsNextButton)
 		XCTAssertEqual(tour.currentIndex, 0)
 
-		// Drawer opens → re-evaluating advances the step.
+		// Drawer opens → evaluate reveals Next, but does NOT advance on its own.
 		drawer.isOpen = true
 		tour.evaluate()
-		XCTAssertEqual(tour.currentIndex, 1, "Drawer opening should satisfy .drawerOpened and advance")
+		XCTAssertTrue(tour.showsNextButton, "Drawer opening reveals Next")
+		XCTAssertEqual(tour.currentIndex, 0, "Revealing Next must not advance — the user taps Next")
+
+		// The user taps Next → advance.
+		tour.bubblePrimaryTapped()
+		XCTAssertEqual(tour.currentIndex, 1)
 	}
 
 	// MARK: - Skip
@@ -102,54 +109,6 @@ final class TourStateTests: XCTestCase {
 		XCTAssertFalse(tour.hasSeenTour, "Starting must not flip the gate (an interrupted tour re-arms)")
 	}
 
-	// MARK: - Timeout + generation guard
-
-	func testTimeout_surfacesNextOnUserActionStep() async {
-		let drawer = DrawerManager()
-		let steps = [
-			TourStep(target: .modelsButton, bubbleText: "act", placement: .below,
-					 advance: .userAction(.drawerOpened), fallbackAfter: 0.1)
-		]
-		let tour = TourState(steps: steps, defaults: defaults)
-		tour.bind(drawer: drawer)
-		tour.start()
-		XCTAssertFalse(tour.showsNextButton, "User-action step hides Next until the timeout")
-
-		try? await Task.sleep(nanoseconds: 300_000_000)
-		XCTAssertTrue(tour.showsNextButton, "Timeout should surface the Next fallback")
-	}
-
-	func testTimeout_generationGuard_staleTimeoutDoesNotMutateLaterStep() async {
-		let drawer = DrawerManager()
-		let steps = [
-			// Step 0: user-action with a slow timeout we will outrun by advancing.
-			TourStep(target: .modelsButton, bubbleText: "0", placement: .below,
-					 advance: .userAction(.drawerOpened), fallbackAfter: 0.2),
-			// Step 1: scripted (Next shown immediately).
-			TourStep(target: .demoModels, bubbleText: "1", placement: .below, advance: .scripted),
-			// Step 2: user-action, long timeout — should stay false while step 0's stale
-			// timeout fires.
-			TourStep(target: .enableModelToggle, bubbleText: "2", placement: .below,
-					 advance: .userAction(.drawerOpened), fallbackAfter: 5)
-		]
-		let tour = TourState(steps: steps, defaults: defaults)
-		tour.bind(drawer: drawer)
-		tour.start()
-
-		// Advance to step 1 then step 2 before step 0's 0.2s timeout fires.
-		tour.advance() // → step 1 (scripted, Next true)
-		tour.advance() // → step 2 (user-action, Next false)
-		XCTAssertEqual(tour.currentIndex, 2)
-		XCTAssertFalse(tour.showsNextButton)
-
-		// Wait past step 0's original timeout.
-		try? await Task.sleep(nanoseconds: 400_000_000)
-		XCTAssertFalse(
-			tour.showsNextButton,
-			"A stale step-0 timeout must not surface Next on step 2 (generation guard)"
-		)
-	}
-
 	// MARK: - Drawer left untouched on finish
 
 	func testFinish_leavesDrawerUntouched() {
@@ -165,89 +124,95 @@ final class TourStateTests: XCTestCase {
 		XCTAssertTrue(drawer.isOpen, "Finish must leave the drawer exactly as the user left it")
 	}
 
-	// MARK: - Zero / non-positive fallback (no UInt64 trap)
+	// MARK: - Enable step (reveal Next on the real action)
 
-	func testTimeout_zeroFallback_surfacesNextImmediately() {
+	func testEnableStep_userEnabledModel_revealsNext_thenNextAdvances() {
 		let steps = [
-			TourStep(target: .modelsButton, bubbleText: "act", placement: .below,
-					 advance: .userAction(.drawerOpened), fallbackAfter: 0)
+			TourStep(target: .enableModelToggle, bubbleText: "enable", placement: .bottom,
+					 advance: .userAction(.modelEnabled), spotlightFallback: .demoModels),
+			TourStep(target: .playButton, bubbleText: "play", placement: .below,
+					 advance: .userAction(.detectionStarted))
 		]
 		let tour = TourState(steps: steps, defaults: defaults)
 		tour.start()
-		XCTAssertTrue(tour.showsNextButton, "A zero fallback must surface Next immediately, never trap UInt64")
-	}
-
-	func testTimeout_negativeFallback_surfacesNextImmediately() {
-		let steps = [
-			TourStep(target: .modelsButton, bubbleText: "act", placement: .below,
-					 advance: .userAction(.drawerOpened), fallbackAfter: -5)
-		]
-		let tour = TourState(steps: steps, defaults: defaults)
-		tour.start()
-		XCTAssertTrue(tour.showsNextButton, "A negative fallback must surface Next immediately, never trap UInt64")
-	}
-
-	// MARK: - modelEnabled advance (step 4 payoff)
-
-	func testUserEnabledModel_advancesOnEnableStep() {
-		let steps = [
-			TourStep(target: .enableModelToggle, bubbleText: "enable", placement: .above,
-					 advance: .userAction(.modelEnabled), fallbackAfter: 5),
-			TourStep(target: .demoModels, bubbleText: "done", placement: .below, advance: .scripted)
-		]
-		let tour = TourState(steps: steps, defaults: defaults)
-		tour.start()
-		XCTAssertEqual(tour.currentIndex, 0)
-		// The enable step is driven by the bubble's primary button (the toggle can't be tapped
-		// through the overlay), so the button is available immediately — not gated on a timeout.
-		XCTAssertTrue(tour.showsNextButton, "Enable step shows its primary button immediately")
+		XCTAssertFalse(tour.showsNextButton, "Enable step hides Next until a model is enabled")
 
 		tour.userEnabledModel()
-		XCTAssertEqual(tour.currentIndex, 1, "Enabling the highlighted model advances the enable step")
-	}
-
-	func testBubblePrimary_onEnableStep_invokesEnableHookAndFinishes() {
-		let steps = [
-			TourStep(target: .enableModelToggle, bubbleText: "enable", placement: .above,
-					 advance: .userAction(.modelEnabled))
-		]
-		let tour = TourState(steps: steps, defaults: defaults)
-		var enableCalls = 0
-		tour.bindEnableModel { enableCalls += 1; return true }
-		tour.start()
+		XCTAssertTrue(tour.showsNextButton, "Enabling a model reveals Next")
+		XCTAssertEqual(tour.currentIndex, 0, "Revealing Next must not advance — the user taps Next")
 
 		tour.bubblePrimaryTapped()
-		XCTAssertEqual(enableCalls, 1, "The enable step's primary button enables a demo model")
-		XCTAssertFalse(tour.isActive, "Tapping it finishes the tour (last step)")
-		XCTAssertTrue(tour.hasSeenTour, "Finishing seeds the gate")
+		XCTAssertEqual(tour.currentIndex, 1)
 	}
 
 	func testUserEnabledModel_noopWhenNotOnEnableStep() {
-		// A model enabled while the tour is on a different (e.g. drawer-open) step must not advance.
+		// A model enabled while the tour is on a different (e.g. drawer-open) step must do nothing.
 		let steps = [
 			TourStep(target: .modelsButton, bubbleText: "open", placement: .below,
-					 advance: .userAction(.drawerOpened), fallbackAfter: 5),
+					 advance: .userAction(.drawerOpened)),
 			TourStep(target: .demoModels, bubbleText: "next", placement: .below, advance: .scripted)
 		]
 		let tour = TourState(steps: steps, defaults: defaults)
 		tour.start()
 		tour.userEnabledModel()
-		XCTAssertEqual(tour.currentIndex, 0, "Enabling a model off the enable step must not advance")
+		XCTAssertFalse(tour.showsNextButton, "Enabling a model off the enable step must not reveal Next")
+		XCTAssertEqual(tour.currentIndex, 0)
 	}
 
-	func testOverlayDrivenStep_timeoutStillSurfacesNext() async {
-		// The overlay-driven step (drawer open) hides Next until acted on, but a timeout must
-		// still surface it so the step can never deadlock.
+	// MARK: - Sheet-coupled steps auto-advance
+
+	func testCaptureDidStart_autoAdvancesCaptureStep() {
 		let steps = [
-			TourStep(target: .modelsButton, bubbleText: "open", placement: .below,
-					 advance: .userAction(.drawerOpened), fallbackAfter: 0.1)
+			TourStep(target: .captureArea, bubbleText: "tap map", placement: .bottom,
+					 advance: .userAction(.captureStarted), dimsBackground: false, autoAdvancesOnAction: true),
+			TourStep(target: .saveButton, bubbleText: "save", placement: .below,
+					 advance: .userAction(.findingSaved), autoAdvancesOnAction: true, rendersInSheet: true)
 		]
 		let tour = TourState(steps: steps, defaults: defaults)
 		tour.start()
-		XCTAssertFalse(tour.showsNextButton, "Overlay-driven step hides Next until acted on or timed out")
+		tour.captureDidStart()
+		XCTAssertEqual(tour.currentIndex, 1, "Capture starting auto-advances to the save step")
+	}
 
-		try? await Task.sleep(nanoseconds: 300_000_000)
-		XCTAssertTrue(tour.showsNextButton, "The timeout must still surface Next (no deadlock)")
+	func testFindingDidSave_autoAdvancesSaveStep() {
+		let steps = [
+			TourStep(target: .saveButton, bubbleText: "save", placement: .below,
+					 advance: .userAction(.findingSaved), autoAdvancesOnAction: true, rendersInSheet: true),
+			TourStep(target: .finished, bubbleText: "done", placement: .bottom, advance: .scripted)
+		]
+		let tour = TourState(steps: steps, defaults: defaults)
+		tour.start()
+		tour.findingDidSave()
+		XCTAssertEqual(tour.currentIndex, 1, "Saving a finding auto-advances the save step")
+	}
+
+	func testCaptureCancelled_revertsSaveStepToCapture() {
+		let steps = [
+			TourStep(target: .captureArea, bubbleText: "tap map", placement: .bottom,
+					 advance: .userAction(.captureStarted), dimsBackground: false, autoAdvancesOnAction: true),
+			TourStep(target: .saveButton, bubbleText: "save", placement: .below,
+					 advance: .userAction(.findingSaved), autoAdvancesOnAction: true, rendersInSheet: true)
+		]
+		let tour = TourState(steps: steps, defaults: defaults)
+		tour.start()
+		tour.captureDidStart()
+		XCTAssertEqual(tour.currentIndex, 1)
+		tour.captureCancelled()
+		XCTAssertEqual(tour.currentIndex, 0, "Cancelling the sheet returns to the capture step")
+	}
+
+	func testCaptureCancelled_noopAfterSave() {
+		let steps = [
+			TourStep(target: .saveButton, bubbleText: "save", placement: .below,
+					 advance: .userAction(.findingSaved), autoAdvancesOnAction: true, rendersInSheet: true),
+			TourStep(target: .finished, bubbleText: "done", placement: .bottom, advance: .scripted)
+		]
+		let tour = TourState(steps: steps, defaults: defaults)
+		tour.start()
+		tour.findingDidSave()
+		XCTAssertEqual(tour.currentIndex, 1)
+		tour.captureCancelled()
+		XCTAssertEqual(tour.currentIndex, 1, "A dismiss after save must not rewind")
 	}
 
 	// MARK: - Gate & migration (object(forKey:))

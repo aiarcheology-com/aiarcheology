@@ -501,6 +501,10 @@ internal enum L10n {
       /// Tap to start detecting features on the page.
       internal static let text = L10n.tr("Localizable", "tour.play.text", fallback: "Tap to start detecting features on the page.")
     }
+    internal enum Save {
+      /// Name your finding, then tap Save.
+      internal static let text = L10n.tr("Localizable", "tour.save.text", fallback: "Name your finding, then tap Save.")
+    }
   }
 }
 // swiftlint:enable explicit_type_interface function_parameter_count identifier_name line_length

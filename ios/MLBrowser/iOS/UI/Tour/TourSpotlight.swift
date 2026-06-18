@@ -24,6 +24,9 @@ struct TourSpotlight: View {
 	var cornerRadius: CGFloat = 10
 	/// Padding added around the target rect so the control isn't cropped by the hole edge.
 	var inset: CGFloat = 6
+	/// Whether the dim swallows taps. `false` makes it visual only (everything beneath stays
+	/// interactive) — used for the in-sheet save step so the title field is still reachable.
+	var blocksTaps: Bool = true
 
 	/// Lighter dim in dark mode — a 0.55 black scrim on an already-dark UI reads as pitch black
 	/// and loses the focused area; 0.4 keeps the spotlight legible (AIA-0333).
@@ -58,11 +61,15 @@ struct TourSpotlight: View {
 
 	/// One dim rectangle. Swallows taps on the dimmed area (so the dimmed app isn't interactive)
 	/// without ever dismissing the tour.
+	@ViewBuilder
 	private func dimRect(_ rect: CGRect) -> some View {
-		Color.black.opacity(dimOpacity)
+		let base = Color.black.opacity(dimOpacity)
 			.frame(width: max(0, rect.width), height: max(0, rect.height))
 			.offset(x: rect.minX, y: rect.minY)
-			.contentShape(Rectangle())
-			.onTapGesture { }
+		if blocksTaps {
+			base.contentShape(Rectangle()).onTapGesture { }
+		} else {
+			base.allowsHitTesting(false)
+		}
 	}
 }

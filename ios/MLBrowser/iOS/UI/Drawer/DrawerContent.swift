@@ -109,8 +109,11 @@ struct DrawerContent: View {
         // Dynamic Island side), wasting a gutter inside the panel. The panel is the safe
         // container here, so let the List span its full width in both orientations.
         .ignoresSafeArea(.container, edges: .horizontal)
-        // The tour's enable-model step is overlay-driven (the toggle can't be tapped through
-        // the spotlight), so register the action that enables a demo model on its behalf.
+        // The tour spotlights the whole drawer for the in-drawer steps (a precise model-row cutout
+        // isn't reachable — anchors inside a List cell don't propagate to the overlay).
+        .tourTarget(.demoModels)
+        // The enable step is overlay-driven (the toggle can't be tapped through the spotlight):
+        // register the action that enables a demo model when the cutout is tapped (AIA-0333).
         .onAppear {
             let context = moc
             tour.bindEnableModel { enableFirstReadyDemoModel(in: context) }
@@ -125,6 +128,9 @@ struct DrawerContent: View {
                 Label(L10n.Findings.title, systemImage: "archivebox")
             }
             .testability(Testability.Button.drawerFindings)
+            // During the tour the whole drawer is the spotlight; keep only the model toggles
+            // interactive so the user can't wander off into Findings (AIA-0333).
+            .disabled(tour.isActive)
         }
     }
 
@@ -136,6 +142,7 @@ struct DrawerContent: View {
                 Label(L10n.Settings.title, systemImage: "gearshape")
             }
             .testability(Testability.Button.drawerSettings)
+            .disabled(tour.isActive)
         }
     }
     
@@ -178,8 +185,6 @@ struct DrawerContent: View {
                 )
             }
         }
-        // The tour spotlights the whole demo-models list at the "these are your models" step.
-        .tourTarget(.demoModels)
     }
     
     // MARK: - Toolbar
@@ -194,8 +199,10 @@ struct DrawerContent: View {
             }
             .tint(.blue)
             .accessibilityLabel("Add Model")
+            // Keep only the model toggles interactive during the tour (AIA-0333).
+            .disabled(tour.isActive)
         }
-        
+
         ToolbarItem(placement: .topBarTrailing) {
             // A plain cross balances the leading plus symbol, keeping the inline
             // title visually centered between the two.
@@ -206,6 +213,7 @@ struct DrawerContent: View {
             }
             .tint(.blue)
             .accessibilityLabel(L10n.Common.dismiss)
+            .disabled(tour.isActive)
         }
     }
 }
@@ -213,14 +221,13 @@ struct DrawerContent: View {
 // MARK: - Tour enable action
 
 /// Enables the most-recent ready demo model that isn't already on, for the onboarding tour's
-/// overlay-driven enable step (AIA-0333). Mirrors the list's sort (newest first) so it targets
-/// the top spotlighted row. Returns `true` if a model was enabled.
+/// overlay-driven enable step (AIA-0333). Mirrors the list's sort (newest first) so it flips the
+/// top, spotlighted row. Returns `true` if a model was enabled.
 private func enableFirstReadyDemoModel(in context: NSManagedObjectContext) -> Bool {
     let candidate = DeepConfiguration.selectAll(in: context)
         .filter { $0.demo
             && $0.lifeCycleString == CoreDataManageableState.ready.rawValue
             && $0.enabled == false }
-        // Newest first, matching the list's sort, so it targets the top spotlighted row.
         .max { ($0.creationDate_ ?? .distantPast) < ($1.creationDate_ ?? .distantPast) }
     guard let target = candidate else { return false }
     target.enabled = true

@@ -241,8 +241,11 @@ struct WebScreenView: View {
             // its immediate snapshot replaces the frozen frame right away.
             isCapturingFinding = false
             appState.guide.findingCaptureEnded()
+            // Tour (AIA-0333): a dismiss without a save returns to the capture step (no-op once
+            // the finding was saved, which already advanced the step).
+            appState.tour.captureCancelled()
         }) { capture in
-            SaveFindingSheet(capture: capture)
+            SaveFindingSheet(capture: capture, tour: appState.tour)
         }
         .onReceive(appState.guide.$pageToOpen) { url in
             // A finding's "open page" action lands here (the findings UI cannot
