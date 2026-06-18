@@ -1,0 +1,26 @@
+ios/MLBrowser/iOS/UI/Tour/TourBubble.swift
+  s_c55b2e88071d91::t_f07984880a81aa 54-56
+ios/MLBrowser/iOS/UI/Tour/TourSpotlight.swift
+  s_c55b2e88071d91::t_d8996e2a9e9ced 41
+  s_c55b2e88071d91::t_4919afe65a545a 23,31-33
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift
+  s_c55b2e88071d91::t_46150eac69a71a 196,198
+ios/MLBrowser/iOS/UI/Tour/TourState.swift
+  s_c55b2e88071d91::t_8af23821f61331 132-139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "88edab1b06304c4ff9274064a03b2a7b3a3f0678",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
