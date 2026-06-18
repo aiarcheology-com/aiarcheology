@@ -54,8 +54,12 @@ final class TourUITests: UITestCase {
 	/// then reveals Next. address bar → models button → demo models → enable model → start
 	/// detection → capture mode → tap the map → save a finding (in the sheet) → finish.
 	@MainActor
-	func testTour_fullHappyPath_throughSaveFinding() {
+	func testTour_fullHappyPath_throughSaveFinding() throws {
 		launch(LaunchConfig(startOnboardingTour: true))
+		// The capture step taps the web map at a fixed coordinate, which is tuned for iPhone
+		// (compact). On regular width (iPad) the chrome/content layout differs, so the engine is
+		// covered by the unit tests + the lighter tour tests there; the full flow runs on iPhone.
+		try XCTSkipIf(isRegularWidth, "Full tour happy path uses iPhone-compact map coordinates")
 
 		XCTAssertTrue(element(AID.tourBubble).waitForExistence(timeout: 15), "Tour should start")
 		XCTAssertTrue(waitForCheckpoint(AID.cpTourStep, equals: "addressBar"))
@@ -116,9 +120,11 @@ final class TourUITests: UITestCase {
 	}
 
 	/// Waits for the bubble's Next to be revealed (after the step's real action) and taps it.
+	/// Generous timeout: on a loaded CI machine the action's state change (drawer animation,
+	/// demo-data save, detection start) can lag.
 	private func tapNextWhenRevealed() {
 		let next = element(AID.tourNext)
-		XCTAssertTrue(next.waitForExistence(timeout: 10), "Next should reveal after the step's action")
+		XCTAssertTrue(next.waitForExistence(timeout: 20), "Next should reveal after the step's action")
 		next.tap()
 	}
 
