@@ -1,0 +1,21 @@
+ios/MLBrowser/iOS/UI/Tour/TourSpotlight.swift
+  s_c55b2e88071d91::t_5ee0665f099a62 53-54
+ios/IMPLEMENTATION_PLAN_AIA-0333-rebuild.md
+  s_c55b2e88071d91::t_29a583402150ba 1-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "505020e2fd461c1c69198c119e0a39f45ffac981",
+  "prompts": {},
+  "sessions": {
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
