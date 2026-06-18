@@ -413,10 +413,10 @@ internal enum L10n {
     internal static let history = L10n.tr("Localizable", "settings.history", fallback: "History")
     /// History Limit
     internal static let historyLimit = L10n.tr("Localizable", "settings.historyLimit", fallback: "History Limit")
-    /// Introduction
-    internal static let introduction = L10n.tr("Localizable", "settings.introduction", fallback: "Introduction")
     /// Reopen Last Page
     internal static let reopenLastPage = L10n.tr("Localizable", "settings.reopenLastPage", fallback: "Reopen Last Page")
+    /// Replay onboarding
+    internal static let replayOnboarding = L10n.tr("Localizable", "settings.replayOnboarding", fallback: "Replay onboarding")
     /// Restore
     internal static let restore = L10n.tr("Localizable", "settings.restore", fallback: "Restore")
     /// Restore Defaults
@@ -425,8 +425,6 @@ internal enum L10n {
     internal static let runAtLaunch = L10n.tr("Localizable", "settings.runAtLaunch", fallback: "Run At Launch")
     /// Show Labels
     internal static let showLabels = L10n.tr("Localizable", "settings.showLabels", fallback: "Show Labels")
-    /// Show next time
-    internal static let showNextTime = L10n.tr("Localizable", "settings.showNextTime", fallback: "Show next time")
     /// Tiled Detection
     internal static let tiledDetection = L10n.tr("Localizable", "settings.tiledDetection", fallback: "Tiled Detection")
     /// Settings
@@ -452,68 +450,6 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "settings.sentry.title", fallback: "Sentry Stats")
     }
   }
-  internal enum Slideshow {
-    internal enum Slide0 {
-      /// The application combines the browsing experience with assisted object detection within web content.
-      internal static let description = L10n.tr("Localizable", "slideshow.slide0.description", fallback: "The application combines the browsing experience with assisted object detection within web content.")
-      /// Welcome to ML Browser
-      internal static let title = L10n.tr("Localizable", "slideshow.slide0.title", fallback: "Welcome to ML Browser")
-    }
-    internal enum Slide1 {
-      /// You can open any web page, similar to how you would in a web browser, with content you wish to test using your object detection model.
-      internal static let description = L10n.tr("Localizable", "slideshow.slide1.description", fallback: "You can open any web page, similar to how you would in a web browser, with content you wish to test using your object detection model.")
-      /// Open a Web Page
-      internal static let title = L10n.tr("Localizable", "slideshow.slide1.title", fallback: "Open a Web Page")
-    }
-    internal enum Slide2 {
-      /// Start to write in the address bar and you will see pages from your history.
-      internal static let description = L10n.tr("Localizable", "slideshow.slide2.description", fallback: "Start to write in the address bar and you will see pages from your history.")
-      /// Pick a page from the browsing history
-      internal static let title = L10n.tr("Localizable", "slideshow.slide2.title", fallback: "Pick a page from the browsing history")
-    }
-    internal enum Slide3 {
-      /// The application is capable of working with Create ML detection models. Click the processor icon in the top left corner, and then plus sign to add a new model.
-      internal static let description = L10n.tr("Localizable", "slideshow.slide3.description", fallback: "The application is capable of working with Create ML detection models. Click the processor icon in the top left corner, and then plus sign to add a new model.")
-      /// Add a New Model
-      internal static let title = L10n.tr("Localizable", "slideshow.slide3.title", fallback: "Add a New Model")
-    }
-    internal enum Slide4 {
-      /// You can download any Create ML detection model to your Apple device and load it into the ML Browser app. The ML Browser does not send your model anywhere, or collect information. The model is used only for the annotations.
-      internal static let description = L10n.tr("Localizable", "slideshow.slide4.description", fallback: "You can download any Create ML detection model to your Apple device and load it into the ML Browser app. The ML Browser does not send your model anywhere, or collect information. The model is used only for the annotations.")
-      /// Open the Model from the device, or download it.
-      internal static let title = L10n.tr("Localizable", "slideshow.slide4.title", fallback: "Open the Model from the device, or download it.")
-    }
-    internal enum Slide5 {
-      /// In this menu on the left, you can activate any detection model. These detectors work simultaneously on the same web page content.
-      internal static let description = L10n.tr("Localizable", "slideshow.slide5.description", fallback: "In this menu on the left, you can activate any detection model. These detectors work simultaneously on the same web page content.")
-      /// Activate the Models
-      internal static let title = L10n.tr("Localizable", "slideshow.slide5.title", fallback: "Activate the Models")
-    }
-    internal enum Slide6 {
-      /// When you select a model from the left menu, you can adjust various annotation options.
-      internal static let description = L10n.tr("Localizable", "slideshow.slide6.description", fallback: "When you select a model from the left menu, you can adjust various annotation options.")
-      /// Change the Model's Annotation Options
-      internal static let title = L10n.tr("Localizable", "slideshow.slide6.title", fallback: "Change the Model's Annotation Options")
-    }
-    internal enum Slide7 {
-      /// In some cases, you can aid the detector by altering the browser's rendering properties, such as brightness and contrast.
-      internal static let description = L10n.tr("Localizable", "slideshow.slide7.description", fallback: "In some cases, you can aid the detector by altering the browser's rendering properties, such as brightness and contrast.")
-      /// Adjust Screen Image Properties
-      internal static let title = L10n.tr("Localizable", "slideshow.slide7.title", fallback: "Adjust Screen Image Properties")
-    }
-    internal enum Slide8 {
-      /// After hitting the button, the detectors start to label the web content.
-      internal static let description = L10n.tr("Localizable", "slideshow.slide8.description", fallback: "After hitting the button, the detectors start to label the web content.")
-      /// Hit the Play Button
-      internal static let title = L10n.tr("Localizable", "slideshow.slide8.title", fallback: "Hit the Play Button")
-    }
-    internal enum Slide9 {
-      /// Now, you can browse your favorite web content and look for features that your detection model might recognize.
-      internal static let description = L10n.tr("Localizable", "slideshow.slide9.description", fallback: "Now, you can browse your favorite web content and look for features that your detection model might recognize.")
-      /// Annotation
-      internal static let title = L10n.tr("Localizable", "slideshow.slide9.title", fallback: "Annotation")
-    }
-  }
   internal enum Symbol {
     /// Circle
     internal static let circle = L10n.tr("Localizable", "symbol.circle", fallback: "Circle")
@@ -527,6 +463,50 @@ internal enum L10n {
     internal static let examples = L10n.tr("Localizable", "tab.examples", fallback: "Examples")
     /// Web
     internal static let web = L10n.tr("Localizable", "tab.web", fallback: "Web")
+  }
+  internal enum Tour {
+    /// My demo finding
+    internal static let defaultFindingTitle = L10n.tr("Localizable", "tour.defaultFindingTitle", fallback: "My demo finding")
+    /// Next
+    internal static let next = L10n.tr("Localizable", "tour.next", fallback: "Next")
+    /// Skip
+    internal static let skip = L10n.tr("Localizable", "tour.skip", fallback: "Skip")
+    internal enum AddressBar {
+      /// Type a page address here — a Bavaria LiDAR page is already in your history.
+      internal static let text = L10n.tr("Localizable", "tour.addressBar.text", fallback: "Type a page address here — a Bavaria LiDAR page is already in your history.")
+    }
+    internal enum Capture {
+      /// Now tap anywhere on the map to mark your finding.
+      internal static let text = L10n.tr("Localizable", "tour.capture.text", fallback: "Now tap anywhere on the map to mark your finding.")
+    }
+    internal enum DemoModels {
+      /// These are your detection models, ready to go.
+      internal static let text = L10n.tr("Localizable", "tour.demoModels.text", fallback: "These are your detection models, ready to go.")
+    }
+    internal enum EnableModel {
+      /// Switch a model on to start using it.
+      internal static let text = L10n.tr("Localizable", "tour.enableModel.text", fallback: "Switch a model on to start using it.")
+    }
+    internal enum Find {
+      /// Tap here to capture a finding.
+      internal static let text = L10n.tr("Localizable", "tour.find.text", fallback: "Tap here to capture a finding.")
+    }
+    internal enum Finished {
+      /// That's it — you saved your first finding! You're all set.
+      internal static let text = L10n.tr("Localizable", "tour.finished.text", fallback: "That's it — you saved your first finding! You're all set.")
+    }
+    internal enum ModelsButton {
+      /// Tap here to download or configure your detection models.
+      internal static let text = L10n.tr("Localizable", "tour.modelsButton.text", fallback: "Tap here to download or configure your detection models.")
+    }
+    internal enum Play {
+      /// Tap to start detecting features on the page.
+      internal static let text = L10n.tr("Localizable", "tour.play.text", fallback: "Tap to start detecting features on the page.")
+    }
+    internal enum Save {
+      /// Tap Save to store your finding.
+      internal static let text = L10n.tr("Localizable", "tour.save.text", fallback: "Tap Save to store your finding.")
+    }
   }
 }
 // swiftlint:enable explicit_type_interface function_parameter_count identifier_name line_length

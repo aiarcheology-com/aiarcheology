@@ -20,7 +20,6 @@ final class BrowserRevampUITests: XCTestCase {
 		static let floatingToggle = "_AIA:Button.FloatingChromeToggle"
 		static let drawerSettings = "_AIA:Button.DrawerSettings"
 		static let settingsDismiss = "_AIA:Button.SettingsDismiss"
-		static let slideshowSwipePrefix = "_AIA:Button.SlideshowSwipeRight"
 	}
 
 	override func setUpWithError() throws {
@@ -38,20 +37,8 @@ final class BrowserRevampUITests: XCTestCase {
 			app.launchEnvironment["UI_TEST_CONFIG"] = String(data: data, encoding: .utf8)
 		}
 		app.launch()
-
-		// First launch shows the welcome slideshow. Its dismiss modifier renders
-		// inside a navigation bar the sheet doesn't have, so drag the sheet down
-		// the way a user would.
-		let slideshow = app.buttons.matching(
-			NSPredicate(format: "identifier BEGINSWITH %@", Identifier.slideshowSwipePrefix)
-		).firstMatch
-		if slideshow.waitForExistence(timeout: 5) {
-			app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.12)).press(
-				forDuration: 0.1,
-				thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95))
-			)
-			_ = waitForDisappearance(of: slideshow, timeout: 5)
-		}
+		// The onboarding tour does not auto-start under UI tests (it is opt-in via
+		// `startOnboardingTour`), so the chrome is reachable immediately.
 		return app
 	}
 

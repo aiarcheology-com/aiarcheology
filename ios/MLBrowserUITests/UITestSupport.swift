@@ -22,8 +22,8 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 2
-	var presentWizard: Bool?
+	var version = 3
+	var startOnboardingTour: Bool?
 	var pageScenario: PageScenario?
 	var defaultPageOverride: String?
 	var lastPage: String?
@@ -45,6 +45,7 @@ enum AID {
 	static let cpDeviceIdiom = "_AIA:Checkpoint.DeviceIdiom"
 	static let cpCurrentPageFile = "_AIA:Checkpoint.CurrentPageFile"
 	static let cpDetectionCount = "_AIA:Checkpoint.DetectionCount"
+	static let cpDetectionFrameApplied = "_AIA:Checkpoint.DetectionFrameApplied"
 
 	// Top toolbar (real Buttons)
 	static let cpu = "_AIA:Button.GlobalToolbarSideMenu"
@@ -82,7 +83,7 @@ enum AID {
 	static let settingsHistoryLimit = "_AIA:TextField.SettingsHistoryLimit"
 	static let settingsHistory = "_AIA:NavigationLink.SettingsHistory"
 	static let settingsAbout = "_AIA:NavigationLink.SettingsAbout"
-	static let settingsIntroduction = "_AIA:NavigationLink.SettingsIntroduction"
+	static let settingsReplayOnboarding = "_AIA:Button.SettingsReplayOnboarding"
 	static let settingsDeleteCache = "_AIA:Button.SettingsDeleteCache"
 	static let settingsRestoreDefaults = "_AIA:Button.SettingsRestoreDefaults"
 
@@ -92,13 +93,21 @@ enum AID {
 	static let historyItem = "_AIA:Label.BrowsingHistoryItem"
 	static let configDescription = "_AIA:Label.SideMenuCellDescription"
 
+	// Onboarding tour (AIA-0333)
+	static let tourBubble = "_AIA:View.TourBubble"
+	static let tourSkip = "_AIA:Button.TourSkip"
+	static let tourNext = "_AIA:Button.TourNext"
+	static let cpTourStep = "_AIA:Checkpoint.TourStep"
+
+	// Save-finding sheet (AIA-0333 capture step)
+	static let saveFindingTitle = "_AIA:TextField.SaveFindingTitle"
+	static let saveFindingSave = "_AIA:Button.SaveFindingSave"
+
 	// Location / address sheet
 	static let locationInput = "_AIA:TextField.LocationSheetInput"
 	static let locationDismiss = "_AIA:Button.LocationSheetDismiss"
 	static let locationHistoryItem = "_AIA:Button.LocationSheetHistoryItem"
 	static let locationFullUrls = "_AIA:Button.LocationSheetFullUrls"
-
-	static func slide(_ index: Int) -> String { "_AIA:View.SlideshowSlide#\(index)" }
 }
 
 // MARK: - Base case

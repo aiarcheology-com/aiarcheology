@@ -11,6 +11,13 @@ import OSLog
 
 @MainActor
 final class DemoDataManager {
+    // The Czech ČÚZK "Analýzy výškopisu" DMR 5G grayscale-hillshade relief page, seeded into the
+    // demo history and loaded into the address bar when the onboarding tour starts (AIA-0333) — the
+    // tour's first step points at it. (Replaces the Bavaria geoportal, which had upstream outages.)
+    // Known-valid literal URL; the force-unwrap can't fail.
+    // swiftlint:disable:next force_unwrapping
+    static let onboardingDemoPage = URL(string: "https://ags.cuzk.cz/av/?zvd=dmr5g&rf=GrayscaleHillshade&o=0")!
+
     let dataController: DataController
 
     /// Re-entrancy guard to ensure demo data creation runs only once
@@ -91,10 +98,9 @@ final class DemoDataManager {
         let pages: [String] = [
             "https://windrosen.hessen.de/mapapps/resources/apps/windrosen/index.html?lang=en&vm=2D&s=1500000&r=0&c=550000%2C5595000&bm=orthofotos_schummerung",
             "https://zbgis.skgeodesy.sk/mkzbgis/sk/teren",
-            "https://geoportal.bayern.de/bayernatlas/?topic=ba&lang=de&bgLayer=voidLayer&zoom=3&w=100%25&h=500px&E=651597.27&N=5461429.48&layers=KML%7C%7Chttps:%2F%2Fwww.geodaten.bayern.de%2Fdownload%2Fuebersicht_DGM%2FLaserscanningbefliegungen.kml%7C%7Ctrue,relief_t&catalogNodes=11,12,121&layers_visibility=false,true",
+            Self.onboardingDemoPage.absoluteString,
             "https://www.geoland.at/webgisviewer/geoland/map/Geoland_Viewer/Geoland?fbclid=IwAR3hGN0L39GRBEXx1rfdBjo_M5HthBjurMS6fR50JnEJ1aDJ2pmblfTGHoo",
-            "https://houseprices.io/lab/lidar/map",
-            "https://ags.cuzk.cz/av/?zvd=dmr5g&rf=GrayscaleHillshade&o=0"
+            "https://houseprices.io/lab/lidar/map"
         ]
 
         // Use background context for batch creation to avoid blocking UI

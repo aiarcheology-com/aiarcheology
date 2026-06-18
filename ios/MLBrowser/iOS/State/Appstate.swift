@@ -34,7 +34,11 @@ final class AppState: ObservableObject {
 	lazy var downloader: Downloader = DependencyContainer.shared.downloader
     
     lazy var demoDataManager: DemoDataManager = DependencyContainer.shared.demoDataManager
-	
+
+	/// Interactive onboarding spotlight tour (AIA-0333). Replaces the old slideshow as the
+	/// first-launch experience and is re-runnable from Settings.
+	lazy var tour = TourState()
+
 	/// Indicates whether the app initialization is complete
 	@Published private(set) var isReady = false
 	
@@ -51,6 +55,14 @@ final class AppState: ObservableObject {
 		
 		// 2. Create demo data if needed (checked against Core Data, not UserDefaults)
 		await demoDataManager.createDemoDataIfNeeded()
+
+		// 2b. First-launch onboarding tour (AIA-0333). Decided here — before `isReady` flips
+		// and the UI appears — so the onboarding demo page is staged deterministically ahead of
+		// WebScreen's initial load (no race). UI-test launches start the tour from ContentView
+		// via the launch flag instead, so skip the production auto-start path here.
+		if AppEnvironment.isRunningUITests == false, tour.migrateAndAutostartIfNeeded() {
+			settings.onboardingInitialPage = DemoDataManager.onboardingDemoPage
+		}
 
 		// 3. Start recording the browsing trail (lazy — must be touched to subscribe)
 		_ = visitTrail

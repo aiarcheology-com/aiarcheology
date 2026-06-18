@@ -9,12 +9,6 @@ import SwiftUI
 import Combine
 import OSLog
 
-private enum ActiveSheet: Identifiable {
-    case slideshow
-
-    var id: Int { hashValue }
-}
-
 struct ContentView: View {
     // environment:
     @Environment(\.dismiss) var dismiss
@@ -31,7 +25,6 @@ struct ContentView: View {
     @State private var contrast = SnapAdjustment.defaultContrast
     @State private var saturation = SnapAdjustment.defaultSaturation
     @State private var showSnapAdjustment = false
-    @State private var activeSheet: ActiveSheet?
     // Fullscreen detection mode (one-way bridges from Guide; the view only reads):
     @State private var detectionEnabled = false
     @State private var chromeVisible = true
@@ -53,15 +46,16 @@ struct ContentView: View {
         } menu: {
             DrawerContent()
                 .environment(drawer)
+                .environment(appState.tour)
                 .environmentObject(appState.guide)
                 .environmentObject(appState.deep)
                 .environmentObject(appState.downloader)
                 .environmentObject(appState.settings)
         }
         .environment(drawer)
-        .sheet(item: $activeSheet) { sheet in
-            sheetContent(for: sheet)
-        }
+        // The single root attachment of the onboarding tour overlay (AIA-0333). Inert while
+        // the tour is inactive.
+        .tourOverlay(appState.tour)
         .onReceive(appState.guide.$showSnapAdjustment) { show in
             // Bridge from Guide's showSnapAdjustment to local state for proper observation
             showSnapAdjustment = show
@@ -73,6 +67,13 @@ struct ContentView: View {
         }
         .onReceive(appState.guide.$ontheflyDetectionEnabled) { enabled in
             withAnimation { detectionEnabled = enabled }
+            // Tour hook (AIA-0333): detection starting fulfills the PLAY step → reveal Next.
+            appState.tour.evaluate()
+        }
+        .onReceive(appState.guide.$findModeRequested) { requested in
+            // Tour hook (AIA-0333): `findModeRequested` is a transient pulse (reset to false by
+            // WebScreen), so act on the pulse value rather than polling it later.
+            if requested { appState.tour.pickModeDidStart() }
         }
         .onReceive(appState.guide.$chromeVisible) { visible in
             withAnimation { chromeVisible = visible }
@@ -94,6 +95,10 @@ struct ContentView: View {
             }
         }
         .onChange(of: drawer.isOpen) { _, isOpen in
+            // Tour hook (AIA-0333): re-evaluate the active step on any drawer change. In this
+            // slice only the user opens the drawer, so advancing the `.drawerOpened` step
+            // regardless of initiator is correct.
+            appState.tour.evaluate()
             // Sync drawer state back to Guide for any dependent code
             // Guard against sync loops
             guard appState.guide.presentedSideMenu != isOpen else { return }
@@ -119,9 +124,11 @@ struct ContentView: View {
     
     // MARK: - Main Content
 
-    /// Fullscreen = detection running with chrome hidden, on the web tab only.
+    /// Fullscreen = detection running with chrome hidden, on the web tab only. Suppressed while
+    /// the onboarding tour is active so the toolbar (PLAY / Find) stays visible (AIA-0333); the
+    /// user's `fullscreenDetection` setting is untouched.
     private var fullscreenActive: Bool {
-        detectionEnabled && chromeVisible.not && selectedMode == .web
+        detectionEnabled && chromeVisible.not && selectedMode == .web && appState.tour.isActive.not
     }
 
     private var mainContent: some View {
@@ -146,7 +153,7 @@ struct ContentView: View {
     }
 
     private func modeTab(_ mode: AppMode) -> some View {
-        ViewContainer(barsHidden: detectionEnabled && chromeVisible.not && mode == .web, {
+        ViewContainer(barsHidden: detectionEnabled && chromeVisible.not && mode == .web && appState.tour.isActive.not, {
             modeScreen(mode)
         },
         leadingItems: {
@@ -208,40 +215,36 @@ struct ContentView: View {
     // is hit-testable, all other touches reach the web view.
     @ViewBuilder
     private var floatingChromeButton: some View {
-        if detectionEnabled && fullscreenFeatureEnabled && selectedMode == .web {
+        if detectionEnabled && fullscreenFeatureEnabled && selectedMode == .web && appState.tour.isActive.not {
             FloatingChromeButton(position: $floatingButtonPosition)
                 .environmentObject(appState.guide)
                 .transition(.opacity)
         }
     }
     
-    // MARK: - Sheets
-    
-    @ViewBuilder
-    private func sheetContent(for sheet: ActiveSheet) -> some View {
-        switch sheet {
-        case .slideshow:
-            SlideshowView()
-                .centerInParentView()
-                .environmentObject(appState.settings)
-        }
-    }
-    
     // MARK: - Lifecycle
-    
+
     private func handleOnAppear() {
         // Should be called only once after the app start
         guard appState.snap.delayedTimer.not else { return }
-        
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
             if appState.settings.snapAfterAppStart {
                 appState.guide.ontheflyDetectionTapped()
             }
             appState.snap.delayedTimer = true
         }
-        
-        if appState.settings.keepSlideShowActive {
-            activeSheet = .slideshow
+
+        // Onboarding tour (AIA-0333): bind the live drawer. Under UI tests the tour starts
+        // only when a test explicitly opts in via `startOnboardingTour`, so the overlay never
+        // covers the chrome other tests assert against. In shipping, run the first-launch
+        // gate/migration decision.
+        // The production auto-start decision runs earlier, in `AppState.initialize()`, so the
+        // onboarding demo page is staged before this view appears. Here we only bind the live
+        // drawer and honor the UI-test launch flag.
+        appState.tour.bind(drawer: drawer, guide: appState.guide)
+        if AppEnvironment.isRunningUITests, UITestLaunchConfiguration.shouldStartOnboardingTour {
+            appState.tour.start()
         }
     }
 }

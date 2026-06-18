@@ -182,6 +182,18 @@ struct WebScreenView: View {
                     if loadRequest.fileURL != fixtureURL {
                         loadRequest = loadRequest.nextFile(fixtureURL)
                     }
+                } else if let onboardingPage = appState.settings.onboardingInitialPage?.absoluteString {
+                    // First-launch onboarding (AIA-0333): load the demo page the tour points at,
+                    // taking precedence over the home page. Set deterministically before the UI
+                    // appears, so it never races the default-page load.
+                    intendedPageKind = "onboarding"
+                    if loadRequest.input != onboardingPage {
+                        loadRequest = loadRequest.next(onboardingPage)
+                    }
+                    createOrRefreshWebHistoryEntry(onboardingPage, maxEntries: appState.settings.historySize)
+                    // One-shot: clear it so a later WebScreen re-creation (tab/mode switch) doesn't
+                    // re-force the onboarding page over the user's real home/last page.
+                    appState.settings.onboardingInitialPage = nil
                 } else if
                     appState.settings.reopenLastPage.enabled,
                     let lastPage = appState.settings.lastPage {
@@ -217,6 +229,10 @@ struct WebScreenView: View {
             currentPageFile = url?.lastPathComponent ?? ""
         }
         .checkpoint(.currentPageFile, value: currentPageFile)
+        // Surfaces whether detection has applied a frame yet, so UI tests can wait for it before a
+        // manual finding pick (which uses the applied frame synchronously, avoiding the fragile
+        // fresh-snapshot fallback) — AIA-0333.
+        .checkpoint(.detectionFrameApplied, value: (appliedFrame != nil).description)
         .sheet(isPresented: $presentLocationSheet) {
             LocationSheetView(currentURL: appState.browserState.displayedURL?.absoluteString) { input in
                 openRequested(input)
@@ -229,8 +245,11 @@ struct WebScreenView: View {
             // its immediate snapshot replaces the frozen frame right away.
             isCapturingFinding = false
             appState.guide.findingCaptureEnded()
+            // Tour (AIA-0333): a dismiss without a save returns to the capture step (no-op once
+            // the finding was saved, which already advanced the step).
+            appState.tour.captureCancelled()
         }) { capture in
-            SaveFindingSheet(capture: capture)
+            SaveFindingSheet(capture: capture, tour: appState.tour)
         }
         .onReceive(appState.guide.$pageToOpen) { url in
             // A finding's "open page" action lands here (the findings UI cannot
@@ -507,6 +526,7 @@ private struct WebAddressDisplay: View {
 		// VoiceOver reads the actual URL, not just the affordance.
 		.accessibilityLabel(urlText)
 		.testability(Testability.Button.webScreenAddressBar)
+		.tourTarget(.addressBar)
 	}
 }
 

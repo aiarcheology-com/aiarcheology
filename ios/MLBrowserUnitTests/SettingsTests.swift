@@ -27,12 +27,6 @@ final class SettingsTests: XCTestCase {
     
     // MARK: - Initialization Tests
     
-    func testSettings_DefaultKeepSlideShowActive_IsTrue() {
-        let freshSettings = Settings()
-        // Default value in Settings init is true
-        XCTAssertTrue(freshSettings.keepSlideShowActive)
-    }
-    
     func testSettings_DefaultHistorySize_Is30() {
         settings.reset()
         XCTAssertEqual(settings.historySize, 30)
@@ -91,14 +85,6 @@ final class SettingsTests: XCTestCase {
     }
     
     // MARK: - Property Update Tests
-    
-    func testSettings_UpdatingKeepSlideShowActive_PersistsValue() {
-        settings.keepSlideShowActive = false
-        XCTAssertFalse(settings.keepSlideShowActive)
-        
-        settings.keepSlideShowActive = true
-        XCTAssertTrue(settings.keepSlideShowActive)
-    }
     
     func testSettings_UpdatingHistorySize_PersistsValue() {
         settings.historySize = 50
@@ -310,7 +296,6 @@ final class SettingsTests: XCTestCase {
     func testReset_RestoresAllDefaultValues() {
         // Modify all values first
         settings.isDetectionPaused = true
-        settings.keepSlideShowActive = false
         settings.historySize = 100
         settings.reopenLastPage = true
         settings.isFirstLaunchMarked = true
@@ -328,7 +313,6 @@ final class SettingsTests: XCTestCase {
         
         // Verify defaults are restored
         XCTAssertFalse(settings.isDetectionPaused)
-        XCTAssertTrue(settings.keepSlideShowActive)
         XCTAssertEqual(settings.historySize, 30)
         XCTAssertFalse(settings.reopenLastPage)
         XCTAssertFalse(settings.isFirstLaunchMarked)
@@ -354,13 +338,11 @@ final class SettingsTests: XCTestCase {
     // MARK: - Integration Tests
     
     func testSettings_MultiplePropertyChanges_AllPersist() {
-        settings.keepSlideShowActive = false
         settings.historySize = 50
         settings.snapFrequency = 5.5
         settings.reopenLastPage = true
         settings.showIdentifiers = true
         
-        XCTAssertFalse(settings.keepSlideShowActive)
         XCTAssertEqual(settings.historySize, 50)
         XCTAssertEqual(settings.snapFrequency, 5.5)
         XCTAssertTrue(settings.reopenLastPage)

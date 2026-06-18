@@ -7,13 +7,28 @@
     " %@|" : {
 
     },
-    "/ %@" : {
-
-    },
     "%.2f" : {
 
     },
+    "/ %@" : {
+
+    },
     "0-100" : {
+
+    },
+    "Add Model" : {
+
+    },
+    "Help" : {
+
+    },
+    "Loading..." : {
+
+    },
+    "Model Imported" : {
+
+    },
+    "Version %@" : {
 
     },
     "about.copyright" : {
@@ -1083,9 +1098,6 @@
           }
         }
       }
-    },
-    "Add Model" : {
-
     },
     "adjustment.brightness" : {
       "comment" : "Brightness slider label",
@@ -3631,18 +3643,6 @@
         }
       }
     },
-    "common.share" : {
-      "comment" : "Generic share action",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Share"
-          }
-        }
-      }
-    },
     "common.reset" : {
       "comment" : "Generic reset action",
       "extractionState" : "manual",
@@ -3747,6 +3747,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重置"
+          }
+        }
+      }
+    },
+    "common.share" : {
+      "comment" : "Generic share action",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share"
           }
         }
       }
@@ -6907,114 +6919,6 @@
         }
       }
     },
-    "downloadState.imported" : {
-      "comment" : "Download state: imported",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تم الاستيراد"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "আমদানি করা হয়েছে"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Importováno"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Importiert"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Imported"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Importado"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "وارد شد"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Importé"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "יובא"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "आयात किया गया"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Importálva"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zaimportowano"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Импортировано"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Імпортовано"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已导入"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已匯入"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已匯入"
-          }
-        }
-      }
-    },
     "downloadState.importFailed" : {
       "comment" : "Download state: import failed",
       "extractionState" : "manual",
@@ -7119,6 +7023,114 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "匯入失敗"
+          }
+        }
+      }
+    },
+    "downloadState.imported" : {
+      "comment" : "Download state: imported",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "تم الاستيراد"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "আমদানি করা হয়েছে"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importováno"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importiert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importado"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "وارد شد"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importé"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "יובא"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "आयात किया गया"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importálva"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zaimportowano"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Импортировано"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Імпортовано"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已导入"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已匯入"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已匯入"
           }
         }
       }
@@ -7387,93 +7399,6 @@
         }
       }
     },
-    "finding.share.title" : {
-      "comment" : "Navigation title of the share-composer sheet",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : { "state" : "translated", "value" : "Share Finding" }
-        }
-      }
-    },
-    "finding.share.theme" : {
-      "comment" : "Picker label: light vs dark share card",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : { "state" : "translated", "value" : "Theme" }
-        }
-      }
-    },
-    "finding.share.layout" : {
-      "comment" : "Picker label: portrait vs landscape share card",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : { "state" : "translated", "value" : "Layout" }
-        }
-      }
-    },
-    "finding.share.light" : {
-      "comment" : "Light theme option for the share card",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : { "state" : "translated", "value" : "Light" }
-        }
-      }
-    },
-    "finding.share.dark" : {
-      "comment" : "Dark theme option for the share card",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : { "state" : "translated", "value" : "Dark" }
-        }
-      }
-    },
-    "finding.share.portrait" : {
-      "comment" : "Portrait layout option for the share card",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : { "state" : "translated", "value" : "Portrait" }
-        }
-      }
-    },
-    "finding.share.landscape" : {
-      "comment" : "Landscape layout option for the share card",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : { "state" : "translated", "value" : "Landscape" }
-        }
-      }
-    },
-    "finding.title" : {
-      "comment" : "Title section header in the save-finding and finding-detail dialogs (the finding's required name)",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Title"
-          }
-        }
-      }
-    },
-    "finding.titlePlaceholder" : {
-      "comment" : "Placeholder for the required finding title field",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Name this finding"
-          }
-        }
-      }
-    },
     "finding.label" : {
       "comment" : "Label section title in the save-finding dialog",
       "extractionState" : "manual",
@@ -7582,6 +7507,114 @@
         }
       }
     },
+    "finding.share.dark" : {
+      "comment" : "Dark theme option for the share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dark"
+          }
+        }
+      }
+    },
+    "finding.share.landscape" : {
+      "comment" : "Landscape layout option for the share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Landscape"
+          }
+        }
+      }
+    },
+    "finding.share.layout" : {
+      "comment" : "Picker label: portrait vs landscape share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Layout"
+          }
+        }
+      }
+    },
+    "finding.share.light" : {
+      "comment" : "Light theme option for the share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Light"
+          }
+        }
+      }
+    },
+    "finding.share.portrait" : {
+      "comment" : "Portrait layout option for the share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Portrait"
+          }
+        }
+      }
+    },
+    "finding.share.theme" : {
+      "comment" : "Picker label: light vs dark share card",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theme"
+          }
+        }
+      }
+    },
+    "finding.share.title" : {
+      "comment" : "Navigation title of the share-composer sheet",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share Finding"
+          }
+        }
+      }
+    },
+    "finding.title" : {
+      "comment" : "Title section header in the save-finding and finding-detail dialogs (the finding's required name)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Title"
+          }
+        }
+      }
+    },
+    "finding.titlePlaceholder" : {
+      "comment" : "Placeholder for the required finding title field",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name this finding"
+          }
+        }
+      }
+    },
     "finding.zoom" : {
       "comment" : "Accessibility label of the crop zoom slider in the save-finding dialog",
       "extractionState" : "manual",
@@ -7618,18 +7651,6 @@
         }
       }
     },
-    "findings.filter.all" : {
-      "comment" : "Filter chip that shows all findings",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All"
-          }
-        }
-      }
-    },
     "findings.export" : {
       "comment" : "Toolbar button that exports the filtered findings as a ZIP",
       "extractionState" : "manual",
@@ -7650,6 +7671,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Could not export the findings."
+          }
+        }
+      }
+    },
+    "findings.filter.all" : {
+      "comment" : "Filter chip that shows all findings",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
           }
         }
       }
@@ -7677,9 +7710,6 @@
           }
         }
       }
-    },
-    "Help" : {
-
     },
     "history.clear.button" : {
       "comment" : "Button text to clear history",
@@ -10150,12 +10180,6 @@
         }
       }
     },
-    "Loading..." : {
-
-    },
-    "Model Imported" : {
-
-    },
     "models.available.title" : {
       "comment" : "Section header for available ML models list",
       "extractionState" : "manual",
@@ -11884,114 +11908,6 @@
         }
       }
     },
-    "settings.introduction" : {
-      "comment" : "Navigation link to introduction/slideshow",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "مقدمة"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ভূমিকা"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Úvod"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Einführung"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Introduction"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Introducción"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "معرفی"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Introduction"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "היכרות"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "परिचय"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bevezetés"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wprowadzenie"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Введение"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Вступ"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "简介"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "簡介"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "簡介"
-          }
-        }
-      }
-    },
     "settings.reopenLastPage" : {
       "comment" : "Toggle for reopen last page setting",
       "extractionState" : "manual",
@@ -12096,6 +12012,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重新開啟上一頁"
+          }
+        }
+      }
+    },
+    "settings.replayOnboarding" : {
+      "comment" : "AIA-0333 settings: replay the onboarding tour",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replay onboarding"
           }
         }
       }
@@ -13072,114 +13000,6 @@
         }
       }
     },
-    "settings.showNextTime" : {
-      "comment" : "Toggle for show intro next time setting",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إظهار في المرة القادمة"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "পরের বার দেখান"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zobrazit příště"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nächstes Mal anzeigen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show next time"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mostrar la próxima vez"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "نمایش دفعه بعد"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Afficher la prochaine fois"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "הצג בפעם הבאה"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "अगली बार दिखाएं"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Megjelenítés legközelebb"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pokaż następnym razem"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Показать в следующий раз"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Показати наступного разу"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下次显示"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下次顯示"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下次顯示"
-          }
-        }
-      }
-    },
     "settings.tiledDetection" : {
       "comment" : "Toggle for tiled detection (detect over 4 quadrants + center + full frame instead of one full-frame pass)",
       "extractionState" : "manual",
@@ -13296,2166 +13116,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "設定"
-          }
-        }
-      }
-    },
-    "slideshow.slide0.description" : {
-      "comment" : "Slideshow slide 0 description - Welcome",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "يجمع التطبيق بين تجربة التصفح واكتشاف الأشياء المدعومة داخل محتوى الويب."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "অ্যাপ্লিকেশনটি ওয়েব কন্টেন্টের মধ্যে সহায়ক অবজেক্ট ডিটেকশনের সাথে ব্রাউজিং অভিজ্ঞতা একত্রিত করে।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aplikace kombinuje prohlížení s asistovanou detekcí objektů ve webovém obsahu."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Anwendung kombiniert das Browser-Erlebnis mit unterstützter Objekterkennung in Webinhalten."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The application combines the browsing experience with assisted object detection within web content."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La aplicación combina la experiencia de navegación con la detección asistida de objetos dentro del contenido web."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "این برنامه تجربه مرور را با تشخیص اشیاء کمکی در محتوای وب ترکیب می‌کند."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'application combine l'expérience de navigation avec la détection d'objets assistée dans le contenu Web."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "היישום משלב את חוויית הגלישה עם זיהוי אובייקטים מסייע בתוכן אינטרנט."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "एप्लिकेशन वेब सामग्री के भीतर सहायता प्राप्त ऑब्जेक्ट डिटेक्शन के साथ ब्राउज़िंग अनुभव को जोड़ता है।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Az alkalmazás a böngészési élményt egyesíti a webes tartalmak segített objektumfelismerésével."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aplikacja łączy przeglądanie z asystowanym wykrywaniem obiektów w treści internetowej."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Приложение сочетает в себе опыт просмотра с помощью обнаружения объектов в веб-контенте."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Застосунок поєднує досвід перегляду з допоміжним виявленням об'єктів у веб-вмісті."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "该应用将浏览体验与网页内容中的辅助对象检测相结合。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "該應用程式將瀏覽體驗與網頁內容中的輔助物件偵測相結合。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "該應用程式將瀏覽體驗與網頁內容中的輔助物件偵測相結合。"
-          }
-        }
-      }
-    },
-    "slideshow.slide0.title" : {
-      "comment" : "Slideshow slide 0 title - Welcome",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "مرحباً بك في ML Browser"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ML Browser এ স্বাগতম"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vítejte v ML Browser"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Willkommen bei ML Browser"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Welcome to ML Browser"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bienvenido a ML Browser"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "به مرورگر ML خوش آمدید"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bienvenue dans ML Browser"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ברוכים הבאים לדפדפן ML"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ML Browser में आपका स्वागत है"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Üdvözöljük az ML Browser alkalmazásban"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Witamy w ML Browser"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Добро пожаловать в ML Browser"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ласкаво просимо до ML Browser"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "欢迎使用 ML Browser"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "歡迎使用 ML Browser"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "歡迎使用 ML Browser"
-          }
-        }
-      }
-    },
-    "slideshow.slide1.description" : {
-      "comment" : "Slideshow slide 1 description - Open a Web Page",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "يمكنك فتح أي صفحة ويب، على غرار الطريقة التي تستخدمها في متصفح الويب، مع المحتوى الذي ترغب في اختباره باستخدام نموذج الكشف عن الكائنات الخاص بك."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "আপনি যে কোনো ওয়েব পেজ খুলতে পারেন, ঠিক যেভাবে আপনি একটি ওয়েব ব্রাউজারে খুলবেন, যে কন্টেন্ট আপনি আপনার অবজেক্ট ডিটেকশন মডেল ব্যবহার করে পরীক্ষা করতে চান।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Můžete otevřít jakoukoli webovou stránku podobně jako v webovém prohlížeči s obsahem, který chcete otestovat pomocí svého detekčního modelu."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sie können jede Webseite öffnen, ähnlich wie in einem Webbrowser, mit Inhalten, die Sie mit Ihrem Objekterkennungsmodell testen möchten."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can open any web page, similar to how you would in a web browser, with content you wish to test using your object detection model."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Puede abrir cualquier página web, de manera similar a como lo haría en un navegador web, con contenido que desee probar usando su modelo de detección de objetos."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "می‌توانید هر صفحه وب را باز کنید، مشابه مرورگر وب، با محتوایی که می‌خواهید با مدل تشخیص اشیاء خود آزمایش کنید."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous pouvez ouvrir n'importe quelle page Web, de la même manière que dans un navigateur Web, avec du contenu que vous souhaitez tester à l'aide de votre modèle de détection d'objets."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "אתה יכול לפתוח כל דף אינטרנט, בדומה לאופן שבו היית עושה בדפדפן אינטרנט, עם תוכן שברצונך לבדוק באמצעות מודל זיהוי האובייקטים שלך."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "आप किसी भी वेब पेज को खोल सकते हैं, जैसे कि आप वेब ब्राउज़र में करते हैं, उस सामग्री के साथ जिसे आप अपने ऑब्जेक्ट डिटेक्शन मॉडल का उपयोग करके परीक्षण करना चाहते हैं।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bármelyik weboldalt megnyithatja, hasonlóan ahhoz, ahogy egy webböngészőben tenné, olyan tartalommal, amelyet az objektumfelismerő modelljével szeretne tesztelni."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Możesz otworzyć dowolną stronę internetową, podobnie jak w przeglądarce internetowej, z treścią, którą chcesz przetestować przy użyciu modelu wykrywania obiektów."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Вы можете открыть любую веб-страницу, аналогично тому, как вы делаете это в веб-браузере, с содержимым, которое вы хотите протестировать с помощью вашей модели обнаружения объектов."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ви можете відкрити будь-яку веб-сторінку, подібно до того, як ви робите це у веб-браузері, зі вмістом, який ви хочете перевірити за допомогою вашої моделі виявлення об'єктів."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "您可以打开任何网页，就像在网页浏览器中一样，使用您想要测试的内容和对象检测模型。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "您可以開啟任何網頁，就像在網頁瀏覽器中一樣，使用您想要測試的內容和物件偵測模型。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "您可以開啟任何網頁，就像在網頁瀏覽器中一樣，使用您想要測試的內容和物件偵測模型。"
-          }
-        }
-      }
-    },
-    "slideshow.slide1.title" : {
-      "comment" : "Slideshow slide 1 title - Open a Web Page",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "افتح صفحة ويب"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "একটি ওয়েব পেজ খুলুন"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Otevřít webovou stránku"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eine Webseite öffnen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open a Web Page"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abrir una página web"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "یک صفحه وب باز کنید"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrir une page Web"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "פתח דף אינטרנט"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "एक वेब पेज खोलें"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Weboldal megnyitása"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Otwórz stronę internetową"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Открыть веб-страницу"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Відкрити веб-сторінку"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "打开网页"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "開啟網頁"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "開啟網頁"
-          }
-        }
-      }
-    },
-    "slideshow.slide2.description" : {
-      "comment" : "Slideshow slide 2 description - Pick from history",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ابدأ الكتابة في شريط العنوان وسترى صفحات من سجلك."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ঠিকানা বারে লেখা শুরু করুন এবং আপনি আপনার ইতিহাস থেকে পৃষ্ঠা দেখতে পাবেন।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Začněte psát do adresního řádku a uvidíte stránky ze své historie."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Beginnen Sie mit der Eingabe in der Adressleiste und Sie sehen Seiten aus Ihrem Verlauf."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Start to write in the address bar and you will see pages from your history."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comience a escribir en la barra de direcciones y verá páginas de su historial."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "شروع به نوشتن در نوار آدرس کنید و صفحاتی از تاریخچه خود را خواهید دید."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Commencez à écrire dans la barre d'adresse et vous verrez des pages de votre historique."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "התחל לכתוב בשורת הכתובת ותראה דפים מההיסטוריה שלך."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "पता बार में लिखना शुरू करें और आप अपने इतिहास से पृष्ठ देखेंगे।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kezdjen el írni a címsorba, és látni fogja az előzményeiből származó oldalakat."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zacznij pisać na pasku adresu, a zobaczysz strony ze swojej historii."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Начните вводить в адресную строку, и вы увидите страницы из вашей истории."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Почніть вводити в адресному рядку, і ви побачите сторінки з вашої історії."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在地址栏中开始输入，您将看到历史记录中的页面。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在位址列中開始輸入，您將看到歷史記錄中的頁面。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在位址列中開始輸入，您將看到歷史記錄中的頁面。"
-          }
-        }
-      }
-    },
-    "slideshow.slide2.title" : {
-      "comment" : "Slideshow slide 2 title - Pick from history",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "اختر صفحة من سجل التصفح"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ব্রাউজিং ইতিহাস থেকে একটি পৃষ্ঠা নির্বাচন করুন"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vyberte stránku z historie procházení"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Seite aus dem Verlauf auswählen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pick a page from the browsing history"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Elija una página del historial de navegación"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "یک صفحه از تاریخچه مرور انتخاب کنید"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choisir une page dans l'historique de navigation"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "בחר דף מהיסטוריית הגלישה"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ब्राउज़िंग इतिहास से एक पृष्ठ चुनें"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Válasszon egy oldalt a böngészési előzményekből"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wybierz stronę z historii przeglądania"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Выберите страницу из истории просмотров"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Виберіть сторінку з історії перегляду"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "从历史记录中选择页面"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "從歷史記錄中選擇頁面"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "從歷史記錄中選擇頁面"
-          }
-        }
-      }
-    },
-    "slideshow.slide3.description" : {
-      "comment" : "Slideshow slide 3 description - Add a New Model",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "التطبيق قادر على العمل مع نماذج اكتشاف Create ML. انقر على أيقونة المعالج في الزاوية اليسرى العليا، ثم علامة الجمع لإضافة نموذج جديد."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "অ্যাপ্লিকেশনটি Create ML ডিটেকশন মডেলের সাথে কাজ করতে সক্ষম। উপরের বাম কোণে প্রসেসর আইকনে ক্লিক করুন, এবং তারপর নতুন মডেল যোগ করতে প্লাস চিহ্নে ক্লিক করুন।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aplikace je schopna pracovat s detekčními modely Create ML. Klikněte na ikonu procesoru v levém horním rohu a poté na znaménko plus pro přidání nového modelu."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Anwendung kann mit Create ML Erkennungsmodellen arbeiten. Klicken Sie auf das Prozessor-Symbol oben links und dann auf das Pluszeichen, um ein neues Modell hinzuzufügen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The application is capable of working with Create ML detection models. Click the processor icon in the top left corner, and then plus sign to add a new model."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La aplicación es capaz de trabajar con modelos de detección Create ML. Haga clic en el icono del procesador en la esquina superior izquierda y luego en el signo más para agregar un nuevo modelo."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "این برنامه قادر به کار با مدل‌های تشخیص Create ML است. روی آیکون پردازنده در گوشه بالا سمت چپ کلیک کنید، سپس علامت مثبت برای افزودن مدل جدید."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'application est capable de fonctionner avec les modèles de détection Create ML. Cliquez sur l'icône du processeur dans le coin supérieur gauche, puis sur le signe plus pour ajouter un nouveau modèle."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "היישום מסוגל לעבוד עם מודלי זיהוי של Create ML. לחץ על סמל המעבד בפינה השמאלית העליונה, ואז על סימן הפלוס כדי להוסיף מודל חדש."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "एप्लिकेशन Create ML डिटेक्शन मॉडल के साथ काम करने में सक्षम है। ऊपरी बाएं कोने में प्रोसेसर आइकन पर क्लिक करें, और फिर एक नया मॉडल जोड़ने के लिए प्लस चिह्न पर क्लिक करें।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Az alkalmazás képes Create ML észlelési modellekkel dolgozni. Kattintson a processzor ikonra a bal felső sarokban, majd a plusz jelre új modell hozzáadásához."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aplikacja jest zdolna do pracy z modelami wykrywania Create ML. Kliknij ikonę procesora w lewym górnym rogu, a następnie znak plus, aby dodać nowy model."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Приложение способно работать с моделями обнаружения Create ML. Щелкните значок процессора в верхнем левом углу, а затем знак плюс, чтобы добавить новую модель."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Застосунок здатний працювати з моделями виявлення Create ML. Клацніть значок процесора у верхньому лівому куті, а потім знак плюс, щоб додати нову модель."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "该应用可以使用 Create ML 检测模型。点击左上角的处理器图标，然后点击加号添加新模型。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "該應用程式可以使用 Create ML 偵測模型。點按左上角的處理器圖示，然後點按加號加入新模型。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "該應用程式可以使用 Create ML 偵測模型。點按左上角的處理器圖示，然後點按加號加入新模型。"
-          }
-        }
-      }
-    },
-    "slideshow.slide3.title" : {
-      "comment" : "Slideshow slide 3 title - Add a New Model",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "إضافة نموذج جديد"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "একটি নতুন মডেল যোগ করুন"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Přidat nový model"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ein neues Modell hinzufügen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Add a New Model"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Agregar un nuevo modelo"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "یک مدل جدید اضافه کنید"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajouter un nouveau modèle"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "הוסף מודל חדש"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "एक नया मॉडल जोड़ें"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Új modell hozzáadása"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dodaj nowy model"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Добавить новую модель"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Додати нову модель"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加新模型"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "加入新模型"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "加入新模型"
-          }
-        }
-      }
-    },
-    "slideshow.slide4.description" : {
-      "comment" : "Slideshow slide 4 description - Open or download model",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "يمكنك تنزيل أي نموذج اكتشاف Create ML إلى جهاز Apple الخاص بك وتحميله في تطبيق ML Browser. لا يرسل ML Browser نموذجك إلى أي مكان، ولا يجمع المعلومات. يتم استخدام النموذج فقط للتعليقات التوضيحية."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "আপনি আপনার Apple ডিভাইসে যেকোনো Create ML ডিটেকশন মডেল ডাউনলোড করতে এবং ML Browser অ্যাপে লোড করতে পারেন। ML Browser আপনার মডেল কোথাও পাঠায় না, বা তথ্য সংগ্রহ করে না। মডেলটি শুধুমাত্র এনোটেশনের জন্য ব্যবহার করা হয়।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Můžete stáhnout jakýkoli detekční model Create ML do svého zařízení Apple a načíst jej do aplikace ML Browser. ML Browser nikam neposílá váš model ani neshromažďuje informace. Model se používá pouze pro anotace."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sie können jedes Create ML Erkennungsmodell auf Ihr Apple-Gerät herunterladen und in die ML Browser App laden. Der ML Browser sendet Ihr Modell nirgendwohin und sammelt keine Informationen. Das Modell wird nur für die Annotationen verwendet."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can download any Create ML detection model to your Apple device and load it into the ML Browser app. The ML Browser does not send your model anywhere, or collect information. The model is used only for the annotations."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Puede descargar cualquier modelo de detección Create ML en su dispositivo Apple y cargarlo en la aplicación ML Browser. ML Browser no envía su modelo a ninguna parte ni recopila información. El modelo se utiliza solo para las anotaciones."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "می‌توانید هر مدل تشخیص Create ML را به دستگاه اپل خود دانلود کرده و در برنامه مرورگر ML بارگذاری کنید. مرورگر ML مدل شما را به هیچ جا ارسال نمی‌کند و اطلاعاتی جمع‌آوری نمی‌کند. مدل فقط برای حاشیه‌نویسی استفاده می‌شود."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vous pouvez télécharger n'importe quel modèle de détection Create ML sur votre appareil Apple et le charger dans l'application ML Browser. Le ML Browser n'envoie pas votre modèle nulle part et ne collecte pas d'informations. Le modèle est utilisé uniquement pour les annotations."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "אתה יכול להוריד כל מודל זיהוי של Create ML למכשיר Apple שלך ולטעון אותו ליישום דפדפן ML. דפדפן ML אינו שולח את המודל שלך לשום מקום, או אוסף מידע. המודל משמש רק להערות."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "आप अपने Apple डिवाइस पर कोई भी Create ML डिटेक्शन मॉडल डाउनलोड कर सकते हैं और इसे ML Browser ऐप में लोड कर सकते हैं। ML Browser आपके मॉडल को कहीं नहीं भेजता है, या जानकारी एकत्र नहीं करता है। मॉडल का उपयोग केवल एनोटेशन के लिए किया जाता है।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Letölthet bármilyen Create ML észlelési modellt az Apple eszközére, és betöltheti az ML Browser alkalmazásba. Az ML Browser nem küldi el a modelljét sehová, és nem gyűjt információkat. A modellt csak a jegyzetekhez használják."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Możesz pobrać dowolny model wykrywania Create ML na swoje urządzenie Apple i załadować go do aplikacji ML Browser. ML Browser nie wysyła Twojego modelu nigdzie ani nie zbiera informacji. Model jest używany tylko do adnotacji."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Вы можете загрузить любую модель обнаружения Create ML на ваше устройство Apple и загрузить ее в приложение ML Browser. ML Browser не отправляет вашу модель никуда и не собирает информацию. Модель используется только для аннотаций."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ви можете завантажити будь-яку модель виявлення Create ML на свій пристрій Apple і завантажити її в застосунок ML Browser. ML Browser не надсилає вашу модель нікуди і не збирає інформацію. Модель використовується лише для анотацій."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "您可以将任何 Create ML 检测模型下载到您的 Apple 设备并加载到 ML Browser 应用中。ML Browser 不会将您的模型发送到任何地方，也不会收集信息。模型仅用于注释。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "您可以將任何 Create ML 偵測模型下載到您的 Apple 裝置並載入到 ML Browser 應用程式中。ML Browser 不會將您的模型傳送到任何地方，也不會收集資訊。模型僅用於註釋。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "您可以將任何 Create ML 偵測模型下載到您的 Apple 裝置並載入到 ML Browser 應用程式中。ML Browser 不會將您的模型傳送到任何地方，也不會收集資訊。模型僅用於註釋。"
-          }
-        }
-      }
-    },
-    "slideshow.slide4.title" : {
-      "comment" : "Slideshow slide 4 title - Open or download model",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "افتح النموذج من الجهاز، أو قم بتنزيله."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ডিভাইস থেকে মডেল খুলুন, অথবা এটি ডাউনলোড করুন।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Otevřete model ze zařízení nebo jej stáhněte."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modell vom Gerät öffnen oder herunterladen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open the Model from the device, or download it."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abra el modelo desde el dispositivo o descárguelo."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "مدل را از دستگاه باز کنید یا دانلود کنید."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ouvrez le modèle depuis l'appareil ou téléchargez-le."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "פתח את המודל מהמכשיר, או הורד אותו."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "डिवाइस से मॉडल खोलें, या इसे डाउनलोड करें।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nyissa meg a modellt az eszközről, vagy töltse le."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Otwórz model z urządzenia lub pobierz go."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Откройте модель с устройства или загрузите ее."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Відкрийте модель з пристрою або завантажте її."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "从设备打开模型或下载模型"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "從裝置開啟模型或下載模型"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "從裝置開啟模型或下載模型"
-          }
-        }
-      }
-    },
-    "slideshow.slide5.description" : {
-      "comment" : "Slideshow slide 5 description - Activate Models",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "في هذه القائمة على اليسار، يمكنك تنشيط أي نموذج للكشف. تعمل هذه الكاشفات في وقت واحد على نفس محتوى صفحة الويب."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "বাম দিকের এই মেনুতে, আপনি যে কোনো ডিটেকশন মডেল সক্রিয় করতে পারেন। এই ডিটেক্টরগুলি একই ওয়েব পেজ কন্টেন্টে একসাথে কাজ করে।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "V této nabídce vlevo můžete aktivovat jakýkoli detekční model. Tyto detektory pracují současně na stejném obsahu webové stránky."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In diesem Menü auf der linken Seite können Sie jedes Erkennungsmodell aktivieren. Diese Detektoren arbeiten gleichzeitig auf demselben Webseiteninhalt."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In this menu on the left, you can activate any detection model. These detectors work simultaneously on the same web page content."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En este menú de la izquierda, puede activar cualquier modelo de detección. Estos detectores funcionan simultáneamente en el mismo contenido de la página web."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "در این منو در سمت چپ، می‌توانید هر مدل تشخیص را فعال کنید. این تشخیص‌دهنده‌ها به طور همزمان روی همان محتوای صفحه وب کار می‌کنند."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dans ce menu à gauche, vous pouvez activer n'importe quel modèle de détection. Ces détecteurs fonctionnent simultanément sur le même contenu de page Web."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "בתפריט זה משמאל, אתה יכול להפעיל כל מודל זיהוי. גלאים אלה עובדים בו-זמנית על אותו תוכן דף אינטרנט."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "बाईं ओर इस मेनू में, आप किसी भी डिटेक्शन मॉडल को सक्रिय कर सकते हैं। ये डिटेक्टर एक ही वेब पेज सामग्री पर एक साथ काम करते हैं।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ebben a bal oldali menüben bármilyen felismerő modellt aktiválhat. Ezek a detektorok egyidejűleg működnek ugyanazon a weboldalon."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "W tym menu po lewej stronie możesz aktywować dowolny model wykrywania. Te detektory działają jednocześnie na tej samej zawartości strony internetowej."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "В этом меню слева вы можете активировать любую модель обнаружения. Эти детекторы работают одновременно с одним и тем же содержимым веб-страницы."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "У цьому меню ліворуч ви можете активувати будь-яку модель виявлення. Ці детектори працюють одночасно з одним і тим же вмістом веб-сторінки."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在左侧菜单中，您可以激活任何检测模型。这些检测器可以同时在同一网页内容上工作。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在左側選單中，您可以啟用任何偵測模型。這些偵測器可以同時在同一網頁內容上工作。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在左側選單中，您可以啟用任何偵測模型。這些偵測器可以同時在同一網頁內容上工作。"
-          }
-        }
-      }
-    },
-    "slideshow.slide5.title" : {
-      "comment" : "Slideshow slide 5 title - Activate Models",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تنشيط النماذج"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "মডেলগুলি সক্রিয় করুন"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktivovat modely"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Modelle aktivieren"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Activate the Models"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Activar los modelos"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "مدل‌ها را فعال کنید"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Activer les modèles"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "הפעל את המודלים"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "मॉडल को सक्रिय करें"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modellek aktiválása"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aktywuj modele"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Активировать модели"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Активувати моделі"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "激活模型"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "啟用模型"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "啟用模型"
-          }
-        }
-      }
-    },
-    "slideshow.slide6.description" : {
-      "comment" : "Slideshow slide 6 description - Annotation Options",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "عند تحديد نموذج من القائمة اليسرى، يمكنك ضبط خيارات التعليق التوضيحي المختلفة."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "যখন আপনি বাম মেনু থেকে একটি মডেল নির্বাচন করেন, আপনি বিভিন্ন এনোটেশন অপশন সামঞ্জস্য করতে পারেন।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Když vyberete model z levé nabídky, můžete upravit různé možnosti anotace."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wenn Sie ein Modell aus dem linken Menü auswählen, können Sie verschiedene Annotationsoptionen anpassen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "When you select a model from the left menu, you can adjust various annotation options."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cuando selecciona un modelo del menú de la izquierda, puede ajustar varias opciones de anotación."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "وقتی یک مدل را از منوی سمت چپ انتخاب می‌کنید، می‌توانید گزینه‌های مختلف حاشیه‌نویسی را تنظیم کنید."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lorsque vous sélectionnez un modèle dans le menu de gauche, vous pouvez ajuster diverses options d'annotation."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "כאשר אתה בוחר מודל מהתפריט השמאלי, אתה יכול להתאים אפשרויות הערות שונות."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "जब आप बाएं मेनू से एक मॉडल चुनते हैं, तो आप विभिन्न एनोटेशन विकल्पों को समायोजित कर सकते हैं।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Amikor kiválaszt egy modellt a bal oldali menüből, különféle jegyzetelési beállításokat módosíthat."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gdy wybierzesz model z lewego menu, możesz dostosować różne opcje adnotacji."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Когда вы выбираете модель из левого меню, вы можете настроить различные параметры аннотации."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Коли ви вибираєте модель із лівого меню, ви можете налаштувати різні параметри анотації."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当您从左侧菜单中选择一个模型时，您可以调整各种注释选项。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "當您從左側選單中選擇一個模型時，您可以調整各種註釋選項。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "當您從左側選單中選擇一個模型時，您可以調整各種註釋選項。"
-          }
-        }
-      }
-    },
-    "slideshow.slide6.title" : {
-      "comment" : "Slideshow slide 6 title - Annotation Options",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "تغيير خيارات التعليق التوضيحي للنموذج"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "মডেলের এনোটেশন অপশন পরিবর্তন করুন"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Změnit možnosti anotace modelu"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Annotationsoptionen des Modells ändern"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change the Model's Annotation Options"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cambiar las opciones de anotación del modelo"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "گزینه‌های حاشیه‌نویسی مدل را تغییر دهید"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Modifier les options d'annotation du modèle"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "שנה את אפשרויות ההערות של המודל"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "मॉडल के एनोटेशन विकल्प बदलें"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A modell jegyzetelési beállításainak módosítása"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zmień opcje adnotacji modelu"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Изменить параметры аннотации модели"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Змінити параметри анотації моделі"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改模型的注释选项"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "變更模型的註釋選項"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "變更模型的註釋選項"
-          }
-        }
-      }
-    },
-    "slideshow.slide7.description" : {
-      "comment" : "Slideshow slide 7 description - Image Properties",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "في بعض الحالات، يمكنك مساعدة الكاشف عن طريق تغيير خصائص العرض في المتصفح، مثل السطوع والتباين."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "কিছু ক্ষেত্রে, আপনি ব্রাউজারের রেন্ডারিং বৈশিষ্ট্যগুলি পরিবর্তন করে ডিটেক্টরকে সাহায্য করতে পারেন, যেমন উজ্জ্বলতা এবং কন্ট্রাস্ট।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "V některých případech můžete detektoru pomoci změnou vlastností vykreslování prohlížeče, jako je jas a kontrast."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In einigen Fällen können Sie dem Detektor helfen, indem Sie die Rendering-Eigenschaften des Browsers wie Helligkeit und Kontrast ändern."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In some cases, you can aid the detector by altering the browser's rendering properties, such as brightness and contrast."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En algunos casos, puede ayudar al detector alterando las propiedades de renderizado del navegador, como el brillo y el contraste."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "در برخی موارد، می‌توانید با تغییر ویژگی‌های رندر مرورگر، مانند روشنایی و کنتراست، به تشخیص‌دهنده کمک کنید."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dans certains cas, vous pouvez aider le détecteur en modifiant les propriétés de rendu du navigateur, comme la luminosité et le contraste."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "במקרים מסוימים, אתה יכול לסייע לגלאי על ידי שינוי מאפייני הרינדור של הדפדפן, כגון בהירות וניגודיות."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "कुछ मामलों में, आप ब्राउज़र के रेंडरिंग गुणों को बदलकर डिटेक्टर की सहायता कर सकते हैं, जैसे चमक और कंट्रास्ट।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bizonyos esetekben segíthet a detektornak a böngésző renderelési tulajdonságainak módosításával, például a fényerő és a kontraszt beállításával."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "W niektórych przypadkach możesz pomóc detektorowi, zmieniając właściwości renderowania przeglądarki, takie jak jasność i kontrast."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "В некоторых случаях вы можете помочь детектору, изменив свойства рендеринга браузера, такие как яркость и контрастность."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "У деяких випадках ви можете допомогти детектору, змінивши властивості рендерингу браузера, такі як яскравість і контрастність."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在某些情况下，您可以通过更改浏览器的渲染属性（如亮度和对比度）来帮助检测器。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在某些情況下，您可以透過變更瀏覽器的渲染屬性（如亮度和對比度）來幫助偵測器。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "在某些情況下，您可以透過變更瀏覽器的渲染屬性（如亮度和對比度）來幫助偵測器。"
-          }
-        }
-      }
-    },
-    "slideshow.slide7.title" : {
-      "comment" : "Slideshow slide 7 title - Image Properties",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ضبط خصائص صورة الشاشة"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "স্ক্রিন ইমেজ বৈশিষ্ট্য সামঞ্জস্য করুন"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Upravit vlastnosti obrazu na obrazovce"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bildschirm-Bildeigenschaften anpassen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Adjust Screen Image Properties"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajustar propiedades de imagen de pantalla"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ویژگی‌های تصویر صفحه را تنظیم کنید"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajuster les propriétés de l'image à l'écran"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "התאם את מאפייני תמונת המסך"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "स्क्रीन छवि गुण समायोजित करें"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Képernyőkép tulajdonságainak módosítása"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dostosuj właściwości obrazu ekranu"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Настроить свойства изображения экрана"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Налаштувати властивості зображення екрану"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "调整屏幕图像属性"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "調整螢幕影像屬性"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "調整螢幕影像屬性"
-          }
-        }
-      }
-    },
-    "slideshow.slide8.description" : {
-      "comment" : "Slideshow slide 8 description - Play Button",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "بعد الضغط على الزر، تبدأ الكاشفات في تصنيف محتوى الويب."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "বোতাম চাপার পরে, ডিটেক্টরগুলি ওয়েব কন্টেন্ট লেবেল করা শুরু করে।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Po stisknutí tlačítka začnou detektory označovat webový obsah."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nachdem Sie die Taste gedrückt haben, beginnen die Detektoren, den Webinhalt zu beschriften."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "After hitting the button, the detectors start to label the web content."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Después de presionar el botón, los detectores comienzan a etiquetar el contenido web."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "پس از فشردن دکمه، تشخیص‌دهنده‌ها شروع به برچسب‌گذاری محتوای وب می‌کنند."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Après avoir appuyé sur le bouton, les détecteurs commencent à étiqueter le contenu Web."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "לאחר לחיצה על הכפתור, הגלאים מתחילים לתייג את תוכן האינטרנט."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "बटन दबाने के बाद, डिटेक्टर वेब सामग्री को लेबल करना शुरू कर देते हैं।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A gomb megnyomása után a detektorok elkezdik címkézni a webes tartalmat."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Po naciśnięciu przycisku detektory zaczynają oznaczać zawartość internetową."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "После нажатия кнопки детекторы начинают размечать веб-контент."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Після натискання кнопки детектори починають позначати веб-вміст."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "按下按钮后，检测器开始标记网页内容。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "按下按鈕後，偵測器開始標記網頁內容。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "按下按鈕後，偵測器開始標記網頁內容。"
-          }
-        }
-      }
-    },
-    "slideshow.slide8.title" : {
-      "comment" : "Slideshow slide 8 title - Play Button",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "اضغط على زر التشغيل"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "প্লে বোতাম চাপুন"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stiskněte tlačítko Přehrát"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die Play-Taste drücken"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hit the Play Button"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Presione el botón de reproducción"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "دکمه پخش را بزنید"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Appuyez sur le bouton de lecture"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "לחץ על כפתור ההפעלה"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "प्ले बटन दबाएं"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nyomja meg a lejátszás gombot"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Naciśnij przycisk Odtwórz"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Нажмите кнопку воспроизведения"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Натисніть кнопку відтворення"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "按下播放按钮"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "按下播放按鈕"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "按下播放按鈕"
-          }
-        }
-      }
-    },
-    "slideshow.slide9.description" : {
-      "comment" : "Slideshow slide 9 description - Annotation",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "الآن، يمكنك تصفح محتوى الويب المفضل لديك والبحث عن الميزات التي قد يتعرف عليها نموذج الكشف الخاص بك."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "এখন, আপনি আপনার প্রিয় ওয়েব কন্টেন্ট ব্রাউজ করতে পারেন এবং এমন বৈশিষ্ট্যগুলি সন্ধান করতে পারেন যা আপনার ডিটেকশন মডেল চিনতে পারে।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nyní můžete procházet svůj oblíbený webový obsah a hledat funkce, které by váš detekční model mohl rozpoznat."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jetzt können Sie Ihre bevorzugten Webinhalte durchsuchen und nach Merkmalen suchen, die Ihr Erkennungsmodell möglicherweise erkennt."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Now, you can browse your favorite web content and look for features that your detection model might recognize."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ahora, puede navegar por su contenido web favorito y buscar funciones que su modelo de detección pueda reconocer."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "اکنون می‌توانید محتوای وب مورد علاقه خود را مرور کنید و به دنبال ویژگی‌هایی بگردید که مدل تشخیص شما ممکن است شناسایی کند."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Maintenant, vous pouvez parcourir votre contenu Web préféré et rechercher des fonctionnalités que votre modèle de détection pourrait reconnaître."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "עכשיו, אתה יכול לגלוש בתוכן האינטרנט האהוב עליך ולחפש תכונות שמודל הזיהוי שלך עשוי לזהות."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "अब, आप अपनी पसंदीदा वेब सामग्री ब्राउज़ कर सकते हैं और उन सुविधाओं को खोज सकते हैं जिन्हें आपका डिटेक्शन मॉडल पहचान सकता है।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Most már böngészheti kedvenc webes tartalmát, és keresheti azokat a funkciókat, amelyeket az észlelő modellje felismerhet."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Teraz możesz przeglądać ulubioną zawartość internetową i szukać funkcji, które Twój model wykrywania może rozpoznać."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Теперь вы можете просматривать свой любимый веб-контент и искать функции, которые может распознать ваша модель обнаружения."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Тепер ви можете переглядати свій улюблений веб-вміст і шукати функції, які може розпізнати ваша модель виявлення."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "现在，您可以浏览您喜欢的网页内容并寻找您的检测模型可能识别的特征。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "現在，您可以瀏覽您喜歡的網頁內容並尋找您的偵測模型可能識別的特徵。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "現在，您可以瀏覽您喜歡的網頁內容並尋找您的偵測模型可能識別的特徵。"
-          }
-        }
-      }
-    },
-    "slideshow.slide9.title" : {
-      "comment" : "Slideshow slide 9 title - Annotation",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "التعليق التوضيحي"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "টীকা"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Anotace"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Annotation"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Annotation"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Anotación"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "حاشیه‌نویسی"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Annotation"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "הערות"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "एनोटेशन"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jegyzet"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Adnotacja"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Аннотация"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Анотація"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "注释"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "註釋"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "註釋"
           }
         }
       }
@@ -16000,8 +13660,149 @@
         }
       }
     },
-    "Version %@" : {
-
+    "tour.addressBar.text" : {
+      "comment" : "AIA-0333 tour bubble: address bar step",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type a page address here — a Bavaria LiDAR page is already in your history."
+          }
+        }
+      }
+    },
+    "tour.capture.text" : {
+      "comment" : "AIA-0333 tour bubble: capture-a-finding step",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now tap anywhere on the map to mark your finding."
+          }
+        }
+      }
+    },
+    "tour.find.text" : {
+      "comment" : "AIA-0333 tour bubble: find/capture-mode step",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap here to capture a finding."
+          }
+        }
+      }
+    },
+    "tour.finished.text" : {
+      "comment" : "AIA-0333 tour bubble: closing step",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That's it — you saved your first finding! You're all set."
+          }
+        }
+      }
+    },
+    "tour.play.text" : {
+      "comment" : "AIA-0333 tour bubble: start-detection step",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap to start detecting features on the page."
+          }
+        }
+      }
+    },
+    "tour.defaultFindingTitle" : {
+      "comment" : "AIA-0333 tour: pre-filled finding title so Save is immediately enabled",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My demo finding"
+          }
+        }
+      }
+    },
+    "tour.save.text" : {
+      "comment" : "AIA-0333 tour bubble: save-the-finding step (in the sheet)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Save to store your finding."
+          }
+        }
+      }
+    },
+    "tour.demoModels.text" : {
+      "comment" : "AIA-0333 tour bubble: demo models step",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These are your detection models, ready to go."
+          }
+        }
+      }
+    },
+    "tour.enableModel.text" : {
+      "comment" : "AIA-0333 tour bubble: enable model step",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch a model on to start using it."
+          }
+        }
+      }
+    },
+    "tour.modelsButton.text" : {
+      "comment" : "AIA-0333 tour bubble: models button step",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap here to download or configure your detection models."
+          }
+        }
+      }
+    },
+    "tour.next" : {
+      "comment" : "AIA-0333 tour: next button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next"
+          }
+        }
+      }
+    },
+    "tour.skip" : {
+      "comment" : "AIA-0333 tour: skip button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

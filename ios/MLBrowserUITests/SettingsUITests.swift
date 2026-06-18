@@ -24,7 +24,7 @@ final class SettingsUITests: UITestCase {
         AID.settingsHistoryLimit,
         AID.settingsDeleteCache,
         AID.settingsAbout,
-        AID.settingsIntroduction,
+        AID.settingsReplayOnboarding,
         AID.settingsRestoreDefaults
     ]
 
@@ -56,13 +56,17 @@ final class SettingsUITests: UITestCase {
         )
     }
 
-    func testSettings_introductionSubmenu_showsSlides() {
+    func testSettings_replayOnboarding_startsTour() {
         launch()
         openSettings()
-        XCTAssertTrue(scrollTo(AID.settingsIntroduction))
-        element(AID.settingsIntroduction).tap()
-        // The slideshow renders one identified container per slide.
-        XCTAssertTrue(element(AID.slide(0)).waitForExistence(timeout: 10), "Introduction slides not shown")
+        XCTAssertTrue(scrollTo(AID.settingsReplayOnboarding))
+        // The "Replay onboarding" row dismisses Settings + drawer and starts the tour
+        // (AIA-0333); its first bubble appears over the address bar.
+        element(AID.settingsReplayOnboarding).tap()
+        XCTAssertTrue(
+            element(AID.tourBubble).waitForExistence(timeout: 10),
+            "Replaying onboarding should start the tour"
+        )
     }
 
     func testSettings_historySubmenu_showsList() {

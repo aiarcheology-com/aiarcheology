@@ -122,6 +122,9 @@ struct SaveFindingSheet: View {
 	@Environment(\.managedObjectContext) private var moc
 
 	let capture: FindingCapture
+	/// The onboarding tour (AIA-0333). The sheet hosts its own tour layer to spotlight Save (the
+	/// sheet is modal above the root overlay) and signals capture start / save.
+	let tour: TourState
 
 	/// Required, user-facing name shown in the inventory; Save is blocked until it
 	/// is non-empty.
@@ -196,6 +199,7 @@ struct SaveFindingSheet: View {
 					.tint(.green)
 					.disabled(trimmedTitle.isEmpty)
 					.testability(Testability.Button.saveFindingSave)
+					.tourTarget(.saveButton)
 				}
 			}
 			.alert(L10n.Finding.Save.error, isPresented: $saveFailed) {
@@ -206,6 +210,17 @@ struct SaveFindingSheet: View {
 					detectionClass: capture.observation.primaryLabelIdentifier,
 					in: moc
 				)
+			}
+		}
+		// The sheet hosts its own tour layer (it's modal above the root overlay) to spotlight the
+		// Save step; appearing fulfills the "tap the map" step (AIA-0333).
+		.tourOverlay(tour, inSheet: true)
+		.onAppear {
+			tour.captureDidStart()
+			// During the tour, pre-fill a title so the spotlighted Save is immediately enabled
+			// (the dimmed Title field is reachable but not obvious) — AIA-0333.
+			if tour.isOnSaveStep, title.isEmpty {
+				title = L10n.Tour.defaultFindingTitle
 			}
 		}
 	}
@@ -324,6 +339,9 @@ struct SaveFindingSheet: View {
 			try finding.throwIfInvalid()
 			finding.transition(to: .ready)
 			try Finding.save(in: moc)
+			// Onboarding tour (AIA-0333): the finding is saved → advance the in-sheet save step
+			// before dismissing, so the dismiss isn't mistaken for a cancel.
+			tour.findingDidSave()
 			dismiss()
 		} catch {
 			Finding.delete(finding, in: moc)

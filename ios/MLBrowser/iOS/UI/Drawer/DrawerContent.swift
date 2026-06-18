@@ -16,6 +16,7 @@ import CoreData
 struct DrawerContent: View {
     @Environment(\.managedObjectContext) private var moc
     @Environment(DrawerManager.self) private var drawer
+    @Environment(TourState.self) private var tour
     @EnvironmentObject private var guide: Guide
     @EnvironmentObject private var deep: DeepState
     @EnvironmentObject private var downloader: Downloader
@@ -82,6 +83,8 @@ struct DrawerContent: View {
             SettingsForm()
                 .environmentObject(settings)
                 .environmentObject(guide)
+                .environment(drawer)
+                .environment(tour)
         }
     }
     
@@ -106,6 +109,15 @@ struct DrawerContent: View {
         // Dynamic Island side), wasting a gutter inside the panel. The panel is the safe
         // container here, so let the List span its full width in both orientations.
         .ignoresSafeArea(.container, edges: .horizontal)
+        // The tour spotlights the whole drawer for the in-drawer steps (a precise model-row cutout
+        // isn't reachable — anchors inside a List cell don't propagate to the overlay).
+        .tourTarget(.demoModels)
+        // The enable step is overlay-driven (the toggle can't be tapped through the spotlight):
+        // register the action that enables a demo model when the cutout is tapped (AIA-0333).
+        .onAppear {
+            let context = moc
+            tour.bindEnableModel { enableFirstReadyDemoModel(in: context) }
+        }
     }
 
     private var findingsSection: some View {
@@ -116,6 +128,9 @@ struct DrawerContent: View {
                 Label(L10n.Findings.title, systemImage: "archivebox")
             }
             .testability(Testability.Button.drawerFindings)
+            // During the tour the whole drawer is the spotlight; keep only the model toggles
+            // interactive so the user can't wander off into Findings (AIA-0333).
+            .disabled(tour.isActive)
         }
     }
 
@@ -127,6 +142,7 @@ struct DrawerContent: View {
                 Label(L10n.Settings.title, systemImage: "gearshape")
             }
             .testability(Testability.Button.drawerSettings)
+            .disabled(tour.isActive)
         }
     }
     
@@ -159,6 +175,7 @@ struct DrawerContent: View {
                 let entityId = configuration.entityId
                 ConfigurationRow(
                     configuration: configuration,
+                    tour: tour,
                     onTap: {
                         selectedConfigurationId = entityId
                     },
@@ -182,8 +199,10 @@ struct DrawerContent: View {
             }
             .tint(.blue)
             .accessibilityLabel("Add Model")
+            // Keep only the model toggles interactive during the tour (AIA-0333).
+            .disabled(tour.isActive)
         }
-        
+
         ToolbarItem(placement: .topBarTrailing) {
             // A plain cross balances the leading plus symbol, keeping the inline
             // title visually centered between the two.
@@ -194,7 +213,38 @@ struct DrawerContent: View {
             }
             .tint(.blue)
             .accessibilityLabel(L10n.Common.dismiss)
+            .disabled(tour.isActive)
         }
+    }
+}
+
+// MARK: - Tour enable action
+
+/// Ensures a demo model is enabled for the onboarding tour's overlay-driven enable step
+/// (AIA-0333). Returns `true` if a demo model is enabled afterwards — including the **Replay**
+/// case where one is already on (so the step isn't stuck), and only `false` when there are no
+/// ready demo models at all or the save fails.
+private func enableFirstReadyDemoModel(in context: NSManagedObjectContext) -> Bool {
+    let demos = DeepConfiguration.selectAll(in: context)
+        .filter { $0.demo && $0.lifeCycleString == CoreDataManageableState.ready.rawValue }
+    guard demos.isEmpty == false else { return false }
+
+    // Newest-first (matching the list) so it flips the top, spotlighted row. If they're all
+    // already enabled (Replay), the step's goal already holds — proceed.
+    guard let target = demos
+        .filter({ $0.enabled == false })
+        .max(by: { ($0.creationDate_ ?? .distantPast) < ($1.creationDate_ ?? .distantPast) })
+    else {
+        return true
+    }
+    target.enabled = true
+    do {
+        try DeepConfiguration.save(in: context)
+        return true
+    } catch {
+        LoggingPolicy.error("Failed to enable demo model during onboarding tour", error: error, logger: .configuration)
+        context.refresh(target, mergeChanges: false)
+        return false
     }
 }
 
@@ -205,6 +255,8 @@ struct DrawerContent: View {
 /// swipe actions to coexist with Toggle on all platforms.
 private struct ConfigurationRow: View {
     @ObservedObject var configuration: DeepConfiguration
+    /// The tour engine, poked when a demo model is enabled during the enable-model step (AIA-0333).
+    var tour: TourState?
     let onTap: () -> Void
     let onDelete: () -> Void
     
@@ -231,10 +283,18 @@ private struct ConfigurationRow: View {
             Toggle("", isOn: Binding(
                 get: { configuration.enabled },
                 set: { newValue in
+                    let wasEnabled = configuration.enabled
                     configuration.enabled = newValue
                     if let context = configuration.managedObjectContext {
                         do {
                             try DeepConfiguration.save(in: context)
+                            // Tour hook (AIA-0333): only after the enable actually persisted, if a
+                            // model was enabled via a real toggle tap during the enable step, reveal
+                            // the bubble's Next. (Normally overlay-driven — tapping the spotlight
+                            // enables a model — so this is the pass-through path; a no-op otherwise.)
+                            if wasEnabled == false, newValue {
+                                tour?.userEnabledModel()
+                            }
                         } catch {
                             LoggingPolicy.error("Failed to save configuration toggle", error: error, logger: .configuration)
                             // Reload from the store so the toggle reflects the persisted
