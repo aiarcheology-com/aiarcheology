@@ -104,6 +104,12 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
 
 		let webView = WKWebView(frame: .point, configuration: config)
 		webView.scrollView.bounces = false
+		// Let the page fill the web view's frame edge-to-edge instead of insetting its
+		// content by the safe area. In normal mode SwiftUI already bounds the frame to the
+		// safe area, so this is a no-op there; in fullscreen detection the frame is full-bleed
+		// (safe area ignored), and without this the scroll view would re-inset the page,
+		// leaving the blank margins AIA-0336 set out to remove.
+		webView.scrollView.contentInsetAdjustmentBehavior = .never
 		webView.allowsBackForwardNavigationGestures = true
 		webView.navigationDelegate = context.coordinator
 		webView.uiDelegate = context.coordinator
