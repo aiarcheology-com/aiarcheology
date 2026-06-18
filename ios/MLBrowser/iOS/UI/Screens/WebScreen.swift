@@ -101,6 +101,23 @@ struct WebScreenView: View {
 	/// Mirror of DetectableView's displayed frame (updated on every apply/clear):
 	/// pick mode hit-tests its boxes and reuses its snapshot.
 	@State private var appliedFrame: AppliedDetectionFrame?
+	/// Live width of the screen content area (== the navigation bar width). On iPhone the
+	/// `.principal` toolbar item collapses to its content width instead of filling, so the
+	/// address bar is sized explicitly from this (AIA-0294 follow-up).
+	@State private var topBarWidth: CGFloat = 0
+
+	/// Horizontal space the leading (cpu) + trailing (find/detection/adjust) toolbar clusters
+	/// and the bar's own margins reserve, so the explicit address width never overlaps them.
+	private static let addressSideReserve: CGFloat = 240
+	/// Floor so the address never collapses narrower than its current iPhone-portrait width.
+	private static let minAddressWidth: CGFloat = 160
+
+	/// Explicit address-bar width for iPhone, where `.principal` won't stretch; `nil` on
+	/// iPad/Mac, where the principal already fills and `maxWidth: .infinity` is correct.
+	private var addressBarWidth: CGFloat? {
+		guard HostPlatform.current.isiPhone, topBarWidth > 0 else { return nil }
+		return max(Self.minAddressWidth, topBarWidth - Self.addressSideReserve)
+	}
 
 	init() {
 		Backports.Appearance.textField()
@@ -115,7 +132,7 @@ struct WebScreenView: View {
 				if showsTopBarNavigation {
 					WebBackButton()
 				}
-				WebAddressDisplay {
+				WebAddressDisplay(width: addressBarWidth) {
 					presentLocationSheet = true
 				}
 				if showsTopBarNavigation {
@@ -291,6 +308,15 @@ struct WebScreenView: View {
         .environmentObject(appState.browserState)
         .navigationBarTitle("", displayMode: .inline)
         .clipped()
+        // The content area spans the navigation bar width; capture it to size the address bar,
+        // since the `.principal` item won't stretch on iPhone. Updates on rotation.
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { topBarWidth = proxy.size.width }
+                    .onChange(of: proxy.size.width) { _, newWidth in topBarWidth = newWidth }
+            }
+        }
         .toolbar {
             toolbarContent
         }
@@ -503,6 +529,9 @@ private struct FindPickOverlay: View {
 /// Read-only URL display at maximum width; tapping it presents the location sheet.
 private struct WebAddressDisplay: View {
 	@EnvironmentObject var browserState: BrowserState
+	/// Explicit width for iPhone, where the `.principal` toolbar item won't stretch; `nil`
+	/// on iPad/Mac, where the principal fills and `maxWidth: .infinity` is correct.
+	var width: CGFloat?
 	let action: () -> Void
 
 	var body: some View {
@@ -513,7 +542,8 @@ private struct WebAddressDisplay: View {
 				.lineLimit(1)
 				.truncationMode(.middle)
 				.foregroundColor(textColor)
-				.frame(maxWidth: .infinity, alignment: .leading)
+				.frame(width: width, alignment: .leading)
+				.frame(maxWidth: width == nil ? .infinity : nil, alignment: .leading)
 				.padding(5)
 				.background(.ultraThinMaterial)
 				.overlay(
