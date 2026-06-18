@@ -1,9 +1,13 @@
 # Implementation Plan — AIA-0333: Interactive onboarding wizard (spotlight tour)
 
-> Status: FINAL — SHIP after 3 grill rounds + Codex technical review.
-> Scope of THIS PR: reusable tour **engine** + the **first vertical slice** of steps. Remaining
-> steps (settings/label-shape → play → find → finding form → save → findings list → share) are
-> explicit follow-ups (AIA-0333 sub-issues to be filed).
+> ⚠️ **SUPERSEDED** — this captures the original first-slice design (engine + 4 steps, with a
+> per-step timeout/Next fallback). On-device testing reshaped it: the tour now runs the full flow
+> through saving a finding, with a real-action-gated, overlay-driven interaction model and **no
+> timeout**. See `IMPLEMENTATION_PLAN_AIA-0333-rebuild.md` and `UI/Tour/ARCHITECTURE.md` for the
+> current design. Kept for history.
+>
+> Status (historical): FINAL — SHIP after 3 grill rounds + Codex technical review.
+> Scope of the original PR: reusable tour **engine** + the **first vertical slice** of steps.
 
 ## Goal
 Replace the 10-slide onboarding slideshow with an interactive, state-machine-driven **spotlight

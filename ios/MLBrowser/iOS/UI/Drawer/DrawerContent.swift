@@ -220,16 +220,23 @@ struct DrawerContent: View {
 
 // MARK: - Tour enable action
 
-/// Enables the most-recent ready demo model that isn't already on, for the onboarding tour's
-/// overlay-driven enable step (AIA-0333). Mirrors the list's sort (newest first) so it flips the
-/// top, spotlighted row. Returns `true` if a model was enabled.
+/// Ensures a demo model is enabled for the onboarding tour's overlay-driven enable step
+/// (AIA-0333). Returns `true` if a demo model is enabled afterwards — including the **Replay**
+/// case where one is already on (so the step isn't stuck), and only `false` when there are no
+/// ready demo models at all or the save fails.
 private func enableFirstReadyDemoModel(in context: NSManagedObjectContext) -> Bool {
-    let candidate = DeepConfiguration.selectAll(in: context)
-        .filter { $0.demo
-            && $0.lifeCycleString == CoreDataManageableState.ready.rawValue
-            && $0.enabled == false }
-        .max { ($0.creationDate_ ?? .distantPast) < ($1.creationDate_ ?? .distantPast) }
-    guard let target = candidate else { return false }
+    let demos = DeepConfiguration.selectAll(in: context)
+        .filter { $0.demo && $0.lifeCycleString == CoreDataManageableState.ready.rawValue }
+    guard demos.isEmpty == false else { return false }
+
+    // Newest-first (matching the list) so it flips the top, spotlighted row. If they're all
+    // already enabled (Replay), the step's goal already holds — proceed.
+    guard let target = demos
+        .filter({ $0.enabled == false })
+        .max(by: { ($0.creationDate_ ?? .distantPast) < ($1.creationDate_ ?? .distantPast) })
+    else {
+        return true
+    }
     target.enabled = true
     do {
         try DeepConfiguration.save(in: context)
@@ -278,16 +285,16 @@ private struct ConfigurationRow: View {
                 set: { newValue in
                     let wasEnabled = configuration.enabled
                     configuration.enabled = newValue
-                    // Tour hook (AIA-0333): if a model is enabled via a real toggle tap during the
-                    // enable step, reveal the bubble's Next. (The step is normally overlay-driven —
-                    // tapping the spotlight enables a model — so this is the pass-through path; a
-                    // no-op outside that step. See userEnabledModel.)
-                    if wasEnabled == false, newValue {
-                        tour?.userEnabledModel()
-                    }
                     if let context = configuration.managedObjectContext {
                         do {
                             try DeepConfiguration.save(in: context)
+                            // Tour hook (AIA-0333): only after the enable actually persisted, if a
+                            // model was enabled via a real toggle tap during the enable step, reveal
+                            // the bubble's Next. (Normally overlay-driven — tapping the spotlight
+                            // enables a model — so this is the pass-through path; a no-op otherwise.)
+                            if wasEnabled == false, newValue {
+                                tour?.userEnabledModel()
+                            }
                         } catch {
                             LoggingPolicy.error("Failed to save configuration toggle", error: error, logger: .configuration)
                             // Reload from the store so the toggle reflects the persisted

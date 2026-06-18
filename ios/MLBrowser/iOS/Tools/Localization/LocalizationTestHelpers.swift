@@ -260,6 +260,7 @@ enum StringCatalogValidator {
             "settings.history",
             "settings.historyLimit",
             "settings.reopenLastPage",
+            "settings.replayOnboarding",
             "settings.restore",
             "settings.restoreDefaults",
             "settings.runAtLaunch",
