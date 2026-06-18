@@ -188,17 +188,21 @@ struct SettingsForm: View {
 	/// Replays the interactive onboarding tour (AIA-0333). Dismisses Settings and closes the
 	/// drawer first so the tour's first step (the address bar) is visible underneath.
 	private var replayOnboardingRow: some View {
-		Button {
+		// A plain tappable row rather than a `Button`: the list-button style rendered the label
+		// gray (and overrode `.foregroundStyle`), while `.buttonStyle(.plain)` shrank the tap
+		// target. A `Text` row + full-width `.contentShape` + `.onTapGesture` keeps the standard
+		// primary label color and a full-row tap (AIA-0333).
+		HStack {
+			Text(L10n.Settings.replayOnboarding)
+			Spacer()
+		}
+		.contentShape(Rectangle())
+		.onTapGesture {
 			dismiss()
 			drawer.close()
 			tour.start()
-		} label: {
-			Text(L10n.Settings.replayOnboarding)
-				.foregroundStyle(.primary)
 		}
-		// `.plain` keeps the label its natural (primary) color like the other rows; the default
-		// list-button style rendered it gray here.
-		.buttonStyle(.plain)
+		.accessibilityAddTraits(.isButton)
 		.testability(Testability.Button.settingsReplayOnboarding)
 	}
 
