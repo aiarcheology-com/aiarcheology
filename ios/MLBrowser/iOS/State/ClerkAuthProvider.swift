@@ -77,9 +77,11 @@ final class ClerkAuthProvider: AuthProviding {
             )
             return
         }
-        selectedEnvironment = environment
         do {
             try await Clerk.reconfigure(publishableKey: targetKey)
+            // Persist only after a successful reconfigure, so a failed switch never leaves
+            // the app pointed at an environment Clerk isn't actually configured for.
+            selectedEnvironment = environment
         } catch {
             LoggingPolicy.error("Clerk reconfigure failed: \(error.localizedDescription)", logger: .configuration)
         }

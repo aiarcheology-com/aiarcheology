@@ -73,12 +73,14 @@ final class AuthState: ObservableObject {
 
     private let provider: AuthProviding
 
-    /// Guards against overlapping refreshes. `refresh()` is triggered from several
-    /// places (launch, foreground, sign-in sheet dismissal, Clerk session changes),
-    /// which can fire near-simultaneously; coalescing avoids redundant server
-    /// round-trips. Each validation reads Clerk's current state, so skipping a
-    /// concurrent call never yields a stale result.
+    /// Coalesces overlapping refreshes. `refresh()` is triggered from several places
+    /// (launch, foreground, sign-in sheet dismissal, Clerk session changes) that can
+    /// fire near-simultaneously. While one pass is in flight, further triggers set
+    /// `refreshPending` so exactly one more pass runs afterward — avoiding redundant
+    /// round-trips without *dropping* a trigger (e.g. an out-of-band sign-out arriving
+    /// mid-refresh still gets re-evaluated rather than leaving a stale gate).
     private var isRefreshing = false
+    private var refreshPending = false
 
     init(provider: AuthProviding) {
         self.provider = provider
@@ -93,10 +95,21 @@ final class AuthState: ObservableObject {
 
     /// Re-evaluate the gate. Safe to call on launch and on every foreground.
     func refresh() async {
-        guard isRefreshing == false else { return }
+        if isRefreshing {
+            // A pass is already running — request one more afterward instead of
+            // running concurrently or dropping this trigger.
+            refreshPending = true
+            return
+        }
         isRefreshing = true
         defer { isRefreshing = false }
+        repeat {
+            refreshPending = false
+            await evaluateGate()
+        } while refreshPending
+    }
 
+    private func evaluateGate() async {
         guard provider.isSignedIn else {
             setGate(.signedOut)
             return

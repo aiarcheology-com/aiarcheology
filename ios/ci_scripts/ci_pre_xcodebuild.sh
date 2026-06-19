@@ -7,8 +7,10 @@
 # Required Xcode Cloud Environment Variables (set in workflow settings):
 #   - SENTRY_DSN: The Sentry Data Source Name
 #   - SENTRY_AUTH_TOKEN: The Sentry CLI authentication token (mark as Secret)
-#   - CLERK_PUBLISHABLE_KEY: Clerk publishable key (pk_test_… / pk_live_…), mark as Secret.
-#       Only consumed by the ARCHIVE action — test/build workflows ignore it (mock auth).
+#   - CLERK_PUBLISHABLE_KEY: dev/test Clerk publishable key (pk_test_…), mark as Secret.
+#   - CLERK_PUBLISHABLE_KEY_LIVE: production Clerk publishable key (pk_live_…), mark as Secret.
+#       Both are consumed ONLY by the ARCHIVE action (test/build workflows ignore them —
+#       those run the mock auth path). Archive requires BOTH (it ships to TestFlight + App Store).
 #
 # See: https://developer.apple.com/documentation/xcode/writing-custom-build-scripts
 
@@ -57,7 +59,9 @@ CLERK_LINES=""
 if [[ "${CI_XCODEBUILD_ACTION:-}" == "archive" ]]; then
     # An archive ships to both TestFlight (uses pk_test_ via the sandbox receipt) and
     # the App Store (uses pk_live_ via the production receipt), so the binary needs
-    # BOTH keys. Both are public; the app selects by receipt at runtime.
+    # BOTH keys. Both are public; the app selects at runtime via
+    # AppEnvironment.isAppStoreDistribution (App Store → pk_live_, else pk_test_),
+    # with a non-App-Store override from the sign-in environment switch.
     if [[ -z "${CLERK_PUBLISHABLE_KEY:-}" || -z "${CLERK_PUBLISHABLE_KEY_LIVE:-}" ]]; then
         echo "❌ Archive builds require BOTH CLERK_PUBLISHABLE_KEY (pk_test_…) and CLERK_PUBLISHABLE_KEY_LIVE (pk_live_…)."
         echo "   Set both in the Xcode Cloud archive workflow's environment."
