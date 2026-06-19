@@ -119,6 +119,7 @@ private struct SignInGateView: View {
 /// Shown when the user is signed in but not on the access allowlist.
 private struct LockedView: View {
     @ObservedObject var authState: AuthState
+    @State private var showDeleteConfirmation = false
 
     var body: some View {
         AuthMessageView(
@@ -126,13 +127,38 @@ private struct LockedView: View {
             title: L10n.Auth.Locked.title,
             message: L10n.Auth.Locked.message
         ) {
-            Button {
-                Task { await authState.signOut() }
-            } label: {
-                Text(L10n.Auth.signOut).frame(maxWidth: .infinity)
+            VStack(spacing: 12) {
+                Button {
+                    Task { await authState.signOut() }
+                } label: {
+                    Text(L10n.Auth.signOut).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+
+                // A locked user has created an account, so per Apple Guideline
+                // 5.1.1(v) they must be able to delete it without first reaching
+                // the gated app (where the Settings delete button lives).
+                Button(role: .destructive) {
+                    showDeleteConfirmation = true
+                } label: {
+                    Text(L10n.Auth.Account.Delete.action).frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
+        }
+        .confirmationDialog(
+            L10n.Auth.Account.Delete.title,
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.Auth.Account.Delete.action, role: .destructive) {
+                Task { try? await authState.deleteAccount() }
+            }
+            Button(L10n.Common.cancel, role: .cancel) {}
+        } message: {
+            Text(L10n.Auth.Account.Delete.message)
         }
     }
 }

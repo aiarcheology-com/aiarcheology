@@ -51,18 +51,37 @@ final class ClerkAuthProvider: AuthProviding {
     func validateSession() async throws {
         do {
             try await Clerk.shared.refreshClient()
-        } catch {
-            // Could not reach the server — fail closed to "needs connection"
-            // rather than spuriously signing the user out on a transient blip.
+        } catch let urlError as URLError {
+            // Genuinely offline / server unreachable — fail closed to "needs
+            // connection" rather than signing the user out on a transient blip.
             LoggingPolicy.warning(
-                "Session validation could not reach Clerk: \(error.localizedDescription)",
+                "Session validation could not reach Clerk: \(urlError.localizedDescription)",
+                logger: .networking
+            )
+            throw AuthValidationError.offline
+        } catch let apiError as ClerkAPIError {
+            // Server reachable but rejected the session (banned/revoked/expired).
+            // This is NOT an offline condition — route to sign-in, not "retry".
+            LoggingPolicy.info(
+                "Clerk rejected session refresh (\(apiError.code)) — signing out",
+                logger: .state
+            )
+            throw AuthValidationError.noValidSession
+        } catch {
+            // Unknown failure — be conservative and treat as offline (retryable)
+            // rather than signing the user out spuriously.
+            LoggingPolicy.warning(
+                "Session validation failed: \(error.localizedDescription)",
                 logger: .networking
             )
             throw AuthValidationError.offline
         }
 
-        // Server reachable: a revoked/banned/expired session comes back with no user.
-        guard Clerk.shared.user != nil else {
+        // Server reachable: require an ACTIVE session. `Clerk.shared.user` can be
+        // derived from a non-active session object (expired/revoked/ended/pending),
+        // so checking the session status — not just user presence — is what keeps a
+        // stale or revoked session from opening the app.
+        guard Clerk.shared.session?.status == .active, Clerk.shared.user != nil else {
             throw AuthValidationError.noValidSession
         }
     }
