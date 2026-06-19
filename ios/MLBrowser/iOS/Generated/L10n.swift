@@ -97,6 +97,16 @@ internal enum L10n {
         internal static let title = L10n.tr("Localizable", "auth.account.delete.title", fallback: "Delete Account?")
       }
     }
+    internal enum Environment {
+      /// Development
+      internal static let development = L10n.tr("Localizable", "auth.environment.development", fallback: "Development")
+      /// Test builds only. Switching signs you out and reconnects to the selected Clerk instance.
+      internal static let footer = L10n.tr("Localizable", "auth.environment.footer", fallback: "Test builds only. Switching signs you out and reconnects to the selected Clerk instance.")
+      /// Production
+      internal static let production = L10n.tr("Localizable", "auth.environment.production", fallback: "Production")
+      /// Clerk Environment
+      internal static let title = L10n.tr("Localizable", "auth.environment.title", fallback: "Clerk Environment")
+    }
     internal enum Locked {
       /// Your account isn't enabled for access yet. AI Archeology is in early access — hang tight, or sign out to switch accounts.
       internal static let message = L10n.tr("Localizable", "auth.locked.message", fallback: "Your account isn't enabled for access yet. AI Archeology is in early access — hang tight, or sign out to switch accounts.")

@@ -9,6 +9,14 @@ import Foundation
 import OSLog
 import ClerkKit
 
+/// Which Clerk instance non-App-Store builds talk to. App Store builds always use
+/// `.production` and ignore any stored override. Lets testers/QA validate the
+/// production instance from a TestFlight build before the public release.
+enum ClerkEnvironment: String, CaseIterable {
+    case development
+    case production
+}
+
 /// Production ``AuthProviding`` backed by the Clerk iOS SDK.
 ///
 /// `@MainActor` (not an `actor`) on purpose: `Clerk.shared` is itself a
@@ -26,7 +34,11 @@ final class ClerkAuthProvider: AuthProviding {
     /// the production instance — both keys are public, so both ship in the binary
     /// and are selected by the receipt type.
     static var publishableKey: String {
-        AppEnvironment.isAppStoreDistribution ? liveKey : testKey
+        // App Store is always production and ignores the override. Non-App-Store
+        // builds (TestFlight/AdHoc/dev) honor the selected environment so QA can
+        // validate production before release.
+        if AppEnvironment.isAppStoreDistribution { return liveKey }
+        return selectedEnvironment == .production ? liveKey : testKey
     }
 
     /// Dev/test instance key, injected from `CLERK_PUBLISHABLE_KEY` in `Secrets.xcconfig`.
@@ -36,6 +48,42 @@ final class ClerkAuthProvider: AuthProviding {
     /// Production instance key, injected from `CLERK_PUBLISHABLE_KEY_LIVE`.
     private static let liveKey =
         Bundle.main.object(forInfoDictionaryKey: "ClerkPublishableKeyLive") as? String ?? ""
+
+    private static let environmentDefaultsKey = "clerk.selectedEnvironment"
+
+    /// The Clerk instance selected for non-App-Store builds (persisted). Defaults to
+    /// `.development` so testers stay on the dev instance unless they opt into prod.
+    static var selectedEnvironment: ClerkEnvironment {
+        get {
+            let raw = UserDefaults.standard.string(forKey: environmentDefaultsKey)
+            return raw.flatMap(ClerkEnvironment.init(rawValue:)) ?? .development
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: environmentDefaultsKey) }
+    }
+
+    /// Switch the active Clerk instance at runtime (non-App-Store only). Reconfigures
+    /// the SDK with the new instance's key, which clears the current session; the gate's
+    /// `ClerkSessionWatcher` then routes the user to sign in on the new instance.
+    static func switchEnvironment(to environment: ClerkEnvironment) async {
+        guard AppEnvironment.isAppStoreDistribution == false else { return }
+        let targetKey = environment == .production ? liveKey : testKey
+        // Only switch if the target instance's key is actually present (e.g. a local
+        // build without CLERK_PUBLISHABLE_KEY_LIVE can't switch to production). Persist
+        // only on success so we don't leave the app pointed at an unconfigured instance.
+        guard targetKey.hasPrefix("pk_") else {
+            LoggingPolicy.warning(
+                "No \(environment.rawValue) Clerk key available — cannot switch environment.",
+                logger: .configuration
+            )
+            return
+        }
+        selectedEnvironment = environment
+        do {
+            try await Clerk.reconfigure(publishableKey: targetKey)
+        } catch {
+            LoggingPolicy.error("Clerk reconfigure failed: \(error.localizedDescription)", logger: .configuration)
+        }
+    }
 
     /// `publicMetadata` boolean flag that grants access during the v1 allowlist
     /// phase. Set per user in the Clerk Dashboard (Users → Metadata → Public) as
