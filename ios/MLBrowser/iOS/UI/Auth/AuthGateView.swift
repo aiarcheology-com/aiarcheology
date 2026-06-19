@@ -39,6 +39,31 @@ struct AuthGateView<Content: View>: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             Task { await authState.refresh() }
         }
+        .background {
+            // Real-auth only: keep the gate in sync with Clerk's session so that a
+            // sign-out done out-of-band (e.g. inside the embedded UserProfileView)
+            // immediately drops the user back to the gate. The mock path has no Clerk
+            // environment, so this observer is omitted there.
+            if DependencyContainer.shared.usesMockAuth == false {
+                ClerkSessionWatcher(authState: authState)
+            }
+        }
+    }
+}
+
+// MARK: - Clerk session sync
+
+/// Invisible observer that refreshes the gate whenever Clerk's signed-in user changes
+/// (sign-in, sign-out, or account switch) from anywhere in the app.
+private struct ClerkSessionWatcher: View {
+    @ObservedObject var authState: AuthState
+    @Environment(Clerk.self) private var clerk
+
+    var body: some View {
+        Color.clear
+            .onChange(of: clerk.user?.id) { _, _ in
+                Task { await authState.refresh() }
+            }
     }
 }
 

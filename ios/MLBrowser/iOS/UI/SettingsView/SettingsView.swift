@@ -9,13 +9,17 @@ import SwiftUI
 import ClerkKit
 import ClerkKitUI
 
+/// Navigation routes pushed onto the Settings stack (AIA-0340).
+private enum AccountRoute: Hashable {
+	case profile
+}
+
 struct SettingsForm: View {
 	@Environment(\.dismiss) private var dismiss
 	@Environment(DrawerManager.self) private var drawer
 	@Environment(TourState.self) private var tour
 	@EnvironmentObject var settings: Settings
 	@EnvironmentObject var guide: Guide
-	@EnvironmentObject var authState: AuthState
 	@FocusState private var isHistoryLimitFocused: Bool
 	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
 	@State private var accountPath = NavigationPath()
@@ -40,6 +44,12 @@ struct SettingsForm: View {
 				mlBrowserSection
 				accountSection
 				debugSection
+			}
+			.navigationDestination(for: AccountRoute.self) { _ in
+				// Embedded on the Settings stack (shares `accountPath`), so the profile's
+				// own Manage-account / Security sub-screens resolve correctly.
+				UserProfileView(isDismissible: false, navigationPath: $accountPath)
+					.environment(Clerk.shared)
 			}
 			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
 			.toolbar {
@@ -267,23 +277,15 @@ struct SettingsForm: View {
 			if usesRealAuth {
 				// Push Clerk's profile onto the Settings stack (not a sheet): Settings is
 				// itself a sheet, and a sheet-over-a-sheet presents-then-auto-dismisses.
-				// `navigationPath:` embeds it in this stack (no nested NavigationStack), so
-				// it slides in with a normal back button.
-				NavigationLink {
-					UserProfileView(isDismissible: false, navigationPath: $accountPath)
-						.environment(Clerk.shared)
-				} label: {
+				// Value-based push so UserProfileView and its own sub-screens (Manage
+				// account / Security) all navigate on the SAME path — see the matching
+				// `.navigationDestination` on the Form. (A closure NavigationLink would
+				// push the profile off-path, and its sub-rows would fail to resolve.)
+				NavigationLink(value: AccountRoute.profile) {
 					Text(L10n.Auth.Account.manage)
 				}
 				.testability(Testability.NavigationLink.settingsManageAccount)
 			}
-
-			Button {
-				Task { await authState.signOut() }
-			} label: {
-				Text(L10n.Auth.signOut)
-			}
-			.testability(Testability.Button.settingsSignOut)
 		}
 		.foregroundColor(.primary)
 	}

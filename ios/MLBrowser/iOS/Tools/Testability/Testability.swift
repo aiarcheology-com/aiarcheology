@@ -88,7 +88,6 @@ extension TestabilityIdentification {
 		case settingsRestoreDefaults
 		case settingsKeyboardDone
 		case settingsReplayOnboarding
-		case settingsSignOut
 		// Auth gate (AIA-0340)
 		case authSignIn
 		case authLockedSignOut
