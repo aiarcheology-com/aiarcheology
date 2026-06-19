@@ -266,6 +266,13 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
   - Use an imperative summary ("Fix crash when…").
   - Add a short body describing *why* and any tradeoffs, especially for threading, persistence, or logging changes.
 
+### Pull requests
+
+- **Always write tester-facing "What to Test" notes when opening (or materially updating) a PR.** Update `ios/TestFlight/WhatToTest.en-US.txt` — Xcode Cloud ships this file's contents to TestFlight testers as the build's "What to Test" description. Keep it:
+  - **Tester-facing, not dev jargon** — describe the user-visible behavior and concrete steps to exercise it, not the implementation.
+  - **Scoped to this change** — what's new/changed in this PR and how to verify it; call out anything risky or easy to miss.
+  - **Concise** — a short intro line plus a few bullet steps.
+
 ## 14. Code Review Guidelines (what "good" looks like)
 
 - Correctness: edge cases handled, errors not swallowed, thread/actor correctness.

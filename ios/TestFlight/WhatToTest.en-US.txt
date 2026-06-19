@@ -1,55 +1,47 @@
-Test Focus: Download Reliability & Progress Tracking
+Test Focus: Sign-In & Account Access
 Build: TBD
 
-This build improves download reliability with better progress tracking, resume capability, and recovery after app termination.
+This build adds account sign-in. You now need an account to use the app, and access is granted per user during the beta.
 
 Devices / Platforms
 - iPhone (required)
 - iPad (if available)
 
-1. Download Progress Bar (Primary Focus)
-- Go to Settings → Add Model → enter a URL for a large model
-- Start downloading
-  * The green progress bar should appear at the bottom of the list cell
-  * Progress should update smoothly during download
-- Pause the download
-  * The progress bar should remain visible showing current progress
-  * Status should change to "Paused"
-- Leave the download list and return
-  * The progress bar should still be visible with correct progress
-- Resume the download
-  * Download should continue from where it left off
+1. Sign In (Primary Focus)
+- On launch you should see a sign-in screen
+- Create an account or sign in with your email and password
+  * After signing in, the app should open as usual
+- If your account isn't enabled yet, you'll see an "Access pending" screen
+  * Send us your email and we'll enable access, then relaunch
 
-2. Cancel Download
-- Start a download
-- Tap Cancel
-  * Progress bar should disappear (reset to zero)
-  * Status should change to "Cancelled"
-- Restart the download
-  * Should start from the beginning (not resume)
+2. Account Management
+- Open the drawer → Settings → Manage Account
+- Try Change Password and confirm it works
+- Confirm "Subscription" shows "Free Beta"
 
-3. App Termination Recovery
-- Start downloading a large model
-- Force-quit the app (swipe up from app switcher)
-- Reopen the app
-  * If the download had resume data: status should be "Paused" (can continue)
-  * If no resume data available: status should be "Failed" with message
-  * Download should NOT be stuck in "Downloading" state with no activity
+3. Sign Out
+- Manage Account → Sign Out
+  * You should return to the sign-in screen
+  * You should NOT be able to use the app until you sign in again
 
-4. Background Download
-- Start downloading a model
-- Switch to another app or lock the device
-- Wait for download to complete
-  * Download should continue in background
-  * Notification or completion status on return
+4. Delete Account
+- From "Access pending" or Manage Account, tap Delete Account
+  * Use a throwaway account — this permanently deletes it
+  * After deletion you should be back on the sign-in screen
 
-5. Core Regression
-- Browse websites and confirm web view loads normally
+5. Offline Behavior
+- Turn off Wi-Fi/cellular and launch (or foreground) the app
+  * You should see a "No connection" screen with a Try Again button
+  * Reconnect, tap Try Again, and you should get back in
+
+6. Core Regression
+- After signing in, browse websites and confirm pages load normally
 - Run object detection and verify annotations appear correctly
 - Import a model from Files and verify it works
-- Delete a model configuration and confirm it's removed cleanly
 
-6. Report Issues
+Beta note: the sign-in screen has a Development/Production switch so we can test either environment. Leave it on Development unless asked otherwise.
+
+7. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version
