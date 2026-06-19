@@ -1,0 +1,65 @@
+ios/MLBrowser/iOS/State/AuthState.swift
+  s_314bd7898a7d00::t_3006bb7f41e801 1-131
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_314bd7898a7d00::t_ffe15ef9f33ab7 75-116
+ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift
+  s_314bd7898a7d00::t_7fcb997cbb0a14 24
+  s_314bd7898a7d00::t_c9e7a1c197ced3 87
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_314bd7898a7d00::t_74874e21083720 91-92
+ios/Secrets.template.xcconfig
+  s_c55b2e88071d91::t_7db358f3b3e650 6
+ios/MLBrowser/iOS/UI/Auth/AuthGateView.swift
+  s_314bd7898a7d00::t_dee1e66f23a7c1 1-8,10-197
+  s_314bd7898a7d00::t_72e038b95b063c 9
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_314bd7898a7d00::t_ac30b277852bd6 10-11,15-16,154-155,199-200,232-235,255-259,280,282,284-286,430,475-476,506-509,528-531,535-556,565-566,598-610,734,762-763,933,1004,1169-1177,1210-1211,1321,1604-1606,1666,1849,1891,2110-2117,2137-2146
+ios/MLBrowser/iOS/State/Appstate.swift
+  s_314bd7898a7d00::t_0b11f8ff7f4c22 42-44
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift
+  s_314bd7898a7d00::t_3f7d83b7afd7be 37
+  s_314bd7898a7d00::t_5c8a9cd88796ea 237-264
+  s_314bd7898a7d00::t_09edfd922af7d0 16
+ios/MLBrowser/iOS/UI/MLBrowser.swift
+  s_314bd7898a7d00::t_92c47b7dfe1031 45-49,52-68,73
+ios/MLBrowser-Info.plist
+  s_314bd7898a7d00::t_dcd8f221859b0f 17-29
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_314bd7898a7d00::t_bd1bd35fac9ffa 7-170
+ios/MLBrowser/iOS/UI/ContentView.swift
+  s_314bd7898a7d00::t_7e5427a8335de3 54
+ios/MLBrowser/iOS/State/ClerkAuthProvider.swift
+  s_314bd7898a7d00::t_cd9e45f7efd8e7 1-70,82-130,136-154
+  s_314bd7898a7d00::t_280ab8b3b8dce1 71-81
+  s_314bd7898a7d00::t_384cd489f2bee0 131-135
+ios/MLBrowser/iOS/State/DependencyContainer.swift
+  s_314bd7898a7d00::t_b92577f7bfd746 48-70
+ios/MLBrowserUnitTests/AuthStateTests.swift
+  s_314bd7898a7d00::t_0a0fb93d89faab 1-79
+ios/MLBrowser/MLBrowser.entitlements
+  s_314bd7898a7d00::t_21435dd5c2b44e 9-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "bbb8d7428e9127ca137ae50ece9f5810712cfa6a",
+  "prompts": {},
+  "sessions": {
+    "s_314bd7898a7d00": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "246c85b8-220a-46e0-866a-9ab755bd8615",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    },
+    "s_c55b2e88071d91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "963017da-f299-4282-b474-4ea44d910728",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
