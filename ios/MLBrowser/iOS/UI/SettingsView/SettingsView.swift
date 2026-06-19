@@ -17,7 +17,8 @@ struct SettingsForm: View {
 	@EnvironmentObject var guide: Guide
 	@EnvironmentObject var authState: AuthState
 	@FocusState private var isHistoryLimitFocused: Bool
-	@State private var showManageAccount = false
+	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
+	@State private var accountPath = NavigationPath()
 	@State private var defaultWebPlaceholder: String = "www.google.com"
 	@State private var resetButtonColor: Color = .red
 	@State private var cleanCacheButtonColor: Color = .red
@@ -32,7 +33,7 @@ struct SettingsForm: View {
 	]}
 
 	var body: some View {
-		NavigationStack {
+		NavigationStack(path: $accountPath) {
 			Form {
 				annotationSection
 				webContentSection
@@ -264,20 +265,17 @@ struct SettingsForm: View {
 			}
 
 			if usesRealAuth {
-				Button {
-					showManageAccount = true
+				// Push Clerk's profile onto the Settings stack (not a sheet): Settings is
+				// itself a sheet, and a sheet-over-a-sheet presents-then-auto-dismisses.
+				// `navigationPath:` embeds it in this stack (no nested NavigationStack), so
+				// it slides in with a normal back button.
+				NavigationLink {
+					UserProfileView(isDismissible: false, navigationPath: $accountPath)
+						.environment(Clerk.shared)
 				} label: {
-					HStack {
-						Text(L10n.Auth.Account.manage)
-							.foregroundColor(.primary)
-						Spacer()
-						Image(systemName: "chevron.right")
-							.font(.footnote.weight(.semibold))
-							.foregroundColor(.secondary)
-					}
-					.contentShape(Rectangle())
+					Text(L10n.Auth.Account.manage)
 				}
-				.testability(Testability.Button.settingsManageAccount)
+				.testability(Testability.NavigationLink.settingsManageAccount)
 			}
 
 			Button {
@@ -288,10 +286,6 @@ struct SettingsForm: View {
 			.testability(Testability.Button.settingsSignOut)
 		}
 		.foregroundColor(.primary)
-		.sheet(isPresented: $showManageAccount) {
-			UserProfileView()
-				.environment(Clerk.shared)
-		}
 	}
 
 	@ViewBuilder
