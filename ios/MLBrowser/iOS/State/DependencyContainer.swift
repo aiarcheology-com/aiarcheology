@@ -49,11 +49,16 @@ class DependencyContainer {
     // MARK: - Authentication (AIA-0340)
 
     /// Whether the auth gate uses the in-memory mock instead of Clerk.
-    /// DEBUG-only and gated on UI tests, so it can never be present in
+    /// DEBUG-only and gated on test runs, so it can never be present in
     /// Release/TestFlight builds — the auth bypass cannot ship.
+    ///
+    /// Covers BOTH UI tests (`UI_TESTING`) and unit tests (`XCTestConfigurationFilePath`).
+    /// Unit tests must use the mock too: their host app launches the real SwiftUI scene,
+    /// and the real path touches `Clerk.shared`, which traps (SIGILL) when Clerk was never
+    /// configured — e.g. on CI, where the publishable key is absent.
     let usesMockAuth: Bool = {
         #if DEBUG
-        return AppEnvironment.isRunningUITests
+        return AppEnvironment.isRunningUITests || AppEnvironment.isRunningUnderAnyTests
         #else
         return false
         #endif

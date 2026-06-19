@@ -30,9 +30,12 @@ final class ClerkAuthProvider: AuthProviding {
 
     /// Configure the Clerk SDK. Call once, at app launch, before reading `Clerk.shared`.
     static func configure() {
-        guard !publishableKey.isEmpty else {
+        // Real Clerk publishable keys are `pk_test_…` / `pk_live_…`. Reject anything else
+        // (empty, or an unexpanded `$(CLERK_PUBLISHABLE_KEY)` placeholder) so we never hand
+        // Clerk an invalid key — `Clerk.configure` traps on a malformed key in DEBUG.
+        guard publishableKey.hasPrefix("pk_") else {
             LoggingPolicy.error(
-                "CLERK_PUBLISHABLE_KEY missing — Clerk not configured. Check Secrets.xcconfig.",
+                "CLERK_PUBLISHABLE_KEY missing or invalid — Clerk not configured. Check Secrets.xcconfig / CI env.",
                 logger: .configuration
             )
             return
