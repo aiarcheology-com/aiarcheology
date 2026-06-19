@@ -1,0 +1,29 @@
+ios/MLBrowser/iOS/State/ClerkAuthProvider.swift
+  s_314bd7898a7d00::t_d040db4a99b817 12-19
+  s_314bd7898a7d00::t_b1ac37544882dc 37-41,52-68,80-81,83-86
+  s_314bd7898a7d00::t_01ece4de1e75df 69-79,82
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_314bd7898a7d00::t_734f51ea15f015 106-149
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift
+  s_314bd7898a7d00::t_2fd30c4d9a285f 295-317
+  s_314bd7898a7d00::t_2cf10671bf8a9d 47
+  s_314bd7898a7d00::t_61e4b2ecfd0a8d 26
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_314bd7898a7d00::t_fc9504afaa1455 100-109
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "79fd9abb3d65c8e59d03a31dba9f8600c6d81097",
+  "prompts": {},
+  "sessions": {
+    "s_314bd7898a7d00": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "246c85b8-220a-46e0-866a-9ab755bd8615",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
