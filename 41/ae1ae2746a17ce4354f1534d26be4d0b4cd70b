@@ -1,0 +1,41 @@
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_314bd7898a7d00::t_d6c0895e85ee9b 40-72
+ios/MLBrowser/iOS/UI/Auth/AuthGateView.swift
+  s_314bd7898a7d00::t_60f70ca9b2281f 104
+  s_314bd7898a7d00::t_e966772b5c2b1d 107-116
+  s_314bd7898a7d00::t_12a0166937011b 194
+  s_314bd7898a7d00::t_bcfbdf8084aca1 64-66
+  s_314bd7898a7d00::t_d8147d0266d51e 142
+ios/MLBrowserUITests/UITestSupport.swift
+  s_314bd7898a7d00::t_71225ee0bbf12a 106-110
+  s_314bd7898a7d00::t_7ed805f09fc100 150,158-162
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_314bd7898a7d00::t_c9722bd8704b2f 83-88
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift
+  s_314bd7898a7d00::t_22299c8c9618f1 9-10
+  s_314bd7898a7d00::t_0c54abc99b2c66 20
+  s_314bd7898a7d00::t_a448000feda495 240-246,249-283,291-294
+ios/MLBrowserUITests/AuthGateUITests.swift
+  s_314bd7898a7d00::t_5e8a14888a341f 1-43
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_314bd7898a7d00::t_fc9eae946369aa 92
+  s_314bd7898a7d00::t_ecabe51ea2ac6c 93-96
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_314bd7898a7d00::t_e01a58ffa1cf4d 13,531,1024,1689
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "41ae1ae2746a17ce4354f1534d26be4d0b4cd70b",
+  "prompts": {},
+  "sessions": {
+    "s_314bd7898a7d00": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "246c85b8-220a-46e0-866a-9ab755bd8615",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
