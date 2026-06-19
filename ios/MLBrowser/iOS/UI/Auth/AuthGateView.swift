@@ -85,11 +85,19 @@ private struct AuthLoadingView: View {
 private struct SignInGateView: View {
     @ObservedObject var authState: AuthState
     @State private var authPresented = false
+    @State private var clerkEnv: ClerkEnvironment = ClerkAuthProvider.selectedEnvironment
 
     /// Real Clerk-backed auth vs. the DEBUG mock. The mock path has no configured Clerk
     /// instance, so the Clerk-dependent `AuthView` is built (and presented) only on the
     /// real-auth path.
     private var usesRealAuth: Bool { DependencyContainer.shared.usesMockAuth == false }
+
+    /// Whether to offer the dev/prod instance switch here. Non-App-Store (dev + TestFlight)
+    /// real-auth builds only, so testers can pick the instance BEFORE signing in (no need
+    /// to sign into dev first). Hidden on the App Store (always production).
+    private var showEnvironmentSwitch: Bool {
+        usesRealAuth && AppEnvironment.isAppStoreDistribution == false
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -114,23 +122,39 @@ private struct SignInGateView: View {
 
             Spacer()
 
-            Button {
-                // Only present the Clerk sheet on the real-auth path; on the mock path
-                // there is no `AuthView` to show (avoids a blank modal).
-                guard usesRealAuth else { return }
-                authPresented = true
-            } label: {
-                Text(L10n.Auth.SignIn.button)
-                    .fontWeight(.bold)
-                    .frame(maxWidth: .infinity)
+            VStack(spacing: 16) {
+                Button {
+                    // Only present the Clerk sheet on the real-auth path; on the mock path
+                    // there is no `AuthView` to show (avoids a blank modal).
+                    guard usesRealAuth else { return }
+                    authPresented = true
+                } label: {
+                    Text(L10n.Auth.SignIn.button)
+                        .fontWeight(.bold)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                .controlSize(.large)
+                .accessibilityHint(Text(L10n.Auth.SignIn.tagline))
+                .testability(Testability.Button.authSignIn)
+
+                if showEnvironmentSwitch {
+                    // Pick the Clerk instance before signing in. Reconfigures Clerk so the
+                    // sign-in sheet targets the chosen instance (no session to clear here).
+                    Picker(L10n.Auth.Environment.title, selection: $clerkEnv) {
+                        Text(L10n.Auth.Environment.development).tag(ClerkEnvironment.development)
+                        Text(L10n.Auth.Environment.production).tag(ClerkEnvironment.production)
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: clerkEnv) { _, newEnv in
+                        Task { await ClerkAuthProvider.switchEnvironment(to: newEnv) }
+                    }
+                    .accessibilityLabel(Text(L10n.Auth.Environment.title))
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.green)
-            .controlSize(.large)
             .padding(.horizontal, 32)
             .padding(.bottom, 40)
-            .accessibilityHint(Text(L10n.Auth.SignIn.tagline))
-            .testability(Testability.Button.authSignIn)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(isPresented: $authPresented, onDismiss: {

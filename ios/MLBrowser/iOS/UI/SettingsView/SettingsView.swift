@@ -23,7 +23,6 @@ struct SettingsForm: View {
 	@FocusState private var isHistoryLimitFocused: Bool
 	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
 	@State private var accountPath = NavigationPath()
-	@State private var clerkEnv: ClerkEnvironment = ClerkAuthProvider.selectedEnvironment
 	@State private var defaultWebPlaceholder: String = "www.google.com"
 	@State private var resetButtonColor: Color = .red
 	@State private var cleanCacheButtonColor: Color = .red
@@ -44,7 +43,6 @@ struct SettingsForm: View {
 				webContentSection
 				mlBrowserSection
 				accountSection
-				environmentSection
 				debugSection
 			}
 			.navigationDestination(for: AccountRoute.self) { _ in
@@ -290,29 +288,6 @@ struct SettingsForm: View {
 			}
 		}
 		.foregroundColor(.primary)
-	}
-
-	/// Lets non-App-Store builds (dev / TestFlight) switch the active Clerk instance so
-	/// QA can validate production before release. Hidden on the App Store (always prod)
-	/// and on the mock path (no real Clerk). Gated at runtime — NOT `#if DEBUG` — because
-	/// TestFlight is a Release build where testers still need it.
-	@ViewBuilder
-	private var environmentSection: some View {
-		if AppEnvironment.isAppStoreDistribution.not, usesRealAuth {
-			Section(
-				header: Text(L10n.Auth.Environment.title),
-				footer: Text(L10n.Auth.Environment.footer)
-			) {
-				Picker(L10n.Auth.Environment.title, selection: $clerkEnv) {
-					Text(L10n.Auth.Environment.development).tag(ClerkEnvironment.development)
-					Text(L10n.Auth.Environment.production).tag(ClerkEnvironment.production)
-				}
-				.pickerStyle(.segmented)
-				.onChange(of: clerkEnv) { _, newEnv in
-					Task { await ClerkAuthProvider.switchEnvironment(to: newEnv) }
-				}
-			}
-		}
 	}
 
 	@ViewBuilder
