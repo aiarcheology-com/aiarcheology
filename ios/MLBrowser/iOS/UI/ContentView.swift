@@ -51,6 +51,7 @@ struct ContentView: View {
                 .environmentObject(appState.deep)
                 .environmentObject(appState.downloader)
                 .environmentObject(appState.settings)
+                .environmentObject(appState.authState)
         }
         .environment(drawer)
         // The single root attachment of the onboarding tour overlay (AIA-0333). Inert while

@@ -39,6 +39,9 @@ final class AppState: ObservableObject {
 	/// first-launch experience and is re-runnable from Settings.
 	lazy var tour = TourState()
 
+	/// Authentication & access launch gate (AIA-0340).
+	lazy var authState = AuthState(provider: DependencyContainer.shared.authProvider)
+
 	/// Indicates whether the app initialization is complete
 	@Published private(set) var isReady = false
 	

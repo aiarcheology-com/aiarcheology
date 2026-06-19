@@ -13,6 +13,7 @@ struct SettingsForm: View {
 	@Environment(TourState.self) private var tour
 	@EnvironmentObject var settings: Settings
 	@EnvironmentObject var guide: Guide
+	@EnvironmentObject var authState: AuthState
 	@FocusState private var isHistoryLimitFocused: Bool
 	@State private var defaultWebPlaceholder: String = "www.google.com"
 	@State private var resetButtonColor: Color = .red
@@ -33,6 +34,7 @@ struct SettingsForm: View {
 				annotationSection
 				webContentSection
 				mlBrowserSection
+				accountSection
 				debugSection
 			}
 			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
@@ -230,6 +232,34 @@ struct SettingsForm: View {
 		.onChange(of: settings.applicationResetButtonToggle) {
 			resetButtonColor = .blue
 		}
+	}
+
+	/// Account management (AIA-0340): sign out and the App Store-required
+	/// in-app account deletion (Apple Guideline 5.1.1(v)).
+	private var accountSection: some View {
+		Section(header: Text(L10n.Auth.Account.title)) {
+			Button(role: .none) {
+				Task { await authState.signOut() }
+			} label: {
+				Text(L10n.Auth.signOut)
+			}
+			.testability(Testability.Button.settingsSignOut)
+
+			Button(role: .destructive) {
+				self.alertItem = AlertItem(
+					title: Text(L10n.Auth.Account.Delete.title),
+					message: Text(L10n.Auth.Account.Delete.message),
+					primaryButton: .destructive(Text(L10n.Auth.Account.Delete.action), action: {
+						Task { try? await authState.deleteAccount() }
+					}),
+					secondaryButton: .cancel()
+				)
+			} label: {
+				Text(L10n.Auth.Account.Delete.action)
+			}
+			.testability(Testability.Button.settingsDeleteAccount)
+		}
+		.foregroundColor(.primary)
 	}
 
 	@ViewBuilder

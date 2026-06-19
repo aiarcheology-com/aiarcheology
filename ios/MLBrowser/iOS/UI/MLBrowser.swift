@@ -8,6 +8,7 @@
 import SwiftUI
 import OSLog
 import UIKit
+import ClerkKit
 
 // MARK: - App Delegate bridge (Background URLSession)
 
@@ -41,16 +42,35 @@ struct MLBrowser: App {
 	init() {
 		Observability.start(with: DependencyContainer.shared.crashReporter)
 		Observability.runTestTriggersIfEnabled()
+		// Configure Clerk for the auth gate (AIA-0340). Skipped for the DEBUG-only
+		// mock-auth path used by UI tests, which must not touch Clerk or the network.
+		if !DependencyContainer.shared.usesMockAuth {
+			ClerkAuthProvider.configure()
+		}
 		LoggingPolicy.info("MLBrowser app launching", logger: .lifecycle)
 	}
-	
+
+	/// The app behind the authentication gate (AIA-0340). `Clerk.shared` is injected
+	/// only on the real-auth path; the mock path never accesses it.
+	@ViewBuilder
+	private var authGatedContent: some View {
+		let gate = AuthGateView(authState: appState.authState) {
+			ContentView()
+				.environmentObject(appState)
+				.environment(\.managedObjectContext, appState.dataController.container.viewContext)
+		}
+		if DependencyContainer.shared.usesMockAuth {
+			gate
+		} else {
+			gate.environment(Clerk.shared)
+		}
+	}
+
 	var body: some Scene {
 		WindowGroup {
 			Group {
 				if appState.isReady {
-					ContentView()
-						.environmentObject(appState)
-						.environment(\.managedObjectContext, appState.dataController.container.viewContext)
+					authGatedContent
 				} else {
 					ProgressView("Loading...")
 				}

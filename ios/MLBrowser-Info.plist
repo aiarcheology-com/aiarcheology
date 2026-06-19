@@ -14,5 +14,18 @@
 	</array>
 	<key>SentryDSN</key>
 	<string>$(SENTRY_DSN)</string>
+	<key>ClerkPublishableKey</key>
+	<string>$(CLERK_PUBLISHABLE_KEY)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.aiarcheology.ios.clerk-oauth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.aiarcheology.ios</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

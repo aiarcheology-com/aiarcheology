@@ -88,6 +88,8 @@ extension TestabilityIdentification {
 		case settingsRestoreDefaults
 		case settingsKeyboardDone
 		case settingsReplayOnboarding
+		case settingsSignOut
+		case settingsDeleteAccount
 		// Browsing History
 		case browsingHistoryClear
 		case browsingHistoryDismiss

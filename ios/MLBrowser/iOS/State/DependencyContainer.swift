@@ -45,7 +45,29 @@ class DependencyContainer {
     lazy var demoDataManager: DemoDataManager = {
         return DemoDataManager(dataController: self.dataController)
     }()
-    
+
+    // MARK: - Authentication (AIA-0340)
+
+    /// Whether the auth gate uses the in-memory mock instead of Clerk.
+    /// DEBUG-only and gated on UI tests, so it can never be present in
+    /// Release/TestFlight builds — the auth bypass cannot ship.
+    let usesMockAuth: Bool = {
+        #if DEBUG
+        return AppEnvironment.isRunningUITests
+        #else
+        return false
+        #endif
+    }()
+
+    lazy var authProvider: AuthProviding = {
+        #if DEBUG
+        if self.usesMockAuth {
+            return MockAuthProvider.fromLaunchArguments()
+        }
+        #endif
+        return ClerkAuthProvider()
+    }()
+
 	// MARK: - Initialization
 	
     private init() {
