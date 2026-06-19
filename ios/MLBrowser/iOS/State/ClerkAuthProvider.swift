@@ -19,9 +19,23 @@ import ClerkKit
 @MainActor
 final class ClerkAuthProvider: AuthProviding {
 
-    /// Info.plist key, injected from `CLERK_PUBLISHABLE_KEY` in `Secrets.xcconfig`.
-    static let publishableKey: String =
+    /// The Clerk publishable key for the current distribution channel: the
+    /// production (`pk_live_`) instance for App Store builds, the dev/test
+    /// (`pk_test_`) instance everywhere else (TestFlight, AdHoc, dev, simulator).
+    /// Per the v1 model, testers run on the dev instance and production users on
+    /// the production instance — both keys are public, so both ship in the binary
+    /// and are selected by the receipt type.
+    static var publishableKey: String {
+        AppEnvironment.isAppStoreDistribution ? liveKey : testKey
+    }
+
+    /// Dev/test instance key, injected from `CLERK_PUBLISHABLE_KEY` in `Secrets.xcconfig`.
+    private static let testKey =
         Bundle.main.object(forInfoDictionaryKey: "ClerkPublishableKey") as? String ?? ""
+
+    /// Production instance key, injected from `CLERK_PUBLISHABLE_KEY_LIVE`.
+    private static let liveKey =
+        Bundle.main.object(forInfoDictionaryKey: "ClerkPublishableKeyLive") as? String ?? ""
 
     /// `publicMetadata` boolean flag that grants access during the v1 allowlist
     /// phase. Set per user in the Clerk Dashboard (Users → Metadata → Public) as

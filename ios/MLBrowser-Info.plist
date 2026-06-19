@@ -16,6 +16,8 @@
 	<string>$(SENTRY_DSN)</string>
 	<key>ClerkPublishableKey</key>
 	<string>$(CLERK_PUBLISHABLE_KEY)</string>
+	<key>ClerkPublishableKeyLive</key>
+	<string>$(CLERK_PUBLISHABLE_KEY_LIVE)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

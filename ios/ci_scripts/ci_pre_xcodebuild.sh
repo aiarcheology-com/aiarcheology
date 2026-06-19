@@ -53,18 +53,22 @@ ESCAPED_DSN=$(echo "$SENTRY_DSN" | sed 's|://|:$()/$()/|g')
 # Clerk publishable key is only needed for distribution (archive) builds. Test and
 # plain build actions run the DEBUG mock auth path and never touch Clerk, so they
 # get no key — this keeps the test workflows hermetic and independent of Clerk.
-CLERK_LINE=""
+CLERK_LINES=""
 if [[ "${CI_XCODEBUILD_ACTION:-}" == "archive" ]]; then
-    if [[ -z "${CLERK_PUBLISHABLE_KEY:-}" ]]; then
-        echo "❌ CLERK_PUBLISHABLE_KEY is required for archive builds but is not set."
-        echo "   Set it (pk_test_… / pk_live_…) in the Xcode Cloud workflow's environment."
+    # An archive ships to both TestFlight (uses pk_test_ via the sandbox receipt) and
+    # the App Store (uses pk_live_ via the production receipt), so the binary needs
+    # BOTH keys. Both are public; the app selects by receipt at runtime.
+    if [[ -z "${CLERK_PUBLISHABLE_KEY:-}" || -z "${CLERK_PUBLISHABLE_KEY_LIVE:-}" ]]; then
+        echo "❌ Archive builds require BOTH CLERK_PUBLISHABLE_KEY (pk_test_…) and CLERK_PUBLISHABLE_KEY_LIVE (pk_live_…)."
+        echo "   Set both in the Xcode Cloud archive workflow's environment."
         echo "   Refusing to produce a distributable with authentication unconfigured."
         exit 1
     fi
     # Clerk publishable keys are base64url (pk_test_… / pk_live_…) — no `//`, no escaping needed.
-    CLERK_LINE="CLERK_PUBLISHABLE_KEY = ${CLERK_PUBLISHABLE_KEY}"
+    CLERK_LINES="CLERK_PUBLISHABLE_KEY = ${CLERK_PUBLISHABLE_KEY}
+CLERK_PUBLISHABLE_KEY_LIVE = ${CLERK_PUBLISHABLE_KEY_LIVE}"
 else
-    echo "ℹ️  Action '${CI_XCODEBUILD_ACTION:-<unset>}' is not 'archive' — skipping CLERK_PUBLISHABLE_KEY (tests use the mock auth path)"
+    echo "ℹ️  Action '${CI_XCODEBUILD_ACTION:-<unset>}' is not 'archive' — skipping Clerk keys (tests use the mock auth path)"
 fi
 
 cat > "$SECRETS_FILE" << EOF
@@ -73,7 +77,7 @@ cat > "$SECRETS_FILE" << EOF
 // Generated at: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 SENTRY_DSN = ${ESCAPED_DSN}
-${CLERK_LINE}
+${CLERK_LINES}
 EOF
 
 echo "   ✅ Created $SECRETS_FILE"
