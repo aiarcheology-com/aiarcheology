@@ -23,8 +23,10 @@ final class ClerkAuthProvider: AuthProviding {
     static let publishableKey: String =
         Bundle.main.object(forInfoDictionaryKey: "ClerkPublishableKey") as? String ?? ""
 
-    /// `publicMetadata` flag that grants access during the v1 allowlist phase.
-    private static let accessMetadataKey = "access"
+    /// `publicMetadata` boolean flag that grants access during the v1 allowlist
+    /// phase. Set per user in the Clerk Dashboard (Users → Metadata → Public) as
+    /// `{ "hasAccess": true }`.
+    private static let accessMetadataKey = "hasAccess"
 
     /// Configure the Clerk SDK. Call once, at app launch, before reading `Clerk.shared`.
     static func configure() {
@@ -87,17 +89,7 @@ final class ClerkAuthProvider: AuthProviding {
     }
 
     func hasAccess() -> Bool {
-        guard let access = Clerk.shared.user?.publicMetadata?[Self.accessMetadataKey] else {
-            return false
-        }
-        // Accept either documented convention for the allowlist flag:
-        // boolean `true`, or the string `"allowed"` / `"true"`. Set this per user
-        // in the Clerk Dashboard (Users → Metadata → Public).
-        if access.boolValue == true { return true }
-        if let str = access.stringValue?.lowercased() {
-            return str == "allowed" || str == "true"
-        }
-        return false
+        Clerk.shared.user?.publicMetadata?[Self.accessMetadataKey]?.boolValue == true
     }
 
     func signOut() async {
