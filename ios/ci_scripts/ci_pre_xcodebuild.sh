@@ -56,9 +56,10 @@ ESCAPED_DSN=$(echo "$SENTRY_DSN" | sed 's|://|:$()/$()/|g')
 CLERK_LINE=""
 if [[ "${CI_XCODEBUILD_ACTION:-}" == "archive" ]]; then
     if [[ -z "${CLERK_PUBLISHABLE_KEY:-}" ]]; then
-        echo "⚠️  Warning: CLERK_PUBLISHABLE_KEY not set for archive build"
-        echo "   Authentication will be unconfigured in this build"
-        CLERK_PUBLISHABLE_KEY=""
+        echo "❌ CLERK_PUBLISHABLE_KEY is required for archive builds but is not set."
+        echo "   Set it (pk_test_… / pk_live_…) in the Xcode Cloud workflow's environment."
+        echo "   Refusing to produce a distributable with authentication unconfigured."
+        exit 1
     fi
     # Clerk publishable keys are base64url (pk_test_… / pk_live_…) — no `//`, no escaping needed.
     CLERK_LINE="CLERK_PUBLISHABLE_KEY = ${CLERK_PUBLISHABLE_KEY}"

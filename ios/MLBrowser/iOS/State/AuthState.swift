@@ -13,7 +13,7 @@ import OSLog
 /// Flow: `checkingSession` resolves into exactly one of the terminal states.
 /// - `signedOut`: no valid session (never signed in, signed out, revoked, or banned).
 /// - `offline`: validation could not reach the server. v1 fails closed here.
-/// - `locked`: signed in, but the user is not entitled (`publicMetadata.access != true`).
+/// - `locked`: signed in, but the user is not entitled (`publicMetadata["hasAccess"] != true`).
 /// - `ready`: signed in and entitled — the app proper is shown.
 enum AuthGate: Equatable {
     case checkingSession
@@ -53,7 +53,7 @@ protocol AuthProviding {
     /// rejects revoked/banned sessions. Throws ``AuthValidationError`` on failure.
     func validateSession() async throws
 
-    /// Whether the signed-in user currently has access (`publicMetadata.access == true`).
+    /// Whether the signed-in user currently has access (`publicMetadata["hasAccess"] == true`).
     func hasAccess() -> Bool
 
     /// Sign the current user out.
@@ -73,6 +73,13 @@ final class AuthState: ObservableObject {
 
     private let provider: AuthProviding
 
+    /// Guards against overlapping refreshes. `refresh()` is triggered from several
+    /// places (launch, foreground, sign-in sheet dismissal, Clerk session changes),
+    /// which can fire near-simultaneously; coalescing avoids redundant server
+    /// round-trips. Each validation reads Clerk's current state, so skipping a
+    /// concurrent call never yields a stale result.
+    private var isRefreshing = false
+
     init(provider: AuthProviding) {
         self.provider = provider
     }
@@ -86,6 +93,10 @@ final class AuthState: ObservableObject {
 
     /// Re-evaluate the gate. Safe to call on launch and on every foreground.
     func refresh() async {
+        guard isRefreshing == false else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+
         guard provider.isSignedIn else {
             setGate(.signedOut)
             return

@@ -104,7 +104,12 @@ final class ClerkAuthProvider: AuthProviding {
     }
 
     func deleteAccount() async throws {
-        _ = try await Clerk.shared.user?.delete()
+        // Fail explicitly rather than silently "succeeding" on a nil user — otherwise a
+        // missing/revoked session would look like a completed deletion to the caller.
+        guard let user = Clerk.shared.user else {
+            throw AuthValidationError.noValidSession
+        }
+        _ = try await user.delete()
     }
 }
 

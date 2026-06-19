@@ -1,6 +1,6 @@
 # Implementation Plan — AIA-0340: Authentication & Billing (first version)
 
-> Status: **PLAN ONLY** — no application code changed. Validated via a Codex consult (Clerk iOS SDK + Apple guidelines) and an adversarial `/grill-yourself` review (SHIP after 3 rounds).
+> Status: **IMPLEMENTED** in PR #341 (`feature/AIA-0340/clerk-auth` → `develop`). Originally validated via a Codex consult (Clerk iOS SDK + Apple guidelines) and an adversarial `/grill-yourself` review (SHIP after 3 rounds). v1 = dev Clerk instance; production instance/`pk_live_` wiring is deferred (see Open question / Production readiness).
 > Issue: https://github.com/aiarcheology-com/aiarcheology/issues/340
 
 ## Goal

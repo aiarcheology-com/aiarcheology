@@ -52,13 +52,16 @@ class DependencyContainer {
     /// DEBUG-only and gated on test runs, so it can never be present in
     /// Release/TestFlight builds — the auth bypass cannot ship.
     ///
-    /// Covers BOTH UI tests (`UI_TESTING`) and unit tests (`XCTestConfigurationFilePath`).
-    /// Unit tests must use the mock too: their host app launches the real SwiftUI scene,
-    /// and the real path touches `Clerk.shared`, which traps (SIGILL) when Clerk was never
-    /// configured — e.g. on CI, where the publishable key is absent.
+    /// Covers UI tests (`UI_TESTING`), unit tests (`XCTestConfigurationFilePath`), and
+    /// DEBUG builds without a valid publishable key (fresh clone with no `Secrets.xcconfig`,
+    /// SwiftUI previews). All of these would otherwise take the real path and touch
+    /// `Clerk.shared`, which traps (SIGILL) when Clerk was never configured. Release builds
+    /// always use the real provider (the mock is `#if DEBUG`, so it can never ship).
     let usesMockAuth: Bool = {
         #if DEBUG
-        return AppEnvironment.isRunningUITests || AppEnvironment.isRunningUnderAnyTests
+        return AppEnvironment.isRunningUITests
+            || AppEnvironment.isRunningUnderAnyTests
+            || ClerkAuthProvider.publishableKey.hasPrefix("pk_") == false
         #else
         return false
         #endif

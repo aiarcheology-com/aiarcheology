@@ -86,8 +86,9 @@ private struct SignInGateView: View {
     @ObservedObject var authState: AuthState
     @State private var authPresented = false
 
-    /// Real Clerk-backed auth vs. the DEBUG mock (UI tests). The mock path has no
-    /// configured Clerk instance, so the Clerk-dependent `AuthView` is only built there.
+    /// Real Clerk-backed auth vs. the DEBUG mock. The mock path has no configured Clerk
+    /// instance, so the Clerk-dependent `AuthView` is built (and presented) only on the
+    /// real-auth path.
     private var usesRealAuth: Bool { DependencyContainer.shared.usesMockAuth == false }
 
     var body: some View {
@@ -114,6 +115,9 @@ private struct SignInGateView: View {
             Spacer()
 
             Button {
+                // Only present the Clerk sheet on the real-auth path; on the mock path
+                // there is no `AuthView` to show (avoids a blank modal).
+                guard usesRealAuth else { return }
                 authPresented = true
             } label: {
                 Text(L10n.Auth.SignIn.button)
@@ -149,6 +153,7 @@ private struct SignInGateView: View {
 private struct LockedView: View {
     @ObservedObject var authState: AuthState
     @State private var showDeleteConfirmation = false
+    @State private var deleteFailed = false
 
     var body: some View {
         AuthMessageView(
@@ -184,11 +189,25 @@ private struct LockedView: View {
             titleVisibility: .visible
         ) {
             Button(L10n.Auth.Account.Delete.action, role: .destructive) {
-                Task { try? await authState.deleteAccount() }
+                Task {
+                    do {
+                        try await authState.deleteAccount()
+                    } catch {
+                        // Don't silently drop the failure (see ios/AGENTS.md §5): log it
+                        // and tell the user, since they remain signed in / locked.
+                        LoggingPolicy.error("Account deletion failed: \(error.localizedDescription)", logger: .state)
+                        deleteFailed = true
+                    }
+                }
             }
             Button(L10n.Common.cancel, role: .cancel) {}
         } message: {
             Text(L10n.Auth.Account.Delete.message)
+        }
+        .alert(L10n.Alert.Error.title, isPresented: $deleteFailed) {
+            Button(L10n.Common.ok, role: .cancel) {}
+        } message: {
+            Text(L10n.Alert.Error.unexpected)
         }
     }
 }
