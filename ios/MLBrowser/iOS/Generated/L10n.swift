@@ -80,6 +80,12 @@ internal enum L10n {
     internal enum Account {
       /// Permanently delete your account and all associated data. This cannot be undone.
       internal static let deleteFooter = L10n.tr("Localizable", "auth.account.deleteFooter", fallback: "Permanently delete your account and all associated data. This cannot be undone.")
+      /// Free Beta
+      internal static let freeBeta = L10n.tr("Localizable", "auth.account.freeBeta", fallback: "Free Beta")
+      /// Manage Account
+      internal static let manage = L10n.tr("Localizable", "auth.account.manage", fallback: "Manage Account")
+      /// Subscription
+      internal static let subscription = L10n.tr("Localizable", "auth.account.subscription", fallback: "Subscription")
       /// Account
       internal static let title = L10n.tr("Localizable", "auth.account.title", fallback: "Account")
       internal enum Delete {

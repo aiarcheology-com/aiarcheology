@@ -105,12 +105,6 @@ final class AuthState: ObservableObject {
         setGate(provider.hasAccess() ? .ready : .locked)
     }
 
-    /// Invoked after the user completes the sign-in flow.
-    func didCompleteSignIn() async {
-        setGate(.checkingSession)
-        await refresh()
-    }
-
     /// Sign out and return to the sign-in screen.
     func signOut() async {
         await provider.signOut()

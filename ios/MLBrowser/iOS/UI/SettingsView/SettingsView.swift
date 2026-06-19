@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import ClerkKit
+import ClerkKitUI
 
 struct SettingsForm: View {
 	@Environment(\.dismiss) private var dismiss
@@ -15,6 +17,7 @@ struct SettingsForm: View {
 	@EnvironmentObject var guide: Guide
 	@EnvironmentObject var authState: AuthState
 	@FocusState private var isHistoryLimitFocused: Bool
+	@State private var showManageAccount = false
 	@State private var defaultWebPlaceholder: String = "www.google.com"
 	@State private var resetButtonColor: Color = .red
 	@State private var cleanCacheButtonColor: Color = .red
@@ -234,32 +237,61 @@ struct SettingsForm: View {
 		}
 	}
 
-	/// Account management (AIA-0340): sign out and the App Store-required
-	/// in-app account deletion (Apple Guideline 5.1.1(v)).
+	/// Whether the real Clerk-backed auth is active. The mock path (UI tests) has no
+	/// configured Clerk instance, so the Clerk-dependent rows are hidden there.
+	private var usesRealAuth: Bool { DependencyContainer.shared.usesMockAuth == false }
+
+	/// Account management (AIA-0340). "Manage Account" opens Clerk's prebuilt
+	/// `UserProfileView`, which handles change password, email, security/MFA,
+	/// devices, and the App Store-required account deletion (Apple 5.1.1(v)).
 	private var accountSection: some View {
 		Section(header: Text(L10n.Auth.Account.title)) {
-			Button(role: .none) {
+			if usesRealAuth, let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress {
+				HStack {
+					Text(email)
+						.foregroundColor(.secondary)
+						.lineLimit(1)
+						.truncationMode(.middle)
+					Spacer()
+				}
+			}
+
+			HStack {
+				Text(L10n.Auth.Account.subscription)
+				Spacer()
+				Text(L10n.Auth.Account.freeBeta)
+					.foregroundColor(.secondary)
+			}
+
+			if usesRealAuth {
+				Button {
+					showManageAccount = true
+				} label: {
+					HStack {
+						Text(L10n.Auth.Account.manage)
+							.foregroundColor(.primary)
+						Spacer()
+						Image(systemName: "chevron.right")
+							.font(.footnote.weight(.semibold))
+							.foregroundColor(.secondary)
+					}
+					.contentShape(Rectangle())
+				}
+				.testability(Testability.Button.settingsManageAccount)
+			}
+
+			Button {
 				Task { await authState.signOut() }
 			} label: {
 				Text(L10n.Auth.signOut)
 			}
 			.testability(Testability.Button.settingsSignOut)
-
-			Button(role: .destructive) {
-				self.alertItem = AlertItem(
-					title: Text(L10n.Auth.Account.Delete.title),
-					message: Text(L10n.Auth.Account.Delete.message),
-					primaryButton: .destructive(Text(L10n.Auth.Account.Delete.action), action: {
-						Task { try? await authState.deleteAccount() }
-					}),
-					secondaryButton: .cancel()
-				)
-			} label: {
-				Text(L10n.Auth.Account.Delete.action)
-			}
-			.testability(Testability.Button.settingsDeleteAccount)
 		}
 		.foregroundColor(.primary)
+		.sheet(isPresented: $showManageAccount) {
+			UserProfileView()
+				.environment(Clerk.shared)
+		}
 	}
 
 	@ViewBuilder

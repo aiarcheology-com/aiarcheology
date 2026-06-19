@@ -59,8 +59,11 @@ private struct AuthLoadingView: View {
 /// the user is signed in.
 private struct SignInGateView: View {
     @ObservedObject var authState: AuthState
-    @Environment(Clerk.self) private var clerk
     @State private var authPresented = false
+
+    /// Real Clerk-backed auth vs. the DEBUG mock (UI tests). The mock path has no
+    /// configured Clerk instance, so the Clerk-dependent `AuthView` is only built there.
+    private var usesRealAuth: Bool { DependencyContainer.shared.usesMockAuth == false }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -98,18 +101,19 @@ private struct SignInGateView: View {
             .padding(.horizontal, 32)
             .padding(.bottom, 40)
             .accessibilityHint(Text(L10n.Auth.SignIn.tagline))
+            .testability(Testability.Button.authSignIn)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .sheet(isPresented: $authPresented) {
-            AuthView()
-        }
-        .onOpenURL { url in
-            Task { try? await clerk.handle(url) }
-        }
-        .onChange(of: clerk.user?.id) { _, newValue in
-            guard newValue != nil else { return }
-            authPresented = false
-            Task { await authState.didCompleteSignIn() }
+        .sheet(isPresented: $authPresented, onDismiss: {
+            // Re-evaluate the gate after the sheet closes — covers both a completed
+            // sign-in (→ ready/locked) and a cancel (→ stays signed-out). Avoids
+            // observing `Clerk.shared`, which the mock/UI-test path never configures.
+            Task { await authState.refresh() }
+        }) {
+            if usesRealAuth {
+                AuthView()
+                    .environment(Clerk.shared)
+            }
         }
     }
 }
@@ -135,6 +139,7 @@ private struct LockedView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
+                .testability(Testability.Button.authLockedSignOut)
 
                 // A locked user has created an account, so per Apple Guideline
                 // 5.1.1(v) they must be able to delete it without first reaching
@@ -186,6 +191,7 @@ private struct AuthUnavailableView: View {
             .buttonStyle(.borderedProminent)
             .tint(.green)
             .controlSize(.large)
+            .testability(Testability.Button.authOfflineRetry)
         }
     }
 }

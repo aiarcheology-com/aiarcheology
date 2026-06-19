@@ -37,6 +37,39 @@
         }
       }
     },
+    "auth.account.freeBeta" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free Beta"
+          }
+        }
+      }
+    },
+    "auth.account.manage" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage Account"
+          }
+        }
+      }
+    },
+    "auth.account.subscription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscription"
+          }
+        }
+      }
+    },
     "auth.account.deleteFooter" : {
       "extractionState" : "manual",
       "localizations" : {
