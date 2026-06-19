@@ -1,0 +1,21 @@
+ios/AGENTS.md
+  s_314bd7898a7d00::t_9ea727ee71055d 269-275
+ios/TestFlight/WhatToTest.en-US.txt
+  s_314bd7898a7d00::t_b860493028fe85 1,4,10-38,42-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "84ada6bddd3a363fe5f6e8b0ff6b50847b1c7fd6",
+  "prompts": {},
+  "sessions": {
+    "s_314bd7898a7d00": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "246c85b8-220a-46e0-866a-9ab755bd8615",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
