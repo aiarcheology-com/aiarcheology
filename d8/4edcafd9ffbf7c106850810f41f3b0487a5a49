@@ -1,0 +1,31 @@
+.gitignore
+  s_7703fe3381cde5::t_e216eb98958c5d 103-107
+ios/MLBrowser/iOS/State/ClerkAuthProvider.swift
+  s_314bd7898a7d00::t_9775d9ac5f2690 135
+ios/MLBrowser/MLBrowser.entitlements
+  s_7703fe3381cde5::t_f5089705f918a5 5-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "d84edcafd9ffbf7c106850810f41f3b0487a5a49",
+  "prompts": {},
+  "sessions": {
+    "s_314bd7898a7d00": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "246c85b8-220a-46e0-866a-9ab755bd8615",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    },
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
