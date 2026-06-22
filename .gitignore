@@ -100,3 +100,8 @@ iOSInjectionProject/
 
 # Local derived data cache for faster builds
 .deriveddata/
+
+# SSO credentials/IDs reference — must never be committed (keep in 1Password / external certificates dir)
+CLERK_SSO_IDS.md
+**/CLERK_SSO_IDS.md
+*.p8

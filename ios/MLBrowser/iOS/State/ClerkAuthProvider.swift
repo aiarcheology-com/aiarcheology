@@ -99,7 +99,7 @@ final class ClerkAuthProvider: AuthProviding {
         // Clerk an invalid key — `Clerk.configure` traps on a malformed key in DEBUG.
         guard publishableKey.hasPrefix("pk_") else {
             LoggingPolicy.error(
-                "CLERK_PUBLISHABLE_KEY missing or invalid — Clerk not configured. Check Secrets.xcconfig / CI env.",
+                "No valid Clerk publishable key (CLERK_PUBLISHABLE_KEY / CLERK_PUBLISHABLE_KEY_LIVE) — Clerk not configured. Check Secrets.xcconfig / CI env.",
                 logger: .configuration
             )
             return
@@ -132,7 +132,7 @@ final class ClerkAuthProvider: AuthProviding {
             // Server reachable but rejected the session (banned/revoked/expired).
             // This is NOT an offline condition — route to sign-in, not "retry".
             LoggingPolicy.info(
-                "Clerk rejected session refresh (\(apiError.code)) — signing out",
+                "Clerk rejected session refresh (\(apiError.code)) — treating session as invalid",
                 logger: .state
             )
             throw AuthValidationError.noValidSession
