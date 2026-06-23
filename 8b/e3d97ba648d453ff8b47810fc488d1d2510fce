@@ -1,0 +1,19 @@
+ios/AGENTS.md
+  s_7703fe3381cde5::t_43aa4cf23c3620 271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "8be3d97ba648d453ff8b47810fc488d1d2510fce",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
