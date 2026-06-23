@@ -126,6 +126,15 @@ final class AuthState: ObservableObject {
             return
         }
 
+        // Re-check signed-in status: `validateSession()` suspends, and a sign-out can
+        // interleave on the main actor during that await. Without this re-check, a
+        // mid-refresh sign-out would still land on `.ready`/`.locked` rather than
+        // `.signedOut`.
+        guard provider.isSignedIn else {
+            setGate(.signedOut)
+            return
+        }
+
         setGate(provider.hasAccess() ? .ready : .locked)
     }
 

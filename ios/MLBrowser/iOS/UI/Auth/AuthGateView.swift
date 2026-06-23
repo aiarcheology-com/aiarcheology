@@ -148,7 +148,14 @@ private struct SignInGateView: View {
                     }
                     .pickerStyle(.segmented)
                     .onChange(of: clerkEnv) { _, newEnv in
-                        Task { await ClerkAuthProvider.switchEnvironment(to: newEnv) }
+                        // Re-sync from the persisted value: `switchEnvironment` only persists
+                        // on success (e.g. it no-ops if the target instance's key is missing),
+                        // so without this the segmented control could show an instance Clerk
+                        // isn't actually pointed at.
+                        Task {
+                            await ClerkAuthProvider.switchEnvironment(to: newEnv)
+                            clerkEnv = ClerkAuthProvider.selectedEnvironment
+                        }
                     }
                     .accessibilityLabel(Text(L10n.Auth.Environment.title))
                 }

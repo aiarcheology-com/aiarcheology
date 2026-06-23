@@ -9,8 +9,12 @@ Devices / Platforms
 
 1. Sign In (Primary Focus)
 - On launch you should see a sign-in screen
-- Create an account or sign in with your email and password
-  * After signing in, the app should open as usual
+- Sign in any of these ways and confirm the app opens afterwards:
+  * Email and password (create an account or sign in)
+  * Continue with Apple
+  * Continue with Google
+  * Continue with Facebook — works only for our testers right now; if it's
+    not enabled for your account yet, use email/Apple/Google instead
 - If your account isn't enabled yet, you'll see an "Access pending" screen
   * Send us your email and we'll enable access, then relaunch
 
