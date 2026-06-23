@@ -1,0 +1,279 @@
+//
+//  StoreKitSubscriptionProvider.swift
+//  AI Archeology
+//
+//  Real (and mock) implementations of `SubscriptionProviding` for AIA-0343.
+//
+//  Phase A: StoreKit 2 DIY, on-device entitlement, NO backend and NO Clerk writes.
+//  `Transaction.currentEntitlements` (verified only) is the source of truth.
+//
+
+import Foundation
+import StoreKit
+import OSLog
+import CryptoKit
+#if canImport(ClerkKit)
+import ClerkKit
+#endif
+
+/// Product identifiers for the in-app subscription (AIA-0343). These must match the
+/// products configured in `Configuration.storekit` (local testing) and in App Store
+/// Connect (production). Kept in one place so the paywall and the entitlement check
+/// agree on what "subscribed" means.
+enum SubscriptionProduct {
+	/// The single monthly auto-renewable subscription shipped in Phase A.
+	static let monthly = "com.aiarcheology.premium.monthly"
+
+	/// Every product the paywall offers / the entitlement check considers.
+	static let allIDs: [String] = [monthly]
+}
+
+/// Production ``SubscriptionProviding`` backed by StoreKit 2.
+///
+/// `@MainActor` (not an `actor`) on purpose: it publishes UI-bound state and drives
+/// StoreKit's async APIs that are happy on the main actor. Named `…Provider` (not
+/// `…Service`) so the Harmonize "services are actors" rule does not apply.
+@MainActor
+final class StoreKitSubscriptionProvider: SubscriptionProviding {
+
+	private(set) var products: [Product] = []
+	private(set) var isSubscribed = false
+
+	/// Long-lived task draining `Transaction.updates`. Held so it lives for the app's
+	/// lifetime and is cancelled if the provider is ever torn down.
+	private var updatesListener: Task<Void, Never>?
+
+	deinit {
+		updatesListener?.cancel()
+	}
+
+	func start() async {
+		// Install the listener FIRST so a transaction that arrives while we drain the
+		// backlog (or during a purchase that races launch) is never missed.
+		if updatesListener == nil {
+			updatesListener = Task { [weak self] in
+				for await update in Transaction.updates {
+					await self?.handle(update)
+				}
+			}
+		}
+		// Drain unfinished / pending transactions (Ask-to-Buy approvals, interrupted
+		// purchases) that completed while the app wasn't running, BEFORE any purchase UI.
+		await drainUnfinishedTransactions()
+		await refreshEntitlement()
+	}
+
+	func loadProducts() async {
+		do {
+			let fetched = try await Product.products(for: SubscriptionProduct.allIDs)
+			products = fetched.sorted { $0.price < $1.price }
+			if products.isEmpty {
+				// Not fatal: App Store Connect may not be configured yet, or the local
+				// .storekit file isn't wired into the scheme. Degrade — the paywall shows
+				// an empty/unavailable state rather than crashing.
+				LoggingPolicy.warning(
+					"No subscription products returned for \(SubscriptionProduct.allIDs) — paywall will be empty.",
+					logger: .networking
+				)
+			}
+		} catch {
+			LoggingPolicy.error(
+				"Failed to load subscription products: \(error.localizedDescription)",
+				logger: .networking
+			)
+			products = []
+		}
+	}
+
+	@discardableResult
+	func purchase(_ product: Product) async -> Bool {
+		do {
+			let result = try await product.purchase(options: purchaseOptions())
+			switch result {
+			case .success(let verification):
+				guard let transaction = verified(verification) else {
+					LoggingPolicy.warning("Purchase returned an unverified transaction — ignoring.", logger: .state)
+					return false
+				}
+				await transaction.finish()
+				await refreshEntitlement()
+				return isSubscribed
+			case .pending:
+				// Ask-to-Buy / SCA: the deferred transaction will arrive later via
+				// `Transaction.updates`. Not subscribed yet, but not an error.
+				LoggingPolicy.info("Purchase pending (Ask-to-Buy / deferred).", logger: .state)
+				return false
+			case .userCancelled:
+				return false
+			@unknown default:
+				LoggingPolicy.warning("Unknown purchase result.", logger: .state)
+				return false
+			}
+		} catch {
+			LoggingPolicy.error("Purchase failed: \(error.localizedDescription)", logger: .state)
+			return false
+		}
+	}
+
+	@discardableResult
+	func restore() async -> Bool {
+		do {
+			// Re-sync with the App Store so entitlements reflect purchases made on other
+			// devices / after a reinstall, then recompute from current entitlements.
+			try await AppStore.sync()
+		} catch {
+			// `sync()` throws on cancellation or no network; entitlement may still be
+			// valid locally, so just log and recompute.
+			LoggingPolicy.warning("AppStore.sync during restore failed: \(error.localizedDescription)", logger: .networking)
+		}
+		await refreshEntitlement()
+		return isSubscribed
+	}
+
+	// MARK: - Private
+
+	/// Purchase options, tagging the transaction with the Clerk user id as
+	/// `appAccountToken` so a future backend can reconcile the transaction to a user.
+	/// Read defensively: the mock/UI-test path never touches Clerk, and a signed-out
+	/// user simply gets no token.
+	private func purchaseOptions() -> Set<Product.PurchaseOption> {
+		guard let token = appAccountToken() else { return [] }
+		return [.appAccountToken(token)]
+	}
+
+	private func appAccountToken() -> UUID? {
+		#if canImport(ClerkKit)
+		// Clerk user ids are not UUIDs; map deterministically into one so the same user
+		// always yields the same token. Tolerate nil (signed out / Clerk not configured).
+		guard let userID = Clerk.shared.user?.id else { return nil }
+		return Self.deterministicUUID(from: userID)
+		#else
+		return nil
+		#endif
+	}
+
+	/// Drain transactions that finished out-of-process (Ask-to-Buy approved, interrupted
+	/// purchase) so they're acknowledged and reflected in entitlement on cold start.
+	private func drainUnfinishedTransactions() async {
+		for await result in Transaction.unfinished {
+			guard let transaction = verified(result) else { continue }
+			await transaction.finish()
+		}
+	}
+
+	/// Handle a transaction pushed via `Transaction.updates` (renewals, deferred
+	/// Ask-to-Buy approvals, refunds/revocations).
+	private func handle(_ result: VerificationResult<Transaction>) async {
+		guard let transaction = verified(result) else { return }
+		await transaction.finish()
+		await refreshEntitlement()
+	}
+
+	/// Recompute ``isSubscribed`` from the device's current entitlements, counting only
+	/// cryptographically verified, non-revoked subscription transactions for our group.
+	private func refreshEntitlement() async {
+		var entitled = false
+		for await result in Transaction.currentEntitlements {
+			guard let transaction = verified(result) else { continue }
+			guard transaction.productType == .autoRenewable,
+				  SubscriptionProduct.allIDs.contains(transaction.productID),
+				  transaction.revocationDate == nil else { continue }
+			entitled = true
+			break
+		}
+		isSubscribed = entitled
+	}
+
+	/// Unwrap a `VerificationResult`, returning the payload only when StoreKit verified
+	/// it (`.verified`). Unverified results are dropped — they cannot be trusted as
+	/// entitlement on-device.
+	private func verified<T>(_ result: VerificationResult<T>) -> T? {
+		switch result {
+		case .verified(let safe):
+			return safe
+		case .unverified:
+			return nil
+		}
+	}
+
+	/// Deterministic UUID derived from an arbitrary string id, so the same Clerk user
+	/// always maps to the same `appAccountToken` — including across app launches and
+	/// reinstalls (needed so a future backend can reconcile transactions to a user).
+	///
+	/// Uses SHA-256 (stable) rather than `Hasher`, whose seed is randomized per process
+	/// run — `Hasher` would produce a different token every launch.
+	private static func deterministicUUID(from string: String) -> UUID {
+		let digest = Array(SHA256.hash(data: Data(string.utf8)).prefix(16))
+		return UUID(uuid: (digest[0], digest[1], digest[2], digest[3],
+						   digest[4], digest[5], digest[6], digest[7],
+						   digest[8], digest[9], digest[10], digest[11],
+						   digest[12], digest[13], digest[14], digest[15]))
+	}
+}
+
+#if DEBUG
+/// In-memory ``SubscriptionProviding`` for UI tests and SwiftUI previews. Compiled out
+/// of Release/TestFlight builds (`#if DEBUG`) so the entitlement bypass cannot ship.
+///
+/// Selected by ``DependencyContainer`` under tests/UI-testing, optionally overridden by
+/// the `-mockSubscription <state>` launch argument (mirrors `-mockAuthGate`).
+@MainActor
+final class MockSubscriptionProvider: SubscriptionProviding {
+	/// Which entitlement the mock should resolve to.
+	enum Outcome: String {
+		case subscribed
+		case notSubscribed
+	}
+
+	private var outcome: Outcome
+
+	/// Mock products are empty: `Product` cannot be constructed without StoreKit, so the
+	/// paywall renders its "unavailable" state under the mock. Entitlement is still driven.
+	let products: [Product] = []
+
+	init(outcome: Outcome = .notSubscribed) {
+		self.outcome = outcome
+	}
+
+	/// Parse `-mockSubscription <state>` from the launch arguments, defaulting to
+	/// `.notSubscribed` so the paywall is reachable in UI tests.
+	static func fromLaunchArguments() -> MockSubscriptionProvider {
+		let args = ProcessInfo.processInfo.arguments
+		if let idx = args.firstIndex(of: "-mockSubscription"),
+		   idx + 1 < args.count,
+		   let parsed = Outcome(rawValue: args[idx + 1]) {
+			return MockSubscriptionProvider(outcome: parsed)
+		}
+		return MockSubscriptionProvider(outcome: .notSubscribed)
+	}
+
+	/// Mutate the simulated outcome between syncs (tests/previews only).
+	func setOutcomeForTesting(_ newOutcome: Outcome) {
+		outcome = newOutcome
+	}
+
+	/// Simulate a successful purchase without a real `Product` (which cannot be
+	/// constructed outside the StoreKitTest framework). Mirrors ``purchase(_:)``'s
+	/// effect so unit tests can exercise the purchase → entitled transition.
+	func simulatePurchaseForTesting() {
+		outcome = .subscribed
+	}
+
+	var isSubscribed: Bool { outcome == .subscribed }
+
+	func start() async {}
+	func loadProducts() async {}
+
+	@discardableResult
+	func purchase(_ product: Product) async -> Bool {
+		outcome = .subscribed
+		return true
+	}
+
+	@discardableResult
+	func restore() async -> Bool {
+		outcome = .subscribed
+		return true
+	}
+}
+#endif

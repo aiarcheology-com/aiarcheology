@@ -20,7 +20,10 @@ struct SettingsForm: View {
 	@Environment(TourState.self) private var tour
 	@EnvironmentObject var settings: Settings
 	@EnvironmentObject var guide: Guide
+	@EnvironmentObject var subscriptionState: SubscriptionState
 	@FocusState private var isHistoryLimitFocused: Bool
+	/// Presents the subscription paywall (AIA-0343).
+	@State private var showPaywall = false
 	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
 	@State private var accountPath = NavigationPath()
 	@State private var defaultWebPlaceholder: String = "www.google.com"
@@ -92,6 +95,9 @@ struct SettingsForm: View {
 			}
 			.alert(item: $alertItem) { item in
 				Self.createAlert(from: item)
+			}
+			.sheet(isPresented: $showPaywall) {
+				PaywallView(subscriptionState: subscriptionState)
 			}
 		}
 	}
@@ -271,8 +277,26 @@ struct SettingsForm: View {
 			HStack {
 				Text(L10n.Auth.Account.subscription)
 				Spacer()
-				Text(L10n.Auth.Account.freeBeta)
+				Text(subscriptionState.isSubscribed ? L10n.Paywall.active : L10n.Auth.Account.freeBeta)
 					.foregroundColor(.secondary)
+			}
+
+			// Paywall entry point (AIA-0343), gated by the payments feature flag so it can
+			// ship dark. Shown only to users who aren't already subscribed.
+			if FeatureFlags.isPaymentsEnabled && subscriptionState.isSubscribed == false {
+				Button {
+					showPaywall = true
+				} label: {
+					HStack {
+						Label(L10n.Settings.upgrade, systemImage: "crown.fill")
+							.foregroundColor(.primary)
+						Spacer()
+						Image(systemName: "chevron.right")
+							.font(.footnote.weight(.semibold))
+							.foregroundColor(.secondary)
+					}
+				}
+				.testability(Testability.Button.settingsUpgrade)
 			}
 
 			if usesRealAuth {

@@ -448,6 +448,22 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "models.empty.title", fallback: "No Models")
     }
   }
+  internal enum Paywall {
+    /// Subscribed
+    internal static let active = L10n.tr("Localizable", "paywall.active", fallback: "Subscribed")
+    /// Manage Subscription
+    internal static let manage = L10n.tr("Localizable", "paywall.manage", fallback: "Manage Subscription")
+    /// Restore Purchases
+    internal static let restore = L10n.tr("Localizable", "paywall.restore", fallback: "Restore Purchases")
+    /// Subscribe
+    internal static let subscribe = L10n.tr("Localizable", "paywall.subscribe", fallback: "Subscribe")
+    /// Unlock premium features with a subscription.
+    internal static let tagline = L10n.tr("Localizable", "paywall.tagline", fallback: "Unlock premium features with a subscription.")
+    /// AI Archeology Premium
+    internal static let title = L10n.tr("Localizable", "paywall.title", fallback: "AI Archeology Premium")
+    /// Subscriptions are not available right now. Please try again later.
+    internal static let unavailable = L10n.tr("Localizable", "paywall.unavailable", fallback: "Subscriptions are not available right now. Please try again later.")
+  }
   internal enum Sentry {
     /// Config
     internal static let config = L10n.tr("Localizable", "sentry.config", fallback: "Config")
@@ -487,6 +503,8 @@ internal enum L10n {
     internal static let tiledDetection = L10n.tr("Localizable", "settings.tiledDetection", fallback: "Tiled Detection")
     /// Settings
     internal static let title = L10n.tr("Localizable", "settings.title", fallback: "Settings")
+    /// Upgrade to Premium
+    internal static let upgrade = L10n.tr("Localizable", "settings.upgrade", fallback: "Upgrade to Premium")
     internal enum Frequency {
       /// %lld seconds
       internal static func seconds(_ p1: Int) -> String {

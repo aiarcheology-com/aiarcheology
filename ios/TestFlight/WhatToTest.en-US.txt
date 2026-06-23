@@ -19,7 +19,18 @@ Devices / Platforms
 2. Account Management
 - Open the drawer → Settings → Manage Account
 - Try Change Password and confirm it works
-- Confirm "Subscription" shows "Free Beta"
+- Confirm "Subscription" shows "Free Beta" (or "Subscribed" if you have an active sub)
+
+2b. Subscription Paywall (NEW)
+- Open the drawer → Settings → Account section
+- Tap "Upgrade to Premium"
+  * A paywall screen should appear with the app's styling
+  * If the monthly product loads, you'll see its name + price and a green Subscribe button
+  * If products aren't available yet (App Store Connect setup pending), you'll see an
+    "unavailable" message instead of a broken Subscribe button — this is expected for now
+- Tap "Restore Purchases" and confirm it doesn't crash (you may be asked to sign in to the App Store)
+- Tap "Manage Subscription" and confirm it opens Apple's subscription management page
+- No existing feature is paywalled yet — everything stays usable whether or not you subscribe
 
 3. Sign Out
 - Manage Account → Sign Out
