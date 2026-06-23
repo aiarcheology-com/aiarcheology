@@ -465,8 +465,8 @@ internal enum L10n {
     internal static let tagline = L10n.tr("Localizable", "paywall.tagline", fallback: "Subscribe to unlock the full app.")
     /// Terms of Use
     internal static let terms = L10n.tr("Localizable", "paywall.terms", fallback: "Terms of Use")
-    /// AI Archeology
-    internal static let title = L10n.tr("Localizable", "paywall.title", fallback: "AI Archeology")
+    /// ML Browser
+    internal static let title = L10n.tr("Localizable", "paywall.title", fallback: "ML Browser")
     /// Free for %1$@, then %2$@
     internal static func trialFormat(_ p1: Any, _ p2: Any) -> String {
       return L10n.tr("Localizable", "paywall.trialFormat", String(describing: p1), String(describing: p2), fallback: "Free for %1$@, then %2$@")

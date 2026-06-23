@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 /// Gates the whole app behind an active subscription. Sits *inside* the auth gate: once
 /// the user is signed in, the app proper is shown only while they hold an active
@@ -21,10 +22,19 @@ struct SubscriptionGateView<Content: View>: View {
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        if FeatureFlags.isPaymentsEnabled == false || subscriptionState.isSubscribed {
-            content()
-        } else {
-            PaywallView(subscriptionState: subscriptionState, authState: authState, isRootGate: true)
+        Group {
+            if FeatureFlags.isPaymentsEnabled == false || subscriptionState.isSubscribed {
+                content()
+            } else {
+                PaywallView(subscriptionState: subscriptionState, authState: authState, isRootGate: true)
+            }
+        }
+        // Re-check entitlement on foreground: a subscription that lapses while backgrounded
+        // may push no `Transaction.updates` event, so without this the gate could stay open
+        // on a stale entitlement until the next cold launch.
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            guard FeatureFlags.isPaymentsEnabled else { return }
+            Task { await subscriptionState.start() }
         }
     }
 }

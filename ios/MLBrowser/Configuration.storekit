@@ -74,7 +74,7 @@
       "localizations" : [
 
       ],
-      "name" : "AI Archeology Premium",
+      "name" : "ML Browser",
       "subscriptions" : [
         {
           "adHocOffers" : [
@@ -94,8 +94,8 @@
           },
           "localizations" : [
             {
-              "description" : "Full access to AI Archeology.",
-              "displayName" : "AI Archeology",
+              "description" : "Full access to ML Browser.",
+              "displayName" : "ML Browser",
               "locale" : "en_US"
             }
           ],

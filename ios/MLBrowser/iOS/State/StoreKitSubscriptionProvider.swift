@@ -36,6 +36,8 @@ enum SubscriptionProduct {
 @MainActor
 final class StoreKitSubscriptionProvider: SubscriptionProviding {
 
+	var onEntitlementChange: (() -> Void)?
+
 	private(set) var products: [Product] = []
 	private(set) var isSubscribed = false
 	private(set) var currentTransactionID: UInt64?
@@ -170,6 +172,9 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 		guard let transaction = verified(result) else { return }
 		await transaction.finish()
 		await refreshEntitlement()
+		// Republish to SubscriptionState — this update came from the background listener,
+		// not a direct purchase/restore, so nothing else will sync it.
+		onEntitlementChange?()
 	}
 
 	/// Recompute ``isSubscribed`` from the device's current entitlements, counting only
@@ -274,11 +279,20 @@ final class MockSubscriptionProvider: SubscriptionProviding {
 
 	var isSubscribed: Bool { outcome == .subscribed }
 
+	var onEntitlementChange: (() -> Void)?
+
 	/// A fake transaction id when subscribed so the refund affordance is exercisable in
 	/// previews/UI tests (the real refund sheet only works against StoreKit).
 	var currentTransactionID: UInt64? { outcome == .subscribed ? 1 : nil }
 	var currentExpirationDate: Date? { nil }
 	var isInTrial: Bool { false }
+
+	/// Simulate a background entitlement change (Ask-to-Buy approval / refund) and fire
+	/// the callback, so tests can verify `SubscriptionState` republishes.
+	func simulateEntitlementChange(to newOutcome: Outcome) {
+		outcome = newOutcome
+		onEntitlementChange?()
+	}
 
 	func start() async {}
 	func loadProducts() async {}

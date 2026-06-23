@@ -36,6 +36,22 @@ final class SubscriptionStateTests: XCTestCase {
 
 	// MARK: - Transitions
 
+	func testBackgroundEntitlementChange_Republishes() async {
+		// A change delivered by the background Transaction.updates listener (Ask-to-Buy
+		// approval, refund/revocation) must reach the published state via onEntitlementChange,
+		// not just the provider's private state — otherwise the gate stays stale.
+		let provider = MockSubscriptionProvider(outcome: .notSubscribed)
+		let sut = SubscriptionState(provider: provider)
+		await sut.start()
+		XCTAssertFalse(sut.isSubscribed)
+
+		provider.simulateEntitlementChange(to: .subscribed)   // e.g. Ask-to-Buy approved
+		XCTAssertTrue(sut.isSubscribed)
+
+		provider.simulateEntitlementChange(to: .notSubscribed) // e.g. refund / revocation
+		XCTAssertFalse(sut.isSubscribed)
+	}
+
 	func testRestore_FromNotSubscribed_BecomesSubscribed() async {
 		// Mirrors a restore that finds a prior purchase: the provider flips to entitled
 		// and the state republishes on the next sync.

@@ -18,7 +18,13 @@ import OSLog
 /// Harmonize "services are actors" rule does not apply — see ``AuthProviding``
 /// for the same reasoning.
 @MainActor
-protocol SubscriptionProviding {
+protocol SubscriptionProviding: AnyObject {
+	/// Called whenever the entitlement changes *outside* a direct purchase/restore call —
+	/// i.e. from the background `Transaction.updates` listener (Ask-to-Buy approval,
+	/// renewal, refund/revocation). ``SubscriptionState`` wires this to its `sync()` so
+	/// those changes reach the published state and the gate re-renders.
+	var onEntitlementChange: (() -> Void)? { get set }
+
 	/// True when ``Transaction/currentEntitlements`` contains a verified, active
 	/// subscription. This on-device check is the Phase-A source of truth — there
 	/// is no backend.
@@ -81,6 +87,10 @@ final class SubscriptionState: ObservableObject {
 
 	init(provider: SubscriptionProviding) {
 		self.provider = provider
+		// Republish when the background Transaction.updates listener changes entitlement
+		// (Ask-to-Buy approval, renewal, refund/revocation) — otherwise the gate would
+		// read a stale value until relaunch.
+		provider.onEntitlementChange = { [weak self] in self?.sync() }
 	}
 
 	/// Whether a feature should be unlocked: requires both the payments flag and a
