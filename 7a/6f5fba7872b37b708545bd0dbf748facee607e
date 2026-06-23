@@ -1,0 +1,34 @@
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_7703fe3381cde5::t_ea50aea8bbfe2f 548-549
+  s_7703fe3381cde5::t_ed2932a6a90da2 111-112,117-118,129-130
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_7703fe3381cde5::t_77eb4e38032be1 233
+  s_7703fe3381cde5::t_3f5894dafb6fa7 11225-11235
+  s_7703fe3381cde5::t_1e1448be505425 156
+  s_7703fe3381cde5::t_d62b5ba72b00ed 178
+ios/MLBrowser/Configuration.storekit
+  s_7703fe3381cde5::t_8c2ae49bfe1998 104
+ios/STOREKIT_SUBSCRIPTION_SETUP.md
+  s_7703fe3381cde5::t_2118a88c1c7220 12-13
+  s_7703fe3381cde5::t_e5748f7aa927b5 49
+  s_7703fe3381cde5::t_cb6b889000d8eb 48,50-52
+  s_7703fe3381cde5::t_c0853becb63b1b 19
+ios/MLBrowser/iOS/UI/Subscription/SubscriptionStatusView.swift
+  s_7703fe3381cde5::t_ee650d30dc27cf 35-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "7a6f5fba7872b37b708545bd0dbf748facee607e",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
