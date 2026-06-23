@@ -32,6 +32,12 @@ protocol SubscriptionProviding {
 	/// drive Apple's in-app refund request sheet. `nil` when not subscribed.
 	var currentTransactionID: UInt64? { get }
 
+	/// When the current subscription period ends (renewal or expiry date), if known.
+	var currentExpirationDate: Date? { get }
+
+	/// True while the active entitlement is the introductory free trial.
+	var isInTrial: Bool { get }
+
 	/// Install the `Transaction.updates` listener and drain any unfinished /
 	/// pending transactions (Ask-to-Buy, interrupted purchases). Call once at app
 	/// launch, BEFORE any purchase UI is shown.
@@ -64,6 +70,12 @@ final class SubscriptionState: ObservableObject {
 
 	/// Transaction id backing the current entitlement (for the refund request sheet).
 	@Published private(set) var currentTransactionID: UInt64?
+
+	/// End of the current subscription period (renewal/expiry date), if known.
+	@Published private(set) var currentExpirationDate: Date?
+
+	/// True while the active entitlement is the introductory free trial.
+	@Published private(set) var isInTrial = false
 
 	private let provider: SubscriptionProviding
 
@@ -109,6 +121,8 @@ final class SubscriptionState: ObservableObject {
 	private func sync() {
 		products = provider.products
 		currentTransactionID = provider.currentTransactionID
+		currentExpirationDate = provider.currentExpirationDate
+		isInTrial = provider.isInTrial
 		setSubscribed(provider.isSubscribed)
 	}
 

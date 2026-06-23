@@ -12,6 +12,7 @@ import ClerkKitUI
 /// Navigation routes pushed onto the Settings stack (AIA-0340).
 private enum AccountRoute: Hashable {
 	case profile
+	case subscription
 }
 
 struct SettingsForm: View {
@@ -22,8 +23,6 @@ struct SettingsForm: View {
 	@EnvironmentObject var guide: Guide
 	@EnvironmentObject var subscriptionState: SubscriptionState
 	@FocusState private var isHistoryLimitFocused: Bool
-	/// Presents the subscription paywall (AIA-0343).
-	@State private var showPaywall = false
 	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
 	@State private var accountPath = NavigationPath()
 	@State private var defaultWebPlaceholder: String = "www.google.com"
@@ -48,12 +47,17 @@ struct SettingsForm: View {
 				accountSection
 				debugSection
 			}
-			.navigationDestination(for: AccountRoute.self) { _ in
-				// Embedded on the Settings stack (shares `accountPath`), so the profile's
-				// own Manage-account / Security sub-screens resolve correctly.
-				UserProfileView(isDismissible: false, navigationPath: $accountPath)
-					.environment(Clerk.shared)
-					.environment(\.clerkTheme, .app)
+			.navigationDestination(for: AccountRoute.self) { route in
+				switch route {
+				case .profile:
+					// Embedded on the Settings stack (shares `accountPath`), so the profile's
+					// own Manage-account / Security sub-screens resolve correctly.
+					UserProfileView(isDismissible: false, navigationPath: $accountPath)
+						.environment(Clerk.shared)
+						.environment(\.clerkTheme, .app)
+				case .subscription:
+					SubscriptionStatusView(subscriptionState: subscriptionState)
+				}
 			}
 			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
 			.toolbar {
@@ -95,9 +99,6 @@ struct SettingsForm: View {
 			}
 			.alert(item: $alertItem) { item in
 				Self.createAlert(from: item)
-			}
-			.sheet(isPresented: $showPaywall) {
-				PaywallView(subscriptionState: subscriptionState)
 			}
 		}
 	}
@@ -274,29 +275,25 @@ struct SettingsForm: View {
 				}
 			}
 
-			HStack {
-				Text(L10n.Auth.Account.subscription)
-				Spacer()
-				Text(subscriptionState.isSubscribed ? L10n.Paywall.active : L10n.Auth.Account.freeBeta)
-					.foregroundColor(.secondary)
-			}
-
-			// Paywall entry point (AIA-0343), gated by the payments feature flag so it can
-			// ship dark. Shown only to users who aren't already subscribed.
-			if FeatureFlags.isPaymentsEnabled && subscriptionState.isSubscribed == false {
-				Button {
-					showPaywall = true
-				} label: {
+			// Subscription (AIA-0343). When subscribed, tapping pushes the status submenu
+			// (status + manage/cancel via Apple + restore + refund). Otherwise a static row.
+			if FeatureFlags.isPaymentsEnabled && subscriptionState.isSubscribed {
+				NavigationLink(value: AccountRoute.subscription) {
 					HStack {
-						Label(L10n.Settings.upgrade, systemImage: "crown.fill")
-							.foregroundColor(.primary)
+						Text(L10n.Auth.Account.subscription)
 						Spacer()
-						Image(systemName: "chevron.right")
-							.font(.footnote.weight(.semibold))
+						Text(subscriptionState.isInTrial ? L10n.Subscription.trial : L10n.Paywall.active)
 							.foregroundColor(.secondary)
 					}
 				}
-				.testability(Testability.Button.settingsUpgrade)
+				.testability(Testability.NavigationLink.settingsSubscription)
+			} else {
+				HStack {
+					Text(L10n.Auth.Account.subscription)
+					Spacer()
+					Text(L10n.Auth.Account.freeBeta)
+						.foregroundColor(.secondary)
+				}
 			}
 
 			if usesRealAuth {

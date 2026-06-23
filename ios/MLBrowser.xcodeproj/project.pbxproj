@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		001369B340919454DB66C1A1 /* TourOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA98D77D0D8F44834E7D6D95 /* TourOverlay.swift */; };
+		08D7ED0944917EE700C5D894 /* SubscriptionStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3AA71FCC687FDCCBD2E764F /* SubscriptionStatusView.swift */; };
 		15A2A9B169BF17E5F22D64B3 /* ClerkAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE763C674E423AFA68061960 /* ClerkAuthProvider.swift */; };
 		1C2C07EA2917960C501206AB /* SubscriptionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D8A8FA0182207F209BD6EF /* SubscriptionState.swift */; };
 		26769AC1FF4553E49037C3BE /* TourStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB4535BB4D2FCF4B8B65E72A /* TourStep.swift */; };
@@ -496,6 +497,7 @@
 		9A0C1EAA2F3D00010000000A /* SentryBreadcrumbGuardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryBreadcrumbGuardTests.swift; sourceTree = "<group>"; };
 		A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingService.swift; sourceTree = "<group>"; };
 		A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingServiceTests.swift; sourceTree = "<group>"; };
+		B3AA71FCC687FDCCBD2E764F /* SubscriptionStatusView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionStatusView.swift; sourceTree = "<group>"; };
 		BA98D77D0D8F44834E7D6D95 /* TourOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourOverlay.swift; sourceTree = "<group>"; };
 		D0AE619C61BACCB171E8FA2E /* TourStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourStateTests.swift; sourceTree = "<group>"; };
 		D3D8A8FA0182207F209BD6EF /* SubscriptionState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionState.swift; sourceTree = "<group>"; };
@@ -587,6 +589,7 @@
 			children = (
 				49E941AEA21CE25C5CC4EC9C /* PaywallView.swift */,
 				2E2660066341809F9F0996AB /* SubscriptionGateView.swift */,
+				B3AA71FCC687FDCCBD2E764F /* SubscriptionStatusView.swift */,
 			);
 			name = Subscription;
 			path = Subscription;
@@ -1557,6 +1560,7 @@
 				917A15383011E3F093BF1F14 /* StoreKitSubscriptionProvider.swift in Sources */,
 				401A266CB4BCBDC00E517F03 /* PaywallView.swift in Sources */,
 				C4F8BE60D36C0129DD2C4066 /* SubscriptionGateView.swift in Sources */,
+				08D7ED0944917EE700C5D894 /* SubscriptionStatusView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -227,6 +227,7 @@ extension TestabilityIdentification {
 		case settingsHistory
 		case settingsAbout
 		case settingsManageAccount
+		case settingsSubscription
 		// App Description
 		case appDescriptionPrivacyPolicy
 		// Downloader

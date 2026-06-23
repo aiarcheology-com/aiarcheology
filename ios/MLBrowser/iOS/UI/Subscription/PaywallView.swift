@@ -50,9 +50,10 @@ struct PaywallView: View {
 		VStack(spacing: 24) {
 			Spacer()
 
-			Image(systemName: "crown.fill")
-				.font(.system(size: 56))
-				.foregroundStyle(.yellow)
+			Image("AppLogo")
+				.resizable()
+				.scaledToFit()
+				.frame(maxWidth: 120, maxHeight: 120)
 				.accessibilityHidden(true)
 
 			VStack(spacing: 8) {
@@ -78,6 +79,9 @@ struct PaywallView: View {
 				.padding(.horizontal, 32)
 				.padding(.bottom, 24)
 		}
+		// Cap the content/buttons width so the paywall doesn't stretch edge-to-edge on
+		// iPad; the outer frame then centers that block on the full screen.
+		.frame(maxWidth: 480)
 		.frame(maxWidth: .infinity, maxHeight: .infinity)
 		.task {
 			// Load products when the paywall appears (kept off the launch path so a slow

@@ -536,6 +536,16 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "settings.sentry.title", fallback: "Sentry Stats")
     }
   }
+  internal enum Subscription {
+    /// Plan
+    internal static let plan = L10n.tr("Localizable", "subscription.plan", fallback: "Plan")
+    /// Renews
+    internal static let renews = L10n.tr("Localizable", "subscription.renews", fallback: "Renews")
+    /// Status
+    internal static let state = L10n.tr("Localizable", "subscription.state", fallback: "Status")
+    /// Free trial
+    internal static let trial = L10n.tr("Localizable", "subscription.trial", fallback: "Free trial")
+  }
   internal enum Symbol {
     /// Circle
     internal static let circle = L10n.tr("Localizable", "symbol.circle", fallback: "Circle")

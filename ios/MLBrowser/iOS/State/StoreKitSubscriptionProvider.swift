@@ -39,6 +39,8 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 	private(set) var products: [Product] = []
 	private(set) var isSubscribed = false
 	private(set) var currentTransactionID: UInt64?
+	private(set) var currentExpirationDate: Date?
+	private(set) var isInTrial = false
 
 	/// Long-lived task draining `Transaction.updates`. Held so it lives for the app's
 	/// lifetime and is cancelled if the provider is ever torn down.
@@ -175,6 +177,8 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 	private func refreshEntitlement() async {
 		var entitled = false
 		var transactionID: UInt64?
+		var expiration: Date?
+		var inTrial = false
 		for await result in Transaction.currentEntitlements {
 			guard let transaction = verified(result) else { continue }
 			guard transaction.productType == .autoRenewable,
@@ -182,10 +186,14 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 				  transaction.revocationDate == nil else { continue }
 			entitled = true
 			transactionID = transaction.id
+			expiration = transaction.expirationDate
+			inTrial = transaction.offer?.type == .introductory
 			break
 		}
 		isSubscribed = entitled
 		currentTransactionID = transactionID
+		currentExpirationDate = expiration
+		isInTrial = inTrial
 	}
 
 	/// Unwrap a `VerificationResult`, returning the payload only when StoreKit verified
@@ -269,6 +277,8 @@ final class MockSubscriptionProvider: SubscriptionProviding {
 	/// A fake transaction id when subscribed so the refund affordance is exercisable in
 	/// previews/UI tests (the real refund sheet only works against StoreKit).
 	var currentTransactionID: UInt64? { outcome == .subscribed ? 1 : nil }
+	var currentExpirationDate: Date? { nil }
+	var isInTrial: Bool { false }
 
 	func start() async {}
 	func loadProducts() async {}
