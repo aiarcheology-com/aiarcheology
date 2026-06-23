@@ -94,8 +94,8 @@
           },
           "localizations" : [
             {
-              "description" : "Unlock AI Archeology Premium features.",
-              "displayName" : "Premium Monthly",
+              "description" : "Full access to AI Archeology.",
+              "displayName" : "AI Archeology",
               "locale" : "en_US"
             }
           ],

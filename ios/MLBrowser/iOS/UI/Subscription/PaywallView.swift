@@ -14,6 +14,16 @@ import OSLog
 /// entitlement from ``SubscriptionState`` and drives purchase / restore intents.
 struct PaywallView: View {
 	@ObservedObject var subscriptionState: SubscriptionState
+
+	/// Auth state, supplied only when the paywall is the whole-app root gate, so a
+	/// non-subscriber can sign out or delete their account (Apple 5.1.1(v)). `nil` when
+	/// presented from Settings (sign-out/delete live in the Clerk profile there).
+	var authState: AuthState?
+
+	/// True when this is the whole-app root gate (vs. the Settings sheet). Enables the
+	/// sign-out / delete-account affordances.
+	var isRootGate = false
+
 	@Environment(\.dismiss) private var dismiss
 
 	/// Disables the action buttons while a purchase/restore round-trip is in flight.
@@ -24,6 +34,17 @@ struct PaywallView: View {
 
 	/// Presents the in-app Privacy Policy (App Review requires it on the purchase screen).
 	@State private var showPrivacy = false
+
+	/// Root-gate account actions (Apple 5.1.1(v)): confirm + report deletion failures.
+	@State private var showDeleteConfirmation = false
+	@State private var deleteFailed = false
+
+	/// Whether *this user* is still eligible for the introductory free trial. A user who
+	/// already used the trial is charged the full price immediately, so the "free for N"
+	/// copy must only show when they'd actually get it (else it's misleading / an App
+	/// Review risk). Resolved per-user from StoreKit on appear; defaults to `false` so we
+	/// never over-promise a trial.
+	@State private var introOfferEligible = false
 
 	var body: some View {
 		VStack(spacing: 24) {
@@ -60,8 +81,36 @@ struct PaywallView: View {
 		.frame(maxWidth: .infinity, maxHeight: .infinity)
 		.task {
 			// Load products when the paywall appears (kept off the launch path so a slow
-			// App Store fetch never delays app readiness).
+			// App Store fetch never delays app readiness), then resolve this user's
+			// intro-offer eligibility so the trial copy only shows when they'd get it.
 			await subscriptionState.loadProducts()
+			if let subscription = subscriptionState.products.first?.subscription {
+				introOfferEligible = await subscription.isEligibleForIntroOffer
+			}
+		}
+		.confirmationDialog(
+			L10n.Auth.Account.Delete.title,
+			isPresented: $showDeleteConfirmation,
+			titleVisibility: .visible
+		) {
+			Button(L10n.Auth.Account.Delete.action, role: .destructive) {
+				Task {
+					do {
+						try await authState?.deleteAccount()
+					} catch {
+						LoggingPolicy.error("Account deletion failed: \(error.localizedDescription)", logger: .state)
+						deleteFailed = true
+					}
+				}
+			}
+			Button(L10n.Common.cancel, role: .cancel) {}
+		} message: {
+			Text(L10n.Auth.Account.Delete.message)
+		}
+		.alert(L10n.Alert.Error.title, isPresented: $deleteFailed) {
+			Button(L10n.Common.ok, role: .cancel) {}
+		} message: {
+			Text(L10n.Alert.Error.unexpected)
 		}
 	}
 
@@ -115,6 +164,30 @@ struct PaywallView: View {
 			.testability(Testability.Link.paywallManage)
 
 		legalFooter
+
+		// Whole-app root gate only: let a non-subscriber leave or delete their account
+		// (they can't reach Settings from behind the gate). Apple 5.1.1(v).
+		if isRootGate, let authState {
+			VStack(spacing: 12) {
+				Button {
+					Task { await authState.signOut() }
+				} label: {
+					Text(L10n.Auth.signOut).frame(maxWidth: .infinity)
+				}
+				.buttonStyle(.bordered)
+				.controlSize(.large)
+				.testability(Testability.Button.paywallSignOut)
+
+				Button(role: .destructive) {
+					showDeleteConfirmation = true
+				} label: {
+					Text(L10n.Auth.Account.Delete.action).frame(maxWidth: .infinity)
+				}
+				.buttonStyle(.bordered)
+				.controlSize(.large)
+			}
+			.padding(.top, 8)
+		}
 	}
 
 	/// Auto-renewable subscription disclosures required on the purchase screen
@@ -156,10 +229,10 @@ struct PaywallView: View {
 			Text(product.displayPrice)
 				.font(.title2).bold()
 
-			// Free-trial terms, if the product offers an introductory free trial. The
-			// length/price come from the product itself (set in App Store Connect), so
-			// the copy follows whatever offer is configured.
-			if let trial = Self.freeTrialText(for: product) {
+			// Free-trial terms — only when *this user* is still eligible (a returning user
+			// who already used the trial is charged immediately, so showing "free for N"
+			// would be misleading). Length/price come from the product (set in ASC).
+			if introOfferEligible, let trial = Self.freeTrialText(for: product) {
 				Text(trial)
 					.font(.footnote)
 					.foregroundStyle(.secondary)

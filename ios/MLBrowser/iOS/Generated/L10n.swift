@@ -461,12 +461,12 @@ internal enum L10n {
     internal static let restore = L10n.tr("Localizable", "paywall.restore", fallback: "Restore Purchases")
     /// Subscribe
     internal static let subscribe = L10n.tr("Localizable", "paywall.subscribe", fallback: "Subscribe")
-    /// Unlock premium features with a subscription.
-    internal static let tagline = L10n.tr("Localizable", "paywall.tagline", fallback: "Unlock premium features with a subscription.")
+    /// Subscribe to unlock the full app.
+    internal static let tagline = L10n.tr("Localizable", "paywall.tagline", fallback: "Subscribe to unlock the full app.")
     /// Terms of Use
     internal static let terms = L10n.tr("Localizable", "paywall.terms", fallback: "Terms of Use")
-    /// AI Archeology Premium
-    internal static let title = L10n.tr("Localizable", "paywall.title", fallback: "AI Archeology Premium")
+    /// AI Archeology
+    internal static let title = L10n.tr("Localizable", "paywall.title", fallback: "AI Archeology")
     /// Free for %1$@, then %2$@
     internal static func trialFormat(_ p1: Any, _ p2: Any) -> String {
       return L10n.tr("Localizable", "paywall.trialFormat", String(describing: p1), String(describing: p2), fallback: "Free for %1$@, then %2$@")
@@ -513,8 +513,8 @@ internal enum L10n {
     internal static let tiledDetection = L10n.tr("Localizable", "settings.tiledDetection", fallback: "Tiled Detection")
     /// Settings
     internal static let title = L10n.tr("Localizable", "settings.title", fallback: "Settings")
-    /// Upgrade to Premium
-    internal static let upgrade = L10n.tr("Localizable", "settings.upgrade", fallback: "Upgrade to Premium")
+    /// Subscribe
+    internal static let upgrade = L10n.tr("Localizable", "settings.upgrade", fallback: "Subscribe")
     internal enum Frequency {
       /// %lld seconds
       internal static func seconds(_ p1: Int) -> String {

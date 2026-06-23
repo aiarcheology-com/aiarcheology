@@ -240,7 +240,8 @@ final class MockSubscriptionProvider: SubscriptionProviding {
 	}
 
 	/// Parse `-mockSubscription <state>` from the launch arguments, defaulting to
-	/// `.notSubscribed` so the paywall is reachable in UI tests.
+	/// `.subscribed` so existing UI tests pass straight through the whole-app gate into
+	/// the app. Tests that need the paywall pass `-mockSubscription notSubscribed`.
 	static func fromLaunchArguments() -> MockSubscriptionProvider {
 		let args = ProcessInfo.processInfo.arguments
 		if let idx = args.firstIndex(of: "-mockSubscription"),
@@ -248,7 +249,7 @@ final class MockSubscriptionProvider: SubscriptionProviding {
 		   let parsed = Outcome(rawValue: args[idx + 1]) {
 			return MockSubscriptionProvider(outcome: parsed)
 		}
-		return MockSubscriptionProvider(outcome: .notSubscribed)
+		return MockSubscriptionProvider(outcome: .subscribed)
 	}
 
 	/// Mutate the simulated outcome between syncs (tests/previews only).

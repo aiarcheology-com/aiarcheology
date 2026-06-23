@@ -33,14 +33,22 @@ is attached to an app version (below). That is expected.
   current value/audience. The app reads price/trial dynamically, so changing them is an ASC-only
   edit — no code change.)
 
-## Gating model
+## Gating model — WHOLE-APP subscription (no free/premium split)
 
-- **Paid (Premium):** curated/official first-party detection models + pro conveniences.
-- **Free:** using the app, **bring-your-own models**, **sharing findings**, community models —
-  keep free to protect the UGC/network effect.
-- Code gate: `SubscriptionState.isPremiumUnlocked` (`isSubscribed && FeatureFlags.isPaymentsEnabled`).
-  Which specific models/features are premium is still a `// TODO(AIA-0343)` — no currently-free
-  feature has been converted to paid.
+The subscription gates the **entire app**, not a premium subset. "The app" is what's sold:
+free to download → 1-month free trial → then $3.99/mo to keep using it.
+
+- `SubscriptionGateView` sits **inside** the auth gate (`MLBrowser.swift`): once signed in, the
+  app proper (`ContentView`) shows only while `subscriptionState.isSubscribed` (a free trial
+  counts as active). Otherwise **`PaywallView` is the root**, mirroring the auth gate.
+- The root paywall also offers **Sign Out + Delete Account** (Apple 5.1.1(v)) so a non-subscriber
+  can leave/delete without reaching Settings.
+- Bypassed entirely when `FeatureFlags.isPaymentsEnabled` is off (ships dark; existing flows
+  unaffected until payments are turned on).
+- **Naming:** dropped "Premium" — the product is just "AI Archeology" / full access (paywall
+  title + `Configuration.storekit` updated). ⚠️ The App Store Connect **group + product display
+  name still read "AI Archeology Premium"** — rename them in ASC (group `22180515`, product
+  `6783491808`) to drop "Premium" for consistency.
 
 ## App side (branch `feature/AIA-0343/storekit-subscriptions`)
 

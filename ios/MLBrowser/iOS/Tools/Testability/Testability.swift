@@ -96,6 +96,7 @@ extension TestabilityIdentification {
 		case paywallSubscribe
 		case paywallRestore
 		case paywallRequestRefund
+		case paywallSignOut
 		// Browsing History
 		case browsingHistoryClear
 		case browsingHistoryDismiss

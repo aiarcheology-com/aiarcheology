@@ -11272,7 +11272,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Unlock premium features with a subscription."
+            "value" : "Subscribe to unlock the full app."
           }
         }
       }
@@ -11283,7 +11283,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI Archeology Premium"
+            "value" : "AI Archeology"
           }
         }
       }
@@ -11305,7 +11305,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Upgrade to Premium"
+            "value" : "Subscribe"
           }
         }
       }
