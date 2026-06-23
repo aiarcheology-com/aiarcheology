@@ -453,6 +453,8 @@ internal enum L10n {
     internal static let active = L10n.tr("Localizable", "paywall.active", fallback: "Subscribed")
     /// Manage Subscription
     internal static let manage = L10n.tr("Localizable", "paywall.manage", fallback: "Manage Subscription")
+    /// Request a Refund
+    internal static let requestRefund = L10n.tr("Localizable", "paywall.requestRefund", fallback: "Request a Refund")
     /// Restore Purchases
     internal static let restore = L10n.tr("Localizable", "paywall.restore", fallback: "Restore Purchases")
     /// Subscribe
@@ -461,6 +463,10 @@ internal enum L10n {
     internal static let tagline = L10n.tr("Localizable", "paywall.tagline", fallback: "Unlock premium features with a subscription.")
     /// AI Archeology Premium
     internal static let title = L10n.tr("Localizable", "paywall.title", fallback: "AI Archeology Premium")
+    /// Free for %1$@, then %2$@
+    internal static func trialFormat(_ p1: Any, _ p2: Any) -> String {
+      return L10n.tr("Localizable", "paywall.trialFormat", String(describing: p1), String(describing: p2), fallback: "Free for %1$@, then %2$@")
+    }
     /// Subscriptions are not available right now. Please try again later.
     internal static let unavailable = L10n.tr("Localizable", "paywall.unavailable", fallback: "Subscriptions are not available right now. Please try again later.")
   }

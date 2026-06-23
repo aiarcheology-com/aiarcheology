@@ -83,11 +83,15 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "4.99",
+          "displayPrice" : "3.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "21621601",
-          "introductoryOffer" : null,
+          "introductoryOffer" : {
+            "internalID" : "21621602",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1M"
+          },
           "localizations" : [
             {
               "description" : "Unlock AI Archeology Premium features.",

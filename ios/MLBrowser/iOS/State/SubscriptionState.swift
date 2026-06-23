@@ -28,6 +28,10 @@ protocol SubscriptionProviding {
 	/// product fetch failed or App Store Connect isn't configured yet).
 	var products: [Product] { get }
 
+	/// The StoreKit transaction id backing the current entitlement, if any — used to
+	/// drive Apple's in-app refund request sheet. `nil` when not subscribed.
+	var currentTransactionID: UInt64? { get }
+
 	/// Install the `Transaction.updates` listener and drain any unfinished /
 	/// pending transactions (Ask-to-Buy, interrupted purchases). Call once at app
 	/// launch, BEFORE any purchase UI is shown.
@@ -57,6 +61,9 @@ final class SubscriptionState: ObservableObject {
 
 	/// Products available on the paywall.
 	@Published private(set) var products: [Product] = []
+
+	/// Transaction id backing the current entitlement (for the refund request sheet).
+	@Published private(set) var currentTransactionID: UInt64?
 
 	private let provider: SubscriptionProviding
 
@@ -101,6 +108,7 @@ final class SubscriptionState: ObservableObject {
 	/// Pull the latest values from the provider into the published properties.
 	private func sync() {
 		products = provider.products
+		currentTransactionID = provider.currentTransactionID
 		setSubscribed(provider.isSubscribed)
 	}
 

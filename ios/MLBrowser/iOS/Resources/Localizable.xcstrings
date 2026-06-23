@@ -11200,6 +11200,17 @@
         }
       }
     },
+    "paywall.requestRefund" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request a Refund"
+          }
+        }
+      }
+    },
     "paywall.restore" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -11207,6 +11218,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restore Purchases"
+          }
+        }
+      }
+    },
+    "paywall.trialFormat" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free for %1$@, then %2$@"
           }
         }
       }

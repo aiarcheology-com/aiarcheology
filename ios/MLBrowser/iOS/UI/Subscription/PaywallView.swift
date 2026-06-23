@@ -19,6 +19,9 @@ struct PaywallView: View {
 	/// Disables the action buttons while a purchase/restore round-trip is in flight.
 	@State private var isWorking = false
 
+	/// Drives Apple's in-app refund request sheet for the active subscription.
+	@State private var showRefund = false
+
 	var body: some View {
 		VStack(spacing: 24) {
 			Spacer()
@@ -88,6 +91,20 @@ struct PaywallView: View {
 		.disabled(isWorking)
 		.testability(Testability.Button.paywallRestore)
 
+		// Request a refund via Apple's native sheet — only for an active subscription
+		// (Apple owns the decision; this just opens the request flow).
+		if subscriptionState.isSubscribed, let transactionID = subscriptionState.currentTransactionID {
+			Button(role: .destructive) {
+				showRefund = true
+			} label: {
+				Text(L10n.Paywall.requestRefund).frame(maxWidth: .infinity)
+			}
+			.buttonStyle(.bordered)
+			.controlSize(.large)
+			.testability(Testability.Button.paywallRequestRefund)
+			.refundRequestSheet(for: transactionID, isPresented: $showRefund)
+		}
+
 		// Manage existing subscription (cancel / change plan). Always available so a
 		// subscriber can reach Apple's management screen from here.
 		Link(L10n.Paywall.manage, destination: Self.manageSubscriptionsURL)
@@ -102,6 +119,16 @@ struct PaywallView: View {
 				.font(.headline)
 			Text(product.displayPrice)
 				.font(.title2).bold()
+
+			// Free-trial terms, if the product offers an introductory free trial. The
+			// length/price come from the product itself (set in App Store Connect), so
+			// the copy follows whatever offer is configured.
+			if let trial = Self.freeTrialText(for: product) {
+				Text(trial)
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.multilineTextAlignment(.center)
+			}
 		}
 
 		Button {
@@ -127,6 +154,26 @@ struct PaywallView: View {
 	/// parses, so the force-unwrap cannot fail.
 	// swiftlint:disable:next force_unwrapping
 	private static let manageSubscriptionsURL = URL(string: "https://apps.apple.com/account/subscriptions")!
+
+	/// "Free for 7 days, then €9.99" when the product carries an introductory free-trial
+	/// offer; `nil` otherwise. The length and price come from the product (configured in
+	/// App Store Connect), so the copy follows whatever offer ships.
+	private static func freeTrialText(for product: Product) -> String? {
+		guard let offer = product.subscription?.introductoryOffer,
+			  offer.paymentMode == .freeTrial else { return nil }
+		let period = offer.period
+		let unit: String
+		switch period.unit {
+		case .day: unit = "day"
+		case .week: unit = "week"
+		case .month: unit = "month"
+		case .year: unit = "year"
+		@unknown default: unit = "period"
+		}
+		let count = period.value
+		let periodText = "\(count) \(unit)\(count == 1 ? "" : "s")"
+		return L10n.Paywall.trialFormat(periodText, product.displayPrice)
+	}
 }
 
 #if DEBUG
