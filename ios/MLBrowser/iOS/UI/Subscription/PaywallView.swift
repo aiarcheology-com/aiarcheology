@@ -22,6 +22,9 @@ struct PaywallView: View {
 	/// Drives Apple's in-app refund request sheet for the active subscription.
 	@State private var showRefund = false
 
+	/// Presents the in-app Privacy Policy (App Review requires it on the purchase screen).
+	@State private var showPrivacy = false
+
 	var body: some View {
 		VStack(spacing: 24) {
 			Spacer()
@@ -110,6 +113,39 @@ struct PaywallView: View {
 		Link(L10n.Paywall.manage, destination: Self.manageSubscriptionsURL)
 			.font(.footnote)
 			.testability(Testability.Link.paywallManage)
+
+		legalFooter
+	}
+
+	/// Auto-renewable subscription disclosures required on the purchase screen
+	/// (App Review Guideline 3.1.2): renewal terms + Terms of Use + Privacy Policy.
+	@ViewBuilder
+	private var legalFooter: some View {
+		VStack(spacing: 8) {
+			Text(L10n.Paywall.disclosure)
+				.font(.caption2)
+				.foregroundStyle(.secondary)
+				.multilineTextAlignment(.center)
+
+			HStack(spacing: 16) {
+				Link(L10n.Paywall.terms, destination: Self.termsOfUseURL)
+				Button(L10n.About.privacyPolicy) { showPrivacy = true }
+			}
+			.font(.caption2)
+		}
+		.padding(.top, 4)
+		.sheet(isPresented: $showPrivacy) {
+			NavigationStack {
+				PrivacyPolicyView(htmlFileName: "privacypolicy")
+					.navigationTitle(L10n.About.privacyPolicy)
+					.navigationBarTitleDisplayMode(.inline)
+					.toolbar {
+						ToolbarItem(placement: .confirmationAction) {
+							Button(L10n.Common.done) { showPrivacy = false }
+						}
+					}
+			}
+		}
 	}
 
 	@ViewBuilder
@@ -155,24 +191,35 @@ struct PaywallView: View {
 	// swiftlint:disable:next force_unwrapping
 	private static let manageSubscriptionsURL = URL(string: "https://apps.apple.com/account/subscriptions")!
 
-	/// "Free for 7 days, then €9.99" when the product carries an introductory free-trial
+	/// Apple's standard EULA, accepted as the Terms of Use when no custom one is provided.
+	// swiftlint:disable:next force_unwrapping
+	private static let termsOfUseURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+
+	/// "Free for 1 month, then €9.99" when the product carries an introductory free-trial
 	/// offer; `nil` otherwise. The length and price come from the product (configured in
 	/// App Store Connect), so the copy follows whatever offer ships.
 	private static func freeTrialText(for product: Product) -> String? {
 		guard let offer = product.subscription?.introductoryOffer,
 			  offer.paymentMode == .freeTrial else { return nil }
-		let period = offer.period
-		let unit: String
+		return L10n.Paywall.trialFormat(localizedPeriod(offer.period), product.displayPrice)
+	}
+
+	/// Localized period label ("1 month", "7 days") for a subscription period, via
+	/// `DateComponentsFormatter` so the unit follows the device locale.
+	private static func localizedPeriod(_ period: Product.SubscriptionPeriod) -> String {
+		var components = DateComponents()
 		switch period.unit {
-		case .day: unit = "day"
-		case .week: unit = "week"
-		case .month: unit = "month"
-		case .year: unit = "year"
-		@unknown default: unit = "period"
+		case .day: components.day = period.value
+		case .week: components.day = period.value * 7
+		case .month: components.month = period.value
+		case .year: components.year = period.value
+		@unknown default: components.day = period.value
 		}
-		let count = period.value
-		let periodText = "\(count) \(unit)\(count == 1 ? "" : "s")"
-		return L10n.Paywall.trialFormat(periodText, product.displayPrice)
+		let formatter = DateComponentsFormatter()
+		formatter.unitsStyle = .full
+		formatter.allowedUnits = [.day, .month, .year]
+		formatter.maximumUnitCount = 1
+		return formatter.string(from: components) ?? "\(period.value)"
 	}
 }
 

@@ -22,12 +22,16 @@ final class SubscriptionStateTests: XCTestCase {
 		let sut = SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed))
 		await sut.start()
 		XCTAssertFalse(sut.isSubscribed)
+		// No entitlement → no transaction id for the refund sheet.
+		XCTAssertNil(sut.currentTransactionID)
 	}
 
 	func testStart_SubscribedProvider_IsSubscribed() async {
 		let sut = SubscriptionState(provider: MockSubscriptionProvider(outcome: .subscribed))
 		await sut.start()
 		XCTAssertTrue(sut.isSubscribed)
+		// Entitled → a transaction id is exposed so the refund sheet can target it.
+		XCTAssertNotNil(sut.currentTransactionID)
 	}
 
 	// MARK: - Transitions

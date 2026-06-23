@@ -451,6 +451,8 @@ internal enum L10n {
   internal enum Paywall {
     /// Subscribed
     internal static let active = L10n.tr("Localizable", "paywall.active", fallback: "Subscribed")
+    /// Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.
+    internal static let disclosure = L10n.tr("Localizable", "paywall.disclosure", fallback: "Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.")
     /// Manage Subscription
     internal static let manage = L10n.tr("Localizable", "paywall.manage", fallback: "Manage Subscription")
     /// Request a Refund
@@ -461,6 +463,8 @@ internal enum L10n {
     internal static let subscribe = L10n.tr("Localizable", "paywall.subscribe", fallback: "Subscribe")
     /// Unlock premium features with a subscription.
     internal static let tagline = L10n.tr("Localizable", "paywall.tagline", fallback: "Unlock premium features with a subscription.")
+    /// Terms of Use
+    internal static let terms = L10n.tr("Localizable", "paywall.terms", fallback: "Terms of Use")
     /// AI Archeology Premium
     internal static let title = L10n.tr("Localizable", "paywall.title", fallback: "AI Archeology Premium")
     /// Free for %1$@, then %2$@
