@@ -123,10 +123,10 @@ struct PaywallView: View {
 		.testability(Testability.Button.paywallSubscribe)
 	}
 
-	/// Apple's standard "Manage Subscriptions" deep link. The literal is always valid;
-	/// the `?? URL(filePath:)` fallback keeps this force-unwrap-free.
-	private static let manageSubscriptionsURL =
-		URL(string: "https://apps.apple.com/account/subscriptions") ?? URL(filePath: "/")
+	/// Apple's standard "Manage Subscriptions" deep link. The hardcoded literal always
+	/// parses, so the force-unwrap cannot fail.
+	// swiftlint:disable:next force_unwrapping
+	private static let manageSubscriptionsURL = URL(string: "https://apps.apple.com/account/subscriptions")!
 }
 
 #if DEBUG

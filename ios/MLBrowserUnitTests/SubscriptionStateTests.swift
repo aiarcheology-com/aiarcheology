@@ -65,7 +65,6 @@ final class SubscriptionStateTests: XCTestCase {
 		let sut = SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed))
 		await sut.start()
 		// Payments flag is on by default (AIA-0343); without entitlement, premium is locked.
-		XCTAssertEqual(sut.isPremiumUnlocked, FeatureFlags.isPaymentsEnabled && false)
 		XCTAssertFalse(sut.isPremiumUnlocked)
 	}
 
