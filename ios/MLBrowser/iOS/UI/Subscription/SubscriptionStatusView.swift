@@ -32,7 +32,12 @@ struct SubscriptionStatusView: View {
 					value: subscriptionState.isInTrial ? L10n.Subscription.trial : L10n.Paywall.active
 				)
 				if let renews = renewalText {
-					LabeledContent(L10n.Subscription.renews, value: renews)
+					// During the free trial the date is when the trial ends (and the first
+					// charge happens); afterwards it's the renewal date.
+					LabeledContent(
+						subscriptionState.isInTrial ? L10n.Subscription.trialEnds : L10n.Subscription.renews,
+						value: renews
+					)
 				}
 			}
 

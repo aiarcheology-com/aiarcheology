@@ -101,7 +101,7 @@
           ],
           "productID" : "com.aiarcheology.premium.monthly",
           "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "Premium Monthly",
+          "referenceName" : "ML Browser Monthly",
           "subscriptionGroupID" : "21621600",
           "type" : "RecurringSubscription"
         }

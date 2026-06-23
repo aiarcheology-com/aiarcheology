@@ -108,14 +108,14 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "auth.environment.title", fallback: "Clerk Environment")
     }
     internal enum Locked {
-      /// Your account isn't enabled for access yet. AI Archeology is in early access — hang tight, or sign out to switch accounts.
-      internal static let message = L10n.tr("Localizable", "auth.locked.message", fallback: "Your account isn't enabled for access yet. AI Archeology is in early access — hang tight, or sign out to switch accounts.")
+      /// Your account isn't enabled for access yet. ML Browser is in early access — hang tight, or sign out to switch accounts.
+      internal static let message = L10n.tr("Localizable", "auth.locked.message", fallback: "Your account isn't enabled for access yet. ML Browser is in early access — hang tight, or sign out to switch accounts.")
       /// Access pending
       internal static let title = L10n.tr("Localizable", "auth.locked.title", fallback: "Access pending")
     }
     internal enum Offline {
-      /// AI Archeology needs an internet connection to verify your account. Reconnect and try again.
-      internal static let message = L10n.tr("Localizable", "auth.offline.message", fallback: "AI Archeology needs an internet connection to verify your account. Reconnect and try again.")
+      /// ML Browser needs an internet connection to verify your account. Reconnect and try again.
+      internal static let message = L10n.tr("Localizable", "auth.offline.message", fallback: "ML Browser needs an internet connection to verify your account. Reconnect and try again.")
       /// Try Again
       internal static let retry = L10n.tr("Localizable", "auth.offline.retry", fallback: "Try Again")
       /// No connection
@@ -126,8 +126,8 @@ internal enum L10n {
       internal static let button = L10n.tr("Localizable", "auth.signIn.button", fallback: "Sign In")
       /// Sign in to detect and explore archaeological findings.
       internal static let tagline = L10n.tr("Localizable", "auth.signIn.tagline", fallback: "Sign in to detect and explore archaeological findings.")
-      /// Welcome to AI Archeology
-      internal static let title = L10n.tr("Localizable", "auth.signIn.title", fallback: "Welcome to AI Archeology")
+      /// Welcome to ML Browser
+      internal static let title = L10n.tr("Localizable", "auth.signIn.title", fallback: "Welcome to ML Browser")
     }
   }
   internal enum Browser {
@@ -545,6 +545,8 @@ internal enum L10n {
     internal static let state = L10n.tr("Localizable", "subscription.state", fallback: "Status")
     /// Free trial
     internal static let trial = L10n.tr("Localizable", "subscription.trial", fallback: "Free trial")
+    /// Free trial until
+    internal static let trialEnds = L10n.tr("Localizable", "subscription.trialEnds", fallback: "Free trial until")
   }
   internal enum Symbol {
     /// Circle

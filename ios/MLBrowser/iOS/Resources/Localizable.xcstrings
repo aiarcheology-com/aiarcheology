@@ -153,7 +153,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your account isn't enabled for access yet. AI Archeology is in early access — hang tight, or sign out to switch accounts."
+            "value" : "Your account isn't enabled for access yet. ML Browser is in early access — hang tight, or sign out to switch accounts."
           }
         }
       }
@@ -175,7 +175,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI Archeology needs an internet connection to verify your account. Reconnect and try again."
+            "value" : "ML Browser needs an internet connection to verify your account. Reconnect and try again."
           }
         }
       }
@@ -230,7 +230,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Welcome to AI Archeology"
+            "value" : "Welcome to ML Browser"
           }
         }
       }
@@ -11218,6 +11218,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Status"
+          }
+        }
+      }
+    },
+    "subscription.trialEnds" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free trial until"
           }
         }
       }

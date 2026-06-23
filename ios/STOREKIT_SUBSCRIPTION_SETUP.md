@@ -9,14 +9,14 @@ App: **ML Browser** (App Store Apple ID `6466878953`, team `8860a21d-…`).
 
 | Field | Value |
 |-|-|
-| Subscription group | **AI Archeology Premium** (group ID `22180515`) |
-| Reference name | Premium Monthly |
+| Subscription group | **ML Browser** (group ID `22180515`) |
+| Reference name | ML Browser Monthly |
 | **Product ID** | **`com.aiarcheology.premium.monthly`** ← must match `SubscriptionProduct.monthly` in code |
 | Subscription Apple ID | `6783491808` |
 | Duration | 1 month |
 | Price | **$3.99 USD** (Apple auto-calculates all 175 storefronts; Apple is merchant of record) |
 | Availability | All 175 countries/regions + auto-include future regions |
-| Localization | English (U.S.) — "AI Archeology Premium" / "Premium detection models and features." |
+| Localization | English (U.S.) — display name "ML Browser" / "Full access to ML Browser." |
 | **Introductory offer** | **Free for the first month** — all regions, starts 2026-06-23, no end date |
 
 The product reads as **"Missing Metadata"** in ASC until a review screenshot is added and it
@@ -45,10 +45,11 @@ free to download → 1-month free trial → then $3.99/mo to keep using it.
   can leave/delete without reaching Settings.
 - Bypassed entirely when `FeatureFlags.isPaymentsEnabled` is off (ships dark; existing flows
   unaffected until payments are turned on).
-- **Naming:** dropped "Premium" — the product is just "AI Archeology" / full access (paywall
-  title + `Configuration.storekit` updated). ⚠️ The App Store Connect **group + product display
-  name still read "AI Archeology Premium"** — rename them in ASC (group `22180515`, product
-  `6783491808`) to drop "Premium" for consistency.
+- **Naming:** the user-facing product is **"ML Browser"** (the app name; "AI Archeology" is the
+  project/org). App Store Connect renamed: group → "ML Browser",
+  subscription display name → "ML Browser", reference name → "ML Browser Monthly". Code side
+  (paywall title, `Configuration.storekit`) matches. Product ID stays `com.aiarcheology.premium.monthly`
+  (permanent identifier — can't change).
 
 ## App side (branch `feature/AIA-0343/storekit-subscriptions`)
 
