@@ -1,7 +1,7 @@
 Test Focus: Sign-In & Account Access
 Build: TBD
 
-This build adds account sign-in. You now need an account to use the app, and access is granted per user during the beta.
+This build adds account sign-in. You now need an account to use the app — once you sign in or create one, you're straight in.
 
 Devices / Platforms
 - iPhone (required)
@@ -15,8 +15,6 @@ Devices / Platforms
   * Continue with Google
   * Continue with Facebook — works only for our testers right now; if it's
     not enabled for your account yet, use email/Apple/Google instead
-- If your account isn't enabled yet, you'll see an "Access pending" screen
-  * Send us your email and we'll enable access, then relaunch
 
 2. Account Management
 - Open the drawer → Settings → Manage Account
@@ -29,7 +27,7 @@ Devices / Platforms
   * You should NOT be able to use the app until you sign in again
 
 4. Delete Account
-- From "Access pending" or Manage Account, tap Delete Account
+- From Manage Account, tap Delete Account
   * Use a throwaway account — this permanently deletes it
   * After deletion you should be back on the sign-in screen
 

@@ -19,13 +19,6 @@ final class AuthGateUITests: UITestCase {
 		assertExists(AID.cpu, false)
 	}
 
-	/// `locked` → the "access pending" screen with a sign-out affordance.
-	func testGate_locked_showsLockedScreen() {
-		launch(mockAuthGate: "locked")
-		assertExists(AID.authLockedSignOut, true)
-		assertExists(AID.cpu, false)
-	}
-
 	/// `offline` → the fail-closed "needs connection" screen with a retry affordance.
 	func testGate_offline_showsOfflineScreen() {
 		launch(mockAuthGate: "offline")

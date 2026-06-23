@@ -27,8 +27,6 @@ struct AuthGateView<Content: View>: View {
                 AuthLoadingView()
             case .signedOut:
                 SignInGateView(authState: authState)
-            case .locked:
-                LockedView(authState: authState)
             case .offline:
                 AuthUnavailableView(authState: authState)
             case .ready:
@@ -173,72 +171,8 @@ private struct SignInGateView: View {
             if usesRealAuth {
                 AuthView()
                     .environment(Clerk.shared)
+                    .environment(\.clerkTheme, .app)
             }
-        }
-    }
-}
-
-// MARK: - Locked (signed in, not entitled)
-
-/// Shown when the user is signed in but not on the access allowlist.
-private struct LockedView: View {
-    @ObservedObject var authState: AuthState
-    @State private var showDeleteConfirmation = false
-    @State private var deleteFailed = false
-
-    var body: some View {
-        AuthMessageView(
-            systemImage: "lock.fill",
-            title: L10n.Auth.Locked.title,
-            message: L10n.Auth.Locked.message
-        ) {
-            VStack(spacing: 12) {
-                Button {
-                    Task { await authState.signOut() }
-                } label: {
-                    Text(L10n.Auth.signOut).frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-                .testability(Testability.Button.authLockedSignOut)
-
-                // A locked user has created an account, so per Apple Guideline
-                // 5.1.1(v) they must be able to delete it without first reaching
-                // the gated app (where the Settings delete button lives).
-                Button(role: .destructive) {
-                    showDeleteConfirmation = true
-                } label: {
-                    Text(L10n.Auth.Account.Delete.action).frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
-            }
-        }
-        .confirmationDialog(
-            L10n.Auth.Account.Delete.title,
-            isPresented: $showDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button(L10n.Auth.Account.Delete.action, role: .destructive) {
-                Task {
-                    do {
-                        try await authState.deleteAccount()
-                    } catch {
-                        // Don't silently drop the failure (see ios/AGENTS.md §5): log it
-                        // and tell the user, since they remain signed in / locked.
-                        LoggingPolicy.error("Account deletion failed: \(error.localizedDescription)", logger: .state)
-                        deleteFailed = true
-                    }
-                }
-            }
-            Button(L10n.Common.cancel, role: .cancel) {}
-        } message: {
-            Text(L10n.Auth.Account.Delete.message)
-        }
-        .alert(L10n.Alert.Error.title, isPresented: $deleteFailed) {
-            Button(L10n.Common.ok, role: .cancel) {}
-        } message: {
-            Text(L10n.Alert.Error.unexpected)
         }
     }
 }
@@ -269,6 +203,27 @@ private struct AuthUnavailableView: View {
             .testability(Testability.Button.authOfflineRetry)
         }
     }
+}
+
+// MARK: - Clerk theme
+
+extension ClerkTheme {
+    /// App-matched theme for Clerk's prebuilt screens (`AuthView`, `UserProfileView`) so
+    /// they read as part of AI Archeology rather than Clerk's default styling. Clerk only
+    /// exposes palette / font / corner-radius tokens — the screens' layout (avatar header,
+    /// row structure, "Secured by Clerk" footer) is fixed and can't be made into a native
+    /// grouped `Form`.
+    @MainActor
+    static let app = ClerkTheme(
+        colors: .init(
+            primary: .green,                          // matches the app's green primary action
+            background: Color(uiColor: .systemBackground),
+            danger: .red,
+            foreground: .primary,
+            primaryForeground: .white                 // label/icon on the green primary button
+        ),
+        design: .init(borderRadius: 10)               // ~iOS inset-grouped cell radius
+    )
 }
 
 // MARK: - Shared message layout

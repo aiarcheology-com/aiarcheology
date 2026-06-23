@@ -87,11 +87,6 @@ final class ClerkAuthProvider: AuthProviding {
         }
     }
 
-    /// `publicMetadata` boolean flag that grants access during the v1 allowlist
-    /// phase. Set per user in the Clerk Dashboard (Users → Metadata → Public) as
-    /// `{ "hasAccess": true }`.
-    private static let accessMetadataKey = "hasAccess"
-
     /// Configure the Clerk SDK. Call once, at app launch, before reading `Clerk.shared`.
     static func configure() {
         // Real Clerk publishable keys are `pk_test_…` / `pk_live_…`. Reject anything else
@@ -155,10 +150,6 @@ final class ClerkAuthProvider: AuthProviding {
         }
     }
 
-    func hasAccess() -> Bool {
-        Clerk.shared.user?.publicMetadata?[Self.accessMetadataKey]?.boolValue == true
-    }
-
     func signOut() async {
         do {
             try await Clerk.shared.auth.signOut()
@@ -189,7 +180,6 @@ final class MockAuthProvider: AuthProviding {
     enum Outcome: String {
         case ready
         case signedOut
-        case locked
         case offline
     }
 
@@ -224,11 +214,9 @@ final class MockAuthProvider: AuthProviding {
         switch outcome {
         case .offline: throw AuthValidationError.offline
         case .signedOut: throw AuthValidationError.noValidSession
-        case .ready, .locked: return
+        case .ready: return
         }
     }
-
-    func hasAccess() -> Bool { outcome == .ready }
 
     func signOut() async { outcome = .signedOut }
 

@@ -50,6 +50,7 @@ struct SettingsForm: View {
 				// own Manage-account / Security sub-screens resolve correctly.
 				UserProfileView(isDismissible: false, navigationPath: $accountPath)
 					.environment(Clerk.shared)
+					.environment(\.clerkTheme, .app)
 			}
 			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
 			.toolbar {

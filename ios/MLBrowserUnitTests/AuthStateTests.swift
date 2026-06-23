@@ -32,12 +32,6 @@ final class AuthStateTests: XCTestCase {
 		XCTAssertEqual(sut.gate, .ready)
 	}
 
-	func testStart_SignedInWithoutAccess_ResolvesToLocked() async {
-		let sut = AuthState(provider: MockAuthProvider(outcome: .locked))
-		await sut.start()
-		XCTAssertEqual(sut.gate, .locked)
-	}
-
 	func testStart_ValidationOffline_ResolvesToOffline() async {
 		let sut = AuthState(provider: MockAuthProvider(outcome: .offline))
 		await sut.start()
@@ -64,13 +58,13 @@ final class AuthStateTests: XCTestCase {
 		XCTAssertEqual(sut.gate, .signedOut)
 	}
 
-	func testRefresh_AfterProviderBecomesEntitled_FlipsLockedToReady() async {
-		// A user who is locked, then granted access in the Dashboard, becomes ready
-		// on the next refresh (mirrors the launch/foreground re-validation).
-		let provider = MockAuthProvider(outcome: .locked)
+	func testRefresh_AfterSignIn_FlipsSignedOutToReady() async {
+		// A signed-out user who signs in becomes ready on the next refresh
+		// (mirrors the sign-in-sheet dismissal / Clerk session-change re-validation).
+		let provider = MockAuthProvider(outcome: .signedOut)
 		let sut = AuthState(provider: provider)
 		await sut.start()
-		XCTAssertEqual(sut.gate, .locked)
+		XCTAssertEqual(sut.gate, .signedOut)
 
 		provider.setOutcomeForTesting(.ready)
 		await sut.refresh()

@@ -8,18 +8,16 @@
 import Foundation
 import OSLog
 
-/// The launch-gate state machine for authentication & access control (AIA-0340).
+/// The launch-gate state machine for authentication (AIA-0340).
 ///
 /// Flow: `checkingSession` resolves into exactly one of the terminal states.
 /// - `signedOut`: no valid session (never signed in, signed out, revoked, or banned).
 /// - `offline`: validation could not reach the server. v1 fails closed here.
-/// - `locked`: signed in, but the user is not entitled (`publicMetadata["hasAccess"] != true`).
-/// - `ready`: signed in and entitled — the app proper is shown.
+/// - `ready`: signed in — the app proper is shown.
 enum AuthGate: Equatable {
     case checkingSession
     case signedOut
     case offline
-    case locked
     case ready
 }
 
@@ -52,9 +50,6 @@ protocol AuthProviding {
     /// Round-trip to the server to validate the current session — this is what
     /// rejects revoked/banned sessions. Throws ``AuthValidationError`` on failure.
     func validateSession() async throws
-
-    /// Whether the signed-in user currently has access (`publicMetadata["hasAccess"] == true`).
-    func hasAccess() -> Bool
 
     /// Sign the current user out.
     func signOut() async
@@ -128,14 +123,13 @@ final class AuthState: ObservableObject {
 
         // Re-check signed-in status: `validateSession()` suspends, and a sign-out can
         // interleave on the main actor during that await. Without this re-check, a
-        // mid-refresh sign-out would still land on `.ready`/`.locked` rather than
-        // `.signedOut`.
+        // mid-refresh sign-out would still land on `.ready` rather than `.signedOut`.
         guard provider.isSignedIn else {
             setGate(.signedOut)
             return
         }
 
-        setGate(provider.hasAccess() ? .ready : .locked)
+        setGate(.ready)
     }
 
     /// Sign out and return to the sign-in screen.

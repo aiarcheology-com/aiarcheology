@@ -105,7 +105,6 @@ enum AID {
 
 	// Auth gate (AIA-0340)
 	static let authSignIn = "_AIA:Button.AuthSignIn"
-	static let authLockedSignOut = "_AIA:Button.AuthLockedSignOut"
 	static let authOfflineRetry = "_AIA:Button.AuthOfflineRetry"
 
 	// Location / address sheet

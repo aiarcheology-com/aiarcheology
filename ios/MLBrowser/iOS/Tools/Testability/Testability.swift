@@ -90,7 +90,6 @@ extension TestabilityIdentification {
 		case settingsReplayOnboarding
 		// Auth gate (AIA-0340)
 		case authSignIn
-		case authLockedSignOut
 		case authOfflineRetry
 		// Browsing History
 		case browsingHistoryClear
