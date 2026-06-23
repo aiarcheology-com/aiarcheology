@@ -103,6 +103,10 @@ enum AID {
 	static let saveFindingTitle = "_AIA:TextField.SaveFindingTitle"
 	static let saveFindingSave = "_AIA:Button.SaveFindingSave"
 
+	// Auth gate (AIA-0340)
+	static let authSignIn = "_AIA:Button.AuthSignIn"
+	static let authOfflineRetry = "_AIA:Button.AuthOfflineRetry"
+
 	// Location / address sheet
 	static let locationInput = "_AIA:TextField.LocationSheetInput"
 	static let locationDismiss = "_AIA:Button.LocationSheetDismiss"
@@ -142,7 +146,7 @@ class UITestCase: XCTestCase {
 	/// Launches the app with a deterministic configuration. The default config applies the
 	/// baseline only (wizard skipped, detection off, home page = about:blank).
 	@discardableResult
-	func launch(_ config: LaunchConfig = LaunchConfig()) -> XCUIApplication {
+	func launch(_ config: LaunchConfig = LaunchConfig(), mockAuthGate: String? = nil) -> XCUIApplication {
 		let app = XCUIApplication()
 		app.launchEnvironment["UI_TESTING"] = "1"
 		// swiftlint:disable:next force_try
@@ -150,6 +154,11 @@ class UITestCase: XCTestCase {
 		app.launchEnvironment["UI_TEST_CONFIG"] = String(data: data, encoding: .utf8)
 		// Pin locale so toolbar order is never reversed by RTL / localization.
 		app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+		// AIA-0340: drive the auth gate's DEBUG mock provider to a specific state.
+		// Default (nil) resolves to `.ready`, so existing tests bypass the gate.
+		if let mockAuthGate {
+			app.launchArguments += ["-mockAuthGate", mockAuthGate]
+		}
 		app.launch()
 		self.app = app
 		return app

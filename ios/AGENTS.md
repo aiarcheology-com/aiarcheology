@@ -46,6 +46,14 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
   - Avoid "fake" abstractions: don't introduce a protocol if it adds no testing value and will never have a second implementation.
   - Cross-reference: see **6. Testing** for when to use real implementations vs protocol fakes.
 
+### Feature flags
+
+- **Gate every significant feature behind a feature flag** so it can be turned on/off without ripping code out — e.g. **login/auth gate**, **payments/subscriptions**, and any other large or risky surface. Shipping a feature dark (flag off) and flipping it on later is the default, not the exception.
+- **For now flags live in source code** — a single typed constants file (e.g. `FeatureFlags.swift`, `static let` booleans), read at the feature's entry point. This is deliberately the simple version.
+- **A proper flag system is a separate, later PR** (remote config / per-build / per-environment overrides). Do not build that infrastructure inline with a feature — add the in-source flag now, and leave a `// TODO(AIA-XXXX): move to real feature-flag system` so it's tracked.
+- Keep flags **few and meaningful** (one per shippable feature), name them for the feature (`isPaymentsEnabled`, `isAuthGateEnabled`), and remove a flag once its feature is permanently on and stable — don't let dead flags accumulate.
+- **Payments note (research, 2026-06):** in-app digital subscriptions on iOS must use **StoreKit 2 IAP** (Apple Guideline 3.1.1; Apple is merchant-of-record and handles per-country VAT/tax + local pricing — the reason to prefer it). Clerk Billing/Stripe is **web-checkout only** (no native StoreKit path, USD-only, you become merchant-of-record), so it is **not** the in-app purchase path. Plan: StoreKit 2 → App Store Server Notifications → backend writes the entitlement to the Clerk user → app gates on it. Optional US-only "subscribe on web" external Stripe link is upside (0% Apple fee post-*Epic*), not the foundation. Ship all of it behind a payments feature flag.
+
 ### SwiftUI Previews (developer velocity)
 
 - Provide `#Preview` blocks for new views with representative states (empty/loading/error/success).
@@ -266,6 +274,13 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
   - Use an imperative summary ("Fix crash when…").
   - Add a short body describing *why* and any tradeoffs, especially for threading, persistence, or logging changes.
 
+### Pull requests
+
+- **Every time a PR is opened (or materially updated), update `ios/TestFlight/WhatToTest.en-US.txt`** with a short "what to test" section for that change. This is mandatory — no PR without it. Xcode Cloud ships this file's contents to TestFlight testers as the build's "What to Test" description. Keep it:
+  - **Tester-facing, not dev jargon** — describe the user-visible behavior and concrete steps to exercise it, not the implementation.
+  - **Scoped to this change** — what's new/changed in this PR and how to verify it; call out anything risky or easy to miss.
+  - **Concise** — a short intro line plus a few bullet steps.
+
 ## 14. Code Review Guidelines (what "good" looks like)
 
 - Correctness: edge cases handled, errors not swallowed, thread/actor correctness.
@@ -292,6 +307,7 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
 
 ### Changelog
 
+- **2026-06-23**: Added Feature Flags guidance (section 3) — gate significant features (login, payments) behind in-source flags now, with a proper flag system deferred to a later PR; plus the iOS payments research summary (StoreKit 2 IAP, not Clerk Billing/Stripe). Made the WhatToTest update mandatory for every PR (section 13).
 - **2026-06-11**: Added Core Data model versioning rules (new model version only after the previous one shipped; unreleased versions are edited in place; explicit Xcode-generated mapping models required per released migration step).
 - **2026-06-11**: Branch naming now documents the issue-key segment (`<type>/AIA-XXXX/desc`) matching actual practice; removed the stale Intel/x86_64 Xcode Cloud claim; cheat-sheet `xcodebuild` example no longer hardcodes a simulator model.
 - **2026-01-03**: Added Harmonize architectural linting (section 7), updated section numbering.

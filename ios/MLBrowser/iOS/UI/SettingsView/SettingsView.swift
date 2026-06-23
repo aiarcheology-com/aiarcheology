@@ -6,6 +6,13 @@
 //
 
 import SwiftUI
+import ClerkKit
+import ClerkKitUI
+
+/// Navigation routes pushed onto the Settings stack (AIA-0340).
+private enum AccountRoute: Hashable {
+	case profile
+}
 
 struct SettingsForm: View {
 	@Environment(\.dismiss) private var dismiss
@@ -14,6 +21,8 @@ struct SettingsForm: View {
 	@EnvironmentObject var settings: Settings
 	@EnvironmentObject var guide: Guide
 	@FocusState private var isHistoryLimitFocused: Bool
+	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
+	@State private var accountPath = NavigationPath()
 	@State private var defaultWebPlaceholder: String = "www.google.com"
 	@State private var resetButtonColor: Color = .red
 	@State private var cleanCacheButtonColor: Color = .red
@@ -28,12 +37,20 @@ struct SettingsForm: View {
 	]}
 
 	var body: some View {
-		NavigationStack {
+		NavigationStack(path: $accountPath) {
 			Form {
 				annotationSection
 				webContentSection
 				mlBrowserSection
+				accountSection
 				debugSection
+			}
+			.navigationDestination(for: AccountRoute.self) { _ in
+				// Embedded on the Settings stack (shares `accountPath`), so the profile's
+				// own Manage-account / Security sub-screens resolve correctly.
+				UserProfileView(isDismissible: false, navigationPath: $accountPath)
+					.environment(Clerk.shared)
+					.environment(\.clerkTheme, .app)
 			}
 			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
 			.toolbar {
@@ -230,6 +247,48 @@ struct SettingsForm: View {
 		.onChange(of: settings.applicationResetButtonToggle) {
 			resetButtonColor = .blue
 		}
+	}
+
+	/// Whether the real Clerk-backed auth is active. The mock path (UI tests) has no
+	/// configured Clerk instance, so the Clerk-dependent rows are hidden there.
+	private var usesRealAuth: Bool { DependencyContainer.shared.usesMockAuth == false }
+
+	/// Account management (AIA-0340). "Manage Account" opens Clerk's prebuilt
+	/// `UserProfileView`, which handles change password, email, security/MFA,
+	/// devices, and the App Store-required account deletion (Apple 5.1.1(v)).
+	private var accountSection: some View {
+		Section(header: Text(L10n.Auth.Account.title)) {
+			if usesRealAuth, let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress {
+				HStack {
+					Text(email)
+						.foregroundColor(.secondary)
+						.lineLimit(1)
+						.truncationMode(.middle)
+					Spacer()
+				}
+			}
+
+			HStack {
+				Text(L10n.Auth.Account.subscription)
+				Spacer()
+				Text(L10n.Auth.Account.freeBeta)
+					.foregroundColor(.secondary)
+			}
+
+			if usesRealAuth {
+				// Push Clerk's profile onto the Settings stack (not a sheet): Settings is
+				// itself a sheet, and a sheet-over-a-sheet presents-then-auto-dismisses.
+				// Value-based push so UserProfileView and its own sub-screens (Manage
+				// account / Security) all navigate on the SAME path — see the matching
+				// `.navigationDestination` on the Form. (A closure NavigationLink would
+				// push the profile off-path, and its sub-rows would fail to resolve.)
+				NavigationLink(value: AccountRoute.profile) {
+					Text(L10n.Auth.Account.manage)
+				}
+				.testability(Testability.NavigationLink.settingsManageAccount)
+			}
+		}
+		.foregroundColor(.primary)
 	}
 
 	@ViewBuilder

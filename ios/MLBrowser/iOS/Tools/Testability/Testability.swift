@@ -88,6 +88,9 @@ extension TestabilityIdentification {
 		case settingsRestoreDefaults
 		case settingsKeyboardDone
 		case settingsReplayOnboarding
+		// Auth gate (AIA-0340)
+		case authSignIn
+		case authOfflineRetry
 		// Browsing History
 		case browsingHistoryClear
 		case browsingHistoryDismiss
@@ -215,6 +218,7 @@ extension TestabilityIdentification {
 		// Settings
 		case settingsHistory
 		case settingsAbout
+		case settingsManageAccount
 		// App Description
 		case appDescriptionPrivacyPolicy
 		// Downloader

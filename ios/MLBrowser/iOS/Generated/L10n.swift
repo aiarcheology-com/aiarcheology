@@ -72,6 +72,64 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "alert.warning.title", fallback: "Warning")
     }
   }
+  internal enum Auth {
+    /// Checking your session…
+    internal static let checking = L10n.tr("Localizable", "auth.checking", fallback: "Checking your session…")
+    /// Sign Out
+    internal static let signOut = L10n.tr("Localizable", "auth.signOut", fallback: "Sign Out")
+    internal enum Account {
+      /// Permanently delete your account and all associated data. This cannot be undone.
+      internal static let deleteFooter = L10n.tr("Localizable", "auth.account.deleteFooter", fallback: "Permanently delete your account and all associated data. This cannot be undone.")
+      /// Free Beta
+      internal static let freeBeta = L10n.tr("Localizable", "auth.account.freeBeta", fallback: "Free Beta")
+      /// Manage Account
+      internal static let manage = L10n.tr("Localizable", "auth.account.manage", fallback: "Manage Account")
+      /// Subscription
+      internal static let subscription = L10n.tr("Localizable", "auth.account.subscription", fallback: "Subscription")
+      /// Account
+      internal static let title = L10n.tr("Localizable", "auth.account.title", fallback: "Account")
+      internal enum Delete {
+        /// Delete Account
+        internal static let action = L10n.tr("Localizable", "auth.account.delete.action", fallback: "Delete Account")
+        /// This permanently deletes your account and cannot be undone. Are you sure?
+        internal static let message = L10n.tr("Localizable", "auth.account.delete.message", fallback: "This permanently deletes your account and cannot be undone. Are you sure?")
+        /// Delete Account?
+        internal static let title = L10n.tr("Localizable", "auth.account.delete.title", fallback: "Delete Account?")
+      }
+    }
+    internal enum Environment {
+      /// Development
+      internal static let development = L10n.tr("Localizable", "auth.environment.development", fallback: "Development")
+      /// Test builds only. Switching signs you out and reconnects to the selected Clerk instance.
+      internal static let footer = L10n.tr("Localizable", "auth.environment.footer", fallback: "Test builds only. Switching signs you out and reconnects to the selected Clerk instance.")
+      /// Production
+      internal static let production = L10n.tr("Localizable", "auth.environment.production", fallback: "Production")
+      /// Clerk Environment
+      internal static let title = L10n.tr("Localizable", "auth.environment.title", fallback: "Clerk Environment")
+    }
+    internal enum Locked {
+      /// Your account isn't enabled for access yet. AI Archeology is in early access — hang tight, or sign out to switch accounts.
+      internal static let message = L10n.tr("Localizable", "auth.locked.message", fallback: "Your account isn't enabled for access yet. AI Archeology is in early access — hang tight, or sign out to switch accounts.")
+      /// Access pending
+      internal static let title = L10n.tr("Localizable", "auth.locked.title", fallback: "Access pending")
+    }
+    internal enum Offline {
+      /// AI Archeology needs an internet connection to verify your account. Reconnect and try again.
+      internal static let message = L10n.tr("Localizable", "auth.offline.message", fallback: "AI Archeology needs an internet connection to verify your account. Reconnect and try again.")
+      /// Try Again
+      internal static let retry = L10n.tr("Localizable", "auth.offline.retry", fallback: "Try Again")
+      /// No connection
+      internal static let title = L10n.tr("Localizable", "auth.offline.title", fallback: "No connection")
+    }
+    internal enum SignIn {
+      /// Sign In
+      internal static let button = L10n.tr("Localizable", "auth.signIn.button", fallback: "Sign In")
+      /// Sign in to detect and explore archaeological findings.
+      internal static let tagline = L10n.tr("Localizable", "auth.signIn.tagline", fallback: "Sign in to detect and explore archaeological findings.")
+      /// Welcome to AI Archeology
+      internal static let title = L10n.tr("Localizable", "auth.signIn.title", fallback: "Welcome to AI Archeology")
+    }
+  }
   internal enum Browser {
     internal enum FloatingButton {
       /// Show or hide browser controls
