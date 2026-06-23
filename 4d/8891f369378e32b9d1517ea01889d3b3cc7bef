@@ -1,0 +1,32 @@
+ios/MLBrowserUnitTests/AuthStateTests.swift
+  s_7703fe3381cde5::t_b57d8460d360d4 61-64,67
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift
+  s_7703fe3381cde5::t_39d7744b84bca1 53
+ios/TestFlight/WhatToTest.en-US.txt
+  s_7703fe3381cde5::t_13e1c9346cb242 4
+  s_7703fe3381cde5::t_49201da4ba1e6e 30
+ios/MLBrowser/iOS/State/ClerkAuthProvider.swift
+  s_7703fe3381cde5::t_718296f024917d 217
+ios/MLBrowser/iOS/UI/Auth/AuthGateView.swift
+  s_7703fe3381cde5::t_644e8f292ccd05 174
+  s_7703fe3381cde5::t_e6de2cef963107 208-228
+ios/MLBrowser/iOS/State/AuthState.swift
+  s_7703fe3381cde5::t_f465e0a75cc639 11,16
+  s_7703fe3381cde5::t_a40893cd2fab1b 126,132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "4d8891f369378e32b9d1517ea01889d3b3cc7bef",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
