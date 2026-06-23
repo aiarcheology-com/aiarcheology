@@ -1,0 +1,50 @@
+ios/MLBrowserUITests/UITestSupport.swift
+  s_7703fe3381cde5::t_3cd2dfd39b9897 110-113
+  s_7703fe3381cde5::t_9395e182796f16 153,166-169
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_7703fe3381cde5::t_47d78163e4d11d 99
+ios/MLBrowserUITests/SubscriptionGateUITests.swift
+  s_7703fe3381cde5::t_8b46bed189b596 15-18
+  s_7703fe3381cde5::t_6ddccc261979bf 1-14,19-32
+ios/STOREKIT_SUBSCRIPTION_SETUP.md
+  s_7703fe3381cde5::t_1cbc4d17b9bead 36-51
+ios/MLBrowser/iOS/UI/MLBrowser.swift
+  s_7703fe3381cde5::t_6ece4e0fdaef7f 58-64
+ios/MLBrowser/iOS/UI/Subscription/SubscriptionGateView.swift
+  s_7703fe3381cde5::t_ed8c22f3595fd5 1-30
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_7703fe3381cde5::t_3667e209f631a4 464-465,468-469,516-517
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift
+  s_7703fe3381cde5::t_818dc203f8ba7e 17-26,38-40
+  s_7703fe3381cde5::t_558f57d9c1c091 42-48
+  s_7703fe3381cde5::t_d2b60d37df3f9c 84-85,87-89
+  s_7703fe3381cde5::t_3fd21edc48b656 91-113
+  s_7703fe3381cde5::t_f922362b0aa077 90,167-190
+  s_7703fe3381cde5::t_4ba9e1347871dd 232-235
+ios/MLBrowser/Configuration.storekit
+  s_7703fe3381cde5::t_c77959f35837e1 97-98
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_7703fe3381cde5::t_bbc2485ad7b65d 14,264,293-294,633,1057,1647,1729
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_7703fe3381cde5::t_21e324bcc633e1 11286
+  s_7703fe3381cde5::t_27601437752e3d 11275
+  s_7703fe3381cde5::t_88e392cf0c2b8d 11308
+ios/MLBrowser/iOS/State/StoreKitSubscriptionProvider.swift
+  s_7703fe3381cde5::t_4c6b9143ac1113 243-244,252
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "01c7e308511691fb319e1e4a23da071bfff73fa8",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
