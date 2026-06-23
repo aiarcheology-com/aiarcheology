@@ -1,0 +1,26 @@
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift
+  s_7703fe3381cde5::t_0613e392926ab1 289-291,293-297,301
+  s_7703fe3381cde5::t_5b83cf42256601 13-15
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_7703fe3381cde5::t_8fbfb73dcf174f 11192-11202
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_7703fe3381cde5::t_62862e9b10f79d 540-541
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift
+  s_7703fe3381cde5::t_0753a6bdeb4b0d 294-296
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "4e8f5de4de3015c4cd9fbf3fd8b2476179f8e20d",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
