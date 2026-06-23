@@ -11189,6 +11189,17 @@
         }
       }
     },
+    "subscription.notSubscribed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not subscribed"
+          }
+        }
+      }
+    },
     "subscription.plan" : {
       "extractionState" : "manual",
       "localizations" : {

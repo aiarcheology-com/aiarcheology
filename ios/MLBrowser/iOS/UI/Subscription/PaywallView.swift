@@ -10,8 +10,9 @@ import SwiftUI
 import StoreKit
 import OSLog
 
-/// The paywall. Presented from the Settings "Upgrade" entry point. Reads products and
-/// entitlement from ``SubscriptionState`` and drives purchase / restore intents.
+/// The paywall. Presented as the whole-app root gate (`SubscriptionGateView`) when the
+/// signed-in user isn't subscribed. Reads products and entitlement from
+/// ``SubscriptionState`` and drives purchase / restore intents.
 struct PaywallView: View {
 	@ObservedObject var subscriptionState: SubscriptionState
 
@@ -285,16 +286,19 @@ struct PaywallView: View {
 	/// `DateComponentsFormatter` so the unit follows the device locale.
 	private static func localizedPeriod(_ period: Product.SubscriptionPeriod) -> String {
 		var components = DateComponents()
+		// Restrict the formatter to the offer's own unit so it can't re-express the
+		// period (e.g. a 1-week trial rendering as "7 days", or 30 days as "1 month").
+		let allowedUnit: NSCalendar.Unit
 		switch period.unit {
-		case .day: components.day = period.value
-		case .week: components.day = period.value * 7
-		case .month: components.month = period.value
-		case .year: components.year = period.value
-		@unknown default: components.day = period.value
+		case .day: components.day = period.value; allowedUnit = .day
+		case .week: components.weekOfMonth = period.value; allowedUnit = .weekOfMonth
+		case .month: components.month = period.value; allowedUnit = .month
+		case .year: components.year = period.value; allowedUnit = .year
+		@unknown default: components.day = period.value; allowedUnit = .day
 		}
 		let formatter = DateComponentsFormatter()
 		formatter.unitsStyle = .full
-		formatter.allowedUnits = [.day, .month, .year]
+		formatter.allowedUnits = allowedUnit
 		formatter.maximumUnitCount = 1
 		return formatter.string(from: components) ?? "\(period.value)"
 	}

@@ -537,6 +537,8 @@ internal enum L10n {
     }
   }
   internal enum Subscription {
+    /// Not subscribed
+    internal static let notSubscribed = L10n.tr("Localizable", "subscription.notSubscribed", fallback: "Not subscribed")
     /// Plan
     internal static let plan = L10n.tr("Localizable", "subscription.plan", fallback: "Plan")
     /// Renews

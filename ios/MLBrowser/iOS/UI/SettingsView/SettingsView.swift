@@ -291,7 +291,9 @@ struct SettingsForm: View {
 				HStack {
 					Text(L10n.Auth.Account.subscription)
 					Spacer()
-					Text(L10n.Auth.Account.freeBeta)
+					// Payments on but no entitlement (e.g. a lapse/refund before the gate
+					// refreshes) → "Not subscribed". Payments off → the "Free Beta" label.
+					Text(FeatureFlags.isPaymentsEnabled ? L10n.Subscription.notSubscribed : L10n.Auth.Account.freeBeta)
 						.foregroundColor(.secondary)
 				}
 			}
