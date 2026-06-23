@@ -1,0 +1,61 @@
+ios/MLBrowser/iOS/UI/ContentView.swift
+  s_7703fe3381cde5::t_5223870b4817da 54
+ios/MLBrowser/iOS/State/Appstate.swift
+  s_7703fe3381cde5::t_a532eaa9d71e5a 45-47
+  s_7703fe3381cde5::t_550ae472414014 76-82
+ios/TestFlight/WhatToTest.en-US.txt
+  s_7703fe3381cde5::t_f9202d585e00ff 22-33
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_7703fe3381cde5::t_d87d19e0fd7a95 11181-11268
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift
+  s_7703fe3381cde5::t_59005875695700 1-54,60-125,128,130-142
+  s_7703fe3381cde5::t_e923bd5b5bc6e1 55-59
+  s_7703fe3381cde5::t_b8dbd5cd1bdfcb 126-127,129
+ios/MLBrowser/iOS/State/DependencyContainer.swift
+  s_7703fe3381cde5::t_30a7646ec53de3 79-102
+ios/MLBrowser/iOS/State/SubscriptionState.swift
+  s_7703fe3381cde5::t_d2b034606fb237 1-72,77-78,85-112
+  s_7703fe3381cde5::t_d996ff64866ea2 73-76,79-84
+ios/MLBrowser/iOS/UI/SettingsView/SettingsView.swift
+  s_7703fe3381cde5::t_13e385962f5a92 23,25-26
+  s_7703fe3381cde5::t_35327892929615 99-101,300
+  s_7703fe3381cde5::t_62f5fbfe3502db 280,284-299
+ios/MLBrowserUnitTests/SubscriptionStateTests.swift
+  s_7703fe3381cde5::t_eaf02ebe4c13e2 48-51,57
+  s_7703fe3381cde5::t_23312f4fa1e9f0 1-47,52-56,58-78
+ios/MLBrowser/Configuration.storekit
+  s_7703fe3381cde5::t_04c8a9697bbf34 1-111
+ios/MLBrowser/iOS/State/FeatureFlags.swift
+  s_7703fe3381cde5::t_aa2f21673cd3e2 1-21
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_7703fe3381cde5::t_a3d2a3300a6a9b 12,16,19,21,154,262,287,290,292,435,541,543,625-633,758,788-790,964,1033,1400,1637-1640,1701
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_7703fe3381cde5::t_520cf43f3f86cc 219-220
+  s_7703fe3381cde5::t_9e9dd7e799e298 94-97
+ios/MLBrowser/iOS/UI/Drawer/DrawerContent.swift
+  s_7703fe3381cde5::t_e3ff65b214a6a3 24-25
+  s_7703fe3381cde5::t_bb0509c8cdfbf8 87
+ios/MLBrowser/iOS/State/StoreKitSubscriptionProvider.swift
+  s_7703fe3381cde5::t_861bd46a102e05 14
+  s_7703fe3381cde5::t_a318800506f191 1-13,15-198,205,211-254,262-279
+  s_7703fe3381cde5::t_9a3fa7c2695ec1 199-204,206-210
+  s_7703fe3381cde5::t_91cfc80a723aa4 255-261
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_7703fe3381cde5::t_87c275b9a3d02c 451-466,506-507
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "39cbddeefd70cd892a5328ef38315b759efa031d",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
