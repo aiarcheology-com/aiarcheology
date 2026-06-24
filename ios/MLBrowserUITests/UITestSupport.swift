@@ -107,6 +107,10 @@ enum AID {
 	static let authSignIn = "_AIA:Button.AuthSignIn"
 	static let authOfflineRetry = "_AIA:Button.AuthOfflineRetry"
 
+	// Subscription paywall (AIA-0343)
+	static let paywallSubscribe = "_AIA:Button.PaywallSubscribe"
+	static let paywallSignOut = "_AIA:Button.PaywallSignOut"
+
 	// Location / address sheet
 	static let locationInput = "_AIA:TextField.LocationSheetInput"
 	static let locationDismiss = "_AIA:Button.LocationSheetDismiss"
@@ -146,7 +150,7 @@ class UITestCase: XCTestCase {
 	/// Launches the app with a deterministic configuration. The default config applies the
 	/// baseline only (wizard skipped, detection off, home page = about:blank).
 	@discardableResult
-	func launch(_ config: LaunchConfig = LaunchConfig(), mockAuthGate: String? = nil) -> XCUIApplication {
+	func launch(_ config: LaunchConfig = LaunchConfig(), mockAuthGate: String? = nil, mockSubscription: String? = nil) -> XCUIApplication {
 		let app = XCUIApplication()
 		app.launchEnvironment["UI_TESTING"] = "1"
 		// swiftlint:disable:next force_try
@@ -158,6 +162,11 @@ class UITestCase: XCTestCase {
 		// Default (nil) resolves to `.ready`, so existing tests bypass the gate.
 		if let mockAuthGate {
 			app.launchArguments += ["-mockAuthGate", mockAuthGate]
+		}
+		// AIA-0343: drive the subscription gate's DEBUG mock. Default (nil) resolves to
+		// `.subscribed`, so existing tests pass straight through the whole-app gate.
+		if let mockSubscription {
+			app.launchArguments += ["-mockSubscription", mockSubscription]
 		}
 		app.launch()
 		self.app = app

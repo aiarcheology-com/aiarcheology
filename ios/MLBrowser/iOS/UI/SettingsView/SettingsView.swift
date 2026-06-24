@@ -12,6 +12,7 @@ import ClerkKitUI
 /// Navigation routes pushed onto the Settings stack (AIA-0340).
 private enum AccountRoute: Hashable {
 	case profile
+	case subscription
 }
 
 struct SettingsForm: View {
@@ -20,6 +21,7 @@ struct SettingsForm: View {
 	@Environment(TourState.self) private var tour
 	@EnvironmentObject var settings: Settings
 	@EnvironmentObject var guide: Guide
+	@EnvironmentObject var subscriptionState: SubscriptionState
 	@FocusState private var isHistoryLimitFocused: Bool
 	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
 	@State private var accountPath = NavigationPath()
@@ -45,12 +47,17 @@ struct SettingsForm: View {
 				accountSection
 				debugSection
 			}
-			.navigationDestination(for: AccountRoute.self) { _ in
-				// Embedded on the Settings stack (shares `accountPath`), so the profile's
-				// own Manage-account / Security sub-screens resolve correctly.
-				UserProfileView(isDismissible: false, navigationPath: $accountPath)
-					.environment(Clerk.shared)
-					.environment(\.clerkTheme, .app)
+			.navigationDestination(for: AccountRoute.self) { route in
+				switch route {
+				case .profile:
+					// Embedded on the Settings stack (shares `accountPath`), so the profile's
+					// own Manage-account / Security sub-screens resolve correctly.
+					UserProfileView(isDismissible: false, navigationPath: $accountPath)
+						.environment(Clerk.shared)
+						.environment(\.clerkTheme, .app)
+				case .subscription:
+					SubscriptionStatusView(subscriptionState: subscriptionState)
+				}
 			}
 			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
 			.toolbar {
@@ -268,11 +275,27 @@ struct SettingsForm: View {
 				}
 			}
 
-			HStack {
-				Text(L10n.Auth.Account.subscription)
-				Spacer()
-				Text(L10n.Auth.Account.freeBeta)
-					.foregroundColor(.secondary)
+			// Subscription (AIA-0343). When subscribed, tapping pushes the status submenu
+			// (status + manage/cancel via Apple + restore + refund). Otherwise a static row.
+			if FeatureFlags.isPaymentsEnabled && subscriptionState.isSubscribed {
+				NavigationLink(value: AccountRoute.subscription) {
+					HStack {
+						Text(L10n.Auth.Account.subscription)
+						Spacer()
+						Text(subscriptionState.isInTrial ? L10n.Subscription.trial : L10n.Paywall.active)
+							.foregroundColor(.secondary)
+					}
+				}
+				.testability(Testability.NavigationLink.settingsSubscription)
+			} else {
+				HStack {
+					Text(L10n.Auth.Account.subscription)
+					Spacer()
+					// Payments on but no entitlement (e.g. a lapse/refund before the gate
+					// refreshes) → "Not subscribed". Payments off → the "Free Beta" label.
+					Text(FeatureFlags.isPaymentsEnabled ? L10n.Subscription.notSubscribed : L10n.Auth.Account.freeBeta)
+						.foregroundColor(.secondary)
+				}
 			}
 
 			if usesRealAuth {

@@ -76,6 +76,30 @@ class DependencyContainer {
         return ClerkAuthProvider()
     }()
 
+    // MARK: - Subscriptions (AIA-0343)
+
+    /// Whether the subscription layer uses the in-memory mock instead of StoreKit.
+    /// DEBUG-only and gated on test runs, mirroring `usesMockAuth`: UI tests and unit
+    /// tests must never touch StoreKit / the App Store. Release builds always use the
+    /// real provider (the mock is `#if DEBUG`, so it can never ship).
+    let usesMockSubscription: Bool = {
+        #if DEBUG
+        return AppEnvironment.isRunningUITests
+            || AppEnvironment.isRunningUnderAnyTests
+        #else
+        return false
+        #endif
+    }()
+
+    lazy var subscriptionProvider: SubscriptionProviding = {
+        #if DEBUG
+        if self.usesMockSubscription {
+            return MockSubscriptionProvider.fromLaunchArguments()
+        }
+        #endif
+        return StoreKitSubscriptionProvider()
+    }()
+
 	// MARK: - Initialization
 	
     private init() {

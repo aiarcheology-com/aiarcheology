@@ -55,9 +55,13 @@ struct MLBrowser: App {
 	@ViewBuilder
 	private var authGatedContent: some View {
 		let gate = AuthGateView(authState: appState.authState) {
-			ContentView()
-				.environmentObject(appState)
-				.environment(\.managedObjectContext, appState.dataController.container.viewContext)
+			// Whole-app subscription gate (AIA-0343): once signed in, the app proper shows
+			// only while subscribed (free trial counts); otherwise the paywall is the root.
+			SubscriptionGateView(subscriptionState: appState.subscriptionState, authState: appState.authState) {
+				ContentView()
+					.environmentObject(appState)
+					.environment(\.managedObjectContext, appState.dataController.container.viewContext)
+			}
 		}
 		if DependencyContainer.shared.usesMockAuth {
 			gate

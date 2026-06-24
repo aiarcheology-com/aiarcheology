@@ -91,6 +91,12 @@ extension TestabilityIdentification {
 		// Auth gate (AIA-0340)
 		case authSignIn
 		case authOfflineRetry
+		// Paywall / subscriptions (AIA-0343)
+		case settingsUpgrade
+		case paywallSubscribe
+		case paywallRestore
+		case paywallRequestRefund
+		case paywallSignOut
 		// Browsing History
 		case browsingHistoryClear
 		case browsingHistoryDismiss
@@ -212,6 +218,8 @@ extension TestabilityIdentification {
 		// App Description
 		case appDescriptionWebsite
 		case appDescriptionTwitter
+		// Paywall / subscriptions (AIA-0343)
+		case paywallManage
 	}
 	
 	enum NavigationLink: String, TestabilityIdentification {
@@ -219,6 +227,7 @@ extension TestabilityIdentification {
 		case settingsHistory
 		case settingsAbout
 		case settingsManageAccount
+		case settingsSubscription
 		// App Description
 		case appDescriptionPrivacyPolicy
 		// Downloader

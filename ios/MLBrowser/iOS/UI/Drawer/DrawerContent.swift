@@ -21,7 +21,8 @@ struct DrawerContent: View {
     @EnvironmentObject private var deep: DeepState
     @EnvironmentObject private var downloader: Downloader
     @EnvironmentObject private var settings: Settings
-    
+    @EnvironmentObject private var subscriptionState: SubscriptionState
+
     @FetchRequest(
         entity: DeepConfiguration.entity(),
         sortDescriptors: [
@@ -83,6 +84,7 @@ struct DrawerContent: View {
             SettingsForm()
                 .environmentObject(settings)
                 .environmentObject(guide)
+                .environmentObject(subscriptionState)
                 .environment(drawer)
                 .environment(tour)
         }

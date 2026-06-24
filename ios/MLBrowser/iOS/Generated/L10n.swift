@@ -108,14 +108,14 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "auth.environment.title", fallback: "Clerk Environment")
     }
     internal enum Locked {
-      /// Your account isn't enabled for access yet. AI Archeology is in early access — hang tight, or sign out to switch accounts.
-      internal static let message = L10n.tr("Localizable", "auth.locked.message", fallback: "Your account isn't enabled for access yet. AI Archeology is in early access — hang tight, or sign out to switch accounts.")
+      /// Your account isn't enabled for access yet. ML Browser is in early access — hang tight, or sign out to switch accounts.
+      internal static let message = L10n.tr("Localizable", "auth.locked.message", fallback: "Your account isn't enabled for access yet. ML Browser is in early access — hang tight, or sign out to switch accounts.")
       /// Access pending
       internal static let title = L10n.tr("Localizable", "auth.locked.title", fallback: "Access pending")
     }
     internal enum Offline {
-      /// AI Archeology needs an internet connection to verify your account. Reconnect and try again.
-      internal static let message = L10n.tr("Localizable", "auth.offline.message", fallback: "AI Archeology needs an internet connection to verify your account. Reconnect and try again.")
+      /// ML Browser needs an internet connection to verify your account. Reconnect and try again.
+      internal static let message = L10n.tr("Localizable", "auth.offline.message", fallback: "ML Browser needs an internet connection to verify your account. Reconnect and try again.")
       /// Try Again
       internal static let retry = L10n.tr("Localizable", "auth.offline.retry", fallback: "Try Again")
       /// No connection
@@ -124,10 +124,10 @@ internal enum L10n {
     internal enum SignIn {
       /// Sign In
       internal static let button = L10n.tr("Localizable", "auth.signIn.button", fallback: "Sign In")
-      /// Sign in to detect and explore archaeological findings.
-      internal static let tagline = L10n.tr("Localizable", "auth.signIn.tagline", fallback: "Sign in to detect and explore archaeological findings.")
-      /// Welcome to AI Archeology
-      internal static let title = L10n.tr("Localizable", "auth.signIn.title", fallback: "Welcome to AI Archeology")
+      /// Sign in to detect objects on any website.
+      internal static let tagline = L10n.tr("Localizable", "auth.signIn.tagline", fallback: "Sign in to detect objects on any website.")
+      /// Welcome to ML Browser
+      internal static let title = L10n.tr("Localizable", "auth.signIn.title", fallback: "Welcome to ML Browser")
     }
   }
   internal enum Browser {
@@ -448,6 +448,32 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "models.empty.title", fallback: "No Models")
     }
   }
+  internal enum Paywall {
+    /// Subscribed
+    internal static let active = L10n.tr("Localizable", "paywall.active", fallback: "Subscribed")
+    /// Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.
+    internal static let disclosure = L10n.tr("Localizable", "paywall.disclosure", fallback: "Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.")
+    /// Manage Subscription
+    internal static let manage = L10n.tr("Localizable", "paywall.manage", fallback: "Manage Subscription")
+    /// Request a Refund
+    internal static let requestRefund = L10n.tr("Localizable", "paywall.requestRefund", fallback: "Request a Refund")
+    /// Restore Purchases
+    internal static let restore = L10n.tr("Localizable", "paywall.restore", fallback: "Restore Purchases")
+    /// Subscribe
+    internal static let subscribe = L10n.tr("Localizable", "paywall.subscribe", fallback: "Subscribe")
+    /// Subscribe to unlock the full app.
+    internal static let tagline = L10n.tr("Localizable", "paywall.tagline", fallback: "Subscribe to unlock the full app.")
+    /// Terms of Use
+    internal static let terms = L10n.tr("Localizable", "paywall.terms", fallback: "Terms of Use")
+    /// ML Browser
+    internal static let title = L10n.tr("Localizable", "paywall.title", fallback: "ML Browser")
+    /// Free for %1$@, then %2$@
+    internal static func trialFormat(_ p1: Any, _ p2: Any) -> String {
+      return L10n.tr("Localizable", "paywall.trialFormat", String(describing: p1), String(describing: p2), fallback: "Free for %1$@, then %2$@")
+    }
+    /// Subscriptions are not available right now. Please try again later.
+    internal static let unavailable = L10n.tr("Localizable", "paywall.unavailable", fallback: "Subscriptions are not available right now. Please try again later.")
+  }
   internal enum Sentry {
     /// Config
     internal static let config = L10n.tr("Localizable", "sentry.config", fallback: "Config")
@@ -487,6 +513,8 @@ internal enum L10n {
     internal static let tiledDetection = L10n.tr("Localizable", "settings.tiledDetection", fallback: "Tiled Detection")
     /// Settings
     internal static let title = L10n.tr("Localizable", "settings.title", fallback: "Settings")
+    /// Subscribe
+    internal static let upgrade = L10n.tr("Localizable", "settings.upgrade", fallback: "Subscribe")
     internal enum Frequency {
       /// %lld seconds
       internal static func seconds(_ p1: Int) -> String {
@@ -507,6 +535,20 @@ internal enum L10n {
       /// Sentry Stats
       internal static let title = L10n.tr("Localizable", "settings.sentry.title", fallback: "Sentry Stats")
     }
+  }
+  internal enum Subscription {
+    /// Not subscribed
+    internal static let notSubscribed = L10n.tr("Localizable", "subscription.notSubscribed", fallback: "Not subscribed")
+    /// Plan
+    internal static let plan = L10n.tr("Localizable", "subscription.plan", fallback: "Plan")
+    /// Renews
+    internal static let renews = L10n.tr("Localizable", "subscription.renews", fallback: "Renews")
+    /// Status
+    internal static let state = L10n.tr("Localizable", "subscription.state", fallback: "Status")
+    /// Free trial
+    internal static let trial = L10n.tr("Localizable", "subscription.trial", fallback: "Free trial")
+    /// Free trial until
+    internal static let trialEnds = L10n.tr("Localizable", "subscription.trialEnds", fallback: "Free trial until")
   }
   internal enum Symbol {
     /// Circle

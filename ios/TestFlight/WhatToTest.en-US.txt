@@ -1,47 +1,62 @@
-Test Focus: Sign-In & Account Access
+Test Focus: Sign-In + Subscription
 Build: TBD
 
-This build adds account sign-in. You now need an account to use the app — once you sign in or create one, you're straight in.
+This build adds account sign-in AND a subscription. You now need an account to use the app,
+and (with payments on) an active subscription or free trial to get past the paywall. Purchases
+in TestFlight use Apple's Sandbox — you are NOT charged real money, and trial/renewal periods
+are accelerated (a "month" passes in minutes).
 
 Devices / Platforms
 - iPhone (required)
 - iPad (if available)
 
-1. Sign In (Primary Focus)
-- On launch you should see a sign-in screen
-- Sign in any of these ways and confirm the app opens afterwards:
+1. Sign In
+- On launch you should see a sign-in screen.
+- Sign in any of these ways and confirm it proceeds:
   * Email and password (create an account or sign in)
   * Continue with Apple
   * Continue with Google
-  * Continue with Facebook — works only for our testers right now; if it's
-    not enabled for your account yet, use email/Apple/Google instead
+  * Continue with Facebook — testers only for now; if it's not enabled for your account,
+    use email/Apple/Google instead
 
-2. Account Management
-- Open the drawer → Settings → Manage Account
-- Try Change Password and confirm it works
-- Confirm "Subscription" shows "Free Beta"
+2. Subscription Paywall (Primary Focus)
+- Right after signing in (if you don't already have a subscription) the whole app is gated by
+  a paywall titled "ML Browser / Subscribe to unlock the full app."
+  * It should show the app logo, the plan, "$3.99", and "Free for 1 month, then $3.99".
+  * (On a returning account that already used the trial, you'll see just "$3.99/month" — no
+    free-trial line. That's correct.)
+- Tap Subscribe → confirm the Sandbox purchase → the paywall should disappear and the app opens.
+  * No real charge. The free month starts now.
+- From the paywall (before subscribing) also confirm: Restore Purchases, Sign Out (→ back to
+  sign-in), Delete Account, and the Terms of Use / Privacy Policy links all work.
+- On iPad: the paywall content/buttons should be centered, not stretched edge-to-edge.
 
-3. Sign Out
-- Manage Account → Sign Out
-  * You should return to the sign-in screen
-  * You should NOT be able to use the app until you sign in again
+3. Subscription Management (once subscribed / in trial)
+- Open the drawer → Settings → Account → tap "Subscription".
+  * The submenu should show Plan ($3.99), Status (Free trial or Active), and a Renews date.
+  * "Manage Subscription" should open Apple's subscription sheet (where you can cancel/change).
+  * "Restore Purchases" and "Request a Refund" should work (these use Apple's real sheets).
+- Cancel the trial in the Apple sheet, then relaunch the app once the period lapses — you should
+  be returned to the paywall (access correctly removed).
 
-4. Delete Account
-- From Manage Account, tap Delete Account
-  * Use a throwaway account — this permanently deletes it
-  * After deletion you should be back on the sign-in screen
+4. Account Management
+- Drawer → Settings → Manage Account → try Change Password.
+- Sign Out → returns to the sign-in screen; you can't use the app until you sign in again.
+- Delete Account (use a throwaway account — permanently deletes it) → returns to sign-in.
+  Note: deleting your account does NOT cancel an Apple subscription — cancel that separately.
 
 5. Offline Behavior
-- Turn off Wi-Fi/cellular and launch (or foreground) the app
-  * You should see a "No connection" screen with a Try Again button
-  * Reconnect, tap Try Again, and you should get back in
+- Turn off Wi-Fi/cellular and launch (or foreground) the app.
+  * You should see a "No connection" screen with a Try Again button.
+  * Reconnect, tap Try Again, and you should get back in.
 
-6. Core Regression
-- After signing in, browse websites and confirm pages load normally
-- Run object detection and verify annotations appear correctly
-- Import a model from Files and verify it works
+6. Core Regression (once past the paywall)
+- Browse websites and confirm pages load normally.
+- Run object detection and verify annotations appear correctly.
+- Import a model from Files and verify it works.
 
-Beta note: the sign-in screen has a Development/Production switch so we can test either environment. Leave it on Development unless asked otherwise.
+Beta note: the sign-in screen has a Development/Production switch so we can test either
+environment. Leave it on Development unless asked otherwise.
 
 7. Report Issues
 Please report any issues with:

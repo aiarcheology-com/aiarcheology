@@ -161,6 +161,9 @@ private struct SignInGateView: View {
             .padding(.horizontal, 32)
             .padding(.bottom, 40)
         }
+        // Cap width so the button + switch aren't full-bleed on iPad/macOS; the outer
+        // frame centers the capped block.
+        .frame(maxWidth: 480)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(isPresented: $authPresented, onDismiss: {
             // Re-evaluate the gate after the sheet closes — covers both a completed

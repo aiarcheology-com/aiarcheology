@@ -42,6 +42,9 @@ final class AppState: ObservableObject {
 	/// Authentication & access launch gate (AIA-0340).
 	lazy var authState = AuthState(provider: DependencyContainer.shared.authProvider)
 
+	/// Subscription / entitlement state (AIA-0343).
+	lazy var subscriptionState = SubscriptionState(provider: DependencyContainer.shared.subscriptionProvider)
+
 	/// Indicates whether the app initialization is complete
 	@Published private(set) var isReady = false
 	
@@ -69,6 +72,13 @@ final class AppState: ObservableObject {
 
 		// 3. Start recording the browsing trail (lazy — must be touched to subscribe)
 		_ = visitTrail
+
+		// 3b. Install the StoreKit transaction listener and drain pending/unfinished
+		// transactions (Ask-to-Buy, interrupted) at launch, BEFORE any purchase UI
+		// can appear, then publish the initial entitlement (AIA-0343).
+		if FeatureFlags.isPaymentsEnabled {
+			await subscriptionState.start()
+		}
 
 		// 4. Signal ready
 		isReady = true
