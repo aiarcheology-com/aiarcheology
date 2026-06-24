@@ -1,10 +1,24 @@
-Test Focus: Sign-In + Subscription
+Test Focus: Updated Privacy Policy (+ Sign-In / Subscription regression)
 Build: TBD
 
-This build adds account sign-in AND a subscription. You now need an account to use the app,
-and (with payments on) an active subscription or free trial to get past the paywall. Purchases
-in TestFlight use Apple's Sandbox — you are NOT charged real money, and trial/renewal periods
-are accelerated (a "month" passes in minutes).
+What's new in this build — the in-app Privacy Policy has been fully replaced with an accurate,
+self-contained version (no third-party trackers; covers all regions where ML Browser is offered).
+Please confirm it opens and reads correctly. Sign-in and subscription are unchanged from the last
+build — a short regression pass on those follows.
+
+Privacy Policy (primary focus)
+- Open the Privacy Policy from BOTH places it is linked:
+  * the paywall (before subscribing): tap the "Privacy Policy" link
+  * Settings / About: open the Privacy Policy entry
+- Confirm it loads instantly (it is bundled, so it works offline), renders cleanly with no broken
+  layout or missing text, and is readable in both Light and Dark mode.
+- Tap the contact email link and confirm it opens a pre-addressed mail draft.
+- Scroll the whole document — region sections (EU/UK, US, Canada, Brazil, Australia, children)
+  should all be present, and there should be no loading spinners or external content.
+
+Reminder for the rest of the build: you need an account to use the app, and (with payments on)
+an active subscription or free trial to get past the paywall. TestFlight purchases use Apple's
+Sandbox — you are NOT charged real money, and trial/renewal periods are accelerated.
 
 Devices / Platforms
 - iPhone (required)
