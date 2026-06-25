@@ -1,0 +1,19 @@
+ios/MLBrowser.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+  s_7703fe3381cde5::t_6c0bbda7231048 2,4-12,22-30,40-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.13",
+  "base_commit_sha": "0a3f070bd7491a6441a06f32e673095a9afa3fc9",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
