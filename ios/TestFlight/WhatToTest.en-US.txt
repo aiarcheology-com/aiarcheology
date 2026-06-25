@@ -6,7 +6,7 @@ self-contained version (no third-party trackers; covers all regions where ML Bro
 Please confirm it opens and reads correctly. Sign-in and subscription are unchanged from the last
 build — a short regression pass on those follows.
 
-Privacy Policy (primary focus)
+Privacy Policy (new in this build)
 - Open the Privacy Policy from BOTH places it is linked:
   * the paywall (before subscribing): tap the "Privacy Policy" link
   * Settings / About: open the Privacy Policy entry
