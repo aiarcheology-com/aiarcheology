@@ -31,23 +31,31 @@ struct ConfigurationDetailRow: View {
 }
 
 /// A label + value row whose value is truncated to one line until tapped, then expands to the
-/// full text. `alignment` controls where the value sits: `.trailing` keeps it in the right-hand
-/// value column (right for short link-like values); `.leading` stacks it full-width under the
-/// label (right for multi-line prose such as a model description — AIA-0040). The copy button is
-/// opt-in via `showsCopyButton` so prose rows don't get a meaningless "copy" affordance.
+/// full text. `layout` controls where the value sits (see `ValueLayout`). The copy button shows
+/// by default (the link row relies on it); pass `showsCopyButton: false` for prose rows that have
+/// nothing meaningful to copy.
 struct ExpandableDetailRow: View {
+	/// Where the value sits relative to the label.
+	enum ValueLayout {
+		/// Value in the right-hand column, right-aligned — good for short, link-like values.
+		case trailingColumn
+		/// Value stacked full-width under the label, left-aligned — good for multi-line prose.
+		case leadingStacked
+	}
+
 	var label: String
 	var value: String
-	var alignment: HorizontalAlignment = .trailing
+	var layout: ValueLayout = .trailingColumn
 	var showsCopyButton: Bool = true
 	@State private var isExpanded: Bool = false
 	@State private var isCopied: Bool = false
 
 	var body: some View {
 		Group {
-			if alignment == .leading {
+			switch layout {
+			case .leadingStacked:
 				leadingLayout
-			} else {
+			case .trailingColumn:
 				trailingLayout
 			}
 		}
@@ -180,7 +188,7 @@ struct ConfigurationForm: View {
 			ExpandableDetailRow(
 				label: L10n.Configuration.description,
 				value: configuration.modelDescription ?? "",
-				alignment: .leading,
+				layout: .leadingStacked,
 				showsCopyButton: false
 			)
 			ConfigurationDetailRow(label: L10n.Configuration.type, value: " \(configuration.modelType.rawValue)")
