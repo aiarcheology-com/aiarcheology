@@ -1,78 +1,46 @@
-Test Focus: Updated Privacy Policy (+ Sign-In / Subscription regression)
+Test Focus: Model description now expands + Hessen Wind-Atlas demo link fixed
 Build: TBD
 
-What's new in this build — the in-app Privacy Policy has been fully replaced with an accurate,
-self-contained version (no third-party trackers; covers all regions where ML Browser is offered).
-Please confirm it opens and reads correctly. Sign-in and subscription are unchanged from the last
-build — a short regression pass on those follows.
+What's new in this build — two small fixes:
+1. In a model's annotation configuration, the model Description used to be cut off to one line;
+   it can now be expanded to read the full text.
+2. One of the example map links in the browser history (the Hessen wind map) pointed at a dead
+   address that failed to load; it now points at the working Wind-Atlas Hessen map.
 
-Privacy Policy (new in this build)
-- Open the Privacy Policy from BOTH places it is linked:
-  * the paywall (before subscribing): tap the "Privacy Policy" link
-  * Settings / About: open the Privacy Policy entry
-- Confirm it loads instantly (it is bundled, so it works offline), renders cleanly with no broken
-  layout or missing text, and is readable in both Light and Dark mode.
-- Tap the contact email link and confirm it opens a pre-addressed mail draft.
-- Scroll the whole document — region sections (EU/UK, US, Canada, Brazil, Australia, children)
-  should all be present, and there should be no loading spinners or external content.
-
-Reminder for the rest of the build: you need an account to use the app, and (with payments on)
-an active subscription or free trial to get past the paywall. TestFlight purchases use Apple's
-Sandbox — you are NOT charged real money, and trial/renewal periods are accelerated.
+Reminder: you need an account to use the app, and (with payments on) an active subscription or
+free trial to get past the paywall. TestFlight purchases use Apple's Sandbox — you are NOT charged
+real money, and trial/renewal periods are accelerated.
 
 Devices / Platforms
 - iPhone (required)
 - iPad (if available)
 
-1. Sign In
-- On launch you should see a sign-in screen.
-- Sign in any of these ways and confirm it proceeds:
-  * Email and password (create an account or sign in)
-  * Continue with Apple
-  * Continue with Google
-  * Continue with Facebook — testers only for now; if it's not enabled for your account,
-    use email/Apple/Google instead
+1. Model description expands (primary focus)
+- Get past the paywall, then open a model's annotation configuration:
+  drawer → the model list → tap a model to open its Configuration form.
+- Look at the "Description" row. If the model has a long description it shows on one line first.
+- Tap the Description row → the full description should expand and become fully readable,
+  left-aligned and wrapping across multiple lines (no "copy" button on this row).
+- The other rows (File, Type, Version, Author) should look unchanged. The "Link" row (when a
+  model has a download URL) should still expand and still show its copy button as before.
 
-2. Subscription Paywall (Primary Focus)
-- Right after signing in (if you don't already have a subscription) the whole app is gated by
-  a paywall titled "ML Browser / Subscribe to unlock the full app."
-  * It should show the app logo, the plan, "$3.99", and "Free for 1 month, then $3.99".
-  * (On a returning account that already used the trial, you'll see just "$3.99/month" — no
-    free-trial line. That's correct.)
-- Tap Subscribe → confirm the Sandbox purchase → the paywall should disappear and the app opens.
-  * No real charge. The free month starts now.
-- From the paywall (before subscribing) also confirm: Restore Purchases, Sign Out (→ back to
-  sign-in), Delete Account, and the Terms of Use / Privacy Policy links all work.
-- On iPad: the paywall content/buttons should be centered, not stretched edge-to-edge.
+2. Hessen Wind-Atlas demo link (primary focus)
+- This only appears on a fresh install (or after clearing browsing history), where the app seeds
+  a few example map links.
+- Open the browser address/history (the location sheet) and find the Hessen wind map entry, or
+  enter this URL directly:
+  https://umweltdaten.hessen.de/mapapps/resources/apps/windatlas/index.html?lang=en
+- Confirm the page loads and the Wind-Atlas Hessen map appears (it may take a moment to boot).
+  Previously this link failed to load.
 
-3. Subscription Management (once subscribed / in trial)
-- Open the drawer → Settings → Account → tap "Subscription".
-  * The submenu should show Plan ($3.99), Status (Free trial or Active), and a Renews date.
-  * "Manage Subscription" should open Apple's subscription sheet (where you can cancel/change).
-  * "Restore Purchases" and "Request a Refund" should work (these use Apple's real sheets).
-- Cancel the trial in the Apple sheet, then relaunch the app once the period lapses — you should
-  be returned to the paywall (access correctly removed).
-
-4. Account Management
-- Drawer → Settings → Manage Account → try Change Password.
-- Sign Out → returns to the sign-in screen; you can't use the app until you sign in again.
-- Delete Account (use a throwaway account — permanently deletes it) → returns to sign-in.
-  Note: deleting your account does NOT cancel an Apple subscription — cancel that separately.
-
-5. Offline Behavior
-- Turn off Wi-Fi/cellular and launch (or foreground) the app.
-  * You should see a "No connection" screen with a Try Again button.
-  * Reconnect, tap Try Again, and you should get back in.
-
-6. Core Regression (once past the paywall)
-- Browse websites and confirm pages load normally.
-- Run object detection and verify annotations appear correctly.
-- Import a model from Files and verify it works.
+3. Light regression
+- Browse a couple of normal websites and confirm pages still load.
+- Run object detection and confirm annotations still appear.
 
 Beta note: the sign-in screen has a Development/Production switch so we can test either
 environment. Leave it on Development unless asked otherwise.
 
-7. Report Issues
+4. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version
