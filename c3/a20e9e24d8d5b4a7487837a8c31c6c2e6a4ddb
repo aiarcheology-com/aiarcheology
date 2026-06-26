@@ -1,0 +1,21 @@
+ios/TestFlight/WhatToTest.en-US.txt
+  s_7703fe3381cde5::t_8638c7ce4edeec 1,4-8,10-12,18-38,43
+ios/MLBrowser/iOS/State/DemoDataManager.swift
+  s_7703fe3381cde5::t_e982e017c202c1 99-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "c3a20e9e24d8d5b4a7487837a8c31c6c2e6a4ddb",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
