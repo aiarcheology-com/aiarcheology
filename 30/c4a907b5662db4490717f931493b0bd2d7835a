@@ -1,0 +1,46 @@
+ios/MLBrowserUnitTests/SubscriptionPeriodLocalizedTests.swift
+  s_7703fe3381cde5::t_b9c4e18be55335 1-62
+ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift
+  s_7703fe3381cde5::t_a554ebddc49060 207-209
+  s_7703fe3381cde5::t_0ec51e791595c0 268-270
+  s_7703fe3381cde5::t_444aff23231b6c 288
+ios/MLBrowser/iOS/Resources/Localizable.xcstrings
+  s_7703fe3381cde5::t_2f399f67a6dfd2 11214-11273
+ios/MLBrowser.xcodeproj/project.pbxproj
+  s_7703fe3381cde5::t_56e9e2d14f214c 48,266-267,269,300,304,552,558,645,877,1052-1053,1664-1665,1727-1728
+ios/MLBrowser/iOS/Tools/AppEnvironment.swift
+  s_7703fe3381cde5::t_98e2c59b8b8307 151-161
+ios/MLBrowserUnitTests/UnderConstructionBadgeModifierTests.swift
+  s_7703fe3381cde5::t_ec8f831a95202c 1-12,15-17,23-30
+  s_7703fe3381cde5::t_76da17e8fbbf05 13-14,18-22
+ios/MLBrowser/iOS/Generated/L10n.swift
+  s_7703fe3381cde5::t_5aa653e71bdf2e 544-547,556-565
+ios/TestFlight/WhatToTest.en-US.txt
+  s_7703fe3381cde5::t_e39ccf864f64ec 1,4-11,13-15,21-40
+ios/MLBrowser/iOS/UI/Subscription/SubscriptionStatusView.swift
+  s_7703fe3381cde5::t_767f1729dfb994 72-79
+  s_7703fe3381cde5::t_30a1f9d7a0a304 27
+ios/MLBrowser/iOS/UI/Modifiers/UnderConstructionBadgeModifier.swift
+  s_7703fe3381cde5::t_e38ba25effcad8 59
+  s_7703fe3381cde5::t_f72d1745ddf97a 1-16,21-41,47-58,60-62
+  s_7703fe3381cde5::t_69f44f3a507442 42-46
+  s_7703fe3381cde5::t_d3e0df984d00f8 17-20
+ios/MLBrowser/iOS/UI/Subscription/SubscriptionPeriod+Localized.swift
+  s_7703fe3381cde5::t_1094ae4a68874d 1-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "30c4a907b5662db4490717f931493b0bd2d7835a",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
