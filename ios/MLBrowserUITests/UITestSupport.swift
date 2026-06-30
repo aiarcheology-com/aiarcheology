@@ -282,7 +282,10 @@ class UITestCase: XCTestCase {
 		let settings = app.buttons[AID.drawerSettings]
 		let dismiss = app.buttons[AID.settingsDismiss]
 		for _ in 0..<2 {
-			if settings.waitForExistence(timeout: 8), settings.isHittable {
+			let hittablePredicate = NSPredicate(format: "exists == true && hittable == true")
+			let hittableExpectation = XCTNSPredicateExpectation(predicate: hittablePredicate, object: settings)
+			_ = XCTWaiter().wait(for: [hittableExpectation], timeout: 8)
+			if settings.isHittable {
 				settings.tap()
 			}
 			if dismiss.waitForExistence(timeout: 8) {
