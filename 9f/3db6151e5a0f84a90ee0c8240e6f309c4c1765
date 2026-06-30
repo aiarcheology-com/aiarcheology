@@ -1,0 +1,19 @@
+ios/MLBrowserUITests/UITestSupport.swift
+  s_7703fe3381cde5::t_cf1c3efe667160 275-279,282-292
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "9f3db6151e5a0f84a90ee0c8240e6f309c4c1765",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
