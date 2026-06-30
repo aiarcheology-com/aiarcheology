@@ -11211,6 +11211,66 @@
         }
       }
     },
+    "subscription.planTerm" : {
+      "comment" : "Subscription plan price with billing term, e.g. \"$3.99 / month\". %1$@ = price, %2$@ = term.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ / %2$@"
+          }
+        }
+      }
+    },
+    "subscription.period.day" : {
+      "comment" : "Billing term for a per-day subscription (price suffix, e.g. \"$0.99 / day\").",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "day"
+          }
+        }
+      }
+    },
+    "subscription.period.week" : {
+      "comment" : "Billing term for a per-week subscription (price suffix, e.g. \"$1.99 / week\").",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "week"
+          }
+        }
+      }
+    },
+    "subscription.period.month" : {
+      "comment" : "Billing term for a per-month subscription (price suffix, e.g. \"$3.99 / month\").",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "month"
+          }
+        }
+      }
+    },
+    "subscription.period.year" : {
+      "comment" : "Billing term for a per-year subscription (price suffix, e.g. \"$39.99 / year\").",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "year"
+          }
+        }
+      }
+    },
     "subscription.renews" : {
       "extractionState" : "manual",
       "localizations" : {

@@ -541,6 +541,10 @@ internal enum L10n {
     internal static let notSubscribed = L10n.tr("Localizable", "subscription.notSubscribed", fallback: "Not subscribed")
     /// Plan
     internal static let plan = L10n.tr("Localizable", "subscription.plan", fallback: "Plan")
+    /// %1$@ / %2$@
+    internal static func planTerm(_ p1: Any, _ p2: Any) -> String {
+      return L10n.tr("Localizable", "subscription.planTerm", String(describing: p1), String(describing: p2), fallback: "%1$@ / %2$@")
+    }
     /// Renews
     internal static let renews = L10n.tr("Localizable", "subscription.renews", fallback: "Renews")
     /// Status
@@ -549,6 +553,16 @@ internal enum L10n {
     internal static let trial = L10n.tr("Localizable", "subscription.trial", fallback: "Free trial")
     /// Free trial until
     internal static let trialEnds = L10n.tr("Localizable", "subscription.trialEnds", fallback: "Free trial until")
+    internal enum Period {
+      /// day
+      internal static let day = L10n.tr("Localizable", "subscription.period.day", fallback: "day")
+      /// month
+      internal static let month = L10n.tr("Localizable", "subscription.period.month", fallback: "month")
+      /// week
+      internal static let week = L10n.tr("Localizable", "subscription.period.week", fallback: "week")
+      /// year
+      internal static let year = L10n.tr("Localizable", "subscription.period.year", fallback: "year")
+    }
   }
   internal enum Symbol {
     /// Circle

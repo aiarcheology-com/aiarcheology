@@ -148,6 +148,17 @@ enum AppEnvironment {
 
     static var isAppStoreDistribution: Bool { distributionChannel == .appStore }
     static var isTestFlightLikeDistribution: Bool { distributionChannel == .testFlightLike }
+
+    /// True whenever in-app purchases run against StoreKit's sandbox / a local `.storekit` test
+    /// configuration instead of charging real money — i.e. everywhere except a genuine App Store
+    /// production install. Simulator and Debug builds are forced `true` because a local
+    /// StoreKit-test receipt is named `receipt`, which `distributionChannel` would otherwise
+    /// misread as `.appStore` (it never special-cases the simulator). Use this — not
+    /// `!isAppStoreDistribution` — to decide whether a purchase is "for real".
+    static var purchasesUseSandbox: Bool {
+        if isSimulator || isDebugConfiguration { return true }
+        return distributionChannel != .appStore
+    }
     static var isDevelopmentLikeDistribution: Bool {
 		switch distributionChannel {
 		case .developmentLike: return true
