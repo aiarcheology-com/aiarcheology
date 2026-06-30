@@ -21,6 +21,10 @@ struct FloatingNavBar: View {
 	let showsFind: Bool
 	/// Starts the store-a-finding pick mode (used when Find lives in the capsule).
 	let onFind: () -> Void
+	/// Extra space to keep clear at the bottom so the capsule floats above the adaptive
+	/// bottom address bar (AIA-0338). Applied to the clamp's lower bound, so it lifts both
+	/// the default and any dragged position. 0 when the bottom bar isn't shown.
+	var bottomReserve: CGFloat = 0
 
 	@GestureState private var dragOffset: CGSize = .zero
 
@@ -162,9 +166,13 @@ struct FloatingNavBar: View {
 	private func clamp(_ point: CGPoint, in size: CGSize) -> CGPoint {
 		let halfWidth = barWidth / 2
 		let halfHeight = Self.height / 2
+		// `bottomReserve` lowers the max-Y *bound* (not the stored position), so the
+		// every-render clamp lifts the default and any dragged position clear of the
+		// bottom address bar without compounding across renders (AIA-0338).
+		let maxY = max(size.height - halfHeight - Self.margin - bottomReserve, halfHeight + Self.margin)
 		return CGPoint(
 			x: min(max(point.x, halfWidth + Self.margin), max(size.width - halfWidth - Self.margin, halfWidth + Self.margin)),
-			y: min(max(point.y, halfHeight + Self.margin), max(size.height - halfHeight - Self.margin, halfHeight + Self.margin))
+			y: min(max(point.y, halfHeight + Self.margin), maxY)
 		)
 	}
 }

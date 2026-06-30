@@ -72,6 +72,10 @@ func webViewLoadErrorLevel(for error: Error) -> WebViewLoadErrorLevel {
 import Vision
 struct WebScreenView: View {
 	@Environment(\.managedObjectContext) var moc
+	/// When true the address bar renders at the bottom (`.safeAreaInset`) instead of the
+	/// top `.principal` slot. Computed once in `ContentView` so the two gates can't
+	/// disagree on rotation; defaults to false (top bar) — see `bottomAddressBarActive`.
+	@Environment(\.bottomAddressBarActive) private var bottomAddressBarActive
 	/// iPad and Mac place BACK/FORWARD/RELOAD in the top bar; iPhone keeps them in the
 	/// floating capsule, so the top bar has room for the address + Find (AIA-0294).
 	private var showsTopBarNavigation: Bool { HostPlatform.current.isiPhone == false }
@@ -82,7 +86,17 @@ struct WebScreenView: View {
 	private var history: FetchedResults<WebHistoryEntry>
 	@EnvironmentObject var appState: AppState
 	@State private var loadRequest = LoadRequest(input: "https://www.google.com", generation: 0)
-	@State private var presentLocationSheet: Bool = false
+	/// Drives the location sheet and records how it was opened. `item`-based so the mode is
+	/// captured reliably at presentation — a separate bool read inside a `.sheet(isPresented:)`
+	/// closure can lag the flip and present with the wrong content (AIA-0338).
+	@State private var locationSheet: LocationSheetMode?
+
+	/// How the location sheet was opened. `Int`-backed `Identifiable` so `.sheet(item:)` drives it.
+	private enum LocationSheetMode: Int, Identifiable {
+		case edit      // prefill the current URL for editing
+		case compose   // start blank (the bottom bar's clear ✕)
+		var id: Int { rawValue }
+	}
 	@State private var latestError: HistoryError?
 	@State private var showAlert: Bool = false
 	@State private var hasPerformedInitialAction = false
@@ -136,8 +150,15 @@ struct WebScreenView: View {
 				if showsTopBarNavigation {
 					WebBackButton()
 				}
-				WebAddressDisplay {
-					presentLocationSheet = true
+				// On iPhone portrait the address moves to the bottom bar (AIA-0338); the
+				// top bar then keeps only cpu / Find / detection / edit.
+				if bottomAddressBarActive == false {
+					WebAddressDisplay(
+						onEdit: { locationSheet = .edit },
+						onClear: { locationSheet = .compose },
+						// iPhone-landscape top bar gets the clear ✕; iPad/Mac top bar is unchanged.
+						showsClear: HostPlatform.current.isiPhone
+					)
 				}
 				if showsTopBarNavigation {
 					WebForwardButton()
@@ -259,8 +280,8 @@ struct WebScreenView: View {
         // manual finding pick (which uses the applied frame synchronously, avoiding the fragile
         // fresh-snapshot fallback) — AIA-0333.
         .checkpoint(.detectionFrameApplied, value: (appliedFrame != nil).description)
-        .sheet(isPresented: $presentLocationSheet) {
-            LocationSheetView(currentURL: appState.browserState.displayedURL?.absoluteString) { input in
+        .sheet(item: $locationSheet) { mode in
+            LocationSheetView(currentURL: mode == .edit ? appState.browserState.displayedURL?.absoluteString : nil) { input in
                 openRequested(input)
             }
             .environmentObject(appState.settings)
@@ -326,8 +347,37 @@ struct WebScreenView: View {
                     .onChange(of: proxy.size.width) { _, newWidth in topBarWidth = newWidth }
             }
         }
+        // Adaptive address bar (AIA-0338): in iPhone portrait the address sits at the
+        // bottom, above the home indicator. `safeAreaInset` reserves the space so the web
+        // content is pushed up rather than covered (content respects the safe area in
+        // normal mode — `contentIgnoresSafeArea` is fullscreen-only). The floating nav
+        // capsule is lifted clear of this bar via its `bottomReserve` in ContentView.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            bottomAddressBar
+        }
         .toolbar {
             toolbarContent
+        }
+    }
+
+    /// The bottom placement of the address bar (iPhone portrait). Empty otherwise, so the
+    /// inset reserves no space. Reuses the same `WebAddressDisplay` (one id, one sheet
+    /// trigger) as the `.principal` placement.
+    @ViewBuilder
+    private var bottomAddressBar: some View {
+        if bottomAddressBarActive {
+            WebAddressDisplay(
+                onEdit: { locationSheet = .edit },
+                onClear: { locationSheet = .compose },
+                // Bottom bar is iPhone-portrait only, so the clear ✕ is always shown here.
+                showsClear: HostPlatform.current.isiPhone
+            )
+            .environmentObject(appState.browserState)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity)
+            .frame(height: BottomAddressBarMetrics.height)
+            // No opaque background strip: the glass capsule floats over the page like Safari's
+            // (the inset still reserves the space above the home indicator).
         }
     }
 
@@ -535,33 +585,75 @@ private struct FindPickOverlay: View {
 
 // MARK: - Browser chrome components
 
-/// Read-only URL display at maximum width; tapping it presents the location sheet.
+/// Layout constants shared by the bottom address bar (AIA-0338) and the floating-control
+/// reserve. One source so the bar's height and the capsule lift can't drift apart.
+enum BottomAddressBarMetrics {
+	/// Pinned height of the bottom bar (single-line, truncating). Pinned so Dynamic Type
+	/// can't change it and silently invalidate `reserve`.
+	static let height: CGFloat = 44
+	/// Gap kept between the bottom bar and the floating controls above it.
+	static let gap: CGFloat = 8
+	/// Vertical space the floating nav capsule / chrome button reserve from the bottom
+	/// edge while the bar is shown. = height + gap; the floats already sit a margin above
+	/// the screen bottom, so this guarantees clearance (extra margin is harmless) and is
+	/// enforced by a UI frame-ordering test (`bar.minY > capsule.maxY`).
+	static let reserve: CGFloat = height + gap
+}
+
+/// Read-only URL display; tapping the text presents the location sheet for editing, while the
+/// trailing clear (✕) — shown on iPhone when there's a URL — opens the sheet blank to compose a
+/// fresh one. The clear affordance is part of the iPhone adaptive-bar work (AIA-0338); iPad/Mac
+/// keep their unchanged top bar, so callers there pass `showsClear: false`.
 private struct WebAddressDisplay: View {
 	@EnvironmentObject var browserState: BrowserState
-	let action: () -> Void
+	/// Tapping the URL text — opens the location sheet prefilled with the current URL.
+	let onEdit: () -> Void
+	/// Tapping the trailing clear (✕) — opens the location sheet blank to compose a fresh URL.
+	let onClear: () -> Void
+	/// Whether to show the trailing clear (✕). iPhone-only (both portrait-bottom and
+	/// landscape-top placements); off on iPad/Mac so their top bar is unchanged (AIA-0338).
+	let showsClear: Bool
 
 	var body: some View {
+		let hasURL = browserState.displayedURL != nil
 		let urlText = browserState.displayedURL?.absoluteString ?? L10n.Browser.Location.placeholder
-		let textColor: Color = browserState.displayedURL == nil ? .secondary : .primary
-		Button(action: action) {
-			Text(urlText)
-				.lineLimit(1)
-				.truncationMode(.middle)
-				.foregroundColor(textColor)
-				.frame(maxWidth: .infinity, alignment: .leading)
-				.padding(5)
-				.background(.ultraThinMaterial)
-				.overlay(
-					RoundedRectangle(cornerRadius: 5)
-						.stroke(Color.gray.opacity(0.75), lineWidth: 0.75)
-				)
-				.contentShape(Rectangle())
+		let textColor: Color = hasURL ? .primary : .secondary
+		// Padding lives inside each button's label (not on the HStack) so the whole visible
+		// capsule — including its padded edges and rounded ends — is a live tap target, not
+		// just the text's bounds (AIA-0338).
+		HStack(spacing: 0) {
+			Button(action: onEdit) {
+				Text(urlText)
+					.lineLimit(1)
+					.truncationMode(.middle)
+					.foregroundColor(textColor)
+					.frame(maxWidth: .infinity, alignment: .leading)
+					.padding(.vertical, 7)
+					.padding(.leading, 14)
+					.padding(.trailing, hasURL ? 6 : 14)
+					.contentShape(Rectangle())
+			}
+			.buttonStyle(.plain)
+			// VoiceOver reads the actual URL, not just the affordance.
+			.accessibilityLabel(urlText)
+			.testability(Testability.Button.webScreenAddressBar)
+			.tourTarget(.addressBar)
+
+			if hasURL && showsClear {
+				Button(action: onClear) {
+					Image(systemName: "xmark.circle.fill")
+						.foregroundStyle(.secondary)
+						.padding(.vertical, 7)
+						.padding(.trailing, 14)
+						.contentShape(Rectangle())
+				}
+				.buttonStyle(.plain)
+				.accessibilityLabel(L10n.Common.clear)
+				.testability(Testability.Button.webScreenAddressClear)
+			}
 		}
-		.buttonStyle(.plain)
-		// VoiceOver reads the actual URL, not just the affordance.
-		.accessibilityLabel(urlText)
-		.testability(Testability.Button.webScreenAddressBar)
-		.tourTarget(.addressBar)
+		// Safari-like Liquid Glass capsule (iOS 26+); material-capsule fallback on earlier systems.
+		.platformEffect(in: Capsule())
 	}
 }
 

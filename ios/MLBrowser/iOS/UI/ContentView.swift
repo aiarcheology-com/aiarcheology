@@ -13,6 +13,7 @@ struct ContentView: View {
     // environment:
     @Environment(\.dismiss) var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     // app model:
     @EnvironmentObject var appState: AppState
     // drawer:
@@ -132,6 +133,18 @@ struct ContentView: View {
         detectionEnabled && chromeVisible.not && selectedMode == .web && appState.tour.isActive.not
     }
 
+    /// Safari-like adaptive address bar (AIA-0338): the address moves to the bottom only on
+    /// iPhone in portrait (`verticalSizeClass == .regular`), on the web tab, in normal mode
+    /// (chrome visible). iPad/Mac and iPhone landscape (`.compact`, incl. Plus/Max) keep the
+    /// top bar. Computed once here and pushed into the environment so WebScreen's top/bottom
+    /// gates and the floating-control reserve all derive from the same value.
+    private var showsBottomAddressBar: Bool {
+        HostPlatform.current.isiPhone
+            && verticalSizeClass == .regular
+            && selectedMode == .web
+            && chromeVisible
+    }
+
     private var mainContent: some View {
         ZStack {
             TabView(selection: $appState.guide.mode) {
@@ -144,6 +157,10 @@ struct ContentView: View {
             floatingNavBar
             floatingChromeButton
         }
+        // One source of truth for the adaptive address bar placement (AIA-0338): WebScreen
+        // reads this to pick the top vs. bottom slot; the floating controls read the same
+        // condition for their reserve. Injected here so both can never disagree on rotation.
+        .environment(\.bottomAddressBarActive, showsBottomAddressBar)
         .statusBarHidden(fullscreenActive)
         // Snap adjustment overlay for iPhone (compact width)
         // On iPad/Mac, this is handled via popover in GlobalToolbarTrailing
@@ -202,9 +219,15 @@ struct ContentView: View {
     @ViewBuilder
     private var floatingNavBar: some View {
         if showsNavCapsule {
-            FloatingNavBar(position: $floatingNavBarPosition, showsFind: fullscreenActive, onFind: {
-                appState.guide.findTapped()
-            })
+            FloatingNavBar(
+                position: $floatingNavBarPosition,
+                showsFind: fullscreenActive,
+                onFind: {
+                    appState.guide.findTapped()
+                },
+                // Keep the capsule above the bottom address bar when it's shown (AIA-0338).
+                bottomReserve: showsBottomAddressBar ? BottomAddressBarMetrics.reserve : 0
+            )
             .environmentObject(appState.browserState)
             .transition(.opacity)
         }
@@ -225,7 +248,11 @@ struct ContentView: View {
     @ViewBuilder
     private var floatingChromeButton: some View {
         if detectionEnabled && fullscreenFeatureEnabled && selectedMode == .web && appState.tour.isActive.not {
-            FloatingChromeButton(position: $floatingButtonPosition)
+            FloatingChromeButton(
+                position: $floatingButtonPosition,
+                // Keep the chrome toggle above the bottom address bar when it's shown (AIA-0338).
+                bottomReserve: showsBottomAddressBar ? BottomAddressBarMetrics.reserve : 0
+            )
                 .environmentObject(appState.guide)
                 .transition(.opacity)
         }

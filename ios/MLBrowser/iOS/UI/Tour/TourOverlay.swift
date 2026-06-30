@@ -125,12 +125,21 @@ private struct TourOverlayModifier: ViewModifier {
 		.onPreferenceChange(TourBubbleHeightKey.self) { bubbleHeight = $0 }
 		.offset(x: clampedX)
 		.modifier(BubbleVerticalOffset(
-			placement: step.placement,
+			placement: effectivePlacement(for: step, cutout: cutout, container: container),
 			cutout: cutout,
 			container: container,
 			spacing: spacing,
 			bubbleHeight: bubbleHeight
 		))
+	}
+
+	/// The address bar can sit at the bottom of the screen (iPhone portrait, AIA-0338), where a
+	/// `.below` bubble clamps on top of the very element it spotlights. When the cutout is in the
+	/// bottom half, flip its placement to `.above` so the bubble points up at the bar. Top-bar
+	/// cases (landscape / iPad) keep the authored placement.
+	private func effectivePlacement(for step: TourStep, cutout: CGRect?, container: CGSize) -> TourBubblePlacement {
+		guard step.target == .addressBar, step.placement == .below, let cutout else { return step.placement }
+		return cutout.midY > container.height / 2 ? .above : step.placement
 	}
 }
 

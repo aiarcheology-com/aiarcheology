@@ -1,46 +1,45 @@
-Test Focus: Model description now expands + Hessen Wind-Atlas demo link fixed
+Test Focus: Adaptive address bar on iPhone (bottom in portrait, top in landscape)
 Build: TBD
 
-What's new in this build — two small fixes:
-1. In a model's annotation configuration, the model Description used to be cut off to one line;
-   it can now be expanded to read the full text.
-2. One of the example map links in the browser history (the Hessen wind map) pointed at a dead
-   address that failed to load; it now points at the working Wind-Atlas Hessen map.
+What's new in this build:
+On iPhone the browser address bar now adapts to orientation, like Safari:
+- Portrait: the address bar sits at the BOTTOM of the screen (easier to reach one-handed).
+- Landscape: the address bar is back in the TOP navigation bar.
+iPad and Mac are unchanged (address bar stays at the top in both orientations).
 
 Reminder: you need an account to use the app, and (with payments on) an active subscription or
 free trial to get past the paywall. TestFlight purchases use Apple's Sandbox — you are NOT charged
 real money, and trial/renewal periods are accelerated.
 
 Devices / Platforms
-- iPhone (required)
-- iPad (if available)
+- iPhone (required — this is an iPhone-only change)
+- iPad (regression only)
 
-1. Model description expands (primary focus)
-- Get past the paywall, then open a model's annotation configuration:
-  drawer → the model list → tap a model to open its Configuration form.
-- Look at the "Description" row. If the model has a long description it shows on one line first.
-- Tap the Description row → the full description should expand and become fully readable,
-  left-aligned and wrapping across multiple lines (no "copy" button on this row).
-- The other rows (File, Type, Version, Author) should look unchanged. The "Link" row (when a
-  model has a download URL) should still expand and still show its copy button as before.
+1. Adaptive placement (primary focus — iPhone)
+- Get past the paywall so the browser (map) screen is showing.
+- In PORTRAIT: the address bar should be at the bottom of the screen, just above the home
+  indicator, and the floating navigation capsule (back / reload / forward) should sit ABOVE it —
+  the two must NOT overlap.
+- Rotate to LANDSCAPE: the address bar should move up into the top navigation bar; the top bar
+  keeps the side-menu, Find, detection (play) and adjust buttons.
+- Rotate back to PORTRAIT: the address bar returns to the bottom.
 
-2. Hessen Wind-Atlas demo link (primary focus)
-- This only appears on a fresh install (or after clearing browsing history), where the app seeds
-  a few example map links.
-- Open the browser address/history (the location sheet) and find the Hessen wind map entry, or
-  enter this URL directly:
-  https://umweltdaten.hessen.de/mapapps/resources/apps/windatlas/index.html?lang=en
-- Confirm the page loads and the Wind-Atlas Hessen map appears (it may take a moment to boot).
-  Previously this link failed to load.
+2. Address bar still works at the bottom
+- Tap the bottom address bar → the location/search sheet should open as before.
+- Enter a URL or pick a history entry → the page loads. Dismiss the sheet → back to browsing.
 
-3. Light regression
-- Browse a couple of normal websites and confirm pages still load.
-- Run object detection and confirm annotations still appear.
+3. Coexistence with the floating controls
+- Try dragging the floating capsule toward the bottom in portrait — it should not be draggable
+  on top of the bottom address bar (it stays clear of it).
+- Start object detection (fullscreen): the address bar is hidden in fullscreen, the floating
+  capsule and tools toggle behave as before.
 
-Beta note: the sign-in screen has a Development/Production switch so we can test either
-environment. Leave it on Development unless asked otherwise.
+4. Light regression
+- iPad: address bar stays in the top bar in both orientations.
+- Browse a couple of normal websites and confirm pages still load; run detection and confirm
+  annotations still appear.
 
-4. Report Issues
+5. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version

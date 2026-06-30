@@ -50,6 +50,7 @@ enum AID {
 	// Top toolbar (real Buttons)
 	static let cpu = "_AIA:Button.GlobalToolbarSideMenu"
 	static let address = "_AIA:Button.WebScreenAddressBar"
+	static let addressClear = "_AIA:Button.WebScreenAddressClear"
 	static let play = "_AIA:Button.GlobalToolbarPlayDetection"
 	static let pause = "_AIA:Button.GlobalToolbarPauseDetection"
 	static let edit = "_AIA:Button.GlobalToolbarAdjustments"

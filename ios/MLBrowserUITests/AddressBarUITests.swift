@@ -31,6 +31,33 @@ final class AddressBarUITests: UITestCase {
         )
     }
 
+    /// AIA-0338: the address bar's clear (✕) opens the composer already blank, so the user can type
+    /// a fresh URL without first clearing the prefilled current one. The clear button is iPhone-only
+    /// (both the portrait-bottom and landscape-top placements; iPad/Mac are unchanged); this test
+    /// exercises the portrait/bottom placement. A local fixture is loaded so the bar has a URL (the
+    /// clear button is hidden on a blank page).
+    func testAddressBarClear_opensComposerCleared() {
+        launch(LaunchConfig(pageScenario: .localFixture, fixtureName: "uitest_page"))
+        guard isPhoneIdiom else { return }
+        XCTAssertTrue(
+            waitForCheckpoint(AID.cpCurrentPageFile, equals: "uitest_page.html"),
+            "Fixture did not become the live page, so the address bar has no URL to clear"
+        )
+
+        let clear = app.buttons[AID.addressClear]
+        XCTAssertTrue(clear.waitForExistence(timeout: 10), "Bottom address-bar clear button missing")
+        clear.tap()
+
+        let input = app.textFields[AID.locationInput]
+        XCTAssertTrue(input.waitForExistence(timeout: 10), "Composer did not open")
+        // A cleared field shows only its placeholder; assert against placeholderValue (the
+        // documented source) rather than `value`, which varies across XCTest releases.
+        XCTAssertEqual(input.placeholderValue, Self.locationPlaceholder, "Composer should open with a cleared field")
+    }
+
+    /// Mirrors `L10n.Browser.Location.placeholder` (the app target isn't linked here).
+    private static let locationPlaceholder = "Search or enter website name"
+
     func testLocationSheet_showsSeededHistory() {
         launch()
         openLocationSheet()
