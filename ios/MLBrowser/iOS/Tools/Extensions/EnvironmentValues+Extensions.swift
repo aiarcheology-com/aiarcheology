@@ -34,3 +34,22 @@ extension EnvironmentValues {
 		set { self[SheetDismissKey.self] = newValue }
 	}
 }
+
+// MARK: - Bottom address bar (AIA-0338)
+
+/// Whether the address bar should render at the bottom of the screen instead of in
+/// the top `.principal` toolbar slot. Computed once in `ContentView` (so the top and
+/// bottom placement gates can never transiently disagree on rotation) and read by
+/// `WebScreenView`. Defaults to `false` so any host that doesn't inject it (previews,
+/// or a `WebScreenView` instantiated outside `ContentView`) keeps the top bar.
+private struct BottomAddressBarActiveKey: EnvironmentKey {
+	static let defaultValue = false
+}
+
+extension EnvironmentValues {
+	/// See `BottomAddressBarActiveKey`. iPhone-portrait, normal-mode, web-tab only.
+	var bottomAddressBarActive: Bool {
+		get { self[BottomAddressBarActiveKey.self] }
+		set { self[BottomAddressBarActiveKey.self] = newValue }
+	}
+}

@@ -72,6 +72,10 @@ func webViewLoadErrorLevel(for error: Error) -> WebViewLoadErrorLevel {
 import Vision
 struct WebScreenView: View {
 	@Environment(\.managedObjectContext) var moc
+	/// When true the address bar renders at the bottom (`.safeAreaInset`) instead of the
+	/// top `.principal` slot. Computed once in `ContentView` so the two gates can't
+	/// disagree on rotation; defaults to false (top bar) — see `bottomAddressBarActive`.
+	@Environment(\.bottomAddressBarActive) private var bottomAddressBarActive
 	/// iPad and Mac place BACK/FORWARD/RELOAD in the top bar; iPhone keeps them in the
 	/// floating capsule, so the top bar has room for the address + Find (AIA-0294).
 	private var showsTopBarNavigation: Bool { HostPlatform.current.isiPhone == false }
@@ -136,8 +140,12 @@ struct WebScreenView: View {
 				if showsTopBarNavigation {
 					WebBackButton()
 				}
-				WebAddressDisplay {
-					presentLocationSheet = true
+				// On iPhone portrait the address moves to the bottom bar (AIA-0338); the
+				// top bar then keeps only cpu / Find / detection / edit.
+				if bottomAddressBarActive == false {
+					WebAddressDisplay {
+						presentLocationSheet = true
+					}
 				}
 				if showsTopBarNavigation {
 					WebForwardButton()
@@ -326,8 +334,33 @@ struct WebScreenView: View {
                     .onChange(of: proxy.size.width) { _, newWidth in topBarWidth = newWidth }
             }
         }
+        // Adaptive address bar (AIA-0338): in iPhone portrait the address sits at the
+        // bottom, above the home indicator. `safeAreaInset` reserves the space so the web
+        // content is pushed up rather than covered (content respects the safe area in
+        // normal mode — `contentIgnoresSafeArea` is fullscreen-only). The floating nav
+        // capsule is lifted clear of this bar via its `bottomReserve` in ContentView.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            bottomAddressBar
+        }
         .toolbar {
             toolbarContent
+        }
+    }
+
+    /// The bottom placement of the address bar (iPhone portrait). Empty otherwise, so the
+    /// inset reserves no space. Reuses the same `WebAddressDisplay` (one id, one sheet
+    /// trigger) as the `.principal` placement.
+    @ViewBuilder
+    private var bottomAddressBar: some View {
+        if bottomAddressBarActive {
+            WebAddressDisplay {
+                presentLocationSheet = true
+            }
+            .environmentObject(appState.browserState)
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity)
+            .frame(height: BottomAddressBarMetrics.height)
+            .background(.bar)
         }
     }
 
@@ -534,6 +567,21 @@ private struct FindPickOverlay: View {
 }
 
 // MARK: - Browser chrome components
+
+/// Layout constants shared by the bottom address bar (AIA-0338) and the floating-control
+/// reserve. One source so the bar's height and the capsule lift can't drift apart.
+enum BottomAddressBarMetrics {
+	/// Pinned height of the bottom bar (single-line, truncating). Pinned so Dynamic Type
+	/// can't change it and silently invalidate `reserve`.
+	static let height: CGFloat = 44
+	/// Gap kept between the bottom bar and the floating controls above it.
+	static let gap: CGFloat = 8
+	/// Vertical space the floating nav capsule / chrome button reserve from the bottom
+	/// edge while the bar is shown. = height + gap; the floats already sit a margin above
+	/// the screen bottom, so this guarantees clearance (extra margin is harmless) and is
+	/// enforced by a UI frame-ordering test (`bar.minY > capsule.maxY`).
+	static let reserve: CGFloat = height + gap
+}
 
 /// Read-only URL display at maximum width; tapping it presents the location sheet.
 private struct WebAddressDisplay: View {

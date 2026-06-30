@@ -17,6 +17,10 @@ import SwiftUI
 struct FloatingChromeButton: View {
 	@EnvironmentObject var guide: Guide
 	@Binding var position: CGPoint?
+	/// Extra space to keep clear at the bottom so the button floats above the adaptive
+	/// bottom address bar (AIA-0338). Applied to the clamp's lower bound, so it lifts both
+	/// the default and any dragged position. 0 when the bottom bar isn't shown.
+	var bottomReserve: CGFloat = 0
 
 	@GestureState private var dragOffset: CGSize = .zero
 
@@ -99,9 +103,13 @@ struct FloatingChromeButton: View {
 
 	private func clamp(_ point: CGPoint, in size: CGSize) -> CGPoint {
 		let radius = Self.diameter / 2
+		// `bottomReserve` lowers the max-Y *bound* (not the stored position), so the
+		// every-render clamp lifts the default and any dragged position clear of the
+		// bottom address bar without compounding across renders (AIA-0338).
+		let maxY = max(size.height - radius - Self.margin - bottomReserve, radius + Self.margin)
 		return CGPoint(
 			x: min(max(point.x, radius + Self.margin), max(size.width - radius - Self.margin, radius + Self.margin)),
-			y: min(max(point.y, radius + Self.margin), max(size.height - radius - Self.margin, radius + Self.margin))
+			y: min(max(point.y, radius + Self.margin), maxY)
 		)
 	}
 }
