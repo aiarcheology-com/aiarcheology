@@ -1,0 +1,42 @@
+ios/MLBrowser/iOS/Tools/Extensions/EnvironmentValues+Extensions.swift
+  s_7703fe3381cde5::t_f2ad1cbc28990f 37-55
+ios/MLBrowser/iOS/UI/FloatingChromeButton.swift
+  s_7703fe3381cde5::t_0ea298bd21b781 20-23
+  s_7703fe3381cde5::t_d6ab25ae7ff0c6 106-109,112
+ios/MLBrowser/iOS/UI/ContentView.swift
+  s_7703fe3381cde5::t_6094d7a8234728 252-256
+  s_7703fe3381cde5::t_455da6158ba7a1 161-164
+  s_7703fe3381cde5::t_05df416092b3fc 136-148
+  s_7703fe3381cde5::t_100b39dae9bb2a 223-231
+  s_7703fe3381cde5::t_81ef7a2e922438 16
+ios/MLBrowser/iOS/State/FeatureFlags.swift
+  s_7703fe3381cde5::t_9336fb8ad5bb6b 21-26
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift
+  s_7703fe3381cde5::t_8bc3f86fd1e340 75-78
+  s_7703fe3381cde5::t_be3fa4694e286d 337-344,350-364
+  s_7703fe3381cde5::t_2724506d12116f 571-585
+  s_7703fe3381cde5::t_f2d0c97a4a5d91 143-148
+  s_7703fe3381cde5::t_fe924faa9e95af 365-366
+ios/MLBrowserUITests/NavigationUITests.swift
+  s_7703fe3381cde5::t_e9d17ffee40504 24-25,28-30,40,43-48,50,52-59
+  s_7703fe3381cde5::t_30f73d7b53fdbd 73-109
+ios/MLBrowser/iOS/UI/FloatingNavBar.swift
+  s_7703fe3381cde5::t_736216f5514074 169-172,175
+  s_7703fe3381cde5::t_936b2aa210b232 24-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "1986bfc5588f4a3216336e674407a8c385d66965",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
