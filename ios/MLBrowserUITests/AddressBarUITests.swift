@@ -31,10 +31,11 @@ final class AddressBarUITests: UITestCase {
         )
     }
 
-    /// AIA-0338: the bottom address bar's clear (✕) opens the composer already blank, so the user
-    /// can type a fresh URL without first clearing the prefilled current one. iPhone-only (the
-    /// clear button lives in the bottom placement). A local fixture is loaded so the bar has a URL
-    /// (the clear button is hidden on a blank page).
+    /// AIA-0338: the address bar's clear (✕) opens the composer already blank, so the user can type
+    /// a fresh URL without first clearing the prefilled current one. The clear button is iPhone-only
+    /// (both the portrait-bottom and landscape-top placements; iPad/Mac are unchanged); this test
+    /// exercises the portrait/bottom placement. A local fixture is loaded so the bar has a URL (the
+    /// clear button is hidden on a blank page).
     func testAddressBarClear_opensComposerCleared() {
         launch(LaunchConfig(pageScenario: .localFixture, fixtureName: "uitest_page"))
         guard isPhoneIdiom else { return }

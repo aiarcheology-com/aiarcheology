@@ -155,7 +155,9 @@ struct WebScreenView: View {
 				if bottomAddressBarActive == false {
 					WebAddressDisplay(
 						onEdit: { locationSheet = .edit },
-						onClear: { locationSheet = .compose }
+						onClear: { locationSheet = .compose },
+						// iPhone-landscape top bar gets the clear ✕; iPad/Mac top bar is unchanged.
+						showsClear: HostPlatform.current.isiPhone
 					)
 				}
 				if showsTopBarNavigation {
@@ -366,7 +368,9 @@ struct WebScreenView: View {
         if bottomAddressBarActive {
             WebAddressDisplay(
                 onEdit: { locationSheet = .edit },
-                onClear: { locationSheet = .compose }
+                onClear: { locationSheet = .compose },
+                // Bottom bar is iPhone-portrait only, so the clear ✕ is always shown here.
+                showsClear: HostPlatform.current.isiPhone
             )
             .environmentObject(appState.browserState)
             .padding(.horizontal, 12)
@@ -597,14 +601,18 @@ enum BottomAddressBarMetrics {
 }
 
 /// Read-only URL display; tapping the text presents the location sheet for editing, while the
-/// trailing clear (✕) — shown whenever there's a URL — opens the sheet blank to compose a fresh one.
+/// trailing clear (✕) — shown on iPhone when there's a URL — opens the sheet blank to compose a
+/// fresh one. The clear affordance is part of the iPhone adaptive-bar work (AIA-0338); iPad/Mac
+/// keep their unchanged top bar, so callers there pass `showsClear: false`.
 private struct WebAddressDisplay: View {
 	@EnvironmentObject var browserState: BrowserState
 	/// Tapping the URL text — opens the location sheet prefilled with the current URL.
 	let onEdit: () -> Void
 	/// Tapping the trailing clear (✕) — opens the location sheet blank to compose a fresh URL.
-	/// Shown in both placements, only when there's a URL to clear (AIA-0338).
 	let onClear: () -> Void
+	/// Whether to show the trailing clear (✕). iPhone-only (both portrait-bottom and
+	/// landscape-top placements); off on iPad/Mac so their top bar is unchanged (AIA-0338).
+	let showsClear: Bool
 
 	var body: some View {
 		let hasURL = browserState.displayedURL != nil
@@ -631,7 +639,7 @@ private struct WebAddressDisplay: View {
 			.testability(Testability.Button.webScreenAddressBar)
 			.tourTarget(.addressBar)
 
-			if hasURL {
+			if hasURL && showsClear {
 				Button(action: onClear) {
 					Image(systemName: "xmark.circle.fill")
 						.foregroundStyle(.secondary)
