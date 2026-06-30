@@ -360,7 +360,14 @@ struct WebScreenView: View {
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity)
             .frame(height: BottomAddressBarMetrics.height)
-            .background(.bar)
+            // The button stays in the safe area (tappable, above the home indicator) while the
+            // material fills down to the screen edge — the Safari look, no web content peeking
+            // through the home-indicator strip (AIA-0338).
+            .background {
+                Rectangle()
+                    .fill(.bar)
+                    .ignoresSafeArea(edges: .bottom)
+            }
         }
     }
 
