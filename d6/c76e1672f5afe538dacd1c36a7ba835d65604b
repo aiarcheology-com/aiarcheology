@@ -1,0 +1,36 @@
+ios/MLBrowserUITests/UITestSupport.swift
+  s_7703fe3381cde5::t_eb9726a4680c25 53
+ios/MLBrowserUITests/AddressBarUITests.swift
+  s_7703fe3381cde5::t_4c2e2f3af00275 45,48,55,59
+  s_7703fe3381cde5::t_21c111ef330785 34-44,46-47,49-54,56-58
+ios/MLBrowser/iOS/Tools/Testability/Testability.swift
+  s_7703fe3381cde5::t_aebef52b309aef 123
+ios/MLBrowser/iOS/UI/ContentView.swift
+  s_7703fe3381cde5::t_a1a96fcd63db7e 142
+ios/MLBrowser/iOS/UI/Screens/WebScreen.swift
+  s_7703fe3381cde5::t_2b9d059b34ffd3 605-606
+  s_7703fe3381cde5::t_4ea5dc4ec20ada 609-610,616,618-633,635-643,645-653
+  s_7703fe3381cde5::t_1711e170de9962 281-282
+  s_7703fe3381cde5::t_647f53d233ecb6 611-613
+  s_7703fe3381cde5::t_c712a468ba9158 368-369
+  s_7703fe3381cde5::t_0644dcd8a14dd0 367,370
+  s_7703fe3381cde5::t_a8d2b2da9078cb 634
+  s_7703fe3381cde5::t_a082946532627d 156-159
+  s_7703fe3381cde5::t_1099213ff74686 89-99
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "d6c76e1672f5afe538dacd1c36a7ba835d65604b",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
