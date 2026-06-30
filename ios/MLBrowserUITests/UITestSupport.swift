@@ -272,13 +272,24 @@ class UITestCase: XCTestCase {
 	}
 
 	/// Opens the drawer and taps through to the Settings sheet.
+	///
+	/// The drawer→sheet transition occasionally drops the first tap on a slow CI runner (the tap
+	/// lands while the drawer is still animating), leaving the sheet unopened — a flake seen as
+	/// "Settings sheet did not appear". Guard against it: wait for the entry to be hittable (not
+	/// just present) before tapping, and retry the tap once if the sheet hasn't appeared.
 	func openSettings(file: StaticString = #filePath, line: UInt = #line) {
 		openDrawer(file: file, line: line)
-		app.buttons[AID.drawerSettings].tap()
-		XCTAssertTrue(
-			app.buttons[AID.settingsDismiss].waitForExistence(timeout: 10),
-			"Settings sheet did not appear", file: file, line: line
-		)
+		let settings = app.buttons[AID.drawerSettings]
+		let dismiss = app.buttons[AID.settingsDismiss]
+		for _ in 0..<2 {
+			if settings.waitForExistence(timeout: 8), settings.isHittable {
+				settings.tap()
+			}
+			if dismiss.waitForExistence(timeout: 8) {
+				return
+			}
+		}
+		XCTAssertTrue(dismiss.exists, "Settings sheet did not appear", file: file, line: line)
 	}
 
 	/// Waits for demo data to finish seeding, signalled by the first configuration toggle
