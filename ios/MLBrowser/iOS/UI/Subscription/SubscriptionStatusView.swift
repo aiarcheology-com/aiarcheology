@@ -24,7 +24,7 @@ struct SubscriptionStatusView: View {
 	var body: some View {
 		Form {
 			Section {
-				if let plan = subscriptionState.products.first?.displayPrice {
+				if let plan = planText {
 					LabeledContent(L10n.Subscription.plan, value: plan)
 				}
 				LabeledContent(
@@ -67,6 +67,14 @@ struct SubscriptionStatusView: View {
 		.navigationBarTitleDisplayMode(.inline)
 		.manageSubscriptionsSheet(isPresented: $showManage)
 		.task { await subscriptionState.loadProducts() }
+	}
+
+	/// The plan's price with its billing term, e.g. "$3.99 / month". Falls back to the bare
+	/// price when the subscription period can't be resolved (no regression vs. before).
+	private var planText: String? {
+		guard let product = subscriptionState.products.first else { return nil }
+		guard let period = product.subscription?.subscriptionPeriod else { return product.displayPrice }
+		return L10n.Subscription.planTerm(product.displayPrice, period.localizedTerm)
 	}
 
 	/// The current period's end date, formatted, if known.

@@ -1,78 +1,43 @@
-Test Focus: Updated Privacy Policy (+ Sign-In / Subscription regression)
+Test Focus: Subscription Plan now shows the billing term + a "test purchase" badge on Subscribe
 Build: TBD
 
-What's new in this build — the in-app Privacy Policy has been fully replaced with an accurate,
-self-contained version (no third-party trackers; covers all regions where ML Browser is offered).
-Please confirm it opens and reads correctly. Sign-in and subscription are unchanged from the last
-build — a short regression pass on those follows.
+What's new in this build — two subscription-screen changes:
+1. The Subscription screen's "Plan" row used to show only a price (e.g. "$3.99") with no hint
+   of whether that was monthly or yearly. It now shows the billing term too, e.g.
+   "$3.99 / month" or "$39.99 / year".
+2. The paywall "Subscribe" button now carries a loud yellow wrench-and-screwdriver badge with a
+   blue border. This marks it as a TEST purchase: in TestFlight, payments go through Apple's
+   Sandbox and you are NOT charged real money. The badge is there so you know it's safe to tap.
+   (It is hidden in the real App Store release.)
 
-Privacy Policy (new in this build)
-- Open the Privacy Policy from BOTH places it is linked:
-  * the paywall (before subscribing): tap the "Privacy Policy" link
-  * Settings / About: open the Privacy Policy entry
-- Confirm it loads instantly (it is bundled, so it works offline), renders cleanly with no broken
-  layout or missing text, and is readable in both Light and Dark mode.
-- Tap the contact email link and confirm it opens a pre-addressed mail draft.
-- Scroll the whole document — region sections (EU/UK, US, Canada, Brazil, Australia, children)
-  should all be present, and there should be no loading spinners or external content.
-
-Reminder for the rest of the build: you need an account to use the app, and (with payments on)
-an active subscription or free trial to get past the paywall. TestFlight purchases use Apple's
-Sandbox — you are NOT charged real money, and trial/renewal periods are accelerated.
+Reminder: you need an account and (with payments on) an active subscription or free trial to get
+past the paywall. TestFlight purchases use Apple's Sandbox — no real charge; trial/renewal periods
+are accelerated.
 
 Devices / Platforms
 - iPhone (required)
 - iPad (if available)
 
-1. Sign In
-- On launch you should see a sign-in screen.
-- Sign in any of these ways and confirm it proceeds:
-  * Email and password (create an account or sign in)
-  * Continue with Apple
-  * Continue with Google
-  * Continue with Facebook — testers only for now; if it's not enabled for your account,
-    use email/Apple/Google instead
+1. Plan billing term (primary focus)
+- Subscribe (or be in your trial), then open Settings → Account → Subscription.
+- Look at the "Plan" row. It should show the price AND the period, e.g. "$3.99 / month"
+  (localized). It must be clear whether the plan is monthly or yearly — not just a bare price.
+- Status and Renews / Free-trial-until rows should look unchanged.
 
-2. Subscription Paywall (Primary Focus)
-- Right after signing in (if you don't already have a subscription) the whole app is gated by
-  a paywall titled "ML Browser / Subscribe to unlock the full app."
-  * It should show the app logo, the plan, "$3.99", and "Free for 1 month, then $3.99".
-  * (On a returning account that already used the trial, you'll see just "$3.99/month" — no
-    free-trial line. That's correct.)
-- Tap Subscribe → confirm the Sandbox purchase → the paywall should disappear and the app opens.
-  * No real charge. The free month starts now.
-- From the paywall (before subscribing) also confirm: Restore Purchases, Sign Out (→ back to
-  sign-in), Delete Account, and the Terms of Use / Privacy Policy links all work.
-- On iPad: the paywall content/buttons should be centered, not stretched edge-to-edge.
+2. "Test purchase" badge on Subscribe (primary focus)
+- Open the paywall (the Subscribe screen behind the gate, or Settings → Upgrade).
+- The green "Subscribe" button should have a blue border and a yellow badge with a
+  wrench/screwdriver icon in its top-right corner.
+- The badge is decorative — the button must still tap and start the (sandbox) purchase exactly
+  as before. Confirm tapping Subscribe still works.
+- The free-trial line under the price (when you're still trial-eligible) should read the same as
+  before, e.g. "Free for 1 month, then $3.99".
 
-3. Subscription Management (once subscribed / in trial)
-- Open the drawer → Settings → Account → tap "Subscription".
-  * The submenu should show Plan ($3.99), Status (Free trial or Active), and a Renews date.
-  * "Manage Subscription" should open Apple's subscription sheet (where you can cancel/change).
-  * "Restore Purchases" and "Request a Refund" should work (these use Apple's real sheets).
-- Cancel the trial in the Apple sheet, then relaunch the app once the period lapses — you should
-  be returned to the paywall (access correctly removed).
+3. Light regression
+- Restore Purchases and Manage Subscription still open Apple's native sheets.
+- Browse a couple of normal websites and run object detection to confirm nothing else changed.
 
-4. Account Management
-- Drawer → Settings → Manage Account → try Change Password.
-- Sign Out → returns to the sign-in screen; you can't use the app until you sign in again.
-- Delete Account (use a throwaway account — permanently deletes it) → returns to sign-in.
-  Note: deleting your account does NOT cancel an Apple subscription — cancel that separately.
-
-5. Offline Behavior
-- Turn off Wi-Fi/cellular and launch (or foreground) the app.
-  * You should see a "No connection" screen with a Try Again button.
-  * Reconnect, tap Try Again, and you should get back in.
-
-6. Core Regression (once past the paywall)
-- Browse websites and confirm pages load normally.
-- Run object detection and verify annotations appear correctly.
-- Import a model from Files and verify it works.
-
-Beta note: the sign-in screen has a Development/Production switch so we can test either
-environment. Leave it on Development unless asked otherwise.
-
-7. Report Issues
+4. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version

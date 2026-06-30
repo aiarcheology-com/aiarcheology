@@ -204,6 +204,9 @@ struct PaywallView: View {
 				.font(.caption2)
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.center)
+				// Required disclosure (App Review 3.1.2) must show in full — let it claim its
+				// natural height so it wraps instead of truncating under vertical compression.
+				.fixedSize(horizontal: false, vertical: true)
 
 			HStack(spacing: 16) {
 				Link(L10n.Paywall.terms, destination: Self.termsOfUseURL)
@@ -262,6 +265,9 @@ struct PaywallView: View {
 		.controlSize(.large)
 		.disabled(isWorking || subscriptionState.isSubscribed)
 		.testability(Testability.Button.paywallSubscribe)
+		// In non-production builds the purchase runs against Apple's Sandbox (no real
+		// charge); flag the button so testers know it's safe to tap (AIA-0354).
+		.underConstructionBadge()
 	}
 
 	/// Apple's standard "Manage Subscriptions" deep link. The hardcoded literal always
@@ -279,28 +285,7 @@ struct PaywallView: View {
 	private static func freeTrialText(for product: Product) -> String? {
 		guard let offer = product.subscription?.introductoryOffer,
 			  offer.paymentMode == .freeTrial else { return nil }
-		return L10n.Paywall.trialFormat(localizedPeriod(offer.period), product.displayPrice)
-	}
-
-	/// Localized period label ("1 month", "7 days") for a subscription period, via
-	/// `DateComponentsFormatter` so the unit follows the device locale.
-	private static func localizedPeriod(_ period: Product.SubscriptionPeriod) -> String {
-		var components = DateComponents()
-		// Restrict the formatter to the offer's own unit so it can't re-express the
-		// period (e.g. a 1-week trial rendering as "7 days", or 30 days as "1 month").
-		let allowedUnit: NSCalendar.Unit
-		switch period.unit {
-		case .day: components.day = period.value; allowedUnit = .day
-		case .week: components.weekOfMonth = period.value; allowedUnit = .weekOfMonth
-		case .month: components.month = period.value; allowedUnit = .month
-		case .year: components.year = period.value; allowedUnit = .year
-		@unknown default: components.day = period.value; allowedUnit = .day
-		}
-		let formatter = DateComponentsFormatter()
-		formatter.unitsStyle = .full
-		formatter.allowedUnits = allowedUnit
-		formatter.maximumUnitCount = 1
-		return formatter.string(from: components) ?? "\(period.value)"
+		return L10n.Paywall.trialFormat(offer.period.localizedDescription, product.displayPrice)
 	}
 }
 
