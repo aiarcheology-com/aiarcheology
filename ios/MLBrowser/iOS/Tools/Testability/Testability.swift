@@ -120,6 +120,7 @@ extension TestabilityIdentification {
 		case floatingNavFind
 		// Web Screen
 		case webScreenAddressBar
+		case webScreenAddressClear
 		case webToolbarBack
 		case webToolbarForward
 		case webToolbarReload

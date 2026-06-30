@@ -86,7 +86,17 @@ struct WebScreenView: View {
 	private var history: FetchedResults<WebHistoryEntry>
 	@EnvironmentObject var appState: AppState
 	@State private var loadRequest = LoadRequest(input: "https://www.google.com", generation: 0)
-	@State private var presentLocationSheet: Bool = false
+	/// Drives the location sheet and records how it was opened. `item`-based so the mode is
+	/// captured reliably at presentation — a separate bool read inside a `.sheet(isPresented:)`
+	/// closure can lag the flip and present with the wrong content (AIA-0338).
+	@State private var locationSheet: LocationSheetMode?
+
+	/// How the location sheet was opened. `Int`-backed `Identifiable` so `.sheet(item:)` drives it.
+	private enum LocationSheetMode: Int, Identifiable {
+		case edit      // prefill the current URL for editing
+		case compose   // start blank (the bottom bar's clear ✕)
+		var id: Int { rawValue }
+	}
 	@State private var latestError: HistoryError?
 	@State private var showAlert: Bool = false
 	@State private var hasPerformedInitialAction = false
@@ -143,9 +153,10 @@ struct WebScreenView: View {
 				// On iPhone portrait the address moves to the bottom bar (AIA-0338); the
 				// top bar then keeps only cpu / Find / detection / edit.
 				if bottomAddressBarActive == false {
-					WebAddressDisplay {
-						presentLocationSheet = true
-					}
+					WebAddressDisplay(
+						onEdit: { locationSheet = .edit },
+						onClear: { locationSheet = .compose }
+					)
 				}
 				if showsTopBarNavigation {
 					WebForwardButton()
@@ -267,8 +278,8 @@ struct WebScreenView: View {
         // manual finding pick (which uses the applied frame synchronously, avoiding the fragile
         // fresh-snapshot fallback) — AIA-0333.
         .checkpoint(.detectionFrameApplied, value: (appliedFrame != nil).description)
-        .sheet(isPresented: $presentLocationSheet) {
-            LocationSheetView(currentURL: appState.browserState.displayedURL?.absoluteString) { input in
+        .sheet(item: $locationSheet) { mode in
+            LocationSheetView(currentURL: mode == .edit ? appState.browserState.displayedURL?.absoluteString : nil) { input in
                 openRequested(input)
             }
             .environmentObject(appState.settings)
@@ -353,9 +364,10 @@ struct WebScreenView: View {
     @ViewBuilder
     private var bottomAddressBar: some View {
         if bottomAddressBarActive {
-            WebAddressDisplay {
-                presentLocationSheet = true
-            }
+            WebAddressDisplay(
+                onEdit: { locationSheet = .edit },
+                onClear: { locationSheet = .compose }
+            )
             .environmentObject(appState.browserState)
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity)
@@ -590,33 +602,55 @@ enum BottomAddressBarMetrics {
 	static let reserve: CGFloat = height + gap
 }
 
-/// Read-only URL display at maximum width; tapping it presents the location sheet.
+/// Read-only URL display; tapping the text presents the location sheet for editing, while the
+/// trailing clear (✕) — shown whenever there's a URL — opens the sheet blank to compose a fresh one.
 private struct WebAddressDisplay: View {
 	@EnvironmentObject var browserState: BrowserState
-	let action: () -> Void
+	/// Tapping the URL text — opens the location sheet prefilled with the current URL.
+	let onEdit: () -> Void
+	/// Tapping the trailing clear (✕) — opens the location sheet blank to compose a fresh URL.
+	/// Shown in both placements, only when there's a URL to clear (AIA-0338).
+	let onClear: () -> Void
 
 	var body: some View {
+		let hasURL = browserState.displayedURL != nil
 		let urlText = browserState.displayedURL?.absoluteString ?? L10n.Browser.Location.placeholder
-		let textColor: Color = browserState.displayedURL == nil ? .secondary : .primary
-		Button(action: action) {
-			Text(urlText)
-				.lineLimit(1)
-				.truncationMode(.middle)
-				.foregroundColor(textColor)
-				.frame(maxWidth: .infinity, alignment: .leading)
-				.padding(5)
-				.background(.ultraThinMaterial)
-				.overlay(
-					RoundedRectangle(cornerRadius: 5)
-						.stroke(Color.gray.opacity(0.75), lineWidth: 0.75)
-				)
-				.contentShape(Rectangle())
+		let textColor: Color = hasURL ? .primary : .secondary
+		HStack(spacing: 6) {
+			Button(action: onEdit) {
+				Text(urlText)
+					.lineLimit(1)
+					.truncationMode(.middle)
+					.foregroundColor(textColor)
+					.frame(maxWidth: .infinity, alignment: .leading)
+					.contentShape(Rectangle())
+			}
+			.buttonStyle(.plain)
+			// VoiceOver reads the actual URL, not just the affordance.
+			.accessibilityLabel(urlText)
+			.testability(Testability.Button.webScreenAddressBar)
+			.tourTarget(.addressBar)
+
+			if hasURL {
+				Button(action: onClear) {
+					Image(systemName: "xmark.circle.fill")
+						.foregroundStyle(.secondary)
+						.contentShape(Rectangle())
+				}
+				.buttonStyle(.plain)
+				.accessibilityLabel(L10n.Common.clear)
+				.testability(Testability.Button.webScreenAddressClear)
+			}
 		}
-		.buttonStyle(.plain)
-		// VoiceOver reads the actual URL, not just the affordance.
-		.accessibilityLabel(urlText)
-		.testability(Testability.Button.webScreenAddressBar)
-		.tourTarget(.addressBar)
+		.padding(.vertical, 7)
+		.padding(.horizontal, 14)
+		// Safari-like: a rounded capsule with a hairline border instead of a boxy
+		// rounded-rect with a heavy gray stroke.
+		.background(.ultraThinMaterial, in: Capsule())
+		.overlay(
+			Capsule()
+				.stroke(Color.primary.opacity(0.12), lineWidth: 0.5)
+		)
 	}
 }
 

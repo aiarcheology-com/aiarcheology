@@ -31,6 +31,32 @@ final class AddressBarUITests: UITestCase {
         )
     }
 
+    /// AIA-0338: the bottom address bar's clear (✕) opens the composer already blank, so the user
+    /// can type a fresh URL without first clearing the prefilled current one. iPhone-only (the
+    /// clear button lives in the bottom placement). A local fixture is loaded so the bar has a URL
+    /// (the clear button is hidden on a blank page).
+    func testAddressBarClear_opensComposerCleared() {
+        launch(LaunchConfig(pageScenario: .localFixture, fixtureName: "uitest_page"))
+        guard isPhoneIdiom else { return }
+        XCTAssertTrue(
+            waitForCheckpoint(AID.cpCurrentPageFile, equals: "uitest_page.html"),
+            "Fixture did not become the live page, so the address bar has no URL to clear"
+        )
+
+        let clear = app.buttons[AID.addressClear]
+        XCTAssertTrue(clear.waitForExistence(timeout: 10), "Bottom address-bar clear button missing")
+        clear.tap()
+
+        let input = app.textFields[AID.locationInput]
+        XCTAssertTrue(input.waitForExistence(timeout: 10), "Composer did not open")
+        // An empty SwiftUI TextField reports its placeholder as the value.
+        let value = (input.value as? String) ?? ""
+        XCTAssertEqual(value, Self.locationPlaceholder, "Composer should open with a cleared field")
+    }
+
+    /// Mirrors `L10n.Browser.Location.placeholder` (the app target isn't linked here).
+    private static let locationPlaceholder = "Search or enter website name"
+
     func testLocationSheet_showsSeededHistory() {
         launch()
         openLocationSheet()

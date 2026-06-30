@@ -18,10 +18,4 @@ enum FeatureFlags {
 	/// "Upgrade" entry point and any feature gated on entitlement.
 	// TODO(AIA-0343): move to a real (remote) feature-flag system.
 	static let isPaymentsEnabled = true
-
-	/// Gates the Safari-like adaptive address bar on iPhone (AIA-0338): the address
-	/// moves to the bottom of the screen in portrait and stays in the top bar in
-	/// landscape. iPad/Mac are unaffected. Kill-switch + test seam.
-	// TODO(AIA-0338): move to a real (remote) feature-flag system.
-	static let isBottomAddressBarEnabled = true
 }

@@ -139,8 +139,7 @@ struct ContentView: View {
     /// top bar. Computed once here and pushed into the environment so WebScreen's top/bottom
     /// gates and the floating-control reserve all derive from the same value.
     private var showsBottomAddressBar: Bool {
-        FeatureFlags.isBottomAddressBarEnabled
-            && HostPlatform.current.isiPhone
+        HostPlatform.current.isiPhone
             && verticalSizeClass == .regular
             && selectedMode == .web
             && chromeVisible
