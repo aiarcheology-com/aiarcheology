@@ -372,14 +372,8 @@ struct WebScreenView: View {
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity)
             .frame(height: BottomAddressBarMetrics.height)
-            // The button stays in the safe area (tappable, above the home indicator) while the
-            // material fills down to the screen edge — the Safari look, no web content peeking
-            // through the home-indicator strip (AIA-0338).
-            .background {
-                Rectangle()
-                    .fill(.bar)
-                    .ignoresSafeArea(edges: .bottom)
-            }
+            // No opaque background strip: the glass capsule floats over the page like Safari's
+            // (the inset still reserves the space above the home indicator).
         }
     }
 
@@ -616,13 +610,19 @@ private struct WebAddressDisplay: View {
 		let hasURL = browserState.displayedURL != nil
 		let urlText = browserState.displayedURL?.absoluteString ?? L10n.Browser.Location.placeholder
 		let textColor: Color = hasURL ? .primary : .secondary
-		HStack(spacing: 6) {
+		// Padding lives inside each button's label (not on the HStack) so the whole visible
+		// capsule — including its padded edges and rounded ends — is a live tap target, not
+		// just the text's bounds (AIA-0338).
+		HStack(spacing: 0) {
 			Button(action: onEdit) {
 				Text(urlText)
 					.lineLimit(1)
 					.truncationMode(.middle)
 					.foregroundColor(textColor)
 					.frame(maxWidth: .infinity, alignment: .leading)
+					.padding(.vertical, 7)
+					.padding(.leading, 14)
+					.padding(.trailing, hasURL ? 6 : 14)
 					.contentShape(Rectangle())
 			}
 			.buttonStyle(.plain)
@@ -635,6 +635,8 @@ private struct WebAddressDisplay: View {
 				Button(action: onClear) {
 					Image(systemName: "xmark.circle.fill")
 						.foregroundStyle(.secondary)
+						.padding(.vertical, 7)
+						.padding(.trailing, 14)
 						.contentShape(Rectangle())
 				}
 				.buttonStyle(.plain)
@@ -642,15 +644,8 @@ private struct WebAddressDisplay: View {
 				.testability(Testability.Button.webScreenAddressClear)
 			}
 		}
-		.padding(.vertical, 7)
-		.padding(.horizontal, 14)
-		// Safari-like: a rounded capsule with a hairline border instead of a boxy
-		// rounded-rect with a heavy gray stroke.
-		.background(.ultraThinMaterial, in: Capsule())
-		.overlay(
-			Capsule()
-				.stroke(Color.primary.opacity(0.12), lineWidth: 0.5)
-		)
+		// Safari-like Liquid Glass capsule (iOS 26+); material-capsule fallback on earlier systems.
+		.platformEffect(in: Capsule())
 	}
 }
 

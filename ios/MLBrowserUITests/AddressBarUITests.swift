@@ -49,9 +49,9 @@ final class AddressBarUITests: UITestCase {
 
         let input = app.textFields[AID.locationInput]
         XCTAssertTrue(input.waitForExistence(timeout: 10), "Composer did not open")
-        // An empty SwiftUI TextField reports its placeholder as the value.
-        let value = (input.value as? String) ?? ""
-        XCTAssertEqual(value, Self.locationPlaceholder, "Composer should open with a cleared field")
+        // A cleared field shows only its placeholder; assert against placeholderValue (the
+        // documented source) rather than `value`, which varies across XCTest releases.
+        XCTAssertEqual(input.placeholderValue, Self.locationPlaceholder, "Composer should open with a cleared field")
     }
 
     /// Mirrors `L10n.Browser.Location.placeholder` (the app target isn't linked here).

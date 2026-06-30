@@ -10,6 +10,22 @@ import Foundation
 import SwiftUI
 
 extension View {
+	/// Applies the platform's native "glass" treatment in the given shape: iOS 26's Liquid Glass
+	/// (`glassEffect`) where available, falling back to a translucent material with a hairline
+	/// border on earlier systems. Keeps the iOS-26-only API behind one call site so feature views
+	/// don't each carry the availability branch (e.g. the address field — AIA-0338).
+	@ViewBuilder
+	func platformEffect<S: Shape>(in shape: S = Capsule()) -> some View {
+		if #available(iOS 26.0, *) {
+			glassEffect(.regular, in: shape)
+		} else {
+			background(.ultraThinMaterial, in: shape)
+				.overlay(shape.stroke(Color.primary.opacity(0.12), lineWidth: 0.5))
+		}
+	}
+}
+
+extension View {
 	func centerInParentView() -> some View {
 		VStack(alignment: .center) {
 			Spacer()
