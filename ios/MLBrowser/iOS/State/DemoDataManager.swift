@@ -96,7 +96,10 @@ final class DemoDataManager {
 
         LoggingPolicy.info("Creating initial browsing history with demo pages", logger: .state)
         let pages: [String] = [
-            "https://windrosen.hessen.de/mapapps/resources/apps/windrosen/index.html?lang=en&vm=2D&s=1500000&r=0&c=550000%2C5595000&bm=orthofotos_schummerung",
+            // Wind-Atlas Hessen. The old windrosen.hessen.de deep link now 301→302 redirects
+            // down to http:// (ATS-blocked → fails to load); this https URL serves a single 200
+            // with no downgrade (AIA-0342).
+            "https://umweltdaten.hessen.de/mapapps/resources/apps/windatlas/index.html?lang=en",
             "https://zbgis.skgeodesy.sk/mkzbgis/sk/teren",
             Self.onboardingDemoPage.absoluteString,
             "https://www.geoland.at/webgisviewer/geoland/map/Geoland_Viewer/Geoland?fbclid=IwAR3hGN0L39GRBEXx1rfdBjo_M5HthBjurMS6fR50JnEJ1aDJ2pmblfTGHoo",

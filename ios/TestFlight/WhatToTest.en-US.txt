@@ -1,41 +1,44 @@
-Test Focus: Subscription Plan now shows the billing term + a "test purchase" badge on Subscribe
+Test Focus: Model description now expands + Hessen Wind-Atlas demo link fixed
 Build: TBD
 
-What's new in this build — two subscription-screen changes:
-1. The Subscription screen's "Plan" row used to show only a price (e.g. "$3.99") with no hint
-   of whether that was monthly or yearly. It now shows the billing term too, e.g.
-   "$3.99 / month" or "$39.99 / year".
-2. The paywall "Subscribe" button now carries a loud yellow wrench-and-screwdriver badge with a
-   blue border. This marks it as a TEST purchase: in TestFlight, payments go through Apple's
-   Sandbox and you are NOT charged real money. The badge is there so you know it's safe to tap.
-   (It is hidden in the real App Store release.)
+What's new in this build — two small fixes:
+1. In a model's annotation configuration, the model Description used to be cut off to one line;
+   it can now be expanded to read the full text.
+2. One of the example map links in the browser history (the Hessen wind map) pointed at a dead
+   address that failed to load; it now points at the working Wind-Atlas Hessen map.
 
-Reminder: you need an account and (with payments on) an active subscription or free trial to get
-past the paywall. TestFlight purchases use Apple's Sandbox — no real charge; trial/renewal periods
-are accelerated.
+Reminder: you need an account to use the app, and (with payments on) an active subscription or
+free trial to get past the paywall. TestFlight purchases use Apple's Sandbox — you are NOT charged
+real money, and trial/renewal periods are accelerated.
 
 Devices / Platforms
 - iPhone (required)
 - iPad (if available)
 
-1. Plan billing term (primary focus)
-- Subscribe (or be in your trial), then open Settings → Account → Subscription.
-- Look at the "Plan" row. It should show the price AND the period, e.g. "$3.99 / month"
-  (localized). It must be clear whether the plan is monthly or yearly — not just a bare price.
-- Status and Renews / Free-trial-until rows should look unchanged.
+1. Model description expands (primary focus)
+- Get past the paywall, then open a model's annotation configuration:
+  drawer → the model list → tap a model to open its Configuration form.
+- Look at the "Description" row. If the model has a long description it shows on one line first.
+- Tap the Description row → the full description should expand and become fully readable,
+  left-aligned and wrapping across multiple lines (no "copy" button on this row).
+- The other rows (File, Type, Version, Author) should look unchanged. The "Link" row (when a
+  model has a download URL) should still expand and still show its copy button as before.
 
-2. "Test purchase" badge on Subscribe (primary focus)
-- Open the paywall (the Subscribe screen behind the gate, or Settings → Upgrade).
-- The green "Subscribe" button should have a blue border and a yellow badge with a
-  wrench/screwdriver icon in its top-right corner.
-- The badge is decorative — the button must still tap and start the (sandbox) purchase exactly
-  as before. Confirm tapping Subscribe still works.
-- The free-trial line under the price (when you're still trial-eligible) should read the same as
-  before, e.g. "Free for 1 month, then $3.99".
+2. Hessen Wind-Atlas demo link (primary focus)
+- This only appears on a fresh install (or after clearing browsing history), where the app seeds
+  a few example map links.
+- Open the browser address/history (the location sheet) and find the Hessen wind map entry, or
+  enter this URL directly:
+  https://umweltdaten.hessen.de/mapapps/resources/apps/windatlas/index.html?lang=en
+- Confirm the page loads and the Wind-Atlas Hessen map appears (it may take a moment to boot).
+  Previously this link failed to load.
 
 3. Light regression
-- Restore Purchases and Manage Subscription still open Apple's native sheets.
-- Browse a couple of normal websites and run object detection to confirm nothing else changed.
+- Browse a couple of normal websites and confirm pages still load.
+- Run object detection and confirm annotations still appear.
+
+Beta note: the sign-in screen has a Development/Production switch so we can test either
+environment. Leave it on Development unless asked otherwise.
 
 4. Report Issues
 Please report any issues with:

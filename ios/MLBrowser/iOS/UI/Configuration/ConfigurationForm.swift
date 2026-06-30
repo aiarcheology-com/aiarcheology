@@ -30,43 +30,34 @@ struct ConfigurationDetailRow: View {
 	}
 }
 
+/// A label + value row whose value is truncated to one line until tapped, then expands to the
+/// full text. `layout` controls where the value sits (see `ValueLayout`). The copy button shows
+/// by default (the link row relies on it); pass `showsCopyButton: false` for prose rows that have
+/// nothing meaningful to copy.
 struct ExpandableDetailRow: View {
+	/// Where the value sits relative to the label.
+	enum ValueLayout {
+		/// Value in the right-hand column, right-aligned — good for short, link-like values.
+		case trailingColumn
+		/// Value stacked full-width under the label, left-aligned — good for multi-line prose.
+		case leadingStacked
+	}
+
 	var label: String
 	var value: String
+	var layout: ValueLayout = .trailingColumn
+	var showsCopyButton: Bool = true
 	@State private var isExpanded: Bool = false
 	@State private var isCopied: Bool = false
 
 	var body: some View {
-		HStack(alignment: .top) {
-			VStack(alignment: .leading, spacing: 8) {
-				Text(label)
-					.foregroundColor(.primary)
-					.fontWeight(.regular)
-
-				if isExpanded {
-					Button(action: {
-						UIPasteboard.general.string = value
-						isCopied = true
-					DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-						isCopied = false
-					}
-					}) {
-						Image(systemName: "document.on.document")
-							.foregroundColor(isCopied ? .green : .blue)
-							.font(.title3)
-					}
-					.testability(Testability.Button.configurationExapandableRow)
-					.buttonStyle(.borderless)
-				}
+		Group {
+			switch layout {
+			case .leadingStacked:
+				leadingLayout
+			case .trailingColumn:
+				trailingLayout
 			}
-
-			Spacer()
-
-			Text(value)
-				.foregroundColor(.gray)
-				.lineLimit(isExpanded ? nil : 1)
-				.truncationMode(.tail)
-				.multilineTextAlignment(.trailing)
 		}
 		.contentShape(Rectangle())
 		.onTapGesture {
@@ -76,6 +67,69 @@ struct ExpandableDetailRow: View {
 				}
 			}
 		}
+	}
+
+	/// Value in the right-hand column, right-aligned. Copy button (when shown) sits under the label.
+	private var trailingLayout: some View {
+		HStack(alignment: .top) {
+			VStack(alignment: .leading, spacing: 8) {
+				labelText
+				if isExpanded && showsCopyButton {
+					copyButton
+				}
+			}
+
+			Spacer()
+
+			valueText
+				.multilineTextAlignment(.trailing)
+		}
+	}
+
+	/// Label on top, value stacked full-width below and left-aligned — readable for prose.
+	private var leadingLayout: some View {
+		VStack(alignment: .leading, spacing: 8) {
+			HStack {
+				labelText
+				Spacer()
+				if isExpanded && showsCopyButton {
+					copyButton
+				}
+			}
+
+			valueText
+				.multilineTextAlignment(.leading)
+				.frame(maxWidth: .infinity, alignment: .leading)
+		}
+	}
+
+	private var labelText: some View {
+		Text(label)
+			.foregroundColor(.primary)
+			.fontWeight(.regular)
+	}
+
+	private var valueText: some View {
+		Text(value)
+			.foregroundColor(.gray)
+			.lineLimit(isExpanded ? nil : 1)
+			.truncationMode(.tail)
+	}
+
+	private var copyButton: some View {
+		Button(action: {
+			UIPasteboard.general.string = value
+			isCopied = true
+			DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+				isCopied = false
+			}
+		}) {
+			Image(systemName: "document.on.document")
+				.foregroundColor(isCopied ? .green : .blue)
+				.font(.title3)
+		}
+		.testability(Testability.Button.configurationExapandableRow)
+		.buttonStyle(.borderless)
 	}
 }
 
@@ -131,7 +185,12 @@ struct ConfigurationForm: View {
 	private var modelSection: some View {
 		Section(header: Text(L10n.Configuration.Section.model)) {
 			ConfigurationDetailRow(label: L10n.Configuration.file, value: "\(configuration.file?.pathComponents.last ?? "")")
-			ConfigurationDetailRow(label: L10n.Configuration.description, value: " \(configuration.modelDescription ?? "")")
+			ExpandableDetailRow(
+				label: L10n.Configuration.description,
+				value: configuration.modelDescription ?? "",
+				layout: .leadingStacked,
+				showsCopyButton: false
+			)
 			ConfigurationDetailRow(label: L10n.Configuration.type, value: " \(configuration.modelType.rawValue)")
 			ConfigurationDetailRow(label: L10n.Configuration.version, value: " \(configuration.modelVersion ?? "")")
 
