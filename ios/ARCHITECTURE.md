@@ -9,7 +9,9 @@ this document describes *what connects to what*.
 
 ML Browser pairs a web browser with on-device CoreML object detection: the user loads
 a CoreML model, and Vision runs it against timed snapshots of the rendered web page,
-drawing detections over the content. Nothing leaves the device.
+drawing detections over the content. Page snapshots and detection imagery never leave
+the device (the privacy invariant — AGENTS.md §10); network traffic is limited to
+browsing itself, auth, subscriptions, model downloads, and crash diagnostics.
 
 ## Layering
 
@@ -23,7 +25,7 @@ Pragmatic MVVM-like, enforced by Harmonize architecture tests (see AGENTS.md §7
 
 ## Composition root
 
-`iOS/State/DependencyContainer.swift` — a `@MainActor` singleton (`DependencyContainer.shared`)
+`MLBrowser/iOS/State/DependencyContainer.swift` — a `@MainActor` singleton (`DependencyContainer.shared`)
 that lazily builds and shares the core dependencies: `dataController`, `settings`,
 `snapState`, `deepState`, `downloader`, `demoDataManager`, `authProvider`,
 `subscriptionProvider`, plus an eagerly-created `crashReporter` (so observability starts
@@ -35,13 +37,13 @@ are `#if DEBUG`, so they can never ship in Release/TestFlight.
 
 ## App entry & gating
 
-`iOS/UI/MLBrowser.swift` — `@main struct MLBrowser: App`. The root `AppState`
+`MLBrowser/iOS/UI/MLBrowser.swift` — `@main struct MLBrowser: App`. The root `AppState`
 (`@StateObject`) owns and wires the feature states (`snap`, `deep`, `browserState`,
 `settings`, `downloader`, `authState`, `subscriptionState`, `guide`, renderers, …).
 
 The UI is gated in layers before the app proper appears:
 
-```
+```text
 AuthGateView            (AIA-0340 — sign-in required)
   └─ SubscriptionGateView   (AIA-0343 — subscription/free-trial required)
        └─ ContentView       (the browser + detection UI)
@@ -52,33 +54,34 @@ A `BackgroundDownloadAppDelegate` bridges background `URLSession` completion bac
 
 ## The detection pipeline (core domain)
 
-1. **`SnapState`** (`iOS/State/SnapState.swift`) drives a configurable Combine timer that
+1. **`SnapState`** (`MLBrowser/iOS/State/SnapState.swift`) drives a configurable Combine timer that
    fires snapshot triggers; `SnapAdjustment` holds brightness/contrast/saturation.
-2. **`WebViewRenderer`** (`iOS/Rendering/`) snapshots the live `WKWebView` into a `UIImage`,
+2. **`WebViewRenderer`** (`MLBrowser/iOS/Rendering/`) snapshots the live `WKWebView` into a `UIImage`,
    applying the current `SnapAdjustment`. (`DefaultRenderer` is the base; `Snapshot` is the model.)
-3. **`DeepState`** (`iOS/State/DeepState.swift`) manages the active model **drivers**, created
+3. **`DeepState`** (`MLBrowser/iOS/State/DeepState.swift`) manages the active model **drivers**, created
    from persisted `DeepConfiguration`s and loaded/unloaded as configs are enabled/disabled.
-4. **`Driver`** (`iOS/Drivers/Driver.swift`, protocol `: Actor`) wraps a CoreML model.
+4. **`Driver`** (`MLBrowser/iOS/Drivers/Driver.swift`, protocol `: Actor`) wraps a CoreML model.
    **`DeepDriver`** runs Vision requests as either a `detector` or `classificator`
    (`DeepDriverType`); `Detector` / `Classificator` / `DetectionTiling` implement the work.
 5. Results become annotations drawn over the web content and are persisted as **`Finding`s**.
 
-Bundled demo models live in `iOS/Drivers/Demo Models/` (`AIArcheology.mlpackage`,
+Bundled demo models live in `MLBrowser/iOS/Drivers/Demo Models/` (`AIArcheology.mlpackage`,
 `HroudaDetector15.mlpackage`).
 
 ## Persistence
 
-Core Data via **`DataController`** (`iOS/Persistence/`). Entities include `Finding`,
+Core Data via **`DataController`** (`MLBrowser/iOS/State/DataController.swift`); entity
+classes and the model live under `MLBrowser/iOS/Persistence/`. Entities include `Finding`,
 `DeepConfiguration`, `DownloadItem`, `WebHistoryEntry`, `WebVisit`. The model
 (`MLBrowser.xcdatamodeld`) is versioned, with mapping models under
-`Persistence/Migration/<from>-<to>/`. See **AGENTS.md §6** for the model-versioning rules
+`MLBrowser/iOS/Persistence/Migration/<from>-<to>/`. See **AGENTS.md §6** for the model-versioning rules
 (new version only after the previous one shipped; mapping models generated in Xcode) and the
 in-memory-store testing caveats.
 
 ## Feature flags
 
 Significant/risky surfaces (auth gate, payments) are gated behind in-source booleans in
-`iOS/State/FeatureFlags.swift`. A real remote/per-environment flag system is deliberately
+`MLBrowser/iOS/State/FeatureFlags.swift`. A real remote/per-environment flag system is deliberately
 deferred to a later PR (AGENTS.md §3).
 
 ## Source layout (`ios/MLBrowser/iOS/`)

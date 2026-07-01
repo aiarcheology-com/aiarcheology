@@ -41,7 +41,9 @@ Do **not** activate for a one-line fix the user is watching you make — that's 
   **`ship-ticket-verifier`** (`simctl erase`'d each run). Resolve each at runtime:
   `xcrun simctl list devices available -j` → device with that exact name on the **newest** iOS
   runtime; if absent, create it (`xcrun simctl create <name> <newest iPhone devicetype>
-  <newest iOS runtime>`) and record the returned UDID in the state comment for this run only.
+  <newest iOS runtime>`). Durable state (the ticket comment) records only the sim **name +
+  runtime** — never a UDID (machine-specific; goes stale on resume). Re-resolve the UDID
+  fresh at runtime on every run/resume.
   **Never launch on any other `Booted` sim** — a booted sim you didn't create is the user's.
   If no iOS simulator runtime is installed, **stop and tell the user**
   (`xcodebuild -downloadPlatform iOS`) — don't improvise a destination.
