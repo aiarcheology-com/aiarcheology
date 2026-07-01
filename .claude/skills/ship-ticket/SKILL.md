@@ -50,11 +50,11 @@ Do **not** activate for a one-line fix the user is watching you make — that's 
   options: In Review `ce9bc762`, Done `98236657`.
 - **Pre-push gate mirrors CI:** `./scripts/swiftlint.sh` + `./scripts/harmonize.sh` (both run
   **from the repo root**, not `ios/`) + unit + UI tests.
-- **Tool resolution:** repo tools are resolved via their `scripts/*.sh` wrappers
-  (`swiftgen.sh`, `swiftlint.sh`, `harmonize.sh`), which probe bundled locations
-  (e.g. SwiftGen at `~/.local/lib/swiftgen/bin`). **Never conclude a tool is missing from a bare
-  `which <bin>`** — run the wrapper's `--verify`/`--help` first. (This produced a false blocker on
-  the first run.)
+- **Tool resolution:** before concluding a tool is missing from a bare `which <bin>`, check how the
+  repo's wrapper resolves it. `scripts/swiftgen.sh` in particular probes **bundled** locations
+  (SwiftGen at `~/.local/lib/swiftgen/bin`, also `/tmp/swiftgen/bin`, `/opt/homebrew/bin`, then PATH)
+  and supports `--verify` — so `which swiftgen` returns nothing yet it's installed (a false blocker
+  on the first run). (`swiftlint.sh` / `harmonize.sh` expect their tool on PATH via `command -v`.)
 - **Localization:** adding/changing L10n strings has a strict recipe and a file-reformat trap —
   see `references/localization.md`. Do **not** hand-edit `L10n.swift`; regenerate it.
 

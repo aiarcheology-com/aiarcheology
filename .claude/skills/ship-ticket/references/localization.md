@@ -32,15 +32,16 @@ the whole catalog.** Insert new keys as **surgical text**.
        },
    ```
    Other locales are optional (translators fill later; they fall back to `en`). After inserting,
-   validate the file still parses: `python3 -c "import json;json.load(open(PATH))"`, and confirm the
-   diff is tiny (`git diff --stat` should show ~12 added lines, not thousands).
+   validate the file still parses:
+   `python3 -c "import json;json.load(open('ios/MLBrowser/iOS/Resources/Localizable.xcstrings'))"`,
+   and confirm the diff is tiny (`git diff --stat` should show ~12 added lines, not thousands).
 
 2. **Regenerate** `L10n.swift` via the wrapper (do **not** invoke `swiftgen` directly):
    `./scripts/swiftgen.sh generate` (resolves SwiftGen from `~/.local/lib/swiftgen/bin`). Confirm the
    new `L10n.<Group>.<key>` accessor appears and the diff is only the added lines.
 
-3. **Add the key to `allKeys`** in `LocalizationTestHelpers.swift` (in its comment-grouped section),
-   or the localization "no missing keys" test fails.
+3. **Add the key to `StringCatalogValidator.allKeys`** in `LocalizationTestHelpers.swift` (in its
+   comment-grouped section), or the localization "no missing keys" test fails.
 
 4. Build to confirm the `L10n.…` reference compiles.
 
