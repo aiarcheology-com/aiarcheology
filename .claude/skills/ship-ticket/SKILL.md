@@ -50,14 +50,31 @@ Do **not** activate for a one-line fix the user is watching you make — that's 
   options: In Review `ce9bc762`, Done `98236657`.
 - **Pre-push gate mirrors CI:** `./scripts/swiftlint.sh` + `./scripts/harmonize.sh` (both run
   **from the repo root**, not `ios/`) + unit + UI tests.
+- **Tool resolution:** before concluding a tool is missing from a bare `which <bin>`, check how the
+  repo's wrapper resolves it. `scripts/swiftgen.sh` in particular probes **bundled** locations
+  (SwiftGen at `~/.local/lib/swiftgen/bin`, also `/tmp/swiftgen/bin`, `/opt/homebrew/bin`, then PATH)
+  and supports `--verify` — so `which swiftgen` returns nothing yet it's installed (a false blocker
+  on the first run). (`swiftlint.sh` / `harmonize.sh` expect their tool on PATH via `command -v`.)
+- **Localization:** adding/changing L10n strings has a strict recipe and a file-reformat trap —
+  see `references/localization.md`. Do **not** hand-edit `L10n.swift`; regenerate it.
 
 ## Durable state & resumability
 Keep the source of truth in a single **updatable, idempotency-marked ticket comment** (see
 `references/state-schema.md`) — a JSON code block tagged `<!-- ship-ticket:state -->`.
 Reload it at the start of every run so `/clear`, a crash, or another machine reads the real state.
-A local `scratchpad/<ticket>-ship-state.json` is a cache only (must be gitignored). On resume:
-find the branch/PR, read the state comment, and **continue** — never duplicate a branch, PR, or
-comment. Update the existing comment (match the marker); never spam new ones.
+On resume: find the branch/PR, read the state comment, and **continue** — never duplicate a branch,
+PR, or comment. Update the existing comment (match the marker); never spam new ones.
+
+**The scratchpad is session-scoped — never a durable home.** A fresh session gets a *different*
+scratchpad dir and cannot read another session's files. So anything needed for resume — the state
+JSON **and the full plan** (see P1) — lives in **ticket comments**, not scratchpad. A
+`scratchpad/<ticket>-ship-state.json` mirror is a local cache only. (On the first run the plan was
+written only to scratchpad and nearly lost on hand-off — post it to the ticket.)
+
+**Checkpoint discipline (not just crash-resume):** refresh the `<!-- ship-ticket:state -->` comment
+**after every committed slice** — new `last_verified` SHA, what's done, what remains. Then *any*
+pause (planned hand-off, long run, `/clear`, crash) resumes cleanly from the latest checkpoint, not
+just from a crash.
 
 **Per-ticket lock:** the state comment carries `lock: {owner_sha, ts}`. Reclaim a lock only if you
 can prove you own it (matching commit lineage) or it exceeds the TTL (default 45 min). No naked
@@ -78,6 +95,10 @@ the state comment, and hand off to the human. No "try harder."
 ### P0 — Intake & context (the only interactive step up front)
 1. Load the ticket (`gh issue view <#> --json number,title,body,labels`). If inline, offer to create
    the ticket first (`AIA-0XXX` title, `bug`/`feature` label, add to board #1).
+   **Umbrella/epic tickets** (an `epic` label + a `- [ ] #NNN` task-list): confirm the scope for
+   *this* run (which children — ask in P0 if unclear), then treat it as multi-child — commit **one
+   slice per child**, reference the child in each commit subject (e.g. `… (#331)`), and **tick the
+   umbrella's task-list** as each child lands. The state comment tracks per-child done/pending.
 2. Extract acceptance criteria. If absent, infer and **confirm in one line**.
 3. **State the risk-category classification explicitly** — high-risk = security/privacy,
    persistence/Core Data, payments/auth, ATS/networking, entitlements, or broad-UI. Surface it for
@@ -92,7 +113,9 @@ the state comment, and hand off to the human. No "try harder."
   (`codex exec -m gpt-5.5 -C <ios> --full-auto -o <out> "…" </dev/null` — redirect stdin or it
   hangs). Auto-apply **only mechanically-obvious** corrections; **surface scope/approach changes**
   for one-line confirmation before P2.
-- Store the plan + the auto-applied diff in the state comment.
+- **Post the full hardened plan as its own `<!-- ship-ticket:plan -->` ticket comment** (plus the
+  auto-applied diff) — **not** to scratchpad. Scratchpad is session-scoped; a fresh session resuming
+  this ticket must be able to read the plan from GitHub.
 - **G1:** default **ON**. Goes **OFF only when, at P0, the human acknowledged BOTH the acceptance
   criteria AND the stated risk classification** (and it isn't a high-risk category). `--plan-gate`
   forces it on.
