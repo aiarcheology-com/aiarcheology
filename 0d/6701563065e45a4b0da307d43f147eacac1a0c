@@ -1,0 +1,23 @@
+.claude/skills/ship-ticket/references/banned-diff.md
+  s_7703fe3381cde5::t_2929ff17484194 1-48
+.claude/skills/ship-ticket/references/state-schema.md
+  s_7703fe3381cde5::t_1275ee33e86232 1-56
+.claude/skills/ship-ticket/SKILL.md
+  s_7703fe3381cde5::t_786d096bc4167e 1-172
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "0d6701563065e45a4b0da307d43f147eacac1a0c",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
