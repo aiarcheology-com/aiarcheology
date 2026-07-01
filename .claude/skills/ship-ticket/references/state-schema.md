@@ -1,15 +1,16 @@
 # ship-ticket state
 
 Source of truth = one **updatable** comment on the ticket, tagged so resume can find and update it
-(never duplicate). Post/refresh it as a fenced json block inside an HTML-comment marker:
+(never duplicate). Post/refresh it as a fenced json block inside an HTML-comment marker (shown here
+with a 4-backtick outer fence so the inner 3-backtick block renders literally):
 
-```
+````
 <!-- ship-ticket:state -->
 ```json
 { ...state... }
 ```
 <!-- /ship-ticket:state -->
-```
+````
 
 On every run: `gh issue view <#> --json comments` → find the marker → parse → continue. Update the
 **same** comment id (`gh api …/comments/<id> -X PATCH`). A local

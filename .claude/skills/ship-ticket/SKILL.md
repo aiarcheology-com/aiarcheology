@@ -48,11 +48,12 @@ Do **not** activate for a one-line fix the user is watching you make — that's 
 - **Branch/issue:** `feature/AIA-XXXX/<slug>`, base `develop`. Title issues `AIA-0XXX: …`.
   Add to project board #1 (owner `aiarcheology-com`); Status field `PVTSSF_lADODw8uZM4BMCyNzg7cGQI`,
   options: In Review `ce9bc762`, Done `98236657`.
-- **Pre-push gate mirrors CI:** `swiftlint.sh` + `harmonize.sh` + unit + UI tests.
+- **Pre-push gate mirrors CI:** `./scripts/swiftlint.sh` + `./scripts/harmonize.sh` (both run
+  **from the repo root**, not `ios/`) + unit + UI tests.
 
 ## Durable state & resumability
 Keep the source of truth in a single **updatable, idempotency-marked ticket comment** (see
-`references/state-schema.md`) — a fenced ```json block tagged `<!-- ship-ticket:state -->`.
+`references/state-schema.md`) — a JSON code block tagged `<!-- ship-ticket:state -->`.
 Reload it at the start of every run so `/clear`, a crash, or another machine reads the real state.
 A local `scratchpad/<ticket>-ship-state.json` is a cache only (must be gitignored). On resume:
 find the branch/PR, read the state comment, and **continue** — never duplicate a branch, PR, or
@@ -111,9 +112,10 @@ the state comment, and hand off to the human. No "try harder."
   leaking to production) are raised as an **advisory P4 finding**, not on the hard rail.
 
 ### P3a — Objective sweep  ← **THE ONLY GATE**
-Run from `ios/` with `DEVELOPER_DIR` set, deterministic pass/fail:
-`build-for-testing` → `swiftlint.sh` → `harmonize.sh` → unit tests → UI tests
-(`-testPlan MLBrowserUITests`, non-disrupting sim). Fix→re-verify counts against the counter.
+Deterministic pass/fail, with `DEVELOPER_DIR` set: `build-for-testing` (from `ios/`) →
+`./scripts/swiftlint.sh` → `./scripts/harmonize.sh` (both from the **repo root**) → unit tests →
+UI tests (from `ios/`, `-testPlan MLBrowserUITests`, non-disrupting sim). Fix→re-verify counts
+against the counter.
 `--no-ui-tests` drops the UI suite here and triggers the UI-unverified banner (below).
 
 ### P3b — Agentic feature check  (ADVISORY — never gates)
