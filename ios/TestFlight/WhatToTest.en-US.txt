@@ -1,45 +1,19 @@
-Test Focus: Adaptive address bar on iPhone (bottom in portrait, top in landscape)
+Test Focus: No app changes — documentation & developer tooling only
 Build: TBD
 
 What's new in this build:
-On iPhone the browser address bar now adapts to orientation, like Safari:
-- Portrait: the address bar sits at the BOTTOM of the screen (easier to reach one-handed).
-- Landscape: the address bar is back in the TOP navigation bar.
-iPad and Mac are unchanged (address bar stays at the top in both orientations).
+Nothing user-visible. This build only updates engineering documentation (new ARCHITECTURE.md,
+AGENTS.md refinements) and internal agent tooling; no application code changed.
 
 Reminder: you need an account to use the app, and (with payments on) an active subscription or
 free trial to get past the paywall. TestFlight purchases use Apple's Sandbox — you are NOT charged
 real money, and trial/renewal periods are accelerated.
 
-Devices / Platforms
-- iPhone (required — this is an iPhone-only change)
-- iPad (regression only)
+1. Light regression (optional)
+- Browse a couple of normal websites and confirm pages still load.
+- Run detection on a page and confirm annotations still appear.
 
-1. Adaptive placement (primary focus — iPhone)
-- Get past the paywall so the browser (map) screen is showing.
-- In PORTRAIT: the address bar should be at the bottom of the screen, just above the home
-  indicator, and the floating navigation capsule (back / reload / forward) should sit ABOVE it —
-  the two must NOT overlap.
-- Rotate to LANDSCAPE: the address bar should move up into the top navigation bar; the top bar
-  keeps the side-menu, Find, detection (play) and adjust buttons.
-- Rotate back to PORTRAIT: the address bar returns to the bottom.
-
-2. Address bar still works at the bottom
-- Tap the bottom address bar → the location/search sheet should open as before.
-- Enter a URL or pick a history entry → the page loads. Dismiss the sheet → back to browsing.
-
-3. Coexistence with the floating controls
-- Try dragging the floating capsule toward the bottom in portrait — it should not be draggable
-  on top of the bottom address bar (it stays clear of it).
-- Start object detection (fullscreen): the address bar is hidden in fullscreen, the floating
-  capsule and tools toggle behave as before.
-
-4. Light regression
-- iPad: address bar stays in the top bar in both orientations.
-- Browse a couple of normal websites and confirm pages still load; run detection and confirm
-  annotations still appear.
-
-5. Report Issues
+2. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version

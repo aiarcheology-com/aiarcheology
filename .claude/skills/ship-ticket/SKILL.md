@@ -12,7 +12,7 @@ allowed-tools: [Bash, Read, Edit, Write, Grep, Glob, Task, AskUserQuestion]
 
 # ship-ticket — autonomous ticket → testable PR
 
-You are a **thin orchestrator + fixer**. You compose existing skills (`agent-skills:code-review`,
+You are a **thin orchestrator + fixer**. You compose existing skills (the native `/code-review`,
 `grill-yourself`, CodeRabbit, codex) and drive the ML Browser ship workflow deterministically.
 The single guiding invariant: **zero unapproved irreversible or paid side effects.** Everything
 local is autonomous; every push and every merge is human-gated because Xcode Cloud CI is paid.
@@ -36,9 +36,17 @@ Do **not** activate for a one-line fix the user is watching you make — that's 
   versioned `Xcode-26.6.0.app`). Export it for **every** `xcodebuild`/`xcrun`/git-with-hooks call —
   background shells lose the selection and fall back to CommandLineTools. Fail loudly if none.
 - **Build/test dir:** always `cd` to `ios/` (the workspace lives there, not the repo root).
-- **Sims:** run tests on the **non-disrupting** sim `AB795324-BC67-4A1D-A275-8E5A84829060`
-  (iPhone Air). Never launch on the user's active sim `F1C04808-8017-43B4-AC58-275A8152429B`.
-  The P3b advisory verifier uses its **own** dedicated `simctl erase`'d sim.
+- **Sims (discover by name — never hardcode UDIDs; they are machine-specific):** tests run on a
+  dedicated sim named **`ship-ticket-runner`**; the P3b advisory verifier uses its **own**
+  **`ship-ticket-verifier`** (`simctl erase`'d each run). Resolve each at runtime:
+  `xcrun simctl list devices available -j` → device with that exact name on the **newest** iOS
+  runtime; if absent, create it (`xcrun simctl create <name> <newest iPhone devicetype>
+  <newest iOS runtime>`). Durable state (the ticket comment) records only the sim **name +
+  runtime** — never a UDID (machine-specific; goes stale on resume). Re-resolve the UDID
+  fresh at runtime on every run/resume.
+  **Never launch on any other `Booted` sim** — a booted sim you didn't create is the user's.
+  If no iOS simulator runtime is installed, **stop and tell the user**
+  (`xcodebuild -downloadPlatform iOS`) — don't improvise a destination.
 - **UI tests:** require `-testPlan MLBrowserUITests` (the scheme default excludes them).
   `SIMCTL_CHILD_UI_TESTING=1` activates the DEBUG mock auth/subscription providers (bypasses
   auth/paywall) — it also wipes the Caches Core Data store, so it is a *different* path than
@@ -109,7 +117,8 @@ the state comment, and hand off to the human. No "try harder."
 
 ### P1 — Plan  (Gate **G1**, risk-tiered)
 - Draft: steps → per-step verify check, assumptions, known risks.
-- Adversarial review: spawn `grill-yourself:grill-master` and a codex second opinion
+- Adversarial review: run the local `grill-yourself` skill (grill-master subagent, multi-round
+  to consensus; escalations land in the G1 prompt) and a codex second opinion
   (`codex exec -m gpt-5.5 -C <ios> --full-auto -o <out> "…" </dev/null` — redirect stdin or it
   hangs). Auto-apply **only mechanically-obvious** corrections; **surface scope/approach changes**
   for one-line confirmation before P2.
@@ -150,7 +159,8 @@ fidelity; bypass-with-label only when a flow is otherwise unreachable. `uncertai
 reported as `broken`. Evidence is invalidated by any later commit touching the verified flow.
 
 ### P4 — Code review (after cheap checks, before repeating the expensive UI sweep)
-- `agent-skills:code-review` (branch mode) + CodeRabbit CLI + codex review.
+- Native `/code-review` skill (review the branch diff) + CodeRabbit CLI (if installed;
+  skip with a note in the PR body if not) + codex review.
 - **Triage, don't rubberstamp. Classify findings:** correctness / security / test-failure →
   auto-fix; architecture / product / API / scope-expanding → **surface for human approval**.
 - Then run the full P3a once.

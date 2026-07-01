@@ -19,6 +19,8 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 | Test plans | `ios/MLBrowserTestPlan/MLBrowserUnitTests.xctestplan`, `ios/MLBrowserTestPlan/MLBrowserUITests.xctestplan` |
 | Run unit tests (CLI) | `./scripts/unittest.sh` or `./scripts/unittest.sh --verbose` |
 | Build & test (CLI) | `xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -destination 'platform=iOS Simulator,id=<UDID from xcrun simctl list devices available>' -testPlan MLBrowserUnitTests test` (or just use `./scripts/unittest.sh`, which picks a simulator automatically) |
+| Run a single test (CLI) | Add `-only-testing:MLBrowserUnitTests/<TestClass>/<testMethod>` to the `xcodebuild … test` command above (`./scripts/unittest.sh` runs the whole plan) |
+| Codebase map / wiring | `./ARCHITECTURE.md` |
 
 ## 1. The Mindset
 
@@ -32,10 +34,13 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 
 ## 2. Related Documentation (read before big changes)
 
+- `./ARCHITECTURE.md`: the app's concrete wiring — layering, composition root (`DependencyContainer`), app entry/gating, and the detection pipeline. Read this to orient in the codebase.
 - `../LOGGING_GUIDE.md`: OSLog usage, log levels, privacy annotations, and crash policy.
 - `./MLBrowser/README.md`: project setup, pinned tools, and secrets management via 1Password.
 
 ## 3. Architecture & State
+
+> For the concrete wiring and file map (composition root, app entry/gating, detection pipeline), see **`./ARCHITECTURE.md`**. This section covers the *rules* that structure must follow.
 
 - **Pattern**: pragmatic MVVM-like structure.
   - **Views**: dumb; they render state and send intents/actions.
@@ -219,6 +224,7 @@ Add rules to `ios/MLBrowserUnitTests/ArchitectureTests.swift`. Each rule should:
 
 ## 10. Security, Privacy & Secrets
 
+- **On-device ML privacy invariant (the product promise)**: page snapshots and detection imagery never leave the device. The app must not transmit them — no uploads, no Sentry attachments or breadcrumbs carrying image data, no image contents in logs. The only path off-device is an explicit user-initiated export/share.
 - **Never commit secrets**.
   - Templates (committed): `ios/Secrets.template.xcconfig`, `ios/.sentryclirc.template`
   - Generated (gitignored): `ios/Secrets.xcconfig`, `ios/.sentryclirc`
@@ -276,6 +282,7 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
 
 ### Pull requests
 
+- Pull requests target `develop`.
 - **Every time a PR is opened (or materially updated), update `ios/TestFlight/WhatToTest.en-US.txt`** with a short "what to test" section for that change. This is mandatory — no PR without it. Xcode Cloud ships this file's contents to TestFlight testers as the build's "What to Test" description. Keep it:
   - **Tester-facing, not dev jargon** — describe the user-visible behavior and concrete steps to exercise it, not the implementation.
   - **Scoped to this change** — what's new/changed in this PR and how to verify it; call out anything risky or easy to miss.
@@ -307,6 +314,8 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
 
 ### Changelog
 
+- **2026-07-02**: §10 now states the on-device privacy invariant explicitly (snapshots/detection imagery never leave the device); §13 Pull requests states the `develop` target.
+- **2026-07-02**: Added `ARCHITECTURE.md` (codebase wiring/map) and referenced it from §2, §3, and the cheat sheet; added a single-test CLI cheat-sheet entry.
 - **2026-06-23**: Added Feature Flags guidance (section 3) — gate significant features (login, payments) behind in-source flags now, with a proper flag system deferred to a later PR; plus the iOS payments research summary (StoreKit 2 IAP, not Clerk Billing/Stripe). Made the WhatToTest update mandatory for every PR (section 13).
 - **2026-06-11**: Added Core Data model versioning rules (new model version only after the previous one shipped; unreleased versions are edited in place; explicit Xcode-generated mapping models required per released migration step).
 - **2026-06-11**: Branch naming now documents the issue-key segment (`<type>/AIA-XXXX/desc`) matching actual practice; removed the stale Intel/x86_64 Xcode Cloud claim; cheat-sheet `xcodebuild` example no longer hardcodes a simulator model.
