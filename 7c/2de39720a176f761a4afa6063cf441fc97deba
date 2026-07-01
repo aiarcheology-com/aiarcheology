@@ -1,0 +1,24 @@
+.claude/skills/ship-ticket/references/localization.md
+  s_7703fe3381cde5::t_c83c253450a31b 1-50
+.claude/skills/ship-ticket/SKILL.md
+  s_7703fe3381cde5::t_e9c9a9c266f21d 98-101
+  s_7703fe3381cde5::t_b166bb35679efd 116-118
+  s_7703fe3381cde5::t_80ea9203ca9455 65-77
+  s_7703fe3381cde5::t_c5fbd728952569 53-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "7c2de39720a176f761a4afa6063cf441fc97deba",
+  "prompts": {},
+  "sessions": {
+    "s_7703fe3381cde5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c76a75c6-325d-4beb-ac6a-9fa2d5336d69",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Vladimír Cortes Slavík <vladimir.slavik@aiarcheology.com>"
+    }
+  }
+}
