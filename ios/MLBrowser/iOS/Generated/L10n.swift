@@ -489,6 +489,14 @@ internal enum L10n {
     internal static let defaultPage = L10n.tr("Localizable", "settings.defaultPage", fallback: "Default Page")
     /// Delete Cache
     internal static let deleteCache = L10n.tr("Localizable", "settings.deleteCache", fallback: "Delete Cache")
+    /// Flash color
+    internal static let flashColor = L10n.tr("Localizable", "settings.flashColor", fallback: "Flash color")
+    /// Flash duration
+    internal static let flashDuration = L10n.tr("Localizable", "settings.flashDuration", fallback: "Flash duration")
+    /// Flash when object found
+    internal static let flashOnFinding = L10n.tr("Localizable", "settings.flashOnFinding", fallback: "Flash when object found")
+    /// Flash border size
+    internal static let flashSize = L10n.tr("Localizable", "settings.flashSize", fallback: "Flash border size")
     /// Frequency
     internal static let frequency = L10n.tr("Localizable", "settings.frequency", fallback: "Frequency")
     /// Fullscreen Detection
@@ -524,6 +532,8 @@ internal enum L10n {
     internal enum Section {
       /// Annotation
       internal static let annotation = L10n.tr("Localizable", "settings.section.annotation", fallback: "Annotation")
+      /// Classification
+      internal static let classification = L10n.tr("Localizable", "settings.section.classification", fallback: "Classification")
       /// Debug
       internal static let debug = L10n.tr("Localizable", "settings.section.debug", fallback: "Debug")
       /// ML Browser

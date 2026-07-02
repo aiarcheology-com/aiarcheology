@@ -179,6 +179,7 @@ extension TestabilityIdentification {
 		case settingsReopenLastPage
 		case settingsFullscreenDetection
 		case settingsTiledDetection
+		case settingsFlashOnFinding
 		// Side Menu Cell
 		case sideMenuCellEnabled
 	}
@@ -206,10 +207,14 @@ extension TestabilityIdentification {
 		case findingDetailHighlightOpacity
 		case findingDetailZoom
 		case findingShareZoom
+		// Settings — finding flash (AIA-0374)
+		case settingsFlashDuration
+		case settingsFlashSize
 	}
-	
+
 	enum ColorPicker: String, TestabilityIdentification {
 		case configurationFormAnnotationColor
+		case settingsFlashColor
 	}
 	
 	enum Link: String, TestabilityIdentification {

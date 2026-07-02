@@ -42,6 +42,7 @@ struct SettingsForm: View {
 		NavigationStack(path: $accountPath) {
 			Form {
 				annotationSection
+				classificationSection
 				webContentSection
 				mlBrowserSection
 				accountSection
@@ -129,6 +130,43 @@ struct SettingsForm: View {
 					// Apply to a detection that is already running.
 					guide.fullscreenDetectionSettingChanged()
 				}
+		}
+	}
+
+	/// AIA-0374: classification results have no bounding box — the finding flash IS
+	/// their presentation, hence its own "Classification" section (owner decision).
+	private var classificationSection: some View {
+		Section(header: Text(L10n.Settings.Section.classification)) {
+			Toggle(L10n.Settings.flashOnFinding, isOn: $settings.flashOnFindingEnabled)
+				.testability(Testability.Toggle.settingsFlashOnFinding)
+
+			ColorPicker(L10n.Settings.flashColor, selection: $settings.flashColor)
+				.testability(Testability.ColorPicker.settingsFlashColor)
+
+			VStack(alignment: .leading) {
+				HStack {
+					Text(L10n.Settings.flashDuration)
+					Spacer()
+					Text(Measurement(value: settings.flashDuration, unit: UnitDuration.seconds)
+						.formatted(.measurement(width: .narrow, usage: .asProvided)))
+						.foregroundStyle(.secondary)
+				}
+				Slider(value: $settings.flashDuration, in: Settings.flashDurationRange, step: 0.1)
+					.testability(Testability.Slider.settingsFlashDuration)
+					.accessibilityLabel(Text(L10n.Settings.flashDuration))
+			}
+
+			VStack(alignment: .leading) {
+				HStack {
+					Text(L10n.Settings.flashSize)
+					Spacer()
+					Text(settings.flashSize, format: .number.precision(.fractionLength(0)))
+						.foregroundStyle(.secondary)
+				}
+				Slider(value: $settings.flashSize, in: Settings.flashSizeRange, step: 1)
+					.testability(Testability.Slider.settingsFlashSize)
+					.accessibilityLabel(Text(L10n.Settings.flashSize))
+			}
 		}
 	}
 

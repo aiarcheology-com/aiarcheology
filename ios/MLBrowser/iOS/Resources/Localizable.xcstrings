@@ -11760,6 +11760,54 @@
         }
       }
     },
+    "settings.flashColor" : {
+      "comment" : "Label for the finding-flash color picker (AIA-0374)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flash color"
+          }
+        }
+      }
+    },
+    "settings.flashDuration" : {
+      "comment" : "Label for the finding-flash duration slider (AIA-0374)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flash duration"
+          }
+        }
+      }
+    },
+    "settings.flashOnFinding" : {
+      "comment" : "Toggle: flash the frame when classification finds an object (AIA-0374)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flash when object found"
+          }
+        }
+      }
+    },
+    "settings.flashSize" : {
+      "comment" : "Label for the finding-flash border size slider (AIA-0374)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flash border size"
+          }
+        }
+      }
+    },
     "settings.frequency" : {
       "comment" : "Frequency picker label",
       "extractionState" : "manual",
@@ -12956,6 +13004,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "註釋"
+          }
+        }
+      }
+    },
+    "settings.section.classification" : {
+      "comment" : "Section header for classification settings (AIA-0374)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classification"
           }
         }
       }
