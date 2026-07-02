@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import Vision
 
 /// Style values for the finding flash, passed into `DetectableView` like the other
 /// plain scalars (`showIdentifiers`) and refreshed by the call site via `.onReceive` —
@@ -141,6 +142,38 @@ struct FindingFlashOverlay: View {
 			}
 	}
 }
+
+#if DEBUG
+/// UI-test classificator (AIA-0374): registered by `DeepState` only under the
+/// `-mockClassification` launch argument during UI tests. Alternates one qualifying
+/// label ↔ none per pass, so flash transitions (0→1) recur deterministically — a
+/// constant result would flash exactly once and make the disable-case test vacuous.
+actor MockClassificator: Classifying {
+	let id: UUID
+	var params: DeepDriverParams
+	var observations: [VNObservation] = []
+	private var pass = 0
+
+	init() {
+		let entityId = UUID()
+		self.id = entityId
+		self.params = DeepDriverParams(entityId: entityId)
+	}
+
+	func classify(image: UIImage) async -> [ClassifiedLabel] {
+		pass += 1
+		guard pass.isMultiple(of: 2).not else { return [] }
+		return [ClassifiedLabel(identifier: "mock-object", confidence: 0.99)]
+	}
+
+	func metadata() -> [MLModelMetadataKey: Any]? { nil }
+	func updateConfiguration(_ params: DeepDriverParams) async { self.params = params }
+	func process(image: UIImage) async {}
+	func loadFile() async throws {}
+	func run() async {}
+	func unload() async {}
+}
+#endif
 
 #Preview("Finding flash — tap to fire") {
 	struct FlashPreview: View {

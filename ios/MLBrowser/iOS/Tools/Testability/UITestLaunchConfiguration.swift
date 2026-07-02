@@ -97,6 +97,9 @@ struct UITestLaunchConfiguration: Codable {
 		settings.defaultPage = URL(string: baselineHome)
 		settings.historySize = 30
 		settings.tiledDetection = true
+		// AIA-0374: the flash starts enabled so the finding-flash tests exercise the
+		// real default; the disable-case flips it through the Settings UI itself.
+		settings.flashOnFindingEnabled = true
 
 		// 2) Scenario deltas.
 		switch config.pageScenario {

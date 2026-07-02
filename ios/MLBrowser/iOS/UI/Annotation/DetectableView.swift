@@ -201,6 +201,11 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // value only the UI-test checkpoint marker reads (the marker itself already renders only
         // under UI tests).
         .checkpoint(.detectionCount, value: AppEnvironment.isRunningUITests ? String(renderedDetectionCount) : "")
+        // AIA-0374: finding-flash introspection. flashCount is monotonic (polling can't
+        // miss a transient); classificationCount lets the disable-case assert the flash
+        // froze while classification kept running.
+        .checkpoint(.flashCount, value: AppEnvironment.isRunningUITests ? String(flashController.flashCount) : "")
+        .checkpoint(.classificationCount, value: AppEnvironment.isRunningUITests ? String(flashController.qualifyingCount) : "")
     }
 
     /// Single write path for the displayed frame: the screen's mirror is updated
