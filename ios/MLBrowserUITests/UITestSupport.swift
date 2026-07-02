@@ -80,6 +80,11 @@ enum AID {
 	static let settingsRunAtLaunch = "_AIA:Toggle.SettingsRunAtLaunch"
 	static let settingsTiledDetection = "_AIA:Toggle.SettingsTiledDetection"
 	static let settingsFullscreenDetection = "_AIA:Toggle.SettingsFullscreenDetection"
+	// Classification section (AIA-0374)
+	static let settingsFlashOnFinding = "_AIA:Toggle.SettingsFlashOnFinding"
+	static let settingsFlashColor = "_AIA:ColorPicker.SettingsFlashColor"
+	static let settingsFlashDuration = "_AIA:Slider.SettingsFlashDuration"
+	static let settingsFlashSize = "_AIA:Slider.SettingsFlashSize"
 	static let settingsReopenLastPage = "_AIA:Toggle.SettingsReopenLastPage"
 	static let settingsFrequency = "_AIA:Picker.SettingsFrequency"
 	static let settingsDefaultPage = "_AIA:TextField.SettingsDefaultPage"
