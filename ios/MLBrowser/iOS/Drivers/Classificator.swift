@@ -16,7 +16,7 @@ enum ClassificatorError: Error {
 	case coreModelLoadError
 }
 
-actor Classificator: DeepDriver {
+actor Classificator: Classifying {
     let id: UUID
     var params: DeepDriverParams
     var observations: [VNObservation] = []
@@ -125,5 +125,18 @@ actor Classificator: DeepDriver {
 
 	func run() async {
 		await classify()
+	}
+
+	// MARK: - Classifying (AIA-0374)
+
+	/// Atomic pass: process + classify + value-type remap in one actor-isolated call,
+	/// so callers never orchestrate the stateful triple themselves (see Classifying.swift).
+	func classify(image: UIImage) async -> [ClassifiedLabel] {
+		await process(image: image)
+		await classify()
+		return observations.compactMap { observation in
+			guard let classification = observation as? VNClassificationObservation else { return nil }
+			return ClassifiedLabel(identifier: classification.identifier, confidence: classification.confidence)
+		}
 	}
 }

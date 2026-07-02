@@ -107,6 +107,7 @@
 		8AC650972B2A442A00922648 /* DeepDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC650962B2A442A00922648 /* DeepDriver.swift */; };
 		8AC650992B2A453200922648 /* Driver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC650982B2A453200922648 /* Driver.swift */; };
 		8AC6509B2B2B3D9900922648 /* Classificator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC6509A2B2B3D9900922648 /* Classificator.swift */; };
+		1337A453EA414FC9BECEC618 /* Classifying.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4D6DDA52ECA43FCBADD6A05 /* Classifying.swift */; };
 		8AC6509D2B2B48D500922648 /* Appstate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC6509C2B2B48D500922648 /* Appstate.swift */; };
 		8AC6509F2B2B492C00922648 /* AppMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC6509E2B2B492C00922648 /* AppMode.swift */; };
 		8AC650A12B2B495B00922648 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC650A02B2B495B00922648 /* Settings.swift */; };
@@ -370,6 +371,7 @@
 		8AC650962B2A442A00922648 /* DeepDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepDriver.swift; sourceTree = "<group>"; };
 		8AC650982B2A453200922648 /* Driver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Driver.swift; sourceTree = "<group>"; };
 		8AC6509A2B2B3D9900922648 /* Classificator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Classificator.swift; sourceTree = "<group>"; };
+		E4D6DDA52ECA43FCBADD6A05 /* Classifying.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Classifying.swift; sourceTree = "<group>"; };
 		8AC6509C2B2B48D500922648 /* Appstate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Appstate.swift; sourceTree = "<group>"; };
 		8AC6509E2B2B492C00922648 /* AppMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMode.swift; sourceTree = "<group>"; };
 		8AC650A02B2B495B00922648 /* Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
@@ -634,6 +636,7 @@
 			children = (
 				8AC650952B2A43DB00922648 /* Demo Models */,
 				8AC6509A2B2B3D9900922648 /* Classificator.swift */,
+				E4D6DDA52ECA43FCBADD6A05 /* Classifying.swift */,
 				8A4F0E252F110A0500ABCDEF /* DetectionTiling.swift */,
 				8A112CCA2AC2BCBC00786384 /* Detector.swift */,
 				8AC650962B2A442A00922648 /* DeepDriver.swift */,
@@ -1531,6 +1534,7 @@
 				8AC393B82B2B9E1800C9BA57 /* AlertItem.swift in Sources */,
 				8A51D1BE2B0B98E300D2417C /* DeepConfiguration+CoreDataClass.swift in Sources */,
 				8AC6509B2B2B3D9900922648 /* Classificator.swift in Sources */,
+				1337A453EA414FC9BECEC618 /* Classifying.swift in Sources */,
 				8AA9962C2AD9EB6400371EC8 /* Appearance.swift in Sources */,
 				8A112CCD2AC30E3E00786384 /* View+Extensions.swift in Sources */,
 				8AD3A8332B2F02280058E018 /* DownloadItem+CoreDataClass.swift in Sources */,
