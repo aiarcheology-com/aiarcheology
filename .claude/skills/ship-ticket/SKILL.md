@@ -41,7 +41,10 @@ Do **not** activate for a one-line fix the user is watching you make — that's 
   **`ship-ticket-verifier`** (`simctl erase`'d each run). Resolve each at runtime:
   `xcrun simctl list devices available -j` → device with that exact name on the **newest** iOS
   runtime; if absent, create it (`xcrun simctl create <name> <newest iPhone devicetype>
-  <newest iOS runtime>`). Durable state (the ticket comment) records only the sim **name +
+  <newest iOS runtime>`). **"Newest iPhone devicetype" = the supported iPhone with the highest
+  `minRuntimeVersion`** — neither `simctl list devicetypes` order nor a runtime's
+  `supportedDeviceTypes` order is recency-sorted (learned on AIA-0374: naive "last item"
+  picks iPhone 6s Plus / iPhone 11). Durable state (the ticket comment) records only the sim **name +
   runtime** — never a UDID (machine-specific; goes stale on resume). Re-resolve the UDID
   fresh at runtime on every run/resume.
   **Never launch on any other `Booted` sim** — a booted sim you didn't create is the user's.
