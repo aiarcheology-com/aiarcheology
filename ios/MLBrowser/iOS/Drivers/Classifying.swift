@@ -28,4 +28,3 @@ typealias ClassificationResult = (labels: [ClassifiedLabel], params: DeepDriverP
 protocol Classifying: DeepDriver {
 	func classify(image: UIImage) async -> [ClassifiedLabel]
 }
-
