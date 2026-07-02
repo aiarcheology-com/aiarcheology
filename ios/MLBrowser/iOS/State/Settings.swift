@@ -36,22 +36,7 @@ final class Settings: ObservableObject, Validatable {
 		static let entityId = "entityId"
 		static let fullscreenDetection = "fullscreenDetection"
 		static let tiledDetection = "tiledDetection"
-		static let flashOnFindingEnabled = "flashOnFindingEnabled"
-		static let flashSize = "flashSize"
 	}
-
-	// MARK: - Finding flash (AIA-0374)
-
-	/// Bounds for the flash border-size slider; loads clamp to it so an out-of-range
-	/// persisted value can never drive the animation. Flash color and pulse period are
-	/// PER-MODEL (the configuration's Annotation color / Fade Out Time — AIA-0374).
-	/// `nonisolated`: consumed by nonisolated contexts (`FlashStyle.placeholder`);
-	/// all values are Sendable.
-	nonisolated static let flashSizeRange: ClosedRange<Double> = 2.0...24.0
-	/// Single source for the flash defaults — registered defaults, `reset()`, and
-	/// `FlashStyle.placeholder` all reference these.
-	nonisolated static let flashEnabledDefault = true
-	nonisolated static let flashSizeDefault = 8.0
 
 	public var isFirstLaunchMarked: Bool = false
 
@@ -145,20 +130,6 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
-	/// AIA-0374: flash the content frame when the classification pass finds a qualifying
-	/// object (classification has no bounding box — the flash IS its presentation).
-	@Published public var flashOnFindingEnabled: Bool {
-		didSet {
-			defaults.set(flashOnFindingEnabled, forKey: UserDefaultsKeys.flashOnFindingEnabled)
-		}
-	}
-
-	@Published public var flashSize: Double {
-		didSet {
-			defaults.set(flashSize, forKey: UserDefaultsKeys.flashSize)
-		}
-	}
-
 	@Published public var entityId: UUID? {
 		didSet {
 			defaults.set(entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
@@ -213,11 +184,7 @@ final class Settings: ObservableObject, Validatable {
             // On by default: simulator verification confirmed the edge-detection win
             // (AIA-0217 plan, decision 1); the toggle exists to opt out of the 6x
             // inference cost.
-            UserDefaultsKeys.tiledDetection: true,
-            // On by default: the flash is classification's only presentation channel
-            // (AIA-0374); the toggle exists to opt out.
-            UserDefaultsKeys.flashOnFindingEnabled: Self.flashEnabledDefault,
-            UserDefaultsKeys.flashSize: Self.flashSizeDefault
+            UserDefaultsKeys.tiledDetection: true
         ]
 
 		// Register default values
@@ -234,11 +201,6 @@ final class Settings: ObservableObject, Validatable {
 		self.removeAnnotationOnDrag = defaults.bool(forKey: UserDefaultsKeys.removeAnnotationOnDrag)
 		self.fullscreenDetection = defaults.bool(forKey: UserDefaultsKeys.fullscreenDetection)
 		self.tiledDetection = defaults.bool(forKey: UserDefaultsKeys.tiledDetection)
-		self.flashOnFindingEnabled = defaults.bool(forKey: UserDefaultsKeys.flashOnFindingEnabled)
-		// Clamp on load: a stale/corrupt persisted value must never drive the animation
-		// outside the supported bounds (AIA-0374).
-		self.flashSize = defaults.double(forKey: UserDefaultsKeys.flashSize)
-			.clamped(to: Self.flashSizeRange)
 		if let uuidString = defaults.string(forKey: UserDefaultsKeys.entityId),
 		   let uuid = UUID(uuidString: uuidString) {
 			self.entityId = uuid
@@ -288,8 +250,6 @@ final class Settings: ObservableObject, Validatable {
 		lastPage = nil
 		fullscreenDetection = false
 		tiledDetection = true
-		flashOnFindingEnabled = Self.flashEnabledDefault
-		flashSize = Self.flashSizeDefault
 
 		defaults.removeObject(forKey: UserDefaultsKeys.lastPage)
 		defaults.set(historySize, forKey: UserDefaultsKeys.sizeHistory)
@@ -308,10 +268,3 @@ final class Settings: ObservableObject, Validatable {
 
 }
 
-private extension Comparable {
-	/// Clamps to `range`; loads use this so persisted out-of-range values can never
-	/// drive the flash animation outside supported bounds (AIA-0374).
-	func clamped(to range: ClosedRange<Self>) -> Self {
-		min(max(self, range.lowerBound), range.upperBound)
-	}
-}

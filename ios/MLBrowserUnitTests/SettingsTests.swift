@@ -367,44 +367,4 @@ final class SettingsTests: XCTestCase {
         }
     }
 
-    // MARK: - Finding Flash Tests (AIA-0374)
-
-    func testSettings_DefaultFlashOnFindingEnabled_IsTrue() {
-        settings.reset()
-        XCTAssertTrue(settings.flashOnFindingEnabled)
-    }
-
-    func testSettings_DefaultFlashSize_IsDefault() {
-        settings.reset()
-        XCTAssertEqual(settings.flashSize, Settings.flashSizeDefault)
-    }
-
-    func testSettings_FlashProperties_PersistAcrossInstances() {
-        settings.flashOnFindingEnabled = false
-        settings.flashSize = 12.0
-
-        let reloaded = Settings()
-
-        XCTAssertFalse(reloaded.flashOnFindingEnabled)
-        XCTAssertEqual(reloaded.flashSize, 12.0)
-    }
-
-    func testSettings_FlashSizeOutOfRange_IsClampedOnLoad() {
-        // Bypass the property (sliders can't exceed bounds) and corrupt the store directly.
-        UserDefaults.standard.set(0.0, forKey: "flashSize")
-
-        let reloaded = Settings()
-
-        XCTAssertEqual(reloaded.flashSize, Settings.flashSizeRange.lowerBound)
-    }
-
-    func testSettings_Reset_RestoresFlashDefaults() {
-        settings.flashOnFindingEnabled = false
-        settings.flashSize = 24.0
-
-        settings.reset()
-
-        XCTAssertTrue(settings.flashOnFindingEnabled)
-        XCTAssertEqual(settings.flashSize, Settings.flashSizeDefault)
-    }
 }

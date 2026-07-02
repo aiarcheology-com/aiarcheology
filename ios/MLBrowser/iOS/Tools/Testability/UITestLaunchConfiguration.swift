@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 3
+	static let currentVersion = 4
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -62,6 +62,10 @@ struct UITestLaunchConfiguration: Codable {
 	/// Route model downloads through `StubDownloadURLProtocol` (AIA-0318) so tests never hit the
 	/// network. `nil`/`false` keeps the real network path.
 	var stubDownloads: Bool?
+	/// Seed the bundled FastViT classify demo ENABLED (AIA-0375), so classification
+	/// tests exercise the real model without scripting the drawer. `nil`/`false`
+	/// keeps the baseline (all demos disabled).
+	var enableClassifyDemo: Bool?
 
 	/// Decoded from the launch environment, or `nil` if absent. Traps on malformed input
 	/// or version mismatch — a UI test must never proceed on a misread configuration.
@@ -97,9 +101,6 @@ struct UITestLaunchConfiguration: Codable {
 		settings.defaultPage = URL(string: baselineHome)
 		settings.historySize = 30
 		settings.tiledDetection = true
-		// AIA-0374: the flash starts enabled so the finding-flash tests exercise the
-		// real default; the disable-case flips it through the Settings UI itself.
-		settings.flashOnFindingEnabled = true
 
 		// 2) Scenario deltas.
 		switch config.pageScenario {

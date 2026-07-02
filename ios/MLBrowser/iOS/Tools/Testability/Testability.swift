@@ -178,8 +178,9 @@ extension TestabilityIdentification {
 		case settingsShowLabels
 		case settingsReopenLastPage
 		case settingsFullscreenDetection
+		// Configuration Form — per-model finding flash (AIA-0374)
+		case configurationFormFlashOnFinding
 		case settingsTiledDetection
-		case settingsFlashOnFinding
 		// Side Menu Cell
 		case sideMenuCellEnabled
 	}
@@ -197,6 +198,7 @@ extension TestabilityIdentification {
 	enum Slider: String, TestabilityIdentification {
 		// Configuration Form
 		case configurationFormFadeOutTime
+		case configurationFormFlashSize
 		// Snap Adjustment
 		case snapAdjustmentBrightness
 		case snapAdjustmentContrast
@@ -207,8 +209,6 @@ extension TestabilityIdentification {
 		case findingDetailHighlightOpacity
 		case findingDetailZoom
 		case findingShareZoom
-		// Settings — finding flash (AIA-0374)
-		case settingsFlashSize
 	}
 
 	enum ColorPicker: String, TestabilityIdentification {
@@ -335,6 +335,9 @@ extension TestabilityIdentification {
 		/// Number of classificators whose top-1 label currently qualifies (AIA-0374). The
 		/// disable-case UI test asserts flashCount freezes while THIS keeps changing.
 		case classificationCount
+		/// The current top display label as "identifier=confidence" (AIA-0375) — turns
+		/// "why didn't it qualify" from a guess into a read.
+		case topClassification
 	}
 
 	enum MenuItem: String, TestabilityIdentification {

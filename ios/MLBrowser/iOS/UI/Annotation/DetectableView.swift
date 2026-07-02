@@ -31,9 +31,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     let trigger: P
     let showIdentifiers: Bool
     let tiledDetection: Bool
-    /// Finding-flash style (AIA-0374) — plain value like `showIdentifiers`, refreshed
-    /// by the call site; the view deliberately does not observe `Settings`.
-    let flashStyle: FlashStyle
 
     /// Callback to receive interaction state changes. DetectableView manages state internally.
     private let onInteractionStateChanged: ((ContentInteractionState) -> Void)?
@@ -66,7 +63,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         trigger: P,
         showIdentifiers: Bool,
         tiledDetection: Bool = false,
-        flashStyle: FlashStyle,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
@@ -77,7 +73,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
         self.tiledDetection = tiledDetection
-        self.flashStyle = flashStyle
         self.isCapturingFinding = isCapturingFinding
         self.onFrameChanged = onFrameChanged
         self.onInteractionStateChanged = onInteractionStateChanged
@@ -115,10 +110,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 // classification is on screen, styled by that model's configuration.
                 // Non-interactive by requirement.
                 FindingFlashOverlay(
-                    active: flashStyle.enabled && flashController.qualifyingCount > 0,
+                    active: flashController.qualifyingCount > 0,
                     color: flashController.flashColor,
                     period: flashController.pulsePeriod,
-                    size: flashStyle.size
+                    size: flashController.flashSize
                 )
 
                 // Classified labels (AIA-0374): the same "Show labels" setting that
@@ -227,6 +222,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // froze while classification kept running.
         .checkpoint(.flashCount, value: AppEnvironment.isRunningUITests ? String(flashController.qualifyingPassCount) : "")
         .checkpoint(.classificationCount, value: AppEnvironment.isRunningUITests ? String(flashController.qualifyingCount) : "")
+        .checkpoint(.topClassification, value: AppEnvironment.isRunningUITests
+            ? (flashController.displayLabels.first.map { "\($0.identifier)=\($0.confidence)" } ?? "")
+            : "")
     }
 
     /// Single write path for the displayed frame: the screen's mirror is updated

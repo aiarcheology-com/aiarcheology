@@ -124,11 +124,14 @@ final class DeepState: ObservableObject {
 	
 	func deleteConfiguration(_ entityId: UUID) {
 		let context = dataController.container.viewContext
+		// Per-model flash prefs live in UserDefaults (AIA-0374) — clear them with the row.
+		selectConfiguration(entityId)?.removeFlashDefaults()
 		DeepConfiguration.delete(entityId, in: context)
 	}
 	
 	func deleteConfiguration(_ entity: DeepConfiguration) {
 		let context = dataController.container.viewContext
+		entity.removeFlashDefaults()
 		DeepConfiguration.delete(entity, in: context)
 	}
 	

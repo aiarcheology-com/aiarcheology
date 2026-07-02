@@ -105,10 +105,6 @@ struct WebScreenView: View {
 	@State private var currentPageFile = ""
 	@State private var showIdentifiers: Bool = false
 	@State private var tiledDetection: Bool = false
-	/// Finding-flash style (AIA-0374); refreshed from Settings via `.onReceive` like
-	/// `showIdentifiers` so DetectableView stays decoupled from the Settings object.
-	/// The placeholder mirrors the registered Settings defaults (single source).
-	@State private var flashStyle = FlashStyle.placeholder
 	/// The tapped detection being saved; non-nil presents the save sheet.
 	@State private var findingCapture: FindingCapture?
 	/// Freezes DetectableView's displayed frame while the save sheet is up.
@@ -187,7 +183,6 @@ struct WebScreenView: View {
             trigger: appState.snap.combinedPublishers,
             showIdentifiers: showIdentifiers,
             tiledDetection: tiledDetection,
-            flashStyle: flashStyle,
             isCapturingFinding: $isCapturingFinding,
             onFrameChanged: { frame in
                 appliedFrame = frame
@@ -222,16 +217,9 @@ struct WebScreenView: View {
         .onReceive(appState.settings.$tiledDetection) { value in
             tiledDetection = value
         }
-        .onReceive(appState.settings.$flashOnFindingEnabled) { value in
-            flashStyle.enabled = value
-        }
-        .onReceive(appState.settings.$flashSize) { value in
-            flashStyle.size = value
-        }
         .onAppear {
             showIdentifiers = appState.settings.showIdentifiers
             tiledDetection = appState.settings.tiledDetection
-            flashStyle = FlashStyle.from(appState.settings)
             if hasPerformedInitialAction.not {
                 hasPerformedInitialAction = true
                 if let fixtureURL = appState.settings.launchFixtureURL {

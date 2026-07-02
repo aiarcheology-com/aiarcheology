@@ -50,6 +50,7 @@ final class DemoDataManager {
         
         await loadModelOne()
         await loadModelTwo()
+        await loadModelThree()
         await createBrowsingHistoryIfNeeded()
         
         LoggingPolicy.info("Demo data creation complete", logger: .configuration)
@@ -172,11 +173,28 @@ final class DemoDataManager {
         await loadModel(from: urlInBundle)
     }
     
+    private func loadModelThree() async {
+        // FastViT-T8 (Apple's model gallery, F16, ~8 MB): the demo CLASSIFY model
+        // (AIA-0374/AIA-0375). Gives every install a working classificator so the
+        // finding flash + label bubble are demonstrable — and gives UI/unit tests a
+        // real model instead of a mock (owner directive: no test-only seams).
+        guard let urlInBundle = Bundle.main.url(forResource: "FastViTT8F16", withExtension: "mlmodelc") else {
+            LoggingPolicy.error("Cannot locate FastViTT8F16 demo model in bundle", logger: .configuration)
+            return
+        }
+
+        // AIA-0375: UI tests may seed the classify demo ENABLED so the real model
+        // registers on the insert path — launch-config state, not a mock.
+        let enableForUITests = AppEnvironment.isRunningUITests
+            && UITestLaunchConfiguration.fromEnvironment?.enableClassifyDemo == true
+        await loadModel(from: urlInBundle, enabled: enableForUITests)
+    }
+
     /// Loads a demo model and creates a Core Data configuration for it.
     ///
     /// Model metadata extraction is performed via ModelLoadingService (off MainActor),
     /// while Core Data entity creation remains on MainActor.
-    private func loadModel(from file: URL) async {
+    private func loadModel(from file: URL, enabled: Bool = false) async {
         var urlToPossibleDirectory = file.absoluteString
         if urlToPossibleDirectory.hasSuffix("/") {
             urlToPossibleDirectory.removeLast()
@@ -210,7 +228,7 @@ final class DemoDataManager {
         configuration.phaseOutTime = 2
         configuration.selectedSymbol = .circle
         configuration.file_ = URL(string: url.lastPathComponent)
-        configuration.enabled = false
+        configuration.enabled = enabled
         configuration.transition(to: .draft)
         configuration.transition(to: .ready)
         do {

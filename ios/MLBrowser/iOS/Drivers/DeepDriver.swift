@@ -23,6 +23,9 @@ struct DeepDriverParams: Sendable {
 	var phaseOutTime: Double = 1.0
 	var selectedSymbol: AnnotationSymbol = .circle
 	var demo: Bool = false
+	/// Per-model finding-flash style (AIA-0374; classify models).
+	var flashEnabled: Bool = true
+	var flashSize: Double = 8.0
 }
 
 // Vision result types cross tasks; results are immutable.

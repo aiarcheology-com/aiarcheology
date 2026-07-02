@@ -225,6 +225,42 @@ struct ConfigurationForm: View {
 				}
 				.testability(Testability.Picker.configurationFormSymbol)
 			}
+			// Classification presents via the pulsing frame flash: its per-model
+			// options live here beside Color/Fade Out Time (owner decision, AIA-0374).
+			// Custom bindings push changes to the LIVE driver immediately — these
+			// fields are UserDefaults-backed (see DeepConfiguration), so the Core
+			// Data change observer never fires for them.
+			if configuration.modelType == .classificator {
+				Toggle(L10n.Configuration.flashOnFinding, isOn: Binding(
+					get: { configuration.flashOnFindingEnabled },
+					set: { newValue in
+						configuration.flashOnFindingEnabled = newValue
+						Task { await deep.drivers.update(configuration: configuration) }
+					}
+				))
+				.testability(Testability.Toggle.configurationFormFlashOnFinding)
+
+				VStack(alignment: .leading) {
+					HStack {
+						Text(L10n.Configuration.flashSize)
+						Spacer()
+						Text(configuration.flashSize, format: .number.precision(.fractionLength(0)))
+							.foregroundStyle(.secondary)
+					}
+					Slider(
+						value: Binding(
+							get: { configuration.flashSize },
+							set: { newValue in
+								configuration.flashSize = newValue
+								Task { await deep.drivers.update(configuration: configuration) }
+							}
+						),
+						in: DeepConfiguration.flashSizeRange, step: 1
+					)
+					.testability(Testability.Slider.configurationFormFlashSize)
+					.accessibilityLabel(Text(L10n.Configuration.flashSize))
+				}
+			}
 		}
 	}
 	

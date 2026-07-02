@@ -18,8 +18,6 @@ final class SettingsUITests: UITestCase {
         AID.settingsShowLabels,
         AID.settingsTiledDetection,
         AID.settingsFullscreenDetection,
-        AID.settingsFlashOnFinding,
-        AID.settingsFlashSize,
         AID.settingsDefaultPage,
         AID.settingsReopenLastPage,
         AID.settingsHistory,

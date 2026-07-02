@@ -8,28 +8,6 @@
 import SwiftUI
 import UIKit
 
-/// Global flash preferences (AIA-0374): just the enable switch and border size.
-/// Color and pulse period are PER-MODEL — they come from the qualifying
-/// configuration's `annotationColor` / `phaseOutTime` (the same Annotation options
-/// the detection config sheet exposes), delivered via `ClassificationResult.params`.
-/// Passed into `DetectableView` like the other plain scalars (`showIdentifiers`).
-struct FlashStyle: Equatable {
-	var enabled: Bool
-	var size: Double
-
-	@MainActor
-	static func from(_ settings: Settings) -> FlashStyle {
-		FlashStyle(enabled: settings.flashOnFindingEnabled, size: settings.flashSize)
-	}
-
-	/// Pre-`onAppear` placeholder matching the registered Settings defaults — one
-	/// source of truth (`Settings.flash*Default`), so the first frame can't diverge.
-	static let placeholder = FlashStyle(
-		enabled: Settings.flashEnabledDefault,
-		size: Settings.flashSizeDefault
-	)
-}
-
 /// Consumes classification passes as a parallel branch of the snapshot flow —
 /// deliberately independent of the detection queue/appliedFrame machinery (AIA-0374):
 /// classification says "there IS an object in this image" (no location), so its
@@ -58,9 +36,11 @@ final class ClassificationFlashController: ObservableObject {
 	@Published private(set) var qualifyingCount = 0
 
 	/// Style of the active flash, from the FIRST qualifying driver's per-model
-	/// configuration (Annotation → Color / Fade Out Time in the config sheet).
+	/// configuration (Annotation → Color / Fade Out Time / Flash size in the config
+	/// sheet — every flash option is per-model, AIA-0374 owner decision).
 	@Published private(set) var flashColor: Color = .yellow
 	@Published private(set) var pulsePeriod: Double = 1.0
+	@Published private(set) var flashSize: Double = DeepConfiguration.flashSizeDefault
 
 	/// Monotonic count of qualifying passes — UI-test/introspection checkpoint value
 	/// (a counter can't be missed by polling).
@@ -105,15 +85,20 @@ final class ClassificationFlashController: ObservableObject {
 		let newDisplay = Array(labels)
 		if displayLabels != newDisplay { displayLabels = newDisplay }
 
+		// A model participates in the flash only when ITS OWN toggle is on — display
+		// labels above stay independent, so disabled models remain visible in the bubble.
 		let qualifying = results.filter { result in
+			result.params.flashEnabled &&
 			(result.labels.map(\.confidence).max() ?? 0) >= Self.qualifyingConfidenceThreshold
 		}
 		if let first = qualifying.first {
 			qualifyingPassCount += 1
 			let color = first.params.annotationColor
 			let period = first.params.phaseOutTime.clamped(to: Self.pulsePeriodRange)
+			let size = first.params.flashSize
 			if flashColor != color { flashColor = color }
 			if pulsePeriod != period { pulsePeriod = period }
+			if flashSize != size { flashSize = size }
 		}
 		if qualifyingCount != qualifying.count {
 			qualifyingCount = qualifying.count

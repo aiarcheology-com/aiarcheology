@@ -1,0 +1,44 @@
+//
+//  ClassificationDemoUITests.swift
+//  MLBrowserUITests
+//
+//  AIA-0374/AIA-0375: end-to-end classification through the REAL bundled demo model
+//  (FastViT-T8, Apple model gallery) — no mocks. The local HTML fixture renders as a
+//  web page, and a deterministic seeded maze qualifies it (ImageNet "maze"; pattern pre-validated at unit speed by FixturePatternQualificationTests), so the finding flash pulses
+//  and qualifying passes accumulate. Exercises the real seeding/insert-registration
+//  path, the real classify pipeline, and the checkpoint surface.
+//  All waits are checkpoint-predicate based (no sleeps, AIA-0312).
+//
+
+import XCTest
+
+final class ClassificationDemoUITests: UITestCase {
+
+    func testClassifyDemo_seededEnabled_qualifiesOnFixturePage() throws {
+        // The classify demo seeds ENABLED via launch config (real seeding + insert-
+        // registration path; drawer-enable flow coverage belongs to AIA-0322).
+        launch(LaunchConfig(
+            pageScenario: .localFixture,
+            fixtureName: "uitest_classify_page",
+            enableClassifyDemo: true
+        ))
+
+        // Start the snapshot timer.
+        let play = app.buttons[AID.play]
+        XCTAssertTrue(play.waitForExistence(timeout: 10), "Play button missing")
+        play.tap()
+
+        // Generous first wait: the enable path loads the model asynchronously and the
+        // first snapshot pass lands on the next timer tick.
+        XCTAssertTrue(
+            waitForCheckpoint(AID.cpClassificationCount, equals: "1", timeout: 60),
+            "The real classificator should qualify on the rendered fixture page — top: \(checkpointValue(AID.cpTopClassification, timeout: 2) ?? "<none>")"
+        )
+        // Qualifying passes accumulate while the finding stays on screen (the pulse's
+        // driving signal) — proves recurrence, not a one-shot.
+        XCTAssertTrue(
+            waitForCheckpoint(AID.cpFlashCount, equals: "2", timeout: 30),
+            "Qualifying passes should accumulate while the finding persists"
+        )
+    }
+}

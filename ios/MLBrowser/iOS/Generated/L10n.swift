@@ -235,6 +235,10 @@ internal enum L10n {
     internal static let fadeOutTime = L10n.tr("Localizable", "configuration.fadeOutTime", fallback: "Fade Out Time")
     /// File
     internal static let file = L10n.tr("Localizable", "configuration.file", fallback: "File")
+    /// Flash when object found
+    internal static let flashOnFinding = L10n.tr("Localizable", "configuration.flashOnFinding", fallback: "Flash when object found")
+    /// Flash border size
+    internal static let flashSize = L10n.tr("Localizable", "configuration.flashSize", fallback: "Flash border size")
     /// Link
     internal static let link = L10n.tr("Localizable", "configuration.link", fallback: "Link")
     /// Symbol
@@ -489,10 +493,6 @@ internal enum L10n {
     internal static let defaultPage = L10n.tr("Localizable", "settings.defaultPage", fallback: "Default Page")
     /// Delete Cache
     internal static let deleteCache = L10n.tr("Localizable", "settings.deleteCache", fallback: "Delete Cache")
-    /// Flash when object found
-    internal static let flashOnFinding = L10n.tr("Localizable", "settings.flashOnFinding", fallback: "Flash when object found")
-    /// Flash border size
-    internal static let flashSize = L10n.tr("Localizable", "settings.flashSize", fallback: "Flash border size")
     /// Frequency
     internal static let frequency = L10n.tr("Localizable", "settings.frequency", fallback: "Frequency")
     /// Fullscreen Detection
@@ -526,12 +526,10 @@ internal enum L10n {
       }
     }
     internal enum Section {
-      /// Classification
-      internal static let classification = L10n.tr("Localizable", "settings.section.classification", fallback: "Classification")
+      /// Annotation
+      internal static let annotation = L10n.tr("Localizable", "settings.section.annotation", fallback: "Annotation")
       /// Debug
       internal static let debug = L10n.tr("Localizable", "settings.section.debug", fallback: "Debug")
-      /// Detection
-      internal static let detection = L10n.tr("Localizable", "settings.section.detection", fallback: "Detection")
       /// ML Browser
       internal static let mlBrowser = L10n.tr("Localizable", "settings.section.mlBrowser", fallback: "ML Browser")
       /// Web Content

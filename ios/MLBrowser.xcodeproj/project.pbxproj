@@ -132,6 +132,7 @@
 		8AE0BC082A97B0B40086DDF9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8AE0BC072A97B0B40086DDF9 /* Assets.xcassets */; };
 		8AE0BC0B2A97B0B40086DDF9 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8AE0BC0A2A97B0B40086DDF9 /* Preview Assets.xcassets */; };
 		8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */; };
+		6F31DAC55F2B4ACABB5FBBE1 /* FastViTT8F16.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 58F0B2DED415479BBF3199FD /* FastViTT8F16.mlpackage */; };
 		8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */; };
 		917A15383011E3F093BF1F14 /* StoreKitSubscriptionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04CC35810A5A24A66927181A /* StoreKitSubscriptionProvider.swift */; };
 		94048A5C2EE02D440064AC55 /* DetectableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94048A5B2EE02D440064AC55 /* DetectableView.swift */; };
@@ -220,8 +221,10 @@
 		94E6A66D2EEE1EEB008E1B4B /* MetadataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E6A66C2EEE1EE6008E1B4B /* MetadataParser.swift */; };
 		94E6A6772EEE224A008E1B4B /* MLModelMetadataParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94E6A6762EEE224A008E1B4B /* MLModelMetadataParserTests.swift */; };
 		94F1631600000000000000A2 /* uitest_page.html in Resources */ = {isa = PBXBuildFile; fileRef = 94F1631600000000000000A1 /* uitest_page.html */; };
+		8A2F619E80E84143B3BF09E1 /* uitest_classify_page.html in Resources */ = {isa = PBXBuildFile; fileRef = 59AA37AF30504C8C9835EC19 /* uitest_classify_page.html */; };
 		94F1631600000000000000B2 /* LocalPageUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F1631600000000000000B1 /* LocalPageUITests.swift */; };
 		94F1631700000000000000C2 /* DetectionCountCheckpointUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F1631700000000000000C1 /* DetectionCountCheckpointUITests.swift */; };
+		10C7A2E888F44A46B69E150E /* ClassificationDemoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86D0C80027004283842AFBDF /* ClassificationDemoUITests.swift */; };
 		94F1631800000000000000D2 /* StubDownloadURLProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F1631800000000000000D1 /* StubDownloadURLProtocolTests.swift */; };
 		94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4012ECE46C60047B283 /* DependencyContainer.swift */; };
 		94FCC4032ECE46C60047B283 /* DemoDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4002ECE46C60047B283 /* DemoDataManager.swift */; };
@@ -403,6 +406,7 @@
 		8AE0BC202A97B0B40086DDF9 /* MLBrowserUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MLBrowserUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = HroudaDetector15.mlpackage; sourceTree = "<group>"; };
 		8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = AIArcheology.mlpackage; sourceTree = "<group>"; };
+		58F0B2DED415479BBF3199FD /* FastViTT8F16.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = FastViTT8F16.mlpackage; sourceTree = "<group>"; };
 		9214C9A3D785728F7E4CF911 /* FeatureFlags.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureFlags.swift; sourceTree = "<group>"; };
 		94048A5B2EE02D440064AC55 /* DetectableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectableView.swift; sourceTree = "<group>"; };
 		8A37A2034FAA4C4B857D8DDD /* FindingFlash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingFlash.swift; sourceTree = "<group>"; };
@@ -488,8 +492,10 @@
 		94E6A66C2EEE1EE6008E1B4B /* MetadataParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataParser.swift; sourceTree = "<group>"; };
 		94E6A6762EEE224A008E1B4B /* MLModelMetadataParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLModelMetadataParserTests.swift; sourceTree = "<group>"; };
 		94F1631600000000000000A1 /* uitest_page.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = uitest_page.html; path = iOS/Resources/UITestFixtures/uitest_page.html; sourceTree = "<group>"; };
+		59AA37AF30504C8C9835EC19 /* uitest_classify_page.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = uitest_classify_page.html; path = iOS/Resources/UITestFixtures/uitest_classify_page.html; sourceTree = "<group>"; };
 		94F1631600000000000000B1 /* LocalPageUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPageUITests.swift; sourceTree = "<group>"; };
 		94F1631700000000000000C1 /* DetectionCountCheckpointUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionCountCheckpointUITests.swift; sourceTree = "<group>"; };
+		86D0C80027004283842AFBDF /* ClassificationDemoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClassificationDemoUITests.swift; sourceTree = "<group>"; };
 		94F1631800000000000000D1 /* StubDownloadURLProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDownloadURLProtocolTests.swift; sourceTree = "<group>"; };
 		94FCC4002ECE46C60047B283 /* DemoDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManager.swift; sourceTree = "<group>"; };
 		94FCC4012ECE46C60047B283 /* DependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyContainer.swift; sourceTree = "<group>"; };
@@ -672,6 +678,7 @@
 				942B1DDA2EA66353005455F9 /* README.md */,
 				8A3155992B1F9EFA00EA9110 /* privacypolicy.html */,
 				94F1631600000000000000A1 /* uitest_page.html */,
+				59AA37AF30504C8C9835EC19 /* uitest_classify_page.html */,
 			);
 			name = Documents;
 			sourceTree = "<group>";
@@ -885,6 +892,7 @@
 			isa = PBXGroup;
 			children = (
 				8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */,
+				58F0B2DED415479BBF3199FD /* FastViTT8F16.mlpackage */,
 				8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */,
 			);
 			path = "Demo Models";
@@ -1031,6 +1039,7 @@
 				94E018910000000000000012 /* SettingsUITests.swift */,
 				94E018910000000000000014 /* BrowsingHistoryUITests.swift */,
 				94F1631700000000000000C1 /* DetectionCountCheckpointUITests.swift */,
+				86D0C80027004283842AFBDF /* ClassificationDemoUITests.swift */,
 				94F1631600000000000000B1 /* LocalPageUITests.swift */,
 				94E018910000000000000016 /* AddressBarUITests.swift */,
 				DDCA151D54FB4492B8A89AB4 /* AuthGateUITests.swift */,
@@ -1332,6 +1341,7 @@
 			files = (
 				940A10022F0500010000A002 /* Localizable.xcstrings in Resources */,
 				8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */,
+				6F31DAC55F2B4ACABB5FBBE1 /* FastViTT8F16.mlpackage in Resources */,
 				8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */,
 				942B1DDB2EA66353005455F9 /* README.md in Resources */,
 				942B1DDD2EA66353005455F9 /* LOGGING_GUIDE.md in Resources */,
@@ -1339,6 +1349,7 @@
 				8AE0BC082A97B0B40086DDF9 /* Assets.xcassets in Resources */,
 				8A31559A2B1F9EFA00EA9110 /* privacypolicy.html in Resources */,
 				94F1631600000000000000A2 /* uitest_page.html in Resources */,
+				8A2F619E80E84143B3BF09E1 /* uitest_classify_page.html in Resources */,
 				5F0187F61099AC6FBBD6676E /* Configuration.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1665,6 +1676,7 @@
 				94E018910000000000000013 /* SettingsUITests.swift in Sources */,
 				94E018910000000000000015 /* BrowsingHistoryUITests.swift in Sources */,
 				94F1631700000000000000C2 /* DetectionCountCheckpointUITests.swift in Sources */,
+				10C7A2E888F44A46B69E150E /* ClassificationDemoUITests.swift in Sources */,
 				94F1631600000000000000B2 /* LocalPageUITests.swift in Sources */,
 				94E018910000000000000017 /* AddressBarUITests.swift in Sources */,
 				94FCC4072ED063010047B283 /* OSLog+Extensions.swift in Sources */,

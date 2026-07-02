@@ -69,7 +69,7 @@ final class DemoDataManagerTests: XCTestCase {
         
         // Should have at most 2 demo configs (the bundled models), not 6
         // Note: In test environment, bundled models may not exist, so count could be 0
-        XCTAssertLessThanOrEqual(demoConfigs.count, 2)
+        XCTAssertLessThanOrEqual(demoConfigs.count, 3) // 2 detect + 1 classify demo (AIA-0375)
     }
     
     // MARK: - deleteBrowsingHistory Tests
@@ -94,6 +94,6 @@ final class DemoDataManagerTests: XCTestCase {
         
         // Even with multiple calls, should have at most 2 demo configs
         // Note: In test environment, bundled models may not exist, so count could be 0
-        XCTAssertLessThanOrEqual(demoConfigs.count, 2)
+        XCTAssertLessThanOrEqual(demoConfigs.count, 3) // 2 detect + 1 classify demo (AIA-0375)
     }
 }
