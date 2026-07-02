@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import SwiftUI
 @testable import ML_Browser
 
 @MainActor
@@ -356,13 +357,97 @@ final class SettingsTests: XCTestCase {
     }
     
     // MARK: - ValidationError Tests
-    
+
     func testValidationError_InvalidData_ContainsMessage() {
         let error = ValidationError.invalidData("Test message")
-        
+
         switch error {
         case .invalidData(let message):
             XCTAssertEqual(message, "Test message")
         }
+    }
+
+    // MARK: - Finding Flash Tests (AIA-0374)
+
+    func testSettings_DefaultFlashOnFindingEnabled_IsTrue() {
+        settings.reset()
+        XCTAssertTrue(settings.flashOnFindingEnabled)
+    }
+
+    func testSettings_DefaultFlashDuration_IsDefault() {
+        settings.reset()
+        XCTAssertEqual(settings.flashDuration, Settings.flashDurationDefault)
+    }
+
+    func testSettings_DefaultFlashSize_IsDefault() {
+        settings.reset()
+        XCTAssertEqual(settings.flashSize, Settings.flashSizeDefault)
+    }
+
+    func testSettings_DefaultFlashColor_IsYellow() {
+        settings.reset()
+        assertColorsEqual(settings.flashColor, .yellow)
+    }
+
+    func testSettings_FlashProperties_PersistAcrossInstances() {
+        settings.flashOnFindingEnabled = false
+        settings.flashDuration = 1.5
+        settings.flashSize = 12.0
+        settings.flashColor = Color(red: 0.2, green: 0.4, blue: 0.6)
+
+        let reloaded = Settings()
+
+        XCTAssertFalse(reloaded.flashOnFindingEnabled)
+        XCTAssertEqual(reloaded.flashDuration, 1.5)
+        XCTAssertEqual(reloaded.flashSize, 12.0)
+        assertColorsEqual(reloaded.flashColor, Color(red: 0.2, green: 0.4, blue: 0.6))
+    }
+
+    func testSettings_FlashDurationOutOfRange_IsClampedOnLoad() {
+        // Bypass the property (sliders can't exceed bounds) and corrupt the store directly.
+        UserDefaults.standard.set(99.0, forKey: "flashDuration")
+        UserDefaults.standard.set(0.0, forKey: "flashSize")
+
+        let reloaded = Settings()
+
+        XCTAssertEqual(reloaded.flashDuration, Settings.flashDurationRange.upperBound)
+        XCTAssertEqual(reloaded.flashSize, Settings.flashSizeRange.lowerBound)
+    }
+
+    func testSettings_CorruptFlashColorData_FallsBackToYellow() {
+        UserDefaults.standard.set(Data([0xDE, 0xAD]), forKey: "flashColor")
+
+        let reloaded = Settings()
+
+        assertColorsEqual(reloaded.flashColor, .yellow)
+    }
+
+    func testSettings_Reset_RestoresFlashDefaults() {
+        settings.flashOnFindingEnabled = false
+        settings.flashDuration = 2.0
+        settings.flashSize = 24.0
+        settings.flashColor = .red
+
+        settings.reset()
+
+        XCTAssertTrue(settings.flashOnFindingEnabled)
+        XCTAssertEqual(settings.flashDuration, Settings.flashDurationDefault)
+        XCTAssertEqual(settings.flashSize, Settings.flashSizeDefault)
+        assertColorsEqual(settings.flashColor, .yellow)
+    }
+
+    /// Colors survive a `UIColor` archive/unarchive roundtrip, so equality is checked on
+    /// resolved RGBA components rather than `Color` identity.
+    private func assertColorsEqual(
+        _ lhs: Color, _ rhs: Color, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        var lr: CGFloat = 0, lg: CGFloat = 0, lb: CGFloat = 0, la: CGFloat = 0
+        var rr: CGFloat = 0, rg: CGFloat = 0, rb: CGFloat = 0, ra: CGFloat = 0
+        UIColor(lhs).getRed(&lr, green: &lg, blue: &lb, alpha: &la)
+        UIColor(rhs).getRed(&rr, green: &rg, blue: &rb, alpha: &ra)
+        XCTAssertEqual(lr, rr, accuracy: 0.01, file: file, line: line)
+        XCTAssertEqual(lg, rg, accuracy: 0.01, file: file, line: line)
+        XCTAssertEqual(lb, rb, accuracy: 0.01, file: file, line: line)
+        XCTAssertEqual(la, ra, accuracy: 0.01, file: file, line: line)
     }
 }
