@@ -31,6 +31,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     let trigger: P
     let showIdentifiers: Bool
     let tiledDetection: Bool
+    /// Finding-flash style (AIA-0374) — plain value like `showIdentifiers`, refreshed
+    /// by the call site; the view deliberately does not observe `Settings`.
+    let flashStyle: FlashStyle
 
     /// Callback to receive interaction state changes. DetectableView manages state internally.
     private let onInteractionStateChanged: ((ContentInteractionState) -> Void)?
@@ -52,6 +55,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     @State private var interactionState: ContentInteractionState = .idle
     @State private var detectionGeneration: UInt64 = 0
     @State private var detectionQueue = SnapshotDetectionQueue()
+    /// Classification consumer (AIA-0374) — a parallel branch of the snapshot flow,
+    /// independent of the detection queue/appliedFrame machinery above.
+    @StateObject private var flashController = ClassificationFlashController()
 
     /// Initializer with interaction state callback - content receives a binding to update state
     init(
@@ -60,6 +66,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         trigger: P,
         showIdentifiers: Bool,
         tiledDetection: Bool = false,
+        flashStyle: FlashStyle,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
@@ -70,6 +77,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
         self.tiledDetection = tiledDetection
+        self.flashStyle = flashStyle
         self.isCapturingFinding = isCapturingFinding
         self.onFrameChanged = onFrameChanged
         self.onInteractionStateChanged = onInteractionStateChanged
@@ -101,6 +109,11 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                     geometry: geometry,
                     showIdentifiers: showIdentifiers
                 )
+
+                // Finding flash (AIA-0374): classification's presentation — no boxes
+                // exist for whole-image results, so a qualifying classification flashes
+                // the content frame. Non-interactive by requirement.
+                FindingFlashOverlay(style: flashStyle, flashToken: flashController.flashCount)
             }
             .onChange(of: geometry.size) { old, new in
                 // The save dialog freezes the displayed frame; a rotation underneath
@@ -124,6 +137,11 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             // The frozen frame must outlive the save dialog; new passes resume with
             // the timer once the capture ends.
             guard isCapturingFinding.wrappedValue.not else { return }
+            // Classification branch (AIA-0374): parallel consumer of the same snapshot,
+            // deliberately AFTER both guards above so a straggler frame can't
+            // classify-and-flash mid-scroll or behind the save sheet. Independent of
+            // the detection queue below.
+            flashController.classifyPass(drivers: drivers, image: image, flashEnabled: flashStyle.enabled)
             // The queue serializes passes and coalesces snapshots arriving mid-pass to
             // the newest one: a tiled pass (6 inferences × N detectors) can outlast the
             // snapshot cadence, and overlapping passes would apply out of order.
@@ -167,6 +185,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 setAppliedFrame(nil)
                 // A coalesced snapshot was captured pre-interaction — stale geometry.
                 detectionQueue.cancelPending()
+                // Classification mirrors detection's clear semantics: a still-present
+                // finding flashes again once the content settles and re-qualifies
+                // (0→n; AIA-0374 accepted behavior).
+                flashController.resetOnInteraction()
             }
             // Notify external observer if provided
             onInteractionStateChanged?(state)
