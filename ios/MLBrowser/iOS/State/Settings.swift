@@ -267,4 +267,3 @@ final class Settings: ObservableObject, Validatable {
 	}
 
 }
-
