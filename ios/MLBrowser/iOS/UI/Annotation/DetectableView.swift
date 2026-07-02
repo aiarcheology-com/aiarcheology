@@ -129,6 +129,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 // started later it would read the NEW generation and its stale boxes
                 // would pass the guard below.
                 detectionQueue.cancelPending()
+                // An in-flight classify pass saw the old-geometry frame (AIA-0374).
+                flashController.invalidateInFlight()
             }
         }
         .onSnapshot { image, _ in
@@ -141,7 +143,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             // deliberately AFTER both guards above so a straggler frame can't
             // classify-and-flash mid-scroll or behind the save sheet. Independent of
             // the detection queue below.
-            flashController.classifyPass(drivers: drivers, image: image, flashEnabled: flashStyle.enabled)
+            flashController.flashEnabled = flashStyle.enabled
+            flashController.classifyPass(drivers: drivers, image: image)
             // The queue serializes passes and coalesces snapshots arriving mid-pass to
             // the newest one: a tiled pass (6 inferences × N detectors) can outlast the
             // snapshot cadence, and overlapping passes would apply out of order.
@@ -173,6 +176,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             if capturing {
                 detectionGeneration &+= 1
                 detectionQueue.cancelPending()
+                // A classify pass finishing behind the save sheet must not flash
+                // over it (AIA-0374).
+                flashController.invalidateInFlight()
             }
         }
         .onChange(of: interactionState) { _, state in
@@ -206,6 +212,12 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // froze while classification kept running.
         .checkpoint(.flashCount, value: AppEnvironment.isRunningUITests ? String(flashController.flashCount) : "")
         .checkpoint(.classificationCount, value: AppEnvironment.isRunningUITests ? String(flashController.qualifyingCount) : "")
+        // Propagate toggle changes to in-flight passes immediately — ingest reads the
+        // controller's CURRENT enabled state, not a value captured at pass start
+        // (AIA-0374 P4 review; the per-pass write above covers steady state).
+        .onChange(of: flashStyle.enabled) { _, enabled in
+            flashController.flashEnabled = enabled
+        }
     }
 
     /// Single write path for the displayed frame: the screen's mirror is updated

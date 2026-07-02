@@ -57,16 +57,10 @@ extension DeepConfiguration {
 	
 	public var annotationColor: Color {
 		get {
-			guard
-				let colorData = annotationColor_,
-				let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIColor.self, from: colorData) else {
-				return Color.clear
-			}
-			return Color(color)
+			Color.unarchived(from: annotationColor_, fallback: .clear)
 		}
 		set {
-			let color = UIColor(newValue)
-			annotationColor_ = try? NSKeyedArchiver.archivedData(withRootObject: color, requiringSecureCoding: false)
+			annotationColor_ = newValue.archivedData()
 		}
 	}
 	

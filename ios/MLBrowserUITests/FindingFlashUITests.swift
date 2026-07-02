@@ -57,9 +57,13 @@ final class FindingFlashUITests: UITestCase {
             waitForCheckpoint(AID.cpClassificationCount, equals: "1", timeout: 30),
             "A second qualifying transition should occur while disabled"
         )
-        XCTAssertTrue(
-            waitForCheckpoint(AID.cpFlashCount, equals: frozen ?? "", timeout: 5),
-            "Flash count must stay frozen while disabled (was \(frozen ?? "nil"))"
+        // Direct read, NOT waitForCheckpoint(equals:): a wait-for-equality returns
+        // immediately while the value is still frozen and would pass even if the
+        // count incremented one tick later. The observed 1→0→1 classification cycle
+        // above IS the elapsed time; equality after it is the real assertion.
+        XCTAssertEqual(
+            checkpointValue(AID.cpFlashCount), frozen,
+            "Flash count must stay frozen while disabled"
         )
     }
 }

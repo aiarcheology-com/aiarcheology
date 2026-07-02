@@ -107,10 +107,8 @@ struct WebScreenView: View {
 	@State private var tiledDetection: Bool = false
 	/// Finding-flash style (AIA-0374); refreshed from Settings via `.onReceive` like
 	/// `showIdentifiers` so DetectableView stays decoupled from the Settings object.
-	@State private var flashStyle = FlashStyle(
-		enabled: true, color: .yellow,
-		duration: Settings.flashDurationDefault, size: Settings.flashSizeDefault
-	)
+	/// The placeholder mirrors the registered Settings defaults (single source).
+	@State private var flashStyle = FlashStyle.placeholder
 	/// The tapped detection being saved; non-nil presents the save sheet.
 	@State private var findingCapture: FindingCapture?
 	/// Freezes DetectableView's displayed frame while the save sheet is up.

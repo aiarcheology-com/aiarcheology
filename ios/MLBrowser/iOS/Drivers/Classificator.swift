@@ -129,14 +129,29 @@ actor Classificator: Classifying {
 
 	// MARK: - Classifying (AIA-0374)
 
-	/// Atomic pass: process + classify + value-type remap in one actor-isolated call,
-	/// so callers never orchestrate the stateful triple themselves (see Classifying.swift).
+	/// Atomic pass on LOCAL state only: no touch of the shared `handler`/`ciImage`/
+	/// `observations` triple and no suspension points in the body, so actor
+	/// reentrancy can never interleave two passes or remap the wrong frame
+	/// (P4 review — awaiting the split-phase members left a reentrancy window).
 	func classify(image: UIImage) async -> [ClassifiedLabel] {
-		await process(image: image)
-		await classify()
-		return observations.compactMap { observation in
-			guard let classification = observation as? VNClassificationObservation else { return nil }
-			return ClassifiedLabel(identifier: classification.identifier, confidence: classification.confidence)
+		guard let classificationRequest else {
+			LoggingPolicy.debug("Classification skipped: classification request not initialized", logger: .drivers)
+			return []
+		}
+		guard let ciImage = CIImage(image: image) else {
+			LoggingPolicy.warning("Failed to create CIImage from UIImage", logger: .drivers)
+			return []
+		}
+		let handler = VNImageRequestHandler(ciImage: ciImage)
+		do {
+			try handler.perform([classificationRequest])
+			let results = (classificationRequest.results as? [VNClassificationObservation]) ?? []
+			LoggingPolicy.debug("Classification completed with \(results.count) observations", logger: .drivers)
+			return results.map { ClassifiedLabel(identifier: $0.identifier, confidence: $0.confidence) }
+		} catch {
+			LoggingPolicy.error("Failed to perform classification", error: error, logger: .drivers)
+			DefaultCrashReporter.shared.recordError(error, context: ["operation": "performClassification"])
+			return []
 		}
 	}
 }

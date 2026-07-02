@@ -9,6 +9,23 @@ import SwiftUI
 import UIKit
 
 extension Color {
+	/// Archives to `Data` via `NSKeyedArchiver`-encoded `UIColor` — the single shared
+	/// representation for persisted colors (`DeepConfiguration.annotationColor` in Core
+	/// Data, `Settings.flashColor` in UserDefaults; AIA-0374 unified the two copies).
+	func archivedData() -> Data? {
+		try? NSKeyedArchiver.archivedData(withRootObject: UIColor(self), requiringSecureCoding: false)
+	}
+
+	/// Decodes a color archived by `archivedData()`; `fallback` on nil/corrupt data.
+	static func unarchived(from data: Data?, fallback: Color) -> Color {
+		guard
+			let data,
+			let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIColor.self, from: data) else {
+			return fallback
+		}
+		return Color(color)
+	}
+
 	/// Creates an sRGB color from 0...255 RGB components and an opacity value.
 	/// - Parameters:
 	///   - red: Red component in the 0...255 range. Values outside the range are clamped.

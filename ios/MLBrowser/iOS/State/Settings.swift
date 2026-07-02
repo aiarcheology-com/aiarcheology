@@ -46,10 +46,16 @@ final class Settings: ObservableObject, Validatable {
 
 	/// Bounds for the finding-flash controls; sliders bind to these and loads clamp to them,
 	/// so an out-of-range persisted value can never drive the animation.
-	static let flashDurationRange: ClosedRange<Double> = 0.2...2.0
-	static let flashSizeRange: ClosedRange<Double> = 2.0...24.0
-	static let flashDurationDefault = 0.6
-	static let flashSizeDefault = 8.0
+	/// `nonisolated`: consumed by nonisolated contexts (`FlashStyle.placeholder`,
+	/// `@State` initializers); all values are Sendable.
+	nonisolated static let flashDurationRange: ClosedRange<Double> = 0.2...2.0
+	nonisolated static let flashSizeRange: ClosedRange<Double> = 2.0...24.0
+	/// Single source for the flash defaults — registered defaults, `reset()`, the
+	/// unarchive fallback, and `FlashStyle.placeholder` all reference these.
+	nonisolated static let flashEnabledDefault = true
+	nonisolated static let flashColorDefault: Color = .yellow
+	nonisolated static let flashDurationDefault = 0.6
+	nonisolated static let flashSizeDefault = 8.0
 
 	public var isFirstLaunchMarked: Bool = false
 
@@ -151,10 +157,11 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
-	/// Persisted as archived `UIColor` `Data`, mirroring `DeepConfiguration.annotationColor`.
+	/// Persisted as archived `UIColor` `Data` via the shared `Color.archivedData()`
+	/// (same representation as `DeepConfiguration.annotationColor`).
 	@Published public var flashColor: Color {
 		didSet {
-			defaults.set(Self.archive(color: flashColor), forKey: UserDefaultsKeys.flashColor)
+			defaults.set(flashColor.archivedData(), forKey: UserDefaultsKeys.flashColor)
 		}
 	}
 
@@ -227,7 +234,7 @@ final class Settings: ObservableObject, Validatable {
             UserDefaultsKeys.tiledDetection: true,
             // On by default: the flash is classification's only presentation channel
             // (AIA-0374); the toggle exists to opt out.
-            UserDefaultsKeys.flashOnFindingEnabled: true,
+            UserDefaultsKeys.flashOnFindingEnabled: Self.flashEnabledDefault,
             UserDefaultsKeys.flashDuration: Self.flashDurationDefault,
             UserDefaultsKeys.flashSize: Self.flashSizeDefault
         ]
@@ -253,7 +260,10 @@ final class Settings: ObservableObject, Validatable {
 			.clamped(to: Self.flashDurationRange)
 		self.flashSize = defaults.double(forKey: UserDefaultsKeys.flashSize)
 			.clamped(to: Self.flashSizeRange)
-		self.flashColor = Self.unarchiveColor(defaults.data(forKey: UserDefaultsKeys.flashColor))
+		self.flashColor = Color.unarchived(
+			from: defaults.data(forKey: UserDefaultsKeys.flashColor),
+			fallback: Self.flashColorDefault
+		)
 		if let uuidString = defaults.string(forKey: UserDefaultsKeys.entityId),
 		   let uuid = UUID(uuidString: uuidString) {
 			self.entityId = uuid
@@ -303,8 +313,8 @@ final class Settings: ObservableObject, Validatable {
 		lastPage = nil
 		fullscreenDetection = false
 		tiledDetection = true
-		flashOnFindingEnabled = true
-		flashColor = .yellow
+		flashOnFindingEnabled = Self.flashEnabledDefault
+		flashColor = Self.flashColorDefault
 		flashDuration = Self.flashDurationDefault
 		flashSize = Self.flashSizeDefault
 
@@ -323,22 +333,6 @@ final class Settings: ObservableObject, Validatable {
 		defaults.set(tiledDetection, forKey: UserDefaultsKeys.tiledDetection)
 	}
 
-	// MARK: - Finding-flash color archiving (AIA-0374)
-
-	/// Mirrors `DeepConfiguration.annotationColor`'s `UIColor` Data archiving so both
-	/// persisted colors share one representation.
-	private static func archive(color: Color) -> Data? {
-		try? NSKeyedArchiver.archivedData(withRootObject: UIColor(color), requiringSecureCoding: false)
-	}
-
-	private static func unarchiveColor(_ data: Data?) -> Color {
-		guard
-			let data,
-			let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIColor.self, from: data) else {
-			return .yellow
-		}
-		return Color(color)
-	}
 }
 
 private extension Comparable {

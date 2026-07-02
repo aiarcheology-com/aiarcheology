@@ -33,8 +33,8 @@ extension VNClassificationObservation: @unchecked Sendable {}
 typealias ObservationParams = (observations: [VNObservation], params: DeepDriverParams)
 
 /// Detect-path result: remapped value-type observations (see `DetectedObject`) per driver.
-/// The classify path keeps `ObservationParams` — tiling does not apply to whole-image
-/// classification.
+/// The classify path has its own value-type shape, `ClassificationResult` (AIA-0374).
+/// `ObservationParams` above remains only for the legacy `Annotator` view modifier.
 typealias DetectionResult = (observations: [DetectedObject], params: DeepDriverParams)
 
 protocol DeepDriver: Driver, Sendable {
