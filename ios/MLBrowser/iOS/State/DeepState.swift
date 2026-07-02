@@ -28,16 +28,6 @@ final class DeepState: ObservableObject {
 		self.dataController = dataController
 		observeDeepConfigurationChanges()
 
-		#if DEBUG
-		// UI-test seam (AIA-0374): a mock classificator drives the finding flash without
-		// a real model — no classification model exists to bundle yet. Launch-arg gated
-		// AND DEBUG-only, mirroring the auth/subscription mocks: cannot ship.
-		if AppEnvironment.isRunningUITests,
-		   ProcessInfo.processInfo.arguments.contains("-mockClassification") {
-			drivers.register(driver: MockClassificator(), along: .classificator)
-		}
-		#endif
-
 		let configurations = DeepConfiguration.selectAll(in: dataController.container.viewContext)
 		do {
 			try configurations.forEach { config in

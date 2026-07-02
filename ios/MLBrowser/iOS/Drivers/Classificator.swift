@@ -17,6 +17,9 @@ enum ClassificatorError: Error {
 }
 
 actor Classificator: Classifying {
+	/// How many of Vision's best-first class labels a pass keeps (AIA-0374).
+	static let topLabelCount = 5
+
     let id: UUID
     var params: DeepDriverParams
     var observations: [VNObservation] = []
@@ -145,9 +148,13 @@ actor Classificator: Classifying {
 		let handler = VNImageRequestHandler(ciImage: ciImage)
 		do {
 			try handler.perform([classificationRequest])
+			// Vision reports the FULL class distribution (e.g. all 1000 ImageNet
+			// classes), best-first. Only the head is meaningful — keep the top few
+			// so downstream consumers never iterate hundreds of noise labels.
 			let results = (classificationRequest.results as? [VNClassificationObservation]) ?? []
-			LoggingPolicy.debug("Classification completed with \(results.count) observations", logger: .drivers)
-			return results.map { ClassifiedLabel(identifier: $0.identifier, confidence: $0.confidence) }
+			let top = results.prefix(Self.topLabelCount)
+			LoggingPolicy.debug("Classification completed: \(results.count) observations, keeping top \(top.count)", logger: .drivers)
+			return top.map { ClassifiedLabel(identifier: $0.identifier, confidence: $0.confidence) }
 		} catch {
 			LoggingPolicy.error("Failed to perform classification", error: error, logger: .drivers)
 			DefaultCrashReporter.shared.recordError(error, context: ["operation": "performClassification"])

@@ -222,7 +222,6 @@
 		94F1631600000000000000A2 /* uitest_page.html in Resources */ = {isa = PBXBuildFile; fileRef = 94F1631600000000000000A1 /* uitest_page.html */; };
 		94F1631600000000000000B2 /* LocalPageUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F1631600000000000000B1 /* LocalPageUITests.swift */; };
 		94F1631700000000000000C2 /* DetectionCountCheckpointUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F1631700000000000000C1 /* DetectionCountCheckpointUITests.swift */; };
-		6175F901310F444EA1F2E353 /* FindingFlashUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DF0091ABB1844BE8E0C569E /* FindingFlashUITests.swift */; };
 		94F1631800000000000000D2 /* StubDownloadURLProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94F1631800000000000000D1 /* StubDownloadURLProtocolTests.swift */; };
 		94FCC4022ECE46C60047B283 /* DependencyContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4012ECE46C60047B283 /* DependencyContainer.swift */; };
 		94FCC4032ECE46C60047B283 /* DemoDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FCC4002ECE46C60047B283 /* DemoDataManager.swift */; };
@@ -491,7 +490,6 @@
 		94F1631600000000000000A1 /* uitest_page.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = uitest_page.html; path = iOS/Resources/UITestFixtures/uitest_page.html; sourceTree = "<group>"; };
 		94F1631600000000000000B1 /* LocalPageUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPageUITests.swift; sourceTree = "<group>"; };
 		94F1631700000000000000C1 /* DetectionCountCheckpointUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionCountCheckpointUITests.swift; sourceTree = "<group>"; };
-		4DF0091ABB1844BE8E0C569E /* FindingFlashUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingFlashUITests.swift; sourceTree = "<group>"; };
 		94F1631800000000000000D1 /* StubDownloadURLProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StubDownloadURLProtocolTests.swift; sourceTree = "<group>"; };
 		94FCC4002ECE46C60047B283 /* DemoDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManager.swift; sourceTree = "<group>"; };
 		94FCC4012ECE46C60047B283 /* DependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyContainer.swift; sourceTree = "<group>"; };
@@ -1033,7 +1031,6 @@
 				94E018910000000000000012 /* SettingsUITests.swift */,
 				94E018910000000000000014 /* BrowsingHistoryUITests.swift */,
 				94F1631700000000000000C1 /* DetectionCountCheckpointUITests.swift */,
-				4DF0091ABB1844BE8E0C569E /* FindingFlashUITests.swift */,
 				94F1631600000000000000B1 /* LocalPageUITests.swift */,
 				94E018910000000000000016 /* AddressBarUITests.swift */,
 				DDCA151D54FB4492B8A89AB4 /* AuthGateUITests.swift */,
@@ -1668,7 +1665,6 @@
 				94E018910000000000000013 /* SettingsUITests.swift in Sources */,
 				94E018910000000000000015 /* BrowsingHistoryUITests.swift in Sources */,
 				94F1631700000000000000C2 /* DetectionCountCheckpointUITests.swift in Sources */,
-				6175F901310F444EA1F2E353 /* FindingFlashUITests.swift in Sources */,
 				94F1631600000000000000B2 /* LocalPageUITests.swift in Sources */,
 				94E018910000000000000017 /* AddressBarUITests.swift in Sources */,
 				94FCC4072ED063010047B283 /* OSLog+Extensions.swift in Sources */,

@@ -209,15 +209,22 @@ struct ConfigurationForm: View {
 	
 	private var annotationSection: some View {
 		Section(header: Text(L10n.Configuration.Section.annotation)) {
+			// Shared by both model families: detection styles its boxes with these;
+			// classification styles the finding flash (Color = flash color, Fade Out
+			// Time = pulse period — AIA-0374).
 			ColorPicker(L10n.Configuration.color, selection: $configuration.annotationColor)
 				.testability(Testability.ColorPicker.configurationFormAnnotationColor)
 			LabeledSlider(label: L10n.Configuration.fadeOutTime, value: $configuration.phaseOutTime, range: 0.2...10)
-			Picker(L10n.Configuration.symbol, selection: $configuration.selectedSymbol) {
-				ForEach(AnnotationSymbol.allCases) { symbol in
-					Text(symbol.localizedName).tag(symbol)
+			// The symbol only shapes detection's box annotations — classification has
+			// no boxes, so hide it there (AIA-0374).
+			if configuration.modelType != .classificator {
+				Picker(L10n.Configuration.symbol, selection: $configuration.selectedSymbol) {
+					ForEach(AnnotationSymbol.allCases) { symbol in
+						Text(symbol.localizedName).tag(symbol)
+					}
 				}
+				.testability(Testability.Picker.configurationFormSymbol)
 			}
-			.testability(Testability.Picker.configurationFormSymbol)
 		}
 	}
 	

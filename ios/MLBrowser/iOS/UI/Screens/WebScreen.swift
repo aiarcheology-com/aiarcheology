@@ -225,12 +225,6 @@ struct WebScreenView: View {
         .onReceive(appState.settings.$flashOnFindingEnabled) { value in
             flashStyle.enabled = value
         }
-        .onReceive(appState.settings.$flashColor) { value in
-            flashStyle.color = value
-        }
-        .onReceive(appState.settings.$flashDuration) { value in
-            flashStyle.duration = value
-        }
         .onReceive(appState.settings.$flashSize) { value in
             flashStyle.size = value
         }

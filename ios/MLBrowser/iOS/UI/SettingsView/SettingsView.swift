@@ -41,7 +41,7 @@ struct SettingsForm: View {
 	var body: some View {
 		NavigationStack(path: $accountPath) {
 			Form {
-				annotationSection
+				detectionSection
 				classificationSection
 				webContentSection
 				mlBrowserSection
@@ -106,8 +106,8 @@ struct SettingsForm: View {
 
 	// MARK: - Sections
 
-	private var annotationSection: some View {
-		Section(header: Text(L10n.Settings.Section.annotation)) {
+	private var detectionSection: some View {
+		Section(header: Text(L10n.Settings.Section.detection)) {
 			Picker(L10n.Settings.frequency, selection: $settings.snapFrequency) {
 				ForEach(1...10, id: \.self) { second in
 					Text(L10n.Settings.Frequency.seconds(second)).tag(Double(second))
@@ -133,28 +133,14 @@ struct SettingsForm: View {
 		}
 	}
 
-	/// AIA-0374: classification results have no bounding box — the finding flash IS
-	/// their presentation, hence its own "Classification" section (owner decision).
+	/// AIA-0374: classification results have no bounding box — the pulsing finding
+	/// flash IS their presentation. Only the enable switch and border size are global;
+	/// color and pulse period come from each model's configuration (Annotation →
+	/// Color / Fade Out Time), mirroring how detection styles its boxes.
 	private var classificationSection: some View {
 		Section(header: Text(L10n.Settings.Section.classification)) {
 			Toggle(L10n.Settings.flashOnFinding, isOn: $settings.flashOnFindingEnabled)
 				.testability(Testability.Toggle.settingsFlashOnFinding)
-
-			ColorPicker(L10n.Settings.flashColor, selection: $settings.flashColor)
-				.testability(Testability.ColorPicker.settingsFlashColor)
-
-			VStack(alignment: .leading) {
-				HStack {
-					Text(L10n.Settings.flashDuration)
-					Spacer()
-					Text(Measurement(value: settings.flashDuration, unit: UnitDuration.seconds)
-						.formatted(.measurement(width: .narrow, usage: .asProvided)))
-						.foregroundStyle(.secondary)
-				}
-				Slider(value: $settings.flashDuration, in: Settings.flashDurationRange, step: 0.1)
-					.testability(Testability.Slider.settingsFlashDuration)
-					.accessibilityLabel(Text(L10n.Settings.flashDuration))
-			}
 
 			VStack(alignment: .leading) {
 				HStack {

@@ -265,8 +265,8 @@ internal enum L10n {
     internal static let title = L10n.tr("Localizable", "download.title", fallback: "Model")
     /// URL
     internal static let url = L10n.tr("Localizable", "download.url", fallback: "URL")
-    /// Provide a valid address pointing to a Create ML detection model (.mlmodel)
-    internal static let urlHint = L10n.tr("Localizable", "download.urlHint", fallback: "Provide a valid address pointing to a Create ML detection model (.mlmodel)")
+    /// Provide a valid address pointing to a Core ML detection or classification model (.mlmodel)
+    internal static let urlHint = L10n.tr("Localizable", "download.urlHint", fallback: "Provide a valid address pointing to a Core ML detection or classification model (.mlmodel)")
     internal enum Button {
       /// Cancel
       internal static let cancel = L10n.tr("Localizable", "download.button.cancel", fallback: "Cancel")
@@ -419,8 +419,8 @@ internal enum L10n {
     }
     /// Supported Models
     internal static let supportedModels = L10n.tr("Localizable", "import.supportedModels", fallback: "Supported Models")
-    /// Choose a Create ML model (.mlmodel or .mlpackage) that supports object detection. Other model types are not supported in this version.
-    internal static let supportedModelsInfo = L10n.tr("Localizable", "import.supportedModelsInfo", fallback: "Choose a Create ML model (.mlmodel or .mlpackage) that supports object detection. Other model types are not supported in this version.")
+    /// Choose a Core ML model (.mlmodel or .mlpackage) that supports object detection or image classification. Other model types are not supported in this version.
+    internal static let supportedModelsInfo = L10n.tr("Localizable", "import.supportedModelsInfo", fallback: "Choose a Core ML model (.mlmodel or .mlpackage) that supports object detection or image classification. Other model types are not supported in this version.")
     /// Import Model
     internal static let title = L10n.tr("Localizable", "import.title", fallback: "Import Model")
     /// Validating model...
@@ -489,10 +489,6 @@ internal enum L10n {
     internal static let defaultPage = L10n.tr("Localizable", "settings.defaultPage", fallback: "Default Page")
     /// Delete Cache
     internal static let deleteCache = L10n.tr("Localizable", "settings.deleteCache", fallback: "Delete Cache")
-    /// Flash color
-    internal static let flashColor = L10n.tr("Localizable", "settings.flashColor", fallback: "Flash color")
-    /// Flash duration
-    internal static let flashDuration = L10n.tr("Localizable", "settings.flashDuration", fallback: "Flash duration")
     /// Flash when object found
     internal static let flashOnFinding = L10n.tr("Localizable", "settings.flashOnFinding", fallback: "Flash when object found")
     /// Flash border size
@@ -530,12 +526,12 @@ internal enum L10n {
       }
     }
     internal enum Section {
-      /// Annotation
-      internal static let annotation = L10n.tr("Localizable", "settings.section.annotation", fallback: "Annotation")
       /// Classification
       internal static let classification = L10n.tr("Localizable", "settings.section.classification", fallback: "Classification")
       /// Debug
       internal static let debug = L10n.tr("Localizable", "settings.section.debug", fallback: "Debug")
+      /// Detection
+      internal static let detection = L10n.tr("Localizable", "settings.section.detection", fallback: "Detection")
       /// ML Browser
       internal static let mlBrowser = L10n.tr("Localizable", "settings.section.mlBrowser", fallback: "ML Browser")
       /// Web Content

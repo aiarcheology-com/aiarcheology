@@ -165,7 +165,7 @@ class DeepDrivers: ObservableObject {
 			var results: [DetectionResult] = []
 
 			for detector in detectors {
-				guard let detector = detector as? Detector else {
+				guard let detector = detector as? Detecting else {
 					continue
 				}
 				let observations = await detector.detect(image: image, regions: regions)

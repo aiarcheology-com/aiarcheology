@@ -208,13 +208,11 @@ extension TestabilityIdentification {
 		case findingDetailZoom
 		case findingShareZoom
 		// Settings — finding flash (AIA-0374)
-		case settingsFlashDuration
 		case settingsFlashSize
 	}
 
 	enum ColorPicker: String, TestabilityIdentification {
 		case configurationFormAnnotationColor
-		case settingsFlashColor
 	}
 	
 	enum Link: String, TestabilityIdentification {

@@ -46,8 +46,6 @@ enum AID {
 	static let cpCurrentPageFile = "_AIA:Checkpoint.CurrentPageFile"
 	static let cpDetectionCount = "_AIA:Checkpoint.DetectionCount"
 	static let cpDetectionFrameApplied = "_AIA:Checkpoint.DetectionFrameApplied"
-	static let cpFlashCount = "_AIA:Checkpoint.FlashCount"
-	static let cpClassificationCount = "_AIA:Checkpoint.ClassificationCount"
 
 	// Top toolbar (real Buttons)
 	static let cpu = "_AIA:Button.GlobalToolbarSideMenu"
@@ -82,8 +80,6 @@ enum AID {
 	static let settingsFullscreenDetection = "_AIA:Toggle.SettingsFullscreenDetection"
 	// Classification section (AIA-0374)
 	static let settingsFlashOnFinding = "_AIA:Toggle.SettingsFlashOnFinding"
-	static let settingsFlashColor = "_AIA:ColorPicker.SettingsFlashColor"
-	static let settingsFlashDuration = "_AIA:Slider.SettingsFlashDuration"
 	static let settingsFlashSize = "_AIA:Slider.SettingsFlashSize"
 	static let settingsReopenLastPage = "_AIA:Toggle.SettingsReopenLastPage"
 	static let settingsFrequency = "_AIA:Picker.SettingsFrequency"
@@ -158,7 +154,7 @@ class UITestCase: XCTestCase {
 	/// Launches the app with a deterministic configuration. The default config applies the
 	/// baseline only (wizard skipped, detection off, home page = about:blank).
 	@discardableResult
-	func launch(_ config: LaunchConfig = LaunchConfig(), mockAuthGate: String? = nil, mockSubscription: String? = nil, extraArguments: [String] = []) -> XCUIApplication {
+	func launch(_ config: LaunchConfig = LaunchConfig(), mockAuthGate: String? = nil, mockSubscription: String? = nil) -> XCUIApplication {
 		let app = XCUIApplication()
 		app.launchEnvironment["UI_TESTING"] = "1"
 		// swiftlint:disable:next force_try
@@ -176,9 +172,6 @@ class UITestCase: XCTestCase {
 		if let mockSubscription {
 			app.launchArguments += ["-mockSubscription", mockSubscription]
 		}
-		// Plain launch-argument seam for DEBUG mocks that need no config-schema field
-		// (e.g. `-mockClassification`, AIA-0374).
-		app.launchArguments += extraArguments
 		app.launch()
 		self.app = app
 		return app

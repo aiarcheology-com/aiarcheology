@@ -37,24 +37,20 @@ final class Settings: ObservableObject, Validatable {
 		static let fullscreenDetection = "fullscreenDetection"
 		static let tiledDetection = "tiledDetection"
 		static let flashOnFindingEnabled = "flashOnFindingEnabled"
-		static let flashColor = "flashColor"
-		static let flashDuration = "flashDuration"
 		static let flashSize = "flashSize"
 	}
 
 	// MARK: - Finding flash (AIA-0374)
 
-	/// Bounds for the finding-flash controls; sliders bind to these and loads clamp to them,
-	/// so an out-of-range persisted value can never drive the animation.
-	/// `nonisolated`: consumed by nonisolated contexts (`FlashStyle.placeholder`,
-	/// `@State` initializers); all values are Sendable.
-	nonisolated static let flashDurationRange: ClosedRange<Double> = 0.2...2.0
+	/// Bounds for the flash border-size slider; loads clamp to it so an out-of-range
+	/// persisted value can never drive the animation. Flash color and pulse period are
+	/// PER-MODEL (the configuration's Annotation color / Fade Out Time — AIA-0374).
+	/// `nonisolated`: consumed by nonisolated contexts (`FlashStyle.placeholder`);
+	/// all values are Sendable.
 	nonisolated static let flashSizeRange: ClosedRange<Double> = 2.0...24.0
-	/// Single source for the flash defaults — registered defaults, `reset()`, the
-	/// unarchive fallback, and `FlashStyle.placeholder` all reference these.
+	/// Single source for the flash defaults — registered defaults, `reset()`, and
+	/// `FlashStyle.placeholder` all reference these.
 	nonisolated static let flashEnabledDefault = true
-	nonisolated static let flashColorDefault: Color = .yellow
-	nonisolated static let flashDurationDefault = 0.6
 	nonisolated static let flashSizeDefault = 8.0
 
 	public var isFirstLaunchMarked: Bool = false
@@ -157,20 +153,6 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
-	/// Persisted as archived `UIColor` `Data` via the shared `Color.archivedData()`
-	/// (same representation as `DeepConfiguration.annotationColor`).
-	@Published public var flashColor: Color {
-		didSet {
-			defaults.set(flashColor.archivedData(), forKey: UserDefaultsKeys.flashColor)
-		}
-	}
-
-	@Published public var flashDuration: Double {
-		didSet {
-			defaults.set(flashDuration, forKey: UserDefaultsKeys.flashDuration)
-		}
-	}
-
 	@Published public var flashSize: Double {
 		didSet {
 			defaults.set(flashSize, forKey: UserDefaultsKeys.flashSize)
@@ -235,7 +217,6 @@ final class Settings: ObservableObject, Validatable {
             // On by default: the flash is classification's only presentation channel
             // (AIA-0374); the toggle exists to opt out.
             UserDefaultsKeys.flashOnFindingEnabled: Self.flashEnabledDefault,
-            UserDefaultsKeys.flashDuration: Self.flashDurationDefault,
             UserDefaultsKeys.flashSize: Self.flashSizeDefault
         ]
 
@@ -256,14 +237,8 @@ final class Settings: ObservableObject, Validatable {
 		self.flashOnFindingEnabled = defaults.bool(forKey: UserDefaultsKeys.flashOnFindingEnabled)
 		// Clamp on load: a stale/corrupt persisted value must never drive the animation
 		// outside the supported bounds (AIA-0374).
-		self.flashDuration = defaults.double(forKey: UserDefaultsKeys.flashDuration)
-			.clamped(to: Self.flashDurationRange)
 		self.flashSize = defaults.double(forKey: UserDefaultsKeys.flashSize)
 			.clamped(to: Self.flashSizeRange)
-		self.flashColor = Color.unarchived(
-			from: defaults.data(forKey: UserDefaultsKeys.flashColor),
-			fallback: Self.flashColorDefault
-		)
 		if let uuidString = defaults.string(forKey: UserDefaultsKeys.entityId),
 		   let uuid = UUID(uuidString: uuidString) {
 			self.entityId = uuid
@@ -314,8 +289,6 @@ final class Settings: ObservableObject, Validatable {
 		fullscreenDetection = false
 		tiledDetection = true
 		flashOnFindingEnabled = Self.flashEnabledDefault
-		flashColor = Self.flashColorDefault
-		flashDuration = Self.flashDurationDefault
 		flashSize = Self.flashSizeDefault
 
 		defaults.removeObject(forKey: UserDefaultsKeys.lastPage)

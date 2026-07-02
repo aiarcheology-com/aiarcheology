@@ -8,82 +8,72 @@
 import SwiftUI
 import UIKit
 
-/// Style values for the finding flash, passed into `DetectableView` like the other
-/// plain scalars (`showIdentifiers`) and refreshed by the call site via `.onReceive` —
-/// the view never observes the whole `Settings` object, so unrelated settings writes
-/// can't invalidate its body (AIA-0374).
+/// Global flash preferences (AIA-0374): just the enable switch and border size.
+/// Color and pulse period are PER-MODEL — they come from the qualifying
+/// configuration's `annotationColor` / `phaseOutTime` (the same Annotation options
+/// the detection config sheet exposes), delivered via `ClassificationResult.params`.
+/// Passed into `DetectableView` like the other plain scalars (`showIdentifiers`).
 struct FlashStyle: Equatable {
 	var enabled: Bool
-	var color: Color
-	var duration: Double
 	var size: Double
 
 	@MainActor
 	static func from(_ settings: Settings) -> FlashStyle {
-		FlashStyle(
-			enabled: settings.flashOnFindingEnabled,
-			color: settings.flashColor,
-			duration: settings.flashDuration,
-			size: settings.flashSize
-		)
+		FlashStyle(enabled: settings.flashOnFindingEnabled, size: settings.flashSize)
 	}
 
 	/// Pre-`onAppear` placeholder matching the registered Settings defaults — one
 	/// source of truth (`Settings.flash*Default`), so the first frame can't diverge.
 	static let placeholder = FlashStyle(
 		enabled: Settings.flashEnabledDefault,
-		color: Settings.flashColorDefault,
-		duration: Settings.flashDurationDefault,
 		size: Settings.flashSizeDefault
 	)
-}
-
-/// Pure trigger rule (AIA-0374): flash when qualifying classifications appear (0→n) or
-/// their count increases — so a second model's new finding is never masked by an
-/// already-qualifying first one.
-enum FlashTrigger {
-	static func shouldFlash(oldCount: Int, newCount: Int) -> Bool {
-		newCount > 0 && newCount > oldCount
-	}
 }
 
 /// Consumes classification passes as a parallel branch of the snapshot flow —
 /// deliberately independent of the detection queue/appliedFrame machinery (AIA-0374):
 /// classification says "there IS an object in this image" (no location), so its
-/// presentation is the frame flash, not a bounding box.
+/// presentation is the pulsing frame flash, not a bounding box.
 @MainActor
 final class ClassificationFlashController: ObservableObject {
 
-	/// A driver qualifies when its TOP-1 confidence clears this. Fixed in v1. Model
-	/// contract: a model carrying an explicit negative/background class ("no-mound")
-	/// will misfire the flash — per-model negative-label handling is a follow-up.
-	static let qualifyingConfidenceThreshold: Float = 0.5
+	/// A driver qualifies when its TOP-1 confidence clears this. Fixed in v1 and
+	/// deliberately modest: real many-class models (e.g. 1000-class ImageNet
+	/// classifiers like FastViT) rarely exceed ~0.4 top-1 on arbitrary content, so
+	/// 0.5 never fired (owner-tested). Per-model thresholds are a follow-up. Model
+	/// contract: an explicit negative/background class will misfire the flash.
+	static let qualifyingConfidenceThreshold: Float = 0.25
 
-	/// Monotonic count of fired flashes: the overlay's animation token and the UI-test
-	/// checkpoint value (a counter can't be missed by polling, unlike a transient bool).
-	@Published private(set) var flashCount = 0
+	/// Labels the bubble shows (gated on the global "Show labels" setting) and the
+	/// floor below which a label is noise, not information.
+	static let displayLabelCount = 3
+	static let displayConfidenceFloor: Float = 0.05
 
-	/// Number of drivers whose top-1 label currently qualifies — the trigger input and
-	/// the `.classificationCount` checkpoint value.
+	/// The pulse period is the model's `phaseOutTime`; clamp to the config form's own
+	/// slider bounds so a stale persisted value can't freeze or strobe the animation.
+	static let pulsePeriodRange: ClosedRange<Double> = 0.2...10.0
+
+	/// Number of drivers whose top-1 label currently qualifies. The flash overlay
+	/// pulses while this is > 0 (and the setting is enabled).
 	@Published private(set) var qualifyingCount = 0
 
-	/// Read at INGEST time (not captured at pass start), so a toggle flipped while a
-	/// pass is in flight takes effect on that pass's completion — in both directions
-	/// (P4 review: a stale capture either flashed after disabling or permanently
-	/// swallowed the flash after enabling onto an already-qualifying page).
-	var flashEnabled = Settings.flashEnabledDefault {
-		didSet {
-			// Enabling onto a page that already qualifies must flash: re-arm the
-			// 0→n transition, exactly like the post-interaction reset.
-			if flashEnabled && oldValue.not {
-				qualifyingCount = 0
-			}
-		}
-	}
+	/// Style of the active flash, from the FIRST qualifying driver's per-model
+	/// configuration (Annotation → Color / Fade Out Time in the config sheet).
+	@Published private(set) var flashColor: Color = .yellow
+	@Published private(set) var pulsePeriod: Double = 1.0
+
+	/// Monotonic count of qualifying passes — UI-test/introspection checkpoint value
+	/// (a counter can't be missed by polling).
+	@Published private(set) var qualifyingPassCount = 0
+
+	/// Top labels of the first classificator's latest pass — shown in the label
+	/// bubble when "Show labels" is on. Independent of the flash threshold, so the
+	/// user can see what the model thinks even when nothing qualifies (AIA-0374).
+	@Published private(set) var displayLabels: [ClassifiedLabel] = []
 
 	/// Invalidation token: passes started before the last interaction/capture/geometry
 	/// invalidation must not ingest (detection re-checks its generation at completion;
-	/// this is the same guard for the parallel branch — P4 review).
+	/// this is the same guard for the parallel branch).
 	private var generation = 0
 	private var isBusy = false
 
@@ -98,35 +88,48 @@ final class ClassificationFlashController: ObservableObject {
 			guard let self else { return }
 			self.isBusy = false
 			// The frame this pass classified was invalidated mid-flight
-			// (scroll/capture/rotation) — its results must not flash or count.
+			// (scroll/capture/rotation) — its results must not drive the flash.
 			guard startedGeneration == self.generation else { return }
 			self.ingest(results)
 		}
 	}
 
-	/// Applies one pass's results: updates the qualifying count (publish only on
-	/// change, so no-op passes don't re-evaluate observing bodies) and fires the
-	/// flash per `FlashTrigger` when enabled *now*.
+	/// Applies one pass's results: updates the qualifying state and the active
+	/// per-model flash style (publish only on change, so no-op passes don't
+	/// re-evaluate observing bodies).
 	func ingest(_ results: [ClassificationResult]) {
-		let newCount = results.count { result in
+		let labels = (results.first?.labels ?? [])
+			.filter { $0.confidence >= Self.displayConfidenceFloor }
+			.sorted { $0.confidence > $1.confidence }
+			.prefix(Self.displayLabelCount)
+		let newDisplay = Array(labels)
+		if displayLabels != newDisplay { displayLabels = newDisplay }
+
+		let qualifying = results.filter { result in
 			(result.labels.map(\.confidence).max() ?? 0) >= Self.qualifyingConfidenceThreshold
 		}
-		let shouldFlash = FlashTrigger.shouldFlash(oldCount: qualifyingCount, newCount: newCount)
-		if qualifyingCount != newCount {
-			qualifyingCount = newCount
+		if let first = qualifying.first {
+			qualifyingPassCount += 1
+			let color = first.params.annotationColor
+			let period = first.params.phaseOutTime.clamped(to: Self.pulsePeriodRange)
+			if flashColor != color { flashColor = color }
+			if pulsePeriod != period { pulsePeriod = period }
 		}
-		if shouldFlash && flashEnabled {
-			flashCount += 1
+		if qualifyingCount != qualifying.count {
+			qualifyingCount = qualifying.count
 		}
 	}
 
 	/// Interaction (scroll/zoom) invalidates what's on screen — mirror detection's
-	/// clear semantics so a still-present finding flashes once more after the content
-	/// settles and re-classifies (0→n again). Also invalidates any in-flight pass.
+	/// clear semantics: the pulse stops during interaction and resumes when the
+	/// settled content re-qualifies. Also invalidates any in-flight pass.
 	func resetOnInteraction() {
 		invalidateInFlight()
 		if qualifyingCount != 0 {
 			qualifyingCount = 0
+		}
+		if displayLabels.isEmpty.not {
+			displayLabels = []
 		}
 	}
 
@@ -137,65 +140,92 @@ final class ClassificationFlashController: ObservableObject {
 	}
 }
 
-/// Border flash over the detection content. Hit-testing is disabled and the view is
-/// hidden from accessibility — it must never intercept content gestures or read as
-/// UI (acceptance-level requirements, AIA-0374).
-struct FindingFlashOverlay: View {
-	let style: FlashStyle
-	/// Monotonic token: each increment fires one flash. Enable-gating lives in the
-	/// controller (single gate — the token simply never increments while disabled).
-	let flashToken: Int
-
-	@Environment(\.accessibilityReduceMotion) private var reduceMotion
-	@State private var opacity: Double = 0
-	@State private var animatingToken = 0
-
-	var body: some View {
-		Rectangle()
-			.strokeBorder(style.color, lineWidth: style.size)
-			.opacity(opacity)
-			.allowsHitTesting(false)
-			.accessibilityHidden(true)
-			.onChange(of: flashToken) { _, newToken in
-				animatingToken = newToken
-				var appear = Transaction()
-				appear.disablesAnimations = true
-				withTransaction(appear) { opacity = 1 }
-				// The fade must start on a LATER tick: setting 1 and animating to 0 in
-				// the same update coalesces to a net no-change and nothing ever renders
-				// (P4 review — the classic restart-animation trap).
-				Task { @MainActor in
-					if reduceMotion {
-						// Reduce Motion: hold the border, then remove without a fade.
-						try? await Task.sleep(for: .seconds(style.duration))
-						guard animatingToken == newToken else { return } // superseded
-						var end = Transaction()
-						end.disablesAnimations = true
-						withTransaction(end) { opacity = 0 }
-					} else {
-						guard animatingToken == newToken else { return } // superseded
-						withAnimation(.easeOut(duration: style.duration)) {
-							opacity = 0
-						}
-					}
-				}
-			}
+private extension Comparable {
+	func clamped(to range: ClosedRange<Self>) -> Self {
+		min(max(self, range.lowerBound), range.upperBound)
 	}
 }
 
-#Preview("Finding flash — tap to fire") {
+/// Softly blurred border that PULSES while a qualifying classification is on screen
+/// (owner: "it should not flash just once when there is an object"). Hit-testing is
+/// disabled and the view is hidden from accessibility — it must never intercept
+/// content gestures or read as UI (acceptance-level requirements, AIA-0374).
+struct FindingFlashOverlay: View {
+	/// Pulse while true; hide otherwise.
+	let active: Bool
+	let color: Color
+	/// Full pulse cycle length (the model's Fade Out Time).
+	let period: Double
+	/// Border width; the blur radius scales with it.
+	let size: Double
+
+	@Environment(\.accessibilityReduceMotion) private var reduceMotion
+	@State private var dimmed = false
+
+	var body: some View {
+		Rectangle()
+			.strokeBorder(color, lineWidth: size)
+			.blur(radius: size / 3)
+			.opacity(overlayOpacity)
+			.allowsHitTesting(false)
+			.accessibilityHidden(true)
+			.animation(activeAnimation, value: dimmed)
+			.animation(.easeOut(duration: 0.2), value: active)
+			.onChange(of: active) { _, isActive in
+				// Toggling `dimmed` under a repeatForever animation produces the pulse;
+				// when inactive, freeze it (the 0-opacity fade above hides the border).
+				dimmed = isActive && reduceMotion.not
+			}
+	}
+
+	private var overlayOpacity: Double {
+		guard active else { return 0 }
+		// Reduce Motion: steady border, no pulsing.
+		if reduceMotion { return 0.8 }
+		return dimmed ? 0.15 : 1.0
+	}
+
+	private var activeAnimation: Animation? {
+		guard active, reduceMotion.not else { return nil }
+		return .easeInOut(duration: period / 2).repeatForever(autoreverses: true)
+	}
+}
+
+/// Classified-label bubble (AIA-0374, owner request): mirrors Apple's classification
+/// sample presentation — top labels + confidence in a rounded panel, shown while the
+/// global "Show labels" setting is on. Classification has no boxes to pin labels to,
+/// so the bubble floats top-trailing over the content.
+struct ClassificationLabelBubble: View {
+	let labels: [ClassifiedLabel]
+
+	var body: some View {
+		VStack(alignment: .leading, spacing: 2) {
+			ForEach(labels, id: \.identifier) { label in
+				HStack(spacing: 4) {
+					Text(label.identifier.capitalized)
+						.lineLimit(1)
+					Text(":")
+					Text(Double(label.confidence), format: .percent.precision(.fractionLength(0)))
+				}
+				.font(.callout)
+			}
+		}
+		.padding(10)
+		.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+		.allowsHitTesting(false)
+	}
+}
+
+#Preview("Finding flash — toggle pulse") {
 	struct FlashPreview: View {
-		@State private var token = 0
+		@State private var active = false
 		var body: some View {
 			ZStack {
 				Color(white: 0.9)
-				Text("Tap to flash").font(.caption)
-				FindingFlashOverlay(
-					style: FlashStyle(enabled: true, color: .yellow, duration: 1.0, size: 8),
-					flashToken: token
-				)
+				Text("Tap to toggle the pulse").font(.caption)
+				FindingFlashOverlay(active: active, color: .yellow, period: 2.0, size: 8)
 			}
-			.onTapGesture { token += 1 }
+			.onTapGesture { active.toggle() }
 		}
 	}
 	return FlashPreview()

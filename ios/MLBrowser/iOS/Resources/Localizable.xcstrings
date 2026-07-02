@@ -6652,7 +6652,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Provide a valid address pointing to a Create ML detection model (.mlmodel)"
+            "value" : "Provide a valid address pointing to a Core ML detection or classification model (.mlmodel)"
           }
         },
         "es" : {
@@ -9607,7 +9607,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose a Create ML model (.mlmodel or .mlpackage) that supports object detection. Other model types are not supported in this version."
+            "value" : "Choose a Core ML model (.mlmodel or .mlpackage) that supports object detection or image classification. Other model types are not supported in this version."
           }
         },
         "es" : {
@@ -11760,30 +11760,6 @@
         }
       }
     },
-    "settings.flashColor" : {
-      "comment" : "Label for the finding-flash color picker (AIA-0374)",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flash color"
-          }
-        }
-      }
-    },
-    "settings.flashDuration" : {
-      "comment" : "Label for the finding-flash duration slider (AIA-0374)",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flash duration"
-          }
-        }
-      }
-    },
     "settings.flashOnFinding" : {
       "comment" : "Toggle: flash the frame when classification finds an object (AIA-0374)",
       "extractionState" : "manual",
@@ -12900,114 +12876,6 @@
         }
       }
     },
-    "settings.section.annotation" : {
-      "comment" : "Section header for annotation settings",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "التعليق التوضيحي"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "টীকা"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Anotace"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Annotation"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Annotation"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Anotación"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "حاشیه‌نویسی"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Annotation"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "הערות"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "एनोटेशन"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jegyzet"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Adnotacja"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Аннотация"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Анотація"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "注释"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "註釋"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "註釋"
-          }
-        }
-      }
-    },
     "settings.section.classification" : {
       "comment" : "Section header for classification settings (AIA-0374)",
       "extractionState" : "manual",
@@ -13124,6 +12992,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "除錯"
+          }
+        }
+      }
+    },
+    "settings.section.detection" : {
+      "comment" : "Section header for detection settings (renamed from Annotation, AIA-0374)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detection"
           }
         }
       }

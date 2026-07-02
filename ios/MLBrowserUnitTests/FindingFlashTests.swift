@@ -6,36 +6,11 @@
 //
 
 import XCTest
+import SwiftUI
 import Vision
 import CoreML
 import Combine
 @testable import ML_Browser
-
-// MARK: - FlashTrigger Tests (AIA-0374)
-
-final class FlashTriggerTests: XCTestCase {
-
-    func testShouldFlash_ZeroToOne_Fires() {
-        XCTAssertTrue(FlashTrigger.shouldFlash(oldCount: 0, newCount: 1))
-    }
-
-    func testShouldFlash_CountIncrease_Fires() {
-        // A second model's new finding must not be masked by an already-qualifying first.
-        XCTAssertTrue(FlashTrigger.shouldFlash(oldCount: 1, newCount: 2))
-    }
-
-    func testShouldFlash_SameCount_DoesNotFire() {
-        XCTAssertFalse(FlashTrigger.shouldFlash(oldCount: 1, newCount: 1))
-    }
-
-    func testShouldFlash_CountDecrease_DoesNotFire() {
-        XCTAssertFalse(FlashTrigger.shouldFlash(oldCount: 2, newCount: 1))
-    }
-
-    func testShouldFlash_ZeroToZero_DoesNotFire() {
-        XCTAssertFalse(FlashTrigger.shouldFlash(oldCount: 0, newCount: 0))
-    }
-}
 
 // MARK: - ClassificationFlashController Tests (AIA-0374)
 
@@ -54,104 +29,113 @@ final class ClassificationFlashControllerTests: XCTestCase {
         try await super.tearDown()
     }
 
-    private func result(topConfidence: Float) -> ClassificationResult {
+    private func result(
+        topConfidence: Float,
+        color: Color = .red,
+        period: Double = 2.5
+    ) -> ClassificationResult {
         (labels: [
             ClassifiedLabel(identifier: "object", confidence: topConfidence),
             ClassifiedLabel(identifier: "background", confidence: 0.01)
-        ], params: DeepDriverParams(entityId: UUID()))
+        ], params: DeepDriverParams(
+            annotationColor: color,
+            entityId: UUID(),
+            phaseOutTime: period
+        ))
     }
 
-    func testIngest_QualifyingResult_FiresFlashAndCounts() {
-        sut.ingest([result(topConfidence: 0.9)])
+    func testIngest_QualifyingResult_ActivatesWithModelStyle() {
+        sut.ingest([result(topConfidence: 0.9, color: .blue, period: 3.0)])
 
-        XCTAssertEqual(sut.flashCount, 1)
         XCTAssertEqual(sut.qualifyingCount, 1)
+        XCTAssertEqual(sut.flashColor, .blue)
+        XCTAssertEqual(sut.pulsePeriod, 3.0)
+        XCTAssertEqual(sut.qualifyingPassCount, 1)
     }
 
-    func testIngest_SameQualifyingResultTwice_FlashesOnce() {
+    func testIngest_QualifyingPassesAccumulateCount() {
         sut.ingest([result(topConfidence: 0.9)])
         sut.ingest([result(topConfidence: 0.9)])
 
-        XCTAssertEqual(sut.flashCount, 1, "A persisting finding must not strobe on every pass")
-    }
-
-    func testIngest_SecondDriverStartsQualifying_FiresAgain() {
-        sut.ingest([result(topConfidence: 0.9)])
-        sut.ingest([result(topConfidence: 0.9), result(topConfidence: 0.8)])
-
-        XCTAssertEqual(sut.flashCount, 2)
-        XCTAssertEqual(sut.qualifyingCount, 2)
+        XCTAssertEqual(sut.qualifyingCount, 1)
+        XCTAssertEqual(sut.qualifyingPassCount, 2, "The checkpoint counter tracks qualifying passes")
     }
 
     func testIngest_BelowThresholdTopLabel_DoesNotQualify() {
-        // Top-1 is 0.45: the 0.01 background label must not be summed or considered.
-        sut.ingest([result(topConfidence: 0.45)])
+        // Top-1 is 0.2 (below the 0.25 threshold): no pulse — but the labels are
+        // still published for the bubble.
+        sut.ingest([result(topConfidence: 0.2)])
 
-        XCTAssertEqual(sut.flashCount, 0)
         XCTAssertEqual(sut.qualifyingCount, 0)
+        XCTAssertEqual(sut.qualifyingPassCount, 0)
+        XCTAssertEqual(sut.displayLabels.first?.confidence, 0.2, "Display is threshold-independent")
+    }
+
+    func testIngest_DisplayLabels_TopKSortedAboveFloor() {
+        let params = DeepDriverParams(entityId: UUID())
+        let labels = [
+            ClassifiedLabel(identifier: "a", confidence: 0.30),
+            ClassifiedLabel(identifier: "b", confidence: 0.40),
+            ClassifiedLabel(identifier: "c", confidence: 0.20),
+            ClassifiedLabel(identifier: "noise", confidence: 0.01),
+            ClassifiedLabel(identifier: "d", confidence: 0.06)
+        ]
+        sut.ingest([(labels: labels, params: params)])
+
+        XCTAssertEqual(sut.displayLabels.map(\.identifier), ["b", "a", "c"],
+                       "Top-3 by confidence; the 0.01 noise label is below the floor")
+    }
+
+    func testResetOnInteraction_ClearsDisplayLabels() {
+        sut.ingest([result(topConfidence: 0.9)])
+        XCTAssertFalse(sut.displayLabels.isEmpty)
+
+        sut.resetOnInteraction()
+
+        XCTAssertTrue(sut.displayLabels.isEmpty)
     }
 
     func testIngest_ThresholdEdge_Qualifies() {
         sut.ingest([result(topConfidence: ClassificationFlashController.qualifyingConfidenceThreshold)])
 
-        XCTAssertEqual(sut.flashCount, 1)
-    }
-
-    func testIngest_EmptyResults_ClearsQualifyingWithoutFlash() {
-        sut.ingest([result(topConfidence: 0.9)])
-        sut.ingest([])
-
-        XCTAssertEqual(sut.qualifyingCount, 0)
-        XCTAssertEqual(sut.flashCount, 1)
-    }
-
-    func testIngest_FlashDisabled_CountsButNeverFlashes() {
-        // The disable toggle freezes the flash, not the classification bookkeeping —
-        // the UI test's negative case relies on classificationCount still changing.
-        sut.flashEnabled = false
-        sut.ingest([result(topConfidence: 0.9)])
-        sut.ingest([])
-        sut.ingest([result(topConfidence: 0.9)])
-
-        XCTAssertEqual(sut.flashCount, 0)
         XCTAssertEqual(sut.qualifyingCount, 1)
     }
 
-    func testFlashEnabled_ReadAtIngestTime_NotCapturedAtPassStart() {
-        // P4 review: a toggle flipped while a pass is in flight must take effect on
-        // that pass's completion. Ingest after the flip must not flash.
-        sut.flashEnabled = true
-        sut.flashEnabled = false
+    func testIngest_EmptyResults_DeactivatesPulse() {
         sut.ingest([result(topConfidence: 0.9)])
+        sut.ingest([])
 
-        XCTAssertEqual(sut.flashCount, 0)
+        XCTAssertEqual(sut.qualifyingCount, 0, "No qualifying classification → the pulse stops")
     }
 
-    func testEnablingOntoQualifyingPage_RearmsAndFlashes() {
-        // P4 review: disabled → page qualifies (count 1, no flash) → enable. Without
-        // re-arming, every later pass is 1→1 and the user never gets a flash.
-        sut.flashEnabled = false
+    func testIngest_OutOfRangePeriod_IsClamped() {
+        sut.ingest([result(topConfidence: 0.9, period: 99.0)])
+
+        XCTAssertEqual(sut.pulsePeriod, ClassificationFlashController.pulsePeriodRange.upperBound)
+    }
+
+    func testIngest_TwoQualifyingDrivers_StyleFromFirst() {
+        sut.ingest([
+            result(topConfidence: 0.9, color: .green, period: 1.0),
+            result(topConfidence: 0.8, color: .purple, period: 4.0)
+        ])
+
+        XCTAssertEqual(sut.qualifyingCount, 2)
+        XCTAssertEqual(sut.flashColor, .green)
+        XCTAssertEqual(sut.pulsePeriod, 1.0)
+    }
+
+    func testResetOnInteraction_StopsPulseUntilRequalified() {
         sut.ingest([result(topConfidence: 0.9)])
         XCTAssertEqual(sut.qualifyingCount, 1)
 
-        sut.flashEnabled = true
-        XCTAssertEqual(sut.qualifyingCount, 0, "Enable edge must re-arm the 0→n transition")
-
-        sut.ingest([result(topConfidence: 0.9)])
-        XCTAssertEqual(sut.flashCount, 1)
-    }
-
-    func testResetOnInteraction_AllowsReflashAfterSettle() {
-        sut.ingest([result(topConfidence: 0.9)])
-        XCTAssertEqual(sut.flashCount, 1)
-
-        // Scroll: content invalidated, count clears (mirrors detection's clear).
+        // Scroll: content invalidated, pulse stops (mirrors detection's clear).
         sut.resetOnInteraction()
         XCTAssertEqual(sut.qualifyingCount, 0)
 
-        // Settle: the still-present finding re-qualifies 0→1 and flashes once more.
+        // Settle: the still-present finding re-qualifies and the pulse resumes.
         sut.ingest([result(topConfidence: 0.9)])
-        XCTAssertEqual(sut.flashCount, 2)
+        XCTAssertEqual(sut.qualifyingCount, 1)
     }
 
     // MARK: In-flight invalidation (P4 review)
@@ -165,27 +149,26 @@ final class ClassificationFlashControllerTests: XCTestCase {
         sut.resetOnInteraction()
 
         // Bounded negative assertion: the stale completion must never ingest.
-        let noChange = expectation(description: "stale pass must not count or flash")
+        let noChange = expectation(description: "stale pass must not activate the pulse")
         noChange.isInverted = true
         let cancellable = sut.$qualifyingCount.dropFirst().sink { _ in noChange.fulfill() }
         await fulfillment(of: [noChange], timeout: 1.0)
         cancellable.cancel()
 
-        XCTAssertEqual(sut.flashCount, 0)
         XCTAssertEqual(sut.qualifyingCount, 0)
+        XCTAssertEqual(sut.qualifyingPassCount, 0)
     }
 
     func testClassifyPass_WithoutInvalidation_Ingests() async {
         let drivers = DeepDrivers()
         drivers.register(driver: FixedLabelClassifying(confidence: 0.9), along: .classificator)
 
-        let flashed = expectation(description: "pass ingests and flashes")
-        let cancellable = sut.$flashCount.dropFirst().sink { _ in flashed.fulfill() }
+        let activated = expectation(description: "pass ingests and activates the pulse")
+        let cancellable = sut.$qualifyingCount.dropFirst().sink { _ in activated.fulfill() }
         sut.classifyPass(drivers: drivers, image: UIImage())
-        await fulfillment(of: [flashed], timeout: 2.0)
+        await fulfillment(of: [activated], timeout: 2.0)
         cancellable.cancel()
 
-        XCTAssertEqual(sut.flashCount, 1)
         XCTAssertEqual(sut.qualifyingCount, 1)
     }
 }
@@ -214,7 +197,33 @@ final class DeepDriversClassifyAggregationTests: XCTestCase {
     }
 }
 
-// MARK: - Classifying stub
+// MARK: - Detecting protocol symmetry (AIA-0374)
+
+@MainActor
+final class DeepDriversDetectProtocolTests: XCTestCase {
+
+    /// The detect loop dispatches on `Detecting` (not the concrete `Detector`), the
+    /// mirror of the classify loop's `Classifying` — a protocol conformer's results
+    /// flow through like the real driver's.
+    func testDetectOn_StubDetecting_ReturnsItsObjects() async {
+        let drivers = DeepDrivers()
+        let entityId = UUID()
+        let stub = StubDetecting(params: DeepDriverParams(entityId: entityId))
+        drivers.register(driver: stub, along: .detector)
+
+        let expectation = XCTestExpectation(description: "Detection completed")
+        drivers.detect(on: UIImage(), tiledDetection: false) { results in
+            XCTAssertEqual(results.count, 1)
+            XCTAssertEqual(results.first?.observations.first?.primaryLabelIdentifier, "stub-object")
+            XCTAssertEqual(results.first?.params.entityId, entityId)
+            expectation.fulfill()
+        }
+
+        await fulfillment(of: [expectation], timeout: 2.0)
+    }
+}
+
+// MARK: - Stubs
 
 /// Minimal `Classifying` conformer returning one fixed label per pass.
 private actor FixedLabelClassifying: Classifying {
@@ -231,6 +240,35 @@ private actor FixedLabelClassifying: Classifying {
     }
 
     func classify(image: UIImage) async -> [ClassifiedLabel] { [label] }
+    func metadata() -> [MLModelMetadataKey: Any]? { nil }
+    func updateConfiguration(_ params: DeepDriverParams) async { self.params = params }
+    func process(image: UIImage) async {}
+    func loadFile() async throws {}
+    func run() async {}
+    func unload() async {}
+}
+
+/// Minimal `Detecting` conformer returning one fixed object per pass.
+private actor StubDetecting: Detecting {
+    let id: UUID
+    var params: DeepDriverParams
+    var observations: [VNObservation] = []
+
+    init(params: DeepDriverParams) {
+        self.id = params.entityId
+        self.params = params
+    }
+
+    func detect(image: UIImage, regions: [CGRect]) async -> [DetectedObject] {
+        [DetectedObject(
+            uuid: UUID(),
+            labels: [DetectedObject.Label(identifier: "stub-object", confidence: 0.9)],
+            confidence: 0.9,
+            boundingBox: CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2),
+            regionIndex: 0
+        )]
+    }
+
     func metadata() -> [MLModelMetadataKey: Any]? { nil }
     func updateConfiguration(_ params: DeepDriverParams) async { self.params = params }
     func process(image: UIImage) async {}

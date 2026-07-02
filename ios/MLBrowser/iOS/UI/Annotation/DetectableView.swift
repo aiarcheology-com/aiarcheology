@@ -111,9 +111,25 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 )
 
                 // Finding flash (AIA-0374): classification's presentation — no boxes
-                // exist for whole-image results, so a qualifying classification flashes
-                // the content frame. Non-interactive by requirement.
-                FindingFlashOverlay(style: flashStyle, flashToken: flashController.flashCount)
+                // exist for whole-image results, so the frame pulses while a qualifying
+                // classification is on screen, styled by that model's configuration.
+                // Non-interactive by requirement.
+                FindingFlashOverlay(
+                    active: flashStyle.enabled && flashController.qualifyingCount > 0,
+                    color: flashController.flashColor,
+                    period: flashController.pulsePeriod,
+                    size: flashStyle.size
+                )
+
+                // Classified labels (AIA-0374): the same "Show labels" setting that
+                // annotates detection boxes surfaces classification's top labels —
+                // independent of the flash threshold, so low-confidence results are
+                // still visible to the user.
+                if showIdentifiers && flashController.displayLabels.isEmpty.not {
+                    ClassificationLabelBubble(labels: flashController.displayLabels)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .padding(12)
+                }
             }
             .onChange(of: geometry.size) { old, new in
                 // The save dialog freezes the displayed frame; a rotation underneath
@@ -143,7 +159,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             // deliberately AFTER both guards above so a straggler frame can't
             // classify-and-flash mid-scroll or behind the save sheet. Independent of
             // the detection queue below.
-            flashController.flashEnabled = flashStyle.enabled
             flashController.classifyPass(drivers: drivers, image: image)
             // The queue serializes passes and coalesces snapshots arriving mid-pass to
             // the newest one: a tiled pass (6 inferences × N detectors) can outlast the
@@ -210,14 +225,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // AIA-0374: finding-flash introspection. flashCount is monotonic (polling can't
         // miss a transient); classificationCount lets the disable-case assert the flash
         // froze while classification kept running.
-        .checkpoint(.flashCount, value: AppEnvironment.isRunningUITests ? String(flashController.flashCount) : "")
+        .checkpoint(.flashCount, value: AppEnvironment.isRunningUITests ? String(flashController.qualifyingPassCount) : "")
         .checkpoint(.classificationCount, value: AppEnvironment.isRunningUITests ? String(flashController.qualifyingCount) : "")
-        // Propagate toggle changes to in-flight passes immediately — ingest reads the
-        // controller's CURRENT enabled state, not a value captured at pass start
-        // (AIA-0374 P4 review; the per-pass write above covers steady state).
-        .onChange(of: flashStyle.enabled) { _, enabled in
-            flashController.flashEnabled = enabled
-        }
     }
 
     /// Single write path for the displayed frame: the screen's mirror is updated
