@@ -156,10 +156,19 @@ struct FindingFlashOverlay: View {
 			.accessibilityHidden(true)
 			.animation(activeAnimation, value: dimmed)
 			.animation(.easeOut(duration: 0.2), value: active)
-			.onChange(of: active) { _, isActive in
+			.onChange(of: active, initial: true) { _, isActive in
 				// Toggling `dimmed` under a repeatForever animation produces the pulse;
 				// when inactive, freeze it (the 0-opacity fade above hides the border).
+				// `initial: true` arms the pulse even if the overlay first appears with
+				// `active` already true (review: latent static-border bug).
 				dimmed = isActive && reduceMotion.not
+			}
+			.onChange(of: period) { _, _ in
+				// The config sheet pushes live driver updates; a running repeatForever
+				// animation keeps its old duration, so re-toggle to restart the pulse
+				// at the new period immediately (review: live-update gap).
+				guard active, reduceMotion.not else { return }
+				dimmed.toggle()
 			}
 	}
 
@@ -189,7 +198,7 @@ struct ClassificationLabelBubble: View {
 				HStack(spacing: 4) {
 					Text(label.identifier.capitalized)
 						.lineLimit(1)
-					Text(":")
+					Text(verbatim: ":")
 					Text(Double(label.confidence), format: .percent.precision(.fractionLength(0)))
 				}
 				.font(.callout)

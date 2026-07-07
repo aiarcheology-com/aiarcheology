@@ -298,7 +298,7 @@ final class RealClassifierDemoModelTests: XCTestCase {
 
     private func demoModelURL() throws -> URL {
         try XCTUnwrap(
-            Bundle.main.url(forResource: "FastViTT8F16", withExtension: "mlmodelc"),
+            Bundle.main.url(forResource: DemoDataManager.DemoModelResource.fastViT, withExtension: "mlmodelc"),
             "FastViT-T8 demo model missing from the app bundle"
         )
     }
@@ -322,7 +322,7 @@ final class RealClassifierDemoModelTests: XCTestCase {
         XCTAssertFalse(labels.isEmpty, "The real model must produce labels for a rendered image")
         XCTAssertLessThanOrEqual(labels.count, Classificator.topLabelCount)
         let confidences = labels.map(\.confidence)
-        XCTAssertEqual(confidences, confidences.sorted(by: >), "Remap must preserve Vision's best-first order")
+        XCTAssertEqual(confidences, confidences.sorted(by: >), "The top-K trim must preserve Vision's best-first order")
     }
 
     private static func renderedSample() -> UIImage {
@@ -348,7 +348,7 @@ final class RealClassifierDemoModelTests: XCTestCase {
 final class FixturePatternQualificationTests: XCTestCase {
 
     func testMazePattern_QualifiesOnDemoModel() async throws {
-        let url = try XCTUnwrap(Bundle.main.url(forResource: "FastViTT8F16", withExtension: "mlmodelc"))
+        let url = try XCTUnwrap(Bundle.main.url(forResource: DemoDataManager.DemoModelResource.fastViT, withExtension: "mlmodelc"))
         let classificator = Classificator(params: DeepDriverParams(entityId: UUID(), file: url, demo: true))
         try await classificator.loadFile()
 

@@ -148,35 +148,39 @@ extension DeepConfiguration {
 	/// Whether this classify model's findings pulse the frame. Defaults on.
 	public var flashOnFindingEnabled: Bool {
 		get {
-			(UserDefaults.standard.object(forKey: Self.flashKey("enabled", entityId)) as? Bool)
+			(UserDefaults.standard.object(forKey: Self.flashKey(.enabled, entityId)) as? Bool)
 				?? Self.flashEnabledDefault
 		}
 		set {
 			objectWillChange.send()
-			UserDefaults.standard.set(newValue, forKey: Self.flashKey("enabled", entityId))
+			UserDefaults.standard.set(newValue, forKey: Self.flashKey(.enabled, entityId))
 		}
 	}
 
 	/// This model's flash border width (pt), clamped to the slider bounds on read.
 	public var flashSize: Double {
 		get {
-			let stored = UserDefaults.standard.object(forKey: Self.flashKey("size", entityId)) as? Double
+			let stored = UserDefaults.standard.object(forKey: Self.flashKey(.size, entityId)) as? Double
 			return min(max(stored ?? Self.flashSizeDefault, Self.flashSizeRange.lowerBound), Self.flashSizeRange.upperBound)
 		}
 		set {
 			objectWillChange.send()
-			UserDefaults.standard.set(newValue, forKey: Self.flashKey("size", entityId))
+			UserDefaults.standard.set(newValue, forKey: Self.flashKey(.size, entityId))
 		}
 	}
 
 	/// Removes the per-model flash defaults (call when the configuration is deleted,
 	/// so orphaned keys don't accumulate).
 	public func removeFlashDefaults() {
-		UserDefaults.standard.removeObject(forKey: Self.flashKey("enabled", entityId))
-		UserDefaults.standard.removeObject(forKey: Self.flashKey("size", entityId))
+		UserDefaults.standard.removeObject(forKey: Self.flashKey(.enabled, entityId))
+		UserDefaults.standard.removeObject(forKey: Self.flashKey(.size, entityId))
 	}
 
-	private static func flashKey(_ suffix: String, _ id: UUID) -> String {
-		"deepConfiguration.flash.\(suffix).\(id.uuidString)"
+	private enum FlashDefaultKey: String {
+		case enabled, size
+	}
+
+	private static func flashKey(_ suffix: FlashDefaultKey, _ id: UUID) -> String {
+		"deepConfiguration.flash.\(suffix.rawValue).\(id.uuidString)"
 	}
 }

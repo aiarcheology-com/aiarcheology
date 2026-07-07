@@ -157,6 +157,11 @@ struct LabeledSlider: View {
 struct ConfigurationForm: View {
 	@Environment(\.dismiss) private var dismiss
 	@EnvironmentObject var deep: DeepState
+	/// Live flash edits push to the driver via ONE in-flight task (cancel-and-replace):
+	/// independent unstructured Tasks have no ordering guarantee, so a stale slider
+	/// value could land last — the exact bug `DeepDrivers.update`'s sequential-await
+	/// design fixed once before (review).
+	@State private var liveFlashUpdateTask: Task<Void, Never>?
 	@EnvironmentObject var configuration: DeepConfiguration
 	
 	private var mergedObservable: [String] {[
@@ -207,6 +212,14 @@ struct ConfigurationForm: View {
 		}
 	}
 	
+	private func pushLiveFlashUpdate() {
+		liveFlashUpdateTask?.cancel()
+		liveFlashUpdateTask = Task {
+			guard Task.isCancelled.not else { return }
+			await deep.drivers.update(configuration: configuration)
+		}
+	}
+
 	private var annotationSection: some View {
 		Section(header: Text(L10n.Configuration.Section.annotation)) {
 			// Shared by both model families: detection styles its boxes with these;
@@ -235,7 +248,7 @@ struct ConfigurationForm: View {
 					get: { configuration.flashOnFindingEnabled },
 					set: { newValue in
 						configuration.flashOnFindingEnabled = newValue
-						Task { await deep.drivers.update(configuration: configuration) }
+						pushLiveFlashUpdate()
 					}
 				))
 				.testability(Testability.Toggle.configurationFormFlashOnFinding)
@@ -252,7 +265,7 @@ struct ConfigurationForm: View {
 							get: { configuration.flashSize },
 							set: { newValue in
 								configuration.flashSize = newValue
-								Task { await deep.drivers.update(configuration: configuration) }
+								pushLiveFlashUpdate()
 							}
 						),
 						in: DeepConfiguration.flashSizeRange, step: 1

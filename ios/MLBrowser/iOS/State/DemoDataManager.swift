@@ -153,6 +153,14 @@ final class DemoDataManager {
         }
     }
     
+    /// Bundle resource names of the demo models — shared with tests so a rename
+    /// can't silently diverge production and test lookups (review: stringly-typed).
+    enum DemoModelResource {
+        static let aiArcheology = "AIArcheology"
+        static let hroudaDetector = "HroudaDetector15"
+        static let fastViT = "FastViTT8F16"
+    }
+
     /// Shared demo-model loader: bundle lookup + error logging + seeding.
     /// Warning: models are used as mlmodelc in the bundle when handled from Xcode.
     private func loadDemoModel(resourceName: String, enabled: Bool = false) async {
@@ -164,11 +172,11 @@ final class DemoDataManager {
     }
 
     private func loadModelOne() async {
-        await loadDemoModel(resourceName: "AIArcheology")
+        await loadDemoModel(resourceName: DemoModelResource.aiArcheology)
     }
 
     private func loadModelTwo() async {
-        await loadDemoModel(resourceName: "HroudaDetector15")
+        await loadDemoModel(resourceName: DemoModelResource.hroudaDetector)
     }
 
     private func loadModelThree() async {
@@ -180,7 +188,7 @@ final class DemoDataManager {
         // path — launch-config state, not a mock.
         let enableForUITests = AppEnvironment.isRunningUITests
             && UITestLaunchConfiguration.fromEnvironment?.enableClassifyDemo == true
-        await loadDemoModel(resourceName: "FastViTT8F16", enabled: enableForUITests)
+        await loadDemoModel(resourceName: DemoModelResource.fastViT, enabled: enableForUITests)
     }
 
     /// Loads a demo model and creates a Core Data configuration for it.

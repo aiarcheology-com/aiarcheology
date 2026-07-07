@@ -329,11 +329,11 @@ extension TestabilityIdentification {
 		/// for detection to warm up before tapping the map, de-flaking the tour happy path on slow
 		/// CI runners (AIA-0333).
 		case detectionFrameApplied
-		/// Monotonic count of fired finding-flashes (AIA-0374). A counter, not a bool —
-		/// checkpoint polling can never miss a transient flash.
+		/// Monotonic count of qualifying classification passes (AIA-0374). A counter,
+		/// not a bool — checkpoint polling can never miss a transient.
 		case flashCount
-		/// Number of classificators whose top-1 label currently qualifies (AIA-0374). The
-		/// disable-case UI test asserts flashCount freezes while THIS keeps changing.
+		/// Number of flash-participating classificators whose top-1 label currently
+		/// qualifies (AIA-0374) — drives the pulse overlay's `active` state.
 		case classificationCount
 		/// The current top display label as "identifier=confidence" (AIA-0375) — turns
 		/// "why didn't it qualify" from a guess into a read.
