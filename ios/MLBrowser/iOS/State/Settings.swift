@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import SwiftUI
+import UIKit
 
 @MainActor
 protocol Validatable {
@@ -263,4 +265,5 @@ final class Settings: ObservableObject, Validatable {
 		defaults.set(fullscreenDetection, forKey: UserDefaultsKeys.fullscreenDetection)
 		defaults.set(tiledDetection, forKey: UserDefaultsKeys.tiledDetection)
 	}
+
 }

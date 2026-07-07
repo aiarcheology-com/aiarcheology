@@ -235,6 +235,10 @@ internal enum L10n {
     internal static let fadeOutTime = L10n.tr("Localizable", "configuration.fadeOutTime", fallback: "Fade Out Time")
     /// File
     internal static let file = L10n.tr("Localizable", "configuration.file", fallback: "File")
+    /// Flash when object found
+    internal static let flashOnFinding = L10n.tr("Localizable", "configuration.flashOnFinding", fallback: "Flash when object found")
+    /// Flash border size
+    internal static let flashSize = L10n.tr("Localizable", "configuration.flashSize", fallback: "Flash border size")
     /// Link
     internal static let link = L10n.tr("Localizable", "configuration.link", fallback: "Link")
     /// Symbol
@@ -265,8 +269,8 @@ internal enum L10n {
     internal static let title = L10n.tr("Localizable", "download.title", fallback: "Model")
     /// URL
     internal static let url = L10n.tr("Localizable", "download.url", fallback: "URL")
-    /// Provide a valid address pointing to a Create ML detection model (.mlmodel)
-    internal static let urlHint = L10n.tr("Localizable", "download.urlHint", fallback: "Provide a valid address pointing to a Create ML detection model (.mlmodel)")
+    /// Provide a valid address pointing to a Core ML detection or classification model (.mlmodel)
+    internal static let urlHint = L10n.tr("Localizable", "download.urlHint", fallback: "Provide a valid address pointing to a Core ML detection or classification model (.mlmodel)")
     internal enum Button {
       /// Cancel
       internal static let cancel = L10n.tr("Localizable", "download.button.cancel", fallback: "Cancel")
@@ -419,8 +423,8 @@ internal enum L10n {
     }
     /// Supported Models
     internal static let supportedModels = L10n.tr("Localizable", "import.supportedModels", fallback: "Supported Models")
-    /// Choose a Create ML model (.mlmodel or .mlpackage) that supports object detection. Other model types are not supported in this version.
-    internal static let supportedModelsInfo = L10n.tr("Localizable", "import.supportedModelsInfo", fallback: "Choose a Create ML model (.mlmodel or .mlpackage) that supports object detection. Other model types are not supported in this version.")
+    /// Choose a Core ML model (.mlmodel or .mlpackage) that supports object detection or image classification. Other model types are not supported in this version.
+    internal static let supportedModelsInfo = L10n.tr("Localizable", "import.supportedModelsInfo", fallback: "Choose a Core ML model (.mlmodel or .mlpackage) that supports object detection or image classification. Other model types are not supported in this version.")
     /// Import Model
     internal static let title = L10n.tr("Localizable", "import.title", fallback: "Import Model")
     /// Validating model...

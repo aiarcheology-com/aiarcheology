@@ -50,6 +50,7 @@ final class DemoDataManager {
         
         await loadModelOne()
         await loadModelTwo()
+        await loadModelThree()
         await createBrowsingHistoryIfNeeded()
         
         LoggingPolicy.info("Demo data creation complete", logger: .configuration)
@@ -152,31 +153,49 @@ final class DemoDataManager {
         }
     }
     
+    /// Bundle resource names of the demo models — shared with tests so a rename
+    /// can't silently diverge production and test lookups (review: stringly-typed).
+    enum DemoModelResource {
+        static let aiArcheology = "AIArcheology"
+        static let hroudaDetector = "HroudaDetector15"
+        static let fastViT = "FastViTT8F16"
+    }
+
+    /// Shared demo-model loader: bundle lookup + error logging + seeding.
+    /// Warning: models are used as mlmodelc in the bundle when handled from Xcode.
+    private func loadDemoModel(resourceName: String, enabled: Bool = false) async {
+        guard let urlInBundle = Bundle.main.url(forResource: resourceName, withExtension: "mlmodelc") else {
+            LoggingPolicy.error("Cannot locate \(resourceName) demo model in bundle", logger: .configuration)
+            return
+        }
+        await loadModel(from: urlInBundle, enabled: enabled)
+    }
+
     private func loadModelOne() async {
-        // Warning: models are used as mlmodelc in the bundle when handled from xcode
-        guard let urlInBundle = Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") else {
-            LoggingPolicy.error("Cannot locate AIArcheology demo model in bundle", logger: .configuration)
-            return
-        }
-        
-        await loadModel(from: urlInBundle)
+        await loadDemoModel(resourceName: DemoModelResource.aiArcheology)
     }
-    
+
     private func loadModelTwo() async {
-        // Warning: models are used as mlmodelc in the bundle when handled from xcode
-        guard let urlInBundle = Bundle.main.url(forResource: "HroudaDetector15", withExtension: "mlmodelc") else {
-            LoggingPolicy.error("Cannot locate HroudaDetector15 demo model in bundle", logger: .configuration)
-            return
-        }
-        
-        await loadModel(from: urlInBundle)
+        await loadDemoModel(resourceName: DemoModelResource.hroudaDetector)
     }
-    
+
+    private func loadModelThree() async {
+        // FastViT-T8 (Apple's model gallery, F16, ~8 MB) is a TEST-ONLY asset
+        // (owner decision, AIA-0374): it ships under Apple's custom ML license and
+        // must not be part of the installation package. The resource is excluded
+        // from Release builds (EXCLUDED_SOURCE_FILE_NAMES) and seeds only when a
+        // UI test requests it via launch config — production (and normal Debug
+        // runs) never see it. Unit tests load it from the bundle directly.
+        guard AppEnvironment.isRunningUITests,
+              UITestLaunchConfiguration.fromEnvironment?.enableClassifyDemo == true else { return }
+        await loadDemoModel(resourceName: DemoModelResource.fastViT, enabled: true)
+    }
+
     /// Loads a demo model and creates a Core Data configuration for it.
     ///
     /// Model metadata extraction is performed via ModelLoadingService (off MainActor),
     /// while Core Data entity creation remains on MainActor.
-    private func loadModel(from file: URL) async {
+    private func loadModel(from file: URL, enabled: Bool = false) async {
         var urlToPossibleDirectory = file.absoluteString
         if urlToPossibleDirectory.hasSuffix("/") {
             urlToPossibleDirectory.removeLast()
@@ -210,7 +229,7 @@ final class DemoDataManager {
         configuration.phaseOutTime = 2
         configuration.selectedSymbol = .circle
         configuration.file_ = URL(string: url.lastPathComponent)
-        configuration.enabled = false
+        configuration.enabled = enabled
         configuration.transition(to: .draft)
         configuration.transition(to: .ready)
         do {

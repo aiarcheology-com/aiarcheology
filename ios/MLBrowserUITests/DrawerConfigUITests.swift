@@ -22,11 +22,12 @@ final class DrawerConfigUITests: UITestCase {
         launch()
         openDrawer()
         XCTAssertTrue(waitForSeededConfigurations(), "Demo configurations were not seeded")
-        // DemoDataManager seeds two demo models (AIArcheology + HroudaDetector15) sequentially
-        // and asynchronously (CoreML metadata extraction), so wait for both toggles to appear
-        // before asserting the count — otherwise the second model may still be seeding.
-        let bothSeeded = NSPredicate(format: "count == 2")
-        let expectation = XCTNSPredicateExpectation(predicate: bothSeeded, object: modelToggles())
+        // DemoDataManager seeds two demo models (AIArcheology + HroudaDetector15)
+        // sequentially and asynchronously (CoreML metadata extraction); the FastViT
+        // classify demo is TEST-ONLY and seeds solely under enableClassifyDemo
+        // (AIA-0374 licensing). Wait for both toggles before asserting the count.
+        let allSeeded = NSPredicate(format: "count == 2")
+        let expectation = XCTNSPredicateExpectation(predicate: allSeeded, object: modelToggles())
         XCTAssertEqual(
             XCTWaiter().wait(for: [expectation], timeout: 20), .completed,
             "Expected two seeded demo models in the drawer"
@@ -53,8 +54,8 @@ final class DrawerConfigUITests: UITestCase {
 
         // Both demo models seed asynchronously; wait for both toggles so the pre-delete count is
         // stable (same pattern as testDrawer_listsTwoSeededDemoModels).
-        let bothSeeded = NSPredicate(format: "count == 2")
-        let seededExpectation = XCTNSPredicateExpectation(predicate: bothSeeded, object: modelToggles())
+        let allSeeded = NSPredicate(format: "count == 2")
+        let seededExpectation = XCTNSPredicateExpectation(predicate: allSeeded, object: modelToggles())
         XCTAssertEqual(
             XCTWaiter().wait(for: [seededExpectation], timeout: 20), .completed,
             "Expected two seeded demo models before delete"

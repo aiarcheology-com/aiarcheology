@@ -105,6 +105,9 @@ struct WebScreenView: View {
 	@State private var currentPageFile = ""
 	@State private var showIdentifiers: Bool = false
 	@State private var tiledDetection: Bool = false
+	/// Mirrors `guide.ontheflyDetectionEnabled` (play/pause) so DetectableView can
+	/// clear the classification presentation the moment detection stops (AIA-0374).
+	@State private var detectionActive: Bool = false
 	/// The tapped detection being saved; non-nil presents the save sheet.
 	@State private var findingCapture: FindingCapture?
 	/// Freezes DetectableView's displayed frame while the save sheet is up.
@@ -183,6 +186,7 @@ struct WebScreenView: View {
             trigger: appState.snap.combinedPublishers,
             showIdentifiers: showIdentifiers,
             tiledDetection: tiledDetection,
+            detectionActive: detectionActive,
             isCapturingFinding: $isCapturingFinding,
             onFrameChanged: { frame in
                 appliedFrame = frame
@@ -216,6 +220,9 @@ struct WebScreenView: View {
         }
         .onReceive(appState.settings.$tiledDetection) { value in
             tiledDetection = value
+        }
+        .onReceive(appState.guide.$ontheflyDetectionEnabled) { value in
+            detectionActive = value
         }
         .onAppear {
             showIdentifiers = appState.settings.showIdentifiers

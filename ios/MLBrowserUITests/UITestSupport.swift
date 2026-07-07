@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 3
+	var version = 4
 	var startOnboardingTour: Bool?
 	var pageScenario: PageScenario?
 	var defaultPageOverride: String?
@@ -30,6 +30,7 @@ struct LaunchConfig: Encodable {
 	var fullscreenDetection: Bool?
 	var fixtureName: String?
 	var stubDownloads: Bool?
+	var enableClassifyDemo: Bool?
 }
 
 // MARK: - Accessibility identifiers
@@ -46,6 +47,9 @@ enum AID {
 	static let cpCurrentPageFile = "_AIA:Checkpoint.CurrentPageFile"
 	static let cpDetectionCount = "_AIA:Checkpoint.DetectionCount"
 	static let cpDetectionFrameApplied = "_AIA:Checkpoint.DetectionFrameApplied"
+	static let cpFlashCount = "_AIA:Checkpoint.FlashCount"
+	static let cpClassificationCount = "_AIA:Checkpoint.ClassificationCount"
+	static let cpTopClassification = "_AIA:Checkpoint.TopClassification"
 
 	// Top toolbar (real Buttons)
 	static let cpu = "_AIA:Button.GlobalToolbarSideMenu"

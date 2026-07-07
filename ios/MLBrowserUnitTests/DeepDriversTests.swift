@@ -84,59 +84,6 @@ final class DeepDriverTypeTests: XCTestCase {
     }
 }
 
-// MARK: - ResultsCollector Tests
-
-final class ResultsCollectorTests: XCTestCase {
-    
-    func testAppendSingleResult() async {
-        let collector = ResultsCollector<VNRecognizedObjectObservation>()
-        let params = DeepDriverParams(entityId: UUID())
-        
-        await collector.append((observations: [], params: params))
-        
-        let results = await collector.collectedResults
-        XCTAssertEqual(results.count, 1)
-        XCTAssertEqual(results.first?.params.entityId, params.entityId)
-    }
-    
-    func testAppendMultipleResults() async {
-        let collector = ResultsCollector<VNRecognizedObjectObservation>()
-        let params1 = DeepDriverParams(entityId: UUID())
-        let params2 = DeepDriverParams(entityId: UUID())
-        let params3 = DeepDriverParams(entityId: UUID())
-        
-        await collector.append((observations: [], params: params1))
-        await collector.append((observations: [], params: params2))
-        await collector.append((observations: [], params: params3))
-        
-        let results = await collector.collectedResults
-        XCTAssertEqual(results.count, 3)
-    }
-    
-    func testCollectedResultsStartsEmpty() async {
-        let collector = ResultsCollector<VNRecognizedObjectObservation>()
-        
-        let results = await collector.collectedResults
-        XCTAssertTrue(results.isEmpty)
-    }
-    
-    func testAppendPreservesOrder() async {
-        let collector = ResultsCollector<VNRecognizedObjectObservation>()
-        let id1 = UUID()
-        let id2 = UUID()
-        let id3 = UUID()
-        
-        await collector.append((observations: [], params: DeepDriverParams(entityId: id1)))
-        await collector.append((observations: [], params: DeepDriverParams(entityId: id2)))
-        await collector.append((observations: [], params: DeepDriverParams(entityId: id3)))
-        
-        let results = await collector.collectedResults
-        XCTAssertEqual(results[0].params.entityId, id1)
-        XCTAssertEqual(results[1].params.entityId, id2)
-        XCTAssertEqual(results[2].params.entityId, id3)
-    }
-}
-
 // MARK: - DeepDrivers Tests
 
 @MainActor
@@ -336,4 +283,96 @@ final class DeepDriversTests: XCTestCase {
 
         await fulfillment(of: [expectation], timeout: 2.0)
     }
+
+    // MARK: - Classify Pass Tests (AIA-0374)
+
+    func testClassifyOn_StubClassificator_ReturnsItsLabels() async {
+        let expectation = XCTestExpectation(description: "Classification completed")
+        let entityId = UUID()
+        let labels = [
+            ClassifiedLabel(identifier: "mound", confidence: 0.9),
+            ClassifiedLabel(identifier: "field", confidence: 0.1)
+        ]
+        let stub = StubClassifying(params: DeepDriverParams(entityId: entityId), labels: labels)
+
+        sut.register(driver: stub, along: .classificator)
+
+        sut.classify(on: UIImage()) { results in
+            XCTAssertEqual(results.count, 1)
+            XCTAssertEqual(results.first?.labels, labels)
+            XCTAssertEqual(results.first?.params.entityId, entityId)
+            expectation.fulfill()
+        }
+
+        await fulfillment(of: [expectation], timeout: 2.0)
+    }
+
+    func testClassifyOn_EmptyLabels_DriverExcludedFromResults() async {
+        let expectation = XCTestExpectation(description: "Classification completed")
+        let stub = StubClassifying(params: DeepDriverParams(entityId: UUID()), labels: [])
+
+        sut.register(driver: stub, along: .classificator)
+
+        sut.classify(on: UIImage()) { results in
+            XCTAssertTrue(results.isEmpty)
+            expectation.fulfill()
+        }
+
+        await fulfillment(of: [expectation], timeout: 2.0)
+    }
+
+    func testClassifyOn_NonClassifyingDriver_Skipped() async {
+        let expectation = XCTestExpectation(description: "Classification completed")
+        // A Detector registered on the classify side must be skipped, not crash the pass.
+        let detector = Detector(params: DeepDriverParams(entityId: UUID()))
+
+        sut.register(driver: detector, along: .classificator)
+
+        sut.classify(on: UIImage()) { results in
+            XCTAssertTrue(results.isEmpty)
+            expectation.fulfill()
+        }
+
+        await fulfillment(of: [expectation], timeout: 2.0)
+    }
+
+    func testClassifyOn_UnloadedClassificator_ReturnsEmptyResults() async {
+        let expectation = XCTestExpectation(description: "Classification completed")
+        // A real Classificator with no model loaded classifies to nothing (atomic path).
+        let classificator = Classificator(params: DeepDriverParams(entityId: UUID()))
+
+        sut.register(driver: classificator, along: .classificator)
+
+        sut.classify(on: UIImage()) { results in
+            XCTAssertTrue(results.isEmpty)
+            expectation.fulfill()
+        }
+
+        await fulfillment(of: [expectation], timeout: 2.0)
+    }
+}
+
+// MARK: - Classifying stub (AIA-0374)
+
+/// Minimal `Classifying` conformer: the atomic API means a stub is one real function
+/// plus inert `DeepDriver` plumbing.
+private actor StubClassifying: Classifying {
+    let id: UUID
+    var params: DeepDriverParams
+    var observations: [VNObservation] = []
+    private let labels: [ClassifiedLabel]
+
+    init(params: DeepDriverParams, labels: [ClassifiedLabel]) {
+        self.id = params.entityId
+        self.params = params
+        self.labels = labels
+    }
+
+    func classify(image: UIImage) async -> [ClassifiedLabel] { labels }
+    func metadata() -> [MLModelMetadataKey: Any]? { nil }
+    func updateConfiguration(_ params: DeepDriverParams) async { self.params = params }
+    func process(image: UIImage) async {}
+    func loadFile() async throws {}
+    func run() async {}
+    func unload() async {}
 }

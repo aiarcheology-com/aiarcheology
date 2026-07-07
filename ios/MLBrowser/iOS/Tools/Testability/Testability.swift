@@ -178,6 +178,8 @@ extension TestabilityIdentification {
 		case settingsShowLabels
 		case settingsReopenLastPage
 		case settingsFullscreenDetection
+		// Configuration Form — per-model finding flash (AIA-0374)
+		case configurationFormFlashOnFinding
 		case settingsTiledDetection
 		// Side Menu Cell
 		case sideMenuCellEnabled
@@ -196,6 +198,7 @@ extension TestabilityIdentification {
 	enum Slider: String, TestabilityIdentification {
 		// Configuration Form
 		case configurationFormFadeOutTime
+		case configurationFormFlashSize
 		// Snap Adjustment
 		case snapAdjustmentBrightness
 		case snapAdjustmentContrast
@@ -207,7 +210,7 @@ extension TestabilityIdentification {
 		case findingDetailZoom
 		case findingShareZoom
 	}
-	
+
 	enum ColorPicker: String, TestabilityIdentification {
 		case configurationFormAnnotationColor
 	}
@@ -326,6 +329,15 @@ extension TestabilityIdentification {
 		/// for detection to warm up before tapping the map, de-flaking the tour happy path on slow
 		/// CI runners (AIA-0333).
 		case detectionFrameApplied
+		/// Monotonic count of qualifying classification passes (AIA-0374). A counter,
+		/// not a bool — checkpoint polling can never miss a transient.
+		case flashCount
+		/// Number of flash-participating classificators whose top-1 label currently
+		/// qualifies (AIA-0374) — drives the pulse overlay's `active` state.
+		case classificationCount
+		/// The current top display label as "identifier=confidence" (AIA-0375) — turns
+		/// "why didn't it qualify" from a guess into a read.
+		case topClassification
 	}
 
 	enum MenuItem: String, TestabilityIdentification {

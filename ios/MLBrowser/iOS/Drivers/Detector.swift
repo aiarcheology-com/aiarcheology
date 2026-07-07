@@ -16,7 +16,14 @@ enum DetectorError: Error {
 	case coreModelLoadError
 }
 
-actor Detector: DeepDriver {
+/// Atomic detection API (AIA-0374) — the mirror of `Classifying`, so both driver
+/// families expose one race-free entry point and the `DeepDrivers` loops dispatch
+/// on protocols, not concrete types.
+protocol Detecting: DeepDriver {
+	func detect(image: UIImage, regions: [CGRect]) async -> [DetectedObject]
+}
+
+actor Detector: Detecting {
     let id: UUID
     var params: DeepDriverParams
     private var objectDetectionModel: VNCoreMLModel?

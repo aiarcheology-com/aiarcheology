@@ -99,7 +99,7 @@ iOSInjectionProject/
 /ios/MLBrowser.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
 
 # Local derived data cache for faster builds
-.deriveddata/
+.deriveddata*/
 
 # SSO credentials/IDs reference — must never be committed (keep in 1Password / external certificates dir)
 CLERK_SSO_IDS.md

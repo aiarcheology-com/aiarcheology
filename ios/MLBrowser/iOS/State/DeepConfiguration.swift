@@ -57,16 +57,10 @@ extension DeepConfiguration {
 	
 	public var annotationColor: Color {
 		get {
-			guard
-				let colorData = annotationColor_,
-				let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIColor.self, from: colorData) else {
-				return Color.clear
-			}
-			return Color(color)
+			Color.unarchived(from: annotationColor_, fallback: .clear)
 		}
 		set {
-			let color = UIColor(newValue)
-			annotationColor_ = try? NSKeyedArchiver.archivedData(withRootObject: color, requiringSecureCoding: false)
+			annotationColor_ = newValue.archivedData()
 		}
 	}
 	
@@ -134,7 +128,59 @@ extension DeepConfiguration {
 			file: file,
 			phaseOutTime: phaseOutTime,
 			selectedSymbol: selectedSymbol,
-			demo: demo
+			demo: demo,
+			flashEnabled: flashOnFindingEnabled,
+			flashSize: flashSize
 		)
+	}
+
+	// MARK: - Per-model finding flash (AIA-0374)
+	//
+	// Stored in UserDefaults keyed by entityId, NOT Core Data: model version 0.0.1 has
+	// shipped, so new attributes need the full versioning/migration step (AGENTS §6 —
+	// Xcode-generated mapping model). Promotion to real attributes is tracked in
+	// AIA-0375; the accessors below keep call sites identical for that migration.
+
+	static let flashSizeRange: ClosedRange<Double> = 2.0...24.0
+	static let flashEnabledDefault = true
+	static let flashSizeDefault = 8.0
+
+	/// Whether this classify model's findings pulse the frame. Defaults on.
+	public var flashOnFindingEnabled: Bool {
+		get {
+			(UserDefaults.standard.object(forKey: Self.flashKey(.enabled, entityId)) as? Bool)
+				?? Self.flashEnabledDefault
+		}
+		set {
+			objectWillChange.send()
+			UserDefaults.standard.set(newValue, forKey: Self.flashKey(.enabled, entityId))
+		}
+	}
+
+	/// This model's flash border width (pt), clamped to the slider bounds on read.
+	public var flashSize: Double {
+		get {
+			let stored = UserDefaults.standard.object(forKey: Self.flashKey(.size, entityId)) as? Double
+			return min(max(stored ?? Self.flashSizeDefault, Self.flashSizeRange.lowerBound), Self.flashSizeRange.upperBound)
+		}
+		set {
+			objectWillChange.send()
+			UserDefaults.standard.set(newValue, forKey: Self.flashKey(.size, entityId))
+		}
+	}
+
+	/// Removes the per-model flash defaults (call when the configuration is deleted,
+	/// so orphaned keys don't accumulate).
+	public func removeFlashDefaults() {
+		UserDefaults.standard.removeObject(forKey: Self.flashKey(.enabled, entityId))
+		UserDefaults.standard.removeObject(forKey: Self.flashKey(.size, entityId))
+	}
+
+	private enum FlashDefaultKey: String {
+		case enabled, size
+	}
+
+	private static func flashKey(_ suffix: FlashDefaultKey, _ id: UUID) -> String {
+		"deepConfiguration.flash.\(suffix.rawValue).\(id.uuidString)"
 	}
 }

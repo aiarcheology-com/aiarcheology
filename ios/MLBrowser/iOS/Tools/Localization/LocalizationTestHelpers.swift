@@ -198,6 +198,8 @@ enum StringCatalogValidator {
             "configuration.created",
             "configuration.description",
             "configuration.fadeOutTime",
+            "configuration.flashOnFinding",
+            "configuration.flashSize",
             "configuration.file",
             "configuration.link",
             "configuration.section.annotation",

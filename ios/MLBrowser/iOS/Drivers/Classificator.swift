@@ -16,7 +16,10 @@ enum ClassificatorError: Error {
 	case coreModelLoadError
 }
 
-actor Classificator: DeepDriver {
+actor Classificator: Classifying {
+	/// How many of Vision's best-first class labels a pass keeps (AIA-0374).
+	static let topLabelCount = 5
+
     let id: UUID
     var params: DeepDriverParams
     var observations: [VNObservation] = []
@@ -125,5 +128,37 @@ actor Classificator: DeepDriver {
 
 	func run() async {
 		await classify()
+	}
+
+	// MARK: - Classifying (AIA-0374)
+
+	/// Atomic pass on LOCAL state only: no touch of the shared `handler`/`ciImage`/
+	/// `observations` triple and no suspension points in the body, so actor
+	/// reentrancy can never interleave two passes or remap the wrong frame
+	/// (P4 review — awaiting the split-phase members left a reentrancy window).
+	func classify(image: UIImage) async -> [ClassifiedLabel] {
+		guard let classificationRequest else {
+			LoggingPolicy.debug("Classification skipped: classification request not initialized", logger: .drivers)
+			return []
+		}
+		guard let ciImage = CIImage(image: image) else {
+			LoggingPolicy.warning("Failed to create CIImage from UIImage", logger: .drivers)
+			return []
+		}
+		let handler = VNImageRequestHandler(ciImage: ciImage)
+		do {
+			try handler.perform([classificationRequest])
+			// Vision reports the FULL class distribution (e.g. all 1000 ImageNet
+			// classes), best-first. Only the head is meaningful — keep the top few
+			// so downstream consumers never iterate hundreds of noise labels.
+			let results = (classificationRequest.results as? [VNClassificationObservation]) ?? []
+			let top = results.prefix(Self.topLabelCount)
+			LoggingPolicy.debug("Classification completed: \(results.count) observations, keeping top \(top.count)", logger: .drivers)
+			return top.map { ClassifiedLabel(identifier: $0.identifier, confidence: $0.confidence) }
+		} catch {
+			LoggingPolicy.error("Failed to perform classification", error: error, logger: .drivers)
+			DefaultCrashReporter.shared.recordError(error, context: ["operation": "performClassification"])
+			return []
+		}
 	}
 }

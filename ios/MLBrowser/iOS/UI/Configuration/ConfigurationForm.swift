@@ -157,6 +157,11 @@ struct LabeledSlider: View {
 struct ConfigurationForm: View {
 	@Environment(\.dismiss) private var dismiss
 	@EnvironmentObject var deep: DeepState
+	/// Live flash edits push to the driver via ONE in-flight task (cancel-and-replace):
+	/// independent unstructured Tasks have no ordering guarantee, so a stale slider
+	/// value could land last — the exact bug `DeepDrivers.update`'s sequential-await
+	/// design fixed once before (review).
+	@State private var liveFlashUpdateTask: Task<Void, Never>?
 	@EnvironmentObject var configuration: DeepConfiguration
 	
 	private var mergedObservable: [String] {[
@@ -207,17 +212,68 @@ struct ConfigurationForm: View {
 		}
 	}
 	
+	private func pushLiveFlashUpdate() {
+		liveFlashUpdateTask?.cancel()
+		liveFlashUpdateTask = Task {
+			guard Task.isCancelled.not else { return }
+			await deep.drivers.update(configuration: configuration)
+		}
+	}
+
 	private var annotationSection: some View {
 		Section(header: Text(L10n.Configuration.Section.annotation)) {
+			// Shared by both model families: detection styles its boxes with these;
+			// classification styles the finding flash (Color = flash color, Fade Out
+			// Time = pulse period — AIA-0374).
 			ColorPicker(L10n.Configuration.color, selection: $configuration.annotationColor)
 				.testability(Testability.ColorPicker.configurationFormAnnotationColor)
 			LabeledSlider(label: L10n.Configuration.fadeOutTime, value: $configuration.phaseOutTime, range: 0.2...10)
-			Picker(L10n.Configuration.symbol, selection: $configuration.selectedSymbol) {
-				ForEach(AnnotationSymbol.allCases) { symbol in
-					Text(symbol.localizedName).tag(symbol)
+			// The symbol only shapes detection's box annotations — classification has
+			// no boxes, so hide it there (AIA-0374).
+			if configuration.modelType != .classificator {
+				Picker(L10n.Configuration.symbol, selection: $configuration.selectedSymbol) {
+					ForEach(AnnotationSymbol.allCases) { symbol in
+						Text(symbol.localizedName).tag(symbol)
+					}
+				}
+				.testability(Testability.Picker.configurationFormSymbol)
+			}
+			// Classification presents via the pulsing frame flash: its per-model
+			// options live here beside Color/Fade Out Time (owner decision, AIA-0374).
+			// Custom bindings push changes to the LIVE driver immediately — these
+			// fields are UserDefaults-backed (see DeepConfiguration), so the Core
+			// Data change observer never fires for them.
+			if configuration.modelType == .classificator {
+				Toggle(L10n.Configuration.flashOnFinding, isOn: Binding(
+					get: { configuration.flashOnFindingEnabled },
+					set: { newValue in
+						configuration.flashOnFindingEnabled = newValue
+						pushLiveFlashUpdate()
+					}
+				))
+				.testability(Testability.Toggle.configurationFormFlashOnFinding)
+
+				VStack(alignment: .leading) {
+					HStack {
+						Text(L10n.Configuration.flashSize)
+						Spacer()
+						Text(configuration.flashSize, format: .number.precision(.fractionLength(0)))
+							.foregroundStyle(.secondary)
+					}
+					Slider(
+						value: Binding(
+							get: { configuration.flashSize },
+							set: { newValue in
+								configuration.flashSize = newValue
+								pushLiveFlashUpdate()
+							}
+						),
+						in: DeepConfiguration.flashSizeRange, step: 1
+					)
+					.testability(Testability.Slider.configurationFormFlashSize)
+					.accessibilityLabel(Text(L10n.Configuration.flashSize))
 				}
 			}
-			.testability(Testability.Picker.configurationFormSymbol)
 		}
 	}
 	

@@ -23,6 +23,9 @@ struct DeepDriverParams: Sendable {
 	var phaseOutTime: Double = 1.0
 	var selectedSymbol: AnnotationSymbol = .circle
 	var demo: Bool = false
+	/// Per-model finding-flash style (AIA-0374; classify models).
+	var flashEnabled: Bool = true
+	var flashSize: Double = 8.0
 }
 
 // Vision result types cross tasks; results are immutable.
@@ -30,19 +33,11 @@ extension VNObservation: @unchecked @retroactive Sendable {}
 extension VNRecognizedObjectObservation: @unchecked Sendable {}
 extension VNClassificationObservation: @unchecked Sendable {}
 
-actor ResultsCollector<T: VNObservation> {
-	var collectedResults = [(observations: [T], params: DeepDriverParams)]()
-	
-	func append(_ result: (observations: [T], params: DeepDriverParams)) {
-		collectedResults.append(result)
-	}
-}
-
 typealias ObservationParams = (observations: [VNObservation], params: DeepDriverParams)
 
 /// Detect-path result: remapped value-type observations (see `DetectedObject`) per driver.
-/// The classify path keeps `ObservationParams` — tiling does not apply to whole-image
-/// classification.
+/// The classify path has its own value-type shape, `ClassificationResult` (AIA-0374).
+/// `ObservationParams` above remains only for the legacy `Annotator` view modifier.
 typealias DetectionResult = (observations: [DetectedObject], params: DeepDriverParams)
 
 protocol DeepDriver: Driver, Sendable {
@@ -169,12 +164,11 @@ class DeepDrivers: ObservableObject {
 	func detect(on image: UIImage, tiledDetection: Bool, completion: @escaping ([DetectionResult]) -> Void) {
 		Task {
 			let regions = TileLayout.regions(tiled: tiledDetection)
-			// The loop is serial inside one task — a plain array suffices (the actor
-			// collector remains for the classify path's matching shape).
+			// The loop is serial inside one task — a plain array suffices.
 			var results: [DetectionResult] = []
 
 			for detector in detectors {
-				guard let detector = detector as? Detector else {
+				guard let detector = detector as? Detecting else {
 					continue
 				}
 				let observations = await detector.detect(image: image, regions: regions)
@@ -191,27 +185,26 @@ class DeepDrivers: ObservableObject {
 		}
 	}
 	
-	func classify(on image: UIImage, completion: @escaping ([ObservationParams]) -> Void) {
+	// Classification counterpart of detect(): each registered classificator runs one
+	// atomic pass (AIA-0374 — the split-phase process/classify orchestration moved into
+	// `Classifying.classify(image:)`, the same fix detect() got). The loop is serial
+	// inside one task — a plain array suffices.
+	func classify(on image: UIImage, completion: @escaping ([ClassificationResult]) -> Void) {
 		Task {
-			let resultsCollector = ResultsCollector<VNClassificationObservation>()
-			
+			var results: [ClassificationResult] = []
+
 			for classificator in classificators {
-				guard let classificator = classificator as? Classificator else {
+				guard let classifying = classificator as? Classifying else {
 					continue
 				}
-				await classificator.process(image: image)
-				
-				await classificator.classify()
-				let observations = await classificator.observations
-				
-				guard observations.isEmpty.not else { continue } // TODO: log
-				
-				guard let observations = observations as? [VNClassificationObservation] else { continue }
-				let result = await (observations: observations, params: classificator.params)
-				await resultsCollector.append(result)
+				let labels = await classifying.classify(image: image)
+
+				guard labels.isEmpty.not else { continue }
+
+				let result = await (labels: labels, params: classifying.params)
+				results.append(result)
 			}
-			
-			let results = await resultsCollector.collectedResults
+
 			await MainActor.run {
 				completion(results)
 			}

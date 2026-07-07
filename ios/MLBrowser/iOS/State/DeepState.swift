@@ -27,7 +27,7 @@ final class DeepState: ObservableObject {
 	init(dataController: DataController) {
 		self.dataController = dataController
 		observeDeepConfigurationChanges()
-		
+
 		let configurations = DeepConfiguration.selectAll(in: dataController.container.viewContext)
 		do {
 			try configurations.forEach { config in
@@ -123,16 +123,21 @@ final class DeepState: ObservableObject {
 	}
 	
 	func deleteConfiguration(_ entityId: UUID) {
-		let context = dataController.container.viewContext
-		DeepConfiguration.delete(entityId, in: context)
+		guard let entity = selectConfiguration(entityId) else { return }
+		deleteConfiguration(entity)
 	}
 	
 	func deleteConfiguration(_ entity: DeepConfiguration) {
 		let context = dataController.container.viewContext
+		// Per-model flash prefs live in UserDefaults (AIA-0374) — clear them with the row.
+		entity.removeFlashDefaults()
 		DeepConfiguration.delete(entity, in: context)
 	}
 	
 	func reset() async {
+		// The batch delete below bypasses per-entity delete hooks, so the per-model
+		// flash UserDefaults (AIA-0374) must be cleared explicitly first.
+		allConfigurations().forEach { $0.removeFlashDefaults() }
 		// The viewContext reference is only handed to
 		// mergeChanges(fromRemoteContextSave:into:), which is safe to call cross-queue.
 		let viewContext = dataController.container.viewContext

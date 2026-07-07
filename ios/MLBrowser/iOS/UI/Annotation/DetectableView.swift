@@ -31,6 +31,11 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     let trigger: P
     let showIdentifiers: Bool
     let tiledDetection: Bool
+    /// Whether the detection/classification loop is running (play/pause). When it
+    /// stops, the classification presentation must clear immediately — with no
+    /// further snapshots the steady-state pulse/bubble would freeze forever
+    /// (owner-reported, AIA-0374). Plain scalar per the showIdentifiers pattern.
+    let detectionActive: Bool
 
     /// Callback to receive interaction state changes. DetectableView manages state internally.
     private let onInteractionStateChanged: ((ContentInteractionState) -> Void)?
@@ -52,6 +57,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     @State private var interactionState: ContentInteractionState = .idle
     @State private var detectionGeneration: UInt64 = 0
     @State private var detectionQueue = SnapshotDetectionQueue()
+    /// Classification consumer (AIA-0374) — a parallel branch of the snapshot flow,
+    /// independent of the detection queue/appliedFrame machinery above.
+    @StateObject private var flashController = ClassificationFlashController()
 
     /// Initializer with interaction state callback - content receives a binding to update state
     init(
@@ -60,6 +68,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         trigger: P,
         showIdentifiers: Bool,
         tiledDetection: Bool = false,
+        detectionActive: Bool = false,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
@@ -70,6 +79,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
         self.tiledDetection = tiledDetection
+        self.detectionActive = detectionActive
         self.isCapturingFinding = isCapturingFinding
         self.onFrameChanged = onFrameChanged
         self.onInteractionStateChanged = onInteractionStateChanged
@@ -86,6 +96,19 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     private var renderedDetectionCount: Int {
         (appliedFrame?.results ?? []).reduce(0) { $0 + $1.observations.count }
     }
+
+    // Checkpoint values extracted from the `body` chain for the same type-checker-budget
+    // reason as `renderedDetectionCount` (AIA-0317; flagged again by review on AIA-0374).
+    private var flashCountValue: String {
+        AppEnvironment.isRunningUITests ? String(flashController.qualifyingPassCount) : ""
+    }
+    private var classificationCountValue: String {
+        AppEnvironment.isRunningUITests ? String(flashController.qualifyingCount) : ""
+    }
+    private var topClassificationValue: String {
+        guard AppEnvironment.isRunningUITests else { return "" }
+        return flashController.displayLabels.first.map { "\($0.identifier)=\($0.confidence)" } ?? ""
+    }
     
     var body: some View {
         return GeometryReader { geometry in
@@ -101,6 +124,27 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                     geometry: geometry,
                     showIdentifiers: showIdentifiers
                 )
+
+                // Finding flash (AIA-0374): classification's presentation — no boxes
+                // exist for whole-image results, so the frame pulses while a qualifying
+                // classification is on screen, styled by that model's configuration.
+                // Non-interactive by requirement.
+                FindingFlashOverlay(
+                    active: flashController.qualifyingCount > 0,
+                    color: flashController.flashColor,
+                    period: flashController.pulsePeriod,
+                    size: flashController.flashSize
+                )
+
+                // Classified labels (AIA-0374): the same "Show labels" setting that
+                // annotates detection boxes surfaces classification's top labels —
+                // independent of the flash threshold, so low-confidence results are
+                // still visible to the user.
+                if showIdentifiers && flashController.displayLabels.isEmpty.not {
+                    ClassificationLabelBubble(labels: flashController.displayLabels)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .padding(12)
+                }
             }
             .onChange(of: geometry.size) { old, new in
                 // The save dialog freezes the displayed frame; a rotation underneath
@@ -116,6 +160,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 // started later it would read the NEW generation and its stale boxes
                 // would pass the guard below.
                 detectionQueue.cancelPending()
+                // An in-flight classify pass saw the old-geometry frame (AIA-0374).
+                flashController.invalidateInFlight()
             }
         }
         .onSnapshot { image, _ in
@@ -124,6 +170,11 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             // The frozen frame must outlive the save dialog; new passes resume with
             // the timer once the capture ends.
             guard isCapturingFinding.wrappedValue.not else { return }
+            // Classification branch (AIA-0374): parallel consumer of the same snapshot,
+            // deliberately AFTER both guards above so a straggler frame can't
+            // classify-and-flash mid-scroll or behind the save sheet. Independent of
+            // the detection queue below.
+            flashController.classifyPass(drivers: drivers, image: image)
             // The queue serializes passes and coalesces snapshots arriving mid-pass to
             // the newest one: a tiled pass (6 inferences × N detectors) can outlast the
             // snapshot cadence, and overlapping passes would apply out of order.
@@ -155,6 +206,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             if capturing {
                 detectionGeneration &+= 1
                 detectionQueue.cancelPending()
+                // A classify pass finishing behind the save sheet must not flash
+                // over it (AIA-0374).
+                flashController.invalidateInFlight()
             }
         }
         .onChange(of: interactionState) { _, state in
@@ -167,6 +221,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 setAppliedFrame(nil)
                 // A coalesced snapshot was captured pre-interaction — stale geometry.
                 detectionQueue.cancelPending()
+                // Classification mirrors detection's clear semantics: a still-present
+                // finding flashes again once the content settles and re-qualifies
+                // (0→n; AIA-0374 accepted behavior).
+                flashController.resetOnInteraction()
             }
             // Notify external observer if provided
             onInteractionStateChanged?(state)
@@ -179,6 +237,26 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // value only the UI-test checkpoint marker reads (the marker itself already renders only
         // under UI tests).
         .checkpoint(.detectionCount, value: AppEnvironment.isRunningUITests ? String(renderedDetectionCount) : "")
+        // AIA-0374: finding-flash introspection. flashCount counts qualifying passes
+        // (monotonic — polling can't miss a transient); classificationCount is the
+        // number of currently-qualifying, flash-participating drivers.
+        .checkpoint(.flashCount, value: flashCountValue)
+        .checkpoint(.classificationCount, value: classificationCountValue)
+        .checkpoint(.topClassification, value: topClassificationValue)
+        .onChange(of: detectionActive) { _, active in
+            // Pause/stop: clear the pulse + bubble now — no snapshots will arrive to
+            // refresh or clear them (owner-reported freeze, AIA-0374).
+            if active.not {
+                flashController.clearPresentation()
+            }
+        }
+        .onReceive(drivers.$classificators) { classificators in
+            // Unregistering the last classify model must clear its presentation even
+            // while paused (no pass will ever report empty results).
+            if classificators.isEmpty {
+                flashController.clearPresentation()
+            }
+        }
     }
 
     /// Single write path for the displayed frame: the screen's mirror is updated

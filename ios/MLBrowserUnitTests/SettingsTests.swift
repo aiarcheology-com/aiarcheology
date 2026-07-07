@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import SwiftUI
 @testable import ML_Browser
 
 @MainActor
@@ -356,13 +357,14 @@ final class SettingsTests: XCTestCase {
     }
     
     // MARK: - ValidationError Tests
-    
+
     func testValidationError_InvalidData_ContainsMessage() {
         let error = ValidationError.invalidData("Test message")
-        
+
         switch error {
         case .invalidData(let message):
             XCTAssertEqual(message, "Test message")
         }
     }
+
 }
