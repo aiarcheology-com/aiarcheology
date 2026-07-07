@@ -180,15 +180,15 @@ final class DemoDataManager {
     }
 
     private func loadModelThree() async {
-        // FastViT-T8 (Apple's model gallery, F16, ~8 MB): the demo CLASSIFY model
-        // (AIA-0374/AIA-0375). Gives every install a working classificator so the
-        // finding flash + label bubble are demonstrable — and gives UI/unit tests a
-        // real model instead of a mock (owner directive: no test-only seams).
-        // UI tests may seed it ENABLED so the real model registers on the insert
-        // path — launch-config state, not a mock.
-        let enableForUITests = AppEnvironment.isRunningUITests
-            && UITestLaunchConfiguration.fromEnvironment?.enableClassifyDemo == true
-        await loadDemoModel(resourceName: DemoModelResource.fastViT, enabled: enableForUITests)
+        // FastViT-T8 (Apple's model gallery, F16, ~8 MB) is a TEST-ONLY asset
+        // (owner decision, AIA-0374): it ships under Apple's custom ML license and
+        // must not be part of the installation package. The resource is excluded
+        // from Release builds (EXCLUDED_SOURCE_FILE_NAMES) and seeds only when a
+        // UI test requests it via launch config — production (and normal Debug
+        // runs) never see it. Unit tests load it from the bundle directly.
+        guard AppEnvironment.isRunningUITests,
+              UITestLaunchConfiguration.fromEnvironment?.enableClassifyDemo == true else { return }
+        await loadDemoModel(resourceName: DemoModelResource.fastViT, enabled: true)
     }
 
     /// Loads a demo model and creates a Core Data configuration for it.

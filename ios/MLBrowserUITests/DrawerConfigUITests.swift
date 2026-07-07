@@ -18,19 +18,19 @@ final class DrawerConfigUITests: UITestCase {
         app.switches.matching(identifier: AID.configEnabledToggle)
     }
 
-    func testDrawer_listsThreeSeededDemoModels() {
+    func testDrawer_listsTwoSeededDemoModels() {
         launch()
         openDrawer()
         XCTAssertTrue(waitForSeededConfigurations(), "Demo configurations were not seeded")
-        // DemoDataManager seeds three demo models (AIArcheology + HroudaDetector15 +
-        // FastViTT8F16, AIA-0375) sequentially and asynchronously (CoreML metadata
-        // extraction), so wait for all toggles to appear before asserting the count —
-        // otherwise a later model may still be seeding.
-        let allSeeded = NSPredicate(format: "count == 3")
+        // DemoDataManager seeds two demo models (AIArcheology + HroudaDetector15)
+        // sequentially and asynchronously (CoreML metadata extraction); the FastViT
+        // classify demo is TEST-ONLY and seeds solely under enableClassifyDemo
+        // (AIA-0374 licensing). Wait for both toggles before asserting the count.
+        let allSeeded = NSPredicate(format: "count == 2")
         let expectation = XCTNSPredicateExpectation(predicate: allSeeded, object: modelToggles())
         XCTAssertEqual(
             XCTWaiter().wait(for: [expectation], timeout: 20), .completed,
-            "Expected three seeded demo models in the drawer"
+            "Expected two seeded demo models in the drawer"
         )
     }
 
@@ -52,13 +52,13 @@ final class DrawerConfigUITests: UITestCase {
         openDrawer()
         XCTAssertTrue(waitForSeededConfigurations(), "Demo configurations were not seeded")
 
-        // All demo models seed asynchronously; wait for all toggles so the pre-delete count is
-        // stable (same pattern as testDrawer_listsThreeSeededDemoModels).
-        let allSeeded = NSPredicate(format: "count == 3")
+        // Both demo models seed asynchronously; wait for both toggles so the pre-delete count is
+        // stable (same pattern as testDrawer_listsTwoSeededDemoModels).
+        let allSeeded = NSPredicate(format: "count == 2")
         let seededExpectation = XCTNSPredicateExpectation(predicate: allSeeded, object: modelToggles())
         XCTAssertEqual(
             XCTWaiter().wait(for: [seededExpectation], timeout: 20), .completed,
-            "Expected three seeded demo models before delete"
+            "Expected two seeded demo models before delete"
         )
 
         // Swipe the first model row to delete it. With `allowsFullSwipe: true` a fast swipe may
@@ -75,12 +75,12 @@ final class DrawerConfigUITests: UITestCase {
             deleteButton.tap()
         }
 
-        // Exactly two models should remain after deleting one.
-        let twoRemain = NSPredicate(format: "count == 2")
-        let deletedExpectation = XCTNSPredicateExpectation(predicate: twoRemain, object: modelToggles())
+        // Exactly one model should remain after deleting one.
+        let oneRemains = NSPredicate(format: "count == 1")
+        let deletedExpectation = XCTNSPredicateExpectation(predicate: oneRemains, object: modelToggles())
         XCTAssertEqual(
             XCTWaiter().wait(for: [deletedExpectation], timeout: 10), .completed,
-            "Deleting one model should leave exactly two toggles"
+            "Deleting one model should leave exactly one toggle"
         )
     }
 }
