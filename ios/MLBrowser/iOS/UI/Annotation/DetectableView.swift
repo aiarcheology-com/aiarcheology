@@ -31,6 +31,11 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     let trigger: P
     let showIdentifiers: Bool
     let tiledDetection: Bool
+    /// Whether the detection/classification loop is running (play/pause). When it
+    /// stops, the classification presentation must clear immediately — with no
+    /// further snapshots the steady-state pulse/bubble would freeze forever
+    /// (owner-reported, AIA-0374). Plain scalar per the showIdentifiers pattern.
+    let detectionActive: Bool
 
     /// Callback to receive interaction state changes. DetectableView manages state internally.
     private let onInteractionStateChanged: ((ContentInteractionState) -> Void)?
@@ -63,6 +68,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         trigger: P,
         showIdentifiers: Bool,
         tiledDetection: Bool = false,
+        detectionActive: Bool = false,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
@@ -73,6 +79,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
         self.tiledDetection = tiledDetection
+        self.detectionActive = detectionActive
         self.isCapturingFinding = isCapturingFinding
         self.onFrameChanged = onFrameChanged
         self.onInteractionStateChanged = onInteractionStateChanged
@@ -236,6 +243,20 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         .checkpoint(.flashCount, value: flashCountValue)
         .checkpoint(.classificationCount, value: classificationCountValue)
         .checkpoint(.topClassification, value: topClassificationValue)
+        .onChange(of: detectionActive) { _, active in
+            // Pause/stop: clear the pulse + bubble now — no snapshots will arrive to
+            // refresh or clear them (owner-reported freeze, AIA-0374).
+            if active.not {
+                flashController.clearPresentation()
+            }
+        }
+        .onReceive(drivers.$classificators) { classificators in
+            // Unregistering the last classify model must clear its presentation even
+            // while paused (no pass will ever report empty results).
+            if classificators.isEmpty {
+                flashController.clearPresentation()
+            }
+        }
     }
 
     /// Single write path for the displayed frame: the screen's mirror is updated

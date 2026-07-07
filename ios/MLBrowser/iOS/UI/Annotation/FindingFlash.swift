@@ -109,6 +109,14 @@ final class ClassificationFlashController: ObservableObject {
 	/// clear semantics: the pulse stops during interaction and resumes when the
 	/// settled content re-qualifies. Also invalidates any in-flight pass.
 	func resetOnInteraction() {
+		clearPresentation()
+	}
+
+	/// Clears the pulse and label bubble immediately and drops any in-flight pass.
+	/// Called when the presentation can no longer refresh itself: detection paused
+	/// (no more snapshots → the steady-state UI would freeze forever) or the last
+	/// classificator unregistered (owner-reported bug, AIA-0374).
+	func clearPresentation() {
 		invalidateInFlight()
 		if qualifyingCount != 0 {
 			qualifyingCount = 0

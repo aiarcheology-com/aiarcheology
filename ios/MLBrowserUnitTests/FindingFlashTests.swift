@@ -140,6 +140,19 @@ final class ClassificationFlashControllerTests: XCTestCase {
         XCTAssertEqual(sut.pulsePeriod, 1.0)
     }
 
+    func testClearPresentation_StopsPulseAndHidesLabels() {
+        // Owner-reported: pausing detection (or unregistering the model) must clear
+        // the steady-state pulse + bubble — no future pass will do it.
+        sut.ingest([result(topConfidence: 0.9)])
+        XCTAssertEqual(sut.qualifyingCount, 1)
+        XCTAssertFalse(sut.displayLabels.isEmpty)
+
+        sut.clearPresentation()
+
+        XCTAssertEqual(sut.qualifyingCount, 0)
+        XCTAssertTrue(sut.displayLabels.isEmpty)
+    }
+
     func testResetOnInteraction_StopsPulseUntilRequalified() {
         sut.ingest([result(topConfidence: 0.9)])
         XCTAssertEqual(sut.qualifyingCount, 1)

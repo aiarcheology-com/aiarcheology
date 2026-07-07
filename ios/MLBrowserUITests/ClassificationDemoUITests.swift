@@ -40,5 +40,16 @@ final class ClassificationDemoUITests: UITestCase {
             waitForCheckpoint(AID.cpFlashCount, equals: "2", timeout: 30),
             "Qualifying passes should accumulate while the finding persists"
         )
+
+        // Owner-reported regression: pausing detection must clear the presentation
+        // immediately — with no further snapshots the steady-state pulse/bubble
+        // would otherwise freeze on screen forever.
+        let pause = app.buttons[AID.pause]
+        XCTAssertTrue(pause.waitForExistence(timeout: 10), "Pause button missing")
+        pause.tap()
+        XCTAssertTrue(
+            waitForCheckpoint(AID.cpClassificationCount, equals: "0", timeout: 10),
+            "Pausing detection must clear the classification presentation"
+        )
     }
 }
