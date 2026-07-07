@@ -89,6 +89,19 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     private var renderedDetectionCount: Int {
         (appliedFrame?.results ?? []).reduce(0) { $0 + $1.observations.count }
     }
+
+    // Checkpoint values extracted from the `body` chain for the same type-checker-budget
+    // reason as `renderedDetectionCount` (AIA-0317; flagged again by review on AIA-0374).
+    private var flashCountValue: String {
+        AppEnvironment.isRunningUITests ? String(flashController.qualifyingPassCount) : ""
+    }
+    private var classificationCountValue: String {
+        AppEnvironment.isRunningUITests ? String(flashController.qualifyingCount) : ""
+    }
+    private var topClassificationValue: String {
+        guard AppEnvironment.isRunningUITests else { return "" }
+        return flashController.displayLabels.first.map { "\($0.identifier)=\($0.confidence)" } ?? ""
+    }
     
     var body: some View {
         return GeometryReader { geometry in
@@ -220,11 +233,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // AIA-0374: finding-flash introspection. flashCount is monotonic (polling can't
         // miss a transient); classificationCount lets the disable-case assert the flash
         // froze while classification kept running.
-        .checkpoint(.flashCount, value: AppEnvironment.isRunningUITests ? String(flashController.qualifyingPassCount) : "")
-        .checkpoint(.classificationCount, value: AppEnvironment.isRunningUITests ? String(flashController.qualifyingCount) : "")
-        .checkpoint(.topClassification, value: AppEnvironment.isRunningUITests
-            ? (flashController.displayLabels.first.map { "\($0.identifier)=\($0.confidence)" } ?? "")
-            : "")
+        .checkpoint(.flashCount, value: flashCountValue)
+        .checkpoint(.classificationCount, value: classificationCountValue)
+        .checkpoint(.topClassification, value: topClassificationValue)
     }
 
     /// Single write path for the displayed frame: the screen's mirror is updated

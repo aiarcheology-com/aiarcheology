@@ -67,7 +67,7 @@ final class DemoDataManagerTests: XCTestCase {
         let context = dataController.container.viewContext
         let demoConfigs = DeepConfiguration.selectAll(in: context).filter { $0.demo }
         
-        // Should have at most 2 demo configs (the bundled models), not 6
+        // Should have at most 3 demo configs (the bundled models), not 6
         // Note: In test environment, bundled models may not exist, so count could be 0
         XCTAssertLessThanOrEqual(demoConfigs.count, 3) // 2 detect + 1 classify demo (AIA-0375)
     }
@@ -92,7 +92,7 @@ final class DemoDataManagerTests: XCTestCase {
         let context = dataController.container.viewContext
         let demoConfigs = DeepConfiguration.selectAll(in: context).filter { $0.demo }
         
-        // Even with multiple calls, should have at most 2 demo configs
+        // Even with multiple calls, should have at most 3 demo configs
         // Note: In test environment, bundled models may not exist, so count could be 0
         XCTAssertLessThanOrEqual(demoConfigs.count, 3) // 2 detect + 1 classify demo (AIA-0375)
     }

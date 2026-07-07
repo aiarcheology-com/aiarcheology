@@ -153,41 +153,34 @@ final class DemoDataManager {
         }
     }
     
+    /// Shared demo-model loader: bundle lookup + error logging + seeding.
+    /// Warning: models are used as mlmodelc in the bundle when handled from Xcode.
+    private func loadDemoModel(resourceName: String, enabled: Bool = false) async {
+        guard let urlInBundle = Bundle.main.url(forResource: resourceName, withExtension: "mlmodelc") else {
+            LoggingPolicy.error("Cannot locate \(resourceName) demo model in bundle", logger: .configuration)
+            return
+        }
+        await loadModel(from: urlInBundle, enabled: enabled)
+    }
+
     private func loadModelOne() async {
-        // Warning: models are used as mlmodelc in the bundle when handled from xcode
-        guard let urlInBundle = Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") else {
-            LoggingPolicy.error("Cannot locate AIArcheology demo model in bundle", logger: .configuration)
-            return
-        }
-        
-        await loadModel(from: urlInBundle)
+        await loadDemoModel(resourceName: "AIArcheology")
     }
-    
+
     private func loadModelTwo() async {
-        // Warning: models are used as mlmodelc in the bundle when handled from xcode
-        guard let urlInBundle = Bundle.main.url(forResource: "HroudaDetector15", withExtension: "mlmodelc") else {
-            LoggingPolicy.error("Cannot locate HroudaDetector15 demo model in bundle", logger: .configuration)
-            return
-        }
-        
-        await loadModel(from: urlInBundle)
+        await loadDemoModel(resourceName: "HroudaDetector15")
     }
-    
+
     private func loadModelThree() async {
         // FastViT-T8 (Apple's model gallery, F16, ~8 MB): the demo CLASSIFY model
         // (AIA-0374/AIA-0375). Gives every install a working classificator so the
         // finding flash + label bubble are demonstrable — and gives UI/unit tests a
         // real model instead of a mock (owner directive: no test-only seams).
-        guard let urlInBundle = Bundle.main.url(forResource: "FastViTT8F16", withExtension: "mlmodelc") else {
-            LoggingPolicy.error("Cannot locate FastViTT8F16 demo model in bundle", logger: .configuration)
-            return
-        }
-
-        // AIA-0375: UI tests may seed the classify demo ENABLED so the real model
-        // registers on the insert path — launch-config state, not a mock.
+        // UI tests may seed it ENABLED so the real model registers on the insert
+        // path — launch-config state, not a mock.
         let enableForUITests = AppEnvironment.isRunningUITests
             && UITestLaunchConfiguration.fromEnvironment?.enableClassifyDemo == true
-        await loadModel(from: urlInBundle, enabled: enableForUITests)
+        await loadDemoModel(resourceName: "FastViTT8F16", enabled: enableForUITests)
     }
 
     /// Loads a demo model and creates a Core Data configuration for it.
