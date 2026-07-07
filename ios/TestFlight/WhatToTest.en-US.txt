@@ -1,19 +1,36 @@
-Test Focus: No app changes — documentation & developer tooling only
+Test Focus: Classification finding-flash (pulsing border) + label bubble + FastViT demo model
 Build: TBD
 
 What's new in this build:
-Nothing user-visible. This build only updates engineering documentation (new ARCHITECTURE.md,
-AGENTS.md refinements) and internal agent tooling; no application code changed.
+The app now presents CLASSIFICATION results: when a classification model recognizes
+something on the page, the content frame pulses with a soft colored border, and (with
+"Show Labels" on) a small bubble lists the top matches with confidence percentages.
+A new demo classify model ("FastViT") ships with the app, so you can try this without
+importing anything.
 
-Reminder: you need an account to use the app, and (with payments on) an active subscription or
-free trial to get past the paywall. TestFlight purchases use Apple's Sandbox — you are NOT charged
-real money, and trial/renewal periods are accelerated.
+1. Finding flash with the demo model
+- Open the side menu → enable the "FastViT: A Fast Hybrid Vision Transformer…" model.
+- Browse any normal web page and tap play (detection): when the model recognizes the
+  page content, the frame pulses with a soft border. Scrolling pauses the pulse; it
+  resumes after the page settles if the object is still recognized.
+- Toggle Settings → Show Labels ON: a bubble (top-right) lists the top matches with
+  percentages — even when confidence is too low to pulse.
 
-1. Light regression (optional)
-- Browse a couple of normal websites and confirm pages still load.
-- Run detection on a page and confirm annotations still appear.
+2. Per-model flash options (Configuration sheet)
+- Side menu → tap the FastViT model to open its Configuration.
+- In Annotation: Color changes the flash color, Fade Out Time sets the pulse speed,
+  "Flash when object found" turns the flash off/on for THIS model, "Flash border size"
+  changes the border width. Changes apply live. (The Symbol picker is intentionally
+  hidden for classify models — there are no boxes.)
 
-2. Report Issues
+3. Import your own classify model (optional)
+- The import dialog now accepts classification models (.mlmodel/.mlpackage) — e.g.
+  from Apple's model gallery. Imported classify models behave like the demo.
+
+4. Regression (detection unchanged)
+- Run detection demos as usual: boxes appear/clear as before, saving findings works.
+
+5. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version
