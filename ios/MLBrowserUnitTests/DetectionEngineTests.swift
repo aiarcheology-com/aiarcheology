@@ -111,6 +111,33 @@ private actor StubDetecting: Detecting {
     func unload() async {}
 }
 
+/// Minimal `Classifying` conformer that records whether the engine dispatched to it —
+/// the classify counterpart of `StubDetecting`.
+private actor StubClassifyingRecording: Classifying {
+    let id: UUID
+    var params: DeepDriverParams
+    var observations: [VNObservation] = []
+    private(set) var didRun = false
+    private let labels: [ClassifiedLabel]
+
+    init(params: DeepDriverParams, labels: [ClassifiedLabel]) {
+        self.id = params.entityId
+        self.params = params
+        self.labels = labels
+    }
+
+    func classify(image: UIImage) async -> [ClassifiedLabel] {
+        didRun = true
+        return labels
+    }
+    func metadata() -> [MLModelMetadataKey: Any]? { nil }
+    func updateConfiguration(_ params: DeepDriverParams) async { self.params = params }
+    func process(image: UIImage) async {}
+    func loadFile() async throws {}
+    func run() async {}
+    func unload() async {}
+}
+
 // MARK: - Cancellation (AIA-0387)
 
 @MainActor
@@ -148,5 +175,23 @@ final class DetectionEngineCancellationTests: XCTestCase {
         let results = await DetectionEngine().detect(on: UIImage(), in: [], tiledDetection: false)
 
         XCTAssertTrue(results.isEmpty)
+    }
+
+    /// Classify counterpart of the detect cancellation test — same deterministic @MainActor
+    /// setup, exercising the `Task.isCancelled` guard on the classify loop.
+    func testClassify_CancelledBeforeStart_SkipsDrivers() async {
+        let engine = DetectionEngine()
+        let stub = StubClassifyingRecording(
+            params: DeepDriverParams(entityId: UUID()),
+            labels: [ClassifiedLabel(identifier: "stub-label", confidence: 0.9)]
+        )
+
+        let task = Task { await engine.classify(on: UIImage(), in: [stub]) }
+        task.cancel()
+        let results = await task.value
+
+        XCTAssertTrue(results.isEmpty)
+        let didRun = await stub.didRun
+        XCTAssertFalse(didRun)
     }
 }
