@@ -51,9 +51,17 @@ final class DetectionCoordinatorTests: XCTestCase {
 	}
 
 	/// Yield the main actor until the in-flight pass has reached the detect suspension point (the
-	/// injected detect stores its continuation before suspending).
-	private func awaitDetectSuspended() async {
-		while continuation == nil { await Task.yield() }
+	/// injected detect stores its continuation before suspending). Bounded so a broken seam fails
+	/// fast and clearly instead of spinning until the xcodebuild test timeout.
+	private func awaitDetectSuspended(timeout: TimeInterval = 2) async {
+		let deadline = Date().addingTimeInterval(timeout)
+		while continuation == nil {
+			if Date() > deadline {
+				XCTFail("detect was not invoked before the timeout")
+				return
+			}
+			await Task.yield()
+		}
 	}
 
 	private func resumeDetect(with results: [DetectionResult]) {
