@@ -64,7 +64,8 @@ final class ClassificationFlashController: ObservableObject {
 		guard isBusy.not else { return }
 		isBusy = true
 		let startedGeneration = generation
-		drivers.classify(on: image) { [weak self] results in
+		Task { [weak self] in
+			let results = await drivers.classify(on: image)
 			guard let self else { return }
 			self.isBusy = false
 			// The frame this pass classified was invalidated mid-flight

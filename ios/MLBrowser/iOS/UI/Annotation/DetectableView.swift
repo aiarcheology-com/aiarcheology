@@ -180,7 +180,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             // snapshot cadence, and overlapping passes would apply out of order.
             detectionQueue.enqueue(image) { image, done in
                 let currentGeneration = detectionGeneration
-                drivers.detect(on: image, tiledDetection: tiledDetection) { observations in
+                Task {
+                    let observations = await drivers.detect(on: image, tiledDetection: tiledDetection)
                     done()
                     // Discard if interaction started since detection began (stale results)
                     guard detectionGeneration == currentGeneration else {

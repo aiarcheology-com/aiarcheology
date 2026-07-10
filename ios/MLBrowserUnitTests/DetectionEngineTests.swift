@@ -17,6 +17,7 @@
 
 import XCTest
 import UIKit
+import Vision
 @testable import ML_Browser
 
 final class DetectionEngineTests: XCTestCase {
@@ -77,5 +78,120 @@ final class DetectionEngineTests: XCTestCase {
                 "Demo model \(resource) produced no detections on any terrain fixture (per-fixture: \(perFixture))"
             )
         }
+    }
+}
+
+// MARK: - Detecting stub (AIA-0387)
+
+/// Minimal `Detecting` conformer that records whether the engine actually dispatched to it,
+/// so cancellation-before-dispatch can be asserted. Returns the injected objects — mirrors
+/// the conformance style of `StubClassifying` in DeepDriversTests.swift.
+private actor StubDetecting: Detecting {
+    let id: UUID
+    var params: DeepDriverParams
+    var observations: [VNObservation] = []
+    private(set) var didRun = false
+    private let objects: [DetectedObject]
+
+    init(params: DeepDriverParams, objects: [DetectedObject]) {
+        self.id = params.entityId
+        self.params = params
+        self.objects = objects
+    }
+
+    func detect(image: UIImage, regions: [CGRect]) async -> [DetectedObject] {
+        didRun = true
+        return objects
+    }
+    func metadata() -> [MLModelMetadataKey: Any]? { nil }
+    func updateConfiguration(_ params: DeepDriverParams) async { self.params = params }
+    func process(image: UIImage) async {}
+    func loadFile() async throws {}
+    func run() async {}
+    func unload() async {}
+}
+
+/// Minimal `Classifying` conformer that records whether the engine dispatched to it —
+/// the classify counterpart of `StubDetecting`.
+private actor StubClassifyingRecording: Classifying {
+    let id: UUID
+    var params: DeepDriverParams
+    var observations: [VNObservation] = []
+    private(set) var didRun = false
+    private let labels: [ClassifiedLabel]
+
+    init(params: DeepDriverParams, labels: [ClassifiedLabel]) {
+        self.id = params.entityId
+        self.params = params
+        self.labels = labels
+    }
+
+    func classify(image: UIImage) async -> [ClassifiedLabel] {
+        didRun = true
+        return labels
+    }
+    func metadata() -> [MLModelMetadataKey: Any]? { nil }
+    func updateConfiguration(_ params: DeepDriverParams) async { self.params = params }
+    func process(image: UIImage) async {}
+    func loadFile() async throws {}
+    func run() async {}
+    func unload() async {}
+}
+
+// MARK: - Cancellation (AIA-0387)
+
+@MainActor
+final class DetectionEngineCancellationTests: XCTestCase {
+
+    /// A pass cancelled before it starts must dispatch no driver. The class is `@MainActor`
+    /// on purpose: the spawned `Task` inherits the main actor and cannot begin until this
+    /// method suspends at `await task.value`, so the synchronous `cancel()` lands first. By
+    /// the time the engine loop reaches its opening `Task.isCancelled` check it is already
+    /// cancelled — it breaks before touching the stub, making the outcome deterministic. A
+    /// nonisolated test would race the loop against `cancel()` and flake.
+    func testDetect_CancelledBeforeStart_SkipsDrivers() async {
+        let engine = DetectionEngine()
+        let stub = StubDetecting(
+            params: DeepDriverParams(entityId: UUID()),
+            objects: [DetectedObject(
+                uuid: UUID(),
+                labels: [DetectedObject.Label(identifier: "stub-object", confidence: 0.9)],
+                confidence: 0.9,
+                boundingBox: CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2),
+                regionIndex: 0
+            )]
+        )
+
+        let task = Task { await engine.detect(on: UIImage(), in: [stub], tiledDetection: false) }
+        task.cancel()
+        let results = await task.value
+
+        XCTAssertTrue(results.isEmpty)
+        let didRun = await stub.didRun
+        XCTAssertFalse(didRun)
+    }
+
+    func testDetect_NoDetectors_ReturnsEmpty() async {
+        let results = await DetectionEngine().detect(on: UIImage(), in: [], tiledDetection: false)
+
+        XCTAssertTrue(results.isEmpty)
+    }
+
+    /// Classify counterpart of the detect cancellation test — same deterministic @MainActor
+    /// setup, exercising the `Task.isCancelled` guard on the classify loop.
+    func testClassify_CancelledBeforeStart_SkipsDrivers() async {
+        let engine = DetectionEngine()
+        let stub = StubClassifyingRecording(
+            params: DeepDriverParams(entityId: UUID()),
+            labels: [ClassifiedLabel(identifier: "stub-label", confidence: 0.9)]
+        )
+
+        let task = Task { await engine.classify(on: UIImage(), in: [stub]) }
+        task.cancel()
+        let results = await task.value
+
+        XCTAssertTrue(results.isEmpty)
+        let didRun = await stub.didRun
+        XCTAssertFalse(didRun)
     }
 }
