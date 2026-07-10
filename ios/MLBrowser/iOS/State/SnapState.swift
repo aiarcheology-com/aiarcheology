@@ -23,7 +23,8 @@ final class SnapAdjustment: ObservableObject {
 }
 
 import Combine
-class SnapState: ObservableObject {
+@MainActor
+final class SnapState: ObservableObject {
 	var settings: Settings
 	var timerCancellable: Cancellable?
 	let snapshotTrigger = PassthroughSubject<Void, Never>()
@@ -40,7 +41,7 @@ class SnapState: ObservableObject {
 		Publishers.Merge(timerTrigger, snapshotTrigger)
 			.eraseToAnyPublisher()
 	}
-    @MainActor func startTimer() {
+    func startTimer() {
 		guard timerCancellable.isNil else { return }
 
 			// Start the timer and handle its events by sending them to timerTrigger

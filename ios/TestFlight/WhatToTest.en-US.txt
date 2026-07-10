@@ -1,18 +1,20 @@
-Test Focus: Internal rendering-layer cleanup (AIA-0394) — no visible change expected
+Test Focus: Internal state-threading cleanup (AIA-0393 / AIA-0396) — no visible change expected
 Build: TBD
 
 What's new in this build:
-Removed an unused internal code abstraction (a protocol that nothing implemented) from the
-rendering layer. There is NO user-facing change and NO intended behavior change — this build is
-just a regression check that rendering-dependent features are unaffected.
+Internal code-consistency cleanup only. One state object (the snapshot/detection timer) was moved
+onto the main thread to match every other state object; the rest is developer documentation. There
+is NO user-facing change — this build is a regression check that the automatic detection loop still
+runs exactly as before.
 
-1. Finding share / export card
-- Open a saved finding and share/export it (the share-card image). It should render exactly as
-  before: correct content, sharp on Retina screens (not blurry or half-size), nothing missing.
+1. Automatic detection snapshot loop
+- Open a detection demo and let it run without touching the screen: the app should keep taking
+  snapshots on its timer and updating detections at the usual cadence — no stalls, no freeze, and
+  no slowdown compared to before.
 
-2. Web snapshot detection
-- Run a detection demo on a web page: snapshots should still be captured and bounding boxes
-  should still appear over recognized content, exactly as before.
+2. Snapshot frequency
+- If snapshot frequency is adjustable in Settings, change it and confirm the detection cadence
+  changes accordingly and the app stays responsive.
 
 3. Report Issues
 Please report any issues with:

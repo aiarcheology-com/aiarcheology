@@ -131,8 +131,6 @@ final class ArchitectureTests: XCTestCase {
     func testStateObjectsAreMainActor() {
         let stateClasses = Harmonize.productionCode().classes()
             .withSuffix("State")
-            // Exclude SnapState which intentionally manages timer state via Combine
-            .withoutName(["SnapState"])
 
         stateClasses.assertTrue(
             message: """
