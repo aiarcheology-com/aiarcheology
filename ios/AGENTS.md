@@ -51,6 +51,12 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
   - Avoid "fake" abstractions: don't introduce a protocol if it adds no testing value and will never have a second implementation.
   - Cross-reference: see **6. Testing** for when to use real implementations vs protocol fakes.
 
+### Core Data protocols (which one to adopt)
+
+- **`CoreDataManageable`** (note the spelling — trailing `-eable`) is the standard entity API: consistent `performAndWait`, error surfacing, CRUD/fetch/count, and batch-delete merge semantics. **Default to it for every Core Data entity.**
+- **`CoreDataManagableWithState`** (no trailing `e`) refines it with a full lifecycle state machine (`undefined → empty → draft → ready → deprecated`). Reach for it **only** when an entity has a genuine draft/import flow — e.g. `DeepConfiguration`, `Finding`. Simple lookup/log rows (`WebHistoryEntry`, `WebVisit`-style records) don't need the extra states; the lifecycle adds ceremony with no payoff there.
+- The two names differ by one letter *and* by scope, which is easy to misread. Some existing simple-row entities predate this guidance and still adopt `...WithState`; migrate opportunistically and don't add new ones.
+
 ### Feature flags
 
 - **Gate every significant feature behind a feature flag** so it can be turned on/off without ripping code out — e.g. **login/auth gate**, **payments/subscriptions**, and any other large or risky surface. Shipping a feature dark (flag off) and flipping it on later is the default, not the exception.
