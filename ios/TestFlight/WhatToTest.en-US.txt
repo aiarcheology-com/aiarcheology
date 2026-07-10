@@ -1,32 +1,32 @@
-Test Focus: Detection/classification pipeline internals refactor (AIA-0387) — no visible change expected
+Test Focus: Web-snapshot rendering refactor (AIA-0389) — no visible change expected
 Build: TBD
 
 What's new in this build:
-Under the hood, the code that runs detection and classification models was moved off
-the main thread into a dedicated background engine, so a busy model can no longer stutter
-scrolling or tapping. There is NO intended change to what you see — this build is a
-regression check: everything that worked before must still work, exactly the same.
+The code that captures a snapshot of the web page (the frames detection runs on, and the
+image a saved finding keeps) was moved onto a new internal renderer. There is NO intended
+change to what you see — this build is a regression check that everything the snapshot feeds
+still works exactly as before.
 
 1. Detection still works (boxes)
-- Run the built-in detection demos: bounding boxes should appear over recognized content
-  and clear when it leaves the screen, exactly as before.
-- Save a finding from a detected box: it should capture and persist as usual.
+- Run a detection demo and browse: bounding boxes should appear over recognized content and
+  clear when it leaves the screen, just as before. Scroll/rotate and let it settle — boxes
+  should re-appear, with no lag, freeze, or stale boxes.
 
-2. Classification finding-flash still works
-- Import/enable a classification model (side menu → + → import a .mlmodel by URL or file),
-  then browse a normal page with detection on: the frame should still pulse with the soft
-  colored border when the model recognizes the content.
-- With Settings → Show Labels ON, the top-right bubble should still list matches + percentages.
+2. Image adjustments still apply
+- Open the snap adjustment controls and change Brightness / Contrast / Saturation. The
+  detection snapshot (and what the models see) should reflect the adjustment as before —
+  the sliders must still visibly affect the result.
 
-3. Stress the live pipeline (the point of this change)
-- While a model is actively running, scroll fast, rotate the device, and pinch-zoom:
-  boxes/flash should pause during interaction and resume cleanly after the page settles —
-  no frozen boxes, no stuck pulse, no stale label bubble, no lag or hangs.
-- Enter and leave a saved finding, switch models on/off mid-session, and background/foreground
-  the app while detection is running: the pipeline should keep up and never leak an old result
-  onto the new screen.
+3. Save a finding (manual pick)
+- Enter finding-capture / pick mode and save a finding: the captured image must be the exact
+  frame you picked, and the saved finding should look correct. This path was rewired, so
+  please exercise it a few times (including cancelling a pick).
 
-4. Report Issues
+4. Classification finding-flash still works
+- With a classification model enabled, the pulsing frame flash and label bubble should still
+  appear on recognized content (unchanged).
+
+5. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version
