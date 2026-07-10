@@ -266,8 +266,12 @@ against the counter.
 - **Triage, don't rubberstamp. Classify findings:** correctness / security / test-failure →
   auto-fix; architecture / product / API / scope-expanding → **surface for human approval**.
 - Then re-run the full P3a **only if P4 changed HEAD** — an unchanged HEAD keeps its green (the
-  UI suite is the most expensive local step; never repeat it for a no-op review). P3b runs after
-  this point so its evidence lands on the final HEAD.
+  UI suite is the most expensive local step; never repeat it for a no-op review).
+- Finally, write the tester-facing `ios/TestFlight/WhatToTest.en-US.txt` stanza — **mandatory**
+  (ios/AGENTS.md §13: "no PR without it"); scoped to this change, concrete steps, no dev jargon —
+  and **commit it as the final slice**. HEAD is now final: P3b evidence and the G2 OK both bind
+  to it (a WhatToTest commit *after* P3b would invalidate the evidence it just minted).
+  Conflicts in this small shared file resolve normally at rebase; never exempt it.
 
 ### P3b — Agentic feature check  (ADVISORY — never gates; runs here, after P4, right before P5)
 Spawn a **code-frozen** verifier sub-agent (`model: opus` — advisory work doesn't need the session
@@ -282,13 +286,8 @@ why P3b sits *after* P4 and its conditional P3a rerun, immediately before P5: ev
 at the PR HEAD. In P6, re-runs stay bounded to one per push round.
 
 ### P5 — Open PR  ← **GATE G2 (every push = one paid Xcode Cloud build)**
-- **First, WhatToTest — it is mandatory** (ios/AGENTS.md §13: "no PR without it"): write the
-  tester-facing stanza to `ios/TestFlight/WhatToTest.en-US.txt` — scoped to this change, concrete
-  steps, no dev jargon — and **commit it as the final slice, before asking for the G2 OK** (HEAD
-  must be final when approval is given). Conflicts in this small shared file are resolved
-  normally at rebase time; never exempt it. In P6, update it whenever a materially changed PR
-  needs new tester instructions.
-- **Then stop for explicit OK** before the first push/PR. The prompt states "this triggers one
+- HEAD is already final here: the WhatToTest slice was committed at the end of P4 and P3b
+  evidence is minted on it. **Stop for explicit OK** before the first push/PR. The prompt states "this triggers one
   paid Xcode Cloud build". Record the OK as `g2_ok: {sha, ts}` in the state comment — an approval
   binds to that exact HEAD SHA; any new commit voids it and requires a fresh OK (G2 re-asks
   before every push regardless; the record exists so a resumed run never pushes on a stale
@@ -302,7 +301,8 @@ at the PR HEAD. In P6, re-runs stay bounded to one per push round.
 - Address comments **classified as in P4**: fix real issues, reply with the resolution, update the
   PR description for stale claims, decline out-of-scope refactors.
 - At most **one P3b re-run per push round** (advisory evidence, not a gate — don't let cheap
-  re-runs become unbounded).
+  re-runs become unbounded). Update WhatToTest in the same round when the materially changed PR
+  needs new tester instructions — commit it *before* that round's P3b re-run and G2 OK.
 - **Batch** all pending fixes (review + bot comments + CI failures) into **one push per round**;
   **each push is G2-gated** with the paid-build warning. The "push ready fixes rather than idle-poll
   CI" tip applies **only** when the fix is locally verified *and* the CI failure is fully explained
