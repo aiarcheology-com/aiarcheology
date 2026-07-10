@@ -7,7 +7,7 @@ description: >
   Copilot/CodeRabbit comments, poll CI to green — pausing only at a short upfront Q&A and the two
   irreversible/cost gates (every push, every merge). Use when the user says "ship this ticket",
   "take AIA-0XXX to a PR", "/ship-ticket <issue#>", or hands you a ticket to implement end-to-end.
-allowed-tools: [Bash, Read, Edit, Write, Grep, Glob, Task, AskUserQuestion]
+allowed-tools: [Bash, Read, Edit, Write, Grep, Glob, Task, Agent, SendMessage, AskUserQuestion]
 ---
 
 # ship-ticket — autonomous ticket → testable PR
@@ -92,12 +92,106 @@ can prove you own it (matching commit lineage) or it exceeds the TTL (default 45
 "acquire" — a dead agent must never deadlock the resume.
 
 ## The fix counter (cost control)
-One **per-ticket** counter (default cap **6**), incremented on **every** fix attempt across
-P2/P3a/P4/P6. **Write-before-act:** increment and persist to the state comment *before* the costly
-action it guards (commit/push), with an `in_flight` marker; on resume treat `in_flight` as
-**consumed** (never a free retry). On hitting the cap **or** a per-phase sub-cap (2 for
-implement→verify, 3 for the PR loop): **halt auto-fixing**, write the reason + last-good commit to
-the state comment, and hand off to the human. No "try harder."
+One **per-ticket** counter (default cap **6**), incremented on **every** fix→re-verify cycle
+across P2 (inline escalations)/P3a/P4/P6 — **regardless of whether the orchestrator or an `opus`
+executor writes the fix** (model-independent accounting). The only spend outside the counter is
+the P2 per-step *implementation* budget (see Model routing). The counter is persisted as two
+named buckets of **spent** cycles — `fix_buckets.implement_verify` (P2 escalations + P3a + P4,
+sub-cap **2**) and `fix_buckets.pr_loop` (P6, sub-cap **3**); remaining budget = sub-cap − spent,
+and `fix_count` always equals the sum of the buckets. The global cap 6 is a defensive backstop
+above them (buckets bind first; normal spend maxes at 5).
+**Write-before-act:** increment and persist to the state comment *before* the costly action it
+guards (commit/push), with an `in_flight` marker; on resume treat `in_flight` as **consumed**
+(never a free retry) and **reconcile against reality before retrying** (`git log` /
+`git ls-remote`: if the action already landed, record its post-state and clear the marker —
+never blind-retry). **Trip semantics: an increment that would exceed its bucket's sub-cap or the
+global cap halts instead of acting** — write the reason + killing step + last-good commit to the
+state comment and hand off to the human. Re-planning never resets any counter. No "try harder."
+
+## Model routing — capable orchestrator, cheap executors
+This skill assumes the session runs a top-tier model (e.g. Fable) as the **orchestrator**: it keeps
+the whole-ticket context and owns every judgment call — plan, triage, diff review, gates, git, the
+state comment. Token-heavy mechanical work goes to **executor subagents on a cheaper model**:
+spawn via the Agent tool **with an explicit `model: opus` override** — an omitted `model` silently
+inherits the session model and the delegation saves nothing. (The skill cannot change the session
+model itself — that's the user's `/model` choice; if the session already runs a cheaper model, the
+override is harmless.)
+
+**Routing decision per edit, in order:** (1) security or subtle-correctness work → orchestrator
+inline; (2) trivial mechanical edit (single file, no logic — a contract-conformant spawn costs
+more than the edit) → orchestrator inline, *even when it is a plan step*; (3) everything else →
+`opus` executor. Executors are always `opus`, never `haiku`. **Accounting is model-independent** —
+a repair cycle costs the same fix-counter increment whether the orchestrator or an executor
+writes it.
+
+| Work | Runs as | Model |
+|-|-|-|
+| P0/P1 intake, plan, assumptions | orchestrator | session |
+| P1 grill-master review | subagent | inherit session (adversarial review needs the capable model) |
+| P2 write code (one executor per plan step) | executor | `opus` |
+| P2 diff review, banned-diff guard, commits | orchestrator | session |
+| P3a sweep | orchestrator Bash (background) | — |
+| P3a/P4/P6 **mechanical** fix attempts | executor | `opus` |
+| P4 security / subtle-correctness fixes | orchestrator | session |
+| P4 `/code-review` skill | orchestrator (a Skill invocation can't be model-overridden) | session |
+| P3b sim-driving verifier | subagent | `opus` |
+| P4 review triage, P5–P7 gates/PR/state | orchestrator | session |
+
+**Mechanical** = lint/format autocorrect, deterministic test failures with an obvious local cause,
+renames/moves. Security findings and subtle-correctness fixes stay orchestrator-inline (the
+capable model owns judgment) and count against the fix counter as before.
+
+**Implementation/repair executor contract** — applies to P2 plan-step and P3a/P4/P6
+mechanical-fix executors only; the P3b verifier (code-frozen) and grill-master (read-only review)
+are *not* executors and follow their own phase contracts:
+- One executor per **plan step/slice**, clustered by domain — never one per file. The ~5–10 cap
+  applies to P2 implementation executors (fix executors are bounded by the fix counter, the
+  verifier by P3b occurrences).
+- **Sequential, always.** Executors share one worktree/branch; concurrent runs collide on
+  DerivedData, `project.pbxproj` (any file-adding step edits it), and the test sim — and parallel
+  edits destroy per-step `git diff` attribution.
+- Self-contained prompt =
+  1. the step's goal + acceptance check, plus any plan context only the orchestrator knows;
+  2. exact files/areas;
+  3. a fixed **environment preamble**: the resolved `DEVELOPER_DIR` value (with export
+     instruction), `cd ios/`, and the exact build/test command incl. the runtime-resolved
+     `ship-ticket-runner` destination (a resolved UDID is fine *within* one run — only durable
+     state bans UDIDs);
+  4. conventions **by reference, not by value** — name the paths/sections (`ios/AGENTS.md`
+     relevant sections; this skill's "Project conventions" block) and require the executor to
+     Read them. Never hand-copy them: opus input tokens are cheap, orchestrator output tokens
+     are not;
+  5. output rules: "final response < 2000 chars; outcomes not process; list files touched,
+     verify result, anything surprising".
+- Executors **edit, build, and run the step's scoped unit tests** (`-only-testing:…`) — never the
+  UI suite, never any sim other than the one in the preamble; never commit, push, edit the state
+  comment, or spawn sub-subagents.
+- **Per-step attempt budget: 2** (initial + one retry), tracked as `steps[].executor_attempts` in
+  the state comment, **write-before-act** — persist the bump before the dispatch *or* the
+  SendMessage retry; a crash mid-attempt must never grant a free retry. Only P2
+  **implementation** attempts live outside the fix counter (first attempts are never "fix
+  attempts"); a P3a/P4/P6 **repair** dispatch is a fix→re-verify cycle and increments the counter
+  like any other — otherwise cheap executors would make the cost cap unreachable-by-loop.
+- **Two retry paths — never resume an executor across a worktree reset:**
+  - *build/test failure, worktree intact* → **SendMessage the same executor** with the exact
+    error output (its context already holds the files — cheapest); if it can't be resumed,
+    dispatch a fresh one whose prompt adds the error output and the prior attempt's diff;
+  - *drift rejection* → the orchestrator stashes the debris
+    (`git stash push -u -m "ship-ticket:<step-id> rejected"` — full-tree, recoverable) and
+    dispatches a **fresh** executor whose prompt carries the rejection reason + "worktree was
+    reset — re-read files before editing". (Stashes are machine-local; acceptable — by the
+    commit-per-accepted-step invariant a stash only ever holds rejected debris, and durable
+    state never references one.)
+- The orchestrator reviews every result (`git diff`) against the plan step before committing;
+  an accepted step is **committed immediately** (per-step attribution + a free checkpoint).
+- **Escalation:** a step that exhausts its 2 executor attempts goes orchestrator-inline; each
+  inline fix cycle increments the fix counter (write-before-act). **Trip semantics: an increment
+  that would exceed the sub-cap halts instead of acting.** Worked example: step fails 2 executor
+  attempts (per-step budget, outside `fix_count`) → inline attempt #1 = `fix_count` 1 → fails →
+  inline attempt #2 = `fix_count` 2 → fails → the would-be third increment exceeds sub-cap 2 →
+  halt + handoff; state records the killing step. Escalated steps share the phase budget (step A
+  inline = 1, step B inline = 2, any further escalation halts). Re-planning **never** resets the
+  counter.
 
 ---
 
@@ -136,11 +230,20 @@ the state comment, and hand off to the human. No "try harder."
 - **Baseline:** confirm `develop`/the workspace already builds and the objective sweep is green —
   so later failures aren't misattributed to your diff.
 - Validate `DEVELOPER_DIR` (above). Detect a dirty worktree / existing branch / existing PR →
-  resume or ask; never overwrite uncommitted user changes. Acquire/verify the lock.
+  resume or ask; never overwrite uncommitted user changes. **Read the state comment before judging
+  dirt:** if `in_flight` is `executor:<step-id>`, the uncommitted diff is executor debris —
+  inspect, then `git stash push -u -m "ship-ticket:<step-id> resume-debris"`; only unexplained
+  dirt is treated as user work (stop and ask). Acquire/verify the lock.
 
-### P2 — Implement (autonomous, commit frequently)
-- Create the branch. **Read before editing; surgical changes; match existing style.**
-- Commit at logical units (conventions above). Self-correct from build errors.
+### P2 — Implement (orchestrated, commit frequently)
+- Create the branch. **Delegate each plan step to an `opus` executor per the Model-routing
+  contract** (steps caught by the inline routing rules — security/subtle-correctness or trivial
+  mechanical — stay orchestrator-inline). The executor prompt carries "read before editing;
+  surgical changes; match existing style", the step's verify check, and the environment preamble.
+- The orchestrator reviews each returned diff against the plan step, runs the banned-diff guard,
+  and **commits each accepted step immediately** (conventions above). Failures and rejections
+  follow the contract's two retry paths; a step that exhausts its 2 executor attempts escalates
+  inline per the contract's trip semantics.
 - **Banned-diff guard before every commit AND every push** — see `references/banned-diff.md`:
   the **deterministic grep block** (ATS keys, secrets, signing, entitlements, feature-flag flips,
   known auth-bypass tokens) **stops and asks**; **semantic** concerns (e.g. test-only behavior
@@ -154,7 +257,8 @@ against the counter.
 `--no-ui-tests` drops the UI suite here and triggers the UI-unverified banner (below).
 
 ### P3b — Agentic feature check  (ADVISORY — never gates)
-Spawn a **code-frozen** verifier sub-agent (drives the app, edits no source). It installs on a
+Spawn a **code-frozen** verifier sub-agent (`model: opus` — advisory work doesn't need the session
+model; drives the app, edits no source). It installs on a
 **dedicated `simctl erase`'d** sim (isolated — cannot pollute the P3a sim), drives the feature per
 the acceptance criteria via `simctl`/XCUITest, screenshots the success state, and returns
 `works | broken | uncertain` + evidence **for the PR body**. Prefer the non-`UI_TESTING` build for
@@ -170,7 +274,9 @@ reported as `broken`. Evidence is invalidated by any later commit touching the v
 
 ### P5 — Open PR  ← **GATE G2 (every push = one paid Xcode Cloud build)**
 - **Always stop for explicit OK** before the first push/PR. The prompt states "this triggers one
-  paid Xcode Cloud build".
+  paid Xcode Cloud build". Record the OK as `g2_ok: {sha, ts}` in the state comment — an approval
+  binds to that exact HEAD SHA; any new commit voids it (G2 re-asks before every push regardless;
+  the record exists so a resumed run never pushes on a stale approval).
 - Surface a suggested `ios/TestFlight/WhatToTest.en-US.txt` stanza for the human to apply at PR
   time — do **not** auto-mutate that shared file mid-flow (it conflicts across parallel branches).
 - PR body: acceptance criteria + P3b evidence + P3a results + the exact local env
@@ -181,6 +287,8 @@ reported as `broken`. Evidence is invalidated by any later commit touching the v
 - Poll Copilot + CodeRabbit + CI checks (`gh pr checks`, `gh api …/comments`).
 - Address comments **classified as in P4**: fix real issues, reply with the resolution, update the
   PR description for stale claims, decline out-of-scope refactors.
+- At most **one P3b re-run per push round** (advisory evidence, not a gate — don't let cheap
+  re-runs become unbounded).
 - **Batch** all pending fixes (review + bot comments + CI failures) into **one push per round**;
   **each push is G2-gated** with the paid-build warning. The "push ready fixes rather than idle-poll
   CI" tip applies **only** when the fix is locally verified *and* the CI failure is fully explained
@@ -203,8 +311,11 @@ reported as `broken`. Evidence is invalidated by any later commit touching the v
 ## Guardrails recap
 - Never weaken ATS; never commit secrets; surgical diffs only.
 - Two-tier banned-diff guard on every commit and push.
+- Executors (cheap-model subagents) never commit, push, or touch the state comment; every
+  executor diff is orchestrator-reviewed before commit.
 - One per-ticket fix counter (cap 6), write-before-act, on-trip halt+handoff.
 - Structured resumable state in the ticket; SHA-scoped verification records
   (`last_verified` / `last_pushed` / `last_ci_green` / `last_verifier_evidence`) invalidated by any
   new commit; idempotency markers; lock with TTL reclaim.
-- If a phase fails twice, stop and re-plan — don't grind (mirrors the global CLAUDE.md).
+- Prefer re-planning over grinding when a phase keeps failing — but a bucket/cap trip always
+  halts + hands off, and re-planning never resets counters (mirrors the global CLAUDE.md).
