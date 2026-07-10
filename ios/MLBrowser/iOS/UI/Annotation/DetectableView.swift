@@ -46,17 +46,12 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     /// site, and new enqueues are all gated on it).
     private var isCapturingFinding: Binding<Bool>
 
-    /// Mirrors every write/clear of the displayed frame to the presenting screen —
-    /// the find-pick flow hit-tests the frozen frame's boxes and reuses its
-    /// snapshot, and the mirror can never diverge from what's drawn.
-    private let onFrameChanged: ((AppliedDetectionFrame?) -> Void)?
-
     @ViewBuilder let content: (Binding<ContentInteractionState>) -> Content
 
-    @State private var appliedFrame: AppliedDetectionFrame?
     @State private var interactionState: ContentInteractionState = .idle
-    @State private var detectionGeneration: UInt64 = 0
-    @State private var detectionQueue = SnapshotDetectionQueue()
+    /// The detection state machine (generation / coalesce / freeze / apply-guards), extracted so it
+    /// is unit-testable without SwiftUI (AIA-0386). This view is now layout + event-forwarding.
+    @StateObject private var coordinator: DetectionCoordinator
     /// Classification consumer (AIA-0374) — a parallel branch of the snapshot flow,
     /// independent of the detection queue/appliedFrame machinery above.
     @StateObject private var flashController = ClassificationFlashController()
@@ -81,9 +76,16 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         self.tiledDetection = tiledDetection
         self.detectionActive = detectionActive
         self.isCapturingFinding = isCapturingFinding
-        self.onFrameChanged = onFrameChanged
         self.onInteractionStateChanged = onInteractionStateChanged
         self.content = content
+        // The detect seam is @MainActor (DeepDrivers is); the heavy work hops to the engine actor
+        // inside detect(). Guards are bound later from the installed view's connected state
+        // (.onAppear → bindGuards) — a view's own @State isn't wired to storage at init time.
+        self._coordinator = StateObject(wrappedValue: DetectionCoordinator(
+            tiledDetection: tiledDetection,
+            detect: { image, tiled in await drivers.detect(on: image, tiledDetection: tiled) },
+            onFrameChanged: onFrameChanged
+        ))
     }
     
     private var isInteracting: Bool {
@@ -94,7 +96,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     /// results `AnnotationOverlay` draws. Extracted from `body` so the checkpoint expression stays
     /// within the type-checker budget (AIA-0317).
     private var renderedDetectionCount: Int {
-        (appliedFrame?.results ?? []).reduce(0) { $0 + $1.observations.count }
+        (coordinator.appliedFrame?.results ?? []).reduce(0) { $0 + $1.observations.count }
     }
 
     // Checkpoint values extracted from the `body` chain for the same type-checker-budget
@@ -120,7 +122,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 
                 // Annotation overlay - SAME geometry scope guarantees coordinate alignment
                 AnnotationOverlay(
-                    observations: appliedFrame?.results ?? [],
+                    observations: coordinator.appliedFrame?.results ?? [],
                     geometry: geometry,
                     showIdentifiers: showIdentifiers
                 )
@@ -154,12 +156,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 // Layout changed (chrome shown/hidden, rotation): results captured
                 // against the previous geometry would draw misaligned boxes.
                 LoggingPolicy.debug("GeometrySizeChange: \(old.width)x\(old.height) -> \(new.width)x\(new.height)", logger: .ui)
-                detectionGeneration &+= 1
-                setAppliedFrame(nil)
-                // A coalesced snapshot was captured against the old geometry; if it
-                // started later it would read the NEW generation and its stale boxes
-                // would pass the guard below.
-                detectionQueue.cancelPending()
+                // The coordinator bumps the generation, clears the frame, and drops the
+                // coalesced snapshot captured against the old geometry (AIA-0386).
+                coordinator.geometryChanged()
                 // An in-flight classify pass saw the old-geometry frame (AIA-0374).
                 flashController.invalidateInFlight()
             }
@@ -175,38 +174,17 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             // classify-and-flash mid-scroll or behind the save sheet. Independent of
             // the detection queue below.
             flashController.classifyPass(drivers: drivers, image: image)
-            // The queue serializes passes and coalesces snapshots arriving mid-pass to
-            // the newest one: a tiled pass (6 inferences × N detectors) can outlast the
-            // snapshot cadence, and overlapping passes would apply out of order.
-            detectionQueue.enqueue(image) { image, done in
-                let currentGeneration = detectionGeneration
-                Task {
-                    let observations = await drivers.detect(on: image, tiledDetection: tiledDetection)
-                    done()
-                    // Discard if interaction started since detection began (stale results)
-                    guard detectionGeneration == currentGeneration else {
-                        return
-                    }
-                    // Double-check interaction state before applying results
-                    guard !isInteracting else { return }
-                    // A pass that slipped past the guards before the tap froze the
-                    // frame must not repaint the boxes the user is looking at.
-                    guard isCapturingFinding.wrappedValue.not else { return }
-                    // Image and results are applied as ONE value: the cached snapshot
-                    // is always the exact frame the displayed boxes came from, so a
-                    // pick can never pair boxes with a newer image.
-                    setAppliedFrame(AppliedDetectionFrame(image: image, results: observations))
-                }
-            }
+            // Detection pipeline: serialize + coalesce + apply-guard live in the coordinator
+            // (AIA-0386). This is the single detection entry point.
+            coordinator.ingest(snapshot: image)
         }
         .onChange(of: isCapturingFinding.wrappedValue) { _, capturing in
             // Entering a capture must also invalidate work already in flight:
             // the freeze gate alone only discards results WHILE it is set — a
             // pre-freeze pass (or its coalesced successor) finishing after the
             // capture ends would briefly apply a stale frame over the fresh one.
+            coordinator.setCapturing(capturing)
             if capturing {
-                detectionGeneration &+= 1
-                detectionQueue.cancelPending()
                 // A classify pass finishing behind the save sheet must not flash
                 // over it (AIA-0374).
                 flashController.invalidateInFlight()
@@ -215,13 +193,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         .onChange(of: interactionState) { _, state in
             // While the save dialog is up the frame stays frozen (interaction events
             // can still arrive from the web view as the sheet animates in).
+            // The coordinator invalidates in-flight detection + clears the frame when
+            // interaction starts (unless a capture is freezing it) — AIA-0386.
+            coordinator.setInteracting(state.isInteracting)
             if state.isInteracting && isCapturingFinding.wrappedValue.not {
-                // Invalidate any in-flight detections
-                detectionGeneration &+= 1
-                // Clear annotations immediately when interaction starts
-                setAppliedFrame(nil)
-                // A coalesced snapshot was captured pre-interaction — stale geometry.
-                detectionQueue.cancelPending()
                 // Classification mirrors detection's clear semantics: a still-present
                 // finding flashes again once the content settles and re-qualifies
                 // (0→n; AIA-0374 accepted behavior).
@@ -229,6 +204,19 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             }
             // Notify external observer if provided
             onInteractionStateChanged?(state)
+        }
+        .onAppear {
+            // Bind the coordinator's live apply-time guards from the installed view's CONNECTED
+            // state (AIA-0386). Not done at init: the view's own @State isn't wired to persistent
+            // storage yet at init time, so a closure captured there reads a dead initial value.
+            coordinator.bindGuards(
+                isInteracting: { interactionState.isInteracting },
+                isCapturing: { isCapturingFinding.wrappedValue }
+            )
+        }
+        .onChange(of: tiledDetection) { _, value in
+            // Keep the coordinator's live tiling flag current (read at each pass start).
+            coordinator.tiledDetection = value
         }
         // AIA-0317: publish the live rendered-annotation count for UI tests. Attached at the body
         // root (outside the ZStack's SnapableGroup), so the 1pt marker is never in the detection
@@ -258,13 +246,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 flashController.clearPresentation()
             }
         }
-    }
-
-    /// Single write path for the displayed frame: the screen's mirror is updated
-    /// in the same statement, so the two can never diverge.
-    private func setAppliedFrame(_ frame: AppliedDetectionFrame?) {
-        appliedFrame = frame
-        onFrameChanged?(frame)
     }
 }
 
@@ -344,42 +325,6 @@ struct AnnotationOverlay: View {
                     params: observationGroup.params,
                     showIdentifiers: showIdentifiers
                 )
-            }
-        }
-    }
-}
-
-/// Serializes detection passes: at most one in flight, with snapshots arriving mid-pass
-/// coalesced to the newest (latest wins, no queue growth). Applying results in completion
-/// order is what made overlapping passes able to deliver frame A's boxes after frame B's.
-@MainActor
-final class SnapshotDetectionQueue {
-    typealias Pass = @MainActor (UIImage, _ done: @escaping @MainActor () -> Void) -> Void
-
-    private(set) var inFlight = false
-    private var pendingImage: UIImage?
-
-    func enqueue(_ image: UIImage, pass: @escaping Pass) {
-        guard inFlight.not else {
-            pendingImage = image
-            return
-        }
-        start(image, pass: pass)
-    }
-
-    /// Drops a coalesced snapshot (e.g. interaction started — its geometry is stale).
-    func cancelPending() {
-        pendingImage = nil
-    }
-
-    private func start(_ image: UIImage, pass: @escaping Pass) {
-        inFlight = true
-        pass(image) { [weak self] in
-            guard let self else { return }
-            self.inFlight = false
-            if let next = self.pendingImage {
-                self.pendingImage = nil
-                self.start(next, pass: pass)
             }
         }
     }

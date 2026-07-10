@@ -17,6 +17,7 @@
 		26769AC1FF4553E49037C3BE /* TourStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB4535BB4D2FCF4B8B65E72A /* TourStep.swift */; };
 		28D6668F15B4BCB10A61D33D /* SubscriptionGateUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37FF65EDA41F1D0083A25351 /* SubscriptionGateUITests.swift */; };
 		2E053D53518C7F5210D3C98B /* AuthGateUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDCA151D54FB4492B8A89AB4 /* AuthGateUITests.swift */; };
+		2E6F0742CECF07D78DC45A12 /* DetectionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DC6368CADB5F8D0D0AA102A /* DetectionCoordinatorTests.swift */; };
 		2ECE9C12C21F778CC2634FB7 /* TourSpotlight.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FB8A8D45E35FDEFDF08FD61 /* TourSpotlight.swift */; };
 		401A266CB4BCBDC00E517F03 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49E941AEA21CE25C5CC4EC9C /* PaywallView.swift */; };
 		4CD0B0B57E40E142601F97D3 /* SnapshotRendering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78089C11A89B618C8920A9AD /* SnapshotRendering.swift */; };
@@ -253,6 +254,7 @@
 		E7F5231A49E504BC1E29378D /* UnderConstructionBadgeModifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCCEEC718DD6DE0906E82D21 /* UnderConstructionBadgeModifierTests.swift */; };
 		E8E2DAA150D7FFF0DE8A580E /* TourBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EF3491C4DB7925FFAEACDE3 /* TourBubble.swift */; };
 		EF13C6297424F765185320BD /* TourState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FBD8D69B0BC1331A2E864BE /* TourState.swift */; };
+		F123020452F330E251BF7ACD /* DetectionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 712469EC93143F6B26F643B4 /* DetectionCoordinator.swift */; };
 		F35245B164FCF75B65DC9CAC /* AuthStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D13058A1B4013C29CD5016E /* AuthStateTests.swift */; };
 		F3926A4B067E92D228D819B2 /* AuthGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 064CE0046587D40387274BC8 /* AuthGateView.swift */; };
 		F91C3A2C067C269EC3C81972 /* SnapshotRenderingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 885E22610F638752785ADEBB /* SnapshotRenderingTests.swift */; };
@@ -278,6 +280,7 @@
 /* Begin PBXFileReference section */
 		04CC35810A5A24A66927181A /* StoreKitSubscriptionProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StoreKitSubscriptionProvider.swift; sourceTree = "<group>"; };
 		064CE0046587D40387274BC8 /* AuthGateView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthGateView.swift; sourceTree = "<group>"; };
+		0DC6368CADB5F8D0D0AA102A /* DetectionCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DetectionCoordinatorTests.swift; sourceTree = "<group>"; };
 		0FBD8D69B0BC1331A2E864BE /* TourState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourState.swift; sourceTree = "<group>"; };
 		1D07182C65A29B05EA7B102F /* SubscriptionStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionStateTests.swift; sourceTree = "<group>"; };
 		2E2660066341809F9F0996AB /* SubscriptionGateView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionGateView.swift; sourceTree = "<group>"; };
@@ -291,6 +294,7 @@
 		58F0B2DED415479BBF3199FD /* FastViTT8F16.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = FastViTT8F16.mlpackage; sourceTree = "<group>"; };
 		59AA37AF30504C8C9835EC19 /* uitest_classify_page.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; name = uitest_classify_page.html; path = iOS/Resources/UITestFixtures/uitest_classify_page.html; sourceTree = "<group>"; };
 		5FB8A8D45E35FDEFDF08FD61 /* TourSpotlight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourSpotlight.swift; sourceTree = "<group>"; };
+		712469EC93143F6B26F643B4 /* DetectionCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DetectionCoordinator.swift; sourceTree = "<group>"; };
 		78089C11A89B618C8920A9AD /* SnapshotRendering.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SnapshotRendering.swift; sourceTree = "<group>"; };
 		791D69ED93234CE31F8C8636 /* TourTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourTarget.swift; sourceTree = "<group>"; };
 		7F5EE5947359591A0BACE0F5 /* AuthState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthState.swift; sourceTree = "<group>"; };
@@ -886,6 +890,7 @@
 				8AC393DB2B2BA3A100C9BA57 /* ObservationCircleView.swift */,
 				8AC393D72B2BA35F00C9BA57 /* ObservationPointView.swift */,
 				8AC393D92B2BA38400C9BA57 /* ObservationRectangleView.swift */,
+				712469EC93143F6B26F643B4 /* DetectionCoordinator.swift */,
 			);
 			path = Annotation;
 			sourceTree = "<group>";
@@ -1027,6 +1032,7 @@
 				F4959633D9188F0018FC3892 /* SubscriptionPeriodLocalizedTests.swift */,
 				CCCEEC718DD6DE0906E82D21 /* UnderConstructionBadgeModifierTests.swift */,
 				885E22610F638752785ADEBB /* SnapshotRenderingTests.swift */,
+				0DC6368CADB5F8D0D0AA102A /* DetectionCoordinatorTests.swift */,
 			);
 			path = MLBrowserUnitTests;
 			sourceTree = "<group>";
@@ -1600,6 +1606,7 @@
 				BD23CFBFEE5DA661E444472A /* SubscriptionPeriod+Localized.swift in Sources */,
 				8A1D4FE934ACAC7B6D85FA82 /* UnderConstructionBadgeModifier.swift in Sources */,
 				4CD0B0B57E40E142601F97D3 /* SnapshotRendering.swift in Sources */,
+				F123020452F330E251BF7ACD /* DetectionCoordinator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1665,6 +1672,7 @@
 				BC02BE606DC25B34C31857E8 /* SubscriptionPeriodLocalizedTests.swift in Sources */,
 				E7F5231A49E504BC1E29378D /* UnderConstructionBadgeModifierTests.swift in Sources */,
 				F91C3A2C067C269EC3C81972 /* SnapshotRenderingTests.swift in Sources */,
+				2E6F0742CECF07D78DC45A12 /* DetectionCoordinatorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
