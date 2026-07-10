@@ -33,6 +33,7 @@ On every run: `gh issue view <#> --json comments` → find the marker → parse 
   "fix_buckets": { "implement_verify": 2, "pr_loop": 1 },
   "g2_ok": { "sha": "e8e1ddb…", "ts": "2026-07-01T00:25:00Z" },
   "in_flight": null,
+  "halt": null,
   "steps": [
     { "id": "s1", "desc": "FeatureFlags + gate flash", "status": "done",        "executor_attempts": 1 },
     { "id": "s2", "desc": "unit tests",                "status": "in_executor", "executor_attempts": 2 }
@@ -59,8 +60,11 @@ On every run: `gh issue view <#> --json comments` → find the marker → parse 
   already landed; if it did, record its post-state and clear the marker instead of re-acting.
 - **`steps[]`** — one entry per plan step: `status` ∈
   `pending | in_executor | done | escalated | halted`, `executor_attempts` (max 2, bumped
-  write-before-act, including before a SendMessage retry). A halt records the killing step's id in
-  the halt reason. Cleanup stashes are machine-local — durable state never references one.
+  write-before-act, including before a SendMessage retry). Cleanup stashes are machine-local —
+  durable state never references one.
+- **`halt`** — `null` while running. On any cap/bucket trip set `{reason, step_id, ts}` (the
+  dedicated home of the halt reason + killing step). A non-null `halt` on resume means the run is
+  handed off: do **not** auto-fix; report and wait for the human.
 - **`fix_count` / `fix_buckets`** — every fix→re-verify cycle increments its bucket
   (`implement_verify`: P2 escalations + P3a + P4, sub-cap 2; `pr_loop`: P6, sub-cap 3) **and** the
   total, write-before-act, **whether the orchestrator or an executor writes the fix**. Buckets
