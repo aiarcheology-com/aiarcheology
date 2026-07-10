@@ -1,22 +1,32 @@
-Test Focus: Internal state-threading cleanup (AIA-0393 / AIA-0396) — no visible change expected
+Test Focus: Model-management internals refactor (AIA-0388) — no visible change expected
 Build: TBD
 
 What's new in this build:
-Internal code-consistency cleanup only. One state object (the snapshot/detection timer) was moved
-onto the main thread to match every other state object; the rest is developer documentation. There
-is NO user-facing change — this build is a regression check that the automatic detection loop still
-runs exactly as before.
+Internal restructuring only — the code that manages detection models (their settings, the running
+detectors, and their downloaded files) was split into separate, testable pieces. There is NO
+user-facing change. This build is a regression check that adding, enabling, disabling, and deleting
+models still behaves exactly as before.
 
-1. Automatic detection snapshot loop
-- Open a detection demo and let it run without touching the screen: the app should keep taking
-  snapshots on its timer and updating detections at the usual cadence — no stalls, no freeze, and
-  no slowdown compared to before.
+1. Add / import a model
+- Add or import a detection/classification model. It should appear and become usable as before.
 
-2. Snapshot frequency
-- If snapshot frequency is adjustable in Settings, change it and confirm the detection cadence
-  changes accordingly and the app stays responsive.
+2. Enable / disable a model
+- Toggle a model on, then off. Enabling should start detecting with it; disabling should stop it —
+  no lag, no stuck state, no crash.
 
-3. Report Issues
+3. Delete a model
+- Delete a model you added (not a bundled demo). It should disappear and its detector should stop.
+  Deleting a model that came from a download should keep the downloaded copy available for re-import
+  (its file must not be removed).
+
+4. Reset all models
+- Use reset / reset-all (if available). All added models should be removed and detection should stop
+  cleanly, with no leftover detectors.
+
+5. Detection still runs
+- With a model enabled, run a detection demo — bounding boxes should appear and update as before.
+
+6. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version
