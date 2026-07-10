@@ -65,7 +65,10 @@ final class DetectionCoordinatorTests: XCTestCase {
 	}
 
 	private func resumeDetect(with results: [DetectionResult]) {
-		let cont = continuation!
+		guard let cont = continuation else {
+			XCTFail("resumeDetect called with no suspended detect pass")
+			return
+		}
 		continuation = nil
 		cont.resume(returning: results)
 	}
