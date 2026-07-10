@@ -131,8 +131,9 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 	public static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
 		// Subscriptions-only teardown: with the web tab being the only tab this never
 		// fires today, but it must stay correct if tabOrder grows. Deliberately does NOT
-		// nil webViewRenderer.webView — the snapshot ref is detection's concern and
-		// clearing it on a transient rebuild would break takeSnapshot mid-detection.
+		// detach the renderer's webView (a WebSnapshotRenderer, held weak) — the snapshot
+		// ref is detection's concern and clearing it on a transient rebuild would break
+		// takeSnapshot mid-detection.
 		coordinator.browserState?.cancelSubscriptions(if: uiView)
 	}
 
