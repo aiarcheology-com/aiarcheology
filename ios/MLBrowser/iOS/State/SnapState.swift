@@ -23,6 +23,7 @@ final class SnapAdjustment: ObservableObject {
 }
 
 import Combine
+@MainActor
 class SnapState: ObservableObject {
 	var settings: Settings
 	var timerCancellable: Cancellable?
