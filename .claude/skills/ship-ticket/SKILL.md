@@ -3,7 +3,7 @@ name: ship-ticket
 description: >
   Autonomously drive a GitHub ticket (or an inline description) to a green, locally-verified PR
   for the ML Browser iOS app — plan, adversarial plan review, implement with frequent commits,
-  local verify (objective sweep + advisory agentic check), code review, open PR, address
+  local verify (objective sweep, code review, advisory agentic check), open PR, address
   Copilot/CodeRabbit comments, poll CI to green — pausing only at a short upfront Q&A and the two
   irreversible/cost gates (every push, every merge). Use when the user says "ship this ticket",
   "take AIA-0XXX to a PR", "/ship-ticket <issue#>", or hands you a ticket to implement end-to-end.
@@ -54,9 +54,11 @@ Do **not** activate for a one-line fix the user is watching you make — that's 
   `SIMCTL_CHILD_UI_TESTING=1` activates the DEBUG mock auth/subscription providers (bypasses
   auth/paywall) — it also wipes the Caches Core Data store, so it is a *different* path than
   production; only use it when a flow is otherwise unreachable, and label it in evidence.
-- **Commits:** no co-author footnote. If 1Password is locked (signing/SSH fail), fall back to
+- **Commits:** subject prefixed `[AIA-XXXX]` (or `[AIA-XXXX, AIA-YYYY]`), imperative summary,
+  short why-body — ios/AGENTS.md §13; no co-author footnote. If 1Password is locked (signing/SSH fail), fall back to
   `git -c commit.gpgsign=false commit …` and push via the `gh`-credentialed HTTPS remote.
-- **Branch/issue:** `feature/AIA-XXXX/<slug>`, base `develop`. Title issues `AIA-0XXX: …`.
+- **Branch/issue:** `<type>/AIA-XXXX/<slug>` with `<type>` ∈ `feature|fix|doc|test` chosen by
+  change type (ios/AGENTS.md §13), base `develop`. Title issues `AIA-0XXX: …`.
   Add to project board #1 (owner `aiarcheology-com`); Status field `PVTSSF_lADODw8uZM4BMCyNzg7cGQI`,
   options: In Review `ce9bc762`, Done `98236657`.
 - **Pre-push gate mirrors CI:** `./scripts/swiftlint.sh` + `./scripts/harmonize.sh` (both run
@@ -210,7 +212,8 @@ are *not* executors and follow their own phase contracts:
    the human to acknowledge; never self-assert it (it gates G1).
 4. Ask **≤3** clarifying questions — only for decisions the user owns. If specific, infer and state
    assumptions in one line.
-5. Decide branch `feature/AIA-XXXX/<slug>`, base `develop`, blast radius, effort.
+5. Decide branch `<type>/AIA-XXXX/<slug>` (type per conventions), base `develop`, blast radius,
+   effort.
 
 ### P1 — Plan  (Gate **G1**, risk-tiered)
 - Draft: steps → per-step verify check, assumptions, known risks.
@@ -256,29 +259,37 @@ UI tests (from `ios/`, `-testPlan MLBrowserUITests`, non-disrupting sim). Fix→
 against the counter.
 `--no-ui-tests` drops the UI suite here and triggers the UI-unverified banner (below).
 
-### P3b — Agentic feature check  (ADVISORY — never gates)
+### P3b — Agentic feature check  (ADVISORY — never gates; **runs after P4**, right before P5)
 Spawn a **code-frozen** verifier sub-agent (`model: opus` — advisory work doesn't need the session
 model; drives the app, edits no source). It installs on a
 **dedicated `simctl erase`'d** sim (isolated — cannot pollute the P3a sim), drives the feature per
 the acceptance criteria via `simctl`/XCUITest, screenshots the success state, and returns
 `works | broken | uncertain` + evidence **for the PR body**. Prefer the non-`UI_TESTING` build for
 fidelity; bypass-with-label only when a flow is otherwise unreachable. `uncertain` is never
-reported as `broken`. Evidence is invalidated by any later commit touching the verified flow.
+reported as `broken`. Evidence is **SHA-scoped like every verification record: any later commit
+invalidates it** (one rule, matching the state schema — no flow-scoped judgment calls). That is
+why P3b runs *after* P4 and its conditional P3a rerun, immediately before P5: evidence is minted
+at the PR HEAD. In P6, re-runs stay bounded to one per push round.
 
-### P4 — Code review (after cheap checks, before repeating the expensive UI sweep)
+### P4 — Code review (after the objective sweep; P3b and any repeat UI sweep come after)
 - Native `/code-review` skill (review the branch diff) + CodeRabbit CLI (if installed;
   skip with a note in the PR body if not) + codex review.
 - **Triage, don't rubberstamp. Classify findings:** correctness / security / test-failure →
   auto-fix; architecture / product / API / scope-expanding → **surface for human approval**.
-- Then run the full P3a once.
+- Then re-run the full P3a **only if P4 changed HEAD** — an unchanged HEAD keeps its green (the
+  UI suite is the most expensive local step; never repeat it for a no-op review). P3b runs after
+  this point so its evidence lands on the final HEAD.
 
 ### P5 — Open PR  ← **GATE G2 (every push = one paid Xcode Cloud build)**
 - **Always stop for explicit OK** before the first push/PR. The prompt states "this triggers one
   paid Xcode Cloud build". Record the OK as `g2_ok: {sha, ts}` in the state comment — an approval
   binds to that exact HEAD SHA; any new commit voids it (G2 re-asks before every push regardless;
   the record exists so a resumed run never pushes on a stale approval).
-- Surface a suggested `ios/TestFlight/WhatToTest.en-US.txt` stanza for the human to apply at PR
-  time — do **not** auto-mutate that shared file mid-flow (it conflicts across parallel branches).
+- **WhatToTest is mandatory** (ios/AGENTS.md §13: "no PR without it"): write the tester-facing
+  stanza to `ios/TestFlight/WhatToTest.en-US.txt` — scoped to this change, concrete steps, no dev
+  jargon — and **commit it as the final slice before G2**. Conflicts in this small shared file
+  are resolved normally at rebase time; never exempt it. In P6, update it whenever a materially
+  changed PR needs new tester instructions.
 - PR body: acceptance criteria + P3b evidence + P3a results + the exact local env
   (Xcode/sim/OS), labeled **"locally verified"** — never presented as CI-green. Include the
   UI-unverified banner if `--no-ui-tests`.
