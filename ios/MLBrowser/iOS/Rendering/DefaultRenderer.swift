@@ -8,10 +8,6 @@
 import Foundation
 import SwiftUI
 
-protocol DefaultRenderable {
-	var defaultRenderer: DefaultRenderer { get }
-}
-
 	// Default renderer for the SwiftUI components
 class DefaultRenderer: ObservableObject {
 	init() {

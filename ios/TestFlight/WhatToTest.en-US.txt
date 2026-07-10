@@ -1,37 +1,20 @@
-Test Focus: Detection-pipeline coordinator refactor (AIA-0386) — no visible change expected
+Test Focus: Internal rendering-layer cleanup (AIA-0394) — no visible change expected
 Build: TBD
 
 What's new in this build:
-The on-screen detection logic (which frames get detected, when boxes clear, and how the
-save-a-finding freeze works) was moved out of the view into a new internal coordinator. There
-is NO intended change to what you see — this build is a regression check that the detection
-overlay still behaves exactly as before.
+Removed an unused internal code abstraction (a protocol that nothing implemented) from the
+rendering layer. There is NO user-facing change and NO intended behavior change — this build is
+just a regression check that rendering-dependent features are unaffected.
 
-1. Boxes appear, update, and clear
-- Run a detection demo and browse: bounding boxes should appear over recognized content, keep
-  up as the page updates, and clear when content leaves the screen — no lag, no stale boxes.
+1. Finding share / export card
+- Open a saved finding and share/export it (the share-card image). It should render exactly as
+  before: correct content, sharp on Retina screens (not blurry or half-size), nothing missing.
 
-2. Scroll / pinch-zoom clears immediately, then re-detects
-- While scrolling or zooming, boxes should clear at once (geometry is changing). When the
-  content settles, boxes should re-appear correctly aligned. Repeat quickly a few times — no
-  boxes should ever be left behind in the wrong place.
+2. Web snapshot detection
+- Run a detection demo on a web page: snapshots should still be captured and bounding boxes
+  should still appear over recognized content, exactly as before.
 
-3. Rotate / show-hide chrome re-aligns
-- Rotate the device or toggle the toolbars while boxes are shown: the old boxes should clear
-  and fresh ones should appear aligned to the new layout.
-
-4. Save a finding keeps the frame frozen
-- Tap to pick/save a finding: while the capture/save sheet is up, the boxes underneath must
-  stay exactly as they were (frozen) — they must not flicker, move, or get replaced by a new
-  detection pass. After you save or cancel, detection should resume normally. Exercise this a
-  few times, including cancelling.
-
-5. Classification finding-flash still works
-- With a classification model enabled, the pulsing frame flash and label bubble should still
-  appear on recognized content, and stop when you pause detection or start interacting
-  (unchanged).
-
-6. Report Issues
+3. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version
