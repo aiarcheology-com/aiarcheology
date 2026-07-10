@@ -92,15 +92,20 @@ can prove you own it (matching commit lineage) or it exceeds the TTL (default 45
 "acquire" — a dead agent must never deadlock the resume.
 
 ## The fix counter (cost control)
-One **per-ticket** counter (default cap **6**), incremented on **every** orchestrator fix→re-verify
-cycle across P2 (inline escalations only)/P3a/P4/P6. **Executor attempts are NOT fix attempts** —
-they have their own per-step budget (see Model routing). **Write-before-act:** increment and
-persist to the state comment *before* the costly action it guards (commit/push), with an
-`in_flight` marker; on resume treat `in_flight` as **consumed** (never a free retry). **Trip
-semantics: an increment that would exceed the cap or a per-phase sub-cap (2 for implement→verify,
-3 for the PR loop) halts instead of acting** — write the reason + killing step + last-good commit
-to the state comment and hand off to the human. Re-planning never resets the counter. No "try
-harder."
+One **per-ticket** counter (default cap **6**), incremented on **every** fix→re-verify cycle
+across P2 (inline escalations)/P3a/P4/P6 — **regardless of whether the orchestrator or an `opus`
+executor writes the fix** (model-independent accounting). The only spend outside the counter is
+the P2 per-step *implementation* budget (see Model routing). The counter is persisted as two
+named buckets — `fix_buckets.implement_verify` (P2 escalations + P3a + P4, sub-cap **2**) and
+`fix_buckets.pr_loop` (P6, sub-cap **3**) — so a resumed run knows exactly what remains; the
+global cap 6 is a defensive backstop above them (buckets bind first; normal spend maxes at 5).
+**Write-before-act:** increment and persist to the state comment *before* the costly action it
+guards (commit/push), with an `in_flight` marker; on resume treat `in_flight` as **consumed**
+(never a free retry) and **reconcile against reality before retrying** (`git log` /
+`git ls-remote`: if the action already landed, record its post-state and clear the marker —
+never blind-retry). **Trip semantics: an increment that would exceed its bucket's sub-cap or the
+global cap halts instead of acting** — write the reason + killing step + last-good commit to the
+state comment and hand off to the human. Re-planning never resets any counter. No "try harder."
 
 ## Model routing — capable orchestrator, cheap executors
 This skill assumes the session runs a top-tier model (e.g. Fable) as the **orchestrator**: it keeps
@@ -109,8 +114,14 @@ state comment. Token-heavy mechanical work goes to **executor subagents on a che
 spawn via the Agent tool **with an explicit `model: opus` override** — an omitted `model` silently
 inherits the session model and the delegation saves nothing. (The skill cannot change the session
 model itself — that's the user's `/model` choice; if the session already runs a cheaper model, the
-override is harmless.) Trivial mechanical edits are cheaper done orchestrator-inline than via a
-contract-conformant spawn — executors are always `opus`, never `haiku`.
+override is harmless.)
+
+**Routing decision per edit, in order:** (1) security or subtle-correctness work → orchestrator
+inline; (2) trivial mechanical edit (single file, no logic — a contract-conformant spawn costs
+more than the edit) → orchestrator inline, *even when it is a plan step*; (3) everything else →
+`opus` executor. Executors are always `opus`, never `haiku`. **Accounting is model-independent** —
+a repair cycle costs the same fix-counter increment whether the orchestrator or an executor
+writes it.
 
 | Work | Runs as | Model |
 |-|-|-|
@@ -129,7 +140,9 @@ contract-conformant spawn — executors are always `opus`, never `haiku`.
 renames/moves. Security findings and subtle-correctness fixes stay orchestrator-inline (the
 capable model owns judgment) and count against the fix counter as before.
 
-**Executor contract (every spawn):**
+**Implementation/repair executor contract** — applies to P2 plan-step and P3a/P4/P6
+mechanical-fix executors only; the P3b verifier (code-frozen) and grill-master (read-only review)
+are *not* executors and follow their own phase contracts:
 - One executor per **plan step/slice**, clustered by domain — never one per file. The ~5–10 cap
   applies to P2 implementation executors (fix executors are bounded by the fix counter, the
   verifier by P3b occurrences).
@@ -154,8 +167,10 @@ capable model owns judgment) and count against the fix counter as before.
   comment, or spawn sub-subagents.
 - **Per-step attempt budget: 2** (initial + one retry), tracked as `steps[].executor_attempts` in
   the state comment, **write-before-act** — persist the bump before the dispatch *or* the
-  SendMessage retry; a crash mid-attempt must never grant a free retry. Executor attempts are
-  **not** fix-counter increments; first attempts are never "fix attempts".
+  SendMessage retry; a crash mid-attempt must never grant a free retry. Only P2
+  **implementation** attempts live outside the fix counter (first attempts are never "fix
+  attempts"); a P3a/P4/P6 **repair** dispatch is a fix→re-verify cycle and increments the counter
+  like any other — otherwise cheap executors would make the cost cap unreachable-by-loop.
 - **Two retry paths — never resume an executor across a worktree reset:**
   - *build/test failure, worktree intact* → **SendMessage the same executor** with the exact
     error output (its context already holds the files — cheapest); if it can't be resumed,
@@ -221,8 +236,9 @@ capable model owns judgment) and count against the fix counter as before.
 
 ### P2 — Implement (orchestrated, commit frequently)
 - Create the branch. **Delegate each plan step to an `opus` executor per the Model-routing
-  contract** — the executor prompt carries "read before editing; surgical changes; match existing
-  style", the step's verify check, and the environment preamble.
+  contract** (steps caught by the inline routing rules — security/subtle-correctness or trivial
+  mechanical — stay orchestrator-inline). The executor prompt carries "read before editing;
+  surgical changes; match existing style", the step's verify check, and the environment preamble.
 - The orchestrator reviews each returned diff against the plan step, runs the banned-diff guard,
   and **commits each accepted step immediately** (conventions above). Failures and rejections
   follow the contract's two retry paths; a step that exhausts its 2 executor attempts escalates
@@ -257,7 +273,9 @@ reported as `broken`. Evidence is invalidated by any later commit touching the v
 
 ### P5 — Open PR  ← **GATE G2 (every push = one paid Xcode Cloud build)**
 - **Always stop for explicit OK** before the first push/PR. The prompt states "this triggers one
-  paid Xcode Cloud build".
+  paid Xcode Cloud build". Record the OK as `g2_ok: {sha, ts}` in the state comment — an approval
+  binds to that exact HEAD SHA; any new commit voids it (G2 re-asks before every push regardless;
+  the record exists so a resumed run never pushes on a stale approval).
 - Surface a suggested `ios/TestFlight/WhatToTest.en-US.txt` stanza for the human to apply at PR
   time — do **not** auto-mutate that shared file mid-flow (it conflicts across parallel branches).
 - PR body: acceptance criteria + P3b evidence + P3a results + the exact local env
@@ -298,4 +316,5 @@ reported as `broken`. Evidence is invalidated by any later commit touching the v
 - Structured resumable state in the ticket; SHA-scoped verification records
   (`last_verified` / `last_pushed` / `last_ci_green` / `last_verifier_evidence`) invalidated by any
   new commit; idempotency markers; lock with TTL reclaim.
-- If a phase fails twice, stop and re-plan — don't grind (mirrors the global CLAUDE.md).
+- Prefer re-planning over grinding when a phase keeps failing — but a bucket/cap trip always
+  halts + hands off, and re-planning never resets counters (mirrors the global CLAUDE.md).
