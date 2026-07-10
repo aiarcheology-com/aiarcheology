@@ -1,36 +1,32 @@
-Test Focus: Classification finding-flash (pulsing border) + label bubble + FastViT demo model
+Test Focus: Detection/classification pipeline internals refactor (AIA-0387) — no visible change expected
 Build: TBD
 
 What's new in this build:
-The app now presents CLASSIFICATION results: when a classification model recognizes
-something on the page, the content frame pulses with a soft colored border, and (with
-"Show Labels" on) a small bubble lists the top matches with confidence percentages.
-No classification model ships with the app — import one first (step 1).
+Under the hood, the code that runs detection and classification models was moved off
+the main thread into a dedicated background engine, so a busy model can no longer stutter
+scrolling or tapping. There is NO intended change to what you see — this build is a
+regression check: everything that worked before must still work, exactly the same.
 
-1. Import a classification model (required for this test)
-- Side menu → + → import by URL, and paste a direct .mlmodel link — e.g. Apple's
-  MobileNetV2 (https://ml-assets.apple.com/coreml/models/Image/ImageClassification/MobileNetV2/MobileNetV2FP16.mlmodel),
-  or pick any classification .mlmodel/.mlpackage you have via the Files importer.
-- The model should appear in the side menu typed as "classify"; enable it.
+1. Detection still works (boxes)
+- Run the built-in detection demos: bounding boxes should appear over recognized content
+  and clear when it leaves the screen, exactly as before.
+- Save a finding from a detected box: it should capture and persist as usual.
 
-2. Finding flash
-- Browse any normal web page and tap play (detection): when the model recognizes the
-  page content, the frame pulses with a soft border. Scrolling pauses the pulse; it
-  resumes after the page settles if the object is still recognized.
-- Toggle Settings → Show Labels ON: a bubble (top-right) lists the top matches with
-  percentages — even when confidence is too low to pulse.
+2. Classification finding-flash still works
+- Import/enable a classification model (side menu → + → import a .mlmodel by URL or file),
+  then browse a normal page with detection on: the frame should still pulse with the soft
+  colored border when the model recognizes the content.
+- With Settings → Show Labels ON, the top-right bubble should still list matches + percentages.
 
-3. Per-model flash options (Configuration sheet)
-- Side menu → tap your classify model to open its Configuration.
-- In Annotation: Color changes the flash color, Fade Out Time sets the pulse speed,
-  "Flash when object found" turns the flash off/on for THIS model, "Flash border size"
-  changes the border width. Changes apply live. (The Symbol picker is intentionally
-  hidden for classify models — there are no boxes.)
+3. Stress the live pipeline (the point of this change)
+- While a model is actively running, scroll fast, rotate the device, and pinch-zoom:
+  boxes/flash should pause during interaction and resume cleanly after the page settles —
+  no frozen boxes, no stuck pulse, no stale label bubble, no lag or hangs.
+- Enter and leave a saved finding, switch models on/off mid-session, and background/foreground
+  the app while detection is running: the pipeline should keep up and never leak an old result
+  onto the new screen.
 
-4. Regression (detection unchanged)
-- Run detection demos as usual: boxes appear/clear as before, saving findings works.
-
-5. Report Issues
+4. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version
