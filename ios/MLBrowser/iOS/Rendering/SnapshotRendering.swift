@@ -12,8 +12,11 @@ import SwiftUI
 /// `SnapableGroup` can hold it `unowned`; the single requirement is `async` so a `@MainActor`
 /// implementation can witness it (the actor hop is absorbed at the `await`) while the protocol
 /// itself stays nonisolated — which is what lets a test fake run OFF the main actor (usable off
-/// MainActor in tests/CI, AC2).
-protocol SnapshotRendering: AnyObject {
+/// MainActor in tests/CI, AC2). `Sendable` so a `@MainActor` caller (`SnapableGroup`) can invoke
+/// the nonisolated `async snapshot()` on an `any SnapshotRendering` receiver without tripping
+/// Swift 6 region isolation; every conformer already qualifies (the `@MainActor` impl is
+/// implicitly Sendable, the fake is immutable).
+protocol SnapshotRendering: AnyObject, Sendable {
 	func snapshot() async -> UIImage?
 }
 

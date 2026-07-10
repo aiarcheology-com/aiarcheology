@@ -196,7 +196,7 @@ struct WebScreenView: View {
                 appState.guide.contentInteractionState = state
             }
         ) { interactionState in
-            MLWebView(loadRequest, loadStatusChanged: { loading, error in
+            MLWebView(loadRequest, renderer: appState.webViewRenderer, loadStatusChanged: { loading, error in
 				LoggingPolicy.debug("WebView loading status changed: \(loading ? "loading" : "loaded")", logger: .ui)
                 if let error = error {
 					switch webViewLoadErrorLevel(for: error) {
@@ -341,7 +341,6 @@ struct WebScreenView: View {
         .alert(isPresented: $showAlert) {
             alertForError(latestError)
         }
-        .environmentObject(appState.webViewRenderer)
         .environmentObject(appState.browserState)
         .navigationBarTitle("", displayMode: .inline)
         .clipped()
@@ -429,9 +428,9 @@ struct WebScreenView: View {
 			))
 			return
 		}
-		appState.webViewRenderer.render(EmptyView(), scale: 1) { image, error in
-			guard let image else {
-				LoggingPolicy.error("Manual finding pick: snapshot failed", error: error, logger: .ui)
+		Task {
+			guard let image = await appState.webViewRenderer.snapshot() else {
+				LoggingPolicy.error("Manual finding pick: snapshot failed", logger: .ui)
 				cancelFindPick()
 				return
 			}
