@@ -56,7 +56,7 @@ extension DeepDriver {
 		let modelConfiguration = MLModelConfiguration()
 		// the file is already handled by copying resources in Xcode: -> mlmodelc (compiled)
 		let compiledModelURL = demo ? path : try await MLModel.compileModel(at: path)
-		
+
 		do {
 			LoggingPolicy.debug("Loading MLModel from \(compiledModelURL.lastPathComponent)", logger: .drivers)
 			return try await MLModel.load(contentsOf: compiledModelURL, configuration: modelConfiguration)
@@ -74,7 +74,10 @@ extension DeepDriver {
 class DeepDrivers: ObservableObject {
 	@Published var detectors: [DeepDriver] = []
 	@Published var classificators: [DeepDriver] = []
-	
+
+	/// Runs the detect/classify orchestration loops off the main actor (AIA-0387).
+	private let engine = DetectionEngine()
+
 	func register(driver: DeepDriver, along: DeepDriverType) {
 		switch along {
 		case .detector:
@@ -91,7 +94,7 @@ class DeepDrivers: ObservableObject {
 			LoggingPolicy.error("Attempted to register driver with invalid type.", logger: .drivers)
 		}
 	}
-	
+
 	func update(configuration: DeepConfiguration) async {
 		let entityId = configuration.entityId
 		let drivers = (detectors + classificators).filter { $0.id == entityId }
@@ -104,7 +107,7 @@ class DeepDrivers: ObservableObject {
 		let params = configuration.toDriverParams()
 		await drivers.first?.updateConfiguration(params)
 	}
-	
+
     func unregister(driverId: UUID) async {
         await (classificators + detectors).first { $0.id == driverId }?.unload()
         detectors = detectors.filter { $0.id != driverId }
@@ -128,7 +131,7 @@ class DeepDrivers: ObservableObject {
 			}
 		}
 	}
-	
+
 	func unload(_ driver: DeepDriverType) async {
 		switch driver {
 		case .detector:
@@ -155,59 +158,60 @@ class DeepDrivers: ObservableObject {
 			LoggingPolicy.error("Attempted to unload driver with invalid type.", logger: .drivers)
 		}
 	}
-	
+
 	// This is the core function that takes a 2D image and detects objects in the scene.
 	// For that functionality, the driver should be already registered and loaded. That is
 	// controlled by the driver's related DeepConfiguation instance in CoreData.
-	// With tiledDetection the image is detected over 6 regions (4 quadrants + center +
-	// full frame, AIA-0217); otherwise over the full frame only.
-	func detect(on image: UIImage, tiledDetection: Bool, completion: @escaping ([DetectionResult]) -> Void) {
-		Task {
-			let regions = TileLayout.regions(tiled: tiledDetection)
-			// The loop is serial inside one task — a plain array suffices.
-			var results: [DetectionResult] = []
-
-			for detector in detectors {
-				guard let detector = detector as? Detecting else {
-					continue
-				}
-				let observations = await detector.detect(image: image, regions: regions)
-
-				guard observations.isEmpty.not else { continue }  // TODO: log
-
-				let result = await (observations: observations, params: detector.params)
-				results.append(result)
-			}
-
-			await MainActor.run {
-				completion(results)
-			}
-		}
+	func detect(on image: UIImage, tiledDetection: Bool) async -> [DetectionResult] {
+		// Snapshot the driver list on the main actor, then run the serial loop off it in
+		// the engine actor (AIA-0387).
+		let snapshot = detectors
+		return await engine.detect(on: image, in: snapshot, tiledDetection: tiledDetection)
 	}
-	
+
 	// Classification counterpart of detect(): each registered classificator runs one
 	// atomic pass (AIA-0374 — the split-phase process/classify orchestration moved into
-	// `Classifying.classify(image:)`, the same fix detect() got). The loop is serial
-	// inside one task — a plain array suffices.
-	func classify(on image: UIImage, completion: @escaping ([ClassificationResult]) -> Void) {
-		Task {
-			var results: [ClassificationResult] = []
+	// `Classifying.classify(image:)`, the same fix detect() got).
+	func classify(on image: UIImage) async -> [ClassificationResult] {
+		let snapshot = classificators
+		return await engine.classify(on: image, in: snapshot)
+	}
+}
 
-			for classificator in classificators {
-				guard let classifying = classificator as? Classifying else {
-					continue
-				}
-				let labels = await classifying.classify(image: image)
-
-				guard labels.isEmpty.not else { continue }
-
-				let result = await (labels: labels, params: classifying.params)
-				results.append(result)
-			}
-
-			await MainActor.run {
-				completion(results)
-			}
+/// Runs the detect/classify orchestration loops OFF the main actor (AIA-0387). Stateless —
+/// each call builds a function-local result array, so actor reentrancy across concurrent
+/// passes is harmless and per-pass order is preserved. The heavy Vision work stays on the
+/// individual `Detector`/`Classificator` actors; this actor owns only the lightweight loop.
+/// Cancellation is cooperative: a cancelled pass stops before dispatching the next driver
+/// (a driver already in flight finishes; its result is discarded caller-side).
+actor DetectionEngine {
+	// With tiledDetection the image is detected over 6 regions (4 quadrants + center +
+	// full frame, AIA-0217); otherwise over the full frame only.
+	func detect(on image: UIImage, in detectors: [DeepDriver], tiledDetection: Bool) async -> [DetectionResult] {
+		let regions = TileLayout.regions(tiled: tiledDetection)
+		// The loop is serial — a plain array suffices.
+		var results: [DetectionResult] = []
+		for detector in detectors {
+			if Task.isCancelled { break }
+			guard let detector = detector as? Detecting else { continue }
+			let observations = await detector.detect(image: image, regions: regions)
+			guard observations.isEmpty.not else { continue }
+			let params = await detector.params
+			results.append((observations: observations, params: params))
 		}
+		return results
+	}
+
+	func classify(on image: UIImage, in classificators: [DeepDriver]) async -> [ClassificationResult] {
+		var results: [ClassificationResult] = []
+		for classificator in classificators {
+			if Task.isCancelled { break }
+			guard let classifying = classificator as? Classifying else { continue }
+			let labels = await classifying.classify(image: image)
+			guard labels.isEmpty.not else { continue }
+			let params = await classifying.params
+			results.append((labels: labels, params: params))
+		}
+		return results
 	}
 }

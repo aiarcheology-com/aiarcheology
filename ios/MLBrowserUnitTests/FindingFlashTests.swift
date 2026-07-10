@@ -213,15 +213,11 @@ final class DeepDriversClassifyAggregationTests: XCTestCase {
         drivers.register(driver: first, along: .classificator)
         drivers.register(driver: second, along: .classificator)
 
-        let expectation = XCTestExpectation(description: "Classification completed")
-        drivers.classify(on: UIImage()) { results in
-            XCTAssertEqual(results.count, 2)
-            XCTAssertEqual(results.first?.labels.first?.identifier, "first")
-            XCTAssertEqual(results.last?.labels.first?.identifier, "second")
-            expectation.fulfill()
-        }
+        let results = await drivers.classify(on: UIImage())
 
-        await fulfillment(of: [expectation], timeout: 2.0)
+        XCTAssertEqual(results.count, 2)
+        XCTAssertEqual(results.first?.labels.first?.identifier, "first")
+        XCTAssertEqual(results.last?.labels.first?.identifier, "second")
     }
 }
 
@@ -239,15 +235,11 @@ final class DeepDriversDetectProtocolTests: XCTestCase {
         let stub = StubDetecting(params: DeepDriverParams(entityId: entityId))
         drivers.register(driver: stub, along: .detector)
 
-        let expectation = XCTestExpectation(description: "Detection completed")
-        drivers.detect(on: UIImage(), tiledDetection: false) { results in
-            XCTAssertEqual(results.count, 1)
-            XCTAssertEqual(results.first?.observations.first?.primaryLabelIdentifier, "stub-object")
-            XCTAssertEqual(results.first?.params.entityId, entityId)
-            expectation.fulfill()
-        }
+        let results = await drivers.detect(on: UIImage(), tiledDetection: false)
 
-        await fulfillment(of: [expectation], timeout: 2.0)
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results.first?.observations.first?.primaryLabelIdentifier, "stub-object")
+        XCTAssertEqual(results.first?.params.entityId, entityId)
     }
 }
 

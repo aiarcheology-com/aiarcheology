@@ -254,40 +254,31 @@ final class DeepDriversTests: XCTestCase {
     // MARK: - Empty Detection Tests
     
     func testDetectWithNoDetectors_ReturnsEmptyResults() async {
-        let expectation = XCTestExpectation(description: "Detection completed")
         let image = UIImage(systemName: "star") ?? UIImage()
-        
-        sut.detect(on: image, tiledDetection: false) { results in
-            XCTAssertTrue(results.isEmpty)
-            expectation.fulfill()
-        }
 
-        await fulfillment(of: [expectation], timeout: 2.0)
+        let results = await sut.detect(on: image, tiledDetection: false)
+
+        XCTAssertTrue(results.isEmpty)
     }
 
     // MARK: - Detection with Unloaded Model Tests
     
     func testDetectWithUnloadedDetector_ReturnsEmptyResults() async {
-        let expectation = XCTestExpectation(description: "Detection completed")
         let detector = Detector(params: DeepDriverParams(entityId: UUID()))
 
         sut.register(driver: detector, along: .detector)
 
         let image = UIImage(systemName: "star") ?? UIImage()
 
-        sut.detect(on: image, tiledDetection: true) { results in
-            // Without a loaded model, detection should return empty
-            XCTAssertTrue(results.isEmpty)
-            expectation.fulfill()
-        }
+        let results = await sut.detect(on: image, tiledDetection: true)
 
-        await fulfillment(of: [expectation], timeout: 2.0)
+        // Without a loaded model, detection should return empty
+        XCTAssertTrue(results.isEmpty)
     }
 
     // MARK: - Classify Pass Tests (AIA-0374)
 
     func testClassifyOn_StubClassificator_ReturnsItsLabels() async {
-        let expectation = XCTestExpectation(description: "Classification completed")
         let entityId = UUID()
         let labels = [
             ClassifiedLabel(identifier: "mound", confidence: 0.9),
@@ -297,58 +288,43 @@ final class DeepDriversTests: XCTestCase {
 
         sut.register(driver: stub, along: .classificator)
 
-        sut.classify(on: UIImage()) { results in
-            XCTAssertEqual(results.count, 1)
-            XCTAssertEqual(results.first?.labels, labels)
-            XCTAssertEqual(results.first?.params.entityId, entityId)
-            expectation.fulfill()
-        }
+        let results = await sut.classify(on: UIImage())
 
-        await fulfillment(of: [expectation], timeout: 2.0)
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results.first?.labels, labels)
+        XCTAssertEqual(results.first?.params.entityId, entityId)
     }
 
     func testClassifyOn_EmptyLabels_DriverExcludedFromResults() async {
-        let expectation = XCTestExpectation(description: "Classification completed")
         let stub = StubClassifying(params: DeepDriverParams(entityId: UUID()), labels: [])
 
         sut.register(driver: stub, along: .classificator)
 
-        sut.classify(on: UIImage()) { results in
-            XCTAssertTrue(results.isEmpty)
-            expectation.fulfill()
-        }
+        let results = await sut.classify(on: UIImage())
 
-        await fulfillment(of: [expectation], timeout: 2.0)
+        XCTAssertTrue(results.isEmpty)
     }
 
     func testClassifyOn_NonClassifyingDriver_Skipped() async {
-        let expectation = XCTestExpectation(description: "Classification completed")
         // A Detector registered on the classify side must be skipped, not crash the pass.
         let detector = Detector(params: DeepDriverParams(entityId: UUID()))
 
         sut.register(driver: detector, along: .classificator)
 
-        sut.classify(on: UIImage()) { results in
-            XCTAssertTrue(results.isEmpty)
-            expectation.fulfill()
-        }
+        let results = await sut.classify(on: UIImage())
 
-        await fulfillment(of: [expectation], timeout: 2.0)
+        XCTAssertTrue(results.isEmpty)
     }
 
     func testClassifyOn_UnloadedClassificator_ReturnsEmptyResults() async {
-        let expectation = XCTestExpectation(description: "Classification completed")
         // A real Classificator with no model loaded classifies to nothing (atomic path).
         let classificator = Classificator(params: DeepDriverParams(entityId: UUID()))
 
         sut.register(driver: classificator, along: .classificator)
 
-        sut.classify(on: UIImage()) { results in
-            XCTAssertTrue(results.isEmpty)
-            expectation.fulfill()
-        }
+        let results = await sut.classify(on: UIImage())
 
-        await fulfillment(of: [expectation], timeout: 2.0)
+        XCTAssertTrue(results.isEmpty)
     }
 }
 
