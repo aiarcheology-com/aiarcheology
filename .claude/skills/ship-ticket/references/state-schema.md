@@ -63,7 +63,9 @@ On every run: `gh issue view <#> --json comments` → find the marker → parse 
   the halt reason. Cleanup stashes are machine-local — durable state never references one.
 - **`fix_count` / `fix_buckets`** — every fix→re-verify cycle increments its bucket
   (`implement_verify`: P2 escalations + P3a + P4, sub-cap 2; `pr_loop`: P6, sub-cap 3) **and** the
-  total, write-before-act, **whether the orchestrator or an executor writes the fix**. Only the P2
+  total, write-before-act, **whether the orchestrator or an executor writes the fix**. Buckets
+  store **spent** cycles (remaining = sub-cap − value); invariant: `fix_count ==
+  implement_verify + pr_loop`, maintained on every write and checked on resume. Only the P2
   per-step implementation budget (`steps[].executor_attempts`) is excluded. An increment that
   would exceed a bucket sub-cap or `fix_cap` **halts instead of acting**; `fix_cap` is a backstop
   above the buckets (they bind first). Re-planning never resets anything.
@@ -84,6 +86,9 @@ On every run: `gh issue view <#> --json comments` → find the marker → parse 
   `done`; anything uncertain is `pending` with `executor_attempts: 0` (conservative: a lost count
   costs one cheap re-dispatch, never a skipped verification). Split the v1 scalar `fix_count`
   into buckets by filling `implement_verify` first (up to its sub-cap), remainder to `pr_loop`.
+  The remainder may exceed `pr_loop`'s sub-cap when the v1 run was already at/near the global
+  cap — keep it, never clamp (the `fix_count == sum` invariant wins): trip semantics already
+  guarantee the next increment halts + hands off.
   `g2_ok` starts `null` (forces a fresh G2 — never assume a stale approval). Persist the migrated
   comment (bump `version`) before continuing.
 - **Version > 2:** stop and ask the human — never guess forward-compatibility.

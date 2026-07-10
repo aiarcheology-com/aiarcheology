@@ -96,9 +96,10 @@ One **per-ticket** counter (default cap **6**), incremented on **every** fix→r
 across P2 (inline escalations)/P3a/P4/P6 — **regardless of whether the orchestrator or an `opus`
 executor writes the fix** (model-independent accounting). The only spend outside the counter is
 the P2 per-step *implementation* budget (see Model routing). The counter is persisted as two
-named buckets — `fix_buckets.implement_verify` (P2 escalations + P3a + P4, sub-cap **2**) and
-`fix_buckets.pr_loop` (P6, sub-cap **3**) — so a resumed run knows exactly what remains; the
-global cap 6 is a defensive backstop above them (buckets bind first; normal spend maxes at 5).
+named buckets of **spent** cycles — `fix_buckets.implement_verify` (P2 escalations + P3a + P4,
+sub-cap **2**) and `fix_buckets.pr_loop` (P6, sub-cap **3**); remaining budget = sub-cap − spent,
+and `fix_count` always equals the sum of the buckets. The global cap 6 is a defensive backstop
+above them (buckets bind first; normal spend maxes at 5).
 **Write-before-act:** increment and persist to the state comment *before* the costly action it
 guards (commit/push), with an `in_flight` marker; on resume treat `in_flight` as **consumed**
 (never a free retry) and **reconcile against reality before retrying** (`git log` /
