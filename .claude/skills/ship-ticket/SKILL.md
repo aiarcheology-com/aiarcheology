@@ -102,8 +102,9 @@ named buckets of **spent** cycles — `fix_buckets.implement_verify` (P2 escalat
 sub-cap **2**) and `fix_buckets.pr_loop` (P6, sub-cap **3**); remaining budget = sub-cap − spent,
 and `fix_count` always equals the sum of the buckets. The global cap 6 is a defensive backstop
 above them (buckets bind first; normal spend maxes at 5).
-**Write-before-act:** increment and persist to the state comment *before* the costly action it
-guards (commit/push), with an `in_flight` marker; on resume treat `in_flight` as **consumed**
+**Write-before-act:** exactly **one increment per fix→re-verify cycle — never per commit**;
+persist it to the state comment *before* the cycle's guarded action (its commit/push), with an
+`in_flight` marker; on resume treat `in_flight` as **consumed**
 (never a free retry) and **reconcile against reality before retrying** (`git log` /
 `git ls-remote`: if the action already landed, record its post-state and clear the marker —
 never blind-retry). **Trip semantics: an increment that would exceed its bucket's sub-cap or the
@@ -239,9 +240,9 @@ are *not* executors and follow their own phase contracts:
   dirt is treated as user work (stop and ask). Acquire/verify the lock.
 
 ### P2 — Implement (orchestrated, commit frequently)
-- Create the branch. **Delegate each plan step to an `opus` executor per the Model-routing
-  contract** (steps caught by the inline routing rules — security/subtle-correctness or trivial
-  mechanical — stay orchestrator-inline). The executor prompt carries "read before editing;
+- Create the branch. **Delegate each plan step to an `opus` executor per the executor contract
+  in "Model routing"** (steps caught by the inline routing rules — security/subtle-correctness or
+  trivial mechanical — stay orchestrator-inline). The executor prompt carries "read before editing;
   surgical changes; match existing style", the step's verify check, and the environment preamble.
 - The orchestrator reviews each returned diff against the plan step, runs the banned-diff guard,
   and **commits each accepted step immediately** (conventions above). Failures and rejections
@@ -259,18 +260,6 @@ UI tests (from `ios/`, `-testPlan MLBrowserUITests`, non-disrupting sim). Fix→
 against the counter.
 `--no-ui-tests` drops the UI suite here and triggers the UI-unverified banner (below).
 
-### P3b — Agentic feature check  (ADVISORY — never gates; **runs after P4**, right before P5)
-Spawn a **code-frozen** verifier sub-agent (`model: opus` — advisory work doesn't need the session
-model; drives the app, edits no source). It installs on a
-**dedicated `simctl erase`'d** sim (isolated — cannot pollute the P3a sim), drives the feature per
-the acceptance criteria via `simctl`/XCUITest, screenshots the success state, and returns
-`works | broken | uncertain` + evidence **for the PR body**. Prefer the non-`UI_TESTING` build for
-fidelity; bypass-with-label only when a flow is otherwise unreachable. `uncertain` is never
-reported as `broken`. Evidence is **SHA-scoped like every verification record: any later commit
-invalidates it** (one rule, matching the state schema — no flow-scoped judgment calls). That is
-why P3b runs *after* P4 and its conditional P3a rerun, immediately before P5: evidence is minted
-at the PR HEAD. In P6, re-runs stay bounded to one per push round.
-
 ### P4 — Code review (after the objective sweep; P3b and any repeat UI sweep come after)
 - Native `/code-review` skill (review the branch diff) + CodeRabbit CLI (if installed;
   skip with a note in the PR body if not) + codex review.
@@ -280,16 +269,30 @@ at the PR HEAD. In P6, re-runs stay bounded to one per push round.
   UI suite is the most expensive local step; never repeat it for a no-op review). P3b runs after
   this point so its evidence lands on the final HEAD.
 
+### P3b — Agentic feature check  (ADVISORY — never gates; runs here, after P4, right before P5)
+Spawn a **code-frozen** verifier sub-agent (`model: opus` — advisory work doesn't need the session
+model; drives the app, edits no source). It installs on a
+**dedicated `simctl erase`'d** sim (isolated — cannot pollute the P3a sim), drives the feature per
+the acceptance criteria via `simctl`/XCUITest, screenshots the success state, and returns
+`works | broken | uncertain` + evidence **for the PR body**. Prefer the non-`UI_TESTING` build for
+fidelity; bypass-with-label only when a flow is otherwise unreachable. `uncertain` is never
+reported as `broken`. Evidence is **SHA-scoped like every verification record: any later commit
+invalidates it** (one rule, matching the state schema — no flow-scoped judgment calls). That is
+why P3b sits *after* P4 and its conditional P3a rerun, immediately before P5: evidence is minted
+at the PR HEAD. In P6, re-runs stay bounded to one per push round.
+
 ### P5 — Open PR  ← **GATE G2 (every push = one paid Xcode Cloud build)**
-- **Always stop for explicit OK** before the first push/PR. The prompt states "this triggers one
+- **First, WhatToTest — it is mandatory** (ios/AGENTS.md §13: "no PR without it"): write the
+  tester-facing stanza to `ios/TestFlight/WhatToTest.en-US.txt` — scoped to this change, concrete
+  steps, no dev jargon — and **commit it as the final slice, before asking for the G2 OK** (HEAD
+  must be final when approval is given). Conflicts in this small shared file are resolved
+  normally at rebase time; never exempt it. In P6, update it whenever a materially changed PR
+  needs new tester instructions.
+- **Then stop for explicit OK** before the first push/PR. The prompt states "this triggers one
   paid Xcode Cloud build". Record the OK as `g2_ok: {sha, ts}` in the state comment — an approval
-  binds to that exact HEAD SHA; any new commit voids it (G2 re-asks before every push regardless;
-  the record exists so a resumed run never pushes on a stale approval).
-- **WhatToTest is mandatory** (ios/AGENTS.md §13: "no PR without it"): write the tester-facing
-  stanza to `ios/TestFlight/WhatToTest.en-US.txt` — scoped to this change, concrete steps, no dev
-  jargon — and **commit it as the final slice before G2**. Conflicts in this small shared file
-  are resolved normally at rebase time; never exempt it. In P6, update it whenever a materially
-  changed PR needs new tester instructions.
+  binds to that exact HEAD SHA; any new commit voids it and requires a fresh OK (G2 re-asks
+  before every push regardless; the record exists so a resumed run never pushes on a stale
+  approval).
 - PR body: acceptance criteria + P3b evidence + P3a results + the exact local env
   (Xcode/sim/OS), labeled **"locally verified"** — never presented as CI-green. Include the
   UI-unverified banner if `--no-ui-tests`.
