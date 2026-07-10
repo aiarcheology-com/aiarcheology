@@ -28,6 +28,7 @@
 		63CDF1E9BC41E124832411D6 /* TourStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AE619C61BACCB171E8FA2E /* TourStateTests.swift */; };
 		6F31DAC55F2B4ACABB5FBBE1 /* FastViTT8F16.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = 58F0B2DED415479BBF3199FD /* FastViTT8F16.mlpackage */; };
 		7B8F569C69DC02205FDB1A21 /* SubscriptionStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D07182C65A29B05EA7B102F /* SubscriptionStateTests.swift */; };
+		84CE788174C6B2AEC9CBE2BA /* ModelConfigurationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4644DE7995D4B5B57C7B44F /* ModelConfigurationRepository.swift */; };
 		8A112CB92ABDE0BB00786384 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CB82ABDE0BB00786384 /* WebView.swift */; };
 		8A112CC42AC0852B00786384 /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CC32AC0852B00786384 /* String+Extensions.swift */; };
 		8A112CC62AC0863300786384 /* Bool+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CC52AC0863300786384 /* Bool+Extensions.swift */; };
@@ -527,6 +528,7 @@
 		CCCEEC718DD6DE0906E82D21 /* UnderConstructionBadgeModifierTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UnderConstructionBadgeModifierTests.swift; sourceTree = "<group>"; };
 		D0AE619C61BACCB171E8FA2E /* TourStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourStateTests.swift; sourceTree = "<group>"; };
 		D3D8A8FA0182207F209BD6EF /* SubscriptionState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionState.swift; sourceTree = "<group>"; };
+		D4644DE7995D4B5B57C7B44F /* ModelConfigurationRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModelConfigurationRepository.swift; sourceTree = "<group>"; };
 		DDCA151D54FB4492B8A89AB4 /* AuthGateUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthGateUITests.swift; sourceTree = "<group>"; };
 		E4D6DDA52ECA43FCBADD6A05 /* Classifying.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Classifying.swift; sourceTree = "<group>"; };
 		E7D7719BFF527B0F988CB497 /* Configuration.storekit */ = {isa = PBXFileReference; includeInIndex = 1; path = Configuration.storekit; sourceTree = "<group>"; };
@@ -784,6 +786,7 @@
 				D3D8A8FA0182207F209BD6EF /* SubscriptionState.swift */,
 				04CC35810A5A24A66927181A /* StoreKitSubscriptionProvider.swift */,
 				2584DEF459E2929567E5582F /* ModelAssetStore.swift */,
+				D4644DE7995D4B5B57C7B44F /* ModelConfigurationRepository.swift */,
 			);
 			path = State;
 			sourceTree = "<group>";
@@ -1611,6 +1614,7 @@
 				4CD0B0B57E40E142601F97D3 /* SnapshotRendering.swift in Sources */,
 				F123020452F330E251BF7ACD /* DetectionCoordinator.swift in Sources */,
 				B2B33189971A3706CE930103 /* ModelAssetStore.swift in Sources */,
+				84CE788174C6B2AEC9CBE2BA /* ModelConfigurationRepository.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -24,13 +24,15 @@ final class DeepState: ObservableObject {
     var deepStateErrorPublisher: Published<Error?>.Publisher { $deepStateError }
 	var drivers = DeepDrivers()
 	let assetStore: ModelAssetStore
+	let repository: ModelConfigurationRepository
 
 	init(dataController: DataController) {
 		self.dataController = dataController
 		self.assetStore = ModelAssetStore(dataController: dataController)
+		self.repository = ModelConfigurationRepository(dataController: dataController)
 		observeDeepConfigurationChanges()
 
-		let configurations = DeepConfiguration.selectAll(in: dataController.container.viewContext)
+		let configurations = repository.selectAll()
 		do {
 			try configurations.forEach { config in
 				guard config.enabled == true else { return }
@@ -107,58 +109,35 @@ final class DeepState: ObservableObject {
 	}
 	
 	func createConfiguration() -> DeepConfiguration {
-		let context = dataController.container.viewContext
-		return DeepConfiguration.create(in: context)
+		repository.create()
 	}
-	
+
 	func updateConfiguration(
 		_ entityId: UUID,
 		updateClosure: @Sendable @escaping (DeepConfiguration) -> Void
 	) {
-		let context = dataController.container.viewContext
 		do {
-			try DeepConfiguration.update(entityId, in: context, with: updateClosure)
+			try repository.update(entityId, with: updateClosure)
 		} catch {
 			// Surface to the UI; a failed save would otherwise silently block all future saves.
 			deepStateError = error
 		}
 	}
-	
-	func deleteConfiguration(_ entityId: UUID) {
-		guard let entity = selectConfiguration(entityId) else { return }
-		deleteConfiguration(entity)
-	}
-	
-	func deleteConfiguration(_ entity: DeepConfiguration) {
-		let context = dataController.container.viewContext
-		// Per-model flash prefs live in UserDefaults (AIA-0374) — clear them with the row.
-		entity.removeFlashDefaults()
-		DeepConfiguration.delete(entity, in: context)
-	}
-	
-	func reset() async {
-		// The batch delete below bypasses per-entity delete hooks, so the per-model
-		// flash UserDefaults (AIA-0374) must be cleared explicitly first.
-		allConfigurations().forEach { $0.removeFlashDefaults() }
-		// The viewContext reference is only handed to
-		// mergeChanges(fromRemoteContextSave:into:), which is safe to call cross-queue.
-		let viewContext = dataController.container.viewContext
-		let deleteError: Error? = await withCheckedContinuation { continuation in
-			dataController.performBackgroundTask { context in
-				do {
-					// Merge into the viewContext too: batch deletes bypass context saves, so
-					// automaticallyMergesChangesFromParent does NOT propagate them.
-					try DeepConfiguration.deleteAll(in: context, mergingInto: [viewContext])
-					continuation.resume(returning: nil)
-				} catch {
-					continuation.resume(returning: error)
-				}
-			}
-		}
 
-		if let deleteError {
+	func deleteConfiguration(_ entityId: UUID) {
+		repository.delete(entityId)
+	}
+
+	func deleteConfiguration(_ entity: DeepConfiguration) {
+		repository.delete(entity)
+	}
+
+	func reset() async {
+		do {
+			try await repository.reset()
+		} catch {
 			// Rows may still exist; keep drivers registered so state stays consistent.
-			deepStateError = deleteError
+			deepStateError = error
 			return
 		}
 
@@ -166,25 +145,22 @@ final class DeepState: ObservableObject {
 		// so handleDeletedConfigurations never fires — unregister drivers explicitly.
 		await drivers.unregisterAll()
 	}
-	
+
 	func selectConfiguration(_ entityId: UUID) -> DeepConfiguration? {
-		let context = dataController.container.viewContext
-		return DeepConfiguration.select(entityId, in: context)
+		repository.select(entityId)
 	}
-	
+
 	func saveConfigurations() {
-		let context = dataController.container.viewContext
 		do {
-			try DeepConfiguration.save(in: context)
+			try repository.save()
 		} catch {
 			// Surface to the UI; a failed save would otherwise silently block all future saves.
 			deepStateError = error
 		}
 	}
-	
+
 	func allConfigurations() -> [DeepConfiguration] {
-		let context = dataController.container.viewContext
-		return DeepConfiguration.selectAll(in: context)
+		repository.selectAll()
 	}
 	
 	// Handlers:
