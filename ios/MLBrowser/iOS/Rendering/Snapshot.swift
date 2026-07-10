@@ -26,17 +26,15 @@ extension EnvironmentValues {
 	}
 }
 
-// Do not forget to initiate a custom renderer, e.g. .environmentObject(customRenderer)
-// when wrapping another View
+// Pass the SnapshotRendering port explicitly via the initializer (renderer:).
 struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Never {
 	@Environment(\.snapshotProvider) private var snapshotProvider
-	@Environment(\.displayScale) private var displayScale
-	private unowned var renderer: DefaultRenderer
+	private unowned var renderer: any SnapshotRendering
 
 	private let publisher: P
 	private var content: Content
 
-	@inlinable init(renderer: DefaultRenderer, publisher: P, @ViewBuilder content: () -> Content) {
+	@inlinable init(renderer: any SnapshotRendering, publisher: P, @ViewBuilder content: () -> Content) {
 		self.publisher = publisher
 		self.content = content()
 		self.renderer = renderer
@@ -52,11 +50,9 @@ struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Ne
 	}
 
 	@MainActor private func render(in frame: CGRect) {
-		renderer.render(content, scale: displayScale) { image, error in
-			if let image = image, error == nil {
+		Task { [renderer] in
+			if let image = await renderer.snapshot() {
 				snapshotProvider?(image, frame)
-			} else {
-					// TODO: Handle error
 			}
 		}
 	}

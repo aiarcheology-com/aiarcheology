@@ -137,7 +137,7 @@ final class BrowserState: ObservableObject {
 	}
 
 	/// Teardown counterpart for `attach`, identity-guarded so a stale dismantle cannot
-	/// detach a newer web view. Deliberately leaves `WebViewRenderer.webView` alone — the
+	/// detach a newer web view. Deliberately leaves the renderer's `webView` alone — the
 	/// snapshot ref is detection's concern and the mirrors feed only browser chrome.
 	func cancelSubscriptions(if webView: WKWebView) {
 		guard self.webView === webView else { return }

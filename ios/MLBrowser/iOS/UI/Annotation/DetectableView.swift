@@ -26,7 +26,7 @@ public enum ContentInteractionState {
 /// - For SwiftUI ScrollView: called from DragGesture handlers
 /// - For image viewers: called from MagnificationGesture/DragGesture handlers
 struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == Never {
-    let renderer: DefaultRenderer
+    let renderer: any SnapshotRendering
     let drivers: DeepDrivers
     let trigger: P
     let showIdentifiers: Bool
@@ -63,7 +63,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 
     /// Initializer with interaction state callback - content receives a binding to update state
     init(
-        renderer: DefaultRenderer,
+        renderer: any SnapshotRendering,
         drivers: DeepDrivers,
         trigger: P,
         showIdentifiers: Bool,

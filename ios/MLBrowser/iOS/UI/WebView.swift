@@ -15,19 +15,21 @@ import Vision
 import OSLog
 
 @available(iOS 13, *)
-public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @MainActor Equatable {
-	@EnvironmentObject var webViewRenderer: WebViewRenderer
+public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
+	let renderer: WebSnapshotRenderer
 	@EnvironmentObject var browserState: BrowserState
 	var request: LoadRequest
     var loadStatusChanged: ((Bool, Error?) -> Void)?
 	var interactionStateChanged: ((ContentInteractionState) -> Void)?
 
-	public init(
+	init(
 		_ request: LoadRequest,
+		renderer: WebSnapshotRenderer,
 		loadStatusChanged: ((Bool, Error?) -> Void)? = nil,
 		interactionStateChanged: ((ContentInteractionState) -> Void)? = nil
 	) {
 		self.request = request
+		self.renderer = renderer
         self.loadStatusChanged = loadStatusChanged
         self.interactionStateChanged = interactionStateChanged
     }
@@ -114,7 +116,7 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
 		webView.navigationDelegate = context.coordinator
 		webView.uiDelegate = context.coordinator
 		webView.scrollView.delegate = context.coordinator
-		webViewRenderer.webView = webView
+		renderer.attach(webView)
 		// The Coordinator needs BrowserState for delegate → state plumbing
 		// (navigation-settled tokens, dismantle teardown).
 		context.coordinator.browserState = browserState
@@ -129,8 +131,9 @@ public struct MLWebView: UIViewRepresentable, @MainActor WebViewRenderable, @Mai
 	public static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
 		// Subscriptions-only teardown: with the web tab being the only tab this never
 		// fires today, but it must stay correct if tabOrder grows. Deliberately does NOT
-		// nil webViewRenderer.webView — the snapshot ref is detection's concern and
-		// clearing it on a transient rebuild would break takeSnapshot mid-detection.
+		// detach the renderer's webView (a WebSnapshotRenderer, held weak) — the snapshot
+		// ref is detection's concern and clearing it on a transient rebuild would break
+		// takeSnapshot mid-detection.
 		coordinator.browserState?.cancelSubscriptions(if: uiView)
 	}
 
