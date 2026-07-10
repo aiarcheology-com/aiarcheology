@@ -185,11 +185,12 @@ Harmonize rules are **architectural guidelines**, not unbreakable constraints. W
 2. **Document exceptions**: Add a comment explaining why the exception exists.
 3. **Consider renaming**: Sometimes a name change resolves the conflict (e.g., a background-only "State" class should be renamed).
 
-Example of justified exception:
+Example of a justified exception (hypothetical — `SnapState`, the former example, is now `@MainActor`, so there are no such exceptions in the codebase today):
 ```swift
-// Note: SnapState doesn't need @MainActor because it only
-// manages timer state via Combine, not direct UI bindings.
-class SnapState: ObservableObject { ... }
+// A genuinely background-only "State" type that never drives UI directly.
+// Prefer renaming it (point 3); if the name is kept, document why and add it
+// to the exclusion list in testStateObjectsAreMainActor.
+final class ExampleBackgroundState: ObservableObject { ... } // not @MainActor by design
 ```
 
 ### Adding New Rules
