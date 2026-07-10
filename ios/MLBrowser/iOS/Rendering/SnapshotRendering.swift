@@ -34,10 +34,12 @@ final class WebSnapshotRenderer: SnapshotRendering {
 		self.adjustment = adjustment
 	}
 
-	/// The WebView representable hands off the live `WKWebView` here (and `nil`s it on teardown).
-	/// Deliberately NOT a `SnapshotRendering` requirement: a synchronous nonisolated requirement
-	/// cannot be witnessed by a `@MainActor` method under Swift 6, so it stays a concrete
-	/// `@MainActor` method called only from the already-main `makeUIView`/`dismantleUIView`.
+	/// The WebView representable hands off the live `WKWebView` here from its `@MainActor`
+	/// `makeUIView`. Teardown deliberately does NOT detach it — clearing it on a transient
+	/// rebuild would break `takeSnapshot` mid-detection; the `weak` ref auto-nils when the web
+	/// view is truly gone. Deliberately NOT a `SnapshotRendering` requirement: a synchronous
+	/// nonisolated requirement cannot be witnessed by a `@MainActor` method under Swift 6, so it
+	/// stays a concrete `@MainActor` method.
 	func attach(_ webView: WKWebView?) {
 		self.webView = webView
 	}

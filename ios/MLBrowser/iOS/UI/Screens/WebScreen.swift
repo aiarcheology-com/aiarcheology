@@ -428,7 +428,7 @@ struct WebScreenView: View {
 			))
 			return
 		}
-		Task {
+		Task { @MainActor in
 			guard let image = await appState.webViewRenderer.snapshot() else {
 				LoggingPolicy.error("Manual finding pick: snapshot failed", logger: .ui)
 				cancelFindPick()

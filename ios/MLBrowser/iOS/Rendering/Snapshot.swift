@@ -26,8 +26,7 @@ extension EnvironmentValues {
 	}
 }
 
-// Do not forget to initiate a custom renderer, e.g. .environmentObject(customRenderer)
-// when wrapping another View
+// Pass the SnapshotRendering port explicitly via the initializer (renderer:).
 struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Never {
 	@Environment(\.snapshotProvider) private var snapshotProvider
 	private unowned var renderer: any SnapshotRendering
