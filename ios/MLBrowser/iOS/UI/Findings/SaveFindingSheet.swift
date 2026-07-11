@@ -126,6 +126,10 @@ struct SaveFindingSheet: View {
 	/// sheet is modal above the root overlay) and signals capture start / save.
 	let tour: TourState
 
+	/// The persist transaction owner (AIA-0392): the sheet crops the image and calls one `save`
+	/// intent — the Core Data + screenshot write lives here, not in the View.
+	let repository: FindingRepository
+
 	/// Required, user-facing name shown in the inventory; Save is blocked until it
 	/// is non-empty.
 	@State private var title = ""
@@ -301,59 +305,24 @@ struct SaveFindingSheet: View {
 
 	// MARK: - Save
 
-	/// PNG first, then the entity: a file without a row is self-healed by the orphan
-	/// sweep, while a row without a file would be a broken finding. Any entity
-	/// failure deletes both the pending object (it must not linger in the context
-	/// for a later unrelated save to commit) and the PNG.
+	/// Bake the editor's crop, then hand the finding to the repository — the whole persist
+	/// transaction (PNG write → entity → lifecycle → save → rollback) lives there (AIA-0392).
 	private func save() {
 		let (imageToStore, boxToStore) = croppedCapture()
-		let entityId = UUID()
-		let filename: String
 		do {
-			filename = try FindingScreenshotStore.save(imageToStore, for: entityId)
-		} catch {
-			LoggingPolicy.error("Failed to write the finding screenshot", error: error, logger: .storage)
-			saveFailed = true
-			return
-		}
-
-		let finding = Finding.create(in: moc)
-		finding.entityId = entityId
-		finding.creationDate_ = .now
-		finding.page = capture.pageURL
-		finding.screenshotFilename = filename
-		finding.title = trimmedTitle
-		finding.label_ = normalized(label)
-		finding.note_ = normalized(note)
-		finding.gps_ = normalized(gps)
-		finding.detectionClass = capture.observation.primaryLabelIdentifier
-		finding.detectionConfidence = Double(capture.observation.labels.first?.confidence ?? capture.observation.confidence)
-		finding.modelId = capture.params?.entityId
-		finding.boxX = boxToStore.minX
-		finding.boxY = boxToStore.minY
-		finding.boxWidth = boxToStore.width
-		finding.boxHeight = boxToStore.height
-
-		finding.transition(to: .draft)
-		do {
-			try finding.throwIfInvalid()
-			finding.transition(to: .ready)
-			try Finding.save(in: moc)
+			try repository.save(
+				capture: capture,
+				image: imageToStore,
+				box: boxToStore,
+				metadata: FindingMetadata(title: title, label: label, note: note, gps: gps)
+			)
 			// Onboarding tour (AIA-0333): the finding is saved → advance the in-sheet save step
 			// before dismissing, so the dismiss isn't mistaken for a cancel.
 			tour.findingDidSave()
 			dismiss()
 		} catch {
-			Finding.delete(finding, in: moc)
-			FindingScreenshotStore.delete(filename: filename)
-			LoggingPolicy.error("Failed to save the finding", error: error, logger: .storage)
 			saveFailed = true
 		}
-	}
-
-	private func normalized(_ text: String) -> String? {
-		let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-		return trimmed.isEmpty ? nil : trimmed
 	}
 
 	private var trimmedTitle: String {

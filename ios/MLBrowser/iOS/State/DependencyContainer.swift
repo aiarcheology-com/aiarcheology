@@ -51,6 +51,10 @@ class DependencyContainer {
         return DemoDataManager(dataController: self.dataController)
     }()
 
+    lazy var findingRepository: FindingRepository = {
+        return FindingRepository(dataController: self.dataController)
+    }()
+
     // MARK: - Authentication (AIA-0340)
 
     /// Whether the auth gate uses the in-memory mock instead of Clerk.
@@ -119,6 +123,7 @@ class DependencyContainer {
 			deepState: deepState,
 			downloader: downloader,
 			demoDataManager: demoDataManager,
+			findingRepository: findingRepository,
 			authProvider: authProvider,
 			subscriptionProvider: subscriptionProvider,
 			usesRealAuth: usesMockAuth == false

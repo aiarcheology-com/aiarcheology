@@ -27,6 +27,7 @@ final class AppState: ObservableObject {
 	let settings: Settings
 	let downloader: Downloader
 	let demoDataManager: DemoDataManager
+	let findingRepository: FindingRepository
 
 	/// Real Clerk-backed auth vs. the DEBUG mock, decided by the composition root.
 	/// Surfaced to Views through the `\.usesRealAuth` environment value (AIA-0385).
@@ -70,6 +71,7 @@ final class AppState: ObservableObject {
 		deepState: DeepState,
 		downloader: Downloader,
 		demoDataManager: DemoDataManager,
+		findingRepository: FindingRepository,
 		authProvider: AuthProviding,
 		subscriptionProvider: SubscriptionProviding,
 		usesRealAuth: Bool
@@ -80,6 +82,7 @@ final class AppState: ObservableObject {
 		self.deep = deepState
 		self.downloader = downloader
 		self.demoDataManager = demoDataManager
+		self.findingRepository = findingRepository
 		self.authProvider = authProvider
 		self.subscriptionProvider = subscriptionProvider
 		self.usesRealAuth = usesRealAuth
