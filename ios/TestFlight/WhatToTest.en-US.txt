@@ -1,30 +1,33 @@
-Test Focus: App startup & dependency wiring refactor (AIA-0385) — no visible change expected
+Test Focus: Finding save path refactor (AIA-0392) — no visible change expected
 Build: TBD
 
 What's new in this build:
-Internal restructuring only — how the app assembles its shared pieces at startup was consolidated
-so there is a single clear owner ("composition root"). There is NO user-facing change. This build is
-a regression check that sign-in, settings, downloads, and detection all behave exactly as before.
+Internal restructuring only. The code that saves a finding (writes the screenshot, creates the
+database record, and validates it) was moved out of the save screen into one dedicated, auditable
+component. There is NO user-facing change. This build is a regression check that capturing and
+saving findings — and the failure/rollback behavior — work exactly as before.
 
-1. Launch & sign in
-- Cold-launch the app. It should show the loading screen, then the sign-in gate, and let you sign in
-  normally — no crash, no hang.
+1. Capture & save a finding
+- Run a detection demo, tap Find/Store, tap the content to capture a detection.
+- In the save sheet: adjust the crop (pinch/drag or the zoom slider), type a Title (Save stays
+  disabled until the title is non-empty), optionally add a label/note/GPS, then tap Save.
+- The sheet dismisses and the finding is saved.
 
-2. Settings — account rows
-- Open the left drawer, then Settings. On a signed-in build, the account email and "Manage Account"
-  rows should appear as before. Tap "Manage Account" — your profile should load.
+2. Verify it persisted
+- Open the drawer → Findings. The finding you just saved appears, with its cropped screenshot and
+  the details you entered.
 
-3. Sign out
-- Sign out (from Settings / Manage Account). You should drop straight back to the sign-in gate.
+3. Crop is honored
+- Save a finding with a tight crop; in Findings its screenshot should be the cropped region (the
+  highlight box still lines up).
 
-4. Downloads still complete in the background
-- Start a model download, send the app to the background, then return — the download should finish
-  and the model become usable.
+4. Cancel path
+- Start a capture, then dismiss the save sheet without saving — nothing is added to Findings, and
+  the app returns to browsing normally.
 
-5. Browsing & detection
-- Browse a page and run a detection demo — bounding boxes / classification should appear and update
-  as before. (Detection models now warm up at launch rather than when the browser first opens; this
-  is invisible, but first detection may feel slightly quicker.)
+5. Onboarding tour (save step)
+- Replay onboarding from Settings and follow it through the "save a finding" step — saving still
+  advances the tour correctly.
 
 6. Report Issues
 Please report any issues with:
