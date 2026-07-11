@@ -41,7 +41,8 @@ final class TourState {
 
 	private let defaults: UserDefaults
 	private weak var drawer: DrawerManager?
-	private weak var guide: Guide?
+	private weak var chromeState: AppChromeState?
+	private weak var detectionState: DetectionSessionState?
 
 	/// Enables a demo model for the overlay-driven enable step (the toggle can't be tapped
 	/// through the overlay). The drawer registers this; the overlay calls it when its cutout is
@@ -75,9 +76,10 @@ final class TourState {
 
 	/// Wires the live drawer so the tour can open/close it and observe its state. Called
 	/// once from the view layer where the `DrawerManager` is created.
-	func bind(drawer: DrawerManager, guide: Guide? = nil) {
+	func bind(drawer: DrawerManager, chromeState: AppChromeState? = nil, detectionState: DetectionSessionState? = nil) {
 		self.drawer = drawer
-		if let guide { self.guide = guide }
+		if let chromeState { self.chromeState = chromeState }
+		if let detectionState { self.detectionState = detectionState }
 	}
 
 	/// Registers the drawer's "enable a demo model" action for the overlay-driven enable step.
@@ -128,11 +130,11 @@ final class TourState {
 		guard steps.isEmpty == false else { return }
 		// Reset to a clean state so the scripted flow isn't fighting live UI (esp. on Replay):
 		// close the drawer, stop any running detection. Fullscreen is suppressed for the whole
-		// active window via the `isActive` render gate in ContentView. (drawer/guide are nil on
+		// active window via the `isActive` render gate in ContentView. (drawer/state refs are nil on
 		// the first-launch autostart — already clean — and bound by the time Replay runs.)
 		drawer?.close()
-		if guide?.ontheflyDetectionEnabled == true {
-			guide?.ontheflyDetectionTapped()
+		if detectionState?.ontheflyDetectionEnabled == true {
+			detectionState?.ontheflyDetectionTapped()
 		}
 		currentIndex = 0
 		isActive = true
@@ -210,7 +212,7 @@ final class TourState {
 		case .drawerOpened:
 			return drawer?.isOpen == true
 		case .detectionStarted:
-			return guide?.ontheflyDetectionEnabled == true
+			return detectionState?.ontheflyDetectionEnabled == true
 		case .pickModeEntered, .modelEnabled, .captureStarted, .findingSaved:
 			// Event-driven (no app-state poll — `findModeRequested` is a transient pulse, so it
 			// can't be polled here): signalled by pickModeDidStart() / userEnabledModel() /
@@ -229,9 +231,9 @@ final class TourState {
 		case .drawerOpened:
 			drawer?.open()
 		case .detectionStarted:
-			guide?.ontheflyDetectionTapped()
+			detectionState?.ontheflyDetectionTapped()
 		case .pickModeEntered:
-			guide?.findTapped()
+			chromeState?.findTapped()
 		case .modelEnabled:
 			if enableModelHook?() == true { actionFulfilled(step) }
 		case .captureStarted, .findingSaved:

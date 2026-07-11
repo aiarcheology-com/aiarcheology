@@ -207,7 +207,7 @@ final class ArchitectureTests: XCTestCase {
     /// State objects, Managers, and Controllers are common ObservableObject patterns.
     func testObservableObjectsHaveDescriptiveSuffixes() {
         let allowedSuffixes = [
-            "State", "Manager", "Controller", "Settings", "Guide",
+            "State", "Manager", "Controller", "Settings",
             "Drivers", "Model", "Coordinator", "Downloader", "Adjustment",
             "DataModel", "Renderer", "Download"  // Include project-specific patterns
         ]

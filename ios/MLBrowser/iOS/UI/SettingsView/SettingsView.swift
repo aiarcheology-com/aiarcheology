@@ -20,7 +20,8 @@ struct SettingsForm: View {
 	@Environment(DrawerManager.self) private var drawer
 	@Environment(TourState.self) private var tour
 	@EnvironmentObject var settings: Settings
-	@EnvironmentObject var guide: Guide
+	@EnvironmentObject var chromeState: AppChromeState
+	@EnvironmentObject var detectionState: DetectionSessionState
 	@EnvironmentObject var subscriptionState: SubscriptionState
 	/// Real vs. mock auth from the composition root (AIA-0385). Re-injected onto this sheet in
 	/// `DrawerContent` because custom env values don't cross the sheet boundary on Mac/iPad.
@@ -117,7 +118,7 @@ struct SettingsForm: View {
 			}
 			.testability(Testability.Picker.settingsFrequency)
 			.onChange(of: settings.snapFrequency) {
-				guide.ontheflyDetectionResetTapped()
+				detectionState.ontheflyDetectionResetTapped()
 			}
 
 			Toggle(L10n.Settings.runAtLaunch, isOn: $settings.snapAfterAppStart)
@@ -130,7 +131,7 @@ struct SettingsForm: View {
 				.testability(Testability.Toggle.settingsFullscreenDetection)
 				.onChange(of: settings.fullscreenDetection) {
 					// Apply to a detection that is already running.
-					guide.fullscreenDetectionSettingChanged()
+					detectionState.fullscreenDetectionSettingChanged()
 				}
 		}
 	}
@@ -243,7 +244,7 @@ struct SettingsForm: View {
 					message: Text(L10n.Alert.Restore.message),
 					primaryButton: .destructive(Text(L10n.Settings.restore), action: {
 						Task {
-							await guide.resetApplication()
+							await chromeState.resetApplication()
 						}
 					}),
 					secondaryButton: .cancel()

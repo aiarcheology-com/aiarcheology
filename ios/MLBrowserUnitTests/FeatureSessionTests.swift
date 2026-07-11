@@ -13,25 +13,22 @@ import XCTest
 @MainActor
 final class FeatureSessionTests: XCTestCase {
 
-	/// The detection feature builds without AppState: guide is constructed from the injected
+	/// The detection feature builds without AppState: detectionState is constructed from the injected
 	/// singletons and the `unowned` snapAdjustment edge points at this session's owned instance.
-	func testDetectionSession_buildsGuideInIsolation() {
-		let dataController = DataController(inMemory: true)
+	func testDetectionSession_buildsDetectionStateInIsolation() {
 		let settings = Settings()
 		let snap = SnapState(settings: settings)
 		let session = DetectionSession(
 			snap: snap,
-			deep: DeepState(dataController: dataController),
-			settings: settings,
-			dataController: dataController,
-			demoDataManager: DemoDataManager(dataController: dataController)
+			settings: settings
 		)
 
-		// Forces `guide` (and its `snapAdjustment`) — the actual isolation proof.
-		XCTAssertTrue(session.guide.snap === snap, "guide is wired to the injected snap instance")
-		XCTAssertTrue(session.guide.snapAdjustment === session.snapAdjustment,
-					  "guide borrows this session's owned snapAdjustment (unowned-edge invariant)")
-		XCTAssertEqual(session.guide.mode, .web, "default guide mode preserved")
+		// Forces `detectionState` (and its `snapAdjustment`) — the actual isolation proof.
+		XCTAssertTrue(session.detectionState.snap === snap, "detectionState is wired to the injected snap instance")
+		XCTAssertTrue(session.detectionState.snapAdjustment === session.snapAdjustment,
+					  "detectionState borrows this session's owned snapAdjustment (unowned-edge invariant)")
+		XCTAssertFalse(session.detectionState.ontheflyDetectionEnabled, "detection is off by default")
+		XCTAssertTrue(session.detectionState.chromeVisible, "chrome is visible by default")
 	}
 
 	/// The browser feature builds without AppState: browserState + the visit-trail recorder that

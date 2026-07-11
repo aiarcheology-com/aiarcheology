@@ -419,35 +419,33 @@ final class FindingScreenshotStoreTests: XCTestCase {
     }
 }
 
-// MARK: - Capture pause/resume (Guide)
+// MARK: - Capture pause/resume (DetectionSessionState)
 
 @MainActor
-final class FindingCaptureGuideTests: XCTestCase {
+final class FindingCaptureDetectionTests: XCTestCase {
     var settings: Settings!
     var snapState: SnapState!
-    var sut: Guide!
-    private var dataController: DataController!
+    // `DetectionSessionState.snapAdjustment` is `unowned`; hold it strong for the whole test.
+    private var snapAdjustment: SnapAdjustment!
+    var sut: DetectionSessionState!
 
     override func setUp() async throws {
         try await super.setUp()
         settings = Settings()
-        dataController = DataController(inMemory: true)
         snapState = SnapState(settings: settings)
-        sut = Guide(
+        snapAdjustment = SnapAdjustment()
+        sut = DetectionSessionState(
             snap: snapState,
-            deep: DeepState(dataController: dataController),
             settings: settings,
-            dataController: dataController,
-            demoDataManager: DemoDataManager(dataController: dataController),
-            snapAdjustment: SnapAdjustment()
+            snapAdjustment: snapAdjustment
         )
     }
 
     override func tearDown() async throws {
         snapState.stopTimer()
         sut = nil
+        snapAdjustment = nil
         snapState = nil
-        dataController = nil
         settings = nil
         try await super.tearDown()
     }

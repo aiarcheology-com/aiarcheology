@@ -118,10 +118,7 @@ class DependencyContainer {
 	func makeAppState() -> AppState {
 		let detection = DetectionSession(
 			snap: snapState,
-			deep: deepState,
-			settings: settings,
-			dataController: dataController,
-			demoDataManager: demoDataManager
+			settings: settings
 		)
 		let browser = BrowserSession(settings: settings, dataController: dataController)
 		let account = AccountSession(authProvider: authProvider, subscriptionProvider: subscriptionProvider)

@@ -1,8 +1,11 @@
 //
-//  GuideTests.swift
-//  AI ArcheologyTests
+//  DetectionSessionStateTests.swift
+//  MLBrowserUnitTests
 //
 //  Created by AI Assistant on 25.11.25.
+//  AIA-0391: the former `Guide` split into `DetectionSessionState` (detection lifecycle +
+//  snapshot-timer commanding) and `AppChromeState` (drawer/mode chrome + navigation + app reset).
+//  Its tests re-home here, one class per type, keeping every original assertion's intent.
 //
 
 import XCTest
@@ -20,16 +23,13 @@ func createTempSQLiteDataController() -> (DataController, URL) {
 }
 
 @MainActor
-final class GuideTests: XCTestCase {
+final class DetectionSessionStateTests: XCTestCase {
 
     var settings: Settings!
     var snapState: SnapState!
-    var deepState: DeepState!
+    // `DetectionSessionState.snapAdjustment` is `unowned`; hold it strong for the whole test.
     var snapAdjustment: SnapAdjustment!
-    var dataController: DataController!
-    var demoDataManager: DemoDataManager!
-    var sut: Guide!
-    private var tempStoreURL: URL?
+    var sut: DetectionSessionState!
 
     override func setUp() async throws {
         try await super.setUp()
@@ -38,18 +38,12 @@ final class GuideTests: XCTestCase {
         // Settings persists to UserDefaults.standard; pin the default so tests
         // that flip the flag cannot leak into later tests via the suite's defaults.
         settings.fullscreenDetection = true
-        dataController = DataController(inMemory: true)
         snapState = SnapState(settings: settings)
-        deepState = DeepState(dataController: dataController)
         snapAdjustment = SnapAdjustment()
-        demoDataManager = DemoDataManager(dataController: dataController)
 
-        sut = Guide(
+        sut = DetectionSessionState(
             snap: snapState,
-            deep: deepState,
             settings: settings,
-            dataController: dataController,
-            demoDataManager: demoDataManager,
             snapAdjustment: snapAdjustment
         )
     }
@@ -57,150 +51,66 @@ final class GuideTests: XCTestCase {
     override func tearDown() async throws {
         snapState.stopTimer()
         sut = nil
-        demoDataManager = nil
-        dataController = nil
         snapAdjustment = nil
-        deepState = nil
         snapState = nil
         settings = nil
-
-        // Clean up temporary SQLite store if used
-        if let url = tempStoreURL {
-            try? FileManager.default.removeItem(at: url)
-            // Also remove -wal and -shm files
-            try? FileManager.default.removeItem(at: url.appendingPathExtension("wal"))
-            try? FileManager.default.removeItem(at: url.appendingPathExtension("shm"))
-            tempStoreURL = nil
-        }
-
         try await super.tearDown()
     }
 
-    /// Sets up the test with a temporary SQLite store instead of in-memory.
-    /// Use this for tests that call resetApplication() or other batch delete operations.
-    private func setUpWithSQLiteStore() async {
-        // Unload the in-memory store before creating the SQLite store to avoid conflicts.
-        // Note: In test environments, store removal failures are typically non-critical
-        // as the old store will be discarded when dataController is replaced.
-        for store in dataController.container.persistentStoreCoordinator.persistentStores {
-            do {
-                try dataController.container.persistentStoreCoordinator.remove(store)
-            } catch {
-                // Log but continue - the old in-memory store will be discarded anyway
-                print("Warning: Failed to remove in-memory store during test setup: \(error)")
-            }
-        }
-
-        let (sqliteController, storeURL) = createTempSQLiteDataController()
-        tempStoreURL = storeURL
-        dataController = sqliteController
-        await dataController.awaitStoreReady()
-
-        deepState = DeepState(dataController: dataController)
-        demoDataManager = DemoDataManager(dataController: dataController)
-
-        sut = Guide(
-            snap: snapState,
-            deep: deepState,
-            settings: settings,
-            dataController: dataController,
-            demoDataManager: demoDataManager,
-            snapAdjustment: snapAdjustment
-        )
-    }
-    
     // MARK: - Initialization Tests
-    
+
     func testInitialization() {
         XCTAssertNotNil(sut.snap)
-        XCTAssertNotNil(sut.deep)
         XCTAssertNotNil(sut.settings)
-        XCTAssertNotNil(sut.dataController)
-        XCTAssertNotNil(sut.demoDataManager)
         XCTAssertNotNil(sut.snapAdjustment)
     }
-    
+
     func testInitialState() {
-        XCTAssertEqual(sut.mode, .web)
-        XCTAssertFalse(sut.presentedSideMenu)
         XCTAssertFalse(sut.ontheflyDetectionEnabled)
-        XCTAssertNil(sut.selectedConfigurationId)
-        XCTAssertNil(sut.pageToOpen)
         XCTAssertTrue(sut.chromeVisible)
         XCTAssertFalse(sut.isFullscreen)
         XCTAssertFalse(sut.showsFloatingChromeButton)
     }
-    
-    // MARK: - Side Menu Tests
-    
-    func testTogglingSideMenu_TogglesState() {
-        XCTAssertFalse(sut.presentedSideMenu)
-        
-        sut.togglingSideMenu()
-        
-        XCTAssertTrue(sut.presentedSideMenu)
-    }
-    
-    func testTogglingSideMenu_TogglesBackToFalse() {
-        sut.presentedSideMenu = true
-        
-        sut.togglingSideMenu()
-        
-        XCTAssertFalse(sut.presentedSideMenu)
-    }
-    
-    func testTogglingSideMenu_MultipleToggles() {
-        XCTAssertFalse(sut.presentedSideMenu)
-        
-        sut.togglingSideMenu()
-        XCTAssertTrue(sut.presentedSideMenu)
-        
-        sut.togglingSideMenu()
-        XCTAssertFalse(sut.presentedSideMenu)
-        
-        sut.togglingSideMenu()
-        XCTAssertTrue(sut.presentedSideMenu)
-    }
-    
+
     // MARK: - On-the-fly Detection Tests
-    
+
     func testOntheflyDetectionTapped_TogglesState() {
         XCTAssertFalse(sut.ontheflyDetectionEnabled)
-        
+
         sut.ontheflyDetectionTapped()
-        
+
         XCTAssertTrue(sut.ontheflyDetectionEnabled)
     }
-    
+
     func testOntheflyDetectionTapped_TogglesBackToFalse() {
         sut.ontheflyDetectionEnabled = true
-        
+
         sut.ontheflyDetectionTapped()
-        
+
         XCTAssertFalse(sut.ontheflyDetectionEnabled)
     }
-    
+
     func testOntheflyDetectionTapped_StartsTimer_WhenEnabled() {
         XCTAssertNil(snapState.timerCancellable)
-        
+
         sut.ontheflyDetectionTapped()
-        
+
         XCTAssertTrue(sut.ontheflyDetectionEnabled)
         XCTAssertNotNil(snapState.timerCancellable)
     }
-    
+
     func testOntheflyDetectionTapped_StopsTimer_WhenDisabled() {
         // Enable first
         sut.ontheflyDetectionTapped()
         XCTAssertNotNil(snapState.timerCancellable)
-        
+
         // Disable
         sut.ontheflyDetectionTapped()
-        
+
         XCTAssertFalse(sut.ontheflyDetectionEnabled)
         XCTAssertNil(snapState.timerCancellable)
     }
-    
+
     // MARK: - Chrome Visibility Tests
     //
     // Uniform rule: every detection start hides chrome, every stop shows it,
@@ -331,61 +241,210 @@ final class GuideTests: XCTestCase {
         sut.ontheflyDetectionEnabled = true
         snapState.startTimer()
         XCTAssertNotNil(snapState.timerCancellable)
-        
+
         sut.ontheflyDetectionResetTapped()
-        
+
         // Timer should be restarted (stop + start)
         XCTAssertNotNil(snapState.timerCancellable)
     }
-    
+
     func testOntheflyDetectionResetTapped_WhenDisabled_DoesNothing() {
         XCTAssertFalse(sut.ontheflyDetectionEnabled)
         XCTAssertNil(snapState.timerCancellable)
-        
+
         sut.ontheflyDetectionResetTapped()
-        
+
         // Should not start timer when detection is disabled
         XCTAssertNil(snapState.timerCancellable)
     }
-    
+}
+
+@MainActor
+final class AppChromeStateTests: XCTestCase {
+
+    var settings: Settings!
+    var snapState: SnapState!
+    var deepState: DeepState!
+    // `DetectionSessionState.snapAdjustment` is `unowned`; hold it strong for the whole test.
+    var snapAdjustment: SnapAdjustment!
+    var dataController: DataController!
+    var demoDataManager: DemoDataManager!
+    // AppChromeState borrows the detection controller for app-reset; keep it strong so the
+    // `unowned` snapAdjustment edge inside it can never dangle mid-test.
+    var detectionState: DetectionSessionState!
+    var sut: AppChromeState!
+    private var tempStoreURL: URL?
+
+    override func setUp() async throws {
+        try await super.setUp()
+
+        settings = Settings()
+        // Settings persists to UserDefaults.standard; pin the default so tests
+        // that flip the flag cannot leak into later tests via the suite's defaults.
+        settings.fullscreenDetection = true
+        dataController = DataController(inMemory: true)
+        snapState = SnapState(settings: settings)
+        deepState = DeepState(dataController: dataController)
+        snapAdjustment = SnapAdjustment()
+        demoDataManager = DemoDataManager(dataController: dataController)
+
+        detectionState = DetectionSessionState(
+            snap: snapState,
+            settings: settings,
+            snapAdjustment: snapAdjustment
+        )
+        sut = AppChromeState(
+            detectionState: detectionState,
+            deep: deepState,
+            settings: settings,
+            demoDataManager: demoDataManager
+        )
+    }
+
+    override func tearDown() async throws {
+        snapState.stopTimer()
+        sut = nil
+        detectionState = nil
+        demoDataManager = nil
+        dataController = nil
+        snapAdjustment = nil
+        deepState = nil
+        snapState = nil
+        settings = nil
+
+        // Clean up temporary SQLite store if used
+        if let url = tempStoreURL {
+            try? FileManager.default.removeItem(at: url)
+            // Also remove -wal and -shm files
+            try? FileManager.default.removeItem(at: url.appendingPathExtension("wal"))
+            try? FileManager.default.removeItem(at: url.appendingPathExtension("shm"))
+            tempStoreURL = nil
+        }
+
+        try await super.tearDown()
+    }
+
+    /// Sets up the test with a temporary SQLite store instead of in-memory.
+    /// Use this for tests that call resetApplication() or other batch delete operations.
+    private func setUpWithSQLiteStore() async {
+        // Unload the in-memory store before creating the SQLite store to avoid conflicts.
+        // Note: In test environments, store removal failures are typically non-critical
+        // as the old store will be discarded when dataController is replaced.
+        for store in dataController.container.persistentStoreCoordinator.persistentStores {
+            do {
+                try dataController.container.persistentStoreCoordinator.remove(store)
+            } catch {
+                // Log but continue - the old in-memory store will be discarded anyway
+                print("Warning: Failed to remove in-memory store during test setup: \(error)")
+            }
+        }
+
+        let (sqliteController, storeURL) = createTempSQLiteDataController()
+        tempStoreURL = storeURL
+        dataController = sqliteController
+        await dataController.awaitStoreReady()
+
+        deepState = DeepState(dataController: dataController)
+        demoDataManager = DemoDataManager(dataController: dataController)
+
+        detectionState = DetectionSessionState(
+            snap: snapState,
+            settings: settings,
+            snapAdjustment: snapAdjustment
+        )
+        sut = AppChromeState(
+            detectionState: detectionState,
+            deep: deepState,
+            settings: settings,
+            demoDataManager: demoDataManager
+        )
+    }
+
+    // MARK: - Initialization Tests
+
+    func testInitialization() {
+        XCTAssertNotNil(sut.deep)
+        XCTAssertNotNil(sut.settings)
+        XCTAssertNotNil(sut.demoDataManager)
+        XCTAssertNotNil(sut.detectionState)
+    }
+
+    func testInitialState() {
+        XCTAssertEqual(sut.mode, .web)
+        XCTAssertFalse(sut.presentedSideMenu)
+        XCTAssertNil(sut.selectedConfigurationId)
+        XCTAssertNil(sut.pageToOpen)
+    }
+
+    // MARK: - Side Menu Tests
+
+    func testTogglingSideMenu_TogglesState() {
+        XCTAssertFalse(sut.presentedSideMenu)
+
+        sut.togglingSideMenu()
+
+        XCTAssertTrue(sut.presentedSideMenu)
+    }
+
+    func testTogglingSideMenu_TogglesBackToFalse() {
+        sut.presentedSideMenu = true
+
+        sut.togglingSideMenu()
+
+        XCTAssertFalse(sut.presentedSideMenu)
+    }
+
+    func testTogglingSideMenu_MultipleToggles() {
+        XCTAssertFalse(sut.presentedSideMenu)
+
+        sut.togglingSideMenu()
+        XCTAssertTrue(sut.presentedSideMenu)
+
+        sut.togglingSideMenu()
+        XCTAssertFalse(sut.presentedSideMenu)
+
+        sut.togglingSideMenu()
+        XCTAssertTrue(sut.presentedSideMenu)
+    }
+
     // MARK: - Mode Tests
-    
+
     func testMode_CanBeChanged() {
         XCTAssertEqual(sut.mode, .web)
-        
+
         sut.mode = .gallery
-        
+
         XCTAssertEqual(sut.mode, .gallery)
     }
-    
+
     // MARK: - Configuration Selection Tests
-    
+
     func testSelectedConfigurationId_CanBeSet() {
         let id = UUID()
-        
+
         sut.selectedConfigurationId = id
-        
+
         XCTAssertEqual(sut.selectedConfigurationId, id)
     }
-    
+
     func testSelectedConfigurationId_CanBeCleared() {
         sut.selectedConfigurationId = UUID()
-        
+
         sut.selectedConfigurationId = nil
-        
+
         XCTAssertNil(sut.selectedConfigurationId)
     }
-    
+
     // MARK: - Page To Open Tests
-    
+
     func testPageToOpen_CanBeSet() {
         let url = URL(string: "https://example.com")!
-        
+
         sut.pageToOpen = url
-        
+
         XCTAssertEqual(sut.pageToOpen, url)
     }
-    
+
     // MARK: - Reset Application Tests
     // Note: All resetApplication tests use SQLite store because NSBatchDeleteRequest
     // (used by deep.reset()) doesn't work with in-memory stores.
@@ -409,18 +468,18 @@ final class GuideTests: XCTestCase {
         await setUpWithSQLiteStore()
 
         // Given: detection is enabled
-        sut.ontheflyDetectionEnabled = true
+        detectionState.ontheflyDetectionEnabled = true
         snapState.startTimer()
-        XCTAssertTrue(sut.ontheflyDetectionEnabled)
+        XCTAssertTrue(detectionState.ontheflyDetectionEnabled)
         XCTAssertNotNil(snapState.timerCancellable)
 
         // When: reset application is called
         await sut.resetApplication()
 
         // Then: detection is disabled and chrome is restored to the default state
-        XCTAssertFalse(sut.ontheflyDetectionEnabled)
+        XCTAssertFalse(detectionState.ontheflyDetectionEnabled)
         XCTAssertNil(snapState.timerCancellable)
-        XCTAssertTrue(sut.chromeVisible)
+        XCTAssertTrue(detectionState.chromeVisible)
     }
 
     func testResetApplication_CallsDeepReset() async throws {

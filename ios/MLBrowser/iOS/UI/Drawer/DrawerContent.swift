@@ -18,7 +18,10 @@ struct DrawerContent: View {
     @Environment(DrawerManager.self) private var drawer
     @Environment(TourState.self) private var tour
     @Environment(\.usesRealAuth) private var usesRealAuth
-    @EnvironmentObject private var guide: Guide
+    @EnvironmentObject private var chromeState: AppChromeState
+    /// Not used by DrawerContent itself — forwarded into the Settings sheet, which needs it
+    /// (env objects don't cross a `.sheet` boundary on Mac/Designed-for-iPad). AIA-0391.
+    @EnvironmentObject private var detectionState: DetectionSessionState
     @EnvironmentObject private var deep: DeepState
     @EnvironmentObject private var downloader: Downloader
     @EnvironmentObject private var settings: Settings
@@ -71,10 +74,10 @@ struct DrawerContent: View {
         .sheet(isPresented: $showFindings) {
             FindingsListView { url in
                 // Open the captured page: tear down this sheet and the drawer,
-                // then hand the URL to the web screen via the Guide.
+                // then hand the URL to the web screen via chromeState.pageToOpen.
                 showFindings = false
                 drawer.close()
-                guide.pageToOpen = url
+                chromeState.pageToOpen = url
             }
             // Re-inject the context: on Mac (Designed for iPad) SwiftUI does not
             // reliably carry \.managedObjectContext across the sheet boundary, so
@@ -84,7 +87,8 @@ struct DrawerContent: View {
         .sheet(isPresented: $showSettings) {
             SettingsForm()
                 .environmentObject(settings)
-                .environmentObject(guide)
+                .environmentObject(chromeState)
+                .environmentObject(detectionState)
                 .environmentObject(subscriptionState)
                 .environment(drawer)
                 .environment(tour)
@@ -343,7 +347,8 @@ private struct ConfigurationRow: View {
     } menu: {
         DrawerContent()
             .environment(manager)
-            .environmentObject(state.guide)
+            .environmentObject(state.chromeState)
+            .environmentObject(state.detectionState)
             .environmentObject(state.deep)
             .environmentObject(state.downloader)
             .environmentObject(state.settings)

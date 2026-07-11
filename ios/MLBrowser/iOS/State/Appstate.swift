@@ -33,8 +33,19 @@ final class AppState: ObservableObject {
 	let usesRealAuth: Bool
 
 	/// Interactive onboarding spotlight tour (AIA-0333). Dependency-free app-chrome state kept on
-	/// the shell (not a feature internal); to be absorbed by #391's AppChromeState.
+	/// the shell (not a feature internal). Kept alongside `chromeState` (AIA-0391); a further merge
+	/// of the two chrome-level states is out of scope here.
 	lazy var tour = TourState()
+
+	/// App-chrome + navigation state (AIA-0391, formerly the chrome half of `Guide`). Lives on the
+	/// shell (not a detection feature internal). Lazy → forced on first UI access, exactly as the
+	/// former `guide` was. Borrows `detection.detectionState` for the whole-app reset path.
+	lazy var chromeState = AppChromeState(
+		detectionState: detection.detectionState,
+		deep: deep,
+		settings: settings,
+		demoDataManager: demoDataManager
+	)
 
 	// MARK: - Feature sessions (own their construction; injected by DependencyContainer, AIA-0390)
 	let detection: DetectionSession
@@ -44,8 +55,8 @@ final class AppState: ObservableObject {
 	/// Indicates whether the app initialization is complete
 	@Published private(set) var isReady = false
 
-	// MARK: - Forwarding accessors (back-compat facade; callers migrate onto the sessions in #391)
-	var guide: Guide { detection.guide }
+	// MARK: - Forwarding accessors (feature-session internals surfaced on the shell)
+	var detectionState: DetectionSessionState { detection.detectionState }
 	var renderer: DefaultRenderer { detection.renderer }
 	var snapAdjustment: SnapAdjustment { detection.snapAdjustment }
 	var webViewRenderer: WebSnapshotRenderer { detection.webViewRenderer }
