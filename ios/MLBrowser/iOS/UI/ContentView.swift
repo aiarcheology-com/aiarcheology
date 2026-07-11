@@ -26,7 +26,7 @@ struct ContentView: View {
     @State private var contrast = SnapAdjustment.defaultContrast
     @State private var saturation = SnapAdjustment.defaultSaturation
     @State private var showSnapAdjustment = false
-    // Fullscreen detection mode (one-way bridges from Guide; the view only reads):
+    // Fullscreen detection mode (one-way bridges from detectionState/settings; the view only reads):
     @State private var detectionEnabled = false
     @State private var chromeVisible = true
     @State private var fullscreenFeatureEnabled = true
@@ -60,11 +60,11 @@ struct ContentView: View {
         // the tour is inactive.
         .tourOverlay(appState.tour)
         .onReceive(appState.detectionState.$showSnapAdjustment) { show in
-            // Bridge from Guide's showSnapAdjustment to local state for proper observation
+            // Bridge from detectionState's showSnapAdjustment to local state for proper observation
             showSnapAdjustment = show
         }
         .onChange(of: showSnapAdjustment) { _, newValue in
-            // Sync back to Guide when local state changes (e.g., overlay dismissed)
+            // Sync back to detectionState when local state changes (e.g., overlay dismissed)
             guard appState.detectionState.showSnapAdjustment != newValue else { return }
             appState.detectionState.showSnapAdjustment = newValue
         }
@@ -88,7 +88,7 @@ struct ContentView: View {
             selectedMode = mode
         }
         .onReceive(appState.chromeState.$presentedSideMenu) { shouldOpen in
-            // Bridge from Guide's presentedSideMenu to new DrawerManager
+            // Bridge from chromeState's presentedSideMenu to new DrawerManager
             // Guard against sync loops
             guard shouldOpen != drawer.isOpen else { return }
             if shouldOpen {
@@ -102,7 +102,7 @@ struct ContentView: View {
             // slice only the user opens the drawer, so advancing the `.drawerOpened` step
             // regardless of initiator is correct.
             appState.tour.evaluate()
-            // Sync drawer state back to Guide for any dependent code
+            // Sync drawer state back to chromeState for any dependent code
             // Guard against sync loops
             guard appState.chromeState.presentedSideMenu != isOpen else { return }
             appState.chromeState.presentedSideMenu = isOpen

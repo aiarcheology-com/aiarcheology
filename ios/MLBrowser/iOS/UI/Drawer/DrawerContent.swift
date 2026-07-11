@@ -74,7 +74,7 @@ struct DrawerContent: View {
         .sheet(isPresented: $showFindings) {
             FindingsListView { url in
                 // Open the captured page: tear down this sheet and the drawer,
-                // then hand the URL to the web screen via the Guide.
+                // then hand the URL to the web screen via chromeState.pageToOpen.
                 showFindings = false
                 drawer.close()
                 chromeState.pageToOpen = url

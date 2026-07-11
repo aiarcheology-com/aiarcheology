@@ -192,7 +192,7 @@ struct WebScreenView: View {
                 appliedFrame = frame
             },
             onInteractionStateChanged: { state in
-                // Optionally propagate to Guide for other UI components to observe
+                // Optionally propagate to chromeState for other UI components to observe
                 appState.chromeState.contentInteractionState = state
             }
         ) { interactionState in
