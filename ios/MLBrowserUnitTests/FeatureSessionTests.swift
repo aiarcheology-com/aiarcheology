@@ -1,6 +1,6 @@
 //
 //  FeatureSessionTests.swift
-//  AI ArcheologyTests
+//  MLBrowserUnitTests
 //
 //  AIA-0390: proves AC2 — each feature session builds/exercises its state in ISOLATION, with only
 //  its own minimal deps, no AppState and no full composition graph. Each test FORCES the session's
