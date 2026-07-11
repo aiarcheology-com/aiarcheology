@@ -1,32 +1,41 @@
-Test Focus: AppState internal restructuring (AIA-0390) — no visible change expected
+Test Focus: Detection/chrome state split (AIA-0391) — no visible change expected
 Build: TBD
 
 What's new in this build:
-Internal restructuring only — the app's central state object was reorganized so each feature area
-(detection, browser, account) is grouped into its own injectable, independently-testable unit, with
-the central object reduced to a thin shell. There is NO user-facing change. This build is a
-regression check that startup, sign-in, browsing, detection, downloads, and settings all behave
-exactly as before.
+Internal restructuring only. The single "Guide" object that mixed the detection-session controls
+with the browser-chrome state was split into two focused objects (one owns the on-the-fly detection
+lifecycle and the snapshot timer; the other owns the drawer/tab chrome and page navigation). There
+is NO user-facing change. This build is a regression check that detection, the fullscreen chrome
+behavior, tab switching, the drawer, settings, the onboarding tour, and background/foreground
+behave exactly as before.
 
-1. Launch & sign in
-- Cold-launch the app. Loading screen → sign-in gate → sign in normally. No crash, no hang.
+1. Detection start/stop & fullscreen chrome
+- Enable a model and start on-the-fly detection. Bounding boxes / labels appear and update.
+- With "Fullscreen detection" on in Settings: starting detection hides the browser chrome; the
+  floating chrome-toggle button appears; tapping it reveals/hides the chrome without stopping
+  detection. Stopping detection restores the chrome every time.
 
-2. Browsing & tab switching
-- Browse pages; switch between the app's modes/tabs. Navigation and the tab bar behave as before.
+2. Tab / mode switching & drawer
+- Switch between the app's tabs/modes; the tab bar and navigation behave as before.
+- Open and close the side drawer; open a page from the drawer — it loads.
 
-3. Detection & labels
-- Enable a model, run a detection demo — bounding boxes / classification labels appear and update
-  as before. Start/stop detection behaves normally.
+3. Settings
+- Open Settings. Toggle "Fullscreen detection" and change the snapshot "Frequency" while detection
+  is running — the running detection updates accordingly, no crash. "Restore defaults" stops any
+  running detection and resets the app.
 
-4. Downloads
-- Download a model; background the app and return — the download still completes and the model
-  becomes usable.
+4. Finding capture
+- While detecting, tap Find/Store and save a finding. The snapshot pauses during the save dialog
+  and resumes afterward (if detection was running).
 
-5. Settings & account
-- Open Settings; the account rows (email, Manage Account) show on a signed-in build. Adjust a
-  setting (e.g. brightness/contrast, show-labels) — it still takes effect.
+5. Background / foreground
+- Start detection, background the app, return — detection auto-pause/resume behaves as before.
 
-6. Report Issues
+6. Onboarding tour
+- Replay onboarding from Settings (or first launch). The spotlight steps that start detection and
+  enter pick-mode still advance correctly.
+
+7. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version
