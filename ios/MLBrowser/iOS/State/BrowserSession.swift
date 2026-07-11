@@ -2,7 +2,7 @@
 //  BrowserSession.swift
 //  AI Archeology
 //
-//  AIA-0390: the browser feature grouped into one injectable, isolately-testable session.
+//  AIA-0390: the browser feature grouped into one injectable, independently-testable session.
 //  Owns the derived browser state (browser state + visit-trail recorder) and is built by
 //  `DependencyContainer.makeAppState()`; `AppState` forwards `browserState`/`visitTrail` to it.
 //
