@@ -23,12 +23,16 @@ final class DeepState: ObservableObject {
 	@Published var deepStateError: Error?
     var deepStateErrorPublisher: Published<Error?>.Publisher { $deepStateError }
 	var drivers = DeepDrivers()
-	
+	private let assetStore: ModelAssetStore
+	private let repository: ModelConfigurationRepository
+
 	init(dataController: DataController) {
 		self.dataController = dataController
+		self.assetStore = ModelAssetStore(dataController: dataController)
+		self.repository = ModelConfigurationRepository(dataController: dataController)
 		observeDeepConfigurationChanges()
 
-		let configurations = DeepConfiguration.selectAll(in: dataController.container.viewContext)
+		let configurations = repository.selectAll()
 		do {
 			try configurations.forEach { config in
 				guard config.enabled == true else { return }
@@ -105,58 +109,35 @@ final class DeepState: ObservableObject {
 	}
 	
 	func createConfiguration() -> DeepConfiguration {
-		let context = dataController.container.viewContext
-		return DeepConfiguration.create(in: context)
+		repository.create()
 	}
-	
+
 	func updateConfiguration(
 		_ entityId: UUID,
 		updateClosure: @Sendable @escaping (DeepConfiguration) -> Void
 	) {
-		let context = dataController.container.viewContext
 		do {
-			try DeepConfiguration.update(entityId, in: context, with: updateClosure)
+			try repository.update(entityId, with: updateClosure)
 		} catch {
 			// Surface to the UI; a failed save would otherwise silently block all future saves.
 			deepStateError = error
 		}
 	}
-	
-	func deleteConfiguration(_ entityId: UUID) {
-		guard let entity = selectConfiguration(entityId) else { return }
-		deleteConfiguration(entity)
-	}
-	
-	func deleteConfiguration(_ entity: DeepConfiguration) {
-		let context = dataController.container.viewContext
-		// Per-model flash prefs live in UserDefaults (AIA-0374) — clear them with the row.
-		entity.removeFlashDefaults()
-		DeepConfiguration.delete(entity, in: context)
-	}
-	
-	func reset() async {
-		// The batch delete below bypasses per-entity delete hooks, so the per-model
-		// flash UserDefaults (AIA-0374) must be cleared explicitly first.
-		allConfigurations().forEach { $0.removeFlashDefaults() }
-		// The viewContext reference is only handed to
-		// mergeChanges(fromRemoteContextSave:into:), which is safe to call cross-queue.
-		let viewContext = dataController.container.viewContext
-		let deleteError: Error? = await withCheckedContinuation { continuation in
-			dataController.performBackgroundTask { context in
-				do {
-					// Merge into the viewContext too: batch deletes bypass context saves, so
-					// automaticallyMergesChangesFromParent does NOT propagate them.
-					try DeepConfiguration.deleteAll(in: context, mergingInto: [viewContext])
-					continuation.resume(returning: nil)
-				} catch {
-					continuation.resume(returning: error)
-				}
-			}
-		}
 
-		if let deleteError {
+	func deleteConfiguration(_ entityId: UUID) {
+		repository.delete(entityId)
+	}
+
+	func deleteConfiguration(_ entity: DeepConfiguration) {
+		repository.delete(entity)
+	}
+
+	func reset() async {
+		do {
+			try await repository.reset()
+		} catch {
 			// Rows may still exist; keep drivers registered so state stays consistent.
-			deepStateError = deleteError
+			deepStateError = error
 			return
 		}
 
@@ -164,25 +145,22 @@ final class DeepState: ObservableObject {
 		// so handleDeletedConfigurations never fires — unregister drivers explicitly.
 		await drivers.unregisterAll()
 	}
-	
+
 	func selectConfiguration(_ entityId: UUID) -> DeepConfiguration? {
-		let context = dataController.container.viewContext
-		return DeepConfiguration.select(entityId, in: context)
+		repository.select(entityId)
 	}
-	
+
 	func saveConfigurations() {
-		let context = dataController.container.viewContext
 		do {
-			try DeepConfiguration.save(in: context)
+			try repository.save()
 		} catch {
 			// Surface to the UI; a failed save would otherwise silently block all future saves.
 			deepStateError = error
 		}
 	}
-	
+
 	func allConfigurations() -> [DeepConfiguration] {
-		let context = dataController.container.viewContext
-		return DeepConfiguration.selectAll(in: context)
+		repository.selectAll()
 	}
 	
 	// Handlers:
@@ -229,7 +207,7 @@ final class DeepState: ObservableObject {
 				Task { @MainActor in
 					self.handleInsertedConfigurations(insertedConfigs)
 					await self.handleUpdatedConfigurations(updatedConfigs)
-					self.handleDeletedConfigurations(deletedConfigs)
+					await self.handleDeletedConfigurations(deletedConfigs)
 				}
 			}
 	}
@@ -335,53 +313,17 @@ final class DeepState: ObservableObject {
 		}
 	}
 	
-	private func handleDeletedConfigurations(_ deleted: [(objectID: NSManagedObjectID, entityId: UUID, demo: Bool)]) {
+	private func handleDeletedConfigurations(_ deleted: [(objectID: NSManagedObjectID, entityId: UUID, demo: Bool)]) async {
 		for (_, entityId, demo) in deleted {
+			// Unregister the driver for every deleted config (incl. demo), then hand the on-disk
+			// asset + DownloadItem cleanup to the asset store. Per-item catch: a cleanup failure
+			// on one config must not stop the rest (matches the old per-iteration isolation).
 			unregisterDriver(driverId: entityId)
 
-			// Skip demo models - they're bundled with the app
-			guard demo.not else {
-				LoggingPolicy.debug("Skipping deletion of demo model for configuration \(entityId.uuidString)", logger: .state)
-				continue
-			}
-
-			// If referenced by a download item, transition it back to .complete and skip file deletion
-			if let downloadItem = DownloadItem.select(entityId, in: dataController.container.viewContext) {
-				if downloadItem.state == .imported {
-					downloadItem.state = .complete
-					do {
-						try DownloadItem.save(in: dataController.container.viewContext)
-						LoggingPolicy.debug("Transitioned download item to .complete for deleted configuration \(entityId.uuidString)", logger: .state)
-					} catch {
-						deepStateError = error
-					}
-				}
-				LoggingPolicy.debug("Skipping deletion of model file still referenced by download item for configuration \(entityId.uuidString)", logger: .state)
-				continue
-			}
-
-			// Get directory path before offloading
-			guard let configurationDirectory = FileManager.deepConfigurationDirectory(id: entityId)?.path(percentEncoded: false) else {
-				LoggingPolicy.debug("Configuration directory path is nil for \(entityId.uuidString)", logger: .state)
-				continue
-			}
-
-			// Offload file deletion to background to avoid blocking MainActor
-			Task.detached(priority: .utility) {
-				let fileManager = FileManager.default
-
-				guard fileManager.fileExists(atPath: configurationDirectory) else {
-					LoggingPolicy.debug("Configuration directory does not exist for \(entityId.uuidString)", logger: .state)
-					return
-				}
-
-				do {
-					try fileManager.removeItem(atPath: configurationDirectory)
-					LoggingPolicy.info("Model file successfully deleted for configuration \(entityId.uuidString)", logger: .state)
-				} catch {
-					LoggingPolicy.error("Error deleting model file for configuration \(entityId.uuidString): \(error.localizedDescription)", logger: .state)
-					DefaultCrashReporter.shared.recordError(error, context: ["operation": "deleteModelFile", "configId": entityId.uuidString])
-				}
+			do {
+				try await assetStore.cleanup(entityId: entityId, demo: demo)
+			} catch {
+				deepStateError = error
 			}
 		}
 	}
