@@ -15,7 +15,7 @@ import SwiftUI
 /// The position is owned by the parent (the button is conditionally mounted and
 /// local state would not survive unmount); `nil` means the default corner.
 struct FloatingChromeButton: View {
-	@EnvironmentObject var guide: Guide
+	@EnvironmentObject var detectionState: DetectionSessionState
 	@Binding var position: CGPoint?
 	/// Extra space to keep clear at the bottom so the button floats above the adaptive
 	/// bottom address bar (AIA-0338). Applied to the clamp's lower bound, so it lifts both
@@ -56,7 +56,7 @@ struct FloatingChromeButton: View {
 				// of movement, a still touch falls through to the tap.
 				.highPriorityGesture(drag(in: geometry.size))
 				.onTapGesture {
-					guide.chromeToggleTapped()
+					detectionState.chromeToggleTapped()
 				}
 				.accessibilityAddTraits(.isButton)
 				// Label before testability: under UI testing the helper overrides

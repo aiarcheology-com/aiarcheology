@@ -1,26 +1,23 @@
 //
-//  Guide.swift
+//  DetectionSessionState.swift
 //  AI Archeology
 //
-//  Created by Vladimír Slavík on 14.12.23.
+//  AIA-0391: the detection-session controller split out of the former `Guide` god-object.
+//  Owns the on-the-fly detection lifecycle and is the SINGLE commander of the snapshot timer
+//  (`snap.startTimer()/stopTimer()`) — the timer object itself is owned by `SnapState`; this type
+//  is the only place that starts/stops it, making timer ownership unambiguous. App-chrome and
+//  navigation state live in the sibling `AppChromeState`.
 //
 
 import Foundation
 
-final class Guide: ObservableObject {
+@MainActor
+final class DetectionSessionState: ObservableObject {
 	var snap: SnapState
-    var deep: DeepState
-    var settings: Settings
-    unowned var snapAdjustment: SnapAdjustment
-    let dataController: DataController
-    let demoDataManager: DemoDataManager
-    
-	@Published var mode = AppMode.web
-	@Published var presentedSideMenu: Bool = false
+	var settings: Settings
+	unowned var snapAdjustment: SnapAdjustment
+
 	@Published var ontheflyDetectionEnabled: Bool = false
-	@Published var selectedConfigurationId: UUID?
-	@Published var pageToOpen: URL?
-	@Published var contentInteractionState: ContentInteractionState = .idle
 	@Published var showSnapAdjustment: Bool = false
 	/// Whether the browser chrome (navigation bar with address field and buttons) is visible.
 	/// Only meaningful while `ontheflyDetectionEnabled` is true; always reset to `true`
@@ -30,13 +27,10 @@ final class Guide: ObservableObject {
 	/// Views mutate it via `chromeToggleTapped()`.
 	@Published private(set) var chromeVisible: Bool = true
 
-	init(snap: SnapState, deep: DeepState, settings: Settings, dataController: DataController, demoDataManager: DemoDataManager, snapAdjustment: SnapAdjustment) {
+	init(snap: SnapState, settings: Settings, snapAdjustment: SnapAdjustment) {
 		self.snap = snap
-        self.deep = deep
-        self.settings = settings
-        self.dataController = dataController
-        self.demoDataManager = demoDataManager
-        self.snapAdjustment = snapAdjustment
+		self.settings = settings
+		self.snapAdjustment = snapAdjustment
 	}
 
 	/// Fullscreen = detection running and chrome hidden (the default while detecting).
@@ -45,20 +39,16 @@ final class Guide: ObservableObject {
 	/// The floating chrome-toggle button accompanies detection for its whole duration,
 	/// regardless of whether the chrome is currently revealed — but only when the
 	/// fullscreen feature is enabled in Settings.
-	@MainActor var showsFloatingChromeButton: Bool { ontheflyDetectionEnabled && settings.fullscreenDetection }
+	var showsFloatingChromeButton: Bool { ontheflyDetectionEnabled && settings.fullscreenDetection }
 
-	func togglingSideMenu() {
-		presentedSideMenu.toggle()
-	}
-
-    @MainActor func ontheflyDetectionResetTapped() {
+	func ontheflyDetectionResetTapped() {
 		if ontheflyDetectionEnabled {
 			snap.stopTimer()
 			snap.startTimer()
 		}
 	}
 
-    @MainActor func ontheflyDetectionTapped() {
+	func ontheflyDetectionTapped() {
 		ontheflyDetectionEnabled.toggle()
 		if ontheflyDetectionEnabled {
 			chromeVisible = settings.fullscreenDetection.not
@@ -72,17 +62,8 @@ final class Guide: ObservableObject {
 		}
 	}
 
-	@MainActor func chromeToggleTapped() {
+	func chromeToggleTapped() {
 		chromeVisible.toggle()
-	}
-
-	/// The Find/Store button (top bar on regular widths, floating capsule on
-	/// compact) was tapped: the web screen enters pick mode — the next tap on the
-	/// content marks the place to store. Consumed and reset by WebScreen.
-	@Published var findModeRequested: Bool = false
-
-	@MainActor func findTapped() {
-		findModeRequested = true
 	}
 
 	/// Detection was running when the finding-save dialog opened; only then does
@@ -92,7 +73,7 @@ final class Guide: ObservableObject {
 	/// A finding-save dialog opened: stop the snapshot timer so no new passes start.
 	/// Only the timer is owned here — the displayed-frame freeze (generation bump,
 	/// queue cancellation, apply gating) lives in DetectableView, which owns that state.
-	@MainActor func findingCaptureStarted() {
+	func findingCaptureStarted() {
 		detectionWasRunningBeforeCapture = ontheflyDetectionEnabled
 		if ontheflyDetectionEnabled {
 			snap.stopTimer()
@@ -103,7 +84,7 @@ final class Guide: ObservableObject {
 	/// AND is still enabled (a background auto-pause may have turned it off meanwhile).
 	/// `startTimer()` fires an immediate snapshot, so the frozen frame is replaced
 	/// right away.
-	@MainActor func findingCaptureEnded() {
+	func findingCaptureEnded() {
 		if detectionWasRunningBeforeCapture && ontheflyDetectionEnabled {
 			snap.startTimer()
 		}
@@ -113,19 +94,8 @@ final class Guide: ObservableObject {
 	/// Applies a change of `settings.fullscreenDetection` to a running detection:
 	/// enabling the feature enters fullscreen, disabling it restores the chrome.
 	/// A no-op while detection is off (`chromeVisible` is already true then).
-	@MainActor func fullscreenDetectionSettingChanged() {
+	func fullscreenDetectionSettingChanged() {
 		guard ontheflyDetectionEnabled else { return }
 		chromeVisible = settings.fullscreenDetection.not
-	}
-
-    @MainActor func resetApplication() async {
-		if ontheflyDetectionEnabled {
-			ontheflyDetectionTapped()
-		}
-		await deep.reset()
-		settings.reset()
-		settings.applicationResetButtonToggle.toggle()
-		await demoDataManager.deleteBrowsingHistory()
-		await demoDataManager.createDemoDataIfNeeded()
 	}
 }

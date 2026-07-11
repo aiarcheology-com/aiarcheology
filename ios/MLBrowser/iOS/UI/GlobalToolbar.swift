@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct GlobalToolbarLeading: View {
-	@EnvironmentObject var guide: Guide
+	@EnvironmentObject var chromeState: AppChromeState
 	@EnvironmentObject var download: Downloader
 
 	@State private var isAnimating = false
@@ -17,7 +17,7 @@ struct GlobalToolbarLeading: View {
 	var body: some View {
 		HStack {
 			Button(action: {
-				guide.togglingSideMenu()
+				chromeState.togglingSideMenu()
 			}) {
 				if isAnimating {
 					Image(systemName: "cpu")
@@ -46,7 +46,8 @@ struct GlobalToolbarLeading: View {
 }
 
 struct GlobalToolbarTrailing: View {
-	@EnvironmentObject var guide: Guide
+	@EnvironmentObject var chromeState: AppChromeState
+	@EnvironmentObject var detectionState: DetectionSessionState
 	@State private var isAnimating = false
 	@State private var showPopoverAdjustment = false
 
@@ -71,7 +72,7 @@ struct GlobalToolbarTrailing: View {
 	/// the place to store (works with or without detection running).
 	private var findButton: some View {
 		Button(action: {
-			guide.findTapped()
+			chromeState.findTapped()
 		}) {
 			Image(systemName: "plus.viewfinder")
 				.foregroundColor(.gray)
@@ -87,9 +88,9 @@ struct GlobalToolbarTrailing: View {
 	
 	@ViewBuilder
 	private var detectionButton: some View {
-		if guide.ontheflyDetectionEnabled {
+		if detectionState.ontheflyDetectionEnabled {
 			Button(action: {
-				guide.ontheflyDetectionTapped()
+				detectionState.ontheflyDetectionTapped()
 			}) {
 				Image(systemName: "pause")
 					.foregroundColor(isAnimating ? Color.blue : Color.gray)
@@ -105,7 +106,7 @@ struct GlobalToolbarTrailing: View {
 			.testability(Testability.Button.globalToolbarPauseDetection)
 		} else {
 			Button(action: {
-				guide.ontheflyDetectionTapped()
+				detectionState.ontheflyDetectionTapped()
 			}) {
 				Image(systemName: "play")
 					.foregroundColor(.gray)
@@ -123,7 +124,7 @@ struct GlobalToolbarTrailing: View {
 		Button(action: {
 			if HostPlatform.current.isiPhone {
 				// iPhone: toggle transparent overlay
-				guide.showSnapAdjustment.toggle()
+				detectionState.showSnapAdjustment.toggle()
 			} else {
 				// iPad/Mac: use popover (works well in both portrait and landscape)
 				showPopoverAdjustment = true
@@ -139,7 +140,7 @@ struct GlobalToolbarTrailing: View {
 			SnapAdjustmentView()
 				.padding(20)
 				.frame(width: 280)
-				.environmentObject(guide.snapAdjustment)
+				.environmentObject(detectionState.snapAdjustment)
 		}
 	}
 }

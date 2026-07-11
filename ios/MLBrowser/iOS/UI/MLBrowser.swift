@@ -87,16 +87,16 @@ struct MLBrowser: App {
 			.environment(\.usesRealAuth, appState.usesRealAuth)
 			.onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
 				LoggingPolicy.info("App entering background", logger: .lifecycle)
-				if appState.guide.ontheflyDetectionEnabled {
+				if appState.detectionState.ontheflyDetectionEnabled {
 					appState.settings.isDetectionPaused = true
-					appState.guide.ontheflyDetectionTapped()
+					appState.detectionState.ontheflyDetectionTapped()
 				}
 			}
 			.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
 				LoggingPolicy.info("App entering foreground", logger: .lifecycle)
 				if appState.settings.isDetectionPaused {
 					appState.settings.isDetectionPaused = false
-					appState.guide.ontheflyDetectionTapped()
+					appState.detectionState.ontheflyDetectionTapped()
 				}
 			}
 			.task {
