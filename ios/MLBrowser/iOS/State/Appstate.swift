@@ -10,78 +10,71 @@ import SwiftUI
 import Vision
 import OSLog
 
-// Responsible for keeping the data consistency across the app
-// and setting up the demo structures.
+// Responsible for keeping the data consistency across the app and setting up the demo structures.
 //
-// AIA-0385: AppState is NOT a composition root. `DependencyContainer` is the app's single
-// composition root; it constructor-injects the shared services below via
-// `DependencyContainer.makeAppState()`. AppState must never reference
-// `DependencyContainer.shared` — it holds the injected services and owns only the
-// app/view-derived state (guide, renderers, browser/visit state, tour, auth/subscription).
+// AIA-0385: `DependencyContainer` is the single composition root; it constructor-injects AppState.
+// AIA-0390: AppState is a bootstrap shell. It no longer constructs the derived feature states —
+// those are grouped into three injectable sessions (`DetectionSession`, `BrowserSession`,
+// `AccountSession`) built by `DependencyContainer.makeAppState()`. AppState holds the sessions
+// plus shell-level shared services + cross-cutting state, and exposes thin forwarding accessors so
+// existing `appState.<feature>` call sites keep working. Caller migration to `appState.detection.*`
+// etc. is deferred to #391. AppState must never reference `DependencyContainer.shared`.
 @MainActor
 final class AppState: ObservableObject {
-	// MARK: - Injected shared services (owned by DependencyContainer)
-	let snap: SnapState
-	let deep: DeepState
+	// MARK: - Shell: shared services + cross-cutting state (owned directly)
 	let dataController: DataController
 	let settings: Settings
+	let snap: SnapState
+	let deep: DeepState
 	let downloader: Downloader
 	let demoDataManager: DemoDataManager
 
-	/// Real Clerk-backed auth vs. the DEBUG mock, decided by the composition root.
-	/// Surfaced to Views through the `\.usesRealAuth` environment value (AIA-0385).
+	/// Real Clerk-backed auth vs. the DEBUG mock, decided by the composition root (AIA-0385).
 	let usesRealAuth: Bool
 
-	private let authProvider: AuthProviding
-	private let subscriptionProvider: SubscriptionProviding
-
-	// MARK: - App/view-derived state (owned by AppState)
-	lazy var guide = Guide(
-        snap: self.snap,
-        deep: self.deep,
-        settings: self.settings,
-        dataController: self.dataController,
-        demoDataManager: self.demoDataManager,
-        snapAdjustment: self.snapAdjustment
-    )
-	lazy var renderer = DefaultRenderer()
-	lazy var snapAdjustment = SnapAdjustment()
-	lazy var webViewRenderer = WebSnapshotRenderer(adjustment: self.snapAdjustment)
-	lazy var browserState = BrowserState(settings: self.settings)
-	lazy var visitTrail = VisitTrailRecorder(browserState: self.browserState, dataController: self.dataController)
-
-	/// Interactive onboarding spotlight tour (AIA-0333). Replaces the old slideshow as the
-	/// first-launch experience and is re-runnable from Settings.
+	/// Interactive onboarding spotlight tour (AIA-0333). Dependency-free app-chrome state kept on
+	/// the shell (not a feature internal); to be absorbed by #391's AppChromeState.
 	lazy var tour = TourState()
 
-	/// Authentication & access launch gate (AIA-0340).
-	lazy var authState = AuthState(provider: self.authProvider)
-
-	/// Subscription / entitlement state (AIA-0343).
-	lazy var subscriptionState = SubscriptionState(provider: self.subscriptionProvider)
+	// MARK: - Feature sessions (own their construction; injected by DependencyContainer, AIA-0390)
+	let detection: DetectionSession
+	let browser: BrowserSession
+	let account: AccountSession
 
 	/// Indicates whether the app initialization is complete
 	@Published private(set) var isReady = false
 
+	// MARK: - Forwarding accessors (back-compat facade; callers migrate onto the sessions in #391)
+	var guide: Guide { detection.guide }
+	var renderer: DefaultRenderer { detection.renderer }
+	var snapAdjustment: SnapAdjustment { detection.snapAdjustment }
+	var webViewRenderer: WebSnapshotRenderer { detection.webViewRenderer }
+	var browserState: BrowserState { browser.browserState }
+	var visitTrail: VisitTrailRecorder { browser.visitTrail }
+	var authState: AuthState { account.authState }
+	var subscriptionState: SubscriptionState { account.subscriptionState }
+
 	init(
 		dataController: DataController,
 		settings: Settings,
-		snapState: SnapState,
-		deepState: DeepState,
+		snap: SnapState,
+		deep: DeepState,
 		downloader: Downloader,
 		demoDataManager: DemoDataManager,
-		authProvider: AuthProviding,
-		subscriptionProvider: SubscriptionProviding,
+		detection: DetectionSession,
+		browser: BrowserSession,
+		account: AccountSession,
 		usesRealAuth: Bool
 	) {
 		self.dataController = dataController
 		self.settings = settings
-		self.snap = snapState
-		self.deep = deepState
+		self.snap = snap
+		self.deep = deep
 		self.downloader = downloader
 		self.demoDataManager = demoDataManager
-		self.authProvider = authProvider
-		self.subscriptionProvider = subscriptionProvider
+		self.detection = detection
+		self.browser = browser
+		self.account = account
 		self.usesRealAuth = usesRealAuth
 
 		LoggingPolicy.debug("AppState initializing", logger: .lifecycle)

@@ -147,7 +147,9 @@ struct ContentView: View {
 
     private var mainContent: some View {
         ZStack {
-            TabView(selection: $appState.guide.mode) {
+            // `appState.guide` is a forwarding accessor to `detection.guide` (AIA-0390), so it
+            // isn't key-path-writable for `$appState.guide.mode`; bind through the object directly.
+            TabView(selection: Binding(get: { appState.guide.mode }, set: { appState.guide.mode = $0 })) {
                 ForEach(AppMode.tabOrder) { mode in
                     modeTab(mode)
                 }
