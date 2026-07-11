@@ -2,7 +2,7 @@
 //  DetectionSession.swift
 //  AI Archeology
 //
-//  AIA-0390: the detection feature grouped into one injectable, isolately-testable session.
+//  AIA-0390: the detection feature grouped into one injectable, independently-testable session.
 //  Owns the derived detection state (snapshot adjustment, renderers, guide) and is built by
 //  `DependencyContainer.makeAppState()`. `AppState` holds it and forwards `guide`/`snapAdjustment`/
 //  `renderer`/`webViewRenderer` to it, so it no longer constructs these feature internals itself.
@@ -31,10 +31,13 @@ final class DetectionSession {
 	// `webViewRenderer` holds it strong. All three MUST stay co-owned in this session so the
 	// `unowned` edge can never dangle — do NOT separate `snapAdjustment` from `guide`
 	// (e.g. in #391's Guide split).
-	lazy var snapAdjustment = SnapAdjustment()
-	lazy var renderer = DefaultRenderer()
-	lazy var webViewRenderer = WebSnapshotRenderer(adjustment: self.snapAdjustment)
-	lazy var guide = Guide(
+	// `private(set)`: external callers read these (via AppState's forwarding accessors) but must not
+	// reassign them — reassigning `snapAdjustment` would drop the only strong ref and dangle
+	// `guide`'s `unowned` edge. Lazy-force timing is unchanged.
+	private(set) lazy var snapAdjustment = SnapAdjustment()
+	private(set) lazy var renderer = DefaultRenderer()
+	private(set) lazy var webViewRenderer = WebSnapshotRenderer(adjustment: self.snapAdjustment)
+	private(set) lazy var guide = Guide(
 		snap: self.snap,
 		deep: self.deep,
 		settings: self.settings,

@@ -25,6 +25,7 @@ exactly as before.
 5. Settings & account
 - Open Settings; the account rows (email, Manage Account) show on a signed-in build. Adjust a
   setting (e.g. brightness/contrast, show-labels) — it still takes effect.
+- Sign out, then confirm the app returns to the sign-in gate and the account rows disappear.
 
 6. Report Issues
 Please report any issues with:

@@ -2,7 +2,7 @@
 //  AccountSession.swift
 //  AI Archeology
 //
-//  AIA-0390: the identity + commerce feature grouped into one injectable, isolately-testable
+//  AIA-0390: the identity + commerce feature grouped into one injectable, independently-testable
 //  session. Owns the derived auth/subscription state (each wrapping a provider) and is built by
 //  `DependencyContainer.makeAppState()`; `AppState` forwards `authState`/`subscriptionState` to it.
 //
