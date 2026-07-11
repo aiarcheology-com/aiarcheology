@@ -53,3 +53,28 @@ extension EnvironmentValues {
 		set { self[BottomAddressBarActiveKey.self] = newValue }
 	}
 }
+
+// MARK: - Real vs. mock auth (AIA-0385)
+
+/// Whether real Clerk-backed auth is active (vs. the DEBUG mock). Decided by the single
+/// composition root (`DependencyContainer`) and injected once at the app root as
+/// `AppState.usesRealAuth`, so Views read this instead of reaching into `DependencyContainer.shared`.
+///
+/// Defaults to `false` (the mock / no-Clerk path) so isolated SwiftUI previews and
+/// unit-test-rendered views never require a configured Clerk instance — matching the value they
+/// saw before (tests/previews run with `usesMockAuth == true`). Production and UI-test launches
+/// always override it at the root.
+///
+/// NOTE: like `\.managedObjectContext`, this does NOT reliably cross `.sheet` boundaries on Mac
+/// (Designed for iPad) — re-inject it on any sheet whose content reads it (e.g. `SettingsForm`).
+private struct UsesRealAuthKey: EnvironmentKey {
+	static let defaultValue = false
+}
+
+extension EnvironmentValues {
+	/// See `UsesRealAuthKey`.
+	var usesRealAuth: Bool {
+		get { self[UsesRealAuthKey.self] }
+		set { self[UsesRealAuthKey.self] = newValue }
+	}
+}

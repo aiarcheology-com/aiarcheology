@@ -120,3 +120,11 @@ final class AppState: ObservableObject {
 		LoggingPolicy.debug("AppState ready", logger: .lifecycle)
 	}
 }
+
+#if DEBUG
+extension AppState {
+	/// Fully-wired `AppState` from the shared composition root, for SwiftUI previews.
+	/// Keeps `DependencyContainer.shared` out of View files (AIA-0385) and never ships.
+	static var preview: AppState { DependencyContainer.shared.makeAppState() }
+}
+#endif

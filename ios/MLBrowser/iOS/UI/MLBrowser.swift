@@ -66,7 +66,7 @@ struct MLBrowser: App {
 					.environment(\.managedObjectContext, appState.dataController.container.viewContext)
 			}
 		}
-		if DependencyContainer.shared.usesMockAuth {
+		if appState.usesRealAuth == false {
 			gate
 		} else {
 			gate.environment(Clerk.shared)
@@ -82,6 +82,9 @@ struct MLBrowser: App {
 					ProgressView("Loading...")
 				}
 			}
+			// Single injection of the composition root's real-vs-mock auth flag for the whole
+			// view tree; re-injected across sheet boundaries where needed (AIA-0385).
+			.environment(\.usesRealAuth, appState.usesRealAuth)
 			.onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
 				LoggingPolicy.info("App entering background", logger: .lifecycle)
 				if appState.guide.ontheflyDetectionEnabled {
