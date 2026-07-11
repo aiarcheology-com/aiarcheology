@@ -19,6 +19,7 @@ import ClerkKitUI
 struct AuthGateView<Content: View>: View {
     @ObservedObject var authState: AuthState
     @ViewBuilder var content: () -> Content
+    @Environment(\.usesRealAuth) private var usesRealAuth
 
     var body: some View {
         Group {
@@ -42,7 +43,7 @@ struct AuthGateView<Content: View>: View {
             // sign-out done out-of-band (e.g. inside the embedded UserProfileView)
             // immediately drops the user back to the gate. The mock path has no Clerk
             // environment, so this observer is omitted there.
-            if DependencyContainer.shared.usesMockAuth == false {
+            if usesRealAuth {
                 ClerkSessionWatcher(authState: authState)
             }
         }
@@ -85,10 +86,10 @@ private struct SignInGateView: View {
     @State private var authPresented = false
     @State private var clerkEnv: ClerkEnvironment = ClerkAuthProvider.selectedEnvironment
 
-    /// Real Clerk-backed auth vs. the DEBUG mock. The mock path has no configured Clerk
-    /// instance, so the Clerk-dependent `AuthView` is built (and presented) only on the
-    /// real-auth path.
-    private var usesRealAuth: Bool { DependencyContainer.shared.usesMockAuth == false }
+    /// Real Clerk-backed auth vs. the DEBUG mock, from the composition root (AIA-0385). The mock
+    /// path has no configured Clerk instance, so the Clerk-dependent `AuthView` is built (and
+    /// presented) only on the real-auth path.
+    @Environment(\.usesRealAuth) private var usesRealAuth
 
     /// Whether to offer the dev/prod instance switch here. Non-App-Store (dev + TestFlight)
     /// real-auth builds only, so testers can pick the instance BEFORE signing in (no need

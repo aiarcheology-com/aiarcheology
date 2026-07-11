@@ -22,6 +22,9 @@ struct SettingsForm: View {
 	@EnvironmentObject var settings: Settings
 	@EnvironmentObject var guide: Guide
 	@EnvironmentObject var subscriptionState: SubscriptionState
+	/// Real vs. mock auth from the composition root (AIA-0385). Re-injected onto this sheet in
+	/// `DrawerContent` because custom env values don't cross the sheet boundary on Mac/iPad.
+	@Environment(\.usesRealAuth) private var usesRealAuth
 	@FocusState private var isHistoryLimitFocused: Bool
 	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
 	@State private var accountPath = NavigationPath()
@@ -255,10 +258,6 @@ struct SettingsForm: View {
 			resetButtonColor = .blue
 		}
 	}
-
-	/// Whether the real Clerk-backed auth is active. The mock path (UI tests) has no
-	/// configured Clerk instance, so the Clerk-dependent rows are hidden there.
-	private var usesRealAuth: Bool { DependencyContainer.shared.usesMockAuth == false }
 
 	/// Account management (AIA-0340). "Manage Account" opens Clerk's prebuilt
 	/// `UserProfileView`, which handles change password, email, security/MFA,

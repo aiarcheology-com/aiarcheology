@@ -17,6 +17,7 @@ struct DrawerContent: View {
     @Environment(\.managedObjectContext) private var moc
     @Environment(DrawerManager.self) private var drawer
     @Environment(TourState.self) private var tour
+    @Environment(\.usesRealAuth) private var usesRealAuth
     @EnvironmentObject private var guide: Guide
     @EnvironmentObject private var deep: DeepState
     @EnvironmentObject private var downloader: Downloader
@@ -87,6 +88,9 @@ struct DrawerContent: View {
                 .environmentObject(subscriptionState)
                 .environment(drawer)
                 .environment(tour)
+                // Re-inject: custom env values don't reliably cross the sheet boundary on
+                // Mac (Designed for iPad), same as \.managedObjectContext above (AIA-0385).
+                .environment(\.usesRealAuth, usesRealAuth)
         }
     }
     
@@ -332,7 +336,7 @@ private struct ConfigurationRow: View {
 #Preview {
     let manager = DrawerManager()
     manager.isOpen = true
-    let state = AppState()
+    let state = AppState.preview
 
     return DrawerContainer(manager: manager) {
         Color.blue.opacity(0.2)

@@ -51,6 +51,25 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
   - Avoid "fake" abstractions: don't introduce a protocol if it adds no testing value and will never have a second implementation.
   - Cross-reference: see **6. Testing** for when to use real implementations vs protocol fakes.
 
+### Composition root (which layer builds what)
+
+- **`DependencyContainer` is the app's single composition root** (AIA-0385). It owns every shared
+  service (Core Data, settings, snap/deep state, downloader, demo data, auth/subscription providers)
+  and builds the fully-wired `AppState` via `makeAppState()`.
+- **`AppState` is NOT a second root.** It receives its shared services by constructor injection and
+  holds only app/view-derived state (guide, renderers, browser/visit state, tour, auth/subscription).
+  It must **never** reference `DependencyContainer.shared`.
+- **Views never reference `DependencyContainer.shared`.** Read what you need from `AppState`
+  (`@EnvironmentObject`) or a dedicated environment value. The **only** allowed `.shared` sites are
+  bootstrap: the `@main` app entry (`MLBrowser.swift`) and the background-session
+  `UIApplicationDelegate`, which run before/outside the SwiftUI graph.
+- New **shared service** → add it to `DependencyContainer` and inject it through `makeAppState()`.
+  New **app/view state** → add it to `AppState`. Don't reach across into `.shared`.
+- **Environment values that gate UI on composition-root config** (e.g. `\.usesRealAuth`) are
+  injected once at the app root. Like `\.managedObjectContext`, custom environment values do **not**
+  reliably cross `.sheet` boundaries on Mac (Designed for iPad) — **re-inject them on any sheet**
+  whose content reads them.
+
 ### Core Data protocols (which one to adopt)
 
 - **`CoreDataManageable`** (note the spelling — trailing `-eable`) is the standard entity API: consistent `performAndWait`, error surfacing, CRUD/fetch/count, and batch-delete merge semantics. **Default to it for every Core Data entity.**

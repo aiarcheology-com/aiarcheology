@@ -31,6 +31,13 @@ that lazily builds and shares the core dependencies: `dataController`, `settings
 `subscriptionProvider`, plus an eagerly-created `crashReporter` (so observability starts
 before anything can report).
 
+It is the app's **single** composition root (AIA-0385): it constructor-injects a fully-wired
+`AppState` via `makeAppState()`. `AppState` holds those injected instances and never reaches back
+into `DependencyContainer.shared`; Views never touch `.shared` either (they read from `AppState` or
+a dedicated environment value such as `\.usesRealAuth`). The only `.shared` sites are bootstrap —
+the `@main` entry and the background-session `UIApplicationDelegate`, which run outside the SwiftUI
+graph.
+
 Test isolation lives here: in DEBUG under tests, `usesMockAuth` / `usesMockSubscription`
 swap in in-memory mock providers so unit/UI tests never touch Clerk or StoreKit. The mocks
 are `#if DEBUG`, so they can never ship in Release/TestFlight.
@@ -38,8 +45,10 @@ are `#if DEBUG`, so they can never ship in Release/TestFlight.
 ## App entry & gating
 
 `MLBrowser/iOS/UI/MLBrowser.swift` — `@main struct MLBrowser: App`. The root `AppState`
-(`@StateObject`) owns and wires the feature states (`snap`, `deep`, `browserState`,
-`settings`, `downloader`, `authState`, `subscriptionState`, `guide`, renderers, …).
+(`@StateObject`) is built by `DependencyContainer.makeAppState()`: it receives the shared services
+by constructor injection (`snap`, `deep`, `dataController`, `settings`, `downloader`,
+`demoDataManager`, auth/subscription providers) and additionally owns the view-derived state
+(`browserState`, `guide`, renderers, `tour`, `authState`, `subscriptionState`, …).
 
 The UI is gated in layers before the app proper appears:
 

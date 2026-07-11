@@ -10,6 +10,11 @@ import CoreData
 import Combine
 import OSLog
 
+/// The app's **single composition root** (AIA-0385). Owns every shared service (Core Data,
+/// settings, snap/deep state, downloader, demo data, auth/subscription providers) and builds
+/// the fully-wired `AppState` via `makeAppState()`. Nothing outside bootstrap (`@main` app
+/// entry + the background-session `UIApplicationDelegate`) may touch `DependencyContainer.shared`;
+/// in particular Views never do — they read what they need from `AppState` / the environment.
 @MainActor
 class DependencyContainer {
 	static let shared = DependencyContainer()
@@ -100,8 +105,28 @@ class DependencyContainer {
         return StoreKitSubscriptionProvider()
     }()
 
+	// MARK: - Composition root
+
+	/// Builds the fully-wired `AppState` from this container's shared services (AIA-0385).
+	/// Every dependency is one of the container's own lazy singletons, so the `AppState`
+	/// the app holds shares the exact instances reached elsewhere (e.g. the background-session
+	/// `downloader`). `AppState` never touches `DependencyContainer.shared` itself.
+	func makeAppState() -> AppState {
+		AppState(
+			dataController: dataController,
+			settings: settings,
+			snapState: snapState,
+			deepState: deepState,
+			downloader: downloader,
+			demoDataManager: demoDataManager,
+			authProvider: authProvider,
+			subscriptionProvider: subscriptionProvider,
+			usesRealAuth: usesMockAuth == false
+		)
+	}
+
 	// MARK: - Initialization
-	
+
     private init() {
 		self.crashReporter = Self.crashReporterFactory()
 	}
