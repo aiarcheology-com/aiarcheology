@@ -1,30 +1,30 @@
-Test Focus: App startup & dependency wiring refactor (AIA-0385) — no visible change expected
+Test Focus: AppState internal restructuring (AIA-0390) — no visible change expected
 Build: TBD
 
 What's new in this build:
-Internal restructuring only — how the app assembles its shared pieces at startup was consolidated
-so there is a single clear owner ("composition root"). There is NO user-facing change. This build is
-a regression check that sign-in, settings, downloads, and detection all behave exactly as before.
+Internal restructuring only — the app's central state object was reorganized so each feature area
+(detection, browser, account) is grouped into its own injectable, independently-testable unit, with
+the central object reduced to a thin shell. There is NO user-facing change. This build is a
+regression check that startup, sign-in, browsing, detection, downloads, and settings all behave
+exactly as before.
 
 1. Launch & sign in
-- Cold-launch the app. It should show the loading screen, then the sign-in gate, and let you sign in
-  normally — no crash, no hang.
+- Cold-launch the app. Loading screen → sign-in gate → sign in normally. No crash, no hang.
 
-2. Settings — account rows
-- Open the left drawer, then Settings. On a signed-in build, the account email and "Manage Account"
-  rows should appear as before. Tap "Manage Account" — your profile should load.
+2. Browsing & tab switching
+- Browse pages; switch between the app's modes/tabs. Navigation and the tab bar behave as before.
 
-3. Sign out
-- Sign out (from Settings / Manage Account). You should drop straight back to the sign-in gate.
+3. Detection & labels
+- Enable a model, run a detection demo — bounding boxes / classification labels appear and update
+  as before. Start/stop detection behaves normally.
 
-4. Downloads still complete in the background
-- Start a model download, send the app to the background, then return — the download should finish
-  and the model become usable.
+4. Downloads
+- Download a model; background the app and return — the download still completes and the model
+  becomes usable.
 
-5. Browsing & detection
-- Browse a page and run a detection demo — bounding boxes / classification should appear and update
-  as before. (Detection models now warm up at launch rather than when the browser first opens; this
-  is invisible, but first detection may feel slightly quicker.)
+5. Settings & account
+- Open Settings; the account rows (email, Manage Account) show on a signed-in build. Adjust a
+  setting (e.g. brightness/contrast, show-labels) — it still takes effect.
 
 6. Report Issues
 Please report any issues with:
