@@ -12,9 +12,9 @@ import Foundation
 
 @MainActor
 final class AppChromeState: ObservableObject {
-	var deep: DeepState
-	var settings: Settings
-	var demoDataManager: DemoDataManager
+	let deep: DeepState
+	let settings: Settings
+	let demoDataManager: DemoDataManager
 	/// Whole-app reset first stops any running detection, so chrome state borrows the detection
 	/// controller. Chrome → detection is one-directional (detection never references chrome).
 	let detectionState: DetectionSessionState

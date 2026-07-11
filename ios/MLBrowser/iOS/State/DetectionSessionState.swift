@@ -13,9 +13,9 @@ import Foundation
 
 @MainActor
 final class DetectionSessionState: ObservableObject {
-	var snap: SnapState
-	var settings: Settings
-	unowned var snapAdjustment: SnapAdjustment
+	let snap: SnapState
+	let settings: Settings
+	unowned let snapAdjustment: SnapAdjustment
 
 	@Published var ontheflyDetectionEnabled: Bool = false
 	@Published var showSnapAdjustment: Bool = false
