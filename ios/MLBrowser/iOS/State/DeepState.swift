@@ -23,8 +23,8 @@ final class DeepState: ObservableObject {
 	@Published var deepStateError: Error?
     var deepStateErrorPublisher: Published<Error?>.Publisher { $deepStateError }
 	var drivers = DeepDrivers()
-	let assetStore: ModelAssetStore
-	let repository: ModelConfigurationRepository
+	private let assetStore: ModelAssetStore
+	private let repository: ModelConfigurationRepository
 
 	init(dataController: DataController) {
 		self.dataController = dataController
