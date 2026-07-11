@@ -371,6 +371,53 @@ final class ArchitectureTests: XCTestCase {
         }
     }
 
+    /// Privacy invariant (AIA-0392): finding screenshots are written ONLY by `FindingRepository`,
+    /// the single auditable on-device write path (images never leave the device except via explicit
+    /// user export). Any other PRODUCTION caller of `FindingScreenshotStore.save` is an unreviewed
+    /// image-persistence path and fails CI. Tests call it directly, but they live outside the
+    /// production root scanned here, so they are not offenders.
+    func testOnlyFindingRepositoryWritesScreenshots() {
+        let root = Self.productionIOSRootURL()
+        let files = Self.swiftFiles(under: root)
+
+        let approvedFiles: Set<String> = [
+            "ios/MLBrowser/iOS/State/FindingRepository.swift"
+        ]
+
+        // Match the write (`.save`) only — `.delete`/`.load`/`.sweepOrphans` are cleanup/reads, not egress.
+        let writePattern = #"FindingScreenshotStore\s*\.\s*save\b"#
+
+        var offenders: [PatternFinding] = []
+        for fileURL in files {
+            let rel = Self.relativePath(for: fileURL)
+            let findings = Self.findLinesMatching(in: fileURL, regex: writePattern)
+            guard !findings.isEmpty else { continue }
+            guard approvedFiles.contains(rel) else {
+                offenders.append(contentsOf: findings)
+                continue
+            }
+        }
+
+        if !offenders.isEmpty {
+            let formatted = offenders
+                .sorted { ($0.relativePath, $0.lineNumber) < ($1.relativePath, $1.lineNumber) }
+                .map { "\($0.relativePath):\($0.lineNumber)  \($0.line.trimmingCharacters(in: .whitespaces))" }
+                .joined(separator: "\n")
+
+            XCTFail(
+                """
+                Finding screenshots must be written only by FindingRepository (AIA-0392) — the single
+                auditable on-device write path (images never leave the device except via explicit export).
+                Unapproved FindingScreenshotStore.save call sites:
+                \(formatted)
+
+                Route the write through FindingRepository, or — if a new writer is genuinely justified —
+                add its file to the allowlist here with a comment explaining the privacy review.
+                """
+            )
+        }
+    }
+
     /// Type-based boundary: SwiftUI `View` types should not import CoreData directly.
     ///
     /// This stays refactor-friendly (works regardless of file/folder location).
