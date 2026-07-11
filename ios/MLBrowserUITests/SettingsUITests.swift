@@ -44,6 +44,13 @@ final class SettingsUITests: UITestCase {
         XCTAssertTrue(flipSwitch(AID.settingsShowLabels), "Show-labels toggle did not change state")
     }
 
+    func testSettings_toggleFullscreenDetection_flipsState() {
+        launch()
+        openSettings()
+        XCTAssertTrue(scrollTo(AID.settingsFullscreenDetection), "Fullscreen-detection toggle missing")
+        XCTAssertTrue(flipSwitch(AID.settingsFullscreenDetection), "Fullscreen-detection toggle did not change state")
+    }
+
     func testSettings_aboutSubmenu_showsContent() {
         launch()
         openSettings()

@@ -192,8 +192,8 @@ struct WebScreenView: View {
                 appliedFrame = frame
             },
             onInteractionStateChanged: { state in
-                // Optionally propagate to Guide for other UI components to observe
-                appState.guide.contentInteractionState = state
+                // Optionally propagate to chromeState for other UI components to observe
+                appState.chromeState.contentInteractionState = state
             }
         ) { interactionState in
             MLWebView(loadRequest, renderer: appState.webViewRenderer, loadStatusChanged: { loading, error in
@@ -221,7 +221,7 @@ struct WebScreenView: View {
         .onReceive(appState.settings.$tiledDetection) { value in
             tiledDetection = value
         }
-        .onReceive(appState.guide.$ontheflyDetectionEnabled) { value in
+        .onReceive(appState.detectionState.$ontheflyDetectionEnabled) { value in
             detectionActive = value
         }
         .onAppear {
@@ -298,27 +298,27 @@ struct WebScreenView: View {
             // capture: unfreeze the displayed frame, then resume the timer —
             // its immediate snapshot replaces the frozen frame right away.
             isCapturingFinding = false
-            appState.guide.findingCaptureEnded()
+            appState.detectionState.findingCaptureEnded()
             // Tour (AIA-0333): a dismiss without a save returns to the capture step (no-op once
             // the finding was saved, which already advanced the step).
             appState.tour.captureCancelled()
         }) { capture in
             SaveFindingSheet(capture: capture, tour: appState.tour, repository: appState.findingRepository)
         }
-        .onReceive(appState.guide.$pageToOpen) { url in
+        .onReceive(appState.chromeState.$pageToOpen) { url in
             // A finding's "open page" action lands here (the findings UI cannot
             // reach the web view directly).
             guard let url else { return }
-            appState.guide.pageToOpen = nil
+            appState.chromeState.pageToOpen = nil
             openRequested(url.absoluteString)
         }
-        .onReceive(appState.guide.$findModeRequested) { requested in
+        .onReceive(appState.chromeState.$findModeRequested) { requested in
             guard requested else { return }
-            appState.guide.findModeRequested = false
+            appState.chromeState.findModeRequested = false
             // Freeze exactly like an annotation tap would: detection passes pause
             // and the displayed frame holds while the user picks the place.
             isCapturingFinding = true
-            appState.guide.findingCaptureStarted()
+            appState.detectionState.findingCaptureStarted()
             findPickActive = true
         }
         .overlay {
@@ -456,7 +456,7 @@ struct WebScreenView: View {
 	private func cancelFindPick() {
 		findPickActive = false
 		isCapturingFinding = false
-		appState.guide.findingCaptureEnded()
+		appState.detectionState.findingCaptureEnded()
 	}
 
 	/// The location sheet confirmed an input (Open button, return key, or history pick).

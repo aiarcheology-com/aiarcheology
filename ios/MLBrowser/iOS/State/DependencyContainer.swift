@@ -115,17 +115,28 @@ class DependencyContainer {
 	/// Every dependency is one of the container's own lazy singletons, so the `AppState`
 	/// the app holds shares the exact instances reached elsewhere (e.g. the background-session
 	/// `downloader`). `AppState` never touches `DependencyContainer.shared` itself.
+	///
+	/// AIA-0390: the derived feature states are grouped into three sessions built here and
+	/// injected into `AppState` (which no longer constructs them). Each session receives the
+	/// same shared singletons, so instances are identical across the graph.
 	func makeAppState() -> AppState {
-		AppState(
+		let detection = DetectionSession(
+			snap: snapState,
+			settings: settings
+		)
+		let browser = BrowserSession(settings: settings, dataController: dataController)
+		let account = AccountSession(authProvider: authProvider, subscriptionProvider: subscriptionProvider)
+		return AppState(
 			dataController: dataController,
 			settings: settings,
-			snapState: snapState,
-			deepState: deepState,
+			snap: snapState,
+			deep: deepState,
 			downloader: downloader,
 			demoDataManager: demoDataManager,
 			findingRepository: findingRepository,
-			authProvider: authProvider,
-			subscriptionProvider: subscriptionProvider,
+			detection: detection,
+			browser: browser,
+			account: account,
 			usesRealAuth: usesMockAuth == false
 		)
 	}

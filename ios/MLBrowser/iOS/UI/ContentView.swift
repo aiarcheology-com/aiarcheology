@@ -26,7 +26,7 @@ struct ContentView: View {
     @State private var contrast = SnapAdjustment.defaultContrast
     @State private var saturation = SnapAdjustment.defaultSaturation
     @State private var showSnapAdjustment = false
-    // Fullscreen detection mode (one-way bridges from Guide; the view only reads):
+    // Fullscreen detection mode (one-way bridges from detectionState/settings; the view only reads):
     @State private var detectionEnabled = false
     @State private var chromeVisible = true
     @State private var fullscreenFeatureEnabled = true
@@ -48,7 +48,8 @@ struct ContentView: View {
             DrawerContent()
                 .environment(drawer)
                 .environment(appState.tour)
-                .environmentObject(appState.guide)
+                .environmentObject(appState.chromeState)
+                .environmentObject(appState.detectionState)
                 .environmentObject(appState.deep)
                 .environmentObject(appState.downloader)
                 .environmentObject(appState.settings)
@@ -58,36 +59,36 @@ struct ContentView: View {
         // The single root attachment of the onboarding tour overlay (AIA-0333). Inert while
         // the tour is inactive.
         .tourOverlay(appState.tour)
-        .onReceive(appState.guide.$showSnapAdjustment) { show in
-            // Bridge from Guide's showSnapAdjustment to local state for proper observation
+        .onReceive(appState.detectionState.$showSnapAdjustment) { show in
+            // Bridge from detectionState's showSnapAdjustment to local state for proper observation
             showSnapAdjustment = show
         }
         .onChange(of: showSnapAdjustment) { _, newValue in
-            // Sync back to Guide when local state changes (e.g., overlay dismissed)
-            guard appState.guide.showSnapAdjustment != newValue else { return }
-            appState.guide.showSnapAdjustment = newValue
+            // Sync back to detectionState when local state changes (e.g., overlay dismissed)
+            guard appState.detectionState.showSnapAdjustment != newValue else { return }
+            appState.detectionState.showSnapAdjustment = newValue
         }
-        .onReceive(appState.guide.$ontheflyDetectionEnabled) { enabled in
+        .onReceive(appState.detectionState.$ontheflyDetectionEnabled) { enabled in
             withAnimation { detectionEnabled = enabled }
             // Tour hook (AIA-0333): detection starting fulfills the PLAY step → reveal Next.
             appState.tour.evaluate()
         }
-        .onReceive(appState.guide.$findModeRequested) { requested in
+        .onReceive(appState.chromeState.$findModeRequested) { requested in
             // Tour hook (AIA-0333): `findModeRequested` is a transient pulse (reset to false by
             // WebScreen), so act on the pulse value rather than polling it later.
             if requested { appState.tour.pickModeDidStart() }
         }
-        .onReceive(appState.guide.$chromeVisible) { visible in
+        .onReceive(appState.detectionState.$chromeVisible) { visible in
             withAnimation { chromeVisible = visible }
         }
         .onReceive(appState.settings.$fullscreenDetection) { enabled in
             withAnimation { fullscreenFeatureEnabled = enabled }
         }
-        .onReceive(appState.guide.$mode) { mode in
+        .onReceive(appState.chromeState.$mode) { mode in
             selectedMode = mode
         }
-        .onReceive(appState.guide.$presentedSideMenu) { shouldOpen in
-            // Bridge from Guide's presentedSideMenu to new DrawerManager
+        .onReceive(appState.chromeState.$presentedSideMenu) { shouldOpen in
+            // Bridge from chromeState's presentedSideMenu to new DrawerManager
             // Guard against sync loops
             guard shouldOpen != drawer.isOpen else { return }
             if shouldOpen {
@@ -101,10 +102,10 @@ struct ContentView: View {
             // slice only the user opens the drawer, so advancing the `.drawerOpened` step
             // regardless of initiator is correct.
             appState.tour.evaluate()
-            // Sync drawer state back to Guide for any dependent code
+            // Sync drawer state back to chromeState for any dependent code
             // Guard against sync loops
-            guard appState.guide.presentedSideMenu != isOpen else { return }
-            appState.guide.presentedSideMenu = isOpen
+            guard appState.chromeState.presentedSideMenu != isOpen else { return }
+            appState.chromeState.presentedSideMenu = isOpen
         }
         .onReceive(appState.deep.deepStateErrorPublisher) { error in
             guard let error else { return }
@@ -147,7 +148,8 @@ struct ContentView: View {
 
     private var mainContent: some View {
         ZStack {
-            TabView(selection: $appState.guide.mode) {
+            // Bind through an explicit `Binding` on the chrome state object (AIA-0391).
+            TabView(selection: Binding(get: { appState.chromeState.mode }, set: { appState.chromeState.mode = $0 })) {
                 ForEach(AppMode.tabOrder) { mode in
                     modeTab(mode)
                 }
@@ -183,16 +185,18 @@ struct ContentView: View {
             },
             leadingItems: {
                 Screens.barItems(mode, position: .leading)
-                    .environmentObject(appState.guide)
+                    .environmentObject(appState.chromeState)
+                    .environmentObject(appState.detectionState)
                     .environmentObject(appState.downloader)
             },
             trailingItems: {
                 Screens.barItems(mode, position: .trailing)
-                    .environmentObject(appState.guide)
+                    .environmentObject(appState.chromeState)
+                    .environmentObject(appState.detectionState)
             }
         )
         .tabItem {
-            Screens.tabItem(mode, selection: appState.guide.mode)
+            Screens.tabItem(mode, selection: appState.chromeState.mode)
         }
         .tag(mode)
     }
@@ -223,7 +227,7 @@ struct ContentView: View {
                 position: $floatingNavBarPosition,
                 showsFind: fullscreenActive,
                 onFind: {
-                    appState.guide.findTapped()
+                    appState.chromeState.findTapped()
                 },
                 // Keep the capsule above the bottom address bar when it's shown (AIA-0338).
                 bottomReserve: showsBottomAddressBar ? BottomAddressBarMetrics.reserve : 0
@@ -253,7 +257,8 @@ struct ContentView: View {
                 // Keep the chrome toggle above the bottom address bar when it's shown (AIA-0338).
                 bottomReserve: showsBottomAddressBar ? BottomAddressBarMetrics.reserve : 0
             )
-                .environmentObject(appState.guide)
+                .environmentObject(appState.chromeState)
+                .environmentObject(appState.detectionState)
                 .transition(.opacity)
         }
     }
@@ -266,7 +271,7 @@ struct ContentView: View {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
             if appState.settings.snapAfterAppStart {
-                appState.guide.ontheflyDetectionTapped()
+                appState.detectionState.ontheflyDetectionTapped()
             }
             appState.snap.delayedTimer = true
         }
@@ -278,7 +283,7 @@ struct ContentView: View {
         // The production auto-start decision runs earlier, in `AppState.initialize()`, so the
         // onboarding demo page is staged before this view appears. Here we only bind the live
         // drawer and honor the UI-test launch flag.
-        appState.tour.bind(drawer: drawer, guide: appState.guide)
+        appState.tour.bind(drawer: drawer, chromeState: appState.chromeState, detectionState: appState.detectionState)
         if AppEnvironment.isRunningUITests, UITestLaunchConfiguration.shouldStartOnboardingTour {
             appState.tour.start()
         }
