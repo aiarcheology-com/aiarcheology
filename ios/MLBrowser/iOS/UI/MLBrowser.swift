@@ -37,8 +37,8 @@ final class BackgroundDownloadAppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct MLBrowser: App {
 	@UIApplicationDelegateAdaptor(BackgroundDownloadAppDelegate.self) var appDelegate
-	@StateObject var appState = AppState()
-	
+	@StateObject private var appState: AppState
+
 	init() {
 		Observability.start(with: DependencyContainer.shared.crashReporter)
 		Observability.runTestTriggersIfEnabled()
@@ -47,6 +47,9 @@ struct MLBrowser: App {
 		if !DependencyContainer.shared.usesMockAuth {
 			ClerkAuthProvider.configure()
 		}
+		// Build the app's single composition root LAST — after observability is started and
+		// Clerk is configured — so service construction never precedes them (AIA-0385).
+		_appState = StateObject(wrappedValue: DependencyContainer.shared.makeAppState())
 		LoggingPolicy.info("MLBrowser app launching", logger: .lifecycle)
 	}
 

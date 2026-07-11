@@ -332,7 +332,7 @@ private struct ConfigurationRow: View {
 #Preview {
     let manager = DrawerManager()
     manager.isOpen = true
-    let state = AppState()
+    let state = DependencyContainer.shared.makeAppState()
 
     return DrawerContainer(manager: manager) {
         Color.blue.opacity(0.2)
