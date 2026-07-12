@@ -220,7 +220,8 @@ are *not* executors and follow their own phase contracts:
 - Draft: steps → per-step verify check, assumptions, known risks.
 - Adversarial review: run the local `grill-yourself` skill (grill-master subagent, multi-round
   to consensus; escalations land in the G1 prompt) and a codex second opinion
-  (`codex exec -m gpt-5.5 -C <ios> --full-auto -o <out> "…" </dev/null` — redirect stdin or it
+  (`codex exec -m gpt-5.6-terra -c model_reasoning_effort="xhigh" -C <ios> --full-auto -o <out> "…" </dev/null`
+  — redirect stdin or it
   hangs). Auto-apply **only mechanically-obvious** corrections; **surface scope/approach changes**
   for one-line confirmation before P2.
 - **Post the full hardened plan as its own `<!-- ship-ticket:plan -->` ticket comment** (plus the
@@ -259,10 +260,23 @@ Deterministic pass/fail, with `DEVELOPER_DIR` set: `build-for-testing` (from `io
 UI tests (from `ios/`, `-testPlan MLBrowserUITests`, non-disrupting sim). Fix→re-verify counts
 against the counter.
 `--no-ui-tests` drops the UI suite here and triggers the UI-unverified banner (below).
+- **Run the build/test steps SEQUENTIALLY — never two `xcodebuild` invocations against the same
+  DerivedData at once.** Concurrent builds race the SPM `SourcePackages/artifacts` and corrupt
+  them; the loser fails with `error: There is no XCFramework found at
+  …/sentry-cocoa/Sentry.xcframework` and **exit 65 with 0 tests run**. That is a *toolchain*
+  failure, **not** a diff failure — never misattribute it to your change and never spend a
+  fix-counter cycle on it. It bites most easily when `harmonize.sh` (which builds) runs in the
+  foreground while a background `build-for-testing`/`test` hits the **default** DerivedData at the
+  same time — so serialize them, or give each its own `-derivedDataPath`. Recovery once corrupted:
+  re-run the failed build **alone** into a **fresh pinned `-derivedDataPath`** (e.g. under scratch)
+  so package resolution + build share one clean location. A bare `-resolvePackageDependencies` may
+  resolve into a *different* DerivedData folder and leave the corrupted one untouched, so it is not
+  a reliable fix on its own.
 
 ### P4 — Code review (after the objective sweep; P3b and any repeat UI sweep come after)
 - Native `/code-review` skill (review the branch diff) + CodeRabbit CLI (if installed;
-  skip with a note in the PR body if not) + codex review.
+  skip with a note in the PR body if not) + codex review (same model/effort as P1:
+  `-m gpt-5.6-terra -c model_reasoning_effort="xhigh"`).
 - **Triage, don't rubberstamp. Classify findings:** correctness / security / test-failure →
   auto-fix; architecture / product / API / scope-expanding → **surface for human approval**.
 - Then re-run the full P3a **only if P4 changed HEAD** — an unchanged HEAD keeps its green (the
