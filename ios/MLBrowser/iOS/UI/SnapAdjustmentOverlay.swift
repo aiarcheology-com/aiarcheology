@@ -89,6 +89,7 @@ extension View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
@@ -123,3 +124,4 @@ extension View {
     
     return PreviewContainer()
 }
+#endif

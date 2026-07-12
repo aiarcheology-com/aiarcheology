@@ -1,35 +1,23 @@
-Test Focus: Finding save path refactor (AIA-0392) — no visible change expected
-Build: TBD
+Test Focus: Emergency delivery tooling (AIA-0379) — no app-facing change expected
+Build: (auto-filled by ./scripts/deliver.sh notes — never published as-is)
 
 What's new in this build:
-Internal restructuring only. The code that saves a finding (writes the screenshot, creates the
-database record, and validates it) was moved out of the save screen into one dedicated, auditable
-component. There is NO user-facing change. This build is a regression check that capturing and
-saving findings — and the failure/rollback behavior — work exactly as before.
+Developer tooling only. This change adds a local "archive → TestFlight" delivery script
+(scripts/deliver.sh) used to ship a build when Xcode Cloud is unavailable. There is NO user-facing
+change: the app binary and behavior are identical to the previous build. This build is a plain
+regression check that the core flows still work.
 
-1. Capture & save a finding
-- Run a detection demo, tap Find/Store, tap the content to capture a detection.
-- In the save sheet: adjust the crop (pinch/drag or the zoom slider), type a Title (Save stays
-  disabled until the title is non-empty), optionally add a label/note/GPS, then tap Save.
-- The sheet dismisses and the finding is saved.
+1. Launch & browse
+- Open the app, sign in, and load a few pages. Nothing looks or behaves differently from the last build.
 
-2. Verify it persisted
-- Open the drawer → Findings. The finding you just saved appears, with its cropped screenshot and
-  the details you entered.
+2. Detection & save (smoke test)
+- Run a detection demo, capture a detection, and save a finding (title required). It saves and appears
+  in the drawer → Findings, exactly as before.
+- Persistence: force-quit and relaunch — the saved finding is still in Findings with its screenshot.
+- Cancel path: start another capture, then dismiss the save sheet without saving — nothing is added
+  to Findings and the app returns to browsing normally.
 
-3. Crop is honored
-- Save a finding with a tight crop; in Findings its screenshot should be the cropped region (the
-  highlight box still lines up).
-
-4. Cancel path
-- Start a capture, then dismiss the save sheet without saving — nothing is added to Findings, and
-  the app returns to browsing normally.
-
-5. Onboarding tour (save step)
-- Replay onboarding from Settings and follow it through the "save a finding" step — saving still
-  advances the tour correctly.
-
-6. Report Issues
+3. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version

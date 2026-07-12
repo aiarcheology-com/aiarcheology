@@ -290,8 +290,10 @@ struct ContentView: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
     ContentView()
 }
+#endif

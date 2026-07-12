@@ -268,6 +268,16 @@ Add rules to `ios/MLBrowserUnitTests/ArchitectureTests.swift`. Each rule should:
   - Review license, maintenance, and footprint (binary size / startup / privacy).
   - Keep the surface area small (wrap in a thin adapter if it's a major dependency).
 
+### Repository tooling (scripts & ProjectTool)
+
+- **Prefer the Swift codebase for repo tooling over Ruby** (or other interpreters). New tool logic
+  belongs in `ProjectTool` (`Tools/`) — the repo's tooling home — unless the effort to build it in
+  Swift is disproportionately large. A `scripts/*.sh` wrapper may shell out to a small `ProjectTool`
+  subcommand for the non-trivial parts (e.g. `scripts/deliver.sh` mints its App Store Connect ES256
+  JWT via `ProjectTool asc token`, CryptoKit — no OpenSSL/Ruby).
+- A **ready-made Ruby tool or library** (Fastlane, CocoaPods, an existing gem) is acceptable when it
+  clearly beats writing and maintaining a Swift equivalent — judge by effort and fit, not dogma.
+
 ## 12. Asset Management (images, models, fonts)
 
 - Prefer `Assets.xcassets` for images and colors; keep naming consistent and descriptive.
