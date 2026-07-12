@@ -112,11 +112,12 @@ public actor ModelLoadingService {
             throw ModelLoadingError.modelLoadFailed(url)
         }
 
-        // Extract metadata
+        // Extract metadata. Empty metadata is not fatal (AIA-0402): the parser then yields nils and
+        // an undetermined type, and the structural-signature fallback below still lets a runnable
+        // model import (as Disabled if inconclusive) rather than rejecting it outright.
         let metadata = model.modelDescription.metadata
-        guard !metadata.isEmpty else {
-            LoggingPolicy.warning("ModelLoadingService: Model has no metadata", logger: .drivers)
-            throw ModelLoadingError.metadataExtractionFailed(url)
+        if metadata.isEmpty {
+            LoggingPolicy.warning("ModelLoadingService: Model has no metadata; relying on structural signature", logger: .drivers)
         }
 
         let parser = MLModelMetadataParser(metadata: metadata)

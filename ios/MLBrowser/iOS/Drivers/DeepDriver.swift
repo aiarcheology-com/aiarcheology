@@ -119,9 +119,13 @@ class DeepDrivers: ObservableObject {
 	}
 
     func unregister(driverId: UUID) async {
-        await (classificators + detectors).first { $0.id == driverId }?.unload()
+        // Remove from the published buckets FIRST, then unload. A live type switch keys off these
+        // buckets to decide detect↔classify swaps (AIA-0402); leaving the driver visible during the
+        // async unload let a concurrent update misread the still-old type and skip the swap.
+        let driver = (classificators + detectors).first { $0.id == driverId }
         detectors = detectors.filter { $0.id != driverId }
         classificators = classificators.filter { $0.id != driverId }
+        await driver?.unload()
     }
 
 	/// Unloads and removes every registered driver.
