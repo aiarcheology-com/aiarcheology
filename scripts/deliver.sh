@@ -137,88 +137,34 @@ discover_developer_dir() {
 # ================================================================================================
 # App Store Connect: JWT (ES256), self-test, and REST helpers
 # ================================================================================================
-# The Ruby helper owns the crypto so the DER<->JOSE conversion lives in exactly one place.
-#   _ruby_jwt sign <key_path> <kid> <issuer> <ttl>   -> prints a signed JWT for the current instant
-#   _ruby_jwt selftest                               -> prints JWT-SELFTEST-OK, exits non-zero on failure
-_ruby_jwt() {
-    ruby - "$@" <<'RUBY'
-require 'openssl'
-require 'json'
-require 'base64'
-
-def b64url(bin)
-  Base64.urlsafe_encode64(bin).delete('=')
-end
-
-# ECDSA/DER (SEQUENCE{ INTEGER r, INTEGER s }) -> JOSE (r||s, each 32 bytes big-endian).
-def der_to_jose(der)
-  seq = OpenSSL::ASN1.decode(der)
-  r = seq.value[0].value.to_s(2)
-  s = seq.value[1].value.to_s(2)
-  raise "r/s too large" if r.bytesize > 32 || s.bytesize > 32
-  r.rjust(32, "\x00") + s.rjust(32, "\x00")
-end
-
-def jose_to_der(jose)
-  raise "jose must be 64 bytes" unless jose.bytesize == 64
-  r = OpenSSL::BN.new(jose[0, 32], 2)
-  s = OpenSSL::BN.new(jose[32, 32], 2)
-  OpenSSL::ASN1::Sequence.new(
-    [OpenSSL::ASN1::Integer.new(r), OpenSSL::ASN1::Integer.new(s)]
-  ).to_der
-end
-
-def sign_es256(key, header, claims)
-  input = b64url(JSON.generate(header)) + '.' + b64url(JSON.generate(claims))
-  der = key.dsa_sign_asn1(OpenSSL::Digest::SHA256.digest(input))
-  input + '.' + b64url(der_to_jose(der))
-end
-
-case ARGV[0]
-when 'sign'
-  key_path, kid, issuer, ttl = ARGV[1], ARGV[2], ARGV[3], Integer(ARGV[4])
-  key = OpenSSL::PKey.read(File.read(key_path))
-  raise "not an EC key" unless key.is_a?(OpenSSL::PKey::EC)
-  now = Time.now.to_i
-  header = { alg: 'ES256', kid: kid, typ: 'JWT' }
-  claims = { iss: issuer, iat: now, exp: now + ttl, aud: 'appstoreconnect-v1' }
-  print sign_es256(key, header, claims)
-when 'selftest'
-  key = OpenSSL::PKey::EC.generate('prime256v1')
-  now = 1_700_000_000
-  header = { alg: 'ES256', kid: 'SELFTEST', typ: 'JWT' }
-  claims = { iss: 'selftest-issuer', iat: now, exp: now + 900, aud: 'appstoreconnect-v1' }
-  token = sign_es256(key, header, claims)
-  parts = token.split('.')
-  raise "expected 3 JWT segments, got #{parts.length}" unless parts.length == 3
-  sig_b64 = parts[2] + '=' * ((4 - parts[2].length % 4) % 4)
-  jose = Base64.urlsafe_decode64(sig_b64)
-  raise "signature is #{jose.bytesize} bytes, expected 64" unless jose.bytesize == 64
-  digest = OpenSSL::Digest::SHA256.digest(parts[0] + '.' + parts[1])
-  # Positive: JOSE -> DER round-trip must still verify (proves the conversion is lossless & correct).
-  raise "round-trip signature failed to verify" unless key.dsa_verify_asn1(digest, jose_to_der(jose))
-  # Negative control: a tampered digest must be rejected. LibreSSL raises on an invalid signature
-  # where OpenSSL returns false — treat either as correct rejection.
-  bad = digest.dup
-  bad.setbyte(0, bad.getbyte(0) ^ 0xFF)
-  rejected = begin
-    !key.dsa_verify_asn1(bad, jose_to_der(jose))
-  rescue OpenSSL::PKey::PKeyError, OpenSSL::PKey::ECError
-    true
-  end
-  raise "tampered signature was accepted" unless rejected
-  puts 'JWT-SELFTEST-OK'
-else
-  warn "unknown _ruby_jwt mode: #{ARGV[0]}"
-  exit 2
-end
-RUBY
+# The ES256 crypto lives in Swift — ProjectTool `asc token` (CryptoKit), the repo's tooling home —
+# so there is no Ruby/OpenSSL dependency. CryptoKit's ECDSA rawRepresentation is already the 64-byte
+# JOSE r||s signature, so no DER<->JOSE conversion is needed.
+#   ProjectTool asc token --key-path <p8> --key-id <kid> --issuer <iss> --ttl <n>  -> prints a JWT
+#   ProjectTool asc token --selftest                                               -> ASC-JWT-SELFTEST-OK
+PROJECTTOOL_BIN=""
+projecttool_bin() {
+    # Build ProjectTool once and cache the resolved binary path. The JWT minter calls the binary
+    # directly (not `swift run`) so stdout is only the token — build progress goes to stderr. Warm
+    # this from the caller's shell (e.g. jwt_selftest) so per-request $(mint_jwt) subshells inherit
+    # the cached path and skip the build check.
+    if [[ -n "$PROJECTTOOL_BIN" ]]; then printf '%s' "$PROJECTTOOL_BIN"; return; fi
+    require_tool swift
+    (cd "$REPO_ROOT" && swift build --package-path Tools --product ProjectTool) >&2 \
+        || die "Failed to build ProjectTool (swift build --package-path Tools)."
+    local bindir
+    bindir="$(cd "$REPO_ROOT" && swift build --package-path Tools --show-bin-path 2>/dev/null)" \
+        || die "Could not resolve the ProjectTool build path."
+    PROJECTTOOL_BIN="${bindir}/ProjectTool"
+    [[ -x "$PROJECTTOOL_BIN" ]] || die "ProjectTool binary missing at ${PROJECTTOOL_BIN} after build."
+    printf '%s' "$PROJECTTOOL_BIN"
 }
 
 jwt_selftest() {
     local out
-    out="$(_ruby_jwt selftest 2>&1)" || die "JWT self-test failed: ${out}"
-    [[ "$out" == *"JWT-SELFTEST-OK"* ]] || die "JWT self-test did not confirm success: ${out}"
+    projecttool_bin >/dev/null          # warm PROJECTTOOL_BIN in the caller's shell (not a subshell)
+    out="$("$PROJECTTOOL_BIN" asc token --selftest 2>&1)" || die "JWT self-test failed: ${out}"
+    [[ "$out" == *"ASC-JWT-SELFTEST-OK"* ]] || die "JWT self-test did not confirm success: ${out}"
 }
 
 resolve_asc_credentials() {
@@ -288,7 +234,14 @@ ${body}"
 }
 
 mint_jwt() {
-    _ruby_jwt sign "$RESOLVED_KEY_PATH" "$ASC_KEY_ID" "$ASC_ISSUER_ID" "$JWT_TTL"
+    local bin
+    bin="$(projecttool_bin)"          # cached (warmed by jwt_selftest); no rebuild on repeat calls
+    "$bin" asc token \
+        --key-path "$RESOLVED_KEY_PATH" \
+        --key-id "$ASC_KEY_ID" \
+        --issuer "$ASC_ISSUER_ID" \
+        --ttl "$JWT_TTL" \
+        || die "Failed to mint App Store Connect JWT (ProjectTool asc token)."
 }
 
 # ================================================================================================
@@ -314,7 +267,10 @@ fetch_max_build_number() {
         versions+="$(printf '%s' "$resp" | jq -r '.data[].attributes.version // empty')"$'\n'
         url="$(printf '%s' "$resp" | jq -r '.links.next // empty')"
     done
-    max="$(printf '%s' "$versions" | ruby -e 'v=STDIN.read.split.map { |x| Integer(x) rescue nil }.compact; puts(v.empty? ? 0 : v.max)')"
+    # Numeric max over pure-integer CFBundleVersions (non-integer/dotted versions are ignored, as the
+    # Ruby `Integer()` guard did). `grep` finding nothing must not trip pipefail → wrap in `|| true`.
+    max="$(printf '%s\n' "$versions" | { grep -E '^[0-9]+$' || true; } | sort -n | tail -1)"
+    [[ -n "$max" ]] || max=0
     printf '%s' "$max"
 }
 
@@ -355,7 +311,6 @@ preflight() {
     info "Preflight (${subcommand}${dr})…"
 
     # Always-required local tools (used by both dry-run and live paths).
-    require_tool ruby
     require_tool git
 
     # Clean worktree.
@@ -399,7 +354,7 @@ preflight() {
 
     # ---- live only: network tools, crypto, sweep, credentials ----
     local t
-    for t in jq curl xcodebuild plutil; do require_tool "$t"; done
+    for t in swift jq curl xcodebuild plutil; do require_tool "$t"; done
 
     jwt_selftest
     log "JWT ES256 self-test OK."
@@ -616,23 +571,22 @@ build_whatsnew_json() {
     # Substitutes the resolved build number into the WhatToTest 'Build:' line and emits a
     # betaBuildLocalizations JSON payload (PATCH form if $2 given, else POST form with $3 = build id).
     local num="$1" loc_id="${2:-}" build_id="${3:-}"
+    require_tool jq
     [[ -f "$WHATSNEW_FILE" ]] || die "Missing ${WHATSNEW_FILE}."
-    ruby -e '
-      num, path, loc_id, build_id, maxlen = ARGV
-      text = File.read(path)
-      raise "WhatToTest is empty" if text.strip.empty?
-      text = text.sub(/^Build:.*\R?/, "Build: #{num}\n")
-      raise "whatsNew exceeds #{maxlen} chars (#{text.length})" if text.length > maxlen.to_i
-      require "json"
-      attrs = { "whatsNew" => text }
-      if loc_id.empty?
-        payload = { "data" => { "type" => "betaBuildLocalizations", "attributes" => attrs.merge("locale" => "en-US"),
-                                "relationships" => { "build" => { "data" => { "type" => "builds", "id" => build_id } } } } }
-      else
-        payload = { "data" => { "type" => "betaBuildLocalizations", "id" => loc_id, "attributes" => attrs } }
-      end
-      print JSON.generate(payload)
-    ' "$num" "$WHATSNEW_FILE" "$loc_id" "$build_id" "$WHATSNEW_MAX"
+    # Rewrite the FIRST 'Build:' line to the resolved number (awk, first-match-only, like Ruby's sub).
+    local text
+    text="$(awk -v n="$num" '!done && /^Build:/ { print "Build: " n; done=1; next } { print }' "$WHATSNEW_FILE")"
+    [[ -n "${text//[[:space:]]/}" ]] || die "WhatToTest is empty."
+    if [[ "${#text}" -gt "$WHATSNEW_MAX" ]]; then
+        die "whatsNew exceeds ${WHATSNEW_MAX} chars (${#text})."
+    fi
+    if [[ -z "$loc_id" ]]; then
+        jq -n --arg t "$text" --arg bid "$build_id" \
+          '{data:{type:"betaBuildLocalizations",attributes:{whatsNew:$t,locale:"en-US"},relationships:{build:{data:{type:"builds",id:$bid}}}}}'
+    else
+        jq -n --arg t "$text" --arg lid "$loc_id" \
+          '{data:{type:"betaBuildLocalizations",id:$lid,attributes:{whatsNew:$t}}}'
+    fi
 }
 
 cmd_notes() {
@@ -710,15 +664,37 @@ ${trace}"
 }
 
 # ================================================================================================
+# check — verify credentials against App Store Connect (read-only; no archive, no upload)
+# ================================================================================================
+cmd_check() {
+    local t
+    for t in swift jq curl; do require_tool "$t"; done
+
+    info "Resolving App Store Connect credentials (env / 1Password)…"
+    resolve_asc_credentials
+    log "Key ID ${ASC_KEY_ID}, issuer ${ASC_ISSUER_ID:0:8}…${ASC_ISSUER_ID: -4}, .p8 loaded."
+
+    info "ES256 JWT self-test…"
+    jwt_selftest
+    log "OK."
+
+    info "Authenticating against App Store Connect (read-only GET /v1/apps)…"
+    local app_id
+    app_id="$(resolve_app_id)"
+    info "✅ Credentials work — key authenticates and app ${app_id} (${BUNDLE_ID}) resolved."
+    log "No archive, upload, or write was performed."
+}
+
+# ================================================================================================
 # Arg parsing + dispatch
 # ================================================================================================
 main() {
     if [[ $# -eq 0 ]]; then show_help; exit 1; fi
     case "$1" in
         -h|--help) show_help; exit 0 ;;
-        deliver|notes|selftest) SUBCOMMAND="$1"; shift ;;
+        deliver|notes|selftest|check) SUBCOMMAND="$1"; shift ;;
         validate) SUBCOMMAND="validate"; VALIDATE_ONLY=1; shift ;;
-        *) die "Unknown subcommand '$1' (expected: deliver | validate | notes | selftest). Use --help." ;;
+        *) die "Unknown subcommand '$1' (expected: deliver | validate | check | notes | selftest). Use --help." ;;
     esac
 
     while [[ $# -gt 0 ]]; do
@@ -741,7 +717,7 @@ main() {
         die "--build-number must be a positive integer with no leading zero (got '${BUILD_NUMBER}')."
     fi
     # Dry-run cannot query App Store Connect, so the build number must be supplied up front.
-    if [[ "$DRY_RUN" == 1 && "$SUBCOMMAND" != "selftest" && -z "$BUILD_NUMBER" ]]; then
+    if [[ "$DRY_RUN" == 1 && "$SUBCOMMAND" != "selftest" && "$SUBCOMMAND" != "check" && -z "$BUILD_NUMBER" ]]; then
         die "--dry-run requires --build-number (App Store Connect is not queried offline)."
     fi
 
@@ -753,6 +729,7 @@ main() {
     # not require an Xcode toolchain.
     case "$SUBCOMMAND" in
         selftest)          cmd_selftest ;;
+        check)             cmd_check ;;
         deliver|validate)  cmd_deliver ;;
         notes)             cmd_notes ;;
     esac
