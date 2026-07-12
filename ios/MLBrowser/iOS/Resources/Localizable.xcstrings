@@ -9471,6 +9471,18 @@
         }
       }
     },
+    "import.successTitle" : {
+      "comment" : "Title of the alert shown after importing a model whose type the parser could determine (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model imported"
+          }
+        }
+      }
+    },
     "import.successWithInfo" : {
       "comment" : "Import success message with model info (description, author)",
       "extractionState" : "manual",

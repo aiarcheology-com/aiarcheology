@@ -149,13 +149,16 @@ struct DrawerContent: View {
             let context = moc
             tour.bindEnableModel { enableFirstReadyDemoModel(in: context) }
         }
-        // UI-test-only hook (AIA-0402): once the first model has seeded, auto-open its settings in
-        // type-review mode so tests can exercise the confirmation banner without the un-scriptable
-        // file import. `shouldReviewFirstModelType` is false in every shipping build.
+        // UI-test-only hook (AIA-0402): once the first model has seeded, force it to look unparsed
+        // (the seeded demos are parser-decided → read-only) and auto-open its settings in type-review
+        // mode, so tests can exercise the editable picker + confirmation footnotes without the
+        // un-scriptable file import. `shouldReviewFirstModelType` is false in every shipping build.
         .onChange(of: configurations.first?.entityId, initial: true) { _, firstId in
             guard UITestLaunchConfiguration.shouldReviewFirstModelType,
-                  !didAutoReviewForUITests, let firstId else { return }
+                  !didAutoReviewForUITests, let firstId,
+                  let config = deep.selectConfiguration(firstId) else { return }
             didAutoReviewForUITests = true
+            config.modelTypeParsed = false
             typeReviewConfigId = firstId
             selectedConfigurationId = firstId
         }

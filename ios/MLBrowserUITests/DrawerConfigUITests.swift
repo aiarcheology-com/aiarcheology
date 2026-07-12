@@ -95,15 +95,17 @@ final class DrawerConfigUITests: UITestCase {
         firstRow.tap()
     }
 
-    func testConfigForm_typePicker_showsThreeStates() {
+    func testConfigForm_parsedType_isReadOnly() {
         launch()
         openFirstModelSettings()
 
+        // The seeded demo declares its type (parser-decided), so the type is locked: shown read-only,
+        // with no editable segmented control (AIA-0402).
         let picker = app.segmentedControls[AID.configModelTypePicker]
-        XCTAssertTrue(picker.waitForExistence(timeout: 5), "Three-state Type picker should appear in the config form")
-        XCTAssertTrue(picker.buttons["Detection"].exists, "Detection segment missing")
-        XCTAssertTrue(picker.buttons["Classification"].exists, "Classification segment missing")
-        XCTAssertTrue(picker.buttons["Disabled"].exists, "Disabled segment missing")
+        XCTAssertFalse(picker.waitForExistence(timeout: 3),
+                       "A parser-decided model's type must be read-only (no editable picker)")
+        XCTAssertTrue(app.staticTexts["Detection"].waitForExistence(timeout: 5),
+                      "A parser-decided detector should show its type read-only")
     }
 
     func testDrawer_modelRow_showsTypeCaption() {
@@ -116,36 +118,12 @@ final class DrawerConfigUITests: UITestCase {
                       "Model row should show its type as a caption")
     }
 
-    func testConfigForm_selectDisabled_showsCaptionAndBlocksToggle() {
-        launch()
-        openFirstModelSettings()
-
-        let picker = app.segmentedControls[AID.configModelTypePicker]
-        XCTAssertTrue(picker.waitForExistence(timeout: 5))
-        picker.buttons["Disabled"].tap()
-
-        // Dismiss the settings sheet back to the drawer.
-        let dismiss = app.buttons[AID.configFormDismiss]
-        XCTAssertTrue(dismiss.waitForExistence(timeout: 5), "Config form dismiss button missing")
-        dismiss.tap()
-
-        // The row caption now reads "Disabled" (only the caption uses this text in the drawer)…
-        XCTAssertTrue(app.staticTexts["Disabled"].waitForExistence(timeout: 10),
-                      "Drawer caption should read Disabled after choosing Disabled")
-
-        // …and that model's enable toggle is no longer interactive.
-        let disabledToggle = app.switches.matching(
-            NSPredicate(format: "identifier == %@ AND enabled == false", AID.configEnabledToggle)
-        ).firstMatch
-        XCTAssertTrue(disabledToggle.waitForExistence(timeout: 5),
-                      "A Disabled model's enable toggle must be non-interactive")
-    }
-
-    // AIA-0402 (follow-up): after import, a model's settings auto-open in "type review" mode so the
-    // user confirms the type — no model runs on a type the app couldn't verify. The real file import
-    // isn't scriptable under XCUITest, so `reviewFirstModelType` drives the first seeded model into
-    // the same review presentation to exercise the confirmation footnote and the red Disabled warning.
-    func testConfigForm_typeReview_showsConfirmationThenRedDisabledWarning() {
+    // AIA-0402 (follow-up): after import, an UNPARSED-type model's settings auto-open in "type review"
+    // mode so the user picks a type — no model runs on a type the app couldn't verify. The real file
+    // import isn't scriptable under XCUITest, so `reviewFirstModelType` forces the first seeded model
+    // to look unparsed and drives it into the same review presentation, exercising the editable picker,
+    // the confirmation footnote, and the red Disabled warning.
+    func testConfigForm_unparsedTypeReview_showsPickerConfirmationAndRedWarning() {
         var config = LaunchConfig()
         config.reviewFirstModelType = true
         _ = launch(config)
@@ -155,9 +133,12 @@ final class DrawerConfigUITests: UITestCase {
         // Wait on the picker directly — the seeded-toggle helper would race the covering sheet.
         let picker = app.segmentedControls[AID.configModelTypePicker]
         XCTAssertTrue(picker.waitForExistence(timeout: 25),
-                      "Type-review settings should auto-open after the first model seeds")
+                      "An unparsed model's review settings should auto-open with an editable picker")
+        XCTAssertTrue(picker.buttons["Detection"].exists, "Detection segment missing")
+        XCTAssertTrue(picker.buttons["Classification"].exists, "Classification segment missing")
+        XCTAssertTrue(picker.buttons["Disabled"].exists, "Disabled segment missing")
 
-        // A seeded demo model is a detector, so its type is pre-selected and the confirm footnote shows.
+        // The forced-unparsed model keeps its detector value pre-selected, so the confirm footnote shows.
         let confirmFootnote = app.staticTexts.containing(
             NSPredicate(format: "label CONTAINS %@", "Pre-selected as our best guess")
         ).firstMatch
@@ -171,5 +152,17 @@ final class DrawerConfigUITests: UITestCase {
         ).firstMatch
         XCTAssertTrue(disabledWarning.waitForExistence(timeout: 5),
                       "Choosing Disabled in review should show the red undetermined-type warning")
+
+        // Dismiss back to the drawer: the caption reads "Disabled" and that model's toggle is greyed.
+        let dismiss = app.buttons[AID.configFormDismiss]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 5), "Config form dismiss button missing")
+        dismiss.tap()
+        XCTAssertTrue(app.staticTexts["Disabled"].waitForExistence(timeout: 10),
+                      "Drawer caption should read Disabled after choosing Disabled")
+        let disabledToggle = app.switches.matching(
+            NSPredicate(format: "identifier == %@ AND enabled == false", AID.configEnabledToggle)
+        ).firstMatch
+        XCTAssertTrue(disabledToggle.waitForExistence(timeout: 5),
+                      "A Disabled model's enable toggle must be non-interactive")
     }
 }

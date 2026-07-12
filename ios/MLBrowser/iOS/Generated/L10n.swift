@@ -431,6 +431,8 @@ internal enum L10n {
     internal static let onnxConversionHint = L10n.tr("Localizable", "import.onnxConversionHint", fallback: "Use this Python code to convert ONNX models:")
     /// The model has been imported successfully.
     internal static let success = L10n.tr("Localizable", "import.success", fallback: "The model has been imported successfully.")
+    /// Model imported
+    internal static let successTitle = L10n.tr("Localizable", "import.successTitle", fallback: "Model imported")
     /// The model %1$@ from %2$@ has been successfully imported.
     internal static func successWithInfo(_ p1: Any, _ p2: Any) -> String {
       return L10n.tr("Localizable", "import.successWithInfo", String(describing: p1), String(describing: p2), fallback: "The model %1$@ from %2$@ has been successfully imported.")

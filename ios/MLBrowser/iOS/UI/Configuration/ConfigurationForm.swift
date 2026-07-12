@@ -220,20 +220,26 @@ struct ConfigurationForm: View {
 				layout: .leadingStacked,
 				showsCopyButton: false
 			)
-			VStack(alignment: .leading, spacing: 6) {
-				Text(L10n.Configuration.type)
-				Picker(L10n.Configuration.type, selection: modelTypeSelection) {
-					Text(DeepDriverType.detector.localizedName).tag(DeepDriverType.detector)
-					Text(DeepDriverType.classificator.localizedName).tag(DeepDriverType.classificator)
-					Text(DeepDriverType.invalid.localizedName).tag(DeepDriverType.invalid)
+			if configuration.modelTypeParsed {
+				// The parser read the type from the model's metadata, so it's authoritative and
+				// shown read-only — the user only picks a type when the parser couldn't (AIA-0402).
+				ConfigurationDetailRow(label: L10n.Configuration.type, value: configuration.modelType.localizedName)
+			} else {
+				VStack(alignment: .leading, spacing: 6) {
+					Text(L10n.Configuration.type)
+					Picker(L10n.Configuration.type, selection: modelTypeSelection) {
+						Text(DeepDriverType.detector.localizedName).tag(DeepDriverType.detector)
+						Text(DeepDriverType.classificator.localizedName).tag(DeepDriverType.classificator)
+						Text(DeepDriverType.invalid.localizedName).tag(DeepDriverType.invalid)
+					}
+					.pickerStyle(.segmented)
+					.labelsHidden()
+					// In a post-import review, a still-undetermined type (Disabled) is a problem the
+					// user must resolve — tint the control red to match the warning footnote (AIA-0402).
+					.tint(pendingTypeReview && configuration.modelType == .invalid ? .red : nil)
+					.testability(Testability.Picker.configurationFormModelType)
+					modelTypeFootnote
 				}
-				.pickerStyle(.segmented)
-				.labelsHidden()
-				// In a post-import review, a still-undetermined type (Disabled) is a problem the
-				// user must resolve — tint the control red to match the warning footnote (AIA-0402).
-				.tint(pendingTypeReview && configuration.modelType == .invalid ? .red : nil)
-				.testability(Testability.Picker.configurationFormModelType)
-				modelTypeFootnote
 			}
 			ConfigurationDetailRow(label: L10n.Configuration.version, value: " \(configuration.modelVersion ?? "")")
 

@@ -243,6 +243,7 @@ enum StringCatalogValidator {
             "import.onnxConversion",
             "import.onnxConversionHint",
             "import.success",
+            "import.successTitle",
             "import.successWithInfo",
             "import.supportedModels",
             "import.supportedModelsInfo",

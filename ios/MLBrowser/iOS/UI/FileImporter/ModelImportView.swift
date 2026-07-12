@@ -89,20 +89,23 @@ struct ModelImportView: View {
 		} message: {
 			Text(errorMessage ?? "An unknown error occurred.")
 		}
-		.alert(L10n.Import.confirmTypeTitle, isPresented: .init(
-			get: { importedModelInfo != nil },
-			set: { if !$0 { importedModelInfo = nil } }
+		.alert(importedModelInfo?.needsReview == true ? L10n.Import.confirmTypeTitle : L10n.Import.successTitle,
+			   isPresented: .init(
+				get: { importedModelInfo != nil },
+				set: { if !$0 { importedModelInfo = nil } }
 		)) {
 			Button(L10n.Common.ok) {
-				let importedId = importedModelInfo?.id
+				let info = importedModelInfo
 				importedModelInfo = nil
-				// Hand the id to the presenter FIRST so its onDismiss can open the settings
-				// sheet once this import sheet finishes dismissing (AIA-0402).
-				if let importedId { onImported(importedId) }
+				// Only an unparsed-type model opens its settings for the user to pick a type; a
+				// parsed (authoritative) type is trusted and locked, so its import just confirms
+				// success. Hand the id to the presenter FIRST so its onDismiss can open the
+				// settings sheet once this import sheet finishes dismissing (AIA-0402).
+				if let info, info.needsReview { onImported(info.id) }
 				dismiss()
 			}
 		} message: {
-			Text(L10n.Import.typeConfirmation)
+			Text(importedModelInfo?.needsReview == true ? L10n.Import.typeConfirmation : L10n.Import.success)
 		}
 		.presentationDetents([.large])
 	}
@@ -385,6 +388,7 @@ struct ModelImportView: View {
 		configuration.author = extractedInfo.author
 		configuration.creationDate_ = extractedInfo.creationDateString?.toDate(.createMl)
 		configuration.modelType = extractedInfo.task
+		configuration.modelTypeParsed = extractedInfo.typeWasParsed
 		configuration.phaseOutTime = 2
 		configuration.selectedSymbol = .circle
 
@@ -412,7 +416,7 @@ struct ModelImportView: View {
 			deep.saveConfigurations()
 			provider.result(.importSucceeded, id: id)
 
-			return ImportedModelInfo(id: id)
+			return ImportedModelInfo(id: id, needsReview: !extractedInfo.typeWasParsed)
 		} else {
 			moc.delete(configuration)
 			provider.result(.importFailed, id: id)
@@ -423,9 +427,11 @@ struct ModelImportView: View {
 
 // MARK: - Imported Model Info
 
-/// Identifies a just-imported model so the presenter can open its settings for type confirmation.
+/// Identifies a just-imported model. `needsReview` is `true` when the parser couldn't determine the
+/// type, so the presenter opens the model's settings for the user to pick one (AIA-0402).
 private struct ImportedModelInfo {
 	let id: UUID
+	let needsReview: Bool
 }
 
 // MARK: - Supporting Types

@@ -17,19 +17,25 @@ public struct ExtractedModelInfo: Sendable, Equatable {
     public let author: String?
     public let creationDateString: String?
     public let task: DeepDriverType
+    /// `true` when `task` came from the metadata parser (authoritative). `false` when the parser
+    /// couldn't determine it and `task` is a structural-signature recommendation for the user to
+    /// confirm — the driver of the locked-vs-editable type control (AIA-0402).
+    public let typeWasParsed: Bool
 
     public init(
         modelVersion: String?,
         modelDescription: String?,
         author: String?,
         creationDateString: String?,
-        task: DeepDriverType
+        task: DeepDriverType,
+        typeWasParsed: Bool
     ) {
         self.modelVersion = modelVersion
         self.modelDescription = modelDescription
         self.author = author
         self.creationDateString = creationDateString
         self.task = task
+        self.typeWasParsed = typeWasParsed
     }
 }
 
@@ -122,24 +128,24 @@ public actor ModelLoadingService {
 
         let parser = MLModelMetadataParser(metadata: metadata)
 
-        // Determine the model type. The `task` metadata key is authoritative when present;
-        // when it's missing (`.invalid`), fall back to the model's structural signature so the
-        // model can still be imported — as Disabled if even that is inconclusive — and the user
-        // can set the type manually (AIA-0402). Import no longer rejects unreadable-type models.
-        var task = parser.task
-        if task == .invalid {
-            task = Self.inferType(from: model.modelDescription)
-        }
+        // Determine the model type. The metadata `task`/preview/turi key is authoritative when the
+        // parser yields one; when it can't (`.invalid`), the type was NOT parsed — fall back to the
+        // model's structural signature as a *recommendation* the user confirms, and record that the
+        // parser didn't decide so the type control can lock (parsed) or open for editing (AIA-0402).
+        let parserTask = parser.task
+        let typeWasParsed = parserTask != .invalid
+        let task = typeWasParsed ? parserTask : Self.inferType(from: model.modelDescription)
 
         let info = ExtractedModelInfo(
             modelVersion: parser.modelVersion,
             modelDescription: parser.value(for: .description) as? String,
             author: parser.value(for: .author) as? String,
             creationDateString: parser.value(for: .date) as? String,
-            task: task
+            task: task,
+            typeWasParsed: typeWasParsed
         )
 
-        LoggingPolicy.info("ModelLoadingService: Metadata extracted - task=\(info.task.rawValue), author=\(info.author ?? "unknown")", logger: .drivers)
+        LoggingPolicy.info("ModelLoadingService: Metadata extracted - task=\(info.task.rawValue), parsed=\(typeWasParsed), author=\(info.author ?? "unknown")", logger: .drivers)
 
         return info
     }
