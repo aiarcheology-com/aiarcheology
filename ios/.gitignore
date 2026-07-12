@@ -1,6 +1,7 @@
 # Secrets (generated from 1Password - do not commit)
 .sentryclirc
 Secrets.xcconfig
+asc.env
 
 # Generated files
 MLBrowser/iOS/Resources/Localizable.strings
