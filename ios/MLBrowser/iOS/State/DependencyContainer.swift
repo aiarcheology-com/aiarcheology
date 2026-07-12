@@ -51,7 +51,9 @@ class DependencyContainer {
         return DemoDataManager(dataController: self.dataController)
     }()
 
-    lazy var findingRepository: FindingRepository = {
+    // `private(set)`: `AppState` captures this instance at construction; reassigning it afterwards
+    // would hand later consumers a different repository/persistence context. Read-only to the outside.
+    private(set) lazy var findingRepository: FindingRepository = {
         return FindingRepository(dataController: self.dataController)
     }()
 

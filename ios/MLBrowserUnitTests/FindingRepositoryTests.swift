@@ -22,6 +22,10 @@ final class FindingRepositoryTests: XCTestCase {
 	override func setUp() async throws {
 		try await super.setUp()
 		dataController = DataController(inMemory: true)
+		// Await store readiness before touching `viewContext`, matching the rest of the suite.
+		// (The in-memory store actually loads synchronously, so there is no real race — this keeps
+		// the tests robust to that assumption and consistent with the other Core Data tests.)
+		await dataController.awaitStoreReady()
 		sut = FindingRepository(dataController: dataController)
 	}
 
@@ -70,6 +74,10 @@ final class FindingRepositoryTests: XCTestCase {
 
 	func testSave_invalidFinding_throwsAndRollsBackRowAndScreenshot() throws {
 		let box = CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5)
+		// Snapshot the on-disk screenshot dir so we can prove the rollback deletes the PNG too —
+		// not just the Core Data row. This exercises the repository catch-block's file cleanup;
+		// a regression that left an orphaned screenshot (while still throwing) would fail here.
+		let before = Self.screenshotFilenames()
 		// Empty title fails validationReport → the whole transaction must roll back.
 		XCTAssertThrowsError(
 			try sut.save(
@@ -80,5 +88,15 @@ final class FindingRepositoryTests: XCTestCase {
 			)
 		)
 		XCTAssertEqual(Finding.count(in: moc, predicate: nil), 0, "no row survives a failed save")
+		XCTAssertEqual(Self.screenshotFilenames(), before, "a failed save leaves no orphaned screenshot on disk")
+	}
+
+	/// Current filenames in the shared `Documents/Findings` dir (the store's write target),
+	/// derived via the store's public URL helper so the test needn't know the absolute path.
+	private static func screenshotFilenames() -> Set<String> {
+		guard let dir = FindingScreenshotStore.url(forFilename: "probe.png")?.deletingLastPathComponent(),
+			  let urls = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
+		else { return [] }
+		return Set(urls.map(\.lastPathComponent))
 	}
 }
