@@ -76,9 +76,10 @@ REF=""
 PREFLIGHT_WOULD_FAIL=0
 
 # Convenience: source ios/asc.env (op:// references for the ASC key) if present AND the caller has
-# not already provided the credentials in the environment. Explicit env vars always win; the file is
-# a fallback so operators don't re-export three vars every session. It holds references, not secrets.
-if [[ -z "${ASC_KEY_ID:-}${ASC_KEY_PATH:-}${ASC_KEY_OP_REF:-}" && -f "${REPO_ROOT}/ios/asc.env" ]]; then
+# provided NO ASC_* credential in the environment. Explicit env vars always win — sourcing is
+# all-or-nothing: any explicit ASC_* var (including ASC_ISSUER_ID) suppresses the file so it can't
+# clobber a partially-explicit config. The file holds references, not secrets.
+if [[ -z "${ASC_KEY_ID:-}${ASC_ISSUER_ID:-}${ASC_KEY_PATH:-}${ASC_KEY_OP_REF:-}" && -f "${REPO_ROOT}/ios/asc.env" ]]; then
     # shellcheck source=/dev/null
     source "${REPO_ROOT}/ios/asc.env"
 fi
