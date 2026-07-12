@@ -92,7 +92,8 @@ mktemp_tracked() {
 }
 
 show_help() {
-    sed -n '2,45p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    # Print the leading comment header (from line 2 until the first non-comment line), stripping "# ".
+    awk 'NR==1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "${BASH_SOURCE[0]}"
 }
 
 # ================================================================================================
@@ -594,12 +595,12 @@ main() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --dry-run)          DRY_RUN=1; shift ;;
-            --build-number)     BUILD_NUMBER="${2:-}"; shift 2 ;;
+            --build-number)     [[ $# -ge 2 ]] || die "--build-number requires a value."; BUILD_NUMBER="$2"; shift 2 ;;
             --skip-tests)       SKIP_TESTS=1; shift ;;
             --allow-dirty)      ALLOW_DIRTY=1; shift ;;
             --online-preflight) ONLINE_PREFLIGHT=1; shift ;;
             --export-only)      EXPORT_ONLY=1; shift ;;
-            --ref)              REF="${2:-}"; shift 2 ;;
+            --ref)              [[ $# -ge 2 ]] || die "--ref requires a value."; REF="$2"; shift 2 ;;
             -h|--help)          show_help; exit 0 ;;
             *) die "Unknown option '$1' for '${SUBCOMMAND}'. Use --help." ;;
         esac
