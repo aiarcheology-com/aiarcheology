@@ -222,15 +222,27 @@ resolve_asc_credentials() {
     fi
 }
 
-# GET a full ASC URL with a freshly-minted token; prints body, dies on non-2xx. (Per-request token:
-# a single JWT can expire mid-pagination or during the notes poll.)
-asc_get() {
-    local url="$1" token body http tmp
+# Writes a curl config file (0600, under TMP_DIR) carrying a freshly-minted bearer token, and prints
+# its path. Keeps the token out of curl's argv — argv is visible to same-user `ps`. Per-request
+# token: a single JWT can expire mid-pagination or during the notes poll.
+_asc_auth_config() {
+    local token cfg
     token="$(mint_jwt)"
+    cfg="$(mktemp_tracked)"
+    printf 'header = "Authorization: Bearer %s"\n' "$token" > "$cfg"
+    printf '%s' "$cfg"
+}
+
+# GET a full ASC URL; prints body, dies on non-2xx. No `-f`: curl exits 0 for any completed HTTP
+# response so the real status code AND the JSON error body survive (needed to tell a 403 wrong-role
+# key from a 429 rate-limit from a still-processing build). curl fails only on a transport error.
+asc_get() {
+    local url="$1" cfg http body tmp
+    cfg="$(_asc_auth_config)"
     tmp="$(mktemp_tracked)"
-    http="$(curl -fsS -o "$tmp" -w '%{http_code}' \
-        -H "Authorization: Bearer ${token}" -H 'Accept: application/json' \
-        "$url" 2>/dev/null)" || http="000"
+    if ! http="$(curl -sS -K "$cfg" -o "$tmp" -w '%{http_code}' -H 'Accept: application/json' "$url" 2>/dev/null)"; then
+        die "App Store Connect GET transport error (network/DNS/TLS): ${url}"
+    fi
     body="$(cat "$tmp")"
     if [[ "$http" -lt 200 || "$http" -ge 300 ]]; then
         die "App Store Connect GET failed (HTTP ${http}): ${url}
@@ -241,14 +253,14 @@ ${body}"
 
 # METHOD PATH JSON-body ; prints body, dies on non-2xx.
 asc_send() {
-    local method="$1" path="$2" data="$3" token body http tmp
-    token="$(mint_jwt)"
+    local method="$1" path="$2" data="$3" cfg http body tmp
+    cfg="$(_asc_auth_config)"
     tmp="$(mktemp_tracked)"
-    http="$(curl -fsS -o "$tmp" -w '%{http_code}' -X "$method" \
-        -H "Authorization: Bearer ${token}" \
+    if ! http="$(curl -sS -K "$cfg" -o "$tmp" -w '%{http_code}' -X "$method" \
         -H 'Content-Type: application/json' -H 'Accept: application/json' \
-        --data "$data" \
-        "${ASC_HOST}${path}" 2>/dev/null)" || http="000"
+        --data "$data" "${ASC_HOST}${path}" 2>/dev/null)"; then
+        die "App Store Connect ${method} ${path} transport error (network/DNS/TLS)."
+    fi
     body="$(cat "$tmp")"
     if [[ "$http" -lt 200 || "$http" -ge 300 ]]; then
         die "App Store Connect ${method} ${path} failed (HTTP ${http}):
@@ -324,18 +336,9 @@ preflight() {
     [[ "$DRY_RUN" == 1 ]] && dr=", dry-run"
     info "Preflight (${subcommand}${dr})…"
 
-    # Tools that even the offline paths need are always hard requirements.
+    # Always-required local tools (used by both dry-run and live paths).
     require_tool ruby
     require_tool git
-    # Network/build tools: hard for a live run, downgraded for dry-run (they are not invoked offline).
-    local t
-    for t in jq curl xcodebuild plutil; do
-        command -v "$t" >/dev/null 2>&1 || preflight_fail "required tool not found on PATH: ${t}"
-    done
-
-    # ES256 JWT crypto self-test — always (offline, no credentials).
-    jwt_selftest
-    log "JWT ES256 self-test OK."
 
     # Clean worktree.
     if [[ "$ALLOW_DIRTY" == 1 ]]; then
@@ -344,45 +347,61 @@ preflight() {
         preflight_fail "working tree is dirty (commit/stash, or pass --allow-dirty)."
     fi
 
-    # Branch invariant: deliver from develop or an explicit ref, never a stray feature branch.
-    local current
+    # Branch / ref invariant. We always archive the CURRENT working tree, so --ref is an assertion
+    # that HEAD already points at that tag/sha (not a checkout directive) — verify and refuse a
+    # mismatch, otherwise `--ref v1` from a feature branch would silently ship the feature branch.
+    local current head_sha ref_sha
     current="$(cd "$REPO_ROOT" && git rev-parse --abbrev-ref HEAD)"
     if [[ -n "$REF" ]]; then
-        log "Delivering explicit ref: ${REF} (operator override — ensure it is release-worthy)."
+        head_sha="$(cd "$REPO_ROOT" && git rev-parse HEAD)"
+        if ! ref_sha="$(cd "$REPO_ROOT" && git rev-parse --verify --quiet "${REF}^{commit}")"; then
+            preflight_fail "--ref '${REF}' is not a valid commit/tag."
+        elif [[ "$ref_sha" != "$head_sha" ]]; then
+            preflight_fail "--ref '${REF}' (${ref_sha:0:9}) is not checked out (HEAD is ${head_sha:0:9}). Check it out first."
+        else
+            log "Delivering ref ${REF} (${ref_sha:0:9}) — matches HEAD."
+        fi
     elif [[ "$current" != "develop" ]]; then
         preflight_fail "not on 'develop' (on '${current}'). Deliver from develop or pass --ref <tag|sha>."
     fi
 
-    # Build secrets present (build xcconfig). Slow (builds ProjectTool); skipped with --skip-tests.
+    if [[ "$DRY_RUN" == 1 ]]; then
+        # Dry-run is strictly local & read-only: NO crypto, NO swift/xcode, NO 1Password, NO network.
+        log "dry-run: skipping (WOULD RUN live) — JWT self-test, ProjectTool secrets validate,"
+        log "         swiftlint + harmonize + unittest, credential resolution, and all network."
+        log "         Use 'selftest' for the crypto/redaction checks; a live run performs the sweep."
+        [[ "$SKIP_TESTS" == 1 ]] && warn "--skip-tests noted (a live run would skip the sweep)."
+        if [[ "$PREFLIGHT_WOULD_FAIL" == 1 ]]; then
+            warn "Dry-run completed but checks above marked WOULD FAIL LIVE — a live run would stop."
+        fi
+        return 0
+    fi
+
+    # ---- live only: network tools, crypto, sweep, credentials ----
+    local t
+    for t in jq curl xcodebuild plutil; do require_tool "$t"; done
+
+    jwt_selftest
+    log "JWT ES256 self-test OK."
+
     if [[ "$SKIP_TESTS" == 1 ]]; then
         warn "--skip-tests: skipping ProjectTool secrets validation + the full sweep. NOT a full release preflight."
     else
         log "Validating build secrets (ProjectTool)…"
-        if ! (cd "$REPO_ROOT" && swift run --package-path Tools ProjectTool secrets validate); then
-            preflight_fail "ProjectTool secrets validate failed (run: swift run --package-path Tools ProjectTool secrets generate)."
-        fi
+        (cd "$REPO_ROOT" && swift run --package-path Tools ProjectTool secrets validate) \
+            || die "Preflight failed: ProjectTool secrets validate (run: swift run --package-path Tools ProjectTool secrets generate)."
         log "Running the pre-push sweep (lint + harmonize + unit tests)…"
-        if ! (cd "$REPO_ROOT" && ./scripts/swiftlint.sh && ./scripts/harmonize.sh && ./scripts/unittest.sh); then
-            preflight_fail "pre-push sweep failed (swiftlint / harmonize / unittest)."
-        fi
+        (cd "$REPO_ROOT" && ./scripts/swiftlint.sh && ./scripts/harmonize.sh && ./scripts/unittest.sh) \
+            || die "Preflight failed: pre-push sweep (swiftlint / harmonize / unittest)."
     fi
 
-    # ASC credentials present (needed to reach App Store Connect).
-    if [[ "$DRY_RUN" == 1 ]]; then
-        log "dry-run: skipping credential resolution (no 1Password read, no JWT, no network)."
-    else
-        resolve_asc_credentials
-        log "App Store Connect credentials resolved (key id + issuer + .p8)."
-    fi
+    resolve_asc_credentials
+    log "App Store Connect credentials resolved (key id + issuer + .p8)."
 
-    if [[ "$ONLINE_PREFLIGHT" == 1 && "$DRY_RUN" != 1 ]]; then
+    if [[ "$ONLINE_PREFLIGHT" == 1 ]]; then
         local app_id
         app_id="$(resolve_app_id)"
         log "Online preflight OK: authenticated; app id ${app_id} resolved for ${BUNDLE_ID}."
-    fi
-
-    if [[ "$DRY_RUN" == 1 && "$PREFLIGHT_WOULD_FAIL" == 1 ]]; then
-        warn "Dry-run rehearsal passed but the checks above marked WOULD FAIL LIVE — a live run would stop."
     fi
 }
 
@@ -458,6 +477,20 @@ cmd_deliver() {
         -derivedDataPath "$DERIVED_DATA" \
         -allowProvisioningUpdates \
         CURRENT_PROJECT_VERSION="$num"
+
+    # Re-check the number against ASC right before upload to shrink the selection→upload TOCTOU window.
+    # This is NOT a distributed lock — a true concurrent-operator guarantee needs a shared reservation
+    # (see the README residual-risk note); this cheaply catches the common case and fails before a
+    # bad upload rather than after a confusing xcodebuild error.
+    if [[ "$DRY_RUN" != 1 && "$EXPORT_ONLY" != 1 ]]; then
+        local app_id_recheck max_now
+        app_id_recheck="$(resolve_app_id)"
+        max_now="$(fetch_max_build_number "$app_id_recheck")"
+        if [[ "$num" -le "$max_now" ]]; then
+            die "Build ${num} is no longer free (App Store Connect max is now ${max_now}). Re-run to pick $((max_now + 1)), or pass an explicit --build-number."
+        fi
+        log "Re-checked: build ${num} is still free (current App Store Connect max ${max_now})."
+    fi
 
     if [[ "$EXPORT_ONLY" == 1 ]]; then
         local eo; eo="$(make_export_only_plist)"
@@ -573,13 +606,25 @@ cmd_selftest() {
     info "ES256 JWT sign/verify self-test (ephemeral key)…"
     jwt_selftest
     log "OK."
+
     info "Dry-run redaction self-test…"
-    local trace
-    trace="$(bash "${BASH_SOURCE[0]}" deliver --dry-run --build-number 999999 --skip-tests --allow-dirty 2>&1)" || true
-    if printf '%s' "$trace" | grep -Eq 'Bearer [A-Za-z0-9._-]{20,}|-----BEGIN|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]+'; then
-        die "Dry-run trace leaked auth material (token or private key)."
+    # Run the child dry-run with SENTINEL credentials in the environment and assert none of them (nor
+    # any token/private-key pattern) appear in the trace. Preserve the child's exit status — a crashed
+    # child must fail the test, not pass it via a swallowed error.
+    local trace rc=0
+    trace="$(ASC_KEY_ID=SENTINEL_KEYID_9Z ASC_ISSUER_ID=SENTINEL_ISSUER_9Z ASC_KEY_OP_REF='op://SENTINEL/9Z/p8' \
+        bash "${BASH_SOURCE[0]}" deliver --dry-run --build-number 999999 --skip-tests --allow-dirty 2>&1)" || rc=$?
+    if [[ "$rc" -ne 0 ]]; then
+        die "Redaction self-test: child dry-run exited ${rc} (expected 0). Trace:
+${trace}"
     fi
-    log "OK — no token/key material in the dry-run trace."
+    if printf '%s' "$trace" | grep -Eq 'Bearer [A-Za-z0-9._-]{20,}|-----BEGIN|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]+'; then
+        die "Dry-run trace leaked a token or private key."
+    fi
+    if printf '%s' "$trace" | grep -Eq 'SENTINEL_KEYID_9Z|SENTINEL_ISSUER_9Z|op://SENTINEL'; then
+        die "Dry-run trace leaked a credential value (key id / issuer / key reference)."
+    fi
+    log "OK — no token, key, id, issuer, or key-reference in the dry-run trace."
     info "All self-tests passed."
 }
 
@@ -608,8 +653,13 @@ main() {
         esac
     done
 
-    if [[ -n "$BUILD_NUMBER" && ! "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
-        die "--build-number must be a positive integer (got '${BUILD_NUMBER}')."
+    # Validate arguments immediately (before any crypto/network/build work).
+    if [[ -n "$BUILD_NUMBER" && ! "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+        die "--build-number must be a positive integer with no leading zero (got '${BUILD_NUMBER}')."
+    fi
+    # Dry-run cannot query App Store Connect, so the build number must be supplied up front.
+    if [[ "$DRY_RUN" == 1 && "$SUBCOMMAND" != "selftest" && -z "$BUILD_NUMBER" ]]; then
+        die "--dry-run requires --build-number (App Store Connect is not queried offline)."
     fi
 
     # Parent-owned temp dir (0700) for the .p8 + cached responses; removed by the EXIT trap.

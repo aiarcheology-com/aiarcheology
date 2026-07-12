@@ -98,8 +98,11 @@ export ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8   # or
 
 **Notes**
 
-- `--build-number` selection (`max + 1`) is **not atomic** — if another operator uploads concurrently,
-  pass an explicit `--build-number`.
+- `--build-number` selection (`max + 1`) is **not atomic**. `deliver` re-checks the number against
+  App Store Connect right before uploading (and aborts if it was taken meanwhile), which shrinks but
+  does not eliminate the race — two operators archiving simultaneously can still collide. For a
+  guaranteed-unique number, coordinate out of band and pass an explicit `--build-number`. (A shared
+  atomic reservation is intentionally out of scope for this single-operator break-glass lane.)
 - `--export-only` writes a signed `.ipa` under `build/delivery/export/` instead of uploading; upload it
   manually with `xcrun altool --upload-app -f <ipa> --apiKey <id> --apiIssuer <issuer>` (key in
   `~/.appstoreconnect/private_keys/`).
