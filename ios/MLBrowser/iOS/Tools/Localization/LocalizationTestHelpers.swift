@@ -206,6 +206,8 @@ enum StringCatalogValidator {
             "configuration.modelTypeDetection",
             "configuration.modelTypeDisabled",
             "configuration.modelTypeDisabledHint",
+            "configuration.modelTypeReviewConfirm",
+            "configuration.modelTypeReviewDisabled",
             "configuration.section.annotation",
             "configuration.section.author",
             "configuration.section.model",
@@ -232,6 +234,7 @@ enum StringCatalogValidator {
             "history.title",
             // Import
             "import.appleDocumentation",
+            "import.confirmTypeTitle",
             "import.fromFiles",
             "import.fromFilesHint",
             "import.fromURL",
@@ -244,6 +247,7 @@ enum StringCatalogValidator {
             "import.supportedModels",
             "import.supportedModelsInfo",
             "import.title",
+            "import.typeConfirmation",
             "import.validating",
             "import.wwdcCoreML",
             // Items

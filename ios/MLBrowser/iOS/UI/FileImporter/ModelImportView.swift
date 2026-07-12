@@ -18,7 +18,12 @@ struct ModelImportView: View {
 	@Environment(\.managedObjectContext) private var moc
 	@EnvironmentObject private var deep: DeepState
 	@EnvironmentObject private var downloader: Downloader
-	
+
+	/// Called with the new configuration's id after a successful import, so the presenter can
+	/// auto-open the model's settings for the user to confirm its type (AIA-0402). No imported
+	/// model runs on an unconfirmed type — the app can't verify what a model actually does.
+	var onImported: (UUID) -> Void = { _ in }
+
 	@StateObject private var acquisitionCoordinator = ModelAcquisitionCoordinator(
 		allowedTypes: [
 			UTType("com.apple.coreml.mlmodel"),
@@ -84,20 +89,20 @@ struct ModelImportView: View {
 		} message: {
 			Text(errorMessage ?? "An unknown error occurred.")
 		}
-		.alert("Model Imported", isPresented: .init(
+		.alert(L10n.Import.confirmTypeTitle, isPresented: .init(
 			get: { importedModelInfo != nil },
 			set: { if !$0 { importedModelInfo = nil } }
 		)) {
 			Button(L10n.Common.ok) {
+				let importedId = importedModelInfo?.id
 				importedModelInfo = nil
+				// Hand the id to the presenter FIRST so its onDismiss can open the settings
+				// sheet once this import sheet finishes dismissing (AIA-0402).
+				if let importedId { onImported(importedId) }
 				dismiss()
 			}
 		} message: {
-			if let info = importedModelInfo {
-				Text(L10n.Import.successWithInfo(info.description, info.author))
-			} else {
-				Text(L10n.Import.success)
-			}
+			Text(L10n.Import.typeConfirmation)
 		}
 		.presentationDetents([.large])
 	}
@@ -407,10 +412,7 @@ struct ModelImportView: View {
 			deep.saveConfigurations()
 			provider.result(.importSucceeded, id: id)
 
-			return ImportedModelInfo(
-				description: configuration.modelDescription ?? "Unknown",
-				author: configuration.author ?? "Unknown"
-			)
+			return ImportedModelInfo(id: id)
 		} else {
 			moc.delete(configuration)
 			provider.result(.importFailed, id: id)
@@ -421,10 +423,9 @@ struct ModelImportView: View {
 
 // MARK: - Imported Model Info
 
-/// Information about an imported model for display in success alert
+/// Identifies a just-imported model so the presenter can open its settings for type confirmation.
 private struct ImportedModelInfo {
-	let description: String
-	let author: String
+	let id: UUID
 }
 
 // MARK: - Supporting Types

@@ -2,22 +2,25 @@ Test Focus: Set a model's type — Detection / Classification / Disabled (AIA-04
 Build: (auto-filled by ./scripts/deliver.sh notes — never published as-is)
 
 What's new in this build:
-You can now tell the app what an imported model is. Each model's settings has a new Type control:
-Detection, Classification, or Disabled. Models whose type the app couldn't read before (and which
-used to fail on import) can now be imported and set up by hand. The model list also shows each
-model's type at a glance.
+You now confirm what an imported model is. Each model's settings has a new Type control —
+Detection, Classification, or Disabled — and after every import the app opens that control so you
+confirm the type before the model can run (the app can't verify what a model actually does).
+Models whose type the app couldn't read before (and which used to fail on import) now import too.
+The model list also shows each model's type at a glance.
 
-1. Import a model & set its type
-- Import a Core ML model (from Files or a URL) and open its settings. The new Type control shows
-  Detection / Classification / Disabled. If the app can tell what the model is, it's pre-selected.
+1. Import a model — you confirm its type
+- Import a Core ML model (from Files or a URL). After it imports, an alert reminds you the app can't
+  verify what a model does, then the model's settings open automatically so you confirm the Type
+  (Detection / Classification / Disabled). The app pre-selects its best guess — confirm or change it,
+  then tap Dismiss to accept.
+- If the app couldn't work out the type at all, the settings open on Disabled with a red warning; the
+  model won't run until you pick Detection or Classification.
 - Change the type, close the settings, reopen it — your choice is still there. Force-quit and
   relaunch — still there.
 
 2. Disabled = won't run until you choose
 - Set a model's Type to Disabled. In the model list (left drawer) its on/off switch is greyed out —
   a Disabled model can't be turned on until you pick Detection or Classification.
-- Import a model whose type is unknown: it arrives as Disabled with a hint to choose a type, instead
-  of failing to import.
 
 3. Type shows in the list
 - Each model in the left drawer shows its type (Detection / Classification / Disabled) under its name.

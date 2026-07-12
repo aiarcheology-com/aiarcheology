@@ -156,6 +156,12 @@ struct LabeledSlider: View {
 /// Form for viewing and editing an existing ML model configuration.
 struct ConfigurationForm: View {
 	@Environment(\.dismiss) private var dismiss
+
+	/// When `true`, the form was auto-opened right after import so the user can confirm the
+	/// model's type: it shows a confirmation footnote (or, if the type is still Disabled, a red
+	/// warning) because the app pre-selected a best guess it can't verify (AIA-0402).
+	var pendingTypeReview: Bool = false
+
 	@EnvironmentObject var deep: DeepState
 	/// Live flash edits push to the driver via ONE in-flight task (cancel-and-replace):
 	/// independent unstructured Tasks have no ordering guarantee, so a stale slider
@@ -223,18 +229,39 @@ struct ConfigurationForm: View {
 				}
 				.pickerStyle(.segmented)
 				.labelsHidden()
+				// In a post-import review, a still-undetermined type (Disabled) is a problem the
+				// user must resolve — tint the control red to match the warning footnote (AIA-0402).
+				.tint(pendingTypeReview && configuration.modelType == .invalid ? .red : nil)
 				.testability(Testability.Picker.configurationFormModelType)
-				if configuration.modelType == .invalid {
-					Text(L10n.Configuration.modelTypeDisabledHint)
-						.font(.caption)
-						.foregroundStyle(.secondary)
-				}
+				modelTypeFootnote
 			}
 			ConfigurationDetailRow(label: L10n.Configuration.version, value: " \(configuration.modelVersion ?? "")")
 
 			if let downloadURL = configuration.downloadURL {
 				ExpandableDetailRow(label: L10n.Configuration.link, value: downloadURL.absoluteString)
 			}
+		}
+	}
+
+	/// Footnote under the type picker. During a post-import review it tells the user the type is a
+	/// best guess to confirm — red when the type is still undetermined (Disabled), because the app
+	/// couldn't read or infer it and the model won't run until a type is chosen (AIA-0402).
+	@ViewBuilder
+	private var modelTypeFootnote: some View {
+		if pendingTypeReview {
+			if configuration.modelType == .invalid {
+				Label(L10n.Configuration.modelTypeReviewDisabled, systemImage: "exclamationmark.triangle.fill")
+					.font(.caption)
+					.foregroundStyle(.red)
+			} else {
+				Text(L10n.Configuration.modelTypeReviewConfirm)
+					.font(.caption)
+					.foregroundStyle(.secondary)
+			}
+		} else if configuration.modelType == .invalid {
+			Text(L10n.Configuration.modelTypeDisabledHint)
+				.font(.caption)
+				.foregroundStyle(.secondary)
 		}
 	}
 	

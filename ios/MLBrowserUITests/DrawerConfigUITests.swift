@@ -140,4 +140,36 @@ final class DrawerConfigUITests: UITestCase {
         XCTAssertTrue(disabledToggle.waitForExistence(timeout: 5),
                       "A Disabled model's enable toggle must be non-interactive")
     }
+
+    // AIA-0402 (follow-up): after import, a model's settings auto-open in "type review" mode so the
+    // user confirms the type — no model runs on a type the app couldn't verify. The real file import
+    // isn't scriptable under XCUITest, so `reviewFirstModelType` drives the first seeded model into
+    // the same review presentation to exercise the confirmation footnote and the red Disabled warning.
+    func testConfigForm_typeReview_showsConfirmationThenRedDisabledWarning() {
+        var config = LaunchConfig()
+        config.reviewFirstModelType = true
+        _ = launch(config)
+        openDrawer()
+
+        // Once the first model seeds, its settings auto-open in review mode (covering the drawer).
+        // Wait on the picker directly — the seeded-toggle helper would race the covering sheet.
+        let picker = app.segmentedControls[AID.configModelTypePicker]
+        XCTAssertTrue(picker.waitForExistence(timeout: 25),
+                      "Type-review settings should auto-open after the first model seeds")
+
+        // A seeded demo model is a detector, so its type is pre-selected and the confirm footnote shows.
+        let confirmFootnote = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS %@", "Pre-selected as our best guess")
+        ).firstMatch
+        XCTAssertTrue(confirmFootnote.waitForExistence(timeout: 5),
+                      "Type review should show the confirm-your-best-guess footnote")
+
+        // Choosing Disabled during review swaps in the red "type isn't set" warning.
+        picker.buttons["Disabled"].tap()
+        let disabledWarning = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS %@", "This model's type isn't set")
+        ).firstMatch
+        XCTAssertTrue(disabledWarning.waitForExistence(timeout: 5),
+                      "Choosing Disabled in review should show the red undetermined-type warning")
+    }
 }

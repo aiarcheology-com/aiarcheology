@@ -51,7 +51,18 @@ struct DrawerContent: View {
 
     /// The configuration ID to show in detail sheet
     @State private var selectedConfigurationId: UUID?
-    
+
+    /// Set by the import sheet on success; consumed when the import sheet finishes dismissing to
+    /// auto-open the new model's settings for type confirmation (AIA-0402).
+    @State private var importedForReviewId: UUID?
+
+    /// The configuration whose settings are currently shown as a post-import type review. Drives
+    /// the confirmation banner / red-Disabled treatment in `ConfigurationForm` (AIA-0402).
+    @State private var typeReviewConfigId: UUID?
+
+    /// Guards the one-shot UI-test auto-review hook so it fires at most once per launch (AIA-0402).
+    @State private var didAutoReviewForUITests = false
+
     var body: some View {
         NavigationStack {
             configurationList
@@ -59,14 +70,14 @@ struct DrawerContent: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
         }
-        .sheet(isPresented: $showImport) {
-            ModelImportView()
+        .sheet(isPresented: $showImport, onDismiss: presentTypeReviewIfNeeded) {
+            ModelImportView(onImported: { importedForReviewId = $0 })
                 .environmentObject(deep)
                 .environmentObject(downloader)
         }
-        .sheet(item: $selectedConfigurationId) { configId in
+        .sheet(item: $selectedConfigurationId, onDismiss: { typeReviewConfigId = nil }) { configId in
             if let config = deep.selectConfiguration(configId) {
-                ConfigurationForm()
+                ConfigurationForm(pendingTypeReview: configId == typeReviewConfigId)
                     .environmentObject(deep)
                     .environmentObject(config)
             }
@@ -98,8 +109,18 @@ struct DrawerContent: View {
         }
     }
     
+    /// After the import sheet finishes dismissing, open the newly imported model's settings so the
+    /// user confirms its type. Presenting the settings sheet here (not while the import sheet is
+    /// still up) avoids the "present while dismissing" no-op (AIA-0402).
+    private func presentTypeReviewIfNeeded() {
+        guard let id = importedForReviewId else { return }
+        importedForReviewId = nil
+        typeReviewConfigId = id
+        selectedConfigurationId = id
+    }
+
     // MARK: - Configuration List
-    
+
     private var configurationList: some View {
         List {
             if configurations.isEmpty {
@@ -127,6 +148,16 @@ struct DrawerContent: View {
         .onAppear {
             let context = moc
             tour.bindEnableModel { enableFirstReadyDemoModel(in: context) }
+        }
+        // UI-test-only hook (AIA-0402): once the first model has seeded, auto-open its settings in
+        // type-review mode so tests can exercise the confirmation banner without the un-scriptable
+        // file import. `shouldReviewFirstModelType` is false in every shipping build.
+        .onChange(of: configurations.first?.entityId, initial: true) { _, firstId in
+            guard UITestLaunchConfiguration.shouldReviewFirstModelType,
+                  !didAutoReviewForUITests, let firstId else { return }
+            didAutoReviewForUITests = true
+            typeReviewConfigId = firstId
+            selectedConfigurationId = firstId
         }
     }
 

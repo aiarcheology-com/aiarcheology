@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 4
+	static let currentVersion = 5
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -66,6 +66,11 @@ struct UITestLaunchConfiguration: Codable {
 	/// tests exercise the real model without scripting the drawer. `nil`/`false`
 	/// keeps the baseline (all demos disabled).
 	var enableClassifyDemo: Bool?
+	/// Auto-open the first seeded model's settings in post-import **type-review** mode on the
+	/// drawer's first appearance (AIA-0402), so UI tests can exercise the confirmation banner /
+	/// red-Disabled footnote without driving the un-scriptable file import. Consumed by
+	/// ``shouldReviewFirstModelType``; `nil`/`false` keeps the baseline (no review).
+	var reviewFirstModelType: Bool?
 
 	/// Decoded from the launch environment, or `nil` if absent. Traps on malformed input
 	/// or version mismatch — a UI test must never proceed on a misread configuration.
@@ -140,5 +145,12 @@ struct UITestLaunchConfiguration: Codable {
 	static var shouldStartOnboardingTour: Bool {
 		guard AppEnvironment.isRunningUITests else { return false }
 		return fromEnvironment?.startOnboardingTour == true
+	}
+
+	/// Whether this launch should auto-open the first seeded model's settings in type-review mode
+	/// (AIA-0402). The single consumer of `reviewFirstModelType`. Always false outside UI tests.
+	static var shouldReviewFirstModelType: Bool {
+		guard AppEnvironment.isRunningUITests else { return false }
+		return fromEnvironment?.reviewFirstModelType == true
 	}
 }

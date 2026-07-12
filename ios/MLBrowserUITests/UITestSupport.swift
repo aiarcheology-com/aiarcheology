@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 4
+	var version = 5
 	var startOnboardingTour: Bool?
 	var pageScenario: PageScenario?
 	var defaultPageOverride: String?
@@ -31,6 +31,7 @@ struct LaunchConfig: Encodable {
 	var fixtureName: String?
 	var stubDownloads: Bool?
 	var enableClassifyDemo: Bool?
+	var reviewFirstModelType: Bool?
 }
 
 // MARK: - Accessibility identifiers
