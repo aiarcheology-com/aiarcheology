@@ -193,6 +193,26 @@ final class ModelLoadingServiceTests: XCTestCase {
         }
     }
 
+    // MARK: - inferType (structural signature) Tests — AIA-0402
+
+    func test_inferType_detectorFixture_returnsDetector() async throws {
+        guard let url = Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") else {
+            throw XCTSkip("Detector demo model not available in test bundle")
+        }
+        let model = try await MLModel.load(contentsOf: url, configuration: MLModelConfiguration())
+        XCTAssertEqual(ModelLoadingService.inferType(from: model.modelDescription), .detector,
+                       "A model with confidence+coordinates outputs should infer as a detector")
+    }
+
+    func test_inferType_classifierFixture_returnsClassificator() async throws {
+        guard let url = Bundle.main.url(forResource: "FastViTT8F16", withExtension: "mlmodelc") else {
+            throw XCTSkip("Classifier demo model not available in test bundle")
+        }
+        let model = try await MLModel.load(contentsOf: url, configuration: MLModelConfiguration())
+        XCTAssertEqual(ModelLoadingService.inferType(from: model.modelDescription), .classificator,
+                       "A model exposing a predicted-feature name should infer as a classifier")
+    }
+
     // MARK: - validateModel Tests
 
     func test_validateModel_withInvalidURL_returnsFalse() async {

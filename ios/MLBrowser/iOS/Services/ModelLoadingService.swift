@@ -121,11 +121,13 @@ public actor ModelLoadingService {
 
         let parser = MLModelMetadataParser(metadata: metadata)
 
-        // Validate that model type could be determined
-        let task = parser.task
-        guard task != .invalid else {
-            LoggingPolicy.error("ModelLoadingService: Could not determine model type (detect/classify) from metadata", logger: .drivers)
-            throw ModelLoadingError.modelTypeNotDetermined(url)
+        // Determine the model type. The `task` metadata key is authoritative when present;
+        // when it's missing (`.invalid`), fall back to the model's structural signature so the
+        // model can still be imported — as Disabled if even that is inconclusive — and the user
+        // can set the type manually (AIA-0402). Import no longer rejects unreadable-type models.
+        var task = parser.task
+        if task == .invalid {
+            task = Self.inferType(from: model.modelDescription)
         }
 
         let info = ExtractedModelInfo(
@@ -145,6 +147,10 @@ public actor ModelLoadingService {
     ///
     /// Useful for quick validation checks.
     ///
+    /// - Note: As of AIA-0402, a model whose type can't be determined is no longer rejected — it
+    ///   loads as Disabled. So this returns `true` for any model that compiles and loads, including
+    ///   one that will import with an undetermined (Disabled) type for the user to set.
+    ///
     /// - Parameters:
     ///   - url: The URL of the model file
     ///   - demo: If `true`, skips compilation
@@ -157,5 +163,29 @@ public actor ModelLoadingService {
             LoggingPolicy.warning("ModelLoadingService: Validation failed for \(url.lastPathComponent)", logger: .drivers)
             return false
         }
+    }
+
+    /// Suggests a model type from the model's structural signature, used as a fallback when the
+    /// `task` metadata key is absent (AIA-0402). Advisory only: a structural match does not
+    /// guarantee the model produces the Vision observations the driver expects, so the user can
+    /// always override the suggestion. Returns `.invalid` (Disabled) when inconclusive.
+    ///
+    /// - Classifier: the model exposes a predicted-feature name (Core ML classifier convention;
+    ///   Vision then yields `VNClassificationObservation`).
+    /// - Detector: outputs include both `confidence` and `coordinates` (the CreateML / Vision
+    ///   object-detector convention this app's `Detector` relies on).
+    static func inferType(from description: MLModelDescription) -> DeepDriverType {
+        // Classifier signal first: `predictedFeatureName` can be an empty string (not nil) on
+        // non-classifiers, so require a non-empty value.
+        if description.predictedFeatureName?.isEmpty == false {
+            return .classificator
+        }
+
+        let outputs = description.outputDescriptionsByName
+        if outputs["confidence"] != nil && outputs["coordinates"] != nil {
+            return .detector
+        }
+
+        return .invalid
     }
 }

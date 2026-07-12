@@ -85,6 +85,38 @@ final class DeepStateTests: XCTestCase {
         XCTAssertNotNil(error, "Expected an error to be published when driver loading fails")
     }
     
+    func testDriverSwapOnTypeChange() async throws {
+        // AIA-0402: changing an already-loaded model's type must swap the driver, not just push
+        // params. Simulate a loaded detector, then flip the type to classify and assert the stale
+        // detector is unregistered (before the fix it stayed in `detectors` forever).
+        let config = deepState.createConfiguration()
+        config.modelType = .detector
+        config.enabled = false
+        try DeepConfiguration.save(in: dataController.container.viewContext)
+        let id = config.entityId
+
+        // Simulate a driver already loaded for this configuration.
+        deepState.drivers.register(driver: Detector(params: DeepDriverParams(entityId: id)), along: .detector)
+        XCTAssertEqual(deepState.drivers.detectors.count, 1)
+
+        // Flip the type — triggers handleUpdatedConfigurations via the CoreData notification.
+        deepState.updateConfiguration(id) { c in
+            c.modelType = .classificator
+        }
+
+        // Wait for the async reconciliation to run.
+        for _ in 0..<50 {
+            if deepState.drivers.detectors.isEmpty { break }
+            try await Task.sleep(nanoseconds: 40_000_000)
+        }
+
+        XCTAssertTrue(deepState.drivers.detectors.isEmpty,
+                      "Stale detector must be unregistered when the type changes to classify")
+        // The rebuild as a classifier can't complete without a model file in tests, so the
+        // classificators bucket stays empty — the point of this test is the detector removal.
+        XCTAssertTrue(deepState.drivers.classificators.isEmpty)
+    }
+
     func testTemporaryConfigurationCleanup() {
         deepState.createTemportaryConfiguration()
         XCTAssertNotNil(deepState.newConfiguration)
