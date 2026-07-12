@@ -287,7 +287,9 @@ private struct ConfigurationRow: View {
                         .truncationMode(.tail)
                 }
 
-                // Model type at a glance (Detect / Classify / Disabled) — AIA-0402.
+                // Model type at a glance (Detect / Classify / Disabled) — AIA-0402. Left untagged so
+                // its accessibility label stays the displayed type (a `.testability` tag would
+                // replace the label with the identifier under UI tests).
                 Text(configuration.modelType.localizedName)
                     .font(.caption2)
                     .foregroundStyle(.secondary)

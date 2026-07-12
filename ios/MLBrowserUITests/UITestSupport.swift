@@ -75,6 +75,8 @@ enum AID {
 	static let drawerFindings = "_AIA:Button.DrawerFindings"
 	static let configEnabledToggle = "_AIA:Toggle.SideMenuCellEnabled"
 	static let configDelete = "_AIA:Button.SideMenuDeleteConfiguration"
+	static let configModelTypePicker = "_AIA:Picker.ConfigurationFormModelType"
+	static let configFormDismiss = "_AIA:Button.ConfigurationFormDismiss"
 
 	// Settings
 	static let settingsDismiss = "_AIA:Button.SettingsDismiss"

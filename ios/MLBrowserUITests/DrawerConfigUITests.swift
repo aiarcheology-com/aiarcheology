@@ -83,4 +83,61 @@ final class DrawerConfigUITests: UITestCase {
             "Deleting one model should leave exactly one toggle"
         )
     }
+
+    // MARK: - AIA-0402: model-type control
+
+    /// Opens the first seeded model's settings and taps its description row.
+    private func openFirstModelSettings() {
+        openDrawer()
+        XCTAssertTrue(waitForSeededConfigurations(), "Demo configurations were not seeded")
+        let firstRow = app.staticTexts.matching(identifier: AID.configDescription).firstMatch
+        XCTAssertTrue(firstRow.waitForExistence(timeout: 5), "No model row to open")
+        firstRow.tap()
+    }
+
+    func testConfigForm_typePicker_showsThreeStates() {
+        launch()
+        openFirstModelSettings()
+
+        let picker = app.segmentedControls[AID.configModelTypePicker]
+        XCTAssertTrue(picker.waitForExistence(timeout: 5), "Three-state Type picker should appear in the config form")
+        XCTAssertTrue(picker.buttons["Detection"].exists, "Detection segment missing")
+        XCTAssertTrue(picker.buttons["Classification"].exists, "Classification segment missing")
+        XCTAssertTrue(picker.buttons["Disabled"].exists, "Disabled segment missing")
+    }
+
+    func testDrawer_modelRow_showsTypeCaption() {
+        launch()
+        openDrawer()
+        XCTAssertTrue(waitForSeededConfigurations(), "Demo configurations were not seeded")
+        // Every model row carries a type caption. The seeded demo models are detectors, so the
+        // caption reads "Detection" (the caption is untagged, so its label is the displayed text).
+        XCTAssertTrue(app.staticTexts["Detection"].waitForExistence(timeout: 10),
+                      "Model row should show its type as a caption")
+    }
+
+    func testConfigForm_selectDisabled_showsCaptionAndBlocksToggle() {
+        launch()
+        openFirstModelSettings()
+
+        let picker = app.segmentedControls[AID.configModelTypePicker]
+        XCTAssertTrue(picker.waitForExistence(timeout: 5))
+        picker.buttons["Disabled"].tap()
+
+        // Dismiss the settings sheet back to the drawer.
+        let dismiss = app.buttons[AID.configFormDismiss]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 5), "Config form dismiss button missing")
+        dismiss.tap()
+
+        // The row caption now reads "Disabled" (only the caption uses this text in the drawer)…
+        XCTAssertTrue(app.staticTexts["Disabled"].waitForExistence(timeout: 10),
+                      "Drawer caption should read Disabled after choosing Disabled")
+
+        // …and that model's enable toggle is no longer interactive.
+        let disabledToggle = app.switches.matching(
+            NSPredicate(format: "identifier == %@ AND enabled == false", AID.configEnabledToggle)
+        ).firstMatch
+        XCTAssertTrue(disabledToggle.waitForExistence(timeout: 5),
+                      "A Disabled model's enable toggle must be non-interactive")
+    }
 }
