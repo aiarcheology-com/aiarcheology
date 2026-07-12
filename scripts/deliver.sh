@@ -178,8 +178,12 @@ resolve_asc_credentials() {
     if [[ "$ASC_KEY_ID" == op://* || "$ASC_ISSUER_ID" == op://* || "$ASC_KEY_OP_REF" == op://* ]]; then
         require_tool op
     fi
-    [[ "$ASC_KEY_ID" == op://* ]]    && ASC_KEY_ID="$(op read "$ASC_KEY_ID")"
-    [[ "$ASC_ISSUER_ID" == op://* ]] && ASC_ISSUER_ID="$(op read "$ASC_ISSUER_ID")"
+    if [[ "$ASC_KEY_ID" == op://* ]]; then
+        ASC_KEY_ID="$(op read "$ASC_KEY_ID")" || die "op read failed for ASC_KEY_ID (is 1Password unlocked?)."
+    fi
+    if [[ "$ASC_ISSUER_ID" == op://* ]]; then
+        ASC_ISSUER_ID="$(op read "$ASC_ISSUER_ID")" || die "op read failed for ASC_ISSUER_ID (is 1Password unlocked?)."
+    fi
     [[ -n "$ASC_KEY_ID" ]]    || die "ASC_KEY_ID is required (env or op:// reference)."
     [[ -n "$ASC_ISSUER_ID" ]] || die "ASC_ISSUER_ID is required (env or op:// reference)."
     if [[ -n "$ASC_KEY_PATH" ]]; then
@@ -646,7 +650,7 @@ cmd_notes() {
         return 0
     fi
 
-    resolve_asc_credentials
+    # Credentials are already resolved by `preflight notes` (live path); no need to re-read 1Password.
     local app_id
     app_id="$(resolve_app_id)"
 
