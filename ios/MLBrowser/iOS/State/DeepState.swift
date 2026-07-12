@@ -118,6 +118,13 @@ final class DeepState: ObservableObject {
 			return
 		}
 
+		// The config may have changed type/enabled during a preceding `await` (the unregister on a
+		// type switch is a suspension point). `createDriver` builds for `config.modelType` while we
+		// register `along: expectedType`, so only proceed when they still agree — otherwise a driver
+		// of one type could be registered into the other type's bucket. A follow-up notification for
+		// the newer state will build the right driver.
+		guard config.enabled, config.modelType == expectedType else { return }
+
 		guard let driver = try createDriver(from: config) else {
 			LoggingPolicy.error("Driver initialization failed after configuration update for config \(entityId.uuidString)", logger: .drivers)
 			return
