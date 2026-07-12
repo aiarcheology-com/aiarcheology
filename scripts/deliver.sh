@@ -69,12 +69,13 @@ ASC_KEY_PATH="${ASC_KEY_PATH:-}"
 ASC_KEY_OP_REF="${ASC_KEY_OP_REF:-}"
 RESOLVED_KEY_PATH=""
 
-TMP_FILES=()
+# All temp files (the .p8 private key, cached ASC responses, the export-only plist) live under one
+# parent-owned dir so cleanup removes them regardless of which subshell created them. (A per-file
+# array does NOT work: mktemp_tracked runs inside command substitutions, so array mutations happen
+# in a subshell and never reach the parent — the .p8 would leak.)
+TMP_DIR=""
 cleanup() {
-    local f
-    for f in "${TMP_FILES[@]:-}"; do
-        [[ -n "$f" && -e "$f" ]] && rm -f "$f"
-    done
+    [[ -n "${TMP_DIR:-}" && -d "$TMP_DIR" ]] && rm -rf "$TMP_DIR"
     return 0   # never let the trap's last short-circuit leak into the script's exit code
 }
 trap cleanup EXIT
@@ -86,9 +87,9 @@ warn()  { printf '⚠️  %s\n' "$*" >&2; }
 die()   { printf '❌ %s\n' "$*" >&2; exit "${2:-1}"; }
 
 mktemp_tracked() {
-    local f; f="$(mktemp "${TMPDIR:-/tmp}/deliver.XXXXXX")"
-    TMP_FILES+=("$f")
-    printf '%s' "$f"
+    # TMP_DIR is created once in the parent (main) before any subcommand runs, so files land under
+    # it no matter which subshell calls this. Cleanup removes the whole dir on exit.
+    mktemp "${TMP_DIR}/deliver.XXXXXX"
 }
 
 show_help() {
@@ -319,8 +320,9 @@ require_tool() {
 }
 
 preflight() {
-    local subcommand="$1"
-    info "Preflight (${subcommand}${DRY_RUN:+, dry-run})…"
+    local subcommand="$1" dr=""
+    [[ "$DRY_RUN" == 1 ]] && dr=", dry-run"
+    info "Preflight (${subcommand}${dr})…"
 
     # Tools that even the offline paths need are always hard requirements.
     require_tool ruby
@@ -609,6 +611,9 @@ main() {
     if [[ -n "$BUILD_NUMBER" && ! "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
         die "--build-number must be a positive integer (got '${BUILD_NUMBER}')."
     fi
+
+    # Parent-owned temp dir (0700) for the .p8 + cached responses; removed by the EXIT trap.
+    TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/deliver.XXXXXX")"
 
     case "$SUBCOMMAND" in
         selftest) cmd_selftest ;;
