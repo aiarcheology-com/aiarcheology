@@ -98,6 +98,7 @@ struct DrawerContainer<Content: View, Menu: View>: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview("Drawer Closed") {
@@ -160,3 +161,4 @@ struct DrawerContainer<Content: View, Menu: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+#endif

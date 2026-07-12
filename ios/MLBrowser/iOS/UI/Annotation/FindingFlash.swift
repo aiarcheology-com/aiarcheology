@@ -219,6 +219,7 @@ struct ClassificationLabelBubble: View {
 	}
 }
 
+#if DEBUG
 #Preview("Finding flash — toggle pulse") {
 	struct FlashPreview: View {
 		@State private var active = false
@@ -233,3 +234,4 @@ struct ClassificationLabelBubble: View {
 	}
 	return FlashPreview()
 }
+#endif

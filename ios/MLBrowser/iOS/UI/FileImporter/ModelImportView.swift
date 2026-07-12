@@ -451,8 +451,10 @@ private struct NoopProvider: ModelProvider {
 	func result(_ error: ModelProviderError, id: UUID) { }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
 	ModelImportView()
 }
+#endif

@@ -335,6 +335,7 @@ private struct ConfigurationRow: View {
     }
 }
 
+#if DEBUG
 // MARK: - Preview
 
 #Preview {
@@ -355,3 +356,4 @@ private struct ConfigurationRow: View {
             .environment(\.managedObjectContext, state.dataController.container.viewContext)
     }
 }
+#endif
