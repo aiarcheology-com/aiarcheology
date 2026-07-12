@@ -318,23 +318,30 @@ preflight() {
     [[ "$DRY_RUN" == 1 ]] && dr=", dry-run"
     info "Preflight (${subcommand}${dr})…"
 
+    # deliver/validate ARCHIVE the working tree, so they alone need a clean tree, a release branch,
+    # the Xcode toolchain, and the full sweep. `notes` only writes REST metadata for an
+    # already-uploaded build (no archive, no xcodebuild/xcrun), so it skips all of that.
+    local archives=0
+    [[ "$subcommand" == "deliver" || "$subcommand" == "validate" ]] && archives=1
+
     # Always-required local tools (used by both dry-run and live paths).
     require_tool git
 
-    # Clean worktree.
-    if [[ "$ALLOW_DIRTY" == 1 ]]; then
-        warn "--allow-dirty: NOT a full release preflight (delivering an uncommitted tree)."
-    elif [[ -n "$(cd "$REPO_ROOT" && git status --porcelain)" ]]; then
-        preflight_fail "working tree is dirty (commit/stash, or pass --allow-dirty)."
+    # Clean worktree — only the archiving subcommands ship the tree, so only they require it.
+    if [[ "$archives" == 1 ]]; then
+        if [[ "$ALLOW_DIRTY" == 1 ]]; then
+            warn "--allow-dirty: NOT a full release preflight (delivering an uncommitted tree)."
+        elif [[ -n "$(cd "$REPO_ROOT" && git status --porcelain)" ]]; then
+            preflight_fail "working tree is dirty (commit/stash, or pass --allow-dirty)."
+        fi
     fi
 
-    # Branch / ref invariant — only for the subcommands that ARCHIVE the working tree (deliver /
-    # validate); they must ship the same commits Xcode Cloud's Release workflow would, so they run
-    # from a release/* branch (or an explicit --ref asserting HEAD points at that tag/sha — an
-    # assertion, not a checkout, so `--ref v1` from a feature branch can't silently ship it). `notes`
-    # only writes tester notes for an already-uploaded build keyed by an explicit --build-number, so
-    # it is not branch-gated (matches the README, which documents the rule for deliver/validate only).
-    if [[ "$subcommand" == "deliver" || "$subcommand" == "validate" ]]; then
+    # Branch / ref invariant — only the archiving subcommands; they must ship the same commits Xcode
+    # Cloud's Release workflow would, so they run from a release/* branch (or an explicit --ref
+    # asserting HEAD points at that tag/sha — an assertion, not a checkout, so `--ref v1` from a
+    # feature branch can't silently ship it). `notes` writes tester notes for an already-uploaded
+    # build keyed by an explicit --build-number, so it is not branch-gated (matches the README).
+    if [[ "$archives" == 1 ]]; then
         local current head_sha ref_sha
         current="$(cd "$REPO_ROOT" && git rev-parse --abbrev-ref HEAD)"
         if [[ -n "$REF" ]]; then
@@ -355,10 +362,15 @@ preflight() {
 
     if [[ "$DRY_RUN" == 1 ]]; then
         # Dry-run is strictly local & read-only: NO crypto, NO swift/xcode, NO 1Password, NO network.
-        log "dry-run: skipping (WOULD RUN live) — JWT self-test, ProjectTool secrets validate,"
-        log "         swiftlint + harmonize + unittest, credential resolution, and all network."
-        log "         Use 'selftest' for the crypto/redaction checks; a live run performs the sweep."
-        [[ "$SKIP_TESTS" == 1 ]] && warn "--skip-tests noted (a live run would skip the sweep)."
+        if [[ "$archives" == 1 ]]; then
+            log "dry-run: skipping (WOULD RUN live) — JWT self-test, ProjectTool secrets validate,"
+            log "         swiftlint + harmonize + unittest, credential resolution, and all network."
+            log "         Use 'selftest' for the crypto/redaction checks; a live run performs the sweep."
+            [[ "$SKIP_TESTS" == 1 ]] && warn "--skip-tests noted (a live run would skip the sweep)."
+        else
+            log "dry-run: skipping (WOULD RUN live) — JWT self-test, credential resolution, and all"
+            log "         network. notes writes REST metadata only (no build, no sweep, no Xcode)."
+        fi
         if [[ "$PREFLIGHT_WOULD_FAIL" == 1 ]]; then
             warn "Dry-run completed but checks above marked WOULD FAIL LIVE — a live run would stop."
         fi
@@ -366,21 +378,29 @@ preflight() {
     fi
 
     # ---- live only: network tools, crypto, sweep, credentials ----
+    # REST tools every live path needs; the Xcode toolchain only when we archive (deliver/validate).
     local t
-    for t in swift jq curl xcodebuild plutil; do require_tool "$t"; done
+    for t in swift jq curl; do require_tool "$t"; done
+    if [[ "$archives" == 1 ]]; then
+        for t in xcodebuild plutil; do require_tool "$t"; done
+    fi
 
     jwt_selftest
     log "JWT ES256 self-test OK."
 
-    if [[ "$SKIP_TESTS" == 1 ]]; then
-        warn "--skip-tests: skipping ProjectTool secrets validation + the full sweep. NOT a full release preflight."
-    else
-        log "Validating build secrets (ProjectTool)…"
-        (cd "$REPO_ROOT" && swift run --package-path Tools ProjectTool secrets validate) \
-            || die "Preflight failed: ProjectTool secrets validate (run: swift run --package-path Tools ProjectTool secrets generate)."
-        log "Running the pre-push sweep (lint + harmonize + unit tests)…"
-        (cd "$REPO_ROOT" && ./scripts/swiftlint.sh && ./scripts/harmonize.sh && ./scripts/unittest.sh) \
-            || die "Preflight failed: pre-push sweep (swiftlint / harmonize / unittest)."
+    # Build-secrets validation + the pre-push sweep only apply to a build; a notes push touches no
+    # source, so it never runs them.
+    if [[ "$archives" == 1 ]]; then
+        if [[ "$SKIP_TESTS" == 1 ]]; then
+            warn "--skip-tests: skipping ProjectTool secrets validation + the full sweep. NOT a full release preflight."
+        else
+            log "Validating build secrets (ProjectTool)…"
+            (cd "$REPO_ROOT" && swift run --package-path Tools ProjectTool secrets validate) \
+                || die "Preflight failed: ProjectTool secrets validate (run: swift run --package-path Tools ProjectTool secrets generate)."
+            log "Running the pre-push sweep (lint + harmonize + unit tests)…"
+            (cd "$REPO_ROOT" && ./scripts/swiftlint.sh && ./scripts/harmonize.sh && ./scripts/unittest.sh) \
+                || die "Preflight failed: pre-push sweep (swiftlint / harmonize / unittest)."
+        fi
     fi
 
     resolve_asc_credentials
