@@ -11,13 +11,16 @@
 #   validate  Preflight -> archive -> export -> validate against App Store Connect (NO upload) —
 #             the CLI equivalent of Xcode Organizer's "Validate App".
 #   notes     Get-or-create the build's en-US "What to Test" from ios/TestFlight/WhatToTest.en-US.txt.
+#   check     Verify credentials against App Store Connect (resolve creds -> JWT -> GET /v1/apps).
+#             Read-only: no archive, upload, or write. The safest way to confirm a key works.
 #   selftest  Offline self-tests (ES256 JWT sign/verify + dry-run redaction). No credentials needed.
 #
 # Usage:
 #   ./scripts/deliver.sh deliver  [--build-number N] [--dry-run] [--skip-validate] [--export-only]
 #                                 [--ref <tag|sha>] [--skip-tests] [--allow-dirty] [--online-preflight]
 #   ./scripts/deliver.sh validate [--build-number N] [--dry-run] [--ref <tag|sha>] [--skip-tests] [--allow-dirty]
-#   ./scripts/deliver.sh notes    [--build-number N] [--dry-run]
+#   ./scripts/deliver.sh notes    --build-number N [--dry-run]
+#   ./scripts/deliver.sh check
 #   ./scripts/deliver.sh selftest
 #   ./scripts/deliver.sh --help
 #
