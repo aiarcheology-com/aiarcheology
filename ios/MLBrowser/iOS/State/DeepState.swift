@@ -26,6 +26,13 @@ final class DeepState: ObservableObject {
 	private let assetStore: ModelAssetStore
 	private let repository: ModelConfigurationRepository
 
+	/// Monotonic per-configuration load counter. Each `loadAndRegisterDriver` bumps it and captures
+	/// the value; a completing load registers only if it is still the latest, so a load superseded by
+	/// a rapid re-enable / type-switch (both start before the first `loadFile` returns) unloads its
+	/// driver instead of being silently dropped by the registry's id dedup — which would leak a
+	/// loaded CoreML/Vision driver (AIA-0402, codex review).
+	private var driverLoadGenerations: [UUID: Int] = [:]
+
 	init(dataController: DataController) {
 		self.dataController = dataController
 		self.assetStore = ModelAssetStore(dataController: dataController)
@@ -130,12 +137,18 @@ final class DeepState: ObservableObject {
 			return
 		}
 
+		let loadGeneration = (driverLoadGenerations[entityId] ?? 0) + 1
+		driverLoadGenerations[entityId] = loadGeneration
+
 		Task {
 			do {
 				try await driver.loadFile()
 				// The configuration may have been deleted (e.g. reset), disabled, or had its type
-				// changed again while the model was loading — re-check all three before registering.
-				guard let current = selectConfiguration(entityId), current.enabled, current.modelType == expectedType else {
+				// changed again while the model was loading — and a newer load for this entity may
+				// have started (rapid re-enable / type-switch). Re-check all of that before
+				// registering; a superseded load unloads its driver so it can't leak past the dedup.
+				guard driverLoadGenerations[entityId] == loadGeneration,
+					  let current = selectConfiguration(entityId), current.enabled, current.modelType == expectedType else {
 					await driver.unload()
 					return
 				}
