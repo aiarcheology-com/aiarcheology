@@ -169,6 +169,11 @@ jwt_selftest() {
 
 resolve_asc_credentials() {
     # Resolves ASC_KEY_ID / ASC_ISSUER_ID / RESOLVED_KEY_PATH. Never echoes key material.
+    # Any op:// reference needs the 1Password CLI — require it up front for an actionable error
+    # (otherwise `set -e` aborts on a bare "op: command not found").
+    if [[ "$ASC_KEY_ID" == op://* || "$ASC_ISSUER_ID" == op://* || "$ASC_KEY_OP_REF" == op://* ]]; then
+        require_tool op
+    fi
     [[ "$ASC_KEY_ID" == op://* ]]    && ASC_KEY_ID="$(op read "$ASC_KEY_ID")"
     [[ "$ASC_ISSUER_ID" == op://* ]] && ASC_ISSUER_ID="$(op read "$ASC_ISSUER_ID")"
     [[ -n "$ASC_KEY_ID" ]]    || die "ASC_KEY_ID is required (env or op:// reference)."
@@ -320,24 +325,29 @@ preflight() {
         preflight_fail "working tree is dirty (commit/stash, or pass --allow-dirty)."
     fi
 
-    # Branch / ref invariant. We always archive the CURRENT working tree, so --ref is an assertion
-    # that HEAD already points at that tag/sha (not a checkout directive) — verify and refuse a
-    # mismatch, otherwise `--ref v1` from a feature branch would silently ship the feature branch.
-    local current head_sha ref_sha
-    current="$(cd "$REPO_ROOT" && git rev-parse --abbrev-ref HEAD)"
-    if [[ -n "$REF" ]]; then
-        head_sha="$(cd "$REPO_ROOT" && git rev-parse HEAD)"
-        if ! ref_sha="$(cd "$REPO_ROOT" && git rev-parse --verify --quiet "${REF}^{commit}")"; then
-            preflight_fail "--ref '${REF}' is not a valid commit/tag."
-        elif [[ "$ref_sha" != "$head_sha" ]]; then
-            preflight_fail "--ref '${REF}' (${ref_sha:0:9}) is not checked out (HEAD is ${head_sha:0:9}). Check it out first."
+    # Branch / ref invariant — only for the subcommands that ARCHIVE the working tree (deliver /
+    # validate); they must ship the same commits Xcode Cloud's Release workflow would, so they run
+    # from a release/* branch (or an explicit --ref asserting HEAD points at that tag/sha — an
+    # assertion, not a checkout, so `--ref v1` from a feature branch can't silently ship it). `notes`
+    # only writes tester notes for an already-uploaded build keyed by an explicit --build-number, so
+    # it is not branch-gated (matches the README, which documents the rule for deliver/validate only).
+    if [[ "$subcommand" == "deliver" || "$subcommand" == "validate" ]]; then
+        local current head_sha ref_sha
+        current="$(cd "$REPO_ROOT" && git rev-parse --abbrev-ref HEAD)"
+        if [[ -n "$REF" ]]; then
+            head_sha="$(cd "$REPO_ROOT" && git rev-parse HEAD)"
+            if ! ref_sha="$(cd "$REPO_ROOT" && git rev-parse --verify --quiet "${REF}^{commit}")"; then
+                preflight_fail "--ref '${REF}' is not a valid commit/tag."
+            elif [[ "$ref_sha" != "$head_sha" ]]; then
+                preflight_fail "--ref '${REF}' (${ref_sha:0:9}) is not checked out (HEAD is ${head_sha:0:9}). Check it out first."
+            else
+                log "Delivering ref ${REF} (${ref_sha:0:9}) — matches HEAD."
+            fi
+        elif [[ "$current" == release/* ]]; then
+            log "Delivering from release branch '${current}'."
         else
-            log "Delivering ref ${REF} (${ref_sha:0:9}) — matches HEAD."
+            preflight_fail "not on a 'release/*' branch (on '${current}'). Create one from develop — e.g. 'git checkout -b release/<desc> develop' — or pass --ref <tag|sha>. (Xcode Cloud's Release workflow archives release/* branches only; this lane mirrors it.)"
         fi
-    elif [[ "$current" == release/* ]]; then
-        log "Delivering from release branch '${current}'."
-    else
-        preflight_fail "not on a 'release/*' branch (on '${current}'). Create one from develop — e.g. 'git checkout -b release/<desc> develop' — or pass --ref <tag|sha>. (Xcode Cloud's Release workflow archives release/* branches only; this lane mirrors it.)"
     fi
 
     if [[ "$DRY_RUN" == 1 ]]; then
@@ -577,6 +587,10 @@ build_whatsnew_json() {
     local text
     text="$(awk -v n="$num" '!done && /^Build:/ { print "Build: " n; done=1; next } { print }' "$WHATSNEW_FILE")"
     [[ -n "${text//[[:space:]]/}" ]] || die "WhatToTest is empty."
+    # The file MUST carry a 'Build:' line so the real build number is stamped — never publish the
+    # unresolved placeholder (e.g. 'Build: TBD') to testers.
+    printf '%s\n' "$text" | grep -qxE "Build: ${num}" \
+        || die "WhatToTest has no 'Build:' line to stamp with the build number — refusing to publish (add a 'Build:' line to ${WHATSNEW_FILE})."
     if [[ "${#text}" -gt "$WHATSNEW_MAX" ]]; then
         die "whatsNew exceeds ${WHATSNEW_MAX} chars (${#text})."
     fi
@@ -716,8 +730,13 @@ main() {
     if [[ -n "$BUILD_NUMBER" && ! "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
         die "--build-number must be a positive integer with no leading zero (got '${BUILD_NUMBER}')."
     fi
+    # `check` is a live read-only probe (resolve creds -> JWT -> GET /v1/apps); it has no offline mode,
+    # so --dry-run on it would be misleading (it still reads 1Password and calls App Store Connect).
+    if [[ "$DRY_RUN" == 1 && "$SUBCOMMAND" == "check" ]]; then
+        die "check has no --dry-run: it is already read-only (no archive/upload/write). Use 'selftest' for the offline crypto/redaction checks."
+    fi
     # Dry-run cannot query App Store Connect, so the build number must be supplied up front.
-    if [[ "$DRY_RUN" == 1 && "$SUBCOMMAND" != "selftest" && "$SUBCOMMAND" != "check" && -z "$BUILD_NUMBER" ]]; then
+    if [[ "$DRY_RUN" == 1 && "$SUBCOMMAND" != "selftest" && -z "$BUILD_NUMBER" ]]; then
         die "--dry-run requires --build-number (App Store Connect is not queried offline)."
     fi
 

@@ -73,15 +73,20 @@ locally and uploads it to TestFlight. Prefer Xcode Cloud for routine releases �
 - 1Password CLI (`op`) if you store the key there; otherwise a local `.p8` path.
 
 **Credentials** — an App Store Connect API key, provided as either literal env vars or `op://`
-references that `deliver.sh` resolves via 1Password at run time (the `.p8` never lands on disk — it's
-streamed into a `0600` temp that's wiped on exit). This is a *delivery* credential, resolved at run
-time; it is deliberately **not** part of `Secrets.xcconfig` (which compiles build secrets into the app).
+references that `deliver.sh` resolves via 1Password at run time. A key resolved from 1Password
+(`ASC_KEY_OP_REF`) is written to a short-lived `0600` temp file that's wiped on exit — never committed,
+never persisted beyond the run. A key you point at directly (`ASC_KEY_PATH`) is a `.p8` that already
+lives on disk; keep it outside the repo with restrictive permissions (`chmod 600`). Either way this is
+a *delivery* credential, resolved at run time; it is deliberately **not** part of `Secrets.xcconfig`
+(which compiles build secrets into the app).
 
-The simplest setup is a gitignored `ios/asc.env` that `deliver.sh` sources automatically:
+The simplest setup is a gitignored `ios/asc.env` that `deliver.sh` sources automatically — copy the
+template, then edit the vault/item/key-id to match your 1Password:
 
 ```sh
-cp ios/asc.env.template ios/asc.env      # then edit the vault/item/key-id to match your 1Password
+cp ios/asc.env.template ios/asc.env
 ```
+
 ```sh
 # ios/asc.env — 1Password references (not secrets); resolved with `op` unlocked.
 export ASC_KEY_ID='op://Personal/App Store Connect API Key/key id'

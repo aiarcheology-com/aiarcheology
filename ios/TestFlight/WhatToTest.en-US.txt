@@ -1,5 +1,5 @@
 Test Focus: Emergency delivery tooling (AIA-0379) — no app-facing change expected
-Build: TBD
+Build: (auto-filled by ./scripts/deliver.sh notes — never published as-is)
 
 What's new in this build:
 Developer tooling only. This change adds a local "archive → TestFlight" delivery script
