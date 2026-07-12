@@ -56,6 +56,58 @@ The full setup reference — every `ProjectTool` command, pinned tooling, secret
 
 Run lint + harmonize + unit tests before pushing; the same checks gate pull requests in CI (GitHub Actions for lint/architecture, Xcode Cloud for analyze/archive/unit tests).
 
+## 🚀 Emergency delivery lane (Xcode Cloud fallback)
+
+When Xcode Cloud is unavailable (allocation exhausted, outage), `scripts/deliver.sh` archives the app
+locally and uploads it to TestFlight. Prefer Xcode Cloud for routine releases — this is a break-glass lane.
+
+**Prerequisites**
+
+- An **App Store Connect API key** with a role that can manage builds (**App Manager**, or a Developer
+  role scoped to this app) — a weaker role returns `403` on upload/notes. Create it under
+  App Store Connect → Users and Access → Integrations → App Store Connect API, download the
+  `AuthKey_XXXX.p8` **once**, and keep it out of the repo (`*.p8` is gitignored).
+- A valid **Apple Distribution** signing identity + provisioning in your login keychain (automatic
+  signing; the archive uses `-allowProvisioningUpdates`, which may register devices/profiles in the
+  Developer Portal).
+- 1Password CLI (`op`) if you store the key there; otherwise a local `.p8` path.
+
+**Credentials** (env, or `op://` references the script resolves via 1Password):
+
+```sh
+export ASC_KEY_ID=XXXXXXXXXX
+export ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+export ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8   # or ASC_KEY_OP_REF=op://Vault/ASC Key/.p8
+```
+
+**Usage**
+
+```sh
+# 0. Always rehearse first — fully offline: no network, no 1Password read, no JWT.
+./scripts/deliver.sh deliver --dry-run --build-number <n>
+
+# 1. Archive + upload to TestFlight (build number auto-resolves to App Store Connect max + 1).
+./scripts/deliver.sh deliver
+
+# 2. After the build finishes processing, push the tester notes from ios/TestFlight/WhatToTest.en-US.txt.
+./scripts/deliver.sh notes --build-number <n>        # <n> is echoed by step 1
+
+# Offline crypto + redaction self-tests (no credentials needed):
+./scripts/deliver.sh selftest
+```
+
+**Notes**
+
+- `--build-number` selection (`max + 1`) is **not atomic** — if another operator uploads concurrently,
+  pass an explicit `--build-number`.
+- `--export-only` writes a signed `.ipa` under `build/delivery/export/` instead of uploading; upload it
+  manually with `xcrun altool --upload-app -f <ipa> --apiKey <id> --apiIssuer <issuer>` (key in
+  `~/.appstoreconnect/private_keys/`).
+- Outputs land under `build/delivery/` (gitignored). The archive's own "Upload dSYMs to Sentry" build
+  phase runs during archiving; the script never re-uploads dSYMs.
+- The live archive/upload/notes paths are **exercised by the operator** — validate the script logic
+  first with `deliver --dry-run` and `selftest`.
+
 ## Conventions
 
 - **Branches**: `feature/…`, `fix/…`, `doc/…`, `test/…` with a short kebab-case description; pull requests target `develop`. Never commit directly to `develop` or `main`.
