@@ -7,16 +7,23 @@
 # "What to Test" notes — all authenticated with an App Store Connect API key (never your Apple ID).
 #
 # Subcommands:
-#   deliver   Preflight -> archive -> export -> upload to App Store Connect.
+#   deliver   Preflight -> archive -> export -> validate -> upload to App Store Connect.
+#   validate  Preflight -> archive -> export -> validate against App Store Connect (NO upload) —
+#             the CLI equivalent of Xcode Organizer's "Validate App".
 #   notes     Get-or-create the build's en-US "What to Test" from ios/TestFlight/WhatToTest.en-US.txt.
 #   selftest  Offline self-tests (ES256 JWT sign/verify + dry-run redaction). No credentials needed.
 #
 # Usage:
-#   ./scripts/deliver.sh deliver [--build-number N] [--dry-run] [--export-only]
-#                                [--ref <tag|sha>] [--skip-tests] [--allow-dirty] [--online-preflight]
-#   ./scripts/deliver.sh notes   [--build-number N] [--dry-run]
+#   ./scripts/deliver.sh deliver  [--build-number N] [--dry-run] [--skip-validate] [--export-only]
+#                                 [--ref <tag|sha>] [--skip-tests] [--allow-dirty] [--online-preflight]
+#   ./scripts/deliver.sh validate [--build-number N] [--dry-run] [--ref <tag|sha>] [--skip-tests] [--allow-dirty]
+#   ./scripts/deliver.sh notes    [--build-number N] [--dry-run]
 #   ./scripts/deliver.sh selftest
 #   ./scripts/deliver.sh --help
+#
+# `deliver` validates the archive against App Store Connect (like Xcode's "Validate App") BEFORE
+# uploading; --skip-validate bypasses that gate. Validation uses `xcrun altool` (deprecated but the
+# only CLI that does pre-upload validation); the upload itself uses xcodebuild and does not depend on it.
 #
 # Credentials (App Store Connect API key — see README "Emergency delivery lane"):
 #   ASC_KEY_ID       Key ID (or an op:// 1Password secret reference).
@@ -45,7 +52,8 @@ EXPORT_OPTIONS="${REPO_ROOT}/ios/ExportOptions.plist"
 WHATSNEW_FILE="${REPO_ROOT}/ios/TestFlight/WhatToTest.en-US.txt"
 BUILD_DIR="${REPO_ROOT}/build/delivery"                 # gitignored (.gitignore: build/)
 ARCHIVE_PATH="${BUILD_DIR}/MLBrowser.xcarchive"
-EXPORT_PATH="${BUILD_DIR}/export"
+EXPORT_PATH="${BUILD_DIR}/export"                       # IPA for validation / --export-only
+UPLOAD_PATH="${BUILD_DIR}/upload"                       # xcodebuild upload output/receipt
 DERIVED_DATA="${BUILD_DIR}/DerivedData"                 # pinned: never share the open Xcode's DerivedData
 ASC_HOST="https://api.appstoreconnect.apple.com"
 JWT_TTL=900                                             # 15 min (App Store Connect max is 20)
@@ -59,6 +67,8 @@ SKIP_TESTS=0
 ALLOW_DIRTY=0
 ONLINE_PREFLIGHT=0
 EXPORT_ONLY=0
+VALIDATE_ONLY=0                                          # set by the `validate` subcommand
+SKIP_VALIDATE=0
 REF=""
 PREFLIGHT_WOULD_FAIL=0
 
@@ -419,7 +429,8 @@ run_step() {
     fi
 }
 
-make_export_only_plist() {
+make_export_plist() {
+    # Export-to-disk options (destination=export) for the validation / --export-only IPA.
     local out; out="$(mktemp_tracked)"
     cat > "$out" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -437,8 +448,42 @@ PLIST
     printf '%s' "$out"
 }
 
+find_exported_ipa() {
+    local ipa
+    ipa="$(find "$EXPORT_PATH" -maxdepth 2 -name '*.ipa' 2>/dev/null | head -1)"
+    [[ -n "$ipa" ]] || die "No .ipa found under ${EXPORT_PATH} after export."
+    printf '%s' "$ipa"
+}
+
+# Server-side App Store validation of the exported IPA WITHOUT uploading — mirrors Xcode Organizer's
+# "Validate App" (icons, entitlements, Info.plist keys, provisioning, unsupported architectures).
+# altool is the ONLY CLI that does this (deprecated but functional on Xcode 26.6). It is deliberately
+# isolated to this optional, --skip-validate-able gate so the recommended xcodebuild upload path never
+# depends on it.
+validate_ipa() {
+    local ipa="$1"
+    command -v xcrun >/dev/null 2>&1 || die "xcrun not found (Xcode toolchain missing)."
+    # altool locates the key by NAME in API_PRIVATE_KEYS_DIR: AuthKey_<KEYID>.p8.
+    local kdir="${TMP_DIR}/private_keys"
+    mkdir -p "$kdir"; chmod 700 "$kdir"
+    local keyfile="${kdir}/AuthKey_${ASC_KEY_ID}.p8"
+    cp "$RESOLVED_KEY_PATH" "$keyfile"; chmod 600 "$keyfile"
+    info "Validating the archive against App Store Connect (altool --validate-app)…"
+    local out rc=0
+    out="$(API_PRIVATE_KEYS_DIR="$kdir" xcrun altool --validate-app -f "$ipa" -t ios \
+        --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" --output-format json 2>&1)" || rc=$?
+    if [[ "$rc" -ne 0 ]]; then
+        local errs
+        errs="$(printf '%s' "$out" | jq -r '.["product-errors"][]?.message // empty' 2>/dev/null)"
+        die "App Store validation FAILED:
+${errs:-$out}"
+    fi
+    log "Validation passed — the archive is acceptable to App Store Connect."
+}
+
+# Handles `deliver`, `validate` (VALIDATE_ONLY), and `deliver --export-only`.
 cmd_deliver() {
-    preflight deliver
+    preflight "$SUBCOMMAND"
 
     # Resolve the build number to archive.
     local num
@@ -457,7 +502,7 @@ cmd_deliver() {
     fi
 
     # Auth values for the upload step. Under dry-run these stay placeholders so the printed command
-    # never contains real credentials.
+    # (and the validation command) never contain real credentials.
     local kid iss keyp
     if [[ "$DRY_RUN" == 1 ]]; then
         kid="<ASC_KEY_ID>"; iss="<ASC_ISSUER_ID>"; keyp="<ASC_KEY_PATH>"
@@ -465,7 +510,7 @@ cmd_deliver() {
         kid="$ASC_KEY_ID"; iss="$ASC_ISSUER_ID"; keyp="$RESOLVED_KEY_PATH"
     fi
 
-    [[ "$DRY_RUN" == 1 ]] || { rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH"; mkdir -p "$BUILD_DIR"; }
+    [[ "$DRY_RUN" == 1 ]] || { rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH" "$UPLOAD_PATH"; mkdir -p "$BUILD_DIR"; }
 
     info "Archiving (${CONFIGURATION}, CURRENT_PROJECT_VERSION=${num})…"
     run_step xcodebuild archive \
@@ -478,11 +523,54 @@ cmd_deliver() {
         -allowProvisioningUpdates \
         CURRENT_PROJECT_VERSION="$num"
 
+    # Validate before uploading (default), like Xcode Organizer's Validate → Distribute. Needs a disk
+    # IPA; --export-only / `validate` also need it. The upload path re-exports from the archive
+    # internally, and App Store validation checks archive content (identical across the two exports).
+    local do_validate=1
+    [[ "$SKIP_VALIDATE" == 1 ]] && do_validate=0
+    [[ "$VALIDATE_ONLY" == 1 ]] && do_validate=1     # `validate` always validates
+    if [[ "$do_validate" == 1 || "$EXPORT_ONLY" == 1 || "$VALIDATE_ONLY" == 1 ]]; then
+        local eo; eo="$(make_export_plist)"
+        info "Exporting IPA to ${EXPORT_PATH}…"
+        run_step xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportOptionsPlist "$eo" \
+            -exportPath "$EXPORT_PATH" \
+            -allowProvisioningUpdates
+    fi
+
+    if [[ "$do_validate" == 1 ]]; then
+        if [[ "$DRY_RUN" == 1 ]]; then
+            log "[dry-run] would validate: xcrun altool --validate-app -f ${EXPORT_PATH}/<app>.ipa -t ios --apiKey ${kid} --apiIssuer ${iss} --output-format json"
+        else
+            validate_ipa "$(find_exported_ipa)"
+        fi
+    else
+        warn "--skip-validate: skipping App Store pre-upload validation."
+    fi
+
+    if [[ "$VALIDATE_ONLY" == 1 ]]; then
+        if [[ "$DRY_RUN" == 1 ]]; then
+            info "Dry-run complete (validate). No archive, export, validation, or credential access occurred."
+        else
+            info "Validate-only: build ${num} archived and validated; no upload performed."
+        fi
+        return 0
+    fi
+
+    if [[ "$EXPORT_ONLY" == 1 ]]; then
+        if [[ "$DRY_RUN" == 1 ]]; then
+            info "Dry-run complete (export-only). No archive, export, or upload occurred."
+        else
+            info "Export-only: IPA written under ${EXPORT_PATH}; upload manually with altool (see README)."
+        fi
+        return 0
+    fi
+
     # Re-check the number against ASC right before upload to shrink the selection→upload TOCTOU window.
-    # This is NOT a distributed lock — a true concurrent-operator guarantee needs a shared reservation
-    # (see the README residual-risk note); this cheaply catches the common case and fails before a
-    # bad upload rather than after a confusing xcodebuild error.
-    if [[ "$DRY_RUN" != 1 && "$EXPORT_ONLY" != 1 ]]; then
+    # NOT a distributed lock — true concurrent-operator safety needs a shared reservation (README
+    # residual-risk note); this cheaply catches the common case and fails before a bad upload.
+    if [[ "$DRY_RUN" != 1 ]]; then
         local app_id_recheck max_now
         app_id_recheck="$(resolve_app_id)"
         max_now="$(fetch_max_build_number "$app_id_recheck")"
@@ -492,29 +580,18 @@ cmd_deliver() {
         log "Re-checked: build ${num} is still free (current App Store Connect max ${max_now})."
     fi
 
-    if [[ "$EXPORT_ONLY" == 1 ]]; then
-        local eo; eo="$(make_export_only_plist)"
-        info "Exporting IPA to ${EXPORT_PATH} (--export-only; upload manually with altool, see README)…"
-        run_step xcodebuild -exportArchive \
-            -archivePath "$ARCHIVE_PATH" \
-            -exportOptionsPlist "$eo" \
-            -exportPath "$EXPORT_PATH" \
-            -allowProvisioningUpdates
-        log "IPA written under ${EXPORT_PATH}."
-    else
-        info "Exporting + uploading to App Store Connect…"
-        run_step xcodebuild -exportArchive \
-            -archivePath "$ARCHIVE_PATH" \
-            -exportOptionsPlist "$EXPORT_OPTIONS" \
-            -exportPath "$EXPORT_PATH" \
-            -authenticationKeyID "$kid" \
-            -authenticationKeyIssuerID "$iss" \
-            -authenticationKeyPath "$keyp" \
-            -allowProvisioningUpdates
-    fi
+    info "Exporting + uploading to App Store Connect…"
+    run_step xcodebuild -exportArchive \
+        -archivePath "$ARCHIVE_PATH" \
+        -exportOptionsPlist "$EXPORT_OPTIONS" \
+        -exportPath "$UPLOAD_PATH" \
+        -authenticationKeyID "$kid" \
+        -authenticationKeyIssuerID "$iss" \
+        -authenticationKeyPath "$keyp" \
+        -allowProvisioningUpdates
 
     if [[ "$DRY_RUN" == 1 ]]; then
-        info "Dry-run complete. No archive, export, upload, or credential access occurred."
+        info "Dry-run complete. No archive, export, validation, upload, or credential access occurred."
     else
         info "Upload submitted for build ${num}. After App Store Connect finishes processing, attach notes:"
         log "    ./scripts/deliver.sh notes --build-number ${num}"
@@ -636,7 +713,8 @@ main() {
     case "$1" in
         -h|--help) show_help; exit 0 ;;
         deliver|notes|selftest) SUBCOMMAND="$1"; shift ;;
-        *) die "Unknown subcommand '$1' (expected: deliver | notes | selftest). Use --help." ;;
+        validate) SUBCOMMAND="validate"; VALIDATE_ONLY=1; shift ;;
+        *) die "Unknown subcommand '$1' (expected: deliver | validate | notes | selftest). Use --help." ;;
     esac
 
     while [[ $# -gt 0 ]]; do
@@ -644,6 +722,7 @@ main() {
             --dry-run)          DRY_RUN=1; shift ;;
             --build-number)     [[ $# -ge 2 ]] || die "--build-number requires a value."; BUILD_NUMBER="$2"; shift 2 ;;
             --skip-tests)       SKIP_TESTS=1; shift ;;
+            --skip-validate)    SKIP_VALIDATE=1; shift ;;
             --allow-dirty)      ALLOW_DIRTY=1; shift ;;
             --online-preflight) ONLINE_PREFLIGHT=1; shift ;;
             --export-only)      EXPORT_ONLY=1; shift ;;
@@ -666,9 +745,9 @@ main() {
     TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/deliver.XXXXXX")"
 
     case "$SUBCOMMAND" in
-        selftest) cmd_selftest ;;
-        deliver)  discover_developer_dir; cmd_deliver ;;
-        notes)    discover_developer_dir; cmd_notes ;;
+        selftest)          cmd_selftest ;;
+        deliver|validate)  discover_developer_dir; cmd_deliver ;;
+        notes)             discover_developer_dir; cmd_notes ;;
     esac
 }
 

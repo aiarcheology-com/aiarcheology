@@ -86,11 +86,15 @@ export ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8   # or
 # 0. Always rehearse first — fully offline: no network, no 1Password read, no JWT.
 ./scripts/deliver.sh deliver --dry-run --build-number <n>
 
-# 1. Archive + upload to TestFlight (build number auto-resolves to App Store Connect max + 1).
+# 1. (Optional) Validate the archive against App Store Connect WITHOUT uploading — like Xcode's
+#    "Validate App". `deliver` also does this automatically right before uploading.
+./scripts/deliver.sh validate
+
+# 2. Archive → validate → upload to TestFlight (build number auto-resolves to App Store Connect max + 1).
 ./scripts/deliver.sh deliver
 
-# 2. After the build finishes processing, push the tester notes from ios/TestFlight/WhatToTest.en-US.txt.
-./scripts/deliver.sh notes --build-number <n>        # <n> is echoed by step 1
+# 3. After the build finishes processing, push the tester notes from ios/TestFlight/WhatToTest.en-US.txt.
+./scripts/deliver.sh notes --build-number <n>        # <n> is echoed by step 2
 
 # Offline crypto + redaction self-tests (no credentials needed):
 ./scripts/deliver.sh selftest
@@ -98,6 +102,12 @@ export ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8   # or
 
 **Notes**
 
+- **Pre-upload validation:** `deliver` validates the archive against App Store Connect (icons,
+  entitlements, Info.plist keys, provisioning, architectures) *before* uploading — the CLI equivalent
+  of Xcode Organizer's "Validate App" — and aborts on failure. `--skip-validate` bypasses it; the
+  standalone `validate` subcommand runs the check without uploading. Validation uses `xcrun altool`
+  (deprecated but the only CLI that validates pre-upload); the upload itself uses `xcodebuild` and is
+  independent of it, so `--skip-validate` keeps you shipping if `altool` is ever removed.
 - `--build-number` selection (`max + 1`) is **not atomic**. `deliver` re-checks the number against
   App Store Connect right before uploading (and aborts if it was taken meanwhile), which shrinks but
   does not eliminate the race — two operators archiving simultaneously can still collide. For a
