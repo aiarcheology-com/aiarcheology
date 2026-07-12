@@ -510,7 +510,8 @@ cmd_deliver() {
         kid="$ASC_KEY_ID"; iss="$ASC_ISSUER_ID"; keyp="$RESOLVED_KEY_PATH"
     fi
 
-    [[ "$DRY_RUN" == 1 ]] || { rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH" "$UPLOAD_PATH"; mkdir -p "$BUILD_DIR"; }
+    # xcodebuild/xcrun only run on the live path; a dry-run rehearsal must not require an Xcode install.
+    [[ "$DRY_RUN" == 1 ]] || { discover_developer_dir; rm -rf "$ARCHIVE_PATH" "$EXPORT_PATH" "$UPLOAD_PATH"; mkdir -p "$BUILD_DIR"; }
 
     info "Archiving (${CONFIGURATION}, CURRENT_PROJECT_VERSION=${num})…"
     run_step xcodebuild archive \
@@ -625,14 +626,12 @@ build_whatsnew_json() {
 }
 
 cmd_notes() {
+    # Always require an explicit build number. Guessing "the latest build on App Store Connect" could
+    # attach these tester notes to a build another operator uploaded in between; `deliver` prints the
+    # exact `notes --build-number <n>` line to copy after an upload.
+    [[ -n "$BUILD_NUMBER" ]] || die "notes requires --build-number <n> (deliver echoes the exact command after upload)."
     preflight notes
-
-    local num
-    if [[ -n "$BUILD_NUMBER" ]]; then
-        num="$BUILD_NUMBER"
-    elif [[ "$DRY_RUN" == 1 ]]; then
-        die "--dry-run requires --build-number (App Store Connect is not queried offline)."
-    fi
+    local num="$BUILD_NUMBER"
 
     if [[ "$DRY_RUN" == 1 ]]; then
         info "Dry-run: would push What to Test for build ${num}."
@@ -648,11 +647,6 @@ cmd_notes() {
     resolve_asc_credentials
     local app_id
     app_id="$(resolve_app_id)"
-    if [[ -z "${num:-}" ]]; then
-        num="$(fetch_max_build_number "$app_id")"
-        [[ "$num" != "0" ]] || die "No builds on App Store Connect yet — upload one first (deliver)." 75
-        info "Resolved build number ${num} (latest on App Store Connect)."
-    fi
 
     local build_id
     build_id="$(resolve_build_id "$app_id" "$num")"      # may exit 75 if still processing
@@ -679,7 +673,7 @@ cmd_notes() {
 # selftest (offline, repeatable — safe to run in CI)
 # ================================================================================================
 cmd_selftest() {
-    discover_developer_dir
+    # Offline only: no Xcode, no credentials, no network.
     info "ES256 JWT sign/verify self-test (ephemeral key)…"
     jwt_selftest
     log "OK."
@@ -744,10 +738,13 @@ main() {
     # Parent-owned temp dir (0700) for the .p8 + cached responses; removed by the EXIT trap.
     TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/deliver.XXXXXX")"
 
+    # discover_developer_dir is deferred into the live paths (cmd_deliver runs it only when not
+    # dry-run); selftest, dry-run rehearsals, and notes never invoke xcodebuild/xcrun, so they must
+    # not require an Xcode toolchain.
     case "$SUBCOMMAND" in
         selftest)          cmd_selftest ;;
-        deliver|validate)  discover_developer_dir; cmd_deliver ;;
-        notes)             discover_developer_dir; cmd_notes ;;
+        deliver|validate)  cmd_deliver ;;
+        notes)             cmd_notes ;;
     esac
 }
 

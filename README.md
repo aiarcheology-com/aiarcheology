@@ -116,8 +116,10 @@ export ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8   # or
 - `--export-only` writes a signed `.ipa` under `build/delivery/export/` instead of uploading; upload it
   manually with `xcrun altool --upload-app -f <ipa> --apiKey <id> --apiIssuer <issuer>` (key in
   `~/.appstoreconnect/private_keys/`).
-- Outputs land under `build/delivery/` (gitignored). The archive's own "Upload dSYMs to Sentry" build
-  phase runs during archiving; the script never re-uploads dSYMs.
+- Outputs land under `build/delivery/` (gitignored). dSYMs are uploaded to **Sentry** by the archive's
+  own "Upload Debug Symbols to Sentry" build phase (during archiving) and to **App Store Connect** by
+  the export step (`uploadSymbols=true` in `ExportOptions.plist`); the script adds no separate dSYM
+  upload of its own.
 - The live archive/upload/notes paths are **exercised by the operator** — validate the script logic
   first with `deliver --dry-run` and `selftest`.
 
