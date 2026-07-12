@@ -303,7 +303,7 @@ struct WebScreenView: View {
             // the finding was saved, which already advanced the step).
             appState.tour.captureCancelled()
         }) { capture in
-            SaveFindingSheet(capture: capture, tour: appState.tour)
+            SaveFindingSheet(capture: capture, tour: appState.tour, repository: appState.findingRepository)
         }
         .onReceive(appState.chromeState.$pageToOpen) { url in
             // A finding's "open page" action lands here (the findings UI cannot

@@ -1,41 +1,35 @@
-Test Focus: Detection/chrome state split (AIA-0391) — no visible change expected
+Test Focus: Finding save path refactor (AIA-0392) — no visible change expected
 Build: TBD
 
 What's new in this build:
-Internal restructuring only. The single "Guide" object that mixed the detection-session controls
-with the browser-chrome state was split into two focused objects (one owns the on-the-fly detection
-lifecycle and the snapshot timer; the other owns the drawer/tab chrome and page navigation). There
-is NO user-facing change. This build is a regression check that detection, the fullscreen chrome
-behavior, tab switching, the drawer, settings, the onboarding tour, and background/foreground
-behave exactly as before.
+Internal restructuring only. The code that saves a finding (writes the screenshot, creates the
+database record, and validates it) was moved out of the save screen into one dedicated, auditable
+component. There is NO user-facing change. This build is a regression check that capturing and
+saving findings — and the failure/rollback behavior — work exactly as before.
 
-1. Detection start/stop & fullscreen chrome
-- Enable a model and start on-the-fly detection. Bounding boxes / labels appear and update.
-- With "Fullscreen detection" on in Settings: starting detection hides the browser chrome; the
-  floating chrome-toggle button appears; tapping it reveals/hides the chrome without stopping
-  detection. Stopping detection restores the chrome every time.
+1. Capture & save a finding
+- Run a detection demo, tap Find/Store, tap the content to capture a detection.
+- In the save sheet: adjust the crop (pinch/drag or the zoom slider), type a Title (Save stays
+  disabled until the title is non-empty), optionally add a label/note/GPS, then tap Save.
+- The sheet dismisses and the finding is saved.
 
-2. Tab / mode switching & drawer
-- Switch between the app's tabs/modes; the tab bar and navigation behave as before.
-- Open and close the side drawer; open a page from the drawer — it loads.
+2. Verify it persisted
+- Open the drawer → Findings. The finding you just saved appears, with its cropped screenshot and
+  the details you entered.
 
-3. Settings
-- Open Settings. Toggle "Fullscreen detection" and change the snapshot "Frequency" while detection
-  is running — the running detection updates accordingly, no crash. "Restore defaults" stops any
-  running detection and resets the app.
+3. Crop is honored
+- Save a finding with a tight crop; in Findings its screenshot should be the cropped region (the
+  highlight box still lines up).
 
-4. Finding capture
-- While detecting, tap Find/Store and save a finding. The snapshot pauses during the save dialog
-  and resumes afterward (if detection was running).
+4. Cancel path
+- Start a capture, then dismiss the save sheet without saving — nothing is added to Findings, and
+  the app returns to browsing normally.
 
-5. Background / foreground
-- Start detection, background the app, return — detection auto-pause/resume behaves as before.
+5. Onboarding tour (save step)
+- Replay onboarding from Settings and follow it through the "save a finding" step — saving still
+  advances the tour correctly.
 
-6. Onboarding tour
-- Replay onboarding from Settings (or first launch). The spotlight steps that start detection and
-  enter pick-mode still advance correctly.
-
-7. Report Issues
+6. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version

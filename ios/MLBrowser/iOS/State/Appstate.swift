@@ -28,6 +28,7 @@ final class AppState: ObservableObject {
 	let deep: DeepState
 	let downloader: Downloader
 	let demoDataManager: DemoDataManager
+	let findingRepository: FindingRepository
 
 	/// Real Clerk-backed auth vs. the DEBUG mock, decided by the composition root (AIA-0385).
 	let usesRealAuth: Bool
@@ -72,6 +73,7 @@ final class AppState: ObservableObject {
 		deep: DeepState,
 		downloader: Downloader,
 		demoDataManager: DemoDataManager,
+		findingRepository: FindingRepository,
 		detection: DetectionSession,
 		browser: BrowserSession,
 		account: AccountSession,
@@ -83,6 +85,7 @@ final class AppState: ObservableObject {
 		self.deep = deep
 		self.downloader = downloader
 		self.demoDataManager = demoDataManager
+		self.findingRepository = findingRepository
 		self.detection = detection
 		self.browser = browser
 		self.account = account

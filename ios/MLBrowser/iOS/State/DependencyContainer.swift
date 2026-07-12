@@ -51,6 +51,12 @@ class DependencyContainer {
         return DemoDataManager(dataController: self.dataController)
     }()
 
+    // `private(set)`: `AppState` captures this instance at construction; reassigning it afterwards
+    // would hand later consumers a different repository/persistence context. Read-only to the outside.
+    private(set) lazy var findingRepository: FindingRepository = {
+        return FindingRepository(dataController: self.dataController)
+    }()
+
     // MARK: - Authentication (AIA-0340)
 
     /// Whether the auth gate uses the in-memory mock instead of Clerk.
@@ -129,6 +135,7 @@ class DependencyContainer {
 			deep: deepState,
 			downloader: downloader,
 			demoDataManager: demoDataManager,
+			findingRepository: findingRepository,
 			detection: detection,
 			browser: browser,
 			account: account,

@@ -119,6 +119,28 @@ final class ArchitectureTests: XCTestCase {
         return findings
     }
 
+    /// Whole-file (not per-line) regex scan, so a call split across lines
+    /// (`FindingScreenshotStore\n    .save(...)`, matched by the `\s*` in the pattern) can't slip
+    /// through the way per-line matching would. **Throws when the file can't be read** so the caller
+    /// fails closed — a read error must never silently become "no offenders found".
+    private static func findMatchesInContents(of fileURL: URL, regex pattern: String) throws -> [PatternFinding] {
+        let data = try Data(contentsOf: fileURL)
+        guard let contents = String(data: data, encoding: .utf8) else {
+            throw CocoaError(.fileReadInapplicableStringEncoding)
+        }
+        let relative = relativePath(for: fileURL)
+        let regex = try NSRegularExpression(pattern: pattern)
+        let ns = contents as NSString
+        var findings: [PatternFinding] = []
+        for match in regex.matches(in: contents, range: NSRange(location: 0, length: ns.length)) {
+            let lineNumber = ns.substring(to: match.range.location).reduce(1) { $1 == "\n" ? $0 + 1 : $0 }
+            let lineText = ns.substring(with: ns.lineRange(for: NSRange(location: match.range.location, length: 0)))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            findings.append(.init(relativePath: relative, lineNumber: lineNumber, line: lineText))
+        }
+        return findings
+    }
+
     // MARK: - 1. State Management Rules
 
     /// State objects that hold UI state should be @MainActor to ensure thread-safe UI updates.
@@ -366,6 +388,68 @@ final class ArchitectureTests: XCTestCase {
 
                 Prefer injecting dependencies via DependencyContainer (or explicit init params) to keep code testable.
                 If this singleton is justified, add the file to the allowlist in ArchitectureTests with a comment explaining why.
+                """
+            )
+        }
+    }
+
+    /// Privacy invariant (AIA-0392): finding screenshots are written ONLY by `FindingRepository`,
+    /// the single auditable on-device write path (images never leave the device except via explicit
+    /// user export). Any other PRODUCTION caller of `FindingScreenshotStore.save` is an unreviewed
+    /// image-persistence path and fails CI. Tests call it directly, but they live outside the
+    /// production root scanned here, so they are not offenders.
+    func testOnlyFindingRepositoryWritesScreenshots() {
+        let root = Self.productionIOSRootURL()
+        let files = Self.swiftFiles(under: root)
+
+        // Fail closed: an empty scan means the production root moved or couldn't be enumerated, which
+        // would otherwise let this privacy invariant pass vacuously.
+        XCTAssertFalse(
+            files.isEmpty,
+            "Privacy scan found no Swift files under \(root.path) — the scan is broken, not clean."
+        )
+
+        let approvedFiles: Set<String> = [
+            "ios/MLBrowser/iOS/State/FindingRepository.swift"
+        ]
+
+        // Match the write (`.save`) only — `.delete`/`.load`/`.sweepOrphans` are cleanup/reads, not egress.
+        let writePattern = #"FindingScreenshotStore\s*\.\s*save\b"#
+
+        var offenders: [PatternFinding] = []
+        for fileURL in files {
+            let rel = Self.relativePath(for: fileURL)
+            let findings: [PatternFinding]
+            do {
+                // Whole-file scan (not per-line) so a call split across lines is still caught;
+                // a read failure throws and fails the test rather than silently passing.
+                findings = try Self.findMatchesInContents(of: fileURL, regex: writePattern)
+            } catch {
+                XCTFail("Privacy scan could not read \(rel): \(error) — failing closed.")
+                continue
+            }
+            guard !findings.isEmpty else { continue }
+            guard approvedFiles.contains(rel) else {
+                offenders.append(contentsOf: findings)
+                continue
+            }
+        }
+
+        if !offenders.isEmpty {
+            let formatted = offenders
+                .sorted { ($0.relativePath, $0.lineNumber) < ($1.relativePath, $1.lineNumber) }
+                .map { "\($0.relativePath):\($0.lineNumber)  \($0.line.trimmingCharacters(in: .whitespaces))" }
+                .joined(separator: "\n")
+
+            XCTFail(
+                """
+                Finding screenshots must be written only by FindingRepository (AIA-0392) — the single
+                auditable on-device write path (images never leave the device except via explicit export).
+                Unapproved FindingScreenshotStore.save call sites:
+                \(formatted)
+
+                Route the write through FindingRepository, or — if a new writer is genuinely justified —
+                add its file to the allowlist here with a comment explaining the privacy review.
                 """
             )
         }
