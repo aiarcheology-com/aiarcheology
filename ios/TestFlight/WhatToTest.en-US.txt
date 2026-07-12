@@ -1,23 +1,33 @@
-Test Focus: Emergency delivery tooling (AIA-0379) — no app-facing change expected
+Test Focus: Set a model's type — Detection / Classification / Disabled (AIA-0402)
 Build: (auto-filled by ./scripts/deliver.sh notes — never published as-is)
 
 What's new in this build:
-Developer tooling only. This change adds a local "archive → TestFlight" delivery script
-(scripts/deliver.sh) used to ship a build when Xcode Cloud is unavailable. There is NO user-facing
-change: the app binary and behavior are identical to the previous build. This build is a plain
-regression check that the core flows still work.
+You can now tell the app what an imported model is. Each model's settings has a new Type control:
+Detection, Classification, or Disabled. Models whose type the app couldn't read before (and which
+used to fail on import) can now be imported and set up by hand. The model list also shows each
+model's type at a glance.
 
-1. Launch & browse
-- Open the app, sign in, and load a few pages. Nothing looks or behaves differently from the last build.
+1. Import a model & set its type
+- Import a Core ML model (from Files or a URL) and open its settings. The new Type control shows
+  Detection / Classification / Disabled. If the app can tell what the model is, it's pre-selected.
+- Change the type, close the settings, reopen it — your choice is still there. Force-quit and
+  relaunch — still there.
 
-2. Detection & save (smoke test)
-- Run a detection demo, capture a detection, and save a finding (title required). It saves and appears
-  in the drawer → Findings, exactly as before.
-- Persistence: force-quit and relaunch — the saved finding is still in Findings with its screenshot.
-- Cancel path: start another capture, then dismiss the save sheet without saving — nothing is added
-  to Findings and the app returns to browsing normally.
+2. Disabled = won't run until you choose
+- Set a model's Type to Disabled. In the model list (left drawer) its on/off switch is greyed out —
+  a Disabled model can't be turned on until you pick Detection or Classification.
+- Import a model whose type is unknown: it arrives as Disabled with a hint to choose a type, instead
+  of failing to import.
 
-3. Report Issues
+3. Type shows in the list
+- Each model in the left drawer shows its type (Detection / Classification / Disabled) under its name.
+
+4. Switch type on a running model
+- Enable a detection model and run it on a page. Open its settings and switch it to Classification.
+  Detection should stop and the model should behave as the newly chosen type (no leftover boxes from
+  the old type). Switching it to Disabled stops it entirely.
+
+5. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version
