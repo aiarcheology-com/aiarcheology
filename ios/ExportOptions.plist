@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Export options for `scripts/deliver.sh deliver` — uploads the archive straight to
+      App Store Connect (TestFlight). Not referenced by the Xcode project; consumed by
+      `xcodebuild -exportArchive` via path. See scripts/deliver.sh and the README's
+      "Emergency delivery lane" section.
+    -->
+    <key>destination</key>
+    <string>upload</string>
+    <key>method</key>
+    <string>app-store-connect</string>
+    <key>teamID</key>
+    <string>ZLR4X4U8UQ</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <!-- deliver.sh sets the build number via CURRENT_PROJECT_VERSION at archive time; export must not rewrite it. -->
+    <key>manageAppVersionAndBuildNumber</key>
+    <false/>
+    <!-- Upload dSYMs to App Store Connect for Apple-side crash symbolication. This is independent
+         of the archive's own "Upload Debug Symbols to Sentry" build phase (deliver.sh never re-runs that). -->
+    <key>uploadSymbols</key>
+    <true/>
+</dict>
+</plist>
