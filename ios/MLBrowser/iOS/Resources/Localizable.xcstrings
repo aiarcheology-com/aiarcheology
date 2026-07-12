@@ -5313,6 +5313,54 @@
         }
       }
     },
+    "configuration.modelTypeClassification" : {
+      "comment" : "Model type option: classification (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classification"
+          }
+        }
+      }
+    },
+    "configuration.modelTypeDetection" : {
+      "comment" : "Model type option: detection (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detection"
+          }
+        }
+      }
+    },
+    "configuration.modelTypeDisabled" : {
+      "comment" : "Model type option: disabled — the model won't run until the user picks a type (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disabled"
+          }
+        }
+      }
+    },
+    "configuration.modelTypeDisabledHint" : {
+      "comment" : "Hint shown when a model's type is Disabled (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a type to enable this model."
+          }
+        }
+      }
+    },
     "configuration.type" : {
       "comment" : "Type label in configuration",
       "extractionState" : "manual",

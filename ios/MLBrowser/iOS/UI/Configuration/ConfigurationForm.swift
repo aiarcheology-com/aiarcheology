@@ -167,8 +167,26 @@ struct ConfigurationForm: View {
 	private var mergedObservable: [String] {[
 		configuration.annotationColor.description,
 		configuration.phaseOutTime.description,
-		configuration.selectedSymbol.rawValue
+		configuration.selectedSymbol.rawValue,
+		// Included so a type change autosaves via `.onChange` (AIA-0402) — otherwise it only
+		// persists on the dismiss button and is lost on a swipe-to-dismiss.
+		configuration.modelType.rawValue
 	]}
+
+	/// The type picker writes through this so choosing **Disabled** also clears `enabled`: a
+	/// Disabled model can't run, and leaving it enabled would show the drawer toggle "on" for a
+	/// non-running model (AIA-0402).
+	private var modelTypeSelection: Binding<DeepDriverType> {
+		Binding(
+			get: { configuration.modelType },
+			set: { newValue in
+				configuration.modelType = newValue
+				if newValue == .invalid {
+					configuration.enabled = false
+				}
+			}
+		)
+	}
 	
 	var body: some View {
 		NavigationStack {
@@ -196,7 +214,22 @@ struct ConfigurationForm: View {
 				layout: .leadingStacked,
 				showsCopyButton: false
 			)
-			ConfigurationDetailRow(label: L10n.Configuration.type, value: " \(configuration.modelType.rawValue)")
+			VStack(alignment: .leading, spacing: 6) {
+				Text(L10n.Configuration.type)
+				Picker(L10n.Configuration.type, selection: modelTypeSelection) {
+					Text(DeepDriverType.detector.localizedName).tag(DeepDriverType.detector)
+					Text(DeepDriverType.classificator.localizedName).tag(DeepDriverType.classificator)
+					Text(DeepDriverType.invalid.localizedName).tag(DeepDriverType.invalid)
+				}
+				.pickerStyle(.segmented)
+				.labelsHidden()
+				.testability(Testability.Picker.configurationFormModelType)
+				if configuration.modelType == .invalid {
+					Text(L10n.Configuration.modelTypeDisabledHint)
+						.font(.caption)
+						.foregroundStyle(.secondary)
+				}
+			}
 			ConfigurationDetailRow(label: L10n.Configuration.version, value: " \(configuration.modelVersion ?? "")")
 
 			if let downloadURL = configuration.downloadURL {

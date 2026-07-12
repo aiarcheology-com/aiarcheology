@@ -286,8 +286,13 @@ private struct ConfigurationRow: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
+
+                // Model type at a glance (Detect / Classify / Disabled) — AIA-0402.
+                Text(configuration.modelType.localizedName)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
-            
+
             Spacer()
             
             Toggle("", isOn: Binding(
@@ -317,6 +322,9 @@ private struct ConfigurationRow: View {
             .tint(configuration.annotationColor)
             .labelsHidden()
             .testability(Testability.Toggle.sideMenuCellEnabled)
+            // A Disabled (undetermined-type) model can't run — block enabling it until the user
+            // picks a type in the config form (AIA-0402).
+            .disabled(configuration.modelType == .invalid)
         }
         .contentShape(Rectangle())
         .onTapGesture { onTap() }

@@ -241,6 +241,14 @@ internal enum L10n {
     internal static let flashSize = L10n.tr("Localizable", "configuration.flashSize", fallback: "Flash border size")
     /// Link
     internal static let link = L10n.tr("Localizable", "configuration.link", fallback: "Link")
+    /// Classification
+    internal static let modelTypeClassification = L10n.tr("Localizable", "configuration.modelTypeClassification", fallback: "Classification")
+    /// Detection
+    internal static let modelTypeDetection = L10n.tr("Localizable", "configuration.modelTypeDetection", fallback: "Detection")
+    /// Disabled
+    internal static let modelTypeDisabled = L10n.tr("Localizable", "configuration.modelTypeDisabled", fallback: "Disabled")
+    /// Choose a type to enable this model.
+    internal static let modelTypeDisabledHint = L10n.tr("Localizable", "configuration.modelTypeDisabledHint", fallback: "Choose a type to enable this model.")
     /// Symbol
     internal static let symbol = L10n.tr("Localizable", "configuration.symbol", fallback: "Symbol")
     /// Configuration

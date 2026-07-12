@@ -14,6 +14,16 @@ public enum DeepDriverType: String, Sendable {
 	case detector = "detect"
 	case classificator = "classify"
 	case invalid = "invalid"
+
+	/// User-facing name. `.invalid` reads as "Disabled" — a model with an undetermined type does
+	/// not run until the user picks one (AIA-0402).
+	var localizedName: String {
+		switch self {
+		case .detector: return L10n.Configuration.modelTypeDetection
+		case .classificator: return L10n.Configuration.modelTypeClassification
+		case .invalid: return L10n.Configuration.modelTypeDisabled
+		}
+	}
 }
 
 struct DeepDriverParams: Sendable {
