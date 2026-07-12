@@ -763,6 +763,12 @@ main() {
     if [[ "$DRY_RUN" == 1 && "$SUBCOMMAND" == "check" ]]; then
         die "check has no --dry-run: it is already read-only (no archive/upload/write). Use 'selftest' for the offline crypto/redaction checks."
     fi
+    # `validate` always validates and returns before the upload / export-only paths, so these flags
+    # would be silently ignored — reject them so a rehearsal can't look like it did something it didn't.
+    if [[ "$SUBCOMMAND" == "validate" ]]; then
+        [[ "$SKIP_VALIDATE" == 1 ]] && die "--skip-validate is not valid for 'validate' (validating is the whole point; use 'deliver --skip-validate' to skip it)."
+        [[ "$EXPORT_ONLY" == 1 ]] && die "--export-only is not valid for 'validate' (it never uploads; use 'deliver --export-only' to write an .ipa)."
+    fi
     # Dry-run cannot query App Store Connect, so the build number must be supplied up front.
     if [[ "$DRY_RUN" == 1 && "$SUBCOMMAND" != "selftest" && -z "$BUILD_NUMBER" ]]; then
         die "--dry-run requires --build-number (App Store Connect is not queried offline)."
