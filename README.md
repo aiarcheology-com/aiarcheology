@@ -82,19 +82,26 @@ export ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8   # or
 
 **Usage**
 
+This is **Plan B** for the Xcode Cloud **"Release"** workflow, which archives + distributes from
+`release/*` branches. The local lane keys off the same branches, so releasing is identical either way:
+
 ```sh
-# 0. Always rehearse first — fully offline: no network, no 1Password read, no JWT.
+# 0. Cut the release branch from develop (the same trigger the Xcode Cloud Release workflow uses).
+git checkout develop && git pull
+git checkout -b release/<tag_description>
+
+# 1. Always rehearse first — fully offline: no network, no 1Password read, no JWT.
 ./scripts/deliver.sh deliver --dry-run --build-number <n>
 
-# 1. (Optional) Validate the archive against App Store Connect WITHOUT uploading — like Xcode's
+# 2. (Optional) Validate the archive against App Store Connect WITHOUT uploading — like Xcode's
 #    "Validate App". `deliver` also does this automatically right before uploading.
 ./scripts/deliver.sh validate
 
-# 2. Archive → validate → upload to TestFlight (build number auto-resolves to App Store Connect max + 1).
+# 3. Archive → validate → upload to TestFlight (build number auto-resolves to App Store Connect max + 1).
 ./scripts/deliver.sh deliver
 
-# 3. After the build finishes processing, push the tester notes from ios/TestFlight/WhatToTest.en-US.txt.
-./scripts/deliver.sh notes --build-number <n>        # <n> is echoed by step 2
+# 4. After the build finishes processing, push the tester notes from ios/TestFlight/WhatToTest.en-US.txt.
+./scripts/deliver.sh notes --build-number <n>        # <n> is echoed by step 3
 
 # Offline crypto + redaction self-tests (no credentials needed):
 ./scripts/deliver.sh selftest
@@ -102,6 +109,9 @@ export ASC_KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_XXXXXXXXXX.p8   # or
 
 **Notes**
 
+- **Release branch required:** `deliver` / `validate` refuse to run unless you're on a `release/*`
+  branch (mirroring the Xcode Cloud Release workflow) or you pass an explicit `--ref <tag|sha>` that
+  matches `HEAD`. This keeps the local lane shipping the same commits Xcode Cloud would.
 - **Pre-upload validation:** `deliver` validates the archive against App Store Connect (icons,
   entitlements, Info.plist keys, provisioning, architectures) *before* uploading — the CLI equivalent
   of Xcode Organizer's "Validate App" — and aborts on failure. `--skip-validate` bypasses it; the

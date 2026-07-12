@@ -371,8 +371,10 @@ preflight() {
         else
             log "Delivering ref ${REF} (${ref_sha:0:9}) — matches HEAD."
         fi
-    elif [[ "$current" != "develop" ]]; then
-        preflight_fail "not on 'develop' (on '${current}'). Deliver from develop or pass --ref <tag|sha>."
+    elif [[ "$current" == release/* ]]; then
+        log "Delivering from release branch '${current}'."
+    else
+        preflight_fail "not on a 'release/*' branch (on '${current}'). Create one from develop — e.g. 'git checkout -b release/<desc> develop' — or pass --ref <tag|sha>. (Xcode Cloud's Release workflow archives release/* branches only; this lane mirrors it.)"
     fi
 
     if [[ "$DRY_RUN" == 1 ]]; then
