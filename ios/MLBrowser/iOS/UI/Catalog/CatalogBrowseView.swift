@@ -236,7 +236,7 @@ private struct CatalogResultRow: View {
 			Image(systemName: "cube.box")
 				.foregroundStyle(.blue)
 				.font(.title3)
-				.frame(minWidth: 28)
+				.frame(width: 28)
 
 			VStack(alignment: .leading, spacing: 5) {
 				Text(model.displayName)
@@ -246,41 +246,10 @@ private struct CatalogResultRow: View {
 					.font(.subheadline)
 					.foregroundStyle(.secondary)
 
-				if model.downloads > 0 || model.likes > 0 {
-					HStack(spacing: 10) {
-						if model.downloads > 0 {
-							Label(L10n.Catalog.Results.downloads(model.downloads), systemImage: "arrow.down.circle")
-						}
-						if model.likes > 0 {
-							Label(L10n.Catalog.Results.likes(model.likes), systemImage: "heart")
-						}
-					}
-					.font(.caption)
-					.foregroundStyle(.secondary)
-				}
-
-				HStack(spacing: 6) {
-					catalogTag
-					Text(L10n.Catalog.Results.coreML)
-						.tagStyle()
-					if let sizeBytes = model.sizeBytes {
-						Text(Int(sizeBytes).formatBytesAsHumanReadable())
-							.tagStyle()
-					}
-				}
-
-				if let downloadItem {
-					CatalogDownloadStatus(item: downloadItem)
-				}
-
-				if isImported, downloadItem?.state != .imported {
-					Label(L10n.Common.imported, systemImage: "checkmark.circle.fill")
-						.font(.caption)
-						.foregroundStyle(.green)
-				}
+				metadata
 			}
+			.frame(maxWidth: .infinity, alignment: .leading)
 
-			Spacer(minLength: 0)
 			if isResolving {
 				ProgressView()
 			} else {
@@ -292,6 +261,77 @@ private struct CatalogResultRow: View {
 		.padding(.vertical, 3)
 		.contentShape(Rectangle())
 		.accessibilityElement(children: .combine)
+	}
+
+	@ViewBuilder
+	private var metadata: some View {
+		ViewThatFits(in: .horizontal) {
+			HStack(spacing: 12) {
+				metrics
+				tags
+				Spacer(minLength: 0)
+				status
+			}
+			.frame(maxWidth: .infinity, alignment: .leading)
+
+			VStack(alignment: .leading, spacing: 5) {
+				metrics
+				tags
+				status
+			}
+		}
+	}
+
+	@ViewBuilder
+	private var metrics: some View {
+		if model.downloads > 0 || model.likes > 0 {
+			HStack(spacing: 10) {
+				if model.downloads > 0 {
+					metric(
+						model.downloads,
+						systemImage: "arrow.down.circle",
+						accessibilityLabel: L10n.Catalog.Results.downloads(model.downloads)
+					)
+				}
+				if model.likes > 0 {
+					metric(
+						model.likes,
+						systemImage: "heart",
+						accessibilityLabel: L10n.Catalog.Results.likes(model.likes)
+					)
+				}
+			}
+			.font(.caption)
+			.foregroundStyle(.secondary)
+		}
+	}
+
+	private func metric(_ value: Int, systemImage: String, accessibilityLabel: String) -> some View {
+		Label(value.formatted(), systemImage: systemImage)
+			.accessibilityLabel(accessibilityLabel)
+	}
+
+	private var tags: some View {
+		HStack(spacing: 6) {
+			catalogTag
+			Text(L10n.Catalog.Results.coreML)
+				.tagStyle()
+			if let sizeBytes = model.sizeBytes {
+				Text(Int(sizeBytes).formatBytesAsHumanReadable())
+					.tagStyle()
+			}
+		}
+	}
+
+	@ViewBuilder
+	private var status: some View {
+		if let downloadItem {
+			CatalogDownloadStatus(item: downloadItem)
+		} else if isImported {
+			Label(L10n.Common.imported, systemImage: "checkmark.circle.fill")
+				.font(.caption)
+				.foregroundStyle(.green)
+		}
 	}
 
 	@ViewBuilder
