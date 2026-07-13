@@ -8,42 +8,72 @@
 import SwiftUI
 
 struct CatalogBrowseView: View {
-	@Environment(\.dismiss) private var dismiss
+	@Environment(\.managedObjectContext) private var managedObjectContext
+	@EnvironmentObject private var downloader: Downloader
 
-	let onSelect: @MainActor (CatalogModel, [CatalogFile]) -> Void
-	@StateObject private var searchManager: CatalogSearchManager
+	let onImport: ImportHandler
+	@ObservedObject private var searchManager: CatalogSearchManager
 	@State private var selectionTask: Task<Void, Never>?
+	@State private var downloadItem: DownloadItem?
+	@State private var selectionErrorMessage: String?
+	@FetchRequest(
+		sortDescriptors: [NSSortDescriptor(keyPath: \DownloadItem.stateChanged_, ascending: false)],
+		animation: .default
+	)
+	private var downloadItems: FetchedResults<DownloadItem>
+	@FetchRequest(
+		sortDescriptors: [NSSortDescriptor(keyPath: \DeepConfiguration.creationDate_, ascending: false)],
+		animation: .default
+	)
+	private var configurations: FetchedResults<DeepConfiguration>
 
-	init(providers: [any CatalogProvider], onSelect: @escaping @MainActor (CatalogModel, [CatalogFile]) -> Void) {
-		self.onSelect = onSelect
-		_searchManager = StateObject(wrappedValue: CatalogSearchManager(providers: providers))
+	init(searchManager: CatalogSearchManager, onImport: ImportHandler) {
+		self.onImport = onImport
+		_searchManager = ObservedObject(wrappedValue: searchManager)
 	}
 
 	var body: some View {
-		NavigationStack {
-			List {
-				providerSection
-				resultProviderFilters
-				resultsSection
-			}
-			.listStyle(.insetGrouped)
-			.navigationTitle(L10n.Catalog.title)
-			.navigationBarTitleDisplayMode(.inline)
-			.searchable(text: queryBinding, prompt: L10n.Catalog.Search.prompt)
-			.toolbar {
-				ToolbarItem(placement: .topBarTrailing) {
-					Button(L10n.Common.dismiss) { dismiss() }
-				}
-			}
+		List {
+			searchSection
+			providerSection
+			resultProviderFilters
+			resultsSection
+		}
+		.listStyle(.insetGrouped)
+		.navigationTitle(L10n.Catalog.title)
+		.navigationBarTitleDisplayMode(.inline)
+		.navigationDestination(item: $downloadItem) { item in
+			DownloadDetailView(item: item, onImport: onImport)
 		}
 		.onDisappear {
 			selectionTask?.cancel()
 			searchManager.cancelSearch()
 		}
+		.alert(L10n.Catalog.Error.title, isPresented: .init(
+			get: { selectionErrorMessage != nil },
+			set: { if !$0 { selectionErrorMessage = nil } }
+		)) {
+			Button(L10n.Common.ok, role: .cancel) { }
+		} message: {
+			Text(selectionErrorMessage ?? L10n.Catalog.Error.message)
+		}
 	}
 }
 
 private extension CatalogBrowseView {
+	var searchSection: some View {
+		Section {
+			HStack(spacing: 8) {
+				Image(systemName: "magnifyingglass")
+					.foregroundStyle(.secondary)
+				TextField(L10n.Catalog.Search.prompt, text: queryBinding)
+					.textInputAutocapitalization(.never)
+					.autocorrectionDisabled()
+					.testability(Testability.TextField.catalogSearch)
+			}
+		}
+	}
+
 	var queryBinding: Binding<String> {
 		Binding(
 			get: { searchManager.query },
@@ -61,9 +91,10 @@ private extension CatalogBrowseView {
 						if searchManager.selectedProviderIDs.contains(provider.id) {
 							Label(provider.displayName, systemImage: "checkmark")
 						} else {
-							Text(provider.displayName)
+							Label(provider.displayName, systemImage: provider.isSearchable ? "square" : "archivebox")
 						}
 					}
+					.disabled(provider.isSearchable == false)
 				}
 			} label: {
 				HStack {
@@ -82,12 +113,12 @@ private extension CatalogBrowseView {
 
 	@ViewBuilder
 	var resultProviderFilters: some View {
-		if searchManager.providerDescriptors.count > 1 {
+		if searchManager.searchableProviderDescriptors.count > 1 {
 			Section {
 				ScrollView(.horizontal, showsIndicators: false) {
 					HStack(spacing: 8) {
 						providerFilterButton(title: L10n.Catalog.Results.allSources, providerID: nil)
-						ForEach(searchManager.providerDescriptors) { provider in
+						ForEach(searchManager.searchableProviderDescriptors) { provider in
 							providerFilterButton(title: provider.displayName, providerID: provider.id)
 						}
 					}
@@ -145,10 +176,13 @@ private extension CatalogBrowseView {
 						CatalogResultRow(
 							model: model,
 							providerName: searchManager.providerName(for: model.providerId),
-							isResolving: searchManager.resolvingModelID == model.id
+							isResolving: searchManager.resolvingModelID == model.id,
+							downloadItem: downloadItem(for: model),
+							isImported: isImported(model)
 						)
 					}
 					.buttonStyle(.plain)
+					.contentShape(Rectangle())
 					.disabled(searchManager.resolvingModelID != nil)
 					.testability(Testability.Button.catalogResult)
 				}
@@ -164,7 +198,28 @@ private extension CatalogBrowseView {
 		selectionTask = Task { @MainActor [searchManager] in
 			guard let files = await searchManager.resolveFiles(for: model) else { return }
 			guard Task.isCancelled == false else { return }
-			onSelect(model, files)
+			guard files.isEmpty == false else {
+				selectionErrorMessage = L10n.Catalog.Error.unsupportedModel
+				return
+			}
+
+			do {
+				downloadItem = try downloader.catalogDownloadItem(files: files, in: managedObjectContext)
+			} catch {
+				selectionErrorMessage = L10n.Catalog.Error.message
+			}
+		}
+	}
+
+	func downloadItem(for model: CatalogModel) -> DownloadItem? {
+		guard let artifactURL = searchManager.resolvedArtifactURL(for: model) else { return nil }
+		return downloadItems.first(where: { $0.url == artifactURL })
+	}
+
+	func isImported(_ model: CatalogModel) -> Bool {
+		guard let artifactURL = searchManager.resolvedArtifactURL(for: model) else { return false }
+		return downloadItem(for: model)?.state == .imported || configurations.contains { configuration in
+			configuration.downloadURL == artifactURL
 		}
 	}
 }
@@ -173,6 +228,8 @@ private struct CatalogResultRow: View {
 	let model: CatalogModel
 	let providerName: String
 	let isResolving: Bool
+	let downloadItem: DownloadItem?
+	let isImported: Bool
 
 	var body: some View {
 		HStack(alignment: .top, spacing: 12) {
@@ -185,7 +242,7 @@ private struct CatalogResultRow: View {
 				Text(model.displayName)
 					.foregroundStyle(.primary)
 					.lineLimit(2)
-				Text("\(model.author) · \(providerName)")
+				Text(verbatim: "\(model.author) · \(providerName)")
 					.font(.subheadline)
 					.foregroundStyle(.secondary)
 
@@ -211,6 +268,16 @@ private struct CatalogResultRow: View {
 							.tagStyle()
 					}
 				}
+
+				if let downloadItem {
+					CatalogDownloadProgress(item: downloadItem)
+				}
+
+				if isImported {
+					Label(L10n.Common.imported, systemImage: "checkmark.circle.fill")
+						.font(.caption)
+						.foregroundStyle(.green)
+				}
 			}
 
 			Spacer(minLength: 0)
@@ -221,7 +288,9 @@ private struct CatalogResultRow: View {
 					.foregroundStyle(.tertiary)
 			}
 		}
+		.frame(maxWidth: .infinity, alignment: .leading)
 		.padding(.vertical, 3)
+		.contentShape(Rectangle())
 		.accessibilityElement(children: .combine)
 	}
 
@@ -235,6 +304,23 @@ private struct CatalogResultRow: View {
 			Text(L10n.Catalog.Results.imageClassification)
 				.tagStyle()
 		}
+	}
+}
+
+private struct CatalogDownloadProgress: View {
+	@ObservedObject var item: DownloadItem
+
+	var body: some View {
+		if item.state == .downloading {
+			Label(progressText, systemImage: "arrow.down.circle.fill")
+				.font(.caption)
+				.foregroundStyle(.blue)
+		}
+	}
+
+	private var progressText: String {
+		min(max(item.progress, 0), 1)
+			.formatted(.percent.precision(.fractionLength(0)))
 	}
 }
 
@@ -262,12 +348,13 @@ final class CatalogSearchManager: ObservableObject {
 	private let providersByID: [String: any CatalogProvider]
 	private let searchDebounce: Duration
 	private var searchTask: Task<Void, Never>?
+	private var resolvedFilesByModelID: [String: [CatalogFile]] = [:]
 
 	init(providers: [any CatalogProvider], searchDebounce: Duration = .milliseconds(350)) {
 		let descriptors = providers.map(\.descriptor)
 		self.providerDescriptors = descriptors
 		self.providersByID = Dictionary(uniqueKeysWithValues: zip(descriptors.map(\.id), providers))
-		self.selectedProviderIDs = Set(descriptors.map(\.id))
+		self.selectedProviderIDs = Set(descriptors.filter(\.isSearchable).map(\.id))
 		self.searchDebounce = searchDebounce
 	}
 
@@ -349,6 +436,7 @@ final class CatalogSearchManager: ObservableObject {
 	}
 
 	func toggleProvider(id: String) {
+		guard providerDescriptors.first(where: { $0.id == id })?.isSearchable == true else { return }
 		if selectedProviderIDs.contains(id) {
 			selectedProviderIDs.remove(id)
 			if resultProviderFilterID == id {
@@ -369,6 +457,10 @@ final class CatalogSearchManager: ObservableObject {
 		providerDescriptors.first(where: { $0.id == providerID })?.displayName ?? providerID
 	}
 
+	var searchableProviderDescriptors: [CatalogProviderDescriptor] {
+		providerDescriptors.filter(\.isSearchable)
+	}
+
 	func cancelSearch() {
 		searchTask?.cancel()
 		searchTask = nil
@@ -376,6 +468,10 @@ final class CatalogSearchManager: ObservableObject {
 	}
 
 	func resolveFiles(for model: CatalogModel) async -> [CatalogFile]? {
+		if let cachedFiles = resolvedFilesByModelID[modelKey(for: model)] {
+			return cachedFiles
+		}
+
 		guard let provider = providersByID[model.providerId] else {
 			errorMessage = L10n.Catalog.Error.message
 			return nil
@@ -389,6 +485,7 @@ final class CatalogSearchManager: ObservableObject {
 				errorMessage = L10n.Catalog.Error.unsupportedModel
 				return nil
 			}
+			resolvedFilesByModelID[modelKey(for: model)] = files
 			return files
 		} catch is CancellationError {
 			return nil
@@ -403,16 +500,20 @@ final class CatalogSearchManager: ObservableObject {
 		}
 	}
 
+	func resolvedArtifactURL(for model: CatalogModel) -> URL? {
+		model.artifactURL ?? resolvedFilesByModelID[modelKey(for: model)]?.first?.resolveURL
+	}
+
 	var visibleResults: [CatalogModel] {
 		guard let resultProviderFilterID else { return results }
 		return results.filter { $0.providerId == resultProviderFilterID }
 	}
 
 	var selectedProviderSummary: String {
-		guard selectedProviderIDs.count != providerDescriptors.count else {
+		guard selectedProviderIDs.count != searchableProviderDescriptors.count else {
 			return L10n.Catalog.Results.allSources
 		}
-		return providerDescriptors
+		return searchableProviderDescriptors
 			.filter { selectedProviderIDs.contains($0.id) }
 			.map(\.displayName)
 			.joined(separator: ", ")
@@ -421,6 +522,10 @@ final class CatalogSearchManager: ObservableObject {
 	private struct SearchOutcome {
 		let models: [CatalogModel]
 		let didSucceed: Bool
+	}
+
+	private func modelKey(for model: CatalogModel) -> String {
+		"\(model.providerId):\(model.id)"
 	}
 }
 
@@ -448,6 +553,9 @@ private actor CatalogPreviewProvider: CatalogProvider {
 }
 
 #Preview("Results") {
-	CatalogBrowseView(providers: [CatalogPreviewProvider()]) { _, _ in }
+	CatalogBrowseView(
+		searchManager: CatalogSearchManager(providers: [CatalogPreviewProvider()]),
+		onImport: ImportHandler { _, _, _, _ in }
+	)
 }
 #endif

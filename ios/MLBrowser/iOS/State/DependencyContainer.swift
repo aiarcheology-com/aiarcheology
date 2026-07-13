@@ -50,7 +50,11 @@ class DependencyContainer {
     lazy var catalogProviders: [any CatalogProvider] = {
         [
             HuggingFaceCatalogProvider(),
-            AppleCoreMLCatalogProvider()
+            AppleCoreMLCatalogProvider(),
+            AwesomeCoreMLCatalogProvider(),
+            PintoModelZooCatalogProvider(),
+            JohnRockyCoreMLCatalogProvider(),
+            GitHubCuratedCatalogProvider()
         ]
     }()
     

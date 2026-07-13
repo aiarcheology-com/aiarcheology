@@ -265,6 +265,8 @@ extension TestabilityIdentification {
 	
 	enum TextField: String, TestabilityIdentification {
 		case downloadDetailUrl
+		// Model Catalog
+		case catalogSearch
 		// Settings
 		case settingsDefaultPage
 		case settingsHistoryLimit

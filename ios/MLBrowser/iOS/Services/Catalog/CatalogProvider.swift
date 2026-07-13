@@ -30,6 +30,33 @@ struct CatalogModel: Identifiable, Codable, Hashable, Sendable {
 	/// when the user selects the result, rather than guessed from tags.
 	let format: CatalogArtifactFormat?
 	let sizeBytes: Int64?
+	/// A directly downloadable single-file artifact when the search response exposes one. This lets
+	/// the catalog reflect an existing job or imported model without issuing another request.
+	let artifactURL: URL?
+
+	init(
+		id: String,
+		providerId: String,
+		displayName: String,
+		author: String,
+		downloads: Int,
+		likes: Int,
+		task: CatalogTask,
+		format: CatalogArtifactFormat?,
+		sizeBytes: Int64?,
+		artifactURL: URL? = nil
+	) {
+		self.id = id
+		self.providerId = providerId
+		self.displayName = displayName
+		self.author = author
+		self.downloads = downloads
+		self.likes = likes
+		self.task = task
+		self.format = format
+		self.sizeBytes = sizeBytes
+		self.artifactURL = artifactURL
+	}
 }
 
 struct CatalogFile: Codable, Hashable, Sendable {
@@ -41,6 +68,15 @@ struct CatalogFile: Codable, Hashable, Sendable {
 struct CatalogProviderDescriptor: Identifiable, Hashable, Sendable {
 	let id: String
 	let displayName: String
+	/// A source remains visible when its upstream catalog does not currently publish direct Core ML
+	/// artifacts, but is not queried or enabled in the source picker.
+	let isSearchable: Bool
+
+	init(id: String, displayName: String, isSearchable: Bool = true) {
+		self.id = id
+		self.displayName = displayName
+		self.isSearchable = isSearchable
+	}
 }
 
 protocol CatalogProvider: Sendable {

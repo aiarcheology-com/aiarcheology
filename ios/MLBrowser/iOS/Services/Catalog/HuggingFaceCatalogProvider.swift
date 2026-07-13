@@ -117,7 +117,11 @@ private extension HuggingFaceCatalogProvider {
 		let url = try searchURL(query: query, task: task)
 		let response = try await client.get([SearchResponse].self, from: url)
 		return response.compactMap { item in
-			guard let format = installableArtifactFormat(in: item.siblings ?? []) else {
+			let siblings = item.siblings ?? []
+			guard let format = installableArtifactFormat(in: siblings) else {
+				return nil
+			}
+			guard let artifactURL = try? primaryArtifactURL(modelID: item.id, siblings: siblings) else {
 				return nil
 			}
 
@@ -130,7 +134,8 @@ private extension HuggingFaceCatalogProvider {
 				likes: item.likes ?? 0,
 				task: task,
 				format: format,
-				sizeBytes: nil
+				sizeBytes: nil,
+				artifactURL: artifactURL
 			)
 		}
 	}
@@ -218,6 +223,20 @@ private extension HuggingFaceCatalogProvider {
 		siblings.first {
 			$0.rfilename.contains("/") == false && $0.rfilename.lowercased().hasSuffix(".mlmodel")
 		}
+	}
+
+	func primaryArtifactURL(modelID: String, siblings: [Sibling]) throws -> URL {
+		if let singleFile = standaloneModelFile(in: siblings) {
+			return try resolveURL(modelID: modelID, filePath: singleFile.rfilename)
+		}
+
+		guard let packageRoot = installablePackageRoot(in: siblings),
+			  let firstPackageFile = siblings
+				.filter({ $0.rfilename.hasPrefix(packageRoot + "/") })
+				.min(by: { $0.rfilename.localizedStandardCompare($1.rfilename) == .orderedAscending }) else {
+			throw CatalogError.noInstallableArtifact
+		}
+		return try resolveURL(modelID: modelID, filePath: firstPackageFile.rfilename)
 	}
 
 	func installableArtifactFormat(in siblings: [Sibling]) -> CatalogArtifactFormat? {

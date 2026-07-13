@@ -594,6 +594,24 @@ final class DownloaderTests: XCTestCase {
 		XCTAssertEqual(restoredDownloader.packageFileCount(for: item), files.count)
 	}
 
+	func testCatalogDownloadItem_reusesTheExistingArtifactJob() throws {
+		let file = CatalogFile(
+			relativePath: "Example.mlmodel",
+			resolveURL: URL(string: "https://catalog.test/Example.mlmodel") ?? URL(fileURLWithPath: "/"),
+			sizeBytes: 64
+		)
+		let context = dataController.container.viewContext
+
+		let firstItem = try downloader.catalogDownloadItem(files: [file], in: context)
+		firstItem.state = .downloading
+		let reopenedItem = try downloader.catalogDownloadItem(files: [file], in: context)
+
+		XCTAssertTrue(firstItem === reopenedItem)
+		XCTAssertEqual(firstItem.entityId, reopenedItem.entityId)
+		XCTAssertEqual(reopenedItem.state, .downloading)
+		XCTAssertEqual(try context.count(for: DownloadItem.fetchRequest()), 1)
+	}
+
 	func testCancelPackageDownload_keepsManifestForRestart() throws {
 		let item = try downloader.makePackageDownloadItem(
 			files: catalogPackageFiles(),

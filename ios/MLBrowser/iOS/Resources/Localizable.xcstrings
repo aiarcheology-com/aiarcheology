@@ -772,246 +772,6 @@
         }
       }
     },
-    "catalog.download.error" : {
-      "comment" : "Error shown when a catalog package download fails",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn’t download this model."
-          }
-        }
-      }
-    },
-    "catalog.download.progress" : {
-      "comment" : "Package download completion count",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld of %lld files"
-          }
-        }
-      }
-    },
-    "catalog.download.title" : {
-      "comment" : "Catalog package download progress title",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Downloading model"
-          }
-        }
-      }
-    },
-    "catalog.empty.message" : {
-      "comment" : "Catalog search empty-state instructions",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search for an object-detection or image-classification Core ML model."
-          }
-        }
-      }
-    },
-    "catalog.empty.noResultsMessage" : {
-      "comment" : "Catalog search no-results explanation",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Try a different search term."
-          }
-        }
-      }
-    },
-    "catalog.empty.noResultsTitle" : {
-      "comment" : "Catalog search no-results title",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No models found"
-          }
-        }
-      }
-    },
-    "catalog.empty.title" : {
-      "comment" : "Catalog search initial empty-state title",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Find a model"
-          }
-        }
-      }
-    },
-    "catalog.error.message" : {
-      "comment" : "Generic catalog network or decoding error",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "We couldn’t load the catalog. Check your connection and try again."
-          }
-        }
-      }
-    },
-    "catalog.error.title" : {
-      "comment" : "Catalog error title",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Catalog unavailable"
-          }
-        }
-      }
-    },
-    "catalog.error.unsupportedModel" : {
-      "comment" : "Error when a provider result has no installable Core ML artifact",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This result does not include an installable Core ML model."
-          }
-        }
-      }
-    },
-    "catalog.provider" : {
-      "comment" : "Catalog model-registry picker label",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Provider"
-          }
-        }
-      }
-    },
-    "catalog.results.allSources" : {
-      "comment" : "Catalog results filter that includes every selected provider",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All sources"
-          }
-        }
-      }
-    },
-    "catalog.results.coreML" : {
-      "comment" : "Catalog result Core ML format tag",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Core ML"
-          }
-        }
-      }
-    },
-    "catalog.results.downloads" : {
-      "comment" : "Catalog result download count",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld downloads"
-          }
-        }
-      }
-    },
-    "catalog.results.imageClassification" : {
-      "comment" : "Catalog result image classification task tag",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Classification"
-          }
-        }
-      }
-    },
-    "catalog.results.likes" : {
-      "comment" : "Catalog result like count",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld likes"
-          }
-        }
-      }
-    },
-    "catalog.results.objectDetection" : {
-      "comment" : "Catalog result object detection task tag",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Detection"
-          }
-        }
-      }
-    },
-    "catalog.results.title" : {
-      "comment" : "Catalog results section title",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Models"
-          }
-        }
-      }
-    },
-    "catalog.search.prompt" : {
-      "comment" : "Catalog search field prompt",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Search models"
-          }
-        }
-      }
-    },
-    "catalog.title" : {
-      "comment" : "Model catalog sheet title",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Open Catalog"
-          }
-        }
-      }
-    },
     "action.tap_or_click" : {
       "comment" : "Device-specific action verb: tap on touch devices, click on Mac",
       "extractionState" : "manual",
@@ -3021,6 +2781,246 @@
         }
       }
     },
+    "catalog.download.error" : {
+      "comment" : "Error shown when a catalog package download fails",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t download this model."
+          }
+        }
+      }
+    },
+    "catalog.download.progress" : {
+      "comment" : "Package download completion count",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld of %lld files"
+          }
+        }
+      }
+    },
+    "catalog.download.title" : {
+      "comment" : "Catalog package download progress title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloading model"
+          }
+        }
+      }
+    },
+    "catalog.empty.message" : {
+      "comment" : "Catalog search empty-state instructions",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search for an object-detection or image-classification Core ML model."
+          }
+        }
+      }
+    },
+    "catalog.empty.noResultsMessage" : {
+      "comment" : "Catalog search no-results explanation",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try a different search term."
+          }
+        }
+      }
+    },
+    "catalog.empty.noResultsTitle" : {
+      "comment" : "Catalog search no-results title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No models found"
+          }
+        }
+      }
+    },
+    "catalog.empty.title" : {
+      "comment" : "Catalog search initial empty-state title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find a model"
+          }
+        }
+      }
+    },
+    "catalog.error.message" : {
+      "comment" : "Generic catalog network or decoding error",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We couldn’t load the catalog. Check your connection and try again."
+          }
+        }
+      }
+    },
+    "catalog.error.title" : {
+      "comment" : "Catalog error title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catalog unavailable"
+          }
+        }
+      }
+    },
+    "catalog.error.unsupportedModel" : {
+      "comment" : "Error when a provider result has no installable Core ML artifact",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This result does not include an installable Core ML model."
+          }
+        }
+      }
+    },
+    "catalog.provider" : {
+      "comment" : "Catalog model-registry picker label",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provider"
+          }
+        }
+      }
+    },
+    "catalog.results.allSources" : {
+      "comment" : "Catalog results filter that includes every selected provider",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All sources"
+          }
+        }
+      }
+    },
+    "catalog.results.coreML" : {
+      "comment" : "Catalog result Core ML format tag",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Core ML"
+          }
+        }
+      }
+    },
+    "catalog.results.downloads" : {
+      "comment" : "Catalog result download count",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld downloads"
+          }
+        }
+      }
+    },
+    "catalog.results.imageClassification" : {
+      "comment" : "Catalog result image classification task tag",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classification"
+          }
+        }
+      }
+    },
+    "catalog.results.likes" : {
+      "comment" : "Catalog result like count",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld likes"
+          }
+        }
+      }
+    },
+    "catalog.results.objectDetection" : {
+      "comment" : "Catalog result object detection task tag",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detection"
+          }
+        }
+      }
+    },
+    "catalog.results.title" : {
+      "comment" : "Catalog results section title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Models"
+          }
+        }
+      }
+    },
+    "catalog.search.prompt" : {
+      "comment" : "Catalog search field prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search models"
+          }
+        }
+      }
+    },
+    "catalog.title" : {
+      "comment" : "Model catalog sheet title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Catalog"
+          }
+        }
+      }
+    },
     "clipboard.copied" : {
       "comment" : "Message shown when text is copied to clipboard",
       "extractionState" : "manual",
@@ -5013,6 +5013,78 @@
         }
       }
     },
+    "configuration.modelTypeClassification" : {
+      "comment" : "Model type option: classification (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classification"
+          }
+        }
+      }
+    },
+    "configuration.modelTypeDetection" : {
+      "comment" : "Model type option: detection (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detection"
+          }
+        }
+      }
+    },
+    "configuration.modelTypeDisabled" : {
+      "comment" : "Model type option: disabled — the model won't run until the user picks a type (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disabled"
+          }
+        }
+      }
+    },
+    "configuration.modelTypeDisabledHint" : {
+      "comment" : "Hint shown when a model's type is Disabled (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a type to enable this model."
+          }
+        }
+      }
+    },
+    "configuration.modelTypeReviewConfirm" : {
+      "comment" : "Footnote shown when confirming an imported model's pre-selected type (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pre-selected as our best guess. Confirm it's correct or change it — the app can't verify it, so you're responsible for the choice, and a wrong type can produce incorrect results."
+          }
+        }
+      }
+    },
+    "configuration.modelTypeReviewDisabled" : {
+      "comment" : "Footnote shown when an imported model's type could not be determined and stays Disabled (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This model's type isn't set, so it won't run. Choose Detection or Classification — the app can't verify the model's real type, so you're responsible for the choice, and a wrong type can produce incorrect results."
+          }
+        }
+      }
+    },
     "configuration.section.annotation" : {
       "comment" : "Section header for annotation settings",
       "extractionState" : "manual",
@@ -5549,78 +5621,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "配置"
-          }
-        }
-      }
-    },
-    "configuration.modelTypeClassification" : {
-      "comment" : "Model type option: classification (AIA-0402)",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Classification"
-          }
-        }
-      }
-    },
-    "configuration.modelTypeDetection" : {
-      "comment" : "Model type option: detection (AIA-0402)",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Detection"
-          }
-        }
-      }
-    },
-    "configuration.modelTypeDisabled" : {
-      "comment" : "Model type option: disabled — the model won't run until the user picks a type (AIA-0402)",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Disabled"
-          }
-        }
-      }
-    },
-    "configuration.modelTypeDisabledHint" : {
-      "comment" : "Hint shown when a model's type is Disabled (AIA-0402)",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose a type to enable this model."
-          }
-        }
-      }
-    },
-    "configuration.modelTypeReviewConfirm" : {
-      "comment" : "Footnote shown when confirming an imported model's pre-selected type (AIA-0402)",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pre-selected as our best guess. Confirm it's correct or change it — the app can't verify it, so you're responsible for the choice, and a wrong type can produce incorrect results."
-          }
-        }
-      }
-    },
-    "configuration.modelTypeReviewDisabled" : {
-      "comment" : "Footnote shown when an imported model's type could not be determined and stays Disabled (AIA-0402)",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This model's type isn't set, so it won't run. Choose Detection or Classification — the app can't verify the model's real type, so you're responsible for the choice, and a wrong type can produce incorrect results."
           }
         }
       }
@@ -6976,7 +6976,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Provide a valid address pointing to a Core ML detection or classification model (.mlmodel)"
+            "value" : "Enter a direct .mlmodel URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models."
           }
         },
         "es" : {
@@ -8823,6 +8823,18 @@
         }
       }
     },
+    "import.confirmTypeTitle" : {
+      "comment" : "Title of the alert shown after importing a model, prompting the user to confirm its type (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm the model type"
+          }
+        }
+      }
+    },
     "import.fromFiles" : {
       "comment" : "Import from files button",
       "extractionState" : "manual",
@@ -9579,30 +9591,6 @@
         }
       }
     },
-    "import.confirmTypeTitle" : {
-      "comment" : "Title of the alert shown after importing a model, prompting the user to confirm its type (AIA-0402)",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Confirm the model type"
-          }
-        }
-      }
-    },
-    "import.typeConfirmation" : {
-      "comment" : "Message shown after importing a model, warning the user they must confirm its type (AIA-0402)",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The model was imported. The app can't verify what an imported model does, so please confirm its type on the next screen. You're responsible for the choice, and a wrong type can produce incorrect results."
-          }
-        }
-      }
-    },
     "import.success" : {
       "comment" : "Generic import success message",
       "extractionState" : "manual",
@@ -10151,6 +10139,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "匯入模型"
+          }
+        }
+      }
+    },
+    "import.typeConfirmation" : {
+      "comment" : "Message shown after importing a model, warning the user they must confirm its type (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The model was imported. The app can't verify what an imported model does, so please confirm its type on the next screen. You're responsible for the choice, and a wrong type can produce incorrect results."
           }
         }
       }

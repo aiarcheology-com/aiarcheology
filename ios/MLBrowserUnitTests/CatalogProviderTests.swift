@@ -97,6 +97,7 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertEqual(second, first)
 		XCTAssertEqual(first[0].task, .objectDetection)
 		XCTAssertEqual(first[1].task, .imageClassification)
+		XCTAssertEqual(first[0].artifactURL?.absoluteString, "https://catalog.test/acme/detector/resolve/main/Detector.mlmodel")
 	}
 
 	func testSearch_filtersNestedModelWithoutInstallableArtifact() async throws {
@@ -207,10 +208,51 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertEqual(model.format, .mlmodel)
 		XCTAssertEqual(files.count, 1)
 		XCTAssertEqual(files[0].relativePath, "YOLOv3TinyInt8LUT.mlmodel")
+		XCTAssertEqual(model.artifactURL, files[0].resolveURL)
 		XCTAssertEqual(
 			files[0].resolveURL.absoluteString,
 			"https://ml-assets.apple.com/coreml/models/Image/ObjectDetection/YOLOv3Tiny/YOLOv3TinyInt8LUT.mlmodel"
 		)
+	}
+
+	func testAdditionalCuratedProviders_searchOfflineAndResolveDirectArtifacts() async throws {
+		let awesome = AwesomeCoreMLCatalogProvider()
+		let awesomeModels = try await awesome.search(query: "vehicle")
+		let awesomeModel = try XCTUnwrap(awesomeModels.first)
+		let awesomeFiles = try await awesome.resolveFiles(for: awesomeModel)
+
+		XCTAssertEqual(awesomeModel.id, "awesome/car-recognition")
+		XCTAssertEqual(awesomeModel.task, .imageClassification)
+		XCTAssertEqual(awesomeFiles.map(\.relativePath), ["CarRecognition.mlmodel"])
+		XCTAssertEqual(awesomeFiles.first?.resolveURL.host, "raw.githubusercontent.com")
+
+		let johnRocky = JohnRockyCoreMLCatalogProvider()
+		let johnRockyModels = try await johnRocky.search(query: "yolov5")
+		let johnRockyModel = try XCTUnwrap(johnRockyModels.first)
+		let johnRockyFiles = try await johnRocky.resolveFiles(for: johnRockyModel)
+
+		XCTAssertEqual(johnRockyModel.id, "john-rocky/yolov5s")
+		XCTAssertEqual(johnRockyModel.task, .objectDetection)
+		XCTAssertEqual(johnRockyFiles.first?.resolveURL.host, "drive.usercontent.google.com")
+		XCTAssertEqual(johnRockyFiles.first?.resolveURL.query?.contains("export=download"), true)
+
+		let github = GitHubCuratedCatalogProvider()
+		let githubModels = try await github.search(query: "handwriting")
+		let githubModel = try XCTUnwrap(githubModels.first)
+		let githubFiles = try await github.resolveFiles(for: githubModel)
+
+		XCTAssertEqual(githubModel.id, "list-coreml/simple-mnist")
+		XCTAssertEqual(githubFiles.map(\.relativePath), ["SimpleMnist.mlmodel"])
+		XCTAssertEqual(githubFiles.first?.resolveURL.host, "raw.githubusercontent.com")
+	}
+
+	func testPintoCatalog_isVisibleButNotSearchableUntilItPublishesDirectArtifacts() async throws {
+		let provider = PintoModelZooCatalogProvider()
+
+		XCTAssertEqual(provider.descriptor.id, "pinto-model-zoo")
+		XCTAssertFalse(provider.descriptor.isSearchable)
+		let models = try await provider.search(query: "yolo")
+		XCTAssertTrue(models.isEmpty)
 	}
 }
 
@@ -249,6 +291,15 @@ final class CatalogSearchManagerTests: XCTestCase {
 		let filteredAppleSearchCallCount = await apple.searchCallCount
 		XCTAssertEqual(filteredHuggingFaceSearchCallCount, 1, "result filtering must not make another request")
 		XCTAssertEqual(filteredAppleSearchCallCount, 1, "result filtering must not make another request")
+
+		// CatalogBrowseView calls this while its download detail is on screen. The shared manager
+		// must retain the already-rendered catalog state when the user navigates back or reopens it.
+		cancellable.cancel()
+		manager.cancelSearch()
+		XCTAssertEqual(manager.query, "yolo")
+		XCTAssertEqual(manager.selectedProviderIDs, Set(["huggingface", "apple-coreml"]))
+		XCTAssertEqual(manager.resultProviderFilterID, "apple-coreml")
+		XCTAssertEqual(manager.visibleResults.map(\.providerId), ["apple-coreml"])
 	}
 
 	func testSearch_keepsSuccessfulResultsWhenAnotherSourceFails() async {
@@ -271,6 +322,32 @@ final class CatalogSearchManagerTests: XCTestCase {
 		XCTAssertEqual(manager.results.map(\.id), ["apple/mobilenet"])
 		XCTAssertNil(manager.errorMessage)
 	}
+
+	func testSearch_excludesUnavailableSourcesFromTheInitialSelection() async {
+		let searchable = TestCatalogProvider(
+			id: "github-curated",
+			models: [TestCatalogProvider.model(id: "list-coreml/mnist", providerID: "github-curated")]
+		)
+		let unavailable = TestCatalogProvider(id: "pinto-model-zoo", isSearchable: false)
+		let manager = CatalogSearchManager(providers: [searchable, unavailable], searchDebounce: .zero)
+		let completed = expectation(description: "search completes")
+		let cancellable = manager.$isLoading
+			.dropFirst()
+			.filter { $0 == false }
+			.sink { _ in completed.fulfill() }
+
+		manager.updateQuery("mnist")
+		await fulfillment(of: [completed], timeout: 1)
+		withExtendedLifetime(cancellable) { }
+
+		XCTAssertEqual(manager.selectedProviderIDs, ["github-curated"])
+		XCTAssertEqual(manager.searchableProviderDescriptors.map(\.id), ["github-curated"])
+		XCTAssertEqual(manager.selectedProviderSummary, L10n.Catalog.Results.allSources)
+		let searchableSearchCallCount = await searchable.searchCallCount
+		let unavailableSearchCallCount = await unavailable.searchCallCount
+		XCTAssertEqual(searchableSearchCallCount, 1)
+		XCTAssertEqual(unavailableSearchCallCount, 0)
+	}
 }
 
 private actor TestCatalogProvider: CatalogProvider {
@@ -279,8 +356,8 @@ private actor TestCatalogProvider: CatalogProvider {
 	private let failure: CatalogError?
 	private(set) var searchCallCount = 0
 
-	init(id: String, models: [CatalogModel] = [], failure: CatalogError? = nil) {
-		descriptor = CatalogProviderDescriptor(id: id, displayName: id)
+	init(id: String, models: [CatalogModel] = [], failure: CatalogError? = nil, isSearchable: Bool = true) {
+		descriptor = CatalogProviderDescriptor(id: id, displayName: id, isSearchable: isSearchable)
 		self.models = models
 		self.failure = failure
 	}

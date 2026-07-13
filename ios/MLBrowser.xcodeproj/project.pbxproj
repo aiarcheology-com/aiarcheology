@@ -254,6 +254,7 @@
 		A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */; };
 		A41310010000000000000001 /* CatalogProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300010000000000000001 /* CatalogProvider.swift */; };
 		A42210010000000000000001 /* AppleCoreMLCatalogProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A42200010000000000000001 /* AppleCoreMLCatalogProvider.swift */; };
+		A42210020000000000000001 /* GitHubCatalogProviders.swift in Sources */ = {isa = PBXBuildFile; fileRef = A42200020000000000000001 /* GitHubCatalogProviders.swift */; };
 		A41310020000000000000001 /* HuggingFaceCatalogProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300020000000000000001 /* HuggingFaceCatalogProvider.swift */; };
 		A41310030000000000000001 /* CatalogPackageDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300030000000000000001 /* CatalogPackageDownloader.swift */; };
 		A41310040000000000000001 /* CatalogBrowseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300040000000000000001 /* CatalogBrowseView.swift */; };
@@ -544,6 +545,7 @@
 		A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingServiceTests.swift; sourceTree = "<group>"; };
 		A41300010000000000000001 /* CatalogProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogProvider.swift; sourceTree = "<group>"; };
 		A42200010000000000000001 /* AppleCoreMLCatalogProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleCoreMLCatalogProvider.swift; sourceTree = "<group>"; };
+		A42200020000000000000001 /* GitHubCatalogProviders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubCatalogProviders.swift; sourceTree = "<group>"; };
 		A41300020000000000000001 /* HuggingFaceCatalogProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HuggingFaceCatalogProvider.swift; sourceTree = "<group>"; };
 		A41300030000000000000001 /* CatalogPackageDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogPackageDownloader.swift; sourceTree = "<group>"; };
 		A41300040000000000000001 /* CatalogBrowseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogBrowseView.swift; sourceTree = "<group>"; };
@@ -1229,6 +1231,7 @@
 			children = (
 				A41300010000000000000001 /* CatalogProvider.swift */,
 				A42200010000000000000001 /* AppleCoreMLCatalogProvider.swift */,
+				A42200020000000000000001 /* GitHubCatalogProviders.swift */,
 				A41300020000000000000001 /* HuggingFaceCatalogProvider.swift */,
 				A41300030000000000000001 /* CatalogPackageDownloader.swift */,
 			);
@@ -1530,6 +1533,7 @@
 				A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */,
 				A41310010000000000000001 /* CatalogProvider.swift in Sources */,
 				A42210010000000000000001 /* AppleCoreMLCatalogProvider.swift in Sources */,
+				A42210020000000000000001 /* GitHubCatalogProviders.swift in Sources */,
 				A41310020000000000000001 /* HuggingFaceCatalogProvider.swift in Sources */,
 				A41310030000000000000001 /* CatalogPackageDownloader.swift in Sources */,
 				A41310040000000000000001 /* CatalogBrowseView.swift in Sources */,

@@ -431,6 +431,31 @@ final public class Downloader: NSObject, ObservableObject {
 		return item
 	}
 
+	/// Returns the persisted download for a catalog artifact, creating it only the first time the
+	/// artifact is opened. This lets a catalog row reopen its active, paused, completed, or failed
+	/// download instead of creating a competing job.
+	func catalogDownloadItem(files: [CatalogFile], in context: NSManagedObjectContext) throws -> DownloadItem {
+		guard let firstFile = files.first else {
+			throw CatalogError.noInstallableArtifact
+		}
+
+		let request = DownloadItem.fetchRequest()
+		if let existingItem = try context.fetch(request)
+			.first(where: { $0.url == firstFile.resolveURL }) {
+			return existingItem
+		}
+
+		if files.count > 1 || firstFile.relativePath.lowercased().hasSuffix(".mlmodel") == false {
+			return try makePackageDownloadItem(files: files, in: context)
+		}
+
+		let item = DownloadItem.create(in: context)
+		item.url = firstFile.resolveURL
+		item.transition(to: .draft)
+		try DownloadItem.save(in: context)
+		return item
+	}
+
 	func isPackageDownload(_ item: DownloadItem) -> Bool {
 		packageManifest(for: item) != nil
 	}

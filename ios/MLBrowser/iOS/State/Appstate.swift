@@ -28,6 +28,9 @@ final class AppState: ObservableObject {
 	let deep: DeepState
 	let downloader: Downloader
 	let catalogProviders: [any CatalogProvider]
+	/// Ephemeral catalog browsing state. It deliberately survives sheet dismissal during this
+	/// launch, but is never written to disk or restored after the app restarts.
+	lazy var catalogSearchManager = CatalogSearchManager(providers: catalogProviders)
 	let demoDataManager: DemoDataManager
 	let findingRepository: FindingRepository
 

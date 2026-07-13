@@ -126,6 +126,11 @@ private extension AppleCoreMLCatalogProvider {
 
 	static func entry(_ manifestEntry: ManifestEntry) -> Entry {
 		let modelID = "apple/\(manifestEntry.id)"
+		let file = CatalogFile(
+			relativePath: manifestEntry.path.split(separator: "/").last.map(String.init) ?? manifestEntry.path,
+			resolveURL: assetBaseURL.appendingPathComponent(manifestEntry.path),
+			sizeBytes: manifestEntry.sizeBytes
+		)
 		return Entry(
 			model: CatalogModel(
 				id: modelID,
@@ -136,13 +141,10 @@ private extension AppleCoreMLCatalogProvider {
 				likes: 0,
 				task: manifestEntry.task,
 				format: .mlmodel,
-				sizeBytes: manifestEntry.sizeBytes
+				sizeBytes: manifestEntry.sizeBytes,
+				artifactURL: file.resolveURL
 			),
-			file: CatalogFile(
-				relativePath: manifestEntry.path.split(separator: "/").last.map(String.init) ?? manifestEntry.path,
-				resolveURL: assetBaseURL.appendingPathComponent(manifestEntry.path),
-				sizeBytes: manifestEntry.sizeBytes
-			),
+			file: file,
 			keywords: manifestEntry.keywords
 		)
 	}
