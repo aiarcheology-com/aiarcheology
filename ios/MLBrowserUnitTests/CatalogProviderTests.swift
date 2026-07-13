@@ -80,9 +80,9 @@ final class CatalogProviderTests: XCTestCase {
 				.value
 			let payload: String
 			if task == CatalogTask.objectDetection.rawValue {
-				payload = "[{\"id\":\"acme/detector\",\"author\":\"acme\",\"downloads\":12,\"likes\":3}]"
+				payload = "[{\"id\":\"acme/detector\",\"author\":\"acme\",\"downloads\":12,\"likes\":3,\"siblings\":[{\"rfilename\":\"Detector.mlmodel\"}]}]"
 			} else {
-				payload = "[{\"id\":\"acme/detector\",\"author\":\"acme\",\"downloads\":12,\"likes\":3},{\"id\":\"acme/classifier\",\"downloads\":5,\"likes\":1}]"
+				payload = "[{\"id\":\"acme/detector\",\"author\":\"acme\",\"downloads\":12,\"likes\":3,\"siblings\":[{\"rfilename\":\"Detector.mlmodel\"}]},{\"id\":\"acme/classifier\",\"downloads\":5,\"likes\":1,\"siblings\":[{\"rfilename\":\"Classifier.mlmodel\"}]}]"
 			}
 			return (200, Data(payload.utf8))
 		}
@@ -96,6 +96,18 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertEqual(second, first)
 		XCTAssertEqual(first[0].task, .objectDetection)
 		XCTAssertEqual(first[1].task, .imageClassification)
+	}
+
+	func testSearch_filtersNestedModelWithoutInstallableArtifact() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			let payload = "[{\"id\":\"acme/unsupported\",\"siblings\":[{\"rfilename\":\"compiled/model.mlmodel\"}]},{\"id\":\"acme/package\",\"siblings\":[{\"rfilename\":\"Package.mlpackage/Manifest.json\"},{\"rfilename\":\"Package.mlpackage/Data/model.mlmodel\"}]}]"
+			return (200, Data(payload.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "models")
+
+		XCTAssertEqual(models.map(\.id), ["acme/package"])
+		XCTAssertEqual(models.first?.format, .mlpackage)
 	}
 
 	func testResolveFiles_prefersSingleModelFile() async throws {
@@ -121,6 +133,17 @@ final class CatalogProviderTests: XCTestCase {
 		let files = try await makeProvider().resolveFiles(for: catalogModel())
 
 		XCTAssertEqual(files.map(\.relativePath), ["One.mlpackage/Data/model.bin", "One.mlpackage/Manifest.json"])
+	}
+
+	func testResolveFiles_usesPackageInsteadOfNestedModelFile() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			let payload = "{\"siblings\":[{\"rfilename\":\"One.mlpackage/Data/model.mlmodel\",\"size\":10},{\"rfilename\":\"One.mlpackage/Manifest.json\",\"size\":20}]}"
+			return (200, Data(payload.utf8))
+		}
+
+		let files = try await makeProvider().resolveFiles(for: catalogModel())
+
+		XCTAssertEqual(files.map(\.relativePath), ["One.mlpackage/Data/model.mlmodel", "One.mlpackage/Manifest.json"])
 	}
 
 	func testPackageDownloader_assemblesPackageTree() async throws {

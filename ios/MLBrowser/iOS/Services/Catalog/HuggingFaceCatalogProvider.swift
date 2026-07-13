@@ -75,12 +75,11 @@ actor HuggingFaceCatalogProvider: CatalogProvider {
 		let info = try await client.get(ModelInfoResponse.self, from: infoURL)
 		let siblings = info.siblings ?? []
 
-		if let singleFile = siblings.first(where: { $0.rfilename.lowercased().hasSuffix(".mlmodel") }) {
+		if let singleFile = standaloneModelFile(in: siblings) {
 			return [try catalogFile(for: model.id, sibling: singleFile)]
 		}
 
-		let packageRoots = Set(siblings.compactMap { packageRoot(in: $0.rfilename) })
-		guard let packageRoot = packageRoots.min() else {
+		guard let packageRoot = installablePackageRoot(in: siblings) else {
 			throw CatalogError.noInstallableArtifact
 		}
 
@@ -102,6 +101,7 @@ private extension HuggingFaceCatalogProvider {
 		let author: String?
 		let downloads: Int?
 		let likes: Int?
+		let siblings: [Sibling]?
 	}
 
 	struct ModelInfoResponse: Decodable {
@@ -116,8 +116,12 @@ private extension HuggingFaceCatalogProvider {
 	func search(query: String, task: CatalogTask) async throws -> [CatalogModel] {
 		let url = try searchURL(query: query, task: task)
 		let response = try await client.get([SearchResponse].self, from: url)
-		return response.map { item in
-			CatalogModel(
+		return response.compactMap { item in
+			guard let format = installableArtifactFormat(in: item.siblings ?? []) else {
+				return nil
+			}
+
+			return CatalogModel(
 				id: item.id,
 				providerId: descriptor.id,
 				displayName: item.id.split(separator: "/").last.map(String.init) ?? item.id,
@@ -125,7 +129,7 @@ private extension HuggingFaceCatalogProvider {
 				downloads: item.downloads ?? 0,
 				likes: item.likes ?? 0,
 				task: task,
-				format: nil,
+				format: format,
 				sizeBytes: nil
 			)
 		}
@@ -140,7 +144,15 @@ private extension HuggingFaceCatalogProvider {
 			URLQueryItem(name: "filter", value: "coreml"),
 			URLQueryItem(name: "pipeline_tag", value: task.rawValue),
 			URLQueryItem(name: "sort", value: "downloads"),
-			URLQueryItem(name: "limit", value: "40")
+			URLQueryItem(name: "limit", value: "40"),
+			// With `expand`, the Hub returns only `id` plus explicitly requested fields.
+			// Including siblings lets us avoid offering artifacts the importer cannot install.
+			URLQueryItem(name: "expand", value: "author"),
+			URLQueryItem(name: "expand", value: "downloads"),
+			URLQueryItem(name: "expand", value: "likes"),
+			URLQueryItem(name: "expand", value: "pipeline_tag"),
+			URLQueryItem(name: "expand", value: "tags"),
+			URLQueryItem(name: "expand", value: "siblings")
 		]
 		guard let url = components.url else { throw CatalogError.invalidResponse }
 		return url
@@ -197,5 +209,25 @@ private extension HuggingFaceCatalogProvider {
 			return nil
 		}
 		return components[...packageIndex].joined(separator: "/")
+	}
+
+	func standaloneModelFile(in siblings: [Sibling]) -> Sibling? {
+		siblings.first {
+			$0.rfilename.contains("/") == false && $0.rfilename.lowercased().hasSuffix(".mlmodel")
+		}
+	}
+
+	func installableArtifactFormat(in siblings: [Sibling]) -> CatalogArtifactFormat? {
+		if standaloneModelFile(in: siblings) != nil {
+			return .mlmodel
+		}
+		return installablePackageRoot(in: siblings) == nil ? nil : .mlpackage
+	}
+
+	func installablePackageRoot(in siblings: [Sibling]) -> String? {
+		let roots = Set(siblings.compactMap { packageRoot(in: $0.rfilename) })
+		return roots.sorted().first { root in
+			siblings.contains { $0.rfilename.caseInsensitiveCompare(root + "/Manifest.json") == .orderedSame }
+		}
 	}
 }
