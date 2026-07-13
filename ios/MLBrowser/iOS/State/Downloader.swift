@@ -438,16 +438,25 @@ final public class Downloader: NSObject, ObservableObject {
 		guard let firstFile = files.first else {
 			throw CatalogError.noInstallableArtifact
 		}
+		let isSingleModelFile = files.count == 1 && firstFile.relativePath.lowercased().hasSuffix(".mlmodel")
 
 		let request = DownloadItem.fetchRequest()
 		request.predicate = NSPredicate(format: "%K == %@", #keyPath(DownloadItem.url), firstFile.resolveURL as NSURL)
 		request.sortDescriptors = [NSSortDescriptor(keyPath: \DownloadItem.stateChanged_, ascending: false)]
 		request.fetchLimit = 1
 		if let existingItem = try context.fetch(request).first {
+			if isSingleModelFile, isPackageDownload(existingItem) {
+				// Early catalog versions derived Google Drive's generic `/download` path as the
+				// filename, creating an invalid package manifest. Reopen that same historical
+				// job as the single-file download it was always meant to be.
+				packageManifests.removeValue(forKey: existingItem.entityId)
+				existingItem.resumeData = nil
+				try DownloadItem.save(in: context)
+			}
 			return existingItem
 		}
 
-		if files.count > 1 || firstFile.relativePath.lowercased().hasSuffix(".mlmodel") == false {
+		if isSingleModelFile == false {
 			return try makePackageDownloadItem(files: files, in: context)
 		}
 

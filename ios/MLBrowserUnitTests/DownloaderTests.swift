@@ -624,6 +624,27 @@ final class DownloaderTests: XCTestCase {
 		XCTAssertFalse(downloader.isPackageDownload(item))
 	}
 
+	func testCatalogDownloadItem_convertsLegacyGoogleDrivePackageJobToSingleFile() throws {
+		let legacyFile = CatalogFile(
+			relativePath: "download",
+			resolveURL: URL(string: "https://drive.usercontent.google.com/download?id=model-id") ?? URL(fileURLWithPath: "/"),
+			sizeBytes: 64
+		)
+		let correctedFile = CatalogFile(
+			relativePath: "yolov5s.mlmodel",
+			resolveURL: legacyFile.resolveURL,
+			sizeBytes: 64
+		)
+		let context = dataController.container.viewContext
+		let legacyItem = try downloader.makePackageDownloadItem(files: [legacyFile], in: context)
+
+		let reopenedItem = try downloader.catalogDownloadItem(files: [correctedFile], in: context)
+
+		XCTAssertTrue(reopenedItem === legacyItem)
+		XCTAssertFalse(downloader.isPackageDownload(reopenedItem))
+		XCTAssertNil(reopenedItem.resumeData)
+	}
+
 	func testCatalogDownloadItem_reopensTheMostRecentlyChangedArtifactJob() throws {
 		let file = CatalogFile(
 			relativePath: "Example.mlmodel",
