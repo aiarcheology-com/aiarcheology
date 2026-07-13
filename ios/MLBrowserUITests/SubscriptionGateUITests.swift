@@ -17,11 +17,7 @@ final class SubscriptionGateUITests: UITestCase {
 	/// sign-out affordance is the reliable proof the paywall is the root, and it's
 	/// the Apple 5.1.1(v) escape.)
 	func testGate_notSubscribed_showsPaywall() throws {
-		try XCTSkipIf(true, "Payments gate is dark for the AIA-0419 free public beta (FeatureFlags.isPaymentsEnabled == false): a non-subscriber now enters the app, so the paywall is no longer root. Restore this assertion when payments are re-enabled.")
-		launch(mockSubscription: "notSubscribed")
-		assertExists(AID.paywallSignOut, true)
-		// The app chrome (side-menu button) must not be reachable behind the gate.
-		assertExists(AID.cpu, false)
+		throw XCTSkip("Paywall-root path is dark under the AIA-0419 free public beta (FeatureFlags.isPaymentsEnabled == false): a non-subscriber now enters the app, so the paywall is no longer the root gate. Restore the paywall-root assertions when payments are re-enabled.")
 	}
 
 	/// `subscribed` (the default) → the gate passes through to the app.
