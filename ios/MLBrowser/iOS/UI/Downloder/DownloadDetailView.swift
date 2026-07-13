@@ -115,12 +115,21 @@ private extension DownloadDetailView {
 	}
 	
 	var catalogArtifactInput: some View {
-		HStack(alignment: .top) {
+		HStack(alignment: .top, spacing: 8) {
 			Text(downloader.isPackageDownload(item) ? L10n.Catalog.Download.package : L10n.Configuration.Section.model)
 			Spacer()
 			Text(downloader.catalogArtifactName(for: item) ?? urlText)
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.trailing)
+
+			Button {
+				UIPasteboard.general.string = urlText
+			} label: {
+				Image(systemName: "doc.on.doc")
+			}
+			.accessibilityLabel(L10n.Common.copy)
+			.buttonStyle(.borderless)
+			.testability(Testability.Button.downloadDetailCopyUrl)
 		}
 	}
 
@@ -219,11 +228,18 @@ private extension DownloadDetailView {
 				totalBytesExpected = newValue
 			}
 		} else {
+			let written = Int($item.totalBytesWritten.wrappedValue)
+			let expected = Int($item.totalBytesExpectedToWrite.wrappedValue)
 			ProgressDetailTextView(
-				Int($item.totalBytesWritten.wrappedValue).formatBytesAsHumanReadable(),
-				Int($item.totalBytesExpectedToWrite.wrappedValue).formatBytesAsHumanReadable()
+				written.formatBytesAsHumanReadable(),
+				completedExpectedBytes(written: written, expected: expected).formatBytesAsHumanReadable()
 			)
 		}
+	}
+
+	private func completedExpectedBytes(written: Int, expected: Int) -> Int {
+		guard item.state == .complete || item.state == .imported else { return expected }
+		return Downloader.completedExpectedBytes(written: written, expected: expected)
 	}
 	
 	@ViewBuilder

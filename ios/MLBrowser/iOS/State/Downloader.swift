@@ -276,6 +276,13 @@ final public class Downloader: NSObject, ObservableObject {
         return [StubDownloadURLProtocol.self] + base
     }
 
+	/// A completed download's actual byte count is authoritative when the source did not provide
+	/// a `Content-Length` or catalog size. This keeps completed jobs from displaying `0 KB` as the
+	/// total after the transient downloader progress has been discarded.
+	nonisolated static func completedExpectedBytes(written: Int, expected: Int) -> Int {
+		expected > 0 ? expected : written
+	}
+
     private lazy var backgroundSession: URLSession = {
         let configuration = URLSessionConfiguration.background(withIdentifier: Self.backgroundSessionIdentifier)
         configuration.sessionSendsLaunchEvents = true
@@ -827,6 +834,11 @@ final public class Downloader: NSObject, ObservableObject {
 				let targetURL = try FileManager.moveModelToDocuments(from: packageURL, configurationId: itemId)
 				try? FileManager.default.removeItem(at: stagingDirectory)
 				item.file_ = try targetURL.relativePath(from: DownloadItem.rootDirectory)
+				activeDownload.totalBytesExpected = Self.completedExpectedBytes(
+					written: activeDownload.totalBytesWritten,
+					expected: activeDownload.totalBytesExpected
+				)
+				activeDownload.progress = 1
 				persistPackageDownloadState(from: activeDownload, to: item)
 				transitionAndSave(item, to: .complete)
 				LoggingPolicy.info("Package download successfully saved", logger: .networking)
@@ -959,6 +971,11 @@ final public class Downloader: NSObject, ObservableObject {
                 let relativePath = try targetPath.relativePath(from: DownloadItem.rootDirectory)
                 item.file_ = relativePath
                 if let download {
+					download.totalBytesExpected = Self.completedExpectedBytes(
+						written: download.totalBytesWritten,
+						expected: download.totalBytesExpected
+					)
+					download.progress = 1
                     Self.persistDownloadState(from: download, to: item)
                 }
                 transitionAndSave(item, to: .complete)

@@ -1201,6 +1201,11 @@ final class DownloaderTests: XCTestCase {
     }
     
     // MARK: - Download Completion Tests
+
+	func testCompletedExpectedBytes_UsesWrittenBytesWhenTheSourceSizeIsUnknown() {
+		XCTAssertEqual(Downloader.completedExpectedBytes(written: 2_750_000, expected: 0), 2_750_000)
+		XCTAssertEqual(Downloader.completedExpectedBytes(written: 2_750_000, expected: 3_000_000), 3_000_000)
+	}
     
     func testHandleDownloadCompletion_Failure_TransitionsToFailed() throws {
         let context = dataController.container.viewContext
