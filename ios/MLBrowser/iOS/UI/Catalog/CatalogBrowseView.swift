@@ -270,10 +270,10 @@ private struct CatalogResultRow: View {
 				}
 
 				if let downloadItem {
-					CatalogDownloadProgress(item: downloadItem)
+					CatalogDownloadStatus(item: downloadItem)
 				}
 
-				if isImported {
+				if isImported, downloadItem?.state != .imported {
 					Label(L10n.Common.imported, systemImage: "checkmark.circle.fill")
 						.font(.caption)
 						.foregroundStyle(.green)
@@ -307,15 +307,42 @@ private struct CatalogResultRow: View {
 	}
 }
 
-private struct CatalogDownloadProgress: View {
+private struct CatalogDownloadStatus: View {
 	@ObservedObject var item: DownloadItem
 
+	@ViewBuilder
 	var body: some View {
-		if item.state == .downloading {
-			Label(progressText, systemImage: "arrow.down.circle.fill")
-				.font(.caption)
-				.foregroundStyle(.blue)
+		switch item.state {
+		case .notStarted:
+			statusLabel(item.state.localizedName, systemImage: "clock", color: .secondary)
+		case .downloading:
+			statusLabel(progressText, systemImage: "arrow.down.circle.fill", color: .blue)
+		case .paused:
+			statusLabel(item.state.localizedName, systemImage: "pause.circle.fill", color: .orange)
+		case .cancelled:
+			statusLabel(item.state.localizedName, systemImage: "xmark.circle.fill", color: .secondary)
+		case .failed, .importFailed:
+			VStack(alignment: .leading, spacing: 2) {
+				statusLabel(item.state.localizedName, systemImage: "exclamationmark.circle.fill", color: .red)
+
+				if let error = item.error, !error.isEmpty {
+					Text(error)
+						.font(.caption2)
+						.foregroundStyle(.red)
+						.lineLimit(2)
+				}
+			}
+		case .complete:
+			statusLabel(item.state.localizedName, systemImage: "checkmark.circle.fill", color: .green)
+		case .imported:
+			statusLabel(item.state.localizedName, systemImage: "checkmark.circle.fill", color: .green)
 		}
+	}
+
+	private func statusLabel(_ text: String, systemImage: String, color: Color) -> some View {
+		Label(text, systemImage: systemImage)
+			.font(.caption)
+			.foregroundStyle(color)
 	}
 
 	private var progressText: String {
