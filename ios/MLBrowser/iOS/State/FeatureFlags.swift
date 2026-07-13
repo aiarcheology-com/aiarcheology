@@ -17,5 +17,5 @@ enum FeatureFlags {
 	/// Gates the in-app subscription/paywall surface (AIA-0343): the Settings
 	/// "Upgrade" entry point and any feature gated on entitlement.
 	// TODO(AIA-0343): move to a real (remote) feature-flag system.
-	static let isPaymentsEnabled = false
+	static let isPaymentsEnabled = true
 }
