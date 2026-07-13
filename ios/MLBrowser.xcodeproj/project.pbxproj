@@ -158,7 +158,6 @@
 		940A10052F0500010000A005 /* LocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10042F0500010000A004 /* LocalizationTests.swift */; };
 		940A10082F0500020000A008 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10062F0500020000A006 /* L10n.swift */; };
 		940A100C2F0600010000A00C /* L10n+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A100B2F0600010000A00B /* L10n+SwiftUI.swift */; };
-		940A100E2F0600010000A00E /* LocalizationTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */; };
 		941C4FBA2EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */; };
 		941C4FBC2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FBB2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift */; };
 		941C4FBE2EDBB0C300066AED /* UTTypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 941C4FBD2EDBB0C300066AED /* UTTypeTests.swift */; };
@@ -445,7 +444,6 @@
 		940A10042F0500010000A004 /* LocalizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTests.swift; sourceTree = "<group>"; };
 		940A10062F0500020000A006 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		940A100B2F0600010000A00B /* L10n+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "L10n+SwiftUI.swift"; sourceTree = "<group>"; };
-		940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTestHelpers.swift; sourceTree = "<group>"; };
 		9415A1E82EE4D736000B65EB /* MLBrowserUITests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MLBrowserUITests.xctestplan; sourceTree = "<group>"; };
 		9415A1E92EE4D736000B65EB /* MLBrowserUnitTests.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = MLBrowserUnitTests.xctestplan; sourceTree = "<group>"; };
 		941C4FB92EDBA4BA00066AED /* ModelAcquisitionCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAcquisitionCoordinator.swift; sourceTree = "<group>"; };
@@ -1120,7 +1118,6 @@
 			isa = PBXGroup;
 			children = (
 				940A100B2F0600010000A00B /* L10n+SwiftUI.swift */,
-				940A100D2F0600010000A00D /* LocalizationTestHelpers.swift */,
 			);
 			path = Localization;
 			sourceTree = "<group>";
@@ -1611,7 +1608,6 @@
 				8AC650AB2B2B4CCB00922648 /* WebHistory.swift in Sources */,
 				940A10082F0500020000A008 /* L10n.swift in Sources */,
 				940A100C2F0600010000A00C /* L10n+SwiftUI.swift in Sources */,
-				940A100E2F0600010000A00E /* LocalizationTestHelpers.swift in Sources */,
 				A1BFBE0657B9A36E1EE3DAAF /* AuthState.swift in Sources */,
 				15A2A9B169BF17E5F22D64B3 /* ClerkAuthProvider.swift in Sources */,
 				F3926A4B067E92D228D819B2 /* AuthGateView.swift in Sources */,

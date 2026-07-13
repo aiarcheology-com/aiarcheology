@@ -6,7 +6,9 @@ exactly right or you'll either reformat the whole catalog or break the localizat
 Files:
 - Catalog: `ios/MLBrowser/iOS/Resources/Localizable.xcstrings` (JSON, `sourceLanguage: en`, ~240 keys).
 - Generated: `ios/MLBrowser/iOS/Generated/L10n.swift` — **never hand-edit; it's regenerated.**
-- Key allow-list (test): `ios/MLBrowser/iOS/Tools/Localization/LocalizationTestHelpers.swift` → `allKeys`.
+- Key guard (test): `ios/MLBrowserArchitectureTests/LocalizationCatalogTests.swift` derives the
+  authored key set from the catalog at test time (AIA-0417) — there is **no** hand-maintained key
+  list to update.
 
 ## The trap (learned the hard way on AIA-0366)
 `Localizable.xcstrings` uses Xcode's JSON style with a **space before the colon** (`"key" : value`)
@@ -40,10 +42,10 @@ the whole catalog.** Insert new keys as **surgical text**.
    `./scripts/swiftgen.sh generate` (resolves SwiftGen from `~/.local/lib/swiftgen/bin`). Confirm the
    new `L10n.<Group>.<key>` accessor appears and the diff is only the added lines.
 
-3. **Add the key to `StringCatalogValidator.allKeys`** in `LocalizationTestHelpers.swift` (in its
-   comment-grouped section), or the localization "no missing keys" test fails.
-
-4. Build to confirm the `L10n.…` reference compiles.
+3. Build to confirm the `L10n.…` reference compiles. No key list to update: the
+   `LocalizationCatalogTests` guard (`MLBrowserArchitectureTests`) derives the authored key set from
+   the catalog itself. It keys off `extractionState : "manual"` (step 1) — a key added via a raw
+   `String(localized:)` literal instead of the catalog editor lacks that state, and the guard flags it.
 
 ## Reuse first
 Prefer existing keys: `L10n.Common.delete`, `L10n.Alert.Warning.title`, `L10n.Alert.*.message`,
