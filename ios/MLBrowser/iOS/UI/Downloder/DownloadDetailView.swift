@@ -98,9 +98,9 @@ private extension DownloadDetailView {
 			if isCatalogDownload {
 				catalogArtifactInput
 			} else {
-				HStack(alignment: .top) {
-					Text(L10n.Download.url)
-					Spacer()
+				HStack(alignment: .top, spacing: 8) {
+					urlLabel
+					Spacer(minLength: 8)
 					urlInput
 				}
 			}
@@ -116,41 +116,42 @@ private extension DownloadDetailView {
 	
 	var catalogArtifactInput: some View {
 		HStack(alignment: .top, spacing: 8) {
-			Text(downloader.isPackageDownload(item) ? L10n.Catalog.Download.package : L10n.Configuration.Section.model)
-			Spacer()
+			HStack(spacing: 6) {
+				Text(downloader.isPackageDownload(item) ? L10n.Catalog.Download.package : L10n.Configuration.Section.model)
+				copyUrlButton
+			}
+			Spacer(minLength: 8)
 			Text(downloader.catalogArtifactName(for: item) ?? urlText)
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.trailing)
-
-			Button {
-				UIPasteboard.general.string = urlText
-			} label: {
-				Image(systemName: "doc.on.doc")
-			}
-			.accessibilityLabel(L10n.Common.copy)
-			.buttonStyle(.borderless)
-			.testability(Testability.Button.downloadDetailCopyUrl)
 		}
+	}
+
+	var urlLabel: some View {
+		HStack(spacing: 6) {
+			Text(L10n.Download.url)
+			copyUrlButton
+		}
+	}
+
+	var copyUrlButton: some View {
+		Button {
+			UIPasteboard.general.string = urlText
+		} label: {
+			Image(systemName: "doc.on.doc")
+		}
+		.accessibilityLabel(L10n.Common.copy)
+		.buttonStyle(.borderless)
+		.testability(Testability.Button.downloadDetailCopyUrl)
 	}
 
 	@ViewBuilder
 	var urlInput: some View {
 		if isURLReadOnly {
-			HStack(alignment: .top, spacing: 8) {
-				Text(urlText)
-					.foregroundStyle(.secondary)
-					.multilineTextAlignment(.trailing)
-					.textSelection(.enabled)
-
-				Button {
-					UIPasteboard.general.string = urlText
-				} label: {
-					Image(systemName: "doc.on.doc")
-				}
-				.accessibilityLabel(L10n.Common.copy)
-				.buttonStyle(.borderless)
-				.testability(Testability.Button.downloadDetailCopyUrl)
-			}
+			Text(urlText)
+				.foregroundStyle(.secondary)
+				.multilineTextAlignment(.trailing)
+				.textSelection(.enabled)
 		} else {
 			urlTextField
 		}
