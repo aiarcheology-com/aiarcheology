@@ -30,6 +30,8 @@ actor JSONHTTPClient {
 			}
 		} catch is CancellationError {
 			throw CancellationError()
+		} catch let error as URLError where error.code == .cancelled {
+			throw CancellationError()
 		} catch let error as CatalogError {
 			throw error
 		} catch {
@@ -83,9 +85,7 @@ actor HuggingFaceCatalogProvider: CatalogProvider {
 			throw CatalogError.noInstallableArtifact
 		}
 
-		let packageFiles = siblings
-			.filter { $0.rfilename.hasPrefix(packageRoot + "/") }
-			.sorted { $0.rfilename.localizedStandardCompare($1.rfilename) == .orderedAscending }
+		let packageFiles = orderedPackageFiles(in: siblings, packageRoot: packageRoot)
 
 		guard packageFiles.isEmpty == false else {
 			throw CatalogError.noInstallableArtifact
@@ -231,9 +231,7 @@ private extension HuggingFaceCatalogProvider {
 		}
 
 		guard let packageRoot = installablePackageRoot(in: siblings),
-			  let firstPackageFile = siblings
-				.filter({ $0.rfilename.hasPrefix(packageRoot + "/") })
-				.min(by: { $0.rfilename.localizedStandardCompare($1.rfilename) == .orderedAscending }) else {
+			  let firstPackageFile = orderedPackageFiles(in: siblings, packageRoot: packageRoot).first else {
 			throw CatalogError.noInstallableArtifact
 		}
 		return try resolveURL(modelID: modelID, filePath: firstPackageFile.rfilename)
@@ -251,5 +249,17 @@ private extension HuggingFaceCatalogProvider {
 		return roots.sorted().first { root in
 			siblings.contains { $0.rfilename.caseInsensitiveCompare(root + "/Manifest.json") == .orderedSame }
 		}
+	}
+
+	func orderedPackageFiles(in siblings: [Sibling], packageRoot: String) -> [Sibling] {
+		let manifestPath = packageRoot + "/Manifest.json"
+		return siblings
+			.filter { $0.rfilename.hasPrefix(packageRoot + "/") }
+			.sorted { lhs, rhs in
+				let lhsIsManifest = lhs.rfilename.caseInsensitiveCompare(manifestPath) == .orderedSame
+				let rhsIsManifest = rhs.rfilename.caseInsensitiveCompare(manifestPath) == .orderedSame
+				if lhsIsManifest != rhsIsManifest { return lhsIsManifest }
+				return lhs.rfilename.localizedStandardCompare(rhs.rfilename) == .orderedAscending
+			}
 	}
 }

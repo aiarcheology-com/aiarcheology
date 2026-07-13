@@ -102,7 +102,7 @@ final class CatalogProviderTests: XCTestCase {
 
 	func testSearch_filtersNestedModelWithoutInstallableArtifact() async throws {
 		CatalogURLProtocol.responseHandler = { _ in
-			let payload = "[{\"id\":\"acme/unsupported\",\"siblings\":[{\"rfilename\":\"compiled/model.mlmodel\"}]},{\"id\":\"acme/package\",\"siblings\":[{\"rfilename\":\"Package.mlpackage/Manifest.json\"},{\"rfilename\":\"Package.mlpackage/Data/model.mlmodel\"}]}]"
+			let payload = "[{\"id\":\"acme/unsupported\",\"siblings\":[{\"rfilename\":\"compiled/model.mlmodel\"}]},{\"id\":\"acme/package\",\"siblings\":[{\"rfilename\":\"Package.mlpackage/Data/model.mlmodel\"},{\"rfilename\":\"Package.mlpackage/Manifest.json\"}]}]"
 			return (200, Data(payload.utf8))
 		}
 
@@ -110,6 +110,7 @@ final class CatalogProviderTests: XCTestCase {
 
 		XCTAssertEqual(models.map(\.id), ["acme/package"])
 		XCTAssertEqual(models.first?.format, .mlpackage)
+		XCTAssertEqual(models.first?.artifactURL?.lastPathComponent, "Manifest.json")
 	}
 
 	func testResolveFiles_prefersSingleModelFile() async throws {
@@ -134,7 +135,7 @@ final class CatalogProviderTests: XCTestCase {
 
 		let files = try await makeProvider().resolveFiles(for: catalogModel())
 
-		XCTAssertEqual(files.map(\.relativePath), ["One.mlpackage/Data/model.bin", "One.mlpackage/Manifest.json"])
+		XCTAssertEqual(files.map(\.relativePath), ["One.mlpackage/Manifest.json", "One.mlpackage/Data/model.bin"])
 	}
 
 	func testResolveFiles_usesPackageInsteadOfNestedModelFile() async throws {
@@ -145,7 +146,7 @@ final class CatalogProviderTests: XCTestCase {
 
 		let files = try await makeProvider().resolveFiles(for: catalogModel())
 
-		XCTAssertEqual(files.map(\.relativePath), ["One.mlpackage/Data/model.mlmodel", "One.mlpackage/Manifest.json"])
+		XCTAssertEqual(files.map(\.relativePath), ["One.mlpackage/Manifest.json", "One.mlpackage/Data/model.mlmodel"])
 	}
 
 	func testPackageDownloader_assemblesPackageTree() async throws {
@@ -235,6 +236,7 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertEqual(johnRockyModel.task, .objectDetection)
 		XCTAssertEqual(johnRockyFiles.first?.resolveURL.host, "drive.usercontent.google.com")
 		XCTAssertEqual(johnRockyFiles.first?.resolveURL.query?.contains("export=download"), true)
+		XCTAssertEqual(johnRockyFiles.first?.relativePath, "yolov5s.mlmodel")
 
 		let github = GitHubCuratedCatalogProvider()
 		let githubModels = try await github.search(query: "handwriting")
@@ -347,6 +349,16 @@ final class CatalogSearchManagerTests: XCTestCase {
 		let unavailableSearchCallCount = await unavailable.searchCallCount
 		XCTAssertEqual(searchableSearchCallCount, 1)
 		XCTAssertEqual(unavailableSearchCallCount, 0)
+	}
+
+	func testSearch_keepsTheLastSelectedSourceEnabled() {
+		let provider = TestCatalogProvider(id: "github-curated")
+		let manager = CatalogSearchManager(providers: [provider], searchDebounce: .zero)
+
+		manager.toggleProvider(id: "github-curated")
+
+		XCTAssertEqual(manager.selectedProviderIDs, ["github-curated"])
+		XCTAssertEqual(manager.selectedProviderSummary, L10n.Catalog.Results.allSources)
 	}
 }
 

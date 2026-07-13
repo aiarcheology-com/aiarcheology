@@ -13,7 +13,6 @@ import Foundation
 actor AppleCoreMLCatalogProvider: CatalogProvider {
 	nonisolated let descriptor = CatalogProviderDescriptor(id: "apple-coreml", displayName: "Apple Core ML")
 
-	private static let manifestVersion = 1
 	private static let assetBaseURL = URL(string: "https://ml-assets.apple.com/coreml/models") ?? URL(fileURLWithPath: "/")
 	private static let entries: [Entry] = [
 		entry(

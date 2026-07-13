@@ -2800,7 +2800,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld of %lld files"
+            "value" : "Files: %lld / %lld"
           }
         }
       }
@@ -2944,7 +2944,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld downloads"
+            "value" : "Downloads: %lld"
           }
         }
       }
@@ -2968,7 +2968,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld likes"
+            "value" : "Likes: %lld"
           }
         }
       }
@@ -6949,106 +6949,10 @@
       "comment" : "Hint for URL input field",
       "extractionState" : "manual",
       "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "قدم عنوانًا صالحًا يشير إلى نموذج اكتشاف Create ML (.mlmodel)"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "একটি Create ML ডিটেকশন মডেল (.mlmodel) নির্দেশ করে এমন বৈধ ঠিকানা প্রদান করুন"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zadejte platnou adresu ukazující na detekční model Create ML (.mlmodel)"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Geben Sie eine gültige Adresse zu einem Create ML-Erkennungsmodell (.mlmodel) an"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enter a direct .mlmodel URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Proporcione una dirección válida que apunte a un modelo de detección Create ML (.mlmodel)"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "یک آدرس معتبر که به یک مدل تشخیص Create ML (.mlmodel) اشاره می‌کند وارد کنید"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Fournissez une adresse valide pointant vers un modèle de détection Create ML (.mlmodel)"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ספק כתובת תקפה המצביעה על מודל זיהוי Create ML (.mlmodel)"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Create ML डिटेक्शन मॉडल (.mlmodel) की ओर इशारा करने वाला एक मान्य पता प्रदान करें"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Adjon meg egy érvényes címet, amely egy Create ML észlelési modellre (.mlmodel) mutat"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Podaj prawidłowy adres wskazujący na model wykrywania Create ML (.mlmodel)"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Укажите действительный адрес, указывающий на модель обнаружения Create ML (.mlmodel)"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Вкажіть дійсну адресу, що вказує на модель виявлення Create ML (.mlmodel)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "提供指向 Create ML 检测模型（.mlmodel）的有效地址"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "提供指向 Create ML 偵測模型（.mlmodel）的有效位址"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "提供指向 Create ML 偵測模型（.mlmodel）的有效位址"
           }
         }
       }

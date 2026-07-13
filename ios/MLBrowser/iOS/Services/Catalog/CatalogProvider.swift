@@ -91,7 +91,6 @@ enum CatalogError: Error, Equatable, Sendable {
 	case invalidResponse
 	case decoding
 	case noInstallableArtifact
-	case cancelled
 	case tooLarge
 	case invalidFilePath
 	case tooManyFiles

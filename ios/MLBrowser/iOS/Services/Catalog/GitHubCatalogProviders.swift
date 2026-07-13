@@ -55,8 +55,8 @@ private enum CuratedCatalogURLs {
 	private static let githubRawBaseURL = URL(string: "https://raw.githubusercontent.com") ?? URL(fileURLWithPath: "/")
 	private static let googleDriveBaseURL = URL(string: "https://drive.usercontent.google.com") ?? URL(fileURLWithPath: "/")
 
-	static func githubRaw(owner: String, repository: String, branch: String = "master", path: String) -> URL {
-		[owner, repository, branch]
+	static func githubRaw(owner: String, repository: String, revision: String, path: String) -> URL {
+		[owner, repository, revision]
 			.reduce(githubRawBaseURL) { $0.appendingPathComponent($1) }
 			.appendingPathComponent(path)
 	}
@@ -81,6 +81,7 @@ private extension CuratedCatalogManifest.Entry {
 		task: CatalogTask,
 		sizeBytes: Int64?,
 		artifactURL: URL,
+		artifactFilename: String? = nil,
 		keywords: [String]
 	) {
 		self.model = CatalogModel(
@@ -96,7 +97,7 @@ private extension CuratedCatalogManifest.Entry {
 			artifactURL: artifactURL
 		)
 		self.file = CatalogFile(
-			relativePath: artifactURL.lastPathComponent,
+			relativePath: artifactFilename ?? artifactURL.lastPathComponent,
 			resolveURL: artifactURL,
 			sizeBytes: sizeBytes
 		)
@@ -123,6 +124,7 @@ actor AwesomeCoreMLCatalogProvider: CatalogProvider {
 				artifactURL: CuratedCatalogURLs.githubRaw(
 					owner: "likedan",
 					repository: "Core-ML-Car-Recognition",
+					revision: "209f36dff12d860b87a5d73be9b9f0a2a81546ae",
 					path: "CarRecognition/Resources/CarRecognition.mlmodel"
 				),
 				keywords: ["car", "vehicle", "make", "model", "image", "classification"]
@@ -137,6 +139,7 @@ actor AwesomeCoreMLCatalogProvider: CatalogProvider {
 				artifactURL: CuratedCatalogURLs.githubRaw(
 					owner: "yulingtianxia",
 					repository: "PhotoAssessment",
+					revision: "6e98f1a23da51bcb0963e3f2125abebe5707c046",
 					path: "PhotoAssessment-Sample/Sources/MobileNet.mlmodel"
 				),
 				keywords: ["photo", "assessment", "quality", "mobilenet", "image", "classification"]
@@ -151,6 +154,7 @@ actor AwesomeCoreMLCatalogProvider: CatalogProvider {
 				artifactURL: CuratedCatalogURLs.githubRaw(
 					owner: "hollance",
 					repository: "YOLO-CoreML-MPSNNGraph",
+					revision: "e28b61e5909675c87935907f2ce0bb51852ef919",
 					path: "TinyYOLO-CoreML/TinyYOLO-CoreML/TinyYOLO.mlmodel"
 				),
 				keywords: ["yolo", "tiny", "object", "detection", "coco"]
@@ -184,6 +188,7 @@ actor JohnRockyCoreMLCatalogProvider: CatalogProvider {
 				task: .imageClassification,
 				sizeBytes: 22_679_674,
 				artifactURL: CuratedCatalogURLs.googleDrive(fileID: "1mJq8SMuDaCQHW77ui3fAfe5o3Qu2GKMi"),
+				artifactFilename: "efficientnet.mlmodel",
 				keywords: ["efficientnet", "imagenet", "image", "classification"]
 			),
 			.init(
@@ -194,6 +199,7 @@ actor JohnRockyCoreMLCatalogProvider: CatalogProvider {
 				task: .imageClassification,
 				sizeBytes: 85_800_000,
 				artifactURL: CuratedCatalogURLs.googleDrive(fileID: "12JiGwXh8pX3yjoG_GsJOKAnPd3lbVrrn"),
+				artifactFilename: "efficientnetv2s.mlmodel",
 				keywords: ["efficientnet", "imagenet", "image", "classification"]
 			),
 			.init(
@@ -204,6 +210,7 @@ actor JohnRockyCoreMLCatalogProvider: CatalogProvider {
 				task: .objectDetection,
 				sizeBytes: 29_188_748,
 				artifactURL: CuratedCatalogURLs.googleDrive(fileID: "1KT-9eKO4F-LYIJVYJg7dy2LEW_hVUq0M"),
+				artifactFilename: "yolov5s.mlmodel",
 				keywords: ["yolo", "yolov5", "coco", "object", "detection"]
 			),
 			.init(
@@ -214,6 +221,7 @@ actor JohnRockyCoreMLCatalogProvider: CatalogProvider {
 				task: .objectDetection,
 				sizeBytes: 22_431_142,
 				artifactURL: CuratedCatalogURLs.googleDrive(fileID: "1pLRh1Y37KLEMpQn3v8qH-A12swakoHbI"),
+				artifactFilename: "yolov8s.mlmodel",
 				keywords: ["yolo", "yolov8", "coco", "object", "detection"]
 			)
 		]
@@ -247,6 +255,7 @@ actor GitHubCuratedCatalogProvider: CatalogProvider {
 				artifactURL: CuratedCatalogURLs.githubRaw(
 					owner: "yulingtianxia",
 					repository: "Core-ML-Sample",
+					revision: "7dd7df33219d3e04e12685f3dbbbb75bbb886933",
 					path: "CoreMLSample/Inceptionv3.mlmodel"
 				),
 				keywords: ["inception", "imagenet", "image", "classification"]
@@ -261,6 +270,7 @@ actor GitHubCuratedCatalogProvider: CatalogProvider {
 				artifactURL: CuratedCatalogURLs.githubRaw(
 					owner: "ytakzk",
 					repository: "CoreML-samples",
+					revision: "fd4cd95865a59cfe70207d27d12c0129135e8b5d",
 					path: "CoreML-samples/Resnet50.mlmodel"
 				),
 				keywords: ["resnet", "imagenet", "image", "classification"]
@@ -275,6 +285,7 @@ actor GitHubCuratedCatalogProvider: CatalogProvider {
 				artifactURL: CuratedCatalogURLs.githubRaw(
 					owner: "ytakzk",
 					repository: "CoreML-samples",
+					revision: "fd4cd95865a59cfe70207d27d12c0129135e8b5d",
 					path: "CoreML-samples/SimpleMnist.mlmodel"
 				),
 				keywords: ["mnist", "digit", "handwriting", "image", "classification"]

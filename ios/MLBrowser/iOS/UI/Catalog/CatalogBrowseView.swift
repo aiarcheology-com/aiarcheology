@@ -424,8 +424,6 @@ final class CatalogSearchManager: ObservableObject {
 				self.isLoading = false
 			} catch is CancellationError {
 				return
-			} catch CatalogError.cancelled {
-				return
 			} catch {
 				guard let self, self.selectedProviderIDs == selectedProviderIDs else { return }
 				self.results = []
@@ -438,6 +436,7 @@ final class CatalogSearchManager: ObservableObject {
 	func toggleProvider(id: String) {
 		guard providerDescriptors.first(where: { $0.id == id })?.isSearchable == true else { return }
 		if selectedProviderIDs.contains(id) {
+			guard selectedProviderIDs.count > 1 else { return }
 			selectedProviderIDs.remove(id)
 			if resultProviderFilterID == id {
 				resultProviderFilterID = nil
@@ -488,8 +487,6 @@ final class CatalogSearchManager: ObservableObject {
 			resolvedFilesByModelID[modelKey(for: model)] = files
 			return files
 		} catch is CancellationError {
-			return nil
-		} catch CatalogError.cancelled {
 			return nil
 		} catch CatalogError.noInstallableArtifact {
 			errorMessage = L10n.Catalog.Error.unsupportedModel

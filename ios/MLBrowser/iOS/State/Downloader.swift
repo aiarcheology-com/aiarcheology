@@ -440,8 +440,10 @@ final public class Downloader: NSObject, ObservableObject {
 		}
 
 		let request = DownloadItem.fetchRequest()
-		if let existingItem = try context.fetch(request)
-			.first(where: { $0.url == firstFile.resolveURL }) {
+		request.predicate = NSPredicate(format: "%K == %@", #keyPath(DownloadItem.url), firstFile.resolveURL as NSURL)
+		request.sortDescriptors = [NSSortDescriptor(keyPath: \DownloadItem.stateChanged_, ascending: false)]
+		request.fetchLimit = 1
+		if let existingItem = try context.fetch(request).first {
 			return existingItem
 		}
 

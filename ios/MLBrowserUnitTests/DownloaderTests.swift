@@ -612,6 +612,40 @@ final class DownloaderTests: XCTestCase {
 		XCTAssertEqual(try context.count(for: DownloadItem.fetchRequest()), 1)
 	}
 
+	func testCatalogDownloadItem_usesSingleFileDownloadForGoogleDriveArtifact() async throws {
+		let provider = JohnRockyCoreMLCatalogProvider()
+		let models = try await provider.search(query: "yolov5")
+		let model = try XCTUnwrap(models.first)
+		let files = try await provider.resolveFiles(for: model)
+
+		let item = try downloader.catalogDownloadItem(files: files, in: dataController.container.viewContext)
+
+		XCTAssertEqual(files.map(\.relativePath), ["yolov5s.mlmodel"])
+		XCTAssertFalse(downloader.isPackageDownload(item))
+	}
+
+	func testCatalogDownloadItem_reopensTheMostRecentlyChangedArtifactJob() throws {
+		let file = CatalogFile(
+			relativePath: "Example.mlmodel",
+			resolveURL: URL(string: "https://catalog.test/Example.mlmodel") ?? URL(fileURLWithPath: "/"),
+			sizeBytes: 64
+		)
+		let context = dataController.container.viewContext
+		let olderItem = try downloader.catalogDownloadItem(files: [file], in: context)
+		olderItem.stateChanged_ = .now.addingTimeInterval(-60)
+
+		let newerItem = DownloadItem.create(in: context)
+		newerItem.url = file.resolveURL
+		newerItem.transition(to: .draft)
+		newerItem.stateChanged_ = .now
+		try DownloadItem.save(in: context)
+
+		let reopenedItem = try downloader.catalogDownloadItem(files: [file], in: context)
+
+		XCTAssertTrue(reopenedItem === newerItem)
+		XCTAssertEqual(reopenedItem.entityId, newerItem.entityId)
+	}
+
 	func testCancelPackageDownload_keepsManifestForRestart() throws {
 		let item = try downloader.makePackageDownloadItem(
 			files: catalogPackageFiles(),
