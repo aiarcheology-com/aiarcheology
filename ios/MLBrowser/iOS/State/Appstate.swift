@@ -27,6 +27,7 @@ final class AppState: ObservableObject {
 	let snap: SnapState
 	let deep: DeepState
 	let downloader: Downloader
+	let catalogProvider: any CatalogProvider
 	let demoDataManager: DemoDataManager
 	let findingRepository: FindingRepository
 
@@ -72,6 +73,7 @@ final class AppState: ObservableObject {
 		snap: SnapState,
 		deep: DeepState,
 		downloader: Downloader,
+		catalogProvider: any CatalogProvider,
 		demoDataManager: DemoDataManager,
 		findingRepository: FindingRepository,
 		detection: DetectionSession,
@@ -84,6 +86,7 @@ final class AppState: ObservableObject {
 		self.snap = snap
 		self.deep = deep
 		self.downloader = downloader
+		self.catalogProvider = catalogProvider
 		self.demoDataManager = demoDataManager
 		self.findingRepository = findingRepository
 		self.detection = detection

@@ -8,6 +8,7 @@ final class ModelAcquisitionCoordinator: ObservableObject {
 	// Routing / presentation state
 	@Published var isShowingDownloader: Bool = false
 	@Published var isShowingFileImporter: Bool = false
+	@Published var isShowingCatalog: Bool = false
 	
 	/// When a flow finishes resolving a URL + ID + provider, it is delivered here once.
 	@Published private(set) var pendingImport: ImportRequest?
@@ -37,6 +38,10 @@ final class ModelAcquisitionCoordinator: ObservableObject {
 	
 	func beginRemoteImport() {
 		isShowingDownloader = true
+	}
+
+	func beginCatalogBrowse() {
+		isShowingCatalog = true
 	}
 	
 	/// Called by the UI when a file importer completes successfully.

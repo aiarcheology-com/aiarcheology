@@ -772,6 +772,234 @@
         }
       }
     },
+    "catalog.download.error" : {
+      "comment" : "Error shown when a catalog package download fails",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t download this model."
+          }
+        }
+      }
+    },
+    "catalog.download.progress" : {
+      "comment" : "Package download completion count",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld of %lld files"
+          }
+        }
+      }
+    },
+    "catalog.download.title" : {
+      "comment" : "Catalog package download progress title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloading model"
+          }
+        }
+      }
+    },
+    "catalog.empty.message" : {
+      "comment" : "Catalog search empty-state instructions",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search for an object-detection or image-classification Core ML model."
+          }
+        }
+      }
+    },
+    "catalog.empty.noResultsMessage" : {
+      "comment" : "Catalog search no-results explanation",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try a different search term."
+          }
+        }
+      }
+    },
+    "catalog.empty.noResultsTitle" : {
+      "comment" : "Catalog search no-results title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No models found"
+          }
+        }
+      }
+    },
+    "catalog.empty.title" : {
+      "comment" : "Catalog search initial empty-state title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find a model"
+          }
+        }
+      }
+    },
+    "catalog.error.message" : {
+      "comment" : "Generic catalog network or decoding error",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We couldn’t load the catalog. Check your connection and try again."
+          }
+        }
+      }
+    },
+    "catalog.error.title" : {
+      "comment" : "Catalog error title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catalog unavailable"
+          }
+        }
+      }
+    },
+    "catalog.error.unsupportedModel" : {
+      "comment" : "Error when a provider result has no installable Core ML artifact",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This result does not include an installable Core ML model."
+          }
+        }
+      }
+    },
+    "catalog.provider" : {
+      "comment" : "Catalog model-registry picker label",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Provider"
+          }
+        }
+      }
+    },
+    "catalog.results.coreML" : {
+      "comment" : "Catalog result Core ML format tag",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Core ML"
+          }
+        }
+      }
+    },
+    "catalog.results.downloads" : {
+      "comment" : "Catalog result download count",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld downloads"
+          }
+        }
+      }
+    },
+    "catalog.results.imageClassification" : {
+      "comment" : "Catalog result image classification task tag",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classification"
+          }
+        }
+      }
+    },
+    "catalog.results.likes" : {
+      "comment" : "Catalog result like count",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld likes"
+          }
+        }
+      }
+    },
+    "catalog.results.objectDetection" : {
+      "comment" : "Catalog result object detection task tag",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detection"
+          }
+        }
+      }
+    },
+    "catalog.results.title" : {
+      "comment" : "Catalog results section title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Models"
+          }
+        }
+      }
+    },
+    "catalog.search.prompt" : {
+      "comment" : "Catalog search field prompt",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search models"
+          }
+        }
+      }
+    },
+    "catalog.title" : {
+      "comment" : "Model catalog sheet title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Catalog"
+          }
+        }
+      }
+    },
     "action.tap_or_click" : {
       "comment" : "Device-specific action verb: tap on touch devices, click on Mac",
       "extractionState" : "manual",

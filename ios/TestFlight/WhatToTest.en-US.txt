@@ -1,40 +1,23 @@
-Test Focus: Set a model's type — Detection / Classification / Disabled (AIA-0402)
-Build: (auto-filled by ./scripts/deliver.sh notes — never published as-is)
+Test Focus: Browse and install models from the Open Catalog (AIA-0413)
 
-What's new in this build:
-Each model's settings now shows its Type — Detection, Classification, or Disabled. If the model file
-declares what it is, the app reads that and locks it (shown read-only). If the file doesn't say, the
-app can't verify what the model does, so after import it opens the settings for YOU to pick the type
-before the model can run. Models whose type couldn't be read before (and used to fail on import) now
-import too. The model list also shows each model's type at a glance.
+Build: 1.0.36 (123) — July 13, 2026
 
-1. Import a model whose type the app CAN read (most Ultralytics / Create ML exports)
-- Import it (from Files or a URL). It imports with its declared type, and its settings show the Type
-  read-only — the app trusts the file, so there's no picker to change it.
+What's new:
 
-2. Import a model whose type the app CAN'T read — you pick it
-- After import, an alert reminds you the app can't verify what the model does, then its settings open
-  automatically so you pick the Type. The app pre-selects a best guess — confirm or change it, then
-  tap Dismiss.
-- If it can't even guess, the settings open on Disabled with a red warning; the model won't run until
-  you pick Detection or Classification. In the model list its on/off switch stays greyed out until then.
-- Your choice sticks: reopen the settings, force-quit and relaunch — still there.
+• Open Catalog adds a third way to acquire models, alongside Files and URL.
+• Search Hugging Face for Core ML image-classification and object-detection models.
+• Single-file .mlmodel downloads reuse the existing URL download and import experience.
+• .mlpackage models download their package contents, then use the normal import and validation flow.
 
-3. Type shows in the list
-- Each model in the left drawer shows its type (Detection / Classification / Disabled) under its name.
+Please test:
 
-4. Switch type on a running model (for a model whose type YOU set — an unreadable-type import)
-- Enable such a model as Detection and run it on a page. Open its settings and switch it to
-  Classification. Detection should stop and the model should behave as the newly chosen type (no
-  leftover boxes from the old type). Switching it to Disabled stops it entirely. (Models with a
-  declared, locked type can't be switched — that's expected.)
+1. Open the model importer and choose Open Catalog.
+2. Search for a model such as "mobilenet" or "yolo". Confirm results appear after a brief pause and show loading, empty, or error states appropriately.
+3. Select a result with an .mlmodel file. Confirm the familiar download detail screen opens and that a successful download imports the model.
+4. If a result offers an .mlpackage, download it and keep the app open until import finishes. Confirm cancellation works while the package is downloading.
+5. Search again after a failed or empty query, then close and reopen the catalog. The importer should remain responsive.
 
-Also in this build (no tester action needed)
-- Internal only: hardened an automated localization-key test so it can no longer silently pass
-  (AIA-0417). No user-facing change — everything above behaves exactly as before.
+Known limitations:
 
-5. Report Issues
-Please report any issues with:
-  * What you were doing (steps to reproduce)
-  * Device model and iOS version
-  * Screenshot or screen recording if possible
+• Only public Hugging Face Core ML image-classification and object-detection models are listed.
+• Models whose type cannot be determined may remain Disabled until you assign their type in the model configuration.

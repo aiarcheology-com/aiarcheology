@@ -23,6 +23,7 @@ struct ModelImportView: View {
 	/// auto-open the model's settings for the user to confirm its type (AIA-0402). No imported
 	/// model runs on an unconfirmed type — the app can't verify what a model actually does.
 	var onImported: (UUID) -> Void = { _ in }
+	let catalogProvider: any CatalogProvider
 
 	@StateObject private var acquisitionCoordinator = ModelAcquisitionCoordinator(
 		allowedTypes: [
@@ -46,6 +47,19 @@ struct ModelImportView: View {
 	
 	/// Success state with imported model info
 	@State private var importedModelInfo: ImportedModelInfo?
+
+	/// Selection is recorded before the catalog sheet closes; the next sheet is presented only
+	/// after dismissal, avoiding SwiftUI's "present while dismissing" race.
+	@State private var pendingCatalogSelection: CatalogSelection?
+	@State private var catalogDownloadItem: DownloadItem?
+	@State private var catalogPackageRequest: CatalogPackageRequest?
+
+	private let catalogPackageDownloader = CatalogPackageDownloader()
+
+	init(onImported: @escaping (UUID) -> Void = { _ in }, catalogProvider: any CatalogProvider) {
+		self.onImported = onImported
+		self.catalogProvider = catalogProvider
+	}
 	
 	private static let pythonCode = """
 	import coremltools as ct
@@ -80,6 +94,30 @@ struct ModelImportView: View {
 		)
 		.sheet(isPresented: $acquisitionCoordinator.isShowingDownloader, onDismiss: handleDownloaderDismiss) {
 			remoteDownloaderSheet
+		}
+		.sheet(isPresented: $acquisitionCoordinator.isShowingCatalog, onDismiss: beginPendingCatalogSelection) {
+			CatalogBrowseView(providers: [catalogProvider]) { model, files in
+				handleCatalogSelection(model: model, files: files)
+			}
+		}
+		.sheet(item: $catalogDownloadItem, onDismiss: handleDownloaderDismiss) { item in
+			NavigationStack {
+				DownloadDetailView(
+					item: item,
+					onImport: ImportHandler { url, id, downloadURL, provider in
+						handleCatalogRemoteImport(url: url, id: id, downloadURL: downloadURL, provider: provider)
+					}
+				)
+				.environmentObject(downloader)
+				.environmentObject(deep)
+			}
+		}
+		.sheet(item: $catalogPackageRequest) { request in
+			CatalogPackageDownloadView(
+				files: request.files,
+				downloader: catalogPackageDownloader,
+				onFinished: handleCatalogPackageDownload
+			)
 		}
 		.onChange(of: acquisitionCoordinator.pendingImport) { _, request in
 			handlePendingImport(request)
@@ -165,6 +203,28 @@ struct ModelImportView: View {
 			}
 			.buttonStyle(.plain)
 			.testability(Testability.Button.newConfigurationPickUrl)
+
+			if FeatureFlags.isModelCatalogEnabled {
+				Button {
+					acquisitionCoordinator.beginCatalogBrowse()
+				} label: {
+					Label {
+						VStack(alignment: .leading, spacing: 4) {
+							Text(L10n.Catalog.title)
+								.foregroundStyle(Color(.label))
+							Text(L10n.Catalog.Empty.message)
+								.font(.caption)
+								.foregroundStyle(Color(.secondaryLabel))
+						}
+					} icon: {
+						Image(systemName: "square.grid.2x2")
+							.font(.title2)
+							.foregroundStyle(.blue)
+					}
+				}
+				.buttonStyle(.plain)
+				.testability(Testability.Button.newConfigurationOpenCatalog)
+			}
 		}
 	}
 	
@@ -269,6 +329,11 @@ struct ModelImportView: View {
 		pendingRemoteImport = (url, id, downloadUrl, provider)
 		acquisitionCoordinator.isShowingDownloader = false
 	}
+
+	private func handleCatalogRemoteImport(url: URL, id: UUID, downloadURL: URL, provider: ModelProvider) {
+		pendingRemoteImport = (url, id, downloadURL, provider)
+		catalogDownloadItem = nil
+	}
 	
 	private func handleDownloaderDismiss() {
 		guard let pending = pendingRemoteImport else { return }
@@ -278,6 +343,50 @@ struct ModelImportView: View {
 			configurationId: pending.id,
 			downloadUrl: pending.downloadUrl,
 			provider: pending.provider
+		)
+	}
+
+	private func handleCatalogSelection(model: CatalogModel, files: [CatalogFile]) {
+		guard files.isEmpty == false else {
+			errorMessage = L10n.Catalog.Error.unsupportedModel
+			showErrorAlert = true
+			return
+		}
+
+		if files.count == 1, files[0].relativePath.lowercased().hasSuffix(".mlmodel") {
+			pendingCatalogSelection = .singleFile(files[0].resolveURL)
+		} else {
+			pendingCatalogSelection = .package(files)
+		}
+		acquisitionCoordinator.isShowingCatalog = false
+	}
+
+	private func beginPendingCatalogSelection() {
+		guard let selection = pendingCatalogSelection else { return }
+		pendingCatalogSelection = nil
+
+		switch selection {
+		case .singleFile(let url):
+			do {
+				let item = DownloadItem.create(in: moc)
+				item.url = url
+				item.transition(to: .draft)
+				try DownloadItem.save(in: moc)
+				catalogDownloadItem = item
+			} catch {
+				errorMessage = L10n.Catalog.Error.message
+				showErrorAlert = true
+			}
+		case .package(let files):
+			catalogPackageRequest = CatalogPackageRequest(files: files)
+		}
+	}
+
+	private func handleCatalogPackageDownload(_ packageURL: URL) {
+		catalogPackageRequest = nil
+		acquisitionCoordinator.completeLocalImport(
+			url: packageURL,
+			provider: CatalogPackageImportProvider(stagingDirectory: packageURL.deletingLastPathComponent())
 		)
 	}
 	
@@ -458,10 +567,37 @@ private struct NoopProvider: ModelProvider {
 	func result(_ error: ModelProviderError, id: UUID) { }
 }
 
+private enum CatalogSelection {
+	case singleFile(URL)
+	case package([CatalogFile])
+}
+
+private struct CatalogPackageRequest: Identifiable {
+	let id = UUID()
+	let files: [CatalogFile]
+}
+
+/// The package staging directory is only needed until the regular import flow copies it into
+/// Documents. Cleanup happens after either import outcome and never blocks the main actor.
+private final class CatalogPackageImportProvider: ModelProvider {
+	private let stagingDirectory: URL
+
+	init(stagingDirectory: URL) {
+		self.stagingDirectory = stagingDirectory
+	}
+
+	func result(_ error: ModelProviderError, id: UUID) {
+		let directory = stagingDirectory
+		Task.detached(priority: .utility) {
+			try? FileManager.default.removeItem(at: directory)
+		}
+	}
+}
+
 #if DEBUG
 // MARK: - Preview
 
 #Preview {
-	ModelImportView()
+	ModelImportView(catalogProvider: HuggingFaceCatalogProvider())
 }
 #endif

@@ -46,6 +46,10 @@ class DependencyContainer {
     lazy var downloader: Downloader = {
         return Downloader(dataController: self.dataController)
     }()
+
+    lazy var catalogProvider: any CatalogProvider = {
+        return HuggingFaceCatalogProvider()
+    }()
     
     lazy var demoDataManager: DemoDataManager = {
         return DemoDataManager(dataController: self.dataController)
@@ -132,9 +136,10 @@ class DependencyContainer {
 			dataController: dataController,
 			settings: settings,
 			snap: snapState,
-			deep: deepState,
-			downloader: downloader,
-			demoDataManager: demoDataManager,
+		deep: deepState,
+		downloader: downloader,
+		catalogProvider: catalogProvider,
+		demoDataManager: demoDataManager,
 			findingRepository: findingRepository,
 			detection: detection,
 			browser: browser,
