@@ -168,22 +168,6 @@ final class LocalizationTests: XCTestCase {
         XCTAssertFalse(LocalizationValidator.contains("5 items", substring: "missing"))
     }
 
-    // MARK: - StringCatalogValidator Tests
-
-    func test_stringCatalogValidator_allKeys_containsExpectedKeys() {
-        let expectedKeys = ["history.title", "common.done", "models.title"]
-        for key in expectedKeys {
-            XCTAssertTrue(
-                StringCatalogValidator.keyExists(key),
-                "StringCatalogValidator should know about key '\(key)'"
-            )
-        }
-    }
-
-    func test_stringCatalogValidator_keyExists_returnsFalseForUnknownKey() {
-        XCTAssertFalse(StringCatalogValidator.keyExists("unknown.key.that.does.not.exist"))
-    }
-
     // MARK: - L10n Type-Safe Access Tests
 
     func test_l10n_historyTitle_returnsValue() {
@@ -223,60 +207,30 @@ final class LocalizationTests: XCTestCase {
         let button = Button(localized: L10n.Common.done) { }
         XCTAssertNotNil(button)
     }
+}
 
-    // MARK: - String Catalog Sync Tests
+// MARK: - Localization Test Helpers
 
-    func test_stringCatalogValidator_allKeys_staysInSyncWithCatalog() {
-        // Use the app bundle (not test runner bundle) to find xcstrings
-        guard let appBundle = Bundle(identifier: "com.aiarcheology.ios") else {
-            XCTFail("Could not find app bundle")
-            return
-        }
-        let missing = StringCatalogValidator.missingKeysInAllKeys(
-            stringCatalogName: "Localizable",
-            bundle: appBundle
-        )
-        
-        XCTAssertTrue(
-            missing.isEmpty,
-            """
-            The following keys are in Localizable.xcstrings but missing from \
-            StringCatalogValidator.allKeys: \(missing.joined(separator: ", "))
-            
-            Please update StringCatalogValidator.allKeys to include these keys.
-            """
-        )
+/// Pure string-comparison helpers for localization assertions.
+///
+/// Relocated from the former app-target `LocalizationTestHelpers.swift` (removed in AIA-0417 — it
+/// was test-only code compiled into the shipping app). Source-catalog key validation now lives in
+/// the macOS `MLBrowserArchitectureTests` target (`LocalizationCatalogTests`), which can read repo
+/// source; the iOS-Simulator unit target cannot.
+enum LocalizationValidator {
+
+    /// A string is considered translated if it doesn't equal its key.
+    static func isTranslated(_ localizedString: String, key: String) -> Bool {
+        localizedString != key
     }
 
-    func test_stringCatalogValidator_keys_canParseStringCatalog() {
-        // Find the app bundle that contains the xcstrings file
-        let appBundle = Bundle.allBundles.first { bundle in
-            bundle.url(forResource: "Localizable", withExtension: "xcstrings") != nil
-        }
+    /// Whether the localized string contains an expected substring (e.g. a formatted placeholder).
+    static func contains(_ localizedString: String, substring: String) -> Bool {
+        localizedString.contains(substring)
+    }
 
-        guard let appBundle else {
-            // xcstrings file may not be accessible in unit test context
-            // This is expected behavior - String Catalogs are compiled at build time
-            return
-        }
-
-        let keys = StringCatalogValidator.keys(
-            inStringCatalogNamed: "Localizable",
-            in: appBundle
-        )
-
-        XCTAssertFalse(
-            keys.isEmpty,
-            "Should be able to parse keys from Localizable.xcstrings"
-        )
-
-        // Verify some expected keys are present
-        let expectedKeys = ["history.title", "common.done", "models.title"]
-        for expectedKey in expectedKeys {
-            XCTAssertTrue(
-                keys.contains(expectedKey),
-                "Parsed keys should include '\(expectedKey)'"
-            )
-        }
+    /// Whether the localized string is non-empty after trimming whitespace.
+    static func isNotEmpty(_ localizedString: String) -> Bool {
+        !localizedString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
