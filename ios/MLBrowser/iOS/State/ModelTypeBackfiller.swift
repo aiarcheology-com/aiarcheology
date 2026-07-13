@@ -19,8 +19,8 @@ import OSLog
 /// safe default.
 ///
 /// Guarded by a one-shot `UserDefaults` flag so the (potentially compile-heavy, for imported
-/// models) re-parse runs exactly once. A fresh install has no pre-existing rows — imports set the
-/// flag themselves — so this is a no-op there.
+/// models) re-parse runs exactly once. A fresh install has no pre-existing rows to fix — every
+/// import already sets `modelTypeParsed` on its own row — so this just arms the guard and exits.
 @MainActor
 final class ModelTypeBackfiller {
 

@@ -328,8 +328,10 @@ final class DeepState: ObservableObject {
 					drivers.classificators.contains(where: { $0.id == entityId }) ? .classificator : nil
 
 				if loadedType == nil {
-					// No driver loaded yet: build one if the model is enabled.
-					if enabled {
+					// No driver loaded yet: build one only if the model is enabled AND has a runnable
+					// type. A Disabled (`.invalid`) model can't build a driver (`createDriver` returns
+					// nil and logs), so skip it here — mirroring the guard in the type-change branch.
+					if enabled, modelType != .invalid {
 						try loadAndRegisterDriver(entityId: entityId, expectedType: modelType)
 					}
 				} else if loadedType != modelType {

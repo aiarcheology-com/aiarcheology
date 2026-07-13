@@ -20,6 +20,7 @@ final class ModelTypeBackfillerTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         dataController = DataController(inMemory: true)
+        await dataController.awaitStoreReady()
         context = dataController.container.viewContext
         // Isolated defaults so the one-shot guard never bleeds across tests or into `.standard`.
         UserDefaults.standard.removePersistentDomain(forName: suiteName)

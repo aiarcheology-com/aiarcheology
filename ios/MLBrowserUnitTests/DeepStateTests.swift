@@ -129,6 +129,8 @@ final class DeepStateTests: XCTestCase {
             if condition() { return }
             try await Task.sleep(nanoseconds: 40_000_000)
         }
+        // Surface the timeout here rather than letting a later, less-specific assertion fail.
+        XCTFail("pollUntil timed out after \(timeout)s waiting for condition")
     }
 
     func testTemporaryConfigurationCleanup() {
