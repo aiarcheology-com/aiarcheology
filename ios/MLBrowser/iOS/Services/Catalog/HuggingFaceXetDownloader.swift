@@ -11,7 +11,13 @@ import Foundation
 /// ordinary Hub resolver. Xet returns a short-lived public access token, followed by compressed
 /// chunks that must be assembled locally.
 enum HuggingFaceXetDownloader {
-	static func download(file: CatalogFile, session: URLSession) async throws -> URL {
+	private static let progressUpdateIntervalBytes: Int64 = 1_000_000
+
+	static func download(
+		file: CatalogFile,
+		session: URLSession,
+		onBytesWritten: @escaping @Sendable (Int64) -> Void = { _ in }
+	) async throws -> URL {
 		guard let xetFile = file.xetFile else { throw CatalogError.invalidResponse }
 		let access = try await request(XetAccess.self, from: xetFile.tokenURL, session: session)
 		guard let casURL = URL(string: access.casURL) else { throw CatalogError.invalidResponse }
@@ -36,6 +42,8 @@ enum HuggingFaceXetDownloader {
 			defer { try? handle.close() }
 
 			var offsetIntoFirstRange = reconstruction.offsetIntoFirstRange
+			var totalBytesWritten: Int64 = 0
+			var lastReportedByteCount: Int64 = 0
 			for term in reconstruction.terms {
 				guard let fetch = reconstruction.fetchInfo[term.hash]?.first(where: { fetch in
 					fetch.range.start <= term.range.start && fetch.range.end >= term.range.end
@@ -71,10 +79,18 @@ enum HuggingFaceXetDownloader {
 					}
 					handle.write(output)
 					writtenByteCount += output.count
+					totalBytesWritten += Int64(output.count)
+					if totalBytesWritten - lastReportedByteCount >= progressUpdateIntervalBytes {
+						lastReportedByteCount = totalBytesWritten
+						onBytesWritten(totalBytesWritten)
+					}
 				}
 				guard writtenByteCount == max(0, term.unpackedLength - skippedByteCountAtStart) else {
 					throw CatalogError.invalidResponse
 				}
+			}
+			if totalBytesWritten != lastReportedByteCount {
+				onBytesWritten(totalBytesWritten)
 			}
 			return destination
 		} catch {

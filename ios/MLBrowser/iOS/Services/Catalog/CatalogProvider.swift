@@ -88,6 +88,14 @@ struct CatalogFile: Codable, Hashable, Sendable {
 struct HuggingFaceXetFile: Codable, Hashable, Sendable {
 	let fileID: String
 	let tokenURL: URL
+	/// The uncompressed artifact size reported by the Hub's file tree.
+	let sizeBytes: Int64?
+
+	init(fileID: String, tokenURL: URL, sizeBytes: Int64? = nil) {
+		self.fileID = fileID
+		self.tokenURL = tokenURL
+		self.sizeBytes = sizeBytes
+	}
 }
 
 struct CatalogProviderDescriptor: Identifiable, Hashable, Sendable {

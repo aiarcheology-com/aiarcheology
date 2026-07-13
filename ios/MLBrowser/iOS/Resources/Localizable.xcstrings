@@ -2817,6 +2817,18 @@
         }
       }
     },
+    "catalog.download.source" : {
+      "comment" : "Button for copying the provider source page for a catalog artifact",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Source"
+          }
+        }
+      }
+    },
     "catalog.download.title" : {
       "comment" : "Catalog package download progress title",
       "extractionState" : "manual",

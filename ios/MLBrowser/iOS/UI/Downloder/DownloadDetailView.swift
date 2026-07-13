@@ -126,9 +126,9 @@ private extension DownloadDetailView {
 				Button {
 					UIPasteboard.general.string = sourceURL.absoluteString
 				} label: {
-					Image(systemName: "doc.on.doc")
+					Label(L10n.Catalog.Download.source, systemImage: "doc.on.doc")
 				}
-				.accessibilityLabel(L10n.Common.copy)
+				.accessibilityLabel(L10n.Catalog.Download.source)
 				.buttonStyle(.borderless)
 				.testability(Testability.Button.downloadDetailCopyUrl)
 			}

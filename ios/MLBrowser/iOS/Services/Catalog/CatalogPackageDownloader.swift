@@ -96,36 +96,61 @@ private extension CatalogPackageDownloader {
 				)
 			)
 
-			try await withThrowingTaskGroup(of: DownloadedFile.self) { group in
-				var nextIndex = 0
-				let initialCount = min(Self.maximumConcurrentDownloads, files.count)
-				for _ in 0..<initialCount {
-					let file = files[nextIndex]
-					nextIndex += 1
-					group.addTask { [session] in
-						try await Self.fetch(file: file, session: session)
-					}
-				}
-
-				while let downloaded = try await group.next() {
-					downloadedBytes += downloaded.byteCount
-					guard downloadedBytes <= Self.maximumTotalBytes else { throw CatalogError.tooLarge }
-					try stage(downloaded: downloaded, in: stagingRoot)
-					completedFileCount += 1
+			if files.count == 1, let file = files.first, file.xetFile != nil {
+				let downloaded = try await Self.fetch(file: file, session: session) { bytesWritten in
 					reportProgress(
 						CatalogPackageDownloadProgress(
-							completedFileCount: completedFileCount,
-							totalFileCount: files.count,
-							downloadedBytes: downloadedBytes,
+							completedFileCount: 0,
+							totalFileCount: 1,
+							downloadedBytes: bytesWritten,
 							expectedBytes: knownTotal
 						)
 					)
-
-					if nextIndex < files.count {
+				}
+				downloadedBytes = downloaded.byteCount
+				guard downloadedBytes <= Self.maximumTotalBytes else { throw CatalogError.tooLarge }
+				try stage(downloaded: downloaded, in: stagingRoot)
+				completedFileCount = 1
+				reportProgress(
+					CatalogPackageDownloadProgress(
+						completedFileCount: completedFileCount,
+						totalFileCount: files.count,
+						downloadedBytes: downloadedBytes,
+						expectedBytes: knownTotal
+					)
+				)
+			} else {
+				try await withThrowingTaskGroup(of: DownloadedFile.self) { group in
+					var nextIndex = 0
+					let initialCount = min(Self.maximumConcurrentDownloads, files.count)
+					for _ in 0..<initialCount {
 						let file = files[nextIndex]
 						nextIndex += 1
 						group.addTask { [session] in
 							try await Self.fetch(file: file, session: session)
+						}
+					}
+
+					while let downloaded = try await group.next() {
+						downloadedBytes += downloaded.byteCount
+						guard downloadedBytes <= Self.maximumTotalBytes else { throw CatalogError.tooLarge }
+						try stage(downloaded: downloaded, in: stagingRoot)
+						completedFileCount += 1
+						reportProgress(
+							CatalogPackageDownloadProgress(
+								completedFileCount: completedFileCount,
+								totalFileCount: files.count,
+								downloadedBytes: downloadedBytes,
+								expectedBytes: knownTotal
+							)
+						)
+
+						if nextIndex < files.count {
+							let file = files[nextIndex]
+							nextIndex += 1
+							group.addTask { [session] in
+								try await Self.fetch(file: file, session: session)
+							}
 						}
 					}
 				}
@@ -177,11 +202,19 @@ private extension CatalogPackageDownloader {
 		try fileManager.moveItem(at: downloaded.temporaryURL, to: destination)
 	}
 
-	nonisolated static func fetch(file: CatalogFile, session: URLSession) async throws -> DownloadedFile {
+	nonisolated static func fetch(
+		file: CatalogFile,
+		session: URLSession,
+		onBytesWritten: @escaping @Sendable (Int64) -> Void = { _ in }
+	) async throws -> DownloadedFile {
 		do {
 			let temporaryURL: URL
 			if file.xetFile != nil {
-				temporaryURL = try await HuggingFaceXetDownloader.download(file: file, session: session)
+				temporaryURL = try await HuggingFaceXetDownloader.download(
+					file: file,
+					session: session,
+					onBytesWritten: onBytesWritten
+				)
 			} else {
 				let (downloadURL, response) = try await session.download(from: file.resolveURL)
 				guard let response = response as? HTTPURLResponse,

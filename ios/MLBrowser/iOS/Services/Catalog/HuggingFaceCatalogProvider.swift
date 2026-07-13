@@ -116,6 +116,7 @@ private extension HuggingFaceCatalogProvider {
 
 	struct TreeEntry: Decodable {
 		let path: String
+		let size: Int64?
 		let xetHash: String?
 	}
 
@@ -189,7 +190,10 @@ private extension HuggingFaceCatalogProvider {
 		return Dictionary(
 			uniqueKeysWithValues: entries.compactMap { entry in
 				guard let xetHash = entry.xetHash else { return nil }
-				return (entry.path, HuggingFaceXetFile(fileID: xetHash, tokenURL: tokenURL))
+				return (
+					entry.path,
+					HuggingFaceXetFile(fileID: xetHash, tokenURL: tokenURL, sizeBytes: entry.size)
+				)
 			}
 		)
 	}
@@ -220,12 +224,13 @@ private extension HuggingFaceCatalogProvider {
 
 	func catalogFile(for modelID: String, sibling: Sibling, xetFiles: [String: HuggingFaceXetFile]) throws -> CatalogFile {
 		let sourcePath = packageRoot(in: sibling.rfilename) ?? sibling.rfilename
+		let xetFile = xetFiles[sibling.rfilename]
 		return CatalogFile(
 			relativePath: sibling.rfilename,
 			resolveURL: try resolveURL(modelID: modelID, filePath: sibling.rfilename),
 			sourceURL: try sourceURL(modelID: modelID, filePath: sourcePath),
-			sizeBytes: sibling.size,
-			xetFile: xetFiles[sibling.rfilename]
+			sizeBytes: sibling.size ?? xetFile?.sizeBytes,
+			xetFile: xetFile
 		)
 	}
 
