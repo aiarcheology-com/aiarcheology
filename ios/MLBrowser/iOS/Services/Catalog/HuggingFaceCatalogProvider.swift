@@ -76,10 +76,10 @@ actor HuggingFaceCatalogProvider: CatalogProvider {
 		let infoURL = try modelInfoURL(for: model.id)
 		let info = try await client.get(ModelInfoResponse.self, from: infoURL)
 		let siblings = info.siblings ?? []
-		let xetFiles = await xetFiles(for: model.id)
+		let treeFiles = await treeFiles(for: model.id)
 
 		if let singleFile = standaloneModelFile(in: siblings) {
-			return [try catalogFile(for: model.id, sibling: singleFile, xetFiles: xetFiles)]
+			return [try catalogFile(for: model.id, sibling: singleFile, treeFiles: treeFiles)]
 		}
 
 		guard let packageRoot = installablePackageRoot(in: siblings) else {
@@ -92,7 +92,7 @@ actor HuggingFaceCatalogProvider: CatalogProvider {
 			throw CatalogError.noInstallableArtifact
 		}
 
-		return try packageFiles.map { try catalogFile(for: model.id, sibling: $0, xetFiles: xetFiles) }
+		return try packageFiles.map { try catalogFile(for: model.id, sibling: $0, treeFiles: treeFiles) }
 	}
 }
 
@@ -118,6 +118,11 @@ private extension HuggingFaceCatalogProvider {
 		let path: String
 		let size: Int64?
 		let xetHash: String?
+	}
+
+	struct TreeFile {
+		let sizeBytes: Int64?
+		let xetFile: HuggingFaceXetFile?
 	}
 
 	func search(query: String, task: CatalogTask) async throws -> [CatalogModel] {
@@ -180,19 +185,29 @@ private extension HuggingFaceCatalogProvider {
 		return url
 	}
 
-	func xetFiles(for modelID: String) async -> [String: HuggingFaceXetFile] {
+	func treeFiles(for modelID: String) async -> [String: TreeFile] {
 		guard let treeURL = try? modelTreeURL(for: modelID),
-			  let entries = try? await client.get([TreeEntry].self, from: treeURL),
-			  let tokenURL = try? xetTokenURL(for: modelID) else {
+			  let entries = try? await client.get([TreeEntry].self, from: treeURL) else {
 			return [:]
 		}
+		let tokenURL = entries.contains(where: { $0.xetHash != nil }) ? try? xetTokenURL(for: modelID) : nil
 
 		return Dictionary(
-			uniqueKeysWithValues: entries.compactMap { entry in
-				guard let xetHash = entry.xetHash else { return nil }
+			uniqueKeysWithValues: entries.map { entry in
+				let xetFile = entry.xetHash.flatMap { xetHash in
+					tokenURL.map {
+						HuggingFaceXetFile(
+							fileID: xetHash,
+							tokenURL: $0,
+							sizeBytes: entry.size,
+							repositoryID: modelID,
+							hubURL: baseURL
+						)
+					}
+				}
 				return (
 					entry.path,
-					HuggingFaceXetFile(fileID: xetHash, tokenURL: tokenURL, sizeBytes: entry.size)
+					TreeFile(sizeBytes: entry.size, xetFile: xetFile)
 				)
 			}
 		)
@@ -222,15 +237,15 @@ private extension HuggingFaceCatalogProvider {
 		return url
 	}
 
-	func catalogFile(for modelID: String, sibling: Sibling, xetFiles: [String: HuggingFaceXetFile]) throws -> CatalogFile {
+	func catalogFile(for modelID: String, sibling: Sibling, treeFiles: [String: TreeFile]) throws -> CatalogFile {
 		let sourcePath = packageRoot(in: sibling.rfilename) ?? sibling.rfilename
-		let xetFile = xetFiles[sibling.rfilename]
+		let treeFile = treeFiles[sibling.rfilename]
 		return CatalogFile(
 			relativePath: sibling.rfilename,
 			resolveURL: try resolveURL(modelID: modelID, filePath: sibling.rfilename),
 			sourceURL: try sourceURL(modelID: modelID, filePath: sourcePath),
-			sizeBytes: sibling.size ?? xetFile?.sizeBytes,
-			xetFile: xetFile
+			sizeBytes: sibling.size ?? treeFile?.sizeBytes,
+			xetFile: treeFile?.xetFile
 		)
 	}
 

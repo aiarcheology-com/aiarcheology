@@ -90,11 +90,23 @@ struct HuggingFaceXetFile: Codable, Hashable, Sendable {
 	let tokenURL: URL
 	/// The uncompressed artifact size reported by the Hub's file tree.
 	let sizeBytes: Int64?
+	/// Repository identity required by the official Hugging Face Swift client.
+	let repositoryID: String?
+	/// Hub endpoint, retained to support test hosts and future enterprise Hub instances.
+	let hubURL: URL?
 
-	init(fileID: String, tokenURL: URL, sizeBytes: Int64? = nil) {
+	init(
+		fileID: String,
+		tokenURL: URL,
+		sizeBytes: Int64? = nil,
+		repositoryID: String? = nil,
+		hubURL: URL? = nil
+	) {
 		self.fileID = fileID
 		self.tokenURL = tokenURL
 		self.sizeBytes = sizeBytes
+		self.repositoryID = repositoryID
+		self.hubURL = hubURL
 	}
 }
 

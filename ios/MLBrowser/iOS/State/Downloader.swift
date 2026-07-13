@@ -500,11 +500,6 @@ final public class Downloader: NSObject, ObservableObject {
 		return URL(fileURLWithPath: relativePath).lastPathComponent
 	}
 
-	func catalogArtifactSourceURL(for item: DownloadItem) -> URL? {
-		guard let firstFile = packageManifest(for: item)?.files.first else { return nil }
-		return firstFile.sourceURL ?? firstFile.resolveURL
-	}
-
 	func packageFileProgressPublisher(for itemId: UUID?) -> AnyPublisher<PackageFileProgress, Never> {
 		guard let itemId else {
 			return Just(PackageFileProgress(completedFileCount: 0, totalFileCount: 0)).eraseToAnyPublisher()

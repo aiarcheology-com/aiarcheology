@@ -28,23 +28,6 @@ final class CatalogProviderTests: XCTestCase {
 		}
 	}
 
-	private final class ByteRecorder: @unchecked Sendable {
-		private let lock = NSLock()
-		private var values: [Int64] = []
-
-		func append(_ value: Int64) {
-			lock.lock()
-			values.append(value)
-			lock.unlock()
-		}
-
-		var recordedValues: [Int64] {
-			lock.lock()
-			defer { lock.unlock() }
-			return values
-		}
-	}
-
 	private final class CatalogURLProtocol: URLProtocol, @unchecked Sendable {
 		nonisolated(unsafe) static var responseHandler: ((URL) -> (Int, Data))?
 
@@ -159,6 +142,8 @@ final class CatalogProviderTests: XCTestCase {
 
 		XCTAssertEqual(file.xetFile?.fileID, "file-id")
 		XCTAssertEqual(file.xetFile?.sizeBytes, 248)
+		XCTAssertEqual(file.xetFile?.repositoryID, "acme/detector")
+		XCTAssertEqual(file.xetFile?.hubURL, URL(string: "https://catalog.test"))
 		XCTAssertEqual(file.sizeBytes, 248)
 		XCTAssertEqual(
 			file.xetFile?.tokenURL.absoluteString,
@@ -190,6 +175,23 @@ final class CatalogProviderTests: XCTestCase {
 		let files = try await makeProvider().resolveFiles(for: catalogModel())
 
 		XCTAssertEqual(files.map(\.relativePath), ["One.mlpackage/Manifest.json", "One.mlpackage/Data/model.mlmodel"])
+	}
+
+	func testResolveFiles_usesTreeSizesForEveryPackageFile() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			if url.path.contains("/tree/") {
+				let payload = "[\n  {\"path\":\"One.mlpackage/Manifest.json\",\"size\":8},\n  {\"path\":\"One.mlpackage/Data/model.mlmodel\",\"size\":12,\"xetHash\":\"model-id\"}\n]"
+				return (200, Data(payload.utf8))
+			}
+			let payload = "{\"siblings\":[{\"rfilename\":\"One.mlpackage/Data/model.mlmodel\"},{\"rfilename\":\"One.mlpackage/Manifest.json\"}]}"
+			return (200, Data(payload.utf8))
+		}
+
+		let files = try await makeProvider().resolveFiles(for: catalogModel())
+
+		XCTAssertEqual(files.map(\.relativePath), ["One.mlpackage/Manifest.json", "One.mlpackage/Data/model.mlmodel"])
+		XCTAssertEqual(files.map(\.sizeBytes), [8, 12])
+		XCTAssertEqual(files.last?.xetFile?.fileID, "model-id")
 	}
 
 	func testPackageDownloader_assemblesPackageTree() async throws {
@@ -239,62 +241,58 @@ final class CatalogProviderTests: XCTestCase {
 		}
 	}
 
-	func testXetXorbDecoder_decodesLZ4AndByteGroupedChunks() throws {
-		let lz4Chunk = try XCTUnwrap(XetXorbDecoder.chunks(from: xetXorb(compressionType: 1, payload: "ABCD")).first)
-		let byteGroupedChunk = try XCTUnwrap(XetXorbDecoder.chunks(from: xetXorb(compressionType: 2, payload: "AEBFCGDH")).first)
-		let decodedLZ4 = try XCTUnwrap(String(bytes: lz4Chunk, encoding: .utf8))
-		let decodedByteGrouped = try XCTUnwrap(String(bytes: byteGroupedChunk, encoding: .utf8))
-
-		XCTAssertEqual(decodedLZ4, "ABCD")
-		XCTAssertEqual(decodedByteGrouped, "ABCDEFGH")
-	}
-
-	func testXetDownloader_reconstructsArtifactOffline() async throws {
-		CatalogURLProtocol.responseHandler = { self.xetResponse(for: $0) }
-
-		let file = CatalogFile(
-			relativePath: "Detector.mlmodel",
-			resolveURL: testURL("Detector.mlmodel"),
-			sizeBytes: 4,
-			xetFile: HuggingFaceXetFile(fileID: "file-id", tokenURL: URL(string: "https://catalog.test/token")!)
-		)
-		let byteRecorder = ByteRecorder()
-		let result = try await HuggingFaceXetDownloader.download(
-			file: file,
+	func testPackageDownloader_forwardsXetByteProgressForMultiFilePackage() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			url.lastPathComponent == "Manifest.json" ? (200, Data("manifest".utf8)) : (404, Data())
+		}
+		let files = [
+			CatalogFile(
+				relativePath: "Detector.mlpackage/Manifest.json",
+				resolveURL: testURL("Manifest.json"),
+				sizeBytes: 8
+			),
+			CatalogFile(
+				relativePath: "Detector.mlpackage/Data/model.mlmodel",
+				resolveURL: testURL("model.mlmodel"),
+				sizeBytes: 4,
+				xetFile: HuggingFaceXetFile(fileID: "file-id", tokenURL: URL(string: "https://catalog.test/token")!)
+			),
+			CatalogFile(
+				relativePath: "Detector.mlpackage/Data/weights/weight.bin",
+				resolveURL: testURL("weight.bin"),
+				sizeBytes: 4,
+				xetFile: HuggingFaceXetFile(fileID: "file-id", tokenURL: URL(string: "https://catalog.test/token")!)
+			)
+		]
+		let fakeXetDownload: CatalogXetDownload = { _, _, onBytesWritten in
+			onBytesWritten(4)
+			let temporaryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+			try Data("ABCD".utf8).write(to: temporaryURL)
+			return temporaryURL
+		}
+		let events = await CatalogPackageDownloader(
 			session: makeSession(),
-			onBytesWritten: byteRecorder.append
-		)
-		defer { try? FileManager.default.removeItem(at: result) }
-
-		XCTAssertEqual(try Data(contentsOf: result), Data("ABCD".utf8))
-		XCTAssertEqual(byteRecorder.recordedValues, [4])
-	}
-
-	func testPackageDownloader_forwardsXetByteProgress() async throws {
-		CatalogURLProtocol.responseHandler = { self.xetResponse(for: $0) }
-		let file = CatalogFile(
-			relativePath: "Detector.mlmodel",
-			resolveURL: testURL("Detector.mlmodel"),
-			sizeBytes: 4,
-			xetFile: HuggingFaceXetFile(fileID: "file-id", tokenURL: URL(string: "https://catalog.test/token")!)
-		)
-		let events = await CatalogPackageDownloader(session: makeSession()).events(for: [file])
+			xetDownload: fakeXetDownload
+		).events(for: files)
 		var progress: [CatalogPackageDownloadProgress] = []
-		var modelURL: URL?
+		var packageURL: URL?
 
 		for try await event in events {
 			switch event {
 			case .progress(let update):
 				progress.append(update)
 			case .finished(let url):
-				modelURL = url
+				packageURL = url
 			}
 		}
 
-		let downloadedModel = try XCTUnwrap(modelURL)
-		defer { try? FileManager.default.removeItem(at: downloadedModel.deletingLastPathComponent()) }
-		XCTAssertEqual(progress.map(\.downloadedBytes), [0, 4, 4])
-		XCTAssertEqual(progress.map(\.completedFileCount), [0, 0, 1])
+		let downloadedPackage = try XCTUnwrap(packageURL)
+		defer { try? FileManager.default.removeItem(at: downloadedPackage.deletingLastPathComponent()) }
+		XCTAssertEqual(progress.first?.downloadedBytes, 0)
+		XCTAssertEqual(progress.last?.downloadedBytes, 16)
+		XCTAssertEqual(progress.last?.expectedBytes, 16)
+		XCTAssertEqual(progress.last?.completedFileCount, 3)
+		XCTAssertTrue(progress.contains { $0.downloadedBytes > 0 && $0.completedFileCount < 3 })
 	}
 
 	func testAppleCatalog_searchesCuratedInstallableModels() async throws {
@@ -532,40 +530,4 @@ private extension CatalogProviderTests {
 		URL(string: "https://catalog.test/files/\(lastPathComponent)") ?? URL(fileURLWithPath: "/")
 	}
 
-	func xetXorb(compressionType: UInt8, payload: String) -> Data {
-		let raw = Array(payload.utf8)
-		let compressedBlock = [UInt8(raw.count << 4)] + raw
-		let frame = [
-			UInt8(0x04), UInt8(0x22), UInt8(0x4D), UInt8(0x18), // LZ4 frame magic
-			UInt8(0x60), UInt8(0x40), UInt8(0x00), // Frame header
-			UInt8(compressedBlock.count), UInt8(0x00), UInt8(0x00), UInt8(0x00)
-		] + compressedBlock + [0, 0, 0, 0]
-		let compressedSize = frame.count
-		return Data([
-			0,
-			UInt8(compressedSize & 0xFF), UInt8((compressedSize >> 8) & 0xFF), UInt8((compressedSize >> 16) & 0xFF),
-			compressionType,
-			UInt8(raw.count & 0xFF), UInt8((raw.count >> 8) & 0xFF), UInt8((raw.count >> 16) & 0xFF)
-		] + frame)
-	}
-
-	func xetResponse(for url: URL) -> (Int, Data) {
-		switch url.path {
-		case "/token":
-			return (200, Data("{\"casUrl\":\"https://catalog.test/cas\",\"accessToken\":\"public-token\"}".utf8))
-		case "/cas/v1/reconstructions/file-id":
-			let payload = """
-			{
-			  "offset_into_first_range": 0,
-			  "terms": [{"hash":"xorb-id","unpacked_length":4,"range":{"start":0,"end":1}}],
-			  "fetch_info": {"xorb-id":[{"range":{"start":0,"end":1},"url":"https://catalog.test/xorb","url_range":{"start":0,"end":31}}]}
-			}
-			"""
-			return (200, Data(payload.utf8))
-		case "/xorb":
-			return (200, xetXorb(compressionType: 1, payload: "ABCD"))
-		default:
-			return (404, Data())
-		}
-	}
 }

@@ -115,23 +115,12 @@ private extension DownloadDetailView {
 	}
 	
 	var catalogArtifactInput: some View {
-		HStack(alignment: .top, spacing: 8) {
+		HStack(alignment: .top) {
 			Text(downloader.isPackageDownload(item) ? L10n.Catalog.Download.package : L10n.Configuration.Section.model)
 			Spacer()
 			Text(downloader.catalogArtifactName(for: item) ?? urlText)
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.trailing)
-
-			if let sourceURL = downloader.catalogArtifactSourceURL(for: item) {
-				Button {
-					UIPasteboard.general.string = sourceURL.absoluteString
-				} label: {
-					Label(L10n.Catalog.Download.source, systemImage: "doc.on.doc")
-				}
-				.accessibilityLabel(L10n.Catalog.Download.source)
-				.buttonStyle(.borderless)
-				.testability(Testability.Button.downloadDetailCopyUrl)
-			}
 		}
 	}
 
