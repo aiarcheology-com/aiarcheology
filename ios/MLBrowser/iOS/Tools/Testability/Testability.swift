@@ -66,6 +66,7 @@ extension TestabilityIdentification {
 		case downloadDetailCancel
 		case downloadDetailDismiss
 		case downloadDetailImport
+		case downloadDetailCopyUrl
 		// Downloader
 		case downloaderDone
 		case downloaderAddDownload

@@ -90,10 +90,10 @@ private extension DownloadDetailView {
 private extension DownloadDetailView {
 	var urlInputSection: some View {
 		Section {
-			HStack {
+			HStack(alignment: .top) {
 				Text(L10n.Download.url)
 				Spacer()
-				urlTextField
+				urlInput
 			}
 		} footer: {
 			Text(packageProgressDescription)
@@ -105,10 +105,36 @@ private extension DownloadDetailView {
 		}
 	}
 	
+	@ViewBuilder
+	var urlInput: some View {
+		if isURLReadOnly {
+			HStack(alignment: .top, spacing: 8) {
+				Text(urlText)
+					.foregroundStyle(.secondary)
+					.multilineTextAlignment(.trailing)
+					.textSelection(.enabled)
+
+				Button {
+					UIPasteboard.general.string = urlText
+				} label: {
+					Image(systemName: "doc.on.doc")
+				}
+				.accessibilityLabel(L10n.Common.copy)
+				.buttonStyle(.borderless)
+				.testability(Testability.Button.downloadDetailCopyUrl)
+			}
+		} else {
+			urlTextField
+		}
+	}
+
+	var isURLReadOnly: Bool {
+		isPackageDownload || [.downloading, .paused].contains(item.state)
+	}
+
 	var urlTextField: some View {
 		TextField("https://.../mymodel.mlmodel", text: $urlText, axis: .vertical)
 			.testability(Testability.TextField.downloadDetailUrl)
-			.disabled(isPackageDownload || [.downloading, .paused].contains(item.state))
 			.lineLimit(5)
 			.autocapitalization(.none)
 			.disableAutocorrection(true)
