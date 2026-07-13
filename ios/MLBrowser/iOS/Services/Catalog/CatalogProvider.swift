@@ -32,7 +32,7 @@ struct CatalogModel: Identifiable, Codable, Hashable, Sendable {
 	let sizeBytes: Int64?
 }
 
-struct CatalogFile: Hashable, Sendable {
+struct CatalogFile: Codable, Hashable, Sendable {
 	let relativePath: String
 	let resolveURL: URL
 	let sizeBytes: Int64?

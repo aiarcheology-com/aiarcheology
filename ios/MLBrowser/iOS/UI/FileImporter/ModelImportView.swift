@@ -52,9 +52,6 @@ struct ModelImportView: View {
 	/// after dismissal, avoiding SwiftUI's "present while dismissing" race.
 	@State private var pendingCatalogSelection: CatalogSelection?
 	@State private var catalogDownloadItem: DownloadItem?
-	@State private var catalogPackageRequest: CatalogPackageRequest?
-
-	private let catalogPackageDownloader = CatalogPackageDownloader()
 
 	init(onImported: @escaping (UUID) -> Void = { _ in }, catalogProvider: any CatalogProvider) {
 		self.onImported = onImported
@@ -111,13 +108,6 @@ struct ModelImportView: View {
 				.environmentObject(downloader)
 				.environmentObject(deep)
 			}
-		}
-		.sheet(item: $catalogPackageRequest) { request in
-			CatalogPackageDownloadView(
-				files: request.files,
-				downloader: catalogPackageDownloader,
-				onFinished: handleCatalogPackageDownload
-			)
 		}
 		.onChange(of: acquisitionCoordinator.pendingImport) { _, request in
 			handlePendingImport(request)
@@ -378,16 +368,13 @@ struct ModelImportView: View {
 				showErrorAlert = true
 			}
 		case .package(let files):
-			catalogPackageRequest = CatalogPackageRequest(files: files)
+			do {
+				catalogDownloadItem = try downloader.makePackageDownloadItem(files: files, in: moc)
+			} catch {
+				errorMessage = L10n.Catalog.Error.message
+				showErrorAlert = true
+			}
 		}
-	}
-
-	private func handleCatalogPackageDownload(_ packageURL: URL) {
-		catalogPackageRequest = nil
-		acquisitionCoordinator.completeLocalImport(
-			url: packageURL,
-			provider: CatalogPackageImportProvider(stagingDirectory: packageURL.deletingLastPathComponent())
-		)
 	}
 	
 	private func handleFileImportResult(_ result: Result<[URL], Error>) {
@@ -570,28 +557,6 @@ private struct NoopProvider: ModelProvider {
 private enum CatalogSelection {
 	case singleFile(URL)
 	case package([CatalogFile])
-}
-
-private struct CatalogPackageRequest: Identifiable {
-	let id = UUID()
-	let files: [CatalogFile]
-}
-
-/// The package staging directory is only needed until the regular import flow copies it into
-/// Documents. Cleanup happens after either import outcome and never blocks the main actor.
-private final class CatalogPackageImportProvider: ModelProvider {
-	private let stagingDirectory: URL
-
-	init(stagingDirectory: URL) {
-		self.stagingDirectory = stagingDirectory
-	}
-
-	func result(_ error: ModelProviderError, id: UUID) {
-		let directory = stagingDirectory
-		Task.detached(priority: .utility) {
-			try? FileManager.default.removeItem(at: directory)
-		}
-	}
 }
 
 #if DEBUG

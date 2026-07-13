@@ -38,7 +38,7 @@ struct DownloadDetailView: View {
 			}
 			actionButtons
 		}
-		.navigationBarTitle(L10n.Download.title)
+		.navigationBarTitle(isPackageDownload ? L10n.Catalog.Download.title : L10n.Download.title)
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar { toolbarContent }
 		.onAppear {
@@ -95,7 +95,7 @@ private extension DownloadDetailView {
 				urlTextField
 			}
 		} footer: {
-			Text(L10n.Download.urlHint)
+			Text(packageFileCount.map { L10n.Catalog.Download.progress(0, $0) } ?? L10n.Download.urlHint)
 				.font(.subheadline)
 				.foregroundColor(.gray)
 		}
@@ -104,7 +104,7 @@ private extension DownloadDetailView {
 	var urlTextField: some View {
 		TextField("https://.../mymodel.mlmodel", text: $urlText, axis: .vertical)
 			.testability(Testability.TextField.downloadDetailUrl)
-			.disabled([.downloading, .paused].contains(item.state))
+			.disabled(isPackageDownload || [.downloading, .paused].contains(item.state))
 			.lineLimit(5)
 			.autocapitalization(.none)
 			.disableAutocorrection(true)
@@ -235,7 +235,7 @@ private extension DownloadDetailView {
 	}
 	
 	var downloadButton: some View {
-		let attributes = Self.downloadButtonAttributes(item.state)
+		let attributes = downloadAttributes
 		return Button(attributes.label) {
 			Task {
 				item.error = nil
@@ -256,6 +256,23 @@ private extension DownloadDetailView {
 		.buttonStyle(PressableButtonStyle(color: attributes.color))
 		.disabled(!attributes.enabled)
 		.testability(Testability.Button.downloadDetailCancel)
+	}
+}
+
+private extension DownloadDetailView {
+	var isPackageDownload: Bool {
+		downloader.isPackageDownload(item)
+	}
+
+	var packageFileCount: Int? {
+		downloader.packageFileCount(for: item)
+	}
+
+	var downloadAttributes: (enabled: Bool, color: Color, label: String) {
+		if isPackageDownload, item.state == .downloading {
+			return (enabled: false, color: .gray, label: L10n.DownloadState.downloading)
+		}
+		return Self.downloadButtonAttributes(item.state)
 	}
 }
 

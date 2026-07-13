@@ -27,8 +27,8 @@ enum CatalogPackageDownloadEvent: Sendable {
 	case finished(URL)
 }
 
-/// Downloads package siblings into a temporary directory. The caller owns the returned directory
-/// until it has been handed into the existing model-import flow.
+/// Downloads package siblings into a temporary directory. `Downloader` owns the returned package
+/// root and moves it into the model configuration directory before the normal import flow begins.
 actor CatalogPackageDownloader {
 	static let maximumTotalBytes: Int64 = 1_500_000_000
 	static let maximumFileCount = 500

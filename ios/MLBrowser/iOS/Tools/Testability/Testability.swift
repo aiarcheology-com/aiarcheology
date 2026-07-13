@@ -85,7 +85,6 @@ extension TestabilityIdentification {
 		case newConfigurationOpenCatalog
 		// Model Catalog
 		case catalogResult
-		case catalogPackageCancel
 		// Settings
 		case settingsDismiss
 		case settingsDeleteCache
@@ -289,7 +288,6 @@ extension TestabilityIdentification {
 	enum ProgressView: String, TestabilityIdentification {
 		case downloadDetailProgress
 		case listItemProgress
-		case catalogPackageDownload
 	}
 	
 	enum List: String, TestabilityIdentification {
