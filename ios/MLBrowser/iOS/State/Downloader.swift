@@ -77,6 +77,37 @@ final class ActiveDownload: Identifiable, Comparable, Hashable, ObservableObject
     }
 }
 
+/// In-memory progress for a bounded multi-file Core ML package job. The job manifest itself is
+/// persisted on its `DownloadItem`, so a failed or interrupted package can be restarted.
+@MainActor
+final class ActivePackageDownload: Identifiable, ObservableObject {
+	let id: UUID
+	@Published var progress: Double = 0.0
+	@Published var totalBytesWritten: Int = 0
+	@Published var totalBytesExpected: Int = 0
+	var task: Task<Void, Never>?
+
+	init(itemId: UUID) {
+		self.id = itemId
+	}
+}
+
+private struct PackageDownloadManifest: Codable {
+	private static let kind = "catalog-coreml-package-v1"
+
+	let jobKind: String
+	let files: [CatalogFile]
+
+	init(files: [CatalogFile]) {
+		self.jobKind = Self.kind
+		self.files = files
+	}
+
+	var isValid: Bool {
+		jobKind == Self.kind && files.isEmpty == false
+	}
+}
+
 private final class DownloaderSessionDelegateProxy: NSObject, URLSessionDownloadDelegate, URLSessionTaskDelegate, @unchecked Sendable {
     weak var owner: Downloader?
     
@@ -190,9 +221,12 @@ final public class Downloader: NSObject, ObservableObject {
     
     let dataController: DataController
     @Published private(set) var activeDownloads: [UUID: ActiveDownload] = [:]
+    @Published private(set) var activePackageDownloads: [UUID: ActivePackageDownload] = [:]
     
     private let networkMonitor = NWPathMonitor()
     private lazy var delegateProxy: DownloaderSessionDelegateProxy = DownloaderSessionDelegateProxy(owner: self)
+	private let packageDownloader: CatalogPackageDownloader
+	private var packageManifests: [UUID: PackageDownloadManifest] = [:]
 
     /// Completion handler provided by iOS when the app is relaunched to process background session events.
     /// Must be called once all background events are handled.
@@ -241,8 +275,9 @@ final public class Downloader: NSObject, ObservableObject {
     // Test hook
     var sessionFactory: ((URLSessionConfiguration, URLSessionDelegate?, OperationQueue?) -> URLSession)?
         
-    init(dataController: DataController) {
+    init(dataController: DataController, packageDownloader: CatalogPackageDownloader = CatalogPackageDownloader()) {
         self.dataController = dataController
+		self.packageDownloader = packageDownloader
         super.init()
         
 		LoggingPolicy.debug("Downloader initialized, starting network monitor", logger: .networking)
@@ -371,21 +406,60 @@ final public class Downloader: NSObject, ObservableObject {
         backgroundSessionCompletionHandler = nil
         handler()
     }
+
+	/// Creates a persisted download item for a multi-file Core ML package. The manifest is kept on
+	/// the item instead of an ephemeral view state so a failed package can be retried after relaunch.
+	func makePackageDownloadItem(files: [CatalogFile], in context: NSManagedObjectContext) throws -> DownloadItem {
+		guard let firstFile = files.first else {
+			throw CatalogError.noInstallableArtifact
+		}
+
+		let manifest = PackageDownloadManifest(files: files)
+		let item = DownloadItem.create(in: context)
+		item.url = firstFile.resolveURL
+		item.resumeData = try JSONEncoder().encode(manifest)
+		item.transition(to: .draft)
+		try DownloadItem.save(in: context)
+		packageManifests[item.entityId] = manifest
+		return item
+	}
+
+	func isPackageDownload(_ item: DownloadItem) -> Bool {
+		packageManifest(for: item) != nil
+	}
+
+	func packageFileCount(for item: DownloadItem) -> Int? {
+		packageManifest(for: item)?.files.count
+	}
+
+	private func packageManifest(for item: DownloadItem) -> PackageDownloadManifest? {
+		if let manifest = packageManifests[item.entityId] {
+			return manifest
+		}
+		guard let data = item.resumeData,
+			  let manifest = try? JSONDecoder().decode(PackageDownloadManifest.self, from: data),
+			  manifest.isValid else {
+			return nil
+		}
+		packageManifests[item.entityId] = manifest
+		return manifest
+	}
     
     func progressPublisher(for itemId: UUID?) -> AnyPublisher<Double, Never> {
         guard let itemId else {
             return Just(0.0).eraseToAnyPublisher()
         }
         
-        // Map the activeDownloads dictionary into a publisher of the matching ActiveDownload's $progress
-        return $activeDownloads
-            .map { activeDownloads -> AnyPublisher<Double, Never> in
+		return Publishers.CombineLatest($activeDownloads, $activePackageDownloads)
+			.map { activeDownloads, activePackageDownloads -> AnyPublisher<Double, Never> in
                 if let download = activeDownloads[itemId] {
                     return download.$progress
                         .eraseToAnyPublisher()
-                } else {
-                    return Just(0.0).eraseToAnyPublisher()
                 }
+				if let download = activePackageDownloads[itemId] {
+					return download.$progress.eraseToAnyPublisher()
+				}
+				return Just(0.0).eraseToAnyPublisher()
             }
             .switchToLatest()
             .removeDuplicates()
@@ -397,14 +471,16 @@ final public class Downloader: NSObject, ObservableObject {
             return Just(0).eraseToAnyPublisher()
         }
         
-        return $activeDownloads
-            .map { activeDownloads -> AnyPublisher<Int, Never> in
+        return Publishers.CombineLatest($activeDownloads, $activePackageDownloads)
+            .map { activeDownloads, activePackageDownloads -> AnyPublisher<Int, Never> in
                 if let download = activeDownloads[itemId] {
                     return download.$totalBytesWritten
                         .eraseToAnyPublisher()
-                } else {
-                    return Just(0).eraseToAnyPublisher()
                 }
+				if let download = activePackageDownloads[itemId] {
+					return download.$totalBytesWritten.eraseToAnyPublisher()
+				}
+				return Just(0).eraseToAnyPublisher()
             }
             .switchToLatest()
             .removeDuplicates()
@@ -417,14 +493,16 @@ final public class Downloader: NSObject, ObservableObject {
             return Just(0).eraseToAnyPublisher()
         }
         
-        return $activeDownloads
-            .map { activeDownloads -> AnyPublisher<Int, Never> in
+        return Publishers.CombineLatest($activeDownloads, $activePackageDownloads)
+            .map { activeDownloads, activePackageDownloads -> AnyPublisher<Int, Never> in
                 if let download = activeDownloads[itemId] {
                     return download.$totalBytesExpected
                         .eraseToAnyPublisher()
-                } else {
-                    return Just(0).eraseToAnyPublisher()
                 }
+				if let download = activePackageDownloads[itemId] {
+					return download.$totalBytesExpected.eraseToAnyPublisher()
+				}
+				return Just(0).eraseToAnyPublisher()
             }
             .switchToLatest()
             .removeDuplicates()
@@ -432,6 +510,10 @@ final public class Downloader: NSObject, ObservableObject {
     }
     
     func downloadTapped(_ item: DownloadItem) {
+		if isPackageDownload(item), item.state == .downloading {
+			return
+		}
+
         switch item.state {
         case .notStarted, .failed, .cancelled, .imported, .importFailed: handleEvent(item, .start)
         case .downloading: handleEvent(item, .pause)
@@ -441,6 +523,11 @@ final public class Downloader: NSObject, ObservableObject {
     }
     
     func cancelTapped(_ item: DownloadItem) {
+		if isPackageDownload(item) {
+			cancelPackageDownload(item)
+			return
+		}
+
         switch item.state {
         case .downloading, .paused: handleEvent(item, .cancel)
         default: break // a cancel action does not change anything at this state
@@ -480,6 +567,11 @@ final public class Downloader: NSObject, ObservableObject {
     
     // MARK: Start/Cancel/Pause
     private func startDownload(_ item: DownloadItem) {
+		if let manifest = packageManifest(for: item) {
+			startPackageDownload(item, manifest: manifest)
+			return
+		}
+
         guard let url = item.url else {
             LoggingPolicy.error("Cannot start download: URL is nil for item \(item.entityId.uuidString)", logger: .networking)
             return
@@ -522,6 +614,11 @@ final public class Downloader: NSObject, ObservableObject {
     }
     
     func cancelDownload(_ item: DownloadItem) {
+		if isPackageDownload(item) {
+			cancelPackageDownload(item)
+			return
+		}
+
         let entityId = item.entityId
         guard let current = activeDownloads[entityId] else {
             // Cancelling from paused state (no active download)
@@ -536,6 +633,8 @@ final public class Downloader: NSObject, ObservableObject {
     }
 
     func pauseDownload(_ item: DownloadItem) {
+		guard isPackageDownload(item) == false else { return }
+
         let entityId = item.entityId
         guard let download = activeDownloads[entityId] else { return }
 
@@ -563,6 +662,108 @@ final public class Downloader: NSObject, ObservableObject {
 
         download.task.cancel(byProducingResumeData: storeResumeData)
     }
+
+	private func startPackageDownload(_ item: DownloadItem, manifest: PackageDownloadManifest) {
+		guard activePackageDownloads[item.entityId] == nil else { return }
+
+		if item.lifeCycle == .draft {
+			item.move()
+		}
+
+		let entityId = item.entityId
+		let activeDownload = ActivePackageDownload(itemId: entityId)
+		activePackageDownloads[entityId] = activeDownload
+		transitionAndSave(item, to: .downloading)
+
+		LoggingPolicy.info("Starting package download for item \(entityId.uuidString) with \(manifest.files.count) files", logger: .networking)
+		activeDownload.task = Task { [weak self, packageDownloader] in
+			guard let self else { return }
+			do {
+				let events = await packageDownloader.events(for: manifest.files)
+				for try await event in events {
+					guard Task.isCancelled == false else { return }
+					switch event {
+					case .progress(let progress):
+						self.updatePackageDownloadProgress(progress, itemId: entityId)
+					case .finished(let packageURL):
+						self.handlePackageDownloadCompletion(itemId: entityId, result: .success(packageURL))
+					}
+				}
+			} catch {
+				guard Task.isCancelled == false else { return }
+				self.handlePackageDownloadCompletion(itemId: entityId, result: .failure(error))
+			}
+		}
+	}
+
+	private func cancelPackageDownload(_ item: DownloadItem) {
+		let entityId = item.entityId
+		activePackageDownloads[entityId]?.task?.cancel()
+		activePackageDownloads.removeValue(forKey: entityId)
+
+		guard item.state == .downloading || item.state == .paused else { return }
+		resetPackageDownloadState(item)
+		transitionAndSave(item, to: .cancelled)
+	}
+
+	private func updatePackageDownloadProgress(_ progress: CatalogPackageDownloadProgress, itemId: UUID) {
+		guard let activeDownload = activePackageDownloads[itemId],
+			  let item = DownloadItem.select(itemId, in: dataController.container.viewContext) else {
+			return
+		}
+
+		activeDownload.progress = progress.fractionCompleted
+		activeDownload.totalBytesWritten = Int(progress.downloadedBytes)
+		activeDownload.totalBytesExpected = Int(progress.expectedBytes ?? 0)
+		persistPackageDownloadState(from: activeDownload, to: item)
+	}
+
+	private func handlePackageDownloadCompletion(itemId: UUID, result: Result<URL, Error>) {
+		guard let activeDownload = activePackageDownloads[itemId] else { return }
+		defer { activePackageDownloads.removeValue(forKey: itemId) }
+
+		guard let item = DownloadItem.select(itemId, in: dataController.container.viewContext) else {
+			LoggingPolicy.warning("Package download item not found for \(itemId.uuidString)", logger: .networking)
+			return
+		}
+
+		switch result {
+		case .success(let packageURL):
+			do {
+				let stagingDirectory = packageStagingDirectory(for: packageURL, manifest: packageManifest(for: item))
+				let targetURL = try FileManager.moveModelToDocuments(from: packageURL, configurationId: itemId)
+				if let stagingDirectory {
+					try? FileManager.default.removeItem(at: stagingDirectory)
+				}
+				item.file_ = try targetURL.relativePath(from: DownloadItem.rootDirectory)
+				persistPackageDownloadState(from: activeDownload, to: item)
+				transitionAndSave(item, to: .complete)
+				LoggingPolicy.info("Package download successfully saved", logger: .networking)
+			} catch {
+				LoggingPolicy.error("Could not store downloaded package", error: error, logger: .networking)
+				item.error = error.localizedDescription
+				persistPackageDownloadState(from: activeDownload, to: item)
+				transitionAndSave(item, to: .failed)
+			}
+		case .failure(let error):
+			LoggingPolicy.error("Package download failed", error: error, logger: .networking)
+			item.error = error.localizedDescription
+			persistPackageDownloadState(from: activeDownload, to: item)
+			transitionAndSave(item, to: .failed)
+		}
+	}
+
+	private func packageStagingDirectory(for packageURL: URL, manifest: PackageDownloadManifest?) -> URL? {
+		guard let relativePath = manifest?.files.first?.relativePath else { return nil }
+		let components = relativePath.split(separator: "/", omittingEmptySubsequences: false)
+		guard let packageIndex = components.firstIndex(where: { $0.lowercased().hasSuffix(".mlpackage") }) else {
+			return nil
+		}
+
+		return (0...packageIndex).reduce(packageURL) { directory, _ in
+			directory.deletingLastPathComponent()
+		}
+	}
     
     // MARK: URLSession delegate forwarding endpoints (called by the proxy)
     func sessionTaskDidComplete(session: URLSession, task: any TaskIdentifiable, error: Error?) {
@@ -704,6 +905,22 @@ final public class Downloader: NSObject, ObservableObject {
         item.totalBytesWritten = Int64(download.totalBytesWritten)
         item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
     }
+
+	private func persistPackageDownloadState(from download: ActivePackageDownload, to item: DownloadItem) {
+		item.progress = download.progress
+		item.totalBytesWritten = Int64(download.totalBytesWritten)
+		item.totalBytesExpectedToWrite = Int64(download.totalBytesExpected)
+	}
+
+	/// A package manifest remains attached to the item after cancellation so Restart continues to
+	/// use the multi-file job rather than accidentally treating an internal package file as a URL.
+	private func resetPackageDownloadState(_ item: DownloadItem) {
+		item.progress = 0.0
+		item.totalBytesWritten = 0
+		item.totalBytesExpectedToWrite = 0
+		item.file_ = nil
+		item.error = nil
+	}
     
     /// Resets download progress state to initial values (used when cancelling)
     private func resetDownloadState(_ item: DownloadItem) {

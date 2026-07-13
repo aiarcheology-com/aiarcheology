@@ -82,6 +82,9 @@ extension TestabilityIdentification {
 		// New Configuration
 		case newConfigurationPickDocument
 		case newConfigurationPickUrl
+		case newConfigurationOpenCatalog
+		// Model Catalog
+		case catalogResult
 		// Settings
 		case settingsDismiss
 		case settingsDeleteCache
@@ -188,6 +191,8 @@ extension TestabilityIdentification {
 	enum Picker: String, TestabilityIdentification {
 		// Settings
 		case settingsFrequency
+		// Model Catalog
+		case catalogProvider
 		// Configuration Form
 		case configurationFormSymbol
 		case configurationFormModelType
@@ -290,6 +295,7 @@ extension TestabilityIdentification {
 		case downloaderList
 		case browsingHistoryList
 		case gridViewList
+		case catalogResults
 	}
 	
 	enum ImageView: String, TestabilityIdentification {

@@ -20,6 +20,14 @@ final class ModelAcquisitionCoordinatorTests: XCTestCase {
 		coordinator.beginRemoteImport()
 		XCTAssertTrue(coordinator.isShowingDownloader)
 	}
+
+	func testBeginCatalogBrowse_setsFlag() {
+		let types: [UTType] = []
+		let coordinator = ModelAcquisitionCoordinator(allowedTypes: types)
+		XCTAssertFalse(coordinator.isShowingCatalog)
+		coordinator.beginCatalogBrowse()
+		XCTAssertTrue(coordinator.isShowingCatalog)
+	}
 	
 	func testCompleteLocalImport_setsPendingImport() {
 		let types: [UTType] = []

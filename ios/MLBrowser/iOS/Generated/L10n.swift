@@ -190,6 +190,62 @@ internal enum L10n {
       internal static let stop = L10n.tr("Localizable", "browser.navigation.stop", fallback: "Stop")
     }
   }
+  internal enum Catalog {
+    /// Provider
+    internal static let provider = L10n.tr("Localizable", "catalog.provider", fallback: "Provider")
+    /// Open Catalog
+    internal static let title = L10n.tr("Localizable", "catalog.title", fallback: "Open Catalog")
+    internal enum Download {
+      /// Couldn’t download this model.
+      internal static let error = L10n.tr("Localizable", "catalog.download.error", fallback: "Couldn’t download this model.")
+      /// %lld of %lld files
+      internal static func progress(_ p1: Int, _ p2: Int) -> String {
+        return L10n.tr("Localizable", "catalog.download.progress", p1, p2, fallback: "%lld of %lld files")
+      }
+      /// Downloading model
+      internal static let title = L10n.tr("Localizable", "catalog.download.title", fallback: "Downloading model")
+    }
+    internal enum Empty {
+      /// Search for an object-detection or image-classification Core ML model.
+      internal static let message = L10n.tr("Localizable", "catalog.empty.message", fallback: "Search for an object-detection or image-classification Core ML model.")
+      /// Try a different search term.
+      internal static let noResultsMessage = L10n.tr("Localizable", "catalog.empty.noResultsMessage", fallback: "Try a different search term.")
+      /// No models found
+      internal static let noResultsTitle = L10n.tr("Localizable", "catalog.empty.noResultsTitle", fallback: "No models found")
+      /// Find a model
+      internal static let title = L10n.tr("Localizable", "catalog.empty.title", fallback: "Find a model")
+    }
+    internal enum Error {
+      /// We couldn’t load the catalog. Check your connection and try again.
+      internal static let message = L10n.tr("Localizable", "catalog.error.message", fallback: "We couldn’t load the catalog. Check your connection and try again.")
+      /// Catalog unavailable
+      internal static let title = L10n.tr("Localizable", "catalog.error.title", fallback: "Catalog unavailable")
+      /// This result does not include an installable Core ML model.
+      internal static let unsupportedModel = L10n.tr("Localizable", "catalog.error.unsupportedModel", fallback: "This result does not include an installable Core ML model.")
+    }
+    internal enum Results {
+      /// Core ML
+      internal static let coreML = L10n.tr("Localizable", "catalog.results.coreML", fallback: "Core ML")
+      /// %lld downloads
+      internal static func downloads(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "catalog.results.downloads", p1, fallback: "%lld downloads")
+      }
+      /// Classification
+      internal static let imageClassification = L10n.tr("Localizable", "catalog.results.imageClassification", fallback: "Classification")
+      /// %lld likes
+      internal static func likes(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "catalog.results.likes", p1, fallback: "%lld likes")
+      }
+      /// Detection
+      internal static let objectDetection = L10n.tr("Localizable", "catalog.results.objectDetection", fallback: "Detection")
+      /// Models
+      internal static let title = L10n.tr("Localizable", "catalog.results.title", fallback: "Models")
+    }
+    internal enum Search {
+      /// Search models
+      internal static let prompt = L10n.tr("Localizable", "catalog.search.prompt", fallback: "Search models")
+    }
+  }
   internal enum Clipboard {
     /// Copied: %@
     internal static func copied(_ p1: Any) -> String {

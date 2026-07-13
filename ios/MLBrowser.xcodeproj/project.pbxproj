@@ -252,6 +252,11 @@
 		A153A6E24C24E30E1B7B6FDB /* ModelTypeBackfiller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CBFB4DBA150A11E6A85D783 /* ModelTypeBackfiller.swift */; };
 		A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */; };
 		A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */; };
+		A41310010000000000000001 /* CatalogProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300010000000000000001 /* CatalogProvider.swift */; };
+		A41310020000000000000001 /* HuggingFaceCatalogProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300020000000000000001 /* HuggingFaceCatalogProvider.swift */; };
+		A41310030000000000000001 /* CatalogPackageDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300030000000000000001 /* CatalogPackageDownloader.swift */; };
+		A41310040000000000000001 /* CatalogBrowseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300040000000000000001 /* CatalogBrowseView.swift */; };
+		A41310050000000000000001 /* CatalogProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300050000000000000001 /* CatalogProviderTests.swift */; };
 		A1BFBE0657B9A36E1EE3DAAF /* AuthState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5EE5947359591A0BACE0F5 /* AuthState.swift */; };
 		A2626498A89E13F4C7906CF5 /* AccountSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FF6A50AC2646F384CFCDAAB /* AccountSession.swift */; };
 		A99519915315C5955FDC6159 /* FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9214C9A3D785728F7E4CF911 /* FeatureFlags.swift */; };
@@ -536,6 +541,11 @@
 		9ED702A061548A1DE38F772D /* BrowserSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BrowserSession.swift; sourceTree = "<group>"; };
 		A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingService.swift; sourceTree = "<group>"; };
 		A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingServiceTests.swift; sourceTree = "<group>"; };
+		A41300010000000000000001 /* CatalogProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogProvider.swift; sourceTree = "<group>"; };
+		A41300020000000000000001 /* HuggingFaceCatalogProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HuggingFaceCatalogProvider.swift; sourceTree = "<group>"; };
+		A41300030000000000000001 /* CatalogPackageDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogPackageDownloader.swift; sourceTree = "<group>"; };
+		A41300040000000000000001 /* CatalogBrowseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogBrowseView.swift; sourceTree = "<group>"; };
+		A41300050000000000000001 /* CatalogProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogProviderTests.swift; sourceTree = "<group>"; };
 		B3AA71FCC687FDCCBD2E764F /* SubscriptionStatusView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionStatusView.swift; sourceTree = "<group>"; };
 		BA98D77D0D8F44834E7D6D95 /* TourOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourOverlay.swift; sourceTree = "<group>"; };
 		C1C8537D6BC5C025193305C8 /* DetectionSessionState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DetectionSessionState.swift; sourceTree = "<group>"; };
@@ -725,6 +735,7 @@
 		8A61C5112AB9A85400BF72BE /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				A41320020000000000000001 /* Catalog */,
 				94048A6A2EE2F95D0064AC55 /* FileImporter */,
 				8AC393D42B2BA31300C9BA57 /* Annotation */,
 				946A3B782EB5ECE0002CF63C /* Configuration */,
@@ -985,6 +996,7 @@
 		8AE0BC192A97B0B40086DDF9 /* MLBrowserUnitTests */ = {
 			isa = PBXGroup;
 			children = (
+				A41300050000000000000001 /* CatalogProviderTests.swift */,
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
 				94D79C8E2EE37DBF0027C9FA /* BundleExtensionsTests.swift */,
 				94AE91772F0DA08300B326B7 /* ColorExtensionsTests.swift */,
@@ -1204,9 +1216,28 @@
 		A1B2C3D42F0104A300000001 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				A41320010000000000000001 /* Catalog */,
 				A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */,
 			);
 			path = Services;
+			sourceTree = "<group>";
+		};
+		A41320010000000000000001 /* Catalog */ = {
+			isa = PBXGroup;
+			children = (
+				A41300010000000000000001 /* CatalogProvider.swift */,
+				A41300020000000000000001 /* HuggingFaceCatalogProvider.swift */,
+				A41300030000000000000001 /* CatalogPackageDownloader.swift */,
+			);
+			path = Catalog;
+			sourceTree = "<group>";
+		};
+		A41320020000000000000001 /* Catalog */ = {
+			isa = PBXGroup;
+			children = (
+				A41300040000000000000001 /* CatalogBrowseView.swift */,
+			);
+			path = Catalog;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -1494,6 +1525,10 @@
 				8AC650A12B2B495B00922648 /* Settings.swift in Sources */,
 				8A8153722B3E272800B3B079 /* ModelProvider.swift in Sources */,
 				A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */,
+				A41310010000000000000001 /* CatalogProvider.swift in Sources */,
+				A41310020000000000000001 /* HuggingFaceCatalogProvider.swift in Sources */,
+				A41310030000000000000001 /* CatalogPackageDownloader.swift in Sources */,
+				A41310040000000000000001 /* CatalogBrowseView.swift in Sources */,
 				8A1D49BF2ABB87D500C2D7C1 /* ColumnStepper.swift in Sources */,
 				8AC650A72B2B4C5600922648 /* DataController.swift in Sources */,
 				8A81536A2B3CAB3300B3B079 /* ListItemView.swift in Sources */,
@@ -1661,6 +1696,7 @@
 				949DB6E32EE4F1B0002E904E /* DataControllerTests.swift in Sources */,
 				94D79C8C2EE37B0D0027C9FA /* FileManagerExtensionsTests.swift in Sources */,
 				941C4FBC2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift in Sources */,
+				A41310050000000000000001 /* CatalogProviderTests.swift in Sources */,
 				A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */,
 				94D79C942EE37DBF0027C9FA /* HostPlatformTests.swift in Sources */,
 				94D79C952EE37DBF0027C9FA /* BundleExtensionsTests.swift in Sources */,

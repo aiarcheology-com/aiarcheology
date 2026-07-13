@@ -43,6 +43,41 @@ final class MockDownloadTask: DownloadTaskProtocol, @unchecked Sendable {
     }
 }
 
+private final class PackageDownloadURLProtocol: URLProtocol, @unchecked Sendable {
+	nonisolated(unsafe) static var responseHandler: ((URL) -> Data)?
+
+	// swiftlint:disable:next static_over_final_class
+	override class func canInit(with request: URLRequest) -> Bool {
+		request.url?.host == "catalog.test"
+	}
+
+	// swiftlint:disable:next static_over_final_class
+	override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+		request
+	}
+
+	override func startLoading() {
+		guard let url = request.url, let data = Self.responseHandler?(url) else {
+			client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+			return
+		}
+		guard let response = HTTPURLResponse(
+			url: url,
+			statusCode: 200,
+			httpVersion: "HTTP/1.1",
+			headerFields: ["Content-Length": String(data.count)]
+		) else {
+			client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+			return
+		}
+		client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+		client?.urlProtocol(self, didLoad: data)
+		client?.urlProtocolDidFinishLoading(self)
+	}
+
+	override func stopLoading() { }
+}
+
 // MARK: - ActiveDownload Tests
 
 @MainActor
@@ -532,6 +567,7 @@ final class DownloaderTests: XCTestCase {
     
     override func tearDown() async throws {
         cancellables.removeAll()
+		PackageDownloadURLProtocol.responseHandler = nil
         downloader = nil
         dataController = nil
         try await super.tearDown()
@@ -542,7 +578,75 @@ final class DownloaderTests: XCTestCase {
     func testDownloaderInitialization() {
         XCTAssertNotNil(downloader)
         XCTAssertTrue(downloader.activeDownloads.isEmpty)
+		XCTAssertTrue(downloader.activePackageDownloads.isEmpty)
     }
+
+	func testMakePackageDownloadItem_persistsJobManifestForRetry() throws {
+		let context = dataController.container.viewContext
+		let files = catalogPackageFiles()
+
+		let item = try downloader.makePackageDownloadItem(files: files, in: context)
+		let restoredDownloader = Downloader(dataController: dataController)
+
+		XCTAssertEqual(item.url, files[0].resolveURL)
+		XCTAssertEqual(item.lifeCycle, .draft)
+		XCTAssertTrue(downloader.isPackageDownload(item))
+		XCTAssertEqual(restoredDownloader.packageFileCount(for: item), files.count)
+	}
+
+	func testCancelPackageDownload_keepsManifestForRestart() throws {
+		let item = try downloader.makePackageDownloadItem(
+			files: catalogPackageFiles(),
+			in: dataController.container.viewContext
+		)
+
+		downloader.downloadTapped(item)
+		XCTAssertEqual(item.state, .downloading)
+		XCTAssertNotNil(downloader.activePackageDownloads[item.entityId])
+
+		downloader.cancelTapped(item)
+
+		XCTAssertEqual(item.state, .cancelled)
+		XCTAssertTrue(downloader.activePackageDownloads.isEmpty)
+		XCTAssertTrue(downloader.isPackageDownload(item))
+	}
+
+	func testPackageDownload_usesSharedDownloaderAndMovesWholePackage() async throws {
+		PackageDownloadURLProtocol.responseHandler = { url in
+			switch url.lastPathComponent {
+			case "Manifest.json": return Data("manifest".utf8)
+			case "model.mlmodel": return Data("model".utf8)
+			case "weight.bin": return Data("weights".utf8)
+			default: return Data()
+			}
+		}
+		let configuration = URLSessionConfiguration.ephemeral
+		configuration.protocolClasses = [PackageDownloadURLProtocol.self]
+		let packageDownloader = CatalogPackageDownloader(session: URLSession(configuration: configuration))
+		downloader = Downloader(dataController: dataController, packageDownloader: packageDownloader)
+		let item = try downloader.makePackageDownloadItem(
+			files: catalogPackageFiles(),
+			in: dataController.container.viewContext
+		)
+		defer {
+			if let directory = FileManager.deepConfigurationDirectory(id: item.entityId) {
+				try? FileManager.default.removeItem(at: directory)
+			}
+		}
+
+		downloader.downloadTapped(item)
+		for _ in 0..<50 where item.state != .complete {
+			try await Task.sleep(for: .milliseconds(20))
+		}
+
+		let packageURL = try XCTUnwrap(item.file)
+		XCTAssertEqual(item.state, .complete)
+		XCTAssertEqual(try Data(contentsOf: packageURL.appendingPathComponent("Manifest.json")), Data("manifest".utf8))
+		XCTAssertEqual(
+			try Data(contentsOf: packageURL.appendingPathComponent("Data/com.apple.CoreML/weights/weight.bin")),
+			Data("weights".utf8)
+		)
+	}
     
     // MARK: - State Machine Tests
     
@@ -1158,6 +1262,28 @@ final class DownloaderTests: XCTestCase {
         downloader.reconnectBackgroundSession()
         XCTAssertEqual(before.keys.sorted(), downloader.activeDownloads.keys.sorted())
     }
+}
+
+private extension DownloaderTests {
+	func catalogPackageFiles() -> [CatalogFile] {
+		[
+			CatalogFile(
+				relativePath: "Example.mlpackage/Manifest.json",
+				resolveURL: URL(string: "https://catalog.test/Manifest.json") ?? URL(fileURLWithPath: "/"),
+				sizeBytes: 16
+			),
+			CatalogFile(
+				relativePath: "Example.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+				resolveURL: URL(string: "https://catalog.test/model.mlmodel") ?? URL(fileURLWithPath: "/"),
+				sizeBytes: 32
+			),
+			CatalogFile(
+				relativePath: "Example.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+				resolveURL: URL(string: "https://catalog.test/weight.bin") ?? URL(fileURLWithPath: "/"),
+				sizeBytes: 64
+			)
+		]
+	}
 }
 
 // MARK: - DownloaderError Tests

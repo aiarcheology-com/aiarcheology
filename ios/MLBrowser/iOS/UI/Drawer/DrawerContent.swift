@@ -19,6 +19,7 @@ struct DrawerContent: View {
     @Environment(TourState.self) private var tour
     @Environment(\.usesRealAuth) private var usesRealAuth
     @EnvironmentObject private var chromeState: AppChromeState
+	@EnvironmentObject private var appState: AppState
     /// Not used by DrawerContent itself — forwarded into the Settings sheet, which needs it
     /// (env objects don't cross a `.sheet` boundary on Mac/Designed-for-iPad). AIA-0391.
     @EnvironmentObject private var detectionState: DetectionSessionState
@@ -71,7 +72,10 @@ struct DrawerContent: View {
                 .toolbar { toolbarContent }
         }
         .sheet(isPresented: $showImport, onDismiss: presentTypeReviewIfNeeded) {
-            ModelImportView(onImported: { importedForReviewId = $0 })
+            ModelImportView(
+                onImported: { importedForReviewId = $0 },
+                catalogProvider: appState.catalogProvider
+            )
                 .environmentObject(deep)
                 .environmentObject(downloader)
         }

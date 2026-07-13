@@ -14,6 +14,10 @@ import Foundation
 /// Keep these few and meaningful — one per shippable feature — and remove a flag
 /// once its feature is permanently on and stable.
 enum FeatureFlags {
+	/// Gates the public model-catalog acquisition surface (AIA-0413).
+	// TODO(AIA-0413): move to a real (remote) feature-flag system.
+	static let isModelCatalogEnabled = true
+
 	/// Gates the in-app subscription/paywall surface (AIA-0343): the Settings
 	/// "Upgrade" entry point and any feature gated on entitlement.
 	// TODO(AIA-0343): move to a real (remote) feature-flag system.
