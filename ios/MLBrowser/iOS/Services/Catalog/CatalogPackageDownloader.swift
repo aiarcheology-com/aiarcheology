@@ -72,7 +72,7 @@ private extension CatalogPackageDownloader {
 		files: [CatalogFile],
 		reportProgress: @escaping @Sendable (CatalogPackageDownloadProgress) -> Void
 	) async throws -> URL {
-		let packageRoot = try validate(files: files)
+		let artifact = try validate(files: files)
 		let expectedBytes = files.compactMap(\.sizeBytes).reduce(Int64(0), +)
 		let unknownSizeCount = files.filter { $0.sizeBytes == nil }.count
 		guard expectedBytes <= Self.maximumTotalBytes else { throw CatalogError.tooLarge }
@@ -131,27 +131,41 @@ private extension CatalogPackageDownloader {
 				}
 			}
 
-			let packageURL = stagingRoot.appendingPathComponent(packageRoot, isDirectory: true)
-			guard fileManager.fileExists(atPath: packageURL.path) else {
+			let artifactURL: URL
+			switch artifact {
+			case .package(let root):
+				artifactURL = stagingRoot.appendingPathComponent(root, isDirectory: true)
+			case .singleFile(let relativePath):
+				artifactURL = try destinationURL(for: relativePath, in: stagingRoot)
+			}
+			guard fileManager.fileExists(atPath: artifactURL.path) else {
 				throw CatalogError.noInstallableArtifact
 			}
-			return packageURL
+			return artifactURL
 		} catch {
 			try? fileManager.removeItem(at: stagingRoot)
 			throw error
 		}
 	}
 
-	func validate(files: [CatalogFile]) throws -> String {
+	enum Artifact {
+		case package(String)
+		case singleFile(String)
+	}
+
+	func validate(files: [CatalogFile]) throws -> Artifact {
 		guard files.isEmpty == false, files.count <= Self.maximumFileCount else {
 			throw files.isEmpty ? CatalogError.noInstallableArtifact : CatalogError.tooManyFiles
+		}
+		if files.count == 1, let file = files.first, file.relativePath.lowercased().hasSuffix(".mlmodel") {
+			return .singleFile(file.relativePath)
 		}
 
 		let roots = Set(files.compactMap { packageRoot(in: $0.relativePath) })
 		guard roots.count == 1, let root = roots.first else {
 			throw CatalogError.invalidFilePath
 		}
-		return root
+		return .package(root)
 	}
 
 	func stage(downloaded: DownloadedFile, in stagingRoot: URL) throws {
@@ -165,10 +179,16 @@ private extension CatalogPackageDownloader {
 
 	nonisolated static func fetch(file: CatalogFile, session: URLSession) async throws -> DownloadedFile {
 		do {
-			let (temporaryURL, response) = try await session.download(from: file.resolveURL)
-			guard let response = response as? HTTPURLResponse,
-				  (200...299).contains(response.statusCode) else {
-				throw CatalogError.network
+			let temporaryURL: URL
+			if file.xetFile != nil {
+				temporaryURL = try await HuggingFaceXetDownloader.download(file: file, session: session)
+			} else {
+				let (downloadURL, response) = try await session.download(from: file.resolveURL)
+				guard let response = response as? HTTPURLResponse,
+					  (200...299).contains(response.statusCode) else {
+					throw CatalogError.network
+				}
+				temporaryURL = downloadURL
 			}
 			let values = try temporaryURL.resourceValues(forKeys: [.fileSizeKey])
 			guard let size = values.fileSize else { throw CatalogError.invalidResponse }

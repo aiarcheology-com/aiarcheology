@@ -62,7 +62,32 @@ struct CatalogModel: Identifiable, Codable, Hashable, Sendable {
 struct CatalogFile: Codable, Hashable, Sendable {
 	let relativePath: String
 	let resolveURL: URL
+	/// A user-facing location for the artifact. For multi-file packages this is the repository page
+	/// for the package directory, rather than the internal `Manifest.json` transfer URL.
+	let sourceURL: URL?
 	let sizeBytes: Int64?
+	/// Optional transport metadata for a file stored on Hugging Face's Xet backend.
+	/// Files without this metadata use their ordinary public resolve URL.
+	let xetFile: HuggingFaceXetFile?
+
+	init(
+		relativePath: String,
+		resolveURL: URL,
+		sourceURL: URL? = nil,
+		sizeBytes: Int64?,
+		xetFile: HuggingFaceXetFile? = nil
+	) {
+		self.relativePath = relativePath
+		self.resolveURL = resolveURL
+		self.sourceURL = sourceURL
+		self.sizeBytes = sizeBytes
+		self.xetFile = xetFile
+	}
+}
+
+struct HuggingFaceXetFile: Codable, Hashable, Sendable {
+	let fileID: String
+	let tokenURL: URL
 }
 
 struct CatalogProviderDescriptor: Identifiable, Hashable, Sendable {

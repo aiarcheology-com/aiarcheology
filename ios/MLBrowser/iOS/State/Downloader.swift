@@ -113,6 +113,12 @@ private struct PackageDownloadManifest: Codable {
 	var isValid: Bool {
 		jobKind == Self.kind && files.isEmpty == false
 	}
+
+	var isPackage: Bool {
+		files.contains { file in
+			file.relativePath.split(separator: "/").contains { $0.lowercased().hasSuffix(".mlpackage") }
+		}
+	}
 }
 
 private final class DownloaderSessionDelegateProxy: NSObject, URLSessionDownloadDelegate, URLSessionTaskDelegate, @unchecked Sendable {
@@ -445,18 +451,25 @@ final public class Downloader: NSObject, ObservableObject {
 		request.sortDescriptors = [NSSortDescriptor(keyPath: \DownloadItem.stateChanged_, ascending: false)]
 		request.fetchLimit = 1
 		if let existingItem = try context.fetch(request).first {
-			if isSingleModelFile, isPackageDownload(existingItem) {
+			if isSingleModelFile, isCatalogDownload(existingItem) {
 				// Early catalog versions derived Google Drive's generic `/download` path as the
-				// filename, creating an invalid package manifest. Reopen that same historical
-				// job as the single-file download it was always meant to be.
+				// filename, creating a manifest-backed job for a single file. Reopen that same
+				// historical job as the ordinary single-file download it was always meant to be.
 				packageManifests.removeValue(forKey: existingItem.entityId)
 				existingItem.resumeData = nil
+				try DownloadItem.save(in: context)
+			}
+			if isSingleModelFile, firstFile.xetFile != nil, isCatalogDownload(existingItem) == false,
+				existingItem.state != .downloading {
+				let manifest = PackageDownloadManifest(files: files)
+				existingItem.resumeData = try JSONEncoder().encode(manifest)
+				packageManifests[existingItem.entityId] = manifest
 				try DownloadItem.save(in: context)
 			}
 			return existingItem
 		}
 
-		if isSingleModelFile == false {
+		if isSingleModelFile == false || firstFile.xetFile != nil {
 			return try makePackageDownloadItem(files: files, in: context)
 		}
 
@@ -468,11 +481,28 @@ final public class Downloader: NSObject, ObservableObject {
 	}
 
 	func isPackageDownload(_ item: DownloadItem) -> Bool {
+		packageManifest(for: item)?.isPackage == true
+	}
+
+	func isCatalogDownload(_ item: DownloadItem) -> Bool {
 		packageManifest(for: item) != nil
 	}
 
 	func packageFileCount(for item: DownloadItem) -> Int? {
 		packageManifest(for: item)?.files.count
+	}
+
+	func catalogArtifactName(for item: DownloadItem) -> String? {
+		guard let relativePath = packageManifest(for: item)?.files.first?.relativePath else { return nil }
+		if let packageComponent = relativePath.split(separator: "/").first(where: { $0.lowercased().hasSuffix(".mlpackage") }) {
+			return String(packageComponent)
+		}
+		return URL(fileURLWithPath: relativePath).lastPathComponent
+	}
+
+	func catalogArtifactSourceURL(for item: DownloadItem) -> URL? {
+		guard let firstFile = packageManifest(for: item)?.files.first else { return nil }
+		return firstFile.sourceURL ?? firstFile.resolveURL
 	}
 
 	func packageFileProgressPublisher(for itemId: UUID?) -> AnyPublisher<PackageFileProgress, Never> {
@@ -574,8 +604,8 @@ final public class Downloader: NSObject, ObservableObject {
             .eraseToAnyPublisher()
     }
     
-    func downloadTapped(_ item: DownloadItem) {
-		if isPackageDownload(item), item.state == .downloading {
+	func downloadTapped(_ item: DownloadItem) {
+		if isCatalogDownload(item), item.state == .downloading {
 			return
 		}
 
@@ -587,8 +617,8 @@ final public class Downloader: NSObject, ObservableObject {
         }
     }
     
-    func cancelTapped(_ item: DownloadItem) {
-		if isPackageDownload(item) {
+	func cancelTapped(_ item: DownloadItem) {
+		if isCatalogDownload(item) {
 			cancelPackageDownload(item)
 			return
 		}
@@ -678,8 +708,8 @@ final public class Downloader: NSObject, ObservableObject {
         transitionAndSave(item, to: .downloading)
     }
     
-    func cancelDownload(_ item: DownloadItem) {
-		if isPackageDownload(item) {
+	func cancelDownload(_ item: DownloadItem) {
+		if isCatalogDownload(item) {
 			cancelPackageDownload(item)
 			return
 		}
@@ -697,8 +727,8 @@ final public class Downloader: NSObject, ObservableObject {
         current.task.cancel()
     }
 
-    func pauseDownload(_ item: DownloadItem) {
-		guard isPackageDownload(item) == false else { return }
+	func pauseDownload(_ item: DownloadItem) {
+		guard isCatalogDownload(item) == false else { return }
 
         let entityId = item.entityId
         guard let download = activeDownloads[entityId] else { return }
@@ -798,10 +828,9 @@ final public class Downloader: NSObject, ObservableObject {
 		case .success(let packageURL):
 			do {
 				let stagingDirectory = packageStagingDirectory(for: packageURL, manifest: packageManifest(for: item))
+					?? packageURL.deletingLastPathComponent()
 				let targetURL = try FileManager.moveModelToDocuments(from: packageURL, configurationId: itemId)
-				if let stagingDirectory {
-					try? FileManager.default.removeItem(at: stagingDirectory)
-				}
+				try? FileManager.default.removeItem(at: stagingDirectory)
 				item.file_ = try targetURL.relativePath(from: DownloadItem.rootDirectory)
 				persistPackageDownloadState(from: activeDownload, to: item)
 				transitionAndSave(item, to: .complete)

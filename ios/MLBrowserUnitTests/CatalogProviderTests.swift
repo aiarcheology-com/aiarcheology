@@ -127,6 +127,30 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertEqual(files[0].resolveURL.absoluteString, "https://catalog.test/acme/detector/resolve/main/Detector.mlmodel")
 	}
 
+	func testResolveFiles_attachesXetMetadataWhenTheHubProvidesIt() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			if url.path.contains("/tree/") {
+				let payload = "[{\"path\":\"Detector.mlmodel\",\"xetHash\":\"file-id\"}]"
+				return (200, Data(payload.utf8))
+			}
+			let payload = "{\"siblings\":[{\"rfilename\":\"Detector.mlmodel\",\"size\":42}]}"
+			return (200, Data(payload.utf8))
+		}
+
+		let files = try await makeProvider().resolveFiles(for: catalogModel())
+		let file = try XCTUnwrap(files.first)
+
+		XCTAssertEqual(file.xetFile?.fileID, "file-id")
+		XCTAssertEqual(
+			file.xetFile?.tokenURL.absoluteString,
+			"https://catalog.test/api/models/acme/detector/xet-read-token/main"
+		)
+		XCTAssertEqual(
+			file.sourceURL?.absoluteString,
+			"https://catalog.test/acme/detector/tree/main/Detector.mlmodel"
+		)
+	}
+
 	func testResolveFiles_collectsOnePackageTree() async throws {
 		CatalogURLProtocol.responseHandler = { _ in
 			let payload = "{\"siblings\":[{\"rfilename\":\"One.mlpackage/Data/model.bin\",\"size\":10},{\"rfilename\":\"One.mlpackage/Manifest.json\",\"size\":20},{\"rfilename\":\"Other.mlpackage/data\",\"size\":30}]}"
@@ -194,6 +218,49 @@ final class CatalogProviderTests: XCTestCase {
 		} catch let error as CatalogError {
 			XCTAssertEqual(error, .tooLarge)
 		}
+	}
+
+	func testXetXorbDecoder_decodesLZ4AndByteGroupedChunks() throws {
+		let lz4Chunk = try XCTUnwrap(XetXorbDecoder.chunks(from: xetXorb(compressionType: 1, payload: "ABCD")).first)
+		let byteGroupedChunk = try XCTUnwrap(XetXorbDecoder.chunks(from: xetXorb(compressionType: 2, payload: "AEBFCGDH")).first)
+		let decodedLZ4 = try XCTUnwrap(String(bytes: lz4Chunk, encoding: .utf8))
+		let decodedByteGrouped = try XCTUnwrap(String(bytes: byteGroupedChunk, encoding: .utf8))
+
+		XCTAssertEqual(decodedLZ4, "ABCD")
+		XCTAssertEqual(decodedByteGrouped, "ABCDEFGH")
+	}
+
+	func testXetDownloader_reconstructsArtifactOffline() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			switch url.path {
+			case "/token":
+				return (200, Data("{\"casUrl\":\"https://catalog.test/cas\",\"accessToken\":\"public-token\"}".utf8))
+			case "/cas/v1/reconstructions/file-id":
+				let payload = """
+				{
+				  "offset_into_first_range": 0,
+				  "terms": [{"hash":"xorb-id","unpacked_length":4,"range":{"start":0,"end":1}}],
+				  "fetch_info": {"xorb-id":[{"range":{"start":0,"end":1},"url":"https://catalog.test/xorb","url_range":{"start":0,"end":31}}]}
+				}
+				"""
+				return (200, Data(payload.utf8))
+			case "/xorb":
+				return (200, self.xetXorb(compressionType: 1, payload: "ABCD"))
+			default:
+				return (404, Data())
+			}
+		}
+
+		let file = CatalogFile(
+			relativePath: "Detector.mlmodel",
+			resolveURL: testURL("Detector.mlmodel"),
+			sizeBytes: 4,
+			xetFile: HuggingFaceXetFile(fileID: "file-id", tokenURL: URL(string: "https://catalog.test/token")!)
+		)
+		let result = try await HuggingFaceXetDownloader.download(file: file, session: makeSession())
+		defer { try? FileManager.default.removeItem(at: result) }
+
+		XCTAssertEqual(try Data(contentsOf: result), Data("ABCD".utf8))
 	}
 
 	func testAppleCatalog_searchesCuratedInstallableModels() async throws {
@@ -429,5 +496,22 @@ private extension CatalogProviderTests {
 
 	func testURL(_ lastPathComponent: String) -> URL {
 		URL(string: "https://catalog.test/files/\(lastPathComponent)") ?? URL(fileURLWithPath: "/")
+	}
+
+	func xetXorb(compressionType: UInt8, payload: String) -> Data {
+		let raw = Array(payload.utf8)
+		let compressedBlock = [UInt8(raw.count << 4)] + raw
+		let frame = [
+			UInt8(0x04), UInt8(0x22), UInt8(0x4D), UInt8(0x18), // LZ4 frame magic
+			UInt8(0x60), UInt8(0x40), UInt8(0x00), // Frame header
+			UInt8(compressedBlock.count), UInt8(0x00), UInt8(0x00), UInt8(0x00)
+		] + compressedBlock + [0, 0, 0, 0]
+		let compressedSize = frame.count
+		return Data([
+			0,
+			UInt8(compressedSize & 0xFF), UInt8((compressedSize >> 8) & 0xFF), UInt8((compressedSize >> 16) & 0xFF),
+			compressionType,
+			UInt8(raw.count & 0xFF), UInt8((raw.count >> 8) & 0xFF), UInt8((raw.count >> 16) & 0xFF)
+		] + frame)
 	}
 }

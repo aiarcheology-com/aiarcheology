@@ -42,7 +42,7 @@ struct DownloadDetailView: View {
 			actionButtons
 				.background(.bar)
 		}
-		.navigationBarTitle(isPackageDownload ? L10n.Catalog.Download.title : L10n.Download.title)
+		.navigationBarTitle(isCatalogDownload ? L10n.Catalog.Download.title : L10n.Download.title)
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar { toolbarContent }
 		.onAppear {
@@ -95,10 +95,14 @@ private extension DownloadDetailView {
 private extension DownloadDetailView {
 	var urlInputSection: some View {
 		Section {
-			HStack(alignment: .top) {
-				Text(L10n.Download.url)
-				Spacer()
-				urlInput
+			if isCatalogDownload {
+				catalogArtifactInput
+			} else {
+				HStack(alignment: .top) {
+					Text(L10n.Download.url)
+					Spacer()
+					urlInput
+				}
 			}
 		} footer: {
 			Text(packageProgressDescription)
@@ -110,6 +114,27 @@ private extension DownloadDetailView {
 		}
 	}
 	
+	var catalogArtifactInput: some View {
+		HStack(alignment: .top, spacing: 8) {
+			Text(downloader.isPackageDownload(item) ? L10n.Catalog.Download.package : L10n.Configuration.Section.model)
+			Spacer()
+			Text(downloader.catalogArtifactName(for: item) ?? urlText)
+				.foregroundStyle(.secondary)
+				.multilineTextAlignment(.trailing)
+
+			if let sourceURL = downloader.catalogArtifactSourceURL(for: item) {
+				Button {
+					UIPasteboard.general.string = sourceURL.absoluteString
+				} label: {
+					Image(systemName: "doc.on.doc")
+				}
+				.accessibilityLabel(L10n.Common.copy)
+				.buttonStyle(.borderless)
+				.testability(Testability.Button.downloadDetailCopyUrl)
+			}
+		}
+	}
+
 	@ViewBuilder
 	var urlInput: some View {
 		if isURLReadOnly {
@@ -134,7 +159,7 @@ private extension DownloadDetailView {
 	}
 
 	var isURLReadOnly: Bool {
-		isPackageDownload || [.downloading, .paused].contains(item.state)
+		isCatalogDownload || [.downloading, .paused].contains(item.state)
 	}
 
 	var urlTextField: some View {
@@ -299,6 +324,10 @@ private extension DownloadDetailView {
 		downloader.isPackageDownload(item)
 	}
 
+	var isCatalogDownload: Bool {
+		downloader.isCatalogDownload(item)
+	}
+
 	var packageFileCount: Int? {
 		downloader.packageFileCount(for: item)
 	}
@@ -315,7 +344,7 @@ private extension DownloadDetailView {
 	}
 
 	var downloadAttributes: (enabled: Bool, color: Color, label: String) {
-		if isPackageDownload, item.state == .downloading {
+		if isCatalogDownload, item.state == .downloading {
 			return (enabled: false, color: .gray, label: L10n.DownloadState.downloading)
 		}
 		return Self.downloadButtonAttributes(item.state)

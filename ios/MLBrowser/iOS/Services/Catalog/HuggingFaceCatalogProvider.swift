@@ -76,9 +76,10 @@ actor HuggingFaceCatalogProvider: CatalogProvider {
 		let infoURL = try modelInfoURL(for: model.id)
 		let info = try await client.get(ModelInfoResponse.self, from: infoURL)
 		let siblings = info.siblings ?? []
+		let xetFiles = await xetFiles(for: model.id)
 
 		if let singleFile = standaloneModelFile(in: siblings) {
-			return [try catalogFile(for: model.id, sibling: singleFile)]
+			return [try catalogFile(for: model.id, sibling: singleFile, xetFiles: xetFiles)]
 		}
 
 		guard let packageRoot = installablePackageRoot(in: siblings) else {
@@ -91,7 +92,7 @@ actor HuggingFaceCatalogProvider: CatalogProvider {
 			throw CatalogError.noInstallableArtifact
 		}
 
-		return try packageFiles.map { try catalogFile(for: model.id, sibling: $0) }
+		return try packageFiles.map { try catalogFile(for: model.id, sibling: $0, xetFiles: xetFiles) }
 	}
 }
 
@@ -111,6 +112,11 @@ private extension HuggingFaceCatalogProvider {
 	struct Sibling: Decodable {
 		let rfilename: String
 		let size: Int64?
+	}
+
+	struct TreeEntry: Decodable {
+		let path: String
+		let xetHash: String?
 	}
 
 	func search(query: String, task: CatalogTask) async throws -> [CatalogModel] {
@@ -173,11 +179,53 @@ private extension HuggingFaceCatalogProvider {
 		return url
 	}
 
-	func catalogFile(for modelID: String, sibling: Sibling) throws -> CatalogFile {
-		CatalogFile(
+	func xetFiles(for modelID: String) async -> [String: HuggingFaceXetFile] {
+		guard let treeURL = try? modelTreeURL(for: modelID),
+			  let entries = try? await client.get([TreeEntry].self, from: treeURL),
+			  let tokenURL = try? xetTokenURL(for: modelID) else {
+			return [:]
+		}
+
+		return Dictionary(
+			uniqueKeysWithValues: entries.compactMap { entry in
+				guard let xetHash = entry.xetHash else { return nil }
+				return (entry.path, HuggingFaceXetFile(fileID: xetHash, tokenURL: tokenURL))
+			}
+		)
+	}
+
+	func modelTreeURL(for modelID: String) throws -> URL {
+		guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+			throw CatalogError.invalidResponse
+		}
+		let encodedModelID = try encodedPath(modelID)
+		components.percentEncodedPath = "/api/models/" + encodedModelID + "/tree/main"
+		components.queryItems = [
+			URLQueryItem(name: "recursive", value: "true"),
+			URLQueryItem(name: "expand", value: "true")
+		]
+		guard let url = components.url else { throw CatalogError.invalidResponse }
+		return url
+	}
+
+	func xetTokenURL(for modelID: String) throws -> URL {
+		guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+			throw CatalogError.invalidResponse
+		}
+		let encodedModelID = try encodedPath(modelID)
+		components.percentEncodedPath = "/api/models/" + encodedModelID + "/xet-read-token/main"
+		guard let url = components.url else { throw CatalogError.invalidResponse }
+		return url
+	}
+
+	func catalogFile(for modelID: String, sibling: Sibling, xetFiles: [String: HuggingFaceXetFile]) throws -> CatalogFile {
+		let sourcePath = packageRoot(in: sibling.rfilename) ?? sibling.rfilename
+		return CatalogFile(
 			relativePath: sibling.rfilename,
 			resolveURL: try resolveURL(modelID: modelID, filePath: sibling.rfilename),
-			sizeBytes: sibling.size
+			sourceURL: try sourceURL(modelID: modelID, filePath: sourcePath),
+			sizeBytes: sibling.size,
+			xetFile: xetFiles[sibling.rfilename]
 		)
 	}
 
@@ -188,6 +236,20 @@ private extension HuggingFaceCatalogProvider {
 		components.percentEncodedPath = "/" + [
 			try encodedPath(modelID),
 			"resolve",
+			"main",
+			try encodedPath(filePath)
+		].joined(separator: "/")
+		guard let url = components.url else { throw CatalogError.invalidResponse }
+		return url
+	}
+
+	func sourceURL(modelID: String, filePath: String) throws -> URL {
+		guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+			throw CatalogError.invalidResponse
+		}
+		components.percentEncodedPath = "/" + [
+			try encodedPath(modelID),
+			"tree",
 			"main",
 			try encodedPath(filePath)
 		].joined(separator: "/")

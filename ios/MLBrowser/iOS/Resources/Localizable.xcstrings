@@ -2793,6 +2793,18 @@
         }
       }
     },
+    "catalog.download.package" : {
+      "comment" : "Label for a multi-file Core ML package being downloaded from the catalog",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Package"
+          }
+        }
+      }
+    },
     "catalog.download.progress" : {
       "comment" : "Package download completion count",
       "extractionState" : "manual",

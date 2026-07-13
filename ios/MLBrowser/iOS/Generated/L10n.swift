@@ -198,6 +198,8 @@ internal enum L10n {
     internal enum Download {
       /// Couldn’t download this model.
       internal static let error = L10n.tr("Localizable", "catalog.download.error", fallback: "Couldn’t download this model.")
+      /// Package
+      internal static let package = L10n.tr("Localizable", "catalog.download.package", fallback: "Package")
       /// Files: %lld / %lld
       internal static func progress(_ p1: Int, _ p2: Int) -> String {
         return L10n.tr("Localizable", "catalog.download.progress", p1, p2, fallback: "Files: %lld / %lld")
