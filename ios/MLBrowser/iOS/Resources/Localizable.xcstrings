@@ -10548,9 +10548,6 @@
     "Loading..." : {
 
     },
-    "Model Imported" : {
-
-    },
     "models.available.title" : {
       "comment" : "Section header for available ML models list",
       "extractionState" : "manual",
