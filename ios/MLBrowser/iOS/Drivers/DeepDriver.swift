@@ -14,6 +14,16 @@ public enum DeepDriverType: String, Sendable {
 	case detector = "detect"
 	case classificator = "classify"
 	case invalid = "invalid"
+
+	/// User-facing name. `.invalid` reads as "Disabled" — a model with an undetermined type does
+	/// not run until the user picks one (AIA-0402).
+	var localizedName: String {
+		switch self {
+		case .detector: return L10n.Configuration.modelTypeDetection
+		case .classificator: return L10n.Configuration.modelTypeClassification
+		case .invalid: return L10n.Configuration.modelTypeDisabled
+		}
+	}
 }
 
 struct DeepDriverParams: Sendable {
@@ -109,9 +119,13 @@ class DeepDrivers: ObservableObject {
 	}
 
     func unregister(driverId: UUID) async {
-        await (classificators + detectors).first { $0.id == driverId }?.unload()
+        // Remove from the published buckets FIRST, then unload. A live type switch keys off these
+        // buckets to decide detect↔classify swaps (AIA-0402); leaving the driver visible during the
+        // async unload let a concurrent update misread the still-old type and skip the swap.
+        let driver = (classificators + detectors).first { $0.id == driverId }
         detectors = detectors.filter { $0.id != driverId }
         classificators = classificators.filter { $0.id != driverId }
+        await driver?.unload()
     }
 
 	/// Unloads and removes every registered driver.

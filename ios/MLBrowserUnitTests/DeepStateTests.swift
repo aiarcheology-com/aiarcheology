@@ -85,6 +85,54 @@ final class DeepStateTests: XCTestCase {
         XCTAssertNotNil(error, "Expected an error to be published when driver loading fails")
     }
     
+    func testDriverSwapOnTypeChange() async throws {
+        // AIA-0402: changing an already-loaded model's type must swap the driver (unregister the old
+        // bucket, build+register the new), not just push params. Uses a real bundled demo model so
+        // the rebuild actually loads — before the fix the detector stayed in `detectors` forever.
+        guard Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") != nil else {
+            throw XCTSkip("Demo model not available in test bundle")
+        }
+
+        let config = deepState.createConfiguration()
+        config.demo = true                                  // resolve the file from the app bundle
+        config.file_ = URL(string: "AIArcheology.mlmodelc")
+        config.modelType = .detector
+        config.enabled = true
+        try DeepConfiguration.save(in: dataController.container.viewContext)
+        let id = config.entityId
+
+        // Wait for the detector driver to load + register.
+        try await pollUntil { self.deepState.drivers.detectors.contains { $0.id == id } }
+        XCTAssertTrue(deepState.drivers.detectors.contains { $0.id == id },
+                      "Detector should load and register for the enabled demo model")
+
+        // Flip the type — triggers handleUpdatedConfigurations via the CoreData notification.
+        deepState.updateConfiguration(id) { c in
+            c.modelType = .classificator
+        }
+
+        // The stale detector must be removed and a classifier registered in its place.
+        try await pollUntil {
+            !self.deepState.drivers.detectors.contains { $0.id == id }
+                && self.deepState.drivers.classificators.contains { $0.id == id }
+        }
+        XCTAssertFalse(deepState.drivers.detectors.contains { $0.id == id },
+                       "Stale detector must be unregistered when the type changes to classify")
+        XCTAssertTrue(deepState.drivers.classificators.contains { $0.id == id },
+                      "A classifier driver must be registered after the type change")
+    }
+
+    /// Polls `condition` on the MainActor until it holds or the timeout elapses.
+    private func pollUntil(timeout: TimeInterval = 5, _ condition: @MainActor () -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return }
+            try await Task.sleep(nanoseconds: 40_000_000)
+        }
+        // Surface the timeout here rather than letting a later, less-specific assertion fail.
+        XCTFail("pollUntil timed out after \(timeout)s waiting for condition")
+    }
+
     func testTemporaryConfigurationCleanup() {
         deepState.createTemportaryConfiguration()
         XCTAssertNotNil(deepState.newConfiguration)

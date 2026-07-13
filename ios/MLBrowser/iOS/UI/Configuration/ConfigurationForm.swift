@@ -156,6 +156,12 @@ struct LabeledSlider: View {
 /// Form for viewing and editing an existing ML model configuration.
 struct ConfigurationForm: View {
 	@Environment(\.dismiss) private var dismiss
+
+	/// When `true`, the form was auto-opened right after import so the user can confirm the
+	/// model's type: it shows a confirmation footnote (or, if the type is still Disabled, a red
+	/// warning) because the app pre-selected a best guess it can't verify (AIA-0402).
+	var pendingTypeReview: Bool = false
+
 	@EnvironmentObject var deep: DeepState
 	/// Live flash edits push to the driver via ONE in-flight task (cancel-and-replace):
 	/// independent unstructured Tasks have no ordering guarantee, so a stale slider
@@ -167,8 +173,26 @@ struct ConfigurationForm: View {
 	private var mergedObservable: [String] {[
 		configuration.annotationColor.description,
 		configuration.phaseOutTime.description,
-		configuration.selectedSymbol.rawValue
+		configuration.selectedSymbol.rawValue,
+		// Included so a type change autosaves via `.onChange` (AIA-0402) — otherwise it only
+		// persists on the dismiss button and is lost on a swipe-to-dismiss.
+		configuration.modelType.rawValue
 	]}
+
+	/// The type picker writes through this so choosing **Disabled** also clears `enabled`: a
+	/// Disabled model can't run, and leaving it enabled would show the drawer toggle "on" for a
+	/// non-running model (AIA-0402).
+	private var modelTypeSelection: Binding<DeepDriverType> {
+		Binding(
+			get: { configuration.modelType },
+			set: { newValue in
+				configuration.modelType = newValue
+				if newValue == .invalid {
+					configuration.enabled = false
+				}
+			}
+		)
+	}
 	
 	var body: some View {
 		NavigationStack {
@@ -196,12 +220,54 @@ struct ConfigurationForm: View {
 				layout: .leadingStacked,
 				showsCopyButton: false
 			)
-			ConfigurationDetailRow(label: L10n.Configuration.type, value: " \(configuration.modelType.rawValue)")
+			if configuration.modelTypeParsed {
+				// The parser read the type from the model's metadata, so it's authoritative and
+				// shown read-only — the user only picks a type when the parser couldn't (AIA-0402).
+				ConfigurationDetailRow(label: L10n.Configuration.type, value: configuration.modelType.localizedName)
+			} else {
+				VStack(alignment: .leading, spacing: 6) {
+					Text(L10n.Configuration.type)
+					Picker(L10n.Configuration.type, selection: modelTypeSelection) {
+						Text(DeepDriverType.detector.localizedName).tag(DeepDriverType.detector)
+						Text(DeepDriverType.classificator.localizedName).tag(DeepDriverType.classificator)
+						Text(DeepDriverType.invalid.localizedName).tag(DeepDriverType.invalid)
+					}
+					.pickerStyle(.segmented)
+					.labelsHidden()
+					// In a post-import review, a still-undetermined type (Disabled) is a problem the
+					// user must resolve — tint the control red to match the warning footnote (AIA-0402).
+					.tint(pendingTypeReview && configuration.modelType == .invalid ? .red : nil)
+					.testability(Testability.Picker.configurationFormModelType)
+					modelTypeFootnote
+				}
+			}
 			ConfigurationDetailRow(label: L10n.Configuration.version, value: " \(configuration.modelVersion ?? "")")
 
 			if let downloadURL = configuration.downloadURL {
 				ExpandableDetailRow(label: L10n.Configuration.link, value: downloadURL.absoluteString)
 			}
+		}
+	}
+
+	/// Footnote under the type picker. During a post-import review it tells the user the type is a
+	/// best guess to confirm — red when the type is still undetermined (Disabled), because the app
+	/// couldn't read or infer it and the model won't run until a type is chosen (AIA-0402).
+	@ViewBuilder
+	private var modelTypeFootnote: some View {
+		if pendingTypeReview {
+			if configuration.modelType == .invalid {
+				Label(L10n.Configuration.modelTypeReviewDisabled, systemImage: "exclamationmark.triangle.fill")
+					.font(.caption)
+					.foregroundStyle(.red)
+			} else {
+				Text(L10n.Configuration.modelTypeReviewConfirm)
+					.font(.caption)
+					.foregroundStyle(.secondary)
+			}
+		} else if configuration.modelType == .invalid {
+			Text(L10n.Configuration.modelTypeDisabledHint)
+				.font(.caption)
+				.foregroundStyle(.secondary)
 		}
 	}
 	

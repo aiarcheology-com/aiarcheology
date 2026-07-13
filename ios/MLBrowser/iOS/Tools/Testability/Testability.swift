@@ -190,6 +190,7 @@ extension TestabilityIdentification {
 		case settingsFrequency
 		// Configuration Form
 		case configurationFormSymbol
+		case configurationFormModelType
 		// Finding Share Composer
 		case findingShareTheme
 		case findingShareLayout

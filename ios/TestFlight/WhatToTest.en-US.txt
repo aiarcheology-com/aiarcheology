@@ -1,23 +1,35 @@
-Test Focus: Emergency delivery tooling (AIA-0379) — no app-facing change expected
+Test Focus: Set a model's type — Detection / Classification / Disabled (AIA-0402)
 Build: (auto-filled by ./scripts/deliver.sh notes — never published as-is)
 
 What's new in this build:
-Developer tooling only. This change adds a local "archive → TestFlight" delivery script
-(scripts/deliver.sh) used to ship a build when Xcode Cloud is unavailable. There is NO user-facing
-change: the app binary and behavior are identical to the previous build. This build is a plain
-regression check that the core flows still work.
+Each model's settings now shows its Type — Detection, Classification, or Disabled. If the model file
+declares what it is, the app reads that and locks it (shown read-only). If the file doesn't say, the
+app can't verify what the model does, so after import it opens the settings for YOU to pick the type
+before the model can run. Models whose type couldn't be read before (and used to fail on import) now
+import too. The model list also shows each model's type at a glance.
 
-1. Launch & browse
-- Open the app, sign in, and load a few pages. Nothing looks or behaves differently from the last build.
+1. Import a model whose type the app CAN read (most Ultralytics / Create ML exports)
+- Import it (from Files or a URL). It imports with its declared type, and its settings show the Type
+  read-only — the app trusts the file, so there's no picker to change it.
 
-2. Detection & save (smoke test)
-- Run a detection demo, capture a detection, and save a finding (title required). It saves and appears
-  in the drawer → Findings, exactly as before.
-- Persistence: force-quit and relaunch — the saved finding is still in Findings with its screenshot.
-- Cancel path: start another capture, then dismiss the save sheet without saving — nothing is added
-  to Findings and the app returns to browsing normally.
+2. Import a model whose type the app CAN'T read — you pick it
+- After import, an alert reminds you the app can't verify what the model does, then its settings open
+  automatically so you pick the Type. The app pre-selects a best guess — confirm or change it, then
+  tap Dismiss.
+- If it can't even guess, the settings open on Disabled with a red warning; the model won't run until
+  you pick Detection or Classification. In the model list its on/off switch stays greyed out until then.
+- Your choice sticks: reopen the settings, force-quit and relaunch — still there.
 
-3. Report Issues
+3. Type shows in the list
+- Each model in the left drawer shows its type (Detection / Classification / Disabled) under its name.
+
+4. Switch type on a running model (for a model whose type YOU set — an unreadable-type import)
+- Enable such a model as Detection and run it on a page. Open its settings and switch it to
+  Classification. Detection should stop and the model should behave as the newly chosen type (no
+  leftover boxes from the old type). Switching it to Disabled stops it entirely. (Models with a
+  declared, locked type can't be switched — that's expected.)
+
+5. Report Issues
 Please report any issues with:
   * What you were doing (steps to reproduce)
   * Device model and iOS version

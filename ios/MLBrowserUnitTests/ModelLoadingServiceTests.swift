@@ -19,7 +19,8 @@ final class ExtractedModelInfoTests: XCTestCase {
             modelDescription: "Test model",
             author: "Test Author",
             creationDateString: "2025-01-01",
-            task: .detector
+            task: .detector,
+            typeWasParsed: true
         )
 
         XCTAssertEqual(info.modelVersion, "1.0.0")
@@ -27,6 +28,7 @@ final class ExtractedModelInfoTests: XCTestCase {
         XCTAssertEqual(info.author, "Test Author")
         XCTAssertEqual(info.creationDateString, "2025-01-01")
         XCTAssertEqual(info.task, .detector)
+        XCTAssertTrue(info.typeWasParsed)
     }
 
     func test_init_withNilValues_setsNilProperties() {
@@ -35,7 +37,8 @@ final class ExtractedModelInfoTests: XCTestCase {
             modelDescription: nil,
             author: nil,
             creationDateString: nil,
-            task: .invalid
+            task: .invalid,
+            typeWasParsed: false
         )
 
         XCTAssertNil(info.modelVersion)
@@ -43,6 +46,7 @@ final class ExtractedModelInfoTests: XCTestCase {
         XCTAssertNil(info.author)
         XCTAssertNil(info.creationDateString)
         XCTAssertEqual(info.task, .invalid)
+        XCTAssertFalse(info.typeWasParsed)
     }
 
     func test_equatable_withSameValues_returnsTrue() {
@@ -51,14 +55,16 @@ final class ExtractedModelInfoTests: XCTestCase {
             modelDescription: "Desc",
             author: "Author",
             creationDateString: "2025-01-01",
-            task: .detector
+            task: .detector,
+            typeWasParsed: true
         )
         let info2 = ExtractedModelInfo(
             modelVersion: "1.0",
             modelDescription: "Desc",
             author: "Author",
             creationDateString: "2025-01-01",
-            task: .detector
+            task: .detector,
+            typeWasParsed: true
         )
 
         XCTAssertEqual(info1, info2)
@@ -70,14 +76,16 @@ final class ExtractedModelInfoTests: XCTestCase {
             modelDescription: "Desc",
             author: "Author",
             creationDateString: "2025-01-01",
-            task: .detector
+            task: .detector,
+            typeWasParsed: true
         )
         let info2 = ExtractedModelInfo(
             modelVersion: "2.0",
             modelDescription: "Desc",
             author: "Author",
             creationDateString: "2025-01-01",
-            task: .detector
+            task: .detector,
+            typeWasParsed: true
         )
 
         XCTAssertNotEqual(info1, info2)
@@ -89,17 +97,32 @@ final class ExtractedModelInfoTests: XCTestCase {
             modelDescription: nil,
             author: nil,
             creationDateString: nil,
-            task: .detector
+            task: .detector,
+            typeWasParsed: true
         )
         let info2 = ExtractedModelInfo(
             modelVersion: "1.0",
             modelDescription: nil,
             author: nil,
             creationDateString: nil,
-            task: .classificator
+            task: .classificator,
+            typeWasParsed: true
         )
 
         XCTAssertNotEqual(info1, info2)
+    }
+
+    func test_equatable_withDifferentTypeWasParsed_returnsFalse() {
+        let base = ExtractedModelInfo(
+            modelVersion: "1.0", modelDescription: nil, author: nil,
+            creationDateString: nil, task: .detector, typeWasParsed: true
+        )
+        let other = ExtractedModelInfo(
+            modelVersion: "1.0", modelDescription: nil, author: nil,
+            creationDateString: nil, task: .detector, typeWasParsed: false
+        )
+
+        XCTAssertNotEqual(base, other)
     }
 }
 
@@ -179,6 +202,9 @@ final class ModelLoadingServiceTests: XCTestCase {
 
         // Demo models should have a valid task type
         XCTAssertNotEqual(info.task, .invalid, "Demo model should have a valid task type")
+        // AIArcheology declares its type in metadata (CreateML preview type), so the parser decides
+        // it — this is what makes the demo's type locked/read-only in settings (AIA-0402).
+        XCTAssertTrue(info.typeWasParsed, "A declared-type demo model should be parser-decided")
     }
 
     func test_loadAndExtractMetadata_withInvalidURL_throwsError() async {
@@ -191,6 +217,26 @@ final class ModelLoadingServiceTests: XCTestCase {
             // Expected behavior - error should be thrown
             XCTAssertTrue(error is ModelLoadingError, "Error should be ModelLoadingError")
         }
+    }
+
+    // MARK: - inferType (structural signature) Tests — AIA-0402
+
+    func test_inferType_detectorFixture_returnsDetector() async throws {
+        guard let url = Bundle.main.url(forResource: "AIArcheology", withExtension: "mlmodelc") else {
+            throw XCTSkip("Detector demo model not available in test bundle")
+        }
+        let model = try await MLModel.load(contentsOf: url, configuration: MLModelConfiguration())
+        XCTAssertEqual(ModelLoadingService.inferType(from: model.modelDescription), .detector,
+                       "A model with confidence+coordinates outputs should infer as a detector")
+    }
+
+    func test_inferType_classifierFixture_returnsClassificator() async throws {
+        guard let url = Bundle.main.url(forResource: "FastViTT8F16", withExtension: "mlmodelc") else {
+            throw XCTSkip("Classifier demo model not available in test bundle")
+        }
+        let model = try await MLModel.load(contentsOf: url, configuration: MLModelConfiguration())
+        XCTAssertEqual(ModelLoadingService.inferType(from: model.modelDescription), .classificator,
+                       "A model exposing a predicted-feature name should infer as a classifier")
     }
 
     // MARK: - validateModel Tests

@@ -104,6 +104,12 @@ final class AppState: ObservableObject {
 		// 2. Create demo data if needed (checked against Core Data, not UserDefaults)
 		await demoDataManager.createDemoDataIfNeeded()
 
+		// 2c. AIA-0402: one-time re-derivation of `modelTypeParsed` for models that predate the
+		// attribute. Migrated 0.0.0 rows default it to `false`, which would show a declared-type
+		// model as user-editable; this re-parses each and locks the ones whose file declares a type.
+		// Guarded by a UserDefaults flag, so it costs one `bool` read on every later launch.
+		await ModelTypeBackfiller(dataController: dataController).backfillIfNeeded()
+
 		// 2b. First-launch onboarding tour (AIA-0333). Decided here — before `isReady` flips
 		// and the UI appears — so the onboarding demo page is staged deterministically ahead of
 		// WebScreen's initial load (no race). UI-test launches start the tour from ContentView

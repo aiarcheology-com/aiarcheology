@@ -17,19 +17,25 @@ public struct ExtractedModelInfo: Sendable, Equatable {
     public let author: String?
     public let creationDateString: String?
     public let task: DeepDriverType
+    /// `true` when `task` came from the metadata parser (authoritative). `false` when the parser
+    /// couldn't determine it and `task` is a structural-signature recommendation for the user to
+    /// confirm — the driver of the locked-vs-editable type control (AIA-0402).
+    public let typeWasParsed: Bool
 
     public init(
         modelVersion: String?,
         modelDescription: String?,
         author: String?,
         creationDateString: String?,
-        task: DeepDriverType
+        task: DeepDriverType,
+        typeWasParsed: Bool
     ) {
         self.modelVersion = modelVersion
         self.modelDescription = modelDescription
         self.author = author
         self.creationDateString = creationDateString
         self.task = task
+        self.typeWasParsed = typeWasParsed
     }
 }
 
@@ -112,31 +118,34 @@ public actor ModelLoadingService {
             throw ModelLoadingError.modelLoadFailed(url)
         }
 
-        // Extract metadata
+        // Extract metadata. Empty metadata is not fatal (AIA-0402): the parser then yields nils and
+        // an undetermined type, and the structural-signature fallback below still lets a runnable
+        // model import (as Disabled if inconclusive) rather than rejecting it outright.
         let metadata = model.modelDescription.metadata
-        guard !metadata.isEmpty else {
-            LoggingPolicy.warning("ModelLoadingService: Model has no metadata", logger: .drivers)
-            throw ModelLoadingError.metadataExtractionFailed(url)
+        if metadata.isEmpty {
+            LoggingPolicy.warning("ModelLoadingService: Model has no metadata; relying on structural signature", logger: .drivers)
         }
 
         let parser = MLModelMetadataParser(metadata: metadata)
 
-        // Validate that model type could be determined
-        let task = parser.task
-        guard task != .invalid else {
-            LoggingPolicy.error("ModelLoadingService: Could not determine model type (detect/classify) from metadata", logger: .drivers)
-            throw ModelLoadingError.modelTypeNotDetermined(url)
-        }
+        // Determine the model type. The metadata `task`/preview/turi key is authoritative when the
+        // parser yields one; when it can't (`.invalid`), the type was NOT parsed — fall back to the
+        // model's structural signature as a *recommendation* the user confirms, and record that the
+        // parser didn't decide so the type control can lock (parsed) or open for editing (AIA-0402).
+        let parserTask = parser.task
+        let typeWasParsed = parserTask != .invalid
+        let task = typeWasParsed ? parserTask : Self.inferType(from: model.modelDescription)
 
         let info = ExtractedModelInfo(
             modelVersion: parser.modelVersion,
             modelDescription: parser.value(for: .description) as? String,
             author: parser.value(for: .author) as? String,
             creationDateString: parser.value(for: .date) as? String,
-            task: task
+            task: task,
+            typeWasParsed: typeWasParsed
         )
 
-        LoggingPolicy.info("ModelLoadingService: Metadata extracted - task=\(info.task.rawValue), author=\(info.author ?? "unknown")", logger: .drivers)
+        LoggingPolicy.info("ModelLoadingService: Metadata extracted - task=\(info.task.rawValue), parsed=\(typeWasParsed), author=\(info.author ?? "unknown")", logger: .drivers)
 
         return info
     }
@@ -144,6 +153,10 @@ public actor ModelLoadingService {
     /// Validates that a model can be loaded without extracting full metadata.
     ///
     /// Useful for quick validation checks.
+    ///
+    /// - Note: As of AIA-0402, a model whose type can't be determined is no longer rejected — it
+    ///   loads as Disabled. So this returns `true` for any model that compiles and loads, including
+    ///   one that will import with an undetermined (Disabled) type for the user to set.
     ///
     /// - Parameters:
     ///   - url: The URL of the model file
@@ -157,5 +170,29 @@ public actor ModelLoadingService {
             LoggingPolicy.warning("ModelLoadingService: Validation failed for \(url.lastPathComponent)", logger: .drivers)
             return false
         }
+    }
+
+    /// Suggests a model type from the model's structural signature, used as a fallback when the
+    /// `task` metadata key is absent (AIA-0402). Advisory only: a structural match does not
+    /// guarantee the model produces the Vision observations the driver expects, so the user can
+    /// always override the suggestion. Returns `.invalid` (Disabled) when inconclusive.
+    ///
+    /// - Classifier: the model exposes a predicted-feature name (Core ML classifier convention;
+    ///   Vision then yields `VNClassificationObservation`).
+    /// - Detector: outputs include both `confidence` and `coordinates` (the CreateML / Vision
+    ///   object-detector convention this app's `Detector` relies on).
+    static func inferType(from description: MLModelDescription) -> DeepDriverType {
+        // Classifier signal first: `predictedFeatureName` can be an empty string (not nil) on
+        // non-classifiers, so require a non-empty value.
+        if description.predictedFeatureName?.isEmpty == false {
+            return .classificator
+        }
+
+        let outputs = description.outputDescriptionsByName
+        if outputs["confidence"] != nil && outputs["coordinates"] != nil {
+            return .detector
+        }
+
+        return .invalid
     }
 }

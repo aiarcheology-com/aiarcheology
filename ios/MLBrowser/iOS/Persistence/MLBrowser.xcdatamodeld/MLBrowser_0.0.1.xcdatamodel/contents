@@ -11,6 +11,7 @@
         <attribute name="file_" optional="YES" attributeType="URI"/>
         <attribute name="lifeCycleString" attributeType="String"/>
         <attribute name="modelDescription" optional="YES" attributeType="String"/>
+        <attribute name="modelTypeParsed" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="modelTypeString" optional="YES" attributeType="String"/>
         <attribute name="modelVersion" optional="YES" attributeType="String"/>
         <attribute name="phaseOutTime" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>

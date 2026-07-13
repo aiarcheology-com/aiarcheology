@@ -26,6 +26,13 @@ final class DeepState: ObservableObject {
 	private let assetStore: ModelAssetStore
 	private let repository: ModelConfigurationRepository
 
+	/// Monotonic per-configuration load counter. Each `loadAndRegisterDriver` bumps it and captures
+	/// the value; a completing load registers only if it is still the latest, so a load superseded by
+	/// a rapid re-enable / type-switch (both start before the first `loadFile` returns) unloads its
+	/// driver instead of being silently dropped by the registry's id dedup — which would leak a
+	/// loaded CoreML/Vision driver (AIA-0402, codex review).
+	private var driverLoadGenerations: [UUID: Int] = [:]
+
 	init(dataController: DataController) {
 		self.dataController = dataController
 		self.assetStore = ModelAssetStore(dataController: dataController)
@@ -105,6 +112,53 @@ final class DeepState: ObservableObject {
 	private func unregisterDriver(driverId: UUID) {
 		Task {
 			await drivers.unregister(driverId: driverId)
+		}
+	}
+
+	/// Builds the driver for `entityId`, loads its file, and registers it — but only if, after the
+	/// async load, the configuration still exists, is still enabled, and is still the expected type.
+	/// Shared by the initial-enable path and the live type-switch path (AIA-0402): a type change
+	/// or a disable during the load must not register a now-stale driver.
+	private func loadAndRegisterDriver(entityId: UUID, expectedType: DeepDriverType) throws {
+		guard let config = selectConfiguration(entityId) else {
+			LoggingPolicy.error("Could not fetch updated configuration \(entityId.uuidString)", logger: .drivers)
+			return
+		}
+
+		// The config may have changed type/enabled during a preceding `await` (the unregister on a
+		// type switch is a suspension point). `createDriver` builds for `config.modelType` while we
+		// register `along: expectedType`, so only proceed when they still agree — otherwise a driver
+		// of one type could be registered into the other type's bucket. A follow-up notification for
+		// the newer state will build the right driver.
+		guard config.enabled, config.modelType == expectedType else { return }
+
+		guard let driver = try createDriver(from: config) else {
+			LoggingPolicy.error("Driver initialization failed after configuration update for config \(entityId.uuidString)", logger: .drivers)
+			return
+		}
+
+		let loadGeneration = (driverLoadGenerations[entityId] ?? 0) + 1
+		driverLoadGenerations[entityId] = loadGeneration
+
+		Task {
+			do {
+				try await driver.loadFile()
+				// The configuration may have been deleted (e.g. reset), disabled, or had its type
+				// changed again while the model was loading — and a newer load for this entity may
+				// have started (rapid re-enable / type-switch). Re-check all of that before
+				// registering; a superseded load unloads its driver so it can't leak past the dedup.
+				guard driverLoadGenerations[entityId] == loadGeneration,
+					  let current = selectConfiguration(entityId), current.enabled, current.modelType == expectedType else {
+					await driver.unload()
+					return
+				}
+				self.register(driver: driver, along: expectedType)
+				LoggingPolicy.info("Driver loaded and registered after configuration update", logger: .drivers)
+			} catch {
+				LoggingPolicy.error("Failed to load driver after configuration update", error: error, logger: .drivers)
+				DefaultCrashReporter.shared.recordError(error, context: ["operation": "updateDriver", "configId": entityId.uuidString])
+				self.deepStateError = error
+			}
 		}
 	}
 	
@@ -266,39 +320,31 @@ final class DeepState: ObservableObject {
 	private func handleUpdatedConfigurations(_ updated: [(objectID: NSManagedObjectID, entityId: UUID, enabled: Bool, modelType: DeepDriverType)]) async {
 		for (_, entityId, enabled, modelType) in updated {
 			do {
-				let isDriverForThisConfigurationLoaded = (drivers.detectors + drivers.classificators).contains {
-					return $0.id == entityId
-				}
-				
-				if isDriverForThisConfigurationLoaded.not, enabled {
-					guard let config = selectConfiguration(entityId) else {
-						LoggingPolicy.error("Could not fetch updated configuration \(entityId.uuidString)", logger: .drivers)
-						continue
+				// Which bucket, if any, currently holds this configuration's driver. A live type
+				// change moves it between buckets (or out of both), which the params-only update
+				// path cannot do — so we key off the loaded bucket's type, not just "is it loaded".
+				let loadedType: DeepDriverType? =
+					drivers.detectors.contains(where: { $0.id == entityId }) ? .detector :
+					drivers.classificators.contains(where: { $0.id == entityId }) ? .classificator : nil
+
+				if loadedType == nil {
+					// No driver loaded yet: build one only if the model is enabled AND has a runnable
+					// type. A Disabled (`.invalid`) model can't build a driver (`createDriver` returns
+					// nil and logs), so skip it here — mirroring the guard in the type-change branch.
+					if enabled, modelType != .invalid {
+						try loadAndRegisterDriver(entityId: entityId, expectedType: modelType)
 					}
-					
-					guard let driver = try createDriver(from: config) else {
-						LoggingPolicy.error("Driver initialization failed after configuration update for config \(entityId.uuidString)", logger: .drivers)
-						continue
-					}
-					
-					Task {
-						do {
-							try await driver.loadFile()
-							// The configuration may have been deleted (e.g. reset) or
-							// disabled while the model was loading.
-							guard let current = selectConfiguration(entityId), current.enabled else {
-								await driver.unload()
-								return
-							}
-							self.register(driver: driver, along: modelType)
-							LoggingPolicy.info("Driver loaded and registered after configuration update", logger: .drivers)
-						} catch {
-							LoggingPolicy.error("Failed to load driver after configuration update", error: error, logger: .drivers)
-							DefaultCrashReporter.shared.recordError(error, context: ["operation": "updateDriver", "configId": entityId.uuidString])
-							self.deepStateError = error
-						}
+				} else if loadedType != modelType {
+					// Type changed on an already-loaded driver (AIA-0402). `updaterDriver` only
+					// pushes params and never swaps the driver, so tear the old one down and rebuild
+					// as the new type. Covers detect↔classify and any→Disabled (`.invalid` doesn't
+					// rebuild, so the model stops running).
+					await drivers.unregister(driverId: entityId)
+					if enabled, modelType != .invalid {
+						try loadAndRegisterDriver(entityId: entityId, expectedType: modelType)
 					}
 				} else {
+					// Same type: a plain field change (color / threshold) or an enable toggle.
 					if enabled {
 						guard let config = selectConfiguration(entityId) else { continue }
 						await updaterDriver(with: config)

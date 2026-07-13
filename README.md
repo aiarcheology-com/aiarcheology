@@ -155,6 +155,7 @@ git checkout -b release/<tag_description>
 - **Branches**: `feature/…`, `fix/…`, `doc/…`, `test/…` with a short kebab-case description; pull requests target `develop`. Never commit directly to `develop` or `main`.
 - **Commits**: imperative summary prefixed with the issue key — `[AIA-XXXX] Fix crash when…`.
 - **Issues**: GitHub Issues carry `AIA-####` keys (normalized automatically by the `auto-issue-key` workflow); production crashes arrive as issues via Sentry → Cloudflare relay.
+- **Core Data model version**: production ships **0.0.0** (`ios/…/MLBrowser.xcdatamodeld/MLBrowser.xcdatamodel`). `develop` has advanced to **0.0.1** (adds `Finding`/`WebVisit`, etc.) but that schema is **unreleased** — every store in the wild is 0.0.0, so migrations are authored and tested from 0.0.0 (see `FindingMigrationTests`). Don't treat 0.0.1 as a released schema.
 
 ## Further reading
 

@@ -226,6 +226,7 @@ final class DemoDataManager {
         configuration.author = extractedInfo.author
         configuration.creationDate_ = extractedInfo.creationDateString?.toDate(.createMl)
         configuration.modelType = extractedInfo.task
+        configuration.modelTypeParsed = extractedInfo.typeWasParsed
         configuration.phaseOutTime = 2
         configuration.selectedSymbol = .circle
         configuration.file_ = URL(string: url.lastPathComponent)

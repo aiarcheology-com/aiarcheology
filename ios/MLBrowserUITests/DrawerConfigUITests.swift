@@ -83,4 +83,86 @@ final class DrawerConfigUITests: UITestCase {
             "Deleting one model should leave exactly one toggle"
         )
     }
+
+    // MARK: - AIA-0402: model-type control
+
+    /// Opens the first seeded model's settings and taps its description row.
+    private func openFirstModelSettings() {
+        openDrawer()
+        XCTAssertTrue(waitForSeededConfigurations(), "Demo configurations were not seeded")
+        let firstRow = app.staticTexts.matching(identifier: AID.configDescription).firstMatch
+        XCTAssertTrue(firstRow.waitForExistence(timeout: 5), "No model row to open")
+        firstRow.tap()
+    }
+
+    func testConfigForm_parsedType_isReadOnly() {
+        launch()
+        openFirstModelSettings()
+
+        // The seeded demo declares its type (parser-decided), so the type is locked: shown read-only,
+        // with no editable segmented control (AIA-0402).
+        let picker = app.segmentedControls[AID.configModelTypePicker]
+        XCTAssertFalse(picker.waitForExistence(timeout: 3),
+                       "A parser-decided model's type must be read-only (no editable picker)")
+        XCTAssertTrue(app.staticTexts["Detection"].waitForExistence(timeout: 5),
+                      "A parser-decided detector should show its type read-only")
+    }
+
+    func testDrawer_modelRow_showsTypeCaption() {
+        launch()
+        openDrawer()
+        XCTAssertTrue(waitForSeededConfigurations(), "Demo configurations were not seeded")
+        // Every model row carries a type caption. The seeded demo models are detectors, so the
+        // caption reads "Detection" (the caption is untagged, so its label is the displayed text).
+        XCTAssertTrue(app.staticTexts["Detection"].waitForExistence(timeout: 10),
+                      "Model row should show its type as a caption")
+    }
+
+    // AIA-0402 (follow-up): after import, an UNPARSED-type model's settings auto-open in "type review"
+    // mode so the user picks a type — no model runs on a type the app couldn't verify. The real file
+    // import isn't scriptable under XCUITest, so `reviewFirstModelType` forces the first seeded model
+    // to look unparsed and drives it into the same review presentation, exercising the editable picker,
+    // the confirmation footnote, and the red Disabled warning.
+    func testConfigForm_unparsedTypeReview_showsPickerConfirmationAndRedWarning() {
+        var config = LaunchConfig()
+        config.reviewFirstModelType = true
+        _ = launch(config)
+        openDrawer()
+
+        // Once the first model seeds, its settings auto-open in review mode (covering the drawer).
+        // Wait on the picker directly — the seeded-toggle helper would race the covering sheet.
+        let picker = app.segmentedControls[AID.configModelTypePicker]
+        XCTAssertTrue(picker.waitForExistence(timeout: 25),
+                      "An unparsed model's review settings should auto-open with an editable picker")
+        XCTAssertTrue(picker.buttons["Detection"].exists, "Detection segment missing")
+        XCTAssertTrue(picker.buttons["Classification"].exists, "Classification segment missing")
+        XCTAssertTrue(picker.buttons["Disabled"].exists, "Disabled segment missing")
+
+        // The forced-unparsed model keeps its detector value pre-selected, so the confirm footnote shows.
+        let confirmFootnote = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS %@", "Pre-selected as our best guess")
+        ).firstMatch
+        XCTAssertTrue(confirmFootnote.waitForExistence(timeout: 5),
+                      "Type review should show the confirm-your-best-guess footnote")
+
+        // Choosing Disabled during review swaps in the red "type isn't set" warning.
+        picker.buttons["Disabled"].tap()
+        let disabledWarning = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS %@", "This model's type isn't set")
+        ).firstMatch
+        XCTAssertTrue(disabledWarning.waitForExistence(timeout: 5),
+                      "Choosing Disabled in review should show the red undetermined-type warning")
+
+        // Dismiss back to the drawer: the caption reads "Disabled" and that model's toggle is greyed.
+        let dismiss = app.buttons[AID.configFormDismiss]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 5), "Config form dismiss button missing")
+        dismiss.tap()
+        XCTAssertTrue(app.staticTexts["Disabled"].waitForExistence(timeout: 10),
+                      "Drawer caption should read Disabled after choosing Disabled")
+        let disabledToggle = app.switches.matching(
+            NSPredicate(format: "identifier == %@ AND enabled == false", AID.configEnabledToggle)
+        ).firstMatch
+        XCTAssertTrue(disabledToggle.waitForExistence(timeout: 5),
+                      "A Disabled model's enable toggle must be non-interactive")
+    }
 }

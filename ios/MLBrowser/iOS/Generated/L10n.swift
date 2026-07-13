@@ -241,6 +241,18 @@ internal enum L10n {
     internal static let flashSize = L10n.tr("Localizable", "configuration.flashSize", fallback: "Flash border size")
     /// Link
     internal static let link = L10n.tr("Localizable", "configuration.link", fallback: "Link")
+    /// Classification
+    internal static let modelTypeClassification = L10n.tr("Localizable", "configuration.modelTypeClassification", fallback: "Classification")
+    /// Detection
+    internal static let modelTypeDetection = L10n.tr("Localizable", "configuration.modelTypeDetection", fallback: "Detection")
+    /// Disabled
+    internal static let modelTypeDisabled = L10n.tr("Localizable", "configuration.modelTypeDisabled", fallback: "Disabled")
+    /// Choose a type to enable this model.
+    internal static let modelTypeDisabledHint = L10n.tr("Localizable", "configuration.modelTypeDisabledHint", fallback: "Choose a type to enable this model.")
+    /// Pre-selected as our best guess. Confirm it's correct or change it — the app can't verify it, so you're responsible for the choice, and a wrong type can produce incorrect results.
+    internal static let modelTypeReviewConfirm = L10n.tr("Localizable", "configuration.modelTypeReviewConfirm", fallback: "Pre-selected as our best guess. Confirm it's correct or change it — the app can't verify it, so you're responsible for the choice, and a wrong type can produce incorrect results.")
+    /// This model's type isn't set, so it won't run. Choose Detection or Classification — the app can't verify the model's real type, so you're responsible for the choice, and a wrong type can produce incorrect results.
+    internal static let modelTypeReviewDisabled = L10n.tr("Localizable", "configuration.modelTypeReviewDisabled", fallback: "This model's type isn't set, so it won't run. Choose Detection or Classification — the app can't verify the model's real type, so you're responsible for the choice, and a wrong type can produce incorrect results.")
     /// Symbol
     internal static let symbol = L10n.tr("Localizable", "configuration.symbol", fallback: "Symbol")
     /// Configuration
@@ -401,6 +413,8 @@ internal enum L10n {
   internal enum Import {
     /// Apple Create ML Documentation
     internal static let appleDocumentation = L10n.tr("Localizable", "import.appleDocumentation", fallback: "Apple Create ML Documentation")
+    /// Confirm the model type
+    internal static let confirmTypeTitle = L10n.tr("Localizable", "import.confirmTypeTitle", fallback: "Confirm the model type")
     /// Import from Files
     internal static let fromFiles = L10n.tr("Localizable", "import.fromFiles", fallback: "Import from Files")
     /// Select a .mlmodel or .mlpackage file
@@ -417,6 +431,8 @@ internal enum L10n {
     internal static let onnxConversionHint = L10n.tr("Localizable", "import.onnxConversionHint", fallback: "Use this Python code to convert ONNX models:")
     /// The model has been imported successfully.
     internal static let success = L10n.tr("Localizable", "import.success", fallback: "The model has been imported successfully.")
+    /// Model imported
+    internal static let successTitle = L10n.tr("Localizable", "import.successTitle", fallback: "Model imported")
     /// The model %1$@ from %2$@ has been successfully imported.
     internal static func successWithInfo(_ p1: Any, _ p2: Any) -> String {
       return L10n.tr("Localizable", "import.successWithInfo", String(describing: p1), String(describing: p2), fallback: "The model %1$@ from %2$@ has been successfully imported.")
@@ -427,6 +443,8 @@ internal enum L10n {
     internal static let supportedModelsInfo = L10n.tr("Localizable", "import.supportedModelsInfo", fallback: "Choose a Core ML model (.mlmodel or .mlpackage) that supports object detection or image classification. Other model types are not supported in this version.")
     /// Import Model
     internal static let title = L10n.tr("Localizable", "import.title", fallback: "Import Model")
+    /// The model was imported. The app can't verify what an imported model does, so please confirm its type on the next screen. You're responsible for the choice, and a wrong type can produce incorrect results.
+    internal static let typeConfirmation = L10n.tr("Localizable", "import.typeConfirmation", fallback: "The model was imported. The app can't verify what an imported model does, so please confirm its type on the next screen. You're responsible for the choice, and a wrong type can produce incorrect results.")
     /// Validating model...
     internal static let validating = L10n.tr("Localizable", "import.validating", fallback: "Validating model...")
     /// WWDC: Core ML Converters

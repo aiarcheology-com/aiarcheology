@@ -5313,6 +5313,78 @@
         }
       }
     },
+    "configuration.modelTypeClassification" : {
+      "comment" : "Model type option: classification (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classification"
+          }
+        }
+      }
+    },
+    "configuration.modelTypeDetection" : {
+      "comment" : "Model type option: detection (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detection"
+          }
+        }
+      }
+    },
+    "configuration.modelTypeDisabled" : {
+      "comment" : "Model type option: disabled — the model won't run until the user picks a type (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disabled"
+          }
+        }
+      }
+    },
+    "configuration.modelTypeDisabledHint" : {
+      "comment" : "Hint shown when a model's type is Disabled (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a type to enable this model."
+          }
+        }
+      }
+    },
+    "configuration.modelTypeReviewConfirm" : {
+      "comment" : "Footnote shown when confirming an imported model's pre-selected type (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pre-selected as our best guess. Confirm it's correct or change it — the app can't verify it, so you're responsible for the choice, and a wrong type can produce incorrect results."
+          }
+        }
+      }
+    },
+    "configuration.modelTypeReviewDisabled" : {
+      "comment" : "Footnote shown when an imported model's type could not be determined and stays Disabled (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This model's type isn't set, so it won't run. Choose Detection or Classification — the app can't verify the model's real type, so you're responsible for the choice, and a wrong type can produce incorrect results."
+          }
+        }
+      }
+    },
     "configuration.type" : {
       "comment" : "Type label in configuration",
       "extractionState" : "manual",
@@ -9267,6 +9339,30 @@
         }
       }
     },
+    "import.confirmTypeTitle" : {
+      "comment" : "Title of the alert shown after importing a model, prompting the user to confirm its type (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm the model type"
+          }
+        }
+      }
+    },
+    "import.typeConfirmation" : {
+      "comment" : "Message shown after importing a model, warning the user they must confirm its type (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The model was imported. The app can't verify what an imported model does, so please confirm its type on the next screen. You're responsible for the choice, and a wrong type can produce incorrect results."
+          }
+        }
+      }
+    },
     "import.success" : {
       "comment" : "Generic import success message",
       "extractionState" : "manual",
@@ -9371,6 +9467,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "模型已成功匯入。"
+          }
+        }
+      }
+    },
+    "import.successTitle" : {
+      "comment" : "Title of the alert shown after importing a model whose type the parser could determine (AIA-0402)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model imported"
           }
         }
       }
