@@ -30,20 +30,25 @@ struct DownloadDetailView: View {
 	// MARK: - Body
 	
 	var body: some View {
-		VStack {
+		VStack(spacing: 0) {
 			progressHeader
 			Form {
 				urlInputSection
 				statusSection
 				helpSection
 			}
+		}
+		.safeAreaInset(edge: .bottom, spacing: 0) {
 			actionButtons
+				.background(.bar)
 		}
 		.navigationBarTitle(isPackageDownload ? L10n.Catalog.Download.title : L10n.Download.title)
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar { toolbarContent }
 		.onAppear {
-			urlText = item.url?.absoluteString ?? ""
+			let value = item.url?.absoluteString ?? ""
+			urlText = value
+			validateUrl(value)
 		}
 		.alert("Help", isPresented: $showAlert) {
 			Button(L10n.Common.ok, role: .cancel) { }
