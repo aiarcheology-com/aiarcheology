@@ -74,7 +74,7 @@ struct DrawerContent: View {
         .sheet(isPresented: $showImport, onDismiss: presentTypeReviewIfNeeded) {
             ModelImportView(
                 onImported: { importedForReviewId = $0 },
-                catalogProvider: appState.catalogProvider
+                catalogProviders: appState.catalogProviders
             )
                 .environmentObject(deep)
                 .environmentObject(downloader)

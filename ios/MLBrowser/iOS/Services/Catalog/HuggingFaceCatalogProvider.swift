@@ -29,7 +29,7 @@ actor JSONHTTPClient {
 				throw CatalogError.decoding
 			}
 		} catch is CancellationError {
-			throw CatalogError.cancelled
+			throw CancellationError()
 		} catch let error as CatalogError {
 			throw error
 		} catch {
@@ -198,8 +198,11 @@ private extension HuggingFaceCatalogProvider {
 		}
 
 		let allowedCharacters = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))
-		return components.map { component in
-			String(component).addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? String(component)
+		return try components.map { component in
+			guard let encoded = String(component).addingPercentEncoding(withAllowedCharacters: allowedCharacters) else {
+				throw CatalogError.invalidFilePath
+			}
+			return encoded
 		}.joined(separator: "/")
 	}
 

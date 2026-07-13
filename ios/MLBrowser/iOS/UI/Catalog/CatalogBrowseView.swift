@@ -12,6 +12,7 @@ struct CatalogBrowseView: View {
 
 	let onSelect: @MainActor (CatalogModel, [CatalogFile]) -> Void
 	@StateObject private var searchManager: CatalogSearchManager
+	@State private var selectionTask: Task<Void, Never>?
 
 	init(providers: [any CatalogProvider], onSelect: @escaping @MainActor (CatalogModel, [CatalogFile]) -> Void) {
 		self.onSelect = onSelect
@@ -22,6 +23,7 @@ struct CatalogBrowseView: View {
 		NavigationStack {
 			List {
 				providerSection
+				resultProviderFilters
 				resultsSection
 			}
 			.listStyle(.insetGrouped)
@@ -34,7 +36,10 @@ struct CatalogBrowseView: View {
 				}
 			}
 		}
-		.onDisappear { searchManager.cancelSearch() }
+		.onDisappear {
+			selectionTask?.cancel()
+			searchManager.cancelSearch()
+		}
 	}
 }
 
@@ -48,17 +53,67 @@ private extension CatalogBrowseView {
 
 	var providerSection: some View {
 		Section(L10n.Catalog.provider) {
-			Picker(L10n.Catalog.provider, selection: $searchManager.selectedProviderID) {
+			Menu {
 				ForEach(searchManager.providerDescriptors) { provider in
-					Text(provider.displayName).tag(provider.id)
+					Button {
+						searchManager.toggleProvider(id: provider.id)
+					} label: {
+						if searchManager.selectedProviderIDs.contains(provider.id) {
+							Label(provider.displayName, systemImage: "checkmark")
+						} else {
+							Text(provider.displayName)
+						}
+					}
+				}
+			} label: {
+				HStack {
+					Label(L10n.Catalog.provider, systemImage: "square.stack.3d.up")
+					Spacer()
+					Text(searchManager.selectedProviderSummary)
+						.foregroundStyle(.secondary)
+						.lineLimit(1)
+					Image(systemName: "chevron.up.chevron.down")
+						.foregroundStyle(.tertiary)
 				}
 			}
-			.pickerStyle(.navigationLink)
 			.testability(Testability.Picker.catalogProvider)
-			.onChange(of: searchManager.selectedProviderID) {
-				searchManager.searchCurrentQuery()
-			}
 		}
+	}
+
+	@ViewBuilder
+	var resultProviderFilters: some View {
+		if searchManager.providerDescriptors.count > 1 {
+			Section {
+				ScrollView(.horizontal, showsIndicators: false) {
+					HStack(spacing: 8) {
+						providerFilterButton(title: L10n.Catalog.Results.allSources, providerID: nil)
+						ForEach(searchManager.providerDescriptors) { provider in
+							providerFilterButton(title: provider.displayName, providerID: provider.id)
+						}
+					}
+					.padding(.vertical, 2)
+				}
+			}
+			.listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+		}
+	}
+
+	func providerFilterButton(title: String, providerID: String?) -> some View {
+		Button {
+			searchManager.filterResults(to: providerID)
+		} label: {
+			Text(title)
+				.font(.subheadline)
+				.fontWeight(searchManager.resultProviderFilterID == providerID ? .semibold : .regular)
+				.foregroundStyle(searchManager.resultProviderFilterID == providerID ? .white : .primary)
+				.padding(.horizontal, 12)
+				.padding(.vertical, 7)
+				.background(searchManager.resultProviderFilterID == providerID ? Color.accentColor : Color.secondary.opacity(0.12), in: Capsule())
+		}
+		.buttonStyle(.plain)
+		.testability(Testability.Button.catalogProviderFilter, label: providerID ?? "all")
+		.disabled(providerID.map { searchManager.selectedProviderIDs.contains($0) == false } ?? false)
+		.opacity(providerID.map { searchManager.selectedProviderIDs.contains($0) ? 1 : 0.45 } ?? 1)
 	}
 
 	@ViewBuilder
@@ -76,18 +131,22 @@ private extension CatalogBrowseView {
 					systemImage: "exclamationmark.triangle",
 					description: Text(errorMessage)
 				)
-			} else if searchManager.results.isEmpty {
+			} else if searchManager.visibleResults.isEmpty {
 				ContentUnavailableView(
 					searchManager.query.isEmpty ? L10n.Catalog.Empty.title : L10n.Catalog.Empty.noResultsTitle,
 					systemImage: "magnifyingglass",
 					description: Text(searchManager.query.isEmpty ? L10n.Catalog.Empty.message : L10n.Catalog.Empty.noResultsMessage)
 				)
 			} else {
-				ForEach(searchManager.results) { model in
+				ForEach(searchManager.visibleResults) { model in
 					Button {
 						select(model)
 					} label: {
-						CatalogResultRow(model: model, isResolving: searchManager.resolvingModelID == model.id)
+						CatalogResultRow(
+							model: model,
+							providerName: searchManager.providerName(for: model.providerId),
+							isResolving: searchManager.resolvingModelID == model.id
+						)
 					}
 					.buttonStyle(.plain)
 					.disabled(searchManager.resolvingModelID != nil)
@@ -101,8 +160,10 @@ private extension CatalogBrowseView {
 	}
 
 	func select(_ model: CatalogModel) {
-		Task {
+		selectionTask?.cancel()
+		selectionTask = Task { @MainActor [searchManager] in
 			guard let files = await searchManager.resolveFiles(for: model) else { return }
+			guard Task.isCancelled == false else { return }
 			onSelect(model, files)
 		}
 	}
@@ -110,6 +171,7 @@ private extension CatalogBrowseView {
 
 private struct CatalogResultRow: View {
 	let model: CatalogModel
+	let providerName: String
 	let isResolving: Bool
 
 	var body: some View {
@@ -123,16 +185,22 @@ private struct CatalogResultRow: View {
 				Text(model.displayName)
 					.foregroundStyle(.primary)
 					.lineLimit(2)
-				Text(model.author)
+				Text("\(model.author) · \(providerName)")
 					.font(.subheadline)
 					.foregroundStyle(.secondary)
 
-				HStack(spacing: 10) {
-					Label(L10n.Catalog.Results.downloads(model.downloads), systemImage: "arrow.down.circle")
-					Label(L10n.Catalog.Results.likes(model.likes), systemImage: "heart")
+				if model.downloads > 0 || model.likes > 0 {
+					HStack(spacing: 10) {
+						if model.downloads > 0 {
+							Label(L10n.Catalog.Results.downloads(model.downloads), systemImage: "arrow.down.circle")
+						}
+						if model.likes > 0 {
+							Label(L10n.Catalog.Results.likes(model.likes), systemImage: "heart")
+						}
+					}
+					.font(.caption)
+					.foregroundStyle(.secondary)
 				}
-				.font(.caption)
-				.foregroundStyle(.secondary)
 
 				HStack(spacing: 6) {
 					catalogTag
@@ -183,21 +251,24 @@ private extension View {
 @MainActor
 final class CatalogSearchManager: ObservableObject {
 	@Published private(set) var query = ""
-	@Published var selectedProviderID: String
+	@Published private(set) var selectedProviderIDs: Set<String>
 	@Published private(set) var results: [CatalogModel] = []
 	@Published private(set) var isLoading = false
 	@Published private(set) var errorMessage: String?
 	@Published private(set) var resolvingModelID: String?
+	@Published private(set) var resultProviderFilterID: String?
 
 	let providerDescriptors: [CatalogProviderDescriptor]
 	private let providersByID: [String: any CatalogProvider]
+	private let searchDebounce: Duration
 	private var searchTask: Task<Void, Never>?
 
-	init(providers: [any CatalogProvider]) {
+	init(providers: [any CatalogProvider], searchDebounce: Duration = .milliseconds(350)) {
 		let descriptors = providers.map(\.descriptor)
 		self.providerDescriptors = descriptors
 		self.providersByID = Dictionary(uniqueKeysWithValues: zip(descriptors.map(\.id), providers))
-		self.selectedProviderID = descriptors.first?.id ?? ""
+		self.selectedProviderIDs = Set(descriptors.map(\.id))
+		self.searchDebounce = searchDebounce
 	}
 
 	deinit {
@@ -212,7 +283,8 @@ final class CatalogSearchManager: ObservableObject {
 	func searchCurrentQuery() {
 		searchTask?.cancel()
 		let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-		guard trimmedQuery.count >= 2, let provider = providersByID[selectedProviderID] else {
+		let providers = selectedProviderIDs.compactMap { providersByID[$0] }
+		guard trimmedQuery.count >= 2, providers.isEmpty == false else {
 			isLoading = false
 			results = []
 			errorMessage = nil
@@ -221,21 +293,54 @@ final class CatalogSearchManager: ObservableObject {
 
 		isLoading = true
 		errorMessage = nil
-		let providerID = selectedProviderID
+		let selectedProviderIDs = selectedProviderIDs
+		let searchDebounce = searchDebounce
 		searchTask = Task { [weak self] in
 			do {
-				try await Task.sleep(for: .milliseconds(350))
+				try await Task.sleep(for: searchDebounce)
 				try Task.checkCancellation()
-				let models = try await provider.search(query: trimmedQuery)
-				guard let self, self.selectedProviderID == providerID, self.query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmedQuery else {
+				let outcome = await withTaskGroup(of: Result<[CatalogModel], Error>.self, returning: SearchOutcome.self) { group in
+					for provider in providers {
+						group.addTask {
+							do {
+								return .success(try await provider.search(query: trimmedQuery))
+							} catch {
+								return .failure(error)
+							}
+						}
+					}
+
+					var models: [CatalogModel] = []
+					var didSucceed = false
+					for await result in group {
+						if case .success(let sourceModels) = result {
+							didSucceed = true
+							models.append(contentsOf: sourceModels)
+						}
+					}
+					return SearchOutcome(models: models, didSucceed: didSucceed)
+				}
+				try Task.checkCancellation()
+				guard let self,
+					  self.selectedProviderIDs == selectedProviderIDs,
+					  self.query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmedQuery else {
 					return
 				}
-				self.results = models
+				var seen = Set<String>()
+				self.results = outcome.models
+					.filter { seen.insert("\($0.providerId):\($0.id)").inserted }
+					.sorted { lhs, rhs in
+						if lhs.downloads != rhs.downloads { return lhs.downloads > rhs.downloads }
+						return lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedAscending
+					}
+				self.errorMessage = outcome.didSucceed ? nil : L10n.Catalog.Error.message
 				self.isLoading = false
 			} catch is CancellationError {
 				return
+			} catch CatalogError.cancelled {
+				return
 			} catch {
-				guard let self, self.selectedProviderID == providerID else { return }
+				guard let self, self.selectedProviderIDs == selectedProviderIDs else { return }
 				self.results = []
 				self.errorMessage = L10n.Catalog.Error.message
 				self.isLoading = false
@@ -243,9 +348,31 @@ final class CatalogSearchManager: ObservableObject {
 		}
 	}
 
+	func toggleProvider(id: String) {
+		if selectedProviderIDs.contains(id) {
+			selectedProviderIDs.remove(id)
+			if resultProviderFilterID == id {
+				resultProviderFilterID = nil
+			}
+		} else {
+			selectedProviderIDs.insert(id)
+		}
+		searchCurrentQuery()
+	}
+
+	func filterResults(to providerID: String?) {
+		guard providerID == nil || selectedProviderIDs.contains(providerID ?? "") else { return }
+		resultProviderFilterID = providerID
+	}
+
+	func providerName(for providerID: String) -> String {
+		providerDescriptors.first(where: { $0.id == providerID })?.displayName ?? providerID
+	}
+
 	func cancelSearch() {
 		searchTask?.cancel()
 		searchTask = nil
+		isLoading = false
 	}
 
 	func resolveFiles(for model: CatalogModel) async -> [CatalogFile]? {
@@ -265,6 +392,8 @@ final class CatalogSearchManager: ObservableObject {
 			return files
 		} catch is CancellationError {
 			return nil
+		} catch CatalogError.cancelled {
+			return nil
 		} catch CatalogError.noInstallableArtifact {
 			errorMessage = L10n.Catalog.Error.unsupportedModel
 			return nil
@@ -272,6 +401,26 @@ final class CatalogSearchManager: ObservableObject {
 			errorMessage = L10n.Catalog.Error.message
 			return nil
 		}
+	}
+
+	var visibleResults: [CatalogModel] {
+		guard let resultProviderFilterID else { return results }
+		return results.filter { $0.providerId == resultProviderFilterID }
+	}
+
+	var selectedProviderSummary: String {
+		guard selectedProviderIDs.count != providerDescriptors.count else {
+			return L10n.Catalog.Results.allSources
+		}
+		return providerDescriptors
+			.filter { selectedProviderIDs.contains($0.id) }
+			.map(\.displayName)
+			.joined(separator: ", ")
+	}
+
+	private struct SearchOutcome {
+		let models: [CatalogModel]
+		let didSucceed: Bool
 	}
 }
 

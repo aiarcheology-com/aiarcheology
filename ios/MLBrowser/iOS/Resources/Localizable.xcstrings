@@ -904,6 +904,18 @@
         }
       }
     },
+    "catalog.results.allSources" : {
+      "comment" : "Catalog results filter that includes every selected provider",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All sources"
+          }
+        }
+      }
+    },
     "catalog.results.coreML" : {
       "comment" : "Catalog result Core ML format tag",
       "extractionState" : "manual",

@@ -85,6 +85,7 @@ extension TestabilityIdentification {
 		case newConfigurationOpenCatalog
 		// Model Catalog
 		case catalogResult
+		case catalogProviderFilter
 		// Settings
 		case settingsDismiss
 		case settingsDeleteCache

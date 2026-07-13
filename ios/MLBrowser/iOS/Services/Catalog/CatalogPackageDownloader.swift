@@ -174,7 +174,7 @@ private extension CatalogPackageDownloader {
 			guard let size = values.fileSize else { throw CatalogError.invalidResponse }
 			return DownloadedFile(file: file, temporaryURL: temporaryURL, byteCount: Int64(size))
 		} catch is CancellationError {
-			throw CatalogError.cancelled
+			throw CancellationError()
 		} catch let error as CatalogError {
 			throw error
 		} catch {

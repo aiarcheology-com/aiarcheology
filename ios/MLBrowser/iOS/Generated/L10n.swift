@@ -224,6 +224,8 @@ internal enum L10n {
       internal static let unsupportedModel = L10n.tr("Localizable", "catalog.error.unsupportedModel", fallback: "This result does not include an installable Core ML model.")
     }
     internal enum Results {
+      /// All sources
+      internal static let allSources = L10n.tr("Localizable", "catalog.results.allSources", fallback: "All sources")
       /// Core ML
       internal static let coreML = L10n.tr("Localizable", "catalog.results.coreML", fallback: "Core ML")
       /// %lld downloads

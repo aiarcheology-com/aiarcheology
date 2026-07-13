@@ -85,11 +85,18 @@ final class ActivePackageDownload: Identifiable, ObservableObject {
 	@Published var progress: Double = 0.0
 	@Published var totalBytesWritten: Int = 0
 	@Published var totalBytesExpected: Int = 0
+	@Published var completedFileCount = 0
+	@Published var totalFileCount = 0
 	var task: Task<Void, Never>?
 
 	init(itemId: UUID) {
 		self.id = itemId
 	}
+}
+
+struct PackageFileProgress: Equatable {
+	let completedFileCount: Int
+	let totalFileCount: Int
 }
 
 private struct PackageDownloadManifest: Codable {
@@ -432,6 +439,28 @@ final public class Downloader: NSObject, ObservableObject {
 		packageManifest(for: item)?.files.count
 	}
 
+	func packageFileProgressPublisher(for itemId: UUID?) -> AnyPublisher<PackageFileProgress, Never> {
+		guard let itemId else {
+			return Just(PackageFileProgress(completedFileCount: 0, totalFileCount: 0)).eraseToAnyPublisher()
+		}
+
+		return $activePackageDownloads
+			.map { activePackageDownloads -> AnyPublisher<PackageFileProgress, Never> in
+				guard let download = activePackageDownloads[itemId] else {
+					return Just(PackageFileProgress(completedFileCount: 0, totalFileCount: 0)).eraseToAnyPublisher()
+				}
+				return download.$completedFileCount
+					.combineLatest(download.$totalFileCount)
+					.map { completedFileCount, totalFileCount in
+						PackageFileProgress(completedFileCount: completedFileCount, totalFileCount: totalFileCount)
+					}
+					.eraseToAnyPublisher()
+			}
+			.switchToLatest()
+			.removeDuplicates()
+			.eraseToAnyPublisher()
+	}
+
 	private func packageManifest(for item: DownloadItem) -> PackageDownloadManifest? {
 		if let manifest = packageManifests[item.entityId] {
 			return manifest
@@ -715,6 +744,8 @@ final public class Downloader: NSObject, ObservableObject {
 		activeDownload.progress = progress.fractionCompleted
 		activeDownload.totalBytesWritten = Int(progress.downloadedBytes)
 		activeDownload.totalBytesExpected = Int(progress.expectedBytes ?? 0)
+		activeDownload.completedFileCount = progress.completedFileCount
+		activeDownload.totalFileCount = progress.totalFileCount
 		persistPackageDownloadState(from: activeDownload, to: item)
 	}
 
@@ -741,13 +772,13 @@ final public class Downloader: NSObject, ObservableObject {
 				LoggingPolicy.info("Package download successfully saved", logger: .networking)
 			} catch {
 				LoggingPolicy.error("Could not store downloaded package", error: error, logger: .networking)
-				item.error = error.localizedDescription
+				item.error = L10n.Catalog.Download.error
 				persistPackageDownloadState(from: activeDownload, to: item)
 				transitionAndSave(item, to: .failed)
 			}
 		case .failure(let error):
 			LoggingPolicy.error("Package download failed", error: error, logger: .networking)
-			item.error = error.localizedDescription
+			item.error = L10n.Catalog.Download.error
 			persistPackageDownloadState(from: activeDownload, to: item)
 			transitionAndSave(item, to: .failed)
 		}

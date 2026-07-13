@@ -47,8 +47,11 @@ class DependencyContainer {
         return Downloader(dataController: self.dataController)
     }()
 
-    lazy var catalogProvider: any CatalogProvider = {
-        return HuggingFaceCatalogProvider()
+    lazy var catalogProviders: [any CatalogProvider] = {
+        [
+            HuggingFaceCatalogProvider(),
+            AppleCoreMLCatalogProvider()
+        ]
     }()
     
     lazy var demoDataManager: DemoDataManager = {
@@ -138,7 +141,7 @@ class DependencyContainer {
 			snap: snapState,
 		deep: deepState,
 		downloader: downloader,
-		catalogProvider: catalogProvider,
+		catalogProviders: catalogProviders,
 		demoDataManager: demoDataManager,
 			findingRepository: findingRepository,
 			detection: detection,

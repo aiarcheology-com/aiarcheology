@@ -25,6 +25,7 @@ struct DownloadDetailView: View {
 	@State private var progress: Double = 0.0
 	@State private var totalBytesWritten: Int = 0
 	@State private var totalBytesExpected: Int = 0
+	@State private var packageFileProgress = PackageFileProgress(completedFileCount: 0, totalFileCount: 0)
 	
 	// MARK: - Body
 	
@@ -95,9 +96,12 @@ private extension DownloadDetailView {
 				urlTextField
 			}
 		} footer: {
-			Text(packageFileCount.map { L10n.Catalog.Download.progress(0, $0) } ?? L10n.Download.urlHint)
+			Text(packageProgressDescription)
 				.font(.subheadline)
 				.foregroundColor(.gray)
+				.onReceive(downloader.packageFileProgressPublisher(for: item.entityId)) { progress in
+					packageFileProgress = progress
+				}
 		}
 	}
 	
@@ -266,6 +270,17 @@ private extension DownloadDetailView {
 
 	var packageFileCount: Int? {
 		downloader.packageFileCount(for: item)
+	}
+
+	var packageProgressDescription: String {
+		guard let packageFileCount else { return L10n.Download.urlHint }
+		let completedFileCount: Int
+		if [.complete, .imported].contains(item.state) {
+			completedFileCount = packageFileCount
+		} else {
+			completedFileCount = min(packageFileProgress.completedFileCount, packageFileCount)
+		}
+		return L10n.Catalog.Download.progress(completedFileCount, packageFileCount)
 	}
 
 	var downloadAttributes: (enabled: Bool, color: Color, label: String) {

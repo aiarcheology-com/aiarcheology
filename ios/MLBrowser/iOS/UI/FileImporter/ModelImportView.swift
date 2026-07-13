@@ -23,7 +23,7 @@ struct ModelImportView: View {
 	/// auto-open the model's settings for the user to confirm its type (AIA-0402). No imported
 	/// model runs on an unconfirmed type — the app can't verify what a model actually does.
 	var onImported: (UUID) -> Void = { _ in }
-	let catalogProvider: any CatalogProvider
+	let catalogProviders: [any CatalogProvider]
 
 	@StateObject private var acquisitionCoordinator = ModelAcquisitionCoordinator(
 		allowedTypes: [
@@ -53,9 +53,9 @@ struct ModelImportView: View {
 	@State private var pendingCatalogSelection: CatalogSelection?
 	@State private var catalogDownloadItem: DownloadItem?
 
-	init(onImported: @escaping (UUID) -> Void = { _ in }, catalogProvider: any CatalogProvider) {
+	init(onImported: @escaping (UUID) -> Void = { _ in }, catalogProviders: [any CatalogProvider]) {
 		self.onImported = onImported
-		self.catalogProvider = catalogProvider
+		self.catalogProviders = catalogProviders
 	}
 	
 	private static let pythonCode = """
@@ -93,7 +93,7 @@ struct ModelImportView: View {
 			remoteDownloaderSheet
 		}
 		.sheet(isPresented: $acquisitionCoordinator.isShowingCatalog, onDismiss: beginPendingCatalogSelection) {
-			CatalogBrowseView(providers: [catalogProvider]) { model, files in
+			CatalogBrowseView(providers: catalogProviders) { model, files in
 				handleCatalogSelection(model: model, files: files)
 			}
 		}
@@ -563,6 +563,6 @@ private enum CatalogSelection {
 // MARK: - Preview
 
 #Preview {
-	ModelImportView(catalogProvider: HuggingFaceCatalogProvider())
+	ModelImportView(catalogProviders: [HuggingFaceCatalogProvider(), AppleCoreMLCatalogProvider()])
 }
 #endif

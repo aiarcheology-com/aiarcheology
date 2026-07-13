@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import Combine
 @testable import ML_Browser
 
 final class CatalogProviderTests: XCTestCase {
@@ -191,6 +192,121 @@ final class CatalogProviderTests: XCTestCase {
 		} catch let error as CatalogError {
 			XCTAssertEqual(error, .tooLarge)
 		}
+	}
+
+	func testAppleCatalog_searchesCuratedInstallableModels() async throws {
+		let provider = AppleCoreMLCatalogProvider()
+
+		let models = try await provider.search(query: "yolo tiny")
+		let model = try XCTUnwrap(models.first(where: { $0.id == "apple/yolov3-tiny-int8" }))
+		let files = try await provider.resolveFiles(for: model)
+
+		XCTAssertEqual(provider.descriptor.id, "apple-coreml")
+		XCTAssertEqual(model.providerId, "apple-coreml")
+		XCTAssertEqual(model.task, .objectDetection)
+		XCTAssertEqual(model.format, .mlmodel)
+		XCTAssertEqual(files.count, 1)
+		XCTAssertEqual(files[0].relativePath, "YOLOv3TinyInt8LUT.mlmodel")
+		XCTAssertEqual(
+			files[0].resolveURL.absoluteString,
+			"https://ml-assets.apple.com/coreml/models/Image/ObjectDetection/YOLOv3Tiny/YOLOv3TinyInt8LUT.mlmodel"
+		)
+	}
+}
+
+@MainActor
+final class CatalogSearchManagerTests: XCTestCase {
+	func testSearch_queriesAllSelectedSourcesAndFiltersResultsLocally() async {
+		let huggingFace = TestCatalogProvider(
+			id: "huggingface",
+			models: [TestCatalogProvider.model(id: "acme/yolo", providerID: "huggingface")]
+		)
+		let apple = TestCatalogProvider(
+			id: "apple-coreml",
+			models: [TestCatalogProvider.model(id: "apple/yolo", providerID: "apple-coreml")]
+		)
+		let manager = CatalogSearchManager(providers: [huggingFace, apple], searchDebounce: .zero)
+		let completed = expectation(description: "search completes")
+		let cancellable = manager.$isLoading
+			.dropFirst()
+			.filter { $0 == false }
+			.sink { _ in completed.fulfill() }
+
+		manager.updateQuery("yolo")
+		await fulfillment(of: [completed], timeout: 1)
+		withExtendedLifetime(cancellable) { }
+
+		XCTAssertEqual(manager.selectedProviderIDs, Set(["huggingface", "apple-coreml"]))
+		XCTAssertEqual(Set(manager.results.map(\.providerId)), ["huggingface", "apple-coreml"])
+		let huggingFaceSearchCallCount = await huggingFace.searchCallCount
+		let appleSearchCallCount = await apple.searchCallCount
+		XCTAssertEqual(huggingFaceSearchCallCount, 1)
+		XCTAssertEqual(appleSearchCallCount, 1)
+
+		manager.filterResults(to: "apple-coreml")
+		XCTAssertEqual(manager.visibleResults.map(\.providerId), ["apple-coreml"])
+		let filteredHuggingFaceSearchCallCount = await huggingFace.searchCallCount
+		let filteredAppleSearchCallCount = await apple.searchCallCount
+		XCTAssertEqual(filteredHuggingFaceSearchCallCount, 1, "result filtering must not make another request")
+		XCTAssertEqual(filteredAppleSearchCallCount, 1, "result filtering must not make another request")
+	}
+
+	func testSearch_keepsSuccessfulResultsWhenAnotherSourceFails() async {
+		let successfulProvider = TestCatalogProvider(
+			id: "apple-coreml",
+			models: [TestCatalogProvider.model(id: "apple/mobilenet", providerID: "apple-coreml")]
+		)
+		let failingProvider = TestCatalogProvider(id: "unavailable", failure: .network)
+		let manager = CatalogSearchManager(providers: [successfulProvider, failingProvider], searchDebounce: .zero)
+		let completed = expectation(description: "search completes")
+		let cancellable = manager.$isLoading
+			.dropFirst()
+			.filter { $0 == false }
+			.sink { _ in completed.fulfill() }
+
+		manager.updateQuery("model")
+		await fulfillment(of: [completed], timeout: 1)
+		withExtendedLifetime(cancellable) { }
+
+		XCTAssertEqual(manager.results.map(\.id), ["apple/mobilenet"])
+		XCTAssertNil(manager.errorMessage)
+	}
+}
+
+private actor TestCatalogProvider: CatalogProvider {
+	nonisolated let descriptor: CatalogProviderDescriptor
+	private let models: [CatalogModel]
+	private let failure: CatalogError?
+	private(set) var searchCallCount = 0
+
+	init(id: String, models: [CatalogModel] = [], failure: CatalogError? = nil) {
+		descriptor = CatalogProviderDescriptor(id: id, displayName: id)
+		self.models = models
+		self.failure = failure
+	}
+
+	func search(query: String) async throws -> [CatalogModel] {
+		searchCallCount += 1
+		if let failure { throw failure }
+		return models
+	}
+
+	func resolveFiles(for model: CatalogModel) async throws -> [CatalogFile] {
+		[]
+	}
+
+	nonisolated static func model(id: String, providerID: String) -> CatalogModel {
+		CatalogModel(
+			id: id,
+			providerId: providerID,
+			displayName: id,
+			author: providerID,
+			downloads: 0,
+			likes: 0,
+			task: .objectDetection,
+			format: .mlmodel,
+			sizeBytes: 1
+		)
 	}
 }
 
