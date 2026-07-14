@@ -778,16 +778,13 @@ final public class Downloader: NSObject, ObservableObject {
 		activeDownload.task = Task { [weak self, packageDownloader] in
 			guard let self else { return }
 			do {
-				let events = await packageDownloader.events(for: manifest.files)
-				for try await event in events {
-					guard Task.isCancelled == false else { return }
-					switch event {
-					case .progress(let progress):
-						self.updatePackageDownloadProgress(progress, itemId: entityId)
-					case .finished(let packageURL):
-						self.handlePackageDownloadCompletion(itemId: entityId, result: .success(packageURL))
+				let packageURL = try await packageDownloader.download(files: manifest.files) { [weak self] progress in
+					Task { @MainActor [weak self] in
+						self?.updatePackageDownloadProgress(progress, itemId: entityId)
 					}
 				}
+				guard Task.isCancelled == false else { return }
+				self.handlePackageDownloadCompletion(itemId: entityId, result: .success(packageURL))
 			} catch {
 				guard Task.isCancelled == false else { return }
 				self.handlePackageDownloadCompletion(itemId: entityId, result: .failure(error))
@@ -852,10 +849,17 @@ final public class Downloader: NSObject, ObservableObject {
 			}
 		case .failure(let error):
 			LoggingPolicy.error("Package download failed", error: error, logger: .networking)
-			item.error = L10n.Catalog.Download.error
+			item.error = catalogDownloadErrorMessage(for: error)
 			persistPackageDownloadState(from: activeDownload, to: item)
 			transitionAndSave(item, to: .failed)
 		}
+	}
+
+	private func catalogDownloadErrorMessage(for error: Error) -> String {
+		if let error = error as? CatalogError, error == .timedOut {
+			return L10n.Catalog.Download.timeout
+		}
+		return L10n.Catalog.Download.error
 	}
 
 	private func packageStagingDirectory(for packageURL: URL, manifest: PackageDownloadManifest?) -> URL? {

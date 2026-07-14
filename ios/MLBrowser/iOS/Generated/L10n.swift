@@ -204,6 +204,8 @@ internal enum L10n {
       internal static func progress(_ p1: Int, _ p2: Int) -> String {
         return L10n.tr("Localizable", "catalog.download.progress", p1, p2, fallback: "Files: %lld / %lld")
       }
+      /// The download timed out. Please try again.
+      internal static let timeout = L10n.tr("Localizable", "catalog.download.timeout", fallback: "The download timed out. Please try again.")
       /// Downloading model
       internal static let title = L10n.tr("Localizable", "catalog.download.title", fallback: "Downloading model")
     }

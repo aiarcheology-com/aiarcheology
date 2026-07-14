@@ -2793,6 +2793,18 @@
         }
       }
     },
+    "catalog.download.timeout" : {
+      "comment" : "Error shown when a catalog download stops receiving data and can be retried",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The download timed out. Please try again."
+          }
+        }
+      }
+    },
     "catalog.download.package" : {
       "comment" : "Label for a multi-file Core ML package being downloaded from the catalog",
       "extractionState" : "manual",

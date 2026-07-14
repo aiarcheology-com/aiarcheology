@@ -153,6 +153,7 @@ protocol CatalogProvider: Sendable {
 
 enum CatalogError: Error, Equatable, Sendable {
 	case network
+	case timedOut
 	case invalidResponse
 	case decoding
 	case noInstallableArtifact
