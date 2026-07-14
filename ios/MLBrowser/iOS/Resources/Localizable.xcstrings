@@ -13645,6 +13645,66 @@
         }
       }
     },
+    "settings.grid3x3Tiling" : {
+      "comment" : "Toggle label for the 3x3 tiling scheme in the Tiled Detection submenu",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3x3 tiling"
+          }
+        }
+      }
+    },
+    "settings.pyramidTiling" : {
+      "comment" : "Toggle label for the Pyramid tiling scheme in the Tiled Detection submenu",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pyramid tiling"
+          }
+        }
+      }
+    },
+    "settings.tiledBorders" : {
+      "comment" : "Toggle label in the Tiled Detection settings submenu for the tile-border overlay",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiled Borders"
+          }
+        }
+      }
+    },
+    "settings.tiledBordersFooter" : {
+      "comment" : "Footer explaining the Tiled Borders toggle",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Draws a red border around each tile fed to the detector, so you can see how the page is split. Detection is unaffected."
+          }
+        }
+      }
+    },
+    "settings.tiledDetectionFooter" : {
+      "comment" : "Footer for the Tiled Detection submenu explaining the two scheme toggles",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose which tile layouts feed the detector. Enable either or both; both run the union of their tiles."
+          }
+        }
+      }
+    },
     "settings.tiledDetection" : {
       "comment" : "Toggle for tiled detection (detect over 4 quadrants + center + full frame instead of one full-frame pass)",
       "extractionState" : "manual",

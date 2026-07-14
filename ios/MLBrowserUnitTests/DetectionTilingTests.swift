@@ -13,16 +13,16 @@ import UIKit
 
 final class TileLayoutRegionsTests: XCTestCase {
 
-	func testRegions_Untiled_IsSingleFullFrame() {
-		XCTAssertEqual(TileLayout.regions(tiled: false), [TileLayout.fullFrame])
+	func testRegions_Empty_IsSingleFullFrame() {
+		XCTAssertEqual(TileLayout.regions(for: []), [TileLayout.fullFrame])
 	}
 
-	func testRegions_Tiled_HasSixRegions() {
-		XCTAssertEqual(TileLayout.regions(tiled: true).count, 6)
+	func testRegions_Pyramid_HasSixRegions() {
+		XCTAssertEqual(TileLayout.regions(for: .pyramid).count, 6)
 	}
 
-	func testRegions_Tiled_QuadrantsTileTheUnitSquare() {
-		let quadrants = TileLayout.regions(tiled: true).prefix(4)
+	func testRegions_Pyramid_QuadrantsTileTheUnitSquare() {
+		let quadrants = TileLayout.regions(for: .pyramid).prefix(4)
 		// Four half-size regions, disjoint, summing to the full area = an exact tiling.
 		let totalArea = quadrants.reduce(CGFloat.zero) { $0 + $1.width * $1.height }
 		XCTAssertEqual(totalArea, 1.0, accuracy: 0.0001)
@@ -36,14 +36,94 @@ final class TileLayoutRegionsTests: XCTestCase {
 		}
 	}
 
-	func testRegions_Tiled_FifthIsCenteredHalfSize() {
-		let center = TileLayout.regions(tiled: true)[4]
+	func testRegions_Pyramid_FifthIsCenteredHalfSize() {
+		let center = TileLayout.regions(for: .pyramid)[4]
 		XCTAssertEqual(center, CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5))
 	}
 
-	func testRegions_Tiled_LastIsFullFrame() {
+	func testRegions_Pyramid_LastIsFullFrame() {
 		// The full-frame pass protects artifacts larger than any half-size region.
-		XCTAssertEqual(TileLayout.regions(tiled: true).last, TileLayout.fullFrame)
+		XCTAssertEqual(TileLayout.regions(for: .pyramid).last, TileLayout.fullFrame)
+	}
+
+	// MARK: - 3x3 (AIA-0426)
+
+	func testRegions_Grid3x3_HasTenRegions() {
+		// 9 grid cells + 1 full-frame pass.
+		XCTAssertEqual(TileLayout.regions(for: .grid3x3).count, 10)
+	}
+
+	func testRegions_Grid3x3_NineCellsTileTheUnitSquare() {
+		let cells = TileLayout.regions(for: .grid3x3).prefix(9)
+		// Nine ninth-size cells, disjoint, summing to the full area = an exact tiling.
+		let totalArea = cells.reduce(CGFloat.zero) { $0 + $1.width * $1.height }
+		XCTAssertEqual(totalArea, 1.0, accuracy: 0.0001)
+		for (index, lhs) in cells.enumerated() {
+			XCTAssertEqual(lhs.width, 1.0 / 3.0, accuracy: 0.0001)
+			XCTAssertEqual(lhs.height, 1.0 / 3.0, accuracy: 0.0001)
+			XCTAssertTrue(TileLayout.fullFrame.contains(lhs))
+			for rhs in cells.dropFirst(index + 1) {
+				let overlap = lhs.intersection(rhs)
+				XCTAssertEqual(overlap.width * overlap.height, 0, accuracy: 0.0001)
+			}
+		}
+	}
+
+	func testRegions_Grid3x3_LastIsFullFrame() {
+		XCTAssertEqual(TileLayout.regions(for: .grid3x3).last, TileLayout.fullFrame)
+	}
+
+	// MARK: - Union + fallbacks
+
+	func testRegions_Union_HasFifteenUniqueRegions() {
+		// 6 (pyramid) + 10 (grid) − 1 shared full frame = 15.
+		XCTAssertEqual(TileLayout.regions(for: [.pyramid, .grid3x3]).count, 15)
+	}
+
+	func testRegions_Union_PreservesPyramidOrderAndItsFullFrame() {
+		// Pyramid stays first so regionIndex 0…5 is byte-identical to a pyramid-only run, and the
+		// surviving full frame is pyramid's (index 5) — the grid's duplicate is deduped out.
+		let union = TileLayout.regions(for: [.pyramid, .grid3x3])
+		XCTAssertEqual(Array(union.prefix(6)), TileLayout.pyramidRegions)
+		XCTAssertEqual(union[5], TileLayout.fullFrame)
+		// Exactly one full frame survives across the whole union.
+		XCTAssertEqual(union.filter { $0 == TileLayout.fullFrame }.count, 1)
+	}
+
+	func testRegions_UnknownBitsOnly_FallsBackToFullFrame() {
+		// Future-proofing: a non-empty set with only unknown bits must fall back to the full frame,
+		// never zero passes. (The current data flow only ever produces {pyramid, grid3x3}.)
+		let unknown = TilingScheme(rawValue: 1 << 4)
+		XCTAssertEqual(TileLayout.regions(for: unknown), [TileLayout.fullFrame])
+	}
+}
+
+// MARK: - TileBorderOverlay transform (AIA-0426)
+
+final class TileBorderOverlayTests: XCTestCase {
+
+	func testScreenRect_FullFrame_FillsTheView() {
+		let rect = TileBorderOverlay.screenRect(for: TileLayout.fullFrame, in: CGSize(width: 100, height: 200))
+		XCTAssertEqual(rect, CGRect(x: 0, y: 0, width: 100, height: 200))
+	}
+
+	func testScreenRect_BottomLeftVisionQuadrant_MapsToLowerHalfInSwiftUI() {
+		// Vision uses a bottom-left origin: (0,0,0.5,0.5) is the BOTTOM-left quadrant, which must map
+		// to the LOWER half of SwiftUI's top-left coordinate space (y flips).
+		let rect = TileBorderOverlay.screenRect(
+			for: CGRect(x: 0, y: 0, width: 0.5, height: 0.5),
+			in: CGSize(width: 100, height: 100)
+		)
+		XCTAssertEqual(rect, CGRect(x: 0, y: 50, width: 50, height: 50))
+	}
+
+	func testScreenRect_TopRightVisionQuadrant_MapsToTopRightInSwiftUI() {
+		// Vision (0.5,0.5,0.5,0.5) is the TOP-right quadrant → SwiftUI top-right.
+		let rect = TileBorderOverlay.screenRect(
+			for: CGRect(x: 0.5, y: 0.5, width: 0.5, height: 0.5),
+			in: CGSize(width: 100, height: 100)
+		)
+		XCTAssertEqual(rect, CGRect(x: 50, y: 0, width: 50, height: 50))
 	}
 }
 

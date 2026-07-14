@@ -256,7 +256,7 @@ final class DeepDriversTests: XCTestCase {
     func testDetectWithNoDetectors_ReturnsEmptyResults() async {
         let image = UIImage(systemName: "star") ?? UIImage()
 
-        let results = await sut.detect(on: image, tiledDetection: false)
+        let results = await sut.detect(on: image, tiling: [])
 
         XCTAssertTrue(results.isEmpty)
     }
@@ -270,7 +270,7 @@ final class DeepDriversTests: XCTestCase {
 
         let image = UIImage(systemName: "star") ?? UIImage()
 
-        let results = await sut.detect(on: image, tiledDetection: true)
+        let results = await sut.detect(on: image, tiling: .pyramid)
 
         // Without a loaded model, detection should return empty
         XCTAssertTrue(results.isEmpty)

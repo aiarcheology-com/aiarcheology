@@ -62,7 +62,7 @@ final class DetectionEngineTests: XCTestCase {
     func testEachDemoModel_detectsOnTerrain() async throws {
         // Load fixtures up front so nothing throws between a detector's load and its unload.
         let images = try Self.fixtures.map { try fixture($0) }
-        let regions = TileLayout.regions(tiled: true)
+        let regions = TileLayout.regions(for: .pyramid)
 
         for resource in Self.demoModelResources {
             let detector = try await makeDetector(modelResource: resource)
@@ -91,6 +91,9 @@ private actor StubDetecting: Detecting {
     var params: DeepDriverParams
     var observations: [VNObservation] = []
     private(set) var didRun = false
+    /// The number of regions the engine dispatched — lets tests assert the tiling scheme
+    /// reached the detector (AIA-0426).
+    private(set) var receivedRegionCount = 0
     private let objects: [DetectedObject]
 
     init(params: DeepDriverParams, objects: [DetectedObject]) {
@@ -101,6 +104,7 @@ private actor StubDetecting: Detecting {
 
     func detect(image: UIImage, regions: [CGRect]) async -> [DetectedObject] {
         didRun = true
+        receivedRegionCount = regions.count
         return objects
     }
     func metadata() -> [MLModelMetadataKey: Any]? { nil }
@@ -162,7 +166,7 @@ final class DetectionEngineCancellationTests: XCTestCase {
             )]
         )
 
-        let task = Task { await engine.detect(on: UIImage(), in: [stub], tiledDetection: false) }
+        let task = Task { await engine.detect(on: UIImage(), in: [stub], tiling: []) }
         task.cancel()
         let results = await task.value
 
@@ -172,9 +176,30 @@ final class DetectionEngineCancellationTests: XCTestCase {
     }
 
     func testDetect_NoDetectors_ReturnsEmpty() async {
-        let results = await DetectionEngine().detect(on: UIImage(), in: [], tiledDetection: false)
+        let results = await DetectionEngine().detect(on: UIImage(), in: [], tiling: [])
 
         XCTAssertTrue(results.isEmpty)
+    }
+
+    /// The enabled scheme's regions actually reach the detector: pyramid=6, 3x3=10, union=15,
+    /// empty=1 (full frame). Guards the whole Settings→engine wiring, not just that it compiles.
+    func testDetect_DispatchesSchemeRegionsToDetector() async {
+        let cases: [(TilingScheme, Int)] = [([], 1), (.pyramid, 6), (.grid3x3, 10), ([.pyramid, .grid3x3], 15)]
+        for (scheme, expected) in cases {
+            let stub = StubDetecting(
+                params: DeepDriverParams(entityId: UUID()),
+                objects: [DetectedObject(
+                    uuid: UUID(),
+                    labels: [DetectedObject.Label(identifier: "stub-object", confidence: 0.9)],
+                    confidence: 0.9,
+                    boundingBox: CGRect(x: 0.4, y: 0.4, width: 0.2, height: 0.2),
+                    regionIndex: 0
+                )]
+            )
+            _ = await DetectionEngine().detect(on: UIImage(), in: [stub], tiling: scheme)
+            let count = await stub.receivedRegionCount
+            XCTAssertEqual(count, expected, "scheme rawValue \(scheme.rawValue) should dispatch \(expected) regions")
+        }
     }
 
     /// Classify counterpart of the detect cancellation test — same deterministic @MainActor

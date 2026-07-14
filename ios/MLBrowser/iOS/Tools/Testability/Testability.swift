@@ -183,9 +183,12 @@ extension TestabilityIdentification {
 		case settingsShowLabels
 		case settingsReopenLastPage
 		case settingsFullscreenDetection
+		// AIA-0426: Tiled Detection submenu + Debug tiled-border overlay
+		case settingsPyramidTiling
+		case settingsGrid3x3Tiling
+		case settingsTiledBorders
 		// Configuration Form — per-model finding flash (AIA-0374)
 		case configurationFormFlashOnFinding
-		case settingsTiledDetection
 		// Side Menu Cell
 		case sideMenuCellEnabled
 	}
@@ -236,6 +239,7 @@ extension TestabilityIdentification {
 	
 	enum NavigationLink: String, TestabilityIdentification {
 		// Settings
+		case settingsTiledDetection
 		case settingsHistory
 		case settingsAbout
 		case settingsManageAccount
@@ -333,6 +337,9 @@ extension TestabilityIdentification {
 		/// Count of currently rendered detection annotations (AIA-0317). Lets UI tests assert
 		/// `>= 1` after a detection run; `0` when none are drawn.
 		case detectionCount
+		/// Count of tile-border outlines the "Tiled Borders" overlay is drawing (AIA-0426):
+		/// `regions(for:)` count when on, `0` when off. Lets UI tests assert the overlay renders.
+		case tiledBorderCount
 		/// The active onboarding-tour step's target id (e.g. `addressBar`); absent when no tour runs (AIA-0333).
 		case tourStep
 		/// `true` once a detection cycle has applied a frame, so a manual finding pick uses that

@@ -235,7 +235,7 @@ final class DeepDriversDetectProtocolTests: XCTestCase {
         let stub = StubDetecting(params: DeepDriverParams(entityId: entityId))
         drivers.register(driver: stub, along: .detector)
 
-        let results = await drivers.detect(on: UIImage(), tiledDetection: false)
+        let results = await drivers.detect(on: UIImage(), tiling: [])
 
         XCTAssertEqual(results.count, 1)
         XCTAssertEqual(results.first?.observations.first?.primaryLabelIdentifier, "stub-object")

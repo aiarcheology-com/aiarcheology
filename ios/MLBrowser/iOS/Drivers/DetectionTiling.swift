@@ -36,28 +36,74 @@ struct DetectedObject: Sendable {
 	}
 }
 
-/// Region layout and geometry for tiled detection (AIA-0217).
+/// Which tiling scheme(s) feed the detector (AIA-0426). Independent toggles: the user can enable
+/// Pyramid, 3x3, both (the union of their regions), or neither (full-frame only). An `OptionSet` —
+/// not an enum — precisely because "both" is a valid, first-class state.
+struct TilingScheme: OptionSet, Sendable {
+	let rawValue: Int
+	/// The AIA-0217 scheme: 4 quadrants + center + full frame (6 regions).
+	static let pyramid = TilingScheme(rawValue: 1 << 0)
+	/// AIA-0426: a 3x3 grid + full frame (10 regions).
+	static let grid3x3 = TilingScheme(rawValue: 1 << 1)
+}
+
+/// Region layout and geometry for tiled detection (AIA-0217, AIA-0426).
 ///
 /// Regions are normalized rects in Vision coordinates, so the actual crop pixel sizes
 /// derive dynamically from whatever snapshot the renderer produced — no hardcoded sizes.
-/// Every half-size region keeps the snapshot's aspect ratio, so the detector's `.scaleFit`
-/// letterboxing is unchanged while content resolution roughly doubles.
+/// Every region keeps the snapshot's aspect ratio, so the detector's `.scaleFit`
+/// letterboxing is unchanged while content resolution increases.
 enum TileLayout {
 	static let fullFrame = CGRect(x: 0, y: 0, width: 1, height: 1)
 
-	/// Tiled: 4 quadrants + center (the issue's 5 images) + a full-frame pass — without it,
-	/// an artifact larger than any half-size region would be missed entirely; the dedup
-	/// containment stage prefers the full-frame box over region-clipped partials.
-	static func regions(tiled: Bool) -> [CGRect] {
-		guard tiled else { return [fullFrame] }
-		return [
-			CGRect(x: 0, y: 0, width: 0.5, height: 0.5),
-			CGRect(x: 0.5, y: 0, width: 0.5, height: 0.5),
-			CGRect(x: 0, y: 0.5, width: 0.5, height: 0.5),
-			CGRect(x: 0.5, y: 0.5, width: 0.5, height: 0.5),
-			CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5),
-			fullFrame
-		]
+	/// Pyramid (AIA-0217): 4 quadrants + center (the issue's 5 images) + a full-frame pass — without
+	/// the full frame, an artifact larger than any half-size region would be missed entirely; the
+	/// dedup containment stage prefers the full-frame box over region-clipped partials.
+	static let pyramidRegions: [CGRect] = [
+		CGRect(x: 0, y: 0, width: 0.5, height: 0.5),
+		CGRect(x: 0.5, y: 0, width: 0.5, height: 0.5),
+		CGRect(x: 0, y: 0.5, width: 0.5, height: 0.5),
+		CGRect(x: 0.5, y: 0.5, width: 0.5, height: 0.5),
+		CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5),
+		fullFrame
+	]
+
+	/// 3x3 (AIA-0426): 9 grid cells (row-major, Vision bottom-left origin) + a full-frame pass = 10.
+	/// The last element is the *literal* `fullFrame` constant (not `3 × 1/3`, which floating-point
+	/// rounds off `1.0`) so it dedups exactly against the pyramid full frame in `regions(for:)`.
+	static let grid3x3Regions: [CGRect] = {
+		let step: CGFloat = 1.0 / 3.0
+		var regions: [CGRect] = []
+		for row in 0..<3 {
+			for col in 0..<3 {
+				regions.append(CGRect(x: CGFloat(col) * step, y: CGFloat(row) * step, width: step, height: step))
+			}
+		}
+		regions.append(fullFrame)
+		return regions
+	}()
+
+	/// The regions to run for the enabled scheme(s).
+	/// - Empty set → full frame only (untiled).
+	/// - Both schemes → the union of their regions, with exact duplicates (the shared full-frame pass)
+	///   collapsed, so each unique region runs once; cross-region NMS (`dedupAcrossRegions`) merges the
+	///   overlapping detections. Pyramid stays first, so `regionIndex` 0…5 is byte-identical to a
+	///   pyramid-only run and the surviving full frame is pyramid's (index 5).
+	/// - A non-empty set with only unknown bits falls back to the full frame rather than zero passes.
+	///   (Future-proofing for an added scheme; the current data flow only ever produces {pyramid, grid3x3}.)
+	static func regions(for schemes: TilingScheme) -> [CGRect] {
+		guard schemes.isEmpty.not else { return [fullFrame] }
+		var result: [CGRect] = []
+		if schemes.contains(.pyramid) { result.append(contentsOf: pyramidRegions) }
+		if schemes.contains(.grid3x3) { result.append(contentsOf: grid3x3Regions) }
+		// Collapse exact duplicates (the full-frame pass both schemes share) so it runs once. Uses
+		// `Array.contains` (CGRect: Equatable, iOS 13+) rather than `Set<CGRect>` (CGRect: Hashable is
+		// iOS 18+, above this target). The lists are tiny (≤16), so the O(n²) pass is free.
+		var deduped: [CGRect] = []
+		for region in result where deduped.contains(region).not {
+			deduped.append(region)
+		}
+		return deduped.isEmpty ? [fullFrame] : deduped
 	}
 
 	/// Remaps a region-relative normalized box (what Vision reports under a

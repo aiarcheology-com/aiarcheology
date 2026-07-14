@@ -176,11 +176,11 @@ class DeepDrivers: ObservableObject {
 	// This is the core function that takes a 2D image and detects objects in the scene.
 	// For that functionality, the driver should be already registered and loaded. That is
 	// controlled by the driver's related DeepConfiguation instance in CoreData.
-	func detect(on image: UIImage, tiledDetection: Bool) async -> [DetectionResult] {
+	func detect(on image: UIImage, tiling: TilingScheme) async -> [DetectionResult] {
 		// Snapshot the driver list on the main actor, then run the serial loop off it in
 		// the engine actor (AIA-0387).
 		let snapshot = detectors
-		return await engine.detect(on: image, in: snapshot, tiledDetection: tiledDetection)
+		return await engine.detect(on: image, in: snapshot, tiling: tiling)
 	}
 
 	// Classification counterpart of detect(): each registered classificator runs one
@@ -199,10 +199,10 @@ class DeepDrivers: ObservableObject {
 /// Cancellation is cooperative: a cancelled pass stops before dispatching the next driver
 /// (a driver already in flight finishes; its result is discarded caller-side).
 actor DetectionEngine {
-	// With tiledDetection the image is detected over 6 regions (4 quadrants + center +
-	// full frame, AIA-0217); otherwise over the full frame only.
-	func detect(on image: UIImage, in detectors: [DeepDriver], tiledDetection: Bool) async -> [DetectionResult] {
-		let regions = TileLayout.regions(tiled: tiledDetection)
+	// The image is detected over the regions of the enabled tiling scheme(s) (AIA-0217, AIA-0426):
+	// pyramid = 6, 3x3 = 10, both = their 15-region union; empty = full frame only.
+	func detect(on image: UIImage, in detectors: [DeepDriver], tiling: TilingScheme) async -> [DetectionResult] {
+		let regions = TileLayout.regions(for: tiling)
 		// The loop is serial — a plain array suffices.
 		var results: [DetectionResult] = []
 		for detector in detectors {

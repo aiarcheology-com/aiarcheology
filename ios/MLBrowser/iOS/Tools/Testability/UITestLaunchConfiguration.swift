@@ -105,7 +105,7 @@ struct UITestLaunchConfiguration: Codable {
 		settings.lastPage = nil
 		settings.defaultPage = URL(string: baselineHome)
 		settings.historySize = 30
-		settings.tiledDetection = true
+		settings.pyramidTiling = true
 
 		// 2) Scenario deltas.
 		switch config.pageScenario {

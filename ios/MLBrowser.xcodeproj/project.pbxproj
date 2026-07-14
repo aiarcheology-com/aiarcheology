@@ -95,6 +95,7 @@
 		8A6AE18D2B1BCC48005A5A79 /* WebHistoryEntry+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A6AE1892B1BCC48005A5A79 /* WebHistoryEntry+CoreDataClass.swift */; };
 		8A6AE18E2B1BCC48005A5A79 /* WebHistoryEntry+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A6AE18A2B1BCC48005A5A79 /* WebHistoryEntry+CoreDataProperties.swift */; };
 		8A7740CD2B1682F5002E90D9 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740CC2B1682F5002E90D9 /* SettingsView.swift */; };
+		B8E9453941541019D9117625 /* TiledDetectionSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BD87FEEE6BADF64DDD6A641 /* TiledDetectionSettingsView.swift */; };
 		8A7740D32B1894B3002E90D9 /* Bundle+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740D22B1894B3002E90D9 /* Bundle+Extension.swift */; };
 		8A7740D52B18AEB8002E90D9 /* Image+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740D42B18AEB8002E90D9 /* Image+Extensions.swift */; };
 		8A7740D72B1908DD002E90D9 /* SnapAdjustmentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7740D62B1908DD002E90D9 /* SnapAdjustmentView.swift */; };
@@ -386,6 +387,7 @@
 		8A6AE1892B1BCC48005A5A79 /* WebHistoryEntry+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebHistoryEntry+CoreDataClass.swift"; sourceTree = "<group>"; };
 		8A6AE18A2B1BCC48005A5A79 /* WebHistoryEntry+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WebHistoryEntry+CoreDataProperties.swift"; sourceTree = "<group>"; };
 		8A7740CC2B1682F5002E90D9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		6BD87FEEE6BADF64DDD6A641 /* TiledDetectionSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TiledDetectionSettingsView.swift; sourceTree = "<group>"; };
 		8A7740D22B1894B3002E90D9 /* Bundle+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Bundle+Extension.swift"; sourceTree = "<group>"; };
 		8A7740D42B18AEB8002E90D9 /* Image+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Image+Extensions.swift"; sourceTree = "<group>"; };
 		8A7740D62B1908DD002E90D9 /* SnapAdjustmentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapAdjustmentView.swift; sourceTree = "<group>"; };
@@ -871,6 +873,7 @@
 				8AC393C72B2BA0EC00C9BA57 /* PrivacyPolicyView.swift */,
 				9A0C1EAA2F3D000100000005 /* SentryStatsView.swift */,
 				8A7740CC2B1682F5002E90D9 /* SettingsView.swift */,
+				6BD87FEEE6BADF64DDD6A641 /* TiledDetectionSettingsView.swift */,
 			);
 			path = SettingsView;
 			sourceTree = "<group>";
@@ -1560,6 +1563,7 @@
 				94D79C822EE35B9B0027C9FA /* EnvironmentValues+Extensions.swift in Sources */,
 				D62680C830044014008E38F9 /* MLBrowser_0.0.0_0.0.1.xcmappingmodel in Sources */,
 				8A7740CD2B1682F5002E90D9 /* SettingsView.swift in Sources */,
+				B8E9453941541019D9117625 /* TiledDetectionSettingsView.swift in Sources */,
 				9A0C1EAA2F3D000200000005 /* SentryStatsView.swift in Sources */,
 				8A1D49BE2ABB87D500C2D7C1 /* DetailView.swift in Sources */,
 				8AC650992B2A453200922648 /* Driver.swift in Sources */,

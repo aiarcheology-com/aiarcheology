@@ -1,23 +1,22 @@
-Test Focus: Browse and install models from the Open Catalog (AIA-0413)
+Test Focus: Tiling schemes for detection + a debug tile-border overlay (AIA-0426)
 
-Build: 1.0.36 (123) — July 13, 2026
+Build: 1.0.7 (228) — July 14, 2026
 
 What's new:
 
-• Open Catalog adds a third way to acquire models, alongside Files and URL.
-• Search Hugging Face for Core ML image-classification and object-detection models.
-• Single-file .mlmodel downloads reuse the existing URL download and import experience.
-• .mlpackage models download their package contents, then use the normal import and validation flow.
+• Settings > Tiled Detection is now a submenu with two independent switches: Pyramid tiling (the existing scheme, on by default) and 3x3 tiling (new, off by default).
+• Enable either or both — with both on, the detector runs the combined set of tiles.
+• Settings > Tiled Detection also has a Tiled Borders switch (all builds) that outlines, in red, exactly how the screen is split into the tiles fed to the detector. It is a visual aid only and never changes detections.
 
 Please test:
 
-1. Open the model importer and choose Open Catalog.
-2. Search for a model such as "mobilenet" or "yolo". Confirm results appear after a brief pause and show loading, empty, or error states appropriately.
-3. Select a result with an .mlmodel file. Confirm the familiar download detail screen opens and that a successful download imports the model.
-4. If a result offers an .mlpackage, download it and keep the app open until import finishes. Confirm cancellation works while the package is downloading.
-5. Search again after a failed or empty query, then close and reopen the catalog. The importer should remain responsive.
+1. Open Settings and tap Tiled Detection. Confirm the submenu shows Pyramid tiling (on) and 3x3 tiling (off).
+2. With a model loaded and detection running, confirm detections still appear as before with only Pyramid on — existing behavior is unchanged.
+3. Turn on 3x3 tiling (optionally turn Pyramid off). Confirm detection keeps working; try it in portrait on iPhone.
+4. In Settings > Tiled Detection, turn on Tiled Borders. Start detection and confirm red rectangles outline the tiles over the page. Confirm the detection boxes and labels are the same whether Tiled Borders is on or off.
+5. Turn Tiled Borders off and confirm the red outlines disappear.
 
 Known limitations:
 
-• Only public Hugging Face Core ML image-classification and object-detection models are listed.
-• Models whose type cannot be determined may remain Disabled until you assign their type in the model configuration.
+• Tiled Borders is off by default; turn it on under Settings > Tiled Detection.
+• Turning on both tiling schemes runs more detection passes per snapshot, which can be slower on older devices.

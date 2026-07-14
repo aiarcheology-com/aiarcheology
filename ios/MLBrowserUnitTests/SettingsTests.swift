@@ -58,21 +58,68 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(settings.removeAnnotationOnDrag)
     }
 
-    func testSettings_DefaultTiledDetection_IsTrue() {
+    func testSettings_DefaultPyramidTiling_IsTrue() {
         settings.reset()
-        XCTAssertTrue(settings.tiledDetection)
+        XCTAssertTrue(settings.pyramidTiling)
     }
 
-    func testSettings_TiledDetection_PersistsAndResets() {
+    func testSettings_PyramidTiling_PersistsAndResets() {
         settings.reset()
-        settings.tiledDetection = false
+        settings.pyramidTiling = false
         // The registered default is true, so a fresh instance reading false proves the
         // value was actually persisted (bool(forKey:) alone returns false for a
         // missing key and would pass vacuously).
-        XCTAssertFalse(Settings().tiledDetection)
+        XCTAssertFalse(Settings().pyramidTiling)
         settings.reset()
-        XCTAssertTrue(settings.tiledDetection)
-        XCTAssertTrue(Settings().tiledDetection)
+        XCTAssertTrue(settings.pyramidTiling)
+        XCTAssertTrue(Settings().pyramidTiling)
+    }
+
+    func testSettings_PyramidTiling_ReadsLegacyTiledDetectionKey() {
+        // Backward-compat (AIA-0426): pyramidTiling persists under the legacy "tiledDetection" key,
+        // so an existing user's value survives the rename. Seed the raw key and read it back fresh.
+        UserDefaults.standard.set(false, forKey: "tiledDetection")
+        XCTAssertFalse(Settings().pyramidTiling)
+        settings.reset()
+    }
+
+    func testSettings_DefaultGrid3x3Tiling_IsFalse() {
+        settings.reset()
+        XCTAssertFalse(settings.grid3x3Tiling)
+    }
+
+    func testSettings_Grid3x3Tiling_PersistsAndResets() {
+        settings.reset()
+        settings.grid3x3Tiling = true
+        XCTAssertTrue(Settings().grid3x3Tiling)
+        settings.reset()
+        XCTAssertFalse(settings.grid3x3Tiling)
+        XCTAssertFalse(Settings().grid3x3Tiling)
+    }
+
+    func testSettings_DefaultTiledBorders_IsFalse() {
+        settings.reset()
+        XCTAssertFalse(settings.tiledBorders)
+    }
+
+    func testSettings_TiledBorders_PersistsAndResets() {
+        settings.reset()
+        settings.tiledBorders = true
+        XCTAssertTrue(Settings().tiledBorders)
+        settings.reset()
+        XCTAssertFalse(settings.tiledBorders)
+        XCTAssertFalse(Settings().tiledBorders)
+    }
+
+    func testSettings_TilingSchemes_ReflectsToggles() {
+        settings.reset() // pyramid on, 3x3 off
+        XCTAssertEqual(settings.tilingSchemes, .pyramid)
+        settings.grid3x3Tiling = true
+        XCTAssertEqual(settings.tilingSchemes, [.pyramid, .grid3x3])
+        settings.pyramidTiling = false
+        XCTAssertEqual(settings.tilingSchemes, .grid3x3)
+        settings.grid3x3Tiling = false
+        XCTAssertEqual(settings.tilingSchemes, [])
     }
     
     func testSettings_DefaultPage_IsGoogle() {
