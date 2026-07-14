@@ -66,8 +66,7 @@ struct CatalogBrowseView: View {
 				Button(L10n.Catalog.downloads) {
 					isShowingDownloads = true
 				}
-				.buttonStyle(.borderedProminent)
-				.tint(.blue)
+				.foregroundStyle(.blue)
 				.testability(Testability.Button.catalogDownloads)
 			}
 		}
