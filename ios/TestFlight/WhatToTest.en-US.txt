@@ -6,17 +6,17 @@ What's new:
 
 • Settings > Tiled Detection is now a submenu with two independent switches: Pyramid tiling (the existing scheme, on by default) and 3x3 tiling (new, off by default).
 • Enable either or both — with both on, the detector runs the combined set of tiles.
-• Non-App-Store builds add a Tiled Borders switch under Settings > Debug that outlines, in red, exactly how the screen is split into the tiles fed to the detector. It is a visual aid only and never changes detections.
+• Settings > Tiled Detection also has a Tiled Borders switch (all builds) that outlines, in red, exactly how the screen is split into the tiles fed to the detector. It is a visual aid only and never changes detections.
 
 Please test:
 
 1. Open Settings and tap Tiled Detection. Confirm the submenu shows Pyramid tiling (on) and 3x3 tiling (off).
 2. With a model loaded and detection running, confirm detections still appear as before with only Pyramid on — existing behavior is unchanged.
 3. Turn on 3x3 tiling (optionally turn Pyramid off). Confirm detection keeps working; try it in portrait on iPhone.
-4. In Settings > Debug, turn on Tiled Borders. Start detection and confirm red rectangles outline the tiles over the page. Confirm the detection boxes and labels are the same whether Tiled Borders is on or off.
+4. In Settings > Tiled Detection, turn on Tiled Borders. Start detection and confirm red rectangles outline the tiles over the page. Confirm the detection boxes and labels are the same whether Tiled Borders is on or off.
 5. Turn Tiled Borders off and confirm the red outlines disappear.
 
 Known limitations:
 
-• Tiled Borders appears only in non-App-Store (TestFlight/debug) builds and is off by default.
+• Tiled Borders is off by default; turn it on under Settings > Tiled Detection.
 • Turning on both tiling schemes runs more detection passes per snapshot, which can be slower on older devices.

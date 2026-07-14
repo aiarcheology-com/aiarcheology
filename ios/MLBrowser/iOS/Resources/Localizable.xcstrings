@@ -13682,13 +13682,13 @@
       }
     },
     "settings.tiledBordersFooter" : {
-      "comment" : "Footer explaining the Tiled Borders debug toggle",
+      "comment" : "Footer explaining the Tiled Borders toggle",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Draws a red border around each tile fed to the detector. Debug aid only; detection is unaffected."
+            "value" : "Draws a red border around each tile fed to the detector, so you can see how the page is split. Detection is unaffected."
           }
         }
       }

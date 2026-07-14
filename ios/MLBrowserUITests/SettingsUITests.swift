@@ -100,6 +100,10 @@ final class SettingsUITests: UITestCase {
             element(AID.settingsGrid3x3Tiling).waitForExistence(timeout: 10),
             "3x3 tiling toggle not shown in Tiled Detection submenu"
         )
+        XCTAssertTrue(
+            element(AID.settingsTiledBorders).waitForExistence(timeout: 10),
+            "Tiled Borders toggle not shown in Tiled Detection submenu"
+        )
         // Confirm a scheme toggle is actually interactive, not just present.
         XCTAssertTrue(flipSwitch(AID.settingsPyramidTiling), "Pyramid tiling toggle did not change state")
     }

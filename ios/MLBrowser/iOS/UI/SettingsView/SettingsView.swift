@@ -319,12 +319,10 @@ struct SettingsForm: View {
 	@ViewBuilder
 	private var debugSection: some View {
 		if AppEnvironment.isAppStoreDistribution.not {
-			Section(header: Text(L10n.Settings.Section.debug), footer: Text(L10n.Settings.tiledBordersFooter)) {
+			Section(header: Text(L10n.Settings.Section.debug)) {
 				NavigationLink(destination: SentryStatsView()) {
 					Text(L10n.Settings.Sentry.title)
 				}
-				Toggle(L10n.Settings.tiledBorders, isOn: $settings.tiledBorders)
-					.testability(Testability.Toggle.settingsTiledBorders)
 			}
 		}
 	}

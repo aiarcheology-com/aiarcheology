@@ -229,9 +229,7 @@ struct WebScreenView: View {
             tiling = appState.settings.tilingSchemes
         }
         .onReceive(appState.settings.$tiledBorders) { value in
-            // Clamp to non-App-Store: a persisted true from a TestFlight build must not render on an
-            // in-place App Store update, where the Debug toggle is hidden (AIA-0426).
-            tiledBorders = value && AppEnvironment.isAppStoreDistribution.not
+            tiledBorders = value
         }
         .onReceive(appState.detectionState.$ontheflyDetectionEnabled) { value in
             detectionActive = value
@@ -239,7 +237,7 @@ struct WebScreenView: View {
         .onAppear {
             showIdentifiers = appState.settings.showIdentifiers
             tiling = appState.settings.tilingSchemes
-            tiledBorders = appState.settings.tiledBorders && AppEnvironment.isAppStoreDistribution.not
+            tiledBorders = appState.settings.tiledBorders
             if hasPerformedInitialAction.not {
                 hasPerformedInitialAction = true
                 if let fixtureURL = appState.settings.launchFixtureURL {
