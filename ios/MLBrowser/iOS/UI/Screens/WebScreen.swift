@@ -104,7 +104,7 @@ struct WebScreenView: View {
 	@State private var intendedPageKind = ""
 	@State private var currentPageFile = ""
 	@State private var showIdentifiers: Bool = false
-	@State private var tiledDetection: Bool = false
+	@State private var tiling: TilingScheme = []
 	/// Mirrors `guide.ontheflyDetectionEnabled` (play/pause) so DetectableView can
 	/// clear the classification presentation the moment detection stops (AIA-0374).
 	@State private var detectionActive: Bool = false
@@ -185,7 +185,7 @@ struct WebScreenView: View {
             drivers: appState.deep.drivers,
             trigger: appState.snap.combinedPublishers,
             showIdentifiers: showIdentifiers,
-            tiledDetection: tiledDetection,
+            tiling: tiling,
             detectionActive: detectionActive,
             isCapturingFinding: $isCapturingFinding,
             onFrameChanged: { frame in
@@ -218,15 +218,18 @@ struct WebScreenView: View {
         .onReceive(appState.settings.$showIdentifiers) { value in
             showIdentifiers = value
         }
-        .onReceive(appState.settings.$pyramidTiling) { value in
-            tiledDetection = value
+        .onReceive(appState.settings.$pyramidTiling) { _ in
+            tiling = appState.settings.tilingSchemes
+        }
+        .onReceive(appState.settings.$grid3x3Tiling) { _ in
+            tiling = appState.settings.tilingSchemes
         }
         .onReceive(appState.detectionState.$ontheflyDetectionEnabled) { value in
             detectionActive = value
         }
         .onAppear {
             showIdentifiers = appState.settings.showIdentifiers
-            tiledDetection = appState.settings.pyramidTiling
+            tiling = appState.settings.tilingSchemes
             if hasPerformedInitialAction.not {
                 hasPerformedInitialAction = true
                 if let fixtureURL = appState.settings.launchFixtureURL {

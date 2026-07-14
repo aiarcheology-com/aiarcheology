@@ -28,7 +28,7 @@ final class DetectionCoordinator: ObservableObject {
 
 	/// Off-main detection, injected for testability. `@MainActor` because `DeepDrivers` is — the
 	/// heavy work hops to the engine actor inside `detect`; this coordinator only awaits it.
-	private let detect: @MainActor (UIImage, Bool) async -> [DetectionResult]
+	private let detect: @MainActor (UIImage, TilingScheme) async -> [DetectionResult]
 	/// Mirrors every displayed-frame write to the presenting screen (the find-pick flow hit-tests
 	/// the frozen frame's boxes and reuses its snapshot, so the mirror can never diverge).
 	private let onFrameChanged: ((AppliedDetectionFrame?) -> Void)?
@@ -37,9 +37,9 @@ final class DetectionCoordinator: ObservableObject {
 	/// Invalidation token: a pass that started before an interaction/capture/geometry change must
 	/// not apply. Bumped on every active invalidation; re-checked at apply.
 	private var generation: UInt64 = 0
-	/// Live-mirrored from the view (the "tiled detection" setting can change mid-session); read at
+	/// Live-mirrored from the view (the tiling-scheme settings can change mid-session); read at
 	/// pass start. A mid-burst toggle self-heals on the next snapshot.
-	var tiledDetection: Bool
+	var tiling: TilingScheme
 
 	/// Live apply-time guards. Default to "not interacting / not capturing" until bound; no snapshot
 	/// arrives before the view appears and binds them (see `bindGuards`).
@@ -47,11 +47,11 @@ final class DetectionCoordinator: ObservableObject {
 	private var isCapturing: () -> Bool = { false }
 
 	init(
-		tiledDetection: Bool = false,
-		detect: @escaping @MainActor (UIImage, Bool) async -> [DetectionResult],
+		tiling: TilingScheme = [],
+		detect: @escaping @MainActor (UIImage, TilingScheme) async -> [DetectionResult],
 		onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil
 	) {
-		self.tiledDetection = tiledDetection
+		self.tiling = tiling
 		self.detect = detect
 		self.onFrameChanged = onFrameChanged
 	}
@@ -104,7 +104,7 @@ final class DetectionCoordinator: ObservableObject {
 		queue.enqueue(image) { image, done in
 			let startGeneration = self.generation
 			Task {
-				let observations = await self.detect(image, self.tiledDetection)
+				let observations = await self.detect(image, self.tiling)
 				done()
 				// Discard if invalidated since this pass began (stale geometry/interaction/capture).
 				guard self.generation == startGeneration else { return }

@@ -30,7 +30,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     let drivers: DeepDrivers
     let trigger: P
     let showIdentifiers: Bool
-    let tiledDetection: Bool
+    let tiling: TilingScheme
     /// Whether the detection/classification loop is running (play/pause). When it
     /// stops, the classification presentation must clear immediately — with no
     /// further snapshots the steady-state pulse/bubble would freeze forever
@@ -62,7 +62,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         drivers: DeepDrivers,
         trigger: P,
         showIdentifiers: Bool,
-        tiledDetection: Bool = false,
+        tiling: TilingScheme = [],
         detectionActive: Bool = false,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
@@ -73,7 +73,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         self.drivers = drivers
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
-        self.tiledDetection = tiledDetection
+        self.tiling = tiling
         self.detectionActive = detectionActive
         self.isCapturingFinding = isCapturingFinding
         self.onInteractionStateChanged = onInteractionStateChanged
@@ -82,8 +82,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // inside detect(). Guards are bound later from the installed view's connected state
         // (.onAppear → bindGuards) — a view's own @State isn't wired to storage at init time.
         self._coordinator = StateObject(wrappedValue: DetectionCoordinator(
-            tiledDetection: tiledDetection,
-            detect: { image, tiled in await drivers.detect(on: image, tiledDetection: tiled) },
+            tiling: tiling,
+            detect: { image, tiling in await drivers.detect(on: image, tiling: tiling) },
             onFrameChanged: onFrameChanged
         ))
     }
@@ -214,9 +214,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 isCapturing: { isCapturingFinding.wrappedValue }
             )
         }
-        .onChange(of: tiledDetection) { _, value in
-            // Keep the coordinator's live tiling flag current (read at each pass start).
-            coordinator.tiledDetection = value
+        .onChange(of: tiling) { _, value in
+            // Keep the coordinator's live tiling scheme current (read at each pass start).
+            coordinator.tiling = value
         }
         // AIA-0317: publish the live rendered-annotation count for UI tests. Attached at the body
         // root (outside the ZStack's SnapableGroup), so the 1pt marker is never in the detection
