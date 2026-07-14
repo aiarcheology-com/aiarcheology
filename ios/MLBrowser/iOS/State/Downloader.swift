@@ -452,7 +452,11 @@ final public class Downloader: NSObject, ObservableObject {
 
 	/// Creates a persisted download item for a multi-file Core ML package. The manifest is kept on
 	/// the item instead of an ephemeral view state so a failed package can be retried after relaunch.
-	func makePackageDownloadItem(files: [CatalogFile], in context: NSManagedObjectContext) throws -> DownloadItem {
+	func makePackageDownloadItem(
+		files: [CatalogFile],
+		catalogSource: String? = nil,
+		in context: NSManagedObjectContext
+	) throws -> DownloadItem {
 		let orderedFiles = CatalogFile.orderedForDownload(files)
 		guard let firstFile = orderedFiles.first else {
 			throw CatalogError.noInstallableArtifact
@@ -461,6 +465,7 @@ final public class Downloader: NSObject, ObservableObject {
 		let manifest = PackageDownloadManifest(files: orderedFiles)
 		let item = DownloadItem.create(in: context)
 		item.url = firstFile.resolveURL
+		item.catalogSource = catalogSource
 		item.resumeData = try JSONEncoder().encode(manifest)
 		item.transition(to: .draft)
 		try DownloadItem.save(in: context)
@@ -471,7 +476,11 @@ final public class Downloader: NSObject, ObservableObject {
 	/// Returns the persisted download for a catalog artifact, creating it only the first time the
 	/// artifact is opened. This lets a catalog row reopen its active, paused, completed, or failed
 	/// download instead of creating a competing job.
-	func catalogDownloadItem(files: [CatalogFile], in context: NSManagedObjectContext) throws -> DownloadItem {
+	func catalogDownloadItem(
+		files: [CatalogFile],
+		catalogSource: String? = nil,
+		in context: NSManagedObjectContext
+	) throws -> DownloadItem {
 		let orderedFiles = CatalogFile.orderedForDownload(files)
 		guard let firstFile = orderedFiles.first else {
 			throw CatalogError.noInstallableArtifact
@@ -483,6 +492,10 @@ final public class Downloader: NSObject, ObservableObject {
 		request.sortDescriptors = [NSSortDescriptor(keyPath: \DownloadItem.stateChanged_, ascending: false)]
 		request.fetchLimit = 1
 		if let existingItem = try context.fetch(request).first {
+			if existingItem.catalogSource == nil, catalogSource != nil {
+				existingItem.catalogSource = catalogSource
+				try DownloadItem.save(in: context)
+			}
 			if isSingleModelFile, isCatalogDownload(existingItem) {
 				// Early catalog versions derived Google Drive's generic `/download` path as the
 				// filename, creating a manifest-backed job for a single file. Reopen that same
@@ -502,11 +515,12 @@ final public class Downloader: NSObject, ObservableObject {
 		}
 
 		if isSingleModelFile == false || firstFile.xetFile != nil {
-			return try makePackageDownloadItem(files: orderedFiles, in: context)
+			return try makePackageDownloadItem(files: orderedFiles, catalogSource: catalogSource, in: context)
 		}
 
 		let item = DownloadItem.create(in: context)
 		item.url = firstFile.resolveURL
+		item.catalogSource = catalogSource
 		item.transition(to: .draft)
 		try DownloadItem.save(in: context)
 		return item
@@ -1192,6 +1206,13 @@ extension DownloadItem {
         guard let file_ else { return nil }
         return try? file_.completePath(to: DownloadItem.rootDirectory, isDirectory: false)
     }
+
+	/// The catalog provider that created this download job, if any. The import uses the item's UUID
+	/// as the new configuration UUID, so this provenance is available after download/retry/relaunch.
+	var catalogSource: String? {
+		get { CatalogSourceStore.source(for: entityId) }
+		set { CatalogSourceStore.setSource(newValue, for: entityId) }
+	}
     
     public var state: Downloader.State {
         get {

@@ -2793,6 +2793,18 @@
         }
       }
     },
+    "catalog.downloads" : {
+      "comment" : "Button that opens the downloads list from Open Catalog",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloads"
+          }
+        }
+      }
+    },
     "catalog.download.timeout" : {
       "comment" : "Error shown when a catalog download stops receiving data and can be retried",
       "extractionState" : "manual",
@@ -4361,6 +4373,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "作者"
+          }
+        }
+      }
+    },
+    "configuration.catalog" : {
+      "comment" : "Catalog source label in configuration",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Catalog"
           }
         }
       }

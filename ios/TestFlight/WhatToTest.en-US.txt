@@ -1,22 +1,19 @@
-Test Focus: Tiling schemes for detection + a debug tile-border overlay (AIA-0426)
-
-Build: 1.0.7 (228) — July 14, 2026
+Test Focus: Catalog model downloads and model source details (AIA-0413, AIA-0425)
 
 What's new:
 
-• Settings > Tiled Detection is now a submenu with two independent switches: Pyramid tiling (the existing scheme, on by default) and 3x3 tiling (new, off by default).
-• Enable either or both — with both on, the detector runs the combined set of tiles.
-• Settings > Tiled Detection also has a Tiled Borders switch (all builds) that outlines, in red, exactly how the screen is split into the tiles fed to the detector. It is a visual aid only and never changes detections.
+• Open Catalog has a Downloads button. It opens your existing download list without losing the current catalog search.
+• Catalog-downloaded models show their source, such as Hugging Face, in the model configuration sheet after import.
+• Multi-file Core ML package downloads are more resilient to interrupted or stalled transfers.
 
 Please test:
 
-1. Open Settings and tap Tiled Detection. Confirm the submenu shows Pyramid tiling (on) and 3x3 tiling (off).
-2. With a model loaded and detection running, confirm detections still appear as before with only Pyramid on — existing behavior is unchanged.
-3. Turn on 3x3 tiling (optionally turn Pyramid off). Confirm detection keeps working; try it in portrait on iPhone.
-4. In Settings > Tiled Detection, turn on Tiled Borders. Start detection and confirm red rectangles outline the tiles over the page. Confirm the detection boxes and labels are the same whether Tiled Borders is on or off.
-5. Turn Tiled Borders off and confirm the red outlines disappear.
+1. Open Models > Add Model > Open Catalog, search for a model, and tap Downloads. Confirm the Models list slides in and the back button returns you to the same catalog results.
+2. In Downloads, delete a completed, failed, or cancelled download. Return to Open Catalog and confirm the list updates.
+3. Import a model from Open Catalog, open its configuration sheet, and confirm it displays a Catalog row with the provider name.
+4. Start a multi-file .mlpackage download from Open Catalog. Try leaving its detail screen and returning while it runs; confirm the progress and final status remain available.
 
 Known limitations:
 
-• Tiled Borders is off by default; turn it on under Settings > Tiled Detection.
-• Turning on both tiling schemes runs more detection passes per snapshot, which can be slower on older devices.
+• Only models the app can install are shown in Open Catalog.
+• A failed download can be retried from its detail screen.

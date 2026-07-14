@@ -144,6 +144,38 @@ struct CatalogProviderDescriptor: Identifiable, Hashable, Sendable {
 	}
 }
 
+/// Optional, per-model catalog provenance. This is display metadata, not a queryable model field,
+/// so it is keyed by the download/configuration UUID in UserDefaults instead of requiring a Core
+/// Data schema migration for already-shipped stores.
+enum CatalogSourceStore {
+	static func source(for id: UUID) -> String? {
+		guard let source = UserDefaults.standard.string(forKey: key(for: id)) else { return nil }
+		let trimmedSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
+		return trimmedSource.isEmpty ? nil : trimmedSource
+	}
+
+	static func setSource(_ source: String?, for id: UUID) {
+		guard let source else {
+			removeSource(for: id)
+			return
+		}
+		let trimmedSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard trimmedSource.isEmpty == false else {
+			removeSource(for: id)
+			return
+		}
+		UserDefaults.standard.set(trimmedSource, forKey: key(for: id))
+	}
+
+	static func removeSource(for id: UUID) {
+		UserDefaults.standard.removeObject(forKey: key(for: id))
+	}
+
+	private static func key(for id: UUID) -> String {
+		"catalog.source.\(id.uuidString)"
+	}
+}
+
 protocol CatalogProvider: Sendable {
 	var descriptor: CatalogProviderDescriptor { get }
 

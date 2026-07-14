@@ -70,6 +70,23 @@ final class DeepConfigurationTests: XCTestCase {
         XCTAssertTrue(config.enabled)
         XCTAssertEqual(config.phaseOutTime, 1.5)
     }
+
+    func testCatalogSource_IsSharedWithCatalogDownloadByConfigurationID() {
+        let id = UUID()
+        let item = DownloadItem.create(in: context)
+        item.entityId = id
+        item.catalogSource = "  Hugging Face  "
+        defer { item.catalogSource = nil }
+
+        let config = DeepConfiguration(context: context)
+        config.entityId = id
+
+        XCTAssertEqual(config.catalogSource, "Hugging Face")
+
+        config.catalogSource = " \n "
+
+        XCTAssertNil(config.catalogSource)
+    }
     
     // MARK: - LifeCycle Tests
     

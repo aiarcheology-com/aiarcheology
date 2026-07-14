@@ -389,7 +389,7 @@ struct ModelImportView: View {
 
 		// Phase 2: Core Data operations (on MainActor)
 		return try await MainActor.run {
-			try createAndSaveConfiguration(
+			return try createAndSaveConfiguration(
 				modelURL: modelURL,
 				downloadUrl: downloadUrl,
 				id: id,
@@ -453,6 +453,7 @@ struct ModelImportView: View {
 
 		configuration.file_ = relativePath
 		configuration.downloadURL = downloadUrl
+		configuration.catalogSource = DownloadItem.select(id, in: moc)?.catalogSource
 		configuration.enabled = false
 		configuration.transition(to: .draft)
 

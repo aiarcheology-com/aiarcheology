@@ -243,6 +243,10 @@ struct ConfigurationForm: View {
 			}
 			ConfigurationDetailRow(label: L10n.Configuration.version, value: " \(configuration.modelVersion ?? "")")
 
+			if let catalogSource = configuration.catalogSource {
+				ConfigurationDetailRow(label: L10n.Configuration.catalog, value: catalogSource)
+			}
+
 			if let downloadURL = configuration.downloadURL {
 				ExpandableDetailRow(label: L10n.Configuration.link, value: downloadURL.absoluteString)
 			}

@@ -191,6 +191,8 @@ internal enum L10n {
     }
   }
   internal enum Catalog {
+    /// Downloads
+    internal static let downloads = L10n.tr("Localizable", "catalog.downloads", fallback: "Downloads")
     /// Provider
     internal static let provider = L10n.tr("Localizable", "catalog.provider", fallback: "Provider")
     /// Open Catalog
@@ -287,6 +289,8 @@ internal enum L10n {
   internal enum Configuration {
     /// Author
     internal static let author = L10n.tr("Localizable", "configuration.author", fallback: "Author")
+    /// Catalog
+    internal static let catalog = L10n.tr("Localizable", "configuration.catalog", fallback: "Catalog")
     /// Color
     internal static let color = L10n.tr("Localizable", "configuration.color", fallback: "Color")
     /// Created
@@ -599,8 +603,8 @@ internal enum L10n {
     internal static let showLabels = L10n.tr("Localizable", "settings.showLabels", fallback: "Show Labels")
     /// Tiled Borders
     internal static let tiledBorders = L10n.tr("Localizable", "settings.tiledBorders", fallback: "Tiled Borders")
-    /// Draws a red border around each tile fed to the detector. Debug aid only; detection is unaffected.
-    internal static let tiledBordersFooter = L10n.tr("Localizable", "settings.tiledBordersFooter", fallback: "Draws a red border around each tile fed to the detector. Debug aid only; detection is unaffected.")
+    /// Draws a red border around each tile fed to the detector, so you can see how the page is split. Detection is unaffected.
+    internal static let tiledBordersFooter = L10n.tr("Localizable", "settings.tiledBordersFooter", fallback: "Draws a red border around each tile fed to the detector, so you can see how the page is split. Detection is unaffected.")
     /// Tiled Detection
     internal static let tiledDetection = L10n.tr("Localizable", "settings.tiledDetection", fallback: "Tiled Detection")
     /// Choose which tile layouts feed the detector. Enable either or both; both run the union of their tiles.
