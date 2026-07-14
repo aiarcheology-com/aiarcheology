@@ -16,6 +16,7 @@ struct CatalogBrowseView: View {
 	@ObservedObject private var searchManager: CatalogSearchManager
 	@State private var selectionTask: Task<Void, Never>?
 	@State private var downloadItem: DownloadItem?
+	@State private var isShowingDownloads = false
 	@State private var selectionErrorMessage: String?
 	@FetchRequest(
 		sortDescriptors: [NSSortDescriptor(keyPath: \DownloadItem.stateChanged_, ascending: false)],
@@ -56,6 +57,18 @@ struct CatalogBrowseView: View {
 		.navigationBarTitleDisplayMode(.inline)
 		.navigationDestination(item: $downloadItem) { item in
 			DownloadDetailView(item: item, onImport: onImport)
+		}
+		.navigationDestination(isPresented: $isShowingDownloads) {
+			DownloaderView(onImport: onImport, showsDismissButton: false)
+		}
+		.toolbar {
+			ToolbarItem(placement: .topBarTrailing) {
+				Button(L10n.Catalog.downloads) {
+					isShowingDownloads = true
+				}
+				.foregroundStyle(.blue)
+				.testability(Testability.Button.catalogDownloads)
+			}
 		}
 		.onDisappear {
 			selectionTask?.cancel()
@@ -221,7 +234,11 @@ private extension CatalogBrowseView {
 			}
 
 			do {
-				downloadItem = try downloader.catalogDownloadItem(files: files, in: managedObjectContext)
+				downloadItem = try downloader.catalogDownloadItem(
+					files: files,
+					catalogSource: searchManager.providerName(for: model.providerId),
+					in: managedObjectContext
+				)
 			} catch {
 				selectionErrorMessage = L10n.Catalog.Error.message
 			}

@@ -94,6 +94,46 @@ final class ActivePackageDownload: Identifiable, ObservableObject {
 	}
 }
 
+/// Tracks MainActor progress updates scheduled from package-download worker tasks so the final
+/// completion transition waits for every previously reported progress snapshot.
+private final class PackageDownloadProgressRelay: @unchecked Sendable {
+	private struct Tail {
+		let id: UInt
+		let task: Task<Void, Never>
+	}
+
+	private let lock = NSLock()
+	private var tail: Tail?
+	private var nextTailID: UInt = 0
+
+	func enqueue(_ operation: @escaping @MainActor @Sendable () -> Void) {
+		lock.lock()
+		let previousTask = tail?.task
+		nextTailID &+= 1
+		let tailID = nextTailID
+		let task = Task { @MainActor in
+			await previousTask?.value
+			operation()
+		}
+		tail = Tail(id: tailID, task: task)
+		lock.unlock()
+	}
+
+	func flush() async {
+		while let snapshot = lock.withLock({ tail }) {
+			await snapshot.task.value
+			let caughtUp = lock.withLock { () -> Bool in
+				guard tail?.id == snapshot.id else { return false }
+				tail = nil
+				return true
+			}
+			if caughtUp {
+				return
+			}
+		}
+	}
+}
+
 struct PackageFileProgress: Equatable {
 	let completedFileCount: Int
 	let totalFileCount: Int
@@ -429,7 +469,11 @@ final public class Downloader: NSObject, ObservableObject {
 
 	/// Creates a persisted download item for a multi-file Core ML package. The manifest is kept on
 	/// the item instead of an ephemeral view state so a failed package can be retried after relaunch.
-	func makePackageDownloadItem(files: [CatalogFile], in context: NSManagedObjectContext) throws -> DownloadItem {
+	func makePackageDownloadItem(
+		files: [CatalogFile],
+		catalogSource: String? = nil,
+		in context: NSManagedObjectContext
+	) throws -> DownloadItem {
 		let orderedFiles = CatalogFile.orderedForDownload(files)
 		guard let firstFile = orderedFiles.first else {
 			throw CatalogError.noInstallableArtifact
@@ -438,6 +482,7 @@ final public class Downloader: NSObject, ObservableObject {
 		let manifest = PackageDownloadManifest(files: orderedFiles)
 		let item = DownloadItem.create(in: context)
 		item.url = firstFile.resolveURL
+		item.catalogSource = catalogSource
 		item.resumeData = try JSONEncoder().encode(manifest)
 		item.transition(to: .draft)
 		try DownloadItem.save(in: context)
@@ -448,7 +493,11 @@ final public class Downloader: NSObject, ObservableObject {
 	/// Returns the persisted download for a catalog artifact, creating it only the first time the
 	/// artifact is opened. This lets a catalog row reopen its active, paused, completed, or failed
 	/// download instead of creating a competing job.
-	func catalogDownloadItem(files: [CatalogFile], in context: NSManagedObjectContext) throws -> DownloadItem {
+	func catalogDownloadItem(
+		files: [CatalogFile],
+		catalogSource: String? = nil,
+		in context: NSManagedObjectContext
+	) throws -> DownloadItem {
 		let orderedFiles = CatalogFile.orderedForDownload(files)
 		guard let firstFile = orderedFiles.first else {
 			throw CatalogError.noInstallableArtifact
@@ -460,6 +509,10 @@ final public class Downloader: NSObject, ObservableObject {
 		request.sortDescriptors = [NSSortDescriptor(keyPath: \DownloadItem.stateChanged_, ascending: false)]
 		request.fetchLimit = 1
 		if let existingItem = try context.fetch(request).first {
+			if existingItem.catalogSource == nil, catalogSource != nil {
+				existingItem.catalogSource = catalogSource
+				try DownloadItem.save(in: context)
+			}
 			if isSingleModelFile, isCatalogDownload(existingItem) {
 				// Early catalog versions derived Google Drive's generic `/download` path as the
 				// filename, creating a manifest-backed job for a single file. Reopen that same
@@ -479,11 +532,12 @@ final public class Downloader: NSObject, ObservableObject {
 		}
 
 		if isSingleModelFile == false || firstFile.xetFile != nil {
-			return try makePackageDownloadItem(files: orderedFiles, in: context)
+			return try makePackageDownloadItem(files: orderedFiles, catalogSource: catalogSource, in: context)
 		}
 
 		let item = DownloadItem.create(in: context)
 		item.url = firstFile.resolveURL
+		item.catalogSource = catalogSource
 		item.transition(to: .draft)
 		try DownloadItem.save(in: context)
 		return item
@@ -775,20 +829,23 @@ final public class Downloader: NSObject, ObservableObject {
 		transitionAndSave(item, to: .downloading)
 
 		LoggingPolicy.info("Starting package download for item \(entityId.uuidString) with \(manifest.files.count) files", logger: .networking)
+		let progressRelay = PackageDownloadProgressRelay()
 		activeDownload.task = Task { [weak self, packageDownloader] in
 			guard let self else { return }
 			do {
-				let events = await packageDownloader.events(for: manifest.files)
-				for try await event in events {
-					guard Task.isCancelled == false else { return }
-					switch event {
-					case .progress(let progress):
-						self.updatePackageDownloadProgress(progress, itemId: entityId)
-					case .finished(let packageURL):
-						self.handlePackageDownloadCompletion(itemId: entityId, result: .success(packageURL))
+				let packageURL = try await packageDownloader.download(files: manifest.files) { [weak self, progressRelay] progress in
+					progressRelay.enqueue { [weak self] in
+						self?.updatePackageDownloadProgress(progress, itemId: entityId)
 					}
 				}
+				await progressRelay.flush()
+				guard Task.isCancelled == false else {
+					removePackageStagingDirectory(for: packageURL, manifest: manifest)
+					return
+				}
+				self.handlePackageDownloadCompletion(itemId: entityId, result: .success(packageURL))
 			} catch {
+				await progressRelay.flush()
 				guard Task.isCancelled == false else { return }
 				self.handlePackageDownloadCompletion(itemId: entityId, result: .failure(error))
 			}
@@ -811,11 +868,11 @@ final public class Downloader: NSObject, ObservableObject {
 			return
 		}
 
-		activeDownload.progress = progress.fractionCompleted
-		activeDownload.totalBytesWritten = Int(progress.downloadedBytes)
-		activeDownload.totalBytesExpected = Int(progress.expectedBytes ?? 0)
-		activeDownload.completedFileCount = progress.completedFileCount
-		activeDownload.totalFileCount = progress.totalFileCount
+		activeDownload.progress = max(activeDownload.progress, progress.fractionCompleted)
+		activeDownload.totalBytesWritten = max(activeDownload.totalBytesWritten, Int(progress.downloadedBytes))
+		activeDownload.totalBytesExpected = max(activeDownload.totalBytesExpected, Int(progress.expectedBytes ?? 0))
+		activeDownload.completedFileCount = max(activeDownload.completedFileCount, progress.completedFileCount)
+		activeDownload.totalFileCount = max(activeDownload.totalFileCount, progress.totalFileCount)
 		persistPackageDownloadState(from: activeDownload, to: item)
 	}
 
@@ -852,10 +909,17 @@ final public class Downloader: NSObject, ObservableObject {
 			}
 		case .failure(let error):
 			LoggingPolicy.error("Package download failed", error: error, logger: .networking)
-			item.error = L10n.Catalog.Download.error
+			item.error = catalogDownloadErrorMessage(for: error)
 			persistPackageDownloadState(from: activeDownload, to: item)
 			transitionAndSave(item, to: .failed)
 		}
+	}
+
+	private func catalogDownloadErrorMessage(for error: Error) -> String {
+		if let error = error as? CatalogError, error == .timedOut {
+			return L10n.Catalog.Download.timeout
+		}
+		return L10n.Catalog.Download.error
 	}
 
 	private func packageStagingDirectory(for packageURL: URL, manifest: PackageDownloadManifest?) -> URL? {
@@ -868,6 +932,12 @@ final public class Downloader: NSObject, ObservableObject {
 		return (0...packageIndex).reduce(packageURL) { directory, _ in
 			directory.deletingLastPathComponent()
 		}
+	}
+
+	private func removePackageStagingDirectory(for packageURL: URL, manifest: PackageDownloadManifest) {
+		let stagingDirectory = packageStagingDirectory(for: packageURL, manifest: manifest)
+			?? packageURL.deletingLastPathComponent()
+		try? FileManager.default.removeItem(at: stagingDirectory)
 	}
     
     // MARK: URLSession delegate forwarding endpoints (called by the proxy)
@@ -1121,6 +1191,7 @@ extension DownloadItem: CoreDataManageable {
     }
     
     static func delete(_ entity: DownloadItem, in context: NSManagedObjectContext, deleteModel: Bool) {
+		let entityId = entity.entityId
         if deleteModel.enabled, let modelPath = entity.file {
             if FileManager.default.fileExists(atPath: modelPath.path) {
                 do {
@@ -1133,6 +1204,9 @@ extension DownloadItem: CoreDataManageable {
             }
         }
         DownloadItem.delete(entity, in: context)
+		if DeepConfiguration.select(entityId, in: context) == nil {
+			CatalogSourceStore.removeSource(for: entityId)
+		}
     }
     
     func doesModelFileExist() -> Bool {
@@ -1153,6 +1227,13 @@ extension DownloadItem {
         guard let file_ else { return nil }
         return try? file_.completePath(to: DownloadItem.rootDirectory, isDirectory: false)
     }
+
+	/// The catalog provider that created this download job, if any. The import uses the item's UUID
+	/// as the new configuration UUID, so this provenance is available after download/retry/relaunch.
+	var catalogSource: String? {
+		get { CatalogSourceStore.source(for: entityId) }
+		set { CatalogSourceStore.setSource(newValue, for: entityId) }
+	}
     
     public var state: Downloader.State {
         get {

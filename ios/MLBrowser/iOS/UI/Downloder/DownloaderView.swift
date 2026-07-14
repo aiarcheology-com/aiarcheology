@@ -28,6 +28,9 @@ struct DownloaderView: View {
     private var downloadItems: FetchedResults<DownloadItem>
 
     var onImport: ImportHandler
+    /// The regular download flow presents this view in a sheet, while Open Catalog pushes it on
+    /// its navigation stack. A pushed view uses the system back affordance instead of Done.
+    var showsDismissButton = true
     
     var body: some View {
         // List of downloaded files, or currently being downloaded:
@@ -73,13 +76,15 @@ struct DownloaderView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
-            Button(L10n.Common.done) {
-                dismiss()
+        if showsDismissButton {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(L10n.Common.done) {
+                    dismiss()
+                }
+                .testability(Testability.Button.downloaderDone)
+                .bold()
+                .foregroundColor(.blue)
             }
-            .testability(Testability.Button.downloaderDone)
-            .bold()
-            .foregroundColor(.blue)
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {

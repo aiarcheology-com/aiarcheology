@@ -45,9 +45,13 @@ final class ModelConfigurationRepository {
 	}
 
 	func delete(_ entity: DeepConfiguration) {
+		let entityId = entity.entityId
 		// Per-model flash prefs live in UserDefaults (AIA-0374) — clear them with the row.
 		entity.removeFlashDefaults()
 		DeepConfiguration.delete(entity, in: context)
+		if DownloadItem.select(entityId, in: context) == nil {
+			CatalogSourceStore.removeSource(for: entityId)
+		}
 	}
 
 	func select(_ entityId: UUID) -> DeepConfiguration? {
@@ -67,7 +71,11 @@ final class ModelConfigurationRepository {
 	/// `selectAll()` empty afterwards, so clearing must precede it. Throws on delete failure so the
 	/// coordinator can keep drivers registered and surface the error.
 	func reset() async throws {
-		selectAll().forEach { $0.removeFlashDefaults() }
+		let configurations = selectAll()
+		let catalogSourceIDsToRemove = configurations.compactMap { configuration -> UUID? in
+			configuration.removeFlashDefaults()
+			return DownloadItem.select(configuration.entityId, in: context) == nil ? configuration.entityId : nil
+		}
 		// The viewContext reference is only handed to mergeChanges(fromRemoteContextSave:into:),
 		// which is safe to call cross-queue.
 		let viewContext = context
@@ -87,5 +95,6 @@ final class ModelConfigurationRepository {
 		if let deleteError {
 			throw deleteError
 		}
+		catalogSourceIDsToRemove.forEach(CatalogSourceStore.removeSource)
 	}
 }

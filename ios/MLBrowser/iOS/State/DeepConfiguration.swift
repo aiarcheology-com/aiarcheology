@@ -85,6 +85,14 @@ extension DeepConfiguration {
 			modelTypeString = newValue.rawValue
 		}
 	}
+
+	/// The catalog provider from which this model was acquired, when it originated in Open Catalog.
+	/// Manual file and URL imports have no catalog source and therefore leave the configuration row
+	/// absent.
+	public var catalogSource: String? {
+		get { CatalogSourceStore.source(for: entityId) }
+		set { CatalogSourceStore.setSource(newValue, for: entityId) }
+	}
 	
 	static func == (lhs: DeepConfiguration, rhs: DeepConfiguration) -> Bool {
 		guard lhs.entityId == rhs.entityId else { return false }

@@ -612,6 +612,30 @@ final class DownloaderTests: XCTestCase {
 		XCTAssertEqual(try context.count(for: DownloadItem.fetchRequest()), 1)
 	}
 
+	func testCatalogDownloadItem_preservesCatalogSourceWhenReopeningArtifactJob() throws {
+		let file = CatalogFile(
+			relativePath: "Example.mlmodel",
+			resolveURL: URL(string: "https://catalog.test/Example.mlmodel") ?? URL(fileURLWithPath: "/"),
+			sizeBytes: 64
+		)
+		let context = dataController.container.viewContext
+
+		let firstItem = try downloader.catalogDownloadItem(
+			files: [file],
+			catalogSource: "Hugging Face",
+			in: context
+		)
+		defer { firstItem.catalogSource = nil }
+		let reopenedItem = try downloader.catalogDownloadItem(
+			files: [file],
+			catalogSource: "Apple Core ML",
+			in: context
+		)
+
+		XCTAssertEqual(firstItem.catalogSource, "Hugging Face")
+		XCTAssertEqual(reopenedItem.catalogSource, "Hugging Face")
+	}
+
 	func testCatalogDownloadItem_usesSingleFileDownloadForGoogleDriveArtifact() async throws {
 		let provider = JohnRockyCoreMLCatalogProvider()
 		let models = try await provider.search(query: "yolov5")

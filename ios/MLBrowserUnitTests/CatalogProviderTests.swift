@@ -9,6 +9,7 @@ import XCTest
 import Combine
 @testable import ML_Browser
 
+@MainActor
 final class CatalogProviderTests: XCTestCase {
 
 	private final class RequestCounter: @unchecked Sendable {
@@ -28,8 +29,31 @@ final class CatalogProviderTests: XCTestCase {
 		}
 	}
 
+	private final class ProgressRecorder: @unchecked Sendable {
+		private let lock = NSLock()
+		private var recordedProgress: [CatalogPackageDownloadProgress] = []
+
+		func append(_ progress: CatalogPackageDownloadProgress) {
+			lock.lock()
+			recordedProgress.append(progress)
+			lock.unlock()
+		}
+
+		var values: [CatalogPackageDownloadProgress] {
+			lock.lock()
+			defer { lock.unlock() }
+			return recordedProgress
+		}
+	}
+
 	private final class CatalogURLProtocol: URLProtocol, @unchecked Sendable {
-		nonisolated(unsafe) static var responseHandler: ((URL) -> (Int, Data))?
+		nonisolated(unsafe) static var responseHandler: (@Sendable (URL) -> (Int, Data))?
+		nonisolated(unsafe) static var requestStarted: ((URL) -> Void)?
+		nonisolated(unsafe) static var requestStopped: ((URL) -> Void)?
+		nonisolated(unsafe) static var delayedPaths = Set<String>()
+		nonisolated(unsafe) static var inactivityStalledPaths = Set<String>()
+		private let lock = NSLock()
+		private var stopped = false
 
 		// swiftlint:disable:next static_over_final_class
 		override class func canInit(with request: URLRequest) -> Bool {
@@ -47,6 +71,25 @@ final class CatalogProviderTests: XCTestCase {
 				client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
 				return
 			}
+			Self.requestStarted?(url)
+			if Self.delayedPaths.contains(url.path) {
+				DispatchQueue.global().asyncAfter(deadline: .now() + 1) { [weak self] in
+					self?.deliver(url: url, handler: handler)
+				}
+				return
+			}
+			deliver(url: url, handler: handler, pauseAfterFirstByte: Self.inactivityStalledPaths.contains(url.path))
+		}
+
+		private func deliver(
+			url: URL,
+			handler: @Sendable (URL) -> (Int, Data),
+			pauseAfterFirstByte: Bool = false
+		) {
+			lock.lock()
+			let isStopped = stopped
+			lock.unlock()
+			guard isStopped == false else { return }
 
 			let (statusCode, data) = handler(url)
 			guard let response = HTTPURLResponse(
@@ -59,15 +102,43 @@ final class CatalogProviderTests: XCTestCase {
 				return
 			}
 			client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+			if pauseAfterFirstByte {
+				let initialChunk = Data(data.prefix(1))
+				client?.urlProtocol(self, didLoad: initialChunk)
+				let remainingData = Data(data.dropFirst())
+				DispatchQueue.global().asyncAfter(deadline: .now() + 1) { [weak self] in
+					self?.finishLoading(with: remainingData)
+				}
+				return
+			}
+			finishLoading(with: data)
+		}
+
+		private func finishLoading(with data: Data) {
+			lock.lock()
+			let isStopped = stopped
+			lock.unlock()
+			guard isStopped == false else { return }
 			client?.urlProtocol(self, didLoad: data)
 			client?.urlProtocolDidFinishLoading(self)
 		}
 
-		override func stopLoading() { }
+		override func stopLoading() {
+			lock.lock()
+			stopped = true
+			lock.unlock()
+			if let url = request.url {
+				Self.requestStopped?(url)
+			}
+		}
 	}
 
 	override func tearDown() {
 		CatalogURLProtocol.responseHandler = nil
+		CatalogURLProtocol.requestStarted = nil
+		CatalogURLProtocol.requestStopped = nil
+		CatalogURLProtocol.delayedPaths = []
+		CatalogURLProtocol.inactivityStalledPaths = []
 		super.tearDown()
 	}
 
@@ -205,22 +276,49 @@ final class CatalogProviderTests: XCTestCase {
 
 		let files = [
 			CatalogFile(relativePath: "Animal.mlpackage/Manifest.json", resolveURL: testURL("Manifest.json"), sizeBytes: 8),
-			CatalogFile(relativePath: "Animal.mlpackage/Data/model.bin", resolveURL: testURL("model.bin"), sizeBytes: 7)
+			CatalogFile(
+				relativePath: "Animal.mlpackage/Data/model.bin",
+				resolveURL: testURL("model.bin"),
+				sizeBytes: 7,
+				xetFile: HuggingFaceXetFile(fileID: "xet-backed-file", tokenURL: testURL("token"))
+			)
 		]
 		let downloader = CatalogPackageDownloader(session: makeSession())
-		let events = await downloader.events(for: files)
-		var packageURL: URL?
-
-		for try await event in events {
-			if case .finished(let url) = event {
-				packageURL = url
-			}
-		}
-
-		let package = try XCTUnwrap(packageURL)
+		let progress = ProgressRecorder()
+		let package = try await downloader.download(files: files, reportProgress: progress.append)
 		defer { try? FileManager.default.removeItem(at: package.deletingLastPathComponent()) }
 		XCTAssertEqual(try Data(contentsOf: package.appendingPathComponent("Manifest.json")), Data("manifest".utf8))
 		XCTAssertEqual(try Data(contentsOf: package.appendingPathComponent("Data/model.bin")), Data("weights".utf8))
+		XCTAssertTrue(progress.values.contains { $0.downloadedBytes > 0 })
+	}
+
+	func testPackageDownloader_rejectsNon2xxSibling() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			url.lastPathComponent == "Manifest.json"
+				? (200, Data("manifest".utf8))
+				: (404, Data("not found".utf8))
+		}
+		let files = [
+			CatalogFile(
+				relativePath: "Rejected.mlpackage/Manifest.json",
+				resolveURL: testURL("Manifest.json"),
+				sizeBytes: 8
+			),
+			CatalogFile(
+				relativePath: "Rejected.mlpackage/Data/model.mlmodel",
+				resolveURL: testURL("Rejected.mlpackage/Data/model.mlmodel"),
+				sizeBytes: 9
+			)
+		]
+		let initialStagingDirectories = catalogPackageStagingDirectories()
+
+		do {
+			_ = try await CatalogPackageDownloader(session: makeSession()).download(files: files) { _ in }
+			XCTFail("expected the non-success sibling response to fail")
+		} catch let error as CatalogError {
+			XCTAssertEqual(error, .network)
+		}
+		XCTAssertEqual(catalogPackageStagingDirectories(), initialStagingDirectories)
 	}
 
 	func testPackageDownloader_rejectsDeclaredSizeOverCap() async throws {
@@ -231,20 +329,15 @@ final class CatalogProviderTests: XCTestCase {
 				sizeBytes: CatalogPackageDownloader.maximumTotalBytes + 1
 			)
 		]
-		let events = await CatalogPackageDownloader(session: makeSession()).events(for: files)
-
 		do {
-			for try await _ in events { }
+			_ = try await CatalogPackageDownloader(session: makeSession()).download(files: files) { _ in }
 			XCTFail("expected the size cap to fail before a download starts")
 		} catch let error as CatalogError {
 			XCTAssertEqual(error, .tooLarge)
 		}
 	}
 
-	func testPackageDownloader_forwardsXetByteProgressForMultiFilePackage() async throws {
-		CatalogURLProtocol.responseHandler = { url in
-			url.lastPathComponent == "Manifest.json" ? (200, Data("manifest".utf8)) : (404, Data())
-		}
+	func testPackageDownloader_usesInjectedHTTPTransportForXetMarkedFiles() async throws {
 		let files = [
 			CatalogFile(
 				relativePath: "Detector.mlpackage/Manifest.json",
@@ -264,35 +357,114 @@ final class CatalogProviderTests: XCTestCase {
 				xetFile: HuggingFaceXetFile(fileID: "file-id", tokenURL: URL(string: "https://catalog.test/token")!)
 			)
 		]
-		let fakeXetDownload: CatalogXetDownload = { _, _, onBytesWritten in
-			onBytesWritten(4)
+		let fakeHTTPDownload: CatalogHTTPDownload = { file, _, onBytesWritten in
+			let byteCount = Int(file.sizeBytes ?? 0)
+			onBytesWritten(Int64(byteCount))
 			let temporaryURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-			try Data("ABCD".utf8).write(to: temporaryURL)
+			try Data(repeating: 0, count: byteCount).write(to: temporaryURL)
 			return temporaryURL
 		}
-		let events = await CatalogPackageDownloader(
+		let downloader = CatalogPackageDownloader(
 			session: makeSession(),
-			xetDownload: fakeXetDownload
-		).events(for: files)
-		var progress: [CatalogPackageDownloadProgress] = []
-		var packageURL: URL?
+			httpDownload: fakeHTTPDownload
+		)
+		let progress = ProgressRecorder()
+		let downloadedPackage = try await downloader.download(files: files, reportProgress: progress.append)
+		defer { try? FileManager.default.removeItem(at: downloadedPackage.deletingLastPathComponent()) }
+		XCTAssertEqual(progress.values.first?.downloadedBytes, 0)
+		XCTAssertEqual(progress.values.last?.downloadedBytes, 16)
+		XCTAssertEqual(progress.values.last?.expectedBytes, 16)
+		XCTAssertEqual(progress.values.last?.completedFileCount, 3)
+		XCTAssertTrue(progress.values.contains { $0.downloadedBytes > 0 && $0.completedFileCount < 3 })
+	}
 
-		for try await event in events {
-			switch event {
-			case .progress(let update):
-				progress.append(update)
-			case .finished(let url):
-				packageURL = url
+	func testPackageDownloader_timesOutStalledHTTPTransfer() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			url.lastPathComponent == "Manifest.json" ? (200, Data("manifest".utf8)) : (200, Data("model".utf8))
+		}
+		CatalogURLProtocol.inactivityStalledPaths = ["/files/Stalled.mlpackage/Data/model.mlmodel"]
+		let files = [
+			CatalogFile(
+				relativePath: "Stalled.mlpackage/Manifest.json",
+				resolveURL: testURL("Manifest.json"),
+				sizeBytes: 8
+			),
+			CatalogFile(
+				relativePath: "Stalled.mlpackage/Data/model.mlmodel",
+				resolveURL: testURL("Stalled.mlpackage/Data/model.mlmodel"),
+				sizeBytes: 5,
+				xetFile: HuggingFaceXetFile(fileID: "xet-backed-file", tokenURL: testURL("token"))
+			)
+		]
+		let timeouts = CatalogHTTPDownloadTimeouts(firstByte: 1, inactivity: 0.05)
+		let httpDownload: CatalogHTTPDownload = { file, session, onBytesWritten in
+			try await CatalogHTTPFileDownloader.download(
+				file: file,
+				session: session,
+				timeouts: timeouts,
+				onBytesWritten: onBytesWritten
+			)
+		}
+		do {
+			_ = try await CatalogPackageDownloader(session: makeSession(), httpDownload: httpDownload).download(files: files) { _ in }
+			XCTFail("expected stalled HTTP transfer to time out")
+		} catch let error as CatalogError {
+			XCTAssertEqual(error, .timedOut)
+		}
+	}
+
+	func testPackageDownloader_cancellationStopsHTTPAndCleansStagingDirectory() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			url.lastPathComponent == "Manifest.json" ? (200, Data("manifest".utf8)) : (200, Data("model".utf8))
+		}
+		let stalledPath = "/files/Cancelled.mlpackage/Data/model.mlmodel"
+		CatalogURLProtocol.delayedPaths = [stalledPath]
+		let stalledRequestStarted = expectation(description: "stalled request started")
+		let stalledRequestStopped = expectation(description: "stalled request stopped")
+		CatalogURLProtocol.requestStarted = { url in
+			if url.path == stalledPath {
+				stalledRequestStarted.fulfill()
+			}
+		}
+		CatalogURLProtocol.requestStopped = { url in
+			if url.path == stalledPath {
+				stalledRequestStopped.fulfill()
+			}
+		}
+		let files = [
+			CatalogFile(
+				relativePath: "Cancelled.mlpackage/Manifest.json",
+				resolveURL: testURL("Manifest.json"),
+				sizeBytes: 8
+			),
+			CatalogFile(
+				relativePath: "Cancelled.mlpackage/Data/model.mlmodel",
+				resolveURL: testURL("Cancelled.mlpackage/Data/model.mlmodel"),
+				sizeBytes: 5,
+				xetFile: HuggingFaceXetFile(fileID: "xet-backed-file", tokenURL: testURL("token"))
+			)
+		]
+		let initialStagingDirectories = catalogPackageStagingDirectories()
+		let downloader = CatalogPackageDownloader(session: makeSession())
+		let consumer = Task { () -> Result<URL, Error> in
+			do {
+				return .success(try await downloader.download(files: files) { _ in })
+			} catch {
+				return .failure(error)
 			}
 		}
 
-		let downloadedPackage = try XCTUnwrap(packageURL)
-		defer { try? FileManager.default.removeItem(at: downloadedPackage.deletingLastPathComponent()) }
-		XCTAssertEqual(progress.first?.downloadedBytes, 0)
-		XCTAssertEqual(progress.last?.downloadedBytes, 16)
-		XCTAssertEqual(progress.last?.expectedBytes, 16)
-		XCTAssertEqual(progress.last?.completedFileCount, 3)
-		XCTAssertTrue(progress.contains { $0.downloadedBytes > 0 && $0.completedFileCount < 3 })
+		await fulfillment(of: [stalledRequestStarted], timeout: 1)
+		consumer.cancel()
+		await fulfillment(of: [stalledRequestStopped], timeout: 1)
+
+		switch await consumer.value {
+		case .success:
+			XCTFail("expected cancellation")
+		case .failure(let error):
+			XCTAssertTrue(error is CancellationError)
+		}
+		XCTAssertEqual(catalogPackageStagingDirectories(), initialStagingDirectories)
 	}
 
 	func testXetProgressByteCount_doesNotTreatSparseLogicalLengthAsDownloadedBytes() throws {
@@ -593,6 +765,11 @@ private extension CatalogProviderTests {
 
 	func testURL(_ lastPathComponent: String) -> URL {
 		URL(string: "https://catalog.test/files/\(lastPathComponent)") ?? URL(fileURLWithPath: "/")
+	}
+
+	func catalogPackageStagingDirectories() -> Set<URL> {
+		let root = FileManager.default.temporaryDirectory.appendingPathComponent("CatalogPackages", isDirectory: true)
+		return Set((try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? [])
 	}
 
 }

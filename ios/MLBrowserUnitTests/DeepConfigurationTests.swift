@@ -70,6 +70,62 @@ final class DeepConfigurationTests: XCTestCase {
         XCTAssertTrue(config.enabled)
         XCTAssertEqual(config.phaseOutTime, 1.5)
     }
+
+    func testCatalogSource_IsSharedWithCatalogDownloadByConfigurationID() {
+        let id = UUID()
+        let item = DownloadItem.create(in: context)
+        item.entityId = id
+        item.catalogSource = "  Hugging Face  "
+        defer { item.catalogSource = nil }
+
+        let config = DeepConfiguration(context: context)
+        config.entityId = id
+
+        XCTAssertEqual(config.catalogSource, "Hugging Face")
+
+        config.catalogSource = " \n "
+
+        XCTAssertNil(config.catalogSource)
+    }
+
+    func testCatalogSource_IsRemovedWhenUnimportedDownloadIsDeleted() {
+        let item = DownloadItem.create(in: context)
+        let id = item.entityId
+        item.catalogSource = "Hugging Face"
+
+        DownloadItem.delete(item, in: context, deleteModel: false)
+
+        XCTAssertNil(CatalogSourceStore.source(for: id))
+    }
+
+    func testCatalogSource_IsRemovedWhenConfigurationWithoutDownloadIsDeleted() {
+        let repository = ModelConfigurationRepository(dataController: dataController)
+        let configuration = repository.create()
+        let id = configuration.entityId
+        configuration.catalogSource = "Hugging Face"
+
+        repository.delete(configuration)
+
+        XCTAssertNil(CatalogSourceStore.source(for: id))
+    }
+
+    func testCatalogSource_IsKeptUntilMatchingDownloadIsDeleted() {
+        let id = UUID()
+        let item = DownloadItem.create(in: context)
+        item.entityId = id
+        item.catalogSource = "Hugging Face"
+        let repository = ModelConfigurationRepository(dataController: dataController)
+        let configuration = repository.create()
+        configuration.entityId = id
+
+        repository.delete(configuration)
+
+        XCTAssertEqual(item.catalogSource, "Hugging Face")
+
+        DownloadItem.delete(item, in: context, deleteModel: false)
+
+        XCTAssertNil(CatalogSourceStore.source(for: id))
+    }
     
     // MARK: - LifeCycle Tests
     
