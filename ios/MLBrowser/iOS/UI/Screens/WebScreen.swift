@@ -105,6 +105,9 @@ struct WebScreenView: View {
 	@State private var currentPageFile = ""
 	@State private var showIdentifiers: Bool = false
 	@State private var tiling: TilingScheme = []
+	/// Debug tile-border overlay (AIA-0426). Clamped to non-App-Store below so a persisted `true`
+	/// from a TestFlight build can never render on an in-place App Store update.
+	@State private var tiledBorders: Bool = false
 	/// Mirrors `guide.ontheflyDetectionEnabled` (play/pause) so DetectableView can
 	/// clear the classification presentation the moment detection stops (AIA-0374).
 	@State private var detectionActive: Bool = false
@@ -186,6 +189,7 @@ struct WebScreenView: View {
             trigger: appState.snap.combinedPublishers,
             showIdentifiers: showIdentifiers,
             tiling: tiling,
+            tiledBorders: tiledBorders,
             detectionActive: detectionActive,
             isCapturingFinding: $isCapturingFinding,
             onFrameChanged: { frame in
@@ -224,12 +228,18 @@ struct WebScreenView: View {
         .onReceive(appState.settings.$grid3x3Tiling) { _ in
             tiling = appState.settings.tilingSchemes
         }
+        .onReceive(appState.settings.$tiledBorders) { value in
+            // Clamp to non-App-Store: a persisted true from a TestFlight build must not render on an
+            // in-place App Store update, where the Debug toggle is hidden (AIA-0426).
+            tiledBorders = value && AppEnvironment.isAppStoreDistribution.not
+        }
         .onReceive(appState.detectionState.$ontheflyDetectionEnabled) { value in
             detectionActive = value
         }
         .onAppear {
             showIdentifiers = appState.settings.showIdentifiers
             tiling = appState.settings.tilingSchemes
+            tiledBorders = appState.settings.tiledBorders && AppEnvironment.isAppStoreDistribution.not
             if hasPerformedInitialAction.not {
                 hasPerformedInitialAction = true
                 if let fixtureURL = appState.settings.launchFixtureURL {

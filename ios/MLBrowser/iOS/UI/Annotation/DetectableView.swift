@@ -31,6 +31,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     let trigger: P
     let showIdentifiers: Bool
     let tiling: TilingScheme
+    /// AIA-0426 debug aid: draw a red border around each detector tile. Already App-Store-clamped
+    /// upstream in WebScreen (a persisted-true must not render on App Store, where the Debug toggle
+    /// is hidden); a second DetectableView consumer would need to re-apply that clamp.
+    let tiledBorders: Bool
     /// Whether the detection/classification loop is running (play/pause). When it
     /// stops, the classification presentation must clear immediately — with no
     /// further snapshots the steady-state pulse/bubble would freeze forever
@@ -63,6 +67,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         trigger: P,
         showIdentifiers: Bool,
         tiling: TilingScheme = [],
+        tiledBorders: Bool = false,
         detectionActive: Bool = false,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
@@ -74,6 +79,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
         self.tiling = tiling
+        self.tiledBorders = tiledBorders
         self.detectionActive = detectionActive
         self.isCapturingFinding = isCapturingFinding
         self.onInteractionStateChanged = onInteractionStateChanged
@@ -119,7 +125,14 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 SnapableGroup(renderer: renderer, publisher: trigger) {
                     content($interactionState)
                 }
-                
+
+                // AIA-0426 debug: red borders around the tiles fed to the detector. Reads the SAME
+                // TileLayout.regions(for:) the detector uses and never touches the detect path, so it
+                // cannot change detections (the snapshot comes from WKWebView, not this view tree).
+                if tiledBorders {
+                    TileBorderOverlay(schemes: tiling, geometry: geometry)
+                }
+
                 // Annotation overlay - SAME geometry scope guarantees coordinate alignment
                 AnnotationOverlay(
                     observations: coordinator.appliedFrame?.results ?? [],
@@ -306,6 +319,40 @@ extension View {
         self
             .trackingInteraction(state)
             .trackingMagnification(state)
+    }
+}
+
+/// Debug overlay (AIA-0426): draws a red border around each tile fed to the detector so the tile
+/// split is visible. Purely visual — it reads the same `TileLayout.regions(for:)` the detector uses
+/// and never touches the detection path. Gated by the Debug "Tiled Borders" setting upstream.
+struct TileBorderOverlay: View {
+    let schemes: TilingScheme
+    let geometry: GeometryProxy
+
+    var body: some View {
+        ForEach(Array(rects.enumerated()), id: \.offset) { _, rect in
+            Rectangle()
+                .stroke(Color.red, lineWidth: 2)
+                .frame(width: rect.width, height: rect.height)
+                .position(x: rect.midX, y: rect.midY)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private var rects: [CGRect] {
+        TileLayout.regions(for: schemes).map { Self.screenRect(for: $0, in: geometry.size) }
+    }
+
+    /// Maps a normalized Vision-coordinate region (bottom-left origin) to a SwiftUI screen rect
+    /// (top-left origin) — the same Y-flip the annotation views apply. Pure + static so it is unit
+    /// testable without SwiftUI.
+    static func screenRect(for region: CGRect, in size: CGSize) -> CGRect {
+        CGRect(
+            x: region.minX * size.width,
+            y: (1 - region.maxY) * size.height,
+            width: region.width * size.width,
+            height: region.height * size.height
+        )
     }
 }
 

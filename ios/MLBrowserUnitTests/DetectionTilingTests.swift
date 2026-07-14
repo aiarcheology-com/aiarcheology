@@ -97,6 +97,35 @@ final class TileLayoutRegionsTests: XCTestCase {
 	}
 }
 
+// MARK: - TileBorderOverlay transform (AIA-0426)
+
+final class TileBorderOverlayTests: XCTestCase {
+
+	func testScreenRect_FullFrame_FillsTheView() {
+		let rect = TileBorderOverlay.screenRect(for: TileLayout.fullFrame, in: CGSize(width: 100, height: 200))
+		XCTAssertEqual(rect, CGRect(x: 0, y: 0, width: 100, height: 200))
+	}
+
+	func testScreenRect_BottomLeftVisionQuadrant_MapsToLowerHalfInSwiftUI() {
+		// Vision uses a bottom-left origin: (0,0,0.5,0.5) is the BOTTOM-left quadrant, which must map
+		// to the LOWER half of SwiftUI's top-left coordinate space (y flips).
+		let rect = TileBorderOverlay.screenRect(
+			for: CGRect(x: 0, y: 0, width: 0.5, height: 0.5),
+			in: CGSize(width: 100, height: 100)
+		)
+		XCTAssertEqual(rect, CGRect(x: 0, y: 50, width: 50, height: 50))
+	}
+
+	func testScreenRect_TopRightVisionQuadrant_MapsToTopRightInSwiftUI() {
+		// Vision (0.5,0.5,0.5,0.5) is the TOP-right quadrant → SwiftUI top-right.
+		let rect = TileBorderOverlay.screenRect(
+			for: CGRect(x: 0.5, y: 0.5, width: 0.5, height: 0.5),
+			in: CGSize(width: 100, height: 100)
+		)
+		XCTAssertEqual(rect, CGRect(x: 50, y: 0, width: 50, height: 50))
+	}
+}
+
 // MARK: - Remap tests
 
 final class TileLayoutRemapTests: XCTestCase {
