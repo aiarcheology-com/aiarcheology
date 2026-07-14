@@ -87,6 +87,21 @@ final class SettingsUITests: UITestCase {
         )
     }
 
+    func testSettings_tiledDetectionSubmenu_showsSchemeToggles() {
+        launch()
+        openSettings()
+        XCTAssertTrue(scrollTo(AID.settingsTiledDetection), "Tiled Detection row missing")
+        element(AID.settingsTiledDetection).tap()
+        XCTAssertTrue(
+            element(AID.settingsPyramidTiling).waitForExistence(timeout: 10),
+            "Pyramid tiling toggle not shown in Tiled Detection submenu"
+        )
+        XCTAssertTrue(
+            element(AID.settingsGrid3x3Tiling).exists,
+            "3x3 tiling toggle not shown in Tiled Detection submenu"
+        )
+    }
+
     func testSettings_restoreDefaults_showsConfirmation() {
         launch()
         openSettings()

@@ -189,7 +189,6 @@ extension TestabilityIdentification {
 		case settingsTiledBorders
 		// Configuration Form — per-model finding flash (AIA-0374)
 		case configurationFormFlashOnFinding
-		case settingsTiledDetection
 		// Side Menu Cell
 		case sideMenuCellEnabled
 	}
