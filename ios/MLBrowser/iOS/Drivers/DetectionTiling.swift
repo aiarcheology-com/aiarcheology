@@ -72,7 +72,7 @@ enum TileLayout {
 	/// The last element is the *literal* `fullFrame` constant (not `3 × 1/3`, which floating-point
 	/// rounds off `1.0`) so it dedups exactly against the pyramid full frame in `regions(for:)`.
 	static let grid3x3Regions: [CGRect] = {
-		let step = 1.0 / 3.0
+		let step: CGFloat = 1.0 / 3.0
 		var regions: [CGRect] = []
 		for row in 0..<3 {
 			for col in 0..<3 {

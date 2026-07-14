@@ -13670,7 +13670,7 @@
       }
     },
     "settings.tiledBorders" : {
-      "comment" : "Toggle label in the Debug settings section for the tile-border debug overlay",
+      "comment" : "Toggle label in the Tiled Detection settings submenu for the tile-border overlay",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {

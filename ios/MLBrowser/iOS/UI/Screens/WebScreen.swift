@@ -105,8 +105,8 @@ struct WebScreenView: View {
 	@State private var currentPageFile = ""
 	@State private var showIdentifiers: Bool = false
 	@State private var tiling: TilingScheme = []
-	/// Debug tile-border overlay (AIA-0426). Clamped to non-App-Store below so a persisted `true`
-	/// from a TestFlight build can never render on an in-place App Store update.
+	/// Mirrors the "Tiled Borders" setting (AIA-0426) into local state so DetectableView can draw the
+	/// per-tile debug outlines. Available in all builds, toggled from the Tiled Detection submenu.
 	@State private var tiledBorders: Bool = false
 	/// Mirrors `guide.ontheflyDetectionEnabled` (play/pause) so DetectableView can
 	/// clear the classification presentation the moment detection stops (AIA-0374).

@@ -346,6 +346,7 @@ struct TileBorderOverlay: View {
                 .position(x: rect.midX, y: rect.midY)
         }
         .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     private var rects: [CGRect] {
