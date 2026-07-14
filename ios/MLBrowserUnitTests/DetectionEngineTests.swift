@@ -62,7 +62,7 @@ final class DetectionEngineTests: XCTestCase {
     func testEachDemoModel_detectsOnTerrain() async throws {
         // Load fixtures up front so nothing throws between a detector's load and its unload.
         let images = try Self.fixtures.map { try fixture($0) }
-        let regions = TileLayout.regions(tiled: true)
+        let regions = TileLayout.regions(for: .pyramid)
 
         for resource in Self.demoModelResources {
             let detector = try await makeDetector(modelResource: resource)

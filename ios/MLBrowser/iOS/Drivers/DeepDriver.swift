@@ -202,7 +202,8 @@ actor DetectionEngine {
 	// With tiledDetection the image is detected over 6 regions (4 quadrants + center +
 	// full frame, AIA-0217); otherwise over the full frame only.
 	func detect(on image: UIImage, in detectors: [DeepDriver], tiledDetection: Bool) async -> [DetectionResult] {
-		let regions = TileLayout.regions(tiled: tiledDetection)
+		// Bridged while the chain still carries a Bool (AIA-0426 slice B widens it to TilingScheme).
+		let regions = TileLayout.regions(for: tiledDetection ? .pyramid : [])
 		// The loop is serial — a plain array suffices.
 		var results: [DetectionResult] = []
 		for detector in detectors {
