@@ -29,7 +29,9 @@ actor JSONHTTPClient {
 				throw CatalogError.decoding
 			}
 		} catch is CancellationError {
-			throw CatalogError.cancelled
+			throw CancellationError()
+		} catch let error as URLError where error.code == .cancelled {
+			throw CancellationError()
 		} catch let error as CatalogError {
 			throw error
 		} catch {
@@ -74,24 +76,23 @@ actor HuggingFaceCatalogProvider: CatalogProvider {
 		let infoURL = try modelInfoURL(for: model.id)
 		let info = try await client.get(ModelInfoResponse.self, from: infoURL)
 		let siblings = info.siblings ?? []
+		let treeFiles = await treeFiles(for: model.id)
 
 		if let singleFile = standaloneModelFile(in: siblings) {
-			return [try catalogFile(for: model.id, sibling: singleFile)]
+			return [try catalogFile(for: model.id, sibling: singleFile, treeFiles: treeFiles)]
 		}
 
 		guard let packageRoot = installablePackageRoot(in: siblings) else {
 			throw CatalogError.noInstallableArtifact
 		}
 
-		let packageFiles = siblings
-			.filter { $0.rfilename.hasPrefix(packageRoot + "/") }
-			.sorted { $0.rfilename.localizedStandardCompare($1.rfilename) == .orderedAscending }
+		let packageFiles = orderedPackageFiles(in: siblings, packageRoot: packageRoot)
 
 		guard packageFiles.isEmpty == false else {
 			throw CatalogError.noInstallableArtifact
 		}
 
-		return try packageFiles.map { try catalogFile(for: model.id, sibling: $0) }
+		return try packageFiles.map { try catalogFile(for: model.id, sibling: $0, treeFiles: treeFiles) }
 	}
 }
 
@@ -113,11 +114,26 @@ private extension HuggingFaceCatalogProvider {
 		let size: Int64?
 	}
 
+	struct TreeEntry: Decodable {
+		let path: String
+		let size: Int64?
+		let xetHash: String?
+	}
+
+	struct TreeFile {
+		let sizeBytes: Int64?
+		let xetFile: HuggingFaceXetFile?
+	}
+
 	func search(query: String, task: CatalogTask) async throws -> [CatalogModel] {
 		let url = try searchURL(query: query, task: task)
 		let response = try await client.get([SearchResponse].self, from: url)
 		return response.compactMap { item in
-			guard let format = installableArtifactFormat(in: item.siblings ?? []) else {
+			let siblings = item.siblings ?? []
+			guard let format = installableArtifactFormat(in: siblings) else {
+				return nil
+			}
+			guard let artifactURL = try? primaryArtifactURL(modelID: item.id, siblings: siblings) else {
 				return nil
 			}
 
@@ -130,7 +146,8 @@ private extension HuggingFaceCatalogProvider {
 				likes: item.likes ?? 0,
 				task: task,
 				format: format,
-				sizeBytes: nil
+				sizeBytes: nil,
+				artifactURL: artifactURL
 			)
 		}
 	}
@@ -168,11 +185,67 @@ private extension HuggingFaceCatalogProvider {
 		return url
 	}
 
-	func catalogFile(for modelID: String, sibling: Sibling) throws -> CatalogFile {
-		CatalogFile(
+	func treeFiles(for modelID: String) async -> [String: TreeFile] {
+		guard let treeURL = try? modelTreeURL(for: modelID),
+			  let entries = try? await client.get([TreeEntry].self, from: treeURL) else {
+			return [:]
+		}
+		let tokenURL = entries.contains(where: { $0.xetHash != nil }) ? try? xetTokenURL(for: modelID) : nil
+
+		return Dictionary(
+			uniqueKeysWithValues: entries.map { entry in
+				let xetFile = entry.xetHash.flatMap { xetHash in
+					tokenURL.map {
+						HuggingFaceXetFile(
+							fileID: xetHash,
+							tokenURL: $0,
+							sizeBytes: entry.size,
+							repositoryID: modelID,
+							hubURL: baseURL
+						)
+					}
+				}
+				return (
+					entry.path,
+					TreeFile(sizeBytes: entry.size, xetFile: xetFile)
+				)
+			}
+		)
+	}
+
+	func modelTreeURL(for modelID: String) throws -> URL {
+		guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+			throw CatalogError.invalidResponse
+		}
+		let encodedModelID = try encodedPath(modelID)
+		components.percentEncodedPath = "/api/models/" + encodedModelID + "/tree/main"
+		components.queryItems = [
+			URLQueryItem(name: "recursive", value: "true"),
+			URLQueryItem(name: "expand", value: "true")
+		]
+		guard let url = components.url else { throw CatalogError.invalidResponse }
+		return url
+	}
+
+	func xetTokenURL(for modelID: String) throws -> URL {
+		guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+			throw CatalogError.invalidResponse
+		}
+		let encodedModelID = try encodedPath(modelID)
+		components.percentEncodedPath = "/api/models/" + encodedModelID + "/xet-read-token/main"
+		guard let url = components.url else { throw CatalogError.invalidResponse }
+		return url
+	}
+
+	func catalogFile(for modelID: String, sibling: Sibling, treeFiles: [String: TreeFile]) throws -> CatalogFile {
+		let sourcePath = packageRoot(in: sibling.rfilename) ?? sibling.rfilename
+		let treeFile = treeFiles[sibling.rfilename]
+		return CatalogFile(
 			relativePath: sibling.rfilename,
 			resolveURL: try resolveURL(modelID: modelID, filePath: sibling.rfilename),
-			sizeBytes: sibling.size
+			sourceURL: try sourceURL(modelID: modelID, filePath: sourcePath),
+			sizeBytes: sibling.size ?? treeFile?.sizeBytes,
+			xetFile: treeFile?.xetFile
 		)
 	}
 
@@ -190,6 +263,20 @@ private extension HuggingFaceCatalogProvider {
 		return url
 	}
 
+	func sourceURL(modelID: String, filePath: String) throws -> URL {
+		guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+			throw CatalogError.invalidResponse
+		}
+		components.percentEncodedPath = "/" + [
+			try encodedPath(modelID),
+			"tree",
+			"main",
+			try encodedPath(filePath)
+		].joined(separator: "/")
+		guard let url = components.url else { throw CatalogError.invalidResponse }
+		return url
+	}
+
 	func encodedPath(_ path: String) throws -> String {
 		let components = path.split(separator: "/", omittingEmptySubsequences: false)
 		guard components.isEmpty == false,
@@ -198,8 +285,11 @@ private extension HuggingFaceCatalogProvider {
 		}
 
 		let allowedCharacters = CharacterSet.urlPathAllowed.subtracting(CharacterSet(charactersIn: "/"))
-		return components.map { component in
-			String(component).addingPercentEncoding(withAllowedCharacters: allowedCharacters) ?? String(component)
+		return try components.map { component in
+			guard let encoded = String(component).addingPercentEncoding(withAllowedCharacters: allowedCharacters) else {
+				throw CatalogError.invalidFilePath
+			}
+			return encoded
 		}.joined(separator: "/")
 	}
 
@@ -217,6 +307,18 @@ private extension HuggingFaceCatalogProvider {
 		}
 	}
 
+	func primaryArtifactURL(modelID: String, siblings: [Sibling]) throws -> URL {
+		if let singleFile = standaloneModelFile(in: siblings) {
+			return try resolveURL(modelID: modelID, filePath: singleFile.rfilename)
+		}
+
+		guard let packageRoot = installablePackageRoot(in: siblings),
+			  let firstPackageFile = orderedPackageFiles(in: siblings, packageRoot: packageRoot).first else {
+			throw CatalogError.noInstallableArtifact
+		}
+		return try resolveURL(modelID: modelID, filePath: firstPackageFile.rfilename)
+	}
+
 	func installableArtifactFormat(in siblings: [Sibling]) -> CatalogArtifactFormat? {
 		if standaloneModelFile(in: siblings) != nil {
 			return .mlmodel
@@ -229,5 +331,17 @@ private extension HuggingFaceCatalogProvider {
 		return roots.sorted().first { root in
 			siblings.contains { $0.rfilename.caseInsensitiveCompare(root + "/Manifest.json") == .orderedSame }
 		}
+	}
+
+	func orderedPackageFiles(in siblings: [Sibling], packageRoot: String) -> [Sibling] {
+		let manifestPath = packageRoot + "/Manifest.json"
+		return siblings
+			.filter { $0.rfilename.hasPrefix(packageRoot + "/") }
+			.sorted { lhs, rhs in
+				let lhsIsManifest = lhs.rfilename.caseInsensitiveCompare(manifestPath) == .orderedSame
+				let rhsIsManifest = rhs.rfilename.caseInsensitiveCompare(manifestPath) == .orderedSame
+				if lhsIsManifest != rhsIsManifest { return lhsIsManifest }
+				return lhs.rfilename.localizedStandardCompare(rhs.rfilename) == .orderedAscending
+			}
 	}
 }

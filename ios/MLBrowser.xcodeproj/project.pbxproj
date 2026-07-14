@@ -25,6 +25,7 @@
 		401A266CB4BCBDC00E517F03 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49E941AEA21CE25C5CC4EC9C /* PaywallView.swift */; };
 		4CD0B0B57E40E142601F97D3 /* SnapshotRendering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78089C11A89B618C8920A9AD /* SnapshotRendering.swift */; };
 		510BEBE08AE94921B256AD77 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = C868B4879FC9440AA740CFDD /* Sentry */; };
+		94A41300F000000000000003 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 94A41300F000000000000002 /* HuggingFace */; };
 		5C4453E16BA3139620D24134 /* TourTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 791D69ED93234CE31F8C8636 /* TourTarget.swift */; };
 		5DE6C2B8D2FD4F7086702F34 /* FindingFlash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A37A2034FAA4C4B857D8DDD /* FindingFlash.swift */; };
 		5F0187F61099AC6FBBD6676E /* Configuration.storekit in Resources */ = {isa = PBXBuildFile; fileRef = E7D7719BFF527B0F988CB497 /* Configuration.storekit */; };
@@ -253,6 +254,9 @@
 		A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */; };
 		A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */; };
 		A41310010000000000000001 /* CatalogProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300010000000000000001 /* CatalogProvider.swift */; };
+		A42210010000000000000001 /* AppleCoreMLCatalogProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A42200010000000000000001 /* AppleCoreMLCatalogProvider.swift */; };
+		A42210020000000000000001 /* GitHubCatalogProviders.swift in Sources */ = {isa = PBXBuildFile; fileRef = A42200020000000000000001 /* GitHubCatalogProviders.swift */; };
+		A41310060000000000000001 /* HuggingFaceXetDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300060000000000000001 /* HuggingFaceXetDownloader.swift */; };
 		A41310020000000000000001 /* HuggingFaceCatalogProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300020000000000000001 /* HuggingFaceCatalogProvider.swift */; };
 		A41310030000000000000001 /* CatalogPackageDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300030000000000000001 /* CatalogPackageDownloader.swift */; };
 		A41310040000000000000001 /* CatalogBrowseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300040000000000000001 /* CatalogBrowseView.swift */; };
@@ -542,6 +546,9 @@
 		A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingService.swift; sourceTree = "<group>"; };
 		A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingServiceTests.swift; sourceTree = "<group>"; };
 		A41300010000000000000001 /* CatalogProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogProvider.swift; sourceTree = "<group>"; };
+		A42200010000000000000001 /* AppleCoreMLCatalogProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleCoreMLCatalogProvider.swift; sourceTree = "<group>"; };
+		A42200020000000000000001 /* GitHubCatalogProviders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubCatalogProviders.swift; sourceTree = "<group>"; };
+		A41300060000000000000001 /* HuggingFaceXetDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HuggingFaceXetDownloader.swift; sourceTree = "<group>"; };
 		A41300020000000000000001 /* HuggingFaceCatalogProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HuggingFaceCatalogProvider.swift; sourceTree = "<group>"; };
 		A41300030000000000000001 /* CatalogPackageDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogPackageDownloader.swift; sourceTree = "<group>"; };
 		A41300040000000000000001 /* CatalogBrowseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogBrowseView.swift; sourceTree = "<group>"; };
@@ -578,6 +585,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				510BEBE08AE94921B256AD77 /* Sentry in Frameworks */,
+				94A41300F000000000000003 /* HuggingFace in Frameworks */,
 				9407A5E62FE4A9AE0097FB7B /* ClerkKit in Frameworks */,
 				9407A5E82FE4A9AE0097FB7B /* ClerkKitUI in Frameworks */,
 			);
@@ -1226,6 +1234,9 @@
 			isa = PBXGroup;
 			children = (
 				A41300010000000000000001 /* CatalogProvider.swift */,
+				A42200010000000000000001 /* AppleCoreMLCatalogProvider.swift */,
+				A42200020000000000000001 /* GitHubCatalogProviders.swift */,
+				A41300060000000000000001 /* HuggingFaceXetDownloader.swift */,
 				A41300020000000000000001 /* HuggingFaceCatalogProvider.swift */,
 				A41300030000000000000001 /* CatalogPackageDownloader.swift */,
 			);
@@ -1264,6 +1275,7 @@
 			name = MLBrowser;
 			packageProductDependencies = (
 				C868B4879FC9440AA740CFDD /* Sentry */,
+				94A41300F000000000000002 /* HuggingFace */,
 				9407A5E52FE4A9AE0097FB7B /* ClerkKit */,
 				9407A5E72FE4A9AE0097FB7B /* ClerkKitUI */,
 			);
@@ -1375,6 +1387,7 @@
 				94DF06A32E95C1D60024E381 /* XCRemoteSwiftPackageReference "OSLogViewer" */,
 				81666D3A451C4358B0AFB17A /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 				94HARM0012F04000100000001 /* XCRemoteSwiftPackageReference "Harmonize" */,
+				94A41300F000000000000001 /* XCRemoteSwiftPackageReference "swift-huggingface" */,
 				9407A5E42FE4A9AE0097FB7B /* XCRemoteSwiftPackageReference "clerk-ios" */,
 			);
 			productRefGroup = 8AE0BC012A97B0B30086DDF9 /* Products */;
@@ -1526,6 +1539,9 @@
 				8A8153722B3E272800B3B079 /* ModelProvider.swift in Sources */,
 				A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */,
 				A41310010000000000000001 /* CatalogProvider.swift in Sources */,
+				A42210010000000000000001 /* AppleCoreMLCatalogProvider.swift in Sources */,
+				A42210020000000000000001 /* GitHubCatalogProviders.swift in Sources */,
+				A41310060000000000000001 /* HuggingFaceXetDownloader.swift in Sources */,
 				A41310020000000000000001 /* HuggingFaceCatalogProvider.swift in Sources */,
 				A41310030000000000000001 /* CatalogPackageDownloader.swift in Sources */,
 				A41310040000000000000001 /* CatalogBrowseView.swift in Sources */,
@@ -2207,6 +2223,17 @@
 				minimumVersion = 0.1.1;
 			};
 		};
+		94A41300F000000000000001 /* XCRemoteSwiftPackageReference "swift-huggingface" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/huggingface/swift-huggingface.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.0;
+			};
+			traits = (
+				Xet,
+			);
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -2239,6 +2266,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 94HARM0012F04000100000001 /* XCRemoteSwiftPackageReference "Harmonize" */;
 			productName = Harmonize;
+		};
+		94A41300F000000000000002 /* HuggingFace */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 94A41300F000000000000001 /* XCRemoteSwiftPackageReference "swift-huggingface" */;
+			productName = HuggingFace;
 		};
 		C868B4879FC9440AA740CFDD /* Sentry */ = {
 			isa = XCSwiftPackageProductDependency;

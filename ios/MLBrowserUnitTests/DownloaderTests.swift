@@ -594,6 +594,116 @@ final class DownloaderTests: XCTestCase {
 		XCTAssertEqual(restoredDownloader.packageFileCount(for: item), files.count)
 	}
 
+	func testCatalogDownloadItem_reusesTheExistingArtifactJob() throws {
+		let file = CatalogFile(
+			relativePath: "Example.mlmodel",
+			resolveURL: URL(string: "https://catalog.test/Example.mlmodel") ?? URL(fileURLWithPath: "/"),
+			sizeBytes: 64
+		)
+		let context = dataController.container.viewContext
+
+		let firstItem = try downloader.catalogDownloadItem(files: [file], in: context)
+		firstItem.state = .downloading
+		let reopenedItem = try downloader.catalogDownloadItem(files: [file], in: context)
+
+		XCTAssertTrue(firstItem === reopenedItem)
+		XCTAssertEqual(firstItem.entityId, reopenedItem.entityId)
+		XCTAssertEqual(reopenedItem.state, .downloading)
+		XCTAssertEqual(try context.count(for: DownloadItem.fetchRequest()), 1)
+	}
+
+	func testCatalogDownloadItem_usesSingleFileDownloadForGoogleDriveArtifact() async throws {
+		let provider = JohnRockyCoreMLCatalogProvider()
+		let models = try await provider.search(query: "yolov5")
+		let model = try XCTUnwrap(models.first)
+		let files = try await provider.resolveFiles(for: model)
+
+		let item = try downloader.catalogDownloadItem(files: files, in: dataController.container.viewContext)
+
+		XCTAssertEqual(files.map(\.relativePath), ["yolov5s.mlmodel"])
+		XCTAssertFalse(downloader.isPackageDownload(item))
+	}
+
+	func testCatalogDownloadItem_convertsLegacyGoogleDrivePackageJobToSingleFile() throws {
+		let legacyFile = CatalogFile(
+			relativePath: "download",
+			resolveURL: URL(string: "https://drive.usercontent.google.com/download?id=model-id") ?? URL(fileURLWithPath: "/"),
+			sizeBytes: 64
+		)
+		let correctedFile = CatalogFile(
+			relativePath: "yolov5s.mlmodel",
+			resolveURL: legacyFile.resolveURL,
+			sizeBytes: 64
+		)
+		let context = dataController.container.viewContext
+		let legacyItem = try downloader.makePackageDownloadItem(files: [legacyFile], in: context)
+
+		let reopenedItem = try downloader.catalogDownloadItem(files: [correctedFile], in: context)
+
+		XCTAssertTrue(reopenedItem === legacyItem)
+		XCTAssertFalse(downloader.isPackageDownload(reopenedItem))
+		XCTAssertNil(reopenedItem.resumeData)
+	}
+
+	func testCatalogDownloadItem_reopensTheMostRecentlyChangedArtifactJob() throws {
+		let file = CatalogFile(
+			relativePath: "Example.mlmodel",
+			resolveURL: URL(string: "https://catalog.test/Example.mlmodel") ?? URL(fileURLWithPath: "/"),
+			sizeBytes: 64
+		)
+		let context = dataController.container.viewContext
+		let olderItem = try downloader.catalogDownloadItem(files: [file], in: context)
+		olderItem.stateChanged_ = .now.addingTimeInterval(-60)
+
+		let newerItem = DownloadItem.create(in: context)
+		newerItem.url = file.resolveURL
+		newerItem.transition(to: .draft)
+		newerItem.stateChanged_ = .now
+		try DownloadItem.save(in: context)
+
+		let reopenedItem = try downloader.catalogDownloadItem(files: [file], in: context)
+
+		XCTAssertTrue(reopenedItem === newerItem)
+		XCTAssertEqual(reopenedItem.entityId, newerItem.entityId)
+	}
+
+	func testCatalogDownloadItem_usesManifestAsStablePackageIdentity() throws {
+		let files = Array(catalogPackageFiles().reversed())
+		let context = dataController.container.viewContext
+
+		let firstItem = try downloader.catalogDownloadItem(files: files, in: context)
+		let reopenedItem = try downloader.catalogDownloadItem(files: catalogPackageFiles(), in: context)
+
+		XCTAssertEqual(firstItem.url, catalogPackageFiles().first?.resolveURL)
+		XCTAssertTrue(firstItem === reopenedItem)
+		XCTAssertEqual(try context.count(for: DownloadItem.fetchRequest()), 1)
+	}
+
+	func testCatalogDownloadItem_preservesPausedURLSessionResumeDataWhenReopeningXetModel() throws {
+		let file = CatalogFile(
+			relativePath: "Example.mlmodel",
+			resolveURL: URL(string: "https://catalog.test/Example.mlmodel") ?? URL(fileURLWithPath: "/"),
+			sizeBytes: 64,
+			xetFile: HuggingFaceXetFile(
+				fileID: "xet-file",
+				tokenURL: URL(string: "https://catalog.test/token") ?? URL(fileURLWithPath: "/")
+			)
+		)
+		let context = dataController.container.viewContext
+		let item = DownloadItem.create(in: context)
+		let resumeData = Data("url-session-resume-data".utf8)
+		item.url = file.resolveURL
+		item.resumeData = resumeData
+		item.state = .paused
+		try DownloadItem.save(in: context)
+
+		let reopenedItem = try downloader.catalogDownloadItem(files: [file], in: context)
+
+		XCTAssertTrue(reopenedItem === item)
+		XCTAssertEqual(reopenedItem.resumeData, resumeData)
+		XCTAssertFalse(downloader.isCatalogDownload(reopenedItem))
+	}
+
 	func testCancelPackageDownload_keepsManifestForRestart() throws {
 		let item = try downloader.makePackageDownloadItem(
 			files: catalogPackageFiles(),
@@ -1128,6 +1238,11 @@ final class DownloaderTests: XCTestCase {
     }
     
     // MARK: - Download Completion Tests
+
+	func testCompletedExpectedBytes_UsesWrittenBytesWhenTheSourceSizeIsUnknown() {
+		XCTAssertEqual(Downloader.completedExpectedBytes(written: 2_750_000, expected: 0), 2_750_000)
+		XCTAssertEqual(Downloader.completedExpectedBytes(written: 2_750_000, expected: 3_000_000), 3_000_000)
+	}
     
     func testHandleDownloadCompletion_Failure_TransitionsToFailed() throws {
         let context = dataController.container.viewContext

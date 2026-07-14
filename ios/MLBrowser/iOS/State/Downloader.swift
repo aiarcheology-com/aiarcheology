@@ -85,11 +85,18 @@ final class ActivePackageDownload: Identifiable, ObservableObject {
 	@Published var progress: Double = 0.0
 	@Published var totalBytesWritten: Int = 0
 	@Published var totalBytesExpected: Int = 0
+	@Published var completedFileCount = 0
+	@Published var totalFileCount = 0
 	var task: Task<Void, Never>?
 
 	init(itemId: UUID) {
 		self.id = itemId
 	}
+}
+
+struct PackageFileProgress: Equatable {
+	let completedFileCount: Int
+	let totalFileCount: Int
 }
 
 private struct PackageDownloadManifest: Codable {
@@ -105,6 +112,12 @@ private struct PackageDownloadManifest: Codable {
 
 	var isValid: Bool {
 		jobKind == Self.kind && files.isEmpty == false
+	}
+
+	var isPackage: Bool {
+		files.contains { file in
+			file.relativePath.split(separator: "/").contains { $0.lowercased().hasSuffix(".mlpackage") }
+		}
 	}
 }
 
@@ -263,6 +276,13 @@ final public class Downloader: NSObject, ObservableObject {
         return [StubDownloadURLProtocol.self] + base
     }
 
+	/// A completed download's actual byte count is authoritative when the source did not provide
+	/// a `Content-Length` or catalog size. This keeps completed jobs from displaying `0 KB` as the
+	/// total after the transient downloader progress has been discarded.
+	nonisolated static func completedExpectedBytes(written: Int, expected: Int) -> Int {
+		expected > 0 ? expected : written
+	}
+
     private lazy var backgroundSession: URLSession = {
         let configuration = URLSessionConfiguration.background(withIdentifier: Self.backgroundSessionIdentifier)
         configuration.sessionSendsLaunchEvents = true
@@ -410,11 +430,12 @@ final public class Downloader: NSObject, ObservableObject {
 	/// Creates a persisted download item for a multi-file Core ML package. The manifest is kept on
 	/// the item instead of an ephemeral view state so a failed package can be retried after relaunch.
 	func makePackageDownloadItem(files: [CatalogFile], in context: NSManagedObjectContext) throws -> DownloadItem {
-		guard let firstFile = files.first else {
+		let orderedFiles = CatalogFile.orderedForDownload(files)
+		guard let firstFile = orderedFiles.first else {
 			throw CatalogError.noInstallableArtifact
 		}
 
-		let manifest = PackageDownloadManifest(files: files)
+		let manifest = PackageDownloadManifest(files: orderedFiles)
 		let item = DownloadItem.create(in: context)
 		item.url = firstFile.resolveURL
 		item.resumeData = try JSONEncoder().encode(manifest)
@@ -424,12 +445,90 @@ final public class Downloader: NSObject, ObservableObject {
 		return item
 	}
 
+	/// Returns the persisted download for a catalog artifact, creating it only the first time the
+	/// artifact is opened. This lets a catalog row reopen its active, paused, completed, or failed
+	/// download instead of creating a competing job.
+	func catalogDownloadItem(files: [CatalogFile], in context: NSManagedObjectContext) throws -> DownloadItem {
+		let orderedFiles = CatalogFile.orderedForDownload(files)
+		guard let firstFile = orderedFiles.first else {
+			throw CatalogError.noInstallableArtifact
+		}
+		let isSingleModelFile = orderedFiles.count == 1 && firstFile.relativePath.lowercased().hasSuffix(".mlmodel")
+
+		let request = DownloadItem.fetchRequest()
+		request.predicate = NSPredicate(format: "%K == %@", #keyPath(DownloadItem.url), firstFile.resolveURL as NSURL)
+		request.sortDescriptors = [NSSortDescriptor(keyPath: \DownloadItem.stateChanged_, ascending: false)]
+		request.fetchLimit = 1
+		if let existingItem = try context.fetch(request).first {
+			if isSingleModelFile, isCatalogDownload(existingItem) {
+				// Early catalog versions derived Google Drive's generic `/download` path as the
+				// filename, creating a manifest-backed job for a single file. Reopen that same
+				// historical job as the ordinary single-file download it was always meant to be.
+				packageManifests.removeValue(forKey: existingItem.entityId)
+				existingItem.resumeData = nil
+				try DownloadItem.save(in: context)
+		}
+		if isSingleModelFile, firstFile.xetFile != nil, isCatalogDownload(existingItem) == false,
+			existingItem.state != .downloading, existingItem.state != .paused, existingItem.resumeData == nil {
+				let manifest = PackageDownloadManifest(files: orderedFiles)
+				existingItem.resumeData = try JSONEncoder().encode(manifest)
+				packageManifests[existingItem.entityId] = manifest
+				try DownloadItem.save(in: context)
+			}
+			return existingItem
+		}
+
+		if isSingleModelFile == false || firstFile.xetFile != nil {
+			return try makePackageDownloadItem(files: orderedFiles, in: context)
+		}
+
+		let item = DownloadItem.create(in: context)
+		item.url = firstFile.resolveURL
+		item.transition(to: .draft)
+		try DownloadItem.save(in: context)
+		return item
+	}
+
 	func isPackageDownload(_ item: DownloadItem) -> Bool {
+		packageManifest(for: item)?.isPackage == true
+	}
+
+	func isCatalogDownload(_ item: DownloadItem) -> Bool {
 		packageManifest(for: item) != nil
 	}
 
 	func packageFileCount(for item: DownloadItem) -> Int? {
 		packageManifest(for: item)?.files.count
+	}
+
+	func catalogArtifactName(for item: DownloadItem) -> String? {
+		guard let relativePath = packageManifest(for: item)?.files.first?.relativePath else { return nil }
+		if let packageComponent = relativePath.split(separator: "/").first(where: { $0.lowercased().hasSuffix(".mlpackage") }) {
+			return String(packageComponent)
+		}
+		return URL(fileURLWithPath: relativePath).lastPathComponent
+	}
+
+	func packageFileProgressPublisher(for itemId: UUID?) -> AnyPublisher<PackageFileProgress, Never> {
+		guard let itemId else {
+			return Just(PackageFileProgress(completedFileCount: 0, totalFileCount: 0)).eraseToAnyPublisher()
+		}
+
+		return $activePackageDownloads
+			.map { activePackageDownloads -> AnyPublisher<PackageFileProgress, Never> in
+				guard let download = activePackageDownloads[itemId] else {
+					return Just(PackageFileProgress(completedFileCount: 0, totalFileCount: 0)).eraseToAnyPublisher()
+				}
+				return download.$completedFileCount
+					.combineLatest(download.$totalFileCount)
+					.map { completedFileCount, totalFileCount in
+						PackageFileProgress(completedFileCount: completedFileCount, totalFileCount: totalFileCount)
+					}
+					.eraseToAnyPublisher()
+			}
+			.switchToLatest()
+			.removeDuplicates()
+			.eraseToAnyPublisher()
 	}
 
 	private func packageManifest(for item: DownloadItem) -> PackageDownloadManifest? {
@@ -509,8 +608,8 @@ final public class Downloader: NSObject, ObservableObject {
             .eraseToAnyPublisher()
     }
     
-    func downloadTapped(_ item: DownloadItem) {
-		if isPackageDownload(item), item.state == .downloading {
+	func downloadTapped(_ item: DownloadItem) {
+		if isCatalogDownload(item), item.state == .downloading {
 			return
 		}
 
@@ -522,8 +621,8 @@ final public class Downloader: NSObject, ObservableObject {
         }
     }
     
-    func cancelTapped(_ item: DownloadItem) {
-		if isPackageDownload(item) {
+	func cancelTapped(_ item: DownloadItem) {
+		if isCatalogDownload(item) {
 			cancelPackageDownload(item)
 			return
 		}
@@ -613,8 +712,8 @@ final public class Downloader: NSObject, ObservableObject {
         transitionAndSave(item, to: .downloading)
     }
     
-    func cancelDownload(_ item: DownloadItem) {
-		if isPackageDownload(item) {
+	func cancelDownload(_ item: DownloadItem) {
+		if isCatalogDownload(item) {
 			cancelPackageDownload(item)
 			return
 		}
@@ -632,8 +731,8 @@ final public class Downloader: NSObject, ObservableObject {
         current.task.cancel()
     }
 
-    func pauseDownload(_ item: DownloadItem) {
-		guard isPackageDownload(item) == false else { return }
+	func pauseDownload(_ item: DownloadItem) {
+		guard isCatalogDownload(item) == false else { return }
 
         let entityId = item.entityId
         guard let download = activeDownloads[entityId] else { return }
@@ -715,6 +814,8 @@ final public class Downloader: NSObject, ObservableObject {
 		activeDownload.progress = progress.fractionCompleted
 		activeDownload.totalBytesWritten = Int(progress.downloadedBytes)
 		activeDownload.totalBytesExpected = Int(progress.expectedBytes ?? 0)
+		activeDownload.completedFileCount = progress.completedFileCount
+		activeDownload.totalFileCount = progress.totalFileCount
 		persistPackageDownloadState(from: activeDownload, to: item)
 	}
 
@@ -731,23 +832,27 @@ final public class Downloader: NSObject, ObservableObject {
 		case .success(let packageURL):
 			do {
 				let stagingDirectory = packageStagingDirectory(for: packageURL, manifest: packageManifest(for: item))
+					?? packageURL.deletingLastPathComponent()
 				let targetURL = try FileManager.moveModelToDocuments(from: packageURL, configurationId: itemId)
-				if let stagingDirectory {
-					try? FileManager.default.removeItem(at: stagingDirectory)
-				}
+				try? FileManager.default.removeItem(at: stagingDirectory)
 				item.file_ = try targetURL.relativePath(from: DownloadItem.rootDirectory)
+				activeDownload.totalBytesExpected = Self.completedExpectedBytes(
+					written: activeDownload.totalBytesWritten,
+					expected: activeDownload.totalBytesExpected
+				)
+				activeDownload.progress = 1
 				persistPackageDownloadState(from: activeDownload, to: item)
 				transitionAndSave(item, to: .complete)
 				LoggingPolicy.info("Package download successfully saved", logger: .networking)
 			} catch {
 				LoggingPolicy.error("Could not store downloaded package", error: error, logger: .networking)
-				item.error = error.localizedDescription
+				item.error = L10n.Catalog.Download.error
 				persistPackageDownloadState(from: activeDownload, to: item)
 				transitionAndSave(item, to: .failed)
 			}
 		case .failure(let error):
 			LoggingPolicy.error("Package download failed", error: error, logger: .networking)
-			item.error = error.localizedDescription
+			item.error = L10n.Catalog.Download.error
 			persistPackageDownloadState(from: activeDownload, to: item)
 			transitionAndSave(item, to: .failed)
 		}
@@ -868,6 +973,11 @@ final public class Downloader: NSObject, ObservableObject {
                 let relativePath = try targetPath.relativePath(from: DownloadItem.rootDirectory)
                 item.file_ = relativePath
                 if let download {
+					download.totalBytesExpected = Self.completedExpectedBytes(
+						written: download.totalBytesWritten,
+						expected: download.totalBytesExpected
+					)
+					download.progress = 1
                     Self.persistDownloadState(from: download, to: item)
                 }
                 transitionAndSave(item, to: .complete)

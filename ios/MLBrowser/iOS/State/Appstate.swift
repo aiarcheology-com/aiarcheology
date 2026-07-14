@@ -27,7 +27,10 @@ final class AppState: ObservableObject {
 	let snap: SnapState
 	let deep: DeepState
 	let downloader: Downloader
-	let catalogProvider: any CatalogProvider
+	let catalogProviders: [any CatalogProvider]
+	/// Ephemeral catalog browsing state. It deliberately survives sheet dismissal during this
+	/// launch, but is never written to disk or restored after the app restarts.
+	lazy var catalogSearchManager = CatalogSearchManager(providers: catalogProviders)
 	let demoDataManager: DemoDataManager
 	let findingRepository: FindingRepository
 
@@ -73,7 +76,7 @@ final class AppState: ObservableObject {
 		snap: SnapState,
 		deep: DeepState,
 		downloader: Downloader,
-		catalogProvider: any CatalogProvider,
+		catalogProviders: [any CatalogProvider],
 		demoDataManager: DemoDataManager,
 		findingRepository: FindingRepository,
 		detection: DetectionSession,
@@ -86,7 +89,7 @@ final class AppState: ObservableObject {
 		self.snap = snap
 		self.deep = deep
 		self.downloader = downloader
-		self.catalogProvider = catalogProvider
+		self.catalogProviders = catalogProviders
 		self.demoDataManager = demoDataManager
 		self.findingRepository = findingRepository
 		self.detection = detection

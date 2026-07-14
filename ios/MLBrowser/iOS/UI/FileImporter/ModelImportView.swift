@@ -23,7 +23,9 @@ struct ModelImportView: View {
 	/// auto-open the model's settings for the user to confirm its type (AIA-0402). No imported
 	/// model runs on an unconfirmed type — the app can't verify what a model actually does.
 	var onImported: (UUID) -> Void = { _ in }
-	let catalogProvider: any CatalogProvider
+	let catalogProviders: [any CatalogProvider]
+	/// Shared for the running app session so closing and reopening the catalog keeps its search.
+	private let catalogSearchManager: CatalogSearchManager
 
 	@StateObject private var acquisitionCoordinator = ModelAcquisitionCoordinator(
 		allowedTypes: [
@@ -48,14 +50,14 @@ struct ModelImportView: View {
 	/// Success state with imported model info
 	@State private var importedModelInfo: ImportedModelInfo?
 
-	/// Selection is recorded before the catalog sheet closes; the next sheet is presented only
-	/// after dismissal, avoiding SwiftUI's "present while dismissing" race.
-	@State private var pendingCatalogSelection: CatalogSelection?
-	@State private var catalogDownloadItem: DownloadItem?
-
-	init(onImported: @escaping (UUID) -> Void = { _ in }, catalogProvider: any CatalogProvider) {
+	init(
+		onImported: @escaping (UUID) -> Void = { _ in },
+		catalogProviders: [any CatalogProvider],
+		catalogSearchManager: CatalogSearchManager? = nil
+	) {
 		self.onImported = onImported
-		self.catalogProvider = catalogProvider
+		self.catalogProviders = catalogProviders
+		self.catalogSearchManager = catalogSearchManager ?? CatalogSearchManager(providers: catalogProviders)
 	}
 	
 	private static let pythonCode = """
@@ -77,6 +79,19 @@ struct ModelImportView: View {
 				.navigationTitle(L10n.Import.title)
 				.navigationBarTitleDisplayMode(.inline)
 				.toolbar { toolbarContent }
+				.navigationDestination(isPresented: $acquisitionCoordinator.isShowingCatalog) {
+					CatalogBrowseView(
+						searchManager: catalogSearchManager,
+						onImport: ImportHandler { url, id, downloadURL, provider in
+							handleCatalogRemoteImport(
+								url: url,
+								id: id,
+								downloadURL: downloadURL,
+								provider: provider
+							)
+						}
+					)
+				}
 		}
 		.overlay {
 			if isLoading {
@@ -91,23 +106,6 @@ struct ModelImportView: View {
 		)
 		.sheet(isPresented: $acquisitionCoordinator.isShowingDownloader, onDismiss: handleDownloaderDismiss) {
 			remoteDownloaderSheet
-		}
-		.sheet(isPresented: $acquisitionCoordinator.isShowingCatalog, onDismiss: beginPendingCatalogSelection) {
-			CatalogBrowseView(providers: [catalogProvider]) { model, files in
-				handleCatalogSelection(model: model, files: files)
-			}
-		}
-		.sheet(item: $catalogDownloadItem, onDismiss: handleDownloaderDismiss) { item in
-			NavigationStack {
-				DownloadDetailView(
-					item: item,
-					onImport: ImportHandler { url, id, downloadURL, provider in
-						handleCatalogRemoteImport(url: url, id: id, downloadURL: downloadURL, provider: provider)
-					}
-				)
-				.environmentObject(downloader)
-				.environmentObject(deep)
-			}
 		}
 		.onChange(of: acquisitionCoordinator.pendingImport) { _, request in
 			handlePendingImport(request)
@@ -312,7 +310,7 @@ struct ModelImportView: View {
 			.environmentObject(deep)
 		}
 	}
-	
+
 	// MARK: - Event Handlers
 	
 	private func handleRemoteImport(url: URL, id: UUID, downloadUrl: URL, provider: ModelProvider) {
@@ -322,7 +320,7 @@ struct ModelImportView: View {
 
 	private func handleCatalogRemoteImport(url: URL, id: UUID, downloadURL: URL, provider: ModelProvider) {
 		pendingRemoteImport = (url, id, downloadURL, provider)
-		catalogDownloadItem = nil
+		handleDownloaderDismiss()
 	}
 	
 	private func handleDownloaderDismiss() {
@@ -336,47 +334,6 @@ struct ModelImportView: View {
 		)
 	}
 
-	private func handleCatalogSelection(model: CatalogModel, files: [CatalogFile]) {
-		guard files.isEmpty == false else {
-			errorMessage = L10n.Catalog.Error.unsupportedModel
-			showErrorAlert = true
-			return
-		}
-
-		if files.count == 1, files[0].relativePath.lowercased().hasSuffix(".mlmodel") {
-			pendingCatalogSelection = .singleFile(files[0].resolveURL)
-		} else {
-			pendingCatalogSelection = .package(files)
-		}
-		acquisitionCoordinator.isShowingCatalog = false
-	}
-
-	private func beginPendingCatalogSelection() {
-		guard let selection = pendingCatalogSelection else { return }
-		pendingCatalogSelection = nil
-
-		switch selection {
-		case .singleFile(let url):
-			do {
-				let item = DownloadItem.create(in: moc)
-				item.url = url
-				item.transition(to: .draft)
-				try DownloadItem.save(in: moc)
-				catalogDownloadItem = item
-			} catch {
-				errorMessage = L10n.Catalog.Error.message
-				showErrorAlert = true
-			}
-		case .package(let files):
-			do {
-				catalogDownloadItem = try downloader.makePackageDownloadItem(files: files, in: moc)
-			} catch {
-				errorMessage = L10n.Catalog.Error.message
-				showErrorAlert = true
-			}
-		}
-	}
-	
 	private func handleFileImportResult(_ result: Result<[URL], Error>) {
 		switch result {
 		case .success(let urls):
@@ -554,15 +511,10 @@ private struct NoopProvider: ModelProvider {
 	func result(_ error: ModelProviderError, id: UUID) { }
 }
 
-private enum CatalogSelection {
-	case singleFile(URL)
-	case package([CatalogFile])
-}
-
 #if DEBUG
 // MARK: - Preview
 
 #Preview {
-	ModelImportView(catalogProvider: HuggingFaceCatalogProvider())
+	ModelImportView(catalogProviders: [HuggingFaceCatalogProvider(), AppleCoreMLCatalogProvider()])
 }
 #endif

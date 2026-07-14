@@ -66,6 +66,7 @@ extension TestabilityIdentification {
 		case downloadDetailCancel
 		case downloadDetailDismiss
 		case downloadDetailImport
+		case downloadDetailCopyUrl
 		// Downloader
 		case downloaderDone
 		case downloaderAddDownload
@@ -85,6 +86,7 @@ extension TestabilityIdentification {
 		case newConfigurationOpenCatalog
 		// Model Catalog
 		case catalogResult
+		case catalogProviderFilter
 		// Settings
 		case settingsDismiss
 		case settingsDeleteCache
@@ -264,6 +266,8 @@ extension TestabilityIdentification {
 	
 	enum TextField: String, TestabilityIdentification {
 		case downloadDetailUrl
+		// Model Catalog
+		case catalogSearch
 		// Settings
 		case settingsDefaultPage
 		case settingsHistoryLimit

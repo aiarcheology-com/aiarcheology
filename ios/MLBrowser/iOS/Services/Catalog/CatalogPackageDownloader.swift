@@ -27,6 +27,12 @@ enum CatalogPackageDownloadEvent: Sendable {
 	case finished(URL)
 }
 
+typealias CatalogXetDownload = @Sendable (
+	_ file: CatalogFile,
+	_ session: URLSession,
+	_ onBytesWritten: @escaping @Sendable (Int64) -> Void
+) async throws -> URL
+
 /// Downloads package siblings into a temporary directory. `Downloader` owns the returned package
 /// root and moves it into the model configuration directory before the normal import flow begins.
 actor CatalogPackageDownloader {
@@ -37,10 +43,22 @@ actor CatalogPackageDownloader {
 
 	private let session: URLSession
 	private let fileManager: FileManager
+	private let xetDownload: CatalogXetDownload
 
-	init(session: URLSession = .shared, fileManager: FileManager = .default) {
+	init(
+		session: URLSession = .shared,
+		fileManager: FileManager = .default,
+		xetDownload: @escaping CatalogXetDownload = { file, session, onBytesWritten in
+			try await HuggingFaceXetDownloader.download(
+				file: file,
+				session: session,
+				onBytesWritten: onBytesWritten
+			)
+		}
+	) {
 		self.session = session
 		self.fileManager = fileManager
+		self.xetDownload = xetDownload
 	}
 
 	func events(for files: [CatalogFile]) -> AsyncThrowingStream<CatalogPackageDownloadEvent, Error> {
@@ -68,11 +86,70 @@ private extension CatalogPackageDownloader {
 		let byteCount: Int64
 	}
 
+	/// Serializes progress emitted by concurrent package-file tasks into a single aggregate value.
+	final class ProgressReporter: @unchecked Sendable {
+		private let lock = NSLock()
+		private let totalFileCount: Int
+		private let expectedBytes: Int64?
+		private let report: @Sendable (CatalogPackageDownloadProgress) -> Void
+		private var bytesByPath: [String: Int64] = [:]
+		private var completedPaths = Set<String>()
+
+		init(
+			files: [CatalogFile],
+			expectedBytes: Int64?,
+			report: @escaping @Sendable (CatalogPackageDownloadProgress) -> Void
+		) {
+			totalFileCount = files.count
+			self.expectedBytes = expectedBytes
+			self.report = report
+		}
+
+		func reportInitialProgress() {
+			report(
+				CatalogPackageDownloadProgress(
+					completedFileCount: 0,
+					totalFileCount: totalFileCount,
+					downloadedBytes: 0,
+					expectedBytes: expectedBytes
+				)
+			)
+		}
+
+		func update(file: CatalogFile, downloadedBytes: Int64) {
+			report(snapshot(updating: file, downloadedBytes: downloadedBytes, isComplete: false))
+		}
+
+		func complete(file: CatalogFile, downloadedBytes: Int64) {
+			report(snapshot(updating: file, downloadedBytes: downloadedBytes, isComplete: true))
+		}
+
+		private func snapshot(
+			updating file: CatalogFile,
+			downloadedBytes: Int64,
+			isComplete: Bool
+		) -> CatalogPackageDownloadProgress {
+			lock.lock()
+			bytesByPath[file.relativePath] = max(bytesByPath[file.relativePath] ?? 0, downloadedBytes)
+			if isComplete {
+				completedPaths.insert(file.relativePath)
+			}
+			let progress = CatalogPackageDownloadProgress(
+				completedFileCount: completedPaths.count,
+				totalFileCount: totalFileCount,
+				downloadedBytes: bytesByPath.values.reduce(0, +),
+				expectedBytes: expectedBytes
+			)
+			lock.unlock()
+			return progress
+		}
+	}
+
 	func download(
 		files: [CatalogFile],
 		reportProgress: @escaping @Sendable (CatalogPackageDownloadProgress) -> Void
 	) async throws -> URL {
-		let packageRoot = try validate(files: files)
+		let artifact = try validate(files: files)
 		let expectedBytes = files.compactMap(\.sizeBytes).reduce(Int64(0), +)
 		let unknownSizeCount = files.filter { $0.sizeBytes == nil }.count
 		guard expectedBytes <= Self.maximumTotalBytes else { throw CatalogError.tooLarge }
@@ -84,17 +161,10 @@ private extension CatalogPackageDownloader {
 		try fileManager.createDirectory(at: stagingRoot, withIntermediateDirectories: true)
 
 		do {
-			var downloadedBytes: Int64 = 0
-			var completedFileCount = 0
 			let knownTotal = unknownSizeCount == 0 ? expectedBytes : nil
-			reportProgress(
-				CatalogPackageDownloadProgress(
-					completedFileCount: completedFileCount,
-					totalFileCount: files.count,
-					downloadedBytes: downloadedBytes,
-					expectedBytes: knownTotal
-				)
-			)
+			let progressReporter = ProgressReporter(files: files, expectedBytes: knownTotal, report: reportProgress)
+			progressReporter.reportInitialProgress()
+			var downloadedBytes: Int64 = 0
 
 			try await withThrowingTaskGroup(of: DownloadedFile.self) { group in
 				var nextIndex = 0
@@ -102,8 +172,10 @@ private extension CatalogPackageDownloader {
 				for _ in 0..<initialCount {
 					let file = files[nextIndex]
 					nextIndex += 1
-					group.addTask { [session] in
-						try await Self.fetch(file: file, session: session)
+					group.addTask { [session, progressReporter, xetDownload] in
+						try await Self.fetch(file: file, session: session, xetDownload: xetDownload) { bytesWritten in
+							progressReporter.update(file: file, downloadedBytes: bytesWritten)
+						}
 					}
 				}
 
@@ -111,47 +183,55 @@ private extension CatalogPackageDownloader {
 					downloadedBytes += downloaded.byteCount
 					guard downloadedBytes <= Self.maximumTotalBytes else { throw CatalogError.tooLarge }
 					try stage(downloaded: downloaded, in: stagingRoot)
-					completedFileCount += 1
-					reportProgress(
-						CatalogPackageDownloadProgress(
-							completedFileCount: completedFileCount,
-							totalFileCount: files.count,
-							downloadedBytes: downloadedBytes,
-							expectedBytes: knownTotal
-						)
-					)
+					progressReporter.complete(file: downloaded.file, downloadedBytes: downloaded.byteCount)
 
 					if nextIndex < files.count {
 						let file = files[nextIndex]
 						nextIndex += 1
-						group.addTask { [session] in
-							try await Self.fetch(file: file, session: session)
+						group.addTask { [session, progressReporter, xetDownload] in
+							try await Self.fetch(file: file, session: session, xetDownload: xetDownload) { bytesWritten in
+								progressReporter.update(file: file, downloadedBytes: bytesWritten)
+							}
 						}
 					}
 				}
 			}
 
-			let packageURL = stagingRoot.appendingPathComponent(packageRoot, isDirectory: true)
-			guard fileManager.fileExists(atPath: packageURL.path) else {
+			let artifactURL: URL
+			switch artifact {
+			case .package(let root):
+				artifactURL = stagingRoot.appendingPathComponent(root, isDirectory: true)
+			case .singleFile(let relativePath):
+				artifactURL = try destinationURL(for: relativePath, in: stagingRoot)
+			}
+			guard fileManager.fileExists(atPath: artifactURL.path) else {
 				throw CatalogError.noInstallableArtifact
 			}
-			return packageURL
+			return artifactURL
 		} catch {
 			try? fileManager.removeItem(at: stagingRoot)
 			throw error
 		}
 	}
 
-	func validate(files: [CatalogFile]) throws -> String {
+	enum Artifact {
+		case package(String)
+		case singleFile(String)
+	}
+
+	func validate(files: [CatalogFile]) throws -> Artifact {
 		guard files.isEmpty == false, files.count <= Self.maximumFileCount else {
 			throw files.isEmpty ? CatalogError.noInstallableArtifact : CatalogError.tooManyFiles
+		}
+		if files.count == 1, let file = files.first, file.relativePath.lowercased().hasSuffix(".mlmodel") {
+			return .singleFile(file.relativePath)
 		}
 
 		let roots = Set(files.compactMap { packageRoot(in: $0.relativePath) })
 		guard roots.count == 1, let root = roots.first else {
 			throw CatalogError.invalidFilePath
 		}
-		return root
+		return .package(root)
 	}
 
 	func stage(downloaded: DownloadedFile, in stagingRoot: URL) throws {
@@ -163,18 +243,29 @@ private extension CatalogPackageDownloader {
 		try fileManager.moveItem(at: downloaded.temporaryURL, to: destination)
 	}
 
-	nonisolated static func fetch(file: CatalogFile, session: URLSession) async throws -> DownloadedFile {
+	nonisolated static func fetch(
+		file: CatalogFile,
+		session: URLSession,
+		xetDownload: @escaping CatalogXetDownload,
+		onBytesWritten: @escaping @Sendable (Int64) -> Void = { _ in }
+	) async throws -> DownloadedFile {
 		do {
-			let (temporaryURL, response) = try await session.download(from: file.resolveURL)
-			guard let response = response as? HTTPURLResponse,
-				  (200...299).contains(response.statusCode) else {
-				throw CatalogError.network
+			let temporaryURL: URL
+			if file.xetFile != nil {
+				temporaryURL = try await xetDownload(file, session, onBytesWritten)
+			} else {
+				let (downloadURL, response) = try await session.download(from: file.resolveURL)
+				guard let response = response as? HTTPURLResponse,
+					  (200...299).contains(response.statusCode) else {
+					throw CatalogError.network
+				}
+				temporaryURL = downloadURL
 			}
 			let values = try temporaryURL.resourceValues(forKeys: [.fileSizeKey])
 			guard let size = values.fileSize else { throw CatalogError.invalidResponse }
 			return DownloadedFile(file: file, temporaryURL: temporaryURL, byteCount: Int64(size))
 		} catch is CancellationError {
-			throw CatalogError.cancelled
+			throw CancellationError()
 		} catch let error as CatalogError {
 			throw error
 		} catch {

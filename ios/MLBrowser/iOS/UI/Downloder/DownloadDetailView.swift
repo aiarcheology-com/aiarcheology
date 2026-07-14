@@ -25,24 +25,30 @@ struct DownloadDetailView: View {
 	@State private var progress: Double = 0.0
 	@State private var totalBytesWritten: Int = 0
 	@State private var totalBytesExpected: Int = 0
+	@State private var packageFileProgress = PackageFileProgress(completedFileCount: 0, totalFileCount: 0)
 	
 	// MARK: - Body
 	
 	var body: some View {
-		VStack {
+		VStack(spacing: 0) {
 			progressHeader
 			Form {
 				urlInputSection
 				statusSection
 				helpSection
 			}
-			actionButtons
 		}
-		.navigationBarTitle(isPackageDownload ? L10n.Catalog.Download.title : L10n.Download.title)
+		.safeAreaInset(edge: .bottom, spacing: 0) {
+			actionButtons
+				.background(.bar)
+		}
+		.navigationBarTitle(isCatalogDownload ? L10n.Catalog.Download.title : L10n.Download.title)
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar { toolbarContent }
 		.onAppear {
-			urlText = item.url?.absoluteString ?? ""
+			let value = item.url?.absoluteString ?? ""
+			urlText = value
+			validateUrl(value)
 		}
 		.alert("Help", isPresented: $showAlert) {
 			Button(L10n.Common.ok, role: .cancel) { }
@@ -89,22 +95,83 @@ private extension DownloadDetailView {
 private extension DownloadDetailView {
 	var urlInputSection: some View {
 		Section {
-			HStack {
-				Text(L10n.Download.url)
-				Spacer()
-				urlTextField
+			if isCatalogDownload {
+				catalogArtifactInput
+			} else {
+				HStack(alignment: .top, spacing: 8) {
+					urlLabel
+					Spacer(minLength: 8)
+					urlInput
+				}
 			}
 		} footer: {
-			Text(packageFileCount.map { L10n.Catalog.Download.progress(0, $0) } ?? L10n.Download.urlHint)
-				.font(.subheadline)
-				.foregroundColor(.gray)
+			if let packageProgressDescription {
+				if packageFileCount != nil {
+					Text(packageProgressDescription)
+						.font(.subheadline)
+						.foregroundColor(.gray)
+						.onReceive(downloader.packageFileProgressPublisher(for: item.entityId)) { progress in
+							packageFileProgress = progress
+						}
+				} else {
+					Text(packageProgressDescription)
+						.font(.subheadline)
+						.foregroundColor(.gray)
+				}
+			}
 		}
 	}
 	
+	var catalogArtifactInput: some View {
+		HStack(alignment: .top, spacing: 8) {
+			HStack(spacing: 6) {
+				Text(downloader.isPackageDownload(item) ? L10n.Catalog.Download.package : L10n.Configuration.Section.model)
+				copyUrlButton
+			}
+			Spacer(minLength: 8)
+			Text(downloader.catalogArtifactName(for: item) ?? urlText)
+				.foregroundStyle(.secondary)
+				.multilineTextAlignment(.trailing)
+		}
+	}
+
+	var urlLabel: some View {
+		VStack(alignment: .leading, spacing: 6) {
+			Text(L10n.Download.url)
+			copyUrlButton
+		}
+	}
+
+	var copyUrlButton: some View {
+		Button {
+			UIPasteboard.general.string = urlText
+		} label: {
+			Image(systemName: "doc.on.doc")
+		}
+		.accessibilityLabel(L10n.Common.copy)
+		.buttonStyle(.borderless)
+		.testability(Testability.Button.downloadDetailCopyUrl)
+	}
+
+	@ViewBuilder
+	var urlInput: some View {
+		if isURLReadOnly {
+			Text(urlText)
+				.foregroundStyle(.secondary)
+				.multilineTextAlignment(.trailing)
+				.textSelection(.enabled)
+		} else {
+			urlTextField
+		}
+	}
+
+	var isURLReadOnly: Bool {
+		isCatalogDownload || [.downloading, .paused].contains(item.state)
+	}
+
 	var urlTextField: some View {
 		TextField("https://.../mymodel.mlmodel", text: $urlText, axis: .vertical)
 			.testability(Testability.TextField.downloadDetailUrl)
-			.disabled(isPackageDownload || [.downloading, .paused].contains(item.state))
 			.lineLimit(5)
 			.autocapitalization(.none)
 			.disableAutocorrection(true)
@@ -170,11 +237,18 @@ private extension DownloadDetailView {
 				totalBytesExpected = newValue
 			}
 		} else {
+			let written = Int($item.totalBytesWritten.wrappedValue)
+			let expected = Int($item.totalBytesExpectedToWrite.wrappedValue)
 			ProgressDetailTextView(
-				Int($item.totalBytesWritten.wrappedValue).formatBytesAsHumanReadable(),
-				Int($item.totalBytesExpectedToWrite.wrappedValue).formatBytesAsHumanReadable()
+				written.formatBytesAsHumanReadable(),
+				completedExpectedBytes(written: written, expected: expected).formatBytesAsHumanReadable()
 			)
 		}
+	}
+
+	private func completedExpectedBytes(written: Int, expected: Int) -> Int {
+		guard item.state == .complete || item.state == .imported else { return expected }
+		return Downloader.completedExpectedBytes(written: written, expected: expected)
 	}
 	
 	@ViewBuilder
@@ -264,12 +338,31 @@ private extension DownloadDetailView {
 		downloader.isPackageDownload(item)
 	}
 
+	var isCatalogDownload: Bool {
+		downloader.isCatalogDownload(item)
+	}
+
 	var packageFileCount: Int? {
 		downloader.packageFileCount(for: item)
 	}
 
+	var packageProgressDescription: String? {
+		guard let packageFileCount else { return L10n.Download.urlHint }
+		switch item.state {
+		case .complete, .imported:
+			return L10n.Catalog.Download.progress(packageFileCount, packageFileCount)
+		case .downloading:
+			return L10n.Catalog.Download.progress(
+				min(packageFileProgress.completedFileCount, packageFileCount),
+				packageFileCount
+			)
+		default:
+			return nil
+		}
+	}
+
 	var downloadAttributes: (enabled: Bool, color: Color, label: String) {
-		if isPackageDownload, item.state == .downloading {
+		if isCatalogDownload, item.state == .downloading {
 			return (enabled: false, color: .gray, label: L10n.DownloadState.downloading)
 		}
 		return Self.downloadButtonAttributes(item.state)
