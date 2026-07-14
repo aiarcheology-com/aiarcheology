@@ -136,7 +136,7 @@ private extension DownloadDetailView {
 	}
 
 	var urlLabel: some View {
-		HStack(spacing: 6) {
+		VStack(alignment: .leading, spacing: 6) {
 			Text(L10n.Download.url)
 			copyUrlButton
 		}
