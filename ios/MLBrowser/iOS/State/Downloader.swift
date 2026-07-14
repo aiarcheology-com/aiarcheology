@@ -97,22 +97,39 @@ final class ActivePackageDownload: Identifiable, ObservableObject {
 /// Tracks MainActor progress updates scheduled from package-download worker tasks so the final
 /// completion transition waits for every previously reported progress snapshot.
 private final class PackageDownloadProgressRelay: @unchecked Sendable {
+	private struct Tail {
+		let id: UInt
+		let task: Task<Void, Never>
+	}
+
 	private let lock = NSLock()
-	private var pendingTasks: [Task<Void, Never>] = []
+	private var tail: Tail?
+	private var nextTailID: UInt = 0
 
 	func enqueue(_ operation: @escaping @MainActor @Sendable () -> Void) {
+		lock.lock()
+		let previousTask = tail?.task
+		nextTailID &+= 1
+		let tailID = nextTailID
 		let task = Task { @MainActor in
+			await previousTask?.value
 			operation()
 		}
-		lock.withLock {
-			pendingTasks.append(task)
-		}
+		tail = Tail(id: tailID, task: task)
+		lock.unlock()
 	}
 
 	func flush() async {
-		let tasks = lock.withLock { pendingTasks }
-		for task in tasks {
-			await task.value
+		while let snapshot = lock.withLock({ tail }) {
+			await snapshot.task.value
+			let caughtUp = lock.withLock { () -> Bool in
+				guard tail?.id == snapshot.id else { return false }
+				tail = nil
+				return true
+			}
+			if caughtUp {
+				return
+			}
 		}
 	}
 }
@@ -1174,6 +1191,7 @@ extension DownloadItem: CoreDataManageable {
     }
     
     static func delete(_ entity: DownloadItem, in context: NSManagedObjectContext, deleteModel: Bool) {
+		let entityId = entity.entityId
         if deleteModel.enabled, let modelPath = entity.file {
             if FileManager.default.fileExists(atPath: modelPath.path) {
                 do {
@@ -1186,6 +1204,9 @@ extension DownloadItem: CoreDataManageable {
             }
         }
         DownloadItem.delete(entity, in: context)
+		if DeepConfiguration.select(entityId, in: context) == nil {
+			CatalogSourceStore.removeSource(for: entityId)
+		}
     }
     
     func doesModelFileExist() -> Bool {

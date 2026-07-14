@@ -229,7 +229,7 @@ struct DrawerContent: View {
                         selectedConfigurationId = entityId
                     },
                     onDelete: {
-                        DeepConfiguration.delete(entityId, in: moc)
+						deep.deleteConfiguration(entityId)
                     }
                 )
             }
