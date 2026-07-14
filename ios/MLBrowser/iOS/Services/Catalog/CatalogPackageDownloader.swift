@@ -48,18 +48,21 @@ final class CatalogHTTPFileDownloader: NSObject, URLSessionDownloadDelegate, URL
 		let destinationURL: URL
 		let onBytesWritten: @Sendable (Int64) -> Void
 		let continuation: CheckedContinuation<URL, Error>
-		var watchdog: DispatchWorkItem?
+		var deadline: DispatchTime
+		var watchdog: DispatchSourceTimer?
 
 		init(
 			task: URLSessionDownloadTask,
 			destinationURL: URL,
 			onBytesWritten: @escaping @Sendable (Int64) -> Void,
-			continuation: CheckedContinuation<URL, Error>
+			continuation: CheckedContinuation<URL, Error>,
+			deadline: DispatchTime
 		) {
 			self.task = task
 			self.destinationURL = destinationURL
 			self.onBytesWritten = onBytesWritten
 			self.continuation = continuation
+			self.deadline = deadline
 		}
 	}
 
@@ -98,24 +101,31 @@ final class CatalogHTTPFileDownloader: NSObject, URLSessionDownloadDelegate, URL
 		let task = session.downloadTask(with: file.resolveURL)
 
 		return try await withTaskCancellationHandler(operation: {
-			try Task.checkCancellation()
+			do {
+				try Task.checkCancellation()
+			} catch {
+				session.invalidateAndCancel()
+				throw error
+			}
 			return try await withCheckedThrowingContinuation { continuation in
 				let destinationURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
 				let transfer = Transfer(
 					task: task,
 					destinationURL: destinationURL,
 					onBytesWritten: onBytesWritten,
-					continuation: continuation
+					continuation: continuation,
+					deadline: .now() + timeouts.firstByte
 				)
 
 				lock.lock()
 				if cancelledBeforeStart {
 					lock.unlock()
+					session.invalidateAndCancel()
 					continuation.resume(throwing: CancellationError())
 					return
 				}
 				self.transfer = transfer
-				armWatchdogLocked(for: transfer, timeout: timeouts.firstByte)
+				armWatchdogLocked(for: transfer)
 				task.resume()
 				lock.unlock()
 			}
@@ -134,7 +144,7 @@ final class CatalogHTTPFileDownloader: NSObject, URLSessionDownloadDelegate, URL
 		let callback: (@Sendable (Int64) -> Void)?
 		lock.lock()
 		if let transfer, transfer.task.taskIdentifier == downloadTask.taskIdentifier {
-			armWatchdogLocked(for: transfer, timeout: timeouts.inactivity)
+			transfer.deadline = .now() + timeouts.inactivity
 			callback = transfer.onBytesWritten
 		} else {
 			callback = nil
@@ -143,30 +153,21 @@ final class CatalogHTTPFileDownloader: NSObject, URLSessionDownloadDelegate, URL
 		callback?(totalBytesWritten)
 	}
 
-	func urlSession(
-		_ session: URLSession,
-		task: URLSessionTask,
-		didReceive response: URLResponse,
-		completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
-	) {
-		guard let response = response as? HTTPURLResponse,
-			  (200...299).contains(response.statusCode) else {
-			finish(taskIdentifier: task.taskIdentifier, result: .failure(CatalogError.network))
-			completionHandler(.cancel)
+	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+		guard let http = downloadTask.response as? HTTPURLResponse,
+			  (200...299).contains(http.statusCode) else {
+			finish(taskIdentifier: downloadTask.taskIdentifier, result: .failure(CatalogError.network))
 			return
 		}
-		completionHandler(.allow)
-	}
 
-	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+		guard let transfer = takeTransfer(for: downloadTask.taskIdentifier) else { return }
 		do {
-			guard let transfer = transfer(for: downloadTask.taskIdentifier) else { return }
 			try FileManager.default.moveItem(at: location, to: transfer.destinationURL)
-			finish(taskIdentifier: downloadTask.taskIdentifier, result: .success(transfer.destinationURL))
+			complete(transfer, result: .success(transfer.destinationURL))
 		} catch let error as CatalogError {
-			finish(taskIdentifier: downloadTask.taskIdentifier, result: .failure(error))
+			complete(transfer, result: .failure(error))
 		} catch {
-			finish(taskIdentifier: downloadTask.taskIdentifier, result: .failure(CatalogError.network))
+			complete(transfer, result: .failure(CatalogError.network))
 		}
 	}
 
@@ -181,65 +182,94 @@ final class CatalogHTTPFileDownloader: NSObject, URLSessionDownloadDelegate, URL
 		}
 	}
 
-	private func transfer(for taskIdentifier: Int) -> Transfer? {
+	private func takeTransfer(for taskIdentifier: Int) -> Transfer? {
 		lock.lock()
 		defer { lock.unlock() }
+		return takeTransferLocked(for: taskIdentifier)
+	}
+
+	private func takeTransferLocked(for taskIdentifier: Int) -> Transfer? {
 		guard let transfer, transfer.task.taskIdentifier == taskIdentifier else { return nil }
+		self.transfer = nil
+		transfer.watchdog?.setEventHandler {}
+		transfer.watchdog?.cancel()
+		transfer.watchdog = nil
 		return transfer
 	}
 
-	private func armWatchdogLocked(for transfer: Transfer, timeout: TimeInterval) {
-		transfer.watchdog?.cancel()
+	private func armWatchdogLocked(for transfer: Transfer) {
+		guard transfer.watchdog == nil else { return }
 		let taskIdentifier = transfer.task.taskIdentifier
-		let watchdog = DispatchWorkItem { [weak self] in
-			self?.timeout(taskIdentifier: taskIdentifier)
+		let watchdog = DispatchSource.makeTimerSource(queue: .global())
+		watchdog.setEventHandler { [weak self] in
+			self?.watchdogFired(taskIdentifier: taskIdentifier)
 		}
 		transfer.watchdog = watchdog
-		DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: watchdog)
+		watchdog.schedule(deadline: transfer.deadline)
+		watchdog.resume()
 	}
 
-	private func timeout(taskIdentifier: Int) {
-		let task: URLSessionDownloadTask?
+	private func watchdogFired(taskIdentifier: Int) {
+		let deadline: DispatchTime
 		lock.lock()
-		if let transfer, transfer.task.taskIdentifier == taskIdentifier {
-			task = transfer.task
-		} else {
-			task = nil
+		guard let transfer, transfer.task.taskIdentifier == taskIdentifier else {
+			lock.unlock()
+			return
+		}
+		deadline = transfer.deadline
+		if DispatchTime.now() < deadline {
+			transfer.watchdog?.schedule(deadline: deadline)
+			lock.unlock()
+			return
 		}
 		lock.unlock()
-		task?.cancel()
-		finish(taskIdentifier: taskIdentifier, result: .failure(CatalogError.timedOut))
+		timeout(taskIdentifier: taskIdentifier, deadline: deadline)
 	}
 
-	private func cancel() {
-		let task: URLSessionDownloadTask?
-		lock.lock()
-		if let transfer {
-			task = transfer.task
-		} else {
-			cancelledBeforeStart = true
-			task = nil
-		}
-		lock.unlock()
-		task?.cancel()
-		if let task {
-			finish(taskIdentifier: task.taskIdentifier, result: .failure(CancellationError()))
-		}
-	}
-
-	private func finish(taskIdentifier: Int, result: Result<URL, Error>) {
+	private func timeout(taskIdentifier: Int, deadline: DispatchTime) {
 		let transfer: Transfer?
 		lock.lock()
 		if let currentTransfer = self.transfer, currentTransfer.task.taskIdentifier == taskIdentifier {
-			self.transfer = nil
-			currentTransfer.watchdog?.cancel()
-			transfer = currentTransfer
+			if currentTransfer.deadline == deadline {
+				transfer = takeTransferLocked(for: taskIdentifier)
+			} else {
+				currentTransfer.watchdog?.schedule(deadline: currentTransfer.deadline)
+				transfer = nil
+			}
 		} else {
 			transfer = nil
 		}
 		lock.unlock()
 
 		guard let transfer else { return }
+		transfer.task.cancel()
+		complete(transfer, result: .failure(CatalogError.timedOut))
+	}
+
+	private func cancel() {
+		let transfer: Transfer?
+		lock.lock()
+		if let currentTransfer = self.transfer {
+			transfer = takeTransferLocked(for: currentTransfer.task.taskIdentifier)
+		} else {
+			cancelledBeforeStart = true
+			transfer = nil
+		}
+		lock.unlock()
+		transfer?.task.cancel()
+		if let transfer {
+			complete(transfer, result: .failure(CancellationError()))
+		}
+	}
+
+	@discardableResult
+	private func finish(taskIdentifier: Int, result: Result<URL, Error>) -> Bool {
+		guard let transfer = takeTransfer(for: taskIdentifier) else { return false }
+		complete(transfer, result: result)
+		return true
+	}
+
+	private func complete(_ transfer: Transfer, result: Result<URL, Error>) {
 		if case .failure = result {
 			try? FileManager.default.removeItem(at: transfer.destinationURL)
 		}
@@ -456,9 +486,14 @@ private extension CatalogPackageDownloader {
 	) async throws -> DownloadedFile {
 		do {
 			let temporaryURL = try await httpDownload(file, session, onBytesWritten)
-			let values = try temporaryURL.resourceValues(forKeys: [.fileSizeKey])
-			guard let size = values.fileSize else { throw CatalogError.invalidResponse }
-			return DownloadedFile(file: file, temporaryURL: temporaryURL, byteCount: Int64(size))
+			do {
+				let values = try temporaryURL.resourceValues(forKeys: [.fileSizeKey])
+				guard let size = values.fileSize else { throw CatalogError.invalidResponse }
+				return DownloadedFile(file: file, temporaryURL: temporaryURL, byteCount: Int64(size))
+			} catch {
+				try? FileManager.default.removeItem(at: temporaryURL)
+				throw error
+			}
 		} catch is CancellationError {
 			throw CancellationError()
 		} catch let error as CatalogError {

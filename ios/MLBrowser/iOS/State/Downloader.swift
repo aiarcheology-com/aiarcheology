@@ -94,6 +94,29 @@ final class ActivePackageDownload: Identifiable, ObservableObject {
 	}
 }
 
+/// Tracks MainActor progress updates scheduled from package-download worker tasks so the final
+/// completion transition waits for every previously reported progress snapshot.
+private final class PackageDownloadProgressRelay: @unchecked Sendable {
+	private let lock = NSLock()
+	private var pendingTasks: [Task<Void, Never>] = []
+
+	func enqueue(_ operation: @escaping @MainActor @Sendable () -> Void) {
+		let task = Task { @MainActor in
+			operation()
+		}
+		lock.withLock {
+			pendingTasks.append(task)
+		}
+	}
+
+	func flush() async {
+		let tasks = lock.withLock { pendingTasks }
+		for task in tasks {
+			await task.value
+		}
+	}
+}
+
 struct PackageFileProgress: Equatable {
 	let completedFileCount: Int
 	let totalFileCount: Int
@@ -775,17 +798,23 @@ final public class Downloader: NSObject, ObservableObject {
 		transitionAndSave(item, to: .downloading)
 
 		LoggingPolicy.info("Starting package download for item \(entityId.uuidString) with \(manifest.files.count) files", logger: .networking)
+		let progressRelay = PackageDownloadProgressRelay()
 		activeDownload.task = Task { [weak self, packageDownloader] in
 			guard let self else { return }
 			do {
-				let packageURL = try await packageDownloader.download(files: manifest.files) { [weak self] progress in
-					Task { @MainActor [weak self] in
+				let packageURL = try await packageDownloader.download(files: manifest.files) { [weak self, progressRelay] progress in
+					progressRelay.enqueue { [weak self] in
 						self?.updatePackageDownloadProgress(progress, itemId: entityId)
 					}
 				}
-				guard Task.isCancelled == false else { return }
+				await progressRelay.flush()
+				guard Task.isCancelled == false else {
+					removePackageStagingDirectory(for: packageURL, manifest: manifest)
+					return
+				}
 				self.handlePackageDownloadCompletion(itemId: entityId, result: .success(packageURL))
 			} catch {
+				await progressRelay.flush()
 				guard Task.isCancelled == false else { return }
 				self.handlePackageDownloadCompletion(itemId: entityId, result: .failure(error))
 			}
@@ -808,11 +837,11 @@ final public class Downloader: NSObject, ObservableObject {
 			return
 		}
 
-		activeDownload.progress = progress.fractionCompleted
-		activeDownload.totalBytesWritten = Int(progress.downloadedBytes)
-		activeDownload.totalBytesExpected = Int(progress.expectedBytes ?? 0)
-		activeDownload.completedFileCount = progress.completedFileCount
-		activeDownload.totalFileCount = progress.totalFileCount
+		activeDownload.progress = max(activeDownload.progress, progress.fractionCompleted)
+		activeDownload.totalBytesWritten = max(activeDownload.totalBytesWritten, Int(progress.downloadedBytes))
+		activeDownload.totalBytesExpected = max(activeDownload.totalBytesExpected, Int(progress.expectedBytes ?? 0))
+		activeDownload.completedFileCount = max(activeDownload.completedFileCount, progress.completedFileCount)
+		activeDownload.totalFileCount = max(activeDownload.totalFileCount, progress.totalFileCount)
 		persistPackageDownloadState(from: activeDownload, to: item)
 	}
 
@@ -872,6 +901,12 @@ final public class Downloader: NSObject, ObservableObject {
 		return (0...packageIndex).reduce(packageURL) { directory, _ in
 			directory.deletingLastPathComponent()
 		}
+	}
+
+	private func removePackageStagingDirectory(for packageURL: URL, manifest: PackageDownloadManifest) {
+		let stagingDirectory = packageStagingDirectory(for: packageURL, manifest: manifest)
+			?? packageURL.deletingLastPathComponent()
+		try? FileManager.default.removeItem(at: stagingDirectory)
 	}
     
     // MARK: URLSession delegate forwarding endpoints (called by the proxy)

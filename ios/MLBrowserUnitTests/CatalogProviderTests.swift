@@ -9,6 +9,7 @@ import XCTest
 import Combine
 @testable import ML_Browser
 
+@MainActor
 final class CatalogProviderTests: XCTestCase {
 
 	private final class RequestCounter: @unchecked Sendable {
@@ -48,7 +49,9 @@ final class CatalogProviderTests: XCTestCase {
 	private final class CatalogURLProtocol: URLProtocol, @unchecked Sendable {
 		nonisolated(unsafe) static var responseHandler: (@Sendable (URL) -> (Int, Data))?
 		nonisolated(unsafe) static var requestStarted: ((URL) -> Void)?
+		nonisolated(unsafe) static var requestStopped: ((URL) -> Void)?
 		nonisolated(unsafe) static var delayedPaths = Set<String>()
+		nonisolated(unsafe) static var inactivityStalledPaths = Set<String>()
 		private let lock = NSLock()
 		private var stopped = false
 
@@ -75,10 +78,14 @@ final class CatalogProviderTests: XCTestCase {
 				}
 				return
 			}
-			deliver(url: url, handler: handler)
+			deliver(url: url, handler: handler, pauseAfterFirstByte: Self.inactivityStalledPaths.contains(url.path))
 		}
 
-		private func deliver(url: URL, handler: @Sendable (URL) -> (Int, Data)) {
+		private func deliver(
+			url: URL,
+			handler: @Sendable (URL) -> (Int, Data),
+			pauseAfterFirstByte: Bool = false
+		) {
 			lock.lock()
 			let isStopped = stopped
 			lock.unlock()
@@ -95,6 +102,23 @@ final class CatalogProviderTests: XCTestCase {
 				return
 			}
 			client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+			if pauseAfterFirstByte {
+				let initialChunk = Data(data.prefix(1))
+				client?.urlProtocol(self, didLoad: initialChunk)
+				let remainingData = Data(data.dropFirst())
+				DispatchQueue.global().asyncAfter(deadline: .now() + 1) { [weak self] in
+					self?.finishLoading(with: remainingData)
+				}
+				return
+			}
+			finishLoading(with: data)
+		}
+
+		private func finishLoading(with data: Data) {
+			lock.lock()
+			let isStopped = stopped
+			lock.unlock()
+			guard isStopped == false else { return }
 			client?.urlProtocol(self, didLoad: data)
 			client?.urlProtocolDidFinishLoading(self)
 		}
@@ -103,13 +127,18 @@ final class CatalogProviderTests: XCTestCase {
 			lock.lock()
 			stopped = true
 			lock.unlock()
+			if let url = request.url {
+				Self.requestStopped?(url)
+			}
 		}
 	}
 
 	override func tearDown() {
 		CatalogURLProtocol.responseHandler = nil
 		CatalogURLProtocol.requestStarted = nil
+		CatalogURLProtocol.requestStopped = nil
 		CatalogURLProtocol.delayedPaths = []
+		CatalogURLProtocol.inactivityStalledPaths = []
 		super.tearDown()
 	}
 
@@ -263,6 +292,35 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertTrue(progress.values.contains { $0.downloadedBytes > 0 })
 	}
 
+	func testPackageDownloader_rejectsNon2xxSibling() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			url.lastPathComponent == "Manifest.json"
+				? (200, Data("manifest".utf8))
+				: (404, Data("not found".utf8))
+		}
+		let files = [
+			CatalogFile(
+				relativePath: "Rejected.mlpackage/Manifest.json",
+				resolveURL: testURL("Manifest.json"),
+				sizeBytes: 8
+			),
+			CatalogFile(
+				relativePath: "Rejected.mlpackage/Data/model.mlmodel",
+				resolveURL: testURL("Rejected.mlpackage/Data/model.mlmodel"),
+				sizeBytes: 9
+			)
+		]
+		let initialStagingDirectories = catalogPackageStagingDirectories()
+
+		do {
+			_ = try await CatalogPackageDownloader(session: makeSession()).download(files: files) { _ in }
+			XCTFail("expected the non-success sibling response to fail")
+		} catch let error as CatalogError {
+			XCTAssertEqual(error, .network)
+		}
+		XCTAssertEqual(catalogPackageStagingDirectories(), initialStagingDirectories)
+	}
+
 	func testPackageDownloader_rejectsDeclaredSizeOverCap() async throws {
 		let files = [
 			CatalogFile(
@@ -324,7 +382,7 @@ final class CatalogProviderTests: XCTestCase {
 		CatalogURLProtocol.responseHandler = { url in
 			url.lastPathComponent == "Manifest.json" ? (200, Data("manifest".utf8)) : (200, Data("model".utf8))
 		}
-		CatalogURLProtocol.delayedPaths = ["/files/Stalled.mlpackage/Data/model.mlmodel"]
+		CatalogURLProtocol.inactivityStalledPaths = ["/files/Stalled.mlpackage/Data/model.mlmodel"]
 		let files = [
 			CatalogFile(
 				relativePath: "Stalled.mlpackage/Manifest.json",
@@ -338,7 +396,7 @@ final class CatalogProviderTests: XCTestCase {
 				xetFile: HuggingFaceXetFile(fileID: "xet-backed-file", tokenURL: testURL("token"))
 			)
 		]
-		let timeouts = CatalogHTTPDownloadTimeouts(firstByte: 0.05, inactivity: 0.05)
+		let timeouts = CatalogHTTPDownloadTimeouts(firstByte: 1, inactivity: 0.05)
 		let httpDownload: CatalogHTTPDownload = { file, session, onBytesWritten in
 			try await CatalogHTTPFileDownloader.download(
 				file: file,
@@ -362,9 +420,15 @@ final class CatalogProviderTests: XCTestCase {
 		let stalledPath = "/files/Cancelled.mlpackage/Data/model.mlmodel"
 		CatalogURLProtocol.delayedPaths = [stalledPath]
 		let stalledRequestStarted = expectation(description: "stalled request started")
+		let stalledRequestStopped = expectation(description: "stalled request stopped")
 		CatalogURLProtocol.requestStarted = { url in
 			if url.path == stalledPath {
 				stalledRequestStarted.fulfill()
+			}
+		}
+		CatalogURLProtocol.requestStopped = { url in
+			if url.path == stalledPath {
+				stalledRequestStopped.fulfill()
 			}
 		}
 		let files = [
@@ -392,6 +456,7 @@ final class CatalogProviderTests: XCTestCase {
 
 		await fulfillment(of: [stalledRequestStarted], timeout: 1)
 		consumer.cancel()
+		await fulfillment(of: [stalledRequestStopped], timeout: 1)
 
 		switch await consumer.value {
 		case .success:
