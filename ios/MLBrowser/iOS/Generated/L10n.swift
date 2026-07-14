@@ -575,10 +575,14 @@ internal enum L10n {
     internal static let frequency = L10n.tr("Localizable", "settings.frequency", fallback: "Frequency")
     /// Fullscreen Detection
     internal static let fullscreenDetection = L10n.tr("Localizable", "settings.fullscreenDetection", fallback: "Fullscreen Detection")
+    /// 3x3 tiling
+    internal static let grid3x3Tiling = L10n.tr("Localizable", "settings.grid3x3Tiling", fallback: "3x3 tiling")
     /// History
     internal static let history = L10n.tr("Localizable", "settings.history", fallback: "History")
     /// History Limit
     internal static let historyLimit = L10n.tr("Localizable", "settings.historyLimit", fallback: "History Limit")
+    /// Pyramid tiling
+    internal static let pyramidTiling = L10n.tr("Localizable", "settings.pyramidTiling", fallback: "Pyramid tiling")
     /// Reopen Last Page
     internal static let reopenLastPage = L10n.tr("Localizable", "settings.reopenLastPage", fallback: "Reopen Last Page")
     /// Replay onboarding
@@ -591,8 +595,14 @@ internal enum L10n {
     internal static let runAtLaunch = L10n.tr("Localizable", "settings.runAtLaunch", fallback: "Run At Launch")
     /// Show Labels
     internal static let showLabels = L10n.tr("Localizable", "settings.showLabels", fallback: "Show Labels")
+    /// Tiled Borders
+    internal static let tiledBorders = L10n.tr("Localizable", "settings.tiledBorders", fallback: "Tiled Borders")
+    /// Draws a red border around each tile fed to the detector. Debug aid only; detection is unaffected.
+    internal static let tiledBordersFooter = L10n.tr("Localizable", "settings.tiledBordersFooter", fallback: "Draws a red border around each tile fed to the detector. Debug aid only; detection is unaffected.")
     /// Tiled Detection
     internal static let tiledDetection = L10n.tr("Localizable", "settings.tiledDetection", fallback: "Tiled Detection")
+    /// Choose which tile layouts feed the detector. Enable either or both; both run the union of their tiles.
+    internal static let tiledDetectionFooter = L10n.tr("Localizable", "settings.tiledDetectionFooter", fallback: "Choose which tile layouts feed the detector. Enable either or both; both run the union of their tiles.")
     /// Settings
     internal static let title = L10n.tr("Localizable", "settings.title", fallback: "Settings")
     /// Subscribe

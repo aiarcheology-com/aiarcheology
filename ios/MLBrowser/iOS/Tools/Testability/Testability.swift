@@ -183,6 +183,10 @@ extension TestabilityIdentification {
 		case settingsShowLabels
 		case settingsReopenLastPage
 		case settingsFullscreenDetection
+		// AIA-0426: Tiled Detection submenu + Debug tiled-border overlay
+		case settingsPyramidTiling
+		case settingsGrid3x3Tiling
+		case settingsTiledBorders
 		// Configuration Form — per-model finding flash (AIA-0374)
 		case configurationFormFlashOnFinding
 		case settingsTiledDetection
@@ -236,6 +240,7 @@ extension TestabilityIdentification {
 	
 	enum NavigationLink: String, TestabilityIdentification {
 		// Settings
+		case settingsTiledDetection
 		case settingsHistory
 		case settingsAbout
 		case settingsManageAccount
