@@ -1,19 +1,13 @@
-Test Focus: Catalog model downloads and model source details (AIA-0413, AIA-0425)
+Test Focus: Internal quality tooling hardening (AIA-0429)
 
 What's new:
 
-• Open Catalog has a Downloads button. It opens your existing download list without losing the current catalog search.
-• Catalog-downloaded models show their source, such as Hugging Face, in the model configuration sheet after import.
-• Multi-file Core ML package downloads are more resilient to interrupted or stalled transfers.
+• No user-visible changes in this build. This change hardens the project's internal architecture checks (developer tooling and CI only).
 
 Please test:
 
-1. Open Models > Add Model > Open Catalog, search for a model, and tap Downloads. Confirm the Models list slides in and the back button returns you to the same catalog results.
-2. In Downloads, delete a completed, failed, or cancelled download. Return to Open Catalog and confirm the list updates.
-3. Import a model from Open Catalog, open its configuration sheet, and confirm it displays a Catalog row with the provider name.
-4. Start a multi-file .mlpackage download from Open Catalog. Try leaving its detail screen and returning while it runs; confirm the progress and final status remain available.
+1. Quick smoke pass: launch the app, browse, run a detection, and open Models. Confirm nothing regressed — app behavior is expected to be identical to the previous build.
 
 Known limitations:
 
-• Only models the app can install are shown in Open Catalog.
-• A failed download can be retried from its detail screen.
+• None — this build contains no feature or UI changes.

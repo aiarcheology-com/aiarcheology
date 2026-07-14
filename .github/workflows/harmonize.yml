@@ -12,7 +12,11 @@ on:
       - "ios/**/*.h"
       - "ios/**/*.m"
       - "ios/**/*.mm"
-      - ".harmonize.yaml"
+      - "ios/.harmonize.yaml"
+      - "ios/MLBrowser.xcodeproj/project.pbxproj"
+      - "ios/MLBrowser.xcodeproj/xcshareddata/xcschemes/*.xcscheme"
+      - "ios/MLBrowserTestPlan/*.xctestplan"
+      - "ios/**/Package.resolved"
       - "scripts/harmonize.sh"
       - ".github/workflows/harmonize.yml"
   workflow_dispatch:

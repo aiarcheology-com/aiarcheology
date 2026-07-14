@@ -185,16 +185,21 @@ Harmonize enforces architectural rules as unit tests. Unlike SwiftLint (regex-ba
 ./scripts/harmonize.sh --verbose # Detailed output
 ```
 
-### Current Rules (in `ArchitectureTests.swift`)
+### Current Rules (in `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`)
 
 | Rule | What It Enforces |
-|------|------------------|
+|-|-|
 | State objects are `@MainActor` | Thread-safe UI updates for `*State` classes |
-| Services are actors | Heavy work runs off main thread |
-| Views are structs | SwiftUI value-type design |
+| Services are not `@MainActor` | Heavy work stays off the main actor (actors/classes/structs all allowed) |
+| Views are structs | SwiftUI value-type design (no `*View` classes) |
 | ObservableObjects have descriptive suffixes | Clear naming (`*State`, `*Manager`, etc.) |
 | CoreData entity classes exist | Core Data entities compile and are discoverable |
+| Singleton guardrail | `static let/var shared` only in per-declaration allowlisted files |
+| Screenshot privacy invariant (AIA-0392) | Only `FindingRepository` calls `FindingScreenshotStore.save` |
+| Boundary baselines (aspirational) | Views importing CoreData / `*State` importing SwiftUI+UIKit: frozen legacy list, new offenders fail, list only shrinks |
 | Planned: extensions are organized | Future rule for extension file structure |
+
+All rules fail closed: an unreadable file or an empty scan fails the rule instead of passing vacuously.
 
 ### Philosophy: Guidelines, Not Dogma
 
@@ -214,7 +219,7 @@ final class ExampleBackgroundState: ObservableObject { ... } // not @MainActor b
 
 ### Adding New Rules
 
-Add rules to `ios/MLBrowserUnitTests/ArchitectureTests.swift`. Each rule should:
+Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule should:
 - Have a clear, actionable error message
 - Reference the relevant AGENTS.md section
 - Suggest how to fix or when exceptions are acceptable
@@ -350,6 +355,7 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
 
 ### Changelog
 
+- **2026-07-14**: §7 synced with the actual rules (AIA-0429): correct test-target path (`MLBrowserArchitectureTests/`), services rule stated as "not `@MainActor`", added singleton/privacy/baseline rules and the fail-closed policy.
 - **2026-07-02**: §10 now states the on-device privacy invariant explicitly (snapshots/detection imagery never leave the device); §13 Pull requests states the `develop` target.
 - **2026-07-02**: Added `ARCHITECTURE.md` (codebase wiring/map) and referenced it from §2, §3, and the cheat sheet; added a single-test CLI cheat-sheet entry.
 - **2026-06-23**: Added Feature Flags guidance (section 3) — gate significant features (login, payments) behind in-source flags now, with a proper flag system deferred to a later PR; plus the iOS payments research summary (StoreKit 2 IAP, not Clerk Billing/Stripe). Made the WhatToTest update mandatory for every PR (section 13).
