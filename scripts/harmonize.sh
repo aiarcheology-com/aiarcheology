@@ -10,7 +10,6 @@
 # Prerequisites:
 #   - Xcode must be installed
 #   - The Harmonize SPM package must be added to the test target
-#   - Run from the repository root
 #
 set -euo pipefail
 
@@ -59,7 +58,8 @@ echo "Running Harmonize architectural tests..."
 echo "Destination: macOS (recommended for Harmonize file access)"
 echo ""
 
-# Run Harmonize tests using the dedicated test plan.
+# Run Harmonize tests using the dedicated scheme, whose default test plan is
+# MLBrowserTestPlan/MLBrowserUnitTestsHarmonize.xctestplan.
 #
 # IMPORTANT: Harmonize reads project source files from disk. On iOS Simulator, the test runner
 # is sandboxed and can't read your repository, causing failures like:

@@ -202,7 +202,6 @@
 		94AE91762F0D9E2F00B326B7 /* Color+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AE91752F0D9E2800B326B7 /* Color+Extension.swift */; };
 		94AE91782F0DA08300B326B7 /* ColorExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AE91772F0DA08300B326B7 /* ColorExtensionsTests.swift */; };
 		94BAD1842EB0ED3D0079869F /* UUID+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BAD1832EB0ED370079869F /* UUID+Extension.swift */; };
-		94D567C82F09E6B400514E08 /* Harmonize in Frameworks */ = {isa = PBXBuildFile; productRef = 94HARM0022F04000200000002 /* Harmonize */; };
 		94D567DC2F0C0B3700514E08 /* Harmonize in Frameworks */ = {isa = PBXBuildFile; productRef = 94D567DB2F0C0B3700514E08 /* Harmonize */; };
 		94D567DE2F0C0B3700514E08 /* HarmonizeSemantics in Frameworks */ = {isa = PBXBuildFile; productRef = 94D567DD2F0C0B3700514E08 /* HarmonizeSemantics */; };
 		94D567E02F0C0B3700514E08 /* HarmonizeUtils in Frameworks */ = {isa = PBXBuildFile; productRef = 94D567DF2F0C0B3700514E08 /* HarmonizeUtils */; };
@@ -597,7 +596,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				94D567C82F09E6B400514E08 /* Harmonize in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1301,7 +1299,6 @@
 			);
 			name = MLBrowserUnitTests;
 			packageProductDependencies = (
-				94HARM0022F04000200000002 /* Harmonize */,
 			);
 			productName = MLBrowserTests;
 			productReference = 8AE0BC162A97B0B40086DDF9 /* MLBrowserUnitTests.xctest */;
@@ -2265,11 +2262,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 94HARM0012F04000100000001 /* XCRemoteSwiftPackageReference "Harmonize" */;
 			productName = HarmonizeUtils;
-		};
-		94HARM0022F04000200000002 /* Harmonize */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 94HARM0012F04000100000001 /* XCRemoteSwiftPackageReference "Harmonize" */;
-			productName = Harmonize;
 		};
 		94A41300F000000000000002 /* HuggingFace */ = {
 			isa = XCSwiftPackageProductDependency;

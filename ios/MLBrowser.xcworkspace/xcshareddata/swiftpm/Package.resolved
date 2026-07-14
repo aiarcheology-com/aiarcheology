@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/perrystreetsoftware/Harmonize.git",
       "state" : {
-        "revision" : "060ba20c4beeb56c4fc3a3de38b4fade07bc618b",
-        "version" : "0.8.0"
+        "revision" : "1279fbf4d87c9b9bd230e91911194145959e6d54",
+        "version" : "0.9.0"
       }
     },
     {
