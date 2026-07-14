@@ -295,6 +295,23 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertTrue(progress.contains { $0.downloadedBytes > 0 && $0.completedFileCount < 3 })
 	}
 
+	func testXetProgressByteCount_doesNotTreatSparseLogicalLengthAsDownloadedBytes() throws {
+		let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+		defer { try? FileManager.default.removeItem(at: url) }
+		XCTAssertTrue(FileManager.default.createFile(atPath: url.path, contents: nil))
+
+		let handle = try FileHandle(forWritingTo: url)
+		try handle.seek(toOffset: 16 * 1024 * 1024)
+		try handle.write(contentsOf: Data([0]))
+		try handle.close()
+
+		let logicalByteCount = HuggingFaceXetDownloader.logicalFileSize(at: url)
+		let progressByteCount = HuggingFaceXetDownloader.progressByteCount(at: url)
+
+		XCTAssertEqual(logicalByteCount, 16 * 1024 * 1024 + 1)
+		XCTAssertLessThan(progressByteCount, logicalByteCount)
+	}
+
 	func testAppleCatalog_searchesCuratedInstallableModels() async throws {
 		let provider = AppleCoreMLCatalogProvider()
 
@@ -459,17 +476,64 @@ final class CatalogSearchManagerTests: XCTestCase {
 		XCTAssertEqual(manager.selectedProviderIDs, ["github-curated"])
 		XCTAssertEqual(manager.selectedProviderSummary, L10n.Catalog.Results.allSources)
 	}
+
+	func testSearch_clearsResolvedFilesWhenStartingANewSearch() async throws {
+		let model = TestCatalogProvider.model(id: "acme/detector", providerID: "huggingface")
+		let file = CatalogFile(
+			relativePath: "Detector.mlmodel",
+			resolveURL: URL(string: "https://catalog.test/Detector.mlmodel") ?? URL(fileURLWithPath: "/"),
+			sizeBytes: 1
+		)
+		let provider = TestCatalogProvider(id: "huggingface", models: [model], resolvedFiles: [file])
+		let manager = CatalogSearchManager(providers: [provider], searchDebounce: .zero)
+
+		let firstSearch = expectation(description: "first search completes")
+		let cancellable = manager.$isLoading
+			.dropFirst()
+			.filter { $0 == false }
+			.sink { _ in firstSearch.fulfill() }
+		manager.updateQuery("model")
+		await fulfillment(of: [firstSearch], timeout: 1)
+		_ = await manager.resolveFiles(for: model)
+		_ = await manager.resolveFiles(for: model)
+		let firstResolveCallCount = await provider.resolveCallCount
+		XCTAssertEqual(firstResolveCallCount, 1)
+		cancellable.cancel()
+
+		let secondSearch = expectation(description: "second search completes")
+		let secondCancellable = manager.$isLoading
+			.dropFirst()
+			.filter { $0 == false }
+			.prefix(1)
+			.sink { _ in secondSearch.fulfill() }
+		manager.updateQuery("models")
+		await fulfillment(of: [secondSearch], timeout: 1)
+		_ = await manager.resolveFiles(for: model)
+
+		withExtendedLifetime(secondCancellable) { }
+		let secondResolveCallCount = await provider.resolveCallCount
+		XCTAssertEqual(secondResolveCallCount, 2)
+	}
 }
 
 private actor TestCatalogProvider: CatalogProvider {
 	nonisolated let descriptor: CatalogProviderDescriptor
 	private let models: [CatalogModel]
+	private let resolvedFiles: [CatalogFile]
 	private let failure: CatalogError?
 	private(set) var searchCallCount = 0
+	private(set) var resolveCallCount = 0
 
-	init(id: String, models: [CatalogModel] = [], failure: CatalogError? = nil, isSearchable: Bool = true) {
+	init(
+		id: String,
+		models: [CatalogModel] = [],
+		resolvedFiles: [CatalogFile] = [],
+		failure: CatalogError? = nil,
+		isSearchable: Bool = true
+	) {
 		descriptor = CatalogProviderDescriptor(id: id, displayName: id, isSearchable: isSearchable)
 		self.models = models
+		self.resolvedFiles = resolvedFiles
 		self.failure = failure
 	}
 
@@ -480,7 +544,8 @@ private actor TestCatalogProvider: CatalogProvider {
 	}
 
 	func resolveFiles(for model: CatalogModel) async throws -> [CatalogFile] {
-		[]
+		resolveCallCount += 1
+		return resolvedFiles
 	}
 
 	nonisolated static func model(id: String, providerID: String) -> CatalogModel {

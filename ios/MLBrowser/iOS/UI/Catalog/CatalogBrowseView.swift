@@ -5,6 +5,7 @@
 //  AIA-0413: catalog search and package-download presentation.
 //
 
+import CoreData
 import SwiftUI
 
 struct CatalogBrowseView: View {
@@ -26,6 +27,17 @@ struct CatalogBrowseView: View {
 		animation: .default
 	)
 	private var configurations: FetchedResults<DeepConfiguration>
+
+	private var newestDownloadItemsByURL: [URL: DownloadItem] {
+		downloadItems.reduce(into: [:]) { result, item in
+			guard let url = item.url, result[url] == nil else { return }
+			result[url] = item
+		}
+	}
+
+	private var importedConfigurationURLs: Set<URL> {
+		Set(configurations.compactMap(\.downloadURL))
+	}
 
 	init(searchManager: CatalogSearchManager, onImport: ImportHandler) {
 		self.onImport = onImport
@@ -149,6 +161,8 @@ private extension CatalogBrowseView {
 
 	@ViewBuilder
 	var resultsSection: some View {
+		let newestDownloadItemsByURLSnapshot = newestDownloadItemsByURL
+		let importedConfigurationURLsSnapshot = importedConfigurationURLs
 		Section {
 			if searchManager.isLoading {
 				HStack {
@@ -168,8 +182,11 @@ private extension CatalogBrowseView {
 					systemImage: "magnifyingglass",
 					description: Text(searchManager.query.isEmpty ? L10n.Catalog.Empty.message : L10n.Catalog.Empty.noResultsMessage)
 				)
-			} else {
+		} else {
 				ForEach(searchManager.visibleResults) { model in
+					let artifactURL = searchManager.resolvedArtifactURL(for: model)
+					let item = artifactURL.flatMap { newestDownloadItemsByURLSnapshot[$0] }
+					let isImported = item?.state == .imported || artifactURL.map(importedConfigurationURLsSnapshot.contains) == true
 					Button {
 						select(model)
 					} label: {
@@ -177,8 +194,8 @@ private extension CatalogBrowseView {
 							model: model,
 							providerName: searchManager.providerName(for: model.providerId),
 							isResolving: searchManager.resolvingModelID == model.id,
-							downloadItem: downloadItem(for: model),
-							isImported: isImported(model)
+							downloadItem: item,
+							isImported: isImported
 						)
 					}
 					.buttonStyle(.plain)
@@ -211,17 +228,6 @@ private extension CatalogBrowseView {
 		}
 	}
 
-	func downloadItem(for model: CatalogModel) -> DownloadItem? {
-		guard let artifactURL = searchManager.resolvedArtifactURL(for: model) else { return nil }
-		return downloadItems.first(where: { $0.url == artifactURL })
-	}
-
-	func isImported(_ model: CatalogModel) -> Bool {
-		guard let artifactURL = searchManager.resolvedArtifactURL(for: model) else { return false }
-		return downloadItem(for: model)?.state == .imported || configurations.contains { configuration in
-			configuration.downloadURL == artifactURL
-		}
-	}
 }
 
 private struct CatalogResultRow: View {
@@ -436,6 +442,7 @@ final class CatalogSearchManager: ObservableObject {
 
 	func searchCurrentQuery() {
 		searchTask?.cancel()
+		resolvedFilesByModelID.removeAll(keepingCapacity: true)
 		let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
 		let providers = selectedProviderIDs.compactMap { providersByID[$0] }
 		guard trimmedQuery.count >= 2, providers.isEmpty == false else {
@@ -447,11 +454,11 @@ final class CatalogSearchManager: ObservableObject {
 
 		isLoading = true
 		errorMessage = nil
-		let selectedProviderIDs = selectedProviderIDs
-		let searchDebounce = searchDebounce
+		let selectedProviderIDsSnapshot = selectedProviderIDs
+		let searchDebounceSnapshot = searchDebounce
 		searchTask = Task { [weak self] in
 			do {
-				try await Task.sleep(for: searchDebounce)
+				try await Task.sleep(for: searchDebounceSnapshot)
 				try Task.checkCancellation()
 				let outcome = await withTaskGroup(of: Result<[CatalogModel], Error>.self, returning: SearchOutcome.self) { group in
 					for provider in providers {
@@ -476,7 +483,7 @@ final class CatalogSearchManager: ObservableObject {
 				}
 				try Task.checkCancellation()
 				guard let self,
-					  self.selectedProviderIDs == selectedProviderIDs,
+					  self.selectedProviderIDs == selectedProviderIDsSnapshot,
 					  self.query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmedQuery else {
 					return
 				}
@@ -492,7 +499,7 @@ final class CatalogSearchManager: ObservableObject {
 			} catch is CancellationError {
 				return
 			} catch {
-				guard let self, self.selectedProviderIDs == selectedProviderIDs else { return }
+				guard let self, self.selectedProviderIDs == selectedProviderIDsSnapshot else { return }
 				self.results = []
 				self.errorMessage = L10n.Catalog.Error.message
 				self.isLoading = false
@@ -565,7 +572,7 @@ final class CatalogSearchManager: ObservableObject {
 	}
 
 	func resolvedArtifactURL(for model: CatalogModel) -> URL? {
-		model.artifactURL ?? resolvedFilesByModelID[modelKey(for: model)]?.first?.resolveURL
+		model.artifactURL ?? CatalogFile.primaryArtifact(in: resolvedFilesByModelID[modelKey(for: model)] ?? [])?.resolveURL
 	}
 
 	var visibleResults: [CatalogModel] {
@@ -616,10 +623,33 @@ private actor CatalogPreviewProvider: CatalogProvider {
 	func resolveFiles(for model: CatalogModel) async throws -> [CatalogFile] { [] }
 }
 
+@MainActor
+private struct CatalogBrowsePreview: View {
+	private let dataController: DataController
+	@StateObject private var downloader: Downloader
+	@StateObject private var deep: DeepState
+
+	init() {
+		let dataController = DataController(inMemory: true)
+		self.dataController = dataController
+		_downloader = StateObject(wrappedValue: Downloader(dataController: dataController))
+		_deep = StateObject(wrappedValue: DeepState(dataController: dataController))
+	}
+
+	var body: some View {
+		NavigationStack {
+			CatalogBrowseView(
+				searchManager: CatalogSearchManager(providers: [CatalogPreviewProvider()]),
+				onImport: ImportHandler { _, _, _, _ in }
+			)
+		}
+		.environment(\.managedObjectContext, dataController.container.viewContext)
+		.environmentObject(downloader)
+		.environmentObject(deep)
+	}
+}
+
 #Preview("Results") {
-	CatalogBrowseView(
-		searchManager: CatalogSearchManager(providers: [CatalogPreviewProvider()]),
-		onImport: ImportHandler { _, _, _, _ in }
-	)
+	CatalogBrowsePreview()
 }
 #endif

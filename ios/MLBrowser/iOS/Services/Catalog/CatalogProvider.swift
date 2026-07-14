@@ -85,6 +85,26 @@ struct CatalogFile: Codable, Hashable, Sendable {
 	}
 }
 
+extension CatalogFile {
+	/// Gives every package the same identity regardless of the order in which a provider returns its
+	/// files. A package manifest is its stable primary artifact; ordinary single-file models retain
+	/// their own URL as the primary artifact.
+	static func orderedForDownload(_ files: [CatalogFile]) -> [CatalogFile] {
+		files.sorted { lhs, rhs in
+			let lhsIsManifest = lhs.relativePath.lowercased().hasSuffix("/manifest.json")
+				|| lhs.relativePath.caseInsensitiveCompare("Manifest.json") == .orderedSame
+			let rhsIsManifest = rhs.relativePath.lowercased().hasSuffix("/manifest.json")
+				|| rhs.relativePath.caseInsensitiveCompare("Manifest.json") == .orderedSame
+			if lhsIsManifest != rhsIsManifest { return lhsIsManifest }
+			return lhs.relativePath.localizedStandardCompare(rhs.relativePath) == .orderedAscending
+		}
+	}
+
+	static func primaryArtifact(in files: [CatalogFile]) -> CatalogFile? {
+		orderedForDownload(files).first
+	}
+}
+
 struct HuggingFaceXetFile: Codable, Hashable, Sendable {
 	let fileID: String
 	let tokenURL: URL

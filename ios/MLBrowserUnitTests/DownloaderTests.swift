@@ -667,6 +667,43 @@ final class DownloaderTests: XCTestCase {
 		XCTAssertEqual(reopenedItem.entityId, newerItem.entityId)
 	}
 
+	func testCatalogDownloadItem_usesManifestAsStablePackageIdentity() throws {
+		let files = Array(catalogPackageFiles().reversed())
+		let context = dataController.container.viewContext
+
+		let firstItem = try downloader.catalogDownloadItem(files: files, in: context)
+		let reopenedItem = try downloader.catalogDownloadItem(files: catalogPackageFiles(), in: context)
+
+		XCTAssertEqual(firstItem.url, catalogPackageFiles().first?.resolveURL)
+		XCTAssertTrue(firstItem === reopenedItem)
+		XCTAssertEqual(try context.count(for: DownloadItem.fetchRequest()), 1)
+	}
+
+	func testCatalogDownloadItem_preservesPausedURLSessionResumeDataWhenReopeningXetModel() throws {
+		let file = CatalogFile(
+			relativePath: "Example.mlmodel",
+			resolveURL: URL(string: "https://catalog.test/Example.mlmodel") ?? URL(fileURLWithPath: "/"),
+			sizeBytes: 64,
+			xetFile: HuggingFaceXetFile(
+				fileID: "xet-file",
+				tokenURL: URL(string: "https://catalog.test/token") ?? URL(fileURLWithPath: "/")
+			)
+		)
+		let context = dataController.container.viewContext
+		let item = DownloadItem.create(in: context)
+		let resumeData = Data("url-session-resume-data".utf8)
+		item.url = file.resolveURL
+		item.resumeData = resumeData
+		item.state = .paused
+		try DownloadItem.save(in: context)
+
+		let reopenedItem = try downloader.catalogDownloadItem(files: [file], in: context)
+
+		XCTAssertTrue(reopenedItem === item)
+		XCTAssertEqual(reopenedItem.resumeData, resumeData)
+		XCTAssertFalse(downloader.isCatalogDownload(reopenedItem))
+	}
+
 	func testCancelPackageDownload_keepsManifestForRestart() throws {
 		let item = try downloader.makePackageDownloadItem(
 			files: catalogPackageFiles(),

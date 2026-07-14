@@ -249,7 +249,7 @@ private extension CatalogPackageDownloader {
 		xetDownload: @escaping CatalogXetDownload,
 		onBytesWritten: @escaping @Sendable (Int64) -> Void = { _ in }
 	) async throws -> DownloadedFile {
-			do {
+		do {
 			let temporaryURL: URL
 			if file.xetFile != nil {
 				temporaryURL = try await xetDownload(file, session, onBytesWritten)

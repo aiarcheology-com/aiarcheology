@@ -9,8 +9,9 @@ import Foundation
 import HuggingFace
 
 /// Downloads Xet-backed Hub files through Hugging Face's supported Swift client. The client writes
-/// decoded Xet chunks directly to the destination, so polling the staged file reports actual bytes
-/// without implementing the Xet protocol in the app.
+/// decoded Xet chunks directly to the destination. Xet writes those chunks out of order, so its
+/// logical file size can jump to the final size before the content is complete; progress therefore
+/// uses allocated bytes rather than the sparse file's logical length.
 enum HuggingFaceXetDownloader {
 	private static let progressPollIntervalNanoseconds: UInt64 = 100_000_000
 
@@ -48,6 +49,19 @@ enum HuggingFaceXetDownloader {
 			throw CatalogError.network
 		}
 	}
+
+	/// Xet reconstructs files through out-of-order `pwrite`s. `fileSize` is the highest written
+	/// offset and can immediately equal the final model size for a sparse file. Allocated bytes grow
+	/// with the content that has actually arrived, preventing a false 100% progress indicator.
+	static func progressByteCount(at url: URL) -> Int64 {
+		let values = try? url.resourceValues(forKeys: [.fileAllocatedSizeKey, .totalFileAllocatedSizeKey])
+		return Int64(values?.totalFileAllocatedSize ?? values?.fileAllocatedSize ?? 0)
+	}
+
+	static func logicalFileSize(at url: URL) -> Int64 {
+		let values = try? url.resourceValues(forKeys: [.fileSizeKey])
+		return Int64(values?.fileSize ?? 0)
+	}
 }
 
 private extension HuggingFaceXetDownloader {
@@ -77,7 +91,7 @@ private extension HuggingFaceXetDownloader {
 				var lastReportedByteCount: Int64 = 0
 				while Task.isCancelled == false {
 					try await Task.sleep(nanoseconds: progressPollIntervalNanoseconds)
-					let byteCount = fileSize(at: destination)
+					let byteCount = progressByteCount(at: destination)
 					guard byteCount > lastReportedByteCount else { continue }
 					lastReportedByteCount = byteCount
 					onBytesWritten(byteCount)
@@ -89,7 +103,7 @@ private extension HuggingFaceXetDownloader {
 				throw CatalogError.network
 			}
 			group.cancelAll()
-			onBytesWritten(fileSize(at: downloadedURL))
+			onBytesWritten(logicalFileSize(at: downloadedURL))
 			return downloadedURL
 		}
 	}
@@ -116,8 +130,4 @@ private extension HuggingFaceXetDownloader {
 		return components.url ?? HubClient.defaultHost
 	}
 
-	static func fileSize(at url: URL) -> Int64 {
-		let values = try? url.resourceValues(forKeys: [.fileSizeKey])
-		return values?.fileSize.map(Int64.init) ?? 0
-	}
 }

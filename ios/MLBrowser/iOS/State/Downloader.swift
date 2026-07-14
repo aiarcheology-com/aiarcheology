@@ -430,11 +430,12 @@ final public class Downloader: NSObject, ObservableObject {
 	/// Creates a persisted download item for a multi-file Core ML package. The manifest is kept on
 	/// the item instead of an ephemeral view state so a failed package can be retried after relaunch.
 	func makePackageDownloadItem(files: [CatalogFile], in context: NSManagedObjectContext) throws -> DownloadItem {
-		guard let firstFile = files.first else {
+		let orderedFiles = CatalogFile.orderedForDownload(files)
+		guard let firstFile = orderedFiles.first else {
 			throw CatalogError.noInstallableArtifact
 		}
 
-		let manifest = PackageDownloadManifest(files: files)
+		let manifest = PackageDownloadManifest(files: orderedFiles)
 		let item = DownloadItem.create(in: context)
 		item.url = firstFile.resolveURL
 		item.resumeData = try JSONEncoder().encode(manifest)
@@ -448,10 +449,11 @@ final public class Downloader: NSObject, ObservableObject {
 	/// artifact is opened. This lets a catalog row reopen its active, paused, completed, or failed
 	/// download instead of creating a competing job.
 	func catalogDownloadItem(files: [CatalogFile], in context: NSManagedObjectContext) throws -> DownloadItem {
-		guard let firstFile = files.first else {
+		let orderedFiles = CatalogFile.orderedForDownload(files)
+		guard let firstFile = orderedFiles.first else {
 			throw CatalogError.noInstallableArtifact
 		}
-		let isSingleModelFile = files.count == 1 && firstFile.relativePath.lowercased().hasSuffix(".mlmodel")
+		let isSingleModelFile = orderedFiles.count == 1 && firstFile.relativePath.lowercased().hasSuffix(".mlmodel")
 
 		let request = DownloadItem.fetchRequest()
 		request.predicate = NSPredicate(format: "%K == %@", #keyPath(DownloadItem.url), firstFile.resolveURL as NSURL)
@@ -465,10 +467,10 @@ final public class Downloader: NSObject, ObservableObject {
 				packageManifests.removeValue(forKey: existingItem.entityId)
 				existingItem.resumeData = nil
 				try DownloadItem.save(in: context)
-			}
-			if isSingleModelFile, firstFile.xetFile != nil, isCatalogDownload(existingItem) == false,
-				existingItem.state != .downloading {
-				let manifest = PackageDownloadManifest(files: files)
+		}
+		if isSingleModelFile, firstFile.xetFile != nil, isCatalogDownload(existingItem) == false,
+			existingItem.state != .downloading, existingItem.state != .paused, existingItem.resumeData == nil {
+				let manifest = PackageDownloadManifest(files: orderedFiles)
 				existingItem.resumeData = try JSONEncoder().encode(manifest)
 				packageManifests[existingItem.entityId] = manifest
 				try DownloadItem.save(in: context)
@@ -477,7 +479,7 @@ final public class Downloader: NSObject, ObservableObject {
 		}
 
 		if isSingleModelFile == false || firstFile.xetFile != nil {
-			return try makePackageDownloadItem(files: files, in: context)
+			return try makePackageDownloadItem(files: orderedFiles, in: context)
 		}
 
 		let item = DownloadItem.create(in: context)

@@ -6961,10 +6961,106 @@
       "comment" : "Hint for URL input field",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "أدخل عنوان URL مباشرًا لملف .mlmodel لنموذج كشف أو تصنيف. استخدم Open Catalog لنماذج .mlpackage متعددة الملفات."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "একটি ডিটেকশন বা ক্লাসিফিকেশন মডেলের জন্য সরাসরি .mlmodel URL লিখুন। বহু-ফাইল .mlpackage মডেলের জন্য Open Catalog ব্যবহার করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zadejte přímou adresu URL .mlmodel pro model detekce nebo klasifikace. Pro vícesouborové modely .mlpackage použijte Open Catalog."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gib eine direkte .mlmodel-URL für ein Erkennungs- oder Klassifizierungsmodell ein. Verwende Open Catalog für mehrteilige .mlpackage-Modelle."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enter a direct .mlmodel URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce una URL directa de .mlmodel para un modelo de detección o clasificación. Usa Open Catalog para modelos .mlpackage de varios archivos."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "یک نشانی URL مستقیم .mlmodel برای مدل تشخیص یا طبقه‌بندی وارد کنید. برای مدل‌های چندفایلی .mlpackage از Open Catalog استفاده کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saisissez une URL .mlmodel directe pour un modèle de détection ou de classification. Utilisez Open Catalog pour les modèles .mlpackage composés de plusieurs fichiers."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הזן כתובת URL ישירה של .mlmodel למודל זיהוי או סיווג. עבור מודלי .mlpackage מרובי קבצים, השתמש ב-Open Catalog."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "किसी डिटेक्शन या क्लासिफिकेशन मॉडल के लिए सीधा .mlmodel URL दर्ज करें। बहु-फ़ाइल .mlpackage मॉडलों के लिए Open Catalog का उपयोग करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adjon meg egy közvetlen .mlmodel URL-t egy felismerési vagy osztályozási modellhez. Többfájlos .mlpackage modellekhez használja az Open Catalogot."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wprowadź bezpośredni adres URL .mlmodel dla modelu wykrywania lub klasyfikacji. W przypadku wieloplikowych modeli .mlpackage użyj Open Catalog."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Введите прямой URL .mlmodel для модели обнаружения или классификации. Для многофайловых моделей .mlpackage используйте Open Catalog."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Введіть прямий URL .mlmodel для моделі виявлення або класифікації. Для багатофайлових моделей .mlpackage використовуйте Open Catalog."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入检测或分类模型的直接 .mlmodel URL。多文件 .mlpackage 模型请使用 Open Catalog。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "輸入偵測或分類模型的直接 .mlmodel URL。多檔案 .mlpackage 模型請使用 Open Catalog。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "輸入偵測或分類模型的直接 .mlmodel URL。多檔案 .mlpackage 模型請使用 Open Catalog。"
           }
         }
       }

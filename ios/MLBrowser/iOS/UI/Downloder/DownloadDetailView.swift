@@ -105,12 +105,20 @@ private extension DownloadDetailView {
 				}
 			}
 		} footer: {
-			Text(packageProgressDescription)
-				.font(.subheadline)
-				.foregroundColor(.gray)
-				.onReceive(downloader.packageFileProgressPublisher(for: item.entityId)) { progress in
-					packageFileProgress = progress
+			if let packageProgressDescription {
+				if packageFileCount != nil {
+					Text(packageProgressDescription)
+						.font(.subheadline)
+						.foregroundColor(.gray)
+						.onReceive(downloader.packageFileProgressPublisher(for: item.entityId)) { progress in
+							packageFileProgress = progress
+						}
+				} else {
+					Text(packageProgressDescription)
+						.font(.subheadline)
+						.foregroundColor(.gray)
 				}
+			}
 		}
 	}
 	
@@ -338,15 +346,19 @@ private extension DownloadDetailView {
 		downloader.packageFileCount(for: item)
 	}
 
-	var packageProgressDescription: String {
+	var packageProgressDescription: String? {
 		guard let packageFileCount else { return L10n.Download.urlHint }
-		let completedFileCount: Int
-		if [.complete, .imported].contains(item.state) {
-			completedFileCount = packageFileCount
-		} else {
-			completedFileCount = min(packageFileProgress.completedFileCount, packageFileCount)
+		switch item.state {
+		case .complete, .imported:
+			return L10n.Catalog.Download.progress(packageFileCount, packageFileCount)
+		case .downloading:
+			return L10n.Catalog.Download.progress(
+				min(packageFileProgress.completedFileCount, packageFileCount),
+				packageFileCount
+			)
+		default:
+			return nil
 		}
-		return L10n.Catalog.Download.progress(completedFileCount, packageFileCount)
 	}
 
 	var downloadAttributes: (enabled: Bool, color: Color, label: String) {
