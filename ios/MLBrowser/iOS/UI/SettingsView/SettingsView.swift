@@ -319,7 +319,7 @@ struct SettingsForm: View {
 	@ViewBuilder
 	private var debugSection: some View {
 		if AppEnvironment.isAppStoreDistribution.not {
-			Section(header: Text(L10n.Settings.Section.debug)) {
+			Section(header: Text(L10n.Settings.Section.debug), footer: Text(L10n.Settings.tiledBordersFooter)) {
 				NavigationLink(destination: SentryStatsView()) {
 					Text(L10n.Settings.Sentry.title)
 				}

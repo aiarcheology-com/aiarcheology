@@ -61,6 +61,7 @@ final class TileLayoutRegionsTests: XCTestCase {
 		for (index, lhs) in cells.enumerated() {
 			XCTAssertEqual(lhs.width, 1.0 / 3.0, accuracy: 0.0001)
 			XCTAssertEqual(lhs.height, 1.0 / 3.0, accuracy: 0.0001)
+			XCTAssertTrue(TileLayout.fullFrame.contains(lhs))
 			for rhs in cells.dropFirst(index + 1) {
 				let overlap = lhs.intersection(rhs)
 				XCTAssertEqual(overlap.width * overlap.height, 0, accuracy: 0.0001)
