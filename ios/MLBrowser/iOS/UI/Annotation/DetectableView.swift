@@ -31,9 +31,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     let trigger: P
     let showIdentifiers: Bool
     let tiling: TilingScheme
-    /// AIA-0426 debug aid: draw a red border around each detector tile. Already App-Store-clamped
-    /// upstream in WebScreen (a persisted-true must not render on App Store, where the Debug toggle
-    /// is hidden); a second DetectableView consumer would need to re-apply that clamp.
+    /// AIA-0426: draw a red border around each detector tile (the "Tiled Borders" setting, available
+    /// in all builds from the Tiled Detection submenu). Purely visual — read from the same
+    /// `TileLayout.regions(for:)` the detector uses; never affects detection.
     let tiledBorders: Bool
     /// Whether the detection/classification loop is running (play/pause). When it
     /// stops, the classification presentation must clear immediately — with no
@@ -117,7 +117,13 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         guard AppEnvironment.isRunningUITests else { return "" }
         return flashController.displayLabels.first.map { "\($0.identifier)=\($0.confidence)" } ?? ""
     }
-    
+    /// Number of tile-border outlines the overlay currently renders (AIA-0426): the `regions(for:)`
+    /// count when Tiled Borders is on, `0` when off. Gated on UI tests so production pays nothing.
+    private var tiledBorderCountValue: String {
+        guard AppEnvironment.isRunningUITests else { return "" }
+        return String(tiledBorders ? TileLayout.regions(for: tiling).count : 0)
+    }
+
     var body: some View {
         return GeometryReader { geometry in
             ZStack {
@@ -239,6 +245,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // value only the UI-test checkpoint marker reads (the marker itself already renders only
         // under UI tests).
         .checkpoint(.detectionCount, value: AppEnvironment.isRunningUITests ? String(renderedDetectionCount) : "")
+        // AIA-0426: how many tile-border outlines the overlay is drawing — lets a UI test confirm
+        // that enabling "Tiled Borders" actually renders borders (0 when the setting is off).
+        .checkpoint(.tiledBorderCount, value: tiledBorderCountValue)
         // AIA-0374: finding-flash introspection. flashCount counts qualifying passes
         // (monotonic — polling can't miss a transient); classificationCount is the
         // number of currently-qualifying, flash-participating drivers.
@@ -322,9 +331,9 @@ extension View {
     }
 }
 
-/// Debug overlay (AIA-0426): draws a red border around each tile fed to the detector so the tile
-/// split is visible. Purely visual — it reads the same `TileLayout.regions(for:)` the detector uses
-/// and never touches the detection path. Gated by the Debug "Tiled Borders" setting upstream.
+/// Overlay (AIA-0426): draws a red border around each tile fed to the detector so the tile split is
+/// visible. Purely visual — it reads the same `TileLayout.regions(for:)` the detector uses and never
+/// touches the detection path. Gated by the "Tiled Borders" setting (Tiled Detection submenu) upstream.
 struct TileBorderOverlay: View {
     let schemes: TilingScheme
     let geometry: GeometryProxy

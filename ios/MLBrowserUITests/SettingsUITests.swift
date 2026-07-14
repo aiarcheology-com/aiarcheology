@@ -108,6 +108,33 @@ final class SettingsUITests: UITestCase {
         XCTAssertTrue(flipSwitch(AID.settingsPyramidTiling), "Pyramid tiling toggle did not change state")
     }
 
+    /// Regression guard (AIA-0426): enabling Tiled Borders in the submenu must actually render the
+    /// tile-outline overlay on the web view — not merely flip a switch. Reads the in-app
+    /// `tiledBorderCount` checkpoint (0 when off; `regions(for:)` count when on).
+    func testTiledBorders_enablingInSubmenu_rendersOverlay() {
+        launch()
+        // Off by default → the overlay draws nothing.
+        XCTAssertTrue(
+            waitForCheckpoint(AID.cpTiledBorderCount, equals: "0"),
+            "Tile borders should not render while the setting is off"
+        )
+        openSettings()
+        XCTAssertTrue(scrollTo(AID.settingsTiledDetection), "Tiled Detection row missing")
+        element(AID.settingsTiledDetection).tap()
+        XCTAssertTrue(flipSwitch(AID.settingsTiledBorders), "Tiled Borders toggle did not flip on")
+        // Return to the web screen (pop the submenu, dismiss Settings) where the overlay lives.
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        let dismiss = app.buttons[AID.settingsDismiss]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 5), "Settings dismiss button missing after pop")
+        dismiss.tap()
+        // Pyramid tiling is on by default (6 regions — see DetectionTilingTests), so enabling
+        // Tiled Borders renders 6 tile outlines over the web view.
+        XCTAssertTrue(
+            waitForCheckpoint(AID.cpTiledBorderCount, equals: "6"),
+            "Enabling Tiled Borders should render the pyramid tile outlines over the web view"
+        )
+    }
+
     func testSettings_restoreDefaults_showsConfirmation() {
         launch()
         openSettings()
