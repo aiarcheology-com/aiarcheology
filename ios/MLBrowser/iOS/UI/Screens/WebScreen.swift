@@ -218,7 +218,7 @@ struct WebScreenView: View {
         .onReceive(appState.settings.$showIdentifiers) { value in
             showIdentifiers = value
         }
-        .onReceive(appState.settings.$tiledDetection) { value in
+        .onReceive(appState.settings.$pyramidTiling) { value in
             tiledDetection = value
         }
         .onReceive(appState.detectionState.$ontheflyDetectionEnabled) { value in
@@ -226,7 +226,7 @@ struct WebScreenView: View {
         }
         .onAppear {
             showIdentifiers = appState.settings.showIdentifiers
-            tiledDetection = appState.settings.tiledDetection
+            tiledDetection = appState.settings.pyramidTiling
             if hasPerformedInitialAction.not {
                 hasPerformedInitialAction = true
                 if let fixtureURL = appState.settings.launchFixtureURL {

@@ -125,7 +125,7 @@ struct SettingsForm: View {
 				.testability(Testability.Toggle.settingsRunAtLaunch)
 			Toggle(L10n.Settings.showLabels, isOn: $settings.showIdentifiers)
 				.testability(Testability.Toggle.settingsShowLabels)
-			Toggle(L10n.Settings.tiledDetection, isOn: $settings.tiledDetection)
+			Toggle(L10n.Settings.tiledDetection, isOn: $settings.pyramidTiling)
 				.testability(Testability.Toggle.settingsTiledDetection)
 			Toggle(L10n.Settings.fullscreenDetection, isOn: $settings.fullscreenDetection)
 				.testability(Testability.Toggle.settingsFullscreenDetection)

@@ -35,7 +35,11 @@ final class Settings: ObservableObject, Validatable {
 		static let removeAnnotationOnDrag = "removeAnnotationOnDrag"
 		static let entityId = "entityId"
 		static let fullscreenDetection = "fullscreenDetection"
-		static let tiledDetection = "tiledDetection"
+		/// Legacy key retained so the rename `tiledDetection`→`pyramidTiling` (AIA-0426) keeps every
+		/// existing user's persisted value.
+		static let pyramidTiling = "tiledDetection"
+		static let grid3x3Tiling = "grid3x3Tiling"
+		static let tiledBorders = "tiledBorders"
 	}
 
 	public var isFirstLaunchMarked: Bool = false
@@ -121,13 +125,39 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
-	/// AIA-0217: when enabled, each detection snapshot runs through 6 regions (4 quadrants
-	/// + center + full frame) instead of one full-frame pass — edge artifacts reach the
-	/// model at roughly double resolution at the cost of 6× inference per snapshot.
-	@Published public var tiledDetection: Bool {
+	/// AIA-0217/AIA-0426: the "Pyramid" tiling scheme — each detection snapshot runs through 6
+	/// regions (4 quadrants + center + full frame) instead of one full-frame pass, so edge
+	/// artifacts reach the model at ~double resolution at the cost of 6× inference per snapshot.
+	/// Persisted under the legacy `"tiledDetection"` key so existing users keep their value.
+	@Published public var pyramidTiling: Bool {
 		didSet {
-			defaults.set(tiledDetection, forKey: UserDefaultsKeys.tiledDetection)
+			defaults.set(pyramidTiling, forKey: UserDefaultsKeys.pyramidTiling)
 		}
+	}
+
+	/// AIA-0426: the "3x3" tiling scheme — 9 grid cells + a full-frame pass (10 regions). Independent
+	/// of `pyramidTiling`; both on runs the union of their regions. Off by default (opt-in).
+	@Published public var grid3x3Tiling: Bool {
+		didSet {
+			defaults.set(grid3x3Tiling, forKey: UserDefaultsKeys.grid3x3Tiling)
+		}
+	}
+
+	/// AIA-0426 debug aid: when on, a red border is drawn around each tile fed to the detector so the
+	/// tile split is visible. Purely visual — never affects detection. Off by default.
+	@Published public var tiledBorders: Bool {
+		didSet {
+			defaults.set(tiledBorders, forKey: UserDefaultsKeys.tiledBorders)
+		}
+	}
+
+	/// The tiling scheme(s) currently enabled, derived from the two independent toggles. Empty when
+	/// both are off (the detector then runs full-frame only).
+	var tilingSchemes: TilingScheme {
+		var schemes: TilingScheme = []
+		if pyramidTiling { schemes.insert(.pyramid) }
+		if grid3x3Tiling { schemes.insert(.grid3x3) }
+		return schemes
 	}
 
 	@Published public var entityId: UUID? {
@@ -184,7 +214,10 @@ final class Settings: ObservableObject, Validatable {
             // On by default: simulator verification confirmed the edge-detection win
             // (AIA-0217 plan, decision 1); the toggle exists to opt out of the 6x
             // inference cost.
-            UserDefaultsKeys.tiledDetection: true
+            UserDefaultsKeys.pyramidTiling: true,
+            // 3x3 tiling and the debug tile-border overlay are opt-in (AIA-0426).
+            UserDefaultsKeys.grid3x3Tiling: false,
+            UserDefaultsKeys.tiledBorders: false
         ]
 
 		// Register default values
@@ -200,7 +233,9 @@ final class Settings: ObservableObject, Validatable {
 		self.lastPage = defaults.url(forKey: UserDefaultsKeys.lastPage)
 		self.removeAnnotationOnDrag = defaults.bool(forKey: UserDefaultsKeys.removeAnnotationOnDrag)
 		self.fullscreenDetection = defaults.bool(forKey: UserDefaultsKeys.fullscreenDetection)
-		self.tiledDetection = defaults.bool(forKey: UserDefaultsKeys.tiledDetection)
+		self.pyramidTiling = defaults.bool(forKey: UserDefaultsKeys.pyramidTiling)
+		self.grid3x3Tiling = defaults.bool(forKey: UserDefaultsKeys.grid3x3Tiling)
+		self.tiledBorders = defaults.bool(forKey: UserDefaultsKeys.tiledBorders)
 		if let uuidString = defaults.string(forKey: UserDefaultsKeys.entityId),
 		   let uuid = UUID(uuidString: uuidString) {
 			self.entityId = uuid
@@ -249,7 +284,9 @@ final class Settings: ObservableObject, Validatable {
 		entityId = UUID()
 		lastPage = nil
 		fullscreenDetection = false
-		tiledDetection = true
+		pyramidTiling = true
+		grid3x3Tiling = false
+		tiledBorders = false
 
 		defaults.removeObject(forKey: UserDefaultsKeys.lastPage)
 		defaults.set(historySize, forKey: UserDefaultsKeys.sizeHistory)
@@ -263,7 +300,9 @@ final class Settings: ObservableObject, Validatable {
 		defaults.set(removeAnnotationOnDrag, forKey: UserDefaultsKeys.removeAnnotationOnDrag)
 		defaults.set(entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
 		defaults.set(fullscreenDetection, forKey: UserDefaultsKeys.fullscreenDetection)
-		defaults.set(tiledDetection, forKey: UserDefaultsKeys.tiledDetection)
+		defaults.set(pyramidTiling, forKey: UserDefaultsKeys.pyramidTiling)
+		defaults.set(grid3x3Tiling, forKey: UserDefaultsKeys.grid3x3Tiling)
+		defaults.set(tiledBorders, forKey: UserDefaultsKeys.tiledBorders)
 	}
 
 }
