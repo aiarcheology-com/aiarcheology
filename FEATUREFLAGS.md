@@ -42,10 +42,10 @@ DependencyContainer  →  AppState.featureFlags  →  views
   fall back to the default forever.
 - **Nothing blocks launch.** The snapshot seeds synchronously from the SDK's own cache;
   `refresh()` runs detached *after* `isReady`. Never `await` ConfigCat on the launch path.
-- **A launch refresh does not make a flag live.** The SDK's auto-poll updates its *own*
-  cache and calls nothing of ours, so `client.snapshot()` silently goes stale.
-  `FeatureFlagsState` subscribes to `onConfigChanged` (via `FeatureFlagProviding.changes()`)
-  and republishes. Without that subscription a dashboard flip is invisible until relaunch.
+- **A live flag needs a subscription, not just a refresh.** `FeatureFlagsState` observes
+  `onConfigChanged` (via `FeatureFlagProviding.changes()`) and republishes. The SDK's
+  auto-poll updates its *own* cache and calls nothing of ours, so a one-shot `refresh()`
+  at launch would leave `client.snapshot()` stale until relaunch.
 - **No app-owned cache.** The ConfigCat SDK already persists config JSON to `UserDefaults`
   under `com.configcat-` and exposes a synchronous `client.snapshot()`. A second cache
   would be a competing source of truth that diverges across environments.
@@ -79,11 +79,12 @@ dark first.
 | Release / TestFlight / App Store | Production | `CONFIGCAT_SDK_KEY_LIVE` |
 | Unit tests, UI tests, previews | none — `StaticFeatureFlagProvider`, no network | — |
 
-That last row needs **three** markers in `DependencyContainer.featureFlagProvider`, not one.
-`XCTestConfigurationFilePath` is absent in a UI-tested app (the app is a separate process
-from the test runner), and previews are not a test at all but do get a real Debug key — so
-gating on `isRunningUnderAnyTests` alone silently sends UI tests and previews to the live
-CDN and discards their overrides.
+The last row is enforced by three separate markers in
+`DependencyContainer.featureFlagProvider` — `isRunningUITests || isRunningUnderAnyTests ||
+isRunningInPreviews` — and all three are load-bearing. `XCTestConfigurationFilePath` (which
+backs `isRunningUnderAnyTests`) is absent in a UI-tested app, because the app runs as a
+separate process from the test runner; previews are not a test at all, yet still get a valid
+Debug key.
 
 **Locally**, keys come from 1Password (`ConfigCat Keys`) via `ios/Secrets.template.xcconfig`
 → `ios/Secrets.xcconfig` (gitignored) → `ios/MLBrowser-Info.plist`, mirroring the Sentry DSN
@@ -95,13 +96,15 @@ swift run --package-path Tools ProjectTool secrets refresh
 
 **On Xcode Cloud**, `ios/Secrets.xcconfig` is generated from workflow environment variables
 by `ios/ci_scripts/ci_pre_xcodebuild.sh` — 1Password is not reachable there. The **archive**
-workflow must define `CONFIGCAT_SDK_KEY_LIVE` (mark as Secret); the script hard-fails
-without it rather than produce a distributable whose kill switch can never fire. Test and
-build actions need no key: they are Debug and pin `StaticFeatureFlagProvider` anyway.
+workflow must define `CONFIGCAT_SDK_KEY_LIVE` (mark as Secret), and the script hard-fails
+without it. That hard failure is deliberate: a missing key is not otherwise a build error,
+so the app would ship falling back to compiled defaults — both ON, indistinguishable from
+healthy, and unreachable by any dashboard change. Test and build actions need no key: they
+are Debug and pin `StaticFeatureFlagProvider`.
 
-> ⚠️ This is the failure that hides best. A missing key is not a build error — the app
-> falls back to compiled defaults (both ON) and looks perfectly healthy, while no dashboard
-> change can ever reach a single user.
+Xcode Cloud env var names match build-setting names (as with `SENTRY_DSN` and
+`CLERK_PUBLISHABLE_KEY_LIVE`); the 1Password field names are a separate namespace, mapped in
+`ios/Secrets.template.xcconfig`.
 
 Dashboard: org `Aiarcheology` → `Aiarcheology's Product` → `Main Config`.
 

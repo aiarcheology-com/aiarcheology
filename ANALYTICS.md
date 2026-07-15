@@ -6,8 +6,7 @@
 > so. Nothing described below is collected today. Treat this as the spec to build against,
 > not a description of current behaviour.
 
-Phase 1 (remote feature flags) shipped separately — see [`FEATUREFLAGS.md`](./FEATUREFLAGS.md).
-Traps found while shipping phase 1, which mostly recur here: issue #350.
+Remote feature flags shipped separately — see [`FEATUREFLAGS.md`](./FEATUREFLAGS.md).
 
 ## Why TelemetryDeck
 
@@ -109,8 +108,8 @@ verify the integration from a simulator without shipping.
 - [ ] `TelemetryDeck/SwiftSDK` 2.14.1 (product `TelemetryDeck`, not legacy `TelemetryClient`)
 - [ ] Notice before the gates; `initialize` only after dismissal
 - [ ] Settings toggle mirrors it (withdrawable)
-- [ ] **Network-level test: toggle off ⇒ zero egress, including lifecycle signals.** This is
-      the test that would have caught the original design's bug.
+- [ ] **Network-level test: toggle off ⇒ zero egress, including lifecycle signals.** Pair it
+      with the on-case — a zero-egress assertion passes trivially if signals never send.
 - [ ] `privacypolicy.html` rewritten — the current "no advertising or analytics SDKs" claim
       (`:73`) becomes false the moment this ships. Must land *with* the code.
 - [ ] Verify TelemetryDeck's data-processing location for the §6 transfers section
