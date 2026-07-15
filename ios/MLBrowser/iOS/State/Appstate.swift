@@ -57,6 +57,11 @@ final class AppState: ObservableObject {
 	let browser: BrowserSession
 	let account: AccountSession
 
+	/// Remote feature flags (AIA-0350). Views read `featureFlags.snapshot` for flags that
+	/// apply live; `isPaymentsEnabled` is captured at launch inside `AccountSession` instead
+	/// and must not be read from here for gating the app root.
+	let featureFlags: FeatureFlagsState
+
 	/// Indicates whether the app initialization is complete
 	@Published private(set) var isReady = false
 
@@ -82,6 +87,7 @@ final class AppState: ObservableObject {
 		detection: DetectionSession,
 		browser: BrowserSession,
 		account: AccountSession,
+		featureFlags: FeatureFlagsState,
 		usesRealAuth: Bool
 	) {
 		self.dataController = dataController
@@ -95,6 +101,7 @@ final class AppState: ObservableObject {
 		self.detection = detection
 		self.browser = browser
 		self.account = account
+		self.featureFlags = featureFlags
 		self.usesRealAuth = usesRealAuth
 
 		LoggingPolicy.debug("AppState initializing", logger: .lifecycle)
@@ -130,13 +137,22 @@ final class AppState: ObservableObject {
 		// 3b. Install the StoreKit transaction listener and drain pending/unfinished
 		// transactions (Ask-to-Buy, interrupted) at launch, BEFORE any purchase UI
 		// can appear, then publish the initial entitlement (AIA-0343).
-		if FeatureFlags.isPaymentsEnabled {
+		// The flag is read from the launch-time snapshot captured in `AccountSession`, so a
+		// later remote flip cannot start StoreKit mid-session (AIA-0350).
+		if subscriptionState.isPaymentsSurfaceEnabled {
 			await subscriptionState.start()
 		}
 
 		// 4. Signal ready
 		isReady = true
 		LoggingPolicy.debug("AppState ready", logger: .lifecycle)
+
+		// 5. Best-effort remote flag refresh. Deliberately *after* `isReady`, and not
+		// awaited: launch must never wait on ConfigCat (AIA-0350). Failures leave the
+		// cached/compiled values in place.
+		Task { [featureFlags] in
+			await featureFlags.refresh()
+		}
 	}
 }
 

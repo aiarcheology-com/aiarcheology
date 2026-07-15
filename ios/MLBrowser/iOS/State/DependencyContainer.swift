@@ -122,6 +122,43 @@ class DependencyContainer {
         return StoreKitSubscriptionProvider()
     }()
 
+    /// Remote feature flags (AIA-0350). Tests and previews never reach ConfigCat, and a
+    /// missing/empty SDK key degrades to the compiled defaults rather than failing launch.
+    ///
+    /// The three markers are all load-bearing, exactly as in `usesMockAuth`. `UI_TESTING`
+    /// especially: the app under test is a *separate process* from the UI-test runner, so
+    /// `XCTestConfigurationFilePath` is absent there (see `AppEnvironment.isRunningUITests`).
+    /// Gating on that alone would send every UI test to the live ConfigCat CDN *and* silently
+    /// drop `featureFlagOverrides` on the floor — the overrides would appear to work while
+    /// the app answered from the network.
+    lazy var featureFlagProvider: FeatureFlagProviding = {
+        if AppEnvironment.isRunningUITests
+            || AppEnvironment.isRunningUnderAnyTests
+            || AppEnvironment.isRunningInPreviews {
+            return StaticFeatureFlagProvider(overrides: Self.uiTestFlagOverrides())
+        }
+        return ConfigCatFeatureFlagProvider(sdkKey: ConfigCatFeatureFlagProvider.sdkKeyFromInfoPlist())
+            ?? StaticFeatureFlagProvider()
+    }()
+
+    /// Scenario flag overrides from the UI-test launch configuration (AIA-0350). Empty for
+    /// unit tests and for UI tests that do not vary a flag, leaving every compiled default.
+    private static func uiTestFlagOverrides() -> [FeatureFlagKey: Bool] {
+        guard let raw = UITestLaunchConfiguration.fromEnvironment?.featureFlagOverrides else { return [:] }
+        var overrides: [FeatureFlagKey: Bool] = [:]
+        for (key, value) in raw {
+            guard let flag = FeatureFlagKey(rawValue: key) else {
+                fatalError("Unknown feature flag override '\(key)' — a UI test must never proceed on a misread configuration")
+            }
+            overrides[flag] = value
+        }
+        return overrides
+    }
+
+    lazy var featureFlagsState: FeatureFlagsState = {
+        FeatureFlagsState(provider: self.featureFlagProvider)
+    }()
+
 	// MARK: - Composition root
 
 	/// Builds the fully-wired `AppState` from this container's shared services (AIA-0385).
@@ -138,7 +175,14 @@ class DependencyContainer {
 			settings: settings
 		)
 		let browser = BrowserSession(settings: settings, dataController: dataController)
-		let account = AccountSession(authProvider: authProvider, subscriptionProvider: subscriptionProvider)
+		// The payments flag is resolved once here, at the session boundary, and handed to
+		// the account session as a plain value (AIA-0350) — the app root must not swap
+		// under the user if a later poll flips it.
+		let account = AccountSession(
+			authProvider: authProvider,
+			subscriptionProvider: subscriptionProvider,
+			isPaymentsEnabled: featureFlagsState.snapshot.isPaymentsEnabled
+		)
 		return AppState(
 			dataController: dataController,
 			settings: settings,
@@ -151,6 +195,7 @@ class DependencyContainer {
 			detection: detection,
 			browser: browser,
 			account: account,
+			featureFlags: featureFlagsState,
 			usesRealAuth: usesMockAuth == false
 		)
 	}

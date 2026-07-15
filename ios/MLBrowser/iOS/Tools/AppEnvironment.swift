@@ -71,6 +71,15 @@ enum AppEnvironment {
         ProcessInfo.processInfo.environment["UI_TESTING"] == "1"
     }
 
+    /// True when this process is rendering a SwiftUI preview.
+    ///
+    /// Previews are neither a test nor a real run: they get a valid Debug `Secrets.xcconfig`,
+    /// so anything gated only on the test markers would happily open real network clients
+    /// every time a canvas re-renders.
+    static var isRunningInPreviews: Bool {
+        ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+    }
+
     /// True when the app is currently being *unit*-tested (not UI-tested).
     ///
     /// Assumes:

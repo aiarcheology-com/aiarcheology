@@ -79,8 +79,11 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 ### Feature flags
 
 - **Gate every significant feature behind a feature flag** so it can be turned on/off without ripping code out — e.g. **login/auth gate**, **payments/subscriptions**, and any other large or risky surface. Shipping a feature dark (flag off) and flipping it on later is the default, not the exception.
-- **For now flags live in source code** — a single typed constants file (e.g. `FeatureFlags.swift`, `static let` booleans), read at the feature's entry point. This is deliberately the simple version.
-- **A proper flag system is a separate, later PR** (remote config / per-build / per-environment overrides). Do not build that infrastructure inline with a feature — add the in-source flag now, and leave a `// TODO(AIA-XXXX): move to real feature-flag system` so it's tracked.
+- **Flags are remote (ConfigCat) since AIA-0350** — see **`../FEATUREFLAGS.md`** for the full picture. Add a `case` to `FeatureFlagKey` (`State/FeatureFlags.swift`); its `rawValue` **is** the ConfigCat key and its `defaultValue` is the compiled fallback. Read values from the published `FeatureFlagSnapshot`, never from a global.
+- **Create the flag in the ConfigCat dashboard *before* shipping code that reads it.** The dashboard auto-generates the key from the name — overwrite it to match `rawValue` exactly, or the lookup silently falls back to the compiled default forever.
+- **Defaults fail open.** Offline, a bad SDK key, a missing flag, or a ConfigCat outage leaves the feature at its `defaultValue` (currently `true` for both). This preserves shipped behaviour but means a flag is not a guaranteed remote kill switch. A flag that must fail closed needs `defaultValue = false`.
+- **Decide live vs launch-only per flag.** A flag that only shows/hides an entry point may apply live. A flag gating a view *above* `ContentView` (e.g. `isPaymentsEnabled` → `SubscriptionGateView`, the app root) must be captured once at launch — applying a mid-session flip would replace a working app with a paywall, or release an unpaid user from it.
+- **Never block launch on a flag.** The snapshot seeds synchronously; refresh runs detached after `isReady`.
 - Keep flags **few and meaningful** (one per shippable feature), name them for the feature (`isPaymentsEnabled`, `isAuthGateEnabled`), and remove a flag once its feature is permanently on and stable — don't let dead flags accumulate.
 - **Payments note (research, 2026-06):** in-app digital subscriptions on iOS must use **StoreKit 2 IAP** (Apple Guideline 3.1.1; Apple is merchant-of-record and handles per-country VAT/tax + local pricing — the reason to prefer it). Clerk Billing/Stripe is **web-checkout only** (no native StoreKit path, USD-only, you become merchant-of-record), so it is **not** the in-app purchase path. Plan: StoreKit 2 → App Store Server Notifications → backend writes the entitlement to the Clerk user → app gates on it. Optional US-only "subscribe on web" external Stripe link is upside (0% Apple fee post-*Epic*), not the foundation. Ship all of it behind a payments feature flag.
 
@@ -355,6 +358,7 @@ xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBr
 
 ### Changelog
 
+- **2026-07-15**: §3 Feature flags rewritten for AIA-0350 — flags are now remote (ConfigCat) via `FeatureFlagKey`/`FeatureFlagSnapshot`, not compile-time constants. Documents the fail-open default, the create-the-flag-first rule (the dashboard auto-generates keys), the per-flag live vs launch-only decision, and the never-block-launch rule. Full detail moved to `../FEATUREFLAGS.md`; product analytics (not yet implemented) is specified in `../ANALYTICS.md`.
 - **2026-07-14**: §7 synced with the actual rules (AIA-0429): correct test-target path (`MLBrowserArchitectureTests/`), services rule stated as "not `@MainActor`", added singleton/privacy/baseline rules and the fail-closed policy.
 - **2026-07-02**: §10 now states the on-device privacy invariant explicitly (snapshots/detection imagery never leave the device); §13 Pull requests states the `develop` target.
 - **2026-07-02**: Added `ARCHITECTURE.md` (codebase wiring/map) and referenced it from §2, §3, and the cheat sheet; added a single-test CLI cheat-sheet entry.

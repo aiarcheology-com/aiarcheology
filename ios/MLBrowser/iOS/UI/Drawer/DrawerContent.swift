@@ -79,6 +79,9 @@ struct DrawerContent: View {
             )
                 .environmentObject(deep)
                 .environmentObject(downloader)
+                // Environment objects do not reliably cross `.sheet` boundaries on Mac
+                // (Designed for iPad) — re-inject, per AGENTS.md §3 (AIA-0350).
+                .environmentObject(appState.featureFlags)
         }
         .sheet(item: $selectedConfigurationId, onDismiss: { typeReviewConfigId = nil }) { configId in
             if let config = deep.selectConfiguration(configId) {

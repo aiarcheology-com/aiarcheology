@@ -43,8 +43,10 @@ free to download → 1-month free trial → then $3.99/mo to keep using it.
   counts as active). Otherwise **`PaywallView` is the root**, mirroring the auth gate.
 - The root paywall also offers **Sign Out + Delete Account** (Apple 5.1.1(v)) so a non-subscriber
   can leave/delete without reaching Settings.
-- Bypassed entirely when `FeatureFlags.isPaymentsEnabled` is off (ships dark; existing flows
-  unaffected until payments are turned on).
+- Bypassed entirely when the `isPaymentsEnabled` flag is off — read in the view as
+  `subscriptionState.isPaymentsSurfaceEnabled`. Since AIA-0350 this is a **remote** ConfigCat
+  flag (compiled default ON), captured **once at launch**: the gate is the app root, so a
+  mid-session flip must not drop a paywall on someone mid-detection.
 - **Naming:** the user-facing product is **"ML Browser"** (the app name; "AI Archeology" is the
   project/org). App Store Connect renamed: group → "ML Browser",
   subscription display name → "ML Browser", reference name → "ML Browser Monthly". Code side
@@ -58,7 +60,8 @@ free to download → 1-month free trial → then $3.99/mo to keep using it.
 - Paywall shows the trial terms (read from the product's intro offer), the auto-renewable
   disclosures + Terms of Use + Privacy Policy links (Apple 3.1.2), and an in-app **Apple refund
   sheet**.
-- Behind the `FeatureFlags.isPaymentsEnabled` flag (in-source; ON in the submitted build).
+- Behind the `isPaymentsEnabled` flag (remote via ConfigCat since AIA-0350; compiled default ON,
+  and ON in the submitted build). See FEATUREFLAGS.md.
 - Local testing without ASC: Xcode → Scheme → Run → Options → StoreKit Configuration →
   `ios/MLBrowser/Configuration.storekit` (mirrors the product: $3.99, 1-month free trial).
 

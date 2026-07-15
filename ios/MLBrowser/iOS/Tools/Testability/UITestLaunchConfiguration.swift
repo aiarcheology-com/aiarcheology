@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 5
+	static let currentVersion = 6
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -71,6 +71,12 @@ struct UITestLaunchConfiguration: Codable {
 	/// red-Disabled footnote without driving the un-scriptable file import. Consumed by
 	/// ``shouldReviewFirstModelType``; `nil`/`false` keeps the baseline (no review).
 	var reviewFirstModelType: Bool?
+	/// Force specific feature flags for a scenario, keyed by `FeatureFlagKey.rawValue`
+	/// (AIA-0350). `nil` keeps the baseline (every flag at its compiled default).
+	/// UI tests never reach ConfigCat — `DependencyContainer` uses `StaticFeatureFlagProvider`
+	/// under tests — so this is the only way to vary a flag in a UI test. An unknown key
+	/// traps, consistent with this type's "never proceed on a misread configuration" rule.
+	var featureFlagOverrides: [String: Bool]?
 
 	/// Decoded from the launch environment, or `nil` if absent. Traps on malformed input
 	/// or version mismatch — a UI test must never proceed on a misread configuration.
