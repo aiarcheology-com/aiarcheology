@@ -51,8 +51,10 @@ final class ConfigCatFeatureFlagProvider: FeatureFlagProviding {
 			options.pollingMode = PollingModes.autoPoll(autoPollIntervalInSeconds: Self.pollIntervalSeconds)
 			// Subscribed through `options.hooks`, never `client.hooks`: a subscription added
 			// after the client reaches its ready state can miss the notification outright
-			// (vendor's own caveat, ConfigCatOptions.swift:90).
-			options.hooks.addOnConfigChanged { _ in continuation.yield() }
+			// (vendor's own caveat, ConfigCatOptions.swift:90). The snapshot variant is the
+			// non-deprecated overload; both arguments are ignored because the observer
+			// re-reads `currentSnapshot()` rather than trust a pushed payload.
+			options.hooks.addOnConfigChanged(snapshotHandler: { _, _ in continuation.yield() })
 		}
 	}
 

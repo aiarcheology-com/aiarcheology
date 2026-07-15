@@ -124,8 +124,17 @@ class DependencyContainer {
 
     /// Remote feature flags (AIA-0350). Tests and previews never reach ConfigCat, and a
     /// missing/empty SDK key degrades to the compiled defaults rather than failing launch.
+    ///
+    /// The three markers are all load-bearing, exactly as in `usesMockAuth`. `UI_TESTING`
+    /// especially: the app under test is a *separate process* from the UI-test runner, so
+    /// `XCTestConfigurationFilePath` is absent there (see `AppEnvironment.isRunningUITests`).
+    /// Gating on that alone would send every UI test to the live ConfigCat CDN *and* silently
+    /// drop `featureFlagOverrides` on the floor — the overrides would appear to work while
+    /// the app answered from the network.
     lazy var featureFlagProvider: FeatureFlagProviding = {
-        if AppEnvironment.isRunningUnderAnyTests {
+        if AppEnvironment.isRunningUITests
+            || AppEnvironment.isRunningUnderAnyTests
+            || AppEnvironment.isRunningInPreviews {
             return StaticFeatureFlagProvider(overrides: Self.uiTestFlagOverrides())
         }
         return ConfigCatFeatureFlagProvider(sdkKey: ConfigCatFeatureFlagProvider.sdkKeyFromInfoPlist())

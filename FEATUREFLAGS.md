@@ -79,6 +79,12 @@ dark first.
 | Release / TestFlight / App Store | Production | `CONFIGCAT_SDK_KEY_LIVE` |
 | Unit tests, UI tests, previews | none — `StaticFeatureFlagProvider`, no network | — |
 
+That last row needs **three** markers in `DependencyContainer.featureFlagProvider`, not one.
+`XCTestConfigurationFilePath` is absent in a UI-tested app (the app is a separate process
+from the test runner), and previews are not a test at all but do get a real Debug key — so
+gating on `isRunningUnderAnyTests` alone silently sends UI tests and previews to the live
+CDN and discards their overrides.
+
 **Locally**, keys come from 1Password (`ConfigCat Keys`) via `ios/Secrets.template.xcconfig`
 → `ios/Secrets.xcconfig` (gitignored) → `ios/MLBrowser-Info.plist`, mirroring the Sentry DSN
 and Clerk key pattern. Regenerate with:
@@ -110,7 +116,9 @@ Dashboard: org `Aiarcheology` → `Aiarcheology's Product` → `Main Config`.
 3. Decide **live or launch-only** and wire it accordingly.
 4. Read it from `featureFlags.snapshot` (live) or capture it at launch (session-boundary).
 5. UI tests can force it via `UITestLaunchConfiguration.featureFlagOverrides`
-   (keyed by `rawValue`; an unknown key traps).
+   (keyed by `rawValue`; an unknown key traps). Assert on the *overridden* value, never a
+   value that equals the compiled default — a test that agrees with the default passes even
+   when the override is ignored entirely. `FeatureFlagUITests` is the worked example.
 6. Remove the flag once its feature is permanently on — don't let dead flags accumulate.
 
 ## Verifying it really works

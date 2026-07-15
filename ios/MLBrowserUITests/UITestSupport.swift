@@ -81,6 +81,7 @@ enum AID {
 	static let configDelete = "_AIA:Button.SideMenuDeleteConfiguration"
 	static let configModelTypePicker = "_AIA:Picker.ConfigurationFormModelType"
 	static let configFormDismiss = "_AIA:Button.ConfigurationFormDismiss"
+	static let newConfigurationOpenCatalog = "_AIA:Button.NewConfigurationOpenCatalog"
 
 	// Settings
 	static let settingsDismiss = "_AIA:Button.SettingsDismiss"
