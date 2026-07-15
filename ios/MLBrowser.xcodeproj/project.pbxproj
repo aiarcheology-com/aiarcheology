@@ -26,6 +26,7 @@
 		4CD0B0B57E40E142601F97D3 /* SnapshotRendering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78089C11A89B618C8920A9AD /* SnapshotRendering.swift */; };
 		510BEBE08AE94921B256AD77 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = C868B4879FC9440AA740CFDD /* Sentry */; };
 		94A41300F000000000000003 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 94A41300F000000000000002 /* HuggingFace */; };
+		94CFCA7000000000000000A3 /* ConfigCat in Frameworks */ = {isa = PBXBuildFile; productRef = 94CFCA7000000000000000A2 /* ConfigCat */; };
 		5C4453E16BA3139620D24134 /* TourTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 791D69ED93234CE31F8C8636 /* TourTarget.swift */; };
 		5DE6C2B8D2FD4F7086702F34 /* FindingFlash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A37A2034FAA4C4B857D8DDD /* FindingFlash.swift */; };
 		5F0187F61099AC6FBBD6676E /* Configuration.storekit in Resources */ = {isa = PBXBuildFile; fileRef = E7D7719BFF527B0F988CB497 /* Configuration.storekit */; };
@@ -587,6 +588,7 @@
 			files = (
 				510BEBE08AE94921B256AD77 /* Sentry in Frameworks */,
 				94A41300F000000000000003 /* HuggingFace in Frameworks */,
+				94CFCA7000000000000000A3 /* ConfigCat in Frameworks */,
 				9407A5E62FE4A9AE0097FB7B /* ClerkKit in Frameworks */,
 				9407A5E82FE4A9AE0097FB7B /* ClerkKitUI in Frameworks */,
 			);
@@ -1279,6 +1281,7 @@
 				94A41300F000000000000002 /* HuggingFace */,
 				9407A5E52FE4A9AE0097FB7B /* ClerkKit */,
 				9407A5E72FE4A9AE0097FB7B /* ClerkKitUI */,
+				94CFCA7000000000000000A2 /* ConfigCat */,
 			);
 			productName = MLBrowser;
 			productReference = 8AE0BC002A97B0B30086DDF9 /* ML Browser.app */;
@@ -1389,6 +1392,7 @@
 				94HARM0012F04000100000001 /* XCRemoteSwiftPackageReference "Harmonize" */,
 				94A41300F000000000000001 /* XCRemoteSwiftPackageReference "swift-huggingface" */,
 				9407A5E42FE4A9AE0097FB7B /* XCRemoteSwiftPackageReference "clerk-ios" */,
+				94CFCA7000000000000000A1 /* XCRemoteSwiftPackageReference "swift-sdk" */,
 			);
 			productRefGroup = 8AE0BC012A97B0B30086DDF9 /* Products */;
 			projectDirPath = "";
@@ -2208,6 +2212,14 @@
 				minimumVersion = 1.2.4;
 			};
 		};
+		94CFCA7000000000000000A1 /* XCRemoteSwiftPackageReference "swift-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/configcat/swift-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.3.1;
+			};
+		};
 		94DF06A32E95C1D60024E381 /* XCRemoteSwiftPackageReference "OSLogViewer" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/0xWDG/OSLogViewer.git";
@@ -2272,6 +2284,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 81666D3A451C4358B0AFB17A /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
 			productName = Sentry;
+		};
+		94CFCA7000000000000000A2 /* ConfigCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 94CFCA7000000000000000A1 /* XCRemoteSwiftPackageReference "swift-sdk" */;
+			productName = ConfigCat;
 		};
 /* End XCSwiftPackageProductDependency section */
 
