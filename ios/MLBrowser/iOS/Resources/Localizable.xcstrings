@@ -1735,6 +1735,90 @@
         }
       }
     },
+    "analytics.choice.enable" : {
+      "comment" : "Button that enables optional analytics.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable analytics"
+          }
+        }
+      }
+    },
+    "analytics.choice.message" : {
+      "comment" : "Explanation shown before the user enables optional analytics.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share anonymous, privacy-safe usage statistics to help improve the app. Analytics is off unless you enable it."
+          }
+        }
+      }
+    },
+    "analytics.choice.notNow" : {
+      "comment" : "Button that continues without enabling optional analytics.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not now"
+          }
+        }
+      }
+    },
+    "analytics.choice.title" : {
+      "comment" : "Title of the optional analytics choice screen.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Help improve ML Browser"
+          }
+        }
+      }
+    },
+    "analytics.settings.footer" : {
+      "comment" : "Footer explaining the optional analytics setting.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analytics is off by default. You can change this at any time. Page content, images, URLs, titles, filenames, detection results, and model names are never sent."
+          }
+        }
+      }
+    },
+    "analytics.settings.title" : {
+      "comment" : "Title of the optional analytics Settings section.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy"
+          }
+        }
+      }
+    },
+    "analytics.settings.toggle" : {
+      "comment" : "Toggle label for optional analytics.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share anonymous usage data"
+          }
+        }
+      }
+    },
     "alert.error.title" : {
       "comment" : "Generic error alert title",
       "extractionState" : "manual",
@@ -2793,30 +2877,6 @@
         }
       }
     },
-    "catalog.downloads" : {
-      "comment" : "Button that opens the downloads list from Open Catalog",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Downloads"
-          }
-        }
-      }
-    },
-    "catalog.download.timeout" : {
-      "comment" : "Error shown when a catalog download stops receiving data and can be retried",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The download timed out. Please try again."
-          }
-        }
-      }
-    },
     "catalog.download.package" : {
       "comment" : "Label for a multi-file Core ML package being downloaded from the catalog",
       "extractionState" : "manual",
@@ -2841,6 +2901,18 @@
         }
       }
     },
+    "catalog.download.timeout" : {
+      "comment" : "Error shown when a catalog download stops receiving data and can be retried",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The download timed out. Please try again."
+          }
+        }
+      }
+    },
     "catalog.download.title" : {
       "comment" : "Catalog package download progress title",
       "extractionState" : "manual",
@@ -2849,6 +2921,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Downloading model"
+          }
+        }
+      }
+    },
+    "catalog.downloads" : {
+      "comment" : "Button that opens the downloads list from Open Catalog",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Downloads"
           }
         }
       }
@@ -12469,6 +12553,18 @@
         }
       }
     },
+    "settings.grid3x3Tiling" : {
+      "comment" : "Toggle label for the 3x3 tiling scheme in the Tiled Detection submenu",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3x3 tiling"
+          }
+        }
+      }
+    },
     "settings.history" : {
       "comment" : "Navigation link to history screen",
       "extractionState" : "manual",
@@ -12681,6 +12777,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "歷史記錄限制"
+          }
+        }
+      }
+    },
+    "settings.pyramidTiling" : {
+      "comment" : "Toggle label for the Pyramid tiling scheme in the Tiled Detection submenu",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pyramid tiling"
           }
         }
       }
@@ -13681,30 +13789,6 @@
         }
       }
     },
-    "settings.grid3x3Tiling" : {
-      "comment" : "Toggle label for the 3x3 tiling scheme in the Tiled Detection submenu",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "3x3 tiling"
-          }
-        }
-      }
-    },
-    "settings.pyramidTiling" : {
-      "comment" : "Toggle label for the Pyramid tiling scheme in the Tiled Detection submenu",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pyramid tiling"
-          }
-        }
-      }
-    },
     "settings.tiledBorders" : {
       "comment" : "Toggle label in the Tiled Detection settings submenu for the tile-border overlay",
       "extractionState" : "manual",
@@ -13729,18 +13813,6 @@
         }
       }
     },
-    "settings.tiledDetectionFooter" : {
-      "comment" : "Footer for the Tiled Detection submenu explaining the two scheme toggles",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose which tile layouts feed the detector. Enable either or both; both run the union of their tiles."
-          }
-        }
-      }
-    },
     "settings.tiledDetection" : {
       "comment" : "Toggle for tiled detection (detect over 4 quadrants + center + full frame instead of one full-frame pass)",
       "extractionState" : "manual",
@@ -13749,6 +13821,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tiled Detection"
+          }
+        }
+      }
+    },
+    "settings.tiledDetectionFooter" : {
+      "comment" : "Footer for the Tiled Detection submenu explaining the two scheme toggles",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose which tile layouts feed the detector. Enable either or both; both run the union of their tiles."
           }
         }
       }

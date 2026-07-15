@@ -17,6 +17,7 @@ final class FeatureFlagsTests: XCTestCase {
 	func test_defaults_matchShippedBehaviour() {
 		XCTAssertTrue(FeatureFlagKey.isModelCatalogEnabled.defaultValue)
 		XCTAssertTrue(FeatureFlagKey.isPaymentsEnabled.defaultValue)
+		XCTAssertTrue(FeatureFlagKey.isAnalyticsEnabled.defaultValue)
 	}
 
 	/// The ConfigCat key is the rawValue — an explicit literal, never left to Swift's
@@ -27,6 +28,7 @@ final class FeatureFlagsTests: XCTestCase {
 	func test_rawValues_areTheConfigCatKeys() {
 		XCTAssertEqual(FeatureFlagKey.isModelCatalogEnabled.rawValue, "isModelCatalogEnabled")
 		XCTAssertEqual(FeatureFlagKey.isPaymentsEnabled.rawValue, "isPaymentsEnabled")
+		XCTAssertEqual(FeatureFlagKey.isAnalyticsEnabled.rawValue, "isAnalyticsEnabled")
 	}
 
 	func test_defaultsSnapshot_usesEveryKeysDefault() {
@@ -42,12 +44,14 @@ final class FeatureFlagsTests: XCTestCase {
 		let sut = FeatureFlagSnapshot(values: [.isPaymentsEnabled: false])
 		XCTAssertFalse(sut.isPaymentsEnabled)
 		XCTAssertEqual(sut.isModelCatalogEnabled, FeatureFlagKey.isModelCatalogEnabled.defaultValue)
+		XCTAssertTrue(sut.isAnalyticsEnabled)
 	}
 
 	func test_snapshot_remoteValuesWin() {
-		let sut = FeatureFlagSnapshot(values: [.isModelCatalogEnabled: false, .isPaymentsEnabled: false])
+		let sut = FeatureFlagSnapshot(values: [.isModelCatalogEnabled: false, .isPaymentsEnabled: false, .isAnalyticsEnabled: true])
 		XCTAssertFalse(sut.isModelCatalogEnabled)
 		XCTAssertFalse(sut.isPaymentsEnabled)
+		XCTAssertTrue(sut.isAnalyticsEnabled)
 	}
 }
 

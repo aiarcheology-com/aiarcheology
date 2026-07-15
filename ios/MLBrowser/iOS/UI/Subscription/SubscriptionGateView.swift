@@ -21,6 +21,7 @@ import UIKit
 struct SubscriptionGateView<Content: View>: View {
     @ObservedObject var subscriptionState: SubscriptionState
     @ObservedObject var authState: AuthState
+	let analytics: AnalyticsState
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -28,7 +29,12 @@ struct SubscriptionGateView<Content: View>: View {
             if subscriptionState.isPaymentsSurfaceEnabled == false || subscriptionState.isSubscribed {
                 content()
             } else {
-                PaywallView(subscriptionState: subscriptionState, authState: authState, isRootGate: true)
+				PaywallView(
+					subscriptionState: subscriptionState,
+					analytics: analytics,
+					authState: authState,
+					isRootGate: true
+				)
             }
         }
         // Re-check entitlement on foreground: a subscription that lapses while backgrounded

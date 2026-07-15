@@ -72,6 +72,26 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "alert.warning.title", fallback: "Warning")
     }
   }
+  internal enum Analytics {
+    internal enum Choice {
+      /// Enable analytics
+      internal static let enable = L10n.tr("Localizable", "analytics.choice.enable", fallback: "Enable analytics")
+      /// Share anonymous, privacy-safe usage statistics to help improve the app. Analytics is off unless you enable it.
+      internal static let message = L10n.tr("Localizable", "analytics.choice.message", fallback: "Share anonymous, privacy-safe usage statistics to help improve the app. Analytics is off unless you enable it.")
+      /// Not now
+      internal static let notNow = L10n.tr("Localizable", "analytics.choice.notNow", fallback: "Not now")
+      /// Help improve ML Browser
+      internal static let title = L10n.tr("Localizable", "analytics.choice.title", fallback: "Help improve ML Browser")
+    }
+    internal enum Settings {
+      /// Analytics is off by default. You can change this at any time. Page content, images, URLs, titles, filenames, detection results, and model names are never sent.
+      internal static let footer = L10n.tr("Localizable", "analytics.settings.footer", fallback: "Analytics is off by default. You can change this at any time. Page content, images, URLs, titles, filenames, detection results, and model names are never sent.")
+      /// Privacy
+      internal static let title = L10n.tr("Localizable", "analytics.settings.title", fallback: "Privacy")
+      /// Share anonymous usage data
+      internal static let toggle = L10n.tr("Localizable", "analytics.settings.toggle", fallback: "Share anonymous usage data")
+    }
+  }
   internal enum Auth {
     /// Checking your session…
     internal static let checking = L10n.tr("Localizable", "auth.checking", fallback: "Checking your session…")

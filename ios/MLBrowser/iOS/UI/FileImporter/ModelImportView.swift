@@ -21,6 +21,7 @@ struct ModelImportView: View {
 	/// Observed directly (not via `AppState`) so a remote flag flip re-renders this view:
 	/// a nested ObservableObject does not republish through its parent (AIA-0350).
 	@EnvironmentObject private var featureFlags: FeatureFlagsState
+	@EnvironmentObject private var analytics: AnalyticsState
 
 	/// Called with the new configuration's id after a successful import, so the presenter can
 	/// auto-open the model's settings for the user to confirm its type (AIA-0402). No imported
@@ -472,6 +473,15 @@ struct ModelImportView: View {
 		if configuration.lifeCycle == .ready {
 			deep.saveConfigurations()
 			provider.result(.importSucceeded, id: id)
+			let source: ModelAcquisitionSource
+			if downloadUrl == nil {
+				source = .fileImport
+			} else if configuration.catalogSource != nil {
+				source = .catalog
+			} else {
+				source = .directDownload
+			}
+			analytics.track(.modelImported(source: source))
 
 			return ImportedModelInfo(id: id, needsReview: !extractedInfo.typeWasParsed)
 		} else {

@@ -27,6 +27,7 @@ struct DrawerContent: View {
     @EnvironmentObject private var downloader: Downloader
     @EnvironmentObject private var settings: Settings
     @EnvironmentObject private var subscriptionState: SubscriptionState
+	@EnvironmentObject private var analytics: AnalyticsState
 
     @FetchRequest(
         entity: DeepConfiguration.entity(),
@@ -82,6 +83,7 @@ struct DrawerContent: View {
                 // Environment objects do not reliably cross `.sheet` boundaries on Mac
                 // (Designed for iPad) — re-inject, per AGENTS.md §3 (AIA-0350).
                 .environmentObject(appState.featureFlags)
+				.environmentObject(analytics)
         }
         .sheet(item: $selectedConfigurationId, onDismiss: { typeReviewConfigId = nil }) { configId in
             if let config = deep.selectConfiguration(configId) {
@@ -109,6 +111,7 @@ struct DrawerContent: View {
                 .environmentObject(chromeState)
                 .environmentObject(detectionState)
                 .environmentObject(subscriptionState)
+				.environmentObject(analytics)
                 .environment(drawer)
                 .environment(tour)
                 // Re-inject: custom env values don't reliably cross the sheet boundary on

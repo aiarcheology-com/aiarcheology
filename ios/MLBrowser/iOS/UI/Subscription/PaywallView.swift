@@ -15,6 +15,7 @@ import OSLog
 /// ``SubscriptionState`` and drives purchase / restore intents.
 struct PaywallView: View {
 	@ObservedObject var subscriptionState: SubscriptionState
+	let analytics: AnalyticsState?
 
 	/// Auth state, supplied only when the paywall is the whole-app root gate, so a
 	/// non-subscriber can sign out or delete their account (Apple 5.1.1(v)). `nil` when
@@ -92,6 +93,9 @@ struct PaywallView: View {
 			if let subscription = subscriptionState.products.first?.subscription {
 				introOfferEligible = await subscription.isEligibleForIntroOffer
 			}
+		}
+		.onAppear {
+			analytics?.track(.paywallShown)
 		}
 		.confirmationDialog(
 			L10n.Auth.Account.Delete.title,
@@ -249,6 +253,7 @@ struct PaywallView: View {
 		}
 
 		Button {
+			analytics?.track(.subscribeTapped)
 			Task {
 				isWorking = true
 				await subscriptionState.purchase(product)
@@ -291,12 +296,12 @@ struct PaywallView: View {
 
 #if DEBUG
 #Preview("Not subscribed") {
-	PaywallView(subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true))
+	PaywallView(subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true), analytics: nil)
 }
 
 #Preview("Subscribed") {
 	let state = SubscriptionState(provider: MockSubscriptionProvider(outcome: .subscribed), isPaymentsEnabled: true)
-	return PaywallView(subscriptionState: state)
+	return PaywallView(subscriptionState: state, analytics: nil)
 		.task { await state.start() }
 }
 #endif

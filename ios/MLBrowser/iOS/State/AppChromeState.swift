@@ -15,6 +15,7 @@ final class AppChromeState: ObservableObject {
 	let deep: DeepState
 	let settings: Settings
 	let demoDataManager: DemoDataManager
+	private let analytics: AnalyticsState?
 	/// Whole-app reset first stops any running detection, so chrome state borrows the detection
 	/// controller. Chrome → detection is one-directional (detection never references chrome).
 	let detectionState: DetectionSessionState
@@ -26,11 +27,18 @@ final class AppChromeState: ObservableObject {
 	/// Write-only today (set by WebScreen; no reader) — retained as-is, out of scope to remove.
 	@Published var contentInteractionState: ContentInteractionState = .idle
 
-	init(detectionState: DetectionSessionState, deep: DeepState, settings: Settings, demoDataManager: DemoDataManager) {
+	init(
+		detectionState: DetectionSessionState,
+		deep: DeepState,
+		settings: Settings,
+		demoDataManager: DemoDataManager,
+		analytics: AnalyticsState? = nil
+	) {
 		self.detectionState = detectionState
 		self.deep = deep
 		self.settings = settings
 		self.demoDataManager = demoDataManager
+		self.analytics = analytics
 	}
 
 	func togglingSideMenu() {
@@ -52,6 +60,7 @@ final class AppChromeState: ObservableObject {
 			detectionState.ontheflyDetectionTapped()
 		}
 		await deep.reset()
+		analytics?.resetAnalyticsChoice()
 		settings.reset()
 		settings.applicationResetButtonToggle.toggle()
 		await demoDataManager.deleteBrowsingHistory()

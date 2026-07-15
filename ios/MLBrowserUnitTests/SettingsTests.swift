@@ -102,6 +102,21 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(settings.tiledBorders)
     }
 
+	func testSettings_OptionalAnalyticsDefaultsOffAndResets() {
+		settings.reset()
+		XCTAssertFalse(settings.analyticsEnabled)
+		XCTAssertFalse(settings.analyticsChoiceMade)
+
+		settings.analyticsEnabled = true
+		settings.analyticsChoiceMade = true
+		XCTAssertTrue(Settings().analyticsEnabled)
+		XCTAssertTrue(Settings().analyticsChoiceMade)
+
+		settings.reset()
+		XCTAssertFalse(settings.analyticsEnabled)
+		XCTAssertFalse(settings.analyticsChoiceMade)
+	}
+
     func testSettings_TiledBorders_PersistsAndResets() {
         settings.reset()
         settings.tiledBorders = true

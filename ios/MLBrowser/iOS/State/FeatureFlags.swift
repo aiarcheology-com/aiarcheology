@@ -17,9 +17,8 @@ import Foundation
 ///
 /// `defaultValue` is the compiled fallback used whenever remote config cannot be
 /// consulted: first launch, offline, a bad SDK key, a missing flag, or a ConfigCat
-/// outage. These defaults **fail open** — a "killed" feature stays on for any client that
-/// never fetches. That is deliberate (it preserves shipped behaviour), but it means this
-/// is not a guaranteed remote kill switch.
+/// outage. Each flag deliberately chooses whether that path fails open or closed; the choice
+/// is part of its privacy and product contract, not an implementation detail.
 enum FeatureFlagKey: String, CaseIterable {
 	// swiftlint:disable redundant_string_enum_value
 	// The rule is right in general and wrong here: these literals are not redundant, they
@@ -35,6 +34,10 @@ enum FeatureFlagKey: String, CaseIterable {
 	/// Gates the in-app subscription/paywall surface (AIA-0343): the Settings
 	/// "Upgrade" entry point and any feature gated on entitlement.
 	case isPaymentsEnabled = "isPaymentsEnabled"
+
+	/// Master switch for optional TelemetryDeck analytics. The user-level setting remains off by
+	/// default; this flag only controls whether that user choice is available in the app.
+	case isAnalyticsEnabled = "isAnalyticsEnabled"
 	// swiftlint:enable redundant_string_enum_value
 
 	/// The value used when remote config cannot be consulted.
@@ -42,6 +45,7 @@ enum FeatureFlagKey: String, CaseIterable {
 		switch self {
 		case .isModelCatalogEnabled: return true
 		case .isPaymentsEnabled: return true
+		case .isAnalyticsEnabled: return true
 		}
 	}
 }
@@ -64,6 +68,7 @@ struct FeatureFlagSnapshot: Equatable {
 
 	var isModelCatalogEnabled: Bool { self[.isModelCatalogEnabled] }
 	var isPaymentsEnabled: Bool { self[.isPaymentsEnabled] }
+	var isAnalyticsEnabled: Bool { self[.isAnalyticsEnabled] }
 
 	/// Every key at its compiled default — the launch/offline value.
 	static let defaults = FeatureFlagSnapshot()

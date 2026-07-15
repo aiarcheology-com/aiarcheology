@@ -31,6 +31,11 @@
 		94FF0001000000000000B103 /* FeatureFlagsState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF0001000000000000B003 /* FeatureFlagsState.swift */; };
 		94FF0001000000000000B104 /* FeatureFlagsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF0001000000000000B004 /* FeatureFlagsTests.swift */; };
 		94CFCA7000000000000000A3 /* ConfigCat in Frameworks */ = {isa = PBXBuildFile; productRef = 94CFCA7000000000000000A2 /* ConfigCat */; };
+		A35000000000000000000002 /* TelemetryDeckAnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35000000000000000000001 /* TelemetryDeckAnalyticsService.swift */; };
+		A35000000000000000000004 /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = A35000000000000000000003 /* TelemetryDeck */; };
+		A35000000000000000000007 /* AnalyticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35000000000000000000006 /* AnalyticsTests.swift */; };
+		A35000000000000000000009 /* AnalyticsChoiceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35000000000000000000008 /* AnalyticsChoiceUITests.swift */; };
+		A3500000000000000000000B /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3500000000000000000000A /* Analytics.swift */; };
 		5C4453E16BA3139620D24134 /* TourTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 791D69ED93234CE31F8C8636 /* TourTarget.swift */; };
 		5DE6C2B8D2FD4F7086702F34 /* FindingFlash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A37A2034FAA4C4B857D8DDD /* FindingFlash.swift */; };
 		5F0187F61099AC6FBBD6676E /* Configuration.storekit in Resources */ = {isa = PBXBuildFile; fileRef = E7D7719BFF527B0F988CB497 /* Configuration.storekit */; };
@@ -454,6 +459,10 @@
 		94FF0001000000000000B002 /* ConfigCatFeatureFlagProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConfigCatFeatureFlagProvider.swift; sourceTree = "<group>"; };
 		94FF0001000000000000B003 /* FeatureFlagsState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureFlagsState.swift; sourceTree = "<group>"; };
 		94FF0001000000000000B004 /* FeatureFlagsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureFlagsTests.swift; sourceTree = "<group>"; };
+		A35000000000000000000001 /* TelemetryDeckAnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryDeckAnalyticsService.swift; sourceTree = "<group>"; };
+		A35000000000000000000006 /* AnalyticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsTests.swift; sourceTree = "<group>"; };
+		A35000000000000000000008 /* AnalyticsChoiceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsChoiceUITests.swift; sourceTree = "<group>"; };
+		A3500000000000000000000A /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
 		94048A5B2EE02D440064AC55 /* DetectableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectableView.swift; sourceTree = "<group>"; };
 		94048A612EE23D3B0064AC55 /* DrawerContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerContainer.swift; sourceTree = "<group>"; };
 		94048A622EE23D3B0064AC55 /* DrawerContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerContent.swift; sourceTree = "<group>"; };
@@ -599,6 +608,7 @@
 				510BEBE08AE94921B256AD77 /* Sentry in Frameworks */,
 				94A41300F000000000000003 /* HuggingFace in Frameworks */,
 				94CFCA7000000000000000A3 /* ConfigCat in Frameworks */,
+				A35000000000000000000004 /* TelemetryDeck in Frameworks */,
 				9407A5E62FE4A9AE0097FB7B /* ClerkKit in Frameworks */,
 				9407A5E82FE4A9AE0097FB7B /* ClerkKitUI in Frameworks */,
 			);
@@ -1031,6 +1041,7 @@
 				A41300050000000000000001 /* CatalogProviderTests.swift */,
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
 				94FF0001000000000000B004 /* FeatureFlagsTests.swift */,
+				A35000000000000000000006 /* AnalyticsTests.swift */,
 				94D79C8E2EE37DBF0027C9FA /* BundleExtensionsTests.swift */,
 				94AE91772F0DA08300B326B7 /* ColorExtensionsTests.swift */,
 				945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */,
@@ -1115,6 +1126,7 @@
 				94E018910000000000000016 /* AddressBarUITests.swift */,
 				DDCA151D54FB4492B8A89AB4 /* AuthGateUITests.swift */,
 				37FF65EDA41F1D0083A25351 /* SubscriptionGateUITests.swift */,
+				A35000000000000000000008 /* AnalyticsChoiceUITests.swift */,
 			);
 			path = MLBrowserUITests;
 			sourceTree = "<group>";
@@ -1252,6 +1264,8 @@
 			children = (
 				A41320010000000000000001 /* Catalog */,
 				A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */,
+				A3500000000000000000000A /* Analytics.swift */,
+				A35000000000000000000001 /* TelemetryDeckAnalyticsService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1305,6 +1319,7 @@
 				9407A5E52FE4A9AE0097FB7B /* ClerkKit */,
 				9407A5E72FE4A9AE0097FB7B /* ClerkKitUI */,
 				94CFCA7000000000000000A2 /* ConfigCat */,
+				A35000000000000000000003 /* TelemetryDeck */,
 			);
 			productName = MLBrowser;
 			productReference = 8AE0BC002A97B0B30086DDF9 /* ML Browser.app */;
@@ -1416,6 +1431,7 @@
 				94A41300F000000000000001 /* XCRemoteSwiftPackageReference "swift-huggingface" */,
 				9407A5E42FE4A9AE0097FB7B /* XCRemoteSwiftPackageReference "clerk-ios" */,
 				94CFCA7000000000000000A1 /* XCRemoteSwiftPackageReference "swift-sdk" */,
+				A35000000000000000000005 /* XCRemoteSwiftPackageReference "SwiftSDK" */,
 			);
 			productRefGroup = 8AE0BC012A97B0B30086DDF9 /* Products */;
 			projectDirPath = "";
@@ -1694,6 +1710,8 @@
 				94FF0001000000000000B101 /* FeatureFlagProviding.swift in Sources */,
 				94FF0001000000000000B102 /* ConfigCatFeatureFlagProvider.swift in Sources */,
 				94FF0001000000000000B103 /* FeatureFlagsState.swift in Sources */,
+				A35000000000000000000002 /* TelemetryDeckAnalyticsService.swift in Sources */,
+				A3500000000000000000000B /* Analytics.swift in Sources */,
 				1C2C07EA2917960C501206AB /* SubscriptionState.swift in Sources */,
 				917A15383011E3F093BF1F14 /* StoreKitSubscriptionProvider.swift in Sources */,
 				401A266CB4BCBDC00E517F03 /* PaywallView.swift in Sources */,
@@ -1753,6 +1771,7 @@
 				94D79C992EE37DBF0027C9FA /* NSManagedObjectExtensionsTests.swift in Sources */,
 				94D79C9A2EE37DBF0027C9FA /* AppEnvironmentTests.swift in Sources */,
 				94FF0001000000000000B104 /* FeatureFlagsTests.swift in Sources */,
+				A35000000000000000000007 /* AnalyticsTests.swift in Sources */,
 				94929E812ED63ADE001A4C63 /* DeviceInfoTests.swift in Sources */,
 				94929E822ED63ADE001A4C63 /* ModelEnumsTests.swift in Sources */,
 				94929E832ED65555001A4C63 /* LowerPriorityTests.swift in Sources */,
@@ -1807,6 +1826,7 @@
 				942B1DDF2EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */,
 				2E053D53518C7F5210D3C98B /* AuthGateUITests.swift in Sources */,
 				28D6668F15B4BCB10A61D33D /* SubscriptionGateUITests.swift in Sources */,
+				A35000000000000000000009 /* AnalyticsChoiceUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2248,6 +2268,14 @@
 				minimumVersion = 11.3.1;
 			};
 		};
+		A35000000000000000000005 /* XCRemoteSwiftPackageReference "SwiftSDK" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/TelemetryDeck/SwiftSDK";
+			requirement = {
+				kind = exactVersion;
+				version = 2.14.1;
+			};
+		};
 		94DF06A32E95C1D60024E381 /* XCRemoteSwiftPackageReference "OSLogViewer" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/0xWDG/OSLogViewer.git";
@@ -2317,6 +2345,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 94CFCA7000000000000000A1 /* XCRemoteSwiftPackageReference "swift-sdk" */;
 			productName = ConfigCat;
+		};
+		A35000000000000000000003 /* TelemetryDeck */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A35000000000000000000005 /* XCRemoteSwiftPackageReference "SwiftSDK" */;
+			productName = TelemetryDeck;
 		};
 /* End XCSwiftPackageProductDependency section */
 

@@ -22,6 +22,8 @@
 	<string>$(CONFIGCAT_SDK_KEY)</string>
 	<key>ConfigCatSDKKeyLive</key>
 	<string>$(CONFIGCAT_SDK_KEY_LIVE)</string>
+	<key>TelemetryDeckAppID</key>
+	<string>$(TELEMETRYDECK_APP_ID)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

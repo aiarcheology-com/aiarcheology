@@ -49,6 +49,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
+      # Resolution is retried on its own because it is the only network-bound step:
+      # binary targets (Sentry.xcframework.zip) come from GitHub Releases, which
+      # intermittently returns 5xx. Retrying the test step instead would re-run the
+      # whole build for every genuine architecture-rule failure.
+      # A cache hit makes this a no-op — artifacts live under SourcePackages/artifacts.
+      - name: Resolve package dependencies
+        run: |
+          for i in 1 2 3; do
+            xcodebuild -resolvePackageDependencies \
+              -workspace ios/MLBrowser.xcworkspace \
+              -scheme MLBrowserArchitectureTests \
+              -clonedSourcePackagesDirPath "$SPM_CACHE_PATH" && exit 0
+            [ "$i" -eq 3 ] && break
+            echo "Resolution failed (attempt $i/3); retrying in $((i * 20))s..."
+            sleep $((i * 20))
+          done
+          echo "Package resolution failed after 3 attempts."
+          exit 1
+        env:
+          SPM_CACHE_PATH: ${{ github.workspace }}/.spm-cache
+
       - name: Run Harmonize Tests
         run: ./scripts/harmonize.sh
         env:
