@@ -32,7 +32,7 @@ Therefore: **do not call `initialize` until ConfigCat's `isAnalyticsEnabled` is 
 has seen the notice, and the user has enabled analytics.** That is the only gate that actually
 works.
 
-```
+```text
 first launch → ConfigCat availability ON → notice (default OFF: "Enable analytics" / "Not now")
                      │ active choice to enable
                      ▼

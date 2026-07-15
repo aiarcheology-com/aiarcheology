@@ -112,8 +112,8 @@ struct SettingsForm: View {
 	@ViewBuilder
 	private var privacySection: some View {
 		if analytics.isAnalyticsFeatureEnabled {
-			Section(header: Text("Privacy"), footer: Text("Analytics is off by default. You can change this at any time. Page content, images, URLs, titles, filenames, detection results, and model names are never sent.")) {
-				Toggle("Share anonymous usage data", isOn: Binding(
+			Section(header: Text(L10n.Analytics.Settings.title), footer: Text(L10n.Analytics.Settings.footer)) {
+				Toggle(L10n.Analytics.Settings.toggle, isOn: Binding(
 					get: { settings.analyticsEnabled },
 					set: { analytics.setAnalyticsEnabled($0) }
 				))

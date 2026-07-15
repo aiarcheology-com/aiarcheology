@@ -98,6 +98,7 @@ enum AID {
 	static let settingsGrid3x3Tiling = "_AIA:Toggle.SettingsGrid3x3Tiling"
 	static let settingsTiledBorders = "_AIA:Toggle.SettingsTiledBorders"
 	static let settingsFullscreenDetection = "_AIA:Toggle.SettingsFullscreenDetection"
+	static let settingsAnalytics = "_AIA:Toggle.SettingsAnalytics"
 	static let settingsReopenLastPage = "_AIA:Toggle.SettingsReopenLastPage"
 	static let settingsFrequency = "_AIA:Picker.SettingsFrequency"
 	static let settingsDefaultPage = "_AIA:TextField.SettingsDefaultPage"

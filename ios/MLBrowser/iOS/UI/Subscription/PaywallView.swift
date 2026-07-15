@@ -138,7 +138,6 @@ struct PaywallView: View {
 		}
 
 		Button {
-			analytics?.track(.subscribeTapped)
 			Task {
 				isWorking = true
 				await subscriptionState.restore()
@@ -254,6 +253,7 @@ struct PaywallView: View {
 		}
 
 		Button {
+			analytics?.track(.subscribeTapped)
 			Task {
 				isWorking = true
 				await subscriptionState.purchase(product)

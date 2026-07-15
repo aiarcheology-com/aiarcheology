@@ -24,6 +24,21 @@ final class AnalyticsChoiceUITests: UITestCase {
 		assertExists(AID.authSignIn, true)
 	}
 
+	func testNotNowLeavesAnalyticsDisabledInSettings() {
+		launch(
+			LaunchConfig(
+				featureFlagOverrides: ["isAnalyticsEnabled": true],
+				analyticsScenario: .prompt
+			)
+		)
+
+		app.buttons[AID.analyticsChoiceNotNow].tap()
+		openSettings()
+		XCTAssertTrue(scrollTo(AID.settingsAnalytics), "Analytics toggle is missing")
+		let analyticsToggle = app.switches.matching(identifier: AID.settingsAnalytics).firstMatch
+		XCTAssertEqual(analyticsToggle.value as? String, "0", "Not now must keep analytics disabled")
+	}
+
 	func testRestoreDefaultsTurnsAnalyticsOffAndShowsChoiceAgain() {
 		launch(
 			LaunchConfig(

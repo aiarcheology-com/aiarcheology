@@ -152,20 +152,20 @@ private struct AnalyticsChoiceView: View {
 				.font(.system(size: 48))
 				.foregroundStyle(.tint)
 				.accessibilityHidden(true)
-			Text("Help improve ML Browser")
+			Text(L10n.Analytics.Choice.title)
 				.font(.title2.bold())
 				.multilineTextAlignment(.center)
-			Text("Share anonymous, privacy-safe usage statistics to help improve the app. Analytics is off unless you enable it.")
+			Text(L10n.Analytics.Choice.message)
 				.multilineTextAlignment(.center)
 				.foregroundStyle(.secondary)
 				.padding(.horizontal, 28)
-			Button("Enable analytics") {
+			Button(L10n.Analytics.Choice.enable) {
 				analytics.chooseAnalytics(enabled: true)
 			}
 			.buttonStyle(.borderedProminent)
 			.controlSize(.large)
 			.testability(Testability.Button.analyticsChoiceEnable)
-			Button("Not now") {
+			Button(L10n.Analytics.Choice.notNow) {
 				analytics.chooseAnalytics(enabled: false)
 			}
 			.buttonStyle(.bordered)
