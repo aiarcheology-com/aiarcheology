@@ -79,9 +79,22 @@ final class ConfigCatFeatureFlagProvider: FeatureFlagProviding {
 		_ = await client.forceRefresh()
 	}
 
-	/// The SDK key for this build. Debug builds talk to the ConfigCat **Test**
-	/// environment; everything else talks to **Production** — mirroring how
-	/// `ClerkPublishableKey` / `ClerkPublishableKeyLive` already split.
+	/// The SDK key for this build: Debug talks to the ConfigCat **Test** environment,
+	/// every other configuration — TestFlight included — talks to **Production**.
+	///
+	/// The split is on build configuration, deliberately **not** on distribution channel.
+	/// A TestFlight binary is promoted to the App Store unchanged, so it has to read the
+	/// same flags it will read once released; pointing it at Test would validate the
+	/// release candidate against config it never sees in production.
+	///
+	/// This is why it does *not* follow `ClerkAuthProvider.publishableKey`, which keys off
+	/// `isAppStoreDistribution` and so sends TestFlight to the dev instance. Dev auth and
+	/// sandbox purchases are imposed on TestFlight by the receipt; the flag environment is
+	/// a free choice, and we spend it on fidelity. Do not "align" these without reading
+	/// this comment.
+	///
+	/// Consequence, which is the real cost: there is no tester-only flag. Flipping a flag
+	/// reaches TestFlight and live App Store users alike.
 	static func sdkKeyFromInfoPlist() -> String? {
 		let key = AppEnvironment.isDebugConfiguration ? "ConfigCatSDKKey" : "ConfigCatSDKKeyLive"
 		return Bundle.main.object(forInfoDictionaryKey: key) as? String

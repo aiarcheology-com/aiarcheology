@@ -79,6 +79,19 @@ dark first.
 | Release / TestFlight / App Store | Production | `CONFIGCAT_SDK_KEY_LIVE` |
 | Unit tests, UI tests, previews | none — `StaticFeatureFlagProvider`, no network | — |
 
+**TestFlight reads Production, and that is deliberate.** The split is on build
+configuration, not distribution channel: a TestFlight binary is promoted to the App Store
+unchanged, so it must read the flags it will read once released. Sending it to Test would
+validate the release candidate against config it never sees in production.
+
+This intentionally differs from `ClerkAuthProvider.publishableKey`, which keys off
+`isAppStoreDistribution` and so gives TestFlight the *dev* Clerk instance. Dev auth and
+sandbox purchases are imposed on TestFlight by the receipt; the flag environment is a free
+choice, spent here on fidelity.
+
+> **There is no tester-only flag.** Flipping a flag reaches TestFlight testers and live App
+> Store users alike. To rehearse a flip, use a Debug build against the Test environment.
+
 The last row is enforced by three separate markers in
 `DependencyContainer.featureFlagProvider` — `isRunningUITests || isRunningUnderAnyTests ||
 isRunningInPreviews` — and all three are load-bearing. `XCTestConfigurationFilePath` (which
