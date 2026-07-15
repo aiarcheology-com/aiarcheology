@@ -1,12 +1,14 @@
-Test Focus: Internal quality tooling hardening (AIA-0429)
+Test Focus: Reliable Settings navigation checks
 
 What's new:
 
-• No user-visible changes in this build. This change hardens the project's internal architecture checks (developer tooling and CI only).
+• No user-visible changes in this build. This update makes automated Settings navigation checks more reliable across devices and CI.
 
 Please test:
 
-1. Quick smoke pass: launch the app, browse, run a detection, and open Models. Confirm nothing regressed — app behavior is expected to be identical to the previous build.
+1. Open the side menu, then Settings.
+2. Open Tiled Detection, enable Tiled Borders, return to Settings, and tap Dismiss.
+3. Confirm the browser remains usable and the tile-border overlay appears after enabling it.
 
 Known limitations:
 

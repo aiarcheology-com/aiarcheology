@@ -100,6 +100,7 @@ final class TileLayoutRegionsTests: XCTestCase {
 
 // MARK: - TileBorderOverlay transform (AIA-0426)
 
+@MainActor
 final class TileBorderOverlayTests: XCTestCase {
 
 	func testScreenRect_FullFrame_FillsTheView() {

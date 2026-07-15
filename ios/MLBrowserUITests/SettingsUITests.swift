@@ -123,7 +123,14 @@ final class SettingsUITests: UITestCase {
         element(AID.settingsTiledDetection).tap()
         XCTAssertTrue(flipSwitch(AID.settingsTiledBorders), "Tiled Borders toggle did not flip on")
         // Return to the web screen (pop the submenu, dismiss Settings) where the overlay lives.
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+        // Scope the tap to the presented submenu. A global navigation-bar query can select a
+        // browser control behind the Settings sheet on CI, leaving the submenu on screen.
+        let tiledDetectionNavigationBar = app.navigationBars["Tiled Detection"]
+        XCTAssertTrue(tiledDetectionNavigationBar.waitForExistence(timeout: 5), "Tiled Detection navigation bar missing")
+        // UI tests pin the locale to en_US, where the previous screen title is the back button's title.
+        let back = tiledDetectionNavigationBar.buttons["Settings"]
+        XCTAssertTrue(back.waitForExistence(timeout: 5), "Settings back button missing in Tiled Detection submenu")
+        back.tap()
         let dismiss = app.buttons[AID.settingsDismiss]
         XCTAssertTrue(dismiss.waitForExistence(timeout: 5), "Settings dismiss button missing after pop")
         dismiss.tap()
