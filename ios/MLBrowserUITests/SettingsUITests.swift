@@ -127,7 +127,8 @@ final class SettingsUITests: UITestCase {
         // browser control behind the Settings sheet on CI, leaving the submenu on screen.
         let tiledDetectionNavigationBar = app.navigationBars["Tiled Detection"]
         XCTAssertTrue(tiledDetectionNavigationBar.waitForExistence(timeout: 5), "Tiled Detection navigation bar missing")
-        let back = tiledDetectionNavigationBar.buttons.firstMatch
+        // UI tests pin the locale to en_US, where the previous screen title is the back button's title.
+        let back = tiledDetectionNavigationBar.buttons["Settings"]
         XCTAssertTrue(back.waitForExistence(timeout: 5), "Settings back button missing in Tiled Detection submenu")
         back.tap()
         let dismiss = app.buttons[AID.settingsDismiss]
