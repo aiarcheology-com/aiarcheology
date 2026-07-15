@@ -273,6 +273,21 @@ final class FindingCropMathTests: XCTestCase {
     private let unit = CGRect(x: 0, y: 0, width: 1, height: 1)
     private let fitted = CGSize(width: 400, height: 200)
 
+    private func visionRect(fromTopLeft rect: CGRect) -> CGRect {
+        CGRect(x: rect.minX, y: 1 - rect.maxY, width: rect.width, height: rect.height)
+    }
+
+    /// Mirrors Finding's strict persistence invariant, including `min + size <= 1`.
+    private func assertStrictUnitRect(_ rect: CGRect, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue([rect.minX, rect.minY, rect.width, rect.height].allSatisfy(\.isFinite), file: file, line: line)
+        XCTAssertGreaterThan(rect.width, 0, file: file, line: line)
+        XCTAssertGreaterThan(rect.height, 0, file: file, line: line)
+        XCTAssertGreaterThanOrEqual(rect.minX, 0, file: file, line: line)
+        XCTAssertGreaterThanOrEqual(rect.minY, 0, file: file, line: line)
+        XCTAssertLessThanOrEqual(rect.maxX, 1, file: file, line: line)
+        XCTAssertLessThanOrEqual(rect.maxY, 1, file: file, line: line)
+    }
+
     // cover == fitted models an image whose aspect already matches the viewport,
     // so the cover formula reduces to the simple zoom/pan case.
     func testCropRect_ScaleOne_CoverMatchesViewport_IsUnitRect() {
@@ -332,6 +347,42 @@ final class FindingCropMathTests: XCTestCase {
     func testRemappedBox_NoCrop_IsUnchanged() {
         let visionBox = CGRect(x: 0.3, y: 0.4, width: 0.1, height: 0.2)
         XCTAssertEqual(FindingCapture.remappedBox(visionBox, into: unit), visionBox)
+    }
+
+    func testRemappedBox_EdgeTouchingAndClippedBoxes_StayInsideUnitRect() {
+        // This deliberately non-binary crop produced a one-ulp y underflow and x overflow
+        // with the former origin-plus-size normalization.
+        let crop = CGRect(x: 0.053, y: 0.053, width: 0.211, height: 0.211)
+        let side = crop.width / 3
+        let centered = CGPoint(x: crop.midX - side / 2, y: crop.midY - side / 2)
+        let topLeftBoxes = [
+            CGRect(x: crop.minX, y: centered.y, width: side, height: side),
+            CGRect(x: crop.maxX - side, y: centered.y, width: side, height: side),
+            CGRect(x: centered.x, y: crop.minY, width: side, height: side),
+            CGRect(x: centered.x, y: crop.maxY - side, width: side, height: side),
+            CGRect(x: crop.minX - side / 2, y: centered.y, width: side, height: side),
+            CGRect(x: crop.maxX - side / 2, y: centered.y, width: side, height: side),
+            CGRect(x: centered.x, y: crop.minY - side / 2, width: side, height: side),
+            CGRect(x: centered.x, y: crop.maxY - side / 2, width: side, height: side),
+            CGRect(x: crop.maxX - side, y: crop.maxY - side, width: side, height: side)
+        ]
+
+        for topLeftBox in topLeftBoxes {
+            assertStrictUnitRect(FindingCapture.remappedBox(visionRect(fromTopLeft: topLeftBox), into: crop))
+        }
+    }
+
+    func testRemappedBox_NearDegenerateCrop_StaysInsideUnitRect() {
+        let crop = CGRect(x: 0.123_456, y: 0.654_321, width: 0.000_001, height: 0.000_001)
+        let side = crop.width / 3
+        let topLeftBox = CGRect(
+            x: crop.maxX - side,
+            y: crop.maxY - side,
+            width: side,
+            height: side
+        )
+
+        assertStrictUnitRect(FindingCapture.remappedBox(visionRect(fromTopLeft: topLeftBox), into: crop))
     }
 }
 
