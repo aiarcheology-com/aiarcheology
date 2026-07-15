@@ -1,15 +1,17 @@
-Test Focus: Reliable Settings navigation checks
+Test Focus: Everything should work exactly as before
 
 What's new:
 
-• No user-visible changes in this build. This update makes automated Settings navigation checks more reliable across devices and CI.
+• No user-visible changes in this build. Two internal switches (the model catalog and the subscription surface) can now be configured remotely instead of being fixed when the app is built. Both ship switched ON, exactly as in the previous build, so nothing should look or behave differently.
 
 Please test:
 
-1. Open the side menu, then Settings.
-2. Open Tiled Detection, enable Tiled Borders, return to Settings, and tap Dismiss.
-3. Confirm the browser remains usable and the tile-border overlay appears after enabling it.
+1. Launch the app with no network (Airplane Mode) — it should start normally, with no delay or error.
+2. Open the side menu → Models → the import screen. The model catalog option should be present as usual.
+3. Open Settings → Account. The subscription row should read exactly as it did before.
+4. Browse and run a detection to confirm nothing about the core flow changed.
 
 Known limitations:
 
 • None — this build contains no feature or UI changes.
+• Remote configuration is best-effort by design: if the app cannot reach the configuration service, it uses the values built into the app (both ON), so behaviour never degrades.

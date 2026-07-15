@@ -150,6 +150,34 @@ git checkout -b release/<tag_description>
 - The live archive/upload/notes paths are **exercised by the operator** — validate the script logic
   first with `deliver --dry-run` and `selftest`.
 
+## Feature flags & observability
+
+Three different tools answer three different questions. Mixing them up is the most common
+mistake here:
+
+| Tool | Answers | Status |
+|-|-|-|
+| **ConfigCat** | *Should this feature be on?* — remote feature flags, flippable without an App Store release | **live** — see [FEATUREFLAGS.md](FEATUREFLAGS.md) |
+| **Sentry** | *Did something break?* — crashes, errors, diagnostics | live — see [LOGGING_GUIDE.md](LOGGING_GUIDE.md) |
+| **TelemetryDeck** | *Is the feature used?* — product analytics (DAU/MAU, retention, funnels) | **designed, not implemented** — see [ANALYTICS.md](ANALYTICS.md) |
+
+Sentry is **not** product analytics and does not overlap TelemetryDeck. Neither measures
+battery or performance attribution — that's Xcode Organizer / MetricKit / Sentry profiling.
+
+**Feature flags in one minute.** `FeatureFlagKey` (in
+`ios/MLBrowser/iOS/State/FeatureFlags.swift`) holds each flag's ConfigCat key and its
+compiled default. Values resolve through a ConfigCat adapter and are published by
+`FeatureFlagsState`. Two things to internalise before touching them:
+
+- **They fail open.** Defaults are `true`, so offline / bad key / outage leaves a "killed"
+  feature **on**. This is not a guaranteed remote kill switch.
+- **Not every flag may apply live.** `isPaymentsEnabled` is captured once at launch, because
+  `SubscriptionGateView` is the app root — a mid-session flip would drop a paywall on a user
+  who is mid-detection. `isModelCatalogEnabled` applies live.
+
+Keys live in 1Password (`ConfigCat Keys`); Debug builds use the ConfigCat **Test**
+environment, Release uses **Production**. Tests and previews never touch the network.
+
 ## Conventions
 
 - **Branches**: `feature/…`, `fix/…`, `doc/…`, `test/…` with a short kebab-case description; pull requests target `develop`. Never commit directly to `develop` or `main`.
@@ -164,5 +192,7 @@ git checkout -b release/<tag_description>
 | [ios/AGENTS.md](ios/AGENTS.md) | Engineering guidelines: architecture & state patterns, concurrency, testing strategy, quality gates, code-review bar. **Read this before contributing code** (it applies to humans, not just AI agents) |
 | [ios/ARCHITECTURE.md](ios/ARCHITECTURE.md) | Codebase map: layering, composition root, app entry & gating, the detection pipeline, persistence |
 | [ios/MLBrowser/README.md](ios/MLBrowser/README.md) | Project setup, `ProjectTool` reference, pinned tools, secrets via 1Password, Xcode Cloud notes |
+| [FEATUREFLAGS.md](FEATUREFLAGS.md) | Remote feature flags (ConfigCat): the current flags, live vs launch-only application, fail-open limits, environments, and how to add a flag |
+| [ANALYTICS.md](ANALYTICS.md) | Product analytics (TelemetryDeck) — **designed, not yet implemented**: event set, the notice-before-gates requirement, and what is/isn't collected |
 | [LOGGING_GUIDE.md](LOGGING_GUIDE.md) | OSLog categories, log levels, privacy annotations, Sentry breadcrumb/quota policy |
 | [cloudflare/README.md](cloudflare/README.md) | Sentry → GitHub Issues relay worker: architecture, setup, configuration |

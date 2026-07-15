@@ -126,11 +126,25 @@ class DependencyContainer {
     /// missing/empty SDK key degrades to the compiled defaults rather than failing launch.
     lazy var featureFlagProvider: FeatureFlagProviding = {
         if AppEnvironment.isRunningUnderAnyTests {
-            return StaticFeatureFlagProvider()
+            return StaticFeatureFlagProvider(overrides: Self.uiTestFlagOverrides())
         }
         return ConfigCatFeatureFlagProvider(sdkKey: ConfigCatFeatureFlagProvider.sdkKeyFromInfoPlist())
             ?? StaticFeatureFlagProvider()
     }()
+
+    /// Scenario flag overrides from the UI-test launch configuration (AIA-0350). Empty for
+    /// unit tests and for UI tests that do not vary a flag, leaving every compiled default.
+    private static func uiTestFlagOverrides() -> [FeatureFlagKey: Bool] {
+        guard let raw = UITestLaunchConfiguration.fromEnvironment?.featureFlagOverrides else { return [:] }
+        var overrides: [FeatureFlagKey: Bool] = [:]
+        for (key, value) in raw {
+            guard let flag = FeatureFlagKey(rawValue: key) else {
+                fatalError("Unknown feature flag override '\(key)' — a UI test must never proceed on a misread configuration")
+            }
+            overrides[flag] = value
+        }
+        return overrides
+    }
 
     lazy var featureFlagsState: FeatureFlagsState = {
         FeatureFlagsState(provider: self.featureFlagProvider)
