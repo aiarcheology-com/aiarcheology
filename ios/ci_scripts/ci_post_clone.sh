@@ -64,33 +64,67 @@ else
         exit 1
     fi
 
+    # .tools.json is JSON and needs a real parser (AGENTS.md §10). plutil ships with macOS,
+    # so it needs no install on a runner — unlike jq.
+    #
+    # The previous `grep -A 10 '"tool"' | grep '"version"'` matched a fixed 10-line window, so
+    # it captured the *next* tool's value whenever a block's field count changed. SwiftLint has
+    # one field fewer than SwiftGen, so its window reached into SwiftGen and yielded
+    # "0.62.2\n6.6.3" — a URL with an embedded newline, i.e. curl (3) "Malformed input".
+    # A read failure is fatal: every tool in .tools.json pins both keys, so a failure means the
+    # file or the key is wrong — never something to paper over. plutil's own message is
+    # surfaced instead of discarded, so malformed JSON doesn't masquerade as an empty value.
+    tool_field() {  # $1 = tool name, $2 = field
+        local out
+        if ! out=$(plutil -extract "tools.$1.$2" raw -o - "$TOOLS_JSON" 2>&1); then
+            echo "   ❌ Cannot read tools.$1.$2 from .tools.json: $out" >&2
+            exit 1
+        fi
+        printf '%s' "$out"
+    }
+
+    # Validate the shape, don't just test for emptiness: the value that broke the build was
+    # non-empty, so the old `-z` guard passed it straight to curl.
+    #
+    # The regex MUST stay quoted. This script is zsh, where quote removal strips the backslash
+    # before the ERE engine sees it — unquoted, `\.` degrades to `.` (any character) and the
+    # pattern then accepts `1/2.3` (a different release path) and even newline-bearing values,
+    # i.e. exactly the bug this is meant to catch. Quoting in zsh keeps it a live regex.
+    require_version() {  # $1 = value, $2 = tool name
+        if [[ ! "$1" =~ "^[0-9]+\.[0-9]+\.[0-9]+$" ]]; then
+            echo "   ❌ Invalid $2 version in .tools.json: [$1]"
+            exit 1
+        fi
+    }
+
+    require_sha256() {  # $1 = value, $2 = tool name
+        if [[ ! "$1" =~ "^[a-f0-9]{64}$" ]]; then
+            echo "   ❌ Invalid $2 sha256 in .tools.json: [$1]"
+            exit 1
+        fi
+    }
+
     # Fallback: Install SwiftLint via direct download (version from .tools.json)
     if ! command -v swiftlint &> /dev/null; then
         echo "   Installing SwiftLint fallback..."
-        SWIFTLINT_VERSION=$(grep -A 10 '"swiftlint"' "$TOOLS_JSON" | grep '"version"' | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
-        SWIFTLINT_SHA256=$(grep -A 10 '"swiftlint"' "$TOOLS_JSON" | grep '"sha256"' | sed -E 's/.*"sha256"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
-        
-        if [[ -z "$SWIFTLINT_VERSION" ]]; then
-            echo "   ❌ Could not extract SwiftLint version from .tools.json"
-            exit 1
-        fi
-        
+        SWIFTLINT_VERSION=$(tool_field swiftlint version)
+        SWIFTLINT_SHA256=$(tool_field swiftlint sha256)
+
+        require_version "$SWIFTLINT_VERSION" "SwiftLint"
+
         curl -fsSL -o /tmp/swiftlint.zip "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip"
         
-        # Verify SHA256 checksum if available
-        if [[ -n "$SWIFTLINT_SHA256" ]]; then
-            echo "   Verifying SHA256 checksum..."
-            ACTUAL_SHA256=$(shasum -a 256 /tmp/swiftlint.zip | awk '{print $1}')
-            if [[ "$ACTUAL_SHA256" != "$SWIFTLINT_SHA256" ]]; then
-                echo "   ❌ SHA256 checksum mismatch!"
-                echo "      Expected: $SWIFTLINT_SHA256"
-                echo "      Actual:   $ACTUAL_SHA256"
-                exit 1
-            fi
-            echo "   ✅ SHA256 checksum verified"
-        else
-            echo "   ⚠️  No SHA256 checksum provided - skipping integrity verification"
+        # Verification is mandatory — this installs an executable into /usr/local/bin.
+        require_sha256 "$SWIFTLINT_SHA256" "SwiftLint"
+        echo "   Verifying SHA256 checksum..."
+        ACTUAL_SHA256=$(shasum -a 256 /tmp/swiftlint.zip | awk '{print $1}')
+        if [[ "$ACTUAL_SHA256" != "$SWIFTLINT_SHA256" ]]; then
+            echo "   ❌ SHA256 checksum mismatch!"
+            echo "      Expected: $SWIFTLINT_SHA256"
+            echo "      Actual:   $ACTUAL_SHA256"
+            exit 1
         fi
+        echo "   ✅ SHA256 checksum verified"
         
         unzip -q /tmp/swiftlint.zip -d /tmp/swiftlint
         cp /tmp/swiftlint/swiftlint /usr/local/bin/swiftlint
@@ -102,30 +136,24 @@ else
     # Fallback: Install SwiftGen via direct download (version from .tools.json)
     if ! command -v swiftgen &> /dev/null; then
         echo "   Installing SwiftGen fallback..."
-        SWIFTGEN_VERSION=$(grep -A 10 '"swiftgen"' "$TOOLS_JSON" | grep '"version"' | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
-        SWIFTGEN_SHA256=$(grep -A 10 '"swiftgen"' "$TOOLS_JSON" | grep '"sha256"' | sed -E 's/.*"sha256"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+        SWIFTGEN_VERSION=$(tool_field swiftgen version)
+        SWIFTGEN_SHA256=$(tool_field swiftgen sha256)
 
-        if [[ -z "$SWIFTGEN_VERSION" ]]; then
-            echo "   ❌ Could not extract SwiftGen version from .tools.json"
-            exit 1
-        fi
+        require_version "$SWIFTGEN_VERSION" "SwiftGen"
 
         curl -fsSL -o /tmp/swiftgen.zip "https://github.com/SwiftGen/SwiftGen/releases/download/${SWIFTGEN_VERSION}/swiftgen-${SWIFTGEN_VERSION}.zip"
 
-        # Verify SHA256 checksum if available
-        if [[ -n "$SWIFTGEN_SHA256" ]]; then
-            echo "   Verifying SHA256 checksum..."
-            ACTUAL_SHA256=$(shasum -a 256 /tmp/swiftgen.zip | awk '{print $1}')
-            if [[ "$ACTUAL_SHA256" != "$SWIFTGEN_SHA256" ]]; then
-                echo "   ❌ SHA256 checksum mismatch!"
-                echo "      Expected: $SWIFTGEN_SHA256"
-                echo "      Actual:   $ACTUAL_SHA256"
-                exit 1
-            fi
-            echo "   ✅ SHA256 checksum verified"
-        else
-            echo "   ⚠️  No SHA256 checksum provided - skipping integrity verification"
+        # Verification is mandatory — this installs an executable into /usr/local/bin.
+        require_sha256 "$SWIFTGEN_SHA256" "SwiftGen"
+        echo "   Verifying SHA256 checksum..."
+        ACTUAL_SHA256=$(shasum -a 256 /tmp/swiftgen.zip | awk '{print $1}')
+        if [[ "$ACTUAL_SHA256" != "$SWIFTGEN_SHA256" ]]; then
+            echo "   ❌ SHA256 checksum mismatch!"
+            echo "      Expected: $SWIFTGEN_SHA256"
+            echo "      Actual:   $ACTUAL_SHA256"
+            exit 1
         fi
+        echo "   ✅ SHA256 checksum verified"
 
         unzip -q /tmp/swiftgen.zip -d /tmp/swiftgen
         cp /tmp/swiftgen/bin/swiftgen /usr/local/bin/swiftgen
@@ -137,31 +165,25 @@ else
     # Fallback: Install sentry-cli via direct download (version from .tools.json)
     if ! command -v sentry-cli &> /dev/null; then
         echo "   Installing sentry-cli fallback..."
-        SENTRY_VERSION=$(grep -A 10 '"sentry-cli"' "$TOOLS_JSON" | grep '"version"' | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
-        SENTRY_SHA256=$(grep -A 10 '"sentry-cli"' "$TOOLS_JSON" | grep '"sha256"' | sed -E 's/.*"sha256"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+        SENTRY_VERSION=$(tool_field sentry-cli version)
+        SENTRY_SHA256=$(tool_field sentry-cli sha256)
 
-        if [[ -z "$SENTRY_VERSION" ]]; then
-            echo "   ❌ Could not extract sentry-cli version from .tools.json"
-            exit 1
-        fi
+        require_version "$SENTRY_VERSION" "sentry-cli"
 
         curl -fsSL -o /usr/local/bin/sentry-cli "https://github.com/getsentry/sentry-cli/releases/download/${SENTRY_VERSION}/sentry-cli-Darwin-universal"
 
-        # Verify SHA256 checksum if available
-        if [[ -n "$SENTRY_SHA256" ]]; then
-            echo "   Verifying SHA256 checksum..."
-            ACTUAL_SHA256=$(shasum -a 256 /usr/local/bin/sentry-cli | awk '{print $1}')
-            if [[ "$ACTUAL_SHA256" != "$SENTRY_SHA256" ]]; then
-                echo "   ❌ SHA256 checksum mismatch!"
-                echo "      Expected: $SENTRY_SHA256"
-                echo "      Actual:   $ACTUAL_SHA256"
-                rm /usr/local/bin/sentry-cli
-                exit 1
-            fi
-            echo "   ✅ SHA256 checksum verified"
-        else
-            echo "   ⚠️  No SHA256 checksum provided - skipping integrity verification"
+        # Verification is mandatory — this installs an executable into /usr/local/bin.
+        require_sha256 "$SENTRY_SHA256" "sentry-cli"
+        echo "   Verifying SHA256 checksum..."
+        ACTUAL_SHA256=$(shasum -a 256 /usr/local/bin/sentry-cli | awk '{print $1}')
+        if [[ "$ACTUAL_SHA256" != "$SENTRY_SHA256" ]]; then
+            echo "   ❌ SHA256 checksum mismatch!"
+            echo "      Expected: $SENTRY_SHA256"
+            echo "      Actual:   $ACTUAL_SHA256"
+            rm /usr/local/bin/sentry-cli
+            exit 1
         fi
+        echo "   ✅ SHA256 checksum verified"
 
         chmod +x /usr/local/bin/sentry-cli
         echo "   ✅ sentry-cli ${SENTRY_VERSION} installed"
