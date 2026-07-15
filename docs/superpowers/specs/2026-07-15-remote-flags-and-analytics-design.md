@@ -170,9 +170,9 @@ guaranteed remote kill.
 
 - Delete the sample `isMyFirstFeatureEnabled`.
 - Create `isModelCatalogEnabled` and `isPaymentsEnabled` in **both** environments.
-- Initial values: **open question for the maintainer** — `true` everywhere (preserve current
-  behaviour) versus `isPaymentsEnabled = false` in Production (ship the paywall dark, flip it on
-  deliberately). Not decided; see Open Questions.
+- **Initial values: `true` everywhere** (maintainer's decision, 2026-07-15). This preserves current
+  shipped behaviour exactly, so the migration is a pure refactor with no user-visible change — the
+  flags become *remotely switchable* without any flag flipping as part of this PR.
 
 ## Testing (phase 1)
 
@@ -232,10 +232,48 @@ But the transmitted signal is **not anonymous** — see Verified facts. Every si
 persistent `sha256(IDFV, salt)` client ID, a session ID, and device/OS/build metadata. The privacy
 policy must say so plainly.
 
-`privacypolicy.html` must be rewritten in this phase: the current "**no advertising or analytics
-SDKs**" claim (`:73`) becomes false the moment this ships. Required disclosures: the processor
-(TelemetryDeck GmbH), what is collected, the pseudonymous identifier, the legal basis, and how to
-opt out.
+`privacypolicy.html` must be rewritten **in this phase, landing with the analytics code** so neither
+the policy nor the collection ever leads the other. The current "**no advertising or analytics
+SDKs**" claim (`:73`) becomes false the moment this ships.
+
+The maintainer's direction is that the policy must say we collect data **only to improve the App**.
+That purpose is correct and is stated below — but a purpose alone would understate what leaves the
+device, so it ships together with the identifier, the recipient, and the legal basis. The existing
+policy names the processor, the data, and an Art. 6 basis in every other `§3.x`; this section
+matches that standard.
+
+### Planned edits to `privacypolicy.html`
+
+1. **`Last updated`** (`:42`) → the phase-2 ship date.
+2. **`§2` summary bullet** (`:72-74`) — the "no advertising or analytics SDKs" promise becomes:
+   > We **do not sell** your personal data and **do not share** it for cross-context behavioral
+   > advertising. We use **no advertising SDKs**. We use a privacy-focused analytics service
+   > **solely to understand how the App is used so we can improve it**, and you can turn it off at
+   > any time.
+3. **New `§3.4 Product analytics`** (renumbering the current 3.4/3.5 → 3.5/3.6):
+   > We use **TelemetryDeck** (TelemetryDeck GmbH, Germany) to understand how the App is used so we
+   > can improve it. **That is the only purpose** — we do not use this data for advertising,
+   > profiling, or any other purpose.
+   >
+   > We send: a **pseudonymous identifier** derived from your device's vendor identifier (hashed
+   > before it is sent), a session identifier, your device model, operating-system version, App
+   > version and build, language/region, and a small set of App events — for example that a
+   > detection session ran and roughly how many detections it contained, that the subscription
+   > screen was shown, or that a model was imported. We **do not** send the websites you visit, page
+   > content, screenshots, detection images, file names, or model names.
+   >
+   > *Purpose: to measure feature usage and retention so we can improve the App. Legal basis: our
+   > legitimate interest in understanding and improving our product (Art. 6(1)(f)).*
+   >
+   > You are asked about this the first time you open the App, and you can change your choice at any
+   > time in Settings. When it is off, the analytics service **is not started at all** and no usage
+   > data is sent.
+4. **`§5` processor table** (`:134-141`) — add:
+   `TelemetryDeck | Product analytics (App usage) | telemetrydeck.com/privacy`
+5. **`§6` international transfers** — **no change needed**: TelemetryDeck GmbH is established in
+   Germany (verified from the vendor's own site footer/imprint), so this adds no third-country
+   transfer. ⚠️ **Verify the actual data-processing/server location before shipping** — the company
+   being German does not by itself prove EU-only hosting, and I have not confirmed that.
 
 ## Testing (phase 2)
 
@@ -256,8 +294,14 @@ opt out.
 
 ## Open questions
 
-1. **Initial Production value for `isPaymentsEnabled`** — `true` (preserve behaviour) or `false`
-   (ship dark, flip deliberately)? Maintainer's call; not decided.
+None blocking. Resolved 2026-07-15: `isPaymentsEnabled` ships `true` in both environments; the
+privacy-policy rewrite lands on the phase-2 branch alongside the analytics code.
+
+Still to verify during phase 2 (not blocking design approval):
+
+1. TelemetryDeck's actual data-processing/server location, for `§6` international transfers.
+2. Swift-6 Sendability of the ConfigCat client under strict concurrency, before moving refresh work
+   off the main actor.
 
 ## Risks
 
