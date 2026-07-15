@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import Combine
 @testable import ML_Browser
 
 final class FeatureFlagsTests: XCTestCase {
@@ -18,9 +19,11 @@ final class FeatureFlagsTests: XCTestCase {
 		XCTAssertTrue(FeatureFlagKey.isPaymentsEnabled.defaultValue)
 	}
 
-	/// The ConfigCat key is the rawValue — a declared literal, never a reflected symbol
-	/// name, so release-build symbol stripping cannot silently break lookup. These
-	/// strings must match the keys published in ConfigCat exactly.
+	/// The ConfigCat key is the rawValue — an explicit literal, never left to Swift's
+	/// implicit synthesis from the case name. This test is the guard against a rename
+	/// silently repointing the lookup at a key the dashboard has never heard of; that
+	/// failure is invisible at runtime, because a missed lookup just returns the default.
+	/// These strings must match the keys published in ConfigCat exactly.
 	func test_rawValues_areTheConfigCatKeys() {
 		XCTAssertEqual(FeatureFlagKey.isModelCatalogEnabled.rawValue, "isModelCatalogEnabled")
 		XCTAssertEqual(FeatureFlagKey.isPaymentsEnabled.rawValue, "isPaymentsEnabled")
@@ -66,5 +69,80 @@ final class StaticFeatureFlagProviderTests: XCTestCase {
 		let sut = StaticFeatureFlagProvider(overrides: [.isPaymentsEnabled: false])
 		await sut.refresh()
 		XCTAssertFalse(sut.currentSnapshot().isPaymentsEnabled)
+	}
+
+	/// Its values never change, so the stream must *finish* rather than park forever —
+	/// otherwise every test and preview would leak an observation task that can never fire.
+	func test_changes_finishesImmediately() async {
+		let sut = StaticFeatureFlagProvider()
+		for await _ in sut.changes() {
+			XCTFail("A static provider must never signal a change")
+		}
+	}
+}
+
+/// A provider whose resolved values change after construction, standing in for what
+/// ConfigCat's auto-poll does: update the values, then signal — with no call from us.
+private final class ChangingFeatureFlagProvider: FeatureFlagProviding, @unchecked Sendable {
+	private let lock = NSLock()
+	private var snapshot: FeatureFlagSnapshot
+	private let stream: AsyncStream<Void>
+	private let continuation: AsyncStream<Void>.Continuation
+
+	init(initial: FeatureFlagSnapshot) {
+		snapshot = initial
+		(stream, continuation) = AsyncStream<Void>.makeStream(
+			of: Void.self,
+			bufferingPolicy: .bufferingNewest(1)
+		)
+	}
+
+	func currentSnapshot() -> FeatureFlagSnapshot {
+		lock.lock()
+		defer { lock.unlock() }
+		return snapshot
+	}
+
+	func refresh() async {}
+
+	func changes() -> AsyncStream<Void> { stream }
+
+	/// Simulates new config landing in the SDK's cache.
+	func emit(_ next: FeatureFlagSnapshot) {
+		lock.lock()
+		snapshot = next
+		lock.unlock()
+		continuation.yield()
+	}
+}
+
+@MainActor
+final class FeatureFlagsStateTests: XCTestCase {
+
+	func test_seedsSynchronouslyFromProvider() {
+		let provider = StaticFeatureFlagProvider(overrides: [.isModelCatalogEnabled: false])
+		let sut = FeatureFlagsState(provider: provider)
+		XCTAssertFalse(sut.snapshot.isModelCatalogEnabled)
+	}
+
+	/// The regression that matters. ConfigCat's auto-poll refreshes the SDK's own cache
+	/// without calling anything of ours, so a state that only republished on the launch
+	/// `refresh()` would leave a dashboard flip invisible until the next relaunch — the
+	/// "live" flag would not actually be live.
+	func test_providerChange_republishesWithoutAnyRefreshCall() async {
+		let provider = ChangingFeatureFlagProvider(initial: .defaults)
+		let sut = FeatureFlagsState(provider: provider)
+		XCTAssertTrue(sut.snapshot.isModelCatalogEnabled, "precondition: starts enabled")
+
+		let republished = expectation(description: "snapshot republished after remote change")
+		let cancellable = sut.$snapshot
+			.dropFirst()
+			.sink { if !$0.isModelCatalogEnabled { republished.fulfill() } }
+
+		provider.emit(FeatureFlagSnapshot(values: [.isModelCatalogEnabled: false]))
+
+		await fulfillment(of: [republished], timeout: 2)
+		cancellable.cancel()
+		XCTAssertFalse(sut.snapshot.isModelCatalogEnabled)
 	}
 }

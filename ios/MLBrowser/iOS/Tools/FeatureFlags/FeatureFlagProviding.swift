@@ -23,6 +23,18 @@ protocol FeatureFlagProviding: Sendable {
 
 	/// Best-effort refresh from the remote source. Failures are swallowed by design.
 	func refresh() async
+
+	/// Signals that the resolved values may have changed — most importantly when the SDK's
+	/// own auto-poll lands new config, which no call of ours triggers.
+	///
+	/// Carries `Void` rather than a snapshot: the observer re-reads
+	/// ``currentSnapshot()`` anyway, so the payload would only be a second source of truth
+	/// to keep in sync. An `AsyncStream` rather than the codebase's usual Combine subject
+	/// because this crosses a non-isolated provider → `@MainActor` state boundary, and
+	/// Combine's subjects are not `Sendable` under Swift 6.
+	///
+	/// Single-consumer: an `AsyncStream` may only be iterated once.
+	func changes() -> AsyncStream<Void>
 }
 
 /// A fixed provider for unit tests, SwiftUI previews, and UI tests. Never touches the
@@ -37,4 +49,11 @@ final class StaticFeatureFlagProvider: FeatureFlagProviding {
 	func currentSnapshot() -> FeatureFlagSnapshot { snapshot }
 
 	func refresh() async {}
+
+	/// Finishes immediately: these values are fixed for the provider's lifetime, so an
+	/// observer's `for await` loop should exit at once rather than park forever on a
+	/// stream that can never yield.
+	func changes() -> AsyncStream<Void> {
+		AsyncStream { $0.finish() }
+	}
 }

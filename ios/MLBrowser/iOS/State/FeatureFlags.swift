@@ -10,8 +10,10 @@ import Foundation
 
 /// A remotely-switchable feature flag.
 ///
-/// The `rawValue` **is** the ConfigCat setting key — a declared literal, deliberately not
-/// derived from the symbol name, so release-build symbol stripping cannot break lookup.
+/// The `rawValue` **is** the ConfigCat setting key — spelled out as an explicit literal,
+/// deliberately never left to Swift's implicit synthesis from the case name. Renaming a
+/// case must not silently repoint the lookup at a key the dashboard has never heard of:
+/// that failure is invisible, because a missed lookup just returns `defaultValue`.
 ///
 /// `defaultValue` is the compiled fallback used whenever remote config cannot be
 /// consulted: first launch, offline, a bad SDK key, a missing flag, or a ConfigCat
@@ -19,12 +21,21 @@ import Foundation
 /// never fetches. That is deliberate (it preserves shipped behaviour), but it means this
 /// is not a guaranteed remote kill switch.
 enum FeatureFlagKey: String, CaseIterable {
+	// swiftlint:disable redundant_string_enum_value
+	// The rule is right in general and wrong here: these literals are not redundant, they
+	// are the contract with the ConfigCat dashboard. Letting Swift synthesise them would
+	// tie a remote key to a local symbol name, so a rename would silently repoint the
+	// lookup at a key that does not exist — and a missed lookup is invisible, because it
+	// just returns `defaultValue`. Keep them spelled out; `test_rawValues_areTheConfigCatKeys`
+	// is the second lock on the same door.
+
 	/// Gates the public model-catalog acquisition surface (AIA-0413).
-	case isModelCatalogEnabled
+	case isModelCatalogEnabled = "isModelCatalogEnabled"
 
 	/// Gates the in-app subscription/paywall surface (AIA-0343): the Settings
 	/// "Upgrade" entry point and any feature gated on entitlement.
-	case isPaymentsEnabled
+	case isPaymentsEnabled = "isPaymentsEnabled"
+	// swiftlint:enable redundant_string_enum_value
 
 	/// The value used when remote config cannot be consulted.
 	var defaultValue: Bool {

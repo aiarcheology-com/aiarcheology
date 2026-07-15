@@ -42,6 +42,10 @@ DependencyContainer  →  AppState.featureFlags  →  views
   fall back to the default forever.
 - **Nothing blocks launch.** The snapshot seeds synchronously from the SDK's own cache;
   `refresh()` runs detached *after* `isReady`. Never `await` ConfigCat on the launch path.
+- **A launch refresh does not make a flag live.** The SDK's auto-poll updates its *own*
+  cache and calls nothing of ours, so `client.snapshot()` silently goes stale.
+  `FeatureFlagsState` subscribes to `onConfigChanged` (via `FeatureFlagProviding.changes()`)
+  and republishes. Without that subscription a dashboard flip is invisible until relaunch.
 - **No app-owned cache.** The ConfigCat SDK already persists config JSON to `UserDefaults`
   under `com.configcat-` and exposes a synchronous `client.snapshot()`. A second cache
   would be a competing source of truth that diverges across environments.
@@ -75,13 +79,23 @@ dark first.
 | Release / TestFlight / App Store | Production | `CONFIGCAT_SDK_KEY_LIVE` |
 | Unit tests, UI tests, previews | none — `StaticFeatureFlagProvider`, no network | — |
 
-Keys come from 1Password (`ConfigCat Keys`) via `ios/Secrets.template.xcconfig` →
-`ios/Secrets.xcconfig` (gitignored) → `ios/MLBrowser-Info.plist`, mirroring the Sentry DSN
+**Locally**, keys come from 1Password (`ConfigCat Keys`) via `ios/Secrets.template.xcconfig`
+→ `ios/Secrets.xcconfig` (gitignored) → `ios/MLBrowser-Info.plist`, mirroring the Sentry DSN
 and Clerk key pattern. Regenerate with:
 
 ```bash
 swift run --package-path Tools ProjectTool secrets refresh
 ```
+
+**On Xcode Cloud**, `ios/Secrets.xcconfig` is generated from workflow environment variables
+by `ios/ci_scripts/ci_pre_xcodebuild.sh` — 1Password is not reachable there. The **archive**
+workflow must define `CONFIGCAT_SDK_KEY_LIVE` (mark as Secret); the script hard-fails
+without it rather than produce a distributable whose kill switch can never fire. Test and
+build actions need no key: they are Debug and pin `StaticFeatureFlagProvider` anyway.
+
+> ⚠️ This is the failure that hides best. A missing key is not a build error — the app
+> falls back to compiled defaults (both ON) and looks perfectly healthy, while no dashboard
+> change can ever reach a single user.
 
 Dashboard: org `Aiarcheology` → `Aiarcheology's Product` → `Main Config`.
 

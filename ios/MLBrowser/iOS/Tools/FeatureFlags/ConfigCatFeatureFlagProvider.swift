@@ -32,14 +32,35 @@ final class ConfigCatFeatureFlagProvider: FeatureFlagProviding {
 	/// so this is a foreground-only bound on kill-switch latency.
 	private static let pollIntervalSeconds = 600
 
+	private let changeStream: AsyncStream<Void>
+	private let changeContinuation: AsyncStream<Void>.Continuation
+
 	/// - Parameter sdkKey: environment-specific SDK key. `nil`/empty returns `nil` so the
 	///   caller can fall back to compiled defaults rather than failing the launch.
 	init?(sdkKey: String?) {
 		guard let sdkKey, !sdkKey.isEmpty else { return nil }
+		// Only the *fact* of a change matters — the observer re-reads the whole snapshot —
+		// so coalesce bursts to the newest signal instead of growing an unbounded backlog.
+		let (stream, continuation) = AsyncStream<Void>.makeStream(
+			of: Void.self,
+			bufferingPolicy: .bufferingNewest(1)
+		)
+		changeStream = stream
+		changeContinuation = continuation
 		client = ConfigCatClient.get(sdkKey: sdkKey) { options in
 			options.pollingMode = PollingModes.autoPoll(autoPollIntervalInSeconds: Self.pollIntervalSeconds)
+			// Subscribed through `options.hooks`, never `client.hooks`: a subscription added
+			// after the client reaches its ready state can miss the notification outright
+			// (vendor's own caveat, ConfigCatOptions.swift:90).
+			options.hooks.addOnConfigChanged { _ in continuation.yield() }
 		}
 	}
+
+	deinit {
+		changeContinuation.finish()
+	}
+
+	func changes() -> AsyncStream<Void> { changeStream }
 
 	func currentSnapshot() -> FeatureFlagSnapshot {
 		let snapshot = client.snapshot()
