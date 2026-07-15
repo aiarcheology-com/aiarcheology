@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 5
+	var version = 6
 	var startOnboardingTour: Bool?
 	var pageScenario: PageScenario?
 	var defaultPageOverride: String?
@@ -32,6 +32,8 @@ struct LaunchConfig: Encodable {
 	var stubDownloads: Bool?
 	var enableClassifyDemo: Bool?
 	var reviewFirstModelType: Bool?
+	/// Keyed by `FeatureFlagKey.rawValue`; an unknown key traps in the app (AIA-0350).
+	var featureFlagOverrides: [String: Bool]?
 }
 
 // MARK: - Accessibility identifiers
