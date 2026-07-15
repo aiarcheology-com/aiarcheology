@@ -89,9 +89,16 @@ in-memory-store testing caveats.
 
 ## Feature flags
 
-Significant/risky surfaces (auth gate, payments) are gated behind in-source booleans in
-`MLBrowser/iOS/State/FeatureFlags.swift`. A real remote/per-environment flag system is deliberately
-deferred to a later PR (AGENTS.md §3).
+Significant/risky surfaces (payments, model catalog) are gated behind **remote** flags served by
+ConfigCat (AIA-0350), flippable without an App Store release. `FeatureFlagKey`
+(`MLBrowser/iOS/State/FeatureFlags.swift`) declares each key and its compiled default;
+`ConfigCatFeatureFlagProvider` resolves them behind the `FeatureFlagProviding` seam; and
+`FeatureFlagsState` publishes an immutable `FeatureFlagSnapshot` to the UI.
+
+Defaults fail **open**, so an unreachable ConfigCat leaves shipped behaviour intact rather than
+crippling the app. Debug builds read the Test environment; TestFlight and App Store read
+Production. Views observe `FeatureFlagsState` directly rather than through `AppState`. See
+**FEATUREFLAGS.md** (repo root) and **AGENTS.md §3** for the rules.
 
 ## Source layout (`ios/MLBrowser/iOS/`)
 

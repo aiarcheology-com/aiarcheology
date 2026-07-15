@@ -10,9 +10,14 @@ import Foundation
 /// Source of resolved feature-flag values.
 ///
 /// Deliberately narrow and internal: this is a test/preview seam, **not** a view-facing
-/// API. Views read the published ``FeatureFlagSnapshot`` from `AppState`; exposing a
-/// provider at the app boundary would be a fake abstraction — consumers need one typed
-/// snapshot, not an indirection.
+/// API. Exposing a provider at the app boundary would be a fake abstraction — consumers
+/// need one typed snapshot, not an indirection.
+///
+/// Views observe ``FeatureFlagsState`` **directly** (`@EnvironmentObject`) and read its
+/// `snapshot`. `AppState` owns that state, but a view must not reach through it: nested
+/// `ObservableObject`s do not republish through their parent, so a flag gated via
+/// `appState.featureFlags` compiles, works at launch, and then silently misses every live
+/// update. See FEATUREFLAGS.md and AGENTS.md §3.
 ///
 /// Implementations must be non-`@MainActor` (Harmonize `testServicesAreNotMainActor`)
 /// and must resolve synchronously, so nothing blocks launch.
