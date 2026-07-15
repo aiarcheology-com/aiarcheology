@@ -85,8 +85,16 @@ final class SubscriptionState: ObservableObject {
 
 	private let provider: SubscriptionProviding
 
-	init(provider: SubscriptionProviding) {
+	/// Captured **once** at construction and deliberately not observed (AIA-0350).
+	/// `isPaymentsEnabled` applies at a session boundary only: `SubscriptionGateView` is
+	/// the app root, so applying a mid-session flip would either drop a paywall on a user
+	/// who is mid-detection or release an unpaid user from it. A remote change therefore
+	/// takes effect on the next launch.
+	private let isPaymentsEnabled: Bool
+
+	init(provider: SubscriptionProviding, isPaymentsEnabled: Bool) {
 		self.provider = provider
+		self.isPaymentsEnabled = isPaymentsEnabled
 		// Republish when the background Transaction.updates listener changes entitlement
 		// (Ask-to-Buy approval, renewal, refund/revocation) — otherwise the gate would
 		// read a stale value until relaunch.
@@ -96,8 +104,12 @@ final class SubscriptionState: ObservableObject {
 	/// Whether a feature should be unlocked: requires both the payments flag and a
 	/// live entitlement. This is the single gate the UI should consult.
 	var isPremiumUnlocked: Bool {
-		FeatureFlags.isPaymentsEnabled && isSubscribed
+		isPaymentsEnabled && isSubscribed
 	}
+
+	/// Whether the payments surface is enabled for this session. Views that need the flag
+	/// itself (rather than entitlement) read this instead of a global.
+	var isPaymentsSurfaceEnabled: Bool { isPaymentsEnabled }
 
 	/// Install the transaction listener, drain pending transactions, and publish the
 	/// initial entitlement. Call once at launch. Product loading is intentionally NOT

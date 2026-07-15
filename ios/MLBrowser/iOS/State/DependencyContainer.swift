@@ -122,6 +122,20 @@ class DependencyContainer {
         return StoreKitSubscriptionProvider()
     }()
 
+    /// Remote feature flags (AIA-0350). Tests and previews never reach ConfigCat, and a
+    /// missing/empty SDK key degrades to the compiled defaults rather than failing launch.
+    lazy var featureFlagProvider: FeatureFlagProviding = {
+        if AppEnvironment.isRunningUnderAnyTests {
+            return StaticFeatureFlagProvider()
+        }
+        return ConfigCatFeatureFlagProvider(sdkKey: ConfigCatFeatureFlagProvider.sdkKeyFromInfoPlist())
+            ?? StaticFeatureFlagProvider()
+    }()
+
+    lazy var featureFlagsState: FeatureFlagsState = {
+        FeatureFlagsState(provider: self.featureFlagProvider)
+    }()
+
 	// MARK: - Composition root
 
 	/// Builds the fully-wired `AppState` from this container's shared services (AIA-0385).
@@ -138,7 +152,14 @@ class DependencyContainer {
 			settings: settings
 		)
 		let browser = BrowserSession(settings: settings, dataController: dataController)
-		let account = AccountSession(authProvider: authProvider, subscriptionProvider: subscriptionProvider)
+		// The payments flag is resolved once here, at the session boundary, and handed to
+		// the account session as a plain value (AIA-0350) — the app root must not swap
+		// under the user if a later poll flips it.
+		let account = AccountSession(
+			authProvider: authProvider,
+			subscriptionProvider: subscriptionProvider,
+			isPaymentsEnabled: featureFlagsState.snapshot.isPaymentsEnabled
+		)
 		return AppState(
 			dataController: dataController,
 			settings: settings,
@@ -151,6 +172,7 @@ class DependencyContainer {
 			detection: detection,
 			browser: browser,
 			account: account,
+			featureFlags: featureFlagsState,
 			usesRealAuth: usesMockAuth == false
 		)
 	}

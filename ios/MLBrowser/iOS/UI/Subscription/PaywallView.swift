@@ -291,11 +291,11 @@ struct PaywallView: View {
 
 #if DEBUG
 #Preview("Not subscribed") {
-	PaywallView(subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed)))
+	PaywallView(subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true))
 }
 
 #Preview("Subscribed") {
-	let state = SubscriptionState(provider: MockSubscriptionProvider(outcome: .subscribed))
+	let state = SubscriptionState(provider: MockSubscriptionProvider(outcome: .subscribed), isPaymentsEnabled: true)
 	return PaywallView(subscriptionState: state)
 		.task { await state.start() }
 }

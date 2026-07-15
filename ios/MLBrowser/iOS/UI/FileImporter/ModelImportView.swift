@@ -18,6 +18,9 @@ struct ModelImportView: View {
 	@Environment(\.managedObjectContext) private var moc
 	@EnvironmentObject private var deep: DeepState
 	@EnvironmentObject private var downloader: Downloader
+	/// Observed directly (not via `AppState`) so a remote flag flip re-renders this view:
+	/// a nested ObservableObject does not republish through its parent (AIA-0350).
+	@EnvironmentObject private var featureFlags: FeatureFlagsState
 
 	/// Called with the new configuration's id after a successful import, so the presenter can
 	/// auto-open the model's settings for the user to confirm its type (AIA-0402). No imported
@@ -192,7 +195,7 @@ struct ModelImportView: View {
 			.buttonStyle(.plain)
 			.testability(Testability.Button.newConfigurationPickUrl)
 
-			if FeatureFlags.isModelCatalogEnabled {
+			if featureFlags.snapshot.isModelCatalogEnabled {
 				Button {
 					acquisitionCoordinator.beginCatalogBrowse()
 				} label: {

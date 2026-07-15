@@ -63,6 +63,10 @@ struct MLBrowser: App {
 			SubscriptionGateView(subscriptionState: appState.subscriptionState, authState: appState.authState) {
 				ContentView()
 					.environmentObject(appState)
+					// Injected separately from `appState` because a nested ObservableObject
+					// does not republish through its parent — views that gate on a live flag
+					// must observe this directly (AIA-0350).
+					.environmentObject(appState.featureFlags)
 					.environment(\.managedObjectContext, appState.dataController.container.viewContext)
 			}
 		}

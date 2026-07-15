@@ -26,6 +26,10 @@
 		4CD0B0B57E40E142601F97D3 /* SnapshotRendering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78089C11A89B618C8920A9AD /* SnapshotRendering.swift */; };
 		510BEBE08AE94921B256AD77 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = C868B4879FC9440AA740CFDD /* Sentry */; };
 		94A41300F000000000000003 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 94A41300F000000000000002 /* HuggingFace */; };
+		94FF0001000000000000B101 /* FeatureFlagProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF0001000000000000B001 /* FeatureFlagProviding.swift */; };
+		94FF0001000000000000B102 /* ConfigCatFeatureFlagProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF0001000000000000B002 /* ConfigCatFeatureFlagProvider.swift */; };
+		94FF0001000000000000B103 /* FeatureFlagsState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF0001000000000000B003 /* FeatureFlagsState.swift */; };
+		94FF0001000000000000B104 /* FeatureFlagsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF0001000000000000B004 /* FeatureFlagsTests.swift */; };
 		94CFCA7000000000000000A3 /* ConfigCat in Frameworks */ = {isa = PBXBuildFile; productRef = 94CFCA7000000000000000A2 /* ConfigCat */; };
 		5C4453E16BA3139620D24134 /* TourTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 791D69ED93234CE31F8C8636 /* TourTarget.swift */; };
 		5DE6C2B8D2FD4F7086702F34 /* FindingFlash.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A37A2034FAA4C4B857D8DDD /* FindingFlash.swift */; };
@@ -445,6 +449,10 @@
 		8AE2D3222B1AB2FC00FDE17C /* HroudaDetector15.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = HroudaDetector15.mlpackage; sourceTree = "<group>"; };
 		8AE2D3232B1AB2FC00FDE17C /* AIArcheology.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = AIArcheology.mlpackage; sourceTree = "<group>"; };
 		9214C9A3D785728F7E4CF911 /* FeatureFlags.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureFlags.swift; sourceTree = "<group>"; };
+		94FF0001000000000000B001 /* FeatureFlagProviding.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureFlagProviding.swift; sourceTree = "<group>"; };
+		94FF0001000000000000B002 /* ConfigCatFeatureFlagProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConfigCatFeatureFlagProvider.swift; sourceTree = "<group>"; };
+		94FF0001000000000000B003 /* FeatureFlagsState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureFlagsState.swift; sourceTree = "<group>"; };
+		94FF0001000000000000B004 /* FeatureFlagsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureFlagsTests.swift; sourceTree = "<group>"; };
 		94048A5B2EE02D440064AC55 /* DetectableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectableView.swift; sourceTree = "<group>"; };
 		94048A612EE23D3B0064AC55 /* DrawerContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerContainer.swift; sourceTree = "<group>"; };
 		94048A622EE23D3B0064AC55 /* DrawerContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawerContent.swift; sourceTree = "<group>"; };
@@ -803,6 +811,7 @@
 				7F5EE5947359591A0BACE0F5 /* AuthState.swift */,
 				FE763C674E423AFA68061960 /* ClerkAuthProvider.swift */,
 				9214C9A3D785728F7E4CF911 /* FeatureFlags.swift */,
+				94FF0001000000000000B003 /* FeatureFlagsState.swift */,
 				D3D8A8FA0182207F209BD6EF /* SubscriptionState.swift */,
 				04CC35810A5A24A66927181A /* StoreKitSubscriptionProvider.swift */,
 				2584DEF459E2929567E5582F /* ModelAssetStore.swift */,
@@ -888,6 +897,15 @@
 			path = Modifiers;
 			sourceTree = "<group>";
 		};
+		94FF0001000000000000B900 /* FeatureFlags */ = {
+			isa = PBXGroup;
+			children = (
+				94FF0001000000000000B001 /* FeatureFlagProviding.swift */,
+				94FF0001000000000000B002 /* ConfigCatFeatureFlagProvider.swift */,
+			);
+			path = FeatureFlags;
+			sourceTree = "<group>";
+		};
 		8AC393C12B2B9FB300C9BA57 /* Tools */ = {
 			isa = PBXGroup;
 			children = (
@@ -898,6 +916,7 @@
 				8A112CC12AC0851000786384 /* Extensions */,
 				940A100A2F0600010000A00A /* Localization */,
 				942B1DCF2EA62DEB005455F9 /* Reporting */,
+				94FF0001000000000000B900 /* FeatureFlags */,
 			);
 			path = Tools;
 			sourceTree = "<group>";
@@ -1009,6 +1028,7 @@
 			children = (
 				A41300050000000000000001 /* CatalogProviderTests.swift */,
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
+				94FF0001000000000000B004 /* FeatureFlagsTests.swift */,
 				94D79C8E2EE37DBF0027C9FA /* BundleExtensionsTests.swift */,
 				94AE91772F0DA08300B326B7 /* ColorExtensionsTests.swift */,
 				945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */,
@@ -1668,6 +1688,9 @@
 				15A2A9B169BF17E5F22D64B3 /* ClerkAuthProvider.swift in Sources */,
 				F3926A4B067E92D228D819B2 /* AuthGateView.swift in Sources */,
 				A99519915315C5955FDC6159 /* FeatureFlags.swift in Sources */,
+				94FF0001000000000000B101 /* FeatureFlagProviding.swift in Sources */,
+				94FF0001000000000000B102 /* ConfigCatFeatureFlagProvider.swift in Sources */,
+				94FF0001000000000000B103 /* FeatureFlagsState.swift in Sources */,
 				1C2C07EA2917960C501206AB /* SubscriptionState.swift in Sources */,
 				917A15383011E3F093BF1F14 /* StoreKitSubscriptionProvider.swift in Sources */,
 				401A266CB4BCBDC00E517F03 /* PaywallView.swift in Sources */,
@@ -1726,6 +1749,7 @@
 				94D79C982EE37DBF0027C9FA /* CrashReporterTests.swift in Sources */,
 				94D79C992EE37DBF0027C9FA /* NSManagedObjectExtensionsTests.swift in Sources */,
 				94D79C9A2EE37DBF0027C9FA /* AppEnvironmentTests.swift in Sources */,
+				94FF0001000000000000B104 /* FeatureFlagsTests.swift in Sources */,
 				94929E812ED63ADE001A4C63 /* DeviceInfoTests.swift in Sources */,
 				94929E822ED63ADE001A4C63 /* ModelEnumsTests.swift in Sources */,
 				94929E832ED65555001A4C63 /* LowerPriorityTests.swift in Sources */,

@@ -17,12 +17,21 @@ final class AccountSession {
 	private let authProvider: AuthProviding
 	private let subscriptionProvider: SubscriptionProviding
 
+	/// The payments flag resolved at launch (AIA-0350), forwarded to `subscriptionState`.
+	/// Captured as a plain `Bool` rather than an observed snapshot on purpose — payments
+	/// must not change mid-session; see `SubscriptionState.isPaymentsEnabled`.
+	private let isPaymentsEnabled: Bool
+
 	// MARK: - Owned account feature state (lazy → forced on first access, exactly as before).
 	lazy var authState = AuthState(provider: self.authProvider)
-	lazy var subscriptionState = SubscriptionState(provider: self.subscriptionProvider)
+	lazy var subscriptionState = SubscriptionState(
+		provider: self.subscriptionProvider,
+		isPaymentsEnabled: self.isPaymentsEnabled
+	)
 
-	init(authProvider: AuthProviding, subscriptionProvider: SubscriptionProviding) {
+	init(authProvider: AuthProviding, subscriptionProvider: SubscriptionProviding, isPaymentsEnabled: Bool) {
 		self.authProvider = authProvider
 		self.subscriptionProvider = subscriptionProvider
+		self.isPaymentsEnabled = isPaymentsEnabled
 	}
 }

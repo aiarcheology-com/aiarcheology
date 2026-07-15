@@ -14,8 +14,10 @@ import UIKit
 /// Otherwise the paywall is the root (mirrors the auth gate's pattern), with sign-out /
 /// delete-account available so a non-subscriber can still leave (Apple 5.1.1(v)).
 ///
-/// Bypassed entirely when `FeatureFlags.isPaymentsEnabled` is off, so the feature can ship
-/// dark and existing flows are unaffected until payments are turned on.
+/// Bypassed entirely when the payments flag is off, so the feature can ship dark and
+/// existing flows are unaffected until payments are turned on. The flag comes from
+/// `subscriptionState`, captured once at launch (AIA-0350): this view is the app root, so
+/// it must not swap under the user mid-session if a remote poll flips the flag.
 struct SubscriptionGateView<Content: View>: View {
     @ObservedObject var subscriptionState: SubscriptionState
     @ObservedObject var authState: AuthState
@@ -23,7 +25,7 @@ struct SubscriptionGateView<Content: View>: View {
 
     var body: some View {
         Group {
-            if FeatureFlags.isPaymentsEnabled == false || subscriptionState.isSubscribed {
+            if subscriptionState.isPaymentsSurfaceEnabled == false || subscriptionState.isSubscribed {
                 content()
             } else {
                 PaywallView(subscriptionState: subscriptionState, authState: authState, isRootGate: true)
@@ -33,7 +35,7 @@ struct SubscriptionGateView<Content: View>: View {
         // may push no `Transaction.updates` event, so without this the gate could stay open
         // on a stale entitlement until the next cold launch.
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            guard FeatureFlags.isPaymentsEnabled else { return }
+            guard subscriptionState.isPaymentsSurfaceEnabled else { return }
             Task { await subscriptionState.start() }
         }
     }

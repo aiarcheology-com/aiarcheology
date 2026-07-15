@@ -49,7 +49,8 @@ final class FeatureSessionTests: XCTestCase {
 	func testAccountSession_buildsAuthAndSubscriptionInIsolation() {
 		let session = AccountSession(
 			authProvider: MockAuthProvider.fromLaunchArguments(),
-			subscriptionProvider: MockSubscriptionProvider.fromLaunchArguments()
+			subscriptionProvider: MockSubscriptionProvider.fromLaunchArguments(),
+			isPaymentsEnabled: true
 		)
 
 		let authState = session.authState

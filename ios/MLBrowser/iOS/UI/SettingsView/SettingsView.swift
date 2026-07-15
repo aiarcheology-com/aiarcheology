@@ -279,7 +279,7 @@ struct SettingsForm: View {
 
 			// Subscription (AIA-0343). When subscribed, tapping pushes the status submenu
 			// (status + manage/cancel via Apple + restore + refund). Otherwise a static row.
-			if FeatureFlags.isPaymentsEnabled && subscriptionState.isSubscribed {
+			if subscriptionState.isPaymentsSurfaceEnabled && subscriptionState.isSubscribed {
 				NavigationLink(value: AccountRoute.subscription) {
 					HStack {
 						Text(L10n.Auth.Account.subscription)
@@ -295,7 +295,7 @@ struct SettingsForm: View {
 					Spacer()
 					// Payments on but no entitlement (e.g. a lapse/refund before the gate
 					// refreshes) → "Not subscribed". Payments off → the "Free Beta" label.
-					Text(FeatureFlags.isPaymentsEnabled ? L10n.Subscription.notSubscribed : L10n.Auth.Account.freeBeta)
+					Text(subscriptionState.isPaymentsSurfaceEnabled ? L10n.Subscription.notSubscribed : L10n.Auth.Account.freeBeta)
 						.foregroundColor(.secondary)
 				}
 			}
