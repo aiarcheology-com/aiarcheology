@@ -159,6 +159,28 @@ class DependencyContainer {
         FeatureFlagsState(provider: self.featureFlagProvider)
     }()
 
+	// MARK: - Optional analytics (AIA-0350)
+
+	/// Tests and previews must never initialize TelemetryDeck: initialization itself sends a
+	/// lifecycle signal. The production service is also dormant until `AnalyticsState` receives
+	/// the user's active opt-in.
+	lazy var analyticsTracker: AnalyticsTracking = {
+		if AppEnvironment.isRunningUITests
+			|| AppEnvironment.isRunningUnderAnyTests
+			|| AppEnvironment.isRunningInPreviews {
+			return NoOpAnalyticsTracking()
+		}
+		return TelemetryDeckAnalyticsProvider()
+	}()
+
+	lazy var analyticsState: AnalyticsState = {
+		AnalyticsState(
+			settings: self.settings,
+			tracker: self.analyticsTracker,
+			featureFlags: self.featureFlagsState
+		)
+	}()
+
 	// MARK: - Composition root
 
 	/// Builds the fully-wired `AppState` from this container's shared services (AIA-0385).
@@ -172,7 +194,8 @@ class DependencyContainer {
 	func makeAppState() -> AppState {
 		let detection = DetectionSession(
 			snap: snapState,
-			settings: settings
+			settings: settings,
+			analytics: analyticsState
 		)
 		let browser = BrowserSession(settings: settings, dataController: dataController)
 		// The payments flag is resolved once here, at the session boundary, and handed to
@@ -196,6 +219,7 @@ class DependencyContainer {
 			browser: browser,
 			account: account,
 			featureFlags: featureFlagsState,
+			analytics: analyticsState,
 			usesRealAuth: usesMockAuth == false
 		)
 	}

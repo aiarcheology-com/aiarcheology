@@ -49,7 +49,8 @@ final class AppState: ObservableObject {
 		detectionState: detection.detectionState,
 		deep: deep,
 		settings: settings,
-		demoDataManager: demoDataManager
+		demoDataManager: demoDataManager,
+		analytics: analytics
 	)
 
 	// MARK: - Feature sessions (own their construction; injected by DependencyContainer, AIA-0390)
@@ -61,6 +62,9 @@ final class AppState: ObservableObject {
 	/// apply live; `isPaymentsEnabled` is captured at launch inside `AccountSession` instead
 	/// and must not be read from here for gating the app root.
 	let featureFlags: FeatureFlagsState
+	/// Optional analytics choice and transport. Kept separate from `Settings` so views can
+	/// trigger the state transition that initializes/terminates the SDK.
+	let analytics: AnalyticsState
 
 	/// Indicates whether the app initialization is complete
 	@Published private(set) var isReady = false
@@ -88,6 +92,7 @@ final class AppState: ObservableObject {
 		browser: BrowserSession,
 		account: AccountSession,
 		featureFlags: FeatureFlagsState,
+		analytics: AnalyticsState,
 		usesRealAuth: Bool
 	) {
 		self.dataController = dataController
@@ -102,6 +107,7 @@ final class AppState: ObservableObject {
 		self.browser = browser
 		self.account = account
 		self.featureFlags = featureFlags
+		self.analytics = analytics
 		self.usesRealAuth = usesRealAuth
 
 		LoggingPolicy.debug("AppState initializing", logger: .lifecycle)

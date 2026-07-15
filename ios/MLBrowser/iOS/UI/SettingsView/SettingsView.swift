@@ -23,6 +23,7 @@ struct SettingsForm: View {
 	@EnvironmentObject var chromeState: AppChromeState
 	@EnvironmentObject var detectionState: DetectionSessionState
 	@EnvironmentObject var subscriptionState: SubscriptionState
+	@EnvironmentObject var analytics: AnalyticsState
 	/// Real vs. mock auth from the composition root (AIA-0385). Re-injected onto this sheet in
 	/// `DrawerContent` because custom env values don't cross the sheet boundary on Mac/iPad.
 	@Environment(\.usesRealAuth) private var usesRealAuth
@@ -46,6 +47,7 @@ struct SettingsForm: View {
 		NavigationStack(path: $accountPath) {
 			Form {
 				annotationSection
+				privacySection
 				webContentSection
 				mlBrowserSection
 				accountSection
@@ -103,6 +105,19 @@ struct SettingsForm: View {
 			}
 			.alert(item: $alertItem) { item in
 				Self.createAlert(from: item)
+			}
+		}
+	}
+
+	@ViewBuilder
+	private var privacySection: some View {
+		if analytics.isAnalyticsFeatureEnabled {
+			Section(header: Text("Privacy"), footer: Text("Analytics is off by default. You can change this at any time. Page content, images, URLs, titles, filenames, detection results, and model names are never sent.")) {
+				Toggle("Share anonymous usage data", isOn: Binding(
+					get: { settings.analyticsEnabled },
+					set: { analytics.setAnalyticsEnabled($0) }
+				))
+				.testability(Testability.Toggle.settingsAnalytics)
 			}
 		}
 	}

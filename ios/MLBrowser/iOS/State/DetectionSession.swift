@@ -23,6 +23,7 @@ final class DetectionSession {
 	// than today (the AIA-0385 DeepState eager-construction trap) — a behavior change.
 	private let snap: SnapState
 	private let settings: Settings
+	private let analytics: AnalyticsState?
 
 	// MARK: - Owned detection feature state (lazy → forced on first access, exactly as before).
 	//
@@ -40,14 +41,17 @@ final class DetectionSession {
 	private(set) lazy var detectionState = DetectionSessionState(
 		snap: self.snap,
 		settings: self.settings,
-		snapAdjustment: self.snapAdjustment
+		snapAdjustment: self.snapAdjustment,
+		analytics: self.analytics
 	)
 
 	init(
 		snap: SnapState,
-		settings: Settings
+		settings: Settings,
+		analytics: AnalyticsState? = nil
 	) {
 		self.snap = snap
 		self.settings = settings
+		self.analytics = analytics
 	}
 }

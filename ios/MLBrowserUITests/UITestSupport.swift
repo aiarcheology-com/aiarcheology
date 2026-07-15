@@ -22,7 +22,12 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 6
+	var version = 7
+	enum AnalyticsScenario: String, Encodable {
+		case prompt
+		case disabled
+		case enabled
+	}
 	var startOnboardingTour: Bool?
 	var pageScenario: PageScenario?
 	var defaultPageOverride: String?
@@ -34,6 +39,7 @@ struct LaunchConfig: Encodable {
 	var reviewFirstModelType: Bool?
 	/// Keyed by `FeatureFlagKey.rawValue`; an unknown key traps in the app (AIA-0350).
 	var featureFlagOverrides: [String: Bool]?
+	var analyticsScenario: AnalyticsScenario?
 }
 
 // MARK: - Accessibility identifiers
@@ -121,6 +127,8 @@ enum AID {
 	// Auth gate (AIA-0340)
 	static let authSignIn = "_AIA:Button.AuthSignIn"
 	static let authOfflineRetry = "_AIA:Button.AuthOfflineRetry"
+	static let analyticsChoiceEnable = "_AIA:Button.AnalyticsChoiceEnable"
+	static let analyticsChoiceNotNow = "_AIA:Button.AnalyticsChoiceNotNow"
 
 	// Subscription paywall (AIA-0343)
 	static let paywallSubscribe = "_AIA:Button.PaywallSubscribe"

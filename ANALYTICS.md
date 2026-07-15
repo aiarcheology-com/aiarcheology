@@ -1,10 +1,9 @@
 # Product Analytics (TelemetryDeck)
 
-> **Status: NOT IMPLEMENTED YET — this is the agreed design for AIA-0350 phase 2.**
-> The app currently ships **no analytics SDK**, and
-> [`privacypolicy.html`](./ios/MLBrowser/iOS/Documents/privacypolicy.html) correctly says
-> so. Nothing described below is collected today. Treat this as the spec to build against,
-> not a description of current behaviour.
+> **Status: IMPLEMENTED IN THE CLIENT — policy, dashboard configuration, and release review
+> remain required before shipping.** The app has a provider-neutral analytics API with a
+> TelemetryDeck adapter pinned to SwiftSDK 2.14.1. TelemetryDeck is never initialized until the
+> ConfigCat feature is available and the user actively enables analytics.
 
 Remote feature flags shipped separately — see [`FEATUREFLAGS.md`](./FEATUREFLAGS.md).
 
@@ -26,15 +25,16 @@ Sentry's error tracking), **not** Firebase (heaviest privacy footprint).
 
 **`TelemetryDeck.initialize` is not inert.** It emits `TelemetryDeck.Session.started` and
 installs `willEnterForeground` observers the moment it is called
-(`TelemetryClient.swift:406-411`, `:81`). A consent check inside a `send()` wrapper
+(`TelemetryClient.swift:406-411`, `:81`). An analytics-choice check inside a `send()` wrapper
 **cannot** intercept that — it would leak a session signal before the user saw anything.
 
-Therefore: **do not call `initialize` until the user has seen the notice and analytics is
-on.** That is the only gate that actually works.
+Therefore: **do not call `initialize` until ConfigCat's `isAnalyticsEnabled` is on, the user
+has seen the notice, and the user has enabled analytics.** That is the only gate that actually
+works.
 
 ```
-first launch → notice ("Share anonymous usage data", default ON, "Continue")
-                     │ dismissed
+first launch → ConfigCat availability ON → notice (default OFF: "Enable analytics" / "Not now")
+                     │ active choice to enable
                      ▼
         TelemetryDeck.initialize(...)     ← first time the SDK exists at all
                      │
@@ -75,12 +75,9 @@ signal carries (verified in `SignalManager.swift:178`, `:396`):
 Pseudonymisation is **not** anonymisation. A stable pseudonymous ID is personal data under
 GDPR.
 
-**Legal posture:** notice + opt-out under **legitimate interest** (Art. 6(1)(f)) — *not*
-GDPR consent. Default-ON with a dismissable notice is **not valid consent** (pre-ticked
-boxes and inactivity never are), so this must never be labelled "consent" in code, copy, or
-policy. This is a legal judgement, weakened by the app's tracker-free positioning
-(AIA-0347); **a lawyer should confirm before phase 2 ships.** If the basis is rejected, the
-fallback is explicit opt-in, default OFF, at the cost of a biased usage sample.
+**Product posture:** analytics is an explicit, default-off user choice. It must never be
+labelled as an opt-in in code, copy, or policy. **A lawyer should confirm the final policy and
+legal basis before shipping.**
 
 ## Build-time behaviour
 
@@ -97,6 +94,9 @@ verify the integration from a simulator without shipping.
 ## Configuration
 
 - Dashboard: org `AI Archeology`, app `ML Browser` (already created).
+- ConfigCat: create `isAnalyticsEnabled`, set it ON to make the user choice available. It is a
+  live master switch and its compiled fallback is ON. Turning it OFF hides the prompt and
+  Settings control and deactivates the provider, while retaining a user's prior choice.
 - App ID `TELEMETRYDECK_APP_ID` in 1Password (`TelemetryDeck Keys`) → xcconfig →
   `MLBrowser-Info.plist`. It is a public identifier, not a secret; stored alongside the
   ConfigCat keys for consistency.
@@ -105,9 +105,11 @@ verify the integration from a simulator without shipping.
 
 ## Definition of done for phase 2
 
-- [ ] `TelemetryDeck/SwiftSDK` 2.14.1 (product `TelemetryDeck`, not legacy `TelemetryClient`)
-- [ ] Notice before the gates; `initialize` only after dismissal
-- [ ] Settings toggle mirrors it (withdrawable)
+- [x] `TelemetryDeck/SwiftSDK` 2.14.1 (product `TelemetryDeck`, not legacy `TelemetryClient`)
+- [x] Provider-neutral app API; TelemetryDeck is a replaceable adapter
+- [x] `isAnalyticsEnabled` ConfigCat master switch (live, default ON)
+- [x] Notice before the gates; `initialize` only after active enablement
+- [x] Settings toggle mirrors it (withdrawable while the feature is available)
 - [ ] **Network-level test: toggle off ⇒ zero egress, including lifecycle signals.** Pair it
       with the on-case — a zero-egress assertion passes trivially if signals never send.
 - [ ] `privacypolicy.html` rewritten — the current "no advertising or analytics SDKs" claim

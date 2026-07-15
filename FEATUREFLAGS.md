@@ -13,6 +13,7 @@ cannot be consulted.
 |-|-|-|-|
 | `isModelCatalogEnabled` | `true` | **live** | The public model-catalog acquisition surface (AIA-0413) |
 | `isPaymentsEnabled` | `true` | **launch only** | The subscription/paywall surface (AIA-0343) |
+| `isAnalyticsEnabled` | `true` | **live** | Optional analytics availability: when off, no prompt or Settings control is shown and no provider can activate. When on, users retain their own opt-in/out choice. |
 
 ## How it fits together
 
@@ -58,18 +59,26 @@ DependencyContainer  →  AppState.featureFlags  →  views
   `AppState`. Re-inject it on any `.sheet` — environment values don't reliably cross sheet
   boundaries on Mac (AGENTS.md §3).
 
-## The kill switch fails open — know its limits
+## Defaults decide whether a switch fails open or closed
 
-Both defaults are `true`, so on a fresh offline install, a bad SDK key, a missing flag, or
-a ConfigCat outage, a "killed" feature **stays on**. This is deliberate — it preserves
-shipped behaviour and avoids a crippled first launch — but it means:
+`isModelCatalogEnabled` and `isPaymentsEnabled` default to `true`, so on a fresh offline
+install, a bad SDK key, a missing flag, or a ConfigCat outage, those features **stay on**.
+This preserves shipped behaviour, but means their switches only reach clients that
+successfully fetch.
+
+`isAnalyticsEnabled` defaults to `true`, like the existing flags. This only makes the
+analytics choice available; it does not collect anything by itself. The effective analytics
+state is the remote flag **and** the user’s local opt-in, which defaults to off. Turning the
+flag off does not erase the user’s choice, it just makes analytics unavailable until turned
+on again.
+
+For fail-open flags:
 
 - The switch only reaches clients that successfully fetch.
 - Auto-poll (10 min) only ticks **while the process is alive**. A suspended app does not
   poll, so latency is a foreground-only bound.
 
-If you ever need a flag that fails *closed*, give it `defaultValue = false` and ship it
-dark first.
+For a feature that must fail *closed*, give it `defaultValue = false` and ship it dark first.
 
 ## Environments
 

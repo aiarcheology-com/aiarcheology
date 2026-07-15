@@ -16,6 +16,7 @@ final class DetectionSessionState: ObservableObject {
 	let snap: SnapState
 	let settings: Settings
 	unowned let snapAdjustment: SnapAdjustment
+	private let analytics: AnalyticsState?
 
 	@Published var ontheflyDetectionEnabled: Bool = false
 	@Published var showSnapAdjustment: Bool = false
@@ -27,10 +28,16 @@ final class DetectionSessionState: ObservableObject {
 	/// Views mutate it via `chromeToggleTapped()`.
 	@Published private(set) var chromeVisible: Bool = true
 
-	init(snap: SnapState, settings: Settings, snapAdjustment: SnapAdjustment) {
+	init(
+		snap: SnapState,
+		settings: Settings,
+		snapAdjustment: SnapAdjustment,
+		analytics: AnalyticsState? = nil
+	) {
 		self.snap = snap
 		self.settings = settings
 		self.snapAdjustment = snapAdjustment
+		self.analytics = analytics
 	}
 
 	/// Fullscreen = detection running and chrome hidden (the default while detecting).
@@ -48,11 +55,14 @@ final class DetectionSessionState: ObservableObject {
 		}
 	}
 
-	func ontheflyDetectionTapped() {
+	func ontheflyDetectionTapped(recordAnalytics: Bool = true) {
 		ontheflyDetectionEnabled.toggle()
 		if ontheflyDetectionEnabled {
 			chromeVisible = settings.fullscreenDetection.not
 			snap.startTimer()
+			if recordAnalytics {
+				analytics?.recordDetectionRun()
+			}
 		} else {
 			chromeVisible = true
 			// An open adjustment overlay would be orphaned once its toolbar

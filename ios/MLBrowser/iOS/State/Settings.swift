@@ -40,6 +40,10 @@ final class Settings: ObservableObject, Validatable {
 		static let pyramidTiling = "tiledDetection"
 		static let grid3x3Tiling = "grid3x3Tiling"
 		static let tiledBorders = "tiledBorders"
+		/// Optional TelemetryDeck analytics. Both values default to false: a fresh install sends
+		/// no telemetry and presents a choice before the app's auth/subscription gates.
+		static let analyticsEnabled = "analyticsEnabled"
+		static let analyticsChoiceMade = "analyticsChoiceMade"
 	}
 
 	public var isFirstLaunchMarked: Bool = false
@@ -151,6 +155,22 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	/// Optional product analytics. Off by default; changing it is mediated by `AnalyticsState`,
+	/// which initializes or terminates the SDK accordingly.
+	@Published public var analyticsEnabled: Bool {
+		didSet {
+			defaults.set(analyticsEnabled, forKey: UserDefaultsKeys.analyticsEnabled)
+		}
+	}
+
+	/// Records that the first-run analytics choice has been shown and answered. It is separate
+	/// from `analyticsEnabled` so choosing "Not now" remains a valid, durable off choice.
+	@Published public var analyticsChoiceMade: Bool {
+		didSet {
+			defaults.set(analyticsChoiceMade, forKey: UserDefaultsKeys.analyticsChoiceMade)
+		}
+	}
+
 	/// The tiling scheme(s) currently enabled, derived from the two independent toggles. Empty when
 	/// both are off (the detector then runs full-frame only).
 	var tilingSchemes: TilingScheme {
@@ -217,7 +237,9 @@ final class Settings: ObservableObject, Validatable {
             UserDefaultsKeys.pyramidTiling: true,
             // 3x3 tiling and the debug tile-border overlay are opt-in (AIA-0426).
             UserDefaultsKeys.grid3x3Tiling: false,
-            UserDefaultsKeys.tiledBorders: false
+			UserDefaultsKeys.tiledBorders: false,
+			UserDefaultsKeys.analyticsEnabled: false,
+			UserDefaultsKeys.analyticsChoiceMade: false
         ]
 
 		// Register default values
@@ -236,6 +258,8 @@ final class Settings: ObservableObject, Validatable {
 		self.pyramidTiling = defaults.bool(forKey: UserDefaultsKeys.pyramidTiling)
 		self.grid3x3Tiling = defaults.bool(forKey: UserDefaultsKeys.grid3x3Tiling)
 		self.tiledBorders = defaults.bool(forKey: UserDefaultsKeys.tiledBorders)
+		self.analyticsEnabled = defaults.bool(forKey: UserDefaultsKeys.analyticsEnabled)
+		self.analyticsChoiceMade = defaults.bool(forKey: UserDefaultsKeys.analyticsChoiceMade)
 		if let uuidString = defaults.string(forKey: UserDefaultsKeys.entityId),
 		   let uuid = UUID(uuidString: uuidString) {
 			self.entityId = uuid
@@ -287,6 +311,8 @@ final class Settings: ObservableObject, Validatable {
 		pyramidTiling = true
 		grid3x3Tiling = false
 		tiledBorders = false
+		analyticsEnabled = false
+		analyticsChoiceMade = false
 
 		defaults.removeObject(forKey: UserDefaultsKeys.lastPage)
 		defaults.set(historySize, forKey: UserDefaultsKeys.sizeHistory)
@@ -303,6 +329,8 @@ final class Settings: ObservableObject, Validatable {
 		defaults.set(pyramidTiling, forKey: UserDefaultsKeys.pyramidTiling)
 		defaults.set(grid3x3Tiling, forKey: UserDefaultsKeys.grid3x3Tiling)
 		defaults.set(tiledBorders, forKey: UserDefaultsKeys.tiledBorders)
+		defaults.set(analyticsEnabled, forKey: UserDefaultsKeys.analyticsEnabled)
+		defaults.set(analyticsChoiceMade, forKey: UserDefaultsKeys.analyticsChoiceMade)
 	}
 
 }

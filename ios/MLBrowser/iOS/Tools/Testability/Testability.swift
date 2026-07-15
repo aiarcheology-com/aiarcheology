@@ -103,6 +103,9 @@ extension TestabilityIdentification {
 		case paywallRestore
 		case paywallRequestRefund
 		case paywallSignOut
+		// Optional analytics first-run choice
+		case analyticsChoiceEnable
+		case analyticsChoiceNotNow
 		// Browsing History
 		case browsingHistoryClear
 		case browsingHistoryDismiss
@@ -184,6 +187,7 @@ extension TestabilityIdentification {
 		case settingsShowLabels
 		case settingsReopenLastPage
 		case settingsFullscreenDetection
+		case settingsAnalytics
 		// AIA-0426: Tiled Detection submenu + Debug tiled-border overlay
 		case settingsPyramidTiling
 		case settingsGrid3x3Tiling

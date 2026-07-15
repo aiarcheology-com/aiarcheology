@@ -60,9 +60,14 @@ struct MLBrowser: App {
 		let gate = AuthGateView(authState: appState.authState) {
 			// Whole-app subscription gate (AIA-0343): once signed in, the app proper shows
 			// only while subscribed (free trial counts); otherwise the paywall is the root.
-			SubscriptionGateView(subscriptionState: appState.subscriptionState, authState: appState.authState) {
+			SubscriptionGateView(
+				subscriptionState: appState.subscriptionState,
+				authState: appState.authState,
+				analytics: appState.analytics
+			) {
 				ContentView()
 					.environmentObject(appState)
+					.environmentObject(appState.analytics)
 					// Injected separately from `appState` because a nested ObservableObject
 					// does not republish through its parent — views that gate on a live flag
 					// must observe this directly (AIA-0350).
@@ -81,7 +86,9 @@ struct MLBrowser: App {
 		WindowGroup {
 			Group {
 				if appState.isReady {
-					authGatedContent
+					AnalyticsChoiceGate(analytics: appState.analytics) {
+						authGatedContent
+					}
 				} else {
 					ProgressView("Loading...")
 				}
@@ -91,6 +98,7 @@ struct MLBrowser: App {
 			.environment(\.usesRealAuth, appState.usesRealAuth)
 			.onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
 				LoggingPolicy.info("App entering background", logger: .lifecycle)
+				appState.analytics.flushDetectionSessionSummary()
 				if appState.detectionState.ontheflyDetectionEnabled {
 					appState.settings.isDetectionPaused = true
 					appState.detectionState.ontheflyDetectionTapped()
@@ -100,7 +108,8 @@ struct MLBrowser: App {
 				LoggingPolicy.info("App entering foreground", logger: .lifecycle)
 				if appState.settings.isDetectionPaused {
 					appState.settings.isDetectionPaused = false
-					appState.detectionState.ontheflyDetectionTapped()
+					// Resume is a continuation of the same detection session, not a new run.
+					appState.detectionState.ontheflyDetectionTapped(recordAnalytics: false)
 				}
 			}
 			.task {
@@ -110,5 +119,60 @@ struct MLBrowser: App {
 				appState.downloader.reconnectBackgroundSession()
 			}
 		}
+	}
+}
+
+/// Blocks every downstream gate until the user has made the first analytics choice. Keeping this
+/// as a distinct observed view is important: `AppState` does not republish nested objects.
+private struct AnalyticsChoiceGate<Content: View>: View {
+	@ObservedObject var analytics: AnalyticsState
+	private let content: Content
+
+	init(analytics: AnalyticsState, @ViewBuilder content: () -> Content) {
+		self.analytics = analytics
+		self.content = content()
+	}
+
+	var body: some View {
+		if analytics.shouldShowChoice {
+			AnalyticsChoiceView(analytics: analytics)
+		} else {
+			content
+		}
+	}
+}
+
+private struct AnalyticsChoiceView: View {
+	let analytics: AnalyticsState
+
+	var body: some View {
+		VStack(spacing: 20) {
+			Spacer()
+			Image(systemName: "chart.bar.xaxis")
+				.font(.system(size: 48))
+				.foregroundStyle(.tint)
+				.accessibilityHidden(true)
+			Text("Help improve ML Browser")
+				.font(.title2.bold())
+				.multilineTextAlignment(.center)
+			Text("Share anonymous, privacy-safe usage statistics to help improve the app. Analytics is off unless you enable it.")
+				.multilineTextAlignment(.center)
+				.foregroundStyle(.secondary)
+				.padding(.horizontal, 28)
+			Button("Enable analytics") {
+				analytics.chooseAnalytics(enabled: true)
+			}
+			.buttonStyle(.borderedProminent)
+			.controlSize(.large)
+			.testability(Testability.Button.analyticsChoiceEnable)
+			Button("Not now") {
+				analytics.chooseAnalytics(enabled: false)
+			}
+			.buttonStyle(.bordered)
+			.controlSize(.large)
+			.testability(Testability.Button.analyticsChoiceNotNow)
+			Spacer()
+		}
+		.padding()
 	}
 }

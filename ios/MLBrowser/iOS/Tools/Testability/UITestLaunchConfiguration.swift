@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 6
+	static let currentVersion = 7
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -40,6 +40,12 @@ struct UITestLaunchConfiguration: Codable {
 		/// Load a bundled local-HTML fixture via `WKWebView.loadFileURL` (AIA-0316). Requires
 		/// `fixtureName`. Network-free; mutually exclusive with the other scenarios.
 		case localFixture
+	}
+
+	enum AnalyticsScenario: String, Codable {
+		case prompt
+		case disabled
+		case enabled
 	}
 
 	var version: Int = currentVersion
@@ -77,6 +83,9 @@ struct UITestLaunchConfiguration: Codable {
 	/// under tests — so this is the only way to vary a flag in a UI test. An unknown key
 	/// traps, consistent with this type's "never proceed on a misread configuration" rule.
 	var featureFlagOverrides: [String: Bool]?
+	/// Deterministic first-run analytics state. The baseline skips the choice for existing UI
+	/// suites; dedicated tests opt into `.prompt` and prove it precedes auth/subscription gates.
+	var analyticsScenario: AnalyticsScenario?
 
 	/// Decoded from the launch environment, or `nil` if absent. Traps on malformed input
 	/// or version mismatch — a UI test must never proceed on a misread configuration.
@@ -112,6 +121,8 @@ struct UITestLaunchConfiguration: Codable {
 		settings.defaultPage = URL(string: baselineHome)
 		settings.historySize = 30
 		settings.pyramidTiling = true
+		settings.analyticsEnabled = false
+		settings.analyticsChoiceMade = true
 
 		// 2) Scenario deltas.
 		switch config.pageScenario {
@@ -143,6 +154,16 @@ struct UITestLaunchConfiguration: Codable {
 
 		if let fullscreen = config.fullscreenDetection {
 			settings.fullscreenDetection = fullscreen
+		}
+
+		switch config.analyticsScenario {
+		case .prompt:
+			settings.analyticsEnabled = false
+			settings.analyticsChoiceMade = false
+		case .disabled, .none:
+			break
+		case .enabled:
+			settings.analyticsEnabled = true
 		}
 	}
 
