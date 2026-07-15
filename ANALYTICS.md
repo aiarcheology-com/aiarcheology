@@ -6,8 +6,8 @@
 > so. Nothing described below is collected today. Treat this as the spec to build against,
 > not a description of current behaviour.
 
-Full design: [`docs/superpowers/specs/2026-07-15-remote-flags-and-analytics-design.md`](./docs/superpowers/specs/2026-07-15-remote-flags-and-analytics-design.md).
 Phase 1 (remote feature flags) shipped separately — see [`FEATUREFLAGS.md`](./FEATUREFLAGS.md).
+Traps found while shipping phase 1, which mostly recur here: issue #350.
 
 ## Why TelemetryDeck
 
