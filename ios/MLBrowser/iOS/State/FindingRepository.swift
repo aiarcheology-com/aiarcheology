@@ -84,9 +84,10 @@ final class FindingRepository {
 			finding.transition(to: .ready)
 			try Finding.save(in: context)
 		} catch {
+			let validationKeys = finding.validationReport().issues?.map(\.key).joined(separator: ", ") ?? "none"
 			Finding.delete(finding, in: context)
 			FindingScreenshotStore.delete(filename: filename)
-			LoggingPolicy.error("Failed to save the finding", error: error, logger: .storage)
+			LoggingPolicy.error("Failed to save the finding (validation keys: \(validationKeys))", error: error, logger: .storage)
 			throw error
 		}
 

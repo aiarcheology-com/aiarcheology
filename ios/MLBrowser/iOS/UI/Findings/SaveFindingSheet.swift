@@ -79,17 +79,58 @@ struct FindingCapture: Identifiable {
 	static func remappedBox(_ visionBox: CGRect, into cropRect: CGRect) -> CGRect {
 		let fullRect = CGRect(x: 0, y: 0, width: 1, height: 1)
 		guard cropRect != fullRect else { return visionBox }
+		guard
+			cropRect.minX.isFinite,
+			cropRect.minY.isFinite,
+			cropRect.width.isFinite,
+			cropRect.height.isFinite,
+			cropRect.width > 0,
+			cropRect.height > 0,
+			visionBox.minX.isFinite,
+			visionBox.minY.isFinite,
+			visionBox.width.isFinite,
+			visionBox.height.isFinite,
+			visionBox.width > 0,
+			visionBox.height > 0
+		else { return fullRect }
+
 		// Vision → top-left, intersect, re-normalize, → back to Vision.
 		let topLeftBox = CGRect(x: visionBox.minX, y: 1 - visionBox.maxY, width: visionBox.width, height: visionBox.height)
 		let visible = topLeftBox.intersection(cropRect)
 		guard visible.width > 0, visible.height > 0 else { return fullRect }
-		let relative = CGRect(
-			x: (visible.minX - cropRect.minX) / cropRect.width,
-			y: (visible.minY - cropRect.minY) / cropRect.height,
-			width: visible.width / cropRect.width,
-			height: visible.height / cropRect.height
+
+		// Normalize both endpoints, not an origin plus independently divided size. The latter can
+		// leave a one-ulp overflow at a crop edge, which strict persistence validation rejects.
+		let relativeMinX = (visible.minX - cropRect.minX) / cropRect.width
+		let relativeMinY = (visible.minY - cropRect.minY) / cropRect.height
+		let relativeMaxX = (visible.maxX - cropRect.minX) / cropRect.width
+		let relativeMaxY = (visible.maxY - cropRect.minY) / cropRect.height
+		let normalizedValues = [relativeMinX, relativeMinY, relativeMaxX, relativeMaxY]
+		guard normalizedValues.allSatisfy(\.isFinite) else { return fullRect }
+
+		let minX = min(max(0, relativeMinX), 1)
+		let minY = min(max(0, relativeMinY), 1)
+		let maxX = min(max(0, relativeMaxX), 1)
+		let maxY = min(max(0, relativeMaxY), 1)
+		guard maxX > minX, maxY > minY else { return fullRect }
+
+		let remapped = CGRect(
+			x: minX,
+			y: 1 - maxY,
+			width: min(maxX - minX, 1 - minX),
+			height: min(maxY - minY, 1 - minY)
 		)
-		return CGRect(x: relative.minX, y: 1 - relative.maxY, width: relative.width, height: relative.height)
+		let remappedValues = [remapped.minX, remapped.minY, remapped.width, remapped.height]
+		guard
+			remappedValues.allSatisfy(\.isFinite),
+			remapped.width > 0,
+			remapped.height > 0,
+			remapped.minX >= 0,
+			remapped.minY >= 0,
+			remapped.maxX <= 1,
+			remapped.maxY <= 1
+		else { return fullRect }
+		return remapped
 	}
 
 	/// A Vision-normalized box centered on a manual tap (top-left view

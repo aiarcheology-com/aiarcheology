@@ -91,6 +91,32 @@ final class FindingRepositoryTests: XCTestCase {
 		XCTAssertEqual(Self.screenshotFilenames(), before, "a failed save leaves no orphaned screenshot on disk")
 	}
 
+	func testSave_cropEdgeRemappedBox_persistsReadyRowAndScreenshot() throws {
+		let crop = CGRect(x: 0.053, y: 0.053, width: 0.211, height: 0.211)
+		let side = crop.width / 3
+		let topLeftBox = CGRect(x: crop.maxX - side, y: crop.maxY - side, width: side, height: side)
+		let visionBox = CGRect(
+			x: topLeftBox.minX,
+			y: 1 - topLeftBox.maxY,
+			width: topLeftBox.width,
+			height: topLeftBox.height
+		)
+		let remappedBox = FindingCapture.remappedBox(visionBox, into: crop)
+
+		let finding = try sut.save(
+			capture: makeCapture(box: visionBox),
+			image: makeImage(),
+			box: remappedBox,
+			metadata: FindingMetadata(title: "Cropped edge finding", label: "", note: "", gps: "")
+		)
+		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
+
+		XCTAssertEqual(finding.lifeCycle, .ready)
+		XCTAssertEqual(Finding.count(in: moc, predicate: nil), 1)
+		XCTAssertTrue(finding.validationReport().isValid)
+		XCTAssertNotNil(FindingScreenshotStore.load(filename: finding.screenshotFilename))
+	}
+
 	/// Current filenames in the shared `Documents/Findings` dir (the store's write target),
 	/// derived via the store's public URL helper so the test needn't know the absolute path.
 	private static func screenshotFilenames() -> Set<String> {

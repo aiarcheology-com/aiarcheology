@@ -1,17 +1,16 @@
-Test Focus: Everything should work exactly as before
+Test Focus: Saving cropped findings
 
 What's new:
 
-• No user-visible changes in this build. Two internal switches (the model catalog and the subscription surface) can now be configured remotely instead of being fixed when the app is built. Both ship switched ON, exactly as in the previous build, so nothing should look or behave differently.
+• Saving a finding now works when its detected object touches or overlaps the edge of a cropped snapshot.
 
 Please test:
 
-1. Launch the app with no network (Airplane Mode) — it should start normally, with no delay or error.
-2. Open the side menu → Models → the import screen. The model catalog option should be present as usual.
-3. Open Settings → Account. The subscription row should read exactly as it did before.
-4. Browse and run a detection to confirm nothing about the core flow changed.
+1. Open a page, run detection, and tap an object to create a finding.
+2. Zoom or pan the snapshot so the green detection box reaches a crop edge or corner.
+3. Enter a title and tap Save — the finding should save without an error alert.
+4. Open the findings list and confirm the saved image and highlight match the cropped area.
 
 Known limitations:
 
-• None — this build contains no feature or UI changes.
-• Remote configuration is best-effort by design: if the app cannot reach the configuration service, it uses the values built into the app (both ON), so behaviour never degrades.
+• None.
