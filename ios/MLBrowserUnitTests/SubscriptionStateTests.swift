@@ -60,7 +60,8 @@ final class SubscriptionStateTests: XCTestCase {
 		await sut.start()
 		XCTAssertFalse(sut.isSubscribed)
 
-		await sut.restore()
+		let outcome = await sut.restore()
+		XCTAssertEqual(outcome, .restored)
 		XCTAssertTrue(sut.isSubscribed)
 	}
 
@@ -75,7 +76,7 @@ final class SubscriptionStateTests: XCTestCase {
 		XCTAssertFalse(sut.isSubscribed)
 
 		provider.simulatePurchaseForTesting()
-		await sut.restore() // republish from the now-entitled provider
+		_ = await sut.restore() // republish from the now-entitled provider
 		XCTAssertTrue(sut.isSubscribed)
 	}
 
@@ -103,5 +104,76 @@ final class SubscriptionStateTests: XCTestCase {
 		XCTAssertTrue(sut.isSubscribed, "entitlement should still be observed")
 		XCTAssertFalse(sut.isPremiumUnlocked, "payments off must lock the premium surface")
 		XCTAssertFalse(sut.isPaymentsSurfaceEnabled)
+	}
+
+	// MARK: - Outcome plumbing (AIA-0376)
+
+	/// `purchase(_:)` cannot be exercised here — it needs a real `Product`, which is
+	/// unconstructable outside the StoreKitTest framework (see
+	/// `testPurchase_FromNotSubscribed_BecomesSubscribed` above for the same limitation).
+	/// Its outcome forwarding is identical to `restore()`'s, covered below, and the
+	/// user-facing half is covered by ``SubscriptionNoticeTests``. An SKTestSession harness
+	/// would close this gap — tracked as the optional item on AIA-0376.
+	func testRestore_ForwardsProviderOutcome() async {
+		let provider = MockSubscriptionProvider(outcome: .notSubscribed)
+		let sut = SubscriptionState(provider: provider, isPaymentsEnabled: true)
+		await sut.start()
+
+		for expected: RestoreOutcome in [.nothingToRestore, .failed] {
+			provider.restoreOutcome = expected
+			let outcome = await sut.restore()
+			XCTAssertEqual(outcome, expected)
+			XCTAssertFalse(sut.isSubscribed)
+		}
+	}
+}
+
+/// The user-facing half of AIA-0376: which outcomes speak, and which stay quiet.
+///
+/// This is where the bug lived — not in StoreKit, but in the mapping from outcome to
+/// something the user can read. It is tested directly because the mock cannot construct a
+/// `Product`, so the paywall renders its "unavailable" state and no UI test can reach the
+/// Subscribe button.
+final class SubscriptionNoticeTests: XCTestCase {
+
+	/// Success dismisses the paywall and cancellation is the user's own decision — alerting
+	/// on either is noise. These two silences are deliberate; every other silence was the bug.
+	func testPurchase_SubscribedAndCancelled_SayNothing() {
+		XCTAssertNil(SubscriptionNotice.forPurchase(.subscribed))
+		XCTAssertNil(SubscriptionNotice.forPurchase(.cancelled))
+	}
+
+	/// The reported symptom: a failed purchase left the spinner stopping and nothing else.
+	func testPurchase_Failed_ShowsErrorNotice() throws {
+		let notice = try XCTUnwrap(SubscriptionNotice.forPurchase(.failed))
+		XCTAssertEqual(notice.title, L10n.Alert.Error.title)
+		XCTAssertEqual(notice.message, L10n.Paywall.Failed.message)
+	}
+
+	/// Ask-to-Buy is not a failure. It must be reported, but never under an error title —
+	/// the purchase is waiting for a parent, not broken.
+	func testPurchase_Pending_ShowsNonErrorNotice() throws {
+		let notice = try XCTUnwrap(SubscriptionNotice.forPurchase(.pending))
+		XCTAssertEqual(notice.title, L10n.Paywall.Pending.title)
+		XCTAssertNotEqual(notice.title, L10n.Alert.Error.title, "pending is not an error")
+	}
+
+	/// A successful restore needs no alert: the entitlement lands in published state and the
+	/// gate re-renders, which is the answer.
+	func testRestore_Restored_SaysNothing() {
+		XCTAssertNil(SubscriptionNotice.forRestore(.restored))
+	}
+
+	/// "You own nothing" is a correct answer from the store, not a malfunction.
+	func testRestore_NothingToRestore_ShowsNonErrorNotice() throws {
+		let notice = try XCTUnwrap(SubscriptionNotice.forRestore(.nothingToRestore))
+		XCTAssertEqual(notice.title, L10n.Paywall.RestoreEmpty.title)
+		XCTAssertNotEqual(notice.title, L10n.Alert.Error.title, "an empty account is not an error")
+	}
+
+	func testRestore_Failed_ShowsErrorNotice() throws {
+		let notice = try XCTUnwrap(SubscriptionNotice.forRestore(.failed))
+		XCTAssertEqual(notice.title, L10n.Alert.Error.title)
+		XCTAssertEqual(notice.message, L10n.Paywall.RestoreFailed.message)
 	}
 }

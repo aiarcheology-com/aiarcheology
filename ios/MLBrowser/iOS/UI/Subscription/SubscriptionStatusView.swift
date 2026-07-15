@@ -21,6 +21,9 @@ struct SubscriptionStatusView: View {
 	@State private var showManage = false
 	@State private var showRefund = false
 
+	/// Restore feedback (AIA-0376): this Restore button was silent on every outcome.
+	@State private var notice: SubscriptionNotice?
+
 	var body: some View {
 		Form {
 			Section {
@@ -49,8 +52,9 @@ struct SubscriptionStatusView: View {
 				Button(L10n.Paywall.restore) {
 					Task {
 						isWorking = true
-						await subscriptionState.restore()
+						let outcome = await subscriptionState.restore()
 						isWorking = false
+						notice = SubscriptionNotice.forRestore(outcome)
 					}
 				}
 				.disabled(isWorking)
@@ -66,6 +70,14 @@ struct SubscriptionStatusView: View {
 		.navigationTitle(L10n.Auth.Account.subscription)
 		.navigationBarTitleDisplayMode(.inline)
 		.manageSubscriptionsSheet(isPresented: $showManage)
+		.alert(notice?.title ?? L10n.Alert.Error.title, isPresented: .init(
+			get: { notice != nil },
+			set: { if !$0 { notice = nil } }
+		)) {
+			Button(L10n.Common.ok, role: .cancel) {}
+		} message: {
+			Text(notice?.message ?? "")
+		}
 		.task { await subscriptionState.loadProducts() }
 	}
 

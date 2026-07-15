@@ -9,6 +9,37 @@ import Foundation
 import StoreKit
 import OSLog
 
+/// What a purchase attempt did, in the terms the UI has to act on (AIA-0376).
+///
+/// A `Bool` cannot express this: `.userCancelled` and a failed verification are both "not
+/// subscribed", but one is the user's own choice and the other is an error they must see.
+/// Collapsing them is what made the paywall fall silent on failure.
+///
+/// There is deliberately no `unverified` case. An unverified transaction and a thrown error
+/// are the same event to the user — "it didn't go through" — and the provider logs them
+/// distinctly, so a separate case would be API surface with no consumer.
+enum PurchaseOutcome: Equatable {
+	/// Verified purchase. Dismiss the paywall.
+	case subscribed
+	/// The user dismissed Apple's sheet. Say nothing: they know what they did.
+	case cancelled
+	/// Ask-to-Buy / SCA. Not an error — approval arrives later via `Transaction.updates`.
+	case pending
+	/// Verification failed, StoreKit threw, or an unknown result arrived.
+	case failed
+}
+
+/// What a restore attempt did (AIA-0376). Separate from ``PurchaseOutcome`` because
+/// "no purchases to restore" is a normal answer, not a failure.
+enum RestoreOutcome: Equatable {
+	/// An entitlement was found. The gate re-renders on its own.
+	case restored
+	/// The store answered and the account simply owns nothing.
+	case nothingToRestore
+	/// The store could not be reached and no local entitlement was found either.
+	case failed
+}
+
 /// Abstraction over the StoreKit billing backend so ``SubscriptionState`` can be
 /// unit-tested and UI-tested without StoreKit or App Store Connect.
 ///
@@ -53,15 +84,16 @@ protocol SubscriptionProviding: AnyObject {
 	/// leaves ``products`` empty) on failure; never throws.
 	func loadProducts() async
 
-	/// Purchase a product. Returns true if the purchase completed and the user is
-	/// now entitled. Ask-to-Buy / cancellation return false without error.
-	@discardableResult
-	func purchase(_ product: Product) async -> Bool
+	/// Purchase a product.
+	///
+	/// Deliberately **not** `@discardableResult`: dropping this value is the bug in
+	/// AIA-0376, so the compiler is the guard against it recurring.
+	func purchase(_ product: Product) async -> PurchaseOutcome
 
-	/// Restore purchases by re-syncing with the App Store, then recompute
-	/// entitlement. Returns the resulting ``isSubscribed`` value.
-	@discardableResult
-	func restore() async -> Bool
+	/// Restore purchases by re-syncing with the App Store, then recompute entitlement.
+	///
+	/// Deliberately **not** `@discardableResult` — see ``purchase(_:)``.
+	func restore() async -> RestoreOutcome
 }
 
 /// Owns the subscription/entitlement state for the UI (mirrors ``AuthState``).
@@ -127,16 +159,19 @@ final class SubscriptionState: ObservableObject {
 		sync()
 	}
 
-	/// Purchase `product` and refresh published state.
-	func purchase(_ product: Product) async {
-		await provider.purchase(product)
+	/// Purchase `product`, refresh published state, and hand the outcome back so the
+	/// caller can tell a cancellation from a failure (AIA-0376).
+	func purchase(_ product: Product) async -> PurchaseOutcome {
+		let outcome = await provider.purchase(product)
 		sync()
+		return outcome
 	}
 
-	/// Restore purchases and refresh published state.
-	func restore() async {
-		_ = await provider.restore()
+	/// Restore purchases, refresh published state, and hand the outcome back.
+	func restore() async -> RestoreOutcome {
+		let outcome = await provider.restore()
 		sync()
+		return outcome
 	}
 
 	/// Pull the latest values from the provider into the published properties.

@@ -11,6 +11,50 @@ import StoreKit
 import OSLog
 
 /// The paywall. Presented as the whole-app root gate (`SubscriptionGateView`) when the
+/// A message the purchase/restore flow owes the user (AIA-0376).
+///
+/// Carries its own title because not every outcome is an error: Ask-to-Buy and
+/// "nothing to restore" are ordinary answers and must not be dressed as failures.
+struct SubscriptionNotice: Equatable, Identifiable {
+	let id = UUID()
+	let title: String
+	let message: String
+
+	/// What to say once a purchase attempt finishes. `nil` means stay quiet.
+	///
+	/// The two silent cases are the point of this type. `.subscribed` dismisses the paywall,
+	/// so an alert would interrupt the success it is announcing; `.cancelled` is the user's
+	/// own decision, and telling someone their purchase failed because they tapped Cancel is
+	/// how you get a one-star review. Everything else was previously silent — which is the
+	/// bug this fixes.
+	static func forPurchase(_ outcome: PurchaseOutcome) -> SubscriptionNotice? {
+		switch outcome {
+		case .subscribed, .cancelled:
+			return nil
+		case .pending:
+			return .init(title: L10n.Paywall.Pending.title, message: L10n.Paywall.Pending.message)
+		case .failed:
+			return .init(title: L10n.Alert.Error.title, message: L10n.Paywall.Failed.message)
+		}
+	}
+
+	/// What to say once a restore attempt finishes. `nil` means stay quiet.
+	///
+	/// `.restored` needs no alert: the entitlement lands in published state and the gate
+	/// re-renders, which is the answer. `.nothingToRestore` is **not** an error — the store
+	/// answered correctly and the account owns nothing.
+	static func forRestore(_ outcome: RestoreOutcome) -> SubscriptionNotice? {
+		switch outcome {
+		case .restored:
+			return nil
+		case .nothingToRestore:
+			return .init(title: L10n.Paywall.RestoreEmpty.title, message: L10n.Paywall.RestoreEmpty.message)
+		case .failed:
+			return .init(title: L10n.Alert.Error.title, message: L10n.Paywall.RestoreFailed.message)
+		}
+	}
+}
+
 /// signed-in user isn't subscribed. Reads products and entitlement from
 /// ``SubscriptionState`` and drives purchase / restore intents.
 struct PaywallView: View {
@@ -40,6 +84,10 @@ struct PaywallView: View {
 	/// Root-gate account actions (Apple 5.1.1(v)): confirm + report deletion failures.
 	@State private var showDeleteConfirmation = false
 	@State private var deleteFailed = false
+
+	/// What to tell the user about the last purchase/restore attempt; `nil` while there is
+	/// nothing to say (AIA-0376).
+	@State private var notice: SubscriptionNotice?
 
 	/// Whether *this user* is still eligible for the introductory free trial. A user who
 	/// already used the trial is charged the full price immediately, so the "free for N"
@@ -121,6 +169,16 @@ struct PaywallView: View {
 		} message: {
 			Text(L10n.Alert.Error.unexpected)
 		}
+		// Purchase/restore feedback (AIA-0376). Before this, every non-success outcome ended
+		// with the spinner stopping and nothing else — the user stared at an unchanged paywall.
+		.alert(notice?.title ?? L10n.Alert.Error.title, isPresented: .init(
+			get: { notice != nil },
+			set: { if !$0 { notice = nil } }
+		)) {
+			Button(L10n.Common.ok, role: .cancel) {}
+		} message: {
+			Text(notice?.message ?? "")
+		}
 	}
 
 	@ViewBuilder
@@ -140,8 +198,9 @@ struct PaywallView: View {
 		Button {
 			Task {
 				isWorking = true
-				await subscriptionState.restore()
+				let outcome = await subscriptionState.restore()
 				isWorking = false
+				notice = SubscriptionNotice.forRestore(outcome)
 			}
 		} label: {
 			Text(L10n.Paywall.restore)
@@ -256,9 +315,13 @@ struct PaywallView: View {
 			analytics?.track(.subscribeTapped)
 			Task {
 				isWorking = true
-				await subscriptionState.purchase(product)
+				let outcome = await subscriptionState.purchase(product)
 				isWorking = false
-				if subscriptionState.isSubscribed { dismiss() }
+				// Dismiss on the outcome, not on the published entitlement: the verified
+				// transaction is the proof of purchase, and `isSubscribed` recomputes from an
+				// async entitlement sequence that may not have caught up yet.
+				if outcome == .subscribed { dismiss() }
+				notice = SubscriptionNotice.forPurchase(outcome)
 			}
 		} label: {
 			Text(L10n.Paywall.subscribe)

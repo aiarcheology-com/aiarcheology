@@ -11374,6 +11374,18 @@
         }
       }
     },
+    "paywall.failed.message" : {
+      "comment" : "Shown when a purchase attempt fails or cannot be verified.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The purchase could not be completed and you have not been charged. Please try again."
+          }
+        }
+      }
+    },
     "paywall.manage" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -11381,6 +11393,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Manage Subscription"
+          }
+        }
+      }
+    },
+    "paywall.pending.message" : {
+      "comment" : "Shown when a purchase awaits approval (Ask to Buy).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This purchase needs approval before it can complete. Access is granted automatically once it is approved — you can close this screen."
+          }
+        }
+      }
+    },
+    "paywall.pending.title" : {
+      "comment" : "Title of the Ask-to-Buy notice.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Waiting for Approval"
           }
         }
       }
@@ -11403,6 +11439,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restore Purchases"
+          }
+        }
+      }
+    },
+    "paywall.restoreEmpty.message" : {
+      "comment" : "Shown when a restore finds no prior subscription.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No previous subscription was found for this Apple Account."
+          }
+        }
+      }
+    },
+    "paywall.restoreEmpty.title" : {
+      "comment" : "Title shown when a restore finds nothing.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing to Restore"
+          }
+        }
+      }
+    },
+    "paywall.restoreFailed.message" : {
+      "comment" : "Shown when a restore cannot reach the App Store.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not reach the App Store to restore your purchases. Check your connection and try again."
           }
         }
       }
