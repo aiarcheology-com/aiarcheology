@@ -228,3 +228,20 @@ then verify it appears as trusted in Keychain Access.
 
 To exercise the failure and Ask-to-Buy branches without StoreKit at all, set
 `MockSubscriptionProvider.purchaseOutcome` / `.restoreOutcome` — see `SubscriptionNoticeTests`.
+
+### Refunds (AIA-0448)
+
+Per Apple's [Testing refund requests](https://developer.apple.com/documentation/storekit/testing-refund-requests):
+in **any testing environment** (local `.storekit` and Sandbox) submitting the refund sheet with
+any reason **auto-approves immediately** — the revocation lands in `Transaction.updates`
+(breadcrumb: `Transaction update: … revoked=true`), the entitlement drops, and the paywall
+rises. To test a **declined** refund (Sandbox): choose *Other*, type `DECLINE`, submit. In
+**production** Apple decides within ~48h and emails the customer; the revocation is the app's
+only signal, so the paywall correctly follows *approval*, never submission.
+
+⚠️ **iOS-on-Mac teardown bug (undocumented):** on "My Mac (Designed for iPad)" the refund UI
+closes but never delivers its dismissal to the app — `onDismiss` doesn't fire and the orphaned
+presentation blocks all input. The subscription screens self-heal: when the scene foregrounds
+with the sheet still marked presented, they release it after a 1.5s grace (log:
+`Refund sheet never delivered its dismissal…`). Prefer the **iOS Simulator** for end-to-end
+refund testing; refunds can also be issued from **Debug ▸ StoreKit ▸ Manage Transactions…**.
