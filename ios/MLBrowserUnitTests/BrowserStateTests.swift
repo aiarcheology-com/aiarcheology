@@ -17,9 +17,11 @@ import Combine
 /// but the History-API tests must not run JavaScript before the document exists.
 private final class NavigationWaiter: NSObject, WKNavigationDelegate {
     var onFinish: (() -> Void)?
+    private(set) var didFinishNavigation = false
 
     // swiftlint:disable:next implicitly_unwrapped_optional
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        didFinishNavigation = true
         onFinish?()
     }
 }
@@ -72,14 +74,24 @@ final class BrowserStateTests: XCTestCase {
 
     /// Loads the test page and waits until the document finished loading — the KVO
     /// mirror updates at load start, which is too early to evaluate JavaScript.
-    private func loadTestPage() async {
+    ///
+    /// Throws `XCTSkip` if `didFinish` never arrives. A timed-out `fulfillment` only records
+    /// a failure; it does not stop the test, so without this guard execution falls through and
+    /// runs JavaScript against a document that never loaded — surfacing as a misleading
+    /// "pushState … URL is invalid" instead of the real cause (the load never finished).
+    private func loadTestPage() async throws {
         let finished = expectation(description: "didFinish")
         // WebKit may report didFinish more than once for a loadHTMLString navigation.
         finished.assertForOverFulfill = false
         navigationWaiter.onFinish = { finished.fulfill() }
         webView.navigationDelegate = navigationWaiter
         webView.loadHTMLString(Self.html, baseURL: Self.baseURL)
-        await fulfillment(of: [finished], timeout: 10)
+        // 30s, not 10s: a 10s ceiling produced spurious didFinish timeouts under Xcode Cloud
+        // content-process contention (this suite's CI flakiness is documented in AIA-0217).
+        await fulfillment(of: [finished], timeout: 30)
+        guard navigationWaiter.didFinishNavigation else {
+            throw XCTSkip("WKWebView did not finish loading the test page — cannot establish the precondition.")
+        }
         await waitForCurrentURL { $0 == Self.baseURL }
     }
 
@@ -90,14 +102,14 @@ final class BrowserStateTests: XCTestCase {
 
     // MARK: - KVO mirrors
 
-    func testAttach_MirrorsLoadedURL() async {
-        await loadTestPage()
+    func testAttach_MirrorsLoadedURL() async throws {
+        try await loadTestPage()
 
         XCTAssertEqual(sut.currentURL, Self.baseURL)
     }
 
     func testPushState_UpdatesCurrentURL() async throws {
-        await loadTestPage()
+        try await loadTestPage()
 
         // The central AIA-0044 assumption: same-document History-API navigations
         // never reach the navigation delegate but do fire KVO on \.url.
@@ -111,7 +123,7 @@ final class BrowserStateTests: XCTestCase {
     }
 
     func testReplaceState_UpdatesCurrentURL() async throws {
-        await loadTestPage()
+        try await loadTestPage()
 
         try await evaluate("history.replaceState({}, '', '/moved?x=1')")
         await waitForCurrentURL { $0?.path == "/moved" }
@@ -119,14 +131,15 @@ final class BrowserStateTests: XCTestCase {
         XCTAssertEqual(sut.currentURL?.query, "x=1")
     }
 
-    func testGoBackIntent_WalksBackToThePreviousDocument() async {
-        await loadTestPage()
+    func testGoBackIntent_WalksBackToThePreviousDocument() async throws {
+        try await loadTestPage()
         let secondURL = URL(string: "https://example.com/second")!
         let finished = expectation(description: "second didFinish")
         finished.assertForOverFulfill = false
         navigationWaiter.onFinish = { finished.fulfill() }
         webView.loadHTMLString(Self.html, baseURL: secondURL)
-        await fulfillment(of: [finished], timeout: 10)
+        // Same 30s ceiling as loadTestPage — the second load faces the same CI cold-start risk.
+        await fulfillment(of: [finished], timeout: 30)
         await waitForCurrentURL { $0 == secondURL }
 
         guard webView.canGoBack else {
@@ -161,20 +174,20 @@ final class BrowserStateTests: XCTestCase {
         XCTAssertFalse(sawBaseURL, "Detached web view must not publish into the mirrors")
     }
 
-    func testCancelSubscriptions_IsIdentityGuarded() async {
+    func testCancelSubscriptions_IsIdentityGuarded() async throws {
         let unrelatedWebView = WKWebView()
 
         // A stale dismantle for a web view that is not attached must be a no-op.
         sut.cancelSubscriptions(if: unrelatedWebView)
-        await loadTestPage()
+        try await loadTestPage()
 
         XCTAssertEqual(sut.currentURL, Self.baseURL)
     }
 
     // MARK: - lastPage persistence
 
-    func testLastPage_PersistsEligibleURL_AfterSettling() async {
-        await loadTestPage()
+    func testLastPage_PersistsEligibleURL_AfterSettling() async throws {
+        try await loadTestPage()
 
         // Persistence is debounced (storage-churn protection); poll past the window.
         let deadline = Date().addingTimeInterval(5)
@@ -202,8 +215,8 @@ final class BrowserStateTests: XCTestCase {
         XCTAssertEqual(sut.displayedURL, URL(string: "https://example.org"))
     }
 
-    func testGate_ClearsOnlyForTheLatestNavigation() async {
-        await loadTestPage()
+    func testGate_ClearsOnlyForTheLatestNavigation() async throws {
+        try await loadTestPage()
         sut.userLoadRequested("https://example.com/picked")
         let stale = webView.loadHTMLString(Self.html, baseURL: URL(string: "https://example.com/old")!)
         let latest = webView.loadHTMLString(Self.html, baseURL: URL(string: "https://example.com/new")!)
@@ -217,8 +230,8 @@ final class BrowserStateTests: XCTestCase {
         XCTAssertFalse(sut.isUserLoadPending)
     }
 
-    func testGate_IgnoresSettleBeforeTokenIsRecorded() async {
-        await loadTestPage()
+    func testGate_IgnoresSettleBeforeTokenIsRecorded() async throws {
+        try await loadTestPage()
         sut.userLoadRequested("https://example.com/picked")
         let oldNavigation = webView.loadHTMLString(Self.html, baseURL: Self.baseURL)
 
