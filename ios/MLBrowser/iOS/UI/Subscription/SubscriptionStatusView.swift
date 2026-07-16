@@ -72,6 +72,10 @@ struct SubscriptionStatusView: View {
 					// While the sheet is up the row sits behind it, so the lingering spinner is
 					// harmless; the binding flips back on dismiss.
 					Button(role: .destructive) {
+						LoggingPolicy.info(
+							"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
+							logger: .state
+						)
 						showRefund = true
 					} label: {
 						HStack {
@@ -81,7 +85,18 @@ struct SubscriptionStatusView: View {
 						}
 					}
 					.disabled(showRefund)
-					.refundRequestSheet(for: transactionID, isPresented: $showRefund)
+					.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
+						LoggingPolicy.info("Refund sheet dismissed: \(result)", logger: .state)
+						notice = SubscriptionNotice.forRefund(result)
+					}
+
+					if showRefund {
+						// Reassure during the silent tap-to-sheet gap. Disappears when the
+						// sheet's dismissal flips `showRefund` back.
+						Text(L10n.Subscription.Refund.preparing)
+							.font(.footnote)
+							.foregroundStyle(.secondary)
+					}
 				}
 			}
 		}

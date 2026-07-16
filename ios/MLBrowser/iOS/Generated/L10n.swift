@@ -701,6 +701,26 @@ internal enum L10n {
       /// year
       internal static let year = L10n.tr("Localizable", "subscription.period.year", fallback: "year")
     }
+    internal enum Refund {
+      /// Contacting the App Store. This can take a moment — Apple's refund form will open when it is ready.
+      internal static let preparing = L10n.tr("Localizable", "subscription.refund.preparing", fallback: "Contacting the App Store. This can take a moment — Apple's refund form will open when it is ready.")
+      internal enum Duplicate {
+        /// You have already requested a refund for this purchase. Apple is still reviewing it.
+        internal static let message = L10n.tr("Localizable", "subscription.refund.duplicate.message", fallback: "You have already requested a refund for this purchase. Apple is still reviewing it.")
+        /// Already Requested
+        internal static let title = L10n.tr("Localizable", "subscription.refund.duplicate.title", fallback: "Already Requested")
+      }
+      internal enum Failed {
+        /// The refund request could not be sent. You can also request a refund at reportaproblem.apple.com.
+        internal static let message = L10n.tr("Localizable", "subscription.refund.failed.message", fallback: "The refund request could not be sent. You can also request a refund at reportaproblem.apple.com.")
+      }
+      internal enum Submitted {
+        /// The App Store has your request. Apple decides the outcome and will let you know. Your subscription stays active until a refund is approved.
+        internal static let message = L10n.tr("Localizable", "subscription.refund.submitted.message", fallback: "The App Store has your request. Apple decides the outcome and will let you know. Your subscription stays active until a refund is approved.")
+        /// Refund Requested
+        internal static let title = L10n.tr("Localizable", "subscription.refund.submitted.title", fallback: "Refund Requested")
+      }
+    }
   }
   internal enum Symbol {
     /// Circle

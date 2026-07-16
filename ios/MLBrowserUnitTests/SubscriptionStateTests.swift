@@ -176,4 +176,34 @@ final class SubscriptionNoticeTests: XCTestCase {
 		XCTAssertEqual(notice.title, L10n.Alert.Error.title)
 		XCTAssertEqual(notice.message, L10n.Paywall.RestoreFailed.message)
 	}
+
+	// MARK: - Refund (AIA-0448)
+
+	/// A submitted request is a receipt, not an outcome: the copy must confirm it reached
+	/// Apple without promising money back — the decision arrives later as a revocation.
+	func testRefund_Submitted_ShowsNonErrorNotice() throws {
+		let notice = try XCTUnwrap(SubscriptionNotice.forRefund(.success(.success)))
+		XCTAssertEqual(notice.title, L10n.Subscription.Refund.Submitted.title)
+		XCTAssertNotEqual(notice.title, L10n.Alert.Error.title, "a filed request is not an error")
+	}
+
+	/// The user closed Apple's form themselves — the same deliberate silence as a
+	/// cancelled purchase.
+	func testRefund_UserCancelled_SaysNothing() {
+		XCTAssertNil(SubscriptionNotice.forRefund(.success(.userCancelled)))
+	}
+
+	/// Apple is already reviewing an earlier request; telling the user so is an answer,
+	/// not a malfunction.
+	func testRefund_Duplicate_ShowsNonErrorNotice() throws {
+		let notice = try XCTUnwrap(SubscriptionNotice.forRefund(.failure(.duplicateRequest)))
+		XCTAssertEqual(notice.title, L10n.Subscription.Refund.Duplicate.title)
+		XCTAssertNotEqual(notice.title, L10n.Alert.Error.title, "an already-filed request is not an error")
+	}
+
+	func testRefund_Failed_ShowsErrorNotice() throws {
+		let notice = try XCTUnwrap(SubscriptionNotice.forRefund(.failure(.failed)))
+		XCTAssertEqual(notice.title, L10n.Alert.Error.title)
+		XCTAssertEqual(notice.message, L10n.Subscription.Refund.Failed.message)
+	}
 }

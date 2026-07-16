@@ -55,6 +55,45 @@ struct SubscriptionNotice: Equatable {
 			return .init(title: L10n.Alert.Error.title, message: L10n.Paywall.RestoreFailed.message)
 		}
 	}
+
+	/// What to say once Apple's refund sheet closes (AIA-0448).
+	///
+	/// Reports only that the request *reached Apple* — never that money is coming back. Apple
+	/// decides refunds on its own schedule, and the decision arrives later as a revocation
+	/// that drops the entitlement and raises the gate. Copy promising an outcome here would be
+	/// a promise we cannot keep.
+	///
+	/// `.userCancelled` stays silent for the same reason `.cancelled` does: the user closed
+	/// Apple's form themselves and needs no report of their own decision.
+	///
+	/// `StoreKit.Transaction` is spelled out because SwiftUI publishes its own `Transaction`
+	/// and both are in scope in this file.
+	static func forRefund(
+		_ result: Result<StoreKit.Transaction.RefundRequestStatus, StoreKit.Transaction.RefundRequestError>
+	) -> SubscriptionNotice? {
+		switch result {
+		case .success(let status):
+			switch status {
+			case .success:
+				return .init(title: L10n.Subscription.Refund.Submitted.title,
+							 message: L10n.Subscription.Refund.Submitted.message)
+			case .userCancelled:
+				return nil
+			@unknown default:
+				return nil
+			}
+		case .failure(let error):
+			switch error {
+			case .duplicateRequest:
+				return .init(title: L10n.Subscription.Refund.Duplicate.title,
+							 message: L10n.Subscription.Refund.Duplicate.message)
+			case .failed:
+				return .init(title: L10n.Alert.Error.title, message: L10n.Subscription.Refund.Failed.message)
+			@unknown default:
+				return .init(title: L10n.Alert.Error.title, message: L10n.Subscription.Refund.Failed.message)
+			}
+		}
+	}
 }
 
 /// The paywall. Presented as the whole-app root gate (`SubscriptionGateView`) when the
@@ -230,6 +269,10 @@ struct PaywallView: View {
 			// Spinner tied to `showRefund`: no "did present" callback exists, and the seconds
 			// before Apple's sheet appears are the window that reads as a freeze (AIA-0448).
 			Button(role: .destructive) {
+				LoggingPolicy.info(
+					"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
+					logger: .state
+				)
 				showRefund = true
 			} label: {
 				Text(L10n.Paywall.requestRefund)
@@ -241,7 +284,18 @@ struct PaywallView: View {
 			.controlSize(.large)
 			.disabled(showRefund)
 			.testability(Testability.Button.paywallRequestRefund)
-			.refundRequestSheet(for: transactionID, isPresented: $showRefund)
+			.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
+				LoggingPolicy.info("Refund sheet dismissed: \(result)", logger: .state)
+				notice = SubscriptionNotice.forRefund(result)
+			}
+
+			if showRefund {
+				// Reassure during the silent tap-to-sheet gap (AIA-0448).
+				Text(L10n.Subscription.Refund.preparing)
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.multilineTextAlignment(.center)
+			}
 		}
 
 		// Manage existing subscription (cancel / change plan). Always available so a

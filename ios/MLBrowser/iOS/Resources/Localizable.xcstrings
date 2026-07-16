@@ -14110,6 +14110,78 @@
         }
       }
     },
+    "subscription.refund.duplicate.message" : {
+      "comment" : "Body when a refund was already requested for this purchase.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You have already requested a refund for this purchase. Apple is still reviewing it."
+          }
+        }
+      }
+    },
+    "subscription.refund.duplicate.title" : {
+      "comment" : "Title when a refund was already requested for this purchase.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already Requested"
+          }
+        }
+      }
+    },
+    "subscription.refund.failed.message" : {
+      "comment" : "Body when the refund request could not be sent.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The refund request could not be sent. You can also request a refund at reportaproblem.apple.com."
+          }
+        }
+      }
+    },
+    "subscription.refund.preparing" : {
+      "comment" : "Shown under the refund row while StoreKit prepares Apple's refund sheet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contacting the App Store. This can take a moment — Apple's refund form will open when it is ready."
+          }
+        }
+      }
+    },
+    "subscription.refund.submitted.message" : {
+      "comment" : "Body confirming the refund request reached Apple. Must not promise an outcome — Apple decides.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The App Store has your request. Apple decides the outcome and will let you know. Your subscription stays active until a refund is approved."
+          }
+        }
+      }
+    },
+    "subscription.refund.submitted.title" : {
+      "comment" : "Title confirming the refund request reached Apple.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refund Requested"
+          }
+        }
+      }
+    },
     "subscription.renews" : {
       "extractionState" : "manual",
       "localizations" : {
