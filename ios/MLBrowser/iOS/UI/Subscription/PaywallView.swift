@@ -9,6 +9,7 @@
 import SwiftUI
 import StoreKit
 import OSLog
+import UIKit
 
 /// A message the paywall owes the user (AIA-0376).
 ///
@@ -226,6 +227,27 @@ struct PaywallView: View {
 			Button(L10n.Common.ok, role: .cancel) {}
 		} message: {
 			Text(notice?.message ?? "")
+		}
+		.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+			releaseOrphanedRefundPresentationOnMac()
+		}
+	}
+
+	/// AIA-0448, Mac only — the same orphaned-presentation release as
+	/// ``SubscriptionStatusView``, where the full story is documented: on iOS-on-Mac the
+	/// refund UI closes without delivering its dismissal, and the scene foregrounding is the
+	/// one signal that still arrives.
+	private func releaseOrphanedRefundPresentationOnMac() {
+		guard HostPlatform.current.isMac, showRefund else { return }
+		Task { @MainActor in
+			try? await Task.sleep(for: .seconds(1.5))
+			guard showRefund else { return }
+			LoggingPolicy.warning(
+				"Refund sheet never delivered its dismissal — releasing the orphaned presentation"
+					+ " (iOS-on-Mac teardown bug).",
+				logger: .state
+			)
+			showRefund = false
 		}
 	}
 

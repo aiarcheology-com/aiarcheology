@@ -7,6 +7,7 @@
 
 import SwiftUI
 import StoreKit
+import UIKit
 
 /// Pushed from Settings → Account → Subscription. Shows the subscription status (plan /
 /// state / renewal date) and routes all management through **Apple's native sheets** —
@@ -112,6 +113,36 @@ struct SubscriptionStatusView: View {
 			Text(notice?.message ?? "")
 		}
 		.task { await subscriptionState.loadProducts() }
+		.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+			releaseOrphanedRefundPresentationOnMac()
+		}
+	}
+
+	/// AIA-0448, Mac only. On iOS-on-Mac, StoreKit's refund UI closes without ever delivering
+	/// its dismissal to this process: `onDismiss` never fires, `showRefund` stays true, and the
+	/// orphaned host-side presentation blocks every touch until force-quit. The scene returning
+	/// to the foreground is the one signal that *does* arrive when the remote UI goes away
+	/// (it took the scene with it while presented), so the presentation is released from our
+	/// side — host-initiated dismissal doesn't need the broken remote→host channel.
+	///
+	/// The grace period lets a well-behaved dismissal (should Apple fix the bridge) deliver its
+	/// result and flip `showRefund` first; the release then finds nothing to do. On iOS the
+	/// refund sheet never backgrounds the scene, and the Mac guard keeps this from firing there
+	/// at all. Known cost: clicking the app's window on the Mac while Apple's form is still open
+	/// also foregrounds the scene and would close the form — recoverable by re-requesting,
+	/// unlike the force-quit it replaces.
+	private func releaseOrphanedRefundPresentationOnMac() {
+		guard HostPlatform.current.isMac, showRefund else { return }
+		Task { @MainActor in
+			try? await Task.sleep(for: .seconds(1.5))
+			guard showRefund else { return }
+			LoggingPolicy.warning(
+				"Refund sheet never delivered its dismissal — releasing the orphaned presentation"
+					+ " (iOS-on-Mac teardown bug).",
+				logger: .state
+			)
+			showRefund = false
+		}
 	}
 
 	/// The plan's price with its billing term, e.g. "$3.99 / month". Falls back to the bare
