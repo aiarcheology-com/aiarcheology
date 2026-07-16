@@ -228,20 +228,3 @@ then verify it appears as trusted in Keychain Access.
 
 To exercise the failure and Ask-to-Buy branches without StoreKit at all, set
 `MockSubscriptionProvider.purchaseOutcome` / `.restoreOutcome` — see `SubscriptionNoticeTests`.
-
-### Refunds (AIA-0448)
-
-⚠️ **The in-app refund sheet hangs the app on the Mac.** On "My Mac (Designed for iPad)"
-StoreKit's out-of-process refund UI can fail to tear down: Apple's "submitted" confirmation
-appears and disappears, `onDismiss` never fires, and an invisible modal leaves the whole app
-input-dead until force-quit. The app therefore never presents the sheet on the Mac
-(`HostPlatform.current.isMac`) and routes **Request a Refund** to
-[reportaproblem.apple.com](https://reportaproblem.apple.com) instead — Apple's canonical
-refund path, and the right destination for production Mac users too.
-
-To test the refund *flow* end-to-end, use the **iOS Simulator**. In the local
-`.storekit` environment a submitted request is granted immediately; watch the log for the
-three breadcrumbs (`Refund requested…`, `Refund sheet dismissed…`, `Transaction update: …
-revoked=true`) — the last one is the revocation that drops the entitlement and raises the
-paywall. Refunds can also be issued directly from Xcode's **Debug ▸ StoreKit ▸ Manage
-Transactions…** window, which exercises the same revocation path without the sheet.
