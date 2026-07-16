@@ -90,7 +90,8 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 		}
 	}
 
-	@discardableResult
+	// Not `@discardableResult`, matching ``SubscriptionProviding``: dropping this outcome is
+	// the AIA-0376 bug, and the attribute would re-open the hole for direct callers.
 	func purchase(_ product: Product) async -> PurchaseOutcome {
 		do {
 			let result = try await product.purchase(options: purchaseOptions())
@@ -129,7 +130,7 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 		}
 	}
 
-	@discardableResult
+	// Not `@discardableResult` — see ``purchase(_:)``.
 	func restore() async -> RestoreOutcome {
 		var syncFailed = false
 		do {

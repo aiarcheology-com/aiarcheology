@@ -10,7 +10,6 @@ import SwiftUI
 import StoreKit
 import OSLog
 
-/// The paywall. Presented as the whole-app root gate (`SubscriptionGateView`) when the
 /// A message the purchase/restore flow owes the user (AIA-0376).
 ///
 /// Carries its own title because not every outcome is an error: Ask-to-Buy and
@@ -55,6 +54,7 @@ struct SubscriptionNotice: Equatable, Identifiable {
 	}
 }
 
+/// The paywall. Presented as the whole-app root gate (`SubscriptionGateView`) when the
 /// signed-in user isn't subscribed. Reads products and entitlement from
 /// ``SubscriptionState`` and drives purchase / restore intents.
 struct PaywallView: View {

@@ -11375,13 +11375,13 @@
       }
     },
     "paywall.failed.message" : {
-      "comment" : "Shown when a purchase attempt fails or cannot be verified.",
+      "comment" : "Shown when a purchase attempt fails or cannot be verified. Deliberately does not assert whether the account was charged \u2014 an unverified transaction may already have settled.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The purchase could not be completed and you have not been charged. Please try again."
+            "value" : "The purchase could not be completed. Please try again, or use Restore Purchases if your Apple Account was already charged."
           }
         }
       }
@@ -11468,13 +11468,13 @@
       }
     },
     "paywall.restoreFailed.message" : {
-      "comment" : "Shown when a restore cannot reach the App Store.",
+      "comment" : "Shown when a restore does not complete. Neutral wording: AppStore.sync() throws on user cancellation as well as connectivity failure.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Could not reach the App Store to restore your purchases. Check your connection and try again."
+            "value" : "Your purchases could not be restored. Please try again."
           }
         }
       }

@@ -582,8 +582,8 @@ internal enum L10n {
     /// Subscriptions are not available right now. Please try again later.
     internal static let unavailable = L10n.tr("Localizable", "paywall.unavailable", fallback: "Subscriptions are not available right now. Please try again later.")
     internal enum Failed {
-      /// The purchase could not be completed and you have not been charged. Please try again.
-      internal static let message = L10n.tr("Localizable", "paywall.failed.message", fallback: "The purchase could not be completed and you have not been charged. Please try again.")
+      /// The purchase could not be completed. Please try again, or use Restore Purchases if your Apple Account was already charged.
+      internal static let message = L10n.tr("Localizable", "paywall.failed.message", fallback: "The purchase could not be completed. Please try again, or use Restore Purchases if your Apple Account was already charged.")
     }
     internal enum Pending {
       /// This purchase needs approval before it can complete. Access is granted automatically once it is approved — you can close this screen.
@@ -598,8 +598,8 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "paywall.restoreEmpty.title", fallback: "Nothing to Restore")
     }
     internal enum RestoreFailed {
-      /// Could not reach the App Store to restore your purchases. Check your connection and try again.
-      internal static let message = L10n.tr("Localizable", "paywall.restoreFailed.message", fallback: "Could not reach the App Store to restore your purchases. Check your connection and try again.")
+      /// Your purchases could not be restored. Please try again.
+      internal static let message = L10n.tr("Localizable", "paywall.restoreFailed.message", fallback: "Your purchases could not be restored. Please try again.")
     }
   }
   internal enum Sentry {
