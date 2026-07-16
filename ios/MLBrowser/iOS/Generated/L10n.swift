@@ -702,8 +702,6 @@ internal enum L10n {
       internal static let year = L10n.tr("Localizable", "subscription.period.year", fallback: "year")
     }
     internal enum Refund {
-      /// Contacting the App Store. This can take a moment — Apple's refund form will open when it is ready.
-      internal static let preparing = L10n.tr("Localizable", "subscription.refund.preparing", fallback: "Contacting the App Store. This can take a moment — Apple's refund form will open when it is ready.")
       internal enum Duplicate {
         /// You have already requested a refund for this purchase. Apple is still reviewing it.
         internal static let message = L10n.tr("Localizable", "subscription.refund.duplicate.message", fallback: "You have already requested a refund for this purchase. Apple is still reviewing it.")

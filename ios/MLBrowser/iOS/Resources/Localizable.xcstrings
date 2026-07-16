@@ -14146,18 +14146,6 @@
         }
       }
     },
-    "subscription.refund.preparing" : {
-      "comment" : "Shown under the refund row while StoreKit prepares Apple's refund sheet.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contacting the App Store. This can take a moment — Apple's refund form will open when it is ready."
-          }
-        }
-      }
-    },
     "subscription.refund.submitted.message" : {
       "comment" : "Body confirming the refund request reached Apple. Must not promise an outcome — Apple decides.",
       "extractionState" : "manual",

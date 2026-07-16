@@ -239,9 +239,11 @@ rises. To test a **declined** refund (Sandbox): choose *Other*, type `DECLINE`, 
 **production** Apple decides within ~48h and emails the customer; the revocation is the app's
 only signal, so the paywall correctly follows *approval*, never submission.
 
-⚠️ **iOS-on-Mac teardown bug (undocumented):** on "My Mac (Designed for iPad)" the refund UI
-closes but never delivers its dismissal to the app — `onDismiss` doesn't fire and the orphaned
-presentation blocks all input. The subscription screens self-heal: when the scene foregrounds
-with the sheet still marked presented, they release it after a 1.5s grace (log:
-`Refund sheet never delivered its dismissal…`). Prefer the **iOS Simulator** for end-to-end
-refund testing; refunds can also be issued from **Debug ▸ StoreKit ▸ Manage Transactions…**.
+⚠️ **iOS-on-Mac bridge loss (undocumented):** on "My Mac (Designed for iPad)" every push
+signal about the refund sheet dies in the remote→host bridge — `onDismiss` never fires, no
+scene notification arrives, and the orphaned presentation blocks all input. The workaround is
+**pull-based and Mac-only** (`startRefundWatchdogOnMac`): a task started at the tap polls the
+store every 2s; when the auto-approved revocation appears, the entitlement re-read raises the
+paywall and the root swap tears down the stuck presentation (log: `Refund revocation detected
+by polling…`; bounded at ~5 min). iPhone/iPad never start the watchdog — `onDismiss` works
+there. Refunds can also be issued from **Debug ▸ StoreKit ▸ Manage Transactions…**.
