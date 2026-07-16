@@ -121,6 +121,13 @@ struct SubscriptionStatusView: View {
 		.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
 			releaseOrphanedRefundPresentationOnMac()
 		}
+		// didBecomeActive, not just willEnterForeground: on iOS-on-Mac the app never leaves
+		// the foreground during the refund flow, but clicking the (input-dead) window still
+		// grants it focus at the AppKit level — the one user action guaranteed to reach us
+		// while the phantom presentation eats every touch (AIA-0448).
+		.onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+			releaseOrphanedRefundPresentationOnMac()
+		}
 	}
 
 	/// AIA-0448, Mac only. On iOS-on-Mac, StoreKit's refund UI closes without ever delivering
@@ -149,6 +156,9 @@ struct SubscriptionStatusView: View {
 				logger: .state
 			)
 			showRefund = false
+			// The lost dismissal also means the onDismiss resync never ran — re-read
+			// entitlements now so an already-approved refund raises the gate immediately.
+			await subscriptionState.start()
 		}
 	}
 
