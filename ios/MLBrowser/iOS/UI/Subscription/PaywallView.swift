@@ -288,8 +288,11 @@ struct PaywallView: View {
 		// Request a refund via Apple's native sheet — only for an active subscription
 		// (Apple owns the decision; this just opens the request flow).
 		if subscriptionState.isSubscribed, let transactionID = subscriptionState.currentTransactionID {
-			// Spinner tied to `showRefund`: no "did present" callback exists, and the seconds
-			// before Apple's sheet appears are the window that reads as a freeze (AIA-0448).
+			// While the sheet is up, feedback may only change ATTRIBUTES of this button
+			// (opacity), never its STRUCTURE — structural churn at presentation time was
+			// correlated with the sheet's dismissal never reaching the app on iOS-on-Mac;
+			// see SubscriptionStatusView (AIA-0448). Both the text and the spinner are
+			// always in the tree and only trade opacities.
 			Button(role: .destructive) {
 				LoggingPolicy.info(
 					"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
@@ -300,23 +303,14 @@ struct PaywallView: View {
 				Text(L10n.Paywall.requestRefund)
 					.frame(maxWidth: .infinity)
 					.opacity(showRefund ? 0 : 1)
-					.overlay { if showRefund { ProgressView() } }
+					.overlay { ProgressView().opacity(showRefund ? 1 : 0) }
 			}
 			.buttonStyle(.bordered)
 			.controlSize(.large)
-			.disabled(showRefund)
 			.testability(Testability.Button.paywallRequestRefund)
 			.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
 				LoggingPolicy.info("Refund sheet dismissed: \(result)", logger: .state)
 				notice = SubscriptionNotice.forRefund(result)
-			}
-
-			if showRefund {
-				// Reassure during the silent tap-to-sheet gap (AIA-0448).
-				Text(L10n.Subscription.Refund.preparing)
-					.font(.footnote)
-					.foregroundStyle(.secondary)
-					.multilineTextAlignment(.center)
 			}
 		}
 

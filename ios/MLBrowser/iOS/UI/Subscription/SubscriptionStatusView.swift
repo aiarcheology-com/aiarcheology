@@ -67,11 +67,12 @@ struct SubscriptionStatusView: View {
 				.disabled(isWorking)
 
 				if let transactionID = subscriptionState.currentTransactionID {
-					// The spinner is tied to `showRefund` because `refundRequestSheet` offers no
-					// "did present" signal — and the seconds between the tap and Apple's sheet
-					// appearing are exactly the window that read as a frozen app (AIA-0448).
-					// While the sheet is up the row sits behind it, so the lingering spinner is
-					// harmless; the binding flips back on dismiss.
+					// While the sheet is up, feedback may only change ATTRIBUTES of this row
+					// (opacity), never its STRUCTURE. Inserting/removing views here at
+					// presentation time — the spinner swap, a footnote row, `.disabled` — was
+					// correlated with the sheet's dismissal never reaching the app on
+					// iOS-on-Mac (terminal hang), while the structurally static row recovered
+					// (AIA-0448). The spinner is therefore always in the tree and only fades in.
 					Button(role: .destructive) {
 						LoggingPolicy.info(
 							"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
@@ -82,21 +83,12 @@ struct SubscriptionStatusView: View {
 						HStack {
 							Text(L10n.Paywall.requestRefund)
 							Spacer()
-							if showRefund { ProgressView() }
+							ProgressView().opacity(showRefund ? 1 : 0)
 						}
 					}
-					.disabled(showRefund)
 					.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
 						LoggingPolicy.info("Refund sheet dismissed: \(result)", logger: .state)
 						notice = SubscriptionNotice.forRefund(result)
-					}
-
-					if showRefund {
-						// Reassure during the silent tap-to-sheet gap. Disappears when the
-						// sheet's dismissal flips `showRefund` back.
-						Text(L10n.Subscription.Refund.preparing)
-							.font(.footnote)
-							.foregroundStyle(.secondary)
 					}
 				}
 			}
