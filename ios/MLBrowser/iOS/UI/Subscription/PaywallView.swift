@@ -10,12 +10,15 @@ import SwiftUI
 import StoreKit
 import OSLog
 
-/// A message the purchase/restore flow owes the user (AIA-0376).
+/// A message the paywall owes the user (AIA-0376).
 ///
 /// Carries its own title because not every outcome is an error: Ask-to-Buy and
 /// "nothing to restore" are ordinary answers and must not be dressed as failures.
-struct SubscriptionNotice: Equatable, Identifiable {
-	let id = UUID()
+///
+/// Deliberately a plain value: no `id`, so `Equatable` compares what is actually shown.
+/// A `UUID` id would make two identical notices unequal, quietly defeating both the
+/// conformance and SwiftUI's diffing.
+struct SubscriptionNotice: Equatable {
 	let title: String
 	let message: String
 
@@ -81,12 +84,11 @@ struct PaywallView: View {
 	/// Presents the in-app Privacy Policy (App Review requires it on the purchase screen).
 	@State private var showPrivacy = false
 
-	/// Root-gate account actions (Apple 5.1.1(v)): confirm + report deletion failures.
+	/// Root-gate account actions (Apple 5.1.1(v)): confirm before deleting.
 	@State private var showDeleteConfirmation = false
-	@State private var deleteFailed = false
 
-	/// What to tell the user about the last purchase/restore attempt; `nil` while there is
-	/// nothing to say (AIA-0376).
+	/// What the screen owes the user — a purchase/restore outcome, or a failed account
+	/// deletion; `nil` while there is nothing to say (AIA-0376).
 	@State private var notice: SubscriptionNotice?
 
 	/// Whether *this user* is still eligible for the introductory free trial. A user who
@@ -156,7 +158,7 @@ struct PaywallView: View {
 						try await authState?.deleteAccount()
 					} catch {
 						LoggingPolicy.error("Account deletion failed: \(error.localizedDescription)", logger: .state)
-						deleteFailed = true
+						notice = .init(title: L10n.Alert.Error.title, message: L10n.Alert.Error.unexpected)
 					}
 				}
 			}
@@ -164,13 +166,13 @@ struct PaywallView: View {
 		} message: {
 			Text(L10n.Auth.Account.Delete.message)
 		}
-		.alert(L10n.Alert.Error.title, isPresented: $deleteFailed) {
-			Button(L10n.Common.ok, role: .cancel) {}
-		} message: {
-			Text(L10n.Alert.Error.unexpected)
-		}
-		// Purchase/restore feedback (AIA-0376). Before this, every non-success outcome ended
-		// with the spinner stopping and nothing else — the user stared at an unchanged paywall.
+		// One alert for everything this screen has to say — purchase, restore, and a failed
+		// account deletion (AIA-0376). Chaining a second `.alert` onto the same view risks
+		// SwiftUI honouring only one of them, and there is nothing to gain from the split:
+		// each is a title plus a message with an OK button.
+		//
+		// Before this, every non-success purchase outcome ended with the spinner stopping and
+		// nothing else — the user stared at an unchanged paywall.
 		.alert(notice?.title ?? L10n.Alert.Error.title, isPresented: .init(
 			get: { notice != nil },
 			set: { if !$0 { notice = nil } }
