@@ -128,6 +128,11 @@ struct PaywallView: View {
 	/// Drives Apple's in-app refund request sheet for the active subscription.
 	@State private var showRefund = false
 
+	/// Identifies the current refund-sheet presentation so the orphan-release timer can
+	/// tell "this presentation is still stuck" from "a new sheet was opened meanwhile"
+	/// (AIA-0448) — see SubscriptionStatusView.
+	@State private var refundGeneration = 0
+
 	/// Presents the in-app Privacy Policy (App Review requires it on the purchase screen).
 	@State private var showPrivacy = false
 
@@ -239,9 +244,11 @@ struct PaywallView: View {
 	/// one signal that still arrives.
 	private func releaseOrphanedRefundPresentationOnMac() {
 		guard HostPlatform.current.isMac, showRefund else { return }
+		let generation = refundGeneration
 		Task { @MainActor in
 			try? await Task.sleep(for: .seconds(1.5))
-			guard showRefund else { return }
+			// Still the SAME stuck presentation — not a new sheet opened during the grace.
+			guard showRefund, refundGeneration == generation else { return }
 			LoggingPolicy.warning(
 				"Refund sheet never delivered its dismissal — releasing the orphaned presentation"
 					+ " (iOS-on-Mac teardown bug).",
@@ -298,6 +305,7 @@ struct PaywallView: View {
 					"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
 					logger: .state
 				)
+				refundGeneration += 1
 				showRefund = true
 			} label: {
 				Text(L10n.Paywall.requestRefund)
@@ -311,6 +319,8 @@ struct PaywallView: View {
 			.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
 				LoggingPolicy.info("Refund sheet dismissed: \(result)", logger: .state)
 				notice = SubscriptionNotice.forRefund(result)
+				// Dismissal-time entitlement re-read — see SubscriptionStatusView (AIA-0448).
+				Task { await subscriptionState.start() }
 			}
 		}
 

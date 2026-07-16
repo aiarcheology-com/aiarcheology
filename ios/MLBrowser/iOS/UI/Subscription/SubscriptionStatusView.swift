@@ -25,6 +25,11 @@ struct SubscriptionStatusView: View {
 	/// Restore feedback (AIA-0376): this Restore button was silent on every outcome.
 	@State private var notice: SubscriptionNotice?
 
+	/// Identifies the current refund-sheet presentation so the orphan-release timer can
+	/// tell "this presentation is still stuck" from "a new sheet was opened meanwhile" —
+	/// without it the timer could tear down a freshly opened sheet (AIA-0448).
+	@State private var refundGeneration = 0
+
 	var body: some View {
 		Form {
 			Section {
@@ -78,6 +83,7 @@ struct SubscriptionStatusView: View {
 							"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
 							logger: .state
 						)
+						refundGeneration += 1
 						showRefund = true
 					} label: {
 						HStack {
@@ -89,6 +95,13 @@ struct SubscriptionStatusView: View {
 					.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
 						LoggingPolicy.info("Refund sheet dismissed: \(result)", logger: .state)
 						notice = SubscriptionNotice.forRefund(result)
+						// Re-read entitlements now: on iOS-on-Mac the revocation's live
+						// Transaction.updates push never survives the bridge and the scene
+						// never backgrounds, so nothing else re-reads until relaunch
+						// (AIA-0448). Harmless in production — dismissal only means Apple
+						// RECEIVED the request, so the scan finds nothing revoked and the
+						// gate correctly stays down until real approval arrives.
+						Task { await subscriptionState.start() }
 					}
 				}
 			}
@@ -125,9 +138,11 @@ struct SubscriptionStatusView: View {
 	/// unlike the force-quit it replaces.
 	private func releaseOrphanedRefundPresentationOnMac() {
 		guard HostPlatform.current.isMac, showRefund else { return }
+		let generation = refundGeneration
 		Task { @MainActor in
 			try? await Task.sleep(for: .seconds(1.5))
-			guard showRefund else { return }
+			// Still the SAME stuck presentation — not a new sheet opened during the grace.
+			guard showRefund, refundGeneration == generation else { return }
 			LoggingPolicy.warning(
 				"Refund sheet never delivered its dismissal — releasing the orphaned presentation"
 					+ " (iOS-on-Mac teardown bug).",
