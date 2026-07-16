@@ -12,6 +12,11 @@ import XCTest
 /// vanish in real App Store production. The visual decoration is a SwiftUI overlay (not unit
 /// introspectable), but the gating decision — `AppEnvironment.purchasesUseSandbox`, the default
 /// for `underConstructionBadge()` — is, and that's the part that must not regress.
+///
+/// `@MainActor`: `UnderConstructionBadgeModifier` is a `ViewModifier`, so its `isActive` is
+/// main-actor-isolated; reading it inside XCTest's nonisolated assertion autoclosures warns
+/// otherwise (Swift 6 concurrency checking).
+@MainActor
 final class UnderConstructionBadgeModifierTests: XCTestCase {
 
 	func test_defaultGate_isActiveUnderTests() {

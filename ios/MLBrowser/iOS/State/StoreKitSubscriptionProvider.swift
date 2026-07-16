@@ -90,38 +90,49 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 		}
 	}
 
-	@discardableResult
-	func purchase(_ product: Product) async -> Bool {
+	// Not `@discardableResult`, matching ``SubscriptionProviding``: dropping this outcome is
+	// the AIA-0376 bug, and the attribute would re-open the hole for direct callers.
+	func purchase(_ product: Product) async -> PurchaseOutcome {
 		do {
 			let result = try await product.purchase(options: purchaseOptions())
 			switch result {
 			case .success(let verification):
 				guard let transaction = verified(verification) else {
 					LoggingPolicy.warning("Purchase returned an unverified transaction — ignoring.", logger: .state)
-					return false
+					return .failed
 				}
 				await transaction.finish()
 				await refreshEntitlement()
-				return isSubscribed
+				// The verified transaction *is* the proof of purchase, so the outcome is
+				// derived from it and never from `isSubscribed`. `currentEntitlements` is an
+				// async sequence over the local store: were the outcome gated on it, any lag
+				// would tell someone Apple just charged that their purchase failed. If the
+				// entitlement somehow still reads false the gate simply stays up — logged
+				// below, rather than accused.
+				if isSubscribed.not {
+					LoggingPolicy.error("Verified purchase did not yield an entitlement.", logger: .state)
+				}
+				return .subscribed
 			case .pending:
 				// Ask-to-Buy / SCA: the deferred transaction will arrive later via
 				// `Transaction.updates`. Not subscribed yet, but not an error.
 				LoggingPolicy.info("Purchase pending (Ask-to-Buy / deferred).", logger: .state)
-				return false
+				return .pending
 			case .userCancelled:
-				return false
+				return .cancelled
 			@unknown default:
 				LoggingPolicy.warning("Unknown purchase result.", logger: .state)
-				return false
+				return .failed
 			}
 		} catch {
 			LoggingPolicy.error("Purchase failed: \(error.localizedDescription)", logger: .state)
-			return false
+			return .failed
 		}
 	}
 
-	@discardableResult
-	func restore() async -> Bool {
+	// Not `@discardableResult` — see ``purchase(_:)``.
+	func restore() async -> RestoreOutcome {
+		var syncFailed = false
 		do {
 			// Re-sync with the App Store so entitlements reflect purchases made on other
 			// devices / after a reinstall, then recompute from current entitlements.
@@ -129,10 +140,17 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 		} catch {
 			// `sync()` throws on cancellation or no network; entitlement may still be
 			// valid locally, so just log and recompute.
+			syncFailed = true
 			LoggingPolicy.warning("AppStore.sync during restore failed: \(error.localizedDescription)", logger: .networking)
 		}
 		await refreshEntitlement()
-		return isSubscribed
+
+		// A local entitlement outranks a failed sync — that is the whole point of recomputing
+		// after the catch above. Only when there is nothing to show for it does the sync
+		// failure become the user's problem, and "the store said you own nothing" must not be
+		// reported as an error.
+		if isSubscribed { return .restored }
+		return syncFailed ? .failed : .nothingToRestore
 	}
 
 	// MARK: - Private
@@ -297,16 +315,23 @@ final class MockSubscriptionProvider: SubscriptionProviding {
 	func start() async {}
 	func loadProducts() async {}
 
-	@discardableResult
-	func purchase(_ product: Product) async -> Bool {
-		outcome = .subscribed
-		return true
+	/// What the next ``purchase(_:)`` resolves to. Defaults to `.subscribed` so existing
+	/// tests and the UI-test gate pass straight through; set it to drive the failure and
+	/// Ask-to-Buy branches without StoreKit (AIA-0376).
+	var purchaseOutcome: PurchaseOutcome = .subscribed
+
+	/// What the next ``restore()`` resolves to. Defaults to `.restored`, matching the
+	/// previous always-succeeds mock.
+	var restoreOutcome: RestoreOutcome = .restored
+
+	func purchase(_ product: Product) async -> PurchaseOutcome {
+		if purchaseOutcome == .subscribed { outcome = .subscribed }
+		return purchaseOutcome
 	}
 
-	@discardableResult
-	func restore() async -> Bool {
-		outcome = .subscribed
-		return true
+	func restore() async -> RestoreOutcome {
+		if restoreOutcome == .restored { outcome = .subscribed }
+		return restoreOutcome
 	}
 }
 #endif

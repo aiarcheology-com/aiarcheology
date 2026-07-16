@@ -197,3 +197,34 @@ swift run --package-path Tools ProjectTool secrets clean
 
 In Xcode Cloud, secrets are injected via environment variables in:
 - `ios/ci_scripts/ci_pre_xcodebuild.sh`
+
+## 💳 Testing purchases (AIA-0376)
+
+The `MLBrowser` scheme runs against the local `ios/MLBrowser/Configuration.storekit`, so
+purchases are simulated and never charge anything.
+
+⚠️ **Purchases do not verify on "My Mac (Designed for iPad)".** Xcode's StoreKit Testing
+certificate is not trusted by macOS by default, so the purchase sheet completes, StoreKit
+returns a transaction that fails verification, `verified()` correctly rejects it, and the app
+reports a failed purchase. This is the environment, not a bug.
+
+Use the **iOS Simulator** or **TestFlight** instead, where verification works. If you must
+test on My Mac, trust the StoreKit Testing certificate first:
+
+```
+Xcode ▸ Settings ▸ (with the app running) Debug ▸ StoreKit ▸ Enable StoreKit Testing certificate
+```
+
+then verify it appears as trusted in Keychain Access.
+
+**What each store environment gives you:**
+
+| Where | Store | Charges? |
+|-|-|-|
+| Simulator / device (Debug) | local `Configuration.storekit` | no |
+| My Mac (Designed for iPad) | local `.storekit` — ⚠️ **verification fails** unless the cert is trusted | no |
+| TestFlight | Apple **Sandbox** | no |
+| App Store | production | **yes** |
+
+To exercise the failure and Ask-to-Buy branches without StoreKit at all, set
+`MockSubscriptionProvider.purchaseOutcome` / `.restoreOutcome` — see `SubscriptionNoticeTests`.
