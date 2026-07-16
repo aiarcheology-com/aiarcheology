@@ -9,7 +9,6 @@
 import SwiftUI
 import StoreKit
 import OSLog
-import UIKit
 
 /// A message the paywall owes the user (AIA-0376).
 ///
@@ -233,38 +232,31 @@ struct PaywallView: View {
 		} message: {
 			Text(notice?.message ?? "")
 		}
-		.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-			releaseOrphanedRefundPresentationOnMac()
-		}
-		// didBecomeActive, not just willEnterForeground: on iOS-on-Mac the app never leaves
-		// the foreground during the refund flow, but clicking the (input-dead) window still
-		// grants it focus at the AppKit level — the one user action guaranteed to reach us
-		// while the phantom presentation eats every touch (AIA-0448).
-		.onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-			releaseOrphanedRefundPresentationOnMac()
-		}
 	}
 
-	/// AIA-0448, Mac only — the same orphaned-presentation release as
-	/// ``SubscriptionStatusView``, where the full story is documented: on iOS-on-Mac the
-	/// refund UI closes without delivering its dismissal, and the scene foregrounding is the
-	/// one signal that still arrives.
-	private func releaseOrphanedRefundPresentationOnMac() {
-		guard HostPlatform.current.isMac, showRefund else { return }
+	/// AIA-0448, Mac only — the same pull-based watchdog as ``SubscriptionStatusView``,
+	/// where the full story is documented: on iOS-on-Mac every push signal about the refund
+	/// sheet dies in the broken remote→host bridge, so a polling task we own detects the
+	/// auto-approved revocation in the store and releases the sheet flag.
+	private func startRefundWatchdogOnMac() {
+		guard HostPlatform.current.isMac else { return }
 		let generation = refundGeneration
 		Task { @MainActor in
-			try? await Task.sleep(for: .seconds(1.5))
-			// Still the SAME stuck presentation — not a new sheet opened during the grace.
-			guard showRefund, refundGeneration == generation else { return }
-			LoggingPolicy.warning(
-				"Refund sheet never delivered its dismissal — releasing the orphaned presentation"
-					+ " (iOS-on-Mac teardown bug).",
-				logger: .state
-			)
-			showRefund = false
-			// The lost dismissal also means the onDismiss resync never ran — re-read
-			// entitlements now so an already-approved refund raises the gate immediately.
-			await subscriptionState.start()
+			for _ in 0..<150 {
+				try? await Task.sleep(for: .seconds(2))
+				guard showRefund, refundGeneration == generation else { return }
+				await subscriptionState.start()
+				if !subscriptionState.isSubscribed {
+					LoggingPolicy.warning(
+						"Refund revocation detected by polling — releasing the sheet flag"
+							+ " (iOS-on-Mac bridge loss).",
+						logger: .state
+					)
+					showRefund = false
+					return
+				}
+			}
+			LoggingPolicy.info("Refund watchdog expired without a revocation.", logger: .state)
 		}
 	}
 
@@ -317,6 +309,7 @@ struct PaywallView: View {
 				)
 				refundGeneration += 1
 				showRefund = true
+				startRefundWatchdogOnMac()
 			} label: {
 				Text(L10n.Paywall.requestRefund)
 					.frame(maxWidth: .infinity)

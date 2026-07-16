@@ -7,7 +7,6 @@
 
 import SwiftUI
 import StoreKit
-import UIKit
 
 /// Pushed from Settings → Account → Subscription. Shows the subscription status (plan /
 /// state / renewal date) and routes all management through **Apple's native sheets** —
@@ -25,9 +24,8 @@ struct SubscriptionStatusView: View {
 	/// Restore feedback (AIA-0376): this Restore button was silent on every outcome.
 	@State private var notice: SubscriptionNotice?
 
-	/// Identifies the current refund-sheet presentation so the orphan-release timer can
-	/// tell "this presentation is still stuck" from "a new sheet was opened meanwhile" —
-	/// without it the timer could tear down a freshly opened sheet (AIA-0448).
+	/// Identifies the current refund-sheet presentation so the polling watchdog can tell
+	/// "this presentation is still up" from "a new sheet was opened meanwhile" (AIA-0448).
 	@State private var refundGeneration = 0
 
 	var body: some View {
@@ -85,6 +83,7 @@ struct SubscriptionStatusView: View {
 						)
 						refundGeneration += 1
 						showRefund = true
+						startRefundWatchdogOnMac()
 					} label: {
 						HStack {
 							Text(L10n.Paywall.requestRefund)
@@ -118,47 +117,39 @@ struct SubscriptionStatusView: View {
 			Text(notice?.message ?? "")
 		}
 		.task { await subscriptionState.loadProducts() }
-		.onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-			releaseOrphanedRefundPresentationOnMac()
-		}
-		// didBecomeActive, not just willEnterForeground: on iOS-on-Mac the app never leaves
-		// the foreground during the refund flow, but clicking the (input-dead) window still
-		// grants it focus at the AppKit level — the one user action guaranteed to reach us
-		// while the phantom presentation eats every touch (AIA-0448).
-		.onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-			releaseOrphanedRefundPresentationOnMac()
-		}
 	}
 
-	/// AIA-0448, Mac only. On iOS-on-Mac, StoreKit's refund UI closes without ever delivering
-	/// its dismissal to this process: `onDismiss` never fires, `showRefund` stays true, and the
-	/// orphaned host-side presentation blocks every touch until force-quit. The scene returning
-	/// to the foreground is the one signal that *does* arrive when the remote UI goes away
-	/// (it took the scene with it while presented), so the presentation is released from our
-	/// side — host-initiated dismissal doesn't need the broken remote→host channel.
+	/// AIA-0448, Mac only. On iOS-on-Mac every PUSH signal about the refund sheet dies in
+	/// the broken remote→host bridge: `onDismiss` never fires, and no scene notification
+	/// (foreground, focus) arrives while the phantom presentation eats input. So this PULLs:
+	/// a task we fully own polls the store while the sheet is marked presented. In the
+	/// testing environments a submitted refund auto-approves within seconds, so its
+	/// revocation appears in the local store; the entitlement re-read then publishes
+	/// `isSubscribed == false`, the root gate swaps to the paywall — tearing down this whole
+	/// Settings hierarchy, phantom included — and the sheet flag is released.
 	///
-	/// The grace period lets a well-behaved dismissal (should Apple fix the bridge) deliver its
-	/// result and flip `showRefund` first; the release then finds nothing to do. On iOS the
-	/// refund sheet never backgrounds the scene, and the Mac guard keeps this from firing there
-	/// at all. Known cost: clicking the app's window on the Mac while Apple's form is still open
-	/// also foregrounds the scene and would close the form — recoverable by re-requesting,
-	/// unlike the force-quit it replaces.
-	private func releaseOrphanedRefundPresentationOnMac() {
-		guard HostPlatform.current.isMac, showRefund else { return }
+	/// Bounded at ~5 minutes: in production a refund decision takes days, and a request the
+	/// user abandoned must not leave a polling loop running for the app's lifetime. On iOS
+	/// the watchdog never starts; `onDismiss` does this job there.
+	private func startRefundWatchdogOnMac() {
+		guard HostPlatform.current.isMac else { return }
 		let generation = refundGeneration
 		Task { @MainActor in
-			try? await Task.sleep(for: .seconds(1.5))
-			// Still the SAME stuck presentation — not a new sheet opened during the grace.
-			guard showRefund, refundGeneration == generation else { return }
-			LoggingPolicy.warning(
-				"Refund sheet never delivered its dismissal — releasing the orphaned presentation"
-					+ " (iOS-on-Mac teardown bug).",
-				logger: .state
-			)
-			showRefund = false
-			// The lost dismissal also means the onDismiss resync never ran — re-read
-			// entitlements now so an already-approved refund raises the gate immediately.
-			await subscriptionState.start()
+			for _ in 0..<150 {
+				try? await Task.sleep(for: .seconds(2))
+				guard showRefund, refundGeneration == generation else { return }
+				await subscriptionState.start()
+				if !subscriptionState.isSubscribed {
+					LoggingPolicy.warning(
+						"Refund revocation detected by polling — releasing the sheet flag"
+							+ " (iOS-on-Mac bridge loss).",
+						logger: .state
+					)
+					showRefund = false
+					return
+				}
+			}
+			LoggingPolicy.info("Refund watchdog expired without a revocation.", logger: .state)
 		}
 	}
 
