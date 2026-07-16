@@ -228,3 +228,22 @@ then verify it appears as trusted in Keychain Access.
 
 To exercise the failure and Ask-to-Buy branches without StoreKit at all, set
 `MockSubscriptionProvider.purchaseOutcome` / `.restoreOutcome` — see `SubscriptionNoticeTests`.
+
+### Refunds (AIA-0448)
+
+Per Apple's [Testing refund requests](https://developer.apple.com/documentation/storekit/testing-refund-requests):
+in **any testing environment** (local `.storekit` and Sandbox) submitting the refund sheet with
+any reason **auto-approves immediately** — the revocation lands in `Transaction.updates`
+(breadcrumb: `Transaction update: … revoked=true`), the entitlement drops, and the paywall
+rises. To test a **declined** refund (Sandbox): choose *Other*, type `DECLINE`, submit. In
+**production** Apple decides within ~48h and emails the customer; the revocation is the app's
+only signal, so the paywall correctly follows *approval*, never submission.
+
+⚠️ **iOS-on-Mac bridge loss (undocumented):** on "My Mac (Designed for iPad)" every push
+signal about the refund sheet dies in the remote→host bridge — `onDismiss` never fires, no
+scene notification arrives, and the orphaned presentation blocks all input. The workaround is
+**pull-based and Mac-only** (`startRefundWatchdogOnMac`): a task started at the tap polls the
+store every 2s; when the auto-approved revocation appears, the entitlement re-read raises the
+paywall and the root swap tears down the stuck presentation (log: `Refund revocation detected
+by polling…`; bounded at ~5 min). iPhone/iPad never start the watchdog — `onDismiss` works
+there. Refunds can also be issued from **Debug ▸ StoreKit ▸ Manage Transactions…**.

@@ -187,7 +187,22 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 	/// Handle a transaction pushed via `Transaction.updates` (renewals, deferred
 	/// Ask-to-Buy approvals, refunds/revocations).
 	private func handle(_ result: VerificationResult<Transaction>) async {
-		guard let transaction = verified(result) else { return }
+		guard let transaction = verified(result) else {
+			// Not silent: on My Mac the StoreKit Testing certificate is untrusted, so even
+			// genuine updates (e.g. a refund revocation) fail verification here — dropping
+			// them without a trace made "the update never arrived" indistinguishable from
+			// "it arrived and was rejected" (AIA-0448).
+			LoggingPolicy.warning("Transaction update failed verification — dropped.", logger: .state)
+			return
+		}
+		// A granted refund arrives HERE, as a revocation — not as any callback on the screen
+		// that requested it. This line is the only breadcrumb tying the entitlement flip that
+		// follows back to its cause (AIA-0448).
+		LoggingPolicy.info(
+			"Transaction update: id=\(transaction.id) product=\(transaction.productID)"
+				+ " revoked=\(transaction.revocationDate != nil)",
+			logger: .state
+		)
 		await transaction.finish()
 		await refreshEntitlement()
 		// Republish to SubscriptionState — this update came from the background listener,
