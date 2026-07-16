@@ -127,10 +127,15 @@ struct PaywallView: View {
 	/// Drives Apple's in-app refund request sheet for the active subscription.
 	@State private var showRefund = false
 
-	/// Identifies the current refund-sheet presentation so the orphan-release timer can
-	/// tell "this presentation is still stuck" from "a new sheet was opened meanwhile"
-	/// (AIA-0448) — see SubscriptionStatusView.
+	/// Identifies the current refund-sheet presentation so the polling watchdog can tell
+	/// "this presentation is still up" from "a new sheet was opened meanwhile" (AIA-0448)
+	/// — see SubscriptionStatusView.
 	@State private var refundGeneration = 0
+
+	/// True while any StoreKit flow owns this screen — a purchase/restore round-trip, or the
+	/// refund sheet on its way up. Consulted inside each action rather than via `.disabled`
+	/// on its siblings; see ``SubscriptionStatusView/isBusy`` for why (AIA-0448).
+	private var isBusy: Bool { inFlight != nil || showRefund }
 
 	/// Presents the in-app Privacy Policy (App Review requires it on the purchase screen).
 	@State private var showPrivacy = false
@@ -239,7 +244,10 @@ struct PaywallView: View {
 	/// sheet dies in the broken remote→host bridge, so a polling task we own detects the
 	/// auto-approved revocation in the store and releases the sheet flag.
 	private func startRefundWatchdogOnMac() {
-		guard HostPlatform.current.isMac else { return }
+		// `.macDesignedForiPad`, not `.isMac`: the bug is specific to the iOS-on-Mac
+		// runtime. Catalyst hosts StoreKit UI differently and is untested here, so it
+		// must not silently inherit a workaround for a bug it may not have.
+		guard HostPlatform.current == .macDesignedForiPad else { return }
 		let generation = refundGeneration
 		Task { @MainActor in
 			for _ in 0..<150 {
@@ -275,10 +283,14 @@ struct PaywallView: View {
 		}
 
 		Button {
+			guard isBusy.not else { return }
+			// Synchronous, before the Task: the body runs on a later turn of the main actor,
+			// so a second tap can enqueue a second restore before a flag set inside the Task
+			// would stop it.
+			inFlight = .restore
 			Task {
-				inFlight = .restore
+				defer { inFlight = nil }
 				let outcome = await subscriptionState.restore()
-				inFlight = nil
 				notice = SubscriptionNotice.forRestore(outcome)
 			}
 		} label: {
@@ -303,6 +315,7 @@ struct PaywallView: View {
 			// see SubscriptionStatusView (AIA-0448). Both the text and the spinner are
 			// always in the tree and only trade opacities.
 			Button(role: .destructive) {
+				guard isBusy.not else { return }
 				LoggingPolicy.info(
 					"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
 					logger: .state
@@ -314,7 +327,14 @@ struct PaywallView: View {
 				Text(L10n.Paywall.requestRefund)
 					.frame(maxWidth: .infinity)
 					.opacity(showRefund ? 0 : 1)
-					.overlay { ProgressView().opacity(showRefund ? 1 : 0) }
+					// Decorative, hidden from VoiceOver with a CONSTANT — a dynamic
+					// `.accessibilityHidden` would be another attribute mutating on the
+					// presenting view at exactly the wrong moment (AIA-0448).
+					.overlay {
+						ProgressView()
+							.opacity(showRefund ? 1 : 0)
+							.accessibilityHidden(true)
+					}
 			}
 			.buttonStyle(.bordered)
 			.controlSize(.large)
@@ -414,11 +434,13 @@ struct PaywallView: View {
 		}
 
 		Button {
+			guard isBusy.not else { return }
 			analytics?.track(.subscribeTapped)
+			// Synchronous, before the Task — see the Restore button above.
+			inFlight = .purchase
 			Task {
-				inFlight = .purchase
+				defer { inFlight = nil }
 				let outcome = await subscriptionState.purchase(product)
-				inFlight = nil
 				// Dismiss on the outcome, not on the published entitlement: the verified
 				// transaction is the proof of purchase, and `isSubscribed` recomputes from an
 				// async entitlement sequence that may not have caught up yet.

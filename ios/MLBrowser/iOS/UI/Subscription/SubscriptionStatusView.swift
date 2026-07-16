@@ -28,6 +28,15 @@ struct SubscriptionStatusView: View {
 	/// "this presentation is still up" from "a new sheet was opened meanwhile" (AIA-0448).
 	@State private var refundGeneration = 0
 
+	/// True while any StoreKit flow owns this screen — a restore round-trip, or a system
+	/// sheet on its way up.
+	///
+	/// Each action consults this in its own closure instead of the actions disabling one
+	/// another through `.disabled`. Same protection against overlapping StoreKit flows, but a
+	/// guard costs no re-render: making a row's attributes depend on `showRefund` is the churn
+	/// class that wedged the refund sheet's dismissal on iOS-on-Mac (AIA-0448).
+	private var isBusy: Bool { isWorking || showRefund || showManage }
+
 	var body: some View {
 		Form {
 			Section {
@@ -51,13 +60,20 @@ struct SubscriptionStatusView: View {
 			Section {
 				// Cancel / change plan happens in Apple's native sheet (Apple doesn't permit
 				// in-app programmatic cancellation — this is the compliant path).
-				Button(L10n.Paywall.manage) { showManage = true }
+				Button(L10n.Paywall.manage) {
+					guard isBusy.not else { return }
+					showManage = true
+				}
 
 				Button {
+					guard isBusy.not else { return }
+					// Synchronous, before the Task: the body runs on a later turn of the main
+					// actor, so a second tap can enqueue a second restore before a flag set
+					// inside the Task would stop it.
+					isWorking = true
 					Task {
-						isWorking = true
+						defer { isWorking = false }
 						let outcome = await subscriptionState.restore()
-						isWorking = false
 						notice = SubscriptionNotice.forRestore(outcome)
 					}
 				} label: {
@@ -77,6 +93,7 @@ struct SubscriptionStatusView: View {
 					// iOS-on-Mac (terminal hang), while the structurally static row recovered
 					// (AIA-0448). The spinner is therefore always in the tree and only fades in.
 					Button(role: .destructive) {
+						guard isBusy.not else { return }
 						LoggingPolicy.info(
 							"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
 							logger: .state
@@ -88,7 +105,13 @@ struct SubscriptionStatusView: View {
 						HStack {
 							Text(L10n.Paywall.requestRefund)
 							Spacer()
-							ProgressView().opacity(showRefund ? 1 : 0)
+							// Decorative, and hidden from VoiceOver with a CONSTANT — a
+							// dynamic `.accessibilityHidden(showRefund.not)` would be one more
+							// attribute mutating on the presenting row at exactly the wrong
+							// moment (AIA-0448).
+							ProgressView()
+								.opacity(showRefund ? 1 : 0)
+								.accessibilityHidden(true)
 						}
 					}
 					.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
@@ -132,7 +155,10 @@ struct SubscriptionStatusView: View {
 	/// user abandoned must not leave a polling loop running for the app's lifetime. On iOS
 	/// the watchdog never starts; `onDismiss` does this job there.
 	private func startRefundWatchdogOnMac() {
-		guard HostPlatform.current.isMac else { return }
+		// `.macDesignedForiPad`, not `.isMac`: the bug is specific to the iOS-on-Mac
+		// runtime. Catalyst hosts StoreKit UI differently and is untested here, so it
+		// must not silently inherit a workaround for a bug it may not have.
+		guard HostPlatform.current == .macDesignedForiPad else { return }
 		let generation = refundGeneration
 		Task { @MainActor in
 			for _ in 0..<150 {
