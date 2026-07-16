@@ -24,6 +24,14 @@ struct SubscriptionStatusView: View {
 	/// Restore feedback (AIA-0376): this Restore button was silent on every outcome.
 	@State private var notice: SubscriptionNotice?
 
+	/// Mac refund routing (AIA-0448) — see the refund button below.
+	@Environment(\.openURL) private var openURL
+
+	/// Apple's canonical refund page. The hardcoded literal always parses, so the
+	/// force-unwrap cannot fail.
+	// swiftlint:disable:next force_unwrapping
+	private static let reportAProblemURL = URL(string: "https://reportaproblem.apple.com")!
+
 	var body: some View {
 		Form {
 			Section {
@@ -66,36 +74,55 @@ struct SubscriptionStatusView: View {
 				.disabled(isWorking)
 
 				if let transactionID = subscriptionState.currentTransactionID {
-					// The spinner is tied to `showRefund` because `refundRequestSheet` offers no
-					// "did present" signal — and the seconds between the tap and Apple's sheet
-					// appearing are exactly the window that read as a frozen app (AIA-0448).
-					// While the sheet is up the row sits behind it, so the lingering spinner is
-					// harmless; the binding flips back on dismiss.
-					Button(role: .destructive) {
-						LoggingPolicy.info(
-							"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
-							logger: .state
-						)
-						showRefund = true
-					} label: {
-						HStack {
+					if HostPlatform.current.isMac {
+						// On the Mac, StoreKit's out-of-process refund sheet can fail to tear
+						// down: Apple's "submitted" confirmation comes and goes, `onDismiss`
+						// never fires, and an invisible modal leaves the whole app input-dead
+						// until force-quit (observed live in AIA-0448 — the log shows the tap
+						// breadcrumb with no dismissal after it). Apple's website is the
+						// canonical refund path, so the Mac routes there instead.
+						Button(role: .destructive) {
+							LoggingPolicy.info(
+								"Refund requested — routing to reportaproblem.apple.com"
+									+ " (StoreKit's refund sheet hangs iOS-on-Mac).",
+								logger: .state
+							)
+							openURL(Self.reportAProblemURL)
+						} label: {
 							Text(L10n.Paywall.requestRefund)
-							Spacer()
-							if showRefund { ProgressView() }
 						}
-					}
-					.disabled(showRefund)
-					.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
-						LoggingPolicy.info("Refund sheet dismissed: \(result)", logger: .state)
-						notice = SubscriptionNotice.forRefund(result)
-					}
+					} else {
+						// The spinner is tied to `showRefund` because `refundRequestSheet` offers
+						// no "did present" signal — and the seconds between the tap and Apple's
+						// sheet appearing are exactly the window that read as a frozen app
+						// (AIA-0448). While the sheet is up the row sits behind it, so the
+						// lingering spinner is harmless; the binding flips back on dismiss.
+						Button(role: .destructive) {
+							LoggingPolicy.info(
+								"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
+								logger: .state
+							)
+							showRefund = true
+						} label: {
+							HStack {
+								Text(L10n.Paywall.requestRefund)
+								Spacer()
+								if showRefund { ProgressView() }
+							}
+						}
+						.disabled(showRefund)
+						.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
+							LoggingPolicy.info("Refund sheet dismissed: \(result)", logger: .state)
+							notice = SubscriptionNotice.forRefund(result)
+						}
 
-					if showRefund {
-						// Reassure during the silent tap-to-sheet gap. Disappears when the
-						// sheet's dismissal flips `showRefund` back.
-						Text(L10n.Subscription.Refund.preparing)
-							.font(.footnote)
-							.foregroundStyle(.secondary)
+						if showRefund {
+							// Reassure during the silent tap-to-sheet gap. Disappears when the
+							// sheet's dismissal flips `showRefund` back.
+							Text(L10n.Subscription.Refund.preparing)
+								.font(.footnote)
+								.foregroundStyle(.secondary)
+						}
 					}
 				}
 			}

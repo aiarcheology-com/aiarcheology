@@ -114,6 +114,9 @@ struct PaywallView: View {
 
 	@Environment(\.dismiss) private var dismiss
 
+	/// Mac refund routing (AIA-0448) — see the refund button below.
+	@Environment(\.openURL) private var openURL
+
 	/// The purchase/restore round-trip currently in flight, or `nil` when idle. Knowing
 	/// *which* action runs (not just a Bool) lets the tapped button show its own spinner —
 	/// without it the disabled buttons read as a frozen app while StoreKit takes seconds
@@ -266,35 +269,54 @@ struct PaywallView: View {
 		// Request a refund via Apple's native sheet — only for an active subscription
 		// (Apple owns the decision; this just opens the request flow).
 		if subscriptionState.isSubscribed, let transactionID = subscriptionState.currentTransactionID {
-			// Spinner tied to `showRefund`: no "did present" callback exists, and the seconds
-			// before Apple's sheet appears are the window that reads as a freeze (AIA-0448).
-			Button(role: .destructive) {
-				LoggingPolicy.info(
-					"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
-					logger: .state
-				)
-				showRefund = true
-			} label: {
-				Text(L10n.Paywall.requestRefund)
-					.frame(maxWidth: .infinity)
-					.opacity(showRefund ? 0 : 1)
-					.overlay { if showRefund { ProgressView() } }
-			}
-			.buttonStyle(.bordered)
-			.controlSize(.large)
-			.disabled(showRefund)
-			.testability(Testability.Button.paywallRequestRefund)
-			.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
-				LoggingPolicy.info("Refund sheet dismissed: \(result)", logger: .state)
-				notice = SubscriptionNotice.forRefund(result)
-			}
+			if HostPlatform.current.isMac {
+				// On the Mac, StoreKit's out-of-process refund sheet can fail to tear down,
+				// leaving the whole app input-dead — see SubscriptionStatusView for the full
+				// story (AIA-0448). Apple's website is the canonical refund path; route there.
+				Button(role: .destructive) {
+					LoggingPolicy.info(
+						"Refund requested — routing to reportaproblem.apple.com"
+							+ " (StoreKit's refund sheet hangs iOS-on-Mac).",
+						logger: .state
+					)
+					openURL(Self.reportAProblemURL)
+				} label: {
+					Text(L10n.Paywall.requestRefund).frame(maxWidth: .infinity)
+				}
+				.buttonStyle(.bordered)
+				.controlSize(.large)
+				.testability(Testability.Button.paywallRequestRefund)
+			} else {
+				// Spinner tied to `showRefund`: no "did present" callback exists, and the seconds
+				// before Apple's sheet appears are the window that reads as a freeze (AIA-0448).
+				Button(role: .destructive) {
+					LoggingPolicy.info(
+						"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
+						logger: .state
+					)
+					showRefund = true
+				} label: {
+					Text(L10n.Paywall.requestRefund)
+						.frame(maxWidth: .infinity)
+						.opacity(showRefund ? 0 : 1)
+						.overlay { if showRefund { ProgressView() } }
+				}
+				.buttonStyle(.bordered)
+				.controlSize(.large)
+				.disabled(showRefund)
+				.testability(Testability.Button.paywallRequestRefund)
+				.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
+					LoggingPolicy.info("Refund sheet dismissed: \(result)", logger: .state)
+					notice = SubscriptionNotice.forRefund(result)
+				}
 
-			if showRefund {
-				// Reassure during the silent tap-to-sheet gap (AIA-0448).
-				Text(L10n.Subscription.Refund.preparing)
-					.font(.footnote)
-					.foregroundStyle(.secondary)
-					.multilineTextAlignment(.center)
+				if showRefund {
+					// Reassure during the silent tap-to-sheet gap (AIA-0448).
+					Text(L10n.Subscription.Refund.preparing)
+						.font(.footnote)
+						.foregroundStyle(.secondary)
+						.multilineTextAlignment(.center)
+				}
 			}
 		}
 
@@ -417,6 +439,11 @@ struct PaywallView: View {
 	/// parses, so the force-unwrap cannot fail.
 	// swiftlint:disable:next force_unwrapping
 	private static let manageSubscriptionsURL = URL(string: "https://apps.apple.com/account/subscriptions")!
+
+	/// Apple's canonical refund page — the Mac refund path (AIA-0448). The hardcoded
+	/// literal always parses, so the force-unwrap cannot fail.
+	// swiftlint:disable:next force_unwrapping
+	private static let reportAProblemURL = URL(string: "https://reportaproblem.apple.com")!
 
 	/// Apple's standard EULA, accepted as the Terms of Use when no custom one is provided.
 	// swiftlint:disable:next force_unwrapping
