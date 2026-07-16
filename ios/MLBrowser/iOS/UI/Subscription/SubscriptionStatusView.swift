@@ -49,20 +49,38 @@ struct SubscriptionStatusView: View {
 				// in-app programmatic cancellation — this is the compliant path).
 				Button(L10n.Paywall.manage) { showManage = true }
 
-				Button(L10n.Paywall.restore) {
+				Button {
 					Task {
 						isWorking = true
 						let outcome = await subscriptionState.restore()
 						isWorking = false
 						notice = SubscriptionNotice.forRestore(outcome)
 					}
+				} label: {
+					HStack {
+						Text(L10n.Paywall.restore)
+						Spacer()
+						if isWorking { ProgressView() }
+					}
 				}
 				.disabled(isWorking)
 
 				if let transactionID = subscriptionState.currentTransactionID {
-					Button(L10n.Paywall.requestRefund, role: .destructive) {
+					// The spinner is tied to `showRefund` because `refundRequestSheet` offers no
+					// "did present" signal — and the seconds between the tap and Apple's sheet
+					// appearing are exactly the window that read as a frozen app (AIA-0448).
+					// While the sheet is up the row sits behind it, so the lingering spinner is
+					// harmless; the binding flips back on dismiss.
+					Button(role: .destructive) {
 						showRefund = true
+					} label: {
+						HStack {
+							Text(L10n.Paywall.requestRefund)
+							Spacer()
+							if showRefund { ProgressView() }
+						}
 					}
+					.disabled(showRefund)
 					.refundRequestSheet(for: transactionID, isPresented: $showRefund)
 				}
 			}

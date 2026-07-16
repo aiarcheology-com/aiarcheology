@@ -75,8 +75,15 @@ struct PaywallView: View {
 
 	@Environment(\.dismiss) private var dismiss
 
-	/// Disables the action buttons while a purchase/restore round-trip is in flight.
-	@State private var isWorking = false
+	/// The purchase/restore round-trip currently in flight, or `nil` when idle. Knowing
+	/// *which* action runs (not just a Bool) lets the tapped button show its own spinner —
+	/// without it the disabled buttons read as a frozen app while StoreKit takes seconds
+	/// to present its sheet (AIA-0448).
+	private enum InFlightAction {
+		case purchase
+		case restore
+	}
+	@State private var inFlight: InFlightAction?
 
 	/// Drives Apple's in-app refund request sheet for the active subscription.
 	@State private var showRefund = false
@@ -199,30 +206,40 @@ struct PaywallView: View {
 
 		Button {
 			Task {
-				isWorking = true
+				inFlight = .restore
 				let outcome = await subscriptionState.restore()
-				isWorking = false
+				inFlight = nil
 				notice = SubscriptionNotice.forRestore(outcome)
 			}
 		} label: {
+			// Opacity + overlay (not an if/else swap) so the spinner never changes the
+			// button's size mid-flight.
 			Text(L10n.Paywall.restore)
 				.frame(maxWidth: .infinity)
+				.opacity(inFlight == .restore ? 0 : 1)
+				.overlay { if inFlight == .restore { ProgressView() } }
 		}
 		.buttonStyle(.bordered)
 		.controlSize(.large)
-		.disabled(isWorking)
+		.disabled(inFlight != nil)
 		.testability(Testability.Button.paywallRestore)
 
 		// Request a refund via Apple's native sheet — only for an active subscription
 		// (Apple owns the decision; this just opens the request flow).
 		if subscriptionState.isSubscribed, let transactionID = subscriptionState.currentTransactionID {
+			// Spinner tied to `showRefund`: no "did present" callback exists, and the seconds
+			// before Apple's sheet appears are the window that reads as a freeze (AIA-0448).
 			Button(role: .destructive) {
 				showRefund = true
 			} label: {
-				Text(L10n.Paywall.requestRefund).frame(maxWidth: .infinity)
+				Text(L10n.Paywall.requestRefund)
+					.frame(maxWidth: .infinity)
+					.opacity(showRefund ? 0 : 1)
+					.overlay { if showRefund { ProgressView() } }
 			}
 			.buttonStyle(.bordered)
 			.controlSize(.large)
+			.disabled(showRefund)
 			.testability(Testability.Button.paywallRequestRefund)
 			.refundRequestSheet(for: transactionID, isPresented: $showRefund)
 		}
@@ -316,9 +333,9 @@ struct PaywallView: View {
 		Button {
 			analytics?.track(.subscribeTapped)
 			Task {
-				isWorking = true
+				inFlight = .purchase
 				let outcome = await subscriptionState.purchase(product)
-				isWorking = false
+				inFlight = nil
 				// Dismiss on the outcome, not on the published entitlement: the verified
 				// transaction is the proof of purchase, and `isSubscribed` recomputes from an
 				// async entitlement sequence that may not have caught up yet.
@@ -329,11 +346,13 @@ struct PaywallView: View {
 			Text(L10n.Paywall.subscribe)
 				.fontWeight(.bold)
 				.frame(maxWidth: .infinity)
+				.opacity(inFlight == .purchase ? 0 : 1)
+				.overlay { if inFlight == .purchase { ProgressView() } }
 		}
 		.buttonStyle(.borderedProminent)
 		.tint(.green)
 		.controlSize(.large)
-		.disabled(isWorking || subscriptionState.isSubscribed)
+		.disabled(inFlight != nil || subscriptionState.isSubscribed)
 		.testability(Testability.Button.paywallSubscribe)
 		// In non-production builds the purchase runs against Apple's Sandbox (no real
 		// charge); flag the button so testers know it's safe to tap (AIA-0354).
