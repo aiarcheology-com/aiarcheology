@@ -14,8 +14,8 @@ final class EmailController: NSObject, @MainActor MFMailComposeViewControllerDel
 	public static let shared = EmailController()
 	private override init() { }
 
-	/// An attachment the **user** chose to include (AIA-0454). The app never originates image
-	/// data here: the only caller passes a photo the user picked out of their own library.
+	/// An attachment the **user** chose to include (AIA-0454): either a photo picked from their
+	/// library or a redacted/unredacted application-log tail expressly enabled in the support form.
 	struct Attachment {
 		let data: Data
 		let mimeType: String
@@ -90,7 +90,7 @@ final class EmailController: NSObject, @MainActor MFMailComposeViewControllerDel
 	/// The last-resort tier when `sendEmail` reports `.mailNotConfigured`: honours whatever mail
 	/// app the user has set as default (iOS 14+), which `MFMailComposeViewController` does not.
 	/// **Cannot carry attachments** — `mailto:` has no such field (RFC 6068) — so callers must tell
-	/// the user their screenshot did not come along.
+	/// the user their attachments did not come along.
 	@discardableResult
 	func openMailto(subject: String, body: String, to recipient: String) async -> Bool {
 		// URLComponents applies query-component encoding; `.urlPathAllowed` would leave `&` and `=`

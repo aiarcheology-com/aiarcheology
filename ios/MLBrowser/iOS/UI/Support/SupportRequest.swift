@@ -27,8 +27,12 @@ import Foundation
 /// A support email the user reads before sending is the opposite case. Do not "fix" this by
 /// stripping the URL; that would restore the bug it was added to solve.
 ///
-/// A raw log tail is **not** included, and must not be: the user cannot review hundreds of lines in
-/// a compose sheet, so attaching one would break the very property above. See AIA-0194.
+/// A redacted application-log tail is attached only when the user explicitly enables **Include
+/// application log**. They can separately and explicitly choose **Send unredacted data** when
+/// complete URLs, identifiers, and location data are needed to reproduce the problem. Either
+/// choice produces a bounded five-MiB attachment that the user can remove from the mail composer
+/// before sending. This explicit, reversible choice is the consent boundary for diagnostic data that does
+/// not fit in the visible email body.
 struct SupportRequest {
 	/// The support inbox. The one definition every surface uses — the Contact row that displays
 	/// it, the composer that mails it, and the fallback copy that names it.

@@ -194,6 +194,8 @@ extension TestabilityIdentification {
 		case settingsGrid3x3Tiling
 		case settingsTiledBorders
 		case supportSettingsDetectScreenshots
+		case supportRequestIncludeApplicationLog
+		case supportRequestSendUnredactedData
 		// Configuration Form — per-model finding flash (AIA-0374)
 		case configurationFormFlashOnFinding
 		// Side Menu Cell

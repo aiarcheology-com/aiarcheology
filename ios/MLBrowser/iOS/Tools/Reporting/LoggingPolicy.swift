@@ -41,6 +41,36 @@ enum LogRedactor {
 /// LoggingPolicy.fault("Core Data stack corrupted", logger: .persistence)
 /// ```
 enum LoggingPolicy {
+	/// The newest log entries, retained only while the app is running. The user can explicitly
+	/// choose either redacted or unredacted data for a support-email attachment; neither is sent
+	/// automatically.
+	private static let redactedApplicationLogBuffer = ApplicationLogBuffer(
+		maximumByteCount: ApplicationLogBuffer.maximumByteCount
+	)
+	private static let unredactedApplicationLogBuffer = ApplicationLogBuffer(
+		maximumByteCount: ApplicationLogBuffer.maximumByteCount
+	)
+
+	/// Returns the latest five MiB of application-log entries for a user-selected support-email
+	/// attachment. The default is redacted. When the user expressly enables unredacted data, the
+	/// raw message text — including URLs, identifiers, and location data — is returned instead.
+	static func recentApplicationLogData(sendUnredactedData: Bool = false) -> Data {
+		(sendUnredactedData ? unredactedApplicationLogBuffer : redactedApplicationLogBuffer).snapshotData()
+	}
+
+	private static func retainForSupportEmail(
+		redactedMessage: String,
+		unredactedMessage: String,
+		level: String,
+		category: String
+	) {
+		redactedApplicationLogBuffer.append("[\(level)] [\(category)] \(redactedMessage)")
+		unredactedApplicationLogBuffer.append("[\(level)] [\(category)] \(unredactedMessage)")
+	}
+
+	private static func retainUnredactedForSupportEmail(_ message: String, level: String, category: String) {
+		unredactedApplicationLogBuffer.append("[\(level)] [\(category)] \(message)")
+	}
     
     // MARK: - Logging Levels
     
@@ -60,12 +90,19 @@ enum LoggingPolicy {
         file: String = #file,
         line: UInt = #line
     ) {
-        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + LogRedactor.redactingURLs(message)
+        let unredactedPrefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
+        let prefixedMessage = LogRedactor.redactingURLs(unredactedPrefixedMessage)
 
         // 1. Local (Console.app / Xcode; release builds discard debug-level os.log)
         logger.logDebug(prefixedMessage)
 
 #if DEBUG
+		retainForSupportEmail(
+			redactedMessage: prefixedMessage,
+			unredactedMessage: unredactedPrefixedMessage,
+			level: "DEBUG",
+			category: category
+		)
         // 2. Remote breadcrumb (only uploaded with crash/error events)
         Observability.recordBreadcrumb(prefixedMessage, level: .debug, category: category)
 #endif
@@ -85,10 +122,17 @@ enum LoggingPolicy {
         file: String = #file,
         line: UInt = #line
     ) {
-        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + LogRedactor.redactingURLs(message)
+        let unredactedPrefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
+        let prefixedMessage = LogRedactor.redactingURLs(unredactedPrefixedMessage)
 
         // 1. Local
         logger.logInfo(prefixedMessage)
+		retainForSupportEmail(
+			redactedMessage: prefixedMessage,
+			unredactedMessage: unredactedPrefixedMessage,
+			level: "INFO",
+			category: category
+		)
 
         // 2. Remote breadcrumb (FREE)
         Observability.recordBreadcrumb(prefixedMessage, level: .info, category: category)
@@ -107,10 +151,17 @@ enum LoggingPolicy {
         file: String = #file,
         line: UInt = #line
     ) {
-        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + LogRedactor.redactingURLs(message)
+        let unredactedPrefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
+        let prefixedMessage = LogRedactor.redactingURLs(unredactedPrefixedMessage)
 
         // 1. Local
         logger.logWarning(prefixedMessage)
+		retainForSupportEmail(
+			redactedMessage: prefixedMessage,
+			unredactedMessage: unredactedPrefixedMessage,
+			level: "WARNING",
+			category: category
+		)
 
         // 2. Remote breadcrumb (FREE)
         Observability.recordBreadcrumb(prefixedMessage, level: .warning, category: category)
@@ -130,20 +181,30 @@ enum LoggingPolicy {
         file: String = #file,
         line: UInt = #line
     ) {
-        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + LogRedactor.redactingURLs(message)
+        let unredactedPrefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
+        let prefixedMessage = LogRedactor.redactingURLs(unredactedPrefixedMessage)
         // The error description is appended locally for readability; the remote capture
         // receives the clean message because the crash-reporting service appends the
         // description itself (appending here too produced "msg: desc: desc" in Sentry).
         // System error descriptions often embed the failing URL — redact those too.
         let localMessage: String
+        let unredactedLocalMessage: String
         if let error = error {
             localMessage = "\(prefixedMessage): \(LogRedactor.redactingURLs(error.localizedDescription))"
+			unredactedLocalMessage = "\(unredactedPrefixedMessage): \(error.localizedDescription)"
         } else {
             localMessage = prefixedMessage
+			unredactedLocalMessage = unredactedPrefixedMessage
         }
 
         // 1. Local
         logger.logError(localMessage)
+		retainForSupportEmail(
+			redactedMessage: localMessage,
+			unredactedMessage: unredactedLocalMessage,
+			level: "ERROR",
+			category: category
+		)
 
         // 2. Remote capture (QUOTA - counts toward event limit)
         // Also add as breadcrumb for context in future events
@@ -165,10 +226,17 @@ enum LoggingPolicy {
         file: String = #file,
         line: UInt = #line
     ) {
-        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + LogRedactor.redactingURLs(message)
+        let unredactedPrefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
+        let prefixedMessage = LogRedactor.redactingURLs(unredactedPrefixedMessage)
 
         // 1. Local
         logger.logFault(prefixedMessage)
+		retainForSupportEmail(
+			redactedMessage: prefixedMessage,
+			unredactedMessage: unredactedPrefixedMessage,
+			level: "FAULT",
+			category: category
+		)
 
         // 2. Remote capture (QUOTA - critical issues)
         Observability.recordBreadcrumb(prefixedMessage, level: .fatal, category: category)
@@ -187,6 +255,12 @@ enum LoggingPolicy {
     ) -> Never {
         let fileName = (filePath as NSString).lastPathComponent
         let fullMessage = "CRITICAL FAILURE at \(fileName):\(line): \(message)"
+		retainForSupportEmail(
+			redactedMessage: LogRedactor.redactingURLs(fullMessage),
+			unredactedMessage: fullMessage,
+			level: "FAULT",
+			category: "app.log"
+		)
         
         Logger.app.logFault(fullMessage)
         Observability.captureFault(fullMessage)
@@ -204,6 +278,12 @@ enum LoggingPolicy {
     ) {
         let fileName = (filePath as NSString).lastPathComponent
         let fullMessage = "ASSERTION FAILURE at \(fileName):\(line): \(message)"
+		retainForSupportEmail(
+			redactedMessage: LogRedactor.redactingURLs(fullMessage),
+			unredactedMessage: fullMessage,
+			level: "FAULT",
+			category: "app.log"
+		)
         
 #if DEBUG
         Logger.app.logFault(fullMessage)
@@ -226,6 +306,9 @@ enum LoggingPolicy {
         line: UInt = #line
     ) {
         let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
+		// This is excluded from the redacted support attachment. It is retained only in the
+		// separate raw tail for a user who explicitly chooses to send unredacted diagnostic data.
+		retainUnredactedForSupportEmail(prefixedMessage, level: "PRIVATE DEBUG", category: "app.log")
         
 #if DEBUG
         logger.logDebug(prefixedMessage)
@@ -235,6 +318,48 @@ enum LoggingPolicy {
         logger.debug("\(prefixedMessage, privacy: .private)")
 #endif
     }
+}
+
+/// A thread-safe, bounded tail of redacted text log entries. Keeping a tail rather than a count
+/// means a burst of verbose events cannot make a support email exceed the five-MiB limit.
+final class ApplicationLogBuffer: @unchecked Sendable {
+	static let maximumByteCount = 5 * 1_024 * 1_024
+
+	private let lock = NSLock()
+	private let maximumByteCount: Int
+	private var logTail = Data()
+
+	init(maximumByteCount: Int) {
+		self.maximumByteCount = maximumByteCount
+	}
+
+	func append(_ entry: String) {
+		let entryData = Data((entry + "\n").utf8)
+		lock.lock()
+		defer { lock.unlock() }
+		logTail.append(entryData)
+		trimToLatestEntries()
+	}
+
+	func snapshotData() -> Data {
+		lock.lock()
+		defer { lock.unlock() }
+		return logTail
+	}
+
+	private func trimToLatestEntries() {
+		guard logTail.count > maximumByteCount else { return }
+		let firstRetainedIndex = logTail.index(logTail.endIndex, offsetBy: -maximumByteCount)
+		let retainedTail = logTail[firstRetainedIndex...]
+		// Prefer starting at a whole entry. If one oversized entry occupies the whole tail, keep
+		// its newest bytes instead; dropping it would lose the very event the report is about.
+		if let newlineIndex = retainedTail.firstIndex(of: 0x0A),
+		   newlineIndex < logTail.index(before: logTail.endIndex) {
+			logTail.removeSubrange(...newlineIndex)
+		} else {
+			logTail.removeSubrange(logTail.startIndex..<firstRetainedIndex)
+		}
+	}
 }
 
 // MARK: - Logging Errors

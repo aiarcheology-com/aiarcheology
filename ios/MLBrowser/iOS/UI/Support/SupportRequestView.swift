@@ -8,7 +8,31 @@
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
+import ImageIO
 import ClerkKit
+
+/// Validates an image selected for a support email without decoding its full pixel buffer.
+///
+/// A report is useful only if support can inspect the visual defect. A 720-pixel shortest edge
+/// accepts screenshots from every supported iPhone while rejecting small thumbnails that become
+/// pixelated when viewed in an email.
+enum ScreenshotAttachmentValidator {
+	static let minimumShortestSidePixels = 720
+
+	static func isLargeEnough(pixelWidth: Int, pixelHeight: Int) -> Bool {
+		min(pixelWidth, pixelHeight) >= minimumShortestSidePixels
+	}
+
+	static func isLargeEnough(imageData: Data) -> Bool {
+		guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
+			  let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+			  let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+			  let height = properties[kCGImagePropertyPixelHeight] as? NSNumber else {
+			return false
+		}
+		return isLargeEnough(pixelWidth: width.intValue, pixelHeight: height.intValue)
+	}
+}
 
 /// Collects a support request and hands it to the user's mail app.
 ///
@@ -32,7 +56,10 @@ struct SupportRequestView: View {
 	@State private var category: SupportCategory
 	@State private var pickedPhoto: PhotosPickerItem?
 	@State private var attachment: EmailController.Attachment?
+	@State private var includeApplicationLog = false
+	@State private var sendUnredactedApplicationLog = false
 	@State private var showMailUnavailableNotice = false
+	@State private var showScreenshotTooSmallNotice = false
 	/// Whether the mailto: fallback actually reached a mail app — decides which unavailable
 	/// message is honest: "we opened your mail app (without the screenshot)" vs "nothing to open".
 	@State private var mailtoOpened = false
@@ -64,6 +91,20 @@ struct SupportRequestView: View {
 				}
 
 				Section {
+					Toggle(L10n.Support.includeApplicationLog, isOn: $includeApplicationLog)
+						.testability(Testability.Toggle.supportRequestIncludeApplicationLog)
+					Text(L10n.Support.includeApplicationLogExplanation)
+						.foregroundStyle(.blue)
+						.fixedSize(horizontal: false, vertical: true)
+					Toggle(L10n.Support.sendUnredactedData, isOn: $sendUnredactedApplicationLog)
+						.disabled(!includeApplicationLog)
+						.testability(Testability.Toggle.supportRequestSendUnredactedData)
+					Text(L10n.Support.sendUnredactedDataExplanation)
+						.foregroundStyle(.secondary)
+						.fixedSize(horizontal: false, vertical: true)
+				}
+
+				Section {
 					// `PhotosPicker` runs out-of-process, so it needs no photo-library permission
 					// and no NSPhotoLibraryUsageDescription: the app only ever receives the single
 					// image the user hands it. Notably NOT `Gallery/PhotoPicker.swift`, which is a
@@ -81,8 +122,13 @@ struct SupportRequestView: View {
 					Button(L10n.Support.compose) {
 						Task { await compose() }
 					}
+					.buttonStyle(.borderedProminent)
+					.tint(.green)
 				} footer: {
 					Text(L10n.Support.privacyNote)
+						.font(.body)
+						.foregroundStyle(.primary)
+						.fixedSize(horizontal: false, vertical: true)
 				}
 			}
 			.navigationTitle(L10n.Support.title)
@@ -114,6 +160,11 @@ struct SupportRequestView: View {
 			} message: {
 				Text(L10n.Support.reportCopied(recipient))
 			}
+			.alert(L10n.Support.ScreenshotTooSmall.title, isPresented: $showScreenshotTooSmallNotice) {
+				Button(L10n.Common.ok, role: .cancel) {}
+			} message: {
+				Text(L10n.Support.ScreenshotTooSmall.message(ScreenshotAttachmentValidator.minimumShortestSidePixels))
+			}
 		}
 	}
 
@@ -130,6 +181,11 @@ struct SupportRequestView: View {
 		do {
 			guard let data = try await pickedPhoto.loadTransferable(type: Data.self) else {
 				LoggingPolicy.warning("Picked screenshot produced no data — not attaching", logger: .ui)
+				return
+			}
+			guard ScreenshotAttachmentValidator.isLargeEnough(imageData: data) else {
+				LoggingPolicy.info("Picked screenshot is too small to attach to a support report.", logger: .ui)
+				showScreenshotTooSmallNotice = true
 				return
 			}
 			// The declared type, not a hardcoded PNG: `loadTransferable` returns the original
@@ -160,6 +216,16 @@ struct SupportRequestView: View {
 			deviceInformation: await DeviceInfo.information()
 		)
 		composedRequest = request
+		var attachments = [attachment].compactMap { $0 }
+		if includeApplicationLog {
+			LoggingPolicy.info(
+				sendUnredactedApplicationLog
+					? "User chose to include unredacted application data with a support report."
+					: "User chose to include the redacted application log with a support report.",
+				logger: .ui
+			)
+			attachments.append(applicationLogAttachment(sendUnredactedData: sendUnredactedApplicationLog))
+		}
 
 		do {
 			// The sheet must NOT be dismissed here: the composer presents on top of it, so
@@ -170,15 +236,15 @@ struct SupportRequestView: View {
 				subject: request.subject,
 				body: request.body,
 				to: recipient,
-				attachments: [attachment].compactMap { $0 },
+				attachments: attachments,
 				onFinish: { sent in
 					if sent { dismiss() }
 				}
 			)
 		} catch {
 			// No mail account, or nothing to present from. Fall back to the user's default mail app
-			// — which cannot carry the attachment (RFC 6068), so say so rather than dropping the
-			// screenshot silently.
+			// — which cannot carry attachments (RFC 6068), so say so rather than dropping the
+			// screenshot or an opted-in application log silently.
 			LoggingPolicy.warning("Mail composer unavailable (\(error)) — falling back to mailto:", logger: .ui)
 			mailtoOpened = await EmailController.shared.openMailto(
 				subject: request.subject,
@@ -187,6 +253,16 @@ struct SupportRequestView: View {
 			)
 			showMailUnavailableNotice = true
 		}
+	}
+
+	private func applicationLogAttachment(sendUnredactedData: Bool) -> EmailController.Attachment {
+		EmailController.Attachment(
+			data: LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredactedData),
+			mimeType: "text/plain",
+			fileName: sendUnredactedData
+				? "mlbrowser-application-log-unredacted.txt"
+				: "mlbrowser-application-log.txt"
+		)
 	}
 
 	/// Opens the Settings app. This lands on **ML Browser's own page**, not Mail's — iOS offers no

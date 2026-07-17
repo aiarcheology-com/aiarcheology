@@ -14406,6 +14406,54 @@
         }
       }
     },
+    "support.includeApplicationLog" : {
+      "comment" : "Toggle that lets a user choose whether to attach the latest application log to a support email.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Include application log"
+          }
+        }
+      }
+    },
+    "support.includeApplicationLogExplanation" : {
+      "comment" : "Plain-language explanation for the optional application-log attachment in a support email.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This can make your report much more useful. It gives us a short record of what the app was doing before the problem, which can help us fix it faster."
+          }
+        }
+      }
+    },
+    "support.sendUnredactedData" : {
+      "comment" : "Toggle that lets a user expressly choose the unredacted application log for a support email.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send unredacted data"
+          }
+        }
+      }
+    },
+    "support.sendUnredactedDataExplanation" : {
+      "comment" : "Plain-language consent explanation for sending the unredacted application log.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use this only if you are comfortable sharing the full technical details. It can include complete web addresses, IDs and location information, which may help us reproduce the problem."
+          }
+        }
+      }
+    },
     "support.copyReport" : {
       "comment" : "Button that copies the whole support report to the clipboard so it can be sent another way.",
       "extractionState" : "manual",
@@ -14437,7 +14485,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "We opened your default mail app instead — a screenshot cannot be attached that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere."
+            "value" : "We opened your default mail app instead — attachments cannot be added that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere."
           }
         }
       }
@@ -14479,13 +14527,13 @@
       }
     },
     "support.privacyNote" : {
-      "comment" : "Footer explaining that the user reviews and sends the support email themselves.",
+      "comment" : "Footer explaining that the user reviews and sends the support email and its attachments themselves.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nothing is sent until you send it. You will see the whole email — including the technical details and any screenshot you attach — and can edit it first."
+            "value" : "Nothing is sent until you send it. You will see the whole email and can remove any screenshot or app log attachment before sending."
           }
         }
       }
@@ -14546,6 +14594,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Report copied. Paste it into an email to %@."
+          }
+        }
+      }
+    },
+    "support.screenshotTooSmall.message" : {
+      "comment" : "Shown when the selected support-email screenshot is too small to keep its details readable. %d is the required minimum number of pixels on the shortest edge.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a screenshot with at least %d pixels on its shortest side so the details stay readable."
+          }
+        }
+      }
+    },
+    "support.screenshotTooSmall.title" : {
+      "comment" : "Title shown when the selected support-email screenshot is too small.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshot is too small"
           }
         }
       }

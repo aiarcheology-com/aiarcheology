@@ -152,3 +152,15 @@ final class ScreenshotReportGateTests: XCTestCase {
 		)
 	}
 }
+
+final class ScreenshotAttachmentValidatorTests: XCTestCase {
+	func testIsLargeEnough_AcceptsAnImageAtTheMinimumShortestSide() {
+		XCTAssertTrue(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 720, pixelHeight: 1_280))
+		XCTAssertTrue(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 1_280, pixelHeight: 720))
+	}
+
+	func testIsLargeEnough_RejectsAnImageBelowTheMinimumShortestSide() {
+		XCTAssertFalse(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 719, pixelHeight: 1_280))
+		XCTAssertFalse(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 1_280, pixelHeight: 719))
+	}
+}

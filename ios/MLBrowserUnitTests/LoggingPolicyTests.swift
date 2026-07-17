@@ -211,3 +211,46 @@ final class LoggingPolicyTests: XCTestCase {
     
     // Note: criticalFailure and assertionFailure are not tested as they terminate/assert
 }
+
+final class ApplicationLogBufferTests: XCTestCase {
+	func testRecentApplicationLogData_UsesTheRawMessageOnlyWhenExplicitlyRequested() {
+		let marker = UUID().uuidString
+		let sensitiveURL = "https://models.example.com/weights?downloadID=\(marker)"
+		LoggingPolicy.info("Support-log marker: \(sensitiveURL)")
+
+		guard let redactedLog = String(
+			bytes: LoggingPolicy.recentApplicationLogData(),
+			encoding: .utf8
+		), let unredactedLog = String(
+			bytes: LoggingPolicy.recentApplicationLogData(sendUnredactedData: true),
+			encoding: .utf8
+		) else {
+			return XCTFail("Expected UTF-8 application logs")
+		}
+
+		XCTAssertFalse(redactedLog.contains(marker))
+		XCTAssertTrue(unredactedLog.contains(marker))
+	}
+
+	func testSnapshotData_KeepsTheNewestEntriesWithinTheByteLimit() {
+		let buffer = ApplicationLogBuffer(maximumByteCount: 10)
+		buffer.append("first")
+		buffer.append("second")
+
+		guard let text = String(bytes: buffer.snapshotData(), encoding: .utf8) else {
+			return XCTFail("Expected a UTF-8 application log")
+		}
+		XCTAssertEqual(text, "second\n")
+	}
+
+	func testSnapshotData_TruncatesAnOversizedNewestEntryToTheByteLimit() {
+		let buffer = ApplicationLogBuffer(maximumByteCount: 5)
+		buffer.append("abcdef")
+
+		XCTAssertEqual(buffer.snapshotData().count, 5)
+		guard let text = String(bytes: buffer.snapshotData(), encoding: .utf8) else {
+			return XCTFail("Expected a UTF-8 application log")
+		}
+		XCTAssertEqual(text, "cdef\n")
+	}
+}
