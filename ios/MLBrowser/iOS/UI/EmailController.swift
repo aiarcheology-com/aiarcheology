@@ -109,11 +109,21 @@ final class EmailController: NSObject, @MainActor MFMailComposeViewControllerDel
 		return await UIApplication.shared.open(url)
 	}
 
-	/// The view controller a new presentation must start from: the far end of the root's
-	/// `presentedViewController` chain. Presenting from the root while a sheet is up is a
-	/// silent no-op — UIKit logs "already presenting" and drops it.
+	/// The view controller a new presentation must start from: the far end of the *key* window's
+	/// `presentedViewController` chain. Presenting from the root while a sheet is up is a silent
+	/// no-op — UIKit logs "already presenting" and drops it.
+	///
+	/// Resolves the genuinely key window rather than `UIApplication.firstKeyWindow`, whose
+	/// `connectedScenes.first { $0.activationState == .foregroundActive }` picks an **arbitrary**
+	/// scene when several are foreground-active — `connectedScenes` is a Set. On iPad Split View
+	/// and Mac multi-window that is a coin flip, and losing it presents into a hierarchy the user
+	/// is not looking at. Falls back to any foreground-active scene for the case where no window
+	/// claims key (e.g. an already-presented system sheet holds it).
 	static func topmostViewController() -> UIViewController? {
-		guard var top = UIApplication.firstKeyWindow?.rootViewController else { return nil }
+		let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+		let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow)
+			?? scenes.first { $0.activationState == .foregroundActive }?.keyWindow
+		guard var top = window?.rootViewController else { return nil }
 		while let presented = top.presentedViewController {
 			top = presented
 		}

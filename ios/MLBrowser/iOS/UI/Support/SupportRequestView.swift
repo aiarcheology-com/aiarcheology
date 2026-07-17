@@ -7,6 +7,7 @@
 
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 import ClerkKit
 
 /// Collects a support request and hands it to the user's mail app.
@@ -118,7 +119,13 @@ struct SupportRequestView: View {
 
 	/// Loads the image the user picked. Failure is logged, never swallowed: the user explicitly
 	/// asked for this attachment, so silently sending without it would misrepresent what they sent.
+	///
+	/// Every exit clears `attachment` first. Leaving a previous pick in place when a newer one
+	/// fails to load would show "Screenshot attached" and then mail the **old** image — sending a
+	/// picture the user had already replaced, which is the exact opposite of the control this
+	/// whole flow exists to give them.
 	private func loadPickedPhoto() async {
+		attachment = nil
 		guard let pickedPhoto else { return }
 		do {
 			guard let data = try await pickedPhoto.loadTransferable(type: Data.self) else {
@@ -144,7 +151,11 @@ struct SupportRequestView: View {
 			category: category,
 			contextURL: contextURL,
 			accountID: usesRealAuth ? Clerk.shared.user?.id : nil,
-			appLanguage: Locale.current.language.languageCode?.identifier ?? "unknown",
+			// The bundle's resolved localization, not `Locale.current`: the field is labelled
+			// "App language", and iOS lets a user set a per-app language that differs from the
+			// device locale. This reports the language the UI is actually rendering in — the
+			// thing support needs to reproduce what the user saw.
+			appLanguage: Bundle.main.preferredLocalizations.first ?? "unknown",
 			appVersion: AppEnvironment.shortVersion ?? "unknown",
 			deviceInformation: await DeviceInfo.information()
 		)
