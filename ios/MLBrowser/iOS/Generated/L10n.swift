@@ -729,8 +729,16 @@ internal enum L10n {
     internal static let categoryPrompt = L10n.tr("Localizable", "support.categoryPrompt", fallback: "What is this about?")
     /// Continue in Mail
     internal static let compose = L10n.tr("Localizable", "support.compose", fallback: "Continue in Mail")
+    /// Copy report
+    internal static let copyReport = L10n.tr("Localizable", "support.copyReport", fallback: "Copy report")
+    /// Open Settings
+    internal static let openSettings = L10n.tr("Localizable", "support.openSettings", fallback: "Open Settings")
     /// Nothing is sent until you send it. You will see the whole email — including the technical details and any screenshot you attach — and can edit it first.
     internal static let privacyNote = L10n.tr("Localizable", "support.privacyNote", fallback: "Nothing is sent until you send it. You will see the whole email — including the technical details and any screenshot you attach — and can edit it first.")
+    /// Report copied. Paste it into an email to %@.
+    internal static func reportCopied(_ p1: Any) -> String {
+      return L10n.tr("Localizable", "support.reportCopied", String(describing: p1), fallback: "Report copied. Paste it into an email to %@.")
+    }
     /// Report a problem
     internal static let title = L10n.tr("Localizable", "support.title", fallback: "Report a problem")
     internal enum Body {
@@ -762,14 +770,16 @@ internal enum L10n {
       internal static let purchase = L10n.tr("Localizable", "support.category.purchase", fallback: "Purchase or subscription")
     }
     internal enum MailUnavailable {
-      /// No email account is set up on this device, so we opened your default mail app instead. A screenshot cannot be attached that way — please add it yourself, or write to %@.
+      /// We opened your default mail app instead — a screenshot cannot be attached that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere.
       internal static func message(_ p1: Any) -> String {
-        return L10n.tr("Localizable", "support.mailUnavailable.message", String(describing: p1), fallback: "No email account is set up on this device, so we opened your default mail app instead. A screenshot cannot be attached that way — please add it yourself, or write to %@.")
+        return L10n.tr("Localizable", "support.mailUnavailable.message", String(describing: p1), fallback: "We opened your default mail app instead — a screenshot cannot be attached that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere.")
       }
-      /// No email account or mail app is available on this device. Please write to %@ from another device — mentioning the app version shown under Settings → About helps us find the problem.
+      /// No mail app could be opened. Add an email account in Settings → Mail → Mail Accounts, or copy the report and send it to %@ from another device.
       internal static func messageNoMailApp(_ p1: Any) -> String {
-        return L10n.tr("Localizable", "support.mailUnavailable.messageNoMailApp", String(describing: p1), fallback: "No email account or mail app is available on this device. Please write to %@ from another device — mentioning the app version shown under Settings → About helps us find the problem.")
+        return L10n.tr("Localizable", "support.mailUnavailable.messageNoMailApp", String(describing: p1), fallback: "No mail app could be opened. Add an email account in Settings → Mail → Mail Accounts, or copy the report and send it to %@ from another device.")
       }
+      /// Couldn't open Mail
+      internal static let title = L10n.tr("Localizable", "support.mailUnavailable.title", fallback: "Couldn't open Mail")
     }
     internal enum Prompt {
       /// Don't ask again

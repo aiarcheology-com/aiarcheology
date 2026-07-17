@@ -35,6 +35,11 @@ struct SupportRequestView: View {
 	/// Whether the mailto: fallback actually reached a mail app — decides which unavailable
 	/// message is honest: "we opened your mail app (without the screenshot)" vs "nothing to open".
 	@State private var mailtoOpened = false
+	@State private var showCopiedConfirmation = false
+
+	/// Held so the fallback can put the exact same text on the clipboard that the composer would
+	/// have carried — the user's work must survive a missing mail account.
+	@State private var composedRequest: SupportRequest?
 
 	private let recipient = SupportRequest.supportEmailAddress
 
@@ -87,7 +92,14 @@ struct SupportRequestView: View {
 				}
 			}
 			.task(id: pickedPhoto) { await loadPickedPhoto() }
-			.alert(L10n.Support.title, isPresented: $showMailUnavailableNotice) {
+			// Not a dead end: `canSendMail()` is false whenever Mail.app has no account — and the
+			// user cannot be sent straight to Mail's setup pane, because iOS exposes no such URL
+			// (`openSettingsURLString` only opens THIS app's page, and `App-Prefs:root=MAIL` is
+			// undocumented and an App Review risk). So offer the two things that do work: the
+			// Settings app, and a clipboard copy so the report survives either way.
+			.alert(L10n.Support.MailUnavailable.title, isPresented: $showMailUnavailableNotice) {
+				Button(L10n.Support.openSettings) { openAppSettings() }
+				Button(L10n.Support.copyReport) { copyReport() }
 				Button(L10n.Common.ok, role: .cancel) { dismiss() }
 			} message: {
 				Text(
@@ -95,6 +107,11 @@ struct SupportRequestView: View {
 						? L10n.Support.MailUnavailable.message(recipient)
 						: L10n.Support.MailUnavailable.messageNoMailApp(recipient)
 				)
+			}
+			.alert(L10n.Support.title, isPresented: $showCopiedConfirmation) {
+				Button(L10n.Common.ok, role: .cancel) { dismiss() }
+			} message: {
+				Text(L10n.Support.reportCopied(recipient))
 			}
 		}
 	}
@@ -131,6 +148,7 @@ struct SupportRequestView: View {
 			appVersion: AppEnvironment.shortVersion ?? "unknown",
 			deviceInformation: await DeviceInfo.information()
 		)
+		composedRequest = request
 
 		do {
 			// The sheet must NOT be dismissed here: the composer presents on top of it, so
@@ -158,5 +176,22 @@ struct SupportRequestView: View {
 			)
 			showMailUnavailableNotice = true
 		}
+	}
+
+	/// Opens the Settings app. This lands on **ML Browser's own page**, not Mail's — iOS offers no
+	/// public URL for another app's settings, and the undocumented `App-Prefs:root=MAIL` is an App
+	/// Review risk. The alert copy therefore names the path (Mail → Mail Accounts) rather than
+	/// pretending the button goes straight there.
+	private func openAppSettings() {
+		guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+		Task { await UIApplication.shared.open(url) }
+	}
+
+	/// Puts the whole report on the clipboard so a missing mail account cannot destroy the user's
+	/// work — they can paste it into any app, or onto another device.
+	private func copyReport() {
+		guard let request = composedRequest else { return }
+		UIPasteboard.general.string = "\(request.subject)\n\n\(request.body)"
+		showCopiedConfirmation = true
 	}
 }

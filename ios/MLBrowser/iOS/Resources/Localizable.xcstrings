@@ -14406,26 +14406,62 @@
         }
       }
     },
-    "support.mailUnavailable.message" : {
-      "comment" : "Shown when no mail account is configured but the default mail app opened via mailto. %@ is the support email address.",
+    "support.copyReport" : {
+      "comment" : "Button that copies the whole support report to the clipboard so it can be sent another way.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No email account is set up on this device, so we opened your default mail app instead. A screenshot cannot be attached that way — please add it yourself, or write to %@."
+            "value" : "Copy report"
+          }
+        }
+      }
+    },
+    "support.mailUnavailable.message" : {
+      "comment" : "Shown when the mail composer is unavailable but a default mail app opened via mailto. %@ is the support email address.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We opened your default mail app instead — a screenshot cannot be attached that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere."
           }
         }
       }
     },
     "support.mailUnavailable.messageNoMailApp" : {
-      "comment" : "Shown when neither a mail account nor any mail app is available. %@ is the support email address.",
+      "comment" : "Shown when no mail app could be opened at all. %@ is the support email address.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No email account or mail app is available on this device. Please write to %@ from another device — mentioning the app version shown under Settings → About helps us find the problem."
+            "value" : "No mail app could be opened. Add an email account in Settings → Mail → Mail Accounts, or copy the report and send it to %@ from another device."
+          }
+        }
+      }
+    },
+    "support.mailUnavailable.title" : {
+      "comment" : "Title of the alert shown when the mail composer cannot open.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't open Mail"
+          }
+        }
+      }
+    },
+    "support.openSettings" : {
+      "comment" : "Button that opens the Settings app so the user can add an email account.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings"
           }
         }
       }
@@ -14486,6 +14522,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Found a problem?"
+          }
+        }
+      }
+    },
+    "support.reportCopied" : {
+      "comment" : "Confirmation shown after the support report is copied to the clipboard. %@ is the support email address.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Report copied. Paste it into an email to %@."
           }
         }
       }
