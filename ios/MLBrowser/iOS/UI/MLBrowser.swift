@@ -118,6 +118,9 @@ struct MLBrowser: App {
 			.screenshotReportOffer(
 				settings: appState.settings,
 				featureFlags: appState.featureFlags,
+				// Passed explicitly: this modifier sits outside the `.environment(\.usesRealAuth)`
+				// injection above, so its sheet cannot inherit the value.
+				usesRealAuth: appState.usesRealAuth,
 				currentURL: { appState.browserState.currentURL?.absoluteString }
 			)
 			.task {

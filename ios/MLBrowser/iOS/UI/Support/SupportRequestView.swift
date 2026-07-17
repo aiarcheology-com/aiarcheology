@@ -32,8 +32,11 @@ struct SupportRequestView: View {
 	@State private var pickedPhoto: PhotosPickerItem?
 	@State private var attachment: EmailController.Attachment?
 	@State private var showMailUnavailableNotice = false
+	/// Whether the mailto: fallback actually reached a mail app — decides which unavailable
+	/// message is honest: "we opened your mail app (without the screenshot)" vs "nothing to open".
+	@State private var mailtoOpened = false
 
-	private let recipient = "info@aiarcheology.com"
+	private let recipient = SupportRequest.supportEmailAddress
 
 	init(initialCategory: SupportCategory? = nil, contextURL: String? = nil) {
 		self.initialCategory = initialCategory
@@ -87,7 +90,11 @@ struct SupportRequestView: View {
 			.alert(L10n.Support.title, isPresented: $showMailUnavailableNotice) {
 				Button(L10n.Common.ok, role: .cancel) { dismiss() }
 			} message: {
-				Text(L10n.Support.MailUnavailable.message)
+				Text(
+					mailtoOpened
+						? L10n.Support.MailUnavailable.message(recipient)
+						: L10n.Support.MailUnavailable.messageNoMailApp(recipient)
+				)
 			}
 		}
 	}
@@ -101,7 +108,15 @@ struct SupportRequestView: View {
 				LoggingPolicy.warning("Picked screenshot produced no data — not attaching", logger: .ui)
 				return
 			}
-			attachment = EmailController.Attachment(data: data, mimeType: "image/png", fileName: "screenshot.png")
+			// The declared type, not a hardcoded PNG: `loadTransferable` returns the original
+			// encoding, and the picker allows any library image — a camera photo is HEIC, and
+			// HEIC bytes labelled image/png may not render for the recipient.
+			let contentType = pickedPhoto.supportedContentTypes.first
+			attachment = EmailController.Attachment(
+				data: data,
+				mimeType: contentType?.preferredMIMEType ?? "image/png",
+				fileName: "screenshot.\(contentType?.preferredFilenameExtension ?? "png")"
+			)
 		} catch {
 			LoggingPolicy.error("Could not load the picked screenshot: \(error.localizedDescription)", logger: .ui)
 		}
@@ -118,19 +133,29 @@ struct SupportRequestView: View {
 		)
 
 		do {
+			// The sheet must NOT be dismissed here: the composer presents on top of it, so
+			// dismissing now would tear the composer down mid-flight. Close only once the
+			// composer reports the message was handed to Mail; on cancel the user lands back
+			// here with their category and attachment intact, free to retry or leave.
 			try EmailController.shared.sendEmail(
 				subject: request.subject,
 				body: request.body,
 				to: recipient,
-				attachments: [attachment].compactMap { $0 }
+				attachments: [attachment].compactMap { $0 },
+				onFinish: { sent in
+					if sent { dismiss() }
+				}
 			)
-			dismiss()
 		} catch {
 			// No mail account, or nothing to present from. Fall back to the user's default mail app
 			// — which cannot carry the attachment (RFC 6068), so say so rather than dropping the
 			// screenshot silently.
 			LoggingPolicy.warning("Mail composer unavailable (\(error)) — falling back to mailto:", logger: .ui)
-			await EmailController.shared.openMailto(subject: request.subject, body: request.body, to: recipient)
+			mailtoOpened = await EmailController.shared.openMailto(
+				subject: request.subject,
+				body: request.body,
+				to: recipient
+			)
 			showMailUnavailableNotice = true
 		}
 	}

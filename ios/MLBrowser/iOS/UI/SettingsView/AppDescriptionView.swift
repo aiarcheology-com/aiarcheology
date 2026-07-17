@@ -11,7 +11,7 @@ struct AppDescriptionView: View {
     let versionString: String = appVersion()
     let buildString: String = appBuild()
     let appIcon: String = Bundle.main.iconFileName ?? "AppIcon"
-    let emailAddress: String = "info@aiarcheology.com"
+    let emailAddress: String = SupportRequest.supportEmailAddress
     // swiftlint:disable force_unwrapping
     private static let websiteURL = URL(string: "https://www.aiarcheology.com")!
     private static let xName = "@aiarcheology"
@@ -21,6 +21,7 @@ struct AppDescriptionView: View {
 
 	@State private var showCopiedPopover = false
 	@State private var showSupportRequest = false
+	@Environment(\.usesRealAuth) private var usesRealAuth
 
 	var body: some View {
 		VStack {
@@ -39,7 +40,10 @@ struct AppDescriptionView: View {
 		.sheet(isPresented: $showSupportRequest) {
 			// No category preset: reaching this from Settings says nothing about what is wrong, so
 			// the user picks. (The screenshot offer presets `.bug`, where we do know.)
+			// usesRealAuth re-injected per the key's own contract: it does not reliably cross
+			// `.sheet` boundaries (see `UsesRealAuthKey`).
 			SupportRequestView()
+				.environment(\.usesRealAuth, usesRealAuth)
 		}
 	}
 

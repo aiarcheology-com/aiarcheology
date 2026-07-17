@@ -762,8 +762,14 @@ internal enum L10n {
       internal static let purchase = L10n.tr("Localizable", "support.category.purchase", fallback: "Purchase or subscription")
     }
     internal enum MailUnavailable {
-      /// No email account is set up on this device, so we opened your default mail app instead. A screenshot cannot be attached that way — please add it yourself, or write to info@aiarcheology.com.
-      internal static let message = L10n.tr("Localizable", "support.mailUnavailable.message", fallback: "No email account is set up on this device, so we opened your default mail app instead. A screenshot cannot be attached that way — please add it yourself, or write to info@aiarcheology.com.")
+      /// No email account is set up on this device, so we opened your default mail app instead. A screenshot cannot be attached that way — please add it yourself, or write to %@.
+      internal static func message(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "support.mailUnavailable.message", String(describing: p1), fallback: "No email account is set up on this device, so we opened your default mail app instead. A screenshot cannot be attached that way — please add it yourself, or write to %@.")
+      }
+      /// No email account or mail app is available on this device. Please write to %@ from another device — mentioning the app version shown under Settings → About helps us find the problem.
+      internal static func messageNoMailApp(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "support.mailUnavailable.messageNoMailApp", String(describing: p1), fallback: "No email account or mail app is available on this device. Please write to %@ from another device — mentioning the app version shown under Settings → About helps us find the problem.")
+      }
     }
     internal enum Prompt {
       /// Don't ask again

@@ -31,9 +31,25 @@ import SwiftUI
 /// The cost of that choice: reporting in context works for the *first* screenshot only. Settings →
 /// About → Report a problem remains the durable path, which is why the offer's job is as much to
 /// teach that the feature exists as to file this particular report.
+/// The offer decision, extracted so the guard order is a pure function the unit tests can pin
+/// down — it lives inside a `ViewModifier` otherwise, where nothing can exercise it.
+enum ScreenshotReportGate {
+	/// The one offer exists only while the flag is on, and both persisted answers — "already
+	/// offered" and "asked not to be" — silence it for good.
+	static func shouldOffer(flagEnabled: Bool, alreadyShown: Bool, declined: Bool) -> Bool {
+		flagEnabled && alreadyShown == false && declined == false
+	}
+}
+
 struct ScreenshotReportModifier: ViewModifier {
 	@ObservedObject var settings: Settings
 	@ObservedObject var featureFlags: FeatureFlagsState
+
+	/// Whether Clerk is the real composition root. Passed through to the request sheet because
+	/// this modifier sits at the very top of the scene — *outside* the tree's
+	/// `.environment(\.usesRealAuth)` injection — so its presented sheet would otherwise read
+	/// the key's default (`false`) and silently drop the account ID from every report.
+	let usesRealAuth: Bool
 
 	/// Supplies the web address involved, if the caller knows one. A closure, not a value, so this
 	/// modifier does not have to observe the browser and re-render on every navigation.
@@ -58,13 +74,18 @@ struct ScreenshotReportModifier: ViewModifier {
 			}
 			.sheet(isPresented: $showRequest) {
 				SupportRequestView(initialCategory: .bug, contextURL: currentURL())
+					// Re-injected per the key's own contract: it does not reliably cross `.sheet`
+					// boundaries (see `UsesRealAuthKey`), and this sheet hangs off the scene root.
+					.environment(\.usesRealAuth, usesRealAuth)
 			}
 	}
 
 	private func offerReportIfAppropriate() {
-		guard featureFlags.snapshot.isSupportReportingEnabled else { return }
-		guard settings.supportPromptDeclined == false else { return }
-		guard settings.supportPromptShown == false else { return }
+		guard ScreenshotReportGate.shouldOffer(
+			flagEnabled: featureFlags.snapshot.isSupportReportingEnabled,
+			alreadyShown: settings.supportPromptShown,
+			declined: settings.supportPromptDeclined
+		) else { return }
 		// Set before presenting, not in the alert's dismissal: every route out of this alert —
 		// report, decline, cancel, or a system dismissal we never hear about — must consume the
 		// one offer. Recording it only on an explicit answer would let a swipe-away re-arm it.
@@ -79,8 +100,14 @@ extension View {
 	func screenshotReportOffer(
 		settings: Settings,
 		featureFlags: FeatureFlagsState,
+		usesRealAuth: Bool,
 		currentURL: @escaping () -> String? = { nil }
 	) -> some View {
-		modifier(ScreenshotReportModifier(settings: settings, featureFlags: featureFlags, currentURL: currentURL))
+		modifier(ScreenshotReportModifier(
+			settings: settings,
+			featureFlags: featureFlags,
+			usesRealAuth: usesRealAuth,
+			currentURL: currentURL
+		))
 	}
 }

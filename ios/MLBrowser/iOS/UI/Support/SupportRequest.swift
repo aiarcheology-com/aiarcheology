@@ -30,6 +30,10 @@ import Foundation
 /// A raw log tail is **not** included, and must not be: the user cannot review hundreds of lines in
 /// a compose sheet, so attaching one would break the very property above. See AIA-0194.
 struct SupportRequest {
+	/// The support inbox. The one definition every surface uses — the Contact row that displays
+	/// it, the composer that mails it, and the fallback copy that names it.
+	static let supportEmailAddress = "info@aiarcheology.com"
+
 	/// What the user says the request is about. Drives the subject's machine-readable tag.
 	let category: SupportCategory
 

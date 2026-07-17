@@ -14407,13 +14407,25 @@
       }
     },
     "support.mailUnavailable.message" : {
-      "comment" : "Shown when no mail account is configured, so the composer cannot open.",
+      "comment" : "Shown when no mail account is configured but the default mail app opened via mailto. %@ is the support email address.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No email account is set up on this device, so we opened your default mail app instead. A screenshot cannot be attached that way — please add it yourself, or write to info@aiarcheology.com."
+            "value" : "No email account is set up on this device, so we opened your default mail app instead. A screenshot cannot be attached that way — please add it yourself, or write to %@."
+          }
+        }
+      }
+    },
+    "support.mailUnavailable.messageNoMailApp" : {
+      "comment" : "Shown when neither a mail account nor any mail app is available. %@ is the support email address.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No email account or mail app is available on this device. Please write to %@ from another device — mentioning the app version shown under Settings → About helps us find the problem."
           }
         }
       }

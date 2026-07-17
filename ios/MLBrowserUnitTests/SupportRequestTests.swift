@@ -122,3 +122,33 @@ final class SupportRequestTests: XCTestCase {
 		XCTAssertEqual(Set(names).count, names.count, "a duplicated label makes the picker unusable")
 	}
 }
+
+/// The screenshot-offer decision (AIA-0454). It is a browser: people screenshot pages for
+/// entirely ordinary reasons, so the whole prompt-fatigue defence is this one function — it gets
+/// pinned down, not smoke-tested.
+final class ScreenshotReportGateTests: XCTestCase {
+	func testShouldOffer_WhenFlagOnAndNothingConsumed() {
+		XCTAssertTrue(ScreenshotReportGate.shouldOffer(flagEnabled: true, alreadyShown: false, declined: false))
+	}
+
+	func testShouldOffer_RequiresTheFlag() {
+		XCTAssertFalse(
+			ScreenshotReportGate.shouldOffer(flagEnabled: false, alreadyShown: false, declined: false),
+			"the flag fails closed; a fresh install with the flag off must stay silent"
+		)
+	}
+
+	func testShouldOffer_OncePerInstall() {
+		XCTAssertFalse(
+			ScreenshotReportGate.shouldOffer(flagEnabled: true, alreadyShown: true, declined: false),
+			"the one offer is consumed by being shown, regardless of how the alert was dismissed"
+		)
+	}
+
+	func testShouldOffer_NeverAfterDecline() {
+		XCTAssertFalse(
+			ScreenshotReportGate.shouldOffer(flagEnabled: true, alreadyShown: false, declined: true),
+			"an explicit 'don't ask again' outlives everything, including a flag flip"
+		)
+	}
+}

@@ -32,18 +32,33 @@ final class EmailController: NSObject, @MainActor MFMailComposeViewControllerDel
 		case noPresenter
 	}
 
+	/// Fires after the composer is fully dismissed. `sent` is true when the user handed the
+	/// message to Mail (queued for delivery — not proof it left the device). One composer can be
+	/// up at a time, so a single stored callback suffices; it is cleared before it runs.
+	private var onComposerFinish: ((_ sent: Bool) -> Void)?
+
 	/// Presents the system mail composer.
 	///
 	/// Throws instead of returning silently: the previous version logged a warning and
 	/// returned, so on a device without Mail the support button did nothing at all and read
 	/// as a broken app. Callers use the thrown reason to fall back (AIA-0454).
-	func sendEmail(subject: String, body: String, to: String, attachments: [Attachment] = []) throws {
+	///
+	/// Presents from the **topmost** presented view controller, not the root: callers are
+	/// typically sheets, and UIKit refuses a presentation from a view controller that is already
+	/// presenting — the composer would silently never appear.
+	func sendEmail(
+		subject: String,
+		body: String,
+		to: String,
+		attachments: [Attachment] = [],
+		onFinish: ((_ sent: Bool) -> Void)? = nil
+	) throws {
 		guard MFMailComposeViewController.canSendMail() else {
 			LoggingPolicy.warning("Device cannot send emails - email composition unavailable", logger: .ui)
 			throw ComposerUnavailable.mailNotConfigured
 		}
-		guard let presenter = EmailController.getRootViewController() else {
-			LoggingPolicy.warning("No root view controller to present the mail composer from", logger: .ui)
+		guard let presenter = EmailController.topmostViewController() else {
+			LoggingPolicy.warning("No view controller to present the mail composer from", logger: .ui)
 			throw ComposerUnavailable.noPresenter
 		}
 			// Create the email composer
@@ -55,6 +70,7 @@ final class EmailController: NSObject, @MainActor MFMailComposeViewControllerDel
 		for attachment in attachments {
 			mailComposer.addAttachmentData(attachment.data, mimeType: attachment.mimeType, fileName: attachment.fileName)
 		}
+		onComposerFinish = onFinish
 		presenter.present(mailComposer, animated: true, completion: nil)
 	}
 
@@ -62,7 +78,11 @@ final class EmailController: NSObject, @MainActor MFMailComposeViewControllerDel
 		// Dismiss the controller we were handed, not a freshly looked-up root: `firstKeyWindow`
 		// resolves the first foreground scene, which is not necessarily the scene presenting this
 		// composer. On Mac/iPad multi-window that dismissed the wrong view controller.
-		controller.dismiss(animated: true, completion: nil)
+		controller.dismiss(animated: true) { [self] in
+			let callback = onComposerFinish
+			onComposerFinish = nil
+			callback?(result == .sent)
+		}
 	}
 
 	/// Opens the user's default mail app via a `mailto:` URL.
@@ -89,7 +109,14 @@ final class EmailController: NSObject, @MainActor MFMailComposeViewControllerDel
 		return await UIApplication.shared.open(url)
 	}
 
-	static func getRootViewController() -> UIViewController? {
-		UIApplication.firstKeyWindow?.rootViewController
+	/// The view controller a new presentation must start from: the far end of the root's
+	/// `presentedViewController` chain. Presenting from the root while a sheet is up is a
+	/// silent no-op — UIKit logs "already presenting" and drops it.
+	static func topmostViewController() -> UIViewController? {
+		guard var top = UIApplication.firstKeyWindow?.rootViewController else { return nil }
+		while let presented = top.presentedViewController {
+			top = presented
+		}
+		return top
 	}
 }

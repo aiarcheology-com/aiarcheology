@@ -340,6 +340,8 @@ final class Settings: ObservableObject, Validatable {
 		tiledBorders = false
 		analyticsEnabled = false
 		analyticsChoiceMade = false
+		supportPromptShown = false
+		supportPromptDeclined = false
 
 		defaults.removeObject(forKey: UserDefaultsKeys.lastPage)
 		defaults.set(historySize, forKey: UserDefaultsKeys.sizeHistory)
@@ -358,6 +360,8 @@ final class Settings: ObservableObject, Validatable {
 		defaults.set(tiledBorders, forKey: UserDefaultsKeys.tiledBorders)
 		defaults.set(analyticsEnabled, forKey: UserDefaultsKeys.analyticsEnabled)
 		defaults.set(analyticsChoiceMade, forKey: UserDefaultsKeys.analyticsChoiceMade)
+		defaults.set(supportPromptShown, forKey: UserDefaultsKeys.supportPromptShown)
+		defaults.set(supportPromptDeclined, forKey: UserDefaultsKeys.supportPromptDeclined)
 	}
 
 }
