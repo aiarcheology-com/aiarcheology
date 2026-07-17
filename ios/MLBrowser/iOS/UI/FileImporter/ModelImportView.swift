@@ -8,11 +8,11 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import OSLog
+import NativeModelConverter
 
 /// View for importing ML models either from local files or remote URLs.
 ///
-/// Provides educational content about supported model types and
-/// conversion instructions for ONNX models.
+/// Provides educational content about supported model types.
 struct ModelImportView: View {
 	@Environment(\.dismiss) private var dismiss
 	@Environment(\.managedObjectContext) private var moc
@@ -33,6 +33,7 @@ struct ModelImportView: View {
 
 	@StateObject private var acquisitionCoordinator = ModelAcquisitionCoordinator(
 		allowedTypes: [
+			UTType(filenameExtension: "aiagraph"),
 			UTType("com.apple.coreml.mlmodel"),
 			UTType("com.apple.coreml.mlpackage"),
 			UTType(filenameExtension: "mlmodel"),
@@ -63,19 +64,6 @@ struct ModelImportView: View {
 		self.catalogProviders = catalogProviders
 		self.catalogSearchManager = catalogSearchManager ?? CatalogSearchManager(providers: catalogProviders)
 	}
-	
-	private static let pythonCode = """
-	import coremltools as ct
-	
-	# Load the ONNX model
-	onnx_model = ct.onnx.load_model("path_to_your_model.onnx")
-	
-	# Convert the model
-	coreml_model = ct.convert(onnx_model, source='onnx')
-	
-	# Save the converted model
-	coreml_model.save("your_model.mlmodel")
-	"""
 	
 	var body: some View {
 		NavigationStack {
@@ -147,7 +135,6 @@ struct ModelImportView: View {
 			importButtonsSection
 			instructionsSection
 			documentationSection
-			conversionSection
 		}
 		.listStyle(.insetGrouped)
 	}
@@ -251,28 +238,6 @@ struct ModelImportView: View {
         }
     }
     // swiftlint:enable force_unwrapping
-	
-	// MARK: - Conversion Section
-	
-	private var conversionSection: some View {
-		Section {
-			VStack(alignment: .leading, spacing: 12) {
-				Text(L10n.Import.onnxConversionHint)
-					.font(.subheadline)
-					.foregroundStyle(Color(.secondaryLabel))
-
-				Text(Self.pythonCode)
-					.font(.system(.caption, design: .monospaced))
-					.padding(12)
-					.frame(maxWidth: .infinity, alignment: .leading)
-					.background(Color(.tertiarySystemBackground))
-					.clipShape(RoundedRectangle(cornerRadius: 8))
-					.copiedToClipboard(copiedText: Self.pythonCode, preview: String(Self.pythonCode.prefix(80)))
-			}
-		} header: {
-			Text(L10n.Import.onnxConversion)
-		}
-	}
 	
 	// MARK: - Toolbar
 	
@@ -410,18 +375,54 @@ struct ModelImportView: View {
 	///
 	/// - Returns: Tuple of (stored model URL, extracted metadata)
 	private func performOffMainActorWork(sourceURL: URL, configurationId: UUID) async throws -> (URL, ExtractedModelInfo) {
-		// Copy file to Documents in a detached task to guarantee off-main execution.
-		// Task.detached doesn't inherit actor context, unlike plain Task { }.
-		// Using userInitiated priority since user is actively waiting for import.
-		let modelURL = try await Task.detached(priority: .userInitiated) {
+		// Copy the source into the per-configuration directory in a detached task. Task.detached
+		// doesn't inherit actor context, unlike plain Task { }, so document-provider I/O cannot block
+		// SwiftUI. A native graph package is then verified and converted before the normal Core ML
+		// loader sees it.
+		let storedURL = try await Task.detached(priority: .userInitiated) {
 			try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationId)
 		}.value
+		let modelURL = try await convertNativeGraphPackageIfNeeded(at: storedURL)
 
 		// Load and validate the model using ModelLoadingService (actor, so off MainActor)
 		let service = ModelLoadingService()
-		let extractedInfo = try await service.loadAndExtractMetadata(from: modelURL, demo: false)
+		let extractedInfo: ExtractedModelInfo
+		do {
+			extractedInfo = try await service.loadAndExtractMetadata(from: modelURL, demo: false)
+		} catch {
+			if storedURL.pathExtension.lowercased() == "aiagraph" {
+				try? FileManager.default.removeItem(at: modelURL)
+			}
+			throw error
+		}
 
 		return (modelURL, extractedInfo)
+	}
+
+	/// Converts a verified `.aiagraph` directory to a Core ML model beside the copied package.
+	///
+	/// The original package is retained until emission succeeds. On any validation or emission
+	/// failure, both the copied package and a possible staged model are removed; the user-selected
+	/// source remains untouched outside the app sandbox.
+	private func convertNativeGraphPackageIfNeeded(at storedURL: URL) async throws -> URL {
+		guard storedURL.pathExtension.lowercased() == "aiagraph" else {
+			return storedURL
+		}
+
+		let generatedModelURL = storedURL.deletingLastPathComponent()
+			.appendingPathComponent("converted.mlmodel", isDirectory: false)
+		do {
+			let package = try await NativeModelGraphPackageReader().read(from: storedURL)
+			try await Task.detached(priority: .userInitiated) {
+				try NativeModelCoreMLEmitter().emit(package: package, to: generatedModelURL)
+			}.value
+			try FileManager.default.removeItem(at: storedURL)
+			return generatedModelURL
+		} catch {
+			try? FileManager.default.removeItem(at: generatedModelURL)
+			try? FileManager.default.removeItem(at: storedURL)
+			throw error
+		}
 	}
 
 	/// Creates and saves the Core Data configuration entity.

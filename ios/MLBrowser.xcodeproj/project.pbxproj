@@ -270,6 +270,9 @@
 		A153A6E24C24E30E1B7B6FDB /* ModelTypeBackfiller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CBFB4DBA150A11E6A85D783 /* ModelTypeBackfiller.swift */; };
 		A1B2C3D42F0104A200000001 /* ModelLoadingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */; };
 		A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */; };
+		B10000000000000000000004 /* NativeModelGraphTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* NativeModelGraphTests.swift */; };
+		B10000000000000000000007 /* NativeModelConverter in Frameworks */ = {isa = PBXBuildFile; productRef = B10000000000000000000006 /* NativeModelConverter */; };
+		B10000000000000000000009 /* NativeModelConverter in Frameworks */ = {isa = PBXBuildFile; productRef = B10000000000000000000008 /* NativeModelConverter */; };
 		A41310010000000000000001 /* CatalogProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A41300010000000000000001 /* CatalogProvider.swift */; };
 		A42210010000000000000001 /* AppleCoreMLCatalogProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A42200010000000000000001 /* AppleCoreMLCatalogProvider.swift */; };
 		A42210020000000000000001 /* GitHubCatalogProviders.swift in Sources */ = {isa = PBXBuildFile; fileRef = A42200020000000000000001 /* GitHubCatalogProviders.swift */; };
@@ -578,6 +581,7 @@
 		9ED702A061548A1DE38F772D /* BrowserSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BrowserSession.swift; sourceTree = "<group>"; };
 		A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingService.swift; sourceTree = "<group>"; };
 		A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLoadingServiceTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* NativeModelGraphTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeModelGraphTests.swift; sourceTree = "<group>"; };
 		A41300010000000000000001 /* CatalogProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CatalogProvider.swift; sourceTree = "<group>"; };
 		A42200010000000000000001 /* AppleCoreMLCatalogProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleCoreMLCatalogProvider.swift; sourceTree = "<group>"; };
 		A42200020000000000000001 /* GitHubCatalogProviders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubCatalogProviders.swift; sourceTree = "<group>"; };
@@ -623,6 +627,7 @@
 				A35000000000000000000004 /* TelemetryDeck in Frameworks */,
 				9407A5E62FE4A9AE0097FB7B /* ClerkKit in Frameworks */,
 				9407A5E82FE4A9AE0097FB7B /* ClerkKitUI in Frameworks */,
+				B10000000000000000000007 /* NativeModelConverter in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -630,6 +635,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B10000000000000000000009 /* NativeModelConverter in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1096,6 +1102,7 @@
 				94E6A6762EEE224A008E1B4B /* MLModelMetadataParserTests.swift */,
 				941C4FBB2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift */,
 				A1B2C3D42F0104A100000002 /* ModelLoadingServiceTests.swift */,
+				B10000000000000000000003 /* NativeModelGraphTests.swift */,
 				94929E7C2ED63ADE001A4C63 /* ModelEnumsTests.swift */,
 				942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */,
 				94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */,
@@ -1346,6 +1353,7 @@
 				9407A5E72FE4A9AE0097FB7B /* ClerkKitUI */,
 				94CFCA7000000000000000A2 /* ConfigCat */,
 				A35000000000000000000003 /* TelemetryDeck */,
+				B10000000000000000000006 /* NativeModelConverter */,
 			);
 			productName = MLBrowser;
 			productReference = 8AE0BC002A97B0B30086DDF9 /* ML Browser.app */;
@@ -1366,6 +1374,7 @@
 			);
 			name = MLBrowserUnitTests;
 			packageProductDependencies = (
+				B10000000000000000000008 /* NativeModelConverter */,
 			);
 			productName = MLBrowserTests;
 			productReference = 8AE0BC162A97B0B40086DDF9 /* MLBrowserUnitTests.xctest */;
@@ -1458,6 +1467,7 @@
 				9407A5E42FE4A9AE0097FB7B /* XCRemoteSwiftPackageReference "clerk-ios" */,
 				94CFCA7000000000000000A1 /* XCRemoteSwiftPackageReference "swift-sdk" */,
 				A35000000000000000000005 /* XCRemoteSwiftPackageReference "SwiftSDK" */,
+				B1000000000000000000000A /* XCLocalSwiftPackageReference "NativeModelConverter" */,
 			);
 			productRefGroup = 8AE0BC012A97B0B30086DDF9 /* Products */;
 			projectDirPath = "";
@@ -1794,6 +1804,7 @@
 				941C4FBC2EDBA54A00066AED /* ModelAcquisitionCoordinatorTests.swift in Sources */,
 				A41310050000000000000001 /* CatalogProviderTests.swift in Sources */,
 				A1B2C3D42F0104A200000002 /* ModelLoadingServiceTests.swift in Sources */,
+				B10000000000000000000004 /* NativeModelGraphTests.swift in Sources */,
 				94D79C942EE37DBF0027C9FA /* HostPlatformTests.swift in Sources */,
 				94D79C952EE37DBF0027C9FA /* BundleExtensionsTests.swift in Sources */,
 				94D79C962EE37DBF0027C9FA /* UIExtensionsTests.swift in Sources */,
@@ -2275,6 +2286,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		B1000000000000000000000A /* XCLocalSwiftPackageReference "NativeModelConverter" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		81666D3A451C4358B0AFB17A /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -2338,6 +2356,16 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		B10000000000000000000006 /* NativeModelConverter */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1000000000000000000000A /* XCLocalSwiftPackageReference "NativeModelConverter" */;
+			productName = NativeModelConverter;
+		};
+		B10000000000000000000008 /* NativeModelConverter */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1000000000000000000000A /* XCLocalSwiftPackageReference "NativeModelConverter" */;
+			productName = NativeModelConverter;
+		};
 		9407A5E52FE4A9AE0097FB7B /* ClerkKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 9407A5E42FE4A9AE0097FB7B /* XCRemoteSwiftPackageReference "clerk-ios" */;

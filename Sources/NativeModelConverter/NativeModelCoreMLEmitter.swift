@@ -1,0 +1,516 @@
+//
+//  NativeModelCoreMLEmitter.swift
+//  NativeModelConverter
+//
+//  Emits a Core ML neural-network protobuf from a validated native graph.
+//
+
+import Foundation
+
+/// Serializes the currently implemented native-graph subset as a Core ML neural-network model.
+///
+/// The emitter intentionally has a narrower operation set than `NativeModelGraphValidator`.
+/// Validation answers whether a graph belongs to the version 1 interchange contract; this type
+/// answers whether the installed native emitter can faithfully serialize it today. Unsupported
+/// operations fail explicitly, which prevents a partially converted model from reaching Core ML.
+public struct NativeModelCoreMLEmitter: Sendable {
+
+	public init() {}
+
+	/// Emits a graph that contains no weights.
+	///
+	/// Use ``emit(graph:weights:to:)`` for convolutional and linear graphs. This overload remains
+	/// useful for the initial activation-only conformance fixture and prevents accidental use of an
+	/// empty weight blob with a weight-bearing graph.
+	public func emit(graph: NativeModelGraph, to outputURL: URL) throws {
+		try emit(graph: graph, weights: Data(), to: outputURL)
+	}
+
+	/// Emits a model from a graph package whose integrity has already been verified by
+	/// ``NativeModelGraphPackageReader``.
+	public func emit(package: NativeModelGraphPackage, to outputURL: URL) throws {
+		try emit(graph: package.graph, weights: package.weights, to: outputURL)
+	}
+
+	/// Writes a Core ML neural-network `.mlmodel`.
+	///
+	/// Version 4 is the first neural-network specification that preserves the exact rank of a
+	/// multi-array feature. Float16 multi-array interfaces require version 7, so the emitter raises
+	/// the specification version when needed. The first emission slice is intentionally limited to
+	/// ReLU and Conv2D so the protobuf path and weight encoding can be compiled and executed before
+	/// the rest of the MobileNetV2 operation sequence is added.
+	public func emit(graph: NativeModelGraph, weights: Data, to outputURL: URL) throws {
+		let validation = NativeModelGraphValidator().validate(graph)
+		guard validation.isConvertible else {
+			throw NativeModelCoreMLEmissionError.invalidGraph(validation.issues)
+		}
+
+		let weightsByName = Dictionary(uniqueKeysWithValues: graph.weights.map { ($0.name, $0) })
+		for weight in graph.weights {
+			let (endOffset, overflow) = weight.offset.addingReportingOverflow(weight.byteCount)
+			guard !overflow, endOffset <= UInt64(weights.count) else {
+				throw NativeModelCoreMLEmissionError.weightDataOutOfBounds(
+					name: weight.name,
+					offset: weight.offset,
+					byteCount: weight.byteCount,
+					availableByteCount: UInt64(weights.count)
+				)
+			}
+		}
+
+		let tensorsByName = tensorIndex(for: graph)
+		let outputTensors = try graph.outputs.map { outputName in
+			guard let tensor = tensorsByName[outputName] else {
+				throw NativeModelCoreMLEmissionError.missingOutputTensor(outputName)
+			}
+			return tensor
+		}
+
+		let model = try makeModel(
+			inputTensors: graph.inputs,
+			outputTensors: outputTensors,
+			operations: graph.operations,
+			weightsByName: weightsByName,
+			weights: weights
+		)
+		try model.write(to: outputURL, options: .atomic)
+	}
+
+	private func tensorIndex(for graph: NativeModelGraph) -> [String: NativeModelTensor] {
+		var result = Dictionary(uniqueKeysWithValues: graph.inputs.map { ($0.name, $0) })
+		for operation in graph.operations {
+			for output in operation.outputs {
+				result[output.name] = output
+			}
+		}
+		return result
+	}
+
+	private func makeModel(
+		inputTensors: [NativeModelTensor],
+		outputTensors: [NativeModelTensor],
+		operations: [NativeModelOperation],
+		weightsByName: [String: NativeModelWeight],
+		weights: Data
+	) throws -> Data {
+		let specificationVersion = (inputTensors + outputTensors).contains { $0.dataType == .float16 } ? 7 : 4
+		let description = CoreMLProtobufEncoder.message { description in
+			for input in inputTensors {
+				CoreMLProtobufEncoder.appendMessageField(1, value: featureDescription(for: input), to: &description)
+			}
+			for output in outputTensors {
+				CoreMLProtobufEncoder.appendMessageField(10, value: featureDescription(for: output), to: &description)
+			}
+		}
+
+		var neuralNetwork = Data()
+		for operation in operations {
+			let layer = try layer(for: operation, weightsByName: weightsByName, weights: weights)
+			CoreMLProtobufEncoder.appendMessageField(1, value: layer, to: &neuralNetwork)
+		}
+		CoreMLProtobufEncoder.appendVarintField(5, value: 1, to: &neuralNetwork)
+
+		return CoreMLProtobufEncoder.message { model in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(specificationVersion), to: &model)
+			CoreMLProtobufEncoder.appendMessageField(2, value: description, to: &model)
+			CoreMLProtobufEncoder.appendMessageField(500, value: neuralNetwork, to: &model)
+		}
+	}
+
+	private func layer(
+		for operation: NativeModelOperation,
+		weightsByName: [String: NativeModelWeight],
+		weights: Data
+	) throws -> Data {
+		switch operation.kind {
+		case .relu:
+			reluLayer(for: operation)
+		case .convolution2D:
+			try convolutionLayer(for: operation, weightsByName: weightsByName, weights: weights)
+		case .batchNormalization:
+			try batchNormalizationLayer(for: operation, weightsByName: weightsByName, weights: weights)
+		case .relu6:
+			try relu6Layer(for: operation)
+		case .globalAveragePool2D:
+			try globalAveragePoolLayer(for: operation)
+		case .flatten:
+			try flattenLayer(for: operation)
+		case .linear:
+			try linearLayer(for: operation, weightsByName: weightsByName, weights: weights)
+		case .add:
+			try addLayer(for: operation)
+		default:
+			throw NativeModelCoreMLEmissionError.unsupportedOperation(
+				operation: operation.name,
+				kind: operation.kind.serializedValue
+			)
+		}
+	}
+
+	private func featureDescription(for tensor: NativeModelTensor) -> Data {
+		let arrayType = CoreMLProtobufEncoder.message { arrayType in
+			for dimension in tensor.shape {
+				CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(dimension), to: &arrayType)
+			}
+			CoreMLProtobufEncoder.appendVarintField(2, value: coreMLArrayDataType(for: tensor.dataType), to: &arrayType)
+		}
+
+		let featureType = CoreMLProtobufEncoder.message { featureType in
+			CoreMLProtobufEncoder.appendMessageField(5, value: arrayType, to: &featureType)
+		}
+
+		return CoreMLProtobufEncoder.message { featureDescription in
+			CoreMLProtobufEncoder.appendStringField(1, value: tensor.name, to: &featureDescription)
+			CoreMLProtobufEncoder.appendMessageField(3, value: featureType, to: &featureDescription)
+		}
+	}
+
+	private func reluLayer(for operation: NativeModelOperation) -> Data {
+		let activation = CoreMLProtobufEncoder.message { activation in
+			CoreMLProtobufEncoder.appendMessageField(10, value: Data(), to: &activation)
+		}
+
+		return CoreMLProtobufEncoder.message { layer in
+			CoreMLProtobufEncoder.appendStringField(1, value: operation.name, to: &layer)
+			for input in operation.inputs {
+				CoreMLProtobufEncoder.appendStringField(2, value: input, to: &layer)
+			}
+			for output in operation.outputs {
+				CoreMLProtobufEncoder.appendStringField(3, value: output.name, to: &layer)
+			}
+			CoreMLProtobufEncoder.appendMessageField(130, value: activation, to: &layer)
+		}
+	}
+
+	private func convolutionLayer(
+		for operation: NativeModelOperation,
+		weightsByName: [String: NativeModelWeight],
+		weights: Data
+	) throws -> Data {
+		guard operation.inputs.count == 2 || operation.inputs.count == 3 else {
+			throw NativeModelCoreMLEmissionError.invalidConvolution(
+				operation: operation.name,
+				reason: "expected an activation input, kernel weight, and optional bias"
+			)
+		}
+		let kernel = try weight(named: operation.inputs[1], in: weightsByName)
+		guard kernel.shape.count == 4 else {
+			throw NativeModelCoreMLEmissionError.invalidConvolution(
+				operation: operation.name,
+				reason: "kernel '\(kernel.name)' must have [outputChannels, kernelChannels, height, width] shape"
+			)
+		}
+		let kernelSize = try integerArrayAttribute("kernelSize", for: operation, count: 2)
+		let strides = try integerArrayAttribute("strides", for: operation, count: 2)
+		let padding = try integerArrayAttribute("padding", for: operation, count: 2)
+		let dilations = try integerArrayAttribute("dilations", for: operation, count: 2)
+		let groups = try integerAttribute("groups", for: operation)
+		guard kernel.shape[2] == kernelSize[0],
+			kernel.shape[3] == kernelSize[1],
+			kernelSize.allSatisfy({ $0 > 0 }),
+			strides.allSatisfy({ $0 > 0 }),
+			dilations.allSatisfy({ $0 > 0 }),
+			groups > 0
+		else {
+			throw NativeModelCoreMLEmissionError.invalidConvolution(
+				operation: operation.name,
+				reason: "kernel shape, kernelSize, and groups are inconsistent"
+			)
+		}
+
+		let bias = try operation.inputs.dropFirst(2).first.map { try weight(named: $0, in: weightsByName) }
+		if let bias, bias.shape != [kernel.shape[0]] {
+			throw NativeModelCoreMLEmissionError.invalidConvolution(
+				operation: operation.name,
+				reason: "bias '\(bias.name)' must contain one value per output channel"
+			)
+		}
+
+		let convolution = CoreMLProtobufEncoder.message { convolution in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(kernel.shape[0]), to: &convolution)
+			CoreMLProtobufEncoder.appendVarintField(2, value: UInt64(kernel.shape[1]), to: &convolution)
+			CoreMLProtobufEncoder.appendVarintField(10, value: UInt64(groups), to: &convolution)
+			for dimension in kernelSize {
+				CoreMLProtobufEncoder.appendVarintField(20, value: UInt64(dimension), to: &convolution)
+			}
+			for stride in strides {
+				CoreMLProtobufEncoder.appendVarintField(30, value: UInt64(stride), to: &convolution)
+			}
+			for dilation in dilations {
+				CoreMLProtobufEncoder.appendVarintField(40, value: UInt64(dilation), to: &convolution)
+			}
+			CoreMLProtobufEncoder.appendMessageField(50, value: validPadding(padding), to: &convolution)
+			if let bias {
+				CoreMLProtobufEncoder.appendVarintField(70, value: 1, to: &convolution)
+				CoreMLProtobufEncoder.appendMessageField(91, value: weightParameters(for: bias, in: weights), to: &convolution)
+			}
+			CoreMLProtobufEncoder.appendMessageField(90, value: weightParameters(for: kernel, in: weights), to: &convolution)
+		}
+
+		return CoreMLProtobufEncoder.message { layer in
+			CoreMLProtobufEncoder.appendStringField(1, value: operation.name, to: &layer)
+			CoreMLProtobufEncoder.appendStringField(2, value: operation.inputs[0], to: &layer)
+			for output in operation.outputs {
+				CoreMLProtobufEncoder.appendStringField(3, value: output.name, to: &layer)
+			}
+			CoreMLProtobufEncoder.appendMessageField(100, value: convolution, to: &layer)
+		}
+	}
+
+	private func batchNormalizationLayer(
+		for operation: NativeModelOperation,
+		weightsByName: [String: NativeModelWeight],
+		weights: Data
+	) throws -> Data {
+		guard operation.inputs.count == 5 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "batchNorm requires an activation input followed by scale, bias, mean, and variance weights"
+			)
+		}
+		let gamma = try weight(named: operation.inputs[1], in: weightsByName)
+		let beta = try weight(named: operation.inputs[2], in: weightsByName)
+		let mean = try weight(named: operation.inputs[3], in: weightsByName)
+		let variance = try weight(named: operation.inputs[4], in: weightsByName)
+		guard gamma.shape.count == 1,
+			beta.shape == gamma.shape,
+			mean.shape == gamma.shape,
+			variance.shape == gamma.shape
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "batchNorm scale, bias, mean, and variance must be equal-length vectors"
+			)
+		}
+		guard let epsilon = operation.attributes["epsilon"]?.floatingPointValue, epsilon >= 0 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "batchNorm epsilon must be a non-negative floating-point value"
+			)
+		}
+
+		let batchNorm = CoreMLProtobufEncoder.message { batchNorm in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(gamma.shape[0]), to: &batchNorm)
+			CoreMLProtobufEncoder.appendFloatField(10, value: Float(epsilon), to: &batchNorm)
+			CoreMLProtobufEncoder.appendMessageField(15, value: weightParameters(for: gamma, in: weights), to: &batchNorm)
+			CoreMLProtobufEncoder.appendMessageField(16, value: weightParameters(for: beta, in: weights), to: &batchNorm)
+			CoreMLProtobufEncoder.appendMessageField(17, value: weightParameters(for: mean, in: weights), to: &batchNorm)
+			CoreMLProtobufEncoder.appendMessageField(18, value: weightParameters(for: variance, in: weights), to: &batchNorm)
+		}
+
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 160, parameters: batchNorm)
+	}
+
+	private func relu6Layer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		let clip = CoreMLProtobufEncoder.message { clip in
+			CoreMLProtobufEncoder.appendFloatField(1, value: 0, to: &clip)
+			CoreMLProtobufEncoder.appendFloatField(2, value: 6, to: &clip)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 660, parameters: clip)
+	}
+
+	private func globalAveragePoolLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		let pooling = CoreMLProtobufEncoder.message { pooling in
+			CoreMLProtobufEncoder.appendVarintField(1, value: 1, to: &pooling)
+			CoreMLProtobufEncoder.appendMessageField(30, value: validPadding([0, 0]), to: &pooling)
+			CoreMLProtobufEncoder.appendVarintField(60, value: 1, to: &pooling)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 120, parameters: pooling)
+	}
+
+	private func flattenLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard operation.attributes["axis"]?.integerValue == 1 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "flatten currently supports channel-first axis 1 only"
+			)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 301, parameters: Data())
+	}
+
+	private func linearLayer(
+		for operation: NativeModelOperation,
+		weightsByName: [String: NativeModelWeight],
+		weights: Data
+	) throws -> Data {
+		guard operation.inputs.count == 2 || operation.inputs.count == 3 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "linear requires an activation input, weight matrix, and optional bias"
+			)
+		}
+		let matrix = try weight(named: operation.inputs[1], in: weightsByName)
+		guard matrix.shape.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "linear weight '\(matrix.name)' must have [outputChannels, inputChannels] shape"
+			)
+		}
+		let bias = try operation.inputs.dropFirst(2).first.map { try weight(named: $0, in: weightsByName) }
+		if let bias, bias.shape != [matrix.shape[0]] {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "linear bias '\(bias.name)' must contain one value per output channel"
+			)
+		}
+
+		let innerProduct = CoreMLProtobufEncoder.message { innerProduct in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(matrix.shape[1]), to: &innerProduct)
+			CoreMLProtobufEncoder.appendVarintField(2, value: UInt64(matrix.shape[0]), to: &innerProduct)
+			if let bias {
+				CoreMLProtobufEncoder.appendVarintField(10, value: 1, to: &innerProduct)
+				CoreMLProtobufEncoder.appendMessageField(21, value: weightParameters(for: bias, in: weights), to: &innerProduct)
+			}
+			CoreMLProtobufEncoder.appendMessageField(20, value: weightParameters(for: matrix, in: weights), to: &innerProduct)
+		}
+
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 140, parameters: innerProduct)
+	}
+
+	private func addLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count >= 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "add requires at least two activation inputs"
+			)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 230, parameters: Data())
+	}
+
+	private func simpleLayer(
+		name: String,
+		input: String,
+		outputs: [NativeModelTensor],
+		parameterField: Int,
+		parameters: Data
+	) -> Data {
+		layer(name: name, inputs: [input], outputs: outputs, parameterField: parameterField, parameters: parameters)
+	}
+
+	private func layer(
+		name: String,
+		inputs: [String],
+		outputs: [NativeModelTensor],
+		parameterField: Int,
+		parameters: Data
+	) -> Data {
+		CoreMLProtobufEncoder.message { layer in
+			CoreMLProtobufEncoder.appendStringField(1, value: name, to: &layer)
+			for input in inputs {
+				CoreMLProtobufEncoder.appendStringField(2, value: input, to: &layer)
+			}
+			for output in outputs {
+				CoreMLProtobufEncoder.appendStringField(3, value: output.name, to: &layer)
+			}
+			CoreMLProtobufEncoder.appendMessageField(parameterField, value: parameters, to: &layer)
+		}
+	}
+
+	private func requireSingleActivationInput(_ operation: NativeModelOperation) throws {
+		guard operation.inputs.count == 1 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "expected exactly one activation input"
+			)
+		}
+	}
+
+	private func validPadding(_ padding: [Int]) -> Data {
+		let borderAmounts = CoreMLProtobufEncoder.message { borderAmounts in
+			for amount in padding {
+				let edgeSizes = CoreMLProtobufEncoder.message { edgeSizes in
+					CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(amount), to: &edgeSizes)
+					CoreMLProtobufEncoder.appendVarintField(2, value: UInt64(amount), to: &edgeSizes)
+				}
+				CoreMLProtobufEncoder.appendMessageField(10, value: edgeSizes, to: &borderAmounts)
+			}
+		}
+		return CoreMLProtobufEncoder.message { padding in
+			CoreMLProtobufEncoder.appendMessageField(1, value: borderAmounts, to: &padding)
+		}
+	}
+
+	private func weightParameters(for weight: NativeModelWeight, in weights: Data) -> Data {
+		let start = Int(weight.offset)
+		let end = start + Int(weight.byteCount)
+		let values = weights[start..<end]
+		return CoreMLProtobufEncoder.message { parameters in
+			switch weight.dataType {
+			case .float16:
+				CoreMLProtobufEncoder.appendMessageField(2, value: Data(values), to: &parameters)
+			case .float32:
+				CoreMLProtobufEncoder.appendMessageField(1, value: Data(values), to: &parameters)
+			case .unsupported:
+				preconditionFailure("The graph validator rejects unsupported data types before emission.")
+			}
+		}
+	}
+
+	private func weight(named name: String, in weightsByName: [String: NativeModelWeight]) throws -> NativeModelWeight {
+		guard let weight = weightsByName[name] else {
+			throw NativeModelCoreMLEmissionError.missingWeight(name)
+		}
+		return weight
+	}
+
+	private func integerArrayAttribute(_ name: String, for operation: NativeModelOperation, count: Int) throws -> [Int] {
+		guard let value = operation.attributes[name]?.integerArrayValue, value.count == count, value.allSatisfy({ $0 >= 0 }) else {
+			throw NativeModelCoreMLEmissionError.invalidConvolution(
+				operation: operation.name,
+				reason: "attribute '\(name)' must contain \(count) non-negative integers"
+			)
+		}
+		return value
+	}
+
+	private func integerAttribute(_ name: String, for operation: NativeModelOperation) throws -> Int {
+		guard let value = operation.attributes[name]?.integerValue else {
+			throw NativeModelCoreMLEmissionError.invalidConvolution(
+				operation: operation.name,
+				reason: "attribute '\(name)' must be an integer"
+			)
+		}
+		return value
+	}
+
+	private func coreMLArrayDataType(for dataType: NativeModelDataType) -> UInt64 {
+		switch dataType {
+		case .float16: 65_552
+		case .float32: 65_568
+		case .unsupported:
+			preconditionFailure("The graph validator rejects unsupported data types before emission.")
+		}
+	}
+}
+
+public enum NativeModelCoreMLEmissionError: Error, Equatable, LocalizedError, Sendable {
+	case invalidGraph([NativeModelGraphValidationIssue])
+	case unsupportedOperation(operation: String, kind: String)
+	case missingOutputTensor(String)
+	case missingWeight(String)
+	case weightDataOutOfBounds(name: String, offset: UInt64, byteCount: UInt64, availableByteCount: UInt64)
+	case invalidConvolution(operation: String, reason: String)
+	case invalidOperation(operation: String, reason: String)
+
+	public var errorDescription: String? {
+		switch self {
+		case .invalidGraph(let issues):
+			"The native graph is invalid: \(issues.map(\.localizedDescription).joined(separator: "; "))"
+		case .unsupportedOperation(let operation, let kind):
+			"The current Core ML emitter does not support operation '\(operation)' of kind '\(kind)'."
+		case .missingOutputTensor(let name):
+			"The native graph declares output '\(name)' but no tensor defines it."
+		case .missingWeight(let name):
+			"The graph references weight '\(name)' but does not declare it."
+		case .weightDataOutOfBounds(let name, let offset, let byteCount, let availableByteCount):
+			"Weight '\(name)' needs bytes [\(offset), \(offset + byteCount)), but weights.bin has \(availableByteCount) bytes."
+		case .invalidConvolution(let operation, let reason):
+			"Convolution '\(operation)' is invalid: \(reason)."
+		case .invalidOperation(let operation, let reason):
+			"Operation '\(operation)' is invalid: \(reason)."
+		}
+	}
+}
