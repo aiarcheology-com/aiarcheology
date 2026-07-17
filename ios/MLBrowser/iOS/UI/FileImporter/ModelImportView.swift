@@ -47,6 +47,27 @@ struct ModelImportView: View {
 	
 	/// Loading state during model validation
 	@State private var isLoading = false
+	/// Phase-local progress from a native `.aiagraph` conversion, if this import needs one.
+	@State private var nativeConversionProgress: NativeModelConversionProgress?
+	/// The app-owned report is retained beside a converted or staged native package.
+	@State private var nativeConversionReport: NativeModelConversionImportReport?
+	/// The report currently selected for the user-visible log sheet.
+	@State private var presentedNativeConversionReport: NativeModelConversionImportReport?
+	/// An interrupted transaction discovered in the app sandbox.
+	@State private var interruptedNativeConversion: NativeModelConversionImportReport?
+	/// The import task can be cancelled only at package-defined cooperative checkpoints.
+	@State private var activeImportTask: Task<Void, Never>?
+	/// Identifies the one UI import allowed to apply asynchronous progress/report updates.
+	///
+	/// Package callbacks can be enqueued on the main actor immediately before a terminal update. This
+	/// token prevents such late callbacks from repopulating SwiftUI state after completion or from a
+	/// previous import appearing in the next import's UI.
+	@State private var activeImportSessionID: UUID?
+	/// A native package import waiting for the user's provenance-retention decision.
+	@State private var originalRetentionRequest: ModelAcquisitionCoordinator.ImportRequest?
+	/// The archive is deleted when the system share sheet completes or is dismissed.
+	@State private var nativeModelSharePayload: ActivitySharePayload?
+	@State private var isPreparingNativeModelExport = false
 	
 	/// Error to display in alert
 	@State private var errorMessage: String?
@@ -102,7 +123,13 @@ struct ModelImportView: View {
 		.onChange(of: acquisitionCoordinator.pendingImport) { _, request in
 			handlePendingImport(request)
 		}
+		.onAppear(perform: discoverInterruptedNativeConversion)
 		.alert(L10n.Alert.Error.title, isPresented: $showErrorAlert) {
+			if nativeConversionReport != nil {
+				Button(L10n.Import.showConversionLog) {
+					presentedNativeConversionReport = nativeConversionReport
+				}
+			}
 			Button(L10n.Common.ok, role: .cancel) { }
 		} message: {
 			Text(errorMessage ?? "An unknown error occurred.")
@@ -112,6 +139,11 @@ struct ModelImportView: View {
 				get: { importedModelInfo != nil },
 				set: { if !$0 { importedModelInfo = nil } }
 		)) {
+			if nativeConversionReport != nil {
+				Button(L10n.Import.showConversionLog) {
+					presentedNativeConversionReport = nativeConversionReport
+				}
+			}
 			Button(L10n.Common.ok) {
 				let info = importedModelInfo
 				importedModelInfo = nil
@@ -125,6 +157,51 @@ struct ModelImportView: View {
 		} message: {
 			Text(importedModelInfo?.needsReview == true ? L10n.Import.typeConfirmation : L10n.Import.success)
 		}
+		.confirmationDialog(
+			L10n.Import.keepOriginalTitle,
+			item: $originalRetentionRequest,
+			titleVisibility: .visible
+		) { request in
+			Button(L10n.Import.keepOriginal) {
+				startImport(request, retainingOriginalNativePackage: true)
+			}
+			Button(L10n.Import.convertOnly) {
+				startImport(request, retainingOriginalNativePackage: false)
+			}
+		} message: { _ in
+			Text(L10n.Import.keepOriginalMessage)
+		}
+		.onChange(of: originalRetentionRequest) { previous, current in
+			guard previous != nil, current == nil, !isLoading else { return }
+			// Dismissing the choice is a cancelled import. Nothing has been copied yet, and a remote
+			// download remains available to import again.
+			acquisitionCoordinator.markImportHandled()
+		}
+		.confirmationDialog(
+			L10n.Import.resumeConversionTitle,
+			item: $interruptedNativeConversion,
+			titleVisibility: .visible
+		) { report in
+			Button(L10n.Import.resumeConversion) {
+				resumeInterruptedNativeConversion(report)
+			}
+			Button(L10n.Import.showConversionLog) {
+				presentedNativeConversionReport = report
+			}
+			Button(L10n.Import.discardConversion, role: .destructive) {
+				discardInterruptedNativeConversion(report)
+			}
+		} message: { _ in
+			Text(L10n.Import.resumeConversionMessage)
+		}
+		.sheet(item: $presentedNativeConversionReport) { report in
+			NativeModelConversionReportView(
+				report: report,
+				isPreparingExport: isPreparingNativeModelExport,
+				onExport: { exportConvertedModel(report) }
+			)
+		}
+		.activityShareSheet($nativeModelSharePayload)
 		.presentationDetents([.large])
 	}
 	
@@ -258,12 +335,62 @@ struct ModelImportView: View {
 			Color.black.opacity(0.3)
 				.ignoresSafeArea()
 
-			ProgressView {
-				Text(L10n.Import.validating)
+			Group {
+				if let progress = nativeConversionProgress, let fraction = progress.fractionCompleted {
+					VStack(alignment: .leading, spacing: 8) {
+						ProgressView(value: fraction) {
+							Text(conversionProgressTitle(progress))
+						} currentValueLabel: {
+							Text("\(progress.completedUnitCount) / \(progress.totalUnitCount)")
+						}
+						if let memoryUsage = progress.processMemoryUsage {
+							conversionMemoryUsageView(memoryUsage)
+						}
+					}
+				} else {
+					VStack(alignment: .leading, spacing: 8) {
+						ProgressView {
+							Text(nativeConversionProgress.map(conversionProgressTitle) ?? L10n.Import.validating)
+						}
+						if let memoryUsage = nativeConversionProgress?.processMemoryUsage {
+							conversionMemoryUsageView(memoryUsage)
+						}
+					}
+				}
 			}
 			.padding(24)
+			.overlay(alignment: .bottomTrailing) {
+				if activeImportTask != nil {
+					Button(L10n.Common.cancel) {
+						activeImportTask?.cancel()
+					}
+					.buttonStyle(.bordered)
+					.padding(12)
+				}
+			}
 			.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
 		}
+	}
+
+	@ViewBuilder
+	private func conversionMemoryUsageView(_ usage: NativeModelConversionProcessMemoryUsage) -> some View {
+		VStack(alignment: .leading, spacing: 2) {
+			Text("\(L10n.Import.conversionProcessMemory): \(formattedByteCount(usage.currentProcessFootprintByteCount))")
+			Text("\(L10n.Import.conversionObservedPeakIncrease): \(formattedByteCount(usage.observedPeakIncreaseByteCount))")
+		}
+		.font(.caption)
+		.foregroundStyle(.secondary)
+		.accessibilityElement(children: .combine)
+	}
+
+	private func formattedByteCount(_ byteCount: UInt64) -> String {
+		ByteCountFormatter.string(fromByteCount: Int64(clamping: byteCount), countStyle: .memory)
+	}
+
+	private func conversionProgressTitle(_ progress: NativeModelConversionProgress) -> String {
+		progress.phase == .waitingForExclusiveAccess
+			? L10n.Import.conversionWaitingForExclusiveAccess
+			: L10n.Import.validating
 	}
 	
 	// MARK: - Remote Downloader Sheet
@@ -317,26 +444,159 @@ struct ModelImportView: View {
 	
 	private func handlePendingImport(_ request: ModelAcquisitionCoordinator.ImportRequest?) {
 		guard let request else { return }
-		isLoading = true
+		if request.url.pathExtension.lowercased() == "aiagraph" {
+			originalRetentionRequest = request
+			return
+		}
+		startImport(request, retainingOriginalNativePackage: false)
+	}
 
+	private func discoverInterruptedNativeConversion() {
+		guard activeImportTask == nil,
+			interruptedNativeConversion == nil,
+			let documentsDirectory = FileManager.default.documentDirectory
+		else {
+			return
+		}
+		let configurationsDirectory = documentsDirectory.appendingPathComponent("Configurations", isDirectory: true)
+		guard var report = NativeModelConversionImportReport
+			.recoverableReports(in: configurationsDirectory)
+			.first
+		else {
+			return
+		}
+		if report.markInterruptedIfIncomplete(),
+			let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) {
+			try? report.write(in: configurationDirectory)
+		}
+		interruptedNativeConversion = report
+	}
+
+	private func resumeInterruptedNativeConversion(_ report: NativeModelConversionImportReport) {
+		interruptedNativeConversion = nil
+		guard let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) else {
+			errorMessage = NativeModelConversionImportReportError.invalidReport.localizedDescription
+			showErrorAlert = true
+			return
+		}
+		let request = ModelAcquisitionCoordinator.ImportRequest(
+			url: report.sourcePackageURL(in: configurationDirectory),
+			downloadUrl: DownloadItem.select(report.configurationID, in: moc)?.url,
+			configurationId: report.configurationID,
+			provider: report.wasRemoteImport ? downloader : NoopProvider()
+		)
+		startImport(
+			request,
+			retainingOriginalNativePackage: report.retainOriginalPackage,
+			existingNativeReport: report
+		)
+	}
+
+	private func discardInterruptedNativeConversion(_ report: NativeModelConversionImportReport) {
+		interruptedNativeConversion = nil
+		guard let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) else {
+			return
+		}
+		NativeModelConversionImportReport.removeTransientArtifacts(
+			for: report,
+			in: configurationDirectory,
+			includingSourcePackage: true
+		)
+		try? FileManager.default.removeItem(at: NativeModelConversionImportReport.reportURL(in: configurationDirectory))
+		if nativeConversionReport?.configurationID == report.configurationID {
+			nativeConversionReport = nil
+		}
+	}
+
+	private func exportConvertedModel(_ report: NativeModelConversionImportReport) {
+		guard report.state == .registered, !isPreparingNativeModelExport else { return }
+		guard let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) else {
+			errorMessage = NativeModelConversionImportReportError.invalidReport.localizedDescription
+			showErrorAlert = true
+			return
+		}
+		isPreparingNativeModelExport = true
 		Task {
 			do {
-				let info = try await importConfiguration(from: request.url, downloadUrl: request.downloadUrl, id: request.configurationId, provider: request.provider)
+				let archiveURL = try await Task.detached(priority: .userInitiated) {
+					try NativeModelConversionExporter.makeZip(
+						report: report,
+						configurationDirectory: configurationDirectory
+					)
+				}.value
+				nativeModelSharePayload = ActivitySharePayload(
+					items: [archiveURL],
+					completion: { NativeModelConversionExporter.removeExportArchive(at: archiveURL) }
+				)
+			} catch {
+				LoggingPolicy.error("Failed to export converted model", error: error, logger: .storage)
+				errorMessage = error.localizedDescription
+				showErrorAlert = true
+			}
+			isPreparingNativeModelExport = false
+		}
+	}
+
+	private func startImport(
+		_ request: ModelAcquisitionCoordinator.ImportRequest,
+		retainingOriginalNativePackage: Bool,
+		existingNativeReport: NativeModelConversionImportReport? = nil
+	) {
+		guard activeImportTask == nil else { return }
+		let importSessionID = UUID()
+		activeImportSessionID = importSessionID
+		isLoading = true
+		nativeConversionReport = existingNativeReport
+		nativeConversionProgress = existingNativeReport?.lastProgress
+		let reportObserver: @Sendable (NativeModelConversionImportReport) -> Void = { report in
+			Task { @MainActor in
+				guard activeImportSessionID == importSessionID else { return }
+				nativeConversionReport = report
+			}
+		}
+
+		activeImportTask = Task {
+			do {
+				let info = try await importConfiguration(
+					NativeModelImportRequest(
+						sourceURL: request.url,
+						downloadURL: request.downloadUrl,
+						configurationID: request.configurationId,
+						importSessionID: importSessionID,
+						provider: request.provider,
+						retainingOriginalNativePackage: retainingOriginalNativePackage,
+						existingNativeReport: existingNativeReport,
+						reportObserver: reportObserver
+					)
+				)
 				await MainActor.run {
+					guard activeImportSessionID == importSessionID else { return }
 					importedModelInfo = info
-					isLoading = false
+					clearActiveImportState(for: importSessionID)
 					acquisitionCoordinator.markImportHandled()
 				}
 			} catch {
 				await MainActor.run {
-					request.provider.result(.importFailed, id: request.configurationId)
-					errorMessage = error.localizedDescription
-					showErrorAlert = true
-					isLoading = false
+					guard activeImportSessionID == importSessionID else { return }
+					if !isNativeConversionCancellation(error) {
+						request.provider.result(.importFailed, id: request.configurationId)
+						errorMessage = error.localizedDescription
+						showErrorAlert = true
+					}
+					clearActiveImportState(for: importSessionID)
 					acquisitionCoordinator.markImportHandled()
 				}
 			}
 		}
+	}
+
+	@MainActor
+	private func clearActiveImportState(for importSessionID: UUID) {
+		guard activeImportSessionID == importSessionID else { return }
+		isLoading = false
+		nativeConversionProgress = nil
+		activeImportTask = nil
+		activeImportSessionID = nil
 	}
 
 	/// Import and validate a model configuration
@@ -344,27 +604,46 @@ struct ModelImportView: View {
 	/// This method performs expensive operations (file copy, model compilation/loading)
 	/// off the MainActor for better UI responsiveness.
 	///
-	/// - Parameters:
-	///   - sourceURL: Local file URL of the model
-	///   - downloadUrl: Original download URL (nil for local file imports, non-nil for remote downloads)
-	///   - id: Configuration identifier
-	///   - provider: Model provider for result callbacks
 	/// - Returns: Info about the imported model for display in success alert
 	@discardableResult
-	private func importConfiguration(from sourceURL: URL, downloadUrl: URL?, id: UUID, provider: ModelProvider) async throws -> ImportedModelInfo {
+	private func importConfiguration(
+		_ request: NativeModelImportRequest
+	) async throws -> ImportedModelInfo {
 		// Phase 1: File operations and model loading (off MainActor)
 		// Copy file to Documents and load/validate model metadata
-		let (modelURL, extractedInfo) = try await performOffMainActorWork(sourceURL: sourceURL, configurationId: id)
+		let work = try await performOffMainActorWork(request)
 
 		// Phase 2: Core Data operations (on MainActor)
-		return try await MainActor.run {
-			return try createAndSaveConfiguration(
-				modelURL: modelURL,
-				downloadUrl: downloadUrl,
-				id: id,
-				extractedInfo: extractedInfo,
-				provider: provider
-			)
+		do {
+			try Task.checkCancellation()
+			let info = try await MainActor.run {
+				try createAndSaveConfiguration(
+					modelURL: work.modelURL,
+					downloadUrl: request.downloadURL,
+					id: request.configurationID,
+					extractedInfo: work.extractedInfo,
+					provider: request.provider
+				)
+			}
+			if let reportStore = work.reportStore {
+				try await reportStore.transition(to: .registered)
+				let report = await reportStore.snapshot()
+				if !report.retainOriginalPackage {
+					try? FileManager.default.removeItem(at: report.sourcePackageURL(in: work.configurationDirectory))
+				}
+				request.reportObserver(report)
+			}
+			return info
+		} catch {
+			if let reportStore = work.reportStore {
+				await recordNativeImportFailure(
+					error,
+					reportStore: reportStore,
+					configurationDirectory: work.configurationDirectory,
+					reportObserver: request.reportObserver
+				)
+			}
+			throw error
 		}
 	}
 
@@ -374,55 +653,216 @@ struct ModelImportView: View {
 	/// not inherited from the MainActor-isolated call site.
 	///
 	/// - Returns: Tuple of (stored model URL, extracted metadata)
-	private func performOffMainActorWork(sourceURL: URL, configurationId: UUID) async throws -> (URL, ExtractedModelInfo) {
+	private func performOffMainActorWork(
+		_ request: NativeModelImportRequest
+	) async throws -> NativeModelImportWork {
 		// Copy the source into the per-configuration directory in a detached task. Task.detached
 		// doesn't inherit actor context, unlike plain Task { }, so document-provider I/O cannot block
 		// SwiftUI. A native graph package is then verified and converted before the normal Core ML
 		// loader sees it.
+		let sourceURL = request.sourceURL
+		let configurationID = request.configurationID
 		let storedURL = try await Task.detached(priority: .userInitiated) {
-			try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationId)
+			try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationID)
 		}.value
-		let modelURL = try await convertNativeGraphPackageIfNeeded(at: storedURL)
+		let configurationDirectory = storedURL.deletingLastPathComponent()
+		let reportStore: NativeModelConversionImportReportStore?
+		if storedURL.pathExtension.lowercased() == "aiagraph" {
+			let report: NativeModelConversionImportReport
+			if let existingNativeReport = request.existingNativeReport {
+				guard existingNativeReport.configurationID == configurationID,
+					existingNativeReport.sourcePackageFilename == storedURL.lastPathComponent
+				else {
+					throw NativeModelConversionImportReportError.invalidReport
+				}
+				report = existingNativeReport
+			} else {
+				report = try NativeModelConversionImportReport(
+					configurationID: configurationID,
+					sourcePackageFilename: storedURL.lastPathComponent,
+					retainOriginalPackage: request.retainingOriginalNativePackage,
+					wasRemoteImport: request.downloadURL != nil
+				)
+				try report.write(in: configurationDirectory)
+			}
+			reportStore = NativeModelConversionImportReportStore(
+				report: report,
+				configurationDirectory: configurationDirectory
+			)
+			request.reportObserver(report)
+		} else {
+			reportStore = nil
+		}
+		do {
+			try Task.checkCancellation()
+		} catch {
+			if let reportStore {
+				await recordNativeImportFailure(
+					error,
+					reportStore: reportStore,
+					configurationDirectory: configurationDirectory,
+					reportObserver: request.reportObserver
+				)
+			}
+			throw error
+		}
+
+		let modelURL: URL
+		if let reportStore {
+				modelURL = try await convertNativeGraphPackageIfNeeded(
+					NativeGraphConversionRequest(
+						storedURL: storedURL,
+						importSessionID: request.importSessionID,
+						originalModelFilename: sourceURL.lastPathComponent,
+						originalModelURL: request.downloadURL?.absoluteString,
+						reportStore: reportStore,
+						configurationDirectory: configurationDirectory,
+						reportObserver: request.reportObserver
+					)
+				)
+		} else {
+			modelURL = storedURL
+		}
 
 		// Load and validate the model using ModelLoadingService (actor, so off MainActor)
 		let service = ModelLoadingService()
 		let extractedInfo: ExtractedModelInfo
 		do {
 			extractedInfo = try await service.loadAndExtractMetadata(from: modelURL, demo: false)
+			try Task.checkCancellation()
 		} catch {
-			if storedURL.pathExtension.lowercased() == "aiagraph" {
-				try? FileManager.default.removeItem(at: modelURL)
+			if let reportStore {
+				await recordNativeImportFailure(
+					error,
+					reportStore: reportStore,
+					configurationDirectory: configurationDirectory,
+					reportObserver: request.reportObserver
+				)
 			}
 			throw error
 		}
 
-		return (modelURL, extractedInfo)
+		return NativeModelImportWork(
+			modelURL: modelURL,
+			extractedInfo: extractedInfo,
+			configurationDirectory: configurationDirectory,
+			reportStore: reportStore
+		)
 	}
 
 	/// Converts a verified `.aiagraph` directory to a Core ML model beside the copied package.
 	///
-	/// The original package is retained until emission succeeds. On any validation or emission
-	/// failure, both the copied package and a possible staged model are removed; the user-selected
-	/// source remains untouched outside the app sandbox.
-	private func convertNativeGraphPackageIfNeeded(at storedURL: URL) async throws -> URL {
+	/// The package and report are never removed while conversion is active. A process interruption
+	/// therefore leaves a recoverable report and a source package in the app sandbox. After Core
+	/// Data registration succeeds, the original is removed only when the user chose Convert Only.
+	private func convertNativeGraphPackageIfNeeded(
+		_ request: NativeGraphConversionRequest
+	) async throws -> URL {
+		let storedURL = request.storedURL
 		guard storedURL.pathExtension.lowercased() == "aiagraph" else {
 			return storedURL
 		}
 
-		let generatedModelURL = storedURL.deletingLastPathComponent()
-			.appendingPathComponent("converted.mlmodel", isDirectory: false)
+		let report = await request.reportStore.snapshot()
+		let generatedModelURL = report.convertedModelURL(in: request.configurationDirectory)
+		if report.state == .emitted, FileManager.default.fileExists(atPath: generatedModelURL.path) {
+			return generatedModelURL
+		}
 		do {
-			let package = try await NativeModelGraphPackageReader().read(from: storedURL)
-			try await Task.detached(priority: .userInitiated) {
-				try NativeModelCoreMLEmitter().emit(package: package, to: generatedModelURL)
-			}.value
-			try FileManager.default.removeItem(at: storedURL)
+			try await request.reportStore.transition(to: .converting)
+			request.reportObserver(await request.reportStore.snapshot())
+			let converter = NativeModelConverter()
+			let reportProgress: NativeModelConversionProgressHandler = { progress in
+				Task {
+					await request.reportStore.record(progress: progress)
+					request.reportObserver(await request.reportStore.snapshot())
+				}
+				Task { @MainActor in
+					guard activeImportSessionID == request.importSessionID else { return }
+					nativeConversionProgress = progress
+				}
+			}
+			let conversionTask = Task.detached(priority: .userInitiated) {
+				try await converter.convert(
+					from: storedURL,
+					to: generatedModelURL,
+					sourceProvenance: NativeModelConversionSourceProvenance(
+						originalModelFilename: request.originalModelFilename,
+						originalModelURL: request.originalModelURL
+					),
+					reporting: reportProgress
+				)
+			}
+			let metrics = try await withTaskCancellationHandler(
+				operation: { try await conversionTask.value },
+				onCancel: { conversionTask.cancel() }
+			)
+			try await request.reportStore.record(metrics: metrics)
+			try await request.reportStore.transition(to: .emitted)
+			request.reportObserver(await request.reportStore.snapshot())
 			return generatedModelURL
 		} catch {
-			try? FileManager.default.removeItem(at: generatedModelURL)
-			try? FileManager.default.removeItem(at: storedURL)
+			await recordNativeImportFailure(
+				error,
+				reportStore: request.reportStore,
+				configurationDirectory: request.configurationDirectory,
+				reportObserver: request.reportObserver
+			)
 			throw error
 		}
+	}
+
+	private func recordNativeImportFailure(
+		_ error: Error,
+		reportStore: NativeModelConversionImportReportStore,
+		configurationDirectory: URL,
+		reportObserver: @escaping @Sendable (NativeModelConversionImportReport) -> Void
+	) async {
+		let diagnostic = nativeConversionDiagnostic(for: error)
+		let isCancelled = isNativeConversionCancellation(error)
+		let terminalState: NativeModelConversionImportState = isCancelled ? .cancelled : .failed
+		try? await reportStore.transition(to: terminalState, diagnostic: diagnostic)
+		let report = await reportStore.snapshot()
+		// Cancellation and a normal error both finish this *attempt*. Never retain generated output
+		// from an unregistered attempt: the source and report are the durable retry/support records.
+		// A process termination is different—the process cannot run this cleanup, so recovery owns it.
+		NativeModelConversionImportReport.removeTransientArtifacts(
+			for: report,
+			in: configurationDirectory,
+			includingSourcePackage: false
+		)
+		reportObserver(report)
+	}
+
+	private func nativeConversionDiagnostic(for error: Error) -> NativeModelConversionDiagnostic {
+		if let error = error as? NativeModelConversionError {
+			return error.diagnostic
+		}
+		if error is CancellationError {
+			return NativeModelConversionDiagnostic(
+				code: "cancelled",
+				phase: .preparing,
+				message: "Conversion was cancelled before the next safe checkpoint."
+			)
+		}
+		return NativeModelConversionDiagnostic(
+			code: "app.modelValidationOrRegistrationFailed",
+			phase: .failed,
+			message: "The emitted model could not be loaded, validated, or registered."
+		)
+	}
+
+	private func isNativeConversionCancellation(_ error: Error) -> Bool {
+		if error is CancellationError {
+			return true
+		}
+		guard let conversionError = error as? NativeModelConversionError else {
+			return false
+		}
+		if case .cancelled = conversionError {
+			return true
+		}
+		return false
 	}
 
 	/// Creates and saves the Core Data configuration entity.
@@ -435,6 +875,14 @@ struct ModelImportView: View {
 		extractedInfo: ExtractedModelInfo,
 		provider: ModelProvider
 	) throws -> ImportedModelInfo {
+		// A process can terminate after Core Data saves but before the report's final `registered`
+		// checkpoint is written. Recovery must recognize the durable row and finalize the report,
+		// rather than creating a second configuration with the same UUID.
+		if let existing = DeepConfiguration.select(id, in: moc) {
+			provider.result(.importSucceeded, id: id)
+			return ImportedModelInfo(id: id, needsReview: !existing.modelTypeParsed)
+		}
+
 		// Create a new configuration entity
 		let configuration = DeepConfiguration.create(in: moc)
 
@@ -494,6 +942,40 @@ struct ModelImportView: View {
 }
 
 // MARK: - Imported Model Info
+
+/// The host workflow's non-UI result. It keeps the app-owned report store separate from the
+/// package's conversion API and lets registration finalize the transaction only after Core Data
+/// succeeds.
+private struct NativeModelImportWork {
+	let modelURL: URL
+	let extractedInfo: ExtractedModelInfo
+	let configurationDirectory: URL
+	let reportStore: NativeModelConversionImportReportStore?
+}
+
+/// Immutable input to one import attempt. It keeps the SwiftUI orchestration and the background
+/// file/conversion work on the same transaction values without letting the package depend on UI.
+private struct NativeModelImportRequest {
+	let sourceURL: URL
+	let downloadURL: URL?
+	let configurationID: UUID
+	let importSessionID: UUID
+	let provider: ModelProvider
+	let retainingOriginalNativePackage: Bool
+	let existingNativeReport: NativeModelConversionImportReport?
+	let reportObserver: @Sendable (NativeModelConversionImportReport) -> Void
+}
+
+/// The native-only portion of an import after the source has been staged into app-owned storage.
+private struct NativeGraphConversionRequest {
+	let storedURL: URL
+	let importSessionID: UUID
+	let originalModelFilename: String
+	let originalModelURL: String?
+	let reportStore: NativeModelConversionImportReportStore
+	let configurationDirectory: URL
+	let reportObserver: @Sendable (NativeModelConversionImportReport) -> Void
+}
 
 /// Identifies a just-imported model. `needsReview` is `true` when the parser couldn't determine the
 /// type, so the presenter opens the model's settings for the user to pick one (AIA-0402).

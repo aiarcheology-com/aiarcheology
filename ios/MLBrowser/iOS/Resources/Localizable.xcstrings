@@ -9399,6 +9399,169 @@
         }
       }
     },
+    "import.convertOnly" : {
+      "comment" : "Button that imports only the converted Core ML model and removes the copied native source package",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Convert Only"
+          }
+        }
+      }
+    },
+    "import.conversionLog" : {
+      "comment" : "Title of the durable native model conversion report",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Conversion Log" } } }
+    },
+    "import.conversionLogCode" : {
+      "comment" : "Label for a conversion diagnostic code",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Code" } } }
+    },
+    "import.conversionObservedPeakIncrease" : {
+      "comment" : "Label for the process-memory increase observed from exclusive conversion start to the largest sampled footprint; it is not a converter-only allocation value",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Observed peak increase" } } }
+    },
+    "import.conversionObservedPeakMemory" : {
+      "comment" : "Label for the largest whole-process physical footprint observed at conversion progress boundaries",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Observed peak process memory" } } }
+    },
+    "import.conversionProcessMemory" : {
+      "comment" : "Label for the current whole-app process physical memory footprint sampled while a native model conversion runs",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Process memory" } } }
+    },
+    "import.conversionWaitingForExclusiveAccess" : {
+      "comment" : "Progress message while another in-app native model conversion owns the exclusive FIFO conversion gate",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Waiting for another conversion to finish" } } }
+    },
+    "import.conversionLogDiagnostic" : {
+      "comment" : "Section heading for native conversion diagnostic details",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Diagnostic" } } }
+    },
+    "import.conversionLogEvents" : {
+      "comment" : "Section heading for native conversion progress events",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Events" } } }
+    },
+    "import.conversionLogInputBytes" : {
+      "comment" : "Label for bytes in the native source package",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Input bytes" } } }
+    },
+    "import.conversionLogMetrics" : {
+      "comment" : "Section heading for conversion size and operation metrics",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Metrics" } } }
+    },
+    "import.conversionLogOperations" : {
+      "comment" : "Label for the number of emitted graph operations",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Operations" } } }
+    },
+    "import.conversionLogOutputBytes" : {
+      "comment" : "Label for bytes in the generated Core ML model",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Output bytes" } } }
+    },
+    "import.conversionLogPhase" : {
+      "comment" : "Label for the native conversion phase that produced a diagnostic",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Phase" } } }
+    },
+    "import.conversionLogRevision" : {
+      "comment" : "Label for a native converter emission revision",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Conversion revision" } } }
+    },
+    "import.conversionLogSourceVersion" : {
+      "comment" : "Label for the version of the native Swift converter that produced this model",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Converter version" } } }
+    },
+    "import.conversionLogState" : {
+      "comment" : "Label for the durable app-level conversion state",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "State" } } }
+    },
+    "import.conversionLogStatus" : {
+      "comment" : "Section heading for native conversion status and converter identity",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Status" } } }
+    },
+    "import.discardConversion" : {
+      "comment" : "Button that removes a recoverable native conversion's staged artifacts",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Discard Conversion" } } }
+    },
+    "import.exportConvertedModel" : {
+      "comment" : "Button that exports a registered converted model, its lossless metadata sidecar, and its path-free conversion report in one archive",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Export Converted Model" } } }
+    },
+    "import.keepOriginal" : {
+      "comment" : "Button that retains the copied original native model package beside the converted Core ML model",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Original"
+          }
+        }
+      }
+    },
+    "import.keepOriginalMessage" : {
+      "comment" : "Explains that the converted model is used by the app while the original source package is optional provenance storage",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The converted Core ML model will be used by the app. Do you also want to keep a copy of the original model package for provenance or future conversion?"
+          }
+        }
+      }
+    },
+    "import.keepOriginalTitle" : {
+      "comment" : "Title of the choice to retain a native source package after conversion",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep Original Model?"
+          }
+        }
+      }
+    },
+    "import.resumeConversion" : {
+      "comment" : "Button that resumes a native conversion after interruption",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Resume Conversion" } } }
+    },
+    "import.resumeConversionMessage" : {
+      "comment" : "Explains that a native conversion stopped before registration and can be resumed or discarded",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "A native model conversion did not finish. You can resume it, inspect its path-free conversion log, or discard its staged app-sandbox artifacts." } } }
+    },
+    "import.resumeConversionTitle" : {
+      "comment" : "Title of the interrupted native conversion recovery prompt",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Resume Conversion?" } } }
+    },
+    "import.showConversionLog" : {
+      "comment" : "Button that presents the path-free native conversion report",
+      "extractionState" : "manual",
+      "localizations" : { "en" : { "stringUnit" : { "state" : "translated", "value" : "Show Conversion Log" } } }
+    },
     "import.learnMore" : {
       "comment" : "Learn more link",
       "extractionState" : "manual",

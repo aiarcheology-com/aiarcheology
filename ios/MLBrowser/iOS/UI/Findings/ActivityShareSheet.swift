@@ -10,9 +10,16 @@ import UIKit
 
 /// A share payload carried through the imperative presenter. `[Any]` activity
 /// items are not `Identifiable`, so this wrapper gives them a stable identity.
-struct FindingSharePayload: Identifiable {
+struct ActivitySharePayload: Identifiable {
 	let id = UUID()
 	let items: [Any]
+	/// Called after either completing or dismissing the system share sheet.
+	let completion: (() -> Void)?
+
+	init(items: [Any], completion: (() -> Void)? = nil) {
+		self.items = items
+		self.completion = completion
+	}
 }
 
 extension View {
@@ -24,7 +31,7 @@ extension View {
 	/// ("a share sheet is already visible") and provides no popover anchor. This
 	/// presenter guards against a double-present and clears `payload` when the
 	/// sheet finishes.
-	func findingShareSheet(_ payload: Binding<FindingSharePayload?>) -> some View {
+	func activityShareSheet(_ payload: Binding<ActivitySharePayload?>) -> some View {
 		background(ActivitySharePresenter(payload: payload))
 	}
 }
@@ -33,7 +40,7 @@ extension View {
 /// (via `.background`) so it has a real window/controller to present from and a
 /// view to anchor the iPad/Mac popover to.
 private struct ActivitySharePresenter: UIViewControllerRepresentable {
-	@Binding var payload: FindingSharePayload?
+	@Binding var payload: ActivitySharePayload?
 
 	func makeUIViewController(context: Context) -> UIViewController {
 		UIViewController()
@@ -53,12 +60,14 @@ private struct ActivitySharePresenter: UIViewControllerRepresentable {
 		}
 
 		let presentedID = payload.id
+		let completion = payload.completion
 		let controller = UIActivityViewController(activityItems: payload.items, applicationActivities: nil)
 		controller.completionWithItemsHandler = { _, _, _, _ in
 			// Clear on the next runloop tick (can't mutate SwiftUI state inside the
 			// synchronous update), and only if a newer share hasn't replaced this
 			// one — otherwise a second share triggered during dismissal is dropped.
 			DispatchQueue.main.async {
+				completion?()
 				if self.payload?.id == presentedID { self.payload = nil }
 			}
 		}

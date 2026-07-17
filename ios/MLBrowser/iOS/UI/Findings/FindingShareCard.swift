@@ -234,7 +234,7 @@ struct FindingShareComposer: View {
 
 	@State private var theme: ColorScheme = .light
 	@State private var orientation: ShareCardOrientation = .portrait
-	@State private var sharePayload: FindingSharePayload?
+	@State private var sharePayload: ActivitySharePayload?
 	@State private var didSeedTheme = false
 
 	// Composer-driven framing of the card image (cover-fill at zoom 1).
@@ -269,7 +269,7 @@ struct FindingShareComposer: View {
 					.testability(Testability.Button.findingShareConfirm)
 				}
 			}
-			.findingShareSheet($sharePayload)
+			.activityShareSheet($sharePayload)
 		}
 		.onAppear {
 			// Default to the system appearance the first time only.
@@ -390,7 +390,7 @@ struct FindingShareComposer: View {
 				LoggingPolicy.warning("Share card render failed; nothing to share", logger: .storage)
 				return
 			}
-			sharePayload = FindingSharePayload(items: [image])
+			sharePayload = ActivitySharePayload(items: [image])
 		}
 	}
 }
