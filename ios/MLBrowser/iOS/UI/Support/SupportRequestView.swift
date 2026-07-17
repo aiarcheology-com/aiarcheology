@@ -133,6 +133,7 @@ struct SupportRequestView: View {
 					}
 					.buttonStyle(.borderedProminent)
 					.tint(.green)
+					.frame(maxWidth: .infinity, alignment: .center)
 				} footer: {
 					Text(L10n.Support.privacyNote)
 						.font(.body)
