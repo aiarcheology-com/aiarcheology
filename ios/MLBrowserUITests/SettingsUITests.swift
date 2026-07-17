@@ -63,6 +63,82 @@ final class SettingsUITests: UITestCase {
         )
     }
 
+    func testSettings_reportProblemSubmenu_showsEmailAndScreenshotControls() {
+        launch()
+        openSettings()
+        XCTAssertTrue(scrollTo(AID.settingsAbout))
+        element(AID.settingsAbout).tap()
+        XCTAssertTrue(
+            element(AID.appDescriptionReportProblem).waitForExistence(timeout: 10),
+            "Report-a-problem settings entry missing"
+        )
+        element(AID.appDescriptionReportProblem).tap()
+        XCTAssertTrue(
+            element(AID.supportSettingsSendEmail).waitForExistence(timeout: 10),
+            "Send-email action missing from the report-a-problem submenu"
+        )
+        XCTAssertTrue(
+            element(AID.supportSettingsDetectScreenshots).waitForExistence(timeout: 10),
+            "Screenshot-detection toggle missing from the report-a-problem submenu"
+        )
+        XCTAssertTrue(
+            flipSwitch(AID.supportSettingsDetectScreenshots),
+            "Screenshot-detection toggle did not change state"
+        )
+        element(AID.supportSettingsSendEmail).tap()
+        XCTAssertTrue(
+            element(AID.supportRequestIncludeApplicationLog).waitForExistence(timeout: 10),
+            "Application-log toggle missing from the support email form"
+        )
+        XCTAssertEqual(
+            element(AID.supportRequestIncludeApplicationLog).value as? String,
+            "0",
+            "Application-log inclusion should be off by default"
+        )
+        XCTAssertTrue(
+            element(AID.supportRequestSendUnredactedData).waitForExistence(timeout: 10),
+            "Unredacted-data toggle missing from the support email form"
+        )
+        XCTAssertFalse(
+            element(AID.supportRequestSendUnredactedData).isEnabled,
+            "Unredacted data must require application-log inclusion"
+        )
+        XCTAssertTrue(
+            flipSwitch(AID.supportRequestIncludeApplicationLog),
+            "Application-log toggle did not change state"
+        )
+        XCTAssertTrue(element(AID.supportRequestSendUnredactedData).isEnabled)
+        XCTAssertEqual(
+            element(AID.supportRequestSendUnredactedData).value as? String,
+            "0",
+            "Unredacted data should be off by default"
+        )
+        XCTAssertTrue(
+            flipSwitch(AID.supportRequestSendUnredactedData),
+            "Unredacted-data toggle did not change state"
+        )
+        XCTAssertTrue(
+            flipSwitch(AID.supportRequestIncludeApplicationLog),
+            "Application-log toggle did not turn off"
+        )
+        XCTAssertFalse(element(AID.supportRequestSendUnredactedData).isEnabled)
+        XCTAssertEqual(
+            element(AID.supportRequestSendUnredactedData).value as? String,
+            "0",
+            "Turning off application-log inclusion must clear raw-data consent"
+        )
+        XCTAssertTrue(
+            flipSwitch(AID.supportRequestIncludeApplicationLog),
+            "Application-log toggle did not turn back on"
+        )
+        XCTAssertTrue(element(AID.supportRequestSendUnredactedData).isEnabled)
+        XCTAssertEqual(
+            element(AID.supportRequestSendUnredactedData).value as? String,
+            "0",
+            "Raw-data consent must remain off after re-enabling application-log inclusion"
+        )
+    }
+
     func testSettings_replayOnboarding_startsTour() {
         launch()
         openSettings()

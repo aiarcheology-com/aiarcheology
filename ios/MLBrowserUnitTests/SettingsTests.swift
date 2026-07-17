@@ -117,6 +117,29 @@ final class SettingsTests: XCTestCase {
 		XCTAssertFalse(settings.analyticsChoiceMade)
 	}
 
+	func testSettings_ScreenshotDetectionRemainsUnsetUntilTheUserDecides() {
+		settings.reset()
+		XCTAssertNil(settings.screenshotDetectionEnabled)
+
+		settings.screenshotDetectionEnabled = true
+		XCTAssertEqual(Settings().screenshotDetectionEnabled, true)
+
+		settings.screenshotDetectionEnabled = false
+		XCTAssertEqual(Settings().screenshotDetectionEnabled, false)
+
+		settings.screenshotDetectionEnabled = nil
+		XCTAssertNil(Settings().screenshotDetectionEnabled)
+	}
+
+	func testSettings_ScreenshotDetectionMigratesTheLegacyExplicitDecline() {
+		settings.reset()
+		UserDefaults.standard.set(true, forKey: "supportPromptDeclined")
+
+		let migratedSettings = Settings()
+		XCTAssertEqual(migratedSettings.screenshotDetectionEnabled, false)
+		migratedSettings.reset()
+	}
+
     func testSettings_TiledBorders_PersistsAndResets() {
         settings.reset()
         settings.tiledBorders = true

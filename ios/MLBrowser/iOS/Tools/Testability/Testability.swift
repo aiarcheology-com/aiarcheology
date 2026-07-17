@@ -114,6 +114,7 @@ extension TestabilityIdentification {
 		case browsingHistorySetDefaultPage
 		// App Description
 		case appDescriptionEmailContact
+		case supportSettingsSendEmail
 		// Global Toolbar
 		case globalToolbarSideMenu
 		case globalToolbarPlayDetection
@@ -192,6 +193,9 @@ extension TestabilityIdentification {
 		case settingsPyramidTiling
 		case settingsGrid3x3Tiling
 		case settingsTiledBorders
+		case supportSettingsDetectScreenshots
+		case supportRequestIncludeApplicationLog
+		case supportRequestSendUnredactedData
 		// Configuration Form — per-model finding flash (AIA-0374)
 		case configurationFormFlashOnFinding
 		// Side Menu Cell
@@ -251,6 +255,7 @@ extension TestabilityIdentification {
 		case settingsSubscription
 		// App Description
 		case appDescriptionPrivacyPolicy
+		case appDescriptionReportProblem
 		// Downloader
 		case downloaderListItem
 		// Grid View

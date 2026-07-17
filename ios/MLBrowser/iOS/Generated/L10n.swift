@@ -731,14 +731,26 @@ internal enum L10n {
     internal static let compose = L10n.tr("Localizable", "support.compose", fallback: "Continue in Mail")
     /// Copy report
     internal static let copyReport = L10n.tr("Localizable", "support.copyReport", fallback: "Copy report")
+    /// Detect screenshots
+    internal static let detectScreenshots = L10n.tr("Localizable", "support.detectScreenshots", fallback: "Detect screenshots")
+    /// Include application log
+    internal static let includeApplicationLog = L10n.tr("Localizable", "support.includeApplicationLog", fallback: "Include application log")
+    /// This can make your report much more useful. It gives us a short record of what the app was doing before the problem, which can help us fix it faster.
+    internal static let includeApplicationLogExplanation = L10n.tr("Localizable", "support.includeApplicationLogExplanation", fallback: "This can make your report much more useful. It gives us a short record of what the app was doing before the problem, which can help us fix it faster.")
     /// Open Settings
     internal static let openSettings = L10n.tr("Localizable", "support.openSettings", fallback: "Open Settings")
-    /// Nothing is sent until you send it. You will see the whole email — including the technical details and any screenshot you attach — and can edit it first.
-    internal static let privacyNote = L10n.tr("Localizable", "support.privacyNote", fallback: "Nothing is sent until you send it. You will see the whole email — including the technical details and any screenshot you attach — and can edit it first.")
+    /// Nothing is sent until you send it. You will see the whole email and can remove any screenshot or app log attachment before sending.
+    internal static let privacyNote = L10n.tr("Localizable", "support.privacyNote", fallback: "Nothing is sent until you send it. You will see the whole email and can remove any screenshot or app log attachment before sending.")
     /// Report copied. Paste it into an email to %@.
     internal static func reportCopied(_ p1: Any) -> String {
       return L10n.tr("Localizable", "support.reportCopied", String(describing: p1), fallback: "Report copied. Paste it into an email to %@.")
     }
+    /// Send email
+    internal static let sendEmail = L10n.tr("Localizable", "support.sendEmail", fallback: "Send email")
+    /// Send unredacted data
+    internal static let sendUnredactedData = L10n.tr("Localizable", "support.sendUnredactedData", fallback: "Send unredacted data")
+    /// Use this only if you are comfortable sharing the full technical details. It can include complete web addresses, IDs and location information, which may help us reproduce the problem.
+    internal static let sendUnredactedDataExplanation = L10n.tr("Localizable", "support.sendUnredactedDataExplanation", fallback: "Use this only if you are comfortable sharing the full technical details. It can include complete web addresses, IDs and location information, which may help us reproduce the problem.")
     /// Report a problem
     internal static let title = L10n.tr("Localizable", "support.title", fallback: "Report a problem")
     internal enum Body {
@@ -770,9 +782,9 @@ internal enum L10n {
       internal static let purchase = L10n.tr("Localizable", "support.category.purchase", fallback: "Purchase or subscription")
     }
     internal enum MailUnavailable {
-      /// We opened your default mail app instead — a screenshot cannot be attached that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere.
+      /// We opened your default mail app instead — attachments cannot be added that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere.
       internal static func message(_ p1: Any) -> String {
-        return L10n.tr("Localizable", "support.mailUnavailable.message", String(describing: p1), fallback: "We opened your default mail app instead — a screenshot cannot be attached that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere.")
+        return L10n.tr("Localizable", "support.mailUnavailable.message", String(describing: p1), fallback: "We opened your default mail app instead — attachments cannot be added that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere.")
       }
       /// No mail app could be opened. Add an email account in Settings → Mail → Mail Accounts, or copy the report and send it to %@ from another device.
       internal static func messageNoMailApp(_ p1: Any) -> String {
@@ -790,6 +802,20 @@ internal enum L10n {
       internal static let report = L10n.tr("Localizable", "support.prompt.report", fallback: "Report a problem")
       /// Found a problem?
       internal static let title = L10n.tr("Localizable", "support.prompt.title", fallback: "Found a problem?")
+    }
+    internal enum ScreenshotTooSmall {
+      /// Choose a screenshot with at least %d pixels on its shortest side so the details stay readable.
+      internal static func message(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "support.screenshotTooSmall.message", p1, fallback: "Choose a screenshot with at least %d pixels on its shortest side so the details stay readable.")
+      }
+      /// Screenshot is too small
+      internal static let title = L10n.tr("Localizable", "support.screenshotTooSmall.title", fallback: "Screenshot is too small")
+    }
+    internal enum ScreenshotUnreadable {
+      /// We couldn't read that image. Please choose another screenshot.
+      internal static let message = L10n.tr("Localizable", "support.screenshotUnreadable.message", fallback: "We couldn't read that image. Please choose another screenshot.")
+      /// Couldn't use screenshot
+      internal static let title = L10n.tr("Localizable", "support.screenshotUnreadable.title", fallback: "Couldn't use screenshot")
     }
   }
   internal enum Symbol {

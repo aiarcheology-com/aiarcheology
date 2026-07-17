@@ -123,32 +123,68 @@ final class SupportRequestTests: XCTestCase {
 	}
 }
 
-/// The screenshot-offer decision (AIA-0454). It is a browser: people screenshot pages for
-/// entirely ordinary reasons, so the whole prompt-fatigue defence is this one function — it gets
-/// pinned down, not smoke-tested.
+/// The screenshot-offer decision (AIA-0454). `nil` keeps asking until the user chooses; `true`
+/// keeps offers enabled and `false` silences them. It lives in a pure function so the three
+/// persisted states are pinned down rather than smoke-tested.
 final class ScreenshotReportGateTests: XCTestCase {
-	func testShouldOffer_WhenFlagOnAndNothingConsumed() {
-		XCTAssertTrue(ScreenshotReportGate.shouldOffer(flagEnabled: true, alreadyShown: false, declined: false))
+	func testShouldOffer_WhenNoDecisionHasBeenStored() {
+		XCTAssertTrue(ScreenshotReportGate.shouldOffer(flagEnabled: true, screenshotDetectionEnabled: nil))
 	}
 
 	func testShouldOffer_RequiresTheFlag() {
 		XCTAssertFalse(
-			ScreenshotReportGate.shouldOffer(flagEnabled: false, alreadyShown: false, declined: false),
+			ScreenshotReportGate.shouldOffer(flagEnabled: false, screenshotDetectionEnabled: nil),
 			"turning the ConfigCat value off must silence the offer remotely, even on a fresh install"
 		)
 	}
 
-	func testShouldOffer_OncePerInstall() {
-		XCTAssertFalse(
-			ScreenshotReportGate.shouldOffer(flagEnabled: true, alreadyShown: true, declined: false),
-			"the one offer is consumed by being shown, regardless of how the alert was dismissed"
+	func testShouldOffer_AfterTheUserEnablesScreenshotDetection() {
+		XCTAssertTrue(
+			ScreenshotReportGate.shouldOffer(flagEnabled: true, screenshotDetectionEnabled: true),
+			"an affirmative answer keeps offers enabled for later screenshots"
 		)
 	}
 
-	func testShouldOffer_NeverAfterDecline() {
+	func testShouldOffer_NeverAfterTheUserDisablesScreenshotDetection() {
 		XCTAssertFalse(
-			ScreenshotReportGate.shouldOffer(flagEnabled: true, alreadyShown: false, declined: true),
-			"an explicit 'don't ask again' outlives everything, including a flag flip"
+			ScreenshotReportGate.shouldOffer(flagEnabled: true, screenshotDetectionEnabled: false),
+			"an explicit 'don't ask again' disables screenshot detection until the user re-enables it"
 		)
+	}
+}
+
+final class ScreenshotAttachmentValidatorTests: XCTestCase {
+	func testIsLargeEnough_AcceptsAnImageAtTheMinimumShortestSide() {
+		XCTAssertTrue(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 720, pixelHeight: 1_280))
+		XCTAssertTrue(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 1_280, pixelHeight: 720))
+	}
+
+	func testIsLargeEnough_RejectsAnImageBelowTheMinimumShortestSide() {
+		XCTAssertFalse(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 719, pixelHeight: 1_280))
+		XCTAssertFalse(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 1_280, pixelHeight: 719))
+	}
+
+	func testValidationResult_ReportsUnreadableImageDataSeparately() {
+		XCTAssertEqual(
+			ScreenshotAttachmentValidator.validationResult(imageData: Data("not an image".utf8)),
+			.unreadable
+		)
+	}
+}
+
+final class SupportLogAttachmentTests: XCTestCase {
+	func testApplicationLogAttachment_OmitsEmptyLogData() {
+		XCTAssertNil(SupportRequestView.applicationLogAttachment(data: Data(), sendUnredactedData: false))
+	}
+
+	func testApplicationLogAttachment_UsesTheProvidedLogData() throws {
+		let data = Data("latest log entry\n".utf8)
+		let attachment = try XCTUnwrap(
+			SupportRequestView.applicationLogAttachment(data: data, sendUnredactedData: true)
+		)
+
+		XCTAssertEqual(attachment.data, data)
+		XCTAssertEqual(attachment.mimeType, "text/plain")
+		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log-unredacted.txt")
 	}
 }
