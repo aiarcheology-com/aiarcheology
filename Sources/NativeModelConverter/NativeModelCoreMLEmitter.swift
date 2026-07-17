@@ -14,6 +14,19 @@ import Foundation
 /// answers whether the installed native emitter can faithfully serialize it today. Unsupported
 /// operations fail explicitly, which prevents a partially converted model from reaching Core ML.
 public struct NativeModelCoreMLEmitter: Sendable {
+	private struct EmissionContext {
+		let metadata: NativeModelCoreMLMetadata?
+		let progress: NativeModelConversionProgressHandler?
+		let cancellationCheck: NativeModelConversionCancellationHandler?
+	}
+
+	private struct ModelBuildInput {
+		let inputTensors: [NativeModelTensor]
+		let outputTensors: [NativeModelTensor]
+		let operations: [NativeModelOperation]
+		let weightsByName: [String: NativeModelWeight]
+		let weights: Data
+	}
 
 	public init() {}
 
@@ -28,8 +41,46 @@ public struct NativeModelCoreMLEmitter: Sendable {
 
 	/// Emits a model from a graph package whose integrity has already been verified by
 	/// ``NativeModelGraphPackageReader``.
-	public func emit(package: NativeModelGraphPackage, to outputURL: URL) throws {
-		try emit(graph: package.graph, weights: package.weights, to: outputURL)
+	///
+	/// When the package contains source metadata, this writes target-correct Core ML metadata into
+	/// the model and an exact `<model-name>.metadata.json` sidecar beside it.
+	@discardableResult
+	public func emit(
+		package: NativeModelGraphPackage,
+		to outputURL: URL,
+		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
+		reporting progress: NativeModelConversionProgressHandler? = nil,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
+	) throws -> NativeModelEmissionMetrics {
+		let emissionStartedAt = DispatchTime.now().uptimeNanoseconds
+		try cancellationCheck?()
+		let metadata = try targetMetadata(
+			from: package.metadata?.source,
+			manifest: package.manifest,
+			graph: package.graph,
+			sourceProvenance: sourceProvenance
+		)
+		try emit(
+			graph: package.graph,
+			weights: package.weights,
+			to: outputURL,
+			context: EmissionContext(
+				metadata: metadata,
+				progress: progress,
+				cancellationCheck: cancellationCheck
+			)
+		)
+		try cancellationCheck?()
+		progress?(NativeModelConversionProgress(phase: .writingMetadata))
+		try NativeModelMetadataSidecar.write(package.rawMetadata, beside: outputURL)
+		progress?(NativeModelConversionProgress(phase: .writingMetadata, completedUnitCount: 1, totalUnitCount: 1))
+		return NativeModelEmissionMetrics(
+			sourceFootprint: package.sourceFootprint,
+			operationCount: package.graph.operations.count,
+			outputModelByteCount: try outputFileByteCount(at: outputURL),
+			outputMetadataSidecarByteCount: UInt64(package.rawMetadata?.count ?? 0),
+			emissionDurationNanoseconds: elapsedNanoseconds(since: emissionStartedAt)
+		)
 	}
 
 	/// Writes a Core ML neural-network `.mlmodel`.
@@ -40,6 +91,21 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	/// ReLU and Conv2D so the protobuf path and weight encoding can be compiled and executed before
 	/// the rest of the MobileNetV2 operation sequence is added.
 	public func emit(graph: NativeModelGraph, weights: Data, to outputURL: URL) throws {
+		try emit(
+			graph: graph,
+			weights: weights,
+			to: outputURL,
+			context: EmissionContext(metadata: nil, progress: nil, cancellationCheck: nil)
+		)
+	}
+
+	private func emit(
+		graph: NativeModelGraph,
+		weights: Data,
+		to outputURL: URL,
+		context: EmissionContext
+	) throws {
+		try context.cancellationCheck?()
 		let validation = NativeModelGraphValidator().validate(graph)
 		guard validation.isConvertible else {
 			throw NativeModelCoreMLEmissionError.invalidGraph(validation.issues)
@@ -67,13 +133,19 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		}
 
 		let model = try makeModel(
-			inputTensors: graph.inputs,
-			outputTensors: outputTensors,
-			operations: graph.operations,
-			weightsByName: weightsByName,
-			weights: weights
+			input: ModelBuildInput(
+				inputTensors: graph.inputs,
+				outputTensors: outputTensors,
+				operations: graph.operations,
+				weightsByName: weightsByName,
+				weights: weights
+			),
+			context: context
 		)
+		try context.cancellationCheck?()
+		context.progress?(NativeModelConversionProgress(phase: .writingModel))
 		try model.write(to: outputURL, options: .atomic)
+		context.progress?(NativeModelConversionProgress(phase: .writingModel, completedUnitCount: 1, totalUnitCount: 1))
 	}
 
 	private func tensorIndex(for graph: NativeModelGraph) -> [String: NativeModelTensor] {
@@ -86,13 +158,26 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		return result
 	}
 
+	private func outputFileByteCount(at url: URL) throws -> UInt64 {
+		let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+		guard let size = (attributes[.size] as? NSNumber)?.uint64Value else {
+			throw NativeModelCoreMLEmissionError.outputFileSizeUnavailable(url.lastPathComponent)
+		}
+		return size
+	}
+
 	private func makeModel(
-		inputTensors: [NativeModelTensor],
-		outputTensors: [NativeModelTensor],
-		operations: [NativeModelOperation],
-		weightsByName: [String: NativeModelWeight],
-		weights: Data
+		input: ModelBuildInput,
+		context: EmissionContext
 	) throws -> Data {
+		let inputTensors = input.inputTensors
+		let outputTensors = input.outputTensors
+		let operations = input.operations
+		let weightsByName = input.weightsByName
+		let weights = input.weights
+		let metadata = context.metadata
+		let progress = context.progress
+		let cancellationCheck = context.cancellationCheck
 		let specificationVersion = (inputTensors + outputTensors).contains { $0.dataType == .float16 } ? 7 : 4
 		let description = CoreMLProtobufEncoder.message { description in
 			for input in inputTensors {
@@ -101,12 +186,27 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			for output in outputTensors {
 				CoreMLProtobufEncoder.appendMessageField(10, value: featureDescription(for: output), to: &description)
 			}
+			if let metadata {
+				CoreMLProtobufEncoder.appendMessageField(100, value: coreMLMetadataMessage(for: metadata), to: &description)
+			}
 		}
 
 		var neuralNetwork = Data()
-		for operation in operations {
+		progress?(NativeModelConversionProgress(
+			phase: .emittingModel,
+			completedUnitCount: 0,
+			totalUnitCount: operations.count
+		))
+		for (index, operation) in operations.enumerated() {
+			try cancellationCheck?()
 			let layer = try layer(for: operation, weightsByName: weightsByName, weights: weights)
 			CoreMLProtobufEncoder.appendMessageField(1, value: layer, to: &neuralNetwork)
+			progress?(NativeModelConversionProgress(
+				phase: .emittingModel,
+				completedUnitCount: index + 1,
+				totalUnitCount: operations.count,
+				operationName: operation.name
+			))
 		}
 		CoreMLProtobufEncoder.appendVarintField(5, value: 1, to: &neuralNetwork)
 
@@ -114,6 +214,119 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(specificationVersion), to: &model)
 			CoreMLProtobufEncoder.appendMessageField(2, value: description, to: &model)
 			CoreMLProtobufEncoder.appendMessageField(500, value: neuralNetwork, to: &model)
+		}
+	}
+
+	private func targetMetadata(
+		from source: NativeModelCoreMLMetadata?,
+		manifest: NativeModelGraphPackageManifest,
+		graph: NativeModelGraph,
+		sourceProvenance: NativeModelConversionSourceProvenance?
+	) throws -> NativeModelCoreMLMetadata {
+		var userDefined: [String: String] = [
+			"com.aiarcheology.native.target.model-format": "neuralNetwork",
+			"com.aiarcheology.native.target.graph-format-version": String(graph.formatVersion),
+			"com.aiarcheology.native.converter.package-version": NativeModelConverterVersion.packageVersion,
+			"com.aiarcheology.native.converter.conversion-revision": String(NativeModelConverterVersion.conversionRevision),
+			"com.aiarcheology.native.conversion.graph-sha256": manifest.graphSHA256,
+			"com.aiarcheology.native.conversion.weights-sha256": manifest.weightsSHA256,
+			"com.aiarcheology.native.conversion.producer.name": graph.producer.name,
+			"com.aiarcheology.native.conversion.producer.version": graph.producer.version,
+			"com.aiarcheology.native.target.interface.json": try targetInterfaceJSON(
+				inputs: graph.inputs,
+				outputs: graph.outputs,
+				graph: graph
+			)
+		]
+		if let metadataChecksum = manifest.metadataSHA256 {
+			userDefined["com.aiarcheology.native.conversion.source-metadata-sha256"] = metadataChecksum
+		}
+		if let filename = sourceProvenance?.sourcePackageFilename {
+			userDefined["com.aiarcheology.native.conversion.source-package-filename"] = filename
+		}
+		if let filename = sourceProvenance?.originalModelFilename {
+			userDefined["com.aiarcheology.native.conversion.original-model-filename"] = filename
+		}
+		if let url = sourceProvenance?.originalModelURL {
+			userDefined["com.aiarcheology.native.conversion.original-model-url"] = url
+		}
+
+		guard let source else {
+			return NativeModelCoreMLMetadata(userDefined: userDefined)
+		}
+
+		for (key, value) in source.userDefined {
+			userDefined["com.aiarcheology.native.source.user-defined.\(key)"] = value
+		}
+		if let value = source.shortDescription {
+			userDefined["com.aiarcheology.native.source.short-description"] = value
+		}
+		if let value = source.versionString {
+			userDefined["com.aiarcheology.native.source.version"] = value
+		}
+		if let value = source.author {
+			userDefined["com.aiarcheology.native.source.author"] = value
+		}
+		if let value = source.license {
+			userDefined["com.aiarcheology.native.source.license"] = value
+		}
+
+		let description = source.shortDescription.map { "Converted Core ML neural-network model. Source description: \($0)" }
+		return NativeModelCoreMLMetadata(
+			shortDescription: description,
+			versionString: source.versionString,
+			author: source.author,
+			license: source.license,
+			userDefined: userDefined
+		)
+	}
+
+	private func targetInterfaceJSON(
+		inputs: [NativeModelTensor],
+		outputs: [String],
+		graph: NativeModelGraph
+	) throws -> String {
+		let tensors = tensorIndex(for: graph)
+		let targetOutputs = try outputs.map { name -> NativeModelTensor in
+			guard let tensor = tensors[name] else {
+				throw NativeModelCoreMLEmissionError.missingOutputTensor(name)
+			}
+			return tensor
+		}
+		let interface = NativeModelTargetInterface(inputs: inputs, outputs: targetOutputs)
+		let encoder = JSONEncoder()
+		encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+		let encodedInterface = try encoder.encode(interface)
+		guard let interfaceJSON = String(bytes: encodedInterface, encoding: .utf8) else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: "targetInterface",
+				reason: "The JSON encoder produced non-UTF-8 data."
+			)
+		}
+		return interfaceJSON
+	}
+
+	private func coreMLMetadataMessage(for metadata: NativeModelCoreMLMetadata) -> Data {
+		CoreMLProtobufEncoder.message { message in
+			if let value = metadata.shortDescription {
+				CoreMLProtobufEncoder.appendStringField(1, value: value, to: &message)
+			}
+			if let value = metadata.versionString {
+				CoreMLProtobufEncoder.appendStringField(2, value: value, to: &message)
+			}
+			if let value = metadata.author {
+				CoreMLProtobufEncoder.appendStringField(3, value: value, to: &message)
+			}
+			if let value = metadata.license {
+				CoreMLProtobufEncoder.appendStringField(4, value: value, to: &message)
+			}
+			for (key, value) in metadata.userDefined.sorted(by: { $0.key < $1.key }) {
+				let entry = CoreMLProtobufEncoder.message { entry in
+					CoreMLProtobufEncoder.appendStringField(1, value: key, to: &entry)
+					CoreMLProtobufEncoder.appendStringField(2, value: value, to: &entry)
+				}
+				CoreMLProtobufEncoder.appendMessageField(100, value: entry, to: &message)
+			}
 		}
 	}
 
@@ -486,6 +699,11 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	}
 }
 
+private struct NativeModelTargetInterface: Encodable {
+	let inputs: [NativeModelTensor]
+	let outputs: [NativeModelTensor]
+}
+
 public enum NativeModelCoreMLEmissionError: Error, Equatable, LocalizedError, Sendable {
 	case invalidGraph([NativeModelGraphValidationIssue])
 	case unsupportedOperation(operation: String, kind: String)
@@ -494,6 +712,7 @@ public enum NativeModelCoreMLEmissionError: Error, Equatable, LocalizedError, Se
 	case weightDataOutOfBounds(name: String, offset: UInt64, byteCount: UInt64, availableByteCount: UInt64)
 	case invalidConvolution(operation: String, reason: String)
 	case invalidOperation(operation: String, reason: String)
+	case outputFileSizeUnavailable(String)
 
 	public var errorDescription: String? {
 		switch self {
@@ -511,6 +730,8 @@ public enum NativeModelCoreMLEmissionError: Error, Equatable, LocalizedError, Se
 			"Convolution '\(operation)' is invalid: \(reason)."
 		case .invalidOperation(let operation, let reason):
 			"Operation '\(operation)' is invalid: \(reason)."
+		case .outputFileSizeUnavailable(let file):
+			"The emitted model '\(file)' could not be measured."
 		}
 	}
 }
