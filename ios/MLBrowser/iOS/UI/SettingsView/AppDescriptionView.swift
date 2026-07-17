@@ -19,7 +19,6 @@ struct AppDescriptionView: View {
     private static let xWebURL = URL(string: "https://twitter.com/\(xName)")!
     // swiftlint:enable force_unwrapping
 
-	@State private var showCopiedPopover = false
 	@State private var showSupportRequest = false
 	@Environment(\.usesRealAuth) private var usesRealAuth
 
