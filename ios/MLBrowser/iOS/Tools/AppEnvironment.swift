@@ -132,6 +132,14 @@ enum AppEnvironment {
     /// 4) DEBUG build -> developmentLike (fallback for edge cases)
     /// 5) else unknown
     static var distributionChannel: DistributionChannel {
+		// A Simulator can contain a local StoreKit testing receipt named `receipt`.
+		// That file must never make a simulator look like an App Store install: among
+		// other things, doing so would force production auth and hide the test/dev
+		// environment picker on the sign-in screen.
+		if isSimulator {
+			return .unknown
+		}
+
 		// Device with provisioning profile = Xcode/AdHoc/Enterprise install
         if hasEmbeddedProvisioningProfile {
             return .developmentLike

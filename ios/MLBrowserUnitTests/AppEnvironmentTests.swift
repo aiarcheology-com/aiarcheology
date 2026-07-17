@@ -67,6 +67,17 @@ final class AppEnvironmentTests: XCTestCase {
             XCTAssertNotEqual(isUI, isUnit, "UI and Unit test flags should be mutually exclusive")
         }
     }
+
+    // MARK: - Distribution Detection
+
+    func test_simulatorIsNeverTreatedAsAppStoreDistribution() throws {
+        try XCTSkipUnless(AppEnvironment.isSimulator, "Requires an iOS Simulator runtime")
+
+        // StoreKit's local testing configuration can create a receipt called `receipt`,
+        // identical to an App Store receipt by filename. A Simulator must still retain
+        // development-only controls such as the Clerk environment picker.
+        XCTAssertFalse(AppEnvironment.isAppStoreDistribution)
+    }
     
     // MARK: - Environment Variable Detection Tests
     
