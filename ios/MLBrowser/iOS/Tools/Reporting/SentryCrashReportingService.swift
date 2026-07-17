@@ -120,9 +120,9 @@ final class SentryCrashReportingService: CrashReportingService {
 			let throttleConfig = self.throttleConfig
 			let eventGuard = self.eventGuard
 
-			// Privacy: strip URL query strings/fragments from breadcrumbs regardless of
-			// where they were recorded (defense in depth on top of LogRedactor at the
-			// LoggingPolicy layer — third-party SDK breadcrumbs bypass that layer).
+			// Privacy: redact traceable data from breadcrumbs regardless of where they were
+			// recorded (defense in depth on top of LogRedactor at the LoggingPolicy layer —
+			// third-party SDK breadcrumbs bypass that layer).
 			options.beforeBreadcrumb = { crumb in
 				if let message = crumb.message {
 					crumb.message = LogRedactor.redactingSensitiveData(message)
@@ -131,7 +131,7 @@ final class SentryCrashReportingService: CrashReportingService {
 			}
 
 			options.beforeSend = { event in
-				// URL sanitization runs unconditionally — independent of throttling.
+				// Sensitive-data redaction runs unconditionally — independent of throttling.
 				if let message = event.message {
 					event.message = SentryMessage(formatted: LogRedactor.redactingSensitiveData(message.formatted))
 				}

@@ -245,13 +245,19 @@ struct SupportRequestView: View {
 		composedRequest = request
 		var attachments = [attachment].compactMap { $0 }
 		if includeApplicationLog {
+			let applicationLogAttachment = Self.applicationLogAttachment(
+				data: LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredactedApplicationLog),
+				sendUnredactedData: sendUnredactedApplicationLog
+			)
 			LoggingPolicy.info(
 				sendUnredactedApplicationLog
 					? "User chose to include unredacted application data with a support report."
 					: "User chose to include the redacted application log with a support report.",
 				logger: .ui
 			)
-			attachments.append(applicationLogAttachment(sendUnredactedData: sendUnredactedApplicationLog))
+			if let applicationLogAttachment {
+				attachments.append(applicationLogAttachment)
+			}
 		}
 
 		do {
@@ -282,9 +288,13 @@ struct SupportRequestView: View {
 		}
 	}
 
-	private func applicationLogAttachment(sendUnredactedData: Bool) -> EmailController.Attachment {
-		EmailController.Attachment(
-			data: LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredactedData),
+	static func applicationLogAttachment(
+		data: Data,
+		sendUnredactedData: Bool
+	) -> EmailController.Attachment? {
+		guard data.isEmpty == false else { return nil }
+		return EmailController.Attachment(
+			data: data,
 			mimeType: "text/plain",
 			fileName: sendUnredactedData
 				? "mlbrowser-application-log-unredacted.txt"

@@ -39,18 +39,18 @@ enum LogRedactor {
     private static let coordinatePairPattern = try? NSRegularExpression(
         pattern: #"<[-+]?\d{1,2}\.\d+,\s*[-+]?\d{1,3}\.\d+>"#
     )
+    private static let redactionPatterns: [(NSRegularExpression?, String)] = [
+        (urlPattern, "[redacted URL]"),
+        (emailPattern, "[redacted email]"),
+        (identifierValuePattern, "$1[redacted]"),
+        (uuidPattern, "[redacted ID]"),
+        (absolutePathPattern, "[redacted path]"),
+        (coordinateValuePattern, "$1 [redacted]"),
+        (coordinatePairPattern, "[redacted location]")
+    ]
 
     static func redactingSensitiveData(_ message: String) -> String {
-        let patterns: [(NSRegularExpression?, String)] = [
-            (urlPattern, "[redacted URL]"),
-            (emailPattern, "[redacted email]"),
-            (identifierValuePattern, "$1[redacted]"),
-            (uuidPattern, "[redacted ID]"),
-            (absolutePathPattern, "[redacted path]"),
-            (coordinateValuePattern, "$1 [redacted]"),
-            (coordinatePairPattern, "[redacted location]")
-        ]
-        return patterns.reduce(message) { partialMessage, pattern in
+        redactionPatterns.reduce(message) { partialMessage, pattern in
             guard let regex = pattern.0 else { return partialMessage }
             let range = NSRange(partialMessage.startIndex..., in: partialMessage)
             return regex.stringByReplacingMatches(
@@ -335,8 +335,9 @@ enum LoggingPolicy {
     
     // MARK: - Privacy Guidelines
     
-    /// Log sensitive data only in debug builds.
-    /// In production, uses `.private` privacy level.
+    /// Logs sensitive diagnostic data locally. Release builds mark it private in OSLog and it is
+    /// never sent remotely. It remains in the in-memory raw support-log tail only, which can leave
+    /// the device solely when the user explicitly chooses the unredacted support attachment.
     static func debugPrivate(
         _ message: String,
         logger: Logger = .app,

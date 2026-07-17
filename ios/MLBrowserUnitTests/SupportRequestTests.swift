@@ -171,3 +171,20 @@ final class ScreenshotAttachmentValidatorTests: XCTestCase {
 		)
 	}
 }
+
+final class SupportLogAttachmentTests: XCTestCase {
+	func testApplicationLogAttachment_OmitsEmptyLogData() {
+		XCTAssertNil(SupportRequestView.applicationLogAttachment(data: Data(), sendUnredactedData: false))
+	}
+
+	func testApplicationLogAttachment_UsesTheProvidedLogData() throws {
+		let data = Data("latest log entry\n".utf8)
+		let attachment = try XCTUnwrap(
+			SupportRequestView.applicationLogAttachment(data: data, sendUnredactedData: true)
+		)
+
+		XCTAssertEqual(attachment.data, data)
+		XCTAssertEqual(attachment.mimeType, "text/plain")
+		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log-unredacted.txt")
+	}
+}
