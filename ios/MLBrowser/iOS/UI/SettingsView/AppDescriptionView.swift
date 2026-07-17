@@ -19,9 +19,6 @@ struct AppDescriptionView: View {
     private static let xWebURL = URL(string: "https://twitter.com/\(xName)")!
     // swiftlint:enable force_unwrapping
 
-	@State private var showSupportRequest = false
-	@Environment(\.usesRealAuth) private var usesRealAuth
-
 	var body: some View {
 		VStack {
 			Form {
@@ -36,14 +33,6 @@ struct AppDescriptionView: View {
 		}
 		.sheetDismissButton(testability: .appDescriptionDismiss)
 		.navigationBarTitle(L10n.Settings.about, displayMode: .inline)
-		.sheet(isPresented: $showSupportRequest) {
-			// No category preset: reaching this from Settings says nothing about what is wrong, so
-			// the user picks. (The screenshot offer presets `.bug`, where we do know.)
-			// usesRealAuth re-injected per the key's own contract: it does not reliably cross
-			// `.sheet` boundaries (see `UsesRealAuthKey`).
-			SupportRequestView()
-				.environment(\.usesRealAuth, usesRealAuth)
-		}
 	}
 
 	private var applicationSection: some View {
@@ -76,14 +65,13 @@ struct AppDescriptionView: View {
 			// difference between a triageable inbox and "it doesn't work". Deliberately NOT gated
 			// on `isSupportReportingEnabled` — that flag exists to silence the screenshot prompt,
 			// not to take away the support form.
-			Button {
-				showSupportRequest = true
-			} label: {
+			NavigationLink(destination: SupportSettingsView()) {
 				HStack {
 					Image(systemName: "exclamationmark.bubble.fill")
 					Text(L10n.Support.title)
 				}
 			}
+			.testability(Testability.NavigationLink.appDescriptionReportProblem)
 
 			Button(action: { Task { @MainActor in await composeSupportEmail() } }) {
 				HStack {

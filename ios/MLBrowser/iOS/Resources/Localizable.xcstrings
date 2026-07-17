@@ -14418,6 +14418,18 @@
         }
       }
     },
+    "support.detectScreenshots" : {
+      "comment" : "Toggle that enables or disables offering a problem report after a user takes a screenshot.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detect screenshots"
+          }
+        }
+      }
+    },
     "support.mailUnavailable.message" : {
       "comment" : "Shown when the mail composer is unavailable but a default mail app opened via mailto. %@ is the support email address.",
       "extractionState" : "manual",
@@ -14534,6 +14546,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Report copied. Paste it into an email to %@."
+          }
+        }
+      }
+    },
+    "support.sendEmail" : {
+      "comment" : "Action in the report-a-problem settings that opens the support email form.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send email"
           }
         }
       }

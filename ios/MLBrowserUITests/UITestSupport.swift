@@ -97,6 +97,7 @@ enum AID {
 	static let settingsPyramidTiling = "_AIA:Toggle.SettingsPyramidTiling"
 	static let settingsGrid3x3Tiling = "_AIA:Toggle.SettingsGrid3x3Tiling"
 	static let settingsTiledBorders = "_AIA:Toggle.SettingsTiledBorders"
+	static let supportSettingsDetectScreenshots = "_AIA:Toggle.SupportSettingsDetectScreenshots"
 	static let settingsFullscreenDetection = "_AIA:Toggle.SettingsFullscreenDetection"
 	static let settingsAnalytics = "_AIA:Toggle.SettingsAnalytics"
 	static let settingsReopenLastPage = "_AIA:Toggle.SettingsReopenLastPage"
@@ -108,6 +109,8 @@ enum AID {
 	static let settingsReplayOnboarding = "_AIA:Button.SettingsReplayOnboarding"
 	static let settingsDeleteCache = "_AIA:Button.SettingsDeleteCache"
 	static let settingsRestoreDefaults = "_AIA:Button.SettingsRestoreDefaults"
+	static let supportSettingsSendEmail = "_AIA:Button.SupportSettingsSendEmail"
+	static let appDescriptionReportProblem = "_AIA:NavigationLink.AppDescriptionReportProblem"
 
 	// Browsing history
 	static let historyClear = "_AIA:Button.BrowsingHistoryClear"   // also anchors the screen's presence

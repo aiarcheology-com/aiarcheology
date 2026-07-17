@@ -731,6 +731,8 @@ internal enum L10n {
     internal static let compose = L10n.tr("Localizable", "support.compose", fallback: "Continue in Mail")
     /// Copy report
     internal static let copyReport = L10n.tr("Localizable", "support.copyReport", fallback: "Copy report")
+    /// Detect screenshots
+    internal static let detectScreenshots = L10n.tr("Localizable", "support.detectScreenshots", fallback: "Detect screenshots")
     /// Open Settings
     internal static let openSettings = L10n.tr("Localizable", "support.openSettings", fallback: "Open Settings")
     /// Nothing is sent until you send it. You will see the whole email — including the technical details and any screenshot you attach — and can edit it first.
@@ -739,6 +741,8 @@ internal enum L10n {
     internal static func reportCopied(_ p1: Any) -> String {
       return L10n.tr("Localizable", "support.reportCopied", String(describing: p1), fallback: "Report copied. Paste it into an email to %@.")
     }
+    /// Send email
+    internal static let sendEmail = L10n.tr("Localizable", "support.sendEmail", fallback: "Send email")
     /// Report a problem
     internal static let title = L10n.tr("Localizable", "support.title", fallback: "Report a problem")
     internal enum Body {

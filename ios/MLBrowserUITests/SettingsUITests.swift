@@ -63,6 +63,30 @@ final class SettingsUITests: UITestCase {
         )
     }
 
+    func testSettings_reportProblemSubmenu_showsEmailAndScreenshotControls() {
+        launch()
+        openSettings()
+        XCTAssertTrue(scrollTo(AID.settingsAbout))
+        element(AID.settingsAbout).tap()
+        XCTAssertTrue(
+            element(AID.appDescriptionReportProblem).waitForExistence(timeout: 10),
+            "Report-a-problem settings entry missing"
+        )
+        element(AID.appDescriptionReportProblem).tap()
+        XCTAssertTrue(
+            element(AID.supportSettingsSendEmail).waitForExistence(timeout: 10),
+            "Send-email action missing from the report-a-problem submenu"
+        )
+        XCTAssertTrue(
+            element(AID.supportSettingsDetectScreenshots).waitForExistence(timeout: 10),
+            "Screenshot-detection toggle missing from the report-a-problem submenu"
+        )
+        XCTAssertTrue(
+            flipSwitch(AID.supportSettingsDetectScreenshots),
+            "Screenshot-detection toggle did not change state"
+        )
+    }
+
     func testSettings_replayOnboarding_startsTour() {
         launch()
         openSettings()
