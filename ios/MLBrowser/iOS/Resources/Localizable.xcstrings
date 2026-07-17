@@ -14622,6 +14622,30 @@
         }
       }
     },
+    "support.screenshotUnreadable.message" : {
+      "comment" : "Shown when the selected support-email screenshot cannot be read as an image.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We couldn't read that image. Please choose another screenshot."
+          }
+        }
+      }
+    },
+    "support.screenshotUnreadable.title" : {
+      "comment" : "Title shown when the selected support-email screenshot cannot be read as an image.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't use screenshot"
+          }
+        }
+      }
+    },
     "support.sendEmail" : {
       "comment" : "Action in the report-a-problem settings that opens the support email form.",
       "extractionState" : "manual",

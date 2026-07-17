@@ -811,6 +811,12 @@ internal enum L10n {
       /// Screenshot is too small
       internal static let title = L10n.tr("Localizable", "support.screenshotTooSmall.title", fallback: "Screenshot is too small")
     }
+    internal enum ScreenshotUnreadable {
+      /// We couldn't read that image. Please choose another screenshot.
+      internal static let message = L10n.tr("Localizable", "support.screenshotUnreadable.message", fallback: "We couldn't read that image. Please choose another screenshot.")
+      /// Couldn't use screenshot
+      internal static let title = L10n.tr("Localizable", "support.screenshotUnreadable.title", fallback: "Couldn't use screenshot")
+    }
   }
   internal enum Symbol {
     /// Circle

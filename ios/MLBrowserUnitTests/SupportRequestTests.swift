@@ -163,4 +163,11 @@ final class ScreenshotAttachmentValidatorTests: XCTestCase {
 		XCTAssertFalse(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 719, pixelHeight: 1_280))
 		XCTAssertFalse(ScreenshotAttachmentValidator.isLargeEnough(pixelWidth: 1_280, pixelHeight: 719))
 	}
+
+	func testValidationResult_ReportsUnreadableImageDataSeparately() {
+		XCTAssertEqual(
+			ScreenshotAttachmentValidator.validationResult(imageData: Data("not an image".utf8)),
+			.unreadable
+		)
+	}
 }

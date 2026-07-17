@@ -17,20 +17,28 @@ import ClerkKit
 /// accepts screenshots from every supported iPhone while rejecting small thumbnails that become
 /// pixelated when viewed in an email.
 enum ScreenshotAttachmentValidator {
+	enum ValidationResult: Equatable {
+		case accepted
+		case tooSmall
+		case unreadable
+	}
+
 	static let minimumShortestSidePixels = 720
 
 	static func isLargeEnough(pixelWidth: Int, pixelHeight: Int) -> Bool {
 		min(pixelWidth, pixelHeight) >= minimumShortestSidePixels
 	}
 
-	static func isLargeEnough(imageData: Data) -> Bool {
+	static func validationResult(imageData: Data) -> ValidationResult {
 		guard let source = CGImageSourceCreateWithData(imageData as CFData, nil),
 			  let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
 			  let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
 			  let height = properties[kCGImagePropertyPixelHeight] as? NSNumber else {
-			return false
+			return .unreadable
 		}
 		return isLargeEnough(pixelWidth: width.intValue, pixelHeight: height.intValue)
+			? .accepted
+			: .tooSmall
 	}
 }
 
@@ -60,6 +68,7 @@ struct SupportRequestView: View {
 	@State private var sendUnredactedApplicationLog = false
 	@State private var showMailUnavailableNotice = false
 	@State private var showScreenshotTooSmallNotice = false
+	@State private var showScreenshotUnreadableNotice = false
 	/// Whether the mailto: fallback actually reached a mail app — decides which unavailable
 	/// message is honest: "we opened your mail app (without the screenshot)" vs "nothing to open".
 	@State private var mailtoOpened = false
@@ -170,6 +179,11 @@ struct SupportRequestView: View {
 			} message: {
 				Text(L10n.Support.ScreenshotTooSmall.message(ScreenshotAttachmentValidator.minimumShortestSidePixels))
 			}
+			.alert(L10n.Support.ScreenshotUnreadable.title, isPresented: $showScreenshotUnreadableNotice) {
+				Button(L10n.Common.ok, role: .cancel) {}
+			} message: {
+				Text(L10n.Support.ScreenshotUnreadable.message)
+			}
 		}
 	}
 
@@ -188,9 +202,16 @@ struct SupportRequestView: View {
 				LoggingPolicy.warning("Picked screenshot produced no data — not attaching", logger: .ui)
 				return
 			}
-			guard ScreenshotAttachmentValidator.isLargeEnough(imageData: data) else {
+			switch ScreenshotAttachmentValidator.validationResult(imageData: data) {
+			case .accepted:
+				break
+			case .tooSmall:
 				LoggingPolicy.info("Picked screenshot is too small to attach to a support report.", logger: .ui)
 				showScreenshotTooSmallNotice = true
+				return
+			case .unreadable:
+				LoggingPolicy.warning("Picked screenshot could not be read — not attaching", logger: .ui)
+				showScreenshotUnreadableNotice = true
 				return
 			}
 			// The declared type, not a hardcoded PNG: `loadTransferable` returns the original
