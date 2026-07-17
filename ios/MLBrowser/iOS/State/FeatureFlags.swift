@@ -38,6 +38,11 @@ enum FeatureFlagKey: String, CaseIterable {
 	/// Master switch for optional TelemetryDeck analytics. The user-level setting remains off by
 	/// default; this flag only controls whether that user choice is available in the app.
 	case isAnalyticsEnabled = "isAnalyticsEnabled"
+
+	/// Gates **only** the screenshot-triggered "report a problem" offer (AIA-0454) — not the
+	/// support flow itself. Settings → About → Report a problem stays reachable regardless, so
+	/// turning this off costs nobody their support route; it silences an unsolicited prompt.
+	case isSupportReportingEnabled = "isSupportReportingEnabled"
 	// swiftlint:enable redundant_string_enum_value
 
 	/// The value used when remote config cannot be consulted.
@@ -46,6 +51,12 @@ enum FeatureFlagKey: String, CaseIterable {
 		case .isModelCatalogEnabled: return true
 		case .isPaymentsEnabled: return true
 		case .isAnalyticsEnabled: return true
+		// Fails CLOSED, unlike its siblings. The others guard surfaces that already shipped, so
+		// failing open preserves behaviour. This one guards an unshipped surface whose failure mode
+		// is an unsolicited prompt in a browser — where screenshotting a page is ordinary, innocent
+		// behaviour. An offline/miskeyed lookup must not be able to turn that on; the Settings →
+		// About → Contact route stays reachable regardless, so nobody loses support access.
+		case .isSupportReportingEnabled: return false
 		}
 	}
 }
@@ -69,6 +80,7 @@ struct FeatureFlagSnapshot: Equatable {
 	var isModelCatalogEnabled: Bool { self[.isModelCatalogEnabled] }
 	var isPaymentsEnabled: Bool { self[.isPaymentsEnabled] }
 	var isAnalyticsEnabled: Bool { self[.isAnalyticsEnabled] }
+	var isSupportReportingEnabled: Bool { self[.isSupportReportingEnabled] }
 
 	/// Every key at its compiled default — the launch/offline value.
 	static let defaults = FeatureFlagSnapshot()

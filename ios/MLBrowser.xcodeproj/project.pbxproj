@@ -30,6 +30,7 @@
 		94FF0001000000000000B102 /* ConfigCatFeatureFlagProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF0001000000000000B002 /* ConfigCatFeatureFlagProvider.swift */; };
 		94FF0001000000000000B103 /* FeatureFlagsState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF0001000000000000B003 /* FeatureFlagsState.swift */; };
 		94FF0001000000000000B104 /* FeatureFlagsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94FF0001000000000000B004 /* FeatureFlagsTests.swift */; };
+		AA0454030000000000000001 /* SupportRequestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0454020000000000000001 /* SupportRequestTests.swift */; };
 		94CFCA7000000000000000A3 /* ConfigCat in Frameworks */ = {isa = PBXBuildFile; productRef = 94CFCA7000000000000000A2 /* ConfigCat */; };
 		A35000000000000000000002 /* TelemetryDeckAnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35000000000000000000001 /* TelemetryDeckAnalyticsService.swift */; };
 		A35000000000000000000004 /* TelemetryDeck in Frameworks */ = {isa = PBXBuildFile; productRef = A35000000000000000000003 /* TelemetryDeck */; };
@@ -75,6 +76,10 @@
 		8A3C366B2B3C594200E5AF2D /* Int+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3C366A2B3C594200E5AF2D /* Int+Extensions.swift */; };
 		8A4256DE2B1D3090009153B1 /* WebCacheCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256DD2B1D3090009153B1 /* WebCacheCleaner.swift */; };
 		8A4256E42B1E0BA3009153B1 /* EmailController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256E32B1E0BA3009153B1 /* EmailController.swift */; };
+		AA0454010000000000000000 /* SupportCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0454000000000000000000 /* SupportCategory.swift */; };
+		AA0454010000000000000001 /* SupportRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0454000000000000000001 /* SupportRequest.swift */; };
+		AA0454010000000000000002 /* SupportRequestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0454000000000000000002 /* SupportRequestView.swift */; };
+		AA0454010000000000000003 /* ScreenshotReportModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0454000000000000000003 /* ScreenshotReportModifier.swift */; };
 		8A4256E62B1E0C4C009153B1 /* UIApplication+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256E52B1E0C4C009153B1 /* UIApplication+Extensions.swift */; };
 		8A4F0E122F110A0100ABCDEF /* FloatingChromeButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E112F110A0100ABCDEF /* FloatingChromeButton.swift */; };
 		8A4F0E142F110A0200ABCDEF /* BrowserRevampUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */; };
@@ -367,6 +372,10 @@
 		8A3C366A2B3C594200E5AF2D /* Int+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Int+Extensions.swift"; sourceTree = "<group>"; };
 		8A4256DD2B1D3090009153B1 /* WebCacheCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebCacheCleaner.swift; sourceTree = "<group>"; };
 		8A4256E32B1E0BA3009153B1 /* EmailController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailController.swift; sourceTree = "<group>"; };
+		AA0454000000000000000000 /* SupportCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportCategory.swift; sourceTree = "<group>"; };
+		AA0454000000000000000001 /* SupportRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportRequest.swift; sourceTree = "<group>"; };
+		AA0454000000000000000002 /* SupportRequestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportRequestView.swift; sourceTree = "<group>"; };
+		AA0454000000000000000003 /* ScreenshotReportModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotReportModifier.swift; sourceTree = "<group>"; };
 		8A4256E52B1E0C4C009153B1 /* UIApplication+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplication+Extensions.swift"; sourceTree = "<group>"; };
 		8A4F0E112F110A0100ABCDEF /* FloatingChromeButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingChromeButton.swift; sourceTree = "<group>"; };
 		8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserRevampUITests.swift; sourceTree = "<group>"; };
@@ -459,6 +468,7 @@
 		94FF0001000000000000B002 /* ConfigCatFeatureFlagProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConfigCatFeatureFlagProvider.swift; sourceTree = "<group>"; };
 		94FF0001000000000000B003 /* FeatureFlagsState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureFlagsState.swift; sourceTree = "<group>"; };
 		94FF0001000000000000B004 /* FeatureFlagsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureFlagsTests.swift; sourceTree = "<group>"; };
+		AA0454020000000000000001 /* SupportRequestTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SupportRequestTests.swift; sourceTree = "<group>"; };
 		A35000000000000000000001 /* TelemetryDeckAnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryDeckAnalyticsService.swift; sourceTree = "<group>"; };
 		A35000000000000000000006 /* AnalyticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsTests.swift; sourceTree = "<group>"; };
 		A35000000000000000000008 /* AnalyticsChoiceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsChoiceUITests.swift; sourceTree = "<group>"; };
@@ -665,6 +675,17 @@
 			path = Subscription;
 			sourceTree = "<group>";
 		};
+		AA0454FF00000000000000FF /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				AA0454000000000000000000 /* SupportCategory.swift */,
+				AA0454000000000000000001 /* SupportRequest.swift */,
+				AA0454000000000000000002 /* SupportRequestView.swift */,
+				AA0454000000000000000003 /* ScreenshotReportModifier.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
 		8A112CC12AC0851000786384 /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
@@ -793,6 +814,7 @@
 				8AC393C92B2BA13300C9BA57 /* HtmlTextView.swift */,
 				952E8A6BBB23D84896D53765 /* Auth */,
 				52C7290D621F23BD541A171B /* Subscription */,
+				AA0454FF00000000000000FF /* Support */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -1041,6 +1063,7 @@
 				A41300050000000000000001 /* CatalogProviderTests.swift */,
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
 				94FF0001000000000000B004 /* FeatureFlagsTests.swift */,
+				AA0454020000000000000001 /* SupportRequestTests.swift */,
 				A35000000000000000000006 /* AnalyticsTests.swift */,
 				94D79C8E2EE37DBF0027C9FA /* BundleExtensionsTests.swift */,
 				94AE91772F0DA08300B326B7 /* ColorExtensionsTests.swift */,
@@ -1667,6 +1690,10 @@
 				94048A662EE23D3B0064AC55 /* DrawerContainer.swift in Sources */,
 				94048A672EE23D3B0064AC55 /* DrawerContent.swift in Sources */,
 				8A4256E42B1E0BA3009153B1 /* EmailController.swift in Sources */,
+				AA0454010000000000000000 /* SupportCategory.swift in Sources */,
+				AA0454010000000000000001 /* SupportRequest.swift in Sources */,
+				AA0454010000000000000002 /* SupportRequestView.swift in Sources */,
+				AA0454010000000000000003 /* ScreenshotReportModifier.swift in Sources */,
 				8AC393B82B2B9E1800C9BA57 /* AlertItem.swift in Sources */,
 				8A51D1BE2B0B98E300D2417C /* DeepConfiguration+CoreDataClass.swift in Sources */,
 				8AC6509B2B2B3D9900922648 /* Classificator.swift in Sources */,
@@ -1771,6 +1798,7 @@
 				94D79C992EE37DBF0027C9FA /* NSManagedObjectExtensionsTests.swift in Sources */,
 				94D79C9A2EE37DBF0027C9FA /* AppEnvironmentTests.swift in Sources */,
 				94FF0001000000000000B104 /* FeatureFlagsTests.swift in Sources */,
+				AA0454030000000000000001 /* SupportRequestTests.swift in Sources */,
 				A35000000000000000000007 /* AnalyticsTests.swift in Sources */,
 				94929E812ED63ADE001A4C63 /* DeviceInfoTests.swift in Sources */,
 				94929E822ED63ADE001A4C63 /* ModelEnumsTests.swift in Sources */,

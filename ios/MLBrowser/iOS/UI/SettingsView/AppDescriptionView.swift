@@ -20,6 +20,7 @@ struct AppDescriptionView: View {
     // swiftlint:enable force_unwrapping
 
 	@State private var showCopiedPopover = false
+	@State private var showSupportRequest = false
 
 	var body: some View {
 		VStack {
@@ -35,6 +36,11 @@ struct AppDescriptionView: View {
 		}
 		.sheetDismissButton(testability: .appDescriptionDismiss)
 		.navigationBarTitle(L10n.Settings.about, displayMode: .inline)
+		.sheet(isPresented: $showSupportRequest) {
+			// No category preset: reaching this from Settings says nothing about what is wrong, so
+			// the user picks. (The screenshot offer presets `.bug`, where we do know.)
+			SupportRequestView()
+		}
 	}
 
 	private var applicationSection: some View {
@@ -63,6 +69,19 @@ struct AppDescriptionView: View {
 
 	private var contactSection: some View {
 		Section(header: Text(L10n.About.Section.contact)) {
+			// The structured route (AIA-0440): a category and the technical details make the
+			// difference between a triageable inbox and "it doesn't work". Deliberately NOT gated
+			// on `isSupportReportingEnabled` — that flag exists to silence the screenshot prompt,
+			// not to take away the support form.
+			Button {
+				showSupportRequest = true
+			} label: {
+				HStack {
+					Image(systemName: "exclamationmark.bubble.fill")
+					Text(L10n.Support.title)
+				}
+			}
+
 			Button(action: { Task { @MainActor in await composeSupportEmail() } }) {
 				HStack {
 					Image(systemName: "envelope.fill")

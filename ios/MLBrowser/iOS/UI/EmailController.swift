@@ -14,11 +14,37 @@ final class EmailController: NSObject, @MainActor MFMailComposeViewControllerDel
 	public static let shared = EmailController()
 	private override init() { }
 
-	func sendEmail(subject: String, body: String, to: String) {
-			// Check if the device is able to send emails
-		if !MFMailComposeViewController.canSendMail() {
+	/// An attachment the **user** chose to include (AIA-0454). The app never originates image
+	/// data here: the only caller passes a photo the user picked out of their own library.
+	struct Attachment {
+		let data: Data
+		let mimeType: String
+		let fileName: String
+	}
+
+	/// Why the composer could not be shown. Callers must handle this rather than leaving a
+	/// button that silently does nothing — `canSendMail()` is false whenever Mail.app is
+	/// removed or no account is configured, which is common in production, not an edge case.
+	enum ComposerUnavailable: Error {
+		/// No mail account is configured on the device.
+		case mailNotConfigured
+		/// No view controller was available to present from.
+		case noPresenter
+	}
+
+	/// Presents the system mail composer.
+	///
+	/// Throws instead of returning silently: the previous version logged a warning and
+	/// returned, so on a device without Mail the support button did nothing at all and read
+	/// as a broken app. Callers use the thrown reason to fall back (AIA-0454).
+	func sendEmail(subject: String, body: String, to: String, attachments: [Attachment] = []) throws {
+		guard MFMailComposeViewController.canSendMail() else {
 			LoggingPolicy.warning("Device cannot send emails - email composition unavailable", logger: .ui)
-			return
+			throw ComposerUnavailable.mailNotConfigured
+		}
+		guard let presenter = EmailController.getRootViewController() else {
+			LoggingPolicy.warning("No root view controller to present the mail composer from", logger: .ui)
+			throw ComposerUnavailable.noPresenter
 		}
 			// Create the email composer
 		let mailComposer = MFMailComposeViewController()
@@ -26,11 +52,41 @@ final class EmailController: NSObject, @MainActor MFMailComposeViewControllerDel
 		mailComposer.setToRecipients([to])
 		mailComposer.setSubject(subject)
 		mailComposer.setMessageBody(body, isHTML: false)
-		EmailController.getRootViewController()?.present(mailComposer, animated: true, completion: nil)
+		for attachment in attachments {
+			mailComposer.addAttachmentData(attachment.data, mimeType: attachment.mimeType, fileName: attachment.fileName)
+		}
+		presenter.present(mailComposer, animated: true, completion: nil)
 	}
 
 	func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
-		EmailController.getRootViewController()?.dismiss(animated: true, completion: nil)
+		// Dismiss the controller we were handed, not a freshly looked-up root: `firstKeyWindow`
+		// resolves the first foreground scene, which is not necessarily the scene presenting this
+		// composer. On Mac/iPad multi-window that dismissed the wrong view controller.
+		controller.dismiss(animated: true, completion: nil)
+	}
+
+	/// Opens the user's default mail app via a `mailto:` URL.
+	///
+	/// The last-resort tier when `sendEmail` reports `.mailNotConfigured`: honours whatever mail
+	/// app the user has set as default (iOS 14+), which `MFMailComposeViewController` does not.
+	/// **Cannot carry attachments** — `mailto:` has no such field (RFC 6068) — so callers must tell
+	/// the user their screenshot did not come along.
+	@discardableResult
+	func openMailto(subject: String, body: String, to recipient: String) async -> Bool {
+		// URLComponents applies query-component encoding; `.urlPathAllowed` would leave `&` and `=`
+		// intact and corrupt the link.
+		var components = URLComponents()
+		components.scheme = "mailto"
+		components.path = recipient
+		components.queryItems = [
+			URLQueryItem(name: "subject", value: subject),
+			URLQueryItem(name: "body", value: body)
+		]
+		guard let url = components.url, UIApplication.shared.canOpenURL(url) else {
+			LoggingPolicy.warning("No mail app available for a mailto: fallback", logger: .ui)
+			return false
+		}
+		return await UIApplication.shared.open(url)
 	}
 
 	static func getRootViewController() -> UIViewController? {
