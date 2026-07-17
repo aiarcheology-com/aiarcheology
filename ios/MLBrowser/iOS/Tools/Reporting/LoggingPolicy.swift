@@ -9,21 +9,57 @@
 import Foundation
 import OSLog
 
-/// Strips sensitive parts from log messages before they reach OSLog (public) or Sentry.
-///
-/// URLs may carry tokens or signed query parameters (e.g. S3/CloudFront presigned links),
-/// so query strings and fragments are removed from any http(s) URL embedded in a message.
-/// Use `LoggingPolicy.debugPrivate` when the full URL is needed for local debugging.
+/// Strips traceable data from log messages before they reach OSLog, Sentry, or the default
+/// support-email attachment. The unredacted support attachment is the only deliberate exception
+/// and requires the user's explicit choice in the mail form.
 enum LogRedactor {
-    private static let urlQueryPattern = try? NSRegularExpression(
-        pattern: #"(https?://[^\s?#]+)[?#]\S*"#,
+    private static let urlPattern = try? NSRegularExpression(
+        pattern: #"\b(?:https?|file)://[^\s<>\"']+"#,
         options: [.caseInsensitive]
     )
+    private static let emailPattern = try? NSRegularExpression(
+        pattern: #"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"#,
+        options: [.caseInsensitive]
+    )
+    private static let uuidPattern = try? NSRegularExpression(
+        pattern: #"\b[0-9A-F]{8}-(?:[0-9A-F]{4}-){3}[0-9A-F]{12}\b"#,
+        options: [.caseInsensitive]
+    )
+    private static let absolutePathPattern = try? NSRegularExpression(
+        pattern: #"/(?:[^\s/]+/)+[^\s/:;,\)\]\}]+"#
+    )
+    private static let identifierValuePattern = try? NSRegularExpression(
+        pattern: #"\b((?:(?:account|user|session|device|installation|client|entity|download|transaction)[ _-]?(?:id|identifier)?|(?:auth|access|refresh|api)[ _-]?(?:token|key)?|token|identifier)\s*[:=])\s*(?:\"[^\"]*\"|[^,\s;\}\]]+)"#,
+        options: [.caseInsensitive]
+    )
+    private static let coordinateValuePattern = try? NSRegularExpression(
+        pattern: #"\b((?:latitude|lat|longitude|lon|lng|altitude|alt)\s*[:=])\s*-?\d+(?:\.\d+)?"#,
+        options: [.caseInsensitive]
+    )
+    private static let coordinatePairPattern = try? NSRegularExpression(
+        pattern: #"<[-+]?\d{1,2}\.\d+,\s*[-+]?\d{1,3}\.\d+>"#
+    )
 
-    static func redactingURLs(_ message: String) -> String {
-        guard let regex = urlQueryPattern else { return message }
-        let range = NSRange(message.startIndex..., in: message)
-        return regex.stringByReplacingMatches(in: message, options: [], range: range, withTemplate: "$1")
+    static func redactingSensitiveData(_ message: String) -> String {
+        let patterns: [(NSRegularExpression?, String)] = [
+            (urlPattern, "[redacted URL]"),
+            (emailPattern, "[redacted email]"),
+            (identifierValuePattern, "$1[redacted]"),
+            (uuidPattern, "[redacted ID]"),
+            (absolutePathPattern, "[redacted path]"),
+            (coordinateValuePattern, "$1 [redacted]"),
+            (coordinatePairPattern, "[redacted location]")
+        ]
+        return patterns.reduce(message) { partialMessage, pattern in
+            guard let regex = pattern.0 else { return partialMessage }
+            let range = NSRange(partialMessage.startIndex..., in: partialMessage)
+            return regex.stringByReplacingMatches(
+                in: partialMessage,
+                options: [],
+                range: range,
+                withTemplate: pattern.1
+            )
+        }
     }
 }
 
@@ -91,7 +127,7 @@ enum LoggingPolicy {
         line: UInt = #line
     ) {
         let unredactedPrefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
-        let prefixedMessage = LogRedactor.redactingURLs(unredactedPrefixedMessage)
+        let prefixedMessage = LogRedactor.redactingSensitiveData(unredactedPrefixedMessage)
 
         // 1. Local (Console.app / Xcode; release builds discard debug-level os.log)
         logger.logDebug(prefixedMessage)
@@ -123,7 +159,7 @@ enum LoggingPolicy {
         line: UInt = #line
     ) {
         let unredactedPrefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
-        let prefixedMessage = LogRedactor.redactingURLs(unredactedPrefixedMessage)
+        let prefixedMessage = LogRedactor.redactingSensitiveData(unredactedPrefixedMessage)
 
         // 1. Local
         logger.logInfo(prefixedMessage)
@@ -152,7 +188,7 @@ enum LoggingPolicy {
         line: UInt = #line
     ) {
         let unredactedPrefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
-        let prefixedMessage = LogRedactor.redactingURLs(unredactedPrefixedMessage)
+        let prefixedMessage = LogRedactor.redactingSensitiveData(unredactedPrefixedMessage)
 
         // 1. Local
         logger.logWarning(prefixedMessage)
@@ -182,7 +218,7 @@ enum LoggingPolicy {
         line: UInt = #line
     ) {
         let unredactedPrefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
-        let prefixedMessage = LogRedactor.redactingURLs(unredactedPrefixedMessage)
+        let prefixedMessage = LogRedactor.redactingSensitiveData(unredactedPrefixedMessage)
         // The error description is appended locally for readability; the remote capture
         // receives the clean message because the crash-reporting service appends the
         // description itself (appending here too produced "msg: desc: desc" in Sentry).
@@ -190,7 +226,7 @@ enum LoggingPolicy {
         let localMessage: String
         let unredactedLocalMessage: String
         if let error = error {
-            localMessage = "\(prefixedMessage): \(LogRedactor.redactingURLs(error.localizedDescription))"
+            localMessage = "\(prefixedMessage): \(LogRedactor.redactingSensitiveData(error.localizedDescription))"
 			unredactedLocalMessage = "\(unredactedPrefixedMessage): \(error.localizedDescription)"
         } else {
             localMessage = prefixedMessage
@@ -227,7 +263,7 @@ enum LoggingPolicy {
         line: UInt = #line
     ) {
         let unredactedPrefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
-        let prefixedMessage = LogRedactor.redactingURLs(unredactedPrefixedMessage)
+        let prefixedMessage = LogRedactor.redactingSensitiveData(unredactedPrefixedMessage)
 
         // 1. Local
         logger.logFault(prefixedMessage)
@@ -255,17 +291,18 @@ enum LoggingPolicy {
     ) -> Never {
         let fileName = (filePath as NSString).lastPathComponent
         let fullMessage = "CRITICAL FAILURE at \(fileName):\(line): \(message)"
+		let redactedMessage = LogRedactor.redactingSensitiveData(fullMessage)
 		retainForSupportEmail(
-			redactedMessage: LogRedactor.redactingURLs(fullMessage),
+			redactedMessage: redactedMessage,
 			unredactedMessage: fullMessage,
 			level: "FAULT",
 			category: "app.log"
 		)
         
-        Logger.app.logFault(fullMessage)
-        Observability.captureFault(fullMessage)
+        Logger.app.logFault(redactedMessage)
+        Observability.captureFault(redactedMessage)
         
-        preconditionFailure(message, file: file, line: line)
+        preconditionFailure(redactedMessage, file: file, line: line)
     }
     
     /// Crashes in debug; logs and reports in release.
@@ -278,20 +315,21 @@ enum LoggingPolicy {
     ) {
         let fileName = (filePath as NSString).lastPathComponent
         let fullMessage = "ASSERTION FAILURE at \(fileName):\(line): \(message)"
+		let redactedMessage = LogRedactor.redactingSensitiveData(fullMessage)
 		retainForSupportEmail(
-			redactedMessage: LogRedactor.redactingURLs(fullMessage),
+			redactedMessage: redactedMessage,
 			unredactedMessage: fullMessage,
 			level: "FAULT",
 			category: "app.log"
 		)
         
 #if DEBUG
-        Logger.app.logFault(fullMessage)
-        Observability.captureFault(fullMessage)
-        Swift.assertionFailure(message, file: file, line: line)
+        Logger.app.logFault(redactedMessage)
+        Observability.captureFault(redactedMessage)
+        Swift.assertionFailure(redactedMessage, file: file, line: line)
 #else
-        Logger.app.logError("Assertion would fail in debug at \(fileName):\(line): \(message)")
-        Observability.captureError(fullMessage, error: LoggingError.assertionFailure(message))
+        Logger.app.logError("Assertion would fail in debug: \(redactedMessage)")
+        Observability.captureError(redactedMessage, error: LoggingError.assertionFailure(redactedMessage))
 #endif
     }
     
@@ -320,8 +358,8 @@ enum LoggingPolicy {
     }
 }
 
-/// A thread-safe, bounded tail of redacted text log entries. Keeping a tail rather than a count
-/// means a burst of verbose events cannot make a support email exceed the five-MiB limit.
+/// A thread-safe, bounded tail of text log entries. Keeping a tail rather than a count means a
+/// burst of verbose events cannot make a support email exceed the five-MiB limit.
 final class ApplicationLogBuffer: @unchecked Sendable {
 	static let maximumByteCount = 5 * 1_024 * 1_024
 
@@ -350,14 +388,12 @@ final class ApplicationLogBuffer: @unchecked Sendable {
 	private func trimToLatestEntries() {
 		guard logTail.count > maximumByteCount else { return }
 		let firstRetainedIndex = logTail.index(logTail.endIndex, offsetBy: -maximumByteCount)
-		let retainedTail = logTail[firstRetainedIndex...]
-		// Prefer starting at a whole entry. If one oversized entry occupies the whole tail, keep
-		// its newest bytes instead; dropping it would lose the very event the report is about.
-		if let newlineIndex = retainedTail.firstIndex(of: 0x0A),
-		   newlineIndex < logTail.index(before: logTail.endIndex) {
-			logTail.removeSubrange(...newlineIndex)
-		} else {
-			logTail.removeSubrange(logTail.startIndex..<firstRetainedIndex)
+		logTail.removeSubrange(logTail.startIndex..<firstRetainedIndex)
+		// The byte cutoff can land inside a multi-byte UTF-8 scalar. Drop only its remaining
+		// continuation bytes so the attachment stays valid text, rather than sacrificing the next
+		// whole entry. This retains the newest usable tail, minus at most three leading bytes.
+		while let firstByte = logTail.first, firstByte & 0b1100_0000 == 0b1000_0000 {
+			logTail.removeFirst()
 		}
 	}
 }

@@ -212,11 +212,35 @@ final class LoggingPolicyTests: XCTestCase {
     // Note: criticalFailure and assertionFailure are not tested as they terminate/assert
 }
 
+final class LogRedactorTests: XCTestCase {
+	func testRedactingSensitiveData_RemovesTraceableValues() {
+		let url = "https://models.example.com/private/weights.mlmodel?token=secret#fragment"
+		let identifier = "123E4567-E89B-12D3-A456-426614174000"
+		let path = "/var/mobile/Containers/Data/Application/secret/model.mlmodel"
+		let message = "url=\(url) id=\(identifier) path=\(path) accountID=acct-123 token=secret-token email=user@example.com latitude: 48.8566 longitude: 2.3522 location=<+48.8566,+2.3522>"
+
+		let redacted = LogRedactor.redactingSensitiveData(message)
+
+		for sensitiveValue in [url, identifier, path, "acct-123", "secret-token", "user@example.com", "48.8566", "2.3522"] {
+			XCTAssertFalse(redacted.contains(sensitiveValue), "Expected \(sensitiveValue) to be redacted")
+		}
+		XCTAssertTrue(redacted.contains("[redacted URL]"))
+		XCTAssertTrue(redacted.contains("[redacted ID]"))
+		XCTAssertTrue(redacted.contains("[redacted path]"))
+		XCTAssertTrue(redacted.contains("accountID=[redacted]"))
+		XCTAssertTrue(redacted.contains("token=[redacted]"))
+	}
+}
+
 final class ApplicationLogBufferTests: XCTestCase {
 	func testRecentApplicationLogData_UsesTheRawMessageOnlyWhenExplicitlyRequested() {
 		let marker = UUID().uuidString
 		let sensitiveURL = "https://models.example.com/weights?downloadID=\(marker)"
-		LoggingPolicy.info("Support-log marker: \(sensitiveURL)")
+		let sensitivePath = "/var/mobile/Containers/Data/Application/\(marker)/model.mlmodel"
+		let sensitiveLatitude = "48.8566"
+		LoggingPolicy.info(
+			"Support-log marker: \(sensitiveURL) accountID=\(marker) path=\(sensitivePath) latitude: \(sensitiveLatitude)"
+		)
 
 		guard let redactedLog = String(
 			bytes: LoggingPolicy.recentApplicationLogData(),
@@ -228,11 +252,13 @@ final class ApplicationLogBufferTests: XCTestCase {
 			return XCTFail("Expected UTF-8 application logs")
 		}
 
-		XCTAssertFalse(redactedLog.contains(marker))
-		XCTAssertTrue(unredactedLog.contains(marker))
+		for sensitiveValue in [marker, sensitiveURL, sensitivePath, sensitiveLatitude] {
+			XCTAssertFalse(redactedLog.contains(sensitiveValue), "Expected \(sensitiveValue) to be redacted")
+			XCTAssertTrue(unredactedLog.contains(sensitiveValue), "Expected \(sensitiveValue) in the raw attachment")
+		}
 	}
 
-	func testSnapshotData_KeepsTheNewestEntriesWithinTheByteLimit() {
+	func testSnapshotData_KeepsTheNewestBytesWithinTheByteLimit() {
 		let buffer = ApplicationLogBuffer(maximumByteCount: 10)
 		buffer.append("first")
 		buffer.append("second")
@@ -240,7 +266,7 @@ final class ApplicationLogBufferTests: XCTestCase {
 		guard let text = String(bytes: buffer.snapshotData(), encoding: .utf8) else {
 			return XCTFail("Expected a UTF-8 application log")
 		}
-		XCTAssertEqual(text, "second\n")
+		XCTAssertEqual(text, "st\nsecond\n")
 	}
 
 	func testSnapshotData_TruncatesAnOversizedNewestEntryToTheByteLimit() {
@@ -252,5 +278,26 @@ final class ApplicationLogBufferTests: XCTestCase {
 			return XCTFail("Expected a UTF-8 application log")
 		}
 		XCTAssertEqual(text, "cdef\n")
+	}
+
+	func testSnapshotData_KeepsTheNewestTailWhenAnOversizedEntryHasLaterEntries() {
+		let buffer = ApplicationLogBuffer(maximumByteCount: 10)
+		buffer.append(String(repeating: "a", count: 12))
+		buffer.append("x")
+
+		guard let text = String(bytes: buffer.snapshotData(), encoding: .utf8) else {
+			return XCTFail("Expected a UTF-8 application log")
+		}
+		XCTAssertEqual(text, "aaaaaaa\nx\n")
+	}
+
+	func testSnapshotData_TrimsAUnicodeCutoffToValidUTF8() {
+		let buffer = ApplicationLogBuffer(maximumByteCount: 8)
+		buffer.append("aa€bbbbbb")
+
+		guard let text = String(bytes: buffer.snapshotData(), encoding: .utf8) else {
+			return XCTFail("Expected a UTF-8 application log")
+		}
+		XCTAssertEqual(text, "bbbbbb\n")
 	}
 }

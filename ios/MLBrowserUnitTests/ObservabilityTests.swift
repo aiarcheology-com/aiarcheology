@@ -201,6 +201,18 @@ final class BreadcrumbLevelTests: XCTestCase {
 // MARK: - SentryCrashReportingService Tests
 
 final class SentryCrashReportingServiceTests: XCTestCase {
+	func testRedactedMessage_RemovesSensitiveErrorDetailsBeforeCapture() {
+		let sensitiveURL = "https://models.example.com/private/model.mlmodel?token=secret"
+		let sensitiveIdentifier = "123E4567-E89B-12D3-A456-426614174000"
+		let message = "Support failure at \(sensitiveURL), accountID=\(sensitiveIdentifier)"
+
+		let redacted = SentryCrashReportingService.redactedMessage(message)
+
+		XCTAssertFalse(redacted.contains(sensitiveURL))
+		XCTAssertFalse(redacted.contains(sensitiveIdentifier))
+		XCTAssertTrue(redacted.contains("[redacted URL]"))
+		XCTAssertTrue(redacted.contains("accountID=[redacted]"))
+	}
 	
 	func test_toSentryLevel_mappings_coverAllCases() {
 		XCTAssertEqual(BreadcrumbLevel.none.toSentryLevel(), .none)

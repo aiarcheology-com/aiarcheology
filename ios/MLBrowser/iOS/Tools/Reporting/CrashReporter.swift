@@ -51,6 +51,6 @@ final class DefaultCrashReporter: CrashReporter, Sendable {
 
 		// Also log locally (with the description for readability). OSLog is public and
 		// system error descriptions often embed the failing URL — redact before logging.
-		Logger.app.logError("\(message): \(LogRedactor.redactingURLs(error.localizedDescription))")
+                Logger.app.logError("\(message): \(LogRedactor.redactingSensitiveData(error.localizedDescription))")
 	}
 }

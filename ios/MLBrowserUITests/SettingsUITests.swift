@@ -117,6 +117,26 @@ final class SettingsUITests: UITestCase {
             flipSwitch(AID.supportRequestSendUnredactedData),
             "Unredacted-data toggle did not change state"
         )
+        XCTAssertTrue(
+            flipSwitch(AID.supportRequestIncludeApplicationLog),
+            "Application-log toggle did not turn off"
+        )
+        XCTAssertFalse(element(AID.supportRequestSendUnredactedData).isEnabled)
+        XCTAssertEqual(
+            element(AID.supportRequestSendUnredactedData).value as? String,
+            "0",
+            "Turning off application-log inclusion must clear raw-data consent"
+        )
+        XCTAssertTrue(
+            flipSwitch(AID.supportRequestIncludeApplicationLog),
+            "Application-log toggle did not turn back on"
+        )
+        XCTAssertTrue(element(AID.supportRequestSendUnredactedData).isEnabled)
+        XCTAssertEqual(
+            element(AID.supportRequestSendUnredactedData).value as? String,
+            "0",
+            "Raw-data consent must remain off after re-enabling application-log inclusion"
+        )
     }
 
     func testSettings_replayOnboarding_startsTour() {

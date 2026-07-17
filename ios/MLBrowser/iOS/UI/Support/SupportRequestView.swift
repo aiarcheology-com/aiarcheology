@@ -139,6 +139,11 @@ struct SupportRequestView: View {
 				}
 			}
 			.task(id: pickedPhoto) { await loadPickedPhoto() }
+			.onChange(of: includeApplicationLog) { _, isIncludingLog in
+				if !isIncludingLog {
+					sendUnredactedApplicationLog = false
+				}
+			}
 			// Not a dead end: `canSendMail()` is false whenever Mail.app has no account — and the
 			// user cannot be sent straight to Mail's setup pane, because iOS exposes no such URL
 			// (`openSettingsURLString` only opens THIS app's page, and `App-Prefs:root=MAIL` is

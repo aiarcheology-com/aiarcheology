@@ -125,7 +125,7 @@ final class SentryCrashReportingService: CrashReportingService {
 			// LoggingPolicy layer — third-party SDK breadcrumbs bypass that layer).
 			options.beforeBreadcrumb = { crumb in
 				if let message = crumb.message {
-					crumb.message = LogRedactor.redactingURLs(message)
+					crumb.message = LogRedactor.redactingSensitiveData(message)
 				}
 				return crumb
 			}
@@ -133,7 +133,7 @@ final class SentryCrashReportingService: CrashReportingService {
 			options.beforeSend = { event in
 				// URL sanitization runs unconditionally — independent of throttling.
 				if let message = event.message {
-					event.message = SentryMessage(formatted: LogRedactor.redactingURLs(message.formatted))
+					event.message = SentryMessage(formatted: LogRedactor.redactingSensitiveData(message.formatted))
 				}
 
 				guard throttleConfig.isEnabled else { return event }
@@ -260,12 +260,13 @@ final class SentryCrashReportingService: CrashReportingService {
 	}
 	
 	func addBreadcrumb(message: String, level: BreadcrumbLevel, category: String) {
+		let redactedMessage = Self.redactedMessage(message)
 		// Breadcrumbs do not cost quota, but in an error loop they can flood the breadcrumb ring buffer
 		// and then get attached to the next allowed event. Throttle only error-ish breadcrumbs.
 		if throttleConfig.isEnabled,
 		   level == .error || level == .fatal,
 		   let signature = SentryEventSignatureBuilder.signatureHex(
-			from: SentryEventSignatureInput(errorType: nil, message: message, topFrames: [])
+				from: SentryEventSignatureInput(errorType: nil, message: redactedMessage, topFrames: [])
 		   ),
 		   !breadcrumbGuard.shouldAllow(signatureHex: signature) {
 			return
@@ -274,27 +275,31 @@ final class SentryCrashReportingService: CrashReportingService {
 		let crumb = Breadcrumb()
 		crumb.level = level.toSentryLevel()
 		crumb.category = category
-		crumb.message = message
+		crumb.message = redactedMessage
 		SentrySDK.addBreadcrumb(crumb)
 	}
 	
 	func captureError(message: String, error: Error?) {
-		let finalMessage: String
+		let messageWithError: String
 		if let error = error {
-			finalMessage = "\(message): \(error.localizedDescription)"
+			messageWithError = "\(message): \(error.localizedDescription)"
 		} else {
-			finalMessage = message
+			messageWithError = message
 		}
-		SentrySDK.capture(message: finalMessage) { scope in
+		SentrySDK.capture(message: Self.redactedMessage(messageWithError)) { scope in
 			scope.setLevel(.error)
 		}
 	}
 	
 	func captureFault(message: String) {
 		// Faults are critical - capture with fatal level
-		SentrySDK.capture(message: "[FAULT] \(message)") { scope in
+		SentrySDK.capture(message: "[FAULT] \(Self.redactedMessage(message))") { scope in
 			scope.setLevel(.fatal)
 		}
+	}
+
+	static func redactedMessage(_ message: String) -> String {
+		LogRedactor.redactingSensitiveData(message)
 	}
 	
 	func setCustomValue(_ value: String, forKey key: String) {
