@@ -720,6 +720,78 @@ internal enum L10n {
       }
     }
   }
+  internal enum Support {
+    /// Screenshot attached
+    internal static let attachedScreenshot = L10n.tr("Localizable", "support.attachedScreenshot", fallback: "Screenshot attached")
+    /// Attach a screenshot
+    internal static let attachScreenshot = L10n.tr("Localizable", "support.attachScreenshot", fallback: "Attach a screenshot")
+    /// What is this about?
+    internal static let categoryPrompt = L10n.tr("Localizable", "support.categoryPrompt", fallback: "What is this about?")
+    /// Continue in Mail
+    internal static let compose = L10n.tr("Localizable", "support.compose", fallback: "Continue in Mail")
+    /// Copy report
+    internal static let copyReport = L10n.tr("Localizable", "support.copyReport", fallback: "Copy report")
+    /// Open Settings
+    internal static let openSettings = L10n.tr("Localizable", "support.openSettings", fallback: "Open Settings")
+    /// Nothing is sent until you send it. You will see the whole email — including the technical details and any screenshot you attach — and can edit it first.
+    internal static let privacyNote = L10n.tr("Localizable", "support.privacyNote", fallback: "Nothing is sent until you send it. You will see the whole email — including the technical details and any screenshot you attach — and can edit it first.")
+    /// Report copied. Paste it into an email to %@.
+    internal static func reportCopied(_ p1: Any) -> String {
+      return L10n.tr("Localizable", "support.reportCopied", String(describing: p1), fallback: "Report copied. Paste it into an email to %@.")
+    }
+    /// Report a problem
+    internal static let title = L10n.tr("Localizable", "support.title", fallback: "Report a problem")
+    internal enum Body {
+      /// Account
+      internal static let account = L10n.tr("Localizable", "support.body.account", fallback: "Account")
+      /// Support category
+      internal static let category = L10n.tr("Localizable", "support.body.category", fallback: "Support category")
+      /// Please describe the problem here:
+      internal static let describePrompt = L10n.tr("Localizable", "support.body.describePrompt", fallback: "Please describe the problem here:")
+      /// Technical details — these help us find the problem. You can edit or remove anything below before sending.
+      internal static let detailsHeader = L10n.tr("Localizable", "support.body.detailsHeader", fallback: "Technical details — these help us find the problem. You can edit or remove anything below before sending.")
+      /// App language
+      internal static let language = L10n.tr("Localizable", "support.body.language", fallback: "App language")
+      /// Web address
+      internal static let webAddress = L10n.tr("Localizable", "support.body.webAddress", fallback: "Web address")
+    }
+    internal enum Category {
+      /// Account or login
+      internal static let account = L10n.tr("Localizable", "support.category.account", fallback: "Account or login")
+      /// Bug or technical problem
+      internal static let bug = L10n.tr("Localizable", "support.category.bug", fallback: "Bug or technical problem")
+      /// Feature request
+      internal static let featureRequest = L10n.tr("Localizable", "support.category.featureRequest", fallback: "Feature request")
+      /// Other
+      internal static let other = L10n.tr("Localizable", "support.category.other", fallback: "Other")
+      /// Privacy or account deletion
+      internal static let privacy = L10n.tr("Localizable", "support.category.privacy", fallback: "Privacy or account deletion")
+      /// Purchase or subscription
+      internal static let purchase = L10n.tr("Localizable", "support.category.purchase", fallback: "Purchase or subscription")
+    }
+    internal enum MailUnavailable {
+      /// We opened your default mail app instead — a screenshot cannot be attached that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere.
+      internal static func message(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "support.mailUnavailable.message", String(describing: p1), fallback: "We opened your default mail app instead — a screenshot cannot be attached that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere.")
+      }
+      /// No mail app could be opened. Add an email account in Settings → Mail → Mail Accounts, or copy the report and send it to %@ from another device.
+      internal static func messageNoMailApp(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "support.mailUnavailable.messageNoMailApp", String(describing: p1), fallback: "No mail app could be opened. Add an email account in Settings → Mail → Mail Accounts, or copy the report and send it to %@ from another device.")
+      }
+      /// Couldn't open Mail
+      internal static let title = L10n.tr("Localizable", "support.mailUnavailable.title", fallback: "Couldn't open Mail")
+    }
+    internal enum Prompt {
+      /// Don't ask again
+      internal static let dontAskAgain = L10n.tr("Localizable", "support.prompt.dontAskAgain", fallback: "Don't ask again")
+      /// If something looks wrong, you can send us that screenshot with a short description.
+      internal static let message = L10n.tr("Localizable", "support.prompt.message", fallback: "If something looks wrong, you can send us that screenshot with a short description.")
+      /// Report a problem
+      internal static let report = L10n.tr("Localizable", "support.prompt.report", fallback: "Report a problem")
+      /// Found a problem?
+      internal static let title = L10n.tr("Localizable", "support.prompt.title", fallback: "Found a problem?")
+    }
+  }
   internal enum Symbol {
     /// Circle
     internal static let circle = L10n.tr("Localizable", "symbol.circle", fallback: "Circle")

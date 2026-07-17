@@ -14214,6 +14214,342 @@
         }
       }
     },
+    "support.attachScreenshot" : {
+      "comment" : "Button that lets the user attach a screenshot they took themselves to a support request.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attach a screenshot"
+          }
+        }
+      }
+    },
+    "support.attachedScreenshot" : {
+      "comment" : "Shown once the user has picked a screenshot to attach.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Screenshot attached"
+          }
+        }
+      }
+    },
+    "support.body.account" : {
+      "comment" : "Label for the account identifier in the support email body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account"
+          }
+        }
+      }
+    },
+    "support.body.category" : {
+      "comment" : "Label for the chosen support category in the support email body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Support category"
+          }
+        }
+      }
+    },
+    "support.body.describePrompt" : {
+      "comment" : "Prompt at the top of the support email body, where the user types.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please describe the problem here:"
+          }
+        }
+      }
+    },
+    "support.body.detailsHeader" : {
+      "comment" : "Header above the technical details block in the support email body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Technical details — these help us find the problem. You can edit or remove anything below before sending."
+          }
+        }
+      }
+    },
+    "support.body.language" : {
+      "comment" : "Label for the app language in the support email body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App language"
+          }
+        }
+      }
+    },
+    "support.body.webAddress" : {
+      "comment" : "Label for the web address involved in the problem, in the support email body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Web address"
+          }
+        }
+      }
+    },
+    "support.category.account" : {
+      "comment" : "Support category: account or login problems.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account or login"
+          }
+        }
+      }
+    },
+    "support.category.bug" : {
+      "comment" : "Support category: a bug or technical problem.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bug or technical problem"
+          }
+        }
+      }
+    },
+    "support.category.featureRequest" : {
+      "comment" : "Support category: a feature request.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feature request"
+          }
+        }
+      }
+    },
+    "support.category.other" : {
+      "comment" : "Support category: anything else.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        }
+      }
+    },
+    "support.category.privacy" : {
+      "comment" : "Support category: privacy questions or account deletion.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy or account deletion"
+          }
+        }
+      }
+    },
+    "support.category.purchase" : {
+      "comment" : "Support category: purchase or subscription problems.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Purchase or subscription"
+          }
+        }
+      }
+    },
+    "support.categoryPrompt" : {
+      "comment" : "Section header asking the user to pick what their support request is about.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What is this about?"
+          }
+        }
+      }
+    },
+    "support.compose" : {
+      "comment" : "Button that opens the mail composer for the support request.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue in Mail"
+          }
+        }
+      }
+    },
+    "support.copyReport" : {
+      "comment" : "Button that copies the whole support report to the clipboard so it can be sent another way.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy report"
+          }
+        }
+      }
+    },
+    "support.mailUnavailable.message" : {
+      "comment" : "Shown when the mail composer is unavailable but a default mail app opened via mailto. %@ is the support email address.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "We opened your default mail app instead — a screenshot cannot be attached that way. If it says no account is set up, add one in Settings → Mail → Mail Accounts. You can also copy the report and send it to %@ from anywhere."
+          }
+        }
+      }
+    },
+    "support.mailUnavailable.messageNoMailApp" : {
+      "comment" : "Shown when no mail app could be opened at all. %@ is the support email address.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No mail app could be opened. Add an email account in Settings → Mail → Mail Accounts, or copy the report and send it to %@ from another device."
+          }
+        }
+      }
+    },
+    "support.mailUnavailable.title" : {
+      "comment" : "Title of the alert shown when the mail composer cannot open.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't open Mail"
+          }
+        }
+      }
+    },
+    "support.openSettings" : {
+      "comment" : "Button that opens the Settings app so the user can add an email account.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Settings"
+          }
+        }
+      }
+    },
+    "support.privacyNote" : {
+      "comment" : "Footer explaining that the user reviews and sends the support email themselves.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing is sent until you send it. You will see the whole email — including the technical details and any screenshot you attach — and can edit it first."
+          }
+        }
+      }
+    },
+    "support.prompt.dontAskAgain" : {
+      "comment" : "Button that permanently stops the screenshot report offer.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Don't ask again"
+          }
+        }
+      }
+    },
+    "support.prompt.message" : {
+      "comment" : "Message of the offer shown once, after the user takes a screenshot.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If something looks wrong, you can send us that screenshot with a short description."
+          }
+        }
+      }
+    },
+    "support.prompt.report" : {
+      "comment" : "Button that starts a support request from the screenshot offer.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Report a problem"
+          }
+        }
+      }
+    },
+    "support.prompt.title" : {
+      "comment" : "Title of the offer shown once, after the user takes a screenshot.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Found a problem?"
+          }
+        }
+      }
+    },
+    "support.reportCopied" : {
+      "comment" : "Confirmation shown after the support report is copied to the clipboard. %@ is the support email address.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Report copied. Paste it into an email to %@."
+          }
+        }
+      }
+    },
+    "support.title" : {
+      "comment" : "Title of the support request screen.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Report a problem"
+          }
+        }
+      }
+    },
     "symbol.circle" : {
       "comment" : "Annotation symbol type: Circle",
       "extractionState" : "manual",

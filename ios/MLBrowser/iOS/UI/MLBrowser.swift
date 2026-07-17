@@ -112,6 +112,17 @@ struct MLBrowser: App {
 					appState.detectionState.ontheflyDetectionTapped(recordAnalytics: false)
 				}
 			}
+			// Attached above the analytics/auth/subscription gates, so a bug on the paywall or the
+			// sign-in screen is reportable too — exactly the screens a stuck user cannot get past
+			// to reach Settings (AIA-0454).
+			.screenshotReportOffer(
+				settings: appState.settings,
+				featureFlags: appState.featureFlags,
+				// Passed explicitly: this modifier sits outside the `.environment(\.usesRealAuth)`
+				// injection above, so its sheet cannot inherit the value.
+				usesRealAuth: appState.usesRealAuth,
+				currentURL: { appState.browserState.currentURL?.absoluteString }
+			)
 			.task {
 				// Reconnect to background URLSession tasks after app launch.
 				// (No-op during XCTest runs; gated inside Downloader.)

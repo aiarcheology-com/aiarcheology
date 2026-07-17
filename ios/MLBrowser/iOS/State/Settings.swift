@@ -44,6 +44,10 @@ final class Settings: ObservableObject, Validatable {
 		/// no telemetry and presents a choice before the app's auth/subscription gates.
 		static let analyticsEnabled = "analyticsEnabled"
 		static let analyticsChoiceMade = "analyticsChoiceMade"
+		/// Screenshot report offer (AIA-0454). Both default to false: a fresh install has not been
+		/// offered anything and has declined nothing.
+		static let supportPromptShown = "supportPromptShown"
+		static let supportPromptDeclined = "supportPromptDeclined"
 	}
 
 	public var isFirstLaunchMarked: Bool = false
@@ -171,6 +175,27 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	/// Records that the screenshot "report a problem" offer has been shown (AIA-0454).
+	///
+	/// Persisted rather than held in memory for one reason: this is a **browser**, where
+	/// screenshotting a page is ordinary, innocent behaviour. A per-session throttle resets on
+	/// every launch, so an unsolicited prompt would keep reappearing forever — ambient nagging
+	/// that trains people to dismiss it. The offer is passive and shown **once per install**.
+	@Published public var supportPromptShown: Bool {
+		didSet {
+			defaults.set(supportPromptShown, forKey: UserDefaultsKeys.supportPromptShown)
+		}
+	}
+
+	/// The user asked not to be offered the screenshot report again. Kept separate from
+	/// `supportPromptShown` for the same reason `analyticsChoiceMade` is separate from
+	/// `analyticsEnabled`: an explicit "no" is a durable answer, not the absence of one.
+	@Published public var supportPromptDeclined: Bool {
+		didSet {
+			defaults.set(supportPromptDeclined, forKey: UserDefaultsKeys.supportPromptDeclined)
+		}
+	}
+
 	/// The tiling scheme(s) currently enabled, derived from the two independent toggles. Empty when
 	/// both are off (the detector then runs full-frame only).
 	var tilingSchemes: TilingScheme {
@@ -260,6 +285,8 @@ final class Settings: ObservableObject, Validatable {
 		self.tiledBorders = defaults.bool(forKey: UserDefaultsKeys.tiledBorders)
 		self.analyticsEnabled = defaults.bool(forKey: UserDefaultsKeys.analyticsEnabled)
 		self.analyticsChoiceMade = defaults.bool(forKey: UserDefaultsKeys.analyticsChoiceMade)
+		self.supportPromptShown = defaults.bool(forKey: UserDefaultsKeys.supportPromptShown)
+		self.supportPromptDeclined = defaults.bool(forKey: UserDefaultsKeys.supportPromptDeclined)
 		if let uuidString = defaults.string(forKey: UserDefaultsKeys.entityId),
 		   let uuid = UUID(uuidString: uuidString) {
 			self.entityId = uuid
@@ -313,6 +340,8 @@ final class Settings: ObservableObject, Validatable {
 		tiledBorders = false
 		analyticsEnabled = false
 		analyticsChoiceMade = false
+		supportPromptShown = false
+		supportPromptDeclined = false
 
 		defaults.removeObject(forKey: UserDefaultsKeys.lastPage)
 		defaults.set(historySize, forKey: UserDefaultsKeys.sizeHistory)
@@ -331,6 +360,8 @@ final class Settings: ObservableObject, Validatable {
 		defaults.set(tiledBorders, forKey: UserDefaultsKeys.tiledBorders)
 		defaults.set(analyticsEnabled, forKey: UserDefaultsKeys.analyticsEnabled)
 		defaults.set(analyticsChoiceMade, forKey: UserDefaultsKeys.analyticsChoiceMade)
+		defaults.set(supportPromptShown, forKey: UserDefaultsKeys.supportPromptShown)
+		defaults.set(supportPromptDeclined, forKey: UserDefaultsKeys.supportPromptDeclined)
 	}
 
 }
