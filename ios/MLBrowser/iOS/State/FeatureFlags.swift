@@ -42,6 +42,7 @@ enum FeatureFlagKey: String, CaseIterable {
 	/// Gates **only** the screenshot-triggered "report a problem" offer (AIA-0454) — not the
 	/// support flow itself. Settings → About → Report a problem stays reachable regardless, so
 	/// turning this off costs nobody their support route; it silences an unsolicited prompt.
+	/// Rollout is controlled by the ConfigCat value, not by the compiled default.
 	case isSupportReportingEnabled = "isSupportReportingEnabled"
 	// swiftlint:enable redundant_string_enum_value
 
@@ -51,12 +52,7 @@ enum FeatureFlagKey: String, CaseIterable {
 		case .isModelCatalogEnabled: return true
 		case .isPaymentsEnabled: return true
 		case .isAnalyticsEnabled: return true
-		// Fails CLOSED, unlike its siblings. The others guard surfaces that already shipped, so
-		// failing open preserves behaviour. This one guards an unshipped surface whose failure mode
-		// is an unsolicited prompt in a browser — where screenshotting a page is ordinary, innocent
-		// behaviour. An offline/miskeyed lookup must not be able to turn that on; the Settings →
-		// About → Contact route stays reachable regardless, so nobody loses support access.
-		case .isSupportReportingEnabled: return false
+		case .isSupportReportingEnabled: return true
 		}
 	}
 }

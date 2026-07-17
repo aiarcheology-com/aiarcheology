@@ -11,22 +11,16 @@ import Combine
 
 final class FeatureFlagsTests: XCTestCase {
 
-	/// The compiled defaults are the offline / first-launch / outage path, and each flag chooses
-	/// open or closed as part of its own contract — this is not a house rule that everything
-	/// fails open (see the spec's "Honest limits of the kill switch").
+	/// The compiled defaults must preserve today's shipped behaviour exactly: every feature on.
+	/// This is the offline / first-launch / outage path — the flags deliberately fail *open*
+	/// (AGENTS.md §3 "Defaults fail open"; see also the spec's "Honest limits of the kill switch").
 	///
-	/// The three original flags guard surfaces that already shipped, so failing *open* preserves
-	/// behaviour. `isSupportReportingEnabled` guards an unshipped surface whose failure mode is an
-	/// unsolicited prompt in a browser, so it fails *closed*: an offline or miskeyed lookup must
-	/// not be able to turn that on.
+	/// Rollout is the ConfigCat value's job, not the compiled default's. Only a flag that *must*
+	/// fail closed — one whose failure mode is worse than a mild annoyance — earns a `false` here.
 	func test_defaults_matchShippedBehaviour() {
-		XCTAssertTrue(FeatureFlagKey.isModelCatalogEnabled.defaultValue)
-		XCTAssertTrue(FeatureFlagKey.isPaymentsEnabled.defaultValue)
-		XCTAssertTrue(FeatureFlagKey.isAnalyticsEnabled.defaultValue)
-		XCTAssertFalse(
-			FeatureFlagKey.isSupportReportingEnabled.defaultValue,
-			"ships dark: the screenshot offer must not appear until it is turned on deliberately"
-		)
+		for key in FeatureFlagKey.allCases {
+			XCTAssertTrue(key.defaultValue, "\(key.rawValue): defaults fail open unless it must fail closed")
+		}
 	}
 
 	/// The ConfigCat key is the rawValue — an explicit literal, never left to Swift's

@@ -134,7 +134,7 @@ final class ScreenshotReportGateTests: XCTestCase {
 	func testShouldOffer_RequiresTheFlag() {
 		XCTAssertFalse(
 			ScreenshotReportGate.shouldOffer(flagEnabled: false, alreadyShown: false, declined: false),
-			"the flag fails closed; a fresh install with the flag off must stay silent"
+			"turning the ConfigCat value off must silence the offer remotely, even on a fresh install"
 		)
 	}
 
