@@ -323,6 +323,121 @@ final class ONNXModelReaderTests: XCTestCase {
 		)
 	}
 
+	// MARK: - Concat lowering (channel-axis join)
+
+	func testRead_concatTwoInputs_sumsChannels() throws {
+		// Two [1,64,55,55] branches join on the channel axis -> [1,128,55,55].
+		let model = concatModel(inputShape: [1, 64, 55, 55], count: 2, axis: 1)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.concatenate])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 128, 55, 55])
+		XCTAssertEqual(conversion.graph.operations[0].inputs, ["x", "x"])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_concatThreeInputs_sumsChannels() throws {
+		// Three [1,3,8,8] branches -> [1,9,8,8]; the channel dim is the sum of all inputs.
+		let model = concatModel(inputShape: [1, 3, 8, 8], count: 3, axis: 1)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.concatenate])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 9, 8, 8])
+		XCTAssertEqual(conversion.graph.operations[0].inputs.count, 3)
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_concatNegativeAxis_normalizesToChannel() throws {
+		// axis -3 on a rank-4 tensor is the channel axis; accept it and record the normalized axis 1.
+		let model = concatModel(inputShape: [1, 64, 55, 55], count: 2, axis: -3)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.concatenate])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["axis"], .integer(1))
+	}
+
+	func testRead_concatBatchAxis_isRejected() throws {
+		// axis 0 is the batch axis; the native op only joins channels.
+		let model = concatModel(inputShape: [1, 64, 55, 55], count: 2, axis: 0)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_concatSpatialAxis_isRejected() throws {
+		// axis 2 is a spatial axis; the native op only joins channels.
+		let model = concatModel(inputShape: [1, 64, 55, 55], count: 2, axis: 2)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_concatMissingAxis_isRejected() throws {
+		// ONNX Concat has no default axis, so a missing one is unconvertible rather than assumed.
+		let model = concatModel(inputShape: [1, 64, 55, 55], count: 2, axis: nil)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_concatSpatialMismatch_isRejected() throws {
+		// [1,64,55,55] + [1,64,54,55] disagree on a spatial dim; channel concat requires equal H/W.
+		// A MaxPool k[2,1] s[1,1] p0 turns 55x55 -> 54x55, giving the mismatched second branch.
+		let pool = onnxNode(op: "MaxPool", inputs: ["x"], outputs: ["p"], name: "pool", attributes: [
+			onnxIntsAttr(name: "kernel_shape", ints: [2, 1]),
+			onnxIntsAttr(name: "strides", ints: [1, 1]),
+			onnxIntsAttr(name: "pads", ints: [0, 0, 0, 0])
+		])
+		let concat = onnxNode(op: "Concat", inputs: ["x", "p"], outputs: ["y"], name: "concat", attributes: [
+			onnxSignedIntAttr(name: "axis", value: 1)
+		])
+		let model = onnxModel(
+			nodes: [pool, concat], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 64, 55, 55])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 128, 54, 55])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.shapeInferenceFailed = error else {
+				return XCTFail("Expected shapeInferenceFailed, got \(error)")
+			}
+		}
+	}
+
+	func testRead_concatWithUnknownInput_isRejected() throws {
+		// "ghost" is never produced and is not the model input, so its shape is unknown — this is also
+		// how concat over an initializer or shape tensor (neither has a recorded activation shape) fails.
+		let concat = onnxNode(op: "Concat", inputs: ["x", "ghost"], outputs: ["y"], name: "concat", attributes: [
+			onnxSignedIntAttr(name: "axis", value: 1)
+		])
+		let model = onnxModel(
+			nodes: [concat], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 64, 55, 55])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 128, 55, 55])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.shapeInferenceFailed = error else {
+				return XCTFail("Expected shapeInferenceFailed, got \(error)")
+			}
+		}
+	}
+
+	/// Joins the single model input `count` times so the concat is the only emitted op (the reader
+	/// requires exactly one model input). Pass `axis: nil` to omit the attribute entirely.
+	private func concatModel(inputShape: [Int], count: Int, axis: Int?) -> Data {
+		var attributes: [Data] = []
+		if let axis { attributes.append(onnxSignedIntAttr(name: "axis", value: axis)) }
+		let concat = onnxNode(op: "Concat", inputs: Array(repeating: "x", count: count), outputs: ["y"], name: "concat", attributes: attributes)
+		let outputShape = [inputShape[0], inputShape[1] * count, inputShape[2], inputShape[3]]
+		return onnxModel(
+			nodes: [concat], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: inputShape)],
+			outputs: [onnxValueInfo(name: "y", shape: outputShape)]
+		)
+	}
+
 	// MARK: - Opset, node domain, and pass-through (Identity/Dropout) aliasing
 
 	func testRead_dropoutBetweenConvAndRelu_isAliasedAway() throws {
@@ -522,6 +637,15 @@ final class ONNXModelReaderTests: XCTestCase {
 		CoreMLProtobufEncoder.message { attribute in
 			CoreMLProtobufEncoder.appendStringField(1, value: name, to: &attribute)
 			CoreMLProtobufEncoder.appendVarintField(3, value: UInt64(value), to: &attribute)
+		}
+	}
+
+	/// Like `onnxIntAttr` but encodes the value as a two's-complement varint so negative axes (which
+	/// `onnxIntAttr`'s `UInt64(value)` would trap on) round-trip through the reader's `Int(bitPattern:)`.
+	private func onnxSignedIntAttr(name: String, value: Int) -> Data {
+		CoreMLProtobufEncoder.message { attribute in
+			CoreMLProtobufEncoder.appendStringField(1, value: name, to: &attribute)
+			CoreMLProtobufEncoder.appendVarintField(3, value: UInt64(bitPattern: Int64(value)), to: &attribute)
 		}
 	}
 

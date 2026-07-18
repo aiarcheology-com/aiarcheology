@@ -326,6 +326,7 @@ public struct ONNXModelReader {
 			case "Relu": try lowerActivation(node, kind: .relu, outputShape: shapes[primaryInput])
 			case "Clip": try lowerClip(node)
 			case "Add": try lowerAdd(node)
+			case "Concat": try lowerConcat(node)
 			case "GlobalAveragePool": try lowerGlobalAveragePool(node)
 			case "MaxPool": try lowerMaxPool(node)
 			case "Reshape", "Flatten": try lowerFlatten(node)
@@ -498,6 +499,52 @@ public struct ONNXModelReader {
 				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Add requires two same-shape activation inputs (broadcasting is not supported)")
 			}
 			try record(node, kind: .add, activationInputs: [node.inputs[0], node.inputs[1]], weightInputs: [], attributes: [:], outputShape: outputShape)
+		}
+
+		/// ONNX `Concat` lowers to the native concatenate op, which joins rank-4 NCHW activations along
+		/// the channel axis only. Every input must be a produced activation — a missing shape means an
+		/// initializer or shape/constant tensor the native op does not model — and the non-channel dims
+		/// must agree, since the output simply stacks the inputs' channels.
+		private mutating func lowerConcat(_ node: ONNXNode) throws {
+			guard node.inputs.count >= 2 else {
+				throw ONNXModelReaderError.invalidModel("Concat '\(node.name)' requires at least 2 inputs")
+			}
+			let inputShapes = try node.inputs.map { input -> [Int] in
+				guard let shape = shapes[input] else {
+					throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "unknown input shape")
+				}
+				return shape
+			}
+			guard inputShapes.allSatisfy({ $0.count == 4 }) else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Concat expects rank-4 NCHW inputs, got \(inputShapes)")
+			}
+			// ONNX Concat has no default axis, so a missing one is unconvertible rather than assumed. A
+			// negative axis counts back from the rank (4); the native op only joins the channel axis, so
+			// anything but axis 1 after normalization is unsupported.
+			guard let rawAxis = node.attributes["axis"]?.int else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Concat requires an axis attribute")
+			}
+			let axis = rawAxis < 0 ? rawAxis + 4 : rawAxis
+			guard axis == 1 else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Concat axis \(rawAxis) — only channel concatenation (axis 1) is supported")
+			}
+			// Channel concat keeps batch/height/width identical across inputs and sums the channel dim.
+			let reference = inputShapes[0]
+			for shape in inputShapes.dropFirst() where shape[0] != reference[0] || shape[2] != reference[2] || shape[3] != reference[3] {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Concat inputs disagree outside the channel axis: \(reference) vs \(shape)")
+			}
+			// Sum with overflow reporting: crafted channel counts must throw, not trap (same rationale as
+			// the flatten feature-count product).
+			var channels = 0
+			for shape in inputShapes {
+				let (sum, overflow) = channels.addingReportingOverflow(shape[1])
+				guard !overflow else {
+					throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Concat channel count overflows")
+				}
+				channels = sum
+			}
+			try record(node, kind: .concatenate, activationInputs: node.inputs, weightInputs: [],
+				attributes: ["axis": .integer(1)], outputShape: [reference[0], channels, reference[2], reference[3]])
 		}
 
 		private mutating func lowerGlobalAveragePool(_ node: ONNXNode) throws {
