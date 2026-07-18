@@ -88,6 +88,41 @@ final class NativeModelGraphPackageTests: XCTestCase {
 		}
 	}
 
+	func testRead_legacyManifestWithoutGraphChecksum_isAcceptedAndComputesIt() async throws {
+		let graph = makeReLUGraph()
+		let packageURL = try makePackage(graph: graph, weights: Data())
+		defer { try? FileManager.default.removeItem(at: packageURL) }
+		let graphData = try Data(contentsOf: packageURL.appendingPathComponent("graph.json"))
+		// An earlier exporter pinned only the weights: no graphSHA256, no metadata.
+		let legacyManifest = """
+		{"format":"com.aiarcheology.native-model-graph","formatVersion":1,"graph":"graph.json",\
+		"weights":"weights.bin","weightsSHA256":"\(checksum(of: Data()))"}
+		"""
+		try Data(legacyManifest.utf8).write(to: packageURL.appendingPathComponent("manifest.json"))
+
+		let package = try await NativeModelGraphPackageReader().read(from: packageURL)
+
+		XCTAssertEqual(package.graph, graph)
+		// The reader fills in the computed graph checksum so provenance stays complete.
+		XCTAssertEqual(package.manifest.graphSHA256, checksum(of: graphData))
+	}
+
+	func testRead_manifestMissingWeightsChecksum_namesTheMissingField() async throws {
+		let packageURL = try makePackage(graph: makeReLUGraph(), weights: Data())
+		defer { try? FileManager.default.removeItem(at: packageURL) }
+		let incompleteManifest = """
+		{"format":"com.aiarcheology.native-model-graph","formatVersion":1,"graph":"graph.json","weights":"weights.bin"}
+		"""
+		try Data(incompleteManifest.utf8).write(to: packageURL.appendingPathComponent("manifest.json"))
+
+		await XCTAssertThrowsErrorAsync(try await NativeModelGraphPackageReader().read(from: packageURL)) { error in
+			guard case .invalidManifest(let reason) = error as? NativeModelGraphPackageError else {
+				return XCTFail("Expected an invalid-manifest failure, got \(error).")
+			}
+			XCTAssertTrue(reason.contains("weightsSHA256"), "The error should name the missing field: \(reason)")
+		}
+	}
+
 	func testRead_symbolicLinkPackageRoot_isRejected() async throws {
 		let packageURL = try makePackage(graph: makeReLUGraph(), weights: Data())
 		defer { try? FileManager.default.removeItem(at: packageURL) }

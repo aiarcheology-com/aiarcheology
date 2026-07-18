@@ -15,7 +15,10 @@ public struct NativeModelGraphPackageManifest: Codable, Equatable, Sendable {
 	public let format: String
 	public let formatVersion: Int
 	public let graph: String
-	public let graphSHA256: String
+	/// Optional so packages from an earlier exporter (which pinned only the weights) still load. When
+	/// present it is verified; when absent the reader computes it from the graph bytes so provenance
+	/// and content identity remain complete.
+	public let graphSHA256: String?
 	public let weights: String
 	public let weightsSHA256: String
 	public let metadata: String?
@@ -130,6 +133,8 @@ public actor NativeModelGraphPackageReader {
 		let manifest: NativeModelGraphPackageManifest
 		do {
 			manifest = try JSONDecoder().decode(NativeModelGraphPackageManifest.self, from: manifestData)
+		} catch let DecodingError.keyNotFound(key, _) {
+			throw NativeModelGraphPackageError.invalidManifest("manifest.json is missing required field '\(key.stringValue)'")
 		} catch {
 			throw NativeModelGraphPackageError.invalidManifest("manifest.json is not valid JSON: \(error.localizedDescription)")
 		}
@@ -147,9 +152,9 @@ public actor NativeModelGraphPackageReader {
 			logicalName: manifest.graph
 		)
 		let actualGraphChecksum = checksum(of: graphData)
-		guard actualGraphChecksum == manifest.graphSHA256 else {
+		if let expectedGraphChecksum = manifest.graphSHA256, actualGraphChecksum != expectedGraphChecksum {
 			throw NativeModelGraphPackageError.graphChecksumMismatch(
-				expected: manifest.graphSHA256,
+				expected: expectedGraphChecksum,
 				actual: actualGraphChecksum
 			)
 		}
@@ -231,8 +236,16 @@ public actor NativeModelGraphPackageReader {
 			progress?(NativeModelConversionProgress(phase: .validatingMetadata, completedUnitCount: 1, totalUnitCount: 1))
 		}
 
+		// Store the verified/computed graph checksum so downstream provenance always has it, even for
+		// a legacy manifest that pinned only the weights.
+		let verifiedManifest = NativeModelGraphPackageManifest(
+			formatVersion: manifest.formatVersion,
+			graphSHA256: actualGraphChecksum,
+			weightsSHA256: manifest.weightsSHA256,
+			metadataSHA256: manifest.metadataSHA256
+		)
 		return NativeModelGraphPackage(
-			manifest: manifest,
+			manifest: verifiedManifest,
 			graph: graph,
 			weights: weights,
 			metadata: metadata,
@@ -303,8 +316,11 @@ public actor NativeModelGraphPackageReader {
 				"graph and weights files must be named graph.json and weights.bin"
 			)
 		}
-		guard isSHA256(manifest.graphSHA256), isSHA256(manifest.weightsSHA256) else {
-			throw NativeModelGraphPackageError.invalidManifest("graphSHA256 and weightsSHA256 must be lowercase 64-character SHA-256 digests")
+		if let graphSHA256 = manifest.graphSHA256, !isSHA256(graphSHA256) {
+			throw NativeModelGraphPackageError.invalidManifest("graphSHA256 must be a lowercase 64-character SHA-256 digest")
+		}
+		guard isSHA256(manifest.weightsSHA256) else {
+			throw NativeModelGraphPackageError.invalidManifest("weightsSHA256 must be a lowercase 64-character SHA-256 digest")
 		}
 		switch (manifest.metadata, manifest.metadataSHA256) {
 		case (nil, nil):

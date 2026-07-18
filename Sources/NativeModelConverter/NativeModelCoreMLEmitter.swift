@@ -228,7 +228,6 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			"com.aiarcheology.native.target.graph-format-version": String(graph.formatVersion),
 			"com.aiarcheology.native.converter.package-version": NativeModelConverterVersion.packageVersion,
 			"com.aiarcheology.native.converter.conversion-revision": String(NativeModelConverterVersion.conversionRevision),
-			"com.aiarcheology.native.conversion.graph-sha256": manifest.graphSHA256,
 			"com.aiarcheology.native.conversion.weights-sha256": manifest.weightsSHA256,
 			"com.aiarcheology.native.conversion.producer.name": graph.producer.name,
 			"com.aiarcheology.native.conversion.producer.version": graph.producer.version,
@@ -238,6 +237,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				graph: graph
 			)
 		]
+		if let graphSHA256 = manifest.graphSHA256 {
+			userDefined["com.aiarcheology.native.conversion.graph-sha256"] = graphSHA256
+		}
 		if let metadataChecksum = manifest.metadataSHA256 {
 			userDefined["com.aiarcheology.native.conversion.source-metadata-sha256"] = metadataChecksum
 		}
