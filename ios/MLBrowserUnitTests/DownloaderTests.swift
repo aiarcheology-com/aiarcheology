@@ -201,18 +201,32 @@ final class DownloadItemTests: XCTestCase {
         XCTAssertEqual(item.state, .notStarted)
     }
 
-    func testDownloadItemCreation_stampsStateChanged_soNewItemsSortFirst() {
+    func testDownloadItemCreation_stampsStateChanged_soNewItemsSortFirst() throws {
         // The Models list sorts by stateChanged_ descending; an unstamped item would fall to the
         // bottom of the history instead of appearing where the user just added it (AIA-0459).
+        // Asserted through the same fetch the list uses, so a persistence or sort regression fails
+        // here too — not just removal of the stamp.
         let before = Date.now
-        let item = DownloadItem.create(in: context)
-        let stamp = item.stateChanged_
+        let older = DownloadItem.create(in: context)
+        older.url = URL(string: "https://example.com/older.mlmodel")
+        // A legacy row predating the stamp: it must sort BELOW stamped rows, never above them.
+        let legacy = DownloadItem.create(in: context)
+        legacy.url = URL(string: "https://example.com/legacy.mlmodel")
+        legacy.stateChanged_ = nil
+        let newest = DownloadItem.create(in: context)
+        newest.url = URL(string: "https://example.com/newest.mlmodel")
+        newest.stateChanged_ = before.addingTimeInterval(1)
+        try context.save()
 
-        XCTAssertNotNil(stamp)
-        XCTAssertGreaterThanOrEqual(stamp ?? .distantPast, before)
+        XCTAssertNotNil(older.stateChanged_)
+        XCTAssertGreaterThanOrEqual(older.stateChanged_ ?? .distantPast, before)
 
-        let later = DownloadItem.create(in: context)
-        XCTAssertGreaterThanOrEqual(later.stateChanged_ ?? .distantPast, stamp ?? .distantFuture)
+        let request = NSFetchRequest<DownloadItem>(entityName: "DownloadItem")
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \DownloadItem.stateChanged_, ascending: false)]
+        let ordered = try context.fetch(request)
+
+        XCTAssertEqual(ordered.first?.entityId, newest.entityId, "The newest item must be first in the Models list.")
+        XCTAssertEqual(ordered.last?.entityId, legacy.entityId, "An unstamped legacy item must sort last.")
     }
     
     func testDownloadItemStateTransitions() {

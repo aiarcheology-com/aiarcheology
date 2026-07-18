@@ -169,6 +169,7 @@ struct ConfigurationForm: View {
 	@State private var presentedConversionReport: NativeModelConversionImportReport?
 	@State private var isPreparingConversionExport = false
 	@State private var conversionSharePayload: ActivitySharePayload?
+	@State private var conversionExportError: String?
 	/// Live flash edits push to the driver via ONE in-flight task (cancel-and-replace):
 	/// independent unstructured Tasks have no ordering guarantee, so a stale slider
 	/// value could land last — the exact bug `DeepDrivers.update`'s sequential-await
@@ -221,6 +222,16 @@ struct ConfigurationForm: View {
 				)
 			}
 			.activityShareSheet($conversionSharePayload)
+			// A missing model or report file is a normal throw path in the exporter, so the failure
+			// must be visible here exactly as it is in the importer's log sheet — not just logged.
+			.alert(L10n.Alert.Error.title, isPresented: .init(
+				get: { conversionExportError != nil },
+				set: { if !$0 { conversionExportError = nil } }
+			)) {
+				Button(L10n.Common.ok, role: .cancel) {}
+			} message: {
+				Text(conversionExportError ?? "")
+			}
 		}
 	}
 
@@ -253,8 +264,8 @@ struct ConfigurationForm: View {
 					completion: { NativeModelConversionExporter.removeExportArchive(at: archiveURL) }
 				)
 			} catch {
-				// Best-effort export: the log sheet itself still offers email/share of the log text.
 				LoggingPolicy.error("Failed to export converted model from the configuration sheet", error: error, logger: .storage)
+				conversionExportError = error.localizedDescription
 			}
 		}
 	}
