@@ -41,7 +41,12 @@ struct ModelImportView: View {
 			UTType("com.apple.coreml.mlpackage"),
 			UTType(filenameExtension: "mlmodel"),
 			UTType(filenameExtension: "mlpackage"),
-			UTType(filenameExtension: "mlmodelc")
+			UTType(filenameExtension: "mlmodelc"),
+			// Self-contained ONNX models the app converts to Core ML on-device. The imported UTI
+			// (declared in Info.plist) makes the Files picker surface `.onnx` reliably; the
+			// extension-derived type is a fallback if the declaration is unavailable.
+			UTType("com.aiarcheology.onnx-model"),
+			UTType(filenameExtension: "onnx")
 		].compactMap { $0 }
 	)
 	
@@ -697,12 +702,14 @@ struct ModelImportView: View {
 		// loader sees it.
 		let sourceURL = request.sourceURL
 		let configurationID = request.configurationID
+		let downloadURL = request.downloadURL
 		let storedURL = try await Task.detached(priority: .userInitiated) {
-			try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationID)
+			let stored = try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationID)
+			return Self.restoringNativeConvertibleExtension(of: stored, from: downloadURL)
 		}.value
 		let configurationDirectory = storedURL.deletingLastPathComponent()
 		let reportStore: NativeModelConversionImportReportStore?
-		if storedURL.pathExtension.lowercased() == "aiagraph" {
+		if Self.nativeConvertibleExtensions.contains(storedURL.pathExtension.lowercased()) {
 			let report: NativeModelConversionImportReport
 			if let existingNativeReport = request.existingNativeReport {
 				guard existingNativeReport.configurationID == configurationID,
@@ -777,10 +784,11 @@ struct ModelImportView: View {
 			throw error
 		}
 
-		// A converted `.aiagraph` is stored as `converted.mlmodel`, whose name is meaningless to the
-		// user, and a package may carry no model description. Keep the original source name so the
-		// configuration is titled after what the user actually imported (e.g. "MobileNetV2").
-		let preferredModelName = reportStore != nil ? sourceURL.lastPathComponent.fileName : nil
+		// A converted native source is stored as `converted.mlmodel`, whose name is meaningless to the
+		// user, and a package may carry no model description. Keep the stored source name (which, for a
+		// URL download, is the restored original filename) so the configuration is titled after what
+		// the user actually imported (e.g. "MobileNetV2").
+		let preferredModelName = reportStore != nil ? storedURL.lastPathComponent.fileName : nil
 		return NativeModelImportWork(
 			modelURL: modelURL,
 			preferredModelName: preferredModelName,
@@ -790,16 +798,50 @@ struct ModelImportView: View {
 		)
 	}
 
-	/// Converts a verified `.aiagraph` directory to a Core ML model beside the copied package.
+	/// Source extensions the app converts to Core ML on-device before the normal loader runs: the
+	/// auditable native package (`.aiagraph`) and self-contained ONNX (`.onnx`). Both share the same
+	/// conversion report machinery (progress, cancellation, log sheet, export).
+	private static let nativeConvertibleExtensions: Set<String> = ["aiagraph", "onnx"]
+
+	/// A model downloaded from a URL is stored under the URLSession temporary name, which drops the
+	/// original extension. When the download URL names a native-convertible format but the stored file
+	/// no longer carries that extension, restore the original filename so the on-device converter is
+	/// selected. Core ML files (`.mlmodel`/`.mlpackage`) and files that already carry a convertible
+	/// extension (Files/catalog imports) are returned untouched.
+	nonisolated private static func restoringNativeConvertibleExtension(of storedURL: URL, from downloadURL: URL?) -> URL {
+		let storedExtension = storedURL.pathExtension.lowercased()
+		guard !nativeConvertibleExtensions.contains(storedExtension),
+			let downloadURL,
+			nativeConvertibleExtensions.contains(downloadURL.pathExtension.lowercased())
+		else {
+			return storedURL
+		}
+		let restoredURL = storedURL.deletingLastPathComponent().appendingPathComponent(downloadURL.lastPathComponent)
+		guard restoredURL != storedURL else { return storedURL }
+		do {
+			if FileManager.default.fileExists(atPath: restoredURL.path) {
+				try FileManager.default.removeItem(at: restoredURL)
+			}
+			try FileManager.default.moveItem(at: storedURL, to: restoredURL)
+			return restoredURL
+		} catch {
+			LoggingPolicy.warning("Could not restore native model extension for downloaded file", logger: .storage)
+			return storedURL
+		}
+	}
+
+	/// Converts a verified native source (`.aiagraph` package or `.onnx` file) to a Core ML model
+	/// beside the copied original.
 	///
-	/// The package and report are never removed while conversion is active. A process interruption
-	/// therefore leaves a recoverable report and a source package in the app sandbox. After Core
-	/// Data registration succeeds, the original is removed only when the user chose Convert Only.
+	/// The source and report are never removed while conversion is active. A process interruption
+	/// therefore leaves a recoverable report and the source in the app sandbox. After Core Data
+	/// registration succeeds, the original is removed only when the user chose Convert Only.
 	private func convertNativeGraphPackageIfNeeded(
 		_ request: NativeGraphConversionRequest
 	) async throws -> URL {
 		let storedURL = request.storedURL
-		guard storedURL.pathExtension.lowercased() == "aiagraph" else {
+		let sourceExtension = storedURL.pathExtension.lowercased()
+		guard Self.nativeConvertibleExtensions.contains(sourceExtension) else {
 			return storedURL
 		}
 
@@ -823,7 +865,14 @@ struct ModelImportView: View {
 				}
 			}
 			let conversionTask = Task.detached(priority: .userInitiated) {
-				try await converter.convert(
+				if sourceExtension == "onnx" {
+					return try await converter.convert(
+						onnx: storedURL,
+						to: generatedModelURL,
+						reporting: reportProgress
+					)
+				}
+				return try await converter.convert(
 					from: storedURL,
 					to: generatedModelURL,
 					sourceProvenance: NativeModelConversionSourceProvenance(
