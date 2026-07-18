@@ -501,6 +501,46 @@ internal enum L10n {
     internal static let appleDocumentation = L10n.tr("Localizable", "import.appleDocumentation", fallback: "Apple Create ML Documentation")
     /// Confirm the model type
     internal static let confirmTypeTitle = L10n.tr("Localizable", "import.confirmTypeTitle", fallback: "Confirm the model type")
+    /// Conversion Log
+    internal static let conversionLog = L10n.tr("Localizable", "import.conversionLog", fallback: "Conversion Log")
+    /// Code
+    internal static let conversionLogCode = L10n.tr("Localizable", "import.conversionLogCode", fallback: "Code")
+    /// Diagnostic
+    internal static let conversionLogDiagnostic = L10n.tr("Localizable", "import.conversionLogDiagnostic", fallback: "Diagnostic")
+    /// Events
+    internal static let conversionLogEvents = L10n.tr("Localizable", "import.conversionLogEvents", fallback: "Events")
+    /// Input bytes
+    internal static let conversionLogInputBytes = L10n.tr("Localizable", "import.conversionLogInputBytes", fallback: "Input bytes")
+    /// Metrics
+    internal static let conversionLogMetrics = L10n.tr("Localizable", "import.conversionLogMetrics", fallback: "Metrics")
+    /// Operations
+    internal static let conversionLogOperations = L10n.tr("Localizable", "import.conversionLogOperations", fallback: "Operations")
+    /// Output bytes
+    internal static let conversionLogOutputBytes = L10n.tr("Localizable", "import.conversionLogOutputBytes", fallback: "Output bytes")
+    /// Phase
+    internal static let conversionLogPhase = L10n.tr("Localizable", "import.conversionLogPhase", fallback: "Phase")
+    /// Conversion revision
+    internal static let conversionLogRevision = L10n.tr("Localizable", "import.conversionLogRevision", fallback: "Conversion revision")
+    /// Converter version
+    internal static let conversionLogSourceVersion = L10n.tr("Localizable", "import.conversionLogSourceVersion", fallback: "Converter version")
+    /// State
+    internal static let conversionLogState = L10n.tr("Localizable", "import.conversionLogState", fallback: "State")
+    /// Status
+    internal static let conversionLogStatus = L10n.tr("Localizable", "import.conversionLogStatus", fallback: "Status")
+    /// Observed peak increase
+    internal static let conversionObservedPeakIncrease = L10n.tr("Localizable", "import.conversionObservedPeakIncrease", fallback: "Observed peak increase")
+    /// Observed peak process memory
+    internal static let conversionObservedPeakMemory = L10n.tr("Localizable", "import.conversionObservedPeakMemory", fallback: "Observed peak process memory")
+    /// Process memory
+    internal static let conversionProcessMemory = L10n.tr("Localizable", "import.conversionProcessMemory", fallback: "Process memory")
+    /// Waiting for another conversion to finish
+    internal static let conversionWaitingForExclusiveAccess = L10n.tr("Localizable", "import.conversionWaitingForExclusiveAccess", fallback: "Waiting for another conversion to finish")
+    /// Convert Only
+    internal static let convertOnly = L10n.tr("Localizable", "import.convertOnly", fallback: "Convert Only")
+    /// Discard Conversion
+    internal static let discardConversion = L10n.tr("Localizable", "import.discardConversion", fallback: "Discard Conversion")
+    /// Export Converted Model
+    internal static let exportConvertedModel = L10n.tr("Localizable", "import.exportConvertedModel", fallback: "Export Converted Model")
     /// Import from Files
     internal static let fromFiles = L10n.tr("Localizable", "import.fromFiles", fallback: "Import from Files")
     /// Select a .mlmodel or .mlpackage file
@@ -509,12 +549,26 @@ internal enum L10n {
     internal static let fromURL = L10n.tr("Localizable", "import.fromURL", fallback: "Download from URL")
     /// Download a model from the internet
     internal static let fromURLHint = L10n.tr("Localizable", "import.fromURLHint", fallback: "Download a model from the internet")
+    /// Keep Original
+    internal static let keepOriginal = L10n.tr("Localizable", "import.keepOriginal", fallback: "Keep Original")
+    /// The converted Core ML model will be used by the app. Do you also want to keep a copy of the original model package for provenance or future conversion?
+    internal static let keepOriginalMessage = L10n.tr("Localizable", "import.keepOriginalMessage", fallback: "The converted Core ML model will be used by the app. Do you also want to keep a copy of the original model package for provenance or future conversion?")
+    /// Keep Original Model?
+    internal static let keepOriginalTitle = L10n.tr("Localizable", "import.keepOriginalTitle", fallback: "Keep Original Model?")
     /// Learn More
     internal static let learnMore = L10n.tr("Localizable", "import.learnMore", fallback: "Learn More")
     /// ONNX Conversion
     internal static let onnxConversion = L10n.tr("Localizable", "import.onnxConversion", fallback: "ONNX Conversion")
     /// Use this Python code to convert ONNX models:
     internal static let onnxConversionHint = L10n.tr("Localizable", "import.onnxConversionHint", fallback: "Use this Python code to convert ONNX models:")
+    /// Resume Conversion
+    internal static let resumeConversion = L10n.tr("Localizable", "import.resumeConversion", fallback: "Resume Conversion")
+    /// A native model conversion did not finish. You can resume it, inspect its path-free conversion log, or discard its staged app-sandbox artifacts.
+    internal static let resumeConversionMessage = L10n.tr("Localizable", "import.resumeConversionMessage", fallback: "A native model conversion did not finish. You can resume it, inspect its path-free conversion log, or discard its staged app-sandbox artifacts.")
+    /// Resume Conversion?
+    internal static let resumeConversionTitle = L10n.tr("Localizable", "import.resumeConversionTitle", fallback: "Resume Conversion?")
+    /// Show Conversion Log
+    internal static let showConversionLog = L10n.tr("Localizable", "import.showConversionLog", fallback: "Show Conversion Log")
     /// The model has been imported successfully.
     internal static let success = L10n.tr("Localizable", "import.success", fallback: "The model has been imported successfully.")
     /// Model imported
@@ -526,7 +580,7 @@ internal enum L10n {
     /// Supported Models
     internal static let supportedModels = L10n.tr("Localizable", "import.supportedModels", fallback: "Supported Models")
     /// Choose a Core ML model (.mlmodel or .mlpackage) that supports object detection or image classification. Other model types are not supported in this version.
-    internal static let supportedModelsInfo = L10n.tr("Localizable", "import.supportedModelsInfo", fallback: "Choose a Core ML model (.mlmodel or .mlpackage) that supports object detection or image classification. Other model types are not supported in this version.")
+    internal static let supportedModelsInfo = L10n.tr("Localizable", "import.supportedModelsInfo", fallback: "Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an image-classification model in ONNX format (.onnx) — the app converts it to Core ML on your device. Other model types are not supported in this version.")
     /// Import Model
     internal static let title = L10n.tr("Localizable", "import.title", fallback: "Import Model")
     /// The model was imported. The app can't verify what an imported model does, so please confirm its type on the next screen. You're responsible for the choice, and a wrong type can produce incorrect results.

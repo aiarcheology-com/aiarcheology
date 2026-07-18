@@ -33,7 +33,7 @@ struct FindingsListView: View {
 
 	/// ZIP export goes straight to the system share sheet; per-finding sharing
 	/// goes through the composer (which owns its own share-sheet presentation).
-	@State private var sharePayload: FindingSharePayload?
+	@State private var sharePayload: ActivitySharePayload?
 	@State private var shareSubject: FindingShareSubject?
 	@State private var isExporting = false
 	@State private var exportFailed = false
@@ -78,7 +78,7 @@ struct FindingsListView: View {
 			// is dismissed before this list can open, so it never races a save.
 			FindingScreenshotStore.sweepOrphans(in: moc)
 		}
-		.findingShareSheet($sharePayload)
+		.activityShareSheet($sharePayload)
 		.sheet(item: $shareSubject) { subject in
 			FindingShareComposer(subject: subject)
 		}
@@ -115,7 +115,7 @@ struct FindingsListView: View {
 				let url = try await Task.detached(priority: .userInitiated) {
 					try FindingExporter.makeZip(from: snapshots)
 				}.value
-				sharePayload = FindingSharePayload(items: [url])
+				sharePayload = ActivitySharePayload(items: [url])
 			} catch {
 				LoggingPolicy.error("Failed to export findings", error: error, logger: .storage)
 				exportFailed = true

@@ -13,12 +13,47 @@ The flagship use case — and where the name comes from — is archeology: brows
 | Path | Contents |
 |-|-|
 | `ios/` | The Xcode workspace (`MLBrowser.xcworkspace`), app sources, unit/UI/architecture tests, test plans, and Xcode Cloud `ci_scripts/` |
+| `Package.swift`, `Sources/NativeModelConverter/` | `NativeModelConverter` Swift package: a native `.aiagraph` → Core ML converter used by the iOS app. |
 | `Tools/` | `ProjectTool` — a SwiftPM CLI for repo setup, pinned-tool installation, and secrets management |
 | `scripts/` | Developer scripts: lint, codegen, architectural tests, unit tests |
 | `cloudflare/` | Cloudflare Worker relaying Sentry issues into GitHub Issues ([details](cloudflare/README.md)) |
 | `.github/workflows/` | CI: SwiftLint, Harmonize (architecture tests), issue-key automation |
 | `.githooks/` | Git hooks (SwiftLint pre-commit), enabled by `ProjectTool setup` |
 | `.tools.json` | Pinned versions of swiftlint / swiftgen / sentry-cli used by all developers and CI |
+
+## NativeModelConverter Swift package
+
+`NativeModelConverter` is a local Swift Package Manager dependency for ML Browser. It validates a
+versioned `.aiagraph` directory and emits a Core ML neural-network `.mlmodel` entirely in native
+Swift—no Python is bundled with, or invoked by, the iOS app.
+
+| Item | Value |
+| --- | --- |
+| Library product | `NativeModelConverter` |
+| Supported platforms | iOS 17+, macOS 14+ |
+| App use | `.aiagraph` import journals a path-free conversion report, validates/writes `converted.mlmodel` off the main actor, then uses the existing Core ML loading path. Interrupted imports can resume or be explicitly discarded; a registered conversion can be explicitly exported as a metadata-preserving ZIP. |
+| Development CLIs | `native-model-converter` converts one package; `native-model-evaluator` runs an emitted model through Core ML for terminal parity tests. |
+| Format version | Native graph package v1; graph, weights, and optional source metadata are SHA-256 pinned. Converted source metadata is retained as `converted.metadata.json`; the app retains a path-free `native-conversion-report.json` with lifecycle and support evidence. |
+| Converter provenance | Source package filename, original filename/remote URL when known, source exporter name/version, graph format, Swift package SemVer, conversion revision, interface, and artifact hashes are embedded in the generated `.mlmodel`; version history remains traceable after the app converter evolves. |
+| Client observability | `NativeModelConverter.convert` reports package/emission progress, process-memory samples, cancellation, stable diagnostics, artifact sizes, and monotonic timings; it also emits OSLog signposts for Instruments. A process-global FIFO gate runs one high-level conversion at a time and reports `waitingForExclusiveAccess` to queued jobs. |
+
+### Apple platform scope
+
+| Distribution / target | Support | Evidence and boundary |
+| --- | --- | --- |
+| iPhone and iPad | iOS 17+ | `Package.swift` declares `.iOS(.v17)`; this is the ML Browser app target. |
+| Mac, Designed for iPad | iOS 17+ compatibility runtime | It runs the iOS app/package slice, so the iOS 17 deployment target applies. |
+| Native macOS app | macOS 14+ | `Package.swift` declares `.macOS(.v14)`; terminal compile/evaluation tests run on this target. |
+| watchOS, tvOS, visionOS, Mac Catalyst | Not supported/claimed yet | No platform declaration or test evidence exists in this package. |
+
+The package is already registered in `ios/MLBrowser.xcodeproj` as a local package reference. To add
+it to another target in Xcode, choose **File → Add Package Dependencies… → Add Local…**, select this
+repository root, and add the `NativeModelConverter` library product to that target. The package does
+not expose raw ONNX files yet; source adapters must lower into the validated graph package first.
+
+The API guide is available in Xcode's documentation browser as **Native Model Converter**. The
+format, supported operators, validation policy, test harness, and current parity evidence are
+maintained in [NATIVE_MODEL_CONVERSION.md](NATIVE_MODEL_CONVERSION.md).
 
 ## Prerequisites
 
