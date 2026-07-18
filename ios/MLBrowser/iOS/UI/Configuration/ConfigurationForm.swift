@@ -166,7 +166,6 @@ struct ConfigurationForm: View {
 	/// The on-device conversion log for this configuration, when one exists (AIA-0459). Loaded once
 	/// on appear — only natively converted imports write `native-conversion-report.json`.
 	@State private var conversionReport: NativeModelConversionImportReport?
-	@State private var presentedConversionReport: NativeModelConversionImportReport?
 	@State private var isPreparingConversionExport = false
 	@State private var conversionSharePayload: ActivitySharePayload?
 	@State private var conversionExportError: String?
@@ -214,13 +213,6 @@ struct ConfigurationForm: View {
 			.navigationBarTitle(L10n.Configuration.title, displayMode: .inline)
 			.navigationBarItems(trailing: dismissButton)
 			.task { loadConversionReport() }
-			.sheet(item: $presentedConversionReport) { report in
-				NativeModelConversionReportView(
-					report: report,
-					isPreparingExport: isPreparingConversionExport,
-					onExport: { exportConvertedModel(report) }
-				)
-			}
 			.activityShareSheet($conversionSharePayload)
 			// A missing model or report file is a normal throw path in the exporter, so the failure
 			// must be visible here exactly as it is in the importer's log sheet — not just logged.
@@ -315,17 +307,16 @@ struct ConfigurationForm: View {
 			// Only natively converted imports (.onnx/.aiagraph) leave a conversion report in the
 			// configuration's directory; direct Core ML imports have none and show no row.
 			if let conversionReport {
-				Button {
-					presentedConversionReport = conversionReport
+				// Pushed, not presented: the log is a detail of this form, and the form already
+				// owns a navigation stack — a sheet on top of a sheet reads as a separate task.
+				NavigationLink {
+					NativeModelConversionReportContent(
+						report: conversionReport,
+						isPreparingExport: isPreparingConversionExport,
+						onExport: { exportConvertedModel(conversionReport) }
+					)
 				} label: {
-					HStack {
-						Text(L10n.Configuration.conversionLog)
-							.foregroundStyle(.primary)
-						Spacer()
-						Image(systemName: "chevron.right")
-							.font(.footnote.weight(.semibold))
-							.foregroundStyle(.tertiary)
-					}
+					Text(L10n.Configuration.conversionLog)
 				}
 				.testability(Testability.Button.configurationFormConversionLog)
 			}

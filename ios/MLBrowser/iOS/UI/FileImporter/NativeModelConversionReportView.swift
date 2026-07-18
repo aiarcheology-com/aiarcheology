@@ -8,10 +8,11 @@
 import SwiftUI
 import NativeModelConverter
 
-/// Presents a path-free support and recovery report written by the host app.
+/// Presents a path-free support and recovery report written by the host app, modally.
 ///
-/// This view deliberately reads no model or user-document paths. The report's protocol values are
-/// shown verbatim so a user can give an app author the exact phase and diagnostic code.
+/// Wraps ``NativeModelConversionReportContent`` in its own navigation stack and adds the Done
+/// button a sheet needs. Push the *content* view instead when the log is reached from a screen
+/// that already has a navigation stack (the Configuration sheet's Conversion Log row).
 struct NativeModelConversionReportView: View {
 	@Environment(\.dismiss) private var dismiss
 	let report: NativeModelConversionImportReport
@@ -30,6 +31,45 @@ struct NativeModelConversionReportView: View {
 
 	var body: some View {
 		NavigationStack {
+			NativeModelConversionReportContent(
+				report: report,
+				isPreparingExport: isPreparingExport,
+				onExport: onExport
+			)
+			.toolbar {
+				ToolbarItem(placement: .topBarTrailing) {
+					Button(L10n.Common.done) {
+						dismiss()
+					}
+					.fontWeight(.semibold)
+					.tint(.blue)
+				}
+			}
+		}
+	}
+}
+
+/// The report itself, without a navigation container — pushable onto an existing stack.
+///
+/// This view deliberately reads no model or user-document paths. The report's protocol values are
+/// shown verbatim so a user can give an app author the exact phase and diagnostic code.
+struct NativeModelConversionReportContent: View {
+	let report: NativeModelConversionImportReport
+	let isPreparingExport: Bool
+	let onExport: () -> Void
+
+	init(
+		report: NativeModelConversionImportReport,
+		isPreparingExport: Bool = false,
+		onExport: @escaping () -> Void = {}
+	) {
+		self.report = report
+		self.isPreparingExport = isPreparingExport
+		self.onExport = onExport
+	}
+
+	var body: some View {
+		Group {
 			List {
 				Section(L10n.Import.conversionLogStatus) {
 					LabeledContent(L10n.Import.conversionLogState, value: report.state.rawValue)
@@ -133,13 +173,6 @@ struct NativeModelConversionReportView: View {
 							}
 						}
 					}
-				}
-				ToolbarItem(placement: .topBarTrailing) {
-					Button(L10n.Common.done) {
-						dismiss()
-					}
-					.fontWeight(.semibold)
-					.tint(.blue)
 				}
 			}
 		}
