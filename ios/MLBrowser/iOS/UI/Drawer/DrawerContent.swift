@@ -394,7 +394,10 @@ private struct ConfigurationRow: View {
                 Label(L10n.Common.delete, systemImage: "trash")
             }
         }
-        .task(id: configuration.entityId) { loadProvenance() }
+        // Keyed by objectID, NOT entityId: the id is re-evaluated while a swipe-deleted row leaves,
+        // and Core Data has nullified the object by then — bridging its non-optional UUID traps
+        // (the exact hazard the ForEach above documents; crashed testDrawer_deleteModel_removesCell).
+        .task(id: configuration.objectID) { loadProvenance() }
     }
 
     /// "AI Archeology · Converted from ONNX" — either half alone when the other is missing.
@@ -412,6 +415,9 @@ private struct ConfigurationRow: View {
     }
 
     private func loadProvenance() {
+        // A row can be re-evaluated for an object mid-deletion; its attributes are nullified and
+        // reading them traps. A deleted (or context-less) object needs no provenance — it's leaving.
+        guard configuration.isDeleted.not, configuration.managedObjectContext != nil else { return }
         // A demo model ships compiled in the bundle and has no configuration directory to read.
         guard configuration.demo.not else {
             provenance = .coreML
