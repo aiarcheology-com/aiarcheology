@@ -300,26 +300,8 @@ public struct ONNXModelReader {
 			// input and emit nothing. This runs before the `consumesActivation` guard below because an
 			// Identity/Dropout over an *initializer* has no activation input and would otherwise be folded
 			// into the shape-tensor set, dropping the alias a downstream weight lookup relies on.
-			switch node.opType {
-			case "Identity":
-				guard let input = node.inputs.first, let output = node.outputs.first else {
-					throw ONNXModelReaderError.invalidModel("Identity '\(node.name)' requires an input and an output")
-				}
-				aliases[output] = input
-				return
-			case "Dropout":
-				// A third `training_mode` input means dropout is active and no longer the identity.
-				guard node.inputs.count <= 2 else {
-					throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Dropout with a training_mode input")
-				}
-				// The optional second (mask) output is discarded; only the data output aliases the input.
-				guard let input = node.inputs.first, let output = node.outputs.first else {
-					throw ONNXModelReaderError.invalidModel("Dropout '\(node.name)' requires an input and an output")
-				}
-				aliases[output] = input
-				return
-			default:
-				break
+			if node.opType == "Identity" || node.opType == "Dropout" {
+				return try lowerPassThrough(node)
 			}
 
 			// Shape-metadata ops (and any op that reads only shape tensors/constants) don't transform
@@ -349,6 +331,20 @@ public struct ONNXModelReader {
 			case "Gemm": try lowerGemm(node)
 			default: throw ONNXModelReaderError.unsupportedOperation(node.opType)
 			}
+		}
+
+		/// Records the alias for a pass-through node (Identity, inference-mode Dropout). Inputs arrive
+		/// already alias-resolved, so the stored target keeps every chain one hop deep.
+		private mutating func lowerPassThrough(_ node: ONNXNode) throws {
+			// A third `training_mode` input means dropout is active and no longer the identity.
+			guard node.opType != "Dropout" || node.inputs.count <= 2 else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Dropout with a training_mode input")
+			}
+			// Dropout's optional second (mask) output is discarded; only the data output aliases the input.
+			guard let input = node.inputs.first, let output = node.outputs.first else {
+				throw ONNXModelReaderError.invalidModel("\(node.opType) '\(node.name)' requires an input and an output")
+			}
+			aliases[output] = input
 		}
 
 		private mutating func lowerGemm(_ node: ONNXNode) throws {
