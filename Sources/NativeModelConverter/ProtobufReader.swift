@@ -48,8 +48,12 @@ enum ProtobufReader {
 				case 1:
 					fields.append((fieldNumber, .fixed64(try readFixed(bytes, &cursor, count: 8))))
 				case 2:
-					let length = Int(try readVarint(bytes, &cursor))
-					guard length >= 0, cursor + length <= bytes.count else { throw ProtobufReaderError.truncated }
+					// A crafted length can exceed Int.max; `Int(exactly:)` fails instead of trapping, and
+					// comparing against the remaining bytes avoids a `cursor + length` overflow.
+					let lengthValue = try readVarint(bytes, &cursor)
+					guard let length = Int(exactly: lengthValue), length <= bytes.count - cursor else {
+						throw ProtobufReaderError.truncated
+					}
 					fields.append((fieldNumber, .lengthDelimited(Data(bytes: raw.baseAddress!.advanced(by: cursor), count: length))))
 					cursor += length
 				case 5:
@@ -70,6 +74,9 @@ enum ProtobufReader {
 			let byte = bytes[cursor]
 			cursor += 1
 			guard shift < 64 else { throw ProtobufReaderError.malformedVarint }
+			// The 10th byte (shift 63) may only carry bit 63; a larger payload is an overlong/overflowing
+			// varint and would silently drop bits, so reject it.
+			guard shift < 63 || byte & 0x7F <= 1 else { throw ProtobufReaderError.malformedVarint }
 			result |= UInt64(byte & 0x7F) << shift
 			if byte & 0x80 == 0 { break }
 			shift += 7
@@ -85,6 +92,20 @@ enum ProtobufReader {
 		}
 		cursor += count
 		return value
+	}
+
+	/// Decodes a packed sequence of varints — the length-delimited payload a repeated scalar field
+	/// carries when the producer chose the packed encoding.
+	static func packedVarints(in data: Data) throws -> [UInt64] {
+		var values: [UInt64] = []
+		try data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+			let bytes = raw.bindMemory(to: UInt8.self)
+			var cursor = 0
+			while cursor < bytes.count {
+				values.append(try readVarint(bytes, &cursor))
+			}
+		}
+		return values
 	}
 }
 
@@ -111,6 +132,24 @@ extension Array where Element == (field: Int, value: ProtobufValue) {
 			if case .varint(let value) = entry.value { return value }
 		}
 		return nil
+	}
+
+	/// Every integer value of a repeated field, accepting both the unpacked encoding (individual
+	/// varint entries) and the packed encoding (a single length-delimited blob of varints). ONNX
+	/// producers use either for `TensorProto.dims` and `AttributeProto.ints`.
+	func repeatedInts(_ field: Int) throws -> [Int] {
+		var values: [Int] = []
+		for entry in self where entry.field == field {
+			switch entry.value {
+			case .varint(let value):
+				values.append(Int(bitPattern: UInt(value)))
+			case .lengthDelimited(let data):
+				values.append(contentsOf: try ProtobufReader.packedVarints(in: data).map { Int(bitPattern: UInt($0)) })
+			default:
+				break
+			}
+		}
+		return values
 	}
 
 	/// The first UTF-8 string field with this number, if present.

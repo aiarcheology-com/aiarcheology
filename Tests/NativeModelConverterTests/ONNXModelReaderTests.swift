@@ -147,6 +147,70 @@ final class ONNXModelReaderTests: XCTestCase {
 		}
 	}
 
+	// MARK: - Hardening: reject unsupported attributes instead of silently misconverting
+
+	func testRead_clipZeroToSix_lowersToRelu6() throws {
+		let model = clipModel(min: 0, max: 6)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.relu6])
+	}
+
+	func testRead_clipWithNonRelu6Bounds_isRejected() throws {
+		let model = clipModel(min: -1, max: 1)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_gemmWithNonDefaultAlpha_isRejected() throws {
+		let weight = onnxTensor(name: "w", dims: [3, 4], floats: Array(repeating: 0, count: 12))
+		let gemm = onnxNode(op: "Gemm", inputs: ["x", "w"], outputs: ["y"], name: "fc", attributes: [
+			onnxIntAttr(name: "transB", value: 1),
+			onnxFloatAttr(name: "alpha", value: 2)
+		])
+		let model = onnxModel(
+			nodes: [gemm], initializers: [weight],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 4]), onnxValueInfo(name: "w", shape: [3, 4])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_convWithAutoPad_isRejected() throws {
+		let kernel = onnxTensor(name: "w", dims: [1, 1, 2, 2], floats: [1, 1, 1, 1])
+		let conv = onnxNode(op: "Conv", inputs: ["x", "w"], outputs: ["y"], name: "conv", attributes: [
+			onnxStringAttr(name: "auto_pad", value: "SAME_UPPER")
+		])
+		let model = onnxModel(
+			nodes: [conv], initializers: [kernel],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 1, 3, 3]), onnxValueInfo(name: "w", shape: [1, 1, 2, 2])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 1, 2, 2])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	private func clipModel(min: Float, max: Float) -> Data {
+		let clip = onnxNode(op: "Clip", inputs: ["x"], outputs: ["y"], name: "clip", attributes: [
+			onnxFloatAttr(name: "min", value: min),
+			onnxFloatAttr(name: "max", value: max)
+		])
+		return onnxModel(
+			nodes: [clip], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3])]
+		)
+	}
+
 	// MARK: - Minimal ONNX protobuf builders (reuse the encoder to write ONNX-shaped messages)
 
 	private func onnxValueInfo(name: String, shape: [Int]) -> Data {
@@ -202,6 +266,20 @@ final class ONNXModelReaderTests: XCTestCase {
 		CoreMLProtobufEncoder.message { attribute in
 			CoreMLProtobufEncoder.appendStringField(1, value: name, to: &attribute)
 			CoreMLProtobufEncoder.appendVarintField(3, value: UInt64(value), to: &attribute)
+		}
+	}
+
+	private func onnxFloatAttr(name: String, value: Float) -> Data {
+		CoreMLProtobufEncoder.message { attribute in
+			CoreMLProtobufEncoder.appendStringField(1, value: name, to: &attribute)
+			CoreMLProtobufEncoder.appendFloatField(2, value: value, to: &attribute) // AttributeProto.f
+		}
+	}
+
+	private func onnxStringAttr(name: String, value: String) -> Data {
+		CoreMLProtobufEncoder.message { attribute in
+			CoreMLProtobufEncoder.appendStringField(1, value: name, to: &attribute)
+			CoreMLProtobufEncoder.appendStringField(4, value: value, to: &attribute) // AttributeProto.s
 		}
 	}
 

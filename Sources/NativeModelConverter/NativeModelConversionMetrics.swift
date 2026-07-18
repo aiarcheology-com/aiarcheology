@@ -204,7 +204,10 @@ public struct NativeModelConverter: Sendable {
 			report(NativeModelConversionProgress(phase: .emittingModel, completedUnitCount: operationCount, totalUnitCount: operationCount))
 			report(NativeModelConversionProgress(phase: .writingModel, completedUnitCount: 1, totalUnitCount: 1))
 
-			let outputByteCount = (try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? NSNumber)?.uint64Value ?? 0
+			// A missing size would silently report 0 and hide a write failure; fail with a typed error.
+			guard let outputByteCount = (try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? NSNumber)?.uint64Value else {
+				throw NativeModelCoreMLEmissionError.outputFileSizeUnavailable(outputURL.lastPathComponent)
+			}
 			let footprint = NativeModelPackageFootprint(
 				manifestByteCount: 0,
 				graphByteCount: 0,

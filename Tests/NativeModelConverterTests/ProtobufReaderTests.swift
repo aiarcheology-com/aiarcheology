@@ -52,4 +52,35 @@ final class ProtobufReaderTests: XCTestCase {
 			XCTAssertEqual(error as? ProtobufReaderError, .truncated)
 		}
 	}
+
+	func testReader_oversizedLength_throwsInsteadOfTrapping() {
+		// field 1, wire 2, length = 0xFFFFFFFFFFFFFFFF (> Int.max). Must throw, not trap on Int(...).
+		let malformed = Data([0x0A, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x01])
+		XCTAssertThrowsError(try ProtobufReader.fields(in: malformed)) { error in
+			XCTAssertEqual(error as? ProtobufReaderError, .truncated)
+		}
+	}
+
+	func testReader_overlongVarint_throws() {
+		// 10 continuation bytes with a non-1 final payload overflow a UInt64 and must be rejected.
+		let malformed = Data([0x08, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x02])
+		XCTAssertThrowsError(try ProtobufReader.fields(in: malformed)) { error in
+			XCTAssertEqual(error as? ProtobufReaderError, .malformedVarint)
+		}
+	}
+
+	func testReader_repeatedInts_decodesPackedAndUnpacked() throws {
+		// Unpacked: three field-1 varints. Packed: one length-delimited field-2 blob of three varints.
+		let unpacked = CoreMLProtobufEncoder.message { message in
+			CoreMLProtobufEncoder.appendVarintField(1, value: 2, to: &message)
+			CoreMLProtobufEncoder.appendVarintField(1, value: 3, to: &message)
+			CoreMLProtobufEncoder.appendVarintField(1, value: 5, to: &message)
+		}
+		let packedPayload = Data([2, 3, 5]) // three single-byte varints, packed
+		let packed = CoreMLProtobufEncoder.message { message in
+			CoreMLProtobufEncoder.appendMessageField(2, value: packedPayload, to: &message)
+		}
+		XCTAssertEqual(try ProtobufReader.fields(in: unpacked).repeatedInts(1), [2, 3, 5])
+		XCTAssertEqual(try ProtobufReader.fields(in: packed).repeatedInts(2), [2, 3, 5])
+	}
 }
