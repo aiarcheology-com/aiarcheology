@@ -930,10 +930,11 @@ struct ModelImportView: View {
 		// Populate configuration from extracted metadata
 		configuration.entityId = id
 		let description = extractedInfo.modelDescription
-		// Prefer a real embedded description; otherwise the original source name (for a converted
-		// package) and only then the stored file's own name.
-		let fallbackName = preferredModelName ?? modelURL.lastPathComponent.fileName
-		configuration.modelDescription = description.isNotBlank ? description : fallbackName
+		// For a converted native package, title the configuration after the original source (e.g.
+		// "MobileNetV2") rather than the "converted.mlmodel" artifact name or the converter's verbose
+		// technical description. Direct model imports keep their embedded description or filename.
+		configuration.modelDescription = preferredModelName
+			?? (description.isNotBlank ? description : modelURL.lastPathComponent.fileName)
 		configuration.modelVersion = extractedInfo.modelVersion
 		configuration.author = extractedInfo.author
 		configuration.creationDate_ = extractedInfo.creationDateString?.toDate(.createMl)
