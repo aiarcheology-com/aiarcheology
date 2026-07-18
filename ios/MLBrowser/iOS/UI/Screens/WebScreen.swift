@@ -111,6 +111,12 @@ struct WebScreenView: View {
 	/// Mirrors `guide.ontheflyDetectionEnabled` (play/pause) so DetectableView can
 	/// clear the classification presentation the moment detection stops (AIA-0374).
 	@State private var detectionActive: Bool = false
+	/// IDs of drivers currently registered per bucket. A model enabled mid-session registers its
+	/// driver asynchronously; passes are snapshot-driven, so a newly registered driver would produce
+	/// nothing until the next timer tick or interaction. When a new ID appears we fire one immediate
+	/// snapshot so a just-enabled model runs on the current page right away.
+	@State private var runningClassifierIDs: Set<UUID> = []
+	@State private var runningDetectorIDs: Set<UUID> = []
 	/// The tapped detection being saved; non-nil presents the save sheet.
 	@State private var findingCapture: FindingCapture?
 	/// Freezes DetectableView's displayed frame while the save sheet is up.
@@ -233,6 +239,12 @@ struct WebScreenView: View {
         }
         .onReceive(appState.detectionState.$ontheflyDetectionEnabled) { value in
             detectionActive = value
+        }
+        .onReceive(appState.deep.drivers.$classificators) { classificators in
+            fireImmediateSnapshotIfDriverAdded(Set(classificators.map(\.id)), previous: $runningClassifierIDs)
+        }
+        .onReceive(appState.deep.drivers.$detectors) { detectors in
+            fireImmediateSnapshotIfDriverAdded(Set(detectors.map(\.id)), previous: $runningDetectorIDs)
         }
         .onAppear {
             showIdentifiers = appState.settings.showIdentifiers
@@ -397,6 +409,18 @@ struct WebScreenView: View {
             // (the inset still reserves the space above the home indicator).
         }
     }
+
+	/// Fires one immediate snapshot when a driver newly appears in a bucket, so a model enabled
+	/// mid-session runs on the current page at once instead of waiting for the next timer tick or a
+	/// scroll. Gated on `detectionActive`: with detection off there is no pass to show and firing one
+	/// would flash a result the paused UI shouldn't present. `snapshotTrigger` is merged into the
+	/// snapshot publisher, so a send produces a pass exactly like a timer tick.
+	private func fireImmediateSnapshotIfDriverAdded(_ current: Set<UUID>, previous: Binding<Set<UUID>>) {
+		let added = current.subtracting(previous.wrappedValue)
+		previous.wrappedValue = current
+		guard detectionActive, added.isEmpty == false else { return }
+		appState.snap.snapshotTrigger.send()
+	}
 
 	/// The user marked a place in pick mode — the ONLY capture path (direct taps on
 	/// annotations would clash with the web app's own gestures, like panning a map).
