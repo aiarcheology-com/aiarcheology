@@ -49,13 +49,7 @@ final class ONNXConversionIntegrationTests: XCTestCase {
 			try assertImageClassifierInterface(of: coreMLModel, matches: model)
 
 			for probe in model.solidColorProbes {
-				let label = try classLabel(
-					of: coreMLModel,
-					inputName: model.convertedInput.name,
-					width: model.convertedInput.width,
-					height: model.convertedInput.height,
-					red: probe.red, green: probe.green, blue: probe.blue
-				)
+				let label = try classLabel(of: coreMLModel, input: model.convertedInput, probe: probe)
 				XCTAssertEqual(
 					label, probe.expectedClassLabel,
 					"\(model.id): solid (\(probe.red),\(probe.green),\(probe.blue)) expected '\(probe.expectedClassLabel)', got '\(label ?? "nil")'."
@@ -91,15 +85,12 @@ final class ONNXConversionIntegrationTests: XCTestCase {
 		XCTAssertEqual(model.modelDescription.predictedFeatureName, "classLabel")
 	}
 
-	private func classLabel(
-		of model: MLModel,
-		inputName: String,
-		width: Int,
-		height: Int,
-		red: UInt8, green: UInt8, blue: UInt8
-	) throws -> String? {
-		let pixelBuffer = try solidColorPixelBuffer(width: width, height: height, red: red, green: green, blue: blue)
-		let provider = try MLDictionaryFeatureProvider(dictionary: [inputName: MLFeatureValue(pixelBuffer: pixelBuffer)])
+	private func classLabel(of model: MLModel, input: ProbeInput, probe: SolidColorProbe) throws -> String? {
+		let pixelBuffer = try solidColorPixelBuffer(
+			width: input.width, height: input.height,
+			red: probe.red, green: probe.green, blue: probe.blue
+		)
+		let provider = try MLDictionaryFeatureProvider(dictionary: [input.name: MLFeatureValue(pixelBuffer: pixelBuffer)])
 		let prediction = try model.prediction(from: provider)
 		return prediction.featureValue(for: "classLabel")?.stringValue
 	}
