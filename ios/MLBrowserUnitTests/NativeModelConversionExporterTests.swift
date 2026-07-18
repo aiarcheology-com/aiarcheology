@@ -6,7 +6,7 @@
 import Foundation
 import NativeModelConverter
 import XCTest
-@testable import MLBrowser
+@testable import ML_Browser
 
 final class NativeModelConversionExporterTests: XCTestCase {
 	func testMakeZip_includesConvertedModelMetadataAndReportButNotOriginalPackage() throws {

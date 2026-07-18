@@ -6,7 +6,7 @@
 import Foundation
 import NativeModelConverter
 import XCTest
-@testable import MLBrowser
+@testable import ML_Browser
 
 final class NativeModelConversionImportReportTests: XCTestCase {
 	func testReport_persistsRecoveryStateAndConverterIdentityWithoutPaths() async throws {
@@ -44,10 +44,15 @@ final class NativeModelConversionImportReportTests: XCTestCase {
 		XCTAssertEqual(recovered.map(\.configurationID), [configurationID])
 
 		XCTAssertTrue(loaded.markInterruptedIfIncomplete())
-		XCTAssertEqual(loaded.state, .interrupted)
-		XCTAssertEqual(loaded.diagnostic?.code, "app.interruptedBeforeCompletion")
-		XCTAssertEqual(loaded.diagnostic?.phase, .emittingModel)
-		XCTAssertFalse(loaded.markInterruptedIfIncomplete(), "An already recovered report must not duplicate an interruption event.")
+		try loaded.write(in: configurationDirectory)
+
+		// Reload through the on-disk path so the interruption is proven to survive persistence, not
+		// just an in-memory mutation.
+		var interrupted = try NativeModelConversionImportReport.load(in: configurationDirectory)
+		XCTAssertEqual(interrupted.state, .interrupted)
+		XCTAssertEqual(interrupted.diagnostic?.code, "app.interruptedBeforeCompletion")
+		XCTAssertEqual(interrupted.diagnostic?.phase, .emittingModel)
+		XCTAssertFalse(interrupted.markInterruptedIfIncomplete(), "An already recovered report must not duplicate an interruption event.")
 	}
 
 	func testRemoveTransientArtifacts_preservesSourceUntilExplicitDiscard() throws {

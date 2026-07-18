@@ -87,6 +87,14 @@ struct ModelImportView: View {
 	}
 	
 	var body: some View {
+		// The presentation modifiers are grouped into separate functions so the SwiftUI view builder
+		// is type-checked as several small expressions. As one continuous chain it exceeds the Swift
+		// type-checker's limit and fails to compile.
+		importReportPresentations(importRetentionDialogs(importAlerts(rootContent)))
+			.presentationDetents([.large])
+	}
+
+	private var rootContent: some View {
 		NavigationStack {
 			contentList
 				.navigationTitle(L10n.Import.title)
@@ -124,6 +132,10 @@ struct ModelImportView: View {
 			handlePendingImport(request)
 		}
 		.onAppear(perform: discoverInterruptedNativeConversion)
+	}
+
+	private func importAlerts(_ content: some View) -> some View {
+		content
 		.alert(L10n.Alert.Error.title, isPresented: $showErrorAlert) {
 			if nativeConversionReport != nil {
 				Button(L10n.Import.showConversionLog) {
@@ -157,10 +169,18 @@ struct ModelImportView: View {
 		} message: {
 			Text(importedModelInfo?.needsReview == true ? L10n.Import.typeConfirmation : L10n.Import.success)
 		}
+	}
+
+	private func importRetentionDialogs(_ content: some View) -> some View {
+		content
 		.confirmationDialog(
 			L10n.Import.keepOriginalTitle,
-			item: $originalRetentionRequest,
-			titleVisibility: .visible
+			isPresented: Binding(
+				get: { originalRetentionRequest != nil },
+				set: { if !$0 { originalRetentionRequest = nil } }
+			),
+			titleVisibility: .visible,
+			presenting: originalRetentionRequest
 		) { request in
 			Button(L10n.Import.keepOriginal) {
 				startImport(request, retainingOriginalNativePackage: true)
@@ -179,8 +199,12 @@ struct ModelImportView: View {
 		}
 		.confirmationDialog(
 			L10n.Import.resumeConversionTitle,
-			item: $interruptedNativeConversion,
-			titleVisibility: .visible
+			isPresented: Binding(
+				get: { interruptedNativeConversion != nil },
+				set: { if !$0 { interruptedNativeConversion = nil } }
+			),
+			titleVisibility: .visible,
+			presenting: interruptedNativeConversion
 		) { report in
 			Button(L10n.Import.resumeConversion) {
 				resumeInterruptedNativeConversion(report)
@@ -194,6 +218,10 @@ struct ModelImportView: View {
 		} message: { _ in
 			Text(L10n.Import.resumeConversionMessage)
 		}
+	}
+
+	private func importReportPresentations(_ content: some View) -> some View {
+		content
 		.sheet(item: $presentedNativeConversionReport) { report in
 			NativeModelConversionReportView(
 				report: report,
@@ -202,9 +230,8 @@ struct ModelImportView: View {
 			)
 		}
 		.activityShareSheet($nativeModelSharePayload)
-		.presentationDetents([.large])
 	}
-	
+
 	// MARK: - Content
 	
 	private var contentList: some View {
@@ -626,7 +653,11 @@ struct ModelImportView: View {
 				)
 			}
 			if let reportStore = work.reportStore {
-				try await reportStore.transition(to: .registered)
+				// The Core Data row is already committed and points at the converted model. Persisting
+				// the final `.registered` checkpoint must not be able to throw into the catch below,
+				// which would delete that model as a "transient" artifact and surface a spurious import
+				// failure. A report left at `.emitted` is finalized by interruption recovery instead.
+				try? await reportStore.transition(to: .registered)
 				let report = await reportStore.snapshot()
 				if !report.retainOriginalPackage {
 					try? FileManager.default.removeItem(at: report.sourcePackageURL(in: work.configurationDirectory))
