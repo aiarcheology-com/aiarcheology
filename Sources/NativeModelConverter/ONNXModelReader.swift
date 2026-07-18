@@ -115,9 +115,13 @@ public struct ONNXModelReader {
 			let opset = try ProtobufReader.fields(in: entry)
 			let domain = opset.firstString(1) ?? ""
 			if domain.isEmpty || domain == "ai.onnx" {
+				// A missing or zero version pins no semantics at all — reject rather than guess an era.
+				guard let version = opset.firstVarint(2), version > 0 else {
+					throw ONNXModelReaderError.invalidModel("default-domain opset_import has no valid version")
+				}
 				// A crafted version beyond Int.max must not trap; clamp it — only "before/after opset 13"
 				// ever matters, so any absurdly large version behaves as the newest semantics.
-				return Int(exactly: opset.firstVarint(2) ?? 0) ?? Int.max
+				return Int(exactly: version) ?? Int.max
 			}
 		}
 		return nil
@@ -352,6 +356,11 @@ public struct ONNXModelReader {
 			guard node.opType != "Dropout" || node.inputs.count <= 2 else {
 				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Dropout with a training_mode input")
 			}
+			// Opsets 1–6 flag inference via `is_test`, which DEFAULTS to 0 (training): only an explicit
+			// non-zero value makes this dropout the identity.
+			if node.opType == "Dropout", opsetVersion < 7, (node.attributes["is_test"]?.int ?? 0) == 0 {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "pre-opset-7 Dropout without is_test=1")
+			}
 			// Dropout's optional second (mask) output is discarded; only the data output aliases the input.
 			guard let input = node.inputs.first, let output = node.outputs.first else {
 				throw ONNXModelReaderError.invalidModel("\(node.opType) '\(node.name)' requires an input and an output")
@@ -393,8 +402,12 @@ public struct ONNXModelReader {
 		}
 
 		private mutating func record(_ node: ONNXNode, kind: NativeModelOperationKind, activationInputs: [String], weightInputs: [String], attributes: [String: NativeModelAttribute], outputShape: [Int]) throws {
+			// Central malformed-input net: every lowerer funnels through here, so one guard keeps a
+			// node with no declared outputs from crashing on the index below.
+			guard let outputName = node.outputs.first else {
+				throw ONNXModelReaderError.invalidModel("operator '\(node.opType)' (\(node.name)) has no outputs")
+			}
 			let weightNames = try weightInputs.map { try weightName($0) }
-			let outputName = node.outputs[0]
 			shapes[outputName] = outputShape
 			operations.append(NativeModelOperation(
 				name: node.name,
@@ -528,9 +541,10 @@ public struct ONNXModelReader {
 			guard inputShapes.allSatisfy({ $0.count == 4 }) else {
 				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Concat expects rank-4 NCHW inputs, got \(inputShapes)")
 			}
-			// ONNX Concat has no default axis, so a missing one is unconvertible rather than assumed. A
-			// negative axis counts back from the rank (4); the native op only joins the channel axis, so
-			// anything but axis 1 after normalization is unsupported.
+			// ONNX Concat requires an explicit axis from opset 4 on (only the long-dead opset-1 form
+			// defaulted it), so a missing one is unconvertible rather than assumed. A negative axis
+			// counts back from the rank (4); the native op only joins the channel axis, so anything but
+			// axis 1 after normalization is unsupported.
 			guard let rawAxis = node.attributes["axis"]?.int else {
 				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Concat requires an axis attribute")
 			}
@@ -642,13 +656,16 @@ public struct ONNXModelReader {
 				pads.allSatisfy({ $0 <= dimensionLimit }) else {
 				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool dimensions exceed the supported range")
 			}
-			let outH = (inputShape[2] + 2 * pads[0] - kernelShape[0]) / strides[0] + 1
-			let outW = (inputShape[3] + 2 * pads[1] - kernelShape[1]) / strides[1] + 1
-			// A kernel larger than the padded input yields a non-positive output size; reject here for a
-			// clear diagnostic rather than emitting an invalid tensor the graph validator would flag later.
-			guard outH > 0, outW > 0 else {
+			// A kernel larger than the padded input must be rejected BEFORE the division: Swift's `/`
+			// truncates toward zero while ONNX floor-divides, so e.g. (2 − 3)/2 + 1 would "round up" the
+			// negative numerator to a bogus 1-wide output instead of the non-positive size ONNX computes.
+			let paddedH = inputShape[2] + 2 * pads[0]
+			let paddedW = inputShape[3] + 2 * pads[1]
+			guard paddedH >= kernelShape[0], paddedW >= kernelShape[1] else {
 				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "MaxPool kernel is larger than the padded input")
 			}
+			let outH = (paddedH - kernelShape[0]) / strides[0] + 1
+			let outW = (paddedW - kernelShape[1]) / strides[1] + 1
 			// maxPool2D's IR signature is exactly kernelSize/strides/padding — no dilations/groups.
 			try record(node, kind: .maxPool2D, activationInputs: [node.inputs[0]], weightInputs: [], attributes: [
 				"kernelSize": .integers(kernelShape),

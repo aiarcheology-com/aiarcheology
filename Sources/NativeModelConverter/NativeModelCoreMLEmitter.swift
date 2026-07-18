@@ -361,9 +361,12 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		guard let labels, !labels.isEmpty, outputs.count == 1 else { return nil }
 		let output = outputs[0]
 		let shape = output.shape
-		guard shape.count >= 2, shape[0] == 1,
-			shape.filter({ $0 != 1 }).count == 1,
-			let classAxis = shape.firstIndex(where: { $0 != 1 }),
+		// At most one non-unit dimension, holding the class count. A one-label classifier's [1, 1]
+		// (or [1, 1, 1, 1]) output has no non-unit dimension at all; its class axis is 1 by
+		// convention, preserving the acceptance the package path always had.
+		let nonUnitAxes = shape.indices.filter { shape[$0] != 1 }
+		guard shape.count >= 2, shape[0] == 1, nonUnitAxes.count <= 1,
+			let classAxis = nonUnitAxes.first ?? (labels.count == 1 ? 1 : nil),
 			shape[classAxis] == labels.count
 		else {
 			return nil

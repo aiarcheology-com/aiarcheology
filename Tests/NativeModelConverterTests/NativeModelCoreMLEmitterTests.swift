@@ -589,6 +589,83 @@ final class NativeModelCoreMLEmitterTests: XCTestCase {
 		XCTAssertEqual(output[2].floatValue, 4.0 / 7, accuracy: 0.000_01)
 	}
 
+	func testEmit_paddedMaxPool_ignoresPaddingInTheMax() throws {
+		// 3x3/2 pooling with pad 1 over a 4x4 whose top-left quadrant is all negative: ONNX pads with
+		// −inf, so the first window's max is −1. Zero-padding semantics would report 0 instead.
+		let graph = NativeModelGraph(
+			formatVersion: 1,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [tensor("input", shape: [1, 1, 4, 4])],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "pool",
+					kind: .maxPool2D,
+					inputs: ["input"],
+					outputs: [tensor("output", shape: [1, 1, 2, 2])],
+					attributes: [
+						"kernelSize": .integers([3, 3]),
+						"strides": .integers([2, 2]),
+						"padding": .integers([1, 1])
+					]
+				)
+			],
+			outputs: ["output"]
+		)
+		let modelURL = try temporaryDirectory().appendingPathComponent("padded-maxpool.mlmodel")
+		try NativeModelCoreMLEmitter().emit(graph: graph, to: modelURL)
+
+		let compiledURL = try MLModel.compileModel(at: modelURL)
+		let model = try MLModel(contentsOf: compiledURL, configuration: cpuOnlyConfiguration())
+		let input = try MLMultiArray(shape: [1, 1, 4, 4], dataType: .float32)
+		for (index, value) in [-1, -2, 3, 4, -5, -6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].enumerated() {
+			input[index] = NSNumber(value: value)
+		}
+		let provider = try MLDictionaryFeatureProvider(dictionary: ["input": MLFeatureValue(multiArray: input)])
+
+		let output = try XCTUnwrap(model.prediction(from: provider).featureValue(for: "output")?.multiArrayValue)
+		// Windows (top-left origin, stride 2): {−1,−2,−5,−6}→−1, {−2,3,4,−6,7,8}→8,
+		// {−5,−6,9,10,13,14}→14, {−6,7,8,10,11,12,14,15,16}→16.
+		XCTAssertEqual((0 ..< 4).map { output[$0].floatValue }, [-1, 8, 14, 16])
+	}
+
+	func testEmit_oneLabelClassifier_keepsTheClassifierInterface() throws {
+		// A [1, 1] single-class output has no non-unit dimension; it must still qualify as a
+		// classifier (the package path always accepted it), reporting its lone label at 1.0.
+		let graph = NativeModelGraph(
+			formatVersion: 1,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [tensor("input", shape: [1, 1])],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "score",
+					kind: .relu,
+					inputs: ["input"],
+					outputs: [tensor("output", shape: [1, 1])],
+					attributes: [:]
+				)
+			],
+			outputs: ["output"]
+		)
+		let modelURL = try temporaryDirectory().appendingPathComponent("one-label.mlmodel")
+		try NativeModelCoreMLEmitter().emit(
+			graph: graph, weights: Data(), to: modelURL,
+			classifierLabels: ["the-one"], imagePreprocessing: nil
+		)
+
+		let compiledURL = try MLModel.compileModel(at: modelURL)
+		let model = try MLModel(contentsOf: compiledURL, configuration: cpuOnlyConfiguration())
+		XCTAssertEqual(model.modelDescription.predictedFeatureName, "classLabel")
+		let input = try MLMultiArray(shape: [1, 1], dataType: .float32)
+		input[0] = 3
+		let provider = try MLDictionaryFeatureProvider(dictionary: ["input": MLFeatureValue(multiArray: input)])
+		let prediction = try model.prediction(from: provider)
+		XCTAssertEqual(prediction.featureValue(for: "classLabel")?.stringValue, "the-one")
+		let probabilities = try XCTUnwrap(prediction.featureValue(for: "classLabelProbs")?.dictionaryValue as? [String: Double])
+		XCTAssertEqual(probabilities["the-one"] ?? -1, 1.0, accuracy: 0.000_01)
+	}
+
 	// MARK: - Classifier interface over non-[1, N] score layouts
 
 	func testEmit_rank4LogitsClassifier_flattensAndNormalizes() throws {

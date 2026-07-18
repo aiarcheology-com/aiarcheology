@@ -600,6 +600,86 @@ final class ONNXModelReaderTests: XCTestCase {
 		}
 	}
 
+	func testRead_nodeWithoutOutputs_isRejectedNotCrashed() throws {
+		// A malformed node with no declared outputs must throw from the central `record` guard, for
+		// every operator kind, instead of trapping on outputs[0].
+		for op in ["Softmax", "Concat", "Relu"] {
+			let inputs = op == "Concat" ? ["x", "x"] : ["x"]
+			let attributes = op == "Concat" ? [onnxSignedIntAttr(name: "axis", value: 1)] : []
+			let node = onnxNode(op: op, inputs: inputs, outputs: [], name: "broken", attributes: attributes)
+			let model = onnxModel(
+				nodes: [node], initializers: [],
+				inputs: [onnxValueInfo(name: "x", shape: [1, 3, 4, 4])],
+				outputs: [onnxValueInfo(name: "y", shape: [1, 3, 4, 4])]
+			)
+			XCTAssertThrowsError(try ONNXModelReader().read(data: model), op) { error in
+				guard error is ONNXModelReaderError else {
+					return XCTFail("Expected a reader error for \(op), got \(error)")
+				}
+			}
+		}
+	}
+
+	func testRead_maxPoolOversizeKernelWithStride2_isRejected() throws {
+		// Swift's truncating division would turn (2 − 3)/2 + 1 into a bogus 1-wide output; the
+		// padded-input >= kernel guard must reject before the division.
+		let model = maxPoolModel(inputShape: [1, 1, 2, 2], kernel: [3, 3], strides: [2, 2], pads: [0, 0, 0, 0])
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.shapeInferenceFailed = error else {
+				return XCTFail("Expected shapeInferenceFailed, got \(error)")
+			}
+		}
+	}
+
+	func testRead_preOpset7DropoutWithoutIsTest_isRejected() throws {
+		// Opsets 1–6 default `is_test` to 0 (training): only an explicit is_test=1 makes dropout the
+		// identity, so the default must be rejected rather than silently aliased away.
+		let dropout = onnxNode(op: "Dropout", inputs: ["x"], outputs: ["y"], name: "drop")
+		let model = onnxModel(
+			nodes: [dropout], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3])],
+			opsetVersion: 6
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_preOpset7DropoutWithIsTest_isAliased() throws {
+		let dropout = onnxNode(op: "Dropout", inputs: ["x"], outputs: ["y"], name: "drop", attributes: [
+			onnxIntAttr(name: "is_test", value: 1)
+		])
+		let relu = onnxNode(op: "Relu", inputs: ["y"], outputs: ["z"], name: "relu")
+		let model = onnxModel(
+			nodes: [dropout, relu], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3])],
+			outputs: [onnxValueInfo(name: "z", shape: [1, 3])],
+			opsetVersion: 6
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.relu])
+		XCTAssertEqual(conversion.graph.operations[0].inputs, ["x"])
+	}
+
+	func testRead_zeroOpsetVersion_isRejected() throws {
+		let model = onnxModel(
+			nodes: [onnxNode(op: "Relu", inputs: ["x"], outputs: ["y"], name: "relu")],
+			initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3])],
+			opsetVersion: 0
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.invalidModel(let reason) = error else {
+				return XCTFail("Expected invalidModel, got \(error)")
+			}
+			XCTAssertTrue(reason.contains("version"), reason)
+		}
+	}
+
 	func testRead_emptyNodeName_fallsBackToOutputName() throws {
 		// Caffe-era exporters (the zoo's SqueezeNet) write an empty node name, which the graph
 		// validator would reject; the reader must substitute the output name for empty, not just
