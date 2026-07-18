@@ -518,8 +518,8 @@ final class NativeModelCoreMLEmitterTests: XCTestCase {
 	}
 
 	func testEmit_concatGraph_joinsChannelsInOrder() throws {
-		// Two ReLU branches of the same input concatenate on the channel axis; the negated branch is
-		// distinguishable from the plain one, proving both order and axis.
+		// Two rectifier branches of the same input concatenate on the channel axis; the relu6-capped
+		// branch is distinguishable from the plain relu one, proving both order and axis.
 		let graph = NativeModelGraph(
 			formatVersion: 1,
 			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
