@@ -163,6 +163,12 @@ struct ConfigurationForm: View {
 	var pendingTypeReview: Bool = false
 
 	@EnvironmentObject var deep: DeepState
+	/// The on-device conversion log for this configuration, when one exists (AIA-0459). Loaded once
+	/// on appear — only natively converted imports write `native-conversion-report.json`.
+	@State private var conversionReport: NativeModelConversionImportReport?
+	@State private var presentedConversionReport: NativeModelConversionImportReport?
+	@State private var isPreparingConversionExport = false
+	@State private var conversionSharePayload: ActivitySharePayload?
 	/// Live flash edits push to the driver via ONE in-flight task (cancel-and-replace):
 	/// independent unstructured Tasks have no ordering guarantee, so a stale slider
 	/// value could land last — the exact bug `DeepDrivers.update`'s sequential-await
@@ -206,6 +212,50 @@ struct ConfigurationForm: View {
 			}
 			.navigationBarTitle(L10n.Configuration.title, displayMode: .inline)
 			.navigationBarItems(trailing: dismissButton)
+			.task { loadConversionReport() }
+			.sheet(item: $presentedConversionReport) { report in
+				NativeModelConversionReportView(
+					report: report,
+					isPreparingExport: isPreparingConversionExport,
+					onExport: { exportConvertedModel(report) }
+				)
+			}
+			.activityShareSheet($conversionSharePayload)
+		}
+	}
+
+	/// Loads the conversion report from the configuration's directory, if this model was produced
+	/// by the on-device converter. A missing or invalid report simply hides the row.
+	private func loadConversionReport() {
+		guard conversionReport == nil,
+			let configurationDirectory = FileManager.deepConfigurationDirectory(id: configuration.entityId)
+		else { return }
+		conversionReport = try? NativeModelConversionImportReport.load(in: configurationDirectory)
+	}
+
+	/// Zips the converted model + report for sharing — the same export the post-import log sheet
+	/// offers (`ModelImportView`), so the log reads identically from both entry points.
+	private func exportConvertedModel(_ report: NativeModelConversionImportReport) {
+		guard report.state == .registered, !isPreparingConversionExport else { return }
+		guard let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) else { return }
+		isPreparingConversionExport = true
+		Task {
+			defer { isPreparingConversionExport = false }
+			do {
+				let archiveURL = try await Task.detached(priority: .userInitiated) {
+					try NativeModelConversionExporter.makeZip(
+						report: report,
+						configurationDirectory: configurationDirectory
+					)
+				}.value
+				conversionSharePayload = ActivitySharePayload(
+					items: [archiveURL],
+					completion: { NativeModelConversionExporter.removeExportArchive(at: archiveURL) }
+				)
+			} catch {
+				// Best-effort export: the log sheet itself still offers email/share of the log text.
+				LoggingPolicy.error("Failed to export converted model from the configuration sheet", error: error, logger: .storage)
+			}
 		}
 	}
 	
@@ -249,6 +299,24 @@ struct ConfigurationForm: View {
 
 			if let downloadURL = configuration.downloadURL {
 				ExpandableDetailRow(label: L10n.Configuration.link, value: downloadURL.absoluteString)
+			}
+
+			// Only natively converted imports (.onnx/.aiagraph) leave a conversion report in the
+			// configuration's directory; direct Core ML imports have none and show no row.
+			if let conversionReport {
+				Button {
+					presentedConversionReport = conversionReport
+				} label: {
+					HStack {
+						Text(L10n.Configuration.conversionLog)
+							.foregroundStyle(.primary)
+						Spacer()
+						Image(systemName: "chevron.right")
+							.font(.footnote.weight(.semibold))
+							.foregroundStyle(.tertiary)
+					}
+				}
+				.testability(Testability.Button.configurationFormConversionLog)
 			}
 		}
 	}

@@ -195,10 +195,24 @@ final class DownloadItemTests: XCTestCase {
     
     func testDownloadItemCreation() {
         let item = DownloadItem.create(in: context)
-        
+
         XCTAssertNotNil(item.entityId)
         XCTAssertEqual(item.lifeCycle, .empty)
         XCTAssertEqual(item.state, .notStarted)
+    }
+
+    func testDownloadItemCreation_stampsStateChanged_soNewItemsSortFirst() {
+        // The Models list sorts by stateChanged_ descending; an unstamped item would fall to the
+        // bottom of the history instead of appearing where the user just added it (AIA-0459).
+        let before = Date.now
+        let item = DownloadItem.create(in: context)
+        let stamp = item.stateChanged_
+
+        XCTAssertNotNil(stamp)
+        XCTAssertGreaterThanOrEqual(stamp ?? .distantPast, before)
+
+        let later = DownloadItem.create(in: context)
+        XCTAssertGreaterThanOrEqual(later.stateChanged_ ?? .distantPast, stamp ?? .distantFuture)
     }
     
     func testDownloadItemStateTransitions() {

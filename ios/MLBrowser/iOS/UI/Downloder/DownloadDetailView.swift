@@ -403,7 +403,11 @@ private extension DownloadDetailView {
 	}
 	
 	var importButton: some View {
-		let isImported = item.state == .imported
+		// "Imported" means a deep configuration exists for this item — the same condition that
+		// disables the button below. The download state alone is not enough: import paths that
+		// bypass the downloader's state machine leave it at .complete, and conversely a deleted
+		// configuration re-enables import while the state stays .imported (AIA-0459).
+		let isImported = deep.selectConfiguration(item.entityId).isNotNil
 		return Button(isImported ? L10n.Common.imported : L10n.Common.import) {
 			let entityId = item.entityId
 			guard let file = item.file,

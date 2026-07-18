@@ -4605,6 +4605,18 @@
         }
       }
     },
+    "configuration.conversionLog" : {
+      "comment" : "Configuration sheet row that opens the on-device conversion log",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conversion Log"
+          }
+        }
+      }
+    },
     "configuration.created" : {
       "comment" : "Created date label",
       "extractionState" : "manual",
