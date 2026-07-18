@@ -214,6 +214,65 @@ final class NativeModelGraphPackageTests: XCTestCase {
 		XCTAssertNil(userDefined["task"], "Source task must not be presented as an unverified target claim.")
 	}
 
+	func testEmit_packageWithLabels_emitsCoreMLClassifier() async throws {
+		// input [1,3] --linear(identity)--> logits [1,3]; labels match the 3-wide output.
+		let graph = NativeModelGraph(
+			formatVersion: 1,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [NativeModelTensor(name: "input", dataType: .float32, shape: [1, 3])],
+			weights: [
+				NativeModelWeight(name: "w", dataType: .float32, shape: [3, 3], offset: 0, byteCount: 36),
+				NativeModelWeight(name: "b", dataType: .float32, shape: [3], offset: 36, byteCount: 12)
+			],
+			operations: [
+				NativeModelOperation(
+					name: "classifier",
+					kind: .linear,
+					inputs: ["input", "w", "b"],
+					outputs: [NativeModelTensor(name: "logits", dataType: .float32, shape: [1, 3])],
+					attributes: [:]
+				)
+			],
+			outputs: ["logits"]
+		)
+		let identity: [Float] = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]
+		let weights = identity.withUnsafeBytes { Data($0) }
+		let metadata = Data("""
+		{"format":"com.aiarcheology.native-model-metadata","formatVersion":1,\
+		"source":{"shortDescription":"tiny classifier"},"labels":["cat","dog","bird"]}
+		""".utf8)
+		let packageURL = try makePackage(graph: graph, weights: weights, metadata: metadata)
+		defer { try? FileManager.default.removeItem(at: packageURL) }
+		let package = try await NativeModelGraphPackageReader().read(from: packageURL)
+		let modelURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
+		defer {
+			try? FileManager.default.removeItem(at: modelURL)
+			try? FileManager.default.removeItem(at: NativeModelMetadataSidecar.url(for: modelURL))
+		}
+
+		try NativeModelCoreMLEmitter().emit(package: package, to: modelURL)
+
+		let compiledURL = try await MLModel.compileModel(at: modelURL)
+		let model = try MLModel(contentsOf: compiledURL)
+		// The model description must expose the classifier interface, not a raw multi-array.
+		XCTAssertEqual(model.modelDescription.predictedFeatureName, "classLabel")
+		XCTAssertEqual(model.modelDescription.outputDescriptionsByName["classLabel"]?.type, .string)
+		XCTAssertEqual(model.modelDescription.outputDescriptionsByName["classLabelProbs"]?.type, .dictionary)
+
+		let input = try MLMultiArray(shape: [1, 3], dataType: .float32)
+		input[0] = 0.1
+		input[1] = 5.0 // argmax → index 1 → "dog"
+		input[2] = 0.2
+		let provider = try MLDictionaryFeatureProvider(dictionary: ["input": MLFeatureValue(multiArray: input)])
+		let prediction = try await model.prediction(from: provider)
+
+		XCTAssertEqual(prediction.featureValue(for: "classLabel")?.stringValue, "dog")
+		let probs = try XCTUnwrap(prediction.featureValue(for: "classLabelProbs")?.dictionaryValue as? [String: Double])
+		XCTAssertEqual(Set(probs.keys), ["cat", "dog", "bird"])
+		XCTAssertEqual(probs.values.reduce(0, +), 1.0, accuracy: 0.001, "Softmax probabilities must sum to 1.")
+		XCTAssertEqual(probs.max(by: { $0.value < $1.value })?.key, "dog")
+	}
+
 	func testEmit_packageWithoutMetadata_removesStaleSidecar() async throws {
 		let packageURL = try makePackage(graph: makeReLUGraph(), weights: Data())
 		defer { try? FileManager.default.removeItem(at: packageURL) }

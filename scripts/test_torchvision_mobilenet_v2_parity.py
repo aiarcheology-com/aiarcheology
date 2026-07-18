@@ -50,6 +50,21 @@ def write_graph_and_refresh_manifest(package: Path, graph: dict) -> None:
     manifest_path.write_text(json.dumps(manifest, separators=(",", ":")))
 
 
+def strip_metadata(package: Path) -> None:
+    """Remove the source metadata so the converter emits raw logits, not a classifier.
+
+    This harness verifies numerical parity of the graph's logits against PyTorch. When the package
+    carries labels, the converter emits a Core ML classifier (softmax + classLabel/classLabelProbs),
+    whose outputs the multi-array evaluator cannot read. The classifier interface is covered by the
+    Swift unit tests; here we compare the underlying logits."""
+    (package / "metadata.json").unlink(missing_ok=True)
+    manifest_path = package / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest.pop("metadata", None)
+    manifest.pop("metadataSHA256", None)
+    manifest_path.write_text(json.dumps(manifest, separators=(",", ":")))
+
+
 def assert_logits_match(actual: np.ndarray, expected: np.ndarray, description: str) -> None:
     np.testing.assert_allclose(actual, expected, rtol=RTOL, atol=ATOL, err_msg=description)
     np.testing.assert_array_equal(
@@ -158,6 +173,7 @@ def main(
         if pretrained:
             exporter_command.append("--pretrained")
         subprocess.run(exporter_command, check=True)
+        strip_metadata(package)
         subprocess.run(
             ["swift", "run", "native-model-converter", str(package), str(model_path)],
             check=True,

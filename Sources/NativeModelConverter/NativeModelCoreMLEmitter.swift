@@ -16,8 +16,23 @@ import Foundation
 public struct NativeModelCoreMLEmitter: Sendable {
 	private struct EmissionContext {
 		let metadata: NativeModelCoreMLMetadata?
+		/// Ordered class labels from the source package. When they match the single graph output's
+		/// width, the emitter wraps the logits as a Core ML classifier; otherwise they are ignored.
+		let classifierLabels: [String]?
 		let progress: NativeModelConversionProgressHandler?
 		let cancellationCheck: NativeModelConversionCancellationHandler?
+
+		init(
+			metadata: NativeModelCoreMLMetadata?,
+			classifierLabels: [String]? = nil,
+			progress: NativeModelConversionProgressHandler?,
+			cancellationCheck: NativeModelConversionCancellationHandler?
+		) {
+			self.metadata = metadata
+			self.classifierLabels = classifierLabels
+			self.progress = progress
+			self.cancellationCheck = cancellationCheck
+		}
 	}
 
 	private struct ModelBuildInput {
@@ -54,11 +69,13 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	) throws -> NativeModelEmissionMetrics {
 		let emissionStartedAt = DispatchTime.now().uptimeNanoseconds
 		try cancellationCheck?()
+		let classifierLabels = eligibleClassifierLabels(graph: package.graph, labels: package.metadata?.labels)
 		let metadata = try targetMetadata(
 			from: package.metadata?.source,
 			manifest: package.manifest,
 			graph: package.graph,
-			sourceProvenance: sourceProvenance
+			sourceProvenance: sourceProvenance,
+			classifierLabelCount: classifierLabels?.count
 		)
 		try emit(
 			graph: package.graph,
@@ -66,6 +83,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			to: outputURL,
 			context: EmissionContext(
 				metadata: metadata,
+				classifierLabels: classifierLabels,
 				progress: progress,
 				cancellationCheck: cancellationCheck
 			)
@@ -179,19 +197,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		let progress = context.progress
 		let cancellationCheck = context.cancellationCheck
 		let specificationVersion = (inputTensors + outputTensors).contains { $0.dataType == .float16 } ? 7 : 4
-		let description = CoreMLProtobufEncoder.message { description in
-			for input in inputTensors {
-				CoreMLProtobufEncoder.appendMessageField(1, value: featureDescription(for: input), to: &description)
-			}
-			for output in outputTensors {
-				CoreMLProtobufEncoder.appendMessageField(10, value: featureDescription(for: output), to: &description)
-			}
-			if let metadata {
-				CoreMLProtobufEncoder.appendMessageField(100, value: coreMLMetadataMessage(for: metadata), to: &description)
-			}
-		}
+		let classifier = classifierPlan(outputs: outputTensors, labels: context.classifierLabels)
 
-		var neuralNetwork = Data()
+		var layers = Data()
 		progress?(NativeModelConversionProgress(
 			phase: .emittingModel,
 			completedUnitCount: 0,
@@ -200,7 +208,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		for (index, operation) in operations.enumerated() {
 			try cancellationCheck?()
 			let layer = try layer(for: operation, weightsByName: weightsByName, weights: weights)
-			CoreMLProtobufEncoder.appendMessageField(1, value: layer, to: &neuralNetwork)
+			CoreMLProtobufEncoder.appendMessageField(1, value: layer, to: &layers)
 			progress?(NativeModelConversionProgress(
 				phase: .emittingModel,
 				completedUnitCount: index + 1,
@@ -208,12 +216,126 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				operationName: operation.name
 			))
 		}
-		CoreMLProtobufEncoder.appendVarintField(5, value: 1, to: &neuralNetwork)
+		// The classifier interface adds one softmax layer over the graph's logits so the reported
+		// probabilities are normalized, then exposes classLabel/classLabelProbs instead of the raw
+		// multi-array output.
+		if let classifier {
+			CoreMLProtobufEncoder.appendMessageField(1, value: softmaxNDLayer(
+				input: classifier.logitsBlobName,
+				output: classifier.probabilitiesBlobName
+			), to: &layers)
+		}
+
+		let description = CoreMLProtobufEncoder.message { description in
+			for input in inputTensors {
+				CoreMLProtobufEncoder.appendMessageField(1, value: featureDescription(for: input), to: &description)
+			}
+			if let classifier {
+				CoreMLProtobufEncoder.appendMessageField(10, value: stringFeatureDescription(named: classifier.classLabelName), to: &description)
+				CoreMLProtobufEncoder.appendMessageField(10, value: probabilitiesFeatureDescription(named: classifier.classLabelProbsName), to: &description)
+				CoreMLProtobufEncoder.appendStringField(11, value: classifier.classLabelName, to: &description)
+				CoreMLProtobufEncoder.appendStringField(12, value: classifier.classLabelProbsName, to: &description)
+			} else {
+				for output in outputTensors {
+					CoreMLProtobufEncoder.appendMessageField(10, value: featureDescription(for: output), to: &description)
+				}
+			}
+			if let metadata {
+				CoreMLProtobufEncoder.appendMessageField(100, value: coreMLMetadataMessage(for: metadata), to: &description)
+			}
+		}
+
+		let network = CoreMLProtobufEncoder.message { network in
+			network.append(layers)
+			CoreMLProtobufEncoder.appendVarintField(5, value: 1, to: &network)
+			if let classifier {
+				CoreMLProtobufEncoder.appendMessageField(100, value: stringVector(classifier.labels), to: &network)
+				CoreMLProtobufEncoder.appendStringField(200, value: classifier.probabilitiesBlobName, to: &network)
+			}
+		}
 
 		return CoreMLProtobufEncoder.message { model in
 			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(specificationVersion), to: &model)
 			CoreMLProtobufEncoder.appendMessageField(2, value: description, to: &model)
-			CoreMLProtobufEncoder.appendMessageField(500, value: neuralNetwork, to: &model)
+			CoreMLProtobufEncoder.appendMessageField(classifier == nil ? 500 : 403, value: network, to: &model)
+		}
+	}
+
+	private struct ClassifierPlan {
+		let labels: [String]
+		let logitsBlobName: String
+		let probabilitiesBlobName: String
+		let classLabelName = "classLabel"
+		let classLabelProbsName = "classLabelProbs"
+	}
+
+	/// Returns a classifier plan when the package supplies labels that match a single graph output's
+	/// width. Otherwise the graph is emitted as a plain neural network with its raw output.
+	private func classifierPlan(outputs: [NativeModelTensor], labels: [String]?) -> ClassifierPlan? {
+		guard let labels, !labels.isEmpty, outputs.count == 1,
+			let classCount = outputs[0].shape.last, classCount == labels.count,
+			// The output must be a class-score vector ([1, N] or [1, ..., 1, N]), not a spatial feature
+			// map that merely happens to have a trailing dimension matching the label count.
+			outputs[0].shape.dropLast().allSatisfy({ $0 == 1 })
+		else {
+			return nil
+		}
+		let logits = outputs[0].name
+		return ClassifierPlan(labels: labels, logitsBlobName: logits, probabilitiesBlobName: "\(logits)__classProbs")
+	}
+
+	/// The labels that will actually drive a classifier interface for this graph, or nil when the
+	/// graph is emitted as a plain neural network.
+	private func eligibleClassifierLabels(graph: NativeModelGraph, labels: [String]?) -> [String]? {
+		let tensors = tensorIndex(for: graph)
+		let outputs = graph.outputs.compactMap { tensors[$0] }
+		return classifierPlan(outputs: outputs, labels: labels)?.labels
+	}
+
+	/// A softmax over the class axis (`softmaxND`, axis 1) that normalizes the logits into class
+	/// probabilities. The class dimension is axis 1 for both a rank-2 `[batch, classes]` output and a
+	/// classic-layer runtime tensor of shape `[batch, classes, 1, 1]`; a negative axis would land on a
+	/// size-1 trailing dimension for the latter and normalize nothing.
+	private func softmaxNDLayer(input: String, output: String) -> Data {
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendVarintField(1, value: 1, to: &parameters)
+		}
+		return CoreMLProtobufEncoder.message { layer in
+			CoreMLProtobufEncoder.appendStringField(1, value: "classifier_softmax", to: &layer)
+			CoreMLProtobufEncoder.appendStringField(2, value: input, to: &layer)
+			CoreMLProtobufEncoder.appendStringField(3, value: output, to: &layer)
+			CoreMLProtobufEncoder.appendMessageField(950, value: parameters, to: &layer)
+		}
+	}
+
+	private func stringVector(_ values: [String]) -> Data {
+		CoreMLProtobufEncoder.message { vector in
+			for value in values {
+				CoreMLProtobufEncoder.appendStringField(1, value: value, to: &vector)
+			}
+		}
+	}
+
+	private func stringFeatureDescription(named name: String) -> Data {
+		let featureType = CoreMLProtobufEncoder.message { featureType in
+			CoreMLProtobufEncoder.appendMessageField(3, value: Data(), to: &featureType)
+		}
+		return CoreMLProtobufEncoder.message { feature in
+			CoreMLProtobufEncoder.appendStringField(1, value: name, to: &feature)
+			CoreMLProtobufEncoder.appendMessageField(3, value: featureType, to: &feature)
+		}
+	}
+
+	private func probabilitiesFeatureDescription(named name: String) -> Data {
+		let dictionaryType = CoreMLProtobufEncoder.message { dictionaryType in
+			CoreMLProtobufEncoder.appendMessageField(2, value: Data(), to: &dictionaryType)
+		}
+		let featureType = CoreMLProtobufEncoder.message { featureType in
+			CoreMLProtobufEncoder.appendMessageField(6, value: dictionaryType, to: &featureType)
+		}
+		return CoreMLProtobufEncoder.message { feature in
+			CoreMLProtobufEncoder.appendStringField(1, value: name, to: &feature)
+			CoreMLProtobufEncoder.appendMessageField(3, value: featureType, to: &feature)
 		}
 	}
 
@@ -221,10 +343,13 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		from source: NativeModelCoreMLMetadata?,
 		manifest: NativeModelGraphPackageManifest,
 		graph: NativeModelGraph,
-		sourceProvenance: NativeModelConversionSourceProvenance?
+		sourceProvenance: NativeModelConversionSourceProvenance?,
+		classifierLabelCount: Int? = nil
 	) throws -> NativeModelCoreMLMetadata {
 		var userDefined: [String: String] = [
-			"com.aiarcheology.native.target.model-format": "neuralNetwork",
+			// A classifier interface is emitted only when labels match the output; the format then
+			// reflects what was actually written and is safe to state as a target fact.
+			"com.aiarcheology.native.target.model-format": classifierLabelCount == nil ? "neuralNetwork" : "neuralNetworkClassifier",
 			"com.aiarcheology.native.target.graph-format-version": String(graph.formatVersion),
 			"com.aiarcheology.native.converter.package-version": NativeModelConverterVersion.packageVersion,
 			"com.aiarcheology.native.converter.conversion-revision": String(NativeModelConverterVersion.conversionRevision),
@@ -251,6 +376,10 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		}
 		if let url = sourceProvenance?.originalModelURL {
 			userDefined["com.aiarcheology.native.conversion.original-model-url"] = url
+		}
+		if let classifierLabelCount {
+			userDefined["com.aiarcheology.native.target.task"] = "classification"
+			userDefined["com.aiarcheology.native.target.class-count"] = String(classifierLabelCount)
 		}
 
 		guard let source else {

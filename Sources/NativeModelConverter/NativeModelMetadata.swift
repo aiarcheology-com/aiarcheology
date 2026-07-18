@@ -64,11 +64,15 @@ public struct NativeModelMetadataDocument: Codable, Equatable, Sendable {
 	public let format: String
 	public let formatVersion: Int
 	public let source: NativeModelCoreMLMetadata
+	/// The ordered class labels, when the source model is a classifier. The emitter uses these to
+	/// produce a Core ML classifier interface only when their count matches the graph output width.
+	public let labels: [String]?
 
-	public init(source: NativeModelCoreMLMetadata) {
+	public init(source: NativeModelCoreMLMetadata, labels: [String]? = nil) {
 		format = Self.formatIdentifier
 		formatVersion = Self.currentFormatVersion
 		self.source = source
+		self.labels = labels
 	}
 }
 
