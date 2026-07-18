@@ -351,6 +351,14 @@ internal enum L10n {
     internal static let type = L10n.tr("Localizable", "configuration.type", fallback: "Type")
     /// Version
     internal static let version = L10n.tr("Localizable", "configuration.version", fallback: "Version")
+    internal enum Provenance {
+      /// Converted from %@
+      internal static func converted(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "configuration.provenance.converted", String(describing: p1), fallback: "Converted from %@")
+      }
+      /// Core ML
+      internal static let coreML = L10n.tr("Localizable", "configuration.provenance.coreML", fallback: "Core ML")
+    }
     internal enum Section {
       /// Annotation
       internal static let annotation = L10n.tr("Localizable", "configuration.section.annotation", fallback: "Annotation")
