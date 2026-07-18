@@ -103,6 +103,11 @@ struct NativeModelConversionReportView: View {
 			}
 			.navigationTitle(L10n.Import.conversionLog)
 			.toolbar {
+				ToolbarItem(placement: .topBarLeading) {
+					// Available for every state — a failed conversion has no exportable model, but its
+					// log (including the diagnostic) is exactly what a user needs to share for support.
+					ShareLink(item: logText, preview: SharePreview(L10n.Import.conversionLog))
+				}
 				if report.state == .registered {
 					ToolbarItem(placement: .topBarLeading) {
 						if isPreparingExport {
@@ -111,7 +116,7 @@ struct NativeModelConversionReportView: View {
 							Button {
 								onExport()
 							} label: {
-								Label(L10n.Import.exportConvertedModel, systemImage: "square.and.arrow.up")
+								Label(L10n.Import.exportConvertedModel, systemImage: "archivebox")
 							}
 						}
 					}
@@ -120,9 +125,53 @@ struct NativeModelConversionReportView: View {
 					Button(L10n.Common.done) {
 						dismiss()
 					}
+					.fontWeight(.semibold)
+					.tint(.blue)
 				}
 			}
 		}
+	}
+
+	/// A plain-text rendering of the report for the share sheet. Like the on-screen report it is
+	/// path-free: it contains only the report's own protocol values (state, converter identity,
+	/// diagnostic, metrics, and the event log).
+	private var logText: String {
+		var lines = [
+			"AI Archeology — Native Model Conversion Log",
+			"State: \(report.state.rawValue)",
+			"Converter: \(report.nativeConverterPackageVersion) (revision \(report.nativeConverterConversionRevision))"
+		]
+		if let diagnostic = report.diagnostic {
+			lines += [
+				"",
+				"Diagnostic:",
+				"  Code: \(diagnostic.code)",
+				"  Phase: \(diagnostic.phase.rawValue)",
+				"  Message: \(diagnostic.message)"
+			]
+		}
+		if let metrics = report.metrics {
+			lines += [
+				"",
+				"Metrics:",
+				"  Input bytes: \(metrics.sourceFootprint.totalByteCount)",
+				"  Output bytes: \(metrics.emission.outputModelByteCount)",
+				"  Operations: \(metrics.emission.operationCount)"
+			]
+		}
+		lines += ["", "Events:"]
+		for entry in report.entries {
+			var parts = [entry.state.rawValue]
+			if let progress = entry.progress {
+				parts.append(progressDescription(progress))
+			}
+			if let diagnostic = entry.diagnostic {
+				parts.append("\(diagnostic.code): \(diagnostic.message)")
+			}
+			let timestamp = entry.timestamp.formatted(date: .abbreviated, time: .standard)
+			lines.append("  \(timestamp) — \(parts.joined(separator: " · "))")
+		}
+		return lines.joined(separator: "\n")
 	}
 
 	private func progressDescription(_ progress: NativeModelConversionProgress) -> String {
