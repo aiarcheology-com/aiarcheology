@@ -649,6 +649,7 @@ struct ModelImportView: View {
 			let info = try await MainActor.run {
 				try createAndSaveConfiguration(
 					modelURL: work.modelURL,
+					preferredModelName: work.preferredModelName,
 					downloadUrl: request.downloadURL,
 					id: request.configurationID,
 					extractedInfo: work.extractedInfo,
@@ -776,8 +777,13 @@ struct ModelImportView: View {
 			throw error
 		}
 
+		// A converted `.aiagraph` is stored as `converted.mlmodel`, whose name is meaningless to the
+		// user, and a package may carry no model description. Keep the original source name so the
+		// configuration is titled after what the user actually imported (e.g. "MobileNetV2").
+		let preferredModelName = reportStore != nil ? sourceURL.lastPathComponent.fileName : nil
 		return NativeModelImportWork(
 			modelURL: modelURL,
+			preferredModelName: preferredModelName,
 			extractedInfo: extractedInfo,
 			configurationDirectory: configurationDirectory,
 			reportStore: reportStore
@@ -904,6 +910,7 @@ struct ModelImportView: View {
 	@MainActor
 	private func createAndSaveConfiguration(
 		modelURL: URL,
+		preferredModelName: String? = nil,
 		downloadUrl: URL?,
 		id: UUID,
 		extractedInfo: ExtractedModelInfo,
@@ -923,7 +930,10 @@ struct ModelImportView: View {
 		// Populate configuration from extracted metadata
 		configuration.entityId = id
 		let description = extractedInfo.modelDescription
-		configuration.modelDescription = description.isNotBlank ? description : modelURL.lastPathComponent.fileName
+		// Prefer a real embedded description; otherwise the original source name (for a converted
+		// package) and only then the stored file's own name.
+		let fallbackName = preferredModelName ?? modelURL.lastPathComponent.fileName
+		configuration.modelDescription = description.isNotBlank ? description : fallbackName
 		configuration.modelVersion = extractedInfo.modelVersion
 		configuration.author = extractedInfo.author
 		configuration.creationDate_ = extractedInfo.creationDateString?.toDate(.createMl)
@@ -982,6 +992,9 @@ struct ModelImportView: View {
 /// succeeds.
 private struct NativeModelImportWork {
 	let modelURL: URL
+	/// The user-facing name to prefer for the configuration (the original source name for a converted
+	/// native package, `nil` for a direct model import whose own filename is already meaningful).
+	let preferredModelName: String?
 	let extractedInfo: ExtractedModelInfo
 	let configurationDirectory: URL
 	let reportStore: NativeModelConversionImportReportStore?
