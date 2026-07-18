@@ -86,6 +86,67 @@ final class ONNXModelReaderTests: XCTestCase {
 		XCTAssertEqual(conversion.graph.weights.map(\.name), ["w", "b"])
 	}
 
+	func testConvertONNX_endToEnd_producesLoadableModel() async throws {
+		// Exercises the high-level `convert(onnx:to:)` orchestration (file read, FIFO gate, metrics,
+		// atomic model write) rather than the reader in isolation.
+		let kernel = onnxTensor(name: "w", dims: [1, 1, 2, 2], floats: [1, 1, 1, 1])
+		let conv = onnxNode(op: "Conv", inputs: ["x", "w"], outputs: ["y"], name: "conv", attributes: [
+			onnxIntsAttr(name: "kernel_shape", ints: [2, 2]),
+			onnxIntsAttr(name: "strides", ints: [1, 1]),
+			onnxIntsAttr(name: "pads", ints: [0, 0, 0, 0]),
+			onnxIntsAttr(name: "dilations", ints: [1, 1]),
+			onnxIntAttr(name: "group", value: 1)
+		])
+		let model = onnxModel(
+			nodes: [conv],
+			initializers: [kernel],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 1, 3, 3]), onnxValueInfo(name: "w", shape: [1, 1, 2, 2])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 1, 2, 2])]
+		)
+
+		let onnxURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).onnx")
+		let modelURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
+		defer {
+			try? FileManager.default.removeItem(at: onnxURL)
+			try? FileManager.default.removeItem(at: modelURL)
+		}
+		try model.write(to: onnxURL)
+
+		let metrics = try await NativeModelConverter().convert(onnx: onnxURL, to: modelURL)
+		XCTAssertEqual(metrics.emission.operationCount, 1)
+		XCTAssertGreaterThan(metrics.emission.outputModelByteCount, 0)
+		XCTAssertTrue(FileManager.default.fileExists(atPath: modelURL.path))
+
+		// The emitted model must compile and load through Core ML.
+		let compiled = try await MLModel.compileModel(at: modelURL)
+		_ = try MLModel(contentsOf: compiled, configuration: cpuOnly())
+	}
+
+	func testConvertONNX_unsupportedOperator_surfacesReaderMessage() async throws {
+		let node = onnxNode(op: "TotallyMadeUpOp", inputs: ["x"], outputs: ["y"], name: "n")
+		let model = onnxModel(
+			nodes: [node],
+			initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3])]
+		)
+		let onnxURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).onnx")
+		let modelURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
+		defer {
+			try? FileManager.default.removeItem(at: onnxURL)
+			try? FileManager.default.removeItem(at: modelURL)
+		}
+		try model.write(to: onnxURL)
+
+		do {
+			_ = try await NativeModelConverter().convert(onnx: onnxURL, to: modelURL)
+			XCTFail("Expected conversion to fail for an unsupported operator")
+		} catch let error as NativeModelConversionError {
+			// The reader's operator-naming message is preserved (it is path-free), not masked.
+			XCTAssertTrue(error.localizedDescription.contains("TotallyMadeUpOp"), error.localizedDescription)
+		}
+	}
+
 	// MARK: - Minimal ONNX protobuf builders (reuse the encoder to write ONNX-shaped messages)
 
 	private func onnxValueInfo(name: String, shape: [Int]) -> Data {

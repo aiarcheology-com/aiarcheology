@@ -142,6 +142,108 @@ public struct NativeModelConverter: Sendable {
 		}
 	}
 
+	/// Converts a self-contained ONNX model file to Core ML on-device, with no Python and no
+	/// intermediate package. Reuses the process-global FIFO gate so ONNX and package conversions do
+	/// not run concurrently.
+	public func convert(
+		onnx onnxURL: URL,
+		to outputURL: URL,
+		reporting progress: NativeModelConversionProgressHandler? = nil
+	) async throws -> NativeModelConversionMetrics {
+		progress?(NativeModelConversionProgress(phase: .waitingForExclusiveAccess))
+		do {
+			try await Self.executionGate.acquire()
+		} catch is CancellationError {
+			progress?(NativeModelConversionProgress(phase: .cancelled))
+			throw NativeModelConversionError.cancelled(phase: .waitingForExclusiveAccess)
+		}
+		do {
+			let metrics = try await convertONNXReserved(from: onnxURL, to: outputURL, reporting: progress)
+			await Self.executionGate.release()
+			return metrics
+		} catch {
+			await Self.executionGate.release()
+			throw error
+		}
+	}
+
+	private func convertONNXReserved(
+		from onnxURL: URL,
+		to outputURL: URL,
+		reporting progress: NativeModelConversionProgressHandler?
+	) async throws -> NativeModelConversionMetrics {
+		let memoryTracker = NativeModelConversionMemoryTracker()
+		let report: NativeModelConversionProgressHandler = { update in
+			NativeModelConversionInstrumentation.event(update.phase)
+			progress?(update.withProcessMemoryUsage(memoryTracker.sample()))
+		}
+		do {
+			report(NativeModelConversionProgress(phase: .preparing))
+			try Task.checkCancellation()
+			report(NativeModelConversionProgress(phase: .readingGraph))
+			let readStartedAt = DispatchTime.now().uptimeNanoseconds
+			let conversion = try ONNXModelReader().read(from: onnxURL)
+			let readDuration = elapsedNanoseconds(since: readStartedAt)
+			report(NativeModelConversionProgress(phase: .validatingGraph, completedUnitCount: 1, totalUnitCount: 1))
+			try Task.checkCancellation()
+
+			let emissionStartedAt = DispatchTime.now().uptimeNanoseconds
+			let operationCount = conversion.graph.operations.count
+			report(NativeModelConversionProgress(phase: .emittingModel, completedUnitCount: 0, totalUnitCount: operationCount))
+			// A standard ONNX image classifier carries no labels or preprocessing constants. When the
+			// single output has one unit per ImageNet-1k class the emitter applies the ImageNet labels
+			// and RGB normalization so the model runs as an image classifier; otherwise these are
+			// ignored and the graph is emitted as a plain neural network.
+			try emitter.emit(
+				graph: conversion.graph,
+				weights: conversion.weights,
+				to: outputURL,
+				classifierLabels: ImageNet1000Labels.categories,
+				imagePreprocessing: .imageNetRGB
+			)
+			report(NativeModelConversionProgress(phase: .emittingModel, completedUnitCount: operationCount, totalUnitCount: operationCount))
+			report(NativeModelConversionProgress(phase: .writingModel, completedUnitCount: 1, totalUnitCount: 1))
+
+			let outputByteCount = (try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? NSNumber)?.uint64Value ?? 0
+			let footprint = NativeModelPackageFootprint(
+				manifestByteCount: 0,
+				graphByteCount: 0,
+				weightsByteCount: UInt64(conversion.weights.count),
+				metadataByteCount: 0
+			)
+			let emission = NativeModelEmissionMetrics(
+				sourceFootprint: footprint,
+				operationCount: operationCount,
+				outputModelByteCount: outputByteCount,
+				outputMetadataSidecarByteCount: 0,
+				emissionDurationNanoseconds: elapsedNanoseconds(since: emissionStartedAt)
+			)
+			report(NativeModelConversionProgress(phase: .completed, completedUnitCount: 1, totalUnitCount: 1))
+			return NativeModelConversionMetrics(
+				sourceFootprint: footprint,
+				packageReadDurationNanoseconds: readDuration,
+				emission: emission,
+				processMemoryUsage: memoryTracker.sample()
+			)
+		} catch is CancellationError {
+			report(NativeModelConversionProgress(phase: .cancelled))
+			throw NativeModelConversionError.cancelled(phase: .preparing)
+		} catch let error as ONNXModelReaderError {
+			// ONNX reader diagnostics name the offending operator/tensor and contain no file paths, so
+			// they are safe to surface. Foundation file-read failures are a different type and fall
+			// through to the masked generic message below.
+			report(NativeModelConversionProgress(phase: .failed))
+			throw NativeModelConversionError.unexpected(
+				phase: .readingGraph,
+				message: error.errorDescription ?? NativeModelConversionError.unexpectedMessage
+			)
+		} catch {
+			let conversionError = conversionError(from: error, defaultPhase: .emittingModel)
+			report(NativeModelConversionProgress(phase: .failed))
+			throw conversionError
+		}
+	}
+
 	private func convertReserved(
 		from packageURL: URL,
 		to outputURL: URL,

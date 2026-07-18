@@ -19,17 +19,22 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		/// Ordered class labels from the source package. When they match the single graph output's
 		/// width, the emitter wraps the logits as a Core ML classifier; otherwise they are ignored.
 		let classifierLabels: [String]?
+		/// When present and the single input is image-shaped, the emitter declares that input as a Core
+		/// ML image feature and prepends a per-channel normalization layer. Ignored otherwise.
+		let imagePreprocessing: NativeModelImagePreprocessing?
 		let progress: NativeModelConversionProgressHandler?
 		let cancellationCheck: NativeModelConversionCancellationHandler?
 
 		init(
 			metadata: NativeModelCoreMLMetadata?,
 			classifierLabels: [String]? = nil,
+			imagePreprocessing: NativeModelImagePreprocessing? = nil,
 			progress: NativeModelConversionProgressHandler?,
 			cancellationCheck: NativeModelConversionCancellationHandler?
 		) {
 			self.metadata = metadata
 			self.classifierLabels = classifierLabels
+			self.imagePreprocessing = imagePreprocessing
 			self.progress = progress
 			self.cancellationCheck = cancellationCheck
 		}
@@ -117,6 +122,36 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		)
 	}
 
+	/// Emits a Core ML classifier for a graph read from a standard image-classification model (e.g.
+	/// ONNX). When `labels` match the single output width and the single input is image-shaped
+	/// (`[1, C, H, W]`, C matching `imagePreprocessing`), the model exposes an image input with the
+	/// given per-channel normalization and returns `classLabel`/`classLabelProbs`. If either condition
+	/// does not hold, the graph is emitted as a plain neural network (labels/preprocessing ignored),
+	/// so this is always safe to call.
+	public func emit(
+		graph: NativeModelGraph,
+		weights: Data,
+		to outputURL: URL,
+		classifierLabels: [String]?,
+		imagePreprocessing: NativeModelImagePreprocessing?,
+		reporting progress: NativeModelConversionProgressHandler? = nil,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
+	) throws {
+		let eligibleLabels = eligibleClassifierLabels(graph: graph, labels: classifierLabels)
+		try emit(
+			graph: graph,
+			weights: weights,
+			to: outputURL,
+			context: EmissionContext(
+				metadata: nil,
+				classifierLabels: eligibleLabels,
+				imagePreprocessing: eligibleLabels == nil ? nil : imagePreprocessing,
+				progress: progress,
+				cancellationCheck: cancellationCheck
+			)
+		)
+	}
+
 	private func emit(
 		graph: NativeModelGraph,
 		weights: Data,
@@ -198,8 +233,18 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		let cancellationCheck = context.cancellationCheck
 		let specificationVersion = (inputTensors + outputTensors).contains { $0.dataType == .float16 } ? 7 : 4
 		let classifier = classifierPlan(outputs: outputTensors, labels: context.classifierLabels)
+		let imagePlan = imageInputPlan(
+			inputTensors: inputTensors,
+			classifier: classifier,
+			preprocessing: context.imagePreprocessing
+		)
 
 		var layers = Data()
+		// A normalization layer must run before the graph so it produces the blob the first operation
+		// consumes (the graph's original input name).
+		if let imagePlan {
+			CoreMLProtobufEncoder.appendMessageField(1, value: imagePreprocessingLayer(for: imagePlan), to: &layers)
+		}
 		progress?(NativeModelConversionProgress(
 			phase: .emittingModel,
 			completedUnitCount: 0,
@@ -228,7 +273,11 @@ public struct NativeModelCoreMLEmitter: Sendable {
 
 		let description = CoreMLProtobufEncoder.message { description in
 			for input in inputTensors {
-				CoreMLProtobufEncoder.appendMessageField(1, value: featureDescription(for: input), to: &description)
+				if let imagePlan, input.name == imagePlan.networkInputName {
+					CoreMLProtobufEncoder.appendMessageField(1, value: imageFeatureDescription(for: imagePlan), to: &description)
+				} else {
+					CoreMLProtobufEncoder.appendMessageField(1, value: featureDescription(for: input), to: &description)
+				}
 			}
 			if let classifier {
 				CoreMLProtobufEncoder.appendMessageField(10, value: stringFeatureDescription(named: classifier.classLabelName), to: &description)
@@ -506,6 +555,87 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		return CoreMLProtobufEncoder.message { featureDescription in
 			CoreMLProtobufEncoder.appendStringField(1, value: tensor.name, to: &featureDescription)
 			CoreMLProtobufEncoder.appendMessageField(3, value: featureType, to: &featureDescription)
+		}
+	}
+
+	private struct ImageInputPlan {
+		/// The model's image input feature name (what Vision feeds).
+		let imageFeatureName: String
+		/// The graph's original input blob name; the normalization layer writes it.
+		let networkInputName: String
+		let width: Int
+		let height: Int
+		let preprocessing: NativeModelImagePreprocessing
+	}
+
+	/// Derives an image-input plan when the graph is a classifier whose single input is `[1, C, H, W]`
+	/// with the channel count `preprocessing` expects and concrete spatial dimensions. Returns nil
+	/// otherwise, so a non-image or non-classifier graph keeps its plain multi-array input.
+	private func imageInputPlan(
+		inputTensors: [NativeModelTensor],
+		classifier: ClassifierPlan?,
+		preprocessing: NativeModelImagePreprocessing?
+	) -> ImageInputPlan? {
+		guard classifier != nil, let preprocessing, inputTensors.count == 1 else { return nil }
+		let input = inputTensors[0]
+		let shape = input.shape
+		guard shape.count == 4, shape[0] == 1,
+			shape[1] == preprocessing.channelCount,
+			preprocessing.scale.count == preprocessing.channelCount,
+			preprocessing.bias.count == preprocessing.channelCount,
+			shape[2] > 1, shape[3] > 1
+		else {
+			return nil
+		}
+		return ImageInputPlan(
+			imageFeatureName: input.name == "image" ? "image_input" : "image",
+			networkInputName: input.name,
+			width: shape[3],
+			height: shape[2],
+			preprocessing: preprocessing
+		)
+	}
+
+	/// A per-channel `scale · pixel + bias` layer that normalizes `[0, 255]` image pixels into the
+	/// tensor the graph expects. Consumes the image feature and produces the graph's original input.
+	private func imagePreprocessingLayer(for plan: ImageInputPlan) -> Data {
+		let channelCount = UInt64(plan.preprocessing.channelCount)
+		let scaleParameters = CoreMLProtobufEncoder.message { params in
+			CoreMLProtobufEncoder.appendVarintField(1, value: channelCount, to: &params) // shapeScale = [C]
+			CoreMLProtobufEncoder.appendMessageField(2, value: weightParameters(floats: plan.preprocessing.scale), to: &params)
+			CoreMLProtobufEncoder.appendVarintField(3, value: 1, to: &params) // hasBias
+			CoreMLProtobufEncoder.appendVarintField(4, value: channelCount, to: &params) // shapeBias = [C]
+			CoreMLProtobufEncoder.appendMessageField(5, value: weightParameters(floats: plan.preprocessing.bias), to: &params)
+		}
+		return CoreMLProtobufEncoder.message { layer in
+			CoreMLProtobufEncoder.appendStringField(1, value: "image_preprocessing", to: &layer)
+			CoreMLProtobufEncoder.appendStringField(2, value: plan.imageFeatureName, to: &layer)
+			CoreMLProtobufEncoder.appendStringField(3, value: plan.networkInputName, to: &layer)
+			CoreMLProtobufEncoder.appendMessageField(245, value: scaleParameters, to: &layer) // ScaleLayerParams
+		}
+	}
+
+	/// Encodes inline float constants as a float32 `WeightParams` (`floatValue`, little-endian raw
+	/// bytes — the same encoding graph weights use).
+	private func weightParameters(floats: [Float]) -> Data {
+		let raw = floats.withUnsafeBytes { Data($0) }
+		return CoreMLProtobufEncoder.message { params in
+			CoreMLProtobufEncoder.appendMessageField(1, value: raw, to: &params)
+		}
+	}
+
+	private func imageFeatureDescription(for plan: ImageInputPlan) -> Data {
+		let imageType = CoreMLProtobufEncoder.message { imageType in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(plan.width), to: &imageType)
+			CoreMLProtobufEncoder.appendVarintField(2, value: UInt64(plan.height), to: &imageType)
+			CoreMLProtobufEncoder.appendVarintField(3, value: plan.preprocessing.colorSpace.coreMLValue, to: &imageType)
+		}
+		let featureType = CoreMLProtobufEncoder.message { featureType in
+			CoreMLProtobufEncoder.appendMessageField(4, value: imageType, to: &featureType) // FeatureType.imageType
+		}
+		return CoreMLProtobufEncoder.message { feature in
+			CoreMLProtobufEncoder.appendStringField(1, value: plan.imageFeatureName, to: &feature)
+			CoreMLProtobufEncoder.appendMessageField(3, value: featureType, to: &feature)
 		}
 	}
 

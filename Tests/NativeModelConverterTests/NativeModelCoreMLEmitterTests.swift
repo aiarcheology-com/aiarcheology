@@ -4,10 +4,97 @@
 //
 
 import CoreML
+import CoreVideo
 import XCTest
 @testable import NativeModelConverter
 
 final class NativeModelCoreMLEmitterTests: XCTestCase {
+
+	func testEmit_imageClassifier_appliesImageNetPreprocessingAndLabels() throws {
+		// A 3-channel image classifier: global-average-pool + flatten yields one value per channel, so
+		// a uniform image reduces to the three preprocessed channel values, which softmax turns into
+		// class probabilities. This isolates the image input + per-channel normalization + labels.
+		let graph = NativeModelGraph(
+			formatVersion: 1,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [NativeModelTensor(name: "input", dataType: .float32, shape: [1, 3, 2, 2])],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "pool",
+					kind: .globalAveragePool2D,
+					inputs: ["input"],
+					outputs: [tensor("pooled", shape: [1, 3, 1, 1])],
+					attributes: [:]
+				),
+				NativeModelOperation(
+					name: "flatten",
+					kind: .flatten,
+					inputs: ["pooled"],
+					outputs: [tensor("output", shape: [1, 3])],
+					attributes: ["axis": .integer(1)]
+				)
+			],
+			outputs: ["output"]
+		)
+		let modelURL = try temporaryDirectory().appendingPathComponent("image-classifier.mlmodel")
+		try NativeModelCoreMLEmitter().emit(
+			graph: graph,
+			weights: Data(),
+			to: modelURL,
+			classifierLabels: ["red", "green", "blue"],
+			imagePreprocessing: .imageNetRGB
+		)
+
+		let compiledURL = try MLModel.compileModel(at: modelURL)
+		let model = try MLModel(contentsOf: compiledURL, configuration: cpuOnlyConfiguration())
+
+		// The input must be an image feature, not a multi-array.
+		let inputDescription = try XCTUnwrap(model.modelDescription.inputDescriptionsByName["image"])
+		XCTAssertEqual(inputDescription.type, .image)
+		XCTAssertEqual(model.modelDescription.predictedFeatureName, "classLabel")
+
+		let pixelBuffer = try uniformBGRAPixelBuffer(width: 2, height: 2, red: 100, green: 150, blue: 200)
+		let provider = try MLDictionaryFeatureProvider(dictionary: ["image": MLFeatureValue(pixelBuffer: pixelBuffer)])
+		let prediction = try model.prediction(from: provider)
+		let probabilities = try XCTUnwrap(prediction.featureValue(for: "classLabelProbs")?.dictionaryValue as? [String: Double])
+
+		// Expected: normalize each channel with ImageNet, then softmax over the three values.
+		let mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225]
+		let pixels = [100.0, 150.0, 200.0]
+		let normalized = (0 ..< 3).map { (pixels[$0] / 255 - mean[$0]) / std[$0] }
+		let exponentials = normalized.map { exp($0) }
+		let sum = exponentials.reduce(0, +)
+		let expected = exponentials.map { $0 / sum }
+
+		XCTAssertEqual(prediction.featureValue(for: "classLabel")?.stringValue, "blue")
+		XCTAssertEqual(probabilities["red"] ?? -1, expected[0], accuracy: 1e-4)
+		XCTAssertEqual(probabilities["green"] ?? -1, expected[1], accuracy: 1e-4)
+		XCTAssertEqual(probabilities["blue"] ?? -1, expected[2], accuracy: 1e-4)
+	}
+
+	private func uniformBGRAPixelBuffer(width: Int, height: Int, red: UInt8, green: UInt8, blue: UInt8) throws -> CVPixelBuffer {
+		var buffer: CVPixelBuffer?
+		let status = CVPixelBufferCreate(
+			kCFAllocatorDefault, width, height, kCVPixelFormatType_32BGRA,
+			[kCVPixelBufferCGImageCompatibilityKey as String: true] as CFDictionary, &buffer
+		)
+		let pixelBuffer = try XCTUnwrap(status == kCVReturnSuccess ? buffer : nil)
+		CVPixelBufferLockBaseAddress(pixelBuffer, [])
+		defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
+		let base = try XCTUnwrap(CVPixelBufferGetBaseAddress(pixelBuffer)).assumingMemoryBound(to: UInt8.self)
+		let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
+		for y in 0 ..< height {
+			for x in 0 ..< width {
+				let offset = y * bytesPerRow + x * 4
+				base[offset + 0] = blue
+				base[offset + 1] = green
+				base[offset + 2] = red
+				base[offset + 3] = 255
+			}
+		}
+		return pixelBuffer
+	}
 
 	func testEmit_reluGraph_compilesAndPredictsOnMacOS() throws {
 		let graph = NativeModelGraph(
