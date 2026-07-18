@@ -74,6 +74,21 @@ final class NativeModelCoreMLEmitterTests: XCTestCase {
 		}
 	}
 
+	func testWeightDataOutOfBoundsDescription_withOverflowingRange_doesNotTrap() {
+		// Rendering this diagnostic previously computed `offset + byteCount` and trapped on overflow.
+		let error = NativeModelCoreMLEmissionError.weightDataOutOfBounds(
+			name: "w",
+			offset: .max - 3,
+			byteCount: 4,
+			availableByteCount: 4
+		)
+
+		let description = error.localizedDescription
+
+		XCTAssertTrue(description.contains("w"))
+		XCTAssertTrue(description.contains("\(UInt64.max - 3)"))
+	}
+
 	func testEmit_float16ReluGraph_compiles() throws {
 		let graph = NativeModelGraph(
 			formatVersion: 1,

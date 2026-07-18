@@ -15,8 +15,22 @@ struct NativeModelConverterCLI {
 			exit(64)
 		}
 
+		let outputURL = URL(fileURLWithPath: invocation.output)
+		let sidecarURL = NativeModelMetadataSidecar.url(for: outputURL)
+		// A report path that collides with the model or its sidecar would overwrite a conversion
+		// artifact. Reject it up front rather than after writing the model.
+		if let report = invocation.report {
+			let reportURL = URL(fileURLWithPath: report).standardizedFileURL
+			if reportURL == outputURL.standardizedFileURL || reportURL == sidecarURL.standardizedFileURL {
+				FileHandle.standardError.write(Data("report path must differ from the output model and its metadata sidecar\n".utf8))
+				exit(64)
+			}
+		}
+		// Only clean artifacts this invocation created. Deleting a pre-existing file at the output
+		// path on failure would destroy an unrelated user file the converter never wrote.
+		let outputPreexisted = FileManager.default.fileExists(atPath: outputURL.path)
+		let sidecarPreexisted = FileManager.default.fileExists(atPath: sidecarURL.path)
 		do {
-			let outputURL = URL(fileURLWithPath: invocation.output)
 			let metrics = try await NativeModelConverter().convert(
 				from: URL(fileURLWithPath: invocation.input),
 				to: outputURL
@@ -29,9 +43,12 @@ struct NativeModelConverterCLI {
 			let elapsedMilliseconds = Double(metrics.totalConversionDurationNanoseconds) / 1_000_000
 			print("Wrote \(invocation.output) in \(String(format: "%.3f", elapsedMilliseconds)) ms (source \(metrics.sourceFootprint.totalByteCount) bytes, model \(metrics.emission.outputModelByteCount) bytes)")
 		} catch {
-			let outputURL = URL(fileURLWithPath: invocation.output)
-			try? FileManager.default.removeItem(at: outputURL)
-			try? FileManager.default.removeItem(at: NativeModelMetadataSidecar.url(for: outputURL))
+			if !outputPreexisted {
+				try? FileManager.default.removeItem(at: outputURL)
+			}
+			if !sidecarPreexisted {
+				try? FileManager.default.removeItem(at: sidecarURL)
+			}
 			FileHandle.standardError.write(Data("conversion failed: \(error.localizedDescription)\n".utf8))
 			exit(1)
 		}

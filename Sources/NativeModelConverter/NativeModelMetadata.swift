@@ -96,9 +96,14 @@ public struct NativeModelConversionSourceProvenance: Codable, Equatable, Sendabl
 		self.originalModelURL = originalModelURL
 	}
 
-	func fillingSourcePackageFilename(_ filename: String) -> Self {
+	/// Returns a copy whose `sourcePackageFilename` is the actual converted package name.
+	///
+	/// The high-level converter always stamps the real package filename it read, overriding any
+	/// caller-supplied value, so this provenance fact cannot be spoofed by a host. `originalModelFilename`
+	/// and `originalModelURL` remain host-supplied.
+	func settingSourcePackageFilename(_ filename: String) -> Self {
 		Self(
-			sourcePackageFilename: sourcePackageFilename ?? filename,
+			sourcePackageFilename: filename,
 			originalModelFilename: originalModelFilename,
 			originalModelURL: originalModelURL
 		)

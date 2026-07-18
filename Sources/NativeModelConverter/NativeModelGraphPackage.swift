@@ -116,6 +116,12 @@ public actor NativeModelGraphPackageReader {
 	) throws -> NativeModelGraphPackage {
 		try cancellationCheck?()
 		progress?(NativeModelConversionProgress(phase: .readingManifest))
+		// `attributesOfItem` uses lstat semantics, so a symbolic-link package root is caught here
+		// rather than silently followed by the directory check below. Only the final path component
+		// is inspected, so symlinked parents (e.g. macOS `/var` → `/private/var`) do not trip it.
+		if (try? FileManager.default.attributesOfItem(atPath: packageURL.path)[.type] as? FileAttributeType) == .typeSymbolicLink {
+			throw NativeModelGraphPackageError.symbolicLinkNotAllowed(packageURL.lastPathComponent)
+		}
 		guard isDirectory(packageURL) else {
 			throw NativeModelGraphPackageError.notDirectory(packageURL.lastPathComponent)
 		}
@@ -257,8 +263,14 @@ public actor NativeModelGraphPackageReader {
 			throw NativeModelGraphPackageError.missingFile(logicalName)
 		}
 		let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-		guard attributes[.type] as? FileAttributeType != .typeSymbolicLink else {
+		let fileType = attributes[.type] as? FileAttributeType
+		guard fileType != .typeSymbolicLink else {
 			throw NativeModelGraphPackageError.symbolicLinkNotAllowed(logicalName)
+		}
+		// Reject FIFOs, sockets, and device special files: reading one with `Data(contentsOf:)` can
+		// block indefinitely or misbehave. Only a plain regular file is a valid package entry.
+		guard fileType == .typeRegular else {
+			throw NativeModelGraphPackageError.notRegularFile(logicalName)
 		}
 		guard let size = (attributes[.size] as? NSNumber)?.uint64Value else {
 			throw NativeModelGraphPackageError.invalidFileMetadata(logicalName)
@@ -331,7 +343,10 @@ public actor NativeModelGraphPackageReader {
 
 	private func requiredWeightsByteCount(for graph: NativeModelGraph) -> UInt64 {
 		graph.weights.reduce(0) { currentMaximum, weight in
-			max(currentMaximum, weight.offset + weight.byteCount)
+			let (end, overflow) = weight.offset.addingReportingOverflow(weight.byteCount)
+			// The graph validator already rejects an overflowing weight range; saturating here keeps
+			// this defence-in-depth path from trapping if it is ever reached with an unvalidated graph.
+			return overflow ? .max : max(currentMaximum, end)
 		}
 	}
 }
@@ -340,6 +355,7 @@ public enum NativeModelGraphPackageError: Error, Equatable, LocalizedError, Send
 	case notDirectory(String)
 	case missingFile(String)
 	case symbolicLinkNotAllowed(String)
+	case notRegularFile(String)
 	case invalidFileMetadata(String)
 	case fileTooLarge(file: String, actualByteCount: UInt64, maximumByteCount: UInt64)
 	case invalidManifest(String)
@@ -360,6 +376,8 @@ public enum NativeModelGraphPackageError: Error, Equatable, LocalizedError, Send
 			"Native model package is missing '\(name)'."
 		case .symbolicLinkNotAllowed(let name):
 			"Native model package file '\(name)' must not be a symbolic link."
+		case .notRegularFile(let name):
+			"Native model package entry '\(name)' must be a regular file."
 		case .invalidFileMetadata(let name):
 			"Native model package file '\(name)' has invalid metadata."
 		case .fileTooLarge(let file, let actualByteCount, let maximumByteCount):

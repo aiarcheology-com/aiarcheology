@@ -42,13 +42,19 @@ struct NativeModelEvaluatorCLI {
 
 			let shape = constraint.shape.map { $0.intValue }
 			let inputElementCount = try elementCount(for: shape)
+			// Guard the element-count-to-byte-count multiplication so a pathological shape reports an
+			// invalid shape rather than trapping on Int overflow.
+			let (inputByteCount, byteCountOverflow) = inputElementCount.multipliedReportingOverflow(by: MemoryLayout<UInt32>.size)
+			guard !byteCountOverflow else {
+				throw EvaluationError.invalidShape(shape)
+			}
 			let outputDirectory = URL(fileURLWithPath: outputPath, isDirectory: true)
 			try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: false)
 			var evaluations: [EvaluationManifest.Evaluation] = []
 			for (inputIndex, inputPath) in inputPaths.enumerated() {
 				let inputData = try Data(contentsOf: URL(fileURLWithPath: inputPath))
-				guard inputData.count == inputElementCount * MemoryLayout<UInt32>.size else {
-					throw EvaluationError.inputByteCount(expected: inputElementCount * MemoryLayout<UInt32>.size, actual: inputData.count)
+				guard inputData.count == inputByteCount else {
+					throw EvaluationError.inputByteCount(expected: inputByteCount, actual: inputData.count)
 				}
 				let array = try MLMultiArray(shape: constraint.shape, dataType: constraint.dataType)
 				for index in 0..<inputElementCount {

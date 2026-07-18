@@ -130,7 +130,7 @@ public struct NativeModelConverter: Sendable {
 			let metrics = try await convertReserved(
 				from: packageURL,
 				to: outputURL,
-				sourceProvenance: sourceProvenance?.fillingSourcePackageFilename(packageURL.lastPathComponent)
+				sourceProvenance: sourceProvenance?.settingSourcePackageFilename(packageURL.lastPathComponent)
 					?? NativeModelConversionSourceProvenance(sourcePackageFilename: packageURL.lastPathComponent),
 				reporting: progress
 			)
@@ -232,7 +232,8 @@ public struct NativeModelConverter: Sendable {
 			NativeModelConversionInstrumentation.end("Native model conversion", signpostID: conversionSignpostID)
 			throw error
 		} catch {
-			let conversionError = NativeModelConversionError.unexpected(phase: .preparing, message: error.localizedDescription)
+			NativeModelConversionInstrumentation.unexpected(rawDescription: error.localizedDescription)
+			let conversionError = NativeModelConversionError.unexpected(phase: .preparing, message: NativeModelConversionError.unexpectedMessage)
 			report(NativeModelConversionProgress(phase: .failed))
 			NativeModelConversionInstrumentation.error(code: conversionError.diagnostic.code, phase: conversionError.diagnostic.phase)
 			NativeModelConversionInstrumentation.end("Native model conversion", signpostID: conversionSignpostID)
@@ -253,7 +254,8 @@ public struct NativeModelConverter: Sendable {
 		if error is CancellationError {
 			return .cancelled(phase: defaultPhase)
 		}
-		return .unexpected(phase: defaultPhase, message: error.localizedDescription)
+		NativeModelConversionInstrumentation.unexpected(rawDescription: error.localizedDescription)
+		return .unexpected(phase: defaultPhase, message: NativeModelConversionError.unexpectedMessage)
 	}
 }
 

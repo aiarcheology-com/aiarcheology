@@ -725,7 +725,9 @@ public enum NativeModelCoreMLEmissionError: Error, Equatable, LocalizedError, Se
 		case .missingWeight(let name):
 			"The graph references weight '\(name)' but does not declare it."
 		case .weightDataOutOfBounds(let name, let offset, let byteCount, let availableByteCount):
-			"Weight '\(name)' needs bytes [\(offset), \(offset + byteCount)), but weights.bin has \(availableByteCount) bytes."
+			// Phrased to avoid computing `offset + byteCount`, which can overflow UInt64 for a
+			// malformed weight and would trap while rendering this diagnostic.
+			"Weight '\(name)' needs \(byteCount) bytes starting at offset \(offset), but weights.bin has \(availableByteCount) bytes."
 		case .invalidConvolution(let operation, let reason):
 			"Convolution '\(operation)' is invalid: \(reason)."
 		case .invalidOperation(let operation, let reason):

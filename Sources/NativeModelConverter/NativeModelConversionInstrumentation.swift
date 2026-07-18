@@ -54,4 +54,17 @@ enum NativeModelConversionInstrumentation {
 			phase.rawValue
 		)
 	}
+
+	/// Records the underlying description of an otherwise-unclassified error as private log data.
+	///
+	/// The user-facing diagnostic message is kept generic and path-free; the raw description can
+	/// contain a file path, so it is only ever emitted as `%{private}` unified-log detail.
+	static func unexpected(rawDescription: String) {
+		os_log(
+			"Native model conversion hit an unexpected error: %{private}s",
+			log: log,
+			type: .error,
+			rawDescription
+		)
+	}
 }

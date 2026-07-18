@@ -59,6 +59,50 @@ final class NativeModelGraphPackageTests: XCTestCase {
 		}
 	}
 
+	func testRead_weightRangeOverflow_isRejectedWithoutTrapping() async throws {
+		let graph = NativeModelGraph(
+			formatVersion: 1,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [NativeModelTensor(name: "input", dataType: .float32, shape: [1])],
+			weights: [NativeModelWeight(name: "w", dataType: .float32, shape: [1], offset: .max - 3, byteCount: 4)],
+			operations: [
+				NativeModelOperation(
+					name: "relu",
+					kind: .relu,
+					inputs: ["input"],
+					outputs: [NativeModelTensor(name: "output", dataType: .float32, shape: [1])],
+					attributes: [:]
+				)
+			],
+			outputs: ["output"]
+		)
+		let packageURL = try makePackage(graph: graph, weights: Data(count: 4))
+		defer { try? FileManager.default.removeItem(at: packageURL) }
+
+		// A malformed weight range must fail validation cleanly rather than trap while the reader
+		// computes the required weights byte count.
+		await XCTAssertThrowsErrorAsync(try await NativeModelGraphPackageReader().read(from: packageURL)) { error in
+			guard case .invalidGraph = error as? NativeModelGraphPackageError else {
+				return XCTFail("Expected an invalid-graph failure, got \(error).")
+			}
+		}
+	}
+
+	func testRead_symbolicLinkPackageRoot_isRejected() async throws {
+		let packageURL = try makePackage(graph: makeReLUGraph(), weights: Data())
+		defer { try? FileManager.default.removeItem(at: packageURL) }
+		let linkURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent("\(UUID().uuidString).aiagraph", isDirectory: true)
+		try FileManager.default.createSymbolicLink(at: linkURL, withDestinationURL: packageURL)
+		defer { try? FileManager.default.removeItem(at: linkURL) }
+
+		await XCTAssertThrowsErrorAsync(try await NativeModelGraphPackageReader().read(from: linkURL)) { error in
+			guard case .symbolicLinkNotAllowed = error as? NativeModelGraphPackageError else {
+				return XCTFail("Expected a symbolic-link rejection, got \(error).")
+			}
+		}
+	}
+
 	func testRead_unexpectedPackageFile_reportsLayoutFailure() async throws {
 		let packageURL = try makePackage(graph: makeReLUGraph(), weights: Data())
 		defer { try? FileManager.default.removeItem(at: packageURL) }

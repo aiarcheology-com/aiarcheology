@@ -365,6 +365,7 @@ public enum NativeModelGraphValidationIssue: Equatable, Sendable, LocalizedError
 	case unsupportedDataType(tensor: String, dataType: String)
 	case invalidTensorShape(tensor: String)
 	case invalidWeightByteCount(name: String, expected: UInt64, actual: UInt64)
+	case overflowingWeightRange(name: String)
 	case overlappingWeights(first: String, second: String)
 	case invalidOperationName(String)
 	case duplicateOperation(String)
@@ -391,6 +392,8 @@ public enum NativeModelGraphValidationIssue: Equatable, Sendable, LocalizedError
 			"Tensor '\(tensor)' must have a fixed, positive shape."
 		case .invalidWeightByteCount(let name, let expected, let actual):
 			"Weight '\(name)' declares \(actual) bytes; \(expected) bytes are required by its type and shape."
+		case .overflowingWeightRange(let name):
+			"Weight '\(name)' has an offset and byte count that overflow when added."
 		case .overlappingWeights(let first, let second):
 			"Weights '\(first)' and '\(second)' overlap in weights.bin."
 		case .invalidOperationName(let name):
@@ -498,6 +501,12 @@ public struct NativeModelGraphValidator {
 
 		if let expectedByteCount = tensor.byteCount(), expectedByteCount != weight.byteCount {
 			issues.append(.invalidWeightByteCount(name: weight.name, expected: expectedByteCount, actual: weight.byteCount))
+		}
+		// Every weight's end offset must be representable. The adjacent-pair check below only inspects
+		// gaps between sorted weights, so a single weight — or the highest-offset weight — would
+		// otherwise reach the unchecked `offset + byteCount` in the reader/emitter and trap.
+		if weight.offset.addingReportingOverflow(weight.byteCount).overflow {
+			issues.append(.overflowingWeightRange(name: weight.name))
 		}
 	}
 

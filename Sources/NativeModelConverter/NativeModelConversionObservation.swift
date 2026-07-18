@@ -112,6 +112,10 @@ public enum NativeModelConversionError: Error, Equatable, LocalizedError, Sendab
 	case cancelled(phase: NativeModelConversionPhase)
 	case unexpected(phase: NativeModelConversionPhase, message: String)
 
+	/// Stable, path-free message for an error the converter could not classify. The raw underlying
+	/// description is recorded only as private unified-log data, never in this shareable diagnostic.
+	static let unexpectedMessage = "An unexpected error occurred during native model conversion."
+
 	public var diagnostic: NativeModelConversionDiagnostic {
 		switch self {
 		case .package(let error):
@@ -149,6 +153,7 @@ extension NativeModelGraphPackageError {
 		case .notDirectory: "notDirectory"
 		case .missingFile: "missingFile"
 		case .symbolicLinkNotAllowed: "symbolicLinkNotAllowed"
+		case .notRegularFile: "notRegularFile"
 		case .invalidFileMetadata: "invalidFileMetadata"
 		case .fileTooLarge: "fileTooLarge"
 		case .invalidManifest: "invalidManifest"
@@ -165,7 +170,7 @@ extension NativeModelGraphPackageError {
 
 	public var conversionPhase: NativeModelConversionPhase {
 		switch self {
-		case .notDirectory, .missingFile, .symbolicLinkNotAllowed, .invalidFileMetadata, .fileTooLarge:
+		case .notDirectory, .missingFile, .symbolicLinkNotAllowed, .notRegularFile, .invalidFileMetadata, .fileTooLarge:
 			.readingManifest
 		case .invalidManifest, .unexpectedFile:
 			.validatingManifest
