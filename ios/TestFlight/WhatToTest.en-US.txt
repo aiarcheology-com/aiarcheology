@@ -1,16 +1,17 @@
-Test Focus: Saving cropped findings
+Test Focus: More ONNX models convert on your device
 
 What's new:
 
-• Saving a finding now works when its detected object touches or overlaps the edge of a cropped snapshot.
+• The on-device ONNX converter now handles more image-classification models: ResNet-50 and SqueezeNet from the ONNX Model Zoo convert and run, alongside the previously supported MobileNetV2.
 
 Please test:
 
-1. Open a page, run detection, and tap an object to create a finding.
-2. Zoom or pan the snapshot so the green detection box reaches a crop edge or corner.
-3. Enter a title and tap Save — the finding should save without an error alert.
-4. Open the findings list and confirm the saved image and highlight match the cropped area.
+1. Open the model importer and choose Download from URL.
+2. Paste https://github.com/onnx/models/raw/main/validated/vision/classification/squeezenet/model/squeezenet1.0-12.onnx and import — conversion should finish without errors.
+3. Enable the converted model, browse to any page with photos, and confirm classification labels appear.
+4. Repeat with ResNet-50 if you have time (larger download, ~100 MB): https://github.com/onnx/models/raw/main/validated/vision/classification/resnet/model/resnet50-v1-7.onnx
+5. Re-import a MobileNetV2 ONNX model if you have one — it should still convert and classify as before.
 
 Known limitations:
 
-• None.
+• Object-detection ONNX models (e.g. YOLO) are not convertible yet and are rejected with a clear message.
