@@ -672,7 +672,13 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				reason: "flatten currently supports channel-first axis 1 only"
 			)
 		}
-		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 301, parameters: Data())
+		// FlattenTo2D produces a rank-2 [batch, features] blob that Core ML accepts both internally and
+		// as an external model output. The legacy Flatten layer (rank-preserving) cannot be exposed as
+		// a rank-2 output feature, which a classifier flatten-to-logits at the end of a graph requires.
+		let flattenTo2D = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendVarintField(1, value: 1, to: &parameters)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 1130, parameters: flattenTo2D)
 	}
 
 	private func linearLayer(
