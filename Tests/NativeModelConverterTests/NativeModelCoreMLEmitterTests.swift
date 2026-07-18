@@ -424,6 +424,114 @@ final class NativeModelCoreMLEmitterTests: XCTestCase {
 		XCTAssertEqual(output[0].floatValue, 31.727_92, accuracy: 0.000_1)
 	}
 
+	func testEmit_maxPoolGraph_compilesAndPredictsOnMacOS() throws {
+		// 2x2/2 max pooling over a 4x4 ramp: blocks (1,2,5,6) (3,4,7,8) (9,10,13,14) (11,12,15,16)
+		// reduce to their maxima [6, 8, 14, 16].
+		let graph = NativeModelGraph(
+			formatVersion: 1,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [tensor("input", shape: [1, 1, 4, 4])],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "pool",
+					kind: .maxPool2D,
+					inputs: ["input"],
+					outputs: [tensor("output", shape: [1, 1, 2, 2])],
+					attributes: [
+						"kernelSize": .integers([2, 2]),
+						"strides": .integers([2, 2]),
+						"padding": .integers([0, 0])
+					]
+				)
+			],
+			outputs: ["output"]
+		)
+		let modelURL = try temporaryDirectory().appendingPathComponent("maxpool.mlmodel")
+		try NativeModelCoreMLEmitter().emit(graph: graph, to: modelURL)
+
+		let compiledURL = try MLModel.compileModel(at: modelURL)
+		let model = try MLModel(contentsOf: compiledURL, configuration: cpuOnlyConfiguration())
+		let input = try MLMultiArray(shape: [1, 1, 4, 4], dataType: .float32)
+		for index in 0 ..< 16 { input[index] = NSNumber(value: index + 1) }
+		let provider = try MLDictionaryFeatureProvider(dictionary: ["input": MLFeatureValue(multiArray: input)])
+
+		let output = try XCTUnwrap(model.prediction(from: provider).featureValue(for: "output")?.multiArrayValue)
+		XCTAssertEqual((0 ..< 4).map { output[$0].floatValue }, [6, 8, 14, 16])
+	}
+
+	func testEmit_concatGraph_joinsChannelsInOrder() throws {
+		// Two ReLU branches of the same input concatenate on the channel axis; the negated branch is
+		// distinguishable from the plain one, proving both order and axis.
+		let graph = NativeModelGraph(
+			formatVersion: 1,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [tensor("input", shape: [1, 1, 2, 2])],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "branchA", kind: .relu, inputs: ["input"],
+					outputs: [tensor("a", shape: [1, 1, 2, 2])], attributes: [:]
+				),
+				NativeModelOperation(
+					name: "branchB", kind: .relu6, inputs: ["input"],
+					outputs: [tensor("b", shape: [1, 1, 2, 2])], attributes: [:]
+				),
+				NativeModelOperation(
+					name: "join", kind: .concatenate, inputs: ["a", "b"],
+					outputs: [tensor("output", shape: [1, 2, 2, 2])], attributes: ["axis": .integer(1)]
+				)
+			],
+			outputs: ["output"]
+		)
+		let modelURL = try temporaryDirectory().appendingPathComponent("concat.mlmodel")
+		try NativeModelCoreMLEmitter().emit(graph: graph, to: modelURL)
+
+		let compiledURL = try MLModel.compileModel(at: modelURL)
+		let model = try MLModel(contentsOf: compiledURL, configuration: cpuOnlyConfiguration())
+		let input = try MLMultiArray(shape: [1, 1, 2, 2], dataType: .float32)
+		for (index, value) in [-1, 2, 7, 9].enumerated() { input[index] = NSNumber(value: value) }
+		let provider = try MLDictionaryFeatureProvider(dictionary: ["input": MLFeatureValue(multiArray: input)])
+
+		let output = try XCTUnwrap(model.prediction(from: provider).featureValue(for: "output")?.multiArrayValue)
+		// Channel 0 = relu([-1,2,7,9]) = [0,2,7,9]; channel 1 = relu6 caps at 6 = [0,2,6,6].
+		XCTAssertEqual((0 ..< 8).map { output[$0].floatValue }, [0, 2, 7, 9, 0, 2, 6, 6])
+	}
+
+	func testEmit_softmaxGraph_normalizesTheChannelAxis() throws {
+		// The SqueezeNet head shape [1, C, 1, 1]: softmax at axis 1 over logits ln(1), ln(2), ln(4)
+		// must produce exactly 1/7, 2/7, 4/7.
+		let graph = NativeModelGraph(
+			formatVersion: 1,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [tensor("input", shape: [1, 3, 1, 1])],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "softmax",
+					kind: .softmax,
+					inputs: ["input"],
+					outputs: [tensor("output", shape: [1, 3, 1, 1])],
+					attributes: ["axis": .integer(1)]
+				)
+			],
+			outputs: ["output"]
+		)
+		let modelURL = try temporaryDirectory().appendingPathComponent("softmax.mlmodel")
+		try NativeModelCoreMLEmitter().emit(graph: graph, to: modelURL)
+
+		let compiledURL = try MLModel.compileModel(at: modelURL)
+		let model = try MLModel(contentsOf: compiledURL, configuration: cpuOnlyConfiguration())
+		let input = try MLMultiArray(shape: [1, 3, 1, 1], dataType: .float32)
+		for (index, value) in [Float(0), log(2), log(4)].enumerated() { input[index] = NSNumber(value: value) }
+		let provider = try MLDictionaryFeatureProvider(dictionary: ["input": MLFeatureValue(multiArray: input)])
+
+		let output = try XCTUnwrap(model.prediction(from: provider).featureValue(for: "output")?.multiArrayValue)
+		XCTAssertEqual(output[0].floatValue, 1.0 / 7, accuracy: 0.000_01)
+		XCTAssertEqual(output[1].floatValue, 2.0 / 7, accuracy: 0.000_01)
+		XCTAssertEqual(output[2].floatValue, 4.0 / 7, accuracy: 0.000_01)
+	}
+
 	private func tensor(
 		_ name: String,
 		dataType: NativeModelDataType = .float32,

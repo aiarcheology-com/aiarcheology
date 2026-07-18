@@ -266,8 +266,10 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		// multi-array output.
 		if let classifier {
 			CoreMLProtobufEncoder.appendMessageField(1, value: softmaxNDLayer(
+				name: "classifier_softmax",
 				input: classifier.logitsBlobName,
-				output: classifier.probabilitiesBlobName
+				output: classifier.probabilitiesBlobName,
+				axis: 1
 			), to: &layers)
 		}
 
@@ -341,16 +343,16 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		return classifierPlan(outputs: outputs, labels: labels)?.labels
 	}
 
-	/// A softmax over the class axis (`softmaxND`, axis 1) that normalizes the logits into class
-	/// probabilities. The class dimension is axis 1 for both a rank-2 `[batch, classes]` output and a
-	/// classic-layer runtime tensor of shape `[batch, classes, 1, 1]`; a negative axis would land on a
-	/// size-1 trailing dimension for the latter and normalize nothing.
-	private func softmaxNDLayer(input: String, output: String) -> Data {
+	/// A `softmaxND` layer normalizing along `axis`. The classifier interface uses it at axis 1 —
+	/// the class dimension of a rank-2 `[batch, classes]` blob, where a negative axis could land on a
+	/// size-1 trailing dimension and normalize nothing — and graph softmax ops pass their own
+	/// reader-normalized axis.
+	private func softmaxNDLayer(name: String, input: String, output: String, axis: Int) -> Data {
 		let parameters = CoreMLProtobufEncoder.message { parameters in
-			CoreMLProtobufEncoder.appendVarintField(1, value: 1, to: &parameters)
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(axis), to: &parameters)
 		}
 		return CoreMLProtobufEncoder.message { layer in
-			CoreMLProtobufEncoder.appendStringField(1, value: "classifier_softmax", to: &layer)
+			CoreMLProtobufEncoder.appendStringField(1, value: name, to: &layer)
 			CoreMLProtobufEncoder.appendStringField(2, value: input, to: &layer)
 			CoreMLProtobufEncoder.appendStringField(3, value: output, to: &layer)
 			CoreMLProtobufEncoder.appendMessageField(950, value: parameters, to: &layer)
@@ -532,6 +534,12 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			try linearLayer(for: operation, weightsByName: weightsByName, weights: weights)
 		case .add:
 			try addLayer(for: operation)
+		case .maxPool2D:
+			try maxPoolLayer(for: operation)
+		case .concatenate:
+			try concatenateLayer(for: operation)
+		case .softmax:
+			try softmaxLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
 				operation: operation.name,
@@ -792,6 +800,61 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			CoreMLProtobufEncoder.appendVarintField(60, value: 1, to: &pooling)
 		}
 		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 120, parameters: pooling)
+	}
+
+	private func maxPoolLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let kernelSize = operation.attributes["kernelSize"]?.integerArrayValue, kernelSize.count == 2,
+			let strides = operation.attributes["strides"]?.integerArrayValue, strides.count == 2,
+			let padding = operation.attributes["padding"]?.integerArrayValue, padding.count == 2,
+			(kernelSize + strides).allSatisfy({ $0 > 0 }), padding.allSatisfy({ $0 >= 0 })
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "maxPool2d requires kernelSize/strides pairs of positive integers and a non-negative padding pair"
+			)
+		}
+		let pooling = CoreMLProtobufEncoder.message { pooling in
+			// PoolingLayerParams.type MAX is the proto3 default (0), so no explicit type field is written.
+			for dimension in kernelSize {
+				CoreMLProtobufEncoder.appendVarintField(10, value: UInt64(dimension), to: &pooling)
+			}
+			for stride in strides {
+				CoreMLProtobufEncoder.appendVarintField(20, value: UInt64(stride), to: &pooling)
+			}
+			CoreMLProtobufEncoder.appendMessageField(30, value: validPadding(padding), to: &pooling)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 120, parameters: pooling)
+	}
+
+	/// The classic concat layer joins its inputs along the channel axis (third-from-last), which is
+	/// axis 1 of the rank-4 `[1, C, H, W]` activations the reader produces — and the only axis the
+	/// reader accepts, re-checked here so a hand-built graph cannot smuggle a different one through.
+	private func concatenateLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count >= 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "concat requires at least two activation inputs"
+			)
+		}
+		guard operation.attributes["axis"]?.integerValue == 1 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "concat currently supports the channel axis (1) only"
+			)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 320, parameters: Data())
+	}
+
+	private func softmaxLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let axis = operation.attributes["axis"]?.integerValue, axis >= 0 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "softmax requires a non-negative axis (the reader normalizes negative axes)"
+			)
+		}
+		return softmaxNDLayer(name: operation.name, input: operation.inputs[0], output: operation.outputs[0].name, axis: axis)
 	}
 
 	private func flattenLayer(for operation: NativeModelOperation) throws -> Data {
