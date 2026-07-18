@@ -86,7 +86,8 @@ public struct ONNXModelReader {
 
 		let nativeGraph = NativeModelGraph(
 			formatVersion: NativeModelGraph.currentFormatVersion,
-			producer: NativeModelGraphProducer(name: "onnx", version: model.firstString(2) ?? "unknown"),
+			// ModelProto.producer_version is field 3 (field 2 is producer_name).
+			producer: NativeModelGraphProducer(name: "onnx", version: model.firstString(3) ?? "unknown"),
 			inputs: [lowering.tensor(named: realInputs[0].name)],
 			weights: lowering.weights,
 			operations: lowering.operations,
@@ -172,10 +173,16 @@ public struct ONNXModelReader {
 		if let typeData = fields.firstBytes(2),
 			let tensorType = try ProtobufReader.fields(in: typeData).firstBytes(1),
 			let shapeData = try ProtobufReader.fields(in: tensorType).firstBytes(2) {
-			for dimData in try ProtobufReader.fields(in: shapeData).allBytes(1) {
+			for (index, dimData) in try ProtobufReader.fields(in: shapeData).allBytes(1).enumerated() {
 				let dimValue = try ProtobufReader.fields(in: dimData).firstVarint(1) ?? 0
-				// A dim_value of 0 denotes a symbolic dimension (dim_param); fix a dynamic batch to 1.
-				shape.append(dimValue == 0 ? 1 : Int(bitPattern: UInt(dimValue)))
+				// dim_value 0 denotes a symbolic dimension (dim_param). Coerce a symbolic batch (first
+				// dim) to 1, but leave any other symbolic dim as 0 so `seedInput` rejects a model with
+				// dynamic spatial dimensions rather than silently converting it as size 1.
+				if dimValue == 0 {
+					shape.append(index == 0 ? 1 : 0)
+				} else {
+					shape.append(Int(bitPattern: UInt(dimValue)))
+				}
 			}
 		}
 		return ONNXValueInfo(name: name, shape: shape)
@@ -341,6 +348,15 @@ public struct ONNXModelReader {
 			guard pads.count == 4, pads[0] == pads[2], pads[1] == pads[3] else {
 				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "asymmetric padding \(pads)")
 			}
+			// Bound the spatial dimensions and attributes so the output-size arithmetic below cannot
+			// overflow on crafted values (all products then stay well within Int).
+			let dimensionLimit = 1 << 20
+			guard inputShape[2] <= dimensionLimit, inputShape[3] <= dimensionLimit,
+				kernelShape.allSatisfy({ $0 <= dimensionLimit }),
+				dilations.allSatisfy({ $0 <= dimensionLimit }),
+				pads.allSatisfy({ $0 <= dimensionLimit }) else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Conv dimensions exceed the supported range")
+			}
 			let outH = (inputShape[2] + 2 * pads[0] - dilations[0] * (kernelShape[0] - 1) - 1) / strides[0] + 1
 			let outW = (inputShape[3] + 2 * pads[1] - dilations[1] * (kernelShape[1] - 1) - 1) / strides[1] + 1
 			let outputShape = [inputShape[0], kernel.dims[0], outH, outW]
@@ -400,6 +416,11 @@ public struct ONNXModelReader {
 			guard let outputShape = shapes[node.inputs[0]] else {
 				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "unknown input shape")
 			}
+			// The native elementwise add has no broadcasting; require both operands to be activations of
+			// the same shape (the residual-connection form) rather than silently mishandling a broadcast.
+			guard let rhsShape = shapes[node.inputs[1]], rhsShape == outputShape else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Add requires two same-shape activation inputs (broadcasting is not supported)")
+			}
 			try record(node, kind: .add, activationInputs: [node.inputs[0], node.inputs[1]], weightInputs: [], attributes: [:], outputShape: outputShape)
 		}
 
@@ -416,7 +437,15 @@ public struct ONNXModelReader {
 				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "unknown input shape")
 			}
 			// Both Reshape([N, -1]/[N, C, 1, 1]->[N, C]) and Flatten(axis=1) collapse to [batch, features].
-			let features = inputShape[1...].reduce(1, *)
+			// Multiply with overflow reporting: a crafted shape must throw, not trap.
+			var features = 1
+			for dimension in inputShape[1...] {
+				let (product, overflow) = features.multipliedReportingOverflow(by: dimension)
+				guard !overflow else {
+					throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "flatten feature count overflows")
+				}
+				features = product
+			}
 			try record(node, kind: .flatten, activationInputs: [node.inputs[0]], weightInputs: [], attributes: ["axis": .integer(1)],
 				outputShape: [inputShape[0], features])
 		}
