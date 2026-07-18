@@ -33,6 +33,9 @@ struct ModelImportView: View {
 
 	@StateObject private var acquisitionCoordinator = ModelAcquisitionCoordinator(
 		allowedTypes: [
+			// The app-exported package UTI (conforms to com.apple.package) so the Files picker treats
+			// an .aiagraph directory as one selectable item instead of a browsable folder.
+			UTType("com.aiarcheology.native-model-graph"),
 			UTType(filenameExtension: "aiagraph"),
 			UTType("com.apple.coreml.mlmodel"),
 			UTType("com.apple.coreml.mlpackage"),
