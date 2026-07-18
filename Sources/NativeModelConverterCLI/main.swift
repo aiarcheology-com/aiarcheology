@@ -22,7 +22,9 @@ struct NativeModelConverterCLI {
 		if let report = invocation.report {
 			let reportURL = URL(fileURLWithPath: report).standardizedFileURL
 			if reportURL == outputURL.standardizedFileURL || reportURL == sidecarURL.standardizedFileURL {
-				FileHandle.standardError.write(Data("report path must differ from the output model and its metadata sidecar\n".utf8))
+				FileHandle.standardError.write(
+					Data("report path must differ from the output model and its metadata sidecar\n".utf8)
+				)
 				exit(64)
 			}
 		}

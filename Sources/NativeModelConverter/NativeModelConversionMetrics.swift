@@ -233,7 +233,10 @@ public struct NativeModelConverter: Sendable {
 			throw error
 		} catch {
 			NativeModelConversionInstrumentation.unexpected(rawDescription: error.localizedDescription)
-			let conversionError = NativeModelConversionError.unexpected(phase: .preparing, message: NativeModelConversionError.unexpectedMessage)
+			let conversionError = NativeModelConversionError.unexpected(
+				phase: .preparing,
+				message: NativeModelConversionError.unexpectedMessage
+			)
 			report(NativeModelConversionProgress(phase: .failed))
 			NativeModelConversionInstrumentation.error(code: conversionError.diagnostic.code, phase: conversionError.diagnostic.phase)
 			NativeModelConversionInstrumentation.end("Native model conversion", signpostID: conversionSignpostID)

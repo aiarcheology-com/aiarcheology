@@ -727,7 +727,7 @@ public enum NativeModelCoreMLEmissionError: Error, Equatable, LocalizedError, Se
 		case .weightDataOutOfBounds(let name, let offset, let byteCount, let availableByteCount):
 			// Phrased to avoid computing `offset + byteCount`, which can overflow UInt64 for a
 			// malformed weight and would trap while rendering this diagnostic.
-			"Weight '\(name)' needs \(byteCount) bytes starting at offset \(offset), but weights.bin has \(availableByteCount) bytes."
+			"Weight '\(name)' needs \(byteCount) bytes at offset \(offset); weights.bin has \(availableByteCount)."
 		case .invalidConvolution(let operation, let reason):
 			"Convolution '\(operation)' is invalid: \(reason)."
 		case .invalidOperation(let operation, let reason):

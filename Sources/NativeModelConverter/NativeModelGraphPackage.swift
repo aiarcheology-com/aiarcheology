@@ -116,12 +116,7 @@ public actor NativeModelGraphPackageReader {
 	) throws -> NativeModelGraphPackage {
 		try cancellationCheck?()
 		progress?(NativeModelConversionProgress(phase: .readingManifest))
-		// `attributesOfItem` uses lstat semantics, so a symbolic-link package root is caught here
-		// rather than silently followed by the directory check below. Only the final path component
-		// is inspected, so symlinked parents (e.g. macOS `/var` → `/private/var`) do not trip it.
-		if (try? FileManager.default.attributesOfItem(atPath: packageURL.path)[.type] as? FileAttributeType) == .typeSymbolicLink {
-			throw NativeModelGraphPackageError.symbolicLinkNotAllowed(packageURL.lastPathComponent)
-		}
+		try rejectIfSymbolicLink(packageURL)
 		guard isDirectory(packageURL) else {
 			throw NativeModelGraphPackageError.notDirectory(packageURL.lastPathComponent)
 		}
@@ -252,6 +247,15 @@ public actor NativeModelGraphPackageReader {
 	}
 
 	private let limits: NativeModelGraphPackageLimits
+
+	/// Rejects a symbolic-link package root. `attributesOfItem` uses lstat semantics, so only the
+	/// final path component is inspected; symlinked parents (e.g. macOS `/var`) do not trip it.
+	private func rejectIfSymbolicLink(_ url: URL) throws {
+		let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+		if attributes?[.type] as? FileAttributeType == .typeSymbolicLink {
+			throw NativeModelGraphPackageError.symbolicLinkNotAllowed(url.lastPathComponent)
+		}
+	}
 
 	private func isDirectory(_ url: URL) -> Bool {
 		var isDirectory: ObjCBool = false
