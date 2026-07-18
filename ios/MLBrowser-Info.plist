@@ -35,19 +35,6 @@
 			</array>
 		</dict>
 	</array>
-	<key>CFBundleDocumentTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeName</key>
-			<string>AI Archeology native model graph</string>
-			<key>LSHandlerRank</key>
-			<string>Owner</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>com.aiarcheology.native-model-graph</string>
-			</array>
-		</dict>
-	</array>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
