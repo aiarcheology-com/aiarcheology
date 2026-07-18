@@ -63,6 +63,13 @@ public struct ONNXModelReader {
 		}
 		let graph = try ProtobufReader.fields(in: graphData)
 
+		// ModelProto.opset_import (field 8) fixes the operator-set semantics. ONNX Softmax's normalization
+		// axis changed at opset 13, so a missing default-domain entry would force a guess that could
+		// convert a model silently wrong — reject it rather than assume a version.
+		guard let opsetVersion = try defaultDomainOpsetVersion(model) else {
+			throw ONNXModelReaderError.invalidModel("no default-domain opset_import entry")
+		}
+
 		let initializers = try graph.allBytes(5).map(parseTensor)
 		let initializersByName = Dictionary(initializers.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
 		let nodes = try graph.allBytes(1).map(parseNode)
@@ -78,7 +85,7 @@ public struct ONNXModelReader {
 			throw ONNXModelReaderError.invalidModel("expected exactly one model output, found \(outputs.count)")
 		}
 
-		var lowering = Lowering(initializers: initializersByName)
+		var lowering = Lowering(initializers: initializersByName, opsetVersion: opsetVersion)
 		try lowering.seedInput(realInputs[0])
 		for node in nodes {
 			try lowering.lower(node)
@@ -91,12 +98,30 @@ public struct ONNXModelReader {
 			inputs: [lowering.tensor(named: realInputs[0].name)],
 			weights: lowering.weights,
 			operations: lowering.operations,
-			outputs: [outputs[0].name]
+			// A graph that ends in Identity/Dropout emits no op for its declared output; resolve the name
+			// through the alias table so the emitted output points at the real upstream tensor.
+			outputs: [lowering.resolve(outputs[0].name)]
 		)
 		return ONNXConversionInput(graph: nativeGraph, weights: lowering.weightBlob)
 	}
 
 	// MARK: - ONNX message parsing
+
+	/// The version of the default ONNX operator set. `ModelProto.opset_import` is repeated field 8; each
+	/// `OperatorSetIdProto` carries a `domain` (field 1) and `version` (field 2), and an absent/empty or
+	/// "ai.onnx" domain is the default set. Returns nil when no default-domain entry is present.
+	private func defaultDomainOpsetVersion(_ model: [(field: Int, value: ProtobufValue)]) throws -> Int? {
+		for entry in model.allBytes(8) {
+			let opset = try ProtobufReader.fields(in: entry)
+			let domain = opset.firstString(1) ?? ""
+			if domain.isEmpty || domain == "ai.onnx" {
+				// A crafted version beyond Int.max must not trap; clamp it — only "before/after opset 13"
+				// ever matters, so any absurdly large version behaves as the newest semantics.
+				return Int(exactly: opset.firstVarint(2) ?? 0) ?? Int.max
+			}
+		}
+		return nil
+	}
 
 	private struct ONNXTensor {
 		let name: String
@@ -107,9 +132,11 @@ public struct ONNXModelReader {
 
 	private struct ONNXNode {
 		let opType: String
-		let inputs: [String]
+		// Mutable so `lower` can substitute alias-resolved input names before dispatching to an op lowerer.
+		var inputs: [String]
 		let outputs: [String]
 		let name: String
+		let domain: String
 		let attributes: [String: ONNXAttribute]
 	}
 
@@ -162,6 +189,8 @@ public struct ONNXModelReader {
 			inputs: inputs,
 			outputs: outputs,
 			name: fields.firstString(3) ?? (outputs.first ?? "node"),
+			// NodeProto.domain is field 7; an absent/empty domain is the default "ai.onnx" operator set.
+			domain: fields.firstString(7) ?? "",
 			attributes: attributes
 		)
 	}
@@ -192,19 +221,31 @@ public struct ONNXModelReader {
 
 	private struct Lowering {
 		let initializers: [String: ONNXTensor]
+		// The default-domain opset version, retained so opset-sensitive ops (e.g. Softmax at opset 13) can
+		// branch on it as coverage grows.
+		let opsetVersion: Int
 		var operations: [NativeModelOperation] = []
 		var weights: [NativeModelWeight] = []
 		var weightBlob = Data()
 		private var shapes: [String: [Int]] = [:]
 		private var shapeTensors: Set<String> = []
 		private var emittedWeights: Set<String> = []
+		// Maps a pass-through op output (Identity, inference-mode Dropout) to its upstream tensor. Targets
+		// are stored already-resolved, so a single lookup collapses any chain of aliases.
+		private var aliases: [String: String] = [:]
 
-		init(initializers: [String: ONNXTensor]) {
+		init(initializers: [String: ONNXTensor], opsetVersion: Int) {
 			self.initializers = initializers
+			self.opsetVersion = opsetVersion
 		}
 
 		func tensor(named name: String) -> NativeModelTensor {
 			NativeModelTensor(name: name, dataType: .float32, shape: shapes[name] ?? [])
+		}
+
+		/// Resolves a tensor name through the alias table. A name that was never aliased maps to itself.
+		func resolve(_ name: String) -> String {
+			aliases[name] ?? name
 		}
 
 		mutating func seedInput(_ input: ONNXValueInfo) throws {
@@ -243,6 +284,44 @@ public struct ONNXModelReader {
 		}
 
 		mutating func lower(_ node: ONNXNode) throws {
+			// Substitute alias-resolved input names first so every downstream lookup (shapes, initializers,
+			// recorded op inputs) sees the real upstream tensor. Aliases store their final target, so a
+			// single hop is always enough.
+			var node = node
+			node.inputs = node.inputs.map { aliases[$0] ?? $0 }
+
+			// A node outside the default operator set is a custom op: one named e.g. "Softmax" in another
+			// domain must NOT be given standard ONNX semantics, so reject it rather than misconvert.
+			guard node.domain.isEmpty || node.domain == "ai.onnx" else {
+				throw ONNXModelReaderError.unsupportedOperation("\(node.domain).\(node.opType)")
+			}
+
+			// Identity and inference-mode Dropout are pure pass-throughs: alias the output to the resolved
+			// input and emit nothing. This runs before the `consumesActivation` guard below because an
+			// Identity/Dropout over an *initializer* has no activation input and would otherwise be folded
+			// into the shape-tensor set, dropping the alias a downstream weight lookup relies on.
+			switch node.opType {
+			case "Identity":
+				guard let input = node.inputs.first, let output = node.outputs.first else {
+					throw ONNXModelReaderError.invalidModel("Identity '\(node.name)' requires an input and an output")
+				}
+				aliases[output] = input
+				return
+			case "Dropout":
+				// A third `training_mode` input means dropout is active and no longer the identity.
+				guard node.inputs.count <= 2 else {
+					throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Dropout with a training_mode input")
+				}
+				// The optional second (mask) output is discarded; only the data output aliases the input.
+				guard let input = node.inputs.first, let output = node.outputs.first else {
+					throw ONNXModelReaderError.invalidModel("Dropout '\(node.name)' requires an input and an output")
+				}
+				aliases[output] = input
+				return
+			default:
+				break
+			}
+
 			// Shape-metadata ops (and any op that reads only shape tensors/constants) don't transform
 			// activations. A classifier's dynamic flatten is emitted as Shape -> Gather -> Unsqueeze ->
 			// Concat -> Reshape to preserve a symbolic batch; fold that whole subgraph away and treat the

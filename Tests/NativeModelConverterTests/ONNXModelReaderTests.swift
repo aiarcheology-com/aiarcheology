@@ -199,6 +199,137 @@ final class ONNXModelReaderTests: XCTestCase {
 		}
 	}
 
+	// MARK: - Opset, node domain, and pass-through (Identity/Dropout) aliasing
+
+	func testRead_dropoutBetweenConvAndRelu_isAliasedAway() throws {
+		// input --Conv--> c --Dropout(data + mask)--> d --Relu--> y. Inference-mode Dropout is the
+		// identity, so both its outputs fold away and Relu must read the conv output directly.
+		let kernel = onnxTensor(name: "w", dims: [1, 1, 2, 2], floats: [1, 1, 1, 1])
+		let conv = onnxNode(op: "Conv", inputs: ["x", "w"], outputs: ["c"], name: "conv", attributes: [
+			onnxIntsAttr(name: "kernel_shape", ints: [2, 2]),
+			onnxIntsAttr(name: "strides", ints: [1, 1]),
+			onnxIntsAttr(name: "pads", ints: [0, 0, 0, 0]),
+			onnxIntsAttr(name: "dilations", ints: [1, 1]),
+			onnxIntAttr(name: "group", value: 1)
+		])
+		let dropout = onnxNode(op: "Dropout", inputs: ["c"], outputs: ["d", "mask"], name: "drop")
+		let relu = onnxNode(op: "Relu", inputs: ["d"], outputs: ["y"], name: "relu")
+		let model = onnxModel(
+			nodes: [conv, dropout, relu], initializers: [kernel],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 1, 3, 3]), onnxValueInfo(name: "w", shape: [1, 1, 2, 2])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 1, 2, 2])]
+		)
+
+		let conversion = try ONNXModelReader().read(data: model)
+
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.convolution2D, .relu])
+		XCTAssertEqual(conversion.graph.operations[1].inputs.first, conversion.graph.operations[0].outputs[0].name)
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_identityChain_resolvesThroughBothHops() throws {
+		let id1 = onnxNode(op: "Identity", inputs: ["x"], outputs: ["a"], name: "id1")
+		let id2 = onnxNode(op: "Identity", inputs: ["a"], outputs: ["b"], name: "id2")
+		let relu = onnxNode(op: "Relu", inputs: ["b"], outputs: ["y"], name: "relu")
+		let model = onnxModel(
+			nodes: [id1, id2, relu], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3])]
+		)
+
+		let conversion = try ONNXModelReader().read(data: model)
+
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.relu])
+		// Both Identity hops collapse: Relu reads the model input directly.
+		XCTAssertEqual(conversion.graph.operations[0].inputs, ["x"])
+		XCTAssertEqual(conversion.graph.outputs, ["y"])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_trailingIdentityOutput_resolvesToUpstreamTensor() throws {
+		let relu = onnxNode(op: "Relu", inputs: ["x"], outputs: ["r"], name: "relu")
+		let identity = onnxNode(op: "Identity", inputs: ["r"], outputs: ["y"], name: "id")
+		let model = onnxModel(
+			nodes: [relu, identity], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3])]
+		)
+
+		let conversion = try ONNXModelReader().read(data: model)
+
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.relu])
+		// The declared output "y" is the trailing Identity's output; it must resolve to Relu's tensor "r".
+		XCTAssertEqual(conversion.graph.outputs, ["r"])
+		XCTAssertEqual(conversion.graph.outputs, [conversion.graph.operations[0].outputs[0].name])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_dropoutWithTrainingModeInput_isRejected() throws {
+		// A third `training_mode` input means dropout is active — not the identity — so it is rejected.
+		let dropout = onnxNode(op: "Dropout", inputs: ["x", "ratio", "training_mode"], outputs: ["y"], name: "drop")
+		let model = onnxModel(
+			nodes: [dropout], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_customDomainNode_isRejectedAsUnsupportedOperation() throws {
+		// A "Relu" in a custom domain is a different op; standard ReLU semantics must not be assumed.
+		let node = onnxNode(op: "Relu", inputs: ["x"], outputs: ["y"], name: "custom", domain: "com.example")
+		let model = onnxModel(
+			nodes: [node], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedOperation(let name) = error else {
+				return XCTFail("Expected unsupportedOperation, got \(error)")
+			}
+			XCTAssertTrue(name.contains("com.example"), name)
+		}
+	}
+
+	func testRead_oversizedOpsetVersion_doesNotTrap() throws {
+		// An opset version beyond Int.max must clamp (newest semantics), not trap on conversion.
+		let opset = CoreMLProtobufEncoder.message { opset in
+			CoreMLProtobufEncoder.appendVarintField(2, value: UInt64.max, to: &opset)
+		}
+		let graph = CoreMLProtobufEncoder.message { graph in
+			CoreMLProtobufEncoder.appendMessageField(1, value: onnxNode(op: "Relu", inputs: ["x"], outputs: ["y"], name: "relu"), to: &graph)
+			CoreMLProtobufEncoder.appendMessageField(11, value: onnxValueInfo(name: "x", shape: [1, 3]), to: &graph)
+			CoreMLProtobufEncoder.appendMessageField(12, value: onnxValueInfo(name: "y", shape: [1, 3]), to: &graph)
+		}
+		let model = CoreMLProtobufEncoder.message { model in
+			CoreMLProtobufEncoder.appendMessageField(7, value: graph, to: &model)
+			CoreMLProtobufEncoder.appendMessageField(8, value: opset, to: &model)
+		}
+
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.relu])
+	}
+
+	func testRead_missingOpsetImport_isRejected() throws {
+		let model = onnxModel(
+			nodes: [onnxNode(op: "Relu", inputs: ["x"], outputs: ["y"], name: "relu")],
+			initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3])],
+			opsetVersion: nil
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.invalidModel(let reason) = error else {
+				return XCTFail("Expected invalidModel, got \(error)")
+			}
+			XCTAssertTrue(reason.contains("opset_import"), reason)
+		}
+	}
+
 	private func clipModel(min: Float, max: Float) -> Data {
 		let clip = onnxNode(op: "Clip", inputs: ["x"], outputs: ["y"], name: "clip", attributes: [
 			onnxFloatAttr(name: "min", value: min),
@@ -245,13 +376,14 @@ final class ONNXModelReaderTests: XCTestCase {
 		}
 	}
 
-	private func onnxNode(op: String, inputs: [String], outputs: [String], name: String, attributes: [Data] = []) -> Data {
+	private func onnxNode(op: String, inputs: [String], outputs: [String], name: String, attributes: [Data] = [], domain: String = "") -> Data {
 		CoreMLProtobufEncoder.message { node in
 			for input in inputs { CoreMLProtobufEncoder.appendStringField(1, value: input, to: &node) }
 			for output in outputs { CoreMLProtobufEncoder.appendStringField(2, value: output, to: &node) }
 			CoreMLProtobufEncoder.appendStringField(3, value: name, to: &node)
 			CoreMLProtobufEncoder.appendStringField(4, value: op, to: &node)
 			for attribute in attributes { CoreMLProtobufEncoder.appendMessageField(5, value: attribute, to: &node) }
+			if !domain.isEmpty { CoreMLProtobufEncoder.appendStringField(7, value: domain, to: &node) } // NodeProto.domain
 		}
 	}
 
@@ -283,7 +415,7 @@ final class ONNXModelReaderTests: XCTestCase {
 		}
 	}
 
-	private func onnxModel(nodes: [Data], initializers: [Data], inputs: [Data], outputs: [Data]) -> Data {
+	private func onnxModel(nodes: [Data], initializers: [Data], inputs: [Data], outputs: [Data], opsetVersion: Int? = 12) -> Data {
 		let graph = CoreMLProtobufEncoder.message { graph in
 			for node in nodes { CoreMLProtobufEncoder.appendMessageField(1, value: node, to: &graph) }
 			for initializer in initializers { CoreMLProtobufEncoder.appendMessageField(5, value: initializer, to: &graph) }
@@ -292,6 +424,14 @@ final class ONNXModelReaderTests: XCTestCase {
 		}
 		return CoreMLProtobufEncoder.message { model in
 			CoreMLProtobufEncoder.appendMessageField(7, value: graph, to: &model)
+			// ModelProto.opset_import is repeated field 8; the reader requires a default-domain entry. Pass
+			// opsetVersion: nil to build a model deliberately missing it.
+			if let opsetVersion {
+				let opset = CoreMLProtobufEncoder.message { opset in
+					CoreMLProtobufEncoder.appendVarintField(2, value: UInt64(opsetVersion), to: &opset) // version; domain omitted = default
+				}
+				CoreMLProtobufEncoder.appendMessageField(8, value: opset, to: &model)
+			}
 		}
 	}
 
