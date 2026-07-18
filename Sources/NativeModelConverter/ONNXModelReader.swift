@@ -327,6 +327,7 @@ public struct ONNXModelReader {
 			case "Clip": try lowerClip(node)
 			case "Add": try lowerAdd(node)
 			case "GlobalAveragePool": try lowerGlobalAveragePool(node)
+			case "MaxPool": try lowerMaxPool(node)
 			case "Reshape", "Flatten": try lowerFlatten(node)
 			case "Gemm": try lowerGemm(node)
 			default: throw ONNXModelReaderError.unsupportedOperation(node.opType)
@@ -505,6 +506,70 @@ public struct ONNXModelReader {
 			}
 			try record(node, kind: .globalAveragePool2D, activationInputs: [node.inputs[0]], weightInputs: [], attributes: [:],
 				outputShape: [inputShape[0], inputShape[1], 1, 1])
+		}
+
+		private mutating func lowerMaxPool(_ node: ONNXNode) throws {
+			// ONNX MaxPool may declare a second `Indices` output (the argmax positions). Core ML pooling
+			// only produces the pooled values, so a model that consumes those indices cannot be converted.
+			guard node.outputs.count == 1 else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool with an Indices output")
+			}
+			guard let inputShape = shapes[node.inputs[0]], inputShape.count == 4 else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "MaxPool expects a rank-4 NCHW input")
+			}
+			// `auto_pad` (SAME_UPPER/SAME_LOWER/VALID) computes padding implicitly; assuming zero pads
+			// would change the feature maps, so reject anything but explicit NOTSET padding.
+			if let autoPad = node.attributes["auto_pad"]?.string, autoPad != "NOTSET" {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool auto_pad=\(autoPad)")
+			}
+			// `ceil_mode` rounds the output size up (the default floor-division below assumes down) and
+			// `storage_order` transposes the argmax layout; both change results the native op can't match.
+			if let ceilMode = node.attributes["ceil_mode"]?.int, ceilMode != 0 {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool ceil_mode=\(ceilMode)")
+			}
+			if let storageOrder = node.attributes["storage_order"]?.int, storageOrder != 0 {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool storage_order=\(storageOrder)")
+			}
+			// Dilated pooling spreads the window across the input; the native pooling op is dense only.
+			if let dilations = node.attributes["dilations"]?.ints, dilations != [1, 1] {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool dilations=\(dilations)")
+			}
+			// Unlike Conv, MaxPool has no kernel initializer to infer the window from, so `kernel_shape` is
+			// required — without it the pool size is undefined.
+			guard let kernelShape = node.attributes["kernel_shape"]?.ints, kernelShape.count == 2,
+				kernelShape[0] > 0, kernelShape[1] > 0 else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool requires a 2-D positive kernel_shape")
+			}
+			let strides = node.attributes["strides"]?.ints ?? [1, 1]
+			let pads = node.attributes["pads"]?.ints ?? [0, 0, 0, 0]
+			guard strides.count == 2, strides[0] > 0, strides[1] > 0 else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool requires 2-D positive strides")
+			}
+			// ONNX pads are [top, left, bottom, right]; the emitter takes symmetric [padH, padW].
+			guard pads.count == 4, pads[0] == pads[2], pads[1] == pads[3], pads.allSatisfy({ $0 >= 0 }) else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "asymmetric padding \(pads)")
+			}
+			// Bound the spatial dimensions and attributes so the output-size arithmetic below cannot
+			// overflow on crafted values (all products then stay well within Int).
+			let dimensionLimit = 1 << 20
+			guard inputShape[2] <= dimensionLimit, inputShape[3] <= dimensionLimit,
+				kernelShape.allSatisfy({ $0 <= dimensionLimit }),
+				pads.allSatisfy({ $0 <= dimensionLimit }) else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool dimensions exceed the supported range")
+			}
+			let outH = (inputShape[2] + 2 * pads[0] - kernelShape[0]) / strides[0] + 1
+			let outW = (inputShape[3] + 2 * pads[1] - kernelShape[1]) / strides[1] + 1
+			// A kernel larger than the padded input yields a non-positive output size; reject here for a
+			// clear diagnostic rather than emitting an invalid tensor the graph validator would flag later.
+			guard outH > 0, outW > 0 else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "MaxPool kernel is larger than the padded input")
+			}
+			// maxPool2D's IR signature is exactly kernelSize/strides/padding — no dilations/groups.
+			try record(node, kind: .maxPool2D, activationInputs: [node.inputs[0]], weightInputs: [], attributes: [
+				"kernelSize": .integers(kernelShape),
+				"strides": .integers(strides),
+				"padding": .integers([pads[0], pads[1]])
+			], outputShape: [inputShape[0], inputShape[1], outH, outW])
 		}
 
 		private mutating func lowerFlatten(_ node: ONNXNode) throws {

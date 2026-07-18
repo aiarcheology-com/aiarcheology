@@ -199,6 +199,130 @@ final class ONNXModelReaderTests: XCTestCase {
 		}
 	}
 
+	// MARK: - MaxPool lowering
+
+	func testRead_maxPoolResNetStem_lowersAndValidates() throws {
+		// ResNet stem: [1,64,112,112] --MaxPool k3 s2 p1--> [1,64,56,56].
+		let model = maxPoolModel(inputShape: [1, 64, 112, 112], kernel: [3, 3], strides: [2, 2], pads: [1, 1, 1, 1])
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.maxPool2D])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 64, 56, 56])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_maxPoolSqueezeNetStem_lowersAndValidates() throws {
+		// SqueezeNet stem: [1,64,224,224] --MaxPool k3 s2 p0--> 224 -> (224-3)/2+1 = 111.
+		let model = maxPoolModel(inputShape: [1, 64, 224, 224], kernel: [3, 3], strides: [2, 2], pads: [0, 0, 0, 0])
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.maxPool2D])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 64, 111, 111])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_maxPoolWithCeilMode_isRejected() throws {
+		let model = maxPoolModel(inputShape: [1, 64, 112, 112], kernel: [3, 3], strides: [2, 2], pads: [1, 1, 1, 1],
+			extraAttributes: [onnxIntAttr(name: "ceil_mode", value: 1)])
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_maxPoolWithAutoPad_isRejected() throws {
+		let model = maxPoolModel(inputShape: [1, 64, 112, 112], kernel: [3, 3], strides: [2, 2], pads: [1, 1, 1, 1],
+			extraAttributes: [onnxStringAttr(name: "auto_pad", value: "SAME_UPPER")])
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_maxPoolWithDilations_isRejected() throws {
+		let model = maxPoolModel(inputShape: [1, 64, 112, 112], kernel: [3, 3], strides: [2, 2], pads: [1, 1, 1, 1],
+			extraAttributes: [onnxIntsAttr(name: "dilations", ints: [2, 2])])
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_maxPoolWithAsymmetricPads_isRejected() throws {
+		let model = maxPoolModel(inputShape: [1, 64, 112, 112], kernel: [3, 3], strides: [2, 2], pads: [1, 0, 2, 0])
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_maxPoolWithIndicesOutput_isRejected() throws {
+		// A declared second (Indices) output can't be reproduced by Core ML pooling, so it is rejected.
+		let maxPool = onnxNode(op: "MaxPool", inputs: ["x"], outputs: ["y", "indices"], name: "pool", attributes: [
+			onnxIntsAttr(name: "kernel_shape", ints: [3, 3]),
+			onnxIntsAttr(name: "strides", ints: [2, 2]),
+			onnxIntsAttr(name: "pads", ints: [1, 1, 1, 1])
+		])
+		let model = onnxModel(
+			nodes: [maxPool], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 64, 112, 112])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 64, 56, 56])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_maxPoolWithoutKernelShape_isRejected() throws {
+		// MaxPool has no kernel initializer to fall back on, so a missing kernel_shape is rejected.
+		let maxPool = onnxNode(op: "MaxPool", inputs: ["x"], outputs: ["y"], name: "pool", attributes: [
+			onnxIntsAttr(name: "strides", ints: [2, 2]),
+			onnxIntsAttr(name: "pads", ints: [1, 1, 1, 1])
+		])
+		let model = onnxModel(
+			nodes: [maxPool], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 64, 112, 112])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 64, 56, 56])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_maxPoolKernelLargerThanInput_isRejected() throws {
+		// [1,1,2,2] with a 5x5 kernel and no padding gives (2-5)/1+1 = -2 <= 0; reject rather than trap.
+		let model = maxPoolModel(inputShape: [1, 1, 2, 2], kernel: [5, 5], strides: [1, 1], pads: [0, 0, 0, 0])
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.shapeInferenceFailed = error else {
+				return XCTFail("Expected shapeInferenceFailed, got \(error)")
+			}
+		}
+	}
+
+	private func maxPoolModel(inputShape: [Int], kernel: [Int], strides: [Int], pads: [Int], extraAttributes: [Data] = []) -> Data {
+		let outputShape = [
+			inputShape[0], inputShape[1],
+			max((inputShape[2] + 2 * pads[0] - kernel[0]) / strides[0] + 1, 1),
+			max((inputShape[3] + 2 * pads[1] - kernel[1]) / strides[1] + 1, 1)
+		]
+		let maxPool = onnxNode(op: "MaxPool", inputs: ["x"], outputs: ["y"], name: "pool", attributes: [
+			onnxIntsAttr(name: "kernel_shape", ints: kernel),
+			onnxIntsAttr(name: "strides", ints: strides),
+			onnxIntsAttr(name: "pads", ints: pads)
+		] + extraAttributes)
+		return onnxModel(
+			nodes: [maxPool], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: inputShape)],
+			outputs: [onnxValueInfo(name: "y", shape: outputShape)]
+		)
+	}
+
 	// MARK: - Opset, node domain, and pass-through (Identity/Dropout) aliasing
 
 	func testRead_dropoutBetweenConvAndRelu_isAliasedAway() throws {
