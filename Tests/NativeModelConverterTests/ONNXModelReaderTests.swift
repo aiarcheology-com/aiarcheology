@@ -600,6 +600,23 @@ final class ONNXModelReaderTests: XCTestCase {
 		}
 	}
 
+	func testRead_emptyNodeName_fallsBackToOutputName() throws {
+		// Caffe-era exporters (the zoo's SqueezeNet) write an empty node name, which the graph
+		// validator would reject; the reader must substitute the output name for empty, not just
+		// absent, names.
+		let relu = onnxNode(op: "Relu", inputs: ["x"], outputs: ["y"], name: "")
+		let model = onnxModel(
+			nodes: [relu], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3])]
+		)
+
+		let conversion = try ONNXModelReader().read(data: model)
+
+		XCTAssertEqual(conversion.graph.operations.map(\.name), ["y"])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
 	func testRead_oversizedOpsetVersion_doesNotTrap() throws {
 		// An opset version beyond Int.max must clamp (newest semantics), not trap on conversion.
 		let opset = CoreMLProtobufEncoder.message { opset in

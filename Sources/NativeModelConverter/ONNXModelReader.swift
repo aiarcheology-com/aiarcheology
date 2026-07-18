@@ -184,11 +184,14 @@ public struct ONNXModelReader {
 			if !ints.isEmpty { attribute.ints = ints }
 			attributes[attrName] = attribute
 		}
+		// Caffe-era exporters (e.g. the zoo's SqueezeNet) write nodes with an *empty* name field, which
+		// the graph validator rejects; fall back to the first output name for empty as well as absent.
+		let declaredName = fields.firstString(3) ?? ""
 		return ONNXNode(
 			opType: fields.firstString(4) ?? "",
 			inputs: inputs,
 			outputs: outputs,
-			name: fields.firstString(3) ?? (outputs.first ?? "node"),
+			name: declaredName.isEmpty ? (outputs.first ?? "node") : declaredName,
 			// NodeProto.domain is field 7; an absent/empty domain is the default "ai.onnx" operator set.
 			domain: fields.firstString(7) ?? "",
 			attributes: attributes
