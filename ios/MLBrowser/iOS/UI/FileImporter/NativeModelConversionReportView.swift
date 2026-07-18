@@ -105,8 +105,21 @@ struct NativeModelConversionReportView: View {
 			.toolbar {
 				ToolbarItem(placement: .topBarLeading) {
 					// Available for every state — a failed conversion has no exportable model, but its
-					// log (including the diagnostic) is exactly what a user needs to share for support.
-					ShareLink(item: logText, preview: SharePreview(L10n.Import.conversionLog))
+					// log (including the diagnostic) is exactly what a user needs to send for support.
+					// Email reuses the app's support-mail path (with its mailto: fallback); Share is the
+					// plain-text alternative when the user would rather not use mail.
+					Menu {
+						Button {
+							Task { await emailReport() }
+						} label: {
+							Label(L10n.Support.sendEmail, systemImage: "envelope")
+						}
+						ShareLink(item: logText, preview: SharePreview(L10n.Import.conversionLog)) {
+							Label(L10n.Common.share, systemImage: "square.and.arrow.up")
+						}
+					} label: {
+						Label(L10n.Support.title, systemImage: "square.and.arrow.up")
+					}
 				}
 				if report.state == .registered {
 					ToolbarItem(placement: .topBarLeading) {
@@ -172,6 +185,31 @@ struct NativeModelConversionReportView: View {
 			lines.append("  \(timestamp) — \(parts.joined(separator: " · "))")
 		}
 		return lines.joined(separator: "\n")
+	}
+
+	private var reportSubject: String {
+		"\(L10n.Support.title) — \(L10n.Import.conversionLog)"
+	}
+
+	/// Sends the log through the app's shared support-mail path, falling back to the user's default
+	/// mail app (mailto:) when no in-app composer is available — the same tiers as the settings bug
+	/// report. The plain-text Share option remains for when mail is unavailable entirely.
+	@MainActor
+	private func emailReport() async {
+		do {
+			try EmailController.shared.sendEmail(
+				subject: reportSubject,
+				body: logText,
+				to: SupportRequest.supportEmailAddress
+			)
+		} catch {
+			LoggingPolicy.warning("Mail composer unavailable (\(error)) — falling back to mailto:", logger: .ui)
+			_ = await EmailController.shared.openMailto(
+				subject: reportSubject,
+				body: logText,
+				to: SupportRequest.supportEmailAddress
+			)
+		}
 	}
 
 	private func progressDescription(_ progress: NativeModelConversionProgress) -> String {
