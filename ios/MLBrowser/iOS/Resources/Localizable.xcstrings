@@ -4617,6 +4617,18 @@
         }
       }
     },
+    "configuration.export" : {
+      "comment" : "Configuration sheet toolbar button that shares the model file",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export"
+          }
+        }
+      }
+    },
     "configuration.created" : {
       "comment" : "Created date label",
       "extractionState" : "manual",

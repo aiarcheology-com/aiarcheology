@@ -167,6 +167,7 @@ struct ConfigurationForm: View {
 	/// on appear — only natively converted imports write `native-conversion-report.json`.
 	@State private var conversionReport: NativeModelConversionImportReport?
 	@State private var isPreparingConversionExport = false
+	@State private var isPreparingModelExport = false
 	@State private var conversionSharePayload: ActivitySharePayload?
 	@State private var conversionExportError: String?
 	/// Live flash edits push to the driver via ONE in-flight task (cancel-and-replace):
@@ -211,7 +212,7 @@ struct ConfigurationForm: View {
 				deep.saveConfigurations()
 			}
 			.navigationBarTitle(L10n.Configuration.title, displayMode: .inline)
-			.navigationBarItems(trailing: dismissButton)
+			.navigationBarItems(leading: exportButton, trailing: dismissButton)
 			.task { loadConversionReport() }
 			.activityShareSheet($conversionSharePayload)
 			// A missing model or report file is a normal throw path in the exporter, so the failure
@@ -428,6 +429,45 @@ struct ConfigurationForm: View {
 		}
 		.testability(Testability.Button.configurationFormDismiss)
 		.tint(.blue)
+	}
+
+	/// Shares the model file itself, so a converted model can leave the device in a form the user
+	/// can drop into Xcode. Absent for demo models: those live in the app bundle and are not the
+	/// user's to redistribute.
+	@ViewBuilder
+	private var exportButton: some View {
+		if configuration.demo.not, configuration.file != nil {
+			if isPreparingModelExport {
+				ProgressView()
+			} else {
+				Button(L10n.Configuration.export) {
+					exportModelFile()
+				}
+				.testability(Testability.Button.configurationFormExport)
+				.tint(.blue)
+			}
+		}
+	}
+
+	private func exportModelFile() {
+		guard let modelURL = configuration.file, isPreparingModelExport.not else { return }
+		isPreparingModelExport = true
+		Task {
+			defer { isPreparingModelExport = false }
+			do {
+				// Zipping a bundle is I/O-bound and unbounded in size; keep it off the main actor.
+				let exportURL = try await Task.detached(priority: .userInitiated) {
+					try ModelFileExporter.makeShareableCopy(of: modelURL)
+				}.value
+				conversionSharePayload = ActivitySharePayload(
+					items: [exportURL],
+					completion: { ModelFileExporter.removeExport(at: exportURL) }
+				)
+			} catch {
+				LoggingPolicy.error("Failed to export the model file", error: error, logger: .storage)
+				conversionExportError = error.localizedDescription
+			}
+		}
 	}
 }
 
