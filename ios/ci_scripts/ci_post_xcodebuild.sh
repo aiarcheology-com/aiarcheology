@@ -44,8 +44,14 @@ if [[ -z "${SENTRY_PROJECT:-}" ]]; then
     exit 1
 fi
 
-# Use unified upload script
+# Install sentry-cli now that we know this is an archive build that will actually use it.
+# ci_post_clone.sh deliberately skips it so test/build workflows don't download a binary they
+# never run (and can't be failed by its release host being flaky).
 SCRIPT_DIR="${0:A:h}"
+echo "📦 Ensuring sentry-cli is installed..."
+"${SCRIPT_DIR}/install_sentry_cli.sh"
+
+# Use unified upload script
 "${SCRIPT_DIR}/upload_symbols.sh" "$CI_ARCHIVE_PATH"
 
 # Create Sentry release and associate commits (best-effort)

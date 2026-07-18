@@ -42,6 +42,12 @@ struct GitSetup: ParsableCommand {
         abstract: "Performs project setup: installs tools and configures git."
     )
 
+    /// Restricts setup to the named tools. CI workflows that never archive pass
+    /// `--only swiftlint --only swiftgen`, so they don't download sentry-cli — a binary only the
+    /// archive path uses, whose download failure would otherwise fail an unrelated test build.
+    @Option(name: .long, help: "Install only the named tool (repeatable). Defaults to every tool in .tools.json.")
+    var only: [String] = []
+
     /// Check if running in CI environment
     static var isCI: Bool {
         ProcessInfo.processInfo.environment["CI"] != nil ||
@@ -75,7 +81,25 @@ struct GitSetup: ParsableCommand {
     private func setupTools() throws {
         print("📦 Checking required tools...")
 
-        let config = try ToolsManager.loadConfiguration()
+        let loadedConfiguration = try ToolsManager.loadConfiguration()
+        let selected = Set(only)
+        // Narrow the CONFIGURATION, not just the first check: every later phase (install, then the
+        // verification re-check) derives from it, so an unselected tool can't reappear in the logs
+        // and contradict --only (review).
+        let config: ToolsConfiguration
+        if selected.isEmpty {
+            config = loadedConfiguration
+        } else {
+            let unknown = selected.subtracting(Set(loadedConfiguration.tools.keys)).sorted()
+            guard unknown.isEmpty else {
+                // A typo must fail loudly: silently installing nothing would leave the build to
+                // fail later with a confusing "tool not found".
+                print("   ❌ Unknown tool(s) in --only: \(unknown.joined(separator: ", "))")
+                throw ExitCode.failure
+            }
+            print("   Restricted to: \(selected.sorted().joined(separator: ", "))")
+            config = ToolsConfiguration(tools: loadedConfiguration.tools.filter { selected.contains($0.key) })
+        }
         let results = ToolsManager.checkAllTools(config: config)
 
         var hasIssues = false

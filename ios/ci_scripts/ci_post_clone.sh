@@ -45,13 +45,20 @@ fi
 # --- Install required tools via ProjectTool ---
 # Uses .tools.json for version pinning
 # Skips git configuration in CI (detected via CI env var)
+#
+# Only swiftlint and swiftgen are installed here: every action needs them (swiftgen generates
+# L10n.swift, so the app doesn't even compile without it). sentry-cli is deliberately NOT
+# installed — it is used solely by ci_post_xcodebuild.sh for archive builds, which installs it
+# itself. Downloading it for every test/build workflow only exposed the most frequently run
+# workflows to release-host flakiness: one connection reset here aborts the whole build (this
+# script runs under `set -eo pipefail`), and the failure looks like a test failure.
 
 echo ""
 echo "📦 Running ProjectTool setup..."
 
 cd "${CI_PRIMARY_REPOSITORY_PATH:-$(git rev-parse --show-toplevel)}"
 
-if swift run --package-path Tools ProjectTool setup; then
+if swift run --package-path Tools ProjectTool setup --only swiftlint --only swiftgen; then
     echo "   ✅ ProjectTool setup completed"
 else
     echo "   ⚠️  ProjectTool setup failed, attempting manual fallback..."
@@ -112,7 +119,11 @@ else
 
         require_version "$SWIFTLINT_VERSION" "SwiftLint"
 
-        curl -fsSL -o /tmp/swiftlint.zip "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip"
+        # Retry transient network failures. THIS path is where the reported incident actually
+        # died (`curl (35) Recv failure` while fetching SwiftLint), so it needs the retries at
+        # least as much as ProjectTool's downloader does (review).
+        curl -fsSL --retry 3 --retry-connrefused --retry-delay 2 \
+            -o /tmp/swiftlint.zip "https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip"
         
         # Verification is mandatory — this installs an executable into /usr/local/bin.
         require_sha256 "$SWIFTLINT_SHA256" "SwiftLint"
@@ -141,7 +152,8 @@ else
 
         require_version "$SWIFTGEN_VERSION" "SwiftGen"
 
-        curl -fsSL -o /tmp/swiftgen.zip "https://github.com/SwiftGen/SwiftGen/releases/download/${SWIFTGEN_VERSION}/swiftgen-${SWIFTGEN_VERSION}.zip"
+        curl -fsSL --retry 3 --retry-connrefused --retry-delay 2 \
+            -o /tmp/swiftgen.zip "https://github.com/SwiftGen/SwiftGen/releases/download/${SWIFTGEN_VERSION}/swiftgen-${SWIFTGEN_VERSION}.zip"
 
         # Verification is mandatory — this installs an executable into /usr/local/bin.
         require_sha256 "$SWIFTGEN_SHA256" "SwiftGen"
@@ -162,32 +174,8 @@ else
         echo "   ✅ SwiftGen ${SWIFTGEN_VERSION} installed"
     fi
 
-    # Fallback: Install sentry-cli via direct download (version from .tools.json)
-    if ! command -v sentry-cli &> /dev/null; then
-        echo "   Installing sentry-cli fallback..."
-        SENTRY_VERSION=$(tool_field sentry-cli version)
-        SENTRY_SHA256=$(tool_field sentry-cli sha256)
-
-        require_version "$SENTRY_VERSION" "sentry-cli"
-
-        curl -fsSL -o /usr/local/bin/sentry-cli "https://github.com/getsentry/sentry-cli/releases/download/${SENTRY_VERSION}/sentry-cli-Darwin-universal"
-
-        # Verification is mandatory — this installs an executable into /usr/local/bin.
-        require_sha256 "$SENTRY_SHA256" "sentry-cli"
-        echo "   Verifying SHA256 checksum..."
-        ACTUAL_SHA256=$(shasum -a 256 /usr/local/bin/sentry-cli | awk '{print $1}')
-        if [[ "$ACTUAL_SHA256" != "$SENTRY_SHA256" ]]; then
-            echo "   ❌ SHA256 checksum mismatch!"
-            echo "      Expected: $SENTRY_SHA256"
-            echo "      Actual:   $ACTUAL_SHA256"
-            rm /usr/local/bin/sentry-cli
-            exit 1
-        fi
-        echo "   ✅ SHA256 checksum verified"
-
-        chmod +x /usr/local/bin/sentry-cli
-        echo "   ✅ sentry-cli ${SENTRY_VERSION} installed"
-    fi
+    # sentry-cli is intentionally absent from this fallback: only archive builds use it, and
+    # ci_post_xcodebuild.sh installs it there (see install_sentry_cli.sh).
 fi
 
 # --- Verify tools are available ---
@@ -195,7 +183,7 @@ echo ""
 echo "📋 Verifying tool availability..."
 echo "   swiftlint: $(swiftlint version 2>/dev/null || echo 'not installed')"
 echo "   swiftgen: $(swiftgen --version 2>/dev/null || echo 'not installed')"
-echo "   sentry-cli: $(sentry-cli --version 2>/dev/null || echo 'not installed')"
+echo "   sentry-cli: installed on demand by archive builds (ci_post_xcodebuild.sh)"
 
 echo ""
 echo "✅ ci_post_clone.sh completed successfully"

@@ -223,7 +223,14 @@ struct ToolsManager {
 
         // Download the file
         let downloadPath = tempDir.appendingPathComponent("download")
-        let curlStatus = try runShellCommand("curl", arguments: ["-fsSL", "-o", downloadPath.path, url])
+        // Retry transient network failures: a single connection reset from the release host used to
+        // abort the whole CI build (`curl (35) Recv failure`), because the caller runs under
+        // `set -eo pipefail`. `--retry-connrefused` also covers a refused TCP handshake, which a
+        // bare `--retry` does not treat as retryable.
+        let curlStatus = try runShellCommand("curl", arguments: [
+            "-fsSL", "--retry", "3", "--retry-connrefused", "--retry-delay", "2",
+            "-o", downloadPath.path, url
+        ])
 
         guard curlStatus == 0 else {
             print("   ❌ Failed to download \(name)")
