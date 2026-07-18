@@ -66,6 +66,26 @@ final class ONNXModelReaderTests: XCTestCase {
 		XCTAssertEqual((0 ..< 4).map { output[$0].floatValue }, [12, 16, 24, 28])
 	}
 
+	func testRead_gemmModel_lowersToLinear() throws {
+		let weight = onnxTensor(name: "w", dims: [3, 4], floats: Array(repeating: 0, count: 12))
+		let bias = onnxTensor(name: "b", dims: [3], floats: [0, 0, 0])
+		let gemm = onnxNode(op: "Gemm", inputs: ["x", "w", "b"], outputs: ["y"], name: "fc", attributes: [
+			onnxIntAttr(name: "transB", value: 1)
+		])
+		let model = onnxModel(
+			nodes: [gemm],
+			initializers: [weight, bias],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 4]), onnxValueInfo(name: "w", shape: [3, 4]), onnxValueInfo(name: "b", shape: [3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3])]
+		)
+
+		let conversion = try ONNXModelReader().read(data: model)
+
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.linear])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 3])
+		XCTAssertEqual(conversion.graph.weights.map(\.name), ["w", "b"])
+	}
+
 	// MARK: - Minimal ONNX protobuf builders (reuse the encoder to write ONNX-shaped messages)
 
 	private func onnxValueInfo(name: String, shape: [Int]) -> Data {

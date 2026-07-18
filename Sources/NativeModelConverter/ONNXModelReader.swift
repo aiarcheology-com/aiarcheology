@@ -163,8 +163,9 @@ public struct ONNXModelReader {
 			let tensorType = try ProtobufReader.fields(in: typeData).firstBytes(1),
 			let shapeData = try ProtobufReader.fields(in: tensorType).firstBytes(2) {
 			for dimData in try ProtobufReader.fields(in: shapeData).allBytes(1) {
-				let dimValue = try ProtobufReader.fields(in: dimData).firstVarint(1) ?? 1
-				shape.append(Int(bitPattern: UInt(dimValue)))
+				let dimValue = try ProtobufReader.fields(in: dimData).firstVarint(1) ?? 0
+				// A dim_value of 0 denotes a symbolic dimension (dim_param); fix a dynamic batch to 1.
+				shape.append(dimValue == 0 ? 1 : Int(bitPattern: UInt(dimValue)))
 			}
 		}
 		return ONNXValueInfo(name: name, shape: shape)
@@ -178,6 +179,7 @@ public struct ONNXModelReader {
 		var weights: [NativeModelWeight] = []
 		var weightBlob = Data()
 		private var shapes: [String: [Int]] = [:]
+		private var shapeTensors: Set<String> = []
 		private var emittedWeights: Set<String> = []
 
 		init(initializers: [String: ONNXTensor]) {
@@ -222,6 +224,19 @@ public struct ONNXModelReader {
 		}
 
 		mutating func lower(_ node: ONNXNode) throws {
+			// Shape-metadata ops (and any op that reads only shape tensors/constants) don't transform
+			// activations. A classifier's dynamic flatten is emitted as Shape -> Gather -> Unsqueeze ->
+			// Concat -> Reshape to preserve a symbolic batch; fold that whole subgraph away and treat the
+			// final Reshape as a flatten inferred from the real activation shape.
+			if node.opType == "Shape" || node.opType == "Constant" || node.opType == "ConstantOfShape" {
+				node.outputs.forEach { shapeTensors.insert($0) }
+				return
+			}
+			let consumesActivation = node.inputs.contains { shapes[$0] != nil && !shapeTensors.contains($0) }
+			guard consumesActivation else {
+				node.outputs.forEach { shapeTensors.insert($0) }
+				return
+			}
 			switch node.opType {
 			case "Conv": try lowerConvolution(node)
 			case "BatchNormalization": try lowerBatchNorm(node)
@@ -230,8 +245,25 @@ public struct ONNXModelReader {
 			case "Add": try lowerAdd(node)
 			case "GlobalAveragePool": try lowerGlobalAveragePool(node)
 			case "Reshape", "Flatten": try lowerFlatten(node)
+			case "Gemm": try lowerGemm(node)
 			default: throw ONNXModelReaderError.unsupportedOperation(node.opType)
 			}
+		}
+
+		private mutating func lowerGemm(_ node: ONNXNode) throws {
+			guard let inputShape = shapes[node.inputs[0]] else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "unknown input shape")
+			}
+			guard let weight = initializers[node.inputs[1]] else { throw ONNXModelReaderError.missingInitializer(node.inputs[1]) }
+			// The native linear op expects a [outputChannels, inputChannels] weight, matching ONNX Gemm
+			// with transB=1 (the standard classifier head). transB=0 would need a transpose first.
+			guard (node.attributes["transB"]?.int ?? 0) == 1 else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Gemm without transB=1")
+			}
+			var weightInputs = [node.inputs[1]]
+			if node.inputs.count > 2 { weightInputs.append(node.inputs[2]) }
+			try record(node, kind: .linear, activationInputs: [node.inputs[0]], weightInputs: weightInputs, attributes: [:],
+				outputShape: [inputShape[0], weight.dims[0]])
 		}
 
 		private mutating func record(_ node: ONNXNode, kind: NativeModelOperationKind, activationInputs: [String], weightInputs: [String], attributes: [String: NativeModelAttribute], outputShape: [Int]) throws {
