@@ -532,6 +532,93 @@ final class NativeModelCoreMLEmitterTests: XCTestCase {
 		XCTAssertEqual(output[2].floatValue, 4.0 / 7, accuracy: 0.000_01)
 	}
 
+	// MARK: - Classifier interface over non-[1, N] score layouts
+
+	func testEmit_rank4LogitsClassifier_flattensAndNormalizes() throws {
+		// A [1, 3, 1, 1] logits head (the shape a GlobalAveragePool leaves behind): the classifier
+		// pipeline must flatten to [1, 3] and append exactly one softmax. Logits ln(1), ln(2), ln(4)
+		// then yield probabilities 1/7, 2/7, 4/7 and top label "gamma".
+		let probs = try classifierProbabilities(
+			terminalKind: .relu, terminalAttributes: [:],
+			logits: [0, log(2), log(4)]
+		)
+		XCTAssertEqual(probs.label, "gamma")
+		XCTAssertEqual(probs.values["alpha"] ?? -1, 1.0 / 7, accuracy: 0.000_01)
+		XCTAssertEqual(probs.values["beta"] ?? -1, 2.0 / 7, accuracy: 0.000_01)
+		XCTAssertEqual(probs.values["gamma"] ?? -1, 4.0 / 7, accuracy: 0.000_01)
+	}
+
+	func testEmit_graphEndingInClassAxisSoftmax_isNotSoftmaxedTwice() throws {
+		// The graph's own softmax already produced probabilities; a second softmax would squash them
+		// to ~[0.30, 0.32, 0.38]. Exact 1/7, 2/7, 4/7 proves single normalization.
+		let probs = try classifierProbabilities(
+			terminalKind: .softmax, terminalAttributes: ["axis": .integer(1)],
+			logits: [0, log(2), log(4)]
+		)
+		XCTAssertEqual(probs.values["alpha"] ?? -1, 1.0 / 7, accuracy: 0.000_01)
+		XCTAssertEqual(probs.values["beta"] ?? -1, 2.0 / 7, accuracy: 0.000_01)
+		XCTAssertEqual(probs.values["gamma"] ?? -1, 4.0 / 7, accuracy: 0.000_01)
+	}
+
+	func testEmit_terminalSoftmaxOnUnitAxis_stillGetsTheClassifierSoftmax() throws {
+		// A softmax over a size-1 axis normalizes nothing (its output is all ones), so it must NOT be
+		// mistaken for the class-axis softmax; the appended classifier softmax over the resulting
+		// [1, 1, 1] vector gives the uniform distribution.
+		let probs = try classifierProbabilities(
+			terminalKind: .softmax, terminalAttributes: ["axis": .integer(2)],
+			logits: [0, log(2), log(4)]
+		)
+		XCTAssertEqual(probs.values["alpha"] ?? -1, 1.0 / 3, accuracy: 0.000_01)
+		XCTAssertEqual(probs.values["beta"] ?? -1, 1.0 / 3, accuracy: 0.000_01)
+		XCTAssertEqual(probs.values["gamma"] ?? -1, 1.0 / 3, accuracy: 0.000_01)
+	}
+
+	/// Emits a `[1, 3, 1, 1] input -> terminal op -> output` graph as a three-class classifier and
+	/// returns the predicted label and class probabilities for the given logits.
+	private func classifierProbabilities(
+		terminalKind: NativeModelOperationKind,
+		terminalAttributes: [String: NativeModelAttribute],
+		logits: [Float]
+	) throws -> (label: String, values: [String: Double]) {
+		let graph = NativeModelGraph(
+			formatVersion: 1,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [tensor("input", shape: [1, 3, 1, 1])],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "terminal",
+					kind: terminalKind,
+					inputs: ["input"],
+					outputs: [tensor("scores", shape: [1, 3, 1, 1])],
+					attributes: terminalAttributes
+				)
+			],
+			outputs: ["scores"]
+		)
+		let modelURL = try temporaryDirectory().appendingPathComponent("classifier.mlmodel")
+		try NativeModelCoreMLEmitter().emit(
+			graph: graph, weights: Data(), to: modelURL,
+			classifierLabels: ["alpha", "beta", "gamma"], imagePreprocessing: nil
+		)
+
+		let compiledURL = try MLModel.compileModel(at: modelURL)
+		let model = try MLModel(contentsOf: compiledURL, configuration: cpuOnlyConfiguration())
+		XCTAssertEqual(model.modelDescription.predictedFeatureName, "classLabel")
+		let input = try MLMultiArray(shape: [1, 3, 1, 1], dataType: .float32)
+		for (index, value) in logits.enumerated() { input[index] = NSNumber(value: value) }
+		let provider = try MLDictionaryFeatureProvider(dictionary: ["input": MLFeatureValue(multiArray: input)])
+		let prediction = try model.prediction(from: provider)
+
+		let label = try XCTUnwrap(prediction.featureValue(for: "classLabel")?.stringValue)
+		let dictionary = try XCTUnwrap(prediction.featureValue(for: "classLabelProbs")?.dictionaryValue)
+		var values: [String: Double] = [:]
+		for (key, number) in dictionary {
+			values[try XCTUnwrap(key as? String)] = number.doubleValue
+		}
+		return (label, values)
+	}
+
 	private func tensor(
 		_ name: String,
 		dataType: NativeModelDataType = .float32,
