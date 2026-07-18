@@ -49,11 +49,19 @@ final class ONNXConversionIntegrationTests: XCTestCase {
 			try assertImageClassifierInterface(of: coreMLModel, matches: model)
 
 			for probe in model.solidColorProbes {
-				let label = try classLabel(of: coreMLModel, input: model.convertedInput, probe: probe)
+				let top = try topClassification(of: coreMLModel, input: model.convertedInput, probe: probe)
 				XCTAssertEqual(
-					label, probe.expectedClassLabel,
-					"\(model.id): solid (\(probe.red),\(probe.green),\(probe.blue)) expected '\(probe.expectedClassLabel)', got '\(label ?? "nil")'."
+					top?.label, probe.expectedClassLabel,
+					"\(model.id): solid (\(probe.red),\(probe.green),\(probe.blue)) expected '\(probe.expectedClassLabel)', got '\(top?.label ?? "nil")'."
 				)
+				// Some models (SqueezeNet) collapse every solid color onto one label, so the manifest can
+				// additionally pin the oracle's top-1 probability — a converted model must reproduce it.
+				if let expectedProbability = probe.expectedTopProbability {
+					XCTAssertEqual(
+						top?.probability ?? -1, expectedProbability, accuracy: 0.005,
+						"\(model.id): solid (\(probe.red),\(probe.green),\(probe.blue)) top-1 probability drifted from the onnxruntime oracle."
+					)
+				}
 			}
 		}
 
@@ -85,14 +93,18 @@ final class ONNXConversionIntegrationTests: XCTestCase {
 		XCTAssertEqual(model.modelDescription.predictedFeatureName, "classLabel")
 	}
 
-	private func classLabel(of model: MLModel, input: ProbeInput, probe: SolidColorProbe) throws -> String? {
+	private func topClassification(
+		of model: MLModel, input: ProbeInput, probe: SolidColorProbe
+	) throws -> (label: String, probability: Double)? {
 		let pixelBuffer = try solidColorPixelBuffer(
 			width: input.width, height: input.height,
 			red: probe.red, green: probe.green, blue: probe.blue
 		)
 		let provider = try MLDictionaryFeatureProvider(dictionary: [input.name: MLFeatureValue(pixelBuffer: pixelBuffer)])
 		let prediction = try model.prediction(from: provider)
-		return prediction.featureValue(for: "classLabel")?.stringValue
+		guard let label = prediction.featureValue(for: "classLabel")?.stringValue else { return nil }
+		let probability = prediction.featureValue(for: "classLabelProbs")?.dictionaryValue[label]?.doubleValue ?? -1
+		return (label, probability)
 	}
 
 	private func solidColorPixelBuffer(width: Int, height: Int, red: UInt8, green: UInt8, blue: UInt8) throws -> CVPixelBuffer {
@@ -147,4 +159,6 @@ private struct SolidColorProbe: Decodable {
 	let green: UInt8
 	let blue: UInt8
 	let expectedClassLabel: String
+	/// Optional: the oracle's top-1 probability, for models whose probes share a single label.
+	let expectedTopProbability: Double?
 }

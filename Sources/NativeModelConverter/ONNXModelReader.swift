@@ -63,6 +63,13 @@ public struct ONNXModelReader {
 		}
 		let graph = try ProtobufReader.fields(in: graphData)
 
+		// ModelProto.opset_import (field 8) fixes the operator-set semantics. ONNX Softmax's normalization
+		// axis changed at opset 13, so a missing default-domain entry would force a guess that could
+		// convert a model silently wrong — reject it rather than assume a version.
+		guard let opsetVersion = try defaultDomainOpsetVersion(model) else {
+			throw ONNXModelReaderError.invalidModel("no default-domain opset_import entry")
+		}
+
 		let initializers = try graph.allBytes(5).map(parseTensor)
 		let initializersByName = Dictionary(initializers.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
 		let nodes = try graph.allBytes(1).map(parseNode)
@@ -78,7 +85,7 @@ public struct ONNXModelReader {
 			throw ONNXModelReaderError.invalidModel("expected exactly one model output, found \(outputs.count)")
 		}
 
-		var lowering = Lowering(initializers: initializersByName)
+		var lowering = Lowering(initializers: initializersByName, opsetVersion: opsetVersion)
 		try lowering.seedInput(realInputs[0])
 		for node in nodes {
 			try lowering.lower(node)
@@ -91,12 +98,34 @@ public struct ONNXModelReader {
 			inputs: [lowering.tensor(named: realInputs[0].name)],
 			weights: lowering.weights,
 			operations: lowering.operations,
-			outputs: [outputs[0].name]
+			// A graph that ends in Identity/Dropout emits no op for its declared output; resolve the name
+			// through the alias table so the emitted output points at the real upstream tensor.
+			outputs: [lowering.resolve(outputs[0].name)]
 		)
 		return ONNXConversionInput(graph: nativeGraph, weights: lowering.weightBlob)
 	}
 
 	// MARK: - ONNX message parsing
+
+	/// The version of the default ONNX operator set. `ModelProto.opset_import` is repeated field 8; each
+	/// `OperatorSetIdProto` carries a `domain` (field 1) and `version` (field 2), and an absent/empty or
+	/// "ai.onnx" domain is the default set. Returns nil when no default-domain entry is present.
+	private func defaultDomainOpsetVersion(_ model: [(field: Int, value: ProtobufValue)]) throws -> Int? {
+		for entry in model.allBytes(8) {
+			let opset = try ProtobufReader.fields(in: entry)
+			let domain = opset.firstString(1) ?? ""
+			if domain.isEmpty || domain == "ai.onnx" {
+				// A missing or zero version pins no semantics at all — reject rather than guess an era.
+				guard let version = opset.firstVarint(2), version > 0 else {
+					throw ONNXModelReaderError.invalidModel("default-domain opset_import has no valid version")
+				}
+				// A crafted version beyond Int.max must not trap; clamp it — only "before/after opset 13"
+				// ever matters, so any absurdly large version behaves as the newest semantics.
+				return Int(exactly: version) ?? Int.max
+			}
+		}
+		return nil
+	}
 
 	private struct ONNXTensor {
 		let name: String
@@ -107,9 +136,11 @@ public struct ONNXModelReader {
 
 	private struct ONNXNode {
 		let opType: String
-		let inputs: [String]
+		// Mutable so `lower` can substitute alias-resolved input names before dispatching to an op lowerer.
+		var inputs: [String]
 		let outputs: [String]
 		let name: String
+		let domain: String
 		let attributes: [String: ONNXAttribute]
 	}
 
@@ -157,11 +188,16 @@ public struct ONNXModelReader {
 			if !ints.isEmpty { attribute.ints = ints }
 			attributes[attrName] = attribute
 		}
+		// Caffe-era exporters (e.g. the zoo's SqueezeNet) write nodes with an *empty* name field, which
+		// the graph validator rejects; fall back to the first output name for empty as well as absent.
+		let declaredName = fields.firstString(3) ?? ""
 		return ONNXNode(
 			opType: fields.firstString(4) ?? "",
 			inputs: inputs,
 			outputs: outputs,
-			name: fields.firstString(3) ?? (outputs.first ?? "node"),
+			name: declaredName.isEmpty ? (outputs.first ?? "node") : declaredName,
+			// NodeProto.domain is field 7; an absent/empty domain is the default "ai.onnx" operator set.
+			domain: fields.firstString(7) ?? "",
 			attributes: attributes
 		)
 	}
@@ -192,19 +228,31 @@ public struct ONNXModelReader {
 
 	private struct Lowering {
 		let initializers: [String: ONNXTensor]
+		// The default-domain opset version, retained so opset-sensitive ops (e.g. Softmax at opset 13) can
+		// branch on it as coverage grows.
+		let opsetVersion: Int
 		var operations: [NativeModelOperation] = []
 		var weights: [NativeModelWeight] = []
 		var weightBlob = Data()
 		private var shapes: [String: [Int]] = [:]
 		private var shapeTensors: Set<String> = []
 		private var emittedWeights: Set<String> = []
+		// Maps a pass-through op output (Identity, inference-mode Dropout) to its upstream tensor. Targets
+		// are stored already-resolved, so a single lookup collapses any chain of aliases.
+		private var aliases: [String: String] = [:]
 
-		init(initializers: [String: ONNXTensor]) {
+		init(initializers: [String: ONNXTensor], opsetVersion: Int) {
 			self.initializers = initializers
+			self.opsetVersion = opsetVersion
 		}
 
 		func tensor(named name: String) -> NativeModelTensor {
 			NativeModelTensor(name: name, dataType: .float32, shape: shapes[name] ?? [])
+		}
+
+		/// Resolves a tensor name through the alias table. A name that was never aliased maps to itself.
+		func resolve(_ name: String) -> String {
+			aliases[name] ?? name
 		}
 
 		mutating func seedInput(_ input: ONNXValueInfo) throws {
@@ -243,6 +291,26 @@ public struct ONNXModelReader {
 		}
 
 		mutating func lower(_ node: ONNXNode) throws {
+			// Substitute alias-resolved input names first so every downstream lookup (shapes, initializers,
+			// recorded op inputs) sees the real upstream tensor. Aliases store their final target, so a
+			// single hop is always enough.
+			var node = node
+			node.inputs = node.inputs.map { aliases[$0] ?? $0 }
+
+			// A node outside the default operator set is a custom op: one named e.g. "Softmax" in another
+			// domain must NOT be given standard ONNX semantics, so reject it rather than misconvert.
+			guard node.domain.isEmpty || node.domain == "ai.onnx" else {
+				throw ONNXModelReaderError.unsupportedOperation("\(node.domain).\(node.opType)")
+			}
+
+			// Identity and inference-mode Dropout are pure pass-throughs: alias the output to the resolved
+			// input and emit nothing. This runs before the `consumesActivation` guard below because an
+			// Identity/Dropout over an *initializer* has no activation input and would otherwise be folded
+			// into the shape-tensor set, dropping the alias a downstream weight lookup relies on.
+			if node.opType == "Identity" || node.opType == "Dropout" {
+				return try lowerPassThrough(node)
+			}
+
 			// Shape-metadata ops (and any op that reads only shape tensors/constants) don't transform
 			// activations. A classifier's dynamic flatten is emitted as Shape -> Gather -> Unsqueeze ->
 			// Concat -> Reshape to preserve a symbolic batch; fold that whole subgraph away and treat the
@@ -259,17 +327,45 @@ public struct ONNXModelReader {
 			guard let primaryInput = node.inputs.first else {
 				throw ONNXModelReaderError.invalidModel("operator '\(node.opType)' (\(node.name)) has no inputs")
 			}
+			try dispatch(node, primaryInput: primaryInput)
+		}
+
+		/// Routes a validated activation-consuming node to its op lowerer. Split from `lower(_:)` so the
+		/// growing operator table doesn't push the pre-dispatch checks past the complexity limit.
+		private mutating func dispatch(_ node: ONNXNode, primaryInput: String) throws {
 			switch node.opType {
 			case "Conv": try lowerConvolution(node)
 			case "BatchNormalization": try lowerBatchNorm(node)
 			case "Relu": try lowerActivation(node, kind: .relu, outputShape: shapes[primaryInput])
 			case "Clip": try lowerClip(node)
 			case "Add": try lowerAdd(node)
+			case "Concat": try lowerConcat(node)
 			case "GlobalAveragePool": try lowerGlobalAveragePool(node)
+			case "MaxPool": try lowerMaxPool(node)
 			case "Reshape", "Flatten": try lowerFlatten(node)
 			case "Gemm": try lowerGemm(node)
+			case "Softmax": try lowerSoftmax(node)
 			default: throw ONNXModelReaderError.unsupportedOperation(node.opType)
 			}
+		}
+
+		/// Records the alias for a pass-through node (Identity, inference-mode Dropout). Inputs arrive
+		/// already alias-resolved, so the stored target keeps every chain one hop deep.
+		private mutating func lowerPassThrough(_ node: ONNXNode) throws {
+			// A third `training_mode` input means dropout is active and no longer the identity.
+			guard node.opType != "Dropout" || node.inputs.count <= 2 else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Dropout with a training_mode input")
+			}
+			// Opsets 1–6 flag inference via `is_test`, which DEFAULTS to 0 (training): only an explicit
+			// non-zero value makes this dropout the identity.
+			if node.opType == "Dropout", opsetVersion < 7, (node.attributes["is_test"]?.int ?? 0) == 0 {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "pre-opset-7 Dropout without is_test=1")
+			}
+			// Dropout's optional second (mask) output is discarded; only the data output aliases the input.
+			guard let input = node.inputs.first, let output = node.outputs.first else {
+				throw ONNXModelReaderError.invalidModel("\(node.opType) '\(node.name)' requires an input and an output")
+			}
+			aliases[output] = input
 		}
 
 		private mutating func lowerGemm(_ node: ONNXNode) throws {
@@ -306,8 +402,12 @@ public struct ONNXModelReader {
 		}
 
 		private mutating func record(_ node: ONNXNode, kind: NativeModelOperationKind, activationInputs: [String], weightInputs: [String], attributes: [String: NativeModelAttribute], outputShape: [Int]) throws {
+			// Central malformed-input net: every lowerer funnels through here, so one guard keeps a
+			// node with no declared outputs from crashing on the index below.
+			guard let outputName = node.outputs.first else {
+				throw ONNXModelReaderError.invalidModel("operator '\(node.opType)' (\(node.name)) has no outputs")
+			}
 			let weightNames = try weightInputs.map { try weightName($0) }
-			let outputName = node.outputs[0]
 			shapes[outputName] = outputShape
 			operations.append(NativeModelOperation(
 				name: node.name,
@@ -424,12 +524,154 @@ public struct ONNXModelReader {
 			try record(node, kind: .add, activationInputs: [node.inputs[0], node.inputs[1]], weightInputs: [], attributes: [:], outputShape: outputShape)
 		}
 
+		/// ONNX `Concat` lowers to the native concatenate op, which joins rank-4 NCHW activations along
+		/// the channel axis only. Every input must be a produced activation — a missing shape means an
+		/// initializer or shape/constant tensor the native op does not model — and the non-channel dims
+		/// must agree, since the output simply stacks the inputs' channels.
+		private mutating func lowerConcat(_ node: ONNXNode) throws {
+			guard node.inputs.count >= 2 else {
+				throw ONNXModelReaderError.invalidModel("Concat '\(node.name)' requires at least 2 inputs")
+			}
+			let inputShapes = try node.inputs.map { input -> [Int] in
+				guard let shape = shapes[input] else {
+					throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "unknown input shape")
+				}
+				return shape
+			}
+			guard inputShapes.allSatisfy({ $0.count == 4 }) else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Concat expects rank-4 NCHW inputs, got \(inputShapes)")
+			}
+			// ONNX Concat requires an explicit axis from opset 4 on (only the long-dead opset-1 form
+			// defaulted it), so a missing one is unconvertible rather than assumed. A negative axis
+			// counts back from the rank (4); the native op only joins the channel axis, so anything but
+			// axis 1 after normalization is unsupported.
+			guard let rawAxis = node.attributes["axis"]?.int else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Concat requires an axis attribute")
+			}
+			let axis = rawAxis < 0 ? rawAxis + 4 : rawAxis
+			guard axis == 1 else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Concat axis \(rawAxis) — only channel concatenation (axis 1) is supported")
+			}
+			// Channel concat keeps batch/height/width identical across inputs and sums the channel dim.
+			let reference = inputShapes[0]
+			for shape in inputShapes.dropFirst() where shape[0] != reference[0] || shape[2] != reference[2] || shape[3] != reference[3] {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Concat inputs disagree outside the channel axis: \(reference) vs \(shape)")
+			}
+			// Sum with overflow reporting: crafted channel counts must throw, not trap (same rationale as
+			// the flatten feature-count product).
+			var channels = 0
+			for shape in inputShapes {
+				let (sum, overflow) = channels.addingReportingOverflow(shape[1])
+				guard !overflow else {
+					throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Concat channel count overflows")
+				}
+				channels = sum
+			}
+			try record(node, kind: .concatenate, activationInputs: node.inputs, weightInputs: [],
+				attributes: ["axis": .integer(1)], outputShape: [reference[0], channels, reference[2], reference[3]])
+		}
+
+		/// ONNX `Softmax` semantics depend on the opset: before 13 the input is coerced to a 2-D matrix
+		/// split at `axis` (default 1) and rows are normalized jointly; from 13 on it normalizes along
+		/// `axis` (default −1) independently per slice. Core ML's softmaxND implements the per-axis form.
+		/// The two coincide exactly when every dimension after `axis` is 1 — true for classifier heads
+		/// like SqueezeNet's `[1, 1000, 1, 1]` — so pre-13 graphs outside that shape are rejected rather
+		/// than converted with the wrong normalization group.
+		private mutating func lowerSoftmax(_ node: ONNXNode) throws {
+			guard let inputShape = shapes[node.inputs[0]], !inputShape.isEmpty else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "unknown input shape")
+			}
+			let rank = inputShape.count
+			let rawAxis = node.attributes["axis"]?.int ?? (opsetVersion >= 13 ? -1 : 1)
+			let axis = rawAxis < 0 ? rawAxis + rank : rawAxis
+			guard axis >= 0, axis < rank else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Softmax axis \(rawAxis) is out of range for rank \(rank)")
+			}
+			if opsetVersion < 13 {
+				guard inputShape[(axis + 1)...].allSatisfy({ $0 == 1 }) else {
+					throw ONNXModelReaderError.unsupportedAttribute(
+						operation: node.name,
+						detail: "pre-opset-13 Softmax over \(inputShape) at axis \(axis) normalizes across multiple dimensions"
+					)
+				}
+			}
+			try record(node, kind: .softmax, activationInputs: [node.inputs[0]], weightInputs: [],
+				attributes: ["axis": .integer(axis)], outputShape: inputShape)
+		}
+
 		private mutating func lowerGlobalAveragePool(_ node: ONNXNode) throws {
 			guard let inputShape = shapes[node.inputs[0]], inputShape.count == 4 else {
 				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "GlobalAveragePool expects a rank-4 NCHW input")
 			}
 			try record(node, kind: .globalAveragePool2D, activationInputs: [node.inputs[0]], weightInputs: [], attributes: [:],
 				outputShape: [inputShape[0], inputShape[1], 1, 1])
+		}
+
+		private mutating func lowerMaxPool(_ node: ONNXNode) throws {
+			// ONNX MaxPool may declare a second `Indices` output (the argmax positions). Core ML pooling
+			// only produces the pooled values, so a model that consumes those indices cannot be converted.
+			guard node.outputs.count == 1 else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool with an Indices output")
+			}
+			guard let inputShape = shapes[node.inputs[0]], inputShape.count == 4 else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "MaxPool expects a rank-4 NCHW input")
+			}
+			// `auto_pad` (SAME_UPPER/SAME_LOWER/VALID) computes padding implicitly; assuming zero pads
+			// would change the feature maps, so reject anything but explicit NOTSET padding.
+			if let autoPad = node.attributes["auto_pad"]?.string, autoPad != "NOTSET" {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool auto_pad=\(autoPad)")
+			}
+			// `ceil_mode` rounds the output size up (the default floor-division below assumes down) and
+			// `storage_order` transposes the argmax layout; both change results the native op can't match.
+			if let ceilMode = node.attributes["ceil_mode"]?.int, ceilMode != 0 {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool ceil_mode=\(ceilMode)")
+			}
+			if let storageOrder = node.attributes["storage_order"]?.int, storageOrder != 0 {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool storage_order=\(storageOrder)")
+			}
+			// Dilated pooling spreads the window across the input; the native pooling op is dense only.
+			if let dilations = node.attributes["dilations"]?.ints, dilations != [1, 1] {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool dilations=\(dilations)")
+			}
+			// Unlike Conv, MaxPool has no kernel initializer to infer the window from, so `kernel_shape` is
+			// required — without it the pool size is undefined.
+			guard let kernelShape = node.attributes["kernel_shape"]?.ints, kernelShape.count == 2,
+				kernelShape[0] > 0, kernelShape[1] > 0 else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool requires a 2-D positive kernel_shape")
+			}
+			let strides = node.attributes["strides"]?.ints ?? [1, 1]
+			let pads = node.attributes["pads"]?.ints ?? [0, 0, 0, 0]
+			guard strides.count == 2, strides[0] > 0, strides[1] > 0 else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool requires 2-D positive strides")
+			}
+			// ONNX pads are [top, left, bottom, right]; the emitter takes symmetric [padH, padW].
+			guard pads.count == 4, pads[0] == pads[2], pads[1] == pads[3], pads.allSatisfy({ $0 >= 0 }) else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "asymmetric padding \(pads)")
+			}
+			// Bound the spatial dimensions and attributes so the output-size arithmetic below cannot
+			// overflow on crafted values (all products then stay well within Int).
+			let dimensionLimit = 1 << 20
+			guard inputShape[2] <= dimensionLimit, inputShape[3] <= dimensionLimit,
+				kernelShape.allSatisfy({ $0 <= dimensionLimit }),
+				pads.allSatisfy({ $0 <= dimensionLimit }) else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool dimensions exceed the supported range")
+			}
+			// A kernel larger than the padded input must be rejected BEFORE the division: Swift's `/`
+			// truncates toward zero while ONNX floor-divides, so e.g. (2 − 3)/2 + 1 would "round up" the
+			// negative numerator to a bogus 1-wide output instead of the non-positive size ONNX computes.
+			let paddedH = inputShape[2] + 2 * pads[0]
+			let paddedW = inputShape[3] + 2 * pads[1]
+			guard paddedH >= kernelShape[0], paddedW >= kernelShape[1] else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "MaxPool kernel is larger than the padded input")
+			}
+			let outH = (paddedH - kernelShape[0]) / strides[0] + 1
+			let outW = (paddedW - kernelShape[1]) / strides[1] + 1
+			// maxPool2D's IR signature is exactly kernelSize/strides/padding — no dilations/groups.
+			try record(node, kind: .maxPool2D, activationInputs: [node.inputs[0]], weightInputs: [], attributes: [
+				"kernelSize": .integers(kernelShape),
+				"strides": .integers(strides),
+				"padding": .integers([pads[0], pads[1]])
+			], outputShape: [inputShape[0], inputShape[1], outH, outW])
 		}
 
 		private mutating func lowerFlatten(_ node: ONNXNode) throws {

@@ -4605,6 +4605,54 @@
         }
       }
     },
+    "configuration.conversionLog" : {
+      "comment" : "Configuration sheet row that opens the on-device conversion log",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conversion Log"
+          }
+        }
+      }
+    },
+    "configuration.provenance.converted" : {
+      "comment" : "Drawer row caption for a model the app converted on-device; %@ is the source format, e.g. ONNX",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Converted from %@"
+          }
+        }
+      }
+    },
+    "configuration.provenance.coreML" : {
+      "comment" : "Drawer row caption for a model that was imported as Core ML directly",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Core ML"
+          }
+        }
+      }
+    },
+    "configuration.export" : {
+      "comment" : "Configuration sheet toolbar button that shares the model file",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export"
+          }
+        }
+      }
+    },
     "configuration.created" : {
       "comment" : "Created date label",
       "extractionState" : "manual",

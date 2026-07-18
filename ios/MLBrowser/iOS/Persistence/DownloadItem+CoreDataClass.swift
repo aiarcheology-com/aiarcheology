@@ -15,6 +15,10 @@ final public class DownloadItem: NSManagedObject {
         super.awakeFromInsert()
         self.entityId = UUID()
         self.lifeCycleString = CoreDataManageableState.empty.rawValue
+        // The Models list sorts by stateChanged_ descending; without a creation stamp every row is
+        // nil, the sort degenerates to insertion order, and a (+)-added row lands at the BOTTOM of
+        // a long history (AIA-0459). Stamping here puts new rows on top.
+        self.stateChanged_ = .now
     }
     public override func awakeFromFetch() {
         super.awakeFromFetch()

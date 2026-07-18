@@ -232,7 +232,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		let progress = context.progress
 		let cancellationCheck = context.cancellationCheck
 		let specificationVersion = (inputTensors + outputTensors).contains { $0.dataType == .float16 } ? 7 : 4
-		let classifier = classifierPlan(outputs: outputTensors, labels: context.classifierLabels)
+		let classifier = classifierPlan(outputs: outputTensors, operations: operations, labels: context.classifierLabels)
 		let imagePlan = imageInputPlan(
 			inputTensors: inputTensors,
 			classifier: classifier,
@@ -261,14 +261,27 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				operationName: operation.name
 			))
 		}
-		// The classifier interface adds one softmax layer over the graph's logits so the reported
-		// probabilities are normalized, then exposes classLabel/classLabelProbs instead of the raw
-		// multi-array output.
+		// The classifier interface flattens the class scores to a plain `[1, N]` vector when needed
+		// (Core ML expects the probability blob to be vector-shaped) and appends one softmax so the
+		// reported probabilities are normalized — unless the graph already ended in a class-axis
+		// softmax, whose probabilities another softmax would squash. It then exposes
+		// classLabel/classLabelProbs instead of the raw multi-array output.
 		if let classifier {
-			CoreMLProtobufEncoder.appendMessageField(1, value: softmaxNDLayer(
-				input: classifier.logitsBlobName,
-				output: classifier.probabilitiesBlobName
-			), to: &layers)
+			if let flattened = classifier.flattenedBlobName {
+				CoreMLProtobufEncoder.appendMessageField(1, value: flattenTo2DLayer(
+					name: "classifier_flatten",
+					input: classifier.logitsBlobName,
+					output: flattened
+				), to: &layers)
+			}
+			if classifier.appendsSoftmax {
+				CoreMLProtobufEncoder.appendMessageField(1, value: softmaxNDLayer(
+					name: "classifier_softmax",
+					input: classifier.softmaxInputBlobName,
+					output: classifier.probabilitiesBlobName,
+					axis: 1
+				), to: &layers)
+			}
 		}
 
 		let description = CoreMLProtobufEncoder.message { description in
@@ -297,6 +310,13 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		let network = CoreMLProtobufEncoder.message { network in
 			network.append(layers)
 			CoreMLProtobufEncoder.appendVarintField(5, value: 1, to: &network)
+			// Image inputs must use RANK4_IMAGE_MAPPING to match EXACT_ARRAY_MAPPING above: under the
+			// legacy rank-5 mapping the image enters as [1, 1, C, H, W], shifting every axis the reader
+			// computed — an in-graph softmax over "axis 1" then normalizes the size-1 batch dim and
+			// produces a constant all-ones vector instead of probabilities.
+			if imagePlan != nil {
+				CoreMLProtobufEncoder.appendVarintField(6, value: 1, to: &network)
+			}
 			if let classifier {
 				CoreMLProtobufEncoder.appendMessageField(100, value: stringVector(classifier.labels), to: &network)
 				CoreMLProtobufEncoder.appendStringField(200, value: classifier.probabilitiesBlobName, to: &network)
@@ -312,25 +332,60 @@ public struct NativeModelCoreMLEmitter: Sendable {
 
 	private struct ClassifierPlan {
 		let labels: [String]
+		/// The graph's output blob (class scores in any unit-padded layout).
 		let logitsBlobName: String
+		/// Set when the scores are not already `[1, N]`: a flattenTo2D layer reshapes them first —
+		/// Core ML expects the probability blob to be a plain class vector.
+		let flattenedBlobName: String?
+		/// False when the graph itself ends in a softmax over the class axis; appending another one
+		/// would squash the probabilities (argmax survives, the reported confidences do not).
+		let appendsSoftmax: Bool
+		/// What the classifier's `labelProbabilityLayerName` points at.
 		let probabilitiesBlobName: String
 		let classLabelName = "classLabel"
 		let classLabelProbsName = "classLabelProbs"
+
+		/// The blob the appended classifier softmax reads (the flattened vector when one exists).
+		var softmaxInputBlobName: String { flattenedBlobName ?? logitsBlobName }
 	}
 
-	/// Returns a classifier plan when the package supplies labels that match a single graph output's
-	/// width. Otherwise the graph is emitted as a plain neural network with its raw output.
-	private func classifierPlan(outputs: [NativeModelTensor], labels: [String]?) -> ClassifierPlan? {
-		guard let labels, !labels.isEmpty, outputs.count == 1,
-			let classCount = outputs[0].shape.last, classCount == labels.count,
-			// The output must be a class-score vector ([1, N] or [1, ..., 1, N]), not a spatial feature
-			// map that merely happens to have a trailing dimension matching the label count.
-			outputs[0].shape.dropLast().allSatisfy({ $0 == 1 })
+	/// Returns a classifier plan when the supplied labels match a single graph output that is a
+	/// class-score vector in any unit-padded layout — `[1, N]`, `[1, N, 1, 1]`, `[1, 1, N]`, … (batch
+	/// 1, exactly one non-unit dimension). Otherwise the graph is emitted as a plain neural network
+	/// with its raw output.
+	private func classifierPlan(
+		outputs: [NativeModelTensor],
+		operations: [NativeModelOperation],
+		labels: [String]?
+	) -> ClassifierPlan? {
+		guard let labels, !labels.isEmpty, outputs.count == 1 else { return nil }
+		let output = outputs[0]
+		let shape = output.shape
+		// At most one non-unit dimension, holding the class count. A one-label classifier's [1, 1]
+		// (or [1, 1, 1, 1]) output has no non-unit dimension at all; its class axis is 1 by
+		// convention, preserving the acceptance the package path always had.
+		let nonUnitAxes = shape.indices.filter { shape[$0] != 1 }
+		guard shape.count >= 2, shape[0] == 1, nonUnitAxes.count <= 1,
+			let classAxis = nonUnitAxes.first ?? (labels.count == 1 ? 1 : nil),
+			shape[classAxis] == labels.count
 		else {
 			return nil
 		}
-		let logits = outputs[0].name
-		return ClassifierPlan(labels: labels, logitsBlobName: logits, probabilitiesBlobName: "\(logits)__classProbs")
+		let logits = output.name
+		// A graph that already ends in a softmax over the class axis produced probabilities, not
+		// logits. A softmax over any *other* (unit) axis normalizes nothing and still needs the real
+		// class-axis softmax appended.
+		let producing = operations.first { $0.outputs.contains { $0.name == logits } }
+		let alreadyProbabilities = producing?.kind == .softmax
+			&& producing?.attributes["axis"]?.integerValue == classAxis
+		let flattenedBlobName = shape.count > 2 ? "\(logits)__classVector" : nil
+		return ClassifierPlan(
+			labels: labels,
+			logitsBlobName: logits,
+			flattenedBlobName: flattenedBlobName,
+			appendsSoftmax: !alreadyProbabilities,
+			probabilitiesBlobName: alreadyProbabilities ? (flattenedBlobName ?? logits) : "\(logits)__classProbs"
+		)
 	}
 
 	/// The labels that will actually drive a classifier interface for this graph, or nil when the
@@ -338,19 +393,19 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	private func eligibleClassifierLabels(graph: NativeModelGraph, labels: [String]?) -> [String]? {
 		let tensors = tensorIndex(for: graph)
 		let outputs = graph.outputs.compactMap { tensors[$0] }
-		return classifierPlan(outputs: outputs, labels: labels)?.labels
+		return classifierPlan(outputs: outputs, operations: graph.operations, labels: labels)?.labels
 	}
 
-	/// A softmax over the class axis (`softmaxND`, axis 1) that normalizes the logits into class
-	/// probabilities. The class dimension is axis 1 for both a rank-2 `[batch, classes]` output and a
-	/// classic-layer runtime tensor of shape `[batch, classes, 1, 1]`; a negative axis would land on a
-	/// size-1 trailing dimension for the latter and normalize nothing.
-	private func softmaxNDLayer(input: String, output: String) -> Data {
+	/// A `softmaxND` layer normalizing along `axis`. The classifier interface uses it at axis 1 —
+	/// the class dimension of a rank-2 `[batch, classes]` blob, where a negative axis could land on a
+	/// size-1 trailing dimension and normalize nothing — and graph softmax ops pass their own
+	/// reader-normalized axis.
+	private func softmaxNDLayer(name: String, input: String, output: String, axis: Int) -> Data {
 		let parameters = CoreMLProtobufEncoder.message { parameters in
-			CoreMLProtobufEncoder.appendVarintField(1, value: 1, to: &parameters)
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(axis), to: &parameters)
 		}
 		return CoreMLProtobufEncoder.message { layer in
-			CoreMLProtobufEncoder.appendStringField(1, value: "classifier_softmax", to: &layer)
+			CoreMLProtobufEncoder.appendStringField(1, value: name, to: &layer)
 			CoreMLProtobufEncoder.appendStringField(2, value: input, to: &layer)
 			CoreMLProtobufEncoder.appendStringField(3, value: output, to: &layer)
 			CoreMLProtobufEncoder.appendMessageField(950, value: parameters, to: &layer)
@@ -532,6 +587,12 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			try linearLayer(for: operation, weightsByName: weightsByName, weights: weights)
 		case .add:
 			try addLayer(for: operation)
+		case .maxPool2D:
+			try maxPoolLayer(for: operation)
+		case .concatenate:
+			try concatenateLayer(for: operation)
+		case .softmax:
+			try softmaxLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
 				operation: operation.name,
@@ -794,6 +855,61 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 120, parameters: pooling)
 	}
 
+	private func maxPoolLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let kernelSize = operation.attributes["kernelSize"]?.integerArrayValue, kernelSize.count == 2,
+			let strides = operation.attributes["strides"]?.integerArrayValue, strides.count == 2,
+			let padding = operation.attributes["padding"]?.integerArrayValue, padding.count == 2,
+			(kernelSize + strides).allSatisfy({ $0 > 0 }), padding.allSatisfy({ $0 >= 0 })
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "maxPool2d requires kernelSize/strides pairs of positive integers and a non-negative padding pair"
+			)
+		}
+		let pooling = CoreMLProtobufEncoder.message { pooling in
+			// PoolingLayerParams.type MAX is the proto3 default (0), so no explicit type field is written.
+			for dimension in kernelSize {
+				CoreMLProtobufEncoder.appendVarintField(10, value: UInt64(dimension), to: &pooling)
+			}
+			for stride in strides {
+				CoreMLProtobufEncoder.appendVarintField(20, value: UInt64(stride), to: &pooling)
+			}
+			CoreMLProtobufEncoder.appendMessageField(30, value: validPadding(padding), to: &pooling)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 120, parameters: pooling)
+	}
+
+	/// The classic concat layer joins its inputs along the channel axis (third-from-last), which is
+	/// axis 1 of the rank-4 `[1, C, H, W]` activations the reader produces — and the only axis the
+	/// reader accepts, re-checked here so a hand-built graph cannot smuggle a different one through.
+	private func concatenateLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count >= 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "concat requires at least two activation inputs"
+			)
+		}
+		guard operation.attributes["axis"]?.integerValue == 1 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "concat currently supports the channel axis (1) only"
+			)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 320, parameters: Data())
+	}
+
+	private func softmaxLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let axis = operation.attributes["axis"]?.integerValue, axis >= 0 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "softmax requires a non-negative axis (the reader normalizes negative axes)"
+			)
+		}
+		return softmaxNDLayer(name: operation.name, input: operation.inputs[0], output: operation.outputs[0].name, axis: axis)
+	}
+
 	private func flattenLayer(for operation: NativeModelOperation) throws -> Data {
 		try requireSingleActivationInput(operation)
 		guard operation.attributes["axis"]?.integerValue == 1 else {
@@ -802,13 +918,23 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				reason: "flatten currently supports channel-first axis 1 only"
 			)
 		}
-		// FlattenTo2D produces a rank-2 [batch, features] blob that Core ML accepts both internally and
-		// as an external model output. The legacy Flatten layer (rank-preserving) cannot be exposed as
-		// a rank-2 output feature, which a classifier flatten-to-logits at the end of a graph requires.
-		let flattenTo2D = CoreMLProtobufEncoder.message { parameters in
-			CoreMLProtobufEncoder.appendVarintField(1, value: 1, to: &parameters)
+		return flattenTo2DLayer(name: operation.name, input: operation.inputs[0], output: operation.outputs[0].name)
+	}
+
+	/// FlattenTo2D produces a rank-2 [batch, features] blob that Core ML accepts both internally and
+	/// as an external model output. The legacy Flatten layer (rank-preserving) cannot be exposed as
+	/// a rank-2 output feature, which a classifier flatten-to-logits at the end of a graph requires.
+	/// Shared by the graph flatten op and the classifier interface's class-vector flatten.
+	private func flattenTo2DLayer(name: String, input: String, output: String) -> Data {
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendVarintField(1, value: 1, to: &parameters) // axis 1
 		}
-		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 1130, parameters: flattenTo2D)
+		return CoreMLProtobufEncoder.message { layer in
+			CoreMLProtobufEncoder.appendStringField(1, value: name, to: &layer)
+			CoreMLProtobufEncoder.appendStringField(2, value: input, to: &layer)
+			CoreMLProtobufEncoder.appendStringField(3, value: output, to: &layer)
+			CoreMLProtobufEncoder.appendMessageField(1130, value: parameters, to: &layer)
+		}
 	}
 
 	private func linearLayer(

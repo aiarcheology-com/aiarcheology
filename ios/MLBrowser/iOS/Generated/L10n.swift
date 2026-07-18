@@ -313,10 +313,14 @@ internal enum L10n {
     internal static let catalog = L10n.tr("Localizable", "configuration.catalog", fallback: "Catalog")
     /// Color
     internal static let color = L10n.tr("Localizable", "configuration.color", fallback: "Color")
+    /// Conversion Log
+    internal static let conversionLog = L10n.tr("Localizable", "configuration.conversionLog", fallback: "Conversion Log")
     /// Created
     internal static let created = L10n.tr("Localizable", "configuration.created", fallback: "Created")
     /// Description
     internal static let description = L10n.tr("Localizable", "configuration.description", fallback: "Description")
+    /// Export
+    internal static let export = L10n.tr("Localizable", "configuration.export", fallback: "Export")
     /// Fade Out Time
     internal static let fadeOutTime = L10n.tr("Localizable", "configuration.fadeOutTime", fallback: "Fade Out Time")
     /// File
@@ -347,6 +351,14 @@ internal enum L10n {
     internal static let type = L10n.tr("Localizable", "configuration.type", fallback: "Type")
     /// Version
     internal static let version = L10n.tr("Localizable", "configuration.version", fallback: "Version")
+    internal enum Provenance {
+      /// Converted from %@
+      internal static func converted(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "configuration.provenance.converted", String(describing: p1), fallback: "Converted from %@")
+      }
+      /// Core ML
+      internal static let coreML = L10n.tr("Localizable", "configuration.provenance.coreML", fallback: "Core ML")
+    }
     internal enum Section {
       /// Annotation
       internal static let annotation = L10n.tr("Localizable", "configuration.section.annotation", fallback: "Annotation")
@@ -579,7 +591,7 @@ internal enum L10n {
     }
     /// Supported Models
     internal static let supportedModels = L10n.tr("Localizable", "import.supportedModels", fallback: "Supported Models")
-    /// Choose a Core ML model (.mlmodel or .mlpackage) that supports object detection or image classification. Other model types are not supported in this version.
+    /// Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an image-classification model in ONNX format (.onnx) — the app converts it to Core ML on your device. Other model types are not supported in this version.
     internal static let supportedModelsInfo = L10n.tr("Localizable", "import.supportedModelsInfo", fallback: "Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an image-classification model in ONNX format (.onnx) — the app converts it to Core ML on your device. Other model types are not supported in this version.")
     /// Import Model
     internal static let title = L10n.tr("Localizable", "import.title", fallback: "Import Model")

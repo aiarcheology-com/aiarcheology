@@ -163,6 +163,13 @@ struct ConfigurationForm: View {
 	var pendingTypeReview: Bool = false
 
 	@EnvironmentObject var deep: DeepState
+	/// The on-device conversion log for this configuration, when one exists (AIA-0459). Loaded once
+	/// on appear — only natively converted imports write `native-conversion-report.json`.
+	@State private var conversionReport: NativeModelConversionImportReport?
+	@State private var isPreparingConversionExport = false
+	@State private var isPreparingModelExport = false
+	@State private var conversionSharePayload: ActivitySharePayload?
+	@State private var conversionExportError: String?
 	/// Live flash edits push to the driver via ONE in-flight task (cancel-and-replace):
 	/// independent unstructured Tasks have no ordering guarantee, so a stale slider
 	/// value could land last — the exact bug `DeepDrivers.update`'s sequential-await
@@ -205,7 +212,54 @@ struct ConfigurationForm: View {
 				deep.saveConfigurations()
 			}
 			.navigationBarTitle(L10n.Configuration.title, displayMode: .inline)
-			.navigationBarItems(trailing: dismissButton)
+			.navigationBarItems(leading: exportButton, trailing: dismissButton)
+			.task { loadConversionReport() }
+			.activityShareSheet($conversionSharePayload)
+			// A missing model or report file is a normal throw path in the exporter, so the failure
+			// must be visible here exactly as it is in the importer's log sheet — not just logged.
+			.alert(L10n.Alert.Error.title, isPresented: .init(
+				get: { conversionExportError != nil },
+				set: { if !$0 { conversionExportError = nil } }
+			)) {
+				Button(L10n.Common.ok, role: .cancel) {}
+			} message: {
+				Text(conversionExportError ?? "")
+			}
+		}
+	}
+
+	/// Loads the conversion report from the configuration's directory, if this model was produced
+	/// by the on-device converter. A missing or invalid report simply hides the row.
+	private func loadConversionReport() {
+		guard conversionReport == nil,
+			let configurationDirectory = FileManager.deepConfigurationDirectory(id: configuration.entityId)
+		else { return }
+		conversionReport = try? NativeModelConversionImportReport.load(in: configurationDirectory)
+	}
+
+	/// Zips the converted model + report for sharing — the same export the post-import log sheet
+	/// offers (`ModelImportView`), so the log reads identically from both entry points.
+	private func exportConvertedModel(_ report: NativeModelConversionImportReport) {
+		guard report.state == .registered, !isPreparingConversionExport else { return }
+		guard let configurationDirectory = FileManager.deepConfigurationDirectory(id: report.configurationID) else { return }
+		isPreparingConversionExport = true
+		Task {
+			defer { isPreparingConversionExport = false }
+			do {
+				let archiveURL = try await Task.detached(priority: .userInitiated) {
+					try NativeModelConversionExporter.makeZip(
+						report: report,
+						configurationDirectory: configurationDirectory
+					)
+				}.value
+				conversionSharePayload = ActivitySharePayload(
+					items: [archiveURL],
+					completion: { NativeModelConversionExporter.removeExportArchive(at: archiveURL) }
+				)
+			} catch {
+				LoggingPolicy.error("Failed to export converted model from the configuration sheet", error: error, logger: .storage)
+				conversionExportError = error.localizedDescription
+			}
 		}
 	}
 	
@@ -249,6 +303,23 @@ struct ConfigurationForm: View {
 
 			if let downloadURL = configuration.downloadURL {
 				ExpandableDetailRow(label: L10n.Configuration.link, value: downloadURL.absoluteString)
+			}
+
+			// Only natively converted imports (.onnx/.aiagraph) leave a conversion report in the
+			// configuration's directory; direct Core ML imports have none and show no row.
+			if let conversionReport {
+				// Pushed, not presented: the log is a detail of this form, and the form already
+				// owns a navigation stack — a sheet on top of a sheet reads as a separate task.
+				NavigationLink {
+					NativeModelConversionReportContent(
+						report: conversionReport,
+						isPreparingExport: isPreparingConversionExport,
+						onExport: { exportConvertedModel(conversionReport) }
+					)
+				} label: {
+					Text(L10n.Configuration.conversionLog)
+				}
+				.testability(Testability.Button.configurationFormConversionLog)
 			}
 		}
 	}
@@ -358,6 +429,45 @@ struct ConfigurationForm: View {
 		}
 		.testability(Testability.Button.configurationFormDismiss)
 		.tint(.blue)
+	}
+
+	/// Shares the model file itself, so a converted model can leave the device in a form the user
+	/// can drop into Xcode. Absent for demo models: those live in the app bundle and are not the
+	/// user's to redistribute.
+	@ViewBuilder
+	private var exportButton: some View {
+		if configuration.demo.not, configuration.file != nil {
+			if isPreparingModelExport {
+				ProgressView()
+			} else {
+				Button(L10n.Configuration.export) {
+					exportModelFile()
+				}
+				.testability(Testability.Button.configurationFormExport)
+				.tint(.blue)
+			}
+		}
+	}
+
+	private func exportModelFile() {
+		guard let modelURL = configuration.file, isPreparingModelExport.not else { return }
+		isPreparingModelExport = true
+		Task {
+			defer { isPreparingModelExport = false }
+			do {
+				// Zipping a bundle is I/O-bound and unbounded in size; keep it off the main actor.
+				let exportURL = try await Task.detached(priority: .userInitiated) {
+					try ModelFileExporter.makeShareableCopy(of: modelURL)
+				}.value
+				conversionSharePayload = ActivitySharePayload(
+					items: [exportURL],
+					completion: { ModelFileExporter.removeExport(at: exportURL) }
+				)
+			} catch {
+				LoggingPolicy.error("Failed to export the model file", error: error, logger: .storage)
+				conversionExportError = error.localizedDescription
+			}
+		}
 	}
 }
 

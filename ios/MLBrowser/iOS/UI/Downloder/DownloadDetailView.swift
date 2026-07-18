@@ -17,7 +17,22 @@ struct DownloadDetailView: View {
 	
 	@ObservedObject var item: DownloadItem
 	let onImport: ImportHandler
-	
+
+	/// Configurations matching this download, fetched live. `deep.selectConfiguration` is a plain
+	/// Core Data fetch and `DeepState` publishes no configuration-list change, so a configuration
+	/// created or deleted while this screen is open would leave the import button stale (AIA-0459,
+	/// codex review). A `@FetchRequest` re-renders on the context's changes.
+	@FetchRequest private var matchingConfigurations: FetchedResults<DeepConfiguration>
+
+	init(item: DownloadItem, onImport: ImportHandler) {
+		self.item = item
+		self.onImport = onImport
+		_matchingConfigurations = FetchRequest(
+			sortDescriptors: [],
+			predicate: NSPredicate(format: "entityId == %@", item.entityId as CVarArg)
+		)
+	}
+
 	@FocusState private var isUrlFieldFocused: Bool
 	@State private var showAlert = false
 	@State private var urlText: String = ""
@@ -403,7 +418,10 @@ private extension DownloadDetailView {
 	}
 	
 	var importButton: some View {
-		let isImported = item.state == .imported
+		// "Imported" means a deep configuration exists for this item — the same condition that
+		// disables the button below. The download state alone is not enough: import paths that
+		// bypass the downloader's state machine leave it at .complete, and conversely a deleted
+		// configuration re-enables import while the state stays .imported (AIA-0459).
 		return Button(isImported ? L10n.Common.imported : L10n.Common.import) {
 			let entityId = item.entityId
 			guard let file = item.file,
@@ -418,13 +436,19 @@ private extension DownloadDetailView {
 		.testability(Testability.Button.downloadDetailImport)
 	}
 	
+	/// True once this download has a deep configuration — i.e. the model was imported. Read from the
+	/// live fetch so both the label and `canImport` react to a configuration appearing or being
+	/// deleted while this screen is open.
+	var isImported: Bool {
+		matchingConfigurations.isEmpty.not
+	}
+
 	var canImport: Bool {
-		let entityId = item.entityId
 		guard
 			[.complete, .imported, .importFailed].contains(item.state),
 			let url = item.url, !url.absoluteString.isEmpty,
 			item.doesModelFileExist(),
-			deep.selectConfiguration(entityId).isNil
+			isImported.not
 		else { return false }
 		return true
 	}

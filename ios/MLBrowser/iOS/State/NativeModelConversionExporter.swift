@@ -88,7 +88,7 @@ enum NativeModelConversionExporter {
 
 	/// `NSFileCoordinator`'s `.forUploading` output exists only during its accessor, so the copy
 	/// into the temporary export directory must happen inside this closure.
-	private static func zip(directory: URL, to destination: URL, fileManager: FileManager) throws {
+	fileprivate static func zip(directory: URL, to destination: URL, fileManager: FileManager) throws {
 		var coordinatorError: NSError?
 		var copyError: Error?
 		NSFileCoordinator().coordinate(readingItemAt: directory, options: .forUploading, error: &coordinatorError) { zippedURL in
@@ -103,6 +103,61 @@ enum NativeModelConversionExporter {
 		}
 		if let coordinatorError { throw coordinatorError }
 		if let copyError { throw copyError }
+	}
+}
+
+/// Exports a configuration's model file itself, so the user gets something they can drop straight
+/// into Xcode or another app — as opposed to ``NativeModelConversionExporter``, which packages a
+/// converted model *with* its conversion report for support purposes.
+///
+/// Co-located with that type because both need the same `NSFileCoordinator` zip step; the project
+/// lists source files explicitly, so a shared helper here beats a duplicated one elsewhere.
+enum ModelFileExporter {
+	private static let exportsDirectoryName = "ModelExports"
+
+	/// Returns a temporary copy of `modelURL` suitable for the share sheet.
+	///
+	/// A single-file `.mlmodel` is shared as-is — that is exactly the droppable artifact. A bundle
+	/// (`.mlpackage`, `.mlmodelc`) is a directory, which does not survive most share destinations,
+	/// so it is zipped. The copy keeps the model's own filename: it is the name shown in the
+	/// Configuration sheet and the one the user expects to receive.
+	static func makeShareableCopy(of modelURL: URL, fileManager: FileManager = .default) throws -> URL {
+		var isDirectory: ObjCBool = false
+		guard fileManager.fileExists(atPath: modelURL.path, isDirectory: &isDirectory) else {
+			throw ModelFileExportError.missingModelFile
+		}
+
+		let exportsDirectory = fileManager.temporaryDirectory
+			.appendingPathComponent(exportsDirectoryName, isDirectory: true)
+		try? fileManager.removeItem(at: exportsDirectory)
+		try fileManager.createDirectory(at: exportsDirectory, withIntermediateDirectories: true)
+
+		if isDirectory.boolValue {
+			let destination = exportsDirectory
+				.appendingPathComponent("\(modelURL.lastPathComponent).zip", isDirectory: false)
+			try NativeModelConversionExporter.zip(directory: modelURL, to: destination, fileManager: fileManager)
+			return destination
+		}
+		let destination = exportsDirectory.appendingPathComponent(modelURL.lastPathComponent, isDirectory: false)
+		try fileManager.copyItem(at: modelURL, to: destination)
+		return destination
+	}
+
+	/// Removes an export once the share sheet is done with it, and the containing directory when it
+	/// is left empty — the same lifecycle ``NativeModelConversionExporter`` uses.
+	static func removeExport(at url: URL) {
+		NativeModelConversionExporter.removeExportArchive(at: url)
+	}
+}
+
+enum ModelFileExportError: LocalizedError, Equatable {
+	case missingModelFile
+
+	var errorDescription: String? {
+		switch self {
+		case .missingModelFile:
+			"The model file for this configuration is missing."
+		}
 	}
 }
 

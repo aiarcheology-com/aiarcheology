@@ -314,7 +314,12 @@ private struct ConfigurationRow: View {
     var tour: TourState?
     let onTap: () -> Void
     let onDelete: () -> Void
-    
+
+    /// Where this model came from (AIA-0459). Read from disk in `.task` rather than in `body`: the
+    /// answer lives in the configuration's conversion report, and a file read per render would run
+    /// on every list redraw.
+    @State private var provenance: ModelProvenance?
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -324,8 +329,10 @@ private struct ConfigurationRow: View {
                     .truncationMode(.tail)
                     .testability(Testability.Label.sideMenuCellDescription)
                 
-                if let author = configuration.author {
-                    Text(author)
+                // Author and provenance share one caption line: "AI Archeology · Converted from ONNX".
+                // Either half may be absent — the provenance only after the disk read completes.
+                if let subtitle {
+                    Text(subtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -387,6 +394,31 @@ private struct ConfigurationRow: View {
                 Label(L10n.Common.delete, systemImage: "trash")
             }
         }
+        .task(id: configuration.entityId) { loadProvenance() }
+    }
+
+    /// "AI Archeology · Converted from ONNX" — either half alone when the other is missing.
+    private var subtitle: String? {
+        let parts: [String] = [configuration.author, provenanceText].filter(\.isNotBlank).compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private var provenanceText: String? {
+        switch provenance {
+        case .converted(let sourceFormat): L10n.Configuration.Provenance.converted(sourceFormat)
+        case .coreML: L10n.Configuration.Provenance.coreML
+        case nil: nil
+        }
+    }
+
+    private func loadProvenance() {
+        // A demo model ships compiled in the bundle and has no configuration directory to read.
+        guard configuration.demo.not else {
+            provenance = .coreML
+            return
+        }
+        guard let directory = FileManager.deepConfigurationDirectory(id: configuration.entityId) else { return }
+        provenance = ModelProvenance.read(in: directory)
     }
 }
 

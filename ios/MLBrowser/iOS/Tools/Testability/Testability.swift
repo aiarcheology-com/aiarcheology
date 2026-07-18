@@ -77,6 +77,8 @@ extension TestabilityIdentification {
 		case sideMenuConfigurationCell
 		case sideMenuDeleteConfiguration
 		// Configuration Form
+		case configurationFormConversionLog
+		case configurationFormExport
 		case configurationFormDismiss
 		case configurationFormCancel
 		case configurationExapandableRow

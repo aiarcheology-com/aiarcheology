@@ -281,3 +281,29 @@ enum NativeModelConversionImportReportError: LocalizedError {
 		}
 	}
 }
+
+/// Where a configuration's model came from, shown in the drawer so a converted model is
+/// distinguishable from one that was already Core ML.
+enum ModelProvenance: Equatable {
+	/// Produced on-device by the native converter from the named source format (e.g. "ONNX").
+	case converted(sourceFormat: String)
+	/// Imported as Core ML directly — including the bundled demo models.
+	case coreML
+
+	/// Reads the provenance for a configuration directory. A configuration with no readable
+	/// conversion report was never converted, so it is Core ML by definition.
+	static func read(in configurationDirectory: URL) -> ModelProvenance {
+		guard let report = try? NativeModelConversionImportReport.load(in: configurationDirectory) else {
+			return .coreML
+		}
+		return .converted(sourceFormat: sourceFormat(of: report.sourcePackageFilename))
+	}
+
+	/// The source file's extension, upper-cased for display ("mobilenetv2-10.onnx" -> "ONNX").
+	/// Falls back to the internal graph format's name when there is no usable extension, so the
+	/// caption never renders empty.
+	static func sourceFormat(of filename: String) -> String {
+		let fileExtension = (filename as NSString).pathExtension
+		return fileExtension.isEmpty ? "AIAGRAPH" : fileExtension.uppercased()
+	}
+}

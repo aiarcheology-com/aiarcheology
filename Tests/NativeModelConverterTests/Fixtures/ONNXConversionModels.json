@@ -7,12 +7,115 @@
       "fileName": "mobilenetv2-10.onnx",
       "url": "https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/mobilenetv2-10.onnx",
       "sha256": "0e7c0aa4bc74650386fa1d2c84705753de7c2bdb21909ada5c59154bb429e092",
-      "convertedInput": { "name": "image", "width": 224, "height": 224 },
+      "convertedInput": {
+        "name": "image",
+        "width": 224,
+        "height": 224
+      },
       "solidColorProbes": [
-        { "red": 255, "green": 0, "blue": 0, "expectedClassLabel": "matchstick" },
-        { "red": 0, "green": 255, "blue": 0, "expectedClassLabel": "whistle" },
-        { "red": 0, "green": 0, "blue": 255, "expectedClassLabel": "jellyfish" },
-        { "red": 128, "green": 128, "blue": 128, "expectedClassLabel": "nematode" }
+        {
+          "red": 255,
+          "green": 0,
+          "blue": 0,
+          "expectedClassLabel": "matchstick"
+        },
+        {
+          "red": 0,
+          "green": 255,
+          "blue": 0,
+          "expectedClassLabel": "whistle"
+        },
+        {
+          "red": 0,
+          "green": 0,
+          "blue": 255,
+          "expectedClassLabel": "jellyfish"
+        },
+        {
+          "red": 128,
+          "green": 128,
+          "blue": 128,
+          "expectedClassLabel": "nematode"
+        }
+      ]
+    },
+    {
+      "id": "onnx-model-zoo.resnet50-v1-7",
+      "fileName": "resnet50-v1-7.onnx",
+      "url": "https://github.com/onnx/models/raw/main/validated/vision/classification/resnet/model/resnet50-v1-7.onnx",
+      "sha256": "af16a04a6ec48ac494065d4439fe9dea590d337b9ca6dc328160ccf04a217b9c",
+      "convertedInput": {
+        "name": "image",
+        "width": 224,
+        "height": 224
+      },
+      "solidColorProbes": [
+        {
+          "red": 255,
+          "green": 0,
+          "blue": 0,
+          "expectedClassLabel": "theater curtain"
+        },
+        {
+          "red": 0,
+          "green": 255,
+          "blue": 0,
+          "expectedClassLabel": "nematode"
+        },
+        {
+          "red": 0,
+          "green": 0,
+          "blue": 255,
+          "expectedClassLabel": "jellyfish"
+        },
+        {
+          "red": 255,
+          "green": 255,
+          "blue": 0,
+          "expectedClassLabel": "rapeseed"
+        }
+      ]
+    },
+    {
+      "id": "onnx-model-zoo.squeezenet1.0-12",
+      "fileName": "squeezenet1.0-12.onnx",
+      "url": "https://github.com/onnx/models/raw/main/validated/vision/classification/squeezenet/model/squeezenet1.0-12.onnx",
+      "sha256": "dec81a8684617770b3cf13fadc1d92565d1d453d23935fc6388b792d99c992bd",
+      "comment": "SqueezeNet maps every solid color to 'nematode', so label equality alone cannot distinguish the probes; the per-probe top-1 probability (from the in-graph softmax, measured with onnxruntime) is asserted too.",
+      "convertedInput": {
+        "name": "image",
+        "width": 224,
+        "height": 224
+      },
+      "solidColorProbes": [
+        {
+          "red": 255,
+          "green": 0,
+          "blue": 0,
+          "expectedClassLabel": "nematode",
+          "expectedTopProbability": 0.148185
+        },
+        {
+          "red": 0,
+          "green": 255,
+          "blue": 0,
+          "expectedClassLabel": "nematode",
+          "expectedTopProbability": 0.204573
+        },
+        {
+          "red": 0,
+          "green": 0,
+          "blue": 255,
+          "expectedClassLabel": "nematode",
+          "expectedTopProbability": 0.148141
+        },
+        {
+          "red": 128,
+          "green": 128,
+          "blue": 128,
+          "expectedClassLabel": "nematode",
+          "expectedTopProbability": 0.117168
+        }
       ]
     }
   ]
