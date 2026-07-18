@@ -310,6 +310,13 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		let network = CoreMLProtobufEncoder.message { network in
 			network.append(layers)
 			CoreMLProtobufEncoder.appendVarintField(5, value: 1, to: &network)
+			// Image inputs must use RANK4_IMAGE_MAPPING to match EXACT_ARRAY_MAPPING above: under the
+			// legacy rank-5 mapping the image enters as [1, 1, C, H, W], shifting every axis the reader
+			// computed — an in-graph softmax over "axis 1" then normalizes the size-1 batch dim and
+			// produces a constant all-ones vector instead of probabilities.
+			if imagePlan != nil {
+				CoreMLProtobufEncoder.appendVarintField(6, value: 1, to: &network)
+			}
 			if let classifier {
 				CoreMLProtobufEncoder.appendMessageField(100, value: stringVector(classifier.labels), to: &network)
 				CoreMLProtobufEncoder.appendStringField(200, value: classifier.probabilitiesBlobName, to: &network)
