@@ -1009,6 +1009,6 @@ enum ImageNet1000Labels {
 		"hen-of-the-woods",
 		"bolete",
 		"ear",
-		"toilet tissue",
+		"toilet tissue"
 	]
 }
