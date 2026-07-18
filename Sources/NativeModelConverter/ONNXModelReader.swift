@@ -320,6 +320,12 @@ public struct ONNXModelReader {
 			guard let primaryInput = node.inputs.first else {
 				throw ONNXModelReaderError.invalidModel("operator '\(node.opType)' (\(node.name)) has no inputs")
 			}
+			try dispatch(node, primaryInput: primaryInput)
+		}
+
+		/// Routes a validated activation-consuming node to its op lowerer. Split from `lower(_:)` so the
+		/// growing operator table doesn't push the pre-dispatch checks past the complexity limit.
+		private mutating func dispatch(_ node: ONNXNode, primaryInput: String) throws {
 			switch node.opType {
 			case "Conv": try lowerConvolution(node)
 			case "BatchNormalization": try lowerBatchNorm(node)
@@ -331,6 +337,7 @@ public struct ONNXModelReader {
 			case "MaxPool": try lowerMaxPool(node)
 			case "Reshape", "Flatten": try lowerFlatten(node)
 			case "Gemm": try lowerGemm(node)
+			case "Softmax": try lowerSoftmax(node)
 			default: throw ONNXModelReaderError.unsupportedOperation(node.opType)
 			}
 		}
@@ -545,6 +552,34 @@ public struct ONNXModelReader {
 			}
 			try record(node, kind: .concatenate, activationInputs: node.inputs, weightInputs: [],
 				attributes: ["axis": .integer(1)], outputShape: [reference[0], channels, reference[2], reference[3]])
+		}
+
+		/// ONNX `Softmax` semantics depend on the opset: before 13 the input is coerced to a 2-D matrix
+		/// split at `axis` (default 1) and rows are normalized jointly; from 13 on it normalizes along
+		/// `axis` (default −1) independently per slice. Core ML's softmaxND implements the per-axis form.
+		/// The two coincide exactly when every dimension after `axis` is 1 — true for classifier heads
+		/// like SqueezeNet's `[1, 1000, 1, 1]` — so pre-13 graphs outside that shape are rejected rather
+		/// than converted with the wrong normalization group.
+		private mutating func lowerSoftmax(_ node: ONNXNode) throws {
+			guard let inputShape = shapes[node.inputs[0]], !inputShape.isEmpty else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "unknown input shape")
+			}
+			let rank = inputShape.count
+			let rawAxis = node.attributes["axis"]?.int ?? (opsetVersion >= 13 ? -1 : 1)
+			let axis = rawAxis < 0 ? rawAxis + rank : rawAxis
+			guard axis >= 0, axis < rank else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Softmax axis \(rawAxis) is out of range for rank \(rank)")
+			}
+			if opsetVersion < 13 {
+				guard inputShape[(axis + 1)...].allSatisfy({ $0 == 1 }) else {
+					throw ONNXModelReaderError.unsupportedAttribute(
+						operation: node.name,
+						detail: "pre-opset-13 Softmax over \(inputShape) at axis \(axis) normalizes across multiple dimensions"
+					)
+				}
+			}
+			try record(node, kind: .softmax, activationInputs: [node.inputs[0]], weightInputs: [],
+				attributes: ["axis": .integer(axis)], outputShape: inputShape)
 		}
 
 		private mutating func lowerGlobalAveragePool(_ node: ONNXNode) throws {

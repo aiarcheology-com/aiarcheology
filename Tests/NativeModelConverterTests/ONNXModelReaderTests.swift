@@ -438,6 +438,72 @@ final class ONNXModelReaderTests: XCTestCase {
 		)
 	}
 
+	// MARK: - Softmax lowering (opset-aware axis semantics)
+
+	func testRead_softmaxOpset12ClassifierHead_defaultsToAxis1() throws {
+		// SqueezeNet's shape: pre-13 default axis 1 over [1,1000,1,1] — trailing dims are 1, so the
+		// coerce-to-2D and per-axis semantics coincide and the op is accepted.
+		let model = softmaxModel(inputShape: [1, 1000, 1, 1], axis: nil, opsetVersion: 12)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.softmax])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["axis"]?.integerValue, 1)
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 1000, 1, 1])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_softmaxOpset12WithSpatialDims_isRejected() throws {
+		// Pre-13, axis 1 over [1,3,4,4] normalizes across C*H*W jointly — softmaxND cannot express that.
+		let model = softmaxModel(inputShape: [1, 3, 4, 4], axis: 1, opsetVersion: 12)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_softmaxOpset13_defaultsToLastAxis() throws {
+		// From opset 13 the default axis is −1 and the per-axis semantics match softmaxND for any shape.
+		let model = softmaxModel(inputShape: [1, 3, 4, 4], axis: nil, opsetVersion: 13)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations[0].attributes["axis"]?.integerValue, 3)
+	}
+
+	func testRead_softmaxNegativeAxis_isNormalized() throws {
+		let model = softmaxModel(inputShape: [1, 1000, 1, 1], axis: -3, opsetVersion: 12)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations[0].attributes["axis"]?.integerValue, 1)
+	}
+
+	func testRead_softmaxAxisOutOfRange_isRejected() throws {
+		for axis in [4, -5] {
+			let model = softmaxModel(inputShape: [1, 1000, 1, 1], axis: axis, opsetVersion: 13)
+			XCTAssertThrowsError(try ONNXModelReader().read(data: model), "axis \(axis)") { error in
+				guard case ONNXModelReaderError.unsupportedAttribute = error else {
+					return XCTFail("Expected unsupportedAttribute for axis \(axis), got \(error)")
+				}
+			}
+		}
+	}
+
+	func testRead_softmaxOpset13Rank2_defaultsToClassAxis() throws {
+		// A [1,N] head at opset 13: default −1 lands on the class axis.
+		let model = softmaxModel(inputShape: [1, 10], axis: nil, opsetVersion: 13)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations[0].attributes["axis"]?.integerValue, 1)
+	}
+
+	private func softmaxModel(inputShape: [Int], axis: Int?, opsetVersion: Int) -> Data {
+		var attributes: [Data] = []
+		if let axis { attributes.append(onnxSignedIntAttr(name: "axis", value: axis)) }
+		let softmax = onnxNode(op: "Softmax", inputs: ["x"], outputs: ["y"], name: "softmax", attributes: attributes)
+		return onnxModel(
+			nodes: [softmax], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: inputShape)],
+			outputs: [onnxValueInfo(name: "y", shape: inputShape)],
+			opsetVersion: opsetVersion
+		)
+	}
+
 	// MARK: - Opset, node domain, and pass-through (Identity/Dropout) aliasing
 
 	func testRead_dropoutBetweenConvAndRelu_isAliasedAway() throws {
