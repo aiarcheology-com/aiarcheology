@@ -105,3 +105,6 @@ iOSInjectionProject/
 CLERK_SSO_IDS.md
 **/CLERK_SSO_IDS.md
 *.p8
+
+# Downloaded ONNX test fixtures (scripts/fetch_native_test_models.sh)
+.native-model-fixtures/

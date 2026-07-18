@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "comment": "Integration fixtures for the ONNX -> Core ML conversion path. Point NATIVE_MODEL_ONNX_DIRECTORY at a directory holding these .onnx files (see scripts/fetch_native_test_models.sh) and run `swift test --filter ONNXConversionIntegrationTests`. Expected labels are the top-1 produced by onnxruntime on the given solid-color probe (the independent oracle); a converted model must reproduce them.",
+  "models": [
+    {
+      "id": "onnx-model-zoo.mobilenet-v2-10",
+      "fileName": "mobilenetv2-10.onnx",
+      "url": "https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/mobilenetv2-10.onnx",
+      "sha256": "0e7c0aa4bc74650386fa1d2c84705753de7c2bdb21909ada5c59154bb429e092",
+      "convertedInput": { "name": "image", "width": 224, "height": 224 },
+      "solidColorProbes": [
+        { "red": 255, "green": 0, "blue": 0, "expectedClassLabel": "matchstick" },
+        { "red": 0, "green": 255, "blue": 0, "expectedClassLabel": "whistle" },
+        { "red": 0, "green": 0, "blue": 255, "expectedClassLabel": "jellyfish" },
+        { "red": 128, "green": 128, "blue": 128, "expectedClassLabel": "nematode" }
+      ]
+    }
+  ]
+}
