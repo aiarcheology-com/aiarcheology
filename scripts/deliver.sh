@@ -171,12 +171,50 @@ jwt_selftest() {
     [[ "$out" == *"ASC-JWT-SELFTEST-OK"* ]] || die "JWT self-test did not confirm success: ${out}"
 }
 
+ASC_AUTH_DIR="${REPO_ROOT}/ios/asc.auth"
+
+use_materialized_credentials() {
+    # ios/asc.auth/ substitutes for the 1Password RESOLUTION STEP, nothing more. So it is consulted
+    # only when the values we hold would otherwise need `op` — i.e. they are empty or still op://
+    # references. An operator who exported a literal ASC_KEY_ID or a concrete ASC_KEY_PATH has
+    # deliberately chosen a different key, and must keep winning (deliver.sh:78-86 already gives
+    # explicit env precedence over ios/asc.env; this preserves that ordering).
+    [[ -f "${ASC_AUTH_DIR}/key-id" && -f "${ASC_AUTH_DIR}/issuer-id" ]] || return 1
+    [[ -z "$ASC_KEY_PATH" ]] || return 1
+    [[ -z "$ASC_KEY_ID"    || "$ASC_KEY_ID"    == op://* ]] || return 1
+    [[ -z "$ASC_ISSUER_ID" || "$ASC_ISSUER_ID" == op://* ]] || return 1
+    return 0
+}
+
 resolve_asc_credentials() {
     # Resolves ASC_KEY_ID / ASC_ISSUER_ID / RESOLVED_KEY_PATH. Never echoes key material.
+
+    # Materialized credentials first: this is the whole point of #475 — a delivery must not depend
+    # on a live 1Password session at an arbitrary moment during a long run.
+    if use_materialized_credentials; then
+        ASC_KEY_ID="$(<"${ASC_AUTH_DIR}/key-id")"
+        ASC_ISSUER_ID="$(<"${ASC_AUTH_DIR}/issuer-id")"
+        ASC_KEY_ID="${ASC_KEY_ID//[$'\n\r ']/}"
+        ASC_ISSUER_ID="${ASC_ISSUER_ID//[$'\n\r ']/}"
+        # The key id is interpolated into a path below. ProjectTool validated it at write time;
+        # re-check here so this script is safe on its own terms rather than by assumption.
+        [[ "$ASC_KEY_ID" =~ ^[A-Za-z0-9-]{1,64}$ ]] \
+            || die "ios/asc.auth/key-id is not a plain identifier. Re-run: ProjectTool asc credentials refresh"
+        [[ "$ASC_ISSUER_ID" =~ ^[A-Za-z0-9-]{1,64}$ ]] \
+            || die "ios/asc.auth/issuer-id is not a plain identifier. Re-run: ProjectTool asc credentials refresh"
+        RESOLVED_KEY_PATH="${ASC_AUTH_DIR}/AuthKey_${ASC_KEY_ID}.p8"
+        [[ -f "$RESOLVED_KEY_PATH" && -r "$RESOLVED_KEY_PATH" ]] \
+            || die "ios/asc.auth/ is missing AuthKey_${ASC_KEY_ID}.p8. Re-run: ProjectTool asc credentials refresh"
+        log "Using materialized credentials from ios/asc.auth (no 1Password call)."
+        return 0
+    fi
+
     # Any op:// reference needs the 1Password CLI — require it up front for an actionable error
     # (otherwise `set -e` aborts on a bare "op: command not found").
     if [[ "$ASC_KEY_ID" == op://* || "$ASC_ISSUER_ID" == op://* || "$ASC_KEY_OP_REF" == op://* ]]; then
         require_tool op
+        warn "Resolving credentials from 1Password on this run; an expiring session will fail the delivery."
+        warn "Materialize them once instead: swift run --package-path Tools ProjectTool asc credentials generate"
     fi
     if [[ "$ASC_KEY_ID" == op://* ]]; then
         ASC_KEY_ID="$(op read "$ASC_KEY_ID")" || die "op read failed for ASC_KEY_ID (is 1Password unlocked?)."
@@ -793,4 +831,8 @@ main() {
     esac
 }
 
-main "$@"
+# scripts/test_deliver_credentials.sh sources this file to exercise credential resolution directly.
+# Nothing else sets this, so normal invocations are unaffected.
+if [[ -z "${DELIVER_SH_NO_MAIN:-}" ]]; then
+    main "$@"
+fi

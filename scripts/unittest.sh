@@ -65,6 +65,16 @@ else
     exit $TOOLS_EXIT_CODE
 fi
 
+# deliver.sh credential resolution — hermetic (no network, no Xcode, no real credentials).
+if ./scripts/test_deliver_credentials.sh; then
+    echo ""
+else
+    DELIVER_EXIT_CODE=$?
+    echo ""
+    echo "deliver.sh credential tests failed."
+    exit $DELIVER_EXIT_CODE
+fi
+
 # Pick the available iPhone simulator on the NEWEST iOS runtime. Selecting the
 # first available iPhone is unsafe: simctl reports devices on runtimes below the
 # app's deployment target as "available", but xcodebuild rejects them as
