@@ -1,16 +1,18 @@
-Test Focus: Converted models now credit their original authors
+Test Focus: Comparing several classification models side by side
 
 What's new:
 
-• When you import an .onnx model, the converted model now carries the original model's description, author, version and license from the source file — instead of showing the filename with everything else blank.
+• With several classification models enabled at once, the label bubble now shows every model's results — each under its own header with the model's name and color dot. Previously only one model's labels were shown and the rest were silently dropped.
+• Converted models continue to credit their original authors (previous build): imported .onnx models carry the original description, author and version.
 
 Please test:
 
-1. Import Tiny YOLOv2: https://github.com/onnx/models/raw/main/validated/vision/object_detection_segmentation/tiny-yolov2/model/tinyyolov2-8.onnx — on the configuration screen, the description should read like "The Tiny YOLO network from the paper 'YOLO9000'…" and the author should be "Original paper: Joseph Redmon, Ali Farhadi" (previously both were the filename / blank).
-2. Import an image classifier that carries no embedded metadata (e.g. ResNet-50 from the ONNX Model Zoo) — it should still import and classify exactly as before, with the filename as its name. Nothing should look broken or show empty "author"/"version" noise.
-3. Re-import a model you imported before this build — its description/author should now be populated where the source file provides them.
+1. Enable ONE classification model and browse — the label bubble should look exactly as before (no header, top labels with percentages).
+2. Enable TWO OR MORE classification models and browse an image-heavy page — the bubble should list each model separately: a small header with the model's name and a dot in its color, then that model's labels. Compare what each model thinks of the same page.
+3. Check attribution: the dot color next to each model's name should match that model's annotation color (set in its configuration sheet) — labels must never appear under another model's name or color.
+4. The pulsing frame flash should behave as before (it follows the first qualifying model's color and speed).
+5. Detection models (bounding boxes) should be completely unchanged.
 
 Known limitations:
 
-• The license is preserved inside the converted model and travels with an exported model, but is not yet shown on the configuration screen — that display is a separate change.
-• Modern YOLO (v8/v11) detection is still landing incrementally; a YOLO11 export that uses unsupported operators may still fail to convert. Its attribution is read correctly regardless.
+• The frame flash is a single border, so with several qualifying models it shows the first one's color — per-model flash identity is the colored dot in the bubble.
