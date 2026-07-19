@@ -55,8 +55,8 @@ echo "▸ deliver.sh credential resolution"
     export OP_CALL_LOG="$WORK/calls1.txt"; : > "$OP_CALL_LOG"
     export PATH="$WORK/bin:$PATH"
     load_deliver
-    make_asc_auth "$ASC_AUTH_DIR.test"
-    ASC_AUTH_DIR="$ASC_AUTH_DIR.test"
+    make_asc_auth "$WORK/asc.auth"
+    ASC_AUTH_DIR="$WORK/asc.auth"
     ASC_KEY_ID='op://Personal/ASC/key id'
     ASC_ISSUER_ID='op://Personal/ASC/Issuer ID'
     ASC_KEY_OP_REF='op://Personal/ASC/AuthKey.p8'
@@ -79,8 +79,8 @@ echo "▸ deliver.sh credential resolution"
     export OP_CALL_LOG="$WORK/calls2.txt"; : > "$OP_CALL_LOG"
     export PATH="$WORK/bin:$PATH"
     load_deliver
-    make_asc_auth "$ASC_AUTH_DIR.test"
-    ASC_AUTH_DIR="$ASC_AUTH_DIR.test"
+    make_asc_auth "$WORK/asc.auth"
+    ASC_AUTH_DIR="$WORK/asc.auth"
     printf -- '-----BEGIN PRIVATE KEY-----\nOTHER\n-----END PRIVATE KEY-----\n' > "$WORK/explicit.p8"
     # Only ASC_KEY_PATH is set. This is the case that ISOLATES the ASC_KEY_PATH guard: setting an
     # explicit ASC_KEY_ID too would be caught by a different guard, so the test would still pass
@@ -110,9 +110,9 @@ echo "▸ deliver.sh credential resolution"
     export OP_CALL_LOG="$WORK/calls3.txt"; : > "$OP_CALL_LOG"
     export PATH="$WORK/bin:$PATH"
     load_deliver
-    mkdir -p "$ASC_AUTH_DIR.test"
-    printf '%s\n' "$KEY_ID" > "$ASC_AUTH_DIR.test/key-id"   # issuer-id and the .p8 are missing
-    ASC_AUTH_DIR="$ASC_AUTH_DIR.test"
+    mkdir -p "$WORK/asc.auth"
+    printf '%s\n' "$KEY_ID" > "$WORK/asc.auth/key-id"   # issuer-id and the .p8 are missing
+    ASC_AUTH_DIR="$WORK/asc.auth"
     ASC_KEY_ID='op://Personal/ASC/key id'
     ASC_ISSUER_ID='op://Personal/ASC/Issuer ID'
     ASC_KEY_OP_REF='op://Personal/ASC/AuthKey.p8'
@@ -134,8 +134,8 @@ echo "▸ deliver.sh credential resolution"
     export OP_CALL_LOG="$WORK/calls4.txt"; : > "$OP_CALL_LOG"
     export PATH="$WORK/bin:$PATH"
     load_deliver
-    make_asc_auth "$ASC_AUTH_DIR.test"
-    ASC_AUTH_DIR="$ASC_AUTH_DIR.test"
+    make_asc_auth "$WORK/asc.auth"
+    ASC_AUTH_DIR="$WORK/asc.auth"
     printf '%s\n' '../../../../tmp/evil' > "$ASC_AUTH_DIR/key-id"
     ASC_KEY_ID=''; ASC_ISSUER_ID=''; ASC_KEY_OP_REF=''; ASC_KEY_PATH=''
 
