@@ -40,7 +40,7 @@ final class DriversTests: XCTestCase {
 
     func testDetectorInitialization() async {
         let id = UUID()
-        let params = DeepDriverParams(entityId: id)
+        let params = DeepDriverParams(entityId: id, modelName: "Test Model")
         let detector = Detector(params: params)
         
         let detectorId = await detector.id
@@ -52,10 +52,10 @@ final class DriversTests: XCTestCase {
 
     func testDetectorUpdateConfiguration() async {
 		let id = UUID()
-		let params = DeepDriverParams(annotationColor: .red, entityId: id)
+		let params = DeepDriverParams(annotationColor: .red, entityId: id, modelName: "Test Model")
         let detector = Detector(params: params)
         
-        let newParams = DeepDriverParams(annotationColor: .blue, entityId: id)
+        let newParams = DeepDriverParams(annotationColor: .blue, entityId: id, modelName: "Test Model")
         await detector.updateConfiguration(newParams)
         
         let updatedParams = await detector.params
@@ -64,7 +64,7 @@ final class DriversTests: XCTestCase {
     
     func testDetectorProcessImage() async {
         let id = UUID()
-        let params = DeepDriverParams(entityId: id)
+        let params = DeepDriverParams(entityId: id, modelName: "Test Model")
         let detector = Detector(params: params)
         
         // Create a dummy image
@@ -78,7 +78,7 @@ final class DriversTests: XCTestCase {
     
     func testDetectorDetect_NoModelLoaded() async {
         let id = UUID()
-        let params = DeepDriverParams(entityId: id)
+        let params = DeepDriverParams(entityId: id, modelName: "Test Model")
         let detector = Detector(params: params)
         
         let image = UIImage(systemName: "star") ?? UIImage()

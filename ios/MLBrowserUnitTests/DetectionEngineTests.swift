@@ -38,7 +38,7 @@ final class DetectionEngineTests: XCTestCase {
             Bundle.main.url(forResource: modelResource, withExtension: "mlmodelc"),
             "Demo model \(modelResource).mlmodelc is missing from the app bundle"
         )
-        let detector = Detector(params: DeepDriverParams(entityId: UUID(), file: url, demo: true))
+        let detector = Detector(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model", file: url, demo: true))
         try await detector.loadFile()
         return detector
     }
@@ -156,7 +156,7 @@ final class DetectionEngineCancellationTests: XCTestCase {
     func testDetect_CancelledBeforeStart_SkipsDrivers() async {
         let engine = DetectionEngine()
         let stub = StubDetecting(
-            params: DeepDriverParams(entityId: UUID()),
+            params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"),
             objects: [DetectedObject(
                 uuid: UUID(),
                 labels: [DetectedObject.Label(identifier: "stub-object", confidence: 0.9)],
@@ -187,7 +187,7 @@ final class DetectionEngineCancellationTests: XCTestCase {
         let cases: [(TilingScheme, Int)] = [([], 1), (.pyramid, 6), (.grid3x3, 10), ([.pyramid, .grid3x3], 15)]
         for (scheme, expected) in cases {
             let stub = StubDetecting(
-                params: DeepDriverParams(entityId: UUID()),
+                params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"),
                 objects: [DetectedObject(
                     uuid: UUID(),
                     labels: [DetectedObject.Label(identifier: "stub-object", confidence: 0.9)],
@@ -207,7 +207,7 @@ final class DetectionEngineCancellationTests: XCTestCase {
     func testClassify_CancelledBeforeStart_SkipsDrivers() async {
         let engine = DetectionEngine()
         let stub = StubClassifyingRecording(
-            params: DeepDriverParams(entityId: UUID()),
+            params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"),
             labels: [ClassifiedLabel(identifier: "stub-label", confidence: 0.9)]
         )
 

@@ -128,11 +128,22 @@ extension DeepConfiguration {
 
 // MARK: - Snapshot helper to avoid sending NSManagedObject across actors
 extension DeepConfiguration {
+	/// The name a model is displayed under; nil OR blank-after-trim falls back (AIA-0472).
+	static func displayName(from modelDescription: String?) -> String {
+		let trimmed = modelDescription?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+		return trimmed.isEmpty ? "Unnamed Model" : trimmed
+	}
+
 	@MainActor
 	func toDriverParams() -> DeepDriverParams {
 		DeepDriverParams(
 			annotationColor: annotationColor,
 			entityId: entityId,
+			// Same fallback the drawer uses for a nameless model (modelDescription is optional in the
+			// schema and not required by validation, so this is a normal path, not an edge case).
+			// Blank-after-trim counts as nameless too — a whitespace name would render an empty
+			// attribution header, which is exactly what the fallback exists to prevent.
+			modelName: Self.displayName(from: modelDescription),
 			file: file,
 			phaseOutTime: phaseOutTime,
 			selectedSymbol: selectedSymbol,

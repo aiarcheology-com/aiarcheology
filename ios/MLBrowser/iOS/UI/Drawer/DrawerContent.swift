@@ -323,7 +323,9 @@ private struct ConfigurationRow: View {
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(configuration.modelDescription ?? "Unnamed Model")
+                // Same normalization the label bubble uses (AIA-0472): blank-after-trim counts as
+                // nameless, so the drawer and the bubble can never disagree about a model's name.
+                Text(DeepConfiguration.displayName(from: configuration.modelDescription))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
                     .truncationMode(.tail)
