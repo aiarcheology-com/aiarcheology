@@ -79,7 +79,14 @@ PREFLIGHT_WOULD_FAIL=0
 # provided NO ASC_* credential in the environment. Explicit env vars always win — sourcing is
 # all-or-nothing: any explicit ASC_* var (including ASC_ISSUER_ID) suppresses the file so it can't
 # clobber a partially-explicit config. The file holds references, not secrets.
-if [[ -z "${ASC_KEY_ID:-}${ASC_ISSUER_ID:-}${ASC_KEY_PATH:-}${ASC_KEY_OP_REF:-}" && -f "${REPO_ROOT}/ios/asc.env" ]]; then
+# Records whether the CALLER supplied any credential, which ios/asc.auth/ must also lose to. Testing
+# the individual variables later cannot distinguish "came from the environment" from "came from
+# asc.env", and an explicit ASC_KEY_OP_REF naming a deliberately different key looks identical to a
+# sourced one at that point.
+ASC_FROM_ENVIRONMENT=0
+if [[ -n "${ASC_KEY_ID:-}${ASC_ISSUER_ID:-}${ASC_KEY_PATH:-}${ASC_KEY_OP_REF:-}" ]]; then
+    ASC_FROM_ENVIRONMENT=1
+elif [[ -f "${REPO_ROOT}/ios/asc.env" ]]; then
     # shellcheck source=/dev/null
     source "${REPO_ROOT}/ios/asc.env"
 fi
@@ -171,12 +178,84 @@ jwt_selftest() {
     [[ "$out" == *"ASC-JWT-SELFTEST-OK"* ]] || die "JWT self-test did not confirm success: ${out}"
 }
 
+ASC_AUTH_DIR="${REPO_ROOT}/ios/asc.auth"
+
+trim_whitespace() {
+    # Leading/trailing whitespace only — interior characters are left alone so that malformed
+    # values still fail validation instead of being normalized into passing ones.
+    local s="$1"
+    s="${s#"${s%%[![:space:]]*}"}"
+    s="${s%"${s##*[![:space:]]}"}"
+    printf '%s' "$s"
+}
+
+secure_credential_file() {
+    # A private signing key must not be used from a file anyone else can read, and must not be a
+    # symlink pointing somewhere unexpected. Permissions drift (a manual copy, a restored backup,
+    # an over-broad umask), and "we created it 0600" is an assumption about the past, not a fact
+    # about now.
+    local path="$1" want="$2" mode
+    [[ ! -L "$path" ]] || { warn "ios/asc.auth: $(basename "$path") is a symlink; refusing to use it."; return 1; }
+    [[ -f "$path" ]]   || return 1
+    mode="$(stat -f '%Lp' "$path" 2>/dev/null)" || return 1
+    [[ "$mode" == "$want" ]] || {
+        warn "ios/asc.auth: $(basename "$path") is mode ${mode}, expected ${want}."
+        warn "Fix with: chmod ${want} '${path}'  (or: ProjectTool asc credentials refresh)"
+        return 1
+    }
+    return 0
+}
+
+use_materialized_credentials() {
+    # ios/asc.auth/ substitutes for the 1Password RESOLUTION STEP, nothing more.
+    #
+    # It loses to anything the caller supplied explicitly. Checking the individual variables is not
+    # sufficient: with an explicit ASC_KEY_OP_REF the id and issuer are simply empty (sourcing is
+    # suppressed), which is indistinguishable from "nothing was set" — so the caller would silently
+    # get the materialized key instead of the one they named.
+    [[ "$ASC_FROM_ENVIRONMENT" == 0 ]] || return 1
+
+    # Both identifier files present and correctly permissioned means "this directory is the
+    # credential source". Anything wrong BEYOND that point — a missing .p8, a malformed id — is
+    # reported loudly by resolve_asc_credentials rather than silently falling back to 1Password:
+    # a half-written or tampered credentials directory is an anomaly worth surfacing, and since
+    # resolution now happens before the sweep, a hard stop costs seconds and names its own fix.
+    secure_credential_file "${ASC_AUTH_DIR}/key-id" 600    || return 1
+    secure_credential_file "${ASC_AUTH_DIR}/issuer-id" 600 || return 1
+    return 0
+}
+
 resolve_asc_credentials() {
     # Resolves ASC_KEY_ID / ASC_ISSUER_ID / RESOLVED_KEY_PATH. Never echoes key material.
+
+    # Materialized credentials first: this is the whole point of #475 — a delivery must not depend
+    # on a live 1Password session at an arbitrary moment during a long run.
+    if use_materialized_credentials; then
+        # Trim only the EDGES. Deleting every space would rewrite a malformed "key id" into a
+        # well-formed "keyid" that then passes validation — silently repairing exactly the tampering
+        # the validation exists to catch. `op read` adds a trailing newline; nothing legitimately
+        # adds an interior space.
+        ASC_KEY_ID="$(trim_whitespace "$(<"${ASC_AUTH_DIR}/key-id")")"
+        ASC_ISSUER_ID="$(trim_whitespace "$(<"${ASC_AUTH_DIR}/issuer-id")")"
+        # The key id is interpolated into a path below. ProjectTool validated it at write time;
+        # re-check here so this script is safe on its own terms rather than by assumption.
+        [[ "$ASC_KEY_ID" =~ ^[A-Za-z0-9-]{1,64}$ ]] \
+            || die "ios/asc.auth/key-id is not a plain identifier. Re-run: ProjectTool asc credentials refresh"
+        [[ "$ASC_ISSUER_ID" =~ ^[A-Za-z0-9-]{1,64}$ ]] \
+            || die "ios/asc.auth/issuer-id is not a plain identifier. Re-run: ProjectTool asc credentials refresh"
+        RESOLVED_KEY_PATH="${ASC_AUTH_DIR}/AuthKey_${ASC_KEY_ID}.p8"
+        secure_credential_file "$RESOLVED_KEY_PATH" 600 \
+            || die "ios/asc.auth/AuthKey_${ASC_KEY_ID}.p8 is missing, a symlink, or not mode 600. Re-run: ProjectTool asc credentials refresh"
+        log "Using materialized credentials from ios/asc.auth (no 1Password call)."
+        return 0
+    fi
+
     # Any op:// reference needs the 1Password CLI — require it up front for an actionable error
     # (otherwise `set -e` aborts on a bare "op: command not found").
     if [[ "$ASC_KEY_ID" == op://* || "$ASC_ISSUER_ID" == op://* || "$ASC_KEY_OP_REF" == op://* ]]; then
         require_tool op
+        warn "Resolving credentials from 1Password on this run; an expiring session will fail the delivery."
+        warn "Materialize them once instead: swift run --package-path Tools ProjectTool asc credentials generate"
     fi
     if [[ "$ASC_KEY_ID" == op://* ]]; then
         ASC_KEY_ID="$(op read "$ASC_KEY_ID")" || die "op read failed for ASC_KEY_ID (is 1Password unlocked?)."
@@ -393,6 +472,14 @@ preflight() {
     jwt_selftest
     log "JWT ES256 self-test OK."
 
+    # Resolve credentials BEFORE the sweep, not after. The sweep takes ~10 minutes; resolving
+    # afterwards means a 1Password session that expires mid-sweep throws all of that work away
+    # (observed four times on 2026-07-19 — see #475). Failing here costs seconds instead.
+    # This must stay inside the live-only block: dry-run returns above and promises "NO 1Password",
+    # and `selftest` injects sentinel op:// refs that must never be resolved for real.
+    resolve_asc_credentials
+    log "App Store Connect credentials resolved (key id + issuer + .p8)."
+
     # Build-secrets validation + the pre-push sweep only apply to a build; a notes push touches no
     # source, so it never runs them.
     if [[ "$archives" == 1 ]]; then
@@ -407,9 +494,6 @@ preflight() {
                 || die "Preflight failed: pre-push sweep (swiftlint / harmonize / unittest)."
         fi
     fi
-
-    resolve_asc_credentials
-    log "App Store Connect credentials resolved (key id + issuer + .p8)."
 
     if [[ "$ONLINE_PREFLIGHT" == 1 ]]; then
         local app_id
@@ -788,4 +872,8 @@ main() {
     esac
 }
 
-main "$@"
+# scripts/test_deliver_credentials.sh sources this file to exercise credential resolution directly.
+# Nothing else sets this, so normal invocations are unaffected.
+if [[ -z "${DELIVER_SH_NO_MAIN:-}" ]]; then
+    main "$@"
+fi

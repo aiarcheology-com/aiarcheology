@@ -2,6 +2,12 @@
 .sentryclirc
 Secrets.xcconfig
 asc.env
+# Resolved App Store Connect delivery credentials, including the private .p8 signing key.
+# Materialized by `ProjectTool asc credentials generate`; removed by `… clean`.
+# The glob also covers asc.auth.staging/, the directory a refresh builds before swapping it in.
+# Left unanchored deliberately: for a private-key ignore rule, matching MORE paths is the safe
+# direction, so a stray copy under any subdirectory is still ignored.
+asc.auth*/
 
 # Generated files
 MLBrowser/iOS/Resources/Localizable.strings

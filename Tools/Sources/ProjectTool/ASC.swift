@@ -17,7 +17,7 @@ struct ASC: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "asc",
         abstract: "App Store Connect helpers.",
-        subcommands: [Token.self]
+        subcommands: [Token.self, Credentials.self]
     )
 }
 

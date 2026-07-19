@@ -166,13 +166,33 @@ locally and uploads it to TestFlight. Prefer Xcode Cloud for routine releases �
   Developer Portal).
 - 1Password CLI (`op`) if you store the key there; otherwise a local `.p8` path.
 
-**Credentials** — an App Store Connect API key, provided as either literal env vars or `op://`
-references that `deliver.sh` resolves via 1Password at run time. A key resolved from 1Password
-(`ASC_KEY_OP_REF`) is written to a short-lived `0600` temp file that's wiped on exit — never committed,
-never persisted beyond the run. A key you point at directly (`ASC_KEY_PATH`) is a `.p8` that already
-lives on disk; keep it outside the repo with restrictive permissions (`chmod 600`). Either way this is
-a *delivery* credential, resolved at run time; it is deliberately **not** part of `Secrets.xcconfig`
-(which compiles build secrets into the app).
+**Credentials** — an App Store Connect API key. This is a *delivery* credential: a private,
+account-level key that can upload builds, read sales data and manage users. It is deliberately
+**not** part of `Secrets.xcconfig` (which compiles build secrets into the app) and must never
+become an input to the app build.
+
+The recommended setup is to materialize it **once** from 1Password:
+
+```sh
+swift run --package-path Tools ProjectTool asc credentials generate
+```
+
+That resolves the `op://` references in `ios/asc.env` into the gitignored `ios/asc.auth/`
+(directory `0700`; `AuthKey_<KEYID>.p8`, `key-id` and `issuer-id` each `0600`). `deliver.sh` reads
+those files directly, so a delivery no longer depends on a live 1Password session at an arbitrary
+moment during a long run — a session that expired mid-sweep used to discard ten minutes of work.
+
+| Command | Effect |
+|-|-|
+| `asc credentials generate` | Resolve from 1Password if not already present |
+| `asc credentials refresh` | Re-resolve, replacing the directory (use after key rotation) |
+| `asc credentials status` | Report the materialized key id (never prints key material) |
+| `asc credentials clean` | Remove the directory and the private key it holds |
+
+Without `ios/asc.auth/`, `deliver.sh` still falls back to resolving the `op://` references on every
+run, writing the key to a short-lived `0600` temp file wiped on exit. Explicit `ASC_*` environment
+variables always win over both — `ASC_KEY_PATH` points at a `.p8` already on disk (keep it outside
+the repo, `chmod 600`).
 
 The simplest setup is a gitignored `ios/asc.env` that `deliver.sh` sources automatically — copy the
 template, then edit the vault/item/key-id to match your 1Password:
