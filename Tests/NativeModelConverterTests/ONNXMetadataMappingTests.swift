@@ -113,8 +113,8 @@ final class ONNXMetadataMappingTests: XCTestCase {
 	}
 
 	func testMirroredPairCountIsBounded() throws {
-		let props = (0 ..< (ONNXMetadataMapping.maximumMirroredPairCount + 50)).map { i in
-			(key: "k\(String(format: "%04d", i))", value: "v")
+		let props = (0 ..< (ONNXMetadataMapping.maximumMirroredPairCount + 50)).map { index in
+			(key: "k\(String(format: "%04d", index))", value: "v")
 		}
 		let metadata = try XCTUnwrap(ONNXMetadataMapping.metadata(from: ONNXRawMetadata(props: props)))
 		XCTAssertLessThanOrEqual(metadata.userDefined.count, ONNXMetadataMapping.maximumMirroredPairCount)
@@ -152,13 +152,13 @@ final class ONNXMetadataMappingTests: XCTestCase {
 	// MARK: - Minimal protobuf writer (test-local)
 
 	private func appendVarint(_ value: UInt64, to data: inout Data) {
-		var v = value
+		var remaining = value
 		repeat {
-			var byte = UInt8(v & 0x7f)
-			v >>= 7
-			if v != 0 { byte |= 0x80 }
+			var byte = UInt8(remaining & 0x7f)
+			remaining >>= 7
+			if remaining != 0 { byte |= 0x80 }
 			data.append(byte)
-		} while v != 0
+		} while remaining != 0
 	}
 
 	private func appendVarintField(_ field: Int, _ value: UInt64, to data: inout Data) {
