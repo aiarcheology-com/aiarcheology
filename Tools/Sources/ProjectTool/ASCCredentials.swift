@@ -149,7 +149,10 @@ extension ASC.Credentials {
             (try? ASCCredentialsSupport.validateResolvedIdentifier(id, name: "key-id")) != nil,
             let issuer = try? String(contentsOfFile: Paths.issuerID(), encoding: .utf8)
                 .trimmingCharacters(in: .whitespacesAndNewlines),
-            !issuer.isEmpty,
+            // Validate the issuer's SHAPE too, not just that it is non-empty: otherwise a tampered
+            // issuer-id makes the directory look populated, so `generate` skips regeneration and
+            // `status` reports success, while the delivery still fails later in deliver.sh.
+            (try? ASCCredentialsSupport.validateResolvedIdentifier(issuer, name: "issuer-id")) != nil,
             isSecure(Paths.keyID()),
             isSecure(Paths.issuerID()),
             isSecure(Paths.key(forKeyID: id))

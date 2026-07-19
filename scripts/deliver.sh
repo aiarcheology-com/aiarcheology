@@ -180,6 +180,15 @@ jwt_selftest() {
 
 ASC_AUTH_DIR="${REPO_ROOT}/ios/asc.auth"
 
+trim_whitespace() {
+    # Leading/trailing whitespace only — interior characters are left alone so that malformed
+    # values still fail validation instead of being normalized into passing ones.
+    local s="$1"
+    s="${s#"${s%%[![:space:]]*}"}"
+    s="${s%"${s##*[![:space:]]}"}"
+    printf '%s' "$s"
+}
+
 secure_credential_file() {
     # A private signing key must not be used from a file anyone else can read, and must not be a
     # symlink pointing somewhere unexpected. Permissions drift (a manual copy, a restored backup,
@@ -222,10 +231,12 @@ resolve_asc_credentials() {
     # Materialized credentials first: this is the whole point of #475 — a delivery must not depend
     # on a live 1Password session at an arbitrary moment during a long run.
     if use_materialized_credentials; then
-        ASC_KEY_ID="$(<"${ASC_AUTH_DIR}/key-id")"
-        ASC_ISSUER_ID="$(<"${ASC_AUTH_DIR}/issuer-id")"
-        ASC_KEY_ID="${ASC_KEY_ID//[$'\n\r ']/}"
-        ASC_ISSUER_ID="${ASC_ISSUER_ID//[$'\n\r ']/}"
+        # Trim only the EDGES. Deleting every space would rewrite a malformed "key id" into a
+        # well-formed "keyid" that then passes validation — silently repairing exactly the tampering
+        # the validation exists to catch. `op read` adds a trailing newline; nothing legitimately
+        # adds an interior space.
+        ASC_KEY_ID="$(trim_whitespace "$(<"${ASC_AUTH_DIR}/key-id")")"
+        ASC_ISSUER_ID="$(trim_whitespace "$(<"${ASC_AUTH_DIR}/issuer-id")")"
         # The key id is interpolated into a path below. ProjectTool validated it at write time;
         # re-check here so this script is safe on its own terms rather than by assumption.
         [[ "$ASC_KEY_ID" =~ ^[A-Za-z0-9-]{1,64}$ ]] \

@@ -179,6 +179,29 @@ echo "▸ deliver.sh credential resolution"
   || fail "an explicit ASC_KEY_OP_REF is not replaced by ios/asc.auth"
 
 # ------------------------------------------------------------------------------------------------
+# 5b. A key-id containing an interior space is REJECTED, not silently repaired.
+#     Deleting all whitespace would turn "key id" into the well-formed "keyid" and let it through.
+# ------------------------------------------------------------------------------------------------
+(
+    export OP_CALL_LOG="$WORK/calls5b.txt"; : > "$OP_CALL_LOG"
+    export PATH="$WORK/bin:$PATH"
+    load_deliver
+    make_asc_auth "$WORK/asc.auth"
+    ASC_AUTH_DIR="$WORK/asc.auth"
+    printf '%s\n' 'key id' > "$ASC_AUTH_DIR/key-id"
+    ASC_FROM_ENVIRONMENT=0
+    ASC_KEY_ID=''; ASC_ISSUER_ID=''; ASC_KEY_PATH=''; ASC_KEY_OP_REF=''
+
+    err="$( ( resolve_asc_credentials ) 2>&1 >/dev/null || true )"
+    case "$err" in
+        *"not a plain identifier"*) : ;;
+        *) echo "an interior space was silently stripped instead of rejected. stderr: $err" >&2; exit 1 ;;
+    esac
+    rm -rf "$ASC_AUTH_DIR"
+) && pass "a key-id with an interior space is rejected, not repaired" \
+  || fail "a key-id with an interior space is rejected, not repaired"
+
+# ------------------------------------------------------------------------------------------------
 # 6. A world-readable private key is refused rather than used.
 # ------------------------------------------------------------------------------------------------
 (
