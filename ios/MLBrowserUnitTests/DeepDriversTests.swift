@@ -239,16 +239,22 @@ final class DeepDriversTests: XCTestCase {
     
     // MARK: - Update Configuration Tests
     
-    func testUpdateConfiguration() {
+    func testUpdateConfiguration_PropagatesParamsToTheRegisteredDriver() async {
+        // Was a vacuous placeholder ("just verify the method doesn't crash") — flagged by review
+        // on AIA-0472. `updateConfiguration(_:)` takes plain params, so no Core Data is needed to
+        // assert the propagation that matters for per-model attribution: name and color.
         let id = UUID()
-        let params = DeepDriverParams(annotationColor: .red, entityId: id, modelName: "Test Model")
-        let detector = Detector(params: params)
-
+        let detector = Detector(params: DeepDriverParams(annotationColor: .red, entityId: id, modelName: "Before"))
         sut.register(driver: detector, along: .detector)
 
-        // To test update, we need a DeepConfiguration mock
-        // For now, just verify the method doesn't crash
-        // A more complete test would require CoreData setup
+        var updated = DeepDriverParams(annotationColor: .blue, entityId: id, modelName: "After")
+        updated.phaseOutTime = 4.0
+        await detector.updateConfiguration(updated)
+
+        let applied = await detector.params
+        XCTAssertEqual(applied.modelName, "After")
+        XCTAssertEqual(applied.annotationColor, .blue)
+        XCTAssertEqual(applied.phaseOutTime, 4.0)
     }
     
     // MARK: - Empty Detection Tests

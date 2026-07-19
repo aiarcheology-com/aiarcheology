@@ -650,6 +650,15 @@ final class DeepConfigurationTests: XCTestCase {
 
         XCTAssertEqual(config.toDriverParams().modelName, "Unnamed Model")
     }
+
+    func testToDriverParams_BlankModelDescriptionAlsoGetsTheFallbackName() {
+        // A whitespace-only description would render an EMPTY attribution header — exactly what
+        // the fallback exists to prevent, so blank-after-trim counts as nameless.
+        let config = createValidConfiguration()
+        config.modelDescription = "   \n"
+
+        XCTAssertEqual(config.toDriverParams().modelName, "Unnamed Model")
+    }
     
     // MARK: - Edge Cases
     
