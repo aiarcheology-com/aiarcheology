@@ -393,6 +393,14 @@ preflight() {
     jwt_selftest
     log "JWT ES256 self-test OK."
 
+    # Resolve credentials BEFORE the sweep, not after. The sweep takes ~10 minutes; resolving
+    # afterwards means a 1Password session that expires mid-sweep throws all of that work away
+    # (observed four times on 2026-07-19 — see #475). Failing here costs seconds instead.
+    # This must stay inside the live-only block: dry-run returns above and promises "NO 1Password",
+    # and `selftest` injects sentinel op:// refs that must never be resolved for real.
+    resolve_asc_credentials
+    log "App Store Connect credentials resolved (key id + issuer + .p8)."
+
     # Build-secrets validation + the pre-push sweep only apply to a build; a notes push touches no
     # source, so it never runs them.
     if [[ "$archives" == 1 ]]; then
@@ -407,9 +415,6 @@ preflight() {
                 || die "Preflight failed: pre-push sweep (swiftlint / harmonize / unittest)."
         fi
     fi
-
-    resolve_asc_credentials
-    log "App Store Connect credentials resolved (key id + issuer + .p8)."
 
     if [[ "$ONLINE_PREFLIGHT" == 1 ]]; then
         local app_id
