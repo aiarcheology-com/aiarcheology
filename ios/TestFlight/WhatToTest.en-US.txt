@@ -1,16 +1,16 @@
-Test Focus: Groundwork for modern YOLO detectors — existing conversions must not change
+Test Focus: Converted models now credit their original authors
 
 What's new:
 
-• Internal converter groundwork for modern YOLO detectors (YOLOv8/YOLO11). Nothing new is user-visible yet — detection boxes for these models arrive in the next build. What matters in THIS build is that everything that already worked still works exactly the same.
+• When you import an .onnx model, the converted model now carries the original model's description, author, version and license from the source file — instead of showing the filename with everything else blank.
 
 Please test:
 
-1. Import an image classifier by URL (e.g. MobileNetV2, ResNet-50, or SqueezeNet from the ONNX Model Zoo) — it must convert and classify page images as before.
-2. Import Tiny YOLOv2: https://github.com/onnx/models/raw/main/validated/vision/object_detection_segmentation/tiny-yolov2/model/tinyyolov2-8.onnx — detection boxes with labels must still appear over photos, unchanged from the previous build.
-3. New behavior worth a look: importing a modern YOLO file (e.g. a yolov8n.onnx export) no longer fails with an "unsupported operator" error — it imports successfully but appears in the model list as Disabled / needing review, and cannot produce detections yet. That is expected in this build.
-4. Detection models with embedded post-processing (SSD, tiny-yolov3) should still be rejected with a clear message.
+1. Import Tiny YOLOv2: https://github.com/onnx/models/raw/main/validated/vision/object_detection_segmentation/tiny-yolov2/model/tinyyolov2-8.onnx — on the configuration screen, the description should read like "The Tiny YOLO network from the paper 'YOLO9000'…" and the author should be "Original paper: Joseph Redmon, Ali Farhadi" (previously both were the filename / blank).
+2. Import an image classifier that carries no embedded metadata (e.g. ResNet-50 from the ONNX Model Zoo) — it should still import and classify exactly as before, with the filename as its name. Nothing should look broken or show empty "author"/"version" noise.
+3. Re-import a model you imported before this build — its description/author should now be populated where the source file provides them.
 
 Known limitations:
 
-• Modern YOLO (v8/v11) files convert but do not yet detect — the detector wiring ships in the next build. Only YOLOv2-family detection models produce boxes today.
+• The license is preserved inside the converted model and travels with an exported model, but is not yet shown on the configuration screen — that display is a separate change.
+• Modern YOLO (v8/v11) detection is still landing incrementally; a YOLO11 export that uses unsupported operators may still fail to convert. Its attribution is read correctly regardless.
