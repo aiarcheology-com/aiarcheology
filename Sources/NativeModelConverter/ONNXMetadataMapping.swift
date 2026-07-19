@@ -71,7 +71,11 @@ enum ONNXMetadataMapping {
 		// `description` must not beat the `doc_string` fallback below.
 		var props: [String: String] = [:]
 		for (rawKey, rawValue) in raw.props {
-			let key = rawKey.trimmingCharacters(in: .whitespacesAndNewlines)
+			// Keys must be exact: trimming a key would canonicalize " author " onto "author", letting a
+			// whitespace-decorated later entry override the genuine one. A non-canonical key is not
+			// something a real exporter writes — drop the pair instead of normalizing it.
+			guard rawKey == rawKey.trimmingCharacters(in: .whitespacesAndNewlines) else { continue }
+			let key = rawKey
 			let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
 			guard !key.isEmpty, !value.isEmpty else { continue }
 			// Drop only the offending pair, never the whole map — a hostile oversized value must not
@@ -85,13 +89,19 @@ enum ONNXMetadataMapping {
 			return value
 		}
 
+		// doc_string is untrusted input like every other field — it must pass the same size cap, or
+		// an oversized doc_string would bypass the bound the metadata_props values obey.
 		let docString = raw.docString?.trimmingCharacters(in: .whitespacesAndNewlines)
-		let description = prop("description") ?? docString.flatMap { $0.isEmpty ? nil : $0 }
+		let boundedDocString = docString.flatMap { $0.isEmpty || $0.utf8.count > maximumValueByteCount ? nil : $0 }
+		let description = prop("description") ?? boundedDocString
 		let author = prop("author")
 		let license = prop("license")
-		// model_version defaults to 0 when unset; 0 is not a real version, so treat it as absent and
-		// only fall through to it when metadata_props carries no explicit version string.
-		let versionFromModelVersion = (raw.modelVersion ?? 0) == 0 ? nil : String(raw.modelVersion!)
+		// model_version is a protobuf int64: it defaults to 0 when unset, and a (pathological)
+		// negative value arrives as a huge two's-complement varint. Neither is a real version —
+		// reinterpret signed and accept only values > 0, and only when metadata_props carries no
+		// explicit version string.
+		let signedModelVersion = raw.modelVersion.map { Int64(bitPattern: $0) }
+		let versionFromModelVersion = signedModelVersion.flatMap { $0 > 0 ? String($0) : nil }
 		let version = prop("version") ?? versionFromModelVersion
 
 		// Mirror every surviving pair as provenance, bounded, in a stable (sorted) order so the output

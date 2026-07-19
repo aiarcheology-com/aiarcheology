@@ -54,6 +54,23 @@ final class ONNXMetadataMappingTests: XCTestCase {
 		XCTAssertEqual(metadata.shortDescription, "Real description")
 	}
 
+	func testOversizedDocStringDoesNotBecomeTheDescription() {
+		// doc_string must obey the same cap as metadata_props values — it is the same untrusted input.
+		let huge = String(repeating: "x", count: ONNXMetadataMapping.maximumValueByteCount + 1)
+		let metadata = ONNXMetadataMapping.metadata(from: ONNXRawMetadata(
+			props: [("author", "A")], docString: huge))
+		XCTAssertNil(metadata?.shortDescription)
+	}
+
+	func testNegativeModelVersionIsTreatedAsAbsent() {
+		// model_version is a protobuf int64; a negative value arrives as a huge two's-complement
+		// varint and must not stringify as an enormous unsigned number.
+		let negativeAsVarint = UInt64(bitPattern: -3)
+		let metadata = ONNXMetadataMapping.metadata(from: ONNXRawMetadata(
+			props: [("author", "A")], modelVersion: negativeAsVarint))
+		XCTAssertNil(metadata?.versionString)
+	}
+
 	func testModelVersionZeroIsTreatedAsAbsent() {
 		// ONNX model_version defaults to 0; a "0" version string would be noise on most zoo models.
 		let metadata = ONNXMetadataMapping.metadata(from: ONNXRawMetadata(modelVersion: 0))
@@ -93,6 +110,15 @@ final class ONNXMetadataMappingTests: XCTestCase {
 		XCTAssertNil(metadata.userDefined[""])
 		XCTAssertNil(metadata.userDefined["orphan key"])
 		XCTAssertEqual(metadata.userDefined.count, 1, "only the non-empty pair survives")
+	}
+
+	func testWhitespaceDecoratedKeyCannotOverrideAGenuineOne() throws {
+		// " author " must not canonicalize onto "author" and, as the later entry, replace it.
+		let metadata = try XCTUnwrap(ONNXMetadataMapping.metadata(from: ONNXRawMetadata(
+			props: [("author", "Genuine"), (" author ", "Impostor")]
+		)))
+		XCTAssertEqual(metadata.author, "Genuine")
+		XCTAssertEqual(metadata.userDefined["author"], "Genuine")
 	}
 
 	func testDuplicateKeysKeepLastOccurrence() throws {

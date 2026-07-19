@@ -104,7 +104,12 @@ public struct ONNXModelReader {
 		// ModelProto.producer_name is field 2; fall back to "onnx" when the file omits it so the
 		// producer namespace is never empty. producer_name identifies the exporting TOOL, not the
 		// model's author — the author comes only from metadata_props["author"] (see ONNXMetadataMapping).
-		let producerName = model.firstString(2)?.trimmingCharacters(in: .whitespacesAndNewlines)
+		// Untrusted like every metadata field: an oversized name falls back rather than flowing into
+		// the emitted model's producer metadata unbounded.
+		let trimmedProducerName = model.firstString(2)?.trimmingCharacters(in: .whitespacesAndNewlines)
+		let producerName = trimmedProducerName.flatMap { name -> String? in
+			name.utf8.count <= ONNXMetadataMapping.maximumValueByteCount ? name : nil
+		}
 		let nativeGraph = NativeModelGraph(
 			formatVersion: NativeModelGraph.currentFormatVersion,
 			// ModelProto.producer_version is field 3.

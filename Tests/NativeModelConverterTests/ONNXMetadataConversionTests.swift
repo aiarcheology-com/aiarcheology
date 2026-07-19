@@ -70,8 +70,16 @@ final class ONNXMetadataConversionTests: XCTestCase {
 		XCTAssertTrue(((metadata[.description] as? String) ?? "").isEmpty, "no source description → filename fallback")
 
 		let userDefined = try XCTUnwrap(metadata[.creatorDefinedKey] as? [String: String])
-		// Converter provenance is still recorded — the model is known to be a conversion.
-		XCTAssertNotNil(userDefined["com.aiarcheology.native.conversion.weights-sha256"])
+		// Converter provenance is still recorded — the model is known to be a conversion. Assert the
+		// DIGEST VALUE, not mere presence: resnet50 takes the classifier branch, whose emitted blob is
+		// exactly the reader's weight blob, so the stamped hash must equal its recomputation. (A
+		// NotNil here would accept an empty or wrong digest.)
+		let onnxURL = try XCTUnwrap(fixtureURL("resnet50-v1-7.onnx"))
+		let conversion = try ONNXModelReader().read(from: onnxURL)
+		XCTAssertEqual(
+			userDefined["com.aiarcheology.native.conversion.weights-sha256"],
+			NativeModelConversionChecksums.sha256Hex(of: conversion.weights)
+		)
 		XCTAssertEqual(
 			userDefined["com.aiarcheology.native.converter.package-version"],
 			NativeModelConverterVersion.packageVersion
