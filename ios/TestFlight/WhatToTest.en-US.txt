@@ -1,17 +1,17 @@
-Test Focus: More ONNX models convert on your device
+Test Focus: First ONNX object-detection model converts on your device
 
 What's new:
 
-• The on-device ONNX converter now handles more image-classification models: ResNet-50 and SqueezeNet from the ONNX Model Zoo convert and run, alongside the previously supported MobileNetV2.
+• The on-device ONNX converter now handles its first object-detection model: Tiny YOLOv2 converts into a full Core ML detector — detection boxes and labels appear right in the browser, like the built-in demo detectors.
 
 Please test:
 
 1. Open the model importer and choose Download from URL.
-2. Paste https://github.com/onnx/models/raw/main/validated/vision/classification/squeezenet/model/squeezenet1.0-12.onnx and import — conversion should finish without errors.
-3. Enable the converted model, browse to any page with photos, and confirm classification labels appear.
-4. Repeat with ResNet-50 if you have time (larger download, ~100 MB): https://github.com/onnx/models/raw/main/validated/vision/classification/resnet/model/resnet50-v1-7.onnx
-5. Re-import a MobileNetV2 ONNX model if you have one — it should still convert and classify as before.
+2. Paste https://github.com/onnx/models/raw/main/validated/vision/object_detection_segmentation/tiny-yolov2/model/tinyyolov2-8.onnx and import (about 60 MB) — conversion should finish without errors.
+3. Enable the converted model and browse to pages with photos of people, cars, animals, or furniture.
+4. Confirm detection boxes with labels (person, car, dog, chair, …) appear over the photos.
+5. Image classifiers should still convert and classify as before (MobileNetV2, ResNet-50, SqueezeNet).
 
 Known limitations:
 
-• Object-detection ONNX models (e.g. YOLO) are not convertible yet and are rejected with a clear message.
+• Only raw-output YOLOv2-family detection models convert for now; detection models with embedded post-processing (e.g. SSD, tiny-yolov3) are still rejected with a clear message.

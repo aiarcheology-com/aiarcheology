@@ -194,6 +194,7 @@ extension NativeModelCoreMLEmissionError {
 		case .weightDataOutOfBounds: "weightDataOutOfBounds"
 		case .invalidConvolution: "invalidConvolution"
 		case .invalidOperation: "invalidOperation"
+		case .invalidDetectionInterface: "invalidDetectionInterface"
 		case .outputFileSizeUnavailable: "outputFileSizeUnavailable"
 		}
 	}

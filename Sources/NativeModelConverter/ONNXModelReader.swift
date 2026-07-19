@@ -337,8 +337,10 @@ public struct ONNXModelReader {
 			case "Conv": try lowerConvolution(node)
 			case "BatchNormalization": try lowerBatchNorm(node)
 			case "Relu": try lowerActivation(node, kind: .relu, outputShape: shapes[primaryInput])
+			case "LeakyRelu": try lowerLeakyRelu(node)
 			case "Clip": try lowerClip(node)
 			case "Add": try lowerAdd(node)
+			case "Mul": try lowerMul(node)
 			case "Concat": try lowerConcat(node)
 			case "GlobalAveragePool": try lowerGlobalAveragePool(node)
 			case "MaxPool": try lowerMaxPool(node)
@@ -428,47 +430,104 @@ public struct ONNXModelReader {
 			guard let kernel = initializers[node.inputs[1]], kernel.dims.count == 4 else {
 				throw ONNXModelReaderError.invalidModel("Conv '\(node.name)' kernel must be a rank-4 initializer")
 			}
-			// `auto_pad` (SAME_UPPER/SAME_LOWER/VALID) computes padding implicitly; assuming zero pads
-			// would change the feature maps, so reject anything but explicit NOTSET padding.
-			if let autoPad = node.attributes["auto_pad"]?.string, autoPad != "NOTSET" {
-				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Conv auto_pad=\(autoPad)")
-			}
 			let group = node.attributes["group"]?.int ?? 1
 			let kernelShape = node.attributes["kernel_shape"]?.ints ?? [kernel.dims[2], kernel.dims[3]]
 			let strides = node.attributes["strides"]?.ints ?? [1, 1]
 			let dilations = node.attributes["dilations"]?.ints ?? [1, 1]
-			let pads = node.attributes["pads"]?.ints ?? [0, 0, 0, 0]
-			guard kernelShape.count == 2, strides.count == 2, dilations.count == 2, strides[0] > 0, strides[1] > 0 else {
+			guard kernelShape.count == 2, strides.count == 2, dilations.count == 2,
+				(kernelShape + strides + dilations).allSatisfy({ $0 > 0 }) else {
 				throw ONNXModelReaderError.unsupportedAttribute(
 					operation: node.name,
-					detail: "Conv requires 2-D kernel_shape/strides/dilations with positive strides"
+					detail: "Conv requires 2-D positive kernel_shape/strides/dilations"
 				)
 			}
-			// ONNX pads are [top, left, bottom, right]; the emitter takes symmetric [padH, padW].
-			guard pads.count == 4, pads[0] == pads[2], pads[1] == pads[3] else {
-				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "asymmetric padding \(pads)")
-			}
-			// Bound the spatial dimensions and attributes so the output-size arithmetic below cannot
-			// overflow on crafted values (all products then stay well within Int).
+			// Bound the spatial dimensions and every attribute BEFORE the padding resolution: the
+			// SAME_UPPER arithmetic multiplies file-supplied strides, so unbounded crafted values
+			// would overflow-trap inside `resolvedPads` rather than fail cleanly. With everything
+			// clamped to 2^20 all later products stay well within Int.
 			let dimensionLimit = 1 << 20
 			guard inputShape[2] <= dimensionLimit, inputShape[3] <= dimensionLimit,
 				kernelShape.allSatisfy({ $0 <= dimensionLimit }),
-				dilations.allSatisfy({ $0 <= dimensionLimit }),
-				pads.allSatisfy({ $0 <= dimensionLimit }) else {
+				strides.allSatisfy({ $0 <= dimensionLimit }),
+				dilations.allSatisfy({ $0 <= dimensionLimit }) else {
 				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Conv dimensions exceed the supported range")
 			}
-			let outH = (inputShape[2] + 2 * pads[0] - dilations[0] * (kernelShape[0] - 1) - 1) / strides[0] + 1
-			let outW = (inputShape[3] + 2 * pads[1] - dilations[1] * (kernelShape[1] - 1) - 1) / strides[1] + 1
+			let pads = try resolvedPads(node, inputShape: inputShape, kernelShape: kernelShape, strides: strides, dilations: dilations)
+			guard pads.allSatisfy({ $0 <= dimensionLimit }) else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Conv dimensions exceed the supported range")
+			}
+			// An effective kernel larger than the padded input must be rejected BEFORE the division:
+			// Swift's `/` truncates toward zero while ONNX floor-divides, so a negative numerator
+			// would "round up" to a bogus 1-wide output instead of the zero-sized result ONNX
+			// computes (the same trap the MaxPool lowering guards against).
+			let paddedH = inputShape[2] + pads[0] + pads[2]
+			let paddedW = inputShape[3] + pads[1] + pads[3]
+			let effectiveKernelH = dilations[0] * (kernelShape[0] - 1) + 1
+			let effectiveKernelW = dilations[1] * (kernelShape[1] - 1) + 1
+			guard paddedH >= effectiveKernelH, paddedW >= effectiveKernelW else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Conv kernel is larger than the padded input")
+			}
+			let outH = (paddedH - effectiveKernelH) / strides[0] + 1
+			let outW = (paddedW - effectiveKernelW) / strides[1] + 1
 			let outputShape = [inputShape[0], kernel.dims[0], outH, outW]
 			var weightInputs = [node.inputs[1]]
 			if node.inputs.count > 2 { weightInputs.append(node.inputs[2]) }
 			try record(node, kind: .convolution2D, activationInputs: [node.inputs[0]], weightInputs: weightInputs, attributes: [
 				"kernelSize": .integers(kernelShape),
 				"strides": .integers(strides),
-				"padding": .integers([pads[0], pads[1]]),
+				"padding": paddingAttribute(pads),
 				"dilations": .integers(dilations),
 				"groups": .integer(group)
 			], outputShape: outputShape)
+		}
+
+		/// Resolves a Conv/MaxPool node's padding to explicit ONNX-order `[top, left, bottom, right]`.
+		///
+		/// `auto_pad` NOTSET (the modern default) reads the explicit `pads` attribute. VALID means no
+		/// padding at all. SAME_UPPER — the form Caffe-era exporters wrote on every node — pads so the
+		/// output keeps `ceil(in / stride)`, with the odd pixel going to the bottom/right edge; it can
+		/// therefore be *asymmetric* (tiny-yolov2's final stride-1 pool resolves to [0, 0, 1, 1]).
+		/// SAME_LOWER is rejected rather than approximated with the wrong edge.
+		private func resolvedPads(
+			_ node: ONNXNode, inputShape: [Int], kernelShape: [Int], strides: [Int], dilations: [Int]
+		) throws -> [Int] {
+			let autoPad = node.attributes["auto_pad"]?.string ?? "NOTSET"
+			switch autoPad {
+			case "NOTSET":
+				let pads = node.attributes["pads"]?.ints ?? [0, 0, 0, 0]
+				guard pads.count == 4, pads.allSatisfy({ $0 >= 0 }) else {
+					throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "pads must be four non-negative integers, got \(pads)")
+				}
+				return pads
+			case "VALID":
+				// pads must not accompany auto_pad; a file carrying both is contradictory.
+				guard (node.attributes["pads"]?.ints ?? []).allSatisfy({ $0 == 0 }) else {
+					throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "both auto_pad and explicit pads are set")
+				}
+				return [0, 0, 0, 0]
+			case "SAME_UPPER":
+				guard (node.attributes["pads"]?.ints ?? []).allSatisfy({ $0 == 0 }) else {
+					throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "both auto_pad and explicit pads are set")
+				}
+				var edges = [0, 0, 0, 0]
+				for axis in 0 ..< 2 {
+					let input = inputShape[2 + axis]
+					let effectiveKernel = dilations[axis] * (kernelShape[axis] - 1) + 1
+					let output = (input + strides[axis] - 1) / strides[axis]
+					let total = max((output - 1) * strides[axis] + effectiveKernel - input, 0)
+					edges[axis] = total / 2               // top / left
+					edges[2 + axis] = total - total / 2   // bottom / right take the odd pixel
+				}
+				return edges
+			default:
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "\(node.opType) auto_pad=\(autoPad)")
+			}
+		}
+
+		/// The IR padding attribute: the compact symmetric `[padH, padW]` form whenever possible,
+		/// per-edge `[top, left, bottom, right]` only when the edges actually differ.
+		private func paddingAttribute(_ pads: [Int]) -> NativeModelAttribute {
+			pads[0] == pads[2] && pads[1] == pads[3] ? .integers([pads[0], pads[1]]) : .integers(pads)
 		}
 
 		private mutating func lowerBatchNorm(_ node: ONNXNode) throws {
@@ -510,18 +569,125 @@ public struct ONNXModelReader {
 		}
 
 		private mutating func lowerAdd(_ node: ONNXNode) throws {
-			guard node.inputs.count >= 2 else {
-				throw ONNXModelReaderError.invalidModel("Add '\(node.name)' requires 2 inputs")
+			try lowerBinaryElementwise(node, kind: .add)
+		}
+
+		private mutating func lowerMul(_ node: ONNXNode) throws {
+			try lowerBinaryElementwise(node, kind: .multiply)
+		}
+
+		/// Elementwise Add/Mul. Two forms convert:
+		/// - two same-shape activations (the residual-connection form), and
+		/// - one activation with one *constant* broadcast operand of scalar/`[1]`/`[C]`/`[C, 1, 1]`
+		///   shape (the graph-embedded normalization form, e.g. tiny-yolov2's `x · 1/255 + bias`) —
+		///   the exact broadcasts Core ML's classic elementwise layers implement.
+		/// Anything else — activation broadcasting, spatial constants — is rejected rather than
+		/// silently mis-broadcast.
+		private mutating func lowerBinaryElementwise(_ node: ONNXNode, kind: NativeModelOperationKind) throws {
+			guard node.inputs.count == 2 else {
+				throw ONNXModelReaderError.invalidModel("\(node.opType) '\(node.name)' requires 2 inputs")
 			}
+			// Pre-opset-7 Add/Mul use explicit `broadcast`/`axis` attributes with *left*-aligned
+			// semantics — the opposite of the numpy alignment everything below assumes. Reject them
+			// rather than convert with flipped axes.
+			guard node.attributes["broadcast"]?.int ?? 0 == 0, node.attributes["axis"] == nil else {
+				throw ONNXModelReaderError.unsupportedAttribute(
+					operation: node.name,
+					detail: "\(node.opType) with legacy broadcast/axis attributes"
+				)
+			}
+			// The activation operand is whichever input carries a known activation shape; ONNX allows
+			// the constant on either side (tiny-yolov2 writes `Add(bias, x)`).
+			let activationIndex = node.inputs.firstIndex { shapes[$0] != nil }
+			guard let activationIndex, let outputShape = shapes[node.inputs[activationIndex]] else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "unknown input shape")
+			}
+			let activation = node.inputs[activationIndex]
+			let other = node.inputs[1 - activationIndex]
+
+			if let otherShape = shapes[other] {
+				guard otherShape == outputShape else {
+					throw ONNXModelReaderError.unsupportedAttribute(
+						operation: node.name,
+						detail: "\(node.opType) requires same-shape activations or a constant broadcast operand"
+					)
+				}
+				try record(node, kind: kind, activationInputs: [activation, other], weightInputs: [], attributes: [:], outputShape: outputShape)
+				return
+			}
+
+			let constant = try broadcastConstant(named: other, over: outputShape, operation: node.name)
+			try record(node, kind: kind, activationInputs: [activation, constant], weightInputs: [], attributes: [:], outputShape: outputShape)
+		}
+
+		/// Registers `name` (which must be an initializer) as a `constant` operation whose shape is
+		/// normalized to the rank-3 `[C, 1, 1]` layout Core ML's load-constant layer takes, and which
+		/// classic elementwise layers can broadcast over a `[1, C, H, W]` activation.
+		private mutating func broadcastConstant(named name: String, over activationShape: [Int], operation: String) throws -> String {
+			guard let tensor = initializers[name] else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: operation, detail: "operand '\(name)' is neither an activation nor an initializer")
+			}
+			guard tensor.dataType == 1 else {
+				throw ONNXModelReaderError.unsupportedDataType(tensor: name, dataType: tensor.dataType)
+			}
+			// Accepted broadcast forms, under ONNX's *right-aligned* broadcasting: any all-unit shape
+			// (a scalar), or a per-channel vector whose channel extent sits three-from-last —
+			// `[C, 1, 1]` / `[1, C, 1, 1]`. A rank-1 `[C]` is NOT a channel vector: right-alignment
+			// pairs it with the width axis, so converting it channel-wise would be silently wrong.
+			// Constants with spatial extent have no classic channel broadcast and are rejected too.
+			let significant = tensor.dims.filter { $0 != 1 }
+			let channels: Int
+			if significant.isEmpty {
+				channels = 1
+			} else if significant.count == 1, tensor.dims.count >= 3, tensor.dims.suffix(2) == [1, 1],
+				tensor.dims[tensor.dims.count - 3] == significant[0] {
+				guard activationShape.count == 4, significant[0] == activationShape[1] else {
+					throw ONNXModelReaderError.unsupportedAttribute(
+						operation: operation,
+						detail: "constant operand '\(name)' with \(significant[0]) channels does not match activation shape \(activationShape)"
+					)
+				}
+				channels = significant[0]
+			} else {
+				throw ONNXModelReaderError.unsupportedAttribute(
+					operation: operation,
+					detail: "constant operand '\(name)' of shape \(tensor.dims) has no channel-wise broadcast"
+				)
+			}
+			// Overflow-reporting: `channels` traces back to file-declared dims, so a crafted value must
+			// fail as an invalid model, not trap in the multiplication.
+			let (expectedByteCount, byteCountOverflow) = channels.multipliedReportingOverflow(by: 4)
+			guard !byteCountOverflow, tensor.rawData.count == expectedByteCount else {
+				throw ONNXModelReaderError.invalidModel("initializer '\(name)' declares \(channels) channels but carries \(tensor.rawData.count) bytes")
+			}
+
+			let constantOutput = "\(name)__const"
+			// Idempotent: the same initializer may feed several nodes.
+			if shapes[constantOutput] == nil {
+				let weightName = "\(name)__constWeight"
+				weights.append(NativeModelWeight(
+					name: weightName, dataType: .float32, shape: [channels, 1, 1],
+					offset: UInt64(weightBlob.count), byteCount: UInt64(tensor.rawData.count)
+				))
+				weightBlob.append(tensor.rawData)
+				shapes[constantOutput] = [channels, 1, 1]
+				operations.append(NativeModelOperation(
+					name: constantOutput, kind: .constant, inputs: [weightName],
+					outputs: [NativeModelTensor(name: constantOutput, dataType: .float32, shape: [channels, 1, 1])],
+					attributes: [:]
+				))
+			}
+			return constantOutput
+		}
+
+		/// ONNX LeakyRelu: `y = x` for positive x, `alpha · x` otherwise; alpha defaults to 0.01.
+		private mutating func lowerLeakyRelu(_ node: ONNXNode) throws {
 			guard let outputShape = shapes[node.inputs[0]] else {
 				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "unknown input shape")
 			}
-			// The native elementwise add has no broadcasting; require both operands to be activations of
-			// the same shape (the residual-connection form) rather than silently mishandling a broadcast.
-			guard let rhsShape = shapes[node.inputs[1]], rhsShape == outputShape else {
-				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Add requires two same-shape activation inputs (broadcasting is not supported)")
-			}
-			try record(node, kind: .add, activationInputs: [node.inputs[0], node.inputs[1]], weightInputs: [], attributes: [:], outputShape: outputShape)
+			let alpha = node.attributes["alpha"]?.float ?? 0.01
+			try record(node, kind: .leakyReLU, activationInputs: [node.inputs[0]], weightInputs: [],
+				attributes: ["alpha": .floatingPoint(alpha)], outputShape: outputShape)
 		}
 
 		/// ONNX `Concat` lowers to the native concatenate op, which joins rank-4 NCHW activations along
@@ -616,11 +782,6 @@ public struct ONNXModelReader {
 			guard let inputShape = shapes[node.inputs[0]], inputShape.count == 4 else {
 				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "MaxPool expects a rank-4 NCHW input")
 			}
-			// `auto_pad` (SAME_UPPER/SAME_LOWER/VALID) computes padding implicitly; assuming zero pads
-			// would change the feature maps, so reject anything but explicit NOTSET padding.
-			if let autoPad = node.attributes["auto_pad"]?.string, autoPad != "NOTSET" {
-				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool auto_pad=\(autoPad)")
-			}
 			// `ceil_mode` rounds the output size up (the default floor-division below assumes down) and
 			// `storage_order` transposes the argmax layout; both change results the native op can't match.
 			if let ceilMode = node.attributes["ceil_mode"]?.int, ceilMode != 0 {
@@ -640,27 +801,27 @@ public struct ONNXModelReader {
 				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool requires a 2-D positive kernel_shape")
 			}
 			let strides = node.attributes["strides"]?.ints ?? [1, 1]
-			let pads = node.attributes["pads"]?.ints ?? [0, 0, 0, 0]
 			guard strides.count == 2, strides[0] > 0, strides[1] > 0 else {
 				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool requires 2-D positive strides")
 			}
-			// ONNX pads are [top, left, bottom, right]; the emitter takes symmetric [padH, padW].
-			guard pads.count == 4, pads[0] == pads[2], pads[1] == pads[3], pads.allSatisfy({ $0 >= 0 }) else {
-				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "asymmetric padding \(pads)")
-			}
-			// Bound the spatial dimensions and attributes so the output-size arithmetic below cannot
-			// overflow on crafted values (all products then stay well within Int).
+			// Bound the spatial dimensions and every attribute BEFORE the padding resolution — the
+			// SAME_UPPER arithmetic multiplies file-supplied strides, and unbounded crafted values
+			// would overflow-trap inside `resolvedPads` rather than fail cleanly.
 			let dimensionLimit = 1 << 20
 			guard inputShape[2] <= dimensionLimit, inputShape[3] <= dimensionLimit,
 				kernelShape.allSatisfy({ $0 <= dimensionLimit }),
-				pads.allSatisfy({ $0 <= dimensionLimit }) else {
+				strides.allSatisfy({ $0 <= dimensionLimit }) else {
+				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool dimensions exceed the supported range")
+			}
+			let pads = try resolvedPads(node, inputShape: inputShape, kernelShape: kernelShape, strides: strides, dilations: [1, 1])
+			guard pads.allSatisfy({ $0 <= dimensionLimit }) else {
 				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "MaxPool dimensions exceed the supported range")
 			}
 			// A kernel larger than the padded input must be rejected BEFORE the division: Swift's `/`
 			// truncates toward zero while ONNX floor-divides, so e.g. (2 − 3)/2 + 1 would "round up" the
 			// negative numerator to a bogus 1-wide output instead of the non-positive size ONNX computes.
-			let paddedH = inputShape[2] + 2 * pads[0]
-			let paddedW = inputShape[3] + 2 * pads[1]
+			let paddedH = inputShape[2] + pads[0] + pads[2]
+			let paddedW = inputShape[3] + pads[1] + pads[3]
 			guard paddedH >= kernelShape[0], paddedW >= kernelShape[1] else {
 				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "MaxPool kernel is larger than the padded input")
 			}
@@ -670,7 +831,7 @@ public struct ONNXModelReader {
 			try record(node, kind: .maxPool2D, activationInputs: [node.inputs[0]], weightInputs: [], attributes: [
 				"kernelSize": .integers(kernelShape),
 				"strides": .integers(strides),
-				"padding": .integers([pads[0], pads[1]])
+				"padding": paddingAttribute(pads)
 			], outputShape: [inputShape[0], inputShape[1], outH, outW])
 		}
 

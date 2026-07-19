@@ -22,6 +22,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		/// When present and the single input is image-shaped, the emitter declares that input as a Core
 		/// ML image feature and prepends a per-channel normalization layer. Ignored otherwise.
 		let imagePreprocessing: NativeModelImagePreprocessing?
+		/// When present, the graph is emitted as a two-stage detector pipeline (network + NMS)
+		/// instead of a single model. Mutually exclusive with `classifierLabels`.
+		let detection: NativeModelDetectionInterface?
 		let progress: NativeModelConversionProgressHandler?
 		let cancellationCheck: NativeModelConversionCancellationHandler?
 
@@ -29,12 +32,14 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			metadata: NativeModelCoreMLMetadata?,
 			classifierLabels: [String]? = nil,
 			imagePreprocessing: NativeModelImagePreprocessing? = nil,
+			detection: NativeModelDetectionInterface? = nil,
 			progress: NativeModelConversionProgressHandler?,
 			cancellationCheck: NativeModelConversionCancellationHandler?
 		) {
 			self.metadata = metadata
 			self.classifierLabels = classifierLabels
 			self.imagePreprocessing = imagePreprocessing
+			self.detection = detection
 			self.progress = progress
 			self.cancellationCheck = cancellationCheck
 		}
@@ -152,6 +157,37 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		)
 	}
 
+	/// Emits a graph as a Core ML detector: a two-stage pipeline whose first stage is the converted
+	/// network and whose second is Core ML's non-maximum-suppression model. The resulting model
+	/// publishes `coordinates`/`confidence`, which is what makes Vision return
+	/// `VNRecognizedObjectObservation` and the app classify the import as a detector.
+	///
+	/// Throws rather than silently degrading to a plain network: unlike classifier labels — which are
+	/// advisory and safely ignorable — a caller asking for a detector and getting a raw-tensor model
+	/// would ship a model the detector driver cannot consume.
+	public func emit(
+		graph: NativeModelGraph,
+		weights: Data,
+		to outputURL: URL,
+		detection: NativeModelDetectionInterface,
+		imagePreprocessing: NativeModelImagePreprocessing? = nil,
+		reporting progress: NativeModelConversionProgressHandler? = nil,
+		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
+	) throws {
+		try emit(
+			graph: graph,
+			weights: weights,
+			to: outputURL,
+			context: EmissionContext(
+				metadata: nil,
+				imagePreprocessing: imagePreprocessing,
+				detection: detection,
+				progress: progress,
+				cancellationCheck: cancellationCheck
+			)
+		)
+	}
+
 	private func emit(
 		graph: NativeModelGraph,
 		weights: Data,
@@ -232,13 +268,143 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		let progress = context.progress
 		let cancellationCheck = context.cancellationCheck
 		let specificationVersion = (inputTensors + outputTensors).contains { $0.dataType == .float16 } ? 7 : 4
-		let classifier = classifierPlan(outputs: outputTensors, operations: operations, labels: context.classifierLabels)
+		let classifier = context.detection == nil
+			? classifierPlan(outputs: outputTensors, operations: operations, labels: context.classifierLabels)
+			: nil
 		let imagePlan = imageInputPlan(
 			inputTensors: inputTensors,
-			classifier: classifier,
+			declaresImageInterface: classifier != nil || context.detection != nil,
 			preprocessing: context.imagePreprocessing
 		)
 
+		let layers = try networkLayers(
+			input: input,
+			imagePlan: imagePlan,
+			classifier: classifier,
+			progress: progress,
+			cancellationCheck: cancellationCheck
+		)
+
+		let detection = context.detection
+		if let detection {
+			try validate(detection: detection, against: outputTensors)
+		}
+
+		let inputFeatures = CoreMLProtobufEncoder.message { features in
+			for input in inputTensors {
+				if let imagePlan, input.name == imagePlan.networkInputName {
+					CoreMLProtobufEncoder.appendMessageField(1, value: imageFeatureDescription(for: imagePlan), to: &features)
+				} else {
+					CoreMLProtobufEncoder.appendMessageField(1, value: featureDescription(for: input), to: &features)
+				}
+			}
+		}
+
+		let description = CoreMLProtobufEncoder.message { description in
+			description.append(inputFeatures)
+			if let detection {
+				// Stage one publishes the raw boxes and scores that the suppression stage consumes.
+				CoreMLProtobufEncoder.appendMessageField(10, value: NativeModelDetectorPipelineBuilder.fixedDetectionFeature(
+					named: detection.coordinatesBlobName, rows: detection.boxCount, columns: 4
+				), to: &description)
+				CoreMLProtobufEncoder.appendMessageField(10, value: NativeModelDetectorPipelineBuilder.fixedDetectionFeature(
+					named: detection.confidenceBlobName, rows: detection.boxCount, columns: detection.labels.count
+				), to: &description)
+			} else if let classifier {
+				CoreMLProtobufEncoder.appendMessageField(10, value: stringFeatureDescription(named: classifier.classLabelName), to: &description)
+				CoreMLProtobufEncoder.appendMessageField(10, value: probabilitiesFeatureDescription(named: classifier.classLabelProbsName), to: &description)
+				CoreMLProtobufEncoder.appendStringField(11, value: classifier.classLabelName, to: &description)
+				CoreMLProtobufEncoder.appendStringField(12, value: classifier.classLabelProbsName, to: &description)
+			} else {
+				for output in outputTensors {
+					CoreMLProtobufEncoder.appendMessageField(10, value: featureDescription(for: output), to: &description)
+				}
+			}
+			// A pipeline carries the model metadata on its outer description, not on stage one.
+			if let metadata, detection == nil {
+				CoreMLProtobufEncoder.appendMessageField(100, value: coreMLMetadataMessage(for: metadata), to: &description)
+			}
+		}
+
+		let usesLegacyShapeMapping = requiresLegacyRank5ShapeMapping(operations)
+		if usesLegacyShapeMapping, classifier != nil {
+			// Never silently flip a classifier to the legacy mapping: under it the image enters as
+			// [1, 1, C, H, W] and an in-graph class-axis softmax normalizes the size-1 batch
+			// dimension instead, returning an all-ones vector. That produced a converted model
+			// predicting one label at probability 1.0.
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: "classifier",
+				reason: "reshape/transpose need Core ML's rank-5 layout, which is incompatible with a classifier interface"
+			)
+		}
+
+		let network = CoreMLProtobufEncoder.message { network in
+			network.append(layers)
+			// Core ML's classic Reshape and Permute layers operate on the rank-5 [sequence, batch,
+			// channel, height, width] layout and reject rank-4 input outright, so a graph using them
+			// must keep the legacy mapping — which is what Apple's own detector exports do. Every
+			// other graph declares EXACT_ARRAY_MAPPING/RANK4_IMAGE_MAPPING so the axes the reader
+			// computed survive into Core ML unchanged.
+			if !usesLegacyShapeMapping {
+				CoreMLProtobufEncoder.appendVarintField(5, value: 1, to: &network)
+				if imagePlan != nil {
+					CoreMLProtobufEncoder.appendVarintField(6, value: 1, to: &network)
+				}
+			}
+			if let classifier {
+				CoreMLProtobufEncoder.appendMessageField(100, value: stringVector(classifier.labels), to: &network)
+				CoreMLProtobufEncoder.appendStringField(200, value: classifier.probabilitiesBlobName, to: &network)
+			}
+		}
+
+		let networkModel = CoreMLProtobufEncoder.message { model in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(specificationVersion), to: &model)
+			CoreMLProtobufEncoder.appendMessageField(2, value: description, to: &model)
+			CoreMLProtobufEncoder.appendMessageField(classifier == nil ? 500 : 403, value: network, to: &model)
+		}
+		guard let detection else { return networkModel }
+
+		// The detector is the network followed by suppression. The outer description republishes the
+		// network's inputs, adds the two optional threshold inputs, and declares the suppressed
+		// outputs — whose row count is data-dependent and therefore a range, not a fixed size.
+		let pipelineDescription = CoreMLProtobufEncoder.message { pipelineDescription in
+			pipelineDescription.append(inputFeatures)
+			CoreMLProtobufEncoder.appendMessageField(1, value: NativeModelDetectorPipelineBuilder.doubleFeature(
+				named: NativeModelDetectionInterface.iouThresholdInputName, isOptional: true
+			), to: &pipelineDescription)
+			CoreMLProtobufEncoder.appendMessageField(1, value: NativeModelDetectorPipelineBuilder.doubleFeature(
+				named: NativeModelDetectionInterface.confidenceThresholdInputName, isOptional: true
+			), to: &pipelineDescription)
+			for output in NativeModelDetectorPipelineBuilder.suppressedOutputFeatures(for: detection) {
+				CoreMLProtobufEncoder.appendMessageField(10, value: output, to: &pipelineDescription)
+			}
+			if let metadata {
+				CoreMLProtobufEncoder.appendMessageField(100, value: coreMLMetadataMessage(for: metadata), to: &pipelineDescription)
+			}
+		}
+		return NativeModelDetectorPipelineBuilder.pipelineModel(
+			specificationVersion: specificationVersion,
+			description: pipelineDescription,
+			stages: [networkModel, NativeModelDetectorPipelineBuilder.nonMaximumSuppressionModel(for: detection)]
+		)
+	}
+
+	/// Whether the graph contains a layer Core ML only implements against its legacy rank-5 blob
+	/// layout. Reshape and Permute are the two the detection decode needs; both refuse rank-4 input.
+	private func requiresLegacyRank5ShapeMapping(_ operations: [NativeModelOperation]) -> Bool {
+		operations.contains { $0.kind == .reshape || $0.kind == .transpose }
+	}
+
+	/// Encodes the network's layer sequence: the optional image normalization, every graph
+	/// operation, and the classifier interface's trailing flatten/softmax.
+	private func networkLayers(
+		input: ModelBuildInput,
+		imagePlan: ImageInputPlan?,
+		classifier: ClassifierPlan?,
+		progress: NativeModelConversionProgressHandler?,
+		cancellationCheck: NativeModelConversionCancellationHandler?
+	) throws -> Data {
+		let operations = input.operations
 		var layers = Data()
 		// A normalization layer must run before the graph so it produces the blob the first operation
 		// consumes (the graph's original input name).
@@ -252,7 +418,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		))
 		for (index, operation) in operations.enumerated() {
 			try cancellationCheck?()
-			let layer = try layer(for: operation, weightsByName: weightsByName, weights: weights)
+			let layer = try layer(for: operation, weightsByName: input.weightsByName, weights: input.weights)
 			CoreMLProtobufEncoder.appendMessageField(1, value: layer, to: &layers)
 			progress?(NativeModelConversionProgress(
 				phase: .emittingModel,
@@ -266,67 +432,71 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		// reported probabilities are normalized — unless the graph already ended in a class-axis
 		// softmax, whose probabilities another softmax would squash. It then exposes
 		// classLabel/classLabelProbs instead of the raw multi-array output.
-		if let classifier {
-			if let flattened = classifier.flattenedBlobName {
-				CoreMLProtobufEncoder.appendMessageField(1, value: flattenTo2DLayer(
-					name: "classifier_flatten",
-					input: classifier.logitsBlobName,
-					output: flattened
-				), to: &layers)
-			}
-			if classifier.appendsSoftmax {
-				CoreMLProtobufEncoder.appendMessageField(1, value: softmaxNDLayer(
-					name: "classifier_softmax",
-					input: classifier.softmaxInputBlobName,
-					output: classifier.probabilitiesBlobName,
-					axis: 1
-				), to: &layers)
-			}
+		guard let classifier else { return layers }
+		if let flattened = classifier.flattenedBlobName {
+			CoreMLProtobufEncoder.appendMessageField(1, value: flattenTo2DLayer(
+				name: "classifier_flatten",
+				input: classifier.logitsBlobName,
+				output: flattened
+			), to: &layers)
 		}
-
-		let description = CoreMLProtobufEncoder.message { description in
-			for input in inputTensors {
-				if let imagePlan, input.name == imagePlan.networkInputName {
-					CoreMLProtobufEncoder.appendMessageField(1, value: imageFeatureDescription(for: imagePlan), to: &description)
-				} else {
-					CoreMLProtobufEncoder.appendMessageField(1, value: featureDescription(for: input), to: &description)
-				}
-			}
-			if let classifier {
-				CoreMLProtobufEncoder.appendMessageField(10, value: stringFeatureDescription(named: classifier.classLabelName), to: &description)
-				CoreMLProtobufEncoder.appendMessageField(10, value: probabilitiesFeatureDescription(named: classifier.classLabelProbsName), to: &description)
-				CoreMLProtobufEncoder.appendStringField(11, value: classifier.classLabelName, to: &description)
-				CoreMLProtobufEncoder.appendStringField(12, value: classifier.classLabelProbsName, to: &description)
-			} else {
-				for output in outputTensors {
-					CoreMLProtobufEncoder.appendMessageField(10, value: featureDescription(for: output), to: &description)
-				}
-			}
-			if let metadata {
-				CoreMLProtobufEncoder.appendMessageField(100, value: coreMLMetadataMessage(for: metadata), to: &description)
-			}
+		if classifier.appendsSoftmax {
+			CoreMLProtobufEncoder.appendMessageField(1, value: softmaxNDLayer(
+				name: "classifier_softmax",
+				input: classifier.softmaxInputBlobName,
+				output: classifier.probabilitiesBlobName,
+				axis: 1
+			), to: &layers)
 		}
+		return layers
+	}
 
-		let network = CoreMLProtobufEncoder.message { network in
-			network.append(layers)
-			CoreMLProtobufEncoder.appendVarintField(5, value: 1, to: &network)
-			// Image inputs must use RANK4_IMAGE_MAPPING to match EXACT_ARRAY_MAPPING above: under the
-			// legacy rank-5 mapping the image enters as [1, 1, C, H, W], shifting every axis the reader
-			// computed — an in-graph softmax over "axis 1" then normalizes the size-1 batch dim and
-			// produces a constant all-ones vector instead of probabilities.
-			if imagePlan != nil {
-				CoreMLProtobufEncoder.appendVarintField(6, value: 1, to: &network)
-			}
-			if let classifier {
-				CoreMLProtobufEncoder.appendMessageField(100, value: stringVector(classifier.labels), to: &network)
-				CoreMLProtobufEncoder.appendStringField(200, value: classifier.probabilitiesBlobName, to: &network)
-			}
+	/// Checks that the graph actually produces the two tensors the detection interface promises, in
+	/// the row/column order Core ML's suppression stage reads them.
+	///
+	/// Core ML pads detection tensors with unit axes (the decode's final permute yields
+	/// `[1, boxes, columns, 1]`), so unit dimensions are ignored and only the significant extents are
+	/// compared. Emitting a transposed or mis-sized tensor here would still compile and then hand
+	/// every box the wrong score, so this is a hard error rather than a fallback.
+	private func validate(detection: NativeModelDetectionInterface, against outputs: [NativeModelTensor]) throws {
+		guard !detection.labels.isEmpty else {
+			throw NativeModelCoreMLEmissionError.invalidDetectionInterface(reason: "a detector requires at least one class label")
 		}
+		guard detection.boxCount > 0 else {
+			throw NativeModelCoreMLEmissionError.invalidDetectionInterface(reason: "boxCount must be positive")
+		}
+		guard detection.coordinatesBlobName != detection.confidenceBlobName else {
+			throw NativeModelCoreMLEmissionError.invalidDetectionInterface(
+				reason: "coordinates and confidence must be different graph outputs"
+			)
+		}
+		// The thresholds are encoded verbatim as protobuf doubles; out-of-range values would compile
+		// and then suppress everything or nothing.
+		guard detection.iouThreshold.isFinite, (0 ... 1).contains(detection.iouThreshold) else {
+			throw NativeModelCoreMLEmissionError.invalidDetectionInterface(
+				reason: "iouThreshold must be a finite value in 0...1, got \(detection.iouThreshold)"
+			)
+		}
+		guard detection.confidenceThreshold.isFinite, detection.confidenceThreshold >= 0 else {
+			throw NativeModelCoreMLEmissionError.invalidDetectionInterface(
+				reason: "confidenceThreshold must be finite and non-negative, got \(detection.confidenceThreshold)"
+			)
+		}
+		try requireDetectionOutput(named: detection.coordinatesBlobName, extents: [detection.boxCount, 4], in: outputs)
+		try requireDetectionOutput(named: detection.confidenceBlobName, extents: [detection.boxCount, detection.labels.count], in: outputs)
+	}
 
-		return CoreMLProtobufEncoder.message { model in
-			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(specificationVersion), to: &model)
-			CoreMLProtobufEncoder.appendMessageField(2, value: description, to: &model)
-			CoreMLProtobufEncoder.appendMessageField(classifier == nil ? 500 : 403, value: network, to: &model)
+	private func requireDetectionOutput(named name: String, extents: [Int], in outputs: [NativeModelTensor]) throws {
+		guard let tensor = outputs.first(where: { $0.name == name }) else {
+			throw NativeModelCoreMLEmissionError.invalidDetectionInterface(reason: "the graph does not output '\(name)'")
+		}
+		let significant = tensor.shape.filter { $0 != 1 }
+		// A [boxes, 1] tensor — a single-class detector — collapses to one significant extent, so
+		// compare against the interface's own unit-stripped expectation rather than demanding two.
+		guard significant == extents.filter({ $0 != 1 }) else {
+			throw NativeModelCoreMLEmissionError.invalidDetectionInterface(
+				reason: "output '\(name)' has shape \(tensor.shape); expected \(extents) once unit axes are ignored"
+			)
 		}
 	}
 
@@ -593,6 +763,10 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			try concatenateLayer(for: operation)
 		case .softmax:
 			try softmaxLayer(for: operation)
+		case .constant:
+			try loadConstantLayer(for: operation, weightsByName: weightsByName, weights: weights)
+		case .leakyReLU, .sigmoid, .exponential, .multiply, .reshape, .transpose, .sliceChannels, .softmaxChannel:
+			try detectionLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
 				operation: operation.name,
@@ -629,15 +803,16 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		let preprocessing: NativeModelImagePreprocessing
 	}
 
-	/// Derives an image-input plan when the graph is a classifier whose single input is `[1, C, H, W]`
-	/// with the channel count `preprocessing` expects and concrete spatial dimensions. Returns nil
-	/// otherwise, so a non-image or non-classifier graph keeps its plain multi-array input.
+	/// Derives an image-input plan when the graph declares a vision interface (classifier or
+	/// detector) and its single input is `[1, C, H, W]` with the channel count `preprocessing`
+	/// expects and concrete spatial dimensions. Returns nil otherwise, so a non-image or
+	/// raw-tensor graph keeps its plain multi-array input.
 	private func imageInputPlan(
 		inputTensors: [NativeModelTensor],
-		classifier: ClassifierPlan?,
+		declaresImageInterface: Bool,
 		preprocessing: NativeModelImagePreprocessing?
 	) -> ImageInputPlan? {
-		guard classifier != nil, let preprocessing, inputTensors.count == 1 else { return nil }
+		guard declaresImageInterface, let preprocessing, inputTensors.count == 1 else { return nil }
 		let input = inputTensors[0]
 		let shape = input.shape
 		guard shape.count == 4, shape[0] == 1,
@@ -737,7 +912,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		}
 		let kernelSize = try integerArrayAttribute("kernelSize", for: operation, count: 2)
 		let strides = try integerArrayAttribute("strides", for: operation, count: 2)
-		let padding = try integerArrayAttribute("padding", for: operation, count: 2)
+		let padding = try paddingAttribute(for: operation)
 		let dilations = try integerArrayAttribute("dilations", for: operation, count: 2)
 		let groups = try integerAttribute("groups", for: operation)
 		guard kernel.shape[2] == kernelSize[0],
@@ -859,14 +1034,14 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		try requireSingleActivationInput(operation)
 		guard let kernelSize = operation.attributes["kernelSize"]?.integerArrayValue, kernelSize.count == 2,
 			let strides = operation.attributes["strides"]?.integerArrayValue, strides.count == 2,
-			let padding = operation.attributes["padding"]?.integerArrayValue, padding.count == 2,
-			(kernelSize + strides).allSatisfy({ $0 > 0 }), padding.allSatisfy({ $0 >= 0 })
+			(kernelSize + strides).allSatisfy({ $0 > 0 })
 		else {
 			throw NativeModelCoreMLEmissionError.invalidOperation(
 				operation: operation.name,
-				reason: "maxPool2d requires kernelSize/strides pairs of positive integers and a non-negative padding pair"
+				reason: "maxPool2d requires kernelSize/strides pairs of positive integers"
 			)
 		}
+		let padding = try paddingAttribute(for: operation)
 		let pooling = CoreMLProtobufEncoder.message { pooling in
 			// PoolingLayerParams.type MAX is the proto3 default (0), so no explicit type field is written.
 			for dimension in kernelSize {
@@ -935,6 +1110,186 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			CoreMLProtobufEncoder.appendStringField(3, value: output, to: &layer)
 			CoreMLProtobufEncoder.appendMessageField(1130, value: parameters, to: &layer)
 		}
+	}
+
+	/// Routes the operations introduced for detection decoding. Split from `layer(for:)` so the
+	/// operator table stays inside the cyclomatic-complexity limit.
+	private func detectionLayer(for operation: NativeModelOperation) throws -> Data {
+		switch operation.kind {
+		case .leakyReLU: try leakyReLULayer(for: operation)
+		case .sigmoid: try sigmoidLayer(for: operation)
+		case .exponential: try exponentialLayer(for: operation)
+		case .multiply: try multiplyLayer(for: operation)
+		case .reshape: try reshapeLayer(for: operation)
+		case .transpose: try transposeLayer(for: operation)
+		case .sliceChannels: try sliceChannelsLayer(for: operation)
+		case .softmaxChannel: try softmaxChannelLayer(for: operation)
+		default:
+			throw NativeModelCoreMLEmissionError.unsupportedOperation(
+				operation: operation.name,
+				kind: operation.kind.serializedValue
+			)
+		}
+	}
+
+	/// Core ML's classic softmax (field 175), which always normalizes over the channel axis. The
+	/// decode uses it on the class-scores blob under the legacy rank-5 layout, where softmaxND's
+	/// axis numbering would be relative to a different rank than the reader computed.
+	private func softmaxChannelLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 175, parameters: Data())
+	}
+
+	/// `y = x` for `x > 0`, `alpha · x` otherwise. Core ML carries the slope inside
+	/// `ActivationParams.leakyReLU` (field 15), whose single float field is alpha.
+	private func leakyReLULayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let alpha = operation.attributes["alpha"]?.floatingPointValue else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "leakyRelu requires a floating-point 'alpha' attribute"
+			)
+		}
+		let leaky = CoreMLProtobufEncoder.message { leaky in
+			CoreMLProtobufEncoder.appendFloatField(1, value: Float(alpha), to: &leaky)
+		}
+		let activation = CoreMLProtobufEncoder.message { activation in
+			CoreMLProtobufEncoder.appendMessageField(15, value: leaky, to: &activation)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 130, parameters: activation)
+	}
+
+	/// The logistic activation, `ActivationParams.sigmoid` (field 40) — an empty message, since the
+	/// function takes no parameters.
+	private func sigmoidLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		let activation = CoreMLProtobufEncoder.message { activation in
+			CoreMLProtobufEncoder.appendMessageField(40, value: Data(), to: &activation)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 130, parameters: activation)
+	}
+
+	/// `e^x`, expressed as Core ML's unary-function layer with type EXP.
+	private func exponentialLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		let unary = CoreMLProtobufEncoder.message { unary in
+			// UnaryFunctionLayerParams.type = 1; the EXP member of that enum is 4.
+			CoreMLProtobufEncoder.appendVarintField(1, value: 4, to: &unary)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 220, parameters: unary)
+	}
+
+	/// Elementwise product. Distinct from `add` (230) only by its parameter field, but a mix-up
+	/// would silently sum the anchors into the box sizes instead of scaling them.
+	private func multiplyLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count >= 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "multiply requires at least two activation inputs"
+			)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 231, parameters: Data())
+	}
+
+	/// A static reshape. Core ML's classic reshape takes a rank-4 target shape; the decode uses it to
+	/// move between the grid layout `[1, A·(5+C), S, S]` and the per-attribute layout it slices.
+	private func reshapeLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let shape = operation.attributes["shape"]?.integerArrayValue,
+			shape.count == 4, shape.allSatisfy({ $0 > 0 })
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "reshape requires a 'shape' of four positive integers"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			// ReshapeLayerParams.targetShape = 1 (packed). Mode stays at its default, which reads the
+			// source in channel-first order.
+			CoreMLProtobufEncoder.appendPackedVarintField(1, values: shape.map(UInt64.init), to: &parameters)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 300, parameters: parameters)
+	}
+
+	/// An axis permutation. Row order in the detection outputs depends entirely on this being right:
+	/// a wrong permutation still compiles and then pairs every box with another box's scores.
+	private func transposeLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let permutation = operation.attributes["permutation"]?.integerArrayValue,
+			permutation.count == 4, Set(permutation) == Set(0 ..< 4)
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "transpose requires 'permutation' to be a permutation of the four axes"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			// PermuteLayerParams.axis = 1 (packed).
+			CoreMLProtobufEncoder.appendPackedVarintField(1, values: permutation.map(UInt64.init), to: &parameters)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 310, parameters: parameters)
+	}
+
+	/// A half-open `[start, end)` slice along the channel axis, which is how the decode separates
+	/// box geometry, objectness, and class scores out of one packed grid tensor.
+	private func sliceChannelsLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let start = operation.attributes["startChannel"]?.integerValue,
+			let end = operation.attributes["endChannel"]?.integerValue,
+			start >= 0, end > start
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "sliceChannels requires 0 <= startChannel < endChannel"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			// SliceLayerParams: startIndex = 1, endIndex = 2, stride = 3. The axis field stays at its
+			// default, CHANNEL_AXIS. startIndex is omitted when zero, matching proto3 defaults.
+			if start != 0 {
+				CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(start), to: &parameters)
+			}
+			CoreMLProtobufEncoder.appendVarintField(2, value: UInt64(end), to: &parameters)
+			CoreMLProtobufEncoder.appendVarintField(3, value: 1, to: &parameters)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 350, parameters: parameters)
+	}
+
+	/// A `loadConstant` layer: an input-free layer that materializes a fixed tensor, used by the
+	/// detection decode for grid offsets and anchor sizes.
+	///
+	/// Core ML declares the constant's shape as exactly rank 3 (`[channels, height, width]`), so a
+	/// rank-4 weight carrying a leading unit batch is accepted and the batch axis dropped; anything
+	/// else is rejected rather than reshaped behind the caller's back.
+	private func loadConstantLayer(
+		for operation: NativeModelOperation,
+		weightsByName: [String: NativeModelWeight],
+		weights: Data
+	) throws -> Data {
+		guard operation.inputs.count == 1 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "constant takes exactly one input naming the weight that holds its values"
+			)
+		}
+		let constant = try weight(named: operation.inputs[0], in: weightsByName)
+		let shape = constant.shape.count == 4 && constant.shape[0] == 1
+			? Array(constant.shape.dropFirst())
+			: constant.shape
+		guard shape.count == 3 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "constant '\(constant.name)' must have a [channels, height, width] shape, got \(constant.shape)"
+			)
+		}
+
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendPackedVarintField(1, values: shape.map(UInt64.init), to: &parameters)
+			CoreMLProtobufEncoder.appendMessageField(2, value: weightParameters(for: constant, in: weights), to: &parameters)
+		}
+		// A load-constant layer has no inputs at all; passing one would make Core ML expect a blob
+		// that never exists.
+		return layer(name: operation.name, inputs: [], outputs: operation.outputs, parameterField: 290, parameters: parameters)
 	}
 
 	private func linearLayer(
@@ -1024,12 +1379,19 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		}
 	}
 
+	/// Encodes a `ValidPadding` message. `padding` is either the symmetric `[padH, padW]` form or the
+	/// per-edge `[top, left, bottom, right]` form — Core ML's border amounts are ordered
+	/// [height, width] with distinct start (top/left) and end (bottom/right) sizes, which is what
+	/// lets an ONNX SAME_UPPER's odd padding pixel land on the correct edge.
 	private func validPadding(_ padding: [Int]) -> Data {
+		let edges: [(start: Int, end: Int)] = padding.count == 4
+			? [(padding[0], padding[2]), (padding[1], padding[3])]
+			: [(padding[0], padding[0]), (padding[1], padding[1])]
 		let borderAmounts = CoreMLProtobufEncoder.message { borderAmounts in
-			for amount in padding {
+			for edge in edges {
 				let edgeSizes = CoreMLProtobufEncoder.message { edgeSizes in
-					CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(amount), to: &edgeSizes)
-					CoreMLProtobufEncoder.appendVarintField(2, value: UInt64(amount), to: &edgeSizes)
+					CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(edge.start), to: &edgeSizes)
+					CoreMLProtobufEncoder.appendVarintField(2, value: UInt64(edge.end), to: &edgeSizes)
 				}
 				CoreMLProtobufEncoder.appendMessageField(10, value: edgeSizes, to: &borderAmounts)
 			}
@@ -1072,6 +1434,21 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		return value
 	}
 
+	/// Reads the `padding` attribute in either accepted form: symmetric `[padH, padW]` or per-edge
+	/// `[top, left, bottom, right]`.
+	private func paddingAttribute(for operation: NativeModelOperation) throws -> [Int] {
+		guard let value = operation.attributes["padding"]?.integerArrayValue,
+			value.count == 2 || value.count == 4,
+			value.allSatisfy({ $0 >= 0 })
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "attribute 'padding' must contain 2 or 4 non-negative integers"
+			)
+		}
+		return value
+	}
+
 	private func integerAttribute(_ name: String, for operation: NativeModelOperation) throws -> Int {
 		guard let value = operation.attributes[name]?.integerValue else {
 			throw NativeModelCoreMLEmissionError.invalidConvolution(
@@ -1105,6 +1482,7 @@ public enum NativeModelCoreMLEmissionError: Error, Equatable, LocalizedError, Se
 	case weightDataOutOfBounds(name: String, offset: UInt64, byteCount: UInt64, availableByteCount: UInt64)
 	case invalidConvolution(operation: String, reason: String)
 	case invalidOperation(operation: String, reason: String)
+	case invalidDetectionInterface(reason: String)
 	case outputFileSizeUnavailable(String)
 
 	public var errorDescription: String? {
@@ -1125,6 +1503,8 @@ public enum NativeModelCoreMLEmissionError: Error, Equatable, LocalizedError, Se
 			"Convolution '\(operation)' is invalid: \(reason)."
 		case .invalidOperation(let operation, let reason):
 			"Operation '\(operation)' is invalid: \(reason)."
+		case .invalidDetectionInterface(let reason):
+			"The detection interface is invalid: \(reason)."
 		case .outputFileSizeUnavailable(let file):
 			"The emitted model '\(file)' could not be measured."
 		}

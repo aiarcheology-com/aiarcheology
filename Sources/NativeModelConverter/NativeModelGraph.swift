@@ -167,6 +167,11 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 	case batchNormalization
 	case sigmoid
 	case tanh
+	case leakyReLU
+	case exponential
+	case sliceChannels
+	case softmaxChannel
+	case constant
 	case flatten
 	case identity
 	case unsupported(String)
@@ -192,6 +197,11 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		case .batchNormalization: "batchNorm"
 		case .sigmoid: "sigmoid"
 		case .tanh: "tanh"
+		case .leakyReLU: "leakyRelu"
+		case .exponential: "exp"
+		case .sliceChannels: "sliceChannels"
+		case .softmaxChannel: "softmaxChannel"
+		case .constant: "constant"
 		case .flatten: "flatten"
 		case .identity: "identity"
 		case .unsupported(let value): value
@@ -225,6 +235,11 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		"batchNorm": .batchNormalization,
 		"sigmoid": .sigmoid,
 		"tanh": .tanh,
+		"leakyRelu": .leakyReLU,
+		"exp": .exponential,
+		"sliceChannels": .sliceChannels,
+		"softmaxChannel": .softmaxChannel,
+		"constant": .constant,
 		"flatten": .flatten,
 		"identity": .identity
 	]
@@ -582,29 +597,57 @@ public struct NativeModelGraphValidator {
 			requirePositiveIntegerArray(operation, name: "kernelSize", count: 2, issues: &issues)
 			requirePositiveIntegerArray(operation, name: "strides", count: 2, issues: &issues)
 			requireNonNegativeIntegerArray(operation, name: "padding", validCounts: Set([2, 4]), issues: &issues)
-		case .globalAveragePool2D, .relu, .relu6, .sigmoid, .tanh, .identity:
+		case .matrixMultiplication, .add, .subtract, .multiply, .divide:
+			requireArity(operation, exact: 2, issues: &issues)
+		case .batchNormalization:
+			requireArity(operation, exact: 5, issues: &issues)
+			requirePositiveFloatingPoint(operation, name: "epsilon", issues: &issues)
+		case .unsupported:
+			break
+		default:
+			validateUnaryOperationSignature(operation, knownTensors: knownTensors, issues: &issues)
+		}
+	}
+
+	/// Signature rules for the single-input operations — activations, shape manipulation, and the
+	/// input-free constant. Split from `validateOperationSignature` so neither switch outgrows the
+	/// cyclomatic-complexity limit as the operator set expands.
+	private func validateUnaryOperationSignature(
+		_ operation: NativeModelOperation,
+		knownTensors: [String: NativeModelTensor],
+		issues: inout [NativeModelGraphValidationIssue]
+	) {
+		switch operation.kind {
+		case .globalAveragePool2D, .relu, .relu6, .sigmoid, .tanh, .exponential, .softmaxChannel, .identity:
+			requireArity(operation, exact: 1, issues: &issues)
+		case .leakyReLU:
+			requireArity(operation, exact: 1, issues: &issues)
+			requireFloatingPoint(operation, name: "alpha", issues: &issues)
+		case .sliceChannels:
+			// Half-open [startChannel, endChannel) on the channel axis, as Core ML's slice layer takes it.
+			requireArity(operation, exact: 1, issues: &issues)
+			requireNonNegativeInteger(operation, name: "startChannel", issues: &issues)
+			requirePositiveInteger(operation, name: "endChannel", issues: &issues)
+			requireOrderedChannelRange(operation, issues: &issues)
+		case .constant:
+			// The single input names the weight holding the constant's values; there is no activation.
 			requireArity(operation, exact: 1, issues: &issues)
 		case .reshape:
 			requireArity(operation, exact: 1, issues: &issues)
 			requirePositiveIntegerArray(operation, name: "shape", count: nil, issues: &issues)
 		case .transpose:
 			requireArity(operation, exact: 1, issues: &issues)
-			requirePermutation(operation, input: operation.inputs.first.flatMap { knownTensors[$0] }, issues: &issues)
+			requirePermutation(operation, issues: &issues)
 		case .concatenate:
 			requireArity(operation, minimum: 2, issues: &issues)
 			requireInteger(operation, name: "axis", issues: &issues)
 		case .softmax:
 			requireArity(operation, exact: 1, issues: &issues)
 			requireInteger(operation, name: "axis", issues: &issues)
-		case .matrixMultiplication, .add, .subtract, .multiply, .divide:
-			requireArity(operation, exact: 2, issues: &issues)
-		case .batchNormalization:
-			requireArity(operation, exact: 5, issues: &issues)
-			requirePositiveFloatingPoint(operation, name: "epsilon", issues: &issues)
 		case .flatten:
 			requireArity(operation, exact: 1, issues: &issues)
 			requireInteger(operation, name: "axis", issues: &issues)
-		case .unsupported:
+		default:
 			break
 		}
 	}
@@ -664,6 +707,43 @@ public struct NativeModelGraphValidator {
 		}
 	}
 
+	private func requireNonNegativeInteger(
+		_ operation: NativeModelOperation,
+		name: String,
+		issues: inout [NativeModelGraphValidationIssue]
+	) {
+		guard let value = operation.attributes[name]?.integerValue, value >= 0 else {
+			issues.append(.invalidAttribute(operation: operation.name, attribute: name, expected: "a non-negative integer"))
+			return
+		}
+	}
+
+	private func requireFloatingPoint(
+		_ operation: NativeModelOperation,
+		name: String,
+		issues: inout [NativeModelGraphValidationIssue]
+	) {
+		guard operation.attributes[name]?.floatingPointValue != nil else {
+			issues.append(.invalidAttribute(operation: operation.name, attribute: name, expected: "a floating-point number"))
+			return
+		}
+	}
+
+	/// A channel slice must select a non-empty range; an inverted or empty one would emit a Core ML
+	/// slice layer that produces a zero-width blob and fails only later, inside Core ML.
+	private func requireOrderedChannelRange(
+		_ operation: NativeModelOperation,
+		issues: inout [NativeModelGraphValidationIssue]
+	) {
+		guard let start = operation.attributes["startChannel"]?.integerValue,
+			let end = operation.attributes["endChannel"]?.integerValue,
+			end > start
+		else {
+			issues.append(.invalidAttribute(operation: operation.name, attribute: "endChannel", expected: "greater than startChannel"))
+			return
+		}
+	}
+
 	private func requirePositiveFloatingPoint(
 		_ operation: NativeModelOperation,
 		name: String,
@@ -707,17 +787,18 @@ public struct NativeModelGraphValidator {
 		}
 	}
 
+	/// Core ML's permute layer always addresses the four `(sequence, channel, height, width)` axes of
+	/// its internal layout, whatever rank the declared tensor has — so the permutation is checked
+	/// against those four axes rather than against the input's own rank.
 	private func requirePermutation(
 		_ operation: NativeModelOperation,
-		input: NativeModelTensor?,
 		issues: inout [NativeModelGraphValidationIssue]
 	) {
-		guard let input,
-			  let values = operation.attributes["permutation"]?.integerArrayValue,
-			  values.count == input.shape.count,
-			  Set(values) == Set(0 ..< input.shape.count)
+		guard let values = operation.attributes["permutation"]?.integerArrayValue,
+			  values.count == 4,
+			  Set(values) == Set(0 ..< 4)
 		else {
-			issues.append(.invalidAttribute(operation: operation.name, attribute: "permutation", expected: "a permutation of input axes"))
+			issues.append(.invalidAttribute(operation: operation.name, attribute: "permutation", expected: "a permutation of the four Core ML axes"))
 			return
 		}
 	}

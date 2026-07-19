@@ -1,6 +1,6 @@
 # ML Browser
 
-ML Browser is an iOS app that combines a web browser with on-device machine learning: the user loads any CoreML object-detection model (image classification is planned), and Vision runs it against snapshots of the rendered page on a configurable timer, drawing the detections directly over the web content. No images leave the device.
+ML Browser is an iOS app that combines a web browser with on-device machine learning: the user loads an object-detection or image-classification model — Core ML directly, or ONNX converted on the device itself — and Vision runs it against snapshots of the rendered page on a configurable timer, drawing the detections directly over the web content. No images leave the device.
 
 The flagship use case — and where the name comes from — is archeology: browsing LIDAR / terrain-map sites with the bundled demo models to spot features such as burial mounds. But the app is model-agnostic; any imported detection model works the same way on any web content.
 
@@ -21,17 +21,61 @@ The flagship use case — and where the name comes from — is archeology: brows
 | `.githooks/` | Git hooks (SwiftLint pre-commit), enabled by `ProjectTool setup` |
 | `.tools.json` | Pinned versions of swiftlint / swiftgen / sentry-cli used by all developers and CI |
 
+## Supported model formats
+
+Core ML models load directly. ONNX models are converted **on the device** by the bundled
+`NativeModelConverter` — no Python, no server, no `coremltools`. Import from Files, or paste a URL
+into the importer's **Download from URL** field.
+
+| Format | Task | Handling |
+|-|-|-|
+| `.mlmodel`, `.mlpackage`, `.mlmodelc` | Detection, classification | Loaded directly |
+| `.onnx` | Image classification | Converted on-device. When the output width matches ImageNet-1k, the ImageNet labels and RGB normalization are applied and the model runs as a Core ML classifier |
+| `.onnx` | Object detection — raw-grid YOLOv2-family heads | Converted on-device into a Core ML *pipeline* model (single file): the converted network plus a synthesized box decode, followed by Core ML's built-in non-maximum suppression. Vision then returns standard `VNRecognizedObjectObservation`s |
+| `.onnx` | Detection with embedded post-processing (`NonMaxSuppression`, `Loop`, dynamic shapes) — SSD, tiny-yolov3, ssd-mobilenet | Rejected with a precise diagnostic naming the unsupported operator |
+| `.aiagraph` | — | Internal interchange package (versioned, SHA-256 pinned); not a format users are expected to author |
+| `.tflite` | — | Not supported yet |
+
+A converted detector is **one `.mlmodel` file**, exactly like a converted classifier. "Pipeline"
+describes its internal structure — Apple's own detector exports (Create ML, Turi Create,
+coremltools) and this repo's bundled demo detectors have the same two-stage shape — because a static
+neural network cannot express suppression, whose output row count depends on the input.
+
+### Conversion parity evidence
+
+Each model below converts on-device and reproduces the predictions of an independent
+**onnxruntime** oracle; see [NATIVE_MODEL_CONVERSION.md](NATIVE_MODEL_CONVERSION.md) and
+`Tests/NativeModelConverterTests/Fixtures/ONNXConversionModels.json`.
+
+| Model | Task | Asserted against the oracle |
+|-|-|-|
+| MobileNetV2 | Classification | Top-1 label per probe |
+| ResNet-50 | Classification | Top-1 label per probe |
+| SqueezeNet 1.0 | Classification | Top-1 label and probability |
+| Tiny YOLOv2 (Pascal VOC) | Detection | Box count, IoU ≥ 0.9 per box, class label, confidence |
+
+### ONNX operator coverage
+
+`Conv` (including `auto_pad` SAME_UPPER/VALID and asymmetric padding), `BatchNormalization`,
+`Relu`, `LeakyRelu`, `Clip` (as ReLU6), `Add`/`Mul` (elementwise, plus a scalar or per-channel
+constant operand), `MaxPool`, `GlobalAveragePool`, `Concat` (channel axis), `Softmax`,
+`Reshape`/`Flatten`, `Gemm`, `Dropout`/`Identity` (folded).
+
+Anything outside this set is rejected rather than approximated: a model that converts is expected to
+match its source, and one that cannot is expected to say why.
+
 ## NativeModelConverter Swift package
 
-`NativeModelConverter` is a local Swift Package Manager dependency for ML Browser. It validates a
-versioned `.aiagraph` directory and emits a Core ML neural-network `.mlmodel` entirely in native
-Swift—no Python is bundled with, or invoked by, the iOS app.
+`NativeModelConverter` is a local Swift Package Manager dependency for ML Browser. It reads a
+standard `.onnx` file, or a versioned `.aiagraph` directory, and emits a Core ML `.mlmodel` entirely
+in native Swift—no Python is bundled with, or invoked by, the iOS app. See
+[Supported model formats](#supported-model-formats) for what converts today.
 
 | Item | Value |
 | --- | --- |
 | Library product | `NativeModelConverter` |
 | Supported platforms | iOS 17+, macOS 14+ |
-| App use | `.aiagraph` import journals a path-free conversion report, validates/writes `converted.mlmodel` off the main actor, then uses the existing Core ML loading path. Interrupted imports can resume or be explicitly discarded; a registered conversion can be explicitly exported as a metadata-preserving ZIP. |
+| App use | An `.onnx` or `.aiagraph` import journals a path-free conversion report, validates/writes `converted.mlmodel` off the main actor, then uses the existing Core ML loading path. Interrupted imports can resume or be explicitly discarded; a registered conversion can be explicitly exported as a metadata-preserving ZIP. |
 | Development CLIs | `native-model-converter` converts one package; `native-model-evaluator` runs an emitted model through Core ML for terminal parity tests. |
 | Format version | Native graph package v1; graph, weights, and optional source metadata are SHA-256 pinned. Converted source metadata is retained as `converted.metadata.json`; the app retains a path-free `native-conversion-report.json` with lifecycle and support evidence. |
 | Converter provenance | Source package filename, original filename/remote URL when known, source exporter name/version, graph format, Swift package SemVer, conversion revision, interface, and artifact hashes are embedded in the generated `.mlmodel`; version history remains traceable after the app converter evolves. |
@@ -48,8 +92,9 @@ Swift—no Python is bundled with, or invoked by, the iOS app.
 
 The package is already registered in `ios/MLBrowser.xcodeproj` as a local package reference. To add
 it to another target in Xcode, choose **File → Add Package Dependencies… → Add Local…**, select this
-repository root, and add the `NativeModelConverter` library product to that target. The package does
-not expose raw ONNX files yet; source adapters must lower into the validated graph package first.
+repository root, and add the `NativeModelConverter` library product to that target. `.onnx` files are
+read directly by `ONNXModelReader`; other source formats must lower into the validated graph package
+first.
 
 The API guide is available in Xcode's documentation browser as **Native Model Converter**. The
 format, supported operators, validation policy, test harness, and current parity evidence are

@@ -117,6 +117,61 @@
           "expectedTopProbability": 0.117168
         }
       ]
+    },
+    {
+      "id": "onnx-model-zoo.tinyyolov2-8",
+      "comment": "Object detector (raw YOLOv2 grid; the converter synthesizes the decode and wraps it with Core ML NMS). Probes are deterministic LCG noise images — solid colors excite no detections — and expectations are onnxruntime's raw grid decoded and suppressed with the same anchors/thresholds by scripts' oracle. Thresholds sit in wide gaps of the survivor confidences so float drift cannot change the box count.",
+      "fileName": "tinyyolov2-8.onnx",
+      "url": "https://github.com/onnx/models/raw/main/validated/vision/object_detection_segmentation/tiny-yolov2/model/tinyyolov2-8.onnx",
+      "sha256": "583fb7fdc948435ceac9fa82efc7708701efe8382a859a3dd46526b155f5f2ae",
+      "convertedInput": {
+        "name": "image_input",
+        "width": 416,
+        "height": 416
+      },
+      "detectionProbes": [
+        {
+          "noiseSeed": "0x853c49e6748fea9b",
+          "confidenceThreshold": 0.1,
+          "expectedBoxes": [
+            {
+              "label": "diningtable",
+              "confidence": 0.15902,
+              "x": 0.570678,
+              "y": 0.42489,
+              "width": 0.92664,
+              "height": 0.94809
+            }
+          ]
+        },
+        {
+          "noiseSeed": "0x2545f4914f6cdd1d",
+          "confidenceThreshold": 0.07,
+          "expectedBoxes": [
+            {
+              "label": "sofa",
+              "confidence": 0.182161,
+              "x": 0.569498,
+              "y": 0.580299,
+              "width": 0.911257,
+              "height": 0.924626
+            },
+            {
+              "label": "diningtable",
+              "confidence": 0.115853,
+              "x": 0.338723,
+              "y": 0.346636,
+              "width": 0.932807,
+              "height": 0.935374
+            }
+          ]
+        },
+        {
+          "solidColor": { "red": 128, "green": 128, "blue": 128 },
+          "confidenceThreshold": 0.1,
+          "expectedBoxes": []
+        }
+      ]
     }
   ]
 }

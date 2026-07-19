@@ -182,7 +182,10 @@ final class ONNXModelReaderTests: XCTestCase {
 		}
 	}
 
-	func testRead_convWithAutoPad_isRejected() throws {
+	func testRead_convWithSameUpperAutoPad_resolvesTheOddPixelToTheEndEdges() throws {
+		// SAME on a 2x2 kernel over 3x3 needs 1 pad pixel per axis; SAME_UPPER puts it on the
+		// bottom/right, so the resolved padding is the asymmetric [0, 0, 1, 1] and the output keeps
+		// the input's spatial size. Caffe-era detector exports (tiny-yolov2) write this on every node.
 		let kernel = onnxTensor(name: "w", dims: [1, 1, 2, 2], floats: [1, 1, 1, 1])
 		let conv = onnxNode(op: "Conv", inputs: ["x", "w"], outputs: ["y"], name: "conv", attributes: [
 			onnxStringAttr(name: "auto_pad", value: "SAME_UPPER")
@@ -190,7 +193,181 @@ final class ONNXModelReaderTests: XCTestCase {
 		let model = onnxModel(
 			nodes: [conv], initializers: [kernel],
 			inputs: [onnxValueInfo(name: "x", shape: [1, 1, 3, 3]), onnxValueInfo(name: "w", shape: [1, 1, 2, 2])],
-			outputs: [onnxValueInfo(name: "y", shape: [1, 1, 2, 2])]
+			outputs: [onnxValueInfo(name: "y", shape: [1, 1, 3, 3])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.convolution2D])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["padding"]?.integerArrayValue, [0, 0, 1, 1])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 1, 3, 3])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_sameUpperWithHugeStride_isRejectedNotTrapped() throws {
+		// The SAME_UPPER resolution multiplies file-supplied strides; a crafted near-Int.max stride
+		// must produce a typed rejection, never an arithmetic-overflow trap.
+		let maxPool = onnxNode(op: "MaxPool", inputs: ["x"], outputs: ["y"], name: "pool", attributes: [
+			onnxIntsAttr(name: "kernel_shape", ints: [2, 2]),
+			onnxIntsAttr(name: "strides", ints: [1 << 61, 1 << 61]),
+			onnxStringAttr(name: "auto_pad", value: "SAME_UPPER")
+		])
+		let model = onnxModel(
+			nodes: [maxPool], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 8, 13, 13])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 8, 13, 13])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_convWithSameLowerAutoPad_isRejected() throws {
+		let kernel = onnxTensor(name: "w", dims: [1, 1, 2, 2], floats: [1, 1, 1, 1])
+		let conv = onnxNode(op: "Conv", inputs: ["x", "w"], outputs: ["y"], name: "conv", attributes: [
+			onnxStringAttr(name: "auto_pad", value: "SAME_LOWER")
+		])
+		let model = onnxModel(
+			nodes: [conv], initializers: [kernel],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 1, 3, 3]), onnxValueInfo(name: "w", shape: [1, 1, 2, 2])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 1, 3, 3])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	// MARK: - Detection-backbone lowering
+
+	func testRead_leakyRelu_lowersWithItsAlpha() throws {
+		let node = onnxNode(op: "LeakyRelu", inputs: ["x"], outputs: ["y"], name: "act", attributes: [
+			onnxFloatAttr(name: "alpha", value: 0.1)
+		])
+		let model = onnxModel(
+			nodes: [node], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 4, 4])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 4, 4])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.leakyReLU])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["alpha"]?.floatingPointValue ?? 0, 0.1, accuracy: 0.0001)
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_leakyReluWithoutAlpha_usesTheONNXDefault() throws {
+		let node = onnxNode(op: "LeakyRelu", inputs: ["x"], outputs: ["y"], name: "act")
+		let model = onnxModel(
+			nodes: [node], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 4, 4])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 4, 4])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations[0].attributes["alpha"]?.floatingPointValue ?? 0, 0.01, accuracy: 0.0001)
+	}
+
+	func testRead_mulByScalarInitializer_lowersToAConstantAndBroadcastMultiply() throws {
+		// tiny-yolov2's embedded pixel normalization: Mul(image, [1]-scalar), then Add(bias, x) with
+		// the constant on the FIRST input. Both must produce a load-constant plus the elementwise op.
+		let scale = onnxTensor(name: "s", dims: [1], floats: [0.00392157])
+		let bias = onnxTensor(name: "b", dims: [3, 1, 1], floats: [0, 0, 0])
+		let mul = onnxNode(op: "Mul", inputs: ["x", "s"], outputs: ["scaled"], name: "scale")
+		let add = onnxNode(op: "Add", inputs: ["b", "scaled"], outputs: ["y"], name: "shift")
+		let model = onnxModel(
+			nodes: [mul, add], initializers: [scale, bias],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 4, 4])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 4, 4])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.constant, .multiply, .constant, .add])
+		// Constants are normalized to the [C, 1, 1] layout the load-constant layer takes.
+		XCTAssertEqual(conversion.graph.weights.map(\.shape), [[1, 1, 1], [3, 1, 1]])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_addWithSpatialConstant_isRejected() throws {
+		// A constant with spatial extent has no classic channel-wise broadcast; converting it would
+		// silently mis-add.
+		let bias = onnxTensor(name: "b", dims: [1, 3, 4, 4], floats: Array(repeating: 0, count: 48))
+		let add = onnxNode(op: "Add", inputs: ["x", "b"], outputs: ["y"], name: "shift")
+		let model = onnxModel(
+			nodes: [add], initializers: [bias],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 4, 4])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 4, 4])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_addWithLegacyBroadcastAttribute_isRejected() throws {
+		// Pre-opset-7 Add/Mul broadcast is LEFT-aligned at `axis` — the opposite of the numpy
+		// alignment the lowering assumes — so the legacy attributes must reject, not misconvert.
+		let bias = onnxTensor(name: "b", dims: [3, 1, 1], floats: [0, 0, 0])
+		let add = onnxNode(op: "Add", inputs: ["x", "b"], outputs: ["y"], name: "shift", attributes: [
+			onnxIntAttr(name: "broadcast", value: 1),
+			onnxIntAttr(name: "axis", value: 1)
+		])
+		let model = onnxModel(
+			nodes: [add], initializers: [bias],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 4, 4])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 4, 4])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_convKernelLargerThanPaddedInput_isRejected() throws {
+		// (1 + 0 - 2)/2 + 1 truncates to 1 in Swift while ONNX floor-divides to 0 — the same trap
+		// the MaxPool lowering guards; Conv must reject before the division.
+		let kernel = onnxTensor(name: "w", dims: [1, 1, 2, 2], floats: [1, 1, 1, 1])
+		let conv = onnxNode(op: "Conv", inputs: ["x", "w"], outputs: ["y"], name: "conv", attributes: [
+			onnxIntsAttr(name: "kernel_shape", ints: [2, 2]),
+			onnxIntsAttr(name: "strides", ints: [2, 2])
+		])
+		let model = onnxModel(
+			nodes: [conv], initializers: [kernel],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 1, 1, 1]), onnxValueInfo(name: "w", shape: [1, 1, 2, 2])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 1, 1, 1])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.shapeInferenceFailed = error else {
+				return XCTFail("Expected shapeInferenceFailed, got \(error)")
+			}
+		}
+	}
+
+	func testRead_mulWithRankOneVectorConstant_isRejected() throws {
+		// ONNX broadcasting is right-aligned: a rank-1 [3] against [1, 3, 4, 4] pairs with the WIDTH
+		// axis, not channels. Converting it channel-wise would be silently wrong, so it is rejected
+		// even though the extent happens to match the channel count.
+		let scale = onnxTensor(name: "s", dims: [3], floats: [1, 2, 3])
+		let mul = onnxNode(op: "Mul", inputs: ["x", "s"], outputs: ["y"], name: "scale")
+		let model = onnxModel(
+			nodes: [mul], initializers: [scale],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 4, 4])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 4, 4])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_mulWithMismatchedChannelConstant_isRejected() throws {
+		let scale = onnxTensor(name: "s", dims: [4, 1, 1], floats: [1, 1, 1, 1])
+		let mul = onnxNode(op: "Mul", inputs: ["x", "s"], outputs: ["y"], name: "scale")
+		let model = onnxModel(
+			nodes: [mul], initializers: [scale],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 4, 4])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 4, 4])]
 		)
 		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
 			guard case ONNXModelReaderError.unsupportedAttribute = error else {
@@ -229,7 +406,9 @@ final class ONNXModelReaderTests: XCTestCase {
 		}
 	}
 
-	func testRead_maxPoolWithAutoPad_isRejected() throws {
+	func testRead_maxPoolWithBothAutoPadAndExplicitPads_isRejected() throws {
+		// auto_pad and non-zero pads together are contradictory: guessing which one the exporter
+		// meant would silently change the feature maps.
 		let model = maxPoolModel(inputShape: [1, 64, 112, 112], kernel: [3, 3], strides: [2, 2], pads: [1, 1, 1, 1],
 			extraAttributes: [onnxStringAttr(name: "auto_pad", value: "SAME_UPPER")])
 		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
@@ -237,6 +416,26 @@ final class ONNXModelReaderTests: XCTestCase {
 				return XCTFail("Expected unsupportedAttribute, got \(error)")
 			}
 		}
+	}
+
+	func testRead_maxPoolStrideOneSameUpper_padsTheEndAndKeepsTheGridSize() throws {
+		// tiny-yolov2's final pool: 13x13, kernel 2, stride 1, SAME_UPPER -> pads [0, 0, 1, 1] and a
+		// 13x13 output.
+		let maxPool = onnxNode(op: "MaxPool", inputs: ["x"], outputs: ["y"], name: "pool", attributes: [
+			onnxIntsAttr(name: "kernel_shape", ints: [2, 2]),
+			onnxIntsAttr(name: "strides", ints: [1, 1]),
+			onnxStringAttr(name: "auto_pad", value: "SAME_UPPER")
+		])
+		let model = onnxModel(
+			nodes: [maxPool], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 512, 13, 13])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 512, 13, 13])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.maxPool2D])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["padding"]?.integerArrayValue, [0, 0, 1, 1])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 512, 13, 13])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
 	}
 
 	func testRead_maxPoolWithDilations_isRejected() throws {
@@ -249,13 +448,15 @@ final class ONNXModelReaderTests: XCTestCase {
 		}
 	}
 
-	func testRead_maxPoolWithAsymmetricPads_isRejected() throws {
+	func testRead_maxPoolWithAsymmetricPads_lowersPerEdge() throws {
+		// Explicit per-edge pads [top 1, left 0, bottom 2, right 0]: padded height 115 -> 57 rows,
+		// unpadded width 112 -> 55 columns.
 		let model = maxPoolModel(inputShape: [1, 64, 112, 112], kernel: [3, 3], strides: [2, 2], pads: [1, 0, 2, 0])
-		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
-			guard case ONNXModelReaderError.unsupportedAttribute = error else {
-				return XCTFail("Expected unsupportedAttribute, got \(error)")
-			}
-		}
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.maxPool2D])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["padding"]?.integerArrayValue, [1, 0, 2, 0])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 64, 57, 55])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
 	}
 
 	func testRead_maxPoolWithIndicesOutput_isRejected() throws {

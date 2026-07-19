@@ -39,6 +39,32 @@ enum CoreMLProtobufEncoder {
 		withUnsafeBytes(of: &littleEndianBits) { data.append(contentsOf: $0) }
 	}
 
+	/// Core ML declares NMS thresholds as `double`, which is wire type 1 — writing them as floats
+	/// would shift every following field and corrupt the message.
+	static func appendDoubleField(_ fieldNumber: Int, value: Double, to data: inout Data) {
+		appendKey(fieldNumber, wireType: 1, to: &data)
+		var littleEndianBits = value.bitPattern.littleEndian
+		withUnsafeBytes(of: &littleEndianBits) { data.append(contentsOf: $0) }
+	}
+
+	/// A packed `repeated` scalar field: proto3 encodes these as one length-delimited run of
+	/// varints, which is how Core ML writes shape and permutation vectors.
+	static func appendPackedVarintField(_ fieldNumber: Int, values: [UInt64], to data: inout Data) {
+		var payload = Data()
+		for value in values {
+			appendVarint(value, to: &payload)
+		}
+		appendLengthDelimitedField(fieldNumber, value: payload, to: &data)
+	}
+
+	/// Writes a signed `int64` field. Negative values occupy the full ten-byte varint (two's
+	/// complement, *not* zigzag — that is `sint64`), which is how Core ML encodes an unbounded
+	/// shape-range upper bound of -1.
+	static func appendSignedVarintField(_ fieldNumber: Int, value: Int64, to data: inout Data) {
+		appendKey(fieldNumber, wireType: 0, to: &data)
+		appendVarint(UInt64(bitPattern: value), to: &data)
+	}
+
 	private static func appendKey(_ fieldNumber: Int, wireType: UInt64, to data: inout Data) {
 		precondition(fieldNumber > 0)
 		appendVarint((UInt64(fieldNumber) << 3) | wireType, to: &data)

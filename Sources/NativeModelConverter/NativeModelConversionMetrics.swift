@@ -188,19 +188,31 @@ public struct NativeModelConverter: Sendable {
 			try Task.checkCancellation()
 
 			let emissionStartedAt = DispatchTime.now().uptimeNanoseconds
-			let operationCount = conversion.graph.operations.count
+			// A standard ONNX model carries no labels, anchors, or preprocessing constants, so both
+			// interfaces rest on recognized output signatures. A raw grid matching a catalogued
+			// detector head gets the synthesized decode and a detector pipeline; otherwise, when the
+			// single output has one unit per ImageNet-1k class, the emitter applies the ImageNet
+			// labels and RGB normalization; otherwise the graph is emitted as a plain neural network.
+			let detection = try NativeModelDetectorCatalog.detectionConversion(of: conversion)
+			let operationCount = (detection?.graph ?? conversion.graph).operations.count
 			report(NativeModelConversionProgress(phase: .emittingModel, completedUnitCount: 0, totalUnitCount: operationCount))
-			// A standard ONNX image classifier carries no labels or preprocessing constants. When the
-			// single output has one unit per ImageNet-1k class the emitter applies the ImageNet labels
-			// and RGB normalization so the model runs as an image classifier; otherwise these are
-			// ignored and the graph is emitted as a plain neural network.
-			try emitter.emit(
-				graph: conversion.graph,
-				weights: conversion.weights,
-				to: outputURL,
-				classifierLabels: ImageNet1000Labels.categories,
-				imagePreprocessing: .imageNetRGB
-			)
+			if let detection {
+				try emitter.emit(
+					graph: detection.graph,
+					weights: detection.weights,
+					to: outputURL,
+					detection: detection.interface,
+					imagePreprocessing: detection.imagePreprocessing
+				)
+			} else {
+				try emitter.emit(
+					graph: conversion.graph,
+					weights: conversion.weights,
+					to: outputURL,
+					classifierLabels: ImageNet1000Labels.categories,
+					imagePreprocessing: .imageNetRGB
+				)
+			}
 			report(NativeModelConversionProgress(phase: .emittingModel, completedUnitCount: operationCount, totalUnitCount: operationCount))
 			report(NativeModelConversionProgress(phase: .writingModel, completedUnitCount: 1, totalUnitCount: 1))
 
