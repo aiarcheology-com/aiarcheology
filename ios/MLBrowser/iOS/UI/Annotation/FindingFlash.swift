@@ -251,6 +251,9 @@ struct ClassificationLabelBubble: View {
 							Circle()
 								.fill(group.color)
 								.frame(width: 8, height: 8)
+								// Decorative: the adjacent model name carries the attribution;
+								// VoiceOver reading "circle" here would be noise.
+								.accessibilityHidden(true)
 							Text(group.modelName)
 								.lineLimit(1)
 						}
