@@ -47,7 +47,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 	}
 
 	private func cannedResult() -> DetectionResult {
-		(observations: [], params: DeepDriverParams(entityId: UUID()))
+		(observations: [], params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
 	}
 
 	/// Yield the main actor until the in-flight pass has reached the detect suspension point (the

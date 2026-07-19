@@ -396,7 +396,7 @@ final class FindingPickHitTestTests: XCTestCase {
     }
 
     private func results(_ boxes: [CGRect]) -> [DetectionResult] {
-        [(observations: boxes.map(observation), params: DeepDriverParams(entityId: UUID()))]
+        [(observations: boxes.map(observation), params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))]
     }
 
     func testTapInsideBox_ReturnsIt() {

@@ -29,6 +29,10 @@ public enum DeepDriverType: String, Sendable {
 struct DeepDriverParams: Sendable {
 	var annotationColor: Color = .yellow
 	var entityId: UUID
+	/// The model's display name, for per-model attribution in the classification label bubble
+	/// (AIA-0472). Deliberately NO default: every construction site must decide what to call the
+	/// model — a silently blank name is how attribution rots.
+	var modelName: String
 	var file: URL?
 	var phaseOutTime: Double = 1.0
 	var selectedSymbol: AnnotationSymbol = .circle

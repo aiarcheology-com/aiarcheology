@@ -15,7 +15,7 @@ final class DeepDriverParamsTests: XCTestCase {
     
     func testDefaultValues() {
         let entityId = UUID()
-        let params = DeepDriverParams(entityId: entityId)
+        let params = DeepDriverParams(entityId: entityId, modelName: "Test Model")
         
         XCTAssertEqual(params.annotationColor, .yellow)
         XCTAssertEqual(params.entityId, entityId)
@@ -31,7 +31,7 @@ final class DeepDriverParamsTests: XCTestCase {
         
         let params = DeepDriverParams(
             annotationColor: .red,
-            entityId: entityId,
+            entityId: entityId, modelName: "Test Model",
             file: fileURL,
             phaseOutTime: 2.5,
             selectedSymbol: .square,
@@ -104,7 +104,7 @@ final class DeepDriversTests: XCTestCase {
     // MARK: - Registration Tests
     
     func testRegisterDetector() {
-        let params = DeepDriverParams(entityId: UUID())
+        let params = DeepDriverParams(entityId: UUID(), modelName: "Test Model")
         let detector = Detector(params: params)
 
         sut.register(driver: detector, along: .detector)
@@ -114,7 +114,7 @@ final class DeepDriversTests: XCTestCase {
     }
     
     func testRegisterClassificator() {
-        let params = DeepDriverParams(entityId: UUID())
+        let params = DeepDriverParams(entityId: UUID(), modelName: "Test Model")
         let classificator = Classificator(params: params)
 
         sut.register(driver: classificator, along: .classificator)
@@ -124,7 +124,7 @@ final class DeepDriversTests: XCTestCase {
     }
     
     func testRegisterInvalidType_DoesNotRegister() {
-        let params = DeepDriverParams(entityId: UUID())
+        let params = DeepDriverParams(entityId: UUID(), modelName: "Test Model")
         let detector = Detector(params: params)
 
         sut.register(driver: detector, along: .invalid)
@@ -135,7 +135,7 @@ final class DeepDriversTests: XCTestCase {
     
     func testRegisterSameDriverTwice_OnlyRegistersOnce() {
         let id = UUID()
-        let params = DeepDriverParams(entityId: id)
+        let params = DeepDriverParams(entityId: id, modelName: "Test Model")
         let detector = Detector(params: params)
 
         sut.register(driver: detector, along: .detector)
@@ -145,8 +145,8 @@ final class DeepDriversTests: XCTestCase {
     }
     
     func testRegisterMultipleDetectors() {
-        let detector1 = Detector(params: DeepDriverParams(entityId: UUID()))
-        let detector2 = Detector(params: DeepDriverParams(entityId: UUID()))
+        let detector1 = Detector(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
+        let detector2 = Detector(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
 
         sut.register(driver: detector1, along: .detector)
         sut.register(driver: detector2, along: .detector)
@@ -158,7 +158,7 @@ final class DeepDriversTests: XCTestCase {
     
     func testUnregisterDetector() async {
         let id = UUID()
-        let params = DeepDriverParams(entityId: id)
+        let params = DeepDriverParams(entityId: id, modelName: "Test Model")
         let detector = Detector(params: params)
 
         sut.register(driver: detector, along: .detector)
@@ -171,7 +171,7 @@ final class DeepDriversTests: XCTestCase {
     
     func testUnregisterClassificator() async {
         let id = UUID()
-        let params = DeepDriverParams(entityId: id)
+        let params = DeepDriverParams(entityId: id, modelName: "Test Model")
         let classificator = Classificator(params: params)
 
         sut.register(driver: classificator, along: .classificator)
@@ -183,7 +183,7 @@ final class DeepDriversTests: XCTestCase {
     }
     
     func testUnregisterNonexistentDriver_DoesNothing() async {
-        let params = DeepDriverParams(entityId: UUID())
+        let params = DeepDriverParams(entityId: UUID(), modelName: "Test Model")
         let detector = Detector(params: params)
 
         sut.register(driver: detector, along: .detector)
@@ -198,8 +198,8 @@ final class DeepDriversTests: XCTestCase {
     // MARK: - Unload Tests
     
     func testUnloadDetectors() async {
-        let detector1 = Detector(params: DeepDriverParams(entityId: UUID()))
-        let detector2 = Detector(params: DeepDriverParams(entityId: UUID()))
+        let detector1 = Detector(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
+        let detector2 = Detector(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
 
         sut.register(driver: detector1, along: .detector)
         sut.register(driver: detector2, along: .detector)
@@ -212,8 +212,8 @@ final class DeepDriversTests: XCTestCase {
     }
     
     func testUnloadClassificators() async {
-        let classificator1 = Classificator(params: DeepDriverParams(entityId: UUID()))
-        let classificator2 = Classificator(params: DeepDriverParams(entityId: UUID()))
+        let classificator1 = Classificator(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
+        let classificator2 = Classificator(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
 
         sut.register(driver: classificator1, along: .classificator)
         sut.register(driver: classificator2, along: .classificator)
@@ -225,8 +225,8 @@ final class DeepDriversTests: XCTestCase {
     }
     
     func testUnloadInvalidType_DoesNothing() async {
-        let detector = Detector(params: DeepDriverParams(entityId: UUID()))
-        let classificator = Classificator(params: DeepDriverParams(entityId: UUID()))
+        let detector = Detector(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
+        let classificator = Classificator(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
 
         sut.register(driver: detector, along: .detector)
         sut.register(driver: classificator, along: .classificator)
@@ -241,7 +241,7 @@ final class DeepDriversTests: XCTestCase {
     
     func testUpdateConfiguration() {
         let id = UUID()
-        let params = DeepDriverParams(annotationColor: .red, entityId: id)
+        let params = DeepDriverParams(annotationColor: .red, entityId: id, modelName: "Test Model")
         let detector = Detector(params: params)
 
         sut.register(driver: detector, along: .detector)
@@ -264,7 +264,7 @@ final class DeepDriversTests: XCTestCase {
     // MARK: - Detection with Unloaded Model Tests
     
     func testDetectWithUnloadedDetector_ReturnsEmptyResults() async {
-        let detector = Detector(params: DeepDriverParams(entityId: UUID()))
+        let detector = Detector(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
 
         sut.register(driver: detector, along: .detector)
 
@@ -284,7 +284,7 @@ final class DeepDriversTests: XCTestCase {
             ClassifiedLabel(identifier: "mound", confidence: 0.9),
             ClassifiedLabel(identifier: "field", confidence: 0.1)
         ]
-        let stub = StubClassifying(params: DeepDriverParams(entityId: entityId), labels: labels)
+        let stub = StubClassifying(params: DeepDriverParams(entityId: entityId, modelName: "Test Model"), labels: labels)
 
         sut.register(driver: stub, along: .classificator)
 
@@ -296,7 +296,7 @@ final class DeepDriversTests: XCTestCase {
     }
 
     func testClassifyOn_EmptyLabels_DriverExcludedFromResults() async {
-        let stub = StubClassifying(params: DeepDriverParams(entityId: UUID()), labels: [])
+        let stub = StubClassifying(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"), labels: [])
 
         sut.register(driver: stub, along: .classificator)
 
@@ -307,7 +307,7 @@ final class DeepDriversTests: XCTestCase {
 
     func testClassifyOn_NonClassifyingDriver_Skipped() async {
         // A Detector registered on the classify side must be skipped, not crash the pass.
-        let detector = Detector(params: DeepDriverParams(entityId: UUID()))
+        let detector = Detector(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
 
         sut.register(driver: detector, along: .classificator)
 
@@ -318,7 +318,7 @@ final class DeepDriversTests: XCTestCase {
 
     func testClassifyOn_UnloadedClassificator_ReturnsEmptyResults() async {
         // A real Classificator with no model loaded classifies to nothing (atomic path).
-        let classificator = Classificator(params: DeepDriverParams(entityId: UUID()))
+        let classificator = Classificator(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model"))
 
         sut.register(driver: classificator, along: .classificator)
 

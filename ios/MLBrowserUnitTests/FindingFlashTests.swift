@@ -34,18 +34,92 @@ final class ClassificationFlashControllerTests: XCTestCase {
         color: Color = .red,
         period: Double = 2.5,
         size: Double = 10,
-        flashEnabled: Bool = true
+        flashEnabled: Bool = true,
+        modelName: String = "Test Model"
     ) -> ClassificationResult {
         (labels: [
             ClassifiedLabel(identifier: "object", confidence: topConfidence),
             ClassifiedLabel(identifier: "background", confidence: 0.01)
         ], params: DeepDriverParams(
             annotationColor: color,
-            entityId: UUID(),
+            entityId: UUID(), modelName: modelName,
             phaseOutTime: period,
             flashEnabled: flashEnabled,
             flashSize: size
         ))
+    }
+
+    // MARK: - Per-model attribution (AIA-0472)
+
+    func testIngest_TwoModels_YieldsOneAttributedGroupPerModel() {
+        sut.ingest([
+            result(topConfidence: 0.9, color: .blue, modelName: "MobileNetV2"),
+            result(topConfidence: 0.4, color: .green, modelName: "ResNet-50")
+        ])
+
+        XCTAssertEqual(sut.displayGroups.count, 2, "Every model the user enabled is represented")
+        XCTAssertEqual(sut.displayGroups.map(\.modelName), ["MobileNetV2", "ResNet-50"],
+                       "Groups keep registration order")
+        // Attribution: each group carries ITS OWN model's identity — the regression this ticket
+        // fixes is one model's labels rendering under another model's visual identity.
+        XCTAssertEqual(sut.displayGroups[0].color, .blue)
+        XCTAssertEqual(sut.displayGroups[1].color, .green)
+        XCTAssertEqual(sut.displayGroups[0].labels.first?.confidence, 0.9)
+        XCTAssertEqual(sut.displayGroups[1].labels.first?.confidence, 0.4)
+    }
+
+    func testIngest_ModelWithNothingAboveTheFloor_IsDroppedFromGroups() {
+        sut.ingest([
+            result(topConfidence: 0.9, modelName: "Strong"),
+            (labels: [ClassifiedLabel(identifier: "noise", confidence: 0.01)],
+             params: DeepDriverParams(entityId: UUID(), modelName: "AllNoise"))
+        ])
+
+        XCTAssertEqual(sut.displayGroups.map(\.modelName), ["Strong"],
+                       "A model with no label above the floor contributes no group")
+    }
+
+    func testIngest_FirstModelBelowFloor_LaterModelStillShows() {
+        // DELIBERATE behaviour change vs AIA-0374 (declared in the plan): previously the bubble
+        // showed only results.first, so a weak first model left the bubble EMPTY while a strong
+        // second model's paid-for results were silently dropped. Now the second model shows, and
+        // the compatibility `displayLabels` follows the first NON-EMPTY group.
+        sut.ingest([
+            (labels: [ClassifiedLabel(identifier: "noise", confidence: 0.01)],
+             params: DeepDriverParams(entityId: UUID(), modelName: "WeakFirst")),
+            result(topConfidence: 0.6, modelName: "StrongSecond")
+        ])
+
+        XCTAssertEqual(sut.displayGroups.map(\.modelName), ["StrongSecond"])
+        XCTAssertEqual(sut.displayLabels.first?.confidence, 0.6,
+                       "The checkpoint/compat surface shows the surviving model, not emptiness")
+    }
+
+    func testIngest_PerModelFilteringIsIndependent() {
+        // The floor/sort/cap apply PER MODEL: one model's flood of labels must not displace
+        // another model's few.
+        let flood = (0 ..< 10).map { ClassifiedLabel(identifier: "flood\($0)", confidence: 0.5) }
+        sut.ingest([
+            (labels: flood, params: DeepDriverParams(entityId: UUID(), modelName: "Flood")),
+            result(topConfidence: 0.3, modelName: "Sparse")
+        ])
+
+        XCTAssertEqual(sut.displayGroups.count, 2)
+        XCTAssertEqual(sut.displayGroups[0].labels.count,
+                       ClassificationFlashController.displayLabelCount,
+                       "Each group is individually capped")
+        XCTAssertEqual(sut.displayGroups[1].modelName, "Sparse",
+                       "A flooding model cannot displace another model's group")
+    }
+
+    func testDisplayLabels_IsTheFirstGroupsLabels() {
+        sut.ingest([
+            result(topConfidence: 0.9, modelName: "First"),
+            result(topConfidence: 0.4, modelName: "Second")
+        ])
+
+        XCTAssertEqual(sut.displayLabels, sut.displayGroups.first?.labels,
+                       "The compatibility surface (UI-test checkpoint) mirrors the first group")
     }
 
     func testIngest_QualifyingResult_ActivatesWithModelStyle() {
@@ -87,7 +161,7 @@ final class ClassificationFlashControllerTests: XCTestCase {
     }
 
     func testIngest_DisplayLabels_TopKSortedAboveFloor() {
-        let params = DeepDriverParams(entityId: UUID())
+        let params = DeepDriverParams(entityId: UUID(), modelName: "Test Model")
         let labels = [
             ClassifiedLabel(identifier: "a", confidence: 0.30),
             ClassifiedLabel(identifier: "b", confidence: 0.40),
@@ -232,7 +306,7 @@ final class DeepDriversDetectProtocolTests: XCTestCase {
     func testDetectOn_StubDetecting_ReturnsItsObjects() async {
         let drivers = DeepDrivers()
         let entityId = UUID()
-        let stub = StubDetecting(params: DeepDriverParams(entityId: entityId))
+        let stub = StubDetecting(params: DeepDriverParams(entityId: entityId, modelName: "Test Model"))
         drivers.register(driver: stub, along: .detector)
 
         let results = await drivers.detect(on: UIImage(), tiling: [])
@@ -255,7 +329,7 @@ private actor FixedLabelClassifying: Classifying {
     init(confidence: Float, identifier: String = "object") {
         let entityId = UUID()
         self.id = entityId
-        self.params = DeepDriverParams(entityId: entityId)
+        self.params = DeepDriverParams(entityId: entityId, modelName: "Test Model")
         self.label = ClassifiedLabel(identifier: identifier, confidence: confidence)
     }
 
@@ -318,7 +392,7 @@ final class RealClassifierDemoModelTests: XCTestCase {
     /// Drives the REAL model through the atomic classify pass: labels come back
     /// non-empty, trimmed to the top-K, best-first.
     func testDemoClassifier_ClassifiesRenderedImage() async throws {
-        let params = DeepDriverParams(entityId: UUID(), file: try demoModelURL(), demo: true)
+        let params = DeepDriverParams(entityId: UUID(), modelName: "Test Model", file: try demoModelURL(), demo: true)
         let classificator = Classificator(params: params)
         try await classificator.loadFile()
 
@@ -354,7 +428,7 @@ final class FixturePatternQualificationTests: XCTestCase {
 
     func testMazePattern_QualifiesOnDemoModel() async throws {
         let url = try XCTUnwrap(Bundle.main.url(forResource: DemoDataManager.DemoModelResource.fastViT, withExtension: "mlmodelc"))
-        let classificator = Classificator(params: DeepDriverParams(entityId: UUID(), file: url, demo: true))
+        let classificator = Classificator(params: DeepDriverParams(entityId: UUID(), modelName: "Test Model", file: url, demo: true))
         try await classificator.loadFile()
 
         let labels = await classificator.classify(image: Self.mazeImage())

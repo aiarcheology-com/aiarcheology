@@ -627,11 +627,28 @@ final class DeepConfigurationTests: XCTestCase {
         config.demo = true
         
         let params = config.toDriverParams()
-        
+
         XCTAssertEqual(params.entityId, config.entityId)
         XCTAssertEqual(params.phaseOutTime, 1.0)
         XCTAssertEqual(params.selectedSymbol, .square)
         XCTAssertTrue(params.demo)
+    }
+
+    func testToDriverParams_CarriesTheModelName() {
+        let config = createValidConfiguration()
+        config.modelDescription = "MobileNetV2"
+
+        XCTAssertEqual(config.toDriverParams().modelName, "MobileNetV2")
+    }
+
+    func testToDriverParams_NamelessModelGetsTheDrawerFallbackName() {
+        // modelDescription is optional in the schema and not required by validation, so a
+        // nameless model is a normal path. The bubble must attribute it the same way the drawer
+        // titles it, never as a blank header (AIA-0472).
+        let config = createValidConfiguration()
+        config.modelDescription = nil
+
+        XCTAssertEqual(config.toDriverParams().modelName, "Unnamed Model")
     }
     
     // MARK: - Edge Cases

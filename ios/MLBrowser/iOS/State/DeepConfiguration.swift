@@ -133,6 +133,9 @@ extension DeepConfiguration {
 		DeepDriverParams(
 			annotationColor: annotationColor,
 			entityId: entityId,
+			// Same fallback the drawer uses for a nameless model (modelDescription is optional in the
+			// schema and not required by validation, so this is a normal path, not an edge case).
+			modelName: modelDescription ?? "Unnamed Model",
 			file: file,
 			phaseOutTime: phaseOutTime,
 			selectedSymbol: selectedSymbol,

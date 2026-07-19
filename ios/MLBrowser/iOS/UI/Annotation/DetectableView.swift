@@ -161,8 +161,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 // annotates detection boxes surfaces classification's top labels —
                 // independent of the flash threshold, so low-confidence results are
                 // still visible to the user.
-                if showIdentifiers && flashController.displayLabels.isEmpty.not {
-                    ClassificationLabelBubble(labels: flashController.displayLabels)
+                if showIdentifiers && flashController.displayGroups.isEmpty.not {
+                    ClassificationLabelBubble(groups: flashController.displayGroups)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                         .padding(12)
                 }

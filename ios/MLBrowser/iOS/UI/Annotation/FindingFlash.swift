@@ -8,6 +8,17 @@
 import SwiftUI
 import UIKit
 
+/// One model's contribution to the classification label bubble (AIA-0472): its top labels,
+/// attributed to the model's name and annotation color so several enabled classifiers can be
+/// compared side by side. Identity is the model's `entityId`; the classify pass yields at most
+/// one result per registered driver, so ids are unique within a pass.
+struct ClassificationDisplayGroup: Equatable, Identifiable {
+	let id: UUID
+	let modelName: String
+	let color: Color
+	let labels: [ClassifiedLabel]
+}
+
 /// Consumes classification passes as a parallel branch of the snapshot flow —
 /// deliberately independent of the detection queue/appliedFrame machinery (AIA-0374):
 /// classification says "there IS an object in this image" (no location), so its
@@ -46,10 +57,25 @@ final class ClassificationFlashController: ObservableObject {
 	/// (a counter can't be missed by polling).
 	@Published private(set) var qualifyingPassCount = 0
 
-	/// Top labels of the first classificator's latest pass — shown in the label
-	/// bubble when "Show labels" is on. Independent of the flash threshold, so the
-	/// user can see what the model thinks even when nothing qualifies (AIA-0374).
-	@Published private(set) var displayLabels: [ClassifiedLabel] = []
+	/// Per-model label groups of the latest pass — every enabled classificator that has at least
+	/// one label above the floor contributes one group, in registration order (AIA-0472: with
+	/// several models enabled, all of them are visible and each label set is attributed to its
+	/// model, so candidates can be compared side by side). Independent of the flash threshold, so
+	/// the user can see what a model thinks even when nothing qualifies (AIA-0374).
+	///
+	/// No total row cap across groups (each group is already capped at `displayLabelCount`): the
+	/// classificator count is user-bounded and small in practice. Revisit if >4 concurrent
+	/// classifiers becomes a real workflow.
+	@Published private(set) var displayGroups: [ClassificationDisplayGroup] = []
+
+	/// The first group's labels. Compatibility surface for the UI-test checkpoint and the
+	/// single-model bubble path; updates ride `displayGroups`' change notification.
+	///
+	/// Note one DELIBERATE behaviour change vs AIA-0374 (pinned by test): when the first
+	/// registered model has no label above the floor but a later model does, this now shows the
+	/// later model's labels — previously the bubble stayed empty while paid-for results were
+	/// silently dropped.
+	var displayLabels: [ClassifiedLabel] { displayGroups.first?.labels ?? [] }
 
 	/// Invalidation token: passes started before the last interaction/capture/geometry
 	/// invalidation must not ingest (detection re-checks its generation at completion;
@@ -79,12 +105,23 @@ final class ClassificationFlashController: ObservableObject {
 	/// per-model flash style (publish only on change, so no-op passes don't
 	/// re-evaluate observing bodies).
 	func ingest(_ results: [ClassificationResult]) {
-		let labels = (results.first?.labels ?? [])
-			.filter { $0.confidence >= Self.displayConfidenceFloor }
-			.sorted { $0.confidence > $1.confidence }
-			.prefix(Self.displayLabelCount)
-		let newDisplay = Array(labels)
-		if displayLabels != newDisplay { displayLabels = newDisplay }
+		// One group per model (registration order), the floor/sort/cap applied PER MODEL, models
+		// with nothing above the floor dropped. Every model the user enabled — and paid an
+		// inference for — is represented, each attributed to its own name and color (AIA-0472).
+		let groups: [ClassificationDisplayGroup] = results.compactMap { result in
+			let labels = result.labels
+				.filter { $0.confidence >= Self.displayConfidenceFloor }
+				.sorted { $0.confidence > $1.confidence }
+				.prefix(Self.displayLabelCount)
+			guard !labels.isEmpty else { return nil }
+			return ClassificationDisplayGroup(
+				id: result.params.entityId,
+				modelName: result.params.modelName,
+				color: result.params.annotationColor,
+				labels: Array(labels)
+			)
+		}
+		if displayGroups != groups { displayGroups = groups }
 
 		// A model participates in the flash only when ITS OWN toggle is on — display
 		// labels above stay independent, so disabled models remain visible in the bubble.
@@ -122,8 +159,8 @@ final class ClassificationFlashController: ObservableObject {
 		if qualifyingCount != 0 {
 			qualifyingCount = 0
 		}
-		if displayLabels.isEmpty.not {
-			displayLabels = []
+		if displayGroups.isEmpty.not {
+			displayGroups = []
 		}
 	}
 
@@ -199,18 +236,37 @@ struct FindingFlashOverlay: View {
 /// global "Show labels" setting is on. Classification has no boxes to pin labels to,
 /// so the bubble floats top-trailing over the content.
 struct ClassificationLabelBubble: View {
-	let labels: [ClassifiedLabel]
+	let groups: [ClassificationDisplayGroup]
 
 	var body: some View {
-		VStack(alignment: .leading, spacing: 2) {
-			ForEach(labels, id: \.identifier) { label in
-				HStack(spacing: 4) {
-					Text(label.identifier.capitalized)
-						.lineLimit(1)
-					Text(verbatim: ":")
-					Text(Double(label.confidence), format: .percent.precision(.fractionLength(0)))
+		VStack(alignment: .leading, spacing: 6) {
+			ForEach(groups) { group in
+				VStack(alignment: .leading, spacing: 2) {
+					// With one model the bubble renders exactly as before (no header). The header
+					// exists for the comparison workflow: several models enabled at once, each label
+					// set attributed to its model by name and by the SAME color its flash/annotations
+					// use — so labels can never read as another model's output (AIA-0472).
+					if groups.count > 1 {
+						HStack(spacing: 4) {
+							Circle()
+								.fill(group.color)
+								.frame(width: 8, height: 8)
+							Text(group.modelName)
+								.lineLimit(1)
+						}
+						.font(.caption.weight(.semibold))
+						.foregroundStyle(.secondary)
+					}
+					ForEach(group.labels, id: \.identifier) { label in
+						HStack(spacing: 4) {
+							Text(label.identifier.capitalized)
+								.lineLimit(1)
+							Text(verbatim: ":")
+							Text(Double(label.confidence), format: .percent.precision(.fractionLength(0)))
+						}
+						.font(.callout)
+					}
 				}
-				.font(.callout)
 			}
 		}
 		.padding(10)
