@@ -114,7 +114,7 @@ public struct ONNXModelReader {
 			formatVersion: NativeModelGraph.currentFormatVersion,
 			// ModelProto.producer_version is field 3.
 			producer: NativeModelGraphProducer(
-				name: (producerName?.isEmpty == false) ? producerName! : "onnx",
+				name: producerName.flatMap { $0.isEmpty ? nil : $0 } ?? "onnx",
 				version: model.firstString(3) ?? "unknown"
 			),
 			inputs: [lowering.tensor(named: realInputs[0].name)],
