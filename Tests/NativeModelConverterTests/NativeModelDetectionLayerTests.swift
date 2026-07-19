@@ -163,6 +163,35 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		assertClose(output, [7, 8])
 	}
 
+	func testSliceChannels_atRank3SplitsTheChannelAxis() async throws {
+		// Under the legacy declaration convention the reshape/transpose tests use, a plain multi-array is
+		// declared rank-3 [C, H, W]: five channels of a 2×1 grid, slicing channels [1, 3) keeps two intact.
+		let output = try await run(
+			operation: .sliceChannels, attributes: ["startChannel": .integer(1), "endChannel": .integer(3)],
+			inputShape: [5, 2, 1], outputShape: [2, 2, 1],
+			values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+		)
+		assertClose(output, [3, 4, 5, 6])
+	}
+
+	// MARK: - Upsample
+
+	func testUpsample_nearestNeighborRepeatsSamples2x() async throws {
+		// A 2×2 grid upsampled 2× must repeat each sample into a 2×2 block — the field-210 proof that
+		// the classic Core ML upsample layer nearest-samples `out[i, j] = in[i / f, j / f]`.
+		let output = try await run(
+			operation: .upsample2D, attributes: ["scalingFactor": .integers([2, 2])],
+			inputShape: [1, 1, 2, 2], outputShape: [1, 1, 4, 4],
+			values: [1, 2, 3, 4]
+		)
+		assertClose(output, [
+			1, 1, 2, 2,
+			1, 1, 2, 2,
+			3, 3, 4, 4,
+			3, 3, 4, 4
+		])
+	}
+
 	// MARK: - Binary and constant
 
 	func testMultiply_isElementwiseAndNotAnAdd() async throws {
@@ -265,6 +294,38 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		assertClose(output, [11, 12, 13, 14, 25, 26, 27, 28])
 	}
 
+	func testMultiply_withFullSpatialConstant_scalesPerPosition() async throws {
+		// The spatial-constant expansion (YOLOv8's stride table) emits a full `[C, H, W]` load-constant
+		// and a *same-shape* multiply, a layout the earlier `[C, 1, 1]` constants never exercised. This
+		// proves classic Core ML multiply is genuinely per-position over two equal `[C, H, W]` tensors.
+		let constantValues: [Float] = [1, 2, 3, 4, 5, 6]
+		let weights = constantValues.withUnsafeBytes { Data($0) }
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.currentFormatVersion,
+			producer: NativeModelGraphProducer(name: "test", version: "1"),
+			inputs: [NativeModelTensor(name: "x", dataType: .float32, shape: [1, 2, 1, 3])],
+			weights: [
+				NativeModelWeight(name: "k", dataType: .float32, shape: [2, 1, 3], offset: 0, byteCount: UInt64(weights.count))
+			],
+			operations: [
+				NativeModelOperation(
+					name: "c", kind: .constant, inputs: ["k"],
+					outputs: [NativeModelTensor(name: "c", dataType: .float32, shape: [2, 1, 3])], attributes: [:]
+				),
+				NativeModelOperation(
+					name: "y", kind: .multiply, inputs: ["x", "c"],
+					outputs: [NativeModelTensor(name: "y", dataType: .float32, shape: [1, 2, 1, 3])], attributes: [:]
+				)
+			],
+			outputs: ["y"]
+		)
+		let output = try await predict(
+			graph: graph, weights: weights,
+			inputs: ["x": ([1, 2, 1, 3], [10, 20, 30, 40, 50, 60])], outputShape: [1, 2, 1, 3]
+		)
+		assertClose(output, [10, 40, 90, 160, 250, 360])
+	}
+
 	// MARK: - Rejection
 
 	func testLeakyReLU_withoutAlphaIsRejected() {
@@ -277,6 +338,10 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 
 	func testTranspose_withNonPermutationIsRejected() {
 		assertEmissionFails(kind: .transpose, attributes: ["permutation": .integers([0, 1, 1, 3])])
+	}
+
+	func testUpsample_withoutScalingFactorIsRejected() {
+		assertEmissionFails(kind: .upsample2D, attributes: [:])
 	}
 
 	private func assertEmissionFails(

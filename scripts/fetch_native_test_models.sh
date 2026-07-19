@@ -9,7 +9,7 @@
 #     TARGET_DIR defaults to .native-model-fixtures/ at the repo root.
 #
 # Then:
-#   NATIVE_MODEL_ONNX_DIRECTORY="<TARGET_DIR>" swift test --filter ONNXConversionIntegrationTests
+#   NATIVE_MODEL_ONNX_DIRECTORY="<TARGET_DIR>" swift test --filter "ONNXConversionIntegrationTests|YOLOv8TrunkConversionTests"
 #
 set -euo pipefail
 
@@ -37,8 +37,12 @@ import json, sys
 m = json.load(open('$MANIFEST'))
 for x in m['models']:
     print('\t'.join([x['fileName'], x['url'], x['sha256']]))
+# The YOLOv8 trunk oracle's model is not a manifest entry (it has no image probes yet — that
+# arrives with the detector catalog PR); its fixture carries its own url + sha256.
+o = json.load(open('$REPO_ROOT/Tests/NativeModelConverterTests/Fixtures/YOLOv8TrunkOracle.json'))
+print('\t'.join([o['fileName'], o['url'], o['sha256']]))
 ")
 
 echo ""
 echo "Fixtures ready in: $TARGET_DIR"
-echo "Run: NATIVE_MODEL_ONNX_DIRECTORY=\"$TARGET_DIR\" swift test --filter ONNXConversionIntegrationTests"
+echo "Run: NATIVE_MODEL_ONNX_DIRECTORY=\"$TARGET_DIR\" swift test --filter \"ONNXConversionIntegrationTests|YOLOv8TrunkConversionTests\""

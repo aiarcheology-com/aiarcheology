@@ -32,6 +32,7 @@ into the importer's **Download from URL** field.
 | `.mlmodel`, `.mlpackage`, `.mlmodelc` | Detection, classification | Loaded directly |
 | `.onnx` | Image classification | Converted on-device. When the output width matches ImageNet-1k, the ImageNet labels and RGB normalization are applied and the model runs as a Core ML classifier |
 | `.onnx` | Object detection — raw-grid YOLOv2-family heads | Converted on-device into a Core ML *pipeline* model (single file): the converted network plus a synthesized box decode, followed by Core ML's built-in non-maximum suppression. Vision then returns standard `VNRecognizedObjectObservation`s |
+| `.onnx` | Object detection — anchor-free raw exports (YOLOv5/v8, `nms=False`) | **Graph converts; detector interface not wired yet.** The whole trunk lowers and matches an onnxruntime oracle numerically, but no catalog entry claims the `[1, 84, N]` head, so the model imports as a plain network — disabled and flagged for review, producing no detections. Boxes arrive with the detector-head work |
 | `.onnx` | Detection with embedded post-processing (`NonMaxSuppression`, `Loop`, dynamic shapes) — SSD, tiny-yolov3, ssd-mobilenet | Rejected with a precise diagnostic naming the unsupported operator |
 | `.aiagraph` | — | Internal interchange package (versioned, SHA-256 pinned); not a format users are expected to author |
 | `.tflite` | — | Not supported yet |
@@ -53,16 +54,29 @@ Each model below converts on-device and reproduces the predictions of an indepen
 | ResNet-50 | Classification | Top-1 label per probe |
 | SqueezeNet 1.0 | Classification | Top-1 label and probability |
 | Tiny YOLOv2 (Pascal VOC) | Detection | Box count, IoU ≥ 0.9 per box, class label, confidence |
+| YOLOv8n (raw export, 640×640) | Detection trunk | Raw `[1, 84, 8400]` output at 507 sampled positions, abs tolerance 0.002 |
 
 ### ONNX operator coverage
 
-`Conv` (including `auto_pad` SAME_UPPER/VALID and asymmetric padding), `BatchNormalization`,
-`Relu`, `LeakyRelu`, `Clip` (as ReLU6), `Add`/`Mul` (elementwise, plus a scalar or per-channel
-constant operand), `MaxPool`, `GlobalAveragePool`, `Concat` (channel axis), `Softmax`,
-`Reshape`/`Flatten`, `Gemm`, `Dropout`/`Identity` (folded).
+| Operator | Accepted forms |
+|-|-|
+| `Conv` | Including `auto_pad` SAME_UPPER/VALID and asymmetric padding |
+| `BatchNormalization`, `Gemm` | `Gemm` requires the standard `y = xWᵀ + b` form (`transB=1`, unit alpha/beta) |
+| `Relu`, `LeakyRelu`, `Sigmoid`, `Clip` | `Clip` maps to ReLU6 only at exactly `[0, 6]` |
+| `Add`, `Mul`, `Sub`, `Div` | Same-shape activations, or a constant operand — scalar, per-channel, or a spatial table expanded statically. `Sub` lowers to an add (Core ML has no subtract); `Div` accepts a constant divisor only, as a multiply by its reciprocal |
+| `MaxPool`, `GlobalAveragePool` | Dense, non-dilated pooling |
+| `Concat` | Channel axis at rank 3–4; the rank-3 axis-2 form is rewritten as transpose → channel concat → transpose |
+| `Slice` | Single-axis **channel** slices (static bounds, unit step) |
+| `Reshape`, `Flatten` | Static targets with `-1` inferred; a `[batch, features]` collapse stays a flatten so classifier interfaces are preserved |
+| `Transpose` | Explicit `perm` at rank 3–4 (the reverse-all-axes default is rejected) |
+| `Resize` | Nearest + `asymmetric` + `floor` + integer scale factors only — the one configuration Core ML's upsample reproduces exactly |
+| `Softmax` | Opset-aware axis semantics; the channel axis under Core ML's legacy rank-5 layout |
+| `Dropout`, `Identity`, `Shape`, `Constant`, `ConstantOfShape` | Folded away |
 
 Anything outside this set is rejected rather than approximated: a model that converts is expected to
-match its source, and one that cannot is expected to say why.
+match its source, and one that cannot is expected to say why. The restrictions above are enforced,
+not documented aspirationally — e.g. a `half_pixel` `Resize` or a two-activation `Div` fails with a
+diagnostic instead of converting to something that merely compiles.
 
 ## NativeModelConverter Swift package
 

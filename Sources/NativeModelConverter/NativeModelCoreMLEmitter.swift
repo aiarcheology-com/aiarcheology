@@ -277,10 +277,15 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			preprocessing: context.imagePreprocessing
 		)
 
+		// Computed before the layers are written: softmax emission depends on which shape mapping the
+		// finished network will declare (see softmaxLayer).
+		let usesLegacyShapeMapping = requiresLegacyRank5ShapeMapping(operations)
+
 		let layers = try networkLayers(
 			input: input,
 			imagePlan: imagePlan,
 			classifier: classifier,
+			usesLegacyShapeMapping: usesLegacyShapeMapping,
 			progress: progress,
 			cancellationCheck: cancellationCheck
 		)
@@ -295,7 +300,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				if let imagePlan, input.name == imagePlan.networkInputName {
 					CoreMLProtobufEncoder.appendMessageField(1, value: imageFeatureDescription(for: imagePlan), to: &features)
 				} else {
-					CoreMLProtobufEncoder.appendMessageField(1, value: featureDescription(for: input), to: &features)
+					CoreMLProtobufEncoder.appendMessageField(1, value: featureDescription(
+						for: legacyMappedFeature(input, usesLegacyShapeMapping: usesLegacyShapeMapping)
+					), to: &features)
 				}
 			}
 		}
@@ -317,7 +324,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				CoreMLProtobufEncoder.appendStringField(12, value: classifier.classLabelProbsName, to: &description)
 			} else {
 				for output in outputTensors {
-					CoreMLProtobufEncoder.appendMessageField(10, value: featureDescription(for: output), to: &description)
+					CoreMLProtobufEncoder.appendMessageField(10, value: featureDescription(
+						for: legacyMappedFeature(output, usesLegacyShapeMapping: usesLegacyShapeMapping)
+					), to: &description)
 				}
 			}
 			// A pipeline carries the model metadata on its outer description, not on stage one.
@@ -326,7 +335,6 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			}
 		}
 
-		let usesLegacyShapeMapping = requiresLegacyRank5ShapeMapping(operations)
 		if usesLegacyShapeMapping, classifier != nil {
 			// Never silently flip a classifier to the legacy mapping: under it the image enters as
 			// [1, 1, C, H, W] and an in-graph class-axis softmax normalizes the size-1 batch
@@ -389,6 +397,17 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		)
 	}
 
+	/// Under the legacy rank-5 mapping, Core ML's validator only accepts rank-1 or rank-3 multi-array
+	/// feature declarations — a rank-4 `[1, C, H, W]` input is rejected outright ("must have dimension
+	/// 1 (vector) or 3 (image-like arrays)"). The reader's unit batch axis carries no information, so
+	/// it is dropped from the *declared* feature (`[1, C, H, W]` → `[C, H, W]`); the graph and its
+	/// blobs are untouched. Rank-3 declarations then also match what the runtime actually returns for
+	/// outputs (the blob's `[C, H, W]`), instead of mismatching a declared rank-4 shape.
+	private func legacyMappedFeature(_ tensor: NativeModelTensor, usesLegacyShapeMapping: Bool) -> NativeModelTensor {
+		guard usesLegacyShapeMapping, tensor.shape.count == 4, tensor.shape[0] == 1 else { return tensor }
+		return NativeModelTensor(name: tensor.name, dataType: tensor.dataType, shape: Array(tensor.shape.dropFirst()))
+	}
+
 	/// Whether the graph contains a layer Core ML only implements against its legacy rank-5 blob
 	/// layout. Reshape and Permute are the two the detection decode needs; both refuse rank-4 input.
 	private func requiresLegacyRank5ShapeMapping(_ operations: [NativeModelOperation]) -> Bool {
@@ -401,6 +420,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		input: ModelBuildInput,
 		imagePlan: ImageInputPlan?,
 		classifier: ClassifierPlan?,
+		usesLegacyShapeMapping: Bool,
 		progress: NativeModelConversionProgressHandler?,
 		cancellationCheck: NativeModelConversionCancellationHandler?
 	) throws -> Data {
@@ -418,7 +438,10 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		))
 		for (index, operation) in operations.enumerated() {
 			try cancellationCheck?()
-			let layer = try layer(for: operation, weightsByName: input.weightsByName, weights: input.weights)
+			let layer = try layer(
+				for: operation, weightsByName: input.weightsByName, weights: input.weights,
+				usesLegacyShapeMapping: usesLegacyShapeMapping
+			)
 			CoreMLProtobufEncoder.appendMessageField(1, value: layer, to: &layers)
 			progress?(NativeModelConversionProgress(
 				phase: .emittingModel,
@@ -738,7 +761,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	private func layer(
 		for operation: NativeModelOperation,
 		weightsByName: [String: NativeModelWeight],
-		weights: Data
+		weights: Data,
+		usesLegacyShapeMapping: Bool
 	) throws -> Data {
 		switch operation.kind {
 		case .relu:
@@ -762,10 +786,10 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		case .concatenate:
 			try concatenateLayer(for: operation)
 		case .softmax:
-			try softmaxLayer(for: operation)
+			try softmaxLayer(for: operation, usesLegacyShapeMapping: usesLegacyShapeMapping)
 		case .constant:
 			try loadConstantLayer(for: operation, weightsByName: weightsByName, weights: weights)
-		case .leakyReLU, .sigmoid, .exponential, .multiply, .reshape, .transpose, .sliceChannels, .softmaxChannel:
+		case .leakyReLU, .sigmoid, .exponential, .multiply, .reshape, .transpose, .sliceChannels, .softmaxChannel, .upsample2D:
 			try detectionLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
@@ -1074,13 +1098,26 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 320, parameters: Data())
 	}
 
-	private func softmaxLayer(for operation: NativeModelOperation) throws -> Data {
+	private func softmaxLayer(for operation: NativeModelOperation, usesLegacyShapeMapping: Bool) throws -> Data {
 		try requireSingleActivationInput(operation)
 		guard let axis = operation.attributes["axis"]?.integerValue, axis >= 0 else {
 			throw NativeModelCoreMLEmissionError.invalidOperation(
 				operation: operation.name,
 				reason: "softmax requires a non-negative axis (the reader normalizes negative axes)"
 			)
+		}
+		// Under the legacy rank-5 mapping (forced network-wide by any reshape/permute), softmaxND's
+		// axis numbering addresses the [Seq, Batch, Channel, Height, Width] layout — NOT the rank the
+		// reader computed the axis against — so a reader axis of 1 (channel) must emit the classic
+		// channel softmax instead, and any other axis has no correct classic equivalent.
+		if usesLegacyShapeMapping {
+			guard axis == 1 else {
+				throw NativeModelCoreMLEmissionError.invalidOperation(
+					operation: operation.name,
+					reason: "softmax over axis \(axis) cannot be expressed under Core ML's legacy rank-5 mapping (only the channel axis, 1, can)"
+				)
+			}
+			return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 175, parameters: Data())
 		}
 		return softmaxNDLayer(name: operation.name, input: operation.inputs[0], output: operation.outputs[0].name, axis: axis)
 	}
@@ -1124,6 +1161,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		case .transpose: try transposeLayer(for: operation)
 		case .sliceChannels: try sliceChannelsLayer(for: operation)
 		case .softmaxChannel: try softmaxChannelLayer(for: operation)
+		case .upsample2D: try upsampleLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
 				operation: operation.name,
@@ -1138,6 +1176,29 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	private func softmaxChannelLayer(for operation: NativeModelOperation) throws -> Data {
 		try requireSingleActivationInput(operation)
 		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 175, parameters: Data())
+	}
+
+	/// Nearest-neighbor spatial upsample — Core ML's classic `UpsampleLayerParams` (field 210). The
+	/// interpolation mode stays at its proto3 default (NN = 0), so no mode field is written; the
+	/// scaling factor is the required `[H, W]` order. This reproduces ONNX `Resize` with nearest mode,
+	/// `asymmetric` transform, and integer scales, where `out[c, i, j] = in[c, i / f, j / f]`.
+	private func upsampleLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let scalingFactor = operation.attributes["scalingFactor"]?.integerArrayValue,
+			scalingFactor.count == 2, scalingFactor.allSatisfy({ $0 > 0 })
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "upsample2d requires a 'scalingFactor' of two positive integers"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			// UpsampleLayerParams.scalingFactor = 1 (repeated uint64, [H, W]).
+			for factor in scalingFactor {
+				CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(factor), to: &parameters)
+			}
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 210, parameters: parameters)
 	}
 
 	/// `y = x` for `x > 0`, `alpha · x` otherwise. Core ML carries the slope inside

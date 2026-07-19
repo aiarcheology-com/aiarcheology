@@ -1,17 +1,16 @@
-Test Focus: First ONNX object-detection model converts on your device
+Test Focus: Groundwork for modern YOLO detectors — existing conversions must not change
 
 What's new:
 
-• The on-device ONNX converter now handles its first object-detection model: Tiny YOLOv2 converts into a full Core ML detector — detection boxes and labels appear right in the browser, like the built-in demo detectors.
+• Internal converter groundwork for modern YOLO detectors (YOLOv8/YOLO11). Nothing new is user-visible yet — detection boxes for these models arrive in the next build. What matters in THIS build is that everything that already worked still works exactly the same.
 
 Please test:
 
-1. Open the model importer and choose Download from URL.
-2. Paste https://github.com/onnx/models/raw/main/validated/vision/object_detection_segmentation/tiny-yolov2/model/tinyyolov2-8.onnx and import (about 60 MB) — conversion should finish without errors.
-3. Enable the converted model and browse to pages with photos of people, cars, animals, or furniture.
-4. Confirm detection boxes with labels (person, car, dog, chair, …) appear over the photos.
-5. Image classifiers should still convert and classify as before (MobileNetV2, ResNet-50, SqueezeNet).
+1. Import an image classifier by URL (e.g. MobileNetV2, ResNet-50, or SqueezeNet from the ONNX Model Zoo) — it must convert and classify page images as before.
+2. Import Tiny YOLOv2: https://github.com/onnx/models/raw/main/validated/vision/object_detection_segmentation/tiny-yolov2/model/tinyyolov2-8.onnx — detection boxes with labels must still appear over photos, unchanged from the previous build.
+3. New behavior worth a look: importing a modern YOLO file (e.g. a yolov8n.onnx export) no longer fails with an "unsupported operator" error — it imports successfully but appears in the model list as Disabled / needing review, and cannot produce detections yet. That is expected in this build.
+4. Detection models with embedded post-processing (SSD, tiny-yolov3) should still be rejected with a clear message.
 
 Known limitations:
 
-• Only raw-output YOLOv2-family detection models convert for now; detection models with embedded post-processing (e.g. SSD, tiny-yolov3) are still rejected with a clear message.
+• Modern YOLO (v8/v11) files convert but do not yet detect — the detector wiring ships in the next build. Only YOLOv2-family detection models produce boxes today.

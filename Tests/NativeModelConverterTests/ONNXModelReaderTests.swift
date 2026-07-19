@@ -286,15 +286,255 @@ final class ONNXModelReaderTests: XCTestCase {
 		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
 	}
 
-	func testRead_addWithSpatialConstant_isRejected() throws {
-		// A constant with spatial extent has no classic channel-wise broadcast; converting it would
-		// silently mis-add.
-		let bias = onnxTensor(name: "b", dims: [1, 3, 4, 4], floats: Array(repeating: 0, count: 48))
+	func testRead_addWithSpatialConstant_isStaticallyExpanded() throws {
+		// A full-extent constant used to be rejected; it is now statically expanded to the activation's
+		// canonical [C, H, W] and added same-shape. A [1, 3, 2, 2] bias over a [1, 3, 2, 2] activation
+		// expands 1:1, so the constant weight carries the bias verbatim in [3, 2, 2] layout.
+		let biasValues: [Float] = (0 ..< 12).map(Float.init)
+		let bias = onnxTensor(name: "b", dims: [1, 3, 2, 2], floats: biasValues)
 		let add = onnxNode(op: "Add", inputs: ["x", "b"], outputs: ["y"], name: "shift")
 		let model = onnxModel(
 			nodes: [add], initializers: [bias],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 2, 2])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 2, 2])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.constant, .add])
+		XCTAssertEqual(conversion.graph.weights.map(\.shape), [[3, 2, 2]])
+		XCTAssertEqual(floats(of: conversion.graph.weights[0], in: conversion.weights), biasValues)
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_mulWithSpatialTableConstant_expandsAndTiles() throws {
+		// The YOLOv8 stride-table shape: a per-position [1, N] constant against a [1, C, N] activation.
+		// It has no channel broadcast, so it is tiled across the C channels into a full [C, N, 1]
+		// constant — the table repeated once per channel — then multiplied same-shape.
+		let table = onnxTensor(name: "t", dims: [1, 3], floats: [1, 2, 3])
+		let mul = onnxNode(op: "Mul", inputs: ["x", "t"], outputs: ["y"], name: "scale")
+		let model = onnxModel(
+			nodes: [mul], initializers: [table],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 2, 3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 2, 3])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.constant, .multiply])
+		XCTAssertEqual(conversion.graph.weights.map(\.shape), [[2, 3, 1]])
+		XCTAssertEqual(floats(of: conversion.graph.weights[0], in: conversion.weights), [1, 2, 3, 1, 2, 3])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_mulWithConstantThatBroadcastsTheActivation_isRejected() throws {
+		// A constant larger than the activation on some axis would broadcast the *activation*, changing
+		// its shape — no classic elementwise layer does that, so it is rejected, not expanded.
+		let table = onnxTensor(name: "t", dims: [1, 5], floats: [1, 2, 3, 4, 5])
+		let mul = onnxNode(op: "Mul", inputs: ["x", "t"], outputs: ["y"], name: "scale")
+		let model = onnxModel(
+			nodes: [mul], initializers: [table],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 2, 3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 2, 3])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_mulWithOversizedExpansion_isRejected() throws {
+		// The expansion is bounded so a crafted shape cannot exhaust memory: a per-position constant over
+		// a [1, 4, 2000, 2000] activation would expand to 16M elements, past the 8M cap.
+		let table = onnxTensor(name: "t", dims: [1, 1, 1, 2000], floats: Array(repeating: 1, count: 2000))
+		let mul = onnxNode(op: "Mul", inputs: ["x", "t"], outputs: ["y"], name: "scale")
+		let model = onnxModel(
+			nodes: [mul], initializers: [table],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 4, 2000, 2000])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 4, 2000, 2000])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	// MARK: - Sub / Div lowering
+
+	func testRead_subByScalarInitializer_negatesAndAdds() throws {
+		// Core ML has no subtract layer, so `x − 2` becomes `x + (−2)`: the constant is negated at read
+		// time and lowered as an add. The negated value must land in the emitted weight.
+		let bias = onnxTensor(name: "s", dims: [1], floats: [2])
+		let sub = onnxNode(op: "Sub", inputs: ["x", "s"], outputs: ["y"], name: "shift")
+		let model = onnxModel(
+			nodes: [sub], initializers: [bias],
 			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 4, 4])],
 			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 4, 4])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.constant, .add])
+		XCTAssertEqual(conversion.graph.weights.map(\.shape), [[1, 1, 1]])
+		XCTAssertEqual(floats(of: conversion.graph.weights[0], in: conversion.weights), [-2])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_subActivationMinusActivation_lowersToNegateMultiplyAdd() throws {
+		// Two same-shape activations (here the one input used twice): multiply the subtrahend by a
+		// synthesized scalar −1, then add. The synthesized constant, the multiply and the add appear in
+		// that order.
+		let sub = onnxNode(op: "Sub", inputs: ["x", "x"], outputs: ["y"], name: "diff")
+		let model = onnxModel(
+			nodes: [sub], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 1, 1])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 1, 1])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.constant, .multiply, .add])
+		XCTAssertEqual(floats(of: conversion.graph.weights[0], in: conversion.weights), [-1])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_subConstantMinusActivation_negatesTheActivationAndAdds() throws {
+		// `constant − activation` — YOLOv8's `anchors − lt` box decode. The rewrite must negate the
+		// ACTIVATION (`c − a = a·(−1) + c`), never the constant: negating the constant would compute
+		// `activation − constant` with silently swapped operands. Proven numerically: 5 − x, not x − 5.
+		let base = onnxTensor(name: "c", dims: [1], floats: [5])
+		let sub = onnxNode(op: "Sub", inputs: ["c", "x"], outputs: ["y"], name: "diff")
+		let model = onnxModel(
+			nodes: [sub], initializers: [base],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 1, 1])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 1, 1])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.constant, .multiply, .constant, .add])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+		let output = try predictSingleInput(model: model, inputShape: [1, 3, 1, 1], values: [1, 2, 10], outputName: "y")
+		XCTAssertEqual(output, [4, 3, -5])
+	}
+
+	func testRead_tensorNameCollidingWithSynthesizedName_isRejected() throws {
+		// ONNX places no constraints on tensor names, so a crafted file can pre-claim a name the
+		// reader synthesizes (here `b__negConst`, what Sub generates for its negated constant).
+		// Silently adopting that activation would compute with the wrong operand — reject instead.
+		let squatter = onnxNode(op: "Relu", inputs: ["x"], outputs: ["b__negConst"], name: "squatter")
+		let bias = onnxTensor(name: "b", dims: [1], floats: [3])
+		let sub = onnxNode(op: "Sub", inputs: ["b__negConst", "b"], outputs: ["y"], name: "diff")
+		let model = onnxModel(
+			nodes: [squatter, sub], initializers: [bias],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 1, 1])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 1, 1])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.invalidModel = error else {
+				return XCTFail("Expected invalidModel, got \(error)")
+			}
+		}
+	}
+
+	func testRead_initializerNameCollidingWithSynthesizedName_isRejected() throws {
+		// An *initializer* carries no `shapes` entry, so checking `shapes` alone would let it squat a
+		// synthesized name and be reinterpreted as an activation later. Same for alias targets and
+		// folded shape tensors — every namespace a model tensor can occupy must be checked.
+		let squatter = onnxTensor(name: "b__negConst", dims: [1], floats: [7])
+		let bias = onnxTensor(name: "b", dims: [1], floats: [3])
+		let sub = onnxNode(op: "Sub", inputs: ["x", "b"], outputs: ["y"], name: "diff")
+		let model = onnxModel(
+			nodes: [sub], initializers: [bias, squatter],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 1, 1])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 1, 1])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.invalidModel = error else {
+				return XCTFail("Expected invalidModel, got \(error)")
+			}
+		}
+	}
+
+	func testRead_divBySubnormalConstant_isRejected() throws {
+		// Not zero, but its reciprocal overflows to +∞ — `0 / d` is 0 in ONNX while the lowered
+		// `0 · ∞` would be NaN, so the non-finite reciprocal is rejected like the zero divisor.
+		let divisor = onnxTensor(name: "d", dims: [1], floats: [Float.leastNonzeroMagnitude])
+		let div = onnxNode(op: "Div", inputs: ["x", "d"], outputs: ["y"], name: "scale")
+		let model = onnxModel(
+			nodes: [div], initializers: [divisor],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 2, 1, 1])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 2, 1, 1])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_resizeWithHugeScale_isRejectedNotTrapped() throws {
+		// 2^62 is a finite integral Double; an unchecked Int conversion or output-shape multiply
+		// would trap instead of failing as an unsupported model.
+		let scales = onnxTensor(name: "s", dims: [4], floats: [1, 1, Float(pow(2.0, 62.0)), 2])
+		let resize = onnxNode(op: "Resize", inputs: ["x", "", "s"], outputs: ["y"], name: "up", attributes: [
+			onnxStringAttr(name: "mode", value: "nearest"),
+			onnxStringAttr(name: "coordinate_transformation_mode", value: "asymmetric"),
+			onnxStringAttr(name: "nearest_mode", value: "floor")
+		])
+		let model = onnxModel(
+			nodes: [resize], initializers: [scales],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 2, 4, 4])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 2, 8, 8])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_divByScalarInitializer_lowersToReciprocalMultiply() throws {
+		// `x / 2` becomes `x · 0.5`: the divisor's reciprocal is computed at read time and multiplied.
+		let divisor = onnxTensor(name: "d", dims: [1], floats: [2])
+		let div = onnxNode(op: "Div", inputs: ["x", "d"], outputs: ["y"], name: "scale")
+		let model = onnxModel(
+			nodes: [div], initializers: [divisor],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 2, 1, 1])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 2, 1, 1])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.constant, .multiply])
+
+		let modelURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
+		defer { try? FileManager.default.removeItem(at: modelURL) }
+		try NativeModelCoreMLEmitter().emit(graph: conversion.graph, weights: conversion.weights, to: modelURL)
+		let compiled = try MLModel.compileModel(at: modelURL)
+		let coreMLModel = try MLModel(contentsOf: compiled, configuration: cpuOnly())
+		let input = try MLMultiArray(shape: [1, 2, 1, 1], dataType: .float32)
+		input[0] = 4
+		input[1] = 6
+		let provider = try MLDictionaryFeatureProvider(dictionary: ["x": MLFeatureValue(multiArray: input)])
+		let prediction = try coreMLModel.prediction(from: provider)
+		let output = try XCTUnwrap(prediction.featureValue(for: "y")?.multiArrayValue)
+		XCTAssertEqual((0 ..< 2).map { output[$0].floatValue }, [2, 3])
+	}
+
+	func testRead_divByZeroConstant_isRejected() throws {
+		// Dividing by a zero element must not silently become a multiply by infinity.
+		let divisor = onnxTensor(name: "d", dims: [1], floats: [0])
+		let div = onnxNode(op: "Div", inputs: ["x", "d"], outputs: ["y"], name: "scale")
+		let model = onnxModel(
+			nodes: [div], initializers: [divisor],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 2, 1, 1])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 2, 1, 1])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_divOfTwoActivations_isRejected() throws {
+		// No classic Core ML layer divides two activations (here the one input used as both operands).
+		let div = onnxNode(op: "Div", inputs: ["x", "x"], outputs: ["y"], name: "scale")
+		let model = onnxModel(
+			nodes: [div], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 1, 1])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 1, 1])]
 		)
 		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
 			guard case ONNXModelReaderError.unsupportedAttribute = error else {
@@ -945,6 +1185,501 @@ final class ONNXModelReaderTests: XCTestCase {
 		)
 	}
 
+	// MARK: - Resize lowering (nearest/asymmetric upsample)
+
+	func testRead_resizeNearestAsymmetric2x_lowersToUpsample() throws {
+		// The FPN upsample YOLOv8 exports: nearest + asymmetric + floor, scales [1, 1, 2, 2].
+		let scales = onnxTensor(name: "scales", dims: [4], floats: [1, 1, 2, 2])
+		let resize = onnxNode(op: "Resize", inputs: ["x", "", "scales"], outputs: ["y"], name: "resize", attributes: [
+			onnxStringAttr(name: "mode", value: "nearest"),
+			onnxStringAttr(name: "coordinate_transformation_mode", value: "asymmetric"),
+			onnxStringAttr(name: "nearest_mode", value: "floor")
+		])
+		let model = onnxModel(
+			nodes: [resize], initializers: [scales],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 8, 10])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 16, 20])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.upsample2D])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["scalingFactor"]?.integerArrayValue, [2, 2])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 3, 16, 20])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_resizeLinearMode_isRejected() throws {
+		let model = resizeModel(mode: "linear", coordinateTransform: "asymmetric", nearestMode: "floor")
+		assertResizeRejected(model)
+	}
+
+	func testRead_resizeHalfPixel_isRejected() throws {
+		// half_pixel samples at coordinates the nearest upsample layer does not reproduce.
+		let model = resizeModel(mode: "nearest", coordinateTransform: "half_pixel", nearestMode: "floor")
+		assertResizeRejected(model)
+	}
+
+	func testRead_resizeNonIntegerScale_isRejected() throws {
+		let scales = onnxTensor(name: "scales", dims: [4], floats: [1, 1, 1.5, 1.5])
+		let resize = onnxNode(op: "Resize", inputs: ["x", "", "scales"], outputs: ["y"], name: "resize", attributes: [
+			onnxStringAttr(name: "mode", value: "nearest"),
+			onnxStringAttr(name: "coordinate_transformation_mode", value: "asymmetric"),
+			onnxStringAttr(name: "nearest_mode", value: "floor")
+		])
+		let model = onnxModel(
+			nodes: [resize], initializers: [scales],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 8, 8])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 12, 12])]
+		)
+		assertResizeRejected(model)
+	}
+
+	func testRead_resizeSizesForm_lowersWhenItDividesExactly() throws {
+		// The `sizes` input (4 → 8) form: the implied integer factor is 2.
+		let sizes = onnxInt64Tensor(name: "sizes", dims: [4], ints: [1, 3, 8, 8])
+		let resize = onnxNode(op: "Resize", inputs: ["x", "", "", "sizes"], outputs: ["y"], name: "resize", attributes: [
+			onnxStringAttr(name: "mode", value: "nearest"),
+			onnxStringAttr(name: "coordinate_transformation_mode", value: "asymmetric"),
+			onnxStringAttr(name: "nearest_mode", value: "floor")
+		])
+		let model = onnxModel(
+			nodes: [resize], initializers: [sizes],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 4, 4])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 8, 8])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.upsample2D])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["scalingFactor"]?.integerArrayValue, [2, 2])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 3, 8, 8])
+	}
+
+	func testRead_resizeSizesForm_isRejectedWhenItDoesNotDivide() throws {
+		// 4 → 7 is not an integer multiple, so the nearest upsample cannot reproduce it.
+		let sizes = onnxInt64Tensor(name: "sizes", dims: [4], ints: [1, 3, 7, 7])
+		let resize = onnxNode(op: "Resize", inputs: ["x", "", "", "sizes"], outputs: ["y"], name: "resize", attributes: [
+			onnxStringAttr(name: "mode", value: "nearest"),
+			onnxStringAttr(name: "coordinate_transformation_mode", value: "asymmetric"),
+			onnxStringAttr(name: "nearest_mode", value: "floor")
+		])
+		let model = onnxModel(
+			nodes: [resize], initializers: [sizes],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 4, 4])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 7, 7])]
+		)
+		assertResizeRejected(model)
+	}
+
+	/// A `[1, 3, 8, 8]` → `[1, 3, 16, 16]` (scales [1, 1, 2, 2]) Resize with the given string attributes.
+	private func resizeModel(mode: String, coordinateTransform: String, nearestMode: String) -> Data {
+		let scales = onnxTensor(name: "scales", dims: [4], floats: [1, 1, 2, 2])
+		let resize = onnxNode(op: "Resize", inputs: ["x", "", "scales"], outputs: ["y"], name: "resize", attributes: [
+			onnxStringAttr(name: "mode", value: mode),
+			onnxStringAttr(name: "coordinate_transformation_mode", value: coordinateTransform),
+			onnxStringAttr(name: "nearest_mode", value: nearestMode)
+		])
+		return onnxModel(
+			nodes: [resize], initializers: [scales],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 3, 8, 8])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 3, 16, 16])]
+		)
+	}
+
+	private func assertResizeRejected(_ model: Data, file: StaticString = #filePath, line: UInt = #line) {
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model), file: file, line: line) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)", file: file, line: line)
+			}
+		}
+	}
+
+	// MARK: - Concat lowering (rank-3, and the axis-2 transpose-wrap)
+
+	func testRead_concatRank3ChannelAxis_sumsChannels() throws {
+		let concat = onnxNode(op: "Concat", inputs: ["x", "x"], outputs: ["y"], name: "concat", attributes: [
+			onnxSignedIntAttr(name: "axis", value: 1)
+		])
+		let model = onnxModel(
+			nodes: [concat], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 2, 5])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 4, 5])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.concatenate])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 4, 5])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_concatRank3Axis2_rewritesAsTransposeWrappedChannelConcat() throws {
+		// The YOLOv8 stride merge: [1, C, N₀] ⧺₂ [1, C, N₁] → [1, C, N₀+N₁]. Classic Core ML concat
+		// joins channels only, so the lowering must transpose each input, channel-concat, and
+		// transpose back — the op sequence and the final shape are the contract.
+		let concat = onnxNode(op: "Concat", inputs: ["x", "x"], outputs: ["y"], name: "concat", attributes: [
+			onnxSignedIntAttr(name: "axis", value: 2)
+		])
+		let model = onnxModel(
+			nodes: [concat], initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 2, 5])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 2, 10])]
+		)
+		let conversion = try ONNXModelReader().read(data: model)
+		// One synthesized transpose per input occurrence (the same tensor twice still gets two, under
+		// distinct generated names), one channel concat, one transpose back.
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.transpose, .transpose, .concatenate, .transpose])
+		XCTAssertEqual(conversion.graph.operations.last?.outputs[0].shape, [1, 2, 10])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_concatRank4SpatialAxis_isStillRejected() throws {
+		let model = concatModel(inputShape: [1, 3, 4, 4], count: 2, axis: 2)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_concatRank3Axis2_convertsAndPredictsInDocumentOrder() throws {
+		// End-to-end numeric proof of the transpose-wrap: rank-4 input reshaped to [1, 2, 3], concat
+		// with itself on axis 2, reshaped back to rank 4 so the declared output maps cleanly under the
+		// legacy rank-5 layout. Axis-2 concat repeats each CHANNEL'S row — [a b c a b c | d e f d e f]
+		// — while a channel concat would repeat whole channel blocks; the expectation distinguishes them.
+		let toRank3 = onnxNode(op: "Reshape", inputs: ["x", "t3"], outputs: ["r3"], name: "toRank3")
+		let concat = onnxNode(op: "Concat", inputs: ["r3", "r3"], outputs: ["cat"], name: "concat", attributes: [
+			onnxSignedIntAttr(name: "axis", value: 2)
+		])
+		let toRank4 = onnxNode(op: "Reshape", inputs: ["cat", "t4"], outputs: ["y"], name: "toRank4")
+		let model = onnxModel(
+			nodes: [toRank3, concat, toRank4],
+			initializers: [
+				onnxInt64Tensor(name: "t3", dims: [3], ints: [1, 2, 3]),
+				onnxInt64Tensor(name: "t4", dims: [4], ints: [1, 2, 6, 1])
+			],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 2, 3, 1])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 2, 6, 1])]
+		)
+		// Under the legacy mapping the emitter declares rank-4 unit-batch features as [C, H, W].
+		let output = try predictSingleInput(model: model, inputShape: [2, 3, 1], values: [1, 2, 3, 4, 5, 6], outputName: "y")
+		XCTAssertEqual(output, [1, 2, 3, 1, 2, 3, 4, 5, 6, 4, 5, 6])
+	}
+
+	func testRead_softmaxUnderLegacyMapping_normalizesTheChannelAxis() throws {
+		// A reshape in the graph flips the whole network to the legacy rank-5 mapping, under which
+		// softmaxND's axis numbering would be wrong — the emitter must switch to the classic channel
+		// softmax. Channel pairs (1,3) and (2,4) must each normalize to (0.1192, 0.8808); a softmax
+		// over the wrong axis would normalize (1,2) and (3,4) instead.
+		let toRank3 = onnxNode(op: "Reshape", inputs: ["x", "t3"], outputs: ["r3"], name: "toRank3")
+		let softmax = onnxNode(op: "Softmax", inputs: ["r3"], outputs: ["s"], name: "softmax", attributes: [
+			onnxSignedIntAttr(name: "axis", value: 1)
+		])
+		let toRank4 = onnxNode(op: "Reshape", inputs: ["s", "t4"], outputs: ["y"], name: "toRank4")
+		let model = onnxModel(
+			nodes: [toRank3, softmax, toRank4],
+			initializers: [
+				onnxInt64Tensor(name: "t3", dims: [3], ints: [1, 2, 2]),
+				onnxInt64Tensor(name: "t4", dims: [4], ints: [1, 2, 2, 1])
+			],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 2, 2, 1])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 2, 2, 1])],
+			opsetVersion: 13
+		)
+		let output = try predictSingleInput(model: model, inputShape: [2, 2, 1], values: [1, 2, 3, 4], outputName: "y")
+		XCTAssertEqual(output.count, 4)
+		for (index, expected) in [0.11920292, 0.11920292, 0.88079708, 0.88079708].enumerated() {
+			XCTAssertEqual(output[index], Float(expected), accuracy: 0.0005, "element \(index)")
+		}
+	}
+
+	/// Reads `model`, emits it, compiles it, and predicts over one input, returning the flat output.
+	private func predictSingleInput(model: Data, inputShape: [Int], values: [Float], outputName: String) throws -> [Float] {
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+		let modelURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
+		defer { try? FileManager.default.removeItem(at: modelURL) }
+		try NativeModelCoreMLEmitter().emit(graph: conversion.graph, weights: conversion.weights, to: modelURL)
+		let compiled = try MLModel.compileModel(at: modelURL)
+		defer { try? FileManager.default.removeItem(at: compiled) }
+		let coreMLModel = try MLModel(contentsOf: compiled, configuration: cpuOnly())
+		let input = try MLMultiArray(shape: inputShape.map { NSNumber(value: $0) }, dataType: .float32)
+		for (index, value) in values.enumerated() { input[index] = NSNumber(value: value) }
+		let provider = try MLDictionaryFeatureProvider(dictionary: ["x": MLFeatureValue(multiArray: input)])
+		let prediction = try coreMLModel.prediction(from: provider)
+		let output = try XCTUnwrap(prediction.featureValue(for: outputName)?.multiArrayValue)
+		return (0 ..< output.count).map { output[$0].floatValue }
+	}
+
+	// MARK: - Reshape lowering (static targets vs the classifier flatten fast-path)
+
+	func testRead_reshapeStaticRank4Target_lowersToGeneralReshape() throws {
+		let model = reshapeModel(inputShape: [1, 4, 4, 1], target: [1, 2, 2, 4])
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.reshape])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["shape"]?.integerArrayValue, [1, 2, 2, 4])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 2, 2, 4])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_reshapeRank3TargetWithInferredDim_canonicalizesToRank4() throws {
+		// The YOLOv8 head's stride flatten: [1, 144, 80, 80] -> [1, 144, -1]. The -1 resolves to 6400
+		// and the emitted attribute gains the trailing unit axis the classic reshape layer requires.
+		let model = reshapeModel(inputShape: [1, 144, 80, 80], target: [1, 144, -1])
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.reshape])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["shape"]?.integerArrayValue, [1, 144, 6400, 1])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 144, 6400])
+	}
+
+	func testRead_reshapeBatchVectorTarget_staysOnTheFlattenFastPath() throws {
+		// MobileNetV2/ResNet50 ship a [1, -1] classifier reshape. It must remain a .flatten: a .reshape
+		// op would flip the network to the legacy rank-5 mapping, which the emitter rejects for
+		// classifier interfaces — i.e. this test is the shipped-classifier regression guard.
+		let model = reshapeModel(inputShape: [1, 1280, 1, 1], target: [1, -1])
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.flatten])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 1280])
+	}
+
+	func testRead_reshapeNonDivisibleInferredDim_isRejected() throws {
+		let model = reshapeModel(inputShape: [1, 4, 4, 1], target: [1, 7, -1])
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.shapeInferenceFailed = error else {
+				return XCTFail("Expected shapeInferenceFailed, got \(error)")
+			}
+		}
+	}
+
+	func testRead_reshapeElementCountMismatch_isRejected() throws {
+		let model = reshapeModel(inputShape: [1, 4, 4, 1], target: [1, 3, 5])
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.shapeInferenceFailed = error else {
+				return XCTFail("Expected shapeInferenceFailed, got \(error)")
+			}
+		}
+	}
+
+	func testRead_reshapeZeroCopyDimension_isRejected() throws {
+		let model = reshapeModel(inputShape: [1, 4, 4, 1], target: [0, 16])
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_reshapeRank5Target_isRejected() throws {
+		let model = reshapeModel(inputShape: [1, 4, 4, 1], target: [1, 1, 2, 2, 4])
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	// MARK: - Sigmoid and Transpose lowering
+
+	func testRead_sigmoid_lowersPreservingShape() throws {
+		let model = onnxModel(
+			nodes: [onnxNode(op: "Sigmoid", inputs: ["x"], outputs: ["y"], name: "sig")],
+			initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 4, 8])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 4, 8])]
+		)
+
+		let conversion = try ONNXModelReader().read(data: model)
+
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.sigmoid])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 4, 8])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_transposeRank4_lowersWithPermutedShape() throws {
+		let transpose = onnxNode(op: "Transpose", inputs: ["x"], outputs: ["y"], name: "t", attributes: [
+			onnxIntsAttr(name: "perm", ints: [0, 2, 1, 3])
+		])
+		let model = onnxModel(
+			nodes: [transpose],
+			initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 4, 8, 2])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 8, 4, 2])]
+		)
+
+		let conversion = try ONNXModelReader().read(data: model)
+
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.transpose])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["permutation"]?.integerArrayValue, [0, 2, 1, 3])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 8, 4, 2])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_transposeRank3_canonicalizesPermToRank4() throws {
+		// A rank-3 [1, C, N] input canonicalizes to four axes: perm [0, 2, 1] gains the trailing axis 3,
+		// while the recorded output shape stays the ONNX rank-3 result [1, N, C].
+		let transpose = onnxNode(op: "Transpose", inputs: ["x"], outputs: ["y"], name: "t", attributes: [
+			onnxIntsAttr(name: "perm", ints: [0, 2, 1])
+		])
+		let model = onnxModel(
+			nodes: [transpose],
+			initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 4, 8])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 8, 4])]
+		)
+
+		let conversion = try ONNXModelReader().read(data: model)
+
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.transpose])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["permutation"]?.integerArrayValue, [0, 2, 1, 3])
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 8, 4])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_transposeWithoutPerm_isRejected() throws {
+		let transpose = onnxNode(op: "Transpose", inputs: ["x"], outputs: ["y"], name: "t")
+		let model = onnxModel(
+			nodes: [transpose],
+			initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 4, 8, 2])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 4, 8, 2])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_transposeWithInvalidPerm_isRejected() throws {
+		let transpose = onnxNode(op: "Transpose", inputs: ["x"], outputs: ["y"], name: "t", attributes: [
+			onnxIntsAttr(name: "perm", ints: [0, 0, 1, 2])
+		])
+		let model = onnxModel(
+			nodes: [transpose],
+			initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 4, 8, 2])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 4, 8, 2])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	// MARK: - Slice lowering (channel-axis only)
+
+	func testRead_sliceChannelRangeRank3_lowersToSliceChannels() throws {
+		let model = sliceModel(inputShape: [1, 144, 20], starts: [0], ends: [64], axes: [1], outputShape: [1, 64, 20])
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.sliceChannels])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["startChannel"]?.integerValue, 0)
+		XCTAssertEqual(conversion.graph.operations[0].attributes["endChannel"]?.integerValue, 64)
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 64, 20])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_sliceNegativeStart_normalizesAgainstChannelCount() throws {
+		// -80 on 144 channels counts back from the dim to 64; the slice keeps the trailing 80 channels.
+		let model = sliceModel(inputShape: [1, 144, 20], starts: [-80], ends: [144], axes: [1], outputShape: [1, 80, 20])
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.sliceChannels])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["startChannel"]?.integerValue, 64)
+		XCTAssertEqual(conversion.graph.operations[0].attributes["endChannel"]?.integerValue, 144)
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 80, 20])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
+	func testRead_sliceEndAtInt64Max_clampsToChannelCount() throws {
+		// YOLO exports write an INT64_MAX "to the end" sentinel; it truncates to Int.max and must clamp.
+		let model = sliceModel(inputShape: [1, 144, 20], starts: [64], ends: [Int(Int64.max)], axes: [1], outputShape: [1, 80, 20])
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.sliceChannels])
+		XCTAssertEqual(conversion.graph.operations[0].attributes["startChannel"]?.integerValue, 64)
+		XCTAssertEqual(conversion.graph.operations[0].attributes["endChannel"]?.integerValue, 144)
+		XCTAssertEqual(conversion.graph.operations[0].outputs[0].shape, [1, 80, 20])
+	}
+
+	func testRead_sliceOnSpatialAxis_isRejected() throws {
+		let model = sliceModel(inputShape: [1, 144, 20], starts: [0], ends: [10], axes: [2], outputShape: [1, 144, 10])
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_sliceWithNonUnitStep_isRejected() throws {
+		let model = sliceModel(inputShape: [1, 144, 20], starts: [0], ends: [64], axes: [1], steps: [2], outputShape: [1, 32, 20])
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_sliceOverMultipleAxes_isRejected() throws {
+		let model = sliceModel(inputShape: [1, 144, 20], starts: [0, 0], ends: [64, 10], axes: [1, 2], outputShape: [1, 64, 10])
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	func testRead_sliceWithNonConstantStarts_isRejected() throws {
+		// `starts` is a float initializer, not the int64/int32 `constantInts` accepts, so the bound cannot
+		// be read at compile time and the slice is unrepresentable.
+		let slice = onnxNode(op: "Slice", inputs: ["x", "starts", "ends"], outputs: ["y"], name: "slice")
+		let model = onnxModel(
+			nodes: [slice],
+			initializers: [
+				onnxTensor(name: "starts", dims: [1], floats: [0]),
+				onnxInt64Tensor(name: "ends", dims: [1], ints: [64])
+			],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 144, 20])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 64, 20])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+		}
+	}
+
+	/// Builds a Slice model in the opset-≥10 tensor-input form. `axes`/`steps` become extra initializer
+	/// inputs when present; an absent `axes` beneath a present `steps` fills the positional slot with the
+	/// empty-string optional-input marker ONNX uses.
+	private func sliceModel(inputShape: [Int], starts: [Int], ends: [Int], axes: [Int]? = nil, steps: [Int]? = nil, outputShape: [Int]) -> Data {
+		var inputNames = ["x", "starts", "ends"]
+		var initializers = [
+			onnxInt64Tensor(name: "starts", dims: [starts.count], ints: starts),
+			onnxInt64Tensor(name: "ends", dims: [ends.count], ints: ends)
+		]
+		if let axes {
+			inputNames.append("axes")
+			initializers.append(onnxInt64Tensor(name: "axes", dims: [axes.count], ints: axes))
+		}
+		if let steps {
+			if axes == nil { inputNames.append("") }
+			inputNames.append("steps")
+			initializers.append(onnxInt64Tensor(name: "steps", dims: [steps.count], ints: steps))
+		}
+		return onnxModel(
+			nodes: [onnxNode(op: "Slice", inputs: inputNames, outputs: ["y"], name: "slice")],
+			initializers: initializers,
+			inputs: [onnxValueInfo(name: "x", shape: inputShape)],
+			outputs: [onnxValueInfo(name: "y", shape: outputShape)]
+		)
+	}
+
+	private func reshapeModel(inputShape: [Int], target: [Int]) -> Data {
+		let reshape = onnxNode(op: "Reshape", inputs: ["x", "target"], outputs: ["y"], name: "reshape")
+		var resolvedOutput = target.map { $0 == -1 ? 1 : $0 } // declared output shape is cosmetic here
+		if resolvedOutput.isEmpty { resolvedOutput = [1] }
+		return onnxModel(
+			nodes: [reshape],
+			initializers: [onnxInt64Tensor(name: "target", dims: [target.count], ints: target)],
+			inputs: [onnxValueInfo(name: "x", shape: inputShape)],
+			outputs: [onnxValueInfo(name: "y", shape: resolvedOutput)]
+		)
+	}
+
 	// MARK: - Minimal ONNX protobuf builders (reuse the encoder to write ONNX-shaped messages)
 
 	private func onnxValueInfo(name: String, shape: [Int]) -> Data {
@@ -974,6 +1709,19 @@ final class ONNXModelReaderTests: XCTestCase {
 		return CoreMLProtobufEncoder.message { tensor in
 			for dimension in dims { CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(dimension), to: &tensor) }
 			CoreMLProtobufEncoder.appendVarintField(2, value: 1, to: &tensor) // data_type = FLOAT
+			CoreMLProtobufEncoder.appendStringField(8, value: name, to: &tensor)
+			CoreMLProtobufEncoder.appendMessageField(9, value: raw, to: &tensor) // raw_data
+		}
+	}
+
+	private func onnxInt64Tensor(name: String, dims: [Int], ints: [Int]) -> Data {
+		var raw = Data()
+		for value in ints {
+			withUnsafeBytes(of: Int64(value).littleEndian) { raw.append(contentsOf: $0) }
+		}
+		return CoreMLProtobufEncoder.message { tensor in
+			for dimension in dims { CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(dimension), to: &tensor) }
+			CoreMLProtobufEncoder.appendVarintField(2, value: 7, to: &tensor) // data_type = INT64
 			CoreMLProtobufEncoder.appendStringField(8, value: name, to: &tensor)
 			CoreMLProtobufEncoder.appendMessageField(9, value: raw, to: &tensor) // raw_data
 		}
@@ -1044,6 +1792,15 @@ final class ONNXModelReaderTests: XCTestCase {
 				}
 				CoreMLProtobufEncoder.appendMessageField(8, value: opset, to: &model)
 			}
+		}
+	}
+
+	/// Reads a weight's float32 values out of the conversion's packed weight blob.
+	private func floats(of weight: NativeModelWeight, in blob: Data) -> [Float] {
+		let start = Int(weight.offset)
+		let slice = blob.subdata(in: start ..< start + Int(weight.byteCount))
+		return slice.withUnsafeBytes { raw in
+			(0 ..< slice.count / 4).map { raw.loadUnaligned(fromByteOffset: $0 * 4, as: Float.self) }
 		}
 	}
 

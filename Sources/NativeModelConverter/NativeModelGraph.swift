@@ -154,6 +154,7 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 	case relu6
 	case maxPool2D
 	case averagePool2D
+	case upsample2D
 	case globalAveragePool2D
 	case reshape
 	case transpose
@@ -184,6 +185,7 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		case .relu6: "relu6"
 		case .maxPool2D: "maxPool2d"
 		case .averagePool2D: "averagePool2d"
+		case .upsample2D: "upsample2d"
 		case .globalAveragePool2D: "globalAveragePool2d"
 		case .reshape: "reshape"
 		case .transpose: "transpose"
@@ -222,6 +224,7 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		"relu6": .relu6,
 		"maxPool2d": .maxPool2D,
 		"averagePool2d": .averagePool2D,
+		"upsample2d": .upsample2D,
 		"globalAveragePool2d": .globalAveragePool2D,
 		"reshape": .reshape,
 		"transpose": .transpose,
@@ -597,6 +600,11 @@ public struct NativeModelGraphValidator {
 			requirePositiveIntegerArray(operation, name: "kernelSize", count: 2, issues: &issues)
 			requirePositiveIntegerArray(operation, name: "strides", count: 2, issues: &issues)
 			requireNonNegativeIntegerArray(operation, name: "padding", validCounts: Set([2, 4]), issues: &issues)
+		case .upsample2D:
+			// A nearest-neighbor upsample repeats each sample an integer number of times along H and W,
+			// so its only parameter is a positive [H, W] scaling factor.
+			requireArity(operation, exact: 1, issues: &issues)
+			requirePositiveIntegerArray(operation, name: "scalingFactor", count: 2, issues: &issues)
 		case .matrixMultiplication, .add, .subtract, .multiply, .divide:
 			requireArity(operation, exact: 2, issues: &issues)
 		case .batchNormalization:
