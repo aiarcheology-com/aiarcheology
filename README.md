@@ -37,6 +37,14 @@ into the importer's **Download from URL** field.
 | `.aiagraph` | — | Internal interchange package (versioned, SHA-256 pinned); not a format users are expected to author |
 | `.tflite` | — | Not supported yet |
 
+**Attribution travels with the conversion.** A converted `.onnx` model carries the source model's
+description, author, version and license (from `doc_string` / `metadata_props`) in its Core ML
+metadata, mirrors every other metadata key the author wrote under
+`com.aiarcheology.native.source.user-defined.*`, records the original filename, and states in its
+description that it is a conversion — so exporting a converted model never strips the original
+work's identity or license terms. Fields the source file does not carry stay empty rather than
+being invented.
+
 A converted detector is **one `.mlmodel` file**, exactly like a converted classifier. "Pipeline"
 describes its internal structure — Apple's own detector exports (Create ML, Turi Create,
 coremltools) and this repo's bundled demo detectors have the same two-stage shape — because a static
