@@ -82,7 +82,11 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		let classifierLabels = eligibleClassifierLabels(graph: package.graph, labels: package.metadata?.labels)
 		let metadata = try targetMetadata(
 			from: package.metadata?.source,
-			manifest: package.manifest,
+			checksums: NativeModelConversionChecksums(
+				weightsSHA256: package.manifest.weightsSHA256,
+				graphSHA256: package.manifest.graphSHA256,
+				metadataSHA256: package.manifest.metadataSHA256
+			),
 			graph: package.graph,
 			sourceProvenance: sourceProvenance,
 			classifierLabelCount: classifierLabels?.count
@@ -139,16 +143,26 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		to outputURL: URL,
 		classifierLabels: [String]?,
 		imagePreprocessing: NativeModelImagePreprocessing?,
+		sourceMetadata: NativeModelCoreMLMetadata? = nil,
+		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
 		reporting progress: NativeModelConversionProgressHandler? = nil,
 		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws {
 		let eligibleLabels = eligibleClassifierLabels(graph: graph, labels: classifierLabels)
+		// Hash the exact blob being emitted for correct provenance. On this path that is `weights`.
+		let metadata = try onnxTargetMetadata(
+			source: sourceMetadata,
+			sourceProvenance: sourceProvenance,
+			graph: graph,
+			emittedWeights: weights,
+			classifierLabelCount: eligibleLabels?.count
+		)
 		try emit(
 			graph: graph,
 			weights: weights,
 			to: outputURL,
 			context: EmissionContext(
-				metadata: nil,
+				metadata: metadata,
 				classifierLabels: eligibleLabels,
 				imagePreprocessing: eligibleLabels == nil ? nil : imagePreprocessing,
 				progress: progress,
@@ -171,15 +185,27 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		to outputURL: URL,
 		detection: NativeModelDetectionInterface,
 		imagePreprocessing: NativeModelImagePreprocessing? = nil,
+		sourceMetadata: NativeModelCoreMLMetadata? = nil,
+		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
 		reporting progress: NativeModelConversionProgressHandler? = nil,
 		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws {
+		// `weights` here is the detector blob (network weights + synthesized decode constants), which
+		// is exactly what gets emitted — so hashing it yields a truthful weights-sha256 for the
+		// pipeline model. makeModel attaches this metadata to the OUTER pipeline description.
+		let metadata = try onnxTargetMetadata(
+			source: sourceMetadata,
+			sourceProvenance: sourceProvenance,
+			graph: graph,
+			emittedWeights: weights,
+			classifierLabelCount: nil
+		)
 		try emit(
 			graph: graph,
 			weights: weights,
 			to: outputURL,
 			context: EmissionContext(
-				metadata: nil,
+				metadata: metadata,
 				imagePreprocessing: imagePreprocessing,
 				detection: detection,
 				progress: progress,
@@ -636,9 +662,35 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		}
 	}
 
+	/// Builds target metadata for a model converted straight from ONNX (no package manifest).
+	///
+	/// Always produces a metadata block — even when the source carries no attribution — so every
+	/// converted model records that it *is* a conversion, by which converter, of which weights. This
+	/// matches the `.aiagraph` package path. A source-less model writes only converter/target
+	/// provenance (no empty description/author/license), so its on-screen display stays the existing
+	/// filename fallback. The weights digest is taken from `emittedWeights`, the exact blob written
+	/// (which on the detector path already includes the synthesized decode constants).
+	private func onnxTargetMetadata(
+		source: NativeModelCoreMLMetadata?,
+		sourceProvenance: NativeModelConversionSourceProvenance?,
+		graph: NativeModelGraph,
+		emittedWeights: Data,
+		classifierLabelCount: Int?
+	) throws -> NativeModelCoreMLMetadata {
+		try targetMetadata(
+			from: source,
+			checksums: NativeModelConversionChecksums(
+				weightsSHA256: NativeModelConversionChecksums.sha256Hex(of: emittedWeights)
+			),
+			graph: graph,
+			sourceProvenance: sourceProvenance,
+			classifierLabelCount: classifierLabelCount
+		)
+	}
+
 	private func targetMetadata(
 		from source: NativeModelCoreMLMetadata?,
-		manifest: NativeModelGraphPackageManifest,
+		checksums: NativeModelConversionChecksums,
 		graph: NativeModelGraph,
 		sourceProvenance: NativeModelConversionSourceProvenance?,
 		classifierLabelCount: Int? = nil
@@ -650,7 +702,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			"com.aiarcheology.native.target.graph-format-version": String(graph.formatVersion),
 			"com.aiarcheology.native.converter.package-version": NativeModelConverterVersion.packageVersion,
 			"com.aiarcheology.native.converter.conversion-revision": String(NativeModelConverterVersion.conversionRevision),
-			"com.aiarcheology.native.conversion.weights-sha256": manifest.weightsSHA256,
+			"com.aiarcheology.native.conversion.weights-sha256": checksums.weightsSHA256,
 			"com.aiarcheology.native.conversion.producer.name": graph.producer.name,
 			"com.aiarcheology.native.conversion.producer.version": graph.producer.version,
 			"com.aiarcheology.native.target.interface.json": try targetInterfaceJSON(
@@ -659,10 +711,10 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				graph: graph
 			)
 		]
-		if let graphSHA256 = manifest.graphSHA256 {
+		if let graphSHA256 = checksums.graphSHA256 {
 			userDefined["com.aiarcheology.native.conversion.graph-sha256"] = graphSHA256
 		}
-		if let metadataChecksum = manifest.metadataSHA256 {
+		if let metadataChecksum = checksums.metadataSHA256 {
 			userDefined["com.aiarcheology.native.conversion.source-metadata-sha256"] = metadataChecksum
 		}
 		if let filename = sourceProvenance?.sourcePackageFilename {

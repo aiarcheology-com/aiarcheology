@@ -196,23 +196,34 @@ public struct NativeModelConverter: Sendable {
 			let detection = try NativeModelDetectorCatalog.detectionConversion(of: conversion)
 			let operationCount = (detection?.graph ?? conversion.graph).operations.count
 			report(NativeModelConversionProgress(phase: .emittingModel, completedUnitCount: 0, totalUnitCount: operationCount))
-			if let detection {
-				try emitter.emit(
-					graph: detection.graph,
-					weights: detection.weights,
-					to: outputURL,
-					detection: detection.interface,
-					imagePreprocessing: detection.imagePreprocessing
+				// Attribution carried from the source ONNX file (AIA-0473): description/author/version/
+				// license plus a provenance mirror, so the converted model credits the original author
+				// and records that it is a conversion. The original filename is the one provenance fact
+				// available here (no remote URL at this layer).
+				let sourceProvenance = NativeModelConversionSourceProvenance(
+					originalModelFilename: onnxURL.lastPathComponent
 				)
-			} else {
-				try emitter.emit(
-					graph: conversion.graph,
-					weights: conversion.weights,
-					to: outputURL,
-					classifierLabels: ImageNet1000Labels.categories,
-					imagePreprocessing: .imageNetRGB
-				)
-			}
+				if let detection {
+					try emitter.emit(
+						graph: detection.graph,
+						weights: detection.weights,
+						to: outputURL,
+						detection: detection.interface,
+						imagePreprocessing: detection.imagePreprocessing,
+						sourceMetadata: conversion.metadata,
+						sourceProvenance: sourceProvenance
+					)
+				} else {
+					try emitter.emit(
+						graph: conversion.graph,
+						weights: conversion.weights,
+						to: outputURL,
+						classifierLabels: ImageNet1000Labels.categories,
+						imagePreprocessing: .imageNetRGB,
+						sourceMetadata: conversion.metadata,
+						sourceProvenance: sourceProvenance
+					)
+				}
 			report(NativeModelConversionProgress(phase: .emittingModel, completedUnitCount: operationCount, totalUnitCount: operationCount))
 			report(NativeModelConversionProgress(phase: .writingModel, completedUnitCount: 1, totalUnitCount: 1))
 

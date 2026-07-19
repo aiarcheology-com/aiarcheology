@@ -11,6 +11,16 @@ import Foundation
 public struct ONNXConversionInput: Sendable {
 	public let graph: NativeModelGraph
 	public let weights: Data
+	/// Display-only attribution carried from the source ONNX model's `doc_string` / `metadata_props`
+	/// (AIA-0473). `nil` when the file records nothing worth attributing, so a bare model keeps its
+	/// existing filename fallback rather than acquiring an empty metadata block.
+	public let metadata: NativeModelCoreMLMetadata?
+
+	public init(graph: NativeModelGraph, weights: Data, metadata: NativeModelCoreMLMetadata? = nil) {
+		self.graph = graph
+		self.weights = weights
+		self.metadata = metadata
+	}
 }
 
 public enum ONNXModelReaderError: Error, Equatable, LocalizedError, Sendable {
@@ -91,10 +101,17 @@ public struct ONNXModelReader {
 			try lowering.lower(node)
 		}
 
+		// ModelProto.producer_name is field 2; fall back to "onnx" when the file omits it so the
+		// producer namespace is never empty. producer_name identifies the exporting TOOL, not the
+		// model's author — the author comes only from metadata_props["author"] (see ONNXMetadataMapping).
+		let producerName = model.firstString(2)?.trimmingCharacters(in: .whitespacesAndNewlines)
 		let nativeGraph = NativeModelGraph(
 			formatVersion: NativeModelGraph.currentFormatVersion,
-			// ModelProto.producer_version is field 3 (field 2 is producer_name).
-			producer: NativeModelGraphProducer(name: "onnx", version: model.firstString(3) ?? "unknown"),
+			// ModelProto.producer_version is field 3.
+			producer: NativeModelGraphProducer(
+				name: (producerName?.isEmpty == false) ? producerName! : "onnx",
+				version: model.firstString(3) ?? "unknown"
+			),
 			inputs: [lowering.tensor(named: realInputs[0].name)],
 			weights: lowering.weights,
 			operations: lowering.operations,
@@ -102,7 +119,31 @@ public struct ONNXModelReader {
 			// through the alias table so the emitted output points at the real upstream tensor.
 			outputs: [lowering.resolve(outputs[0].name)]
 		)
-		return ONNXConversionInput(graph: nativeGraph, weights: lowering.weightBlob)
+		return ONNXConversionInput(
+			graph: nativeGraph,
+			weights: lowering.weightBlob,
+			metadata: ONNXMetadataMapping.metadata(from: rawMetadata(from: model))
+		)
+	}
+
+	/// Pulls the ModelProto attribution fields into raw strings for `ONNXMetadataMapping`. Reads
+	/// `producer_name` (2), `model_version` (5, a varint that defaults to 0), `doc_string` (6), and
+	/// `metadata_props` (14): a repeated `StringStringEntryProto` whose key is field 1 and value is
+	/// field 2. All values are untrusted and treated as display-only downstream.
+	/// Internal (not private) so a deterministic test can exercise the field-number and
+	/// StringStringEntryProto parsing against hand-built ModelProto bytes without a full fixture.
+	func rawMetadata(from model: [(field: Int, value: ProtobufValue)]) -> ONNXRawMetadata {
+		let props: [(key: String, value: String)] = model.allBytes(14).compactMap { entryData in
+			guard let entry = try? ProtobufReader.fields(in: entryData),
+				let key = entry.firstString(1) else { return nil }
+			return (key, entry.firstString(2) ?? "")
+		}
+		return ONNXRawMetadata(
+			props: props,
+			docString: model.firstString(6),
+			producerName: model.firstString(2),
+			modelVersion: model.firstVarint(5)
+		)
 	}
 
 	// MARK: - ONNX message parsing

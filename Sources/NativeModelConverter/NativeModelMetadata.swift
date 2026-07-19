@@ -6,6 +6,31 @@
 //
 
 import Foundation
+import CryptoKit
+
+/// The content checksums stamped into a converted model's provenance metadata.
+///
+/// The `.aiagraph` package path fills these from its verified manifest; the ONNX path computes
+/// `weightsSHA256` from the exact weight blob it emits (the detector path appends synthesized
+/// decode constants, so that blob differs from the raw graph weights) and leaves the graph and
+/// source-metadata digests absent. Separated from ``NativeModelGraphPackageManifest`` so the ONNX
+/// path — which has no package manifest — can supply provenance without synthesizing a fake one.
+struct NativeModelConversionChecksums: Equatable {
+	let weightsSHA256: String
+	let graphSHA256: String?
+	let metadataSHA256: String?
+
+	init(weightsSHA256: String, graphSHA256: String? = nil, metadataSHA256: String? = nil) {
+		self.weightsSHA256 = weightsSHA256
+		self.graphSHA256 = graphSHA256
+		self.metadataSHA256 = metadataSHA256
+	}
+
+	/// The lowercase hex SHA-256 of `data`, matching the digest format the package manifest uses.
+	static func sha256Hex(of data: Data) -> String {
+		SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+	}
+}
 
 /// The typed attribution portion of a source metadata document.
 ///
