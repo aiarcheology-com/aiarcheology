@@ -143,14 +143,30 @@ extension ASC.Credentials {
     /// "Incomplete" counts as absent on purpose: a half-written directory must send the caller back
     /// to 1Password rather than fail later with a confusing missing-file error mid-delivery.
     static func materializedKeyID() -> String? {
-        let fileManager = FileManager.default
         guard let id = try? String(contentsOfFile: Paths.keyID(), encoding: .utf8)
             .trimmingCharacters(in: .whitespacesAndNewlines),
             !id.isEmpty,
-            fileManager.fileExists(atPath: Paths.issuerID()),
-            fileManager.fileExists(atPath: Paths.key(forKeyID: id))
+            (try? ASCCredentialsSupport.validateResolvedIdentifier(id, name: "key-id")) != nil,
+            let issuer = try? String(contentsOfFile: Paths.issuerID(), encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            !issuer.isEmpty,
+            isSecure(Paths.keyID()),
+            isSecure(Paths.issuerID()),
+            isSecure(Paths.key(forKeyID: id))
         else { return nil }
         return id
+    }
+
+    /// A private key is only "present" if it is still a plain 0600 regular file. Permissions drift
+    /// — a manual copy, a restored backup, an over-broad umask — and treating a 0644 key as valid
+    /// would silently keep using it. Reporting it as absent sends the operator back through
+    /// `generate`, which rewrites it correctly.
+    private static func isSecure(_ path: String) -> Bool {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+            attributes[.type] as? FileAttributeType == .typeRegular,
+            let permissions = attributes[.posixPermissions] as? NSNumber
+        else { return false }
+        return permissions.int16Value == 0o600
     }
 
     static func materialize(force: Bool) throws {
@@ -193,20 +209,34 @@ extension ASC.Credentials {
             throw ExitCode.failure
         }
 
-        // Replace wholesale rather than merge: a rotated key must not leave the previous
-        // AuthKey_<OLDID>.p8 sitting alongside the new one.
-        if FileManager.default.fileExists(atPath: Paths.directory) {
-            try FileManager.default.removeItem(atPath: Paths.directory)
+        // Build the replacement in a staging directory and swap it in only once it is complete.
+        // Writing in place would leave a window in which a concurrent delivery sees a half-written
+        // directory — reintroducing exactly the mid-run failure this command exists to remove.
+        // Replacing wholesale (rather than merging) also ensures a rotated key cannot leave the
+        // previous AuthKey_<OLDID>.p8 sitting alongside the new one.
+        let staging = Paths.directory + ".staging"
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: staging) {
+            try fileManager.removeItem(atPath: staging)
         }
-        try FileManager.default.createDirectory(
-            atPath: Paths.directory,
+        try fileManager.createDirectory(
+            atPath: staging,
             withIntermediateDirectories: true,
             attributes: [.posixPermissions: 0o700]
         )
-
-        try write(keyBody, to: Paths.key(forKeyID: keyID))
-        try write(keyID + "\n", to: Paths.keyID())
-        try write(issuerID + "\n", to: Paths.issuerID())
+        do {
+            try write(keyBody, to: "\(staging)/\(ASCCredentialsSupport.keyFileName(forKeyID: keyID))")
+            try write(keyID + "\n", to: "\(staging)/\(ASCCredentialsSupport.keyIDFileName)")
+            try write(issuerID + "\n", to: "\(staging)/\(ASCCredentialsSupport.issuerIDFileName)")
+            if fileManager.fileExists(atPath: Paths.directory) {
+                try fileManager.removeItem(atPath: Paths.directory)
+            }
+            try fileManager.moveItem(atPath: staging, toPath: Paths.directory)
+        } catch {
+            // Never leave a private key behind in a directory nothing will clean up.
+            try? fileManager.removeItem(atPath: staging)
+            throw error
+        }
 
         print("✅ Materialized into \(Paths.directory) (key id \(keyID))")
         print("   deliver.sh will now run without contacting 1Password.")

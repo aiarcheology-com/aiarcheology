@@ -69,15 +69,19 @@ public enum ASCCredentialsSupport {
     /// shape the committed template produces and ignores everything else. It never evaluates.
     public static func parseEnvironmentFile(_ contents: String) -> [String: String] {
         var values: [String: String] = [:]
-        for rawLine in contents.split(separator: "\n", omittingEmptySubsequences: false) {
-            var line = rawLine.trimmingCharacters(in: .whitespaces)
+        // Split on `isNewline`, not on the literal "\n": Swift treats "\r\n" as a SINGLE Character,
+        // so `split(separator: "\n")` does not match a CRLF file at all and the entire file arrives
+        // as one line. Trimming cannot rescue that, because the split never happened.
+        for rawLine in contents.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline) {
+            var line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !line.isEmpty, !line.hasPrefix("#") else { continue }
             if line.hasPrefix("export ") {
-                line = String(line.dropFirst("export ".count)).trimmingCharacters(in: .whitespaces)
+                line = String(line.dropFirst("export ".count)).trimmingCharacters(in: .whitespacesAndNewlines)
             }
             guard let separator = line.firstIndex(of: "=") else { continue }
-            let name = String(line[line.startIndex ..< separator]).trimmingCharacters(in: .whitespaces)
-            var value = String(line[line.index(after: separator)...]).trimmingCharacters(in: .whitespaces)
+            let name = String(line[line.startIndex ..< separator]).trimmingCharacters(in: .whitespacesAndNewlines)
+            var value = String(line[line.index(after: separator)...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             // Strip one matching pair of surrounding quotes, if present.
             for quote in ["'", "\""] where value.count >= 2 && value.hasPrefix(quote) && value.hasSuffix(quote) {
                 value = String(value.dropFirst().dropLast())
@@ -115,10 +119,18 @@ public enum ASCCredentialsSupport {
     /// letters, digits and `-`.
     public static func validateResolvedIdentifier(_ value: String, name: String) throws -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        let permitted = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-"))
+        // ASCII only, deliberately: CharacterSet.alphanumerics accepts the whole Unicode letter and
+        // digit range, so a full-width digit or a Cyrillic homoglyph would pass and then land in a
+        // filename that does not look like what it is.
+        func isPermitted(_ scalar: Unicode.Scalar) -> Bool {
+            switch scalar {
+            case "A"..."Z", "a"..."z", "0"..."9", "-": return true
+            default: return false
+            }
+        }
         guard !trimmed.isEmpty,
             trimmed.count <= 64,
-            trimmed.unicodeScalars.allSatisfy({ permitted.contains($0) })
+            trimmed.unicodeScalars.allSatisfy(isPermitted)
         else {
             throw ASCCredentialsError.unsafeIdentifier(name: name, value: value)
         }
@@ -129,7 +141,14 @@ public enum ASCCredentialsSupport {
     /// 1Password error string, an empty read, or the wrong attachment — all of which would
     /// otherwise only surface as an opaque failure much later, mid-upload.
     public static func isPlausiblePKCS8PrivateKey(_ contents: String) -> Bool {
-        contents.contains("-----BEGIN PRIVATE KEY-----")
-            && contents.contains("-----END PRIVATE KEY-----")
+        let begin = "-----BEGIN PRIVATE KEY-----"
+        let end = "-----END PRIVATE KEY-----"
+        // Order matters and so does the body: "contains both markers" would accept them reversed,
+        // or an empty envelope, neither of which is a key.
+        guard let beginRange = contents.range(of: begin),
+            let endRange = contents.range(of: end, range: beginRange.upperBound ..< contents.endIndex)
+        else { return false }
+        let body = contents[beginRange.upperBound ..< endRange.lowerBound]
+        return body.contains { !$0.isWhitespace }
     }
 }

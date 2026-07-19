@@ -79,7 +79,14 @@ PREFLIGHT_WOULD_FAIL=0
 # provided NO ASC_* credential in the environment. Explicit env vars always win — sourcing is
 # all-or-nothing: any explicit ASC_* var (including ASC_ISSUER_ID) suppresses the file so it can't
 # clobber a partially-explicit config. The file holds references, not secrets.
-if [[ -z "${ASC_KEY_ID:-}${ASC_ISSUER_ID:-}${ASC_KEY_PATH:-}${ASC_KEY_OP_REF:-}" && -f "${REPO_ROOT}/ios/asc.env" ]]; then
+# Records whether the CALLER supplied any credential, which ios/asc.auth/ must also lose to. Testing
+# the individual variables later cannot distinguish "came from the environment" from "came from
+# asc.env", and an explicit ASC_KEY_OP_REF naming a deliberately different key looks identical to a
+# sourced one at that point.
+ASC_FROM_ENVIRONMENT=0
+if [[ -n "${ASC_KEY_ID:-}${ASC_ISSUER_ID:-}${ASC_KEY_PATH:-}${ASC_KEY_OP_REF:-}" ]]; then
+    ASC_FROM_ENVIRONMENT=1
+elif [[ -f "${REPO_ROOT}/ios/asc.env" ]]; then
     # shellcheck source=/dev/null
     source "${REPO_ROOT}/ios/asc.env"
 fi
@@ -173,16 +180,39 @@ jwt_selftest() {
 
 ASC_AUTH_DIR="${REPO_ROOT}/ios/asc.auth"
 
+secure_credential_file() {
+    # A private signing key must not be used from a file anyone else can read, and must not be a
+    # symlink pointing somewhere unexpected. Permissions drift (a manual copy, a restored backup,
+    # an over-broad umask), and "we created it 0600" is an assumption about the past, not a fact
+    # about now.
+    local path="$1" want="$2" mode
+    [[ ! -L "$path" ]] || { warn "ios/asc.auth: $(basename "$path") is a symlink; refusing to use it."; return 1; }
+    [[ -f "$path" ]]   || return 1
+    mode="$(stat -f '%Lp' "$path" 2>/dev/null)" || return 1
+    [[ "$mode" == "$want" ]] || {
+        warn "ios/asc.auth: $(basename "$path") is mode ${mode}, expected ${want}."
+        warn "Fix with: chmod ${want} '${path}'  (or: ProjectTool asc credentials refresh)"
+        return 1
+    }
+    return 0
+}
+
 use_materialized_credentials() {
-    # ios/asc.auth/ substitutes for the 1Password RESOLUTION STEP, nothing more. So it is consulted
-    # only when the values we hold would otherwise need `op` — i.e. they are empty or still op://
-    # references. An operator who exported a literal ASC_KEY_ID or a concrete ASC_KEY_PATH has
-    # deliberately chosen a different key, and must keep winning (deliver.sh:78-86 already gives
-    # explicit env precedence over ios/asc.env; this preserves that ordering).
-    [[ -f "${ASC_AUTH_DIR}/key-id" && -f "${ASC_AUTH_DIR}/issuer-id" ]] || return 1
-    [[ -z "$ASC_KEY_PATH" ]] || return 1
-    [[ -z "$ASC_KEY_ID"    || "$ASC_KEY_ID"    == op://* ]] || return 1
-    [[ -z "$ASC_ISSUER_ID" || "$ASC_ISSUER_ID" == op://* ]] || return 1
+    # ios/asc.auth/ substitutes for the 1Password RESOLUTION STEP, nothing more.
+    #
+    # It loses to anything the caller supplied explicitly. Checking the individual variables is not
+    # sufficient: with an explicit ASC_KEY_OP_REF the id and issuer are simply empty (sourcing is
+    # suppressed), which is indistinguishable from "nothing was set" — so the caller would silently
+    # get the materialized key instead of the one they named.
+    [[ "$ASC_FROM_ENVIRONMENT" == 0 ]] || return 1
+
+    # Both identifier files present and correctly permissioned means "this directory is the
+    # credential source". Anything wrong BEYOND that point — a missing .p8, a malformed id — is
+    # reported loudly by resolve_asc_credentials rather than silently falling back to 1Password:
+    # a half-written or tampered credentials directory is an anomaly worth surfacing, and since
+    # resolution now happens before the sweep, a hard stop costs seconds and names its own fix.
+    secure_credential_file "${ASC_AUTH_DIR}/key-id" 600    || return 1
+    secure_credential_file "${ASC_AUTH_DIR}/issuer-id" 600 || return 1
     return 0
 }
 
@@ -203,8 +233,8 @@ resolve_asc_credentials() {
         [[ "$ASC_ISSUER_ID" =~ ^[A-Za-z0-9-]{1,64}$ ]] \
             || die "ios/asc.auth/issuer-id is not a plain identifier. Re-run: ProjectTool asc credentials refresh"
         RESOLVED_KEY_PATH="${ASC_AUTH_DIR}/AuthKey_${ASC_KEY_ID}.p8"
-        [[ -f "$RESOLVED_KEY_PATH" && -r "$RESOLVED_KEY_PATH" ]] \
-            || die "ios/asc.auth/ is missing AuthKey_${ASC_KEY_ID}.p8. Re-run: ProjectTool asc credentials refresh"
+        secure_credential_file "$RESOLVED_KEY_PATH" 600 \
+            || die "ios/asc.auth/AuthKey_${ASC_KEY_ID}.p8 is missing, a symlink, or not mode 600. Re-run: ProjectTool asc credentials refresh"
         log "Using materialized credentials from ios/asc.auth (no 1Password call)."
         return 0
     fi

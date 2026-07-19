@@ -82,21 +82,18 @@ echo "▸ deliver.sh credential resolution"
     make_asc_auth "$WORK/asc.auth"
     ASC_AUTH_DIR="$WORK/asc.auth"
     printf -- '-----BEGIN PRIVATE KEY-----\nOTHER\n-----END PRIVATE KEY-----\n' > "$WORK/explicit.p8"
-    # Only ASC_KEY_PATH is set. This is the case that ISOLATES the ASC_KEY_PATH guard: setting an
-    # explicit ASC_KEY_ID too would be caught by a different guard, so the test would still pass
-    # with the ASC_KEY_PATH check deleted (verified by mutation). Note deliver.sh:78-86 suppresses
-    # sourcing ios/asc.env entirely once any explicit ASC_* var is set, which is why the id and
-    # issuer are empty here rather than op:// references.
-    ASC_KEY_ID=''
-    ASC_ISSUER_ID=''
+    # A fully explicit caller. Assert SUCCESS and EXACT equality — an earlier version of this test
+    # tolerated failure and only asserted "not the materialized path", which an empty result also
+    # satisfies. That is vacuous.
+    ASC_FROM_ENVIRONMENT=1
+    ASC_KEY_ID='EXPLICITKEY'
+    ASC_ISSUER_ID='explicit-issuer'
     ASC_KEY_PATH="$WORK/explicit.p8"
     ASC_KEY_OP_REF=''
-    ( resolve_asc_credentials ) >/dev/null 2>&1 || true
-    # Whatever happens, the operator's explicit key must never be silently swapped for the
-    # materialized one. Capture the resolved path from a contained subshell.
-    resolved="$( ( resolve_asc_credentials >/dev/null 2>&1; printf '%s' "$RESOLVED_KEY_PATH" ) || true )"
-    [[ "$resolved" != *"AuthKey_${KEY_ID}.p8" ]] \
-        || { echo "materialized dir hijacked an explicit ASC_KEY_PATH" >&2; exit 1; }
+    resolve_asc_credentials >/dev/null
+
+    [[ "$ASC_KEY_ID" == "EXPLICITKEY" ]]              || { echo "key id became '$ASC_KEY_ID'" >&2; exit 1; }
+    [[ "$RESOLVED_KEY_PATH" == "$WORK/explicit.p8" ]] || { echo "key path became '$RESOLVED_KEY_PATH'" >&2; exit 1; }
     [[ ! -s "$OP_CALL_LOG" ]] || { echo "1Password WAS contacted" >&2; exit 1; }
     rm -rf "$ASC_AUTH_DIR"
 ) && pass "explicit ASC_KEY_PATH overrides ios/asc.auth" \
@@ -150,6 +147,86 @@ echo "▸ deliver.sh credential resolution"
     rm -rf "$ASC_AUTH_DIR"
 ) && pass "a path-traversal key-id is rejected" \
   || fail "a path-traversal key-id is rejected"
+
+# ------------------------------------------------------------------------------------------------
+# 5. An explicit ASC_KEY_OP_REF names a DIFFERENT key, and must not be swapped for the materialized
+#    one. This is the case that motivated ASC_FROM_ENVIRONMENT: with only ASC_KEY_OP_REF exported,
+#    the id and issuer are empty (sourcing ios/asc.env is suppressed), so inspecting the individual
+#    variables cannot tell this apart from "nothing was set at all".
+# ------------------------------------------------------------------------------------------------
+(
+    export OP_CALL_LOG="$WORK/calls5.txt"; : > "$OP_CALL_LOG"
+    export PATH="$WORK/bin:$PATH"
+    load_deliver
+    make_asc_auth "$WORK/asc.auth"
+    ASC_AUTH_DIR="$WORK/asc.auth"
+    # The operator exported all three as op:// references naming a DIFFERENT 1Password item. Every
+    # individual variable looks exactly like a value sourced from ios/asc.env, which is why only the
+    # "came from the environment" flag can tell them apart.
+    ASC_FROM_ENVIRONMENT=1
+    ASC_KEY_PATH=''
+    ASC_KEY_ID='op://Personal/A Different Key/key id'
+    ASC_ISSUER_ID='op://Personal/A Different Key/Issuer ID'
+    ASC_KEY_OP_REF='op://Personal/A Different Key/AuthKey.p8'
+
+    resolved="$( ( resolve_asc_credentials >/dev/null 2>&1; printf '%s' "$RESOLVED_KEY_PATH" ) || true )"
+    [[ "$resolved" != *"AuthKey_${KEY_ID}.p8" ]] \
+        || { echo "an explicit ASC_KEY_OP_REF was silently swapped for the materialized key" >&2; exit 1; }
+    # It must have tried 1Password, because that is where the caller's key lives.
+    [[ -s "$OP_CALL_LOG" ]] || { echo "the explicitly named key was never fetched" >&2; exit 1; }
+    rm -rf "$ASC_AUTH_DIR"
+) && pass "an explicit ASC_KEY_OP_REF is not replaced by ios/asc.auth" \
+  || fail "an explicit ASC_KEY_OP_REF is not replaced by ios/asc.auth"
+
+# ------------------------------------------------------------------------------------------------
+# 6. A world-readable private key is refused rather than used.
+# ------------------------------------------------------------------------------------------------
+(
+    export OP_CALL_LOG="$WORK/calls6.txt"; : > "$OP_CALL_LOG"
+    export PATH="$WORK/bin:$PATH"
+    load_deliver
+    make_asc_auth "$WORK/asc.auth"
+    ASC_AUTH_DIR="$WORK/asc.auth"
+    chmod 644 "$ASC_AUTH_DIR/AuthKey_${KEY_ID}.p8"
+    ASC_FROM_ENVIRONMENT=0
+    ASC_KEY_ID=''; ASC_ISSUER_ID=''; ASC_KEY_PATH=''; ASC_KEY_OP_REF=''
+
+    err="$( ( resolve_asc_credentials ) 2>&1 >/dev/null || true )"
+    # Match the SPECIFIC permission warning, not the generic die() text — that text mentions
+    # "not mode 600" itself, so a looser pattern passes even with the check deleted.
+    case "$err" in
+        *"is mode 644, expected 600"*) : ;;
+        *) echo "a 0644 private key was not refused on permissions. stderr: $err" >&2; exit 1 ;;
+    esac
+    rm -rf "$ASC_AUTH_DIR"
+) && pass "a world-readable .p8 is refused" \
+  || fail "a world-readable .p8 is refused"
+
+# ------------------------------------------------------------------------------------------------
+# 7. A symlinked private key is refused (it could point anywhere).
+# ------------------------------------------------------------------------------------------------
+(
+    export OP_CALL_LOG="$WORK/calls7.txt"; : > "$OP_CALL_LOG"
+    export PATH="$WORK/bin:$PATH"
+    load_deliver
+    make_asc_auth "$WORK/asc.auth"
+    ASC_AUTH_DIR="$WORK/asc.auth"
+    printf -- '-----BEGIN PRIVATE KEY-----\nELSEWHERE\n-----END PRIVATE KEY-----\n' > "$WORK/elsewhere.p8"
+    chmod 600 "$WORK/elsewhere.p8"
+    rm -f "$ASC_AUTH_DIR/AuthKey_${KEY_ID}.p8"
+    ln -s "$WORK/elsewhere.p8" "$ASC_AUTH_DIR/AuthKey_${KEY_ID}.p8"
+    ASC_FROM_ENVIRONMENT=0
+    ASC_KEY_ID=''; ASC_ISSUER_ID=''; ASC_KEY_PATH=''; ASC_KEY_OP_REF=''
+
+    err="$( ( resolve_asc_credentials ) 2>&1 >/dev/null || true )"
+    # As above: die() also says "a symlink", so a bare *symlink* match would be vacuous.
+    case "$err" in
+        *"is a symlink; refusing to use it"*) : ;;
+        *) echo "a symlinked private key was not refused. stderr: $err" >&2; exit 1 ;;
+    esac
+    rm -rf "$ASC_AUTH_DIR"
+) && pass "a symlinked .p8 is refused" \
+  || fail "a symlinked .p8 is refused"
 
 echo ""
 if [[ "$FAILURES" -eq 0 ]]; then

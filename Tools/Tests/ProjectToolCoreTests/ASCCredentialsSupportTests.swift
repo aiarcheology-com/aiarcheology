@@ -105,6 +105,26 @@ final class ASCCredentialsSupportTests: XCTestCase {
         XCTAssertEqual(try ASCCredentialsSupport.validateResolvedIdentifier("  62BW4FH93L\n", name: "k"), "62BW4FH93L")
     }
 
+    func testRejectsNonASCIIIdentifiers() {
+        // CharacterSet.alphanumerics spans the whole Unicode letter/digit range, so these look
+        // benign to a naive check and then land in a filename that is not what it appears to be.
+        for homoglyph in ["６２ＢＷ４", "62ВW4FH93L", "kеy"] {   // full-width digits; Cyrillic В and е
+            XCTAssertThrowsError(
+                try ASCCredentialsSupport.validateResolvedIdentifier(homoglyph, name: "ASC_KEY_ID"),
+                "'\(homoglyph)' is not ASCII and must be rejected"
+            )
+        }
+    }
+
+    func testParsesCRLFFiles() throws {
+        // Splitting on "\n" leaves the "\r" attached; it would ride into the op:// reference.
+        let values = ASCCredentialsSupport.parseEnvironmentFile(
+            "export ASC_KEY_ID='op://v/i/key id'\r\nexport ASC_ISSUER_ID='op://v/i/issuer'\r\n"
+        )
+        XCTAssertEqual(values["ASC_KEY_ID"], "op://v/i/key id")
+        XCTAssertEqual(values["ASC_ISSUER_ID"], "op://v/i/issuer")
+    }
+
     func testRejectsIdentifiersThatCouldEscapeTheTargetDirectory() {
         for hostile in [
             "../../../../tmp/evil",
@@ -154,6 +174,16 @@ final class ASCCredentialsSupportTests: XCTestCase {
         XCTAssertFalse(
             ASCCredentialsSupport.isPlausiblePKCS8PrivateKey("-----BEGIN PRIVATE KEY-----\ntruncated"),
             "a truncated key must not pass"
+        )
+        XCTAssertFalse(
+            ASCCredentialsSupport.isPlausiblePKCS8PrivateKey(
+                "-----END PRIVATE KEY-----\nbody\n-----BEGIN PRIVATE KEY-----"),
+            "reversed markers are not a key"
+        )
+        XCTAssertFalse(
+            ASCCredentialsSupport.isPlausiblePKCS8PrivateKey(
+                "-----BEGIN PRIVATE KEY-----\n\n  \n-----END PRIVATE KEY-----"),
+            "an empty envelope is not a key"
         )
     }
 }
