@@ -197,8 +197,8 @@ struct ModelImportView: View {
 		case .sourceMetadata:
 			// Source-metadata labels cannot form an assumption by construction. Keep the UI safe if a
 			// future contract extends the parser before this view is updated.
-			return L10n.Import.inferredLabelsGeneric
-		}
+			assertionFailure("Source-metadata labels should not produce an import assumption.")
+			labels = L10n.Import.inferredLabelsGeneric
 		let preprocessing: String
 		switch assumption.preprocessingProfile {
 		case .imageNetRGB:
