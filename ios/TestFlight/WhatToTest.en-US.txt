@@ -1,18 +1,20 @@
-Test Focus: Comparing several classification models side by side
+Test Focus: Importing a YOLOv8 (.onnx) object detector by URL
 
 What's new:
 
-• With several classification models enabled at once, the label bubble now shows every model's results — each under its own header with the model's name and color dot. Previously only one model's labels were shown and the rest were silently dropped.
-• Converted models continue to credit their original authors (previous build): imported .onnx models carry the original description, author and version.
+• The on-device converter now recognizes modern YOLOv8-style raw-output detectors and turns them into working Core ML object detectors — so a YOLOv8n .onnx you import by URL actually draws bounding boxes, where before only classic YOLOv2-family detectors were supported.
+• Labels come from the file when it carries them; a file that names no classes gets honest generic placeholders (class_0, class_1, …) rather than guessed names. (A clearer in-app note about inferred labels is coming separately.)
 
 Please test:
 
-1. Enable ONE classification model and browse — the label bubble should look exactly as before (no header, top labels with percentages).
-2. Enable TWO OR MORE classification models and browse an image-heavy page — the bubble should list each model separately: a small header with the model's name and a dot in its color, then that model's labels. Compare what each model thinks of the same page.
-3. Check attribution: the dot color next to each model's name should match that model's annotation color (set in its configuration sheet) — labels must never appear under another model's name or color.
-4. The pulsing frame flash should behave as before (it follows the first qualifying model's color and speed).
-5. Detection models (bounding boxes) should be completely unchanged.
+1. Add a model by URL using this YOLOv8n export:
+   https://huggingface.co/s1777/yolo-v8n-onnx/resolve/main/yolov8n.onnx
+   It should download, convert on-device, and import as a DETECTION model (not classification).
+2. Enable it and browse an image-heavy page — you should see bounding boxes drawn around objects. This particular file carries no class names, so box labels read as "class_60" etc. — that is expected for a name-less file.
+3. Confirm classic detectors still work: any previously-working detection model (e.g. the bundled tiny-YOLO) should behave exactly as before.
+4. Confirm classification models are unaffected — importing and running an image classifier should be unchanged.
 
 Known limitations:
 
-• The frame flash is a single border, so with several qualifying models it shows the first one's color — per-model flash identity is the colored dot in the bubble.
+• Newer YOLO11 models are not yet supported and should fail to import with a clear message (they use an attention block the converter can't lower yet — that support is in progress).
+• When an imported detector's file carries no class names, labels are generic placeholders; a future build will call that out in the import screen.
