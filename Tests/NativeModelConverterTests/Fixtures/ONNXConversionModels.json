@@ -172,6 +172,34 @@
           "expectedBoxes": []
         }
       ]
+    },
+    {
+      "id": "hf.s1777-yolov8n",
+      "comment": "Object detector (YOLOv8n raw output; the graph bakes the decode, the converter recognizes the anchor-free head and wraps it with Core ML NMS). This export carries no metadata_props, so labels fall back to generic class_<i> and the probe asserts the class INDEX (not a label name). The confidence threshold sits far below the single survivor, and NMS collapses the mutually-overlapping near-full-image noise boxes, so the box count is stable under float drift. Expectations are onnxruntime's output0 decoded and cross-class-suppressed by scripts/generate_onnx_detection_oracle.py.",
+      "fileName": "yolov8n-s1777.onnx",
+      "url": "https://huggingface.co/s1777/yolo-v8n-onnx/resolve/main/yolov8n.onnx",
+      "sha256": "dd48a79dd7fec8ca25fde4eca742ff7bca23b27e2e903eb23bc1d9f83a459bd2",
+      "convertedInput": {
+        "name": "image",
+        "width": 640,
+        "height": 640
+      },
+      "detectionProbes": [
+        {
+          "noiseSeed": "0xACE",
+          "confidenceThreshold": 0.03,
+          "expectedBoxes": [
+            {
+              "classIndex": 60,
+              "confidence": 0.0639,
+              "x": 0.5002,
+              "y": 0.4947,
+              "width": 0.9923,
+              "height": 0.9930
+            }
+          ]
+        }
+      ]
     }
   ]
 }
