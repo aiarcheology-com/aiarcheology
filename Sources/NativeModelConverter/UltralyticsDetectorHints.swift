@@ -20,19 +20,26 @@ import Foundation
 
 /// Detector semantics recovered from an Ultralytics ONNX export's `metadata_props`. Every field is
 /// independently optional: a stripped re-export (e.g. yolov8n-s1777) parses to an all-`nil` value.
-struct UltralyticsDetectorHints: Equatable {
+public struct UltralyticsDetectorHints: Equatable, Sendable {
 	/// `task` verbatim (e.g. "detect"). Confirms an anchor-free head is a detector; never gates it.
-	var task: String?
+	public var task: String?
 	/// `names` as an ordered label list — populated ONLY when the map is exactly a dense `0..<N`.
-	var names: [String]?
+	public var names: [String]?
 	/// `imgsz` as positive integer dimensions (used only to cross-check the graph input, never to
 	/// set geometry — the graph input tensor is authoritative for that).
-	var imgsz: [Int]?
+	public var imgsz: [Int]?
 	/// `args.nms`. Purely confirmatory: a raw export (the only kind we convert) has `nms == false`,
 	/// but the graph output shape already proves that, so this only corroborates.
-	var nms: Bool?
+	public var nms: Bool?
 
-	var isEmpty: Bool { task == nil && names == nil && imgsz == nil && nms == nil }
+	public init(task: String? = nil, names: [String]? = nil, imgsz: [Int]? = nil, nms: Bool? = nil) {
+		self.task = task
+		self.names = names
+		self.imgsz = imgsz
+		self.nms = nms
+	}
+
+	public var isEmpty: Bool { task == nil && names == nil && imgsz == nil && nms == nil }
 }
 
 extension UltralyticsDetectorHints {
@@ -46,6 +53,7 @@ extension UltralyticsDetectorHints {
 
 	/// Builds the hints from the raw ONNX attribution bag. Never throws and never partially trusts a
 	/// field: each of `task`/`names`/`imgsz`/`nms` is present only when it parses exactly.
+	/// Internal: `ONNXRawMetadata` is an in-module detail, and only the reader produces hints.
 	static func parse(from raw: ONNXRawMetadata) -> UltralyticsDetectorHints {
 		// Last-occurrence-wins with exact (untrimmed) keys and a size cap — the same discipline
 		// ONNXMetadataMapping uses so both readers see the same value for a key.
