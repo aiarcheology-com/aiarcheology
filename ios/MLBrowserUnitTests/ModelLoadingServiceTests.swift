@@ -7,6 +7,7 @@
 
 import XCTest
 import CoreML
+import NativeModelConverter
 @testable import ML_Browser
 
 // MARK: - ExtractedModelInfo Tests
@@ -123,6 +124,97 @@ final class ExtractedModelInfoTests: XCTestCase {
         )
 
         XCTAssertNotEqual(base, other)
+    }
+}
+
+// MARK: - Native Target Semantics Tests (AIA-0471)
+
+final class NativeModelImportAssumptionTests: XCTestCase {
+
+    func test_fallbackImageNetContract_returnsAssumption() {
+        let assumption = ModelLoadingService.nativeModelImportAssumption(
+            from: convertedMetadata(
+                task: "classification",
+                modelFormat: "neuralNetworkClassifier",
+                labelProvenance: "convention",
+                labelProfile: "imagenet-1k",
+                preprocessingOrigin: "convention",
+                preprocessingProfile: "image-net-rgb"
+            )
+        )
+
+        XCTAssertEqual(assumption?.labelProfile, .imageNet1K)
+        XCTAssertEqual(assumption?.preprocessingProfile, .imageNetRGB)
+    }
+
+    func test_metadataBackedLabels_returnNoAssumptionEvenWithConverterPreprocessing() {
+        let assumption = ModelLoadingService.nativeModelImportAssumption(
+            from: convertedMetadata(
+                task: "detection",
+                modelFormat: "pipeline",
+                labelProvenance: "metadata",
+                labelProfile: "source-metadata",
+                preprocessingOrigin: "convention",
+                preprocessingProfile: "rgb-0-to-1"
+            )
+        )
+
+        XCTAssertNil(assumption, "Source-provided YOLO labels must not show a fallback warning.")
+    }
+
+    func test_incompleteOrMismatchedContract_returnsNoAssumption() {
+        var userDefined = creatorDefined(
+            task: "classification",
+            modelFormat: "neuralNetworkClassifier",
+            labelProvenance: "convention",
+            labelProfile: "imagenet-1k",
+            preprocessingOrigin: "convention",
+            preprocessingProfile: "image-net-rgb"
+        )
+        userDefined["com.aiarcheology.native.target.label-provenance"] = "metadata"
+
+        XCTAssertNil(ModelLoadingService.nativeModelImportAssumption(from: [.creatorDefinedKey: userDefined]))
+        userDefined.removeValue(forKey: "com.aiarcheology.native.target.semantics-version")
+        XCTAssertNil(ModelLoadingService.nativeModelImportAssumption(from: [.creatorDefinedKey: userDefined]))
+    }
+
+    private func convertedMetadata(
+        task: String,
+        modelFormat: String,
+        labelProvenance: String,
+        labelProfile: String,
+        preprocessingOrigin: String,
+        preprocessingProfile: String
+    ) -> [MLModelMetadataKey: Any] {
+        [.creatorDefinedKey: creatorDefined(
+            task: task,
+            modelFormat: modelFormat,
+            labelProvenance: labelProvenance,
+            labelProfile: labelProfile,
+            preprocessingOrigin: preprocessingOrigin,
+            preprocessingProfile: preprocessingProfile
+        )]
+    }
+
+    private func creatorDefined(
+        task: String,
+        modelFormat: String,
+        labelProvenance: String,
+        labelProfile: String,
+        preprocessingOrigin: String,
+        preprocessingProfile: String
+    ) -> [String: String] {
+        [
+            "com.aiarcheology.native.converter.package-version": "1.0.0",
+            "com.aiarcheology.native.target.semantics-version": "1",
+            "com.aiarcheology.native.target.model-format": modelFormat,
+            "com.aiarcheology.native.target.task": task,
+            "com.aiarcheology.native.target.class-count": "3",
+            "com.aiarcheology.native.target.label-provenance": labelProvenance,
+            "com.aiarcheology.native.target.label-profile": labelProfile,
+            "com.aiarcheology.native.target.preprocessing-origin": preprocessingOrigin,
+            "com.aiarcheology.native.target.preprocessing-profile": preprocessingProfile
+        ]
     }
 }
 

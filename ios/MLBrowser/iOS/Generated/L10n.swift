@@ -561,6 +561,24 @@ internal enum L10n {
     internal static let fromURL = L10n.tr("Localizable", "import.fromURL", fallback: "Download from URL")
     /// Download a model from the internet
     internal static let fromURLHint = L10n.tr("Localizable", "import.fromURLHint", fallback: "Download a model from the internet")
+    /// generic class-index labels
+    internal static let inferredLabelsGeneric = L10n.tr("Localizable", "import.inferredLabelsGeneric", fallback: "generic class-index labels")
+    /// ImageNet-1k labels
+    internal static let inferredLabelsImageNet = L10n.tr("Localizable", "import.inferredLabelsImageNet", fallback: "ImageNet-1k labels")
+    /// Pascal VOC labels
+    internal static let inferredLabelsPascalVoc = L10n.tr("Localizable", "import.inferredLabelsPascalVoc", fallback: "Pascal VOC labels")
+    /// preprocessing embedded in the model graph
+    internal static let inferredPreprocessingEmbedded = L10n.tr("Localizable", "import.inferredPreprocessingEmbedded", fallback: "preprocessing embedded in the model graph")
+    /// ImageNet RGB normalization
+    internal static let inferredPreprocessingImageNetRgb = L10n.tr("Localizable", "import.inferredPreprocessingImageNetRgb", fallback: "ImageNet RGB normalization")
+    /// no image preprocessing
+    internal static let inferredPreprocessingNone = L10n.tr("Localizable", "import.inferredPreprocessingNone", fallback: "no image preprocessing")
+    /// RGB pixels scaled to 0–1
+    internal static let inferredPreprocessingRgbZeroToOne = L10n.tr("Localizable", "import.inferredPreprocessingRgbZeroToOne", fallback: "RGB pixels scaled to 0–1")
+    /// This file has no label metadata. AI Archeology used %@ and %@. Check a few known images before relying on its results.
+    internal static func inferredSemantics(_ p1: Any, _ p2: Any) -> String {
+      return L10n.tr("Localizable", "import.inferredSemantics", String(describing: p1), String(describing: p2), fallback: "This file has no label metadata. AI Archeology used %@ and %@. Check a few known images before relying on its results.")
+    }
     /// Keep Original
     internal static let keepOriginal = L10n.tr("Localizable", "import.keepOriginal", fallback: "Keep Original")
     /// The converted Core ML model will be used by the app. Do you also want to keep a copy of the original model package for provenance or future conversion?

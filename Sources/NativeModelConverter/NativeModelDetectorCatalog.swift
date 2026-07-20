@@ -110,6 +110,9 @@ public enum NativeModelDetectorCatalog {
 		public let imagePreprocessing: NativeModelImagePreprocessing
 		/// How the labels in `interface` were determined.
 		public let labelProvenance: DetectorLabelProvenance
+		/// The trusted, closed label and preprocessing profile selected by this recognizer. The emitter
+		/// resolves it against the final image interface before recording it in Core ML metadata.
+		public let targetSemanticsIntent: NativeModelTargetSemanticsIntent
 		/// The coordinate space the head decoded from, recorded as provenance.
 		public let coordinateMode: NativeModelAnchorFreeHead.CoordinateMode
 
@@ -169,6 +172,10 @@ public enum NativeModelDetectorCatalog {
 			// A catalogued head brings its published class list, and it folds 1/S into its decode so the
 			// boxes it emits are already normalized.
 			labelProvenance: .convention,
+			targetSemanticsIntent: NativeModelTargetSemanticsIntent(
+				labelProfile: .pascalVOC,
+				preprocessingProfile: .identityRGB
+			),
 			coordinateMode: .normalizedByGraph
 		)
 	}

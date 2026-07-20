@@ -211,6 +211,7 @@ public struct NativeModelConverter: Sendable {
 						detection: detection.interface,
 						detectionTarget: detection.targetInfo,
 						imagePreprocessing: detection.imagePreprocessing,
+						targetSemanticsIntent: detection.targetSemanticsIntent,
 						sourceMetadata: conversion.metadata,
 						sourceProvenance: sourceProvenance
 					)
@@ -221,6 +222,10 @@ public struct NativeModelConverter: Sendable {
 						to: outputURL,
 						classifierLabels: ImageNet1000Labels.categories,
 						imagePreprocessing: .imageNetRGB,
+						targetSemanticsIntent: NativeModelTargetSemanticsIntent(
+							labelProfile: .imageNet1K,
+							preprocessingProfile: .imageNetRGB
+						),
 						sourceMetadata: conversion.metadata,
 						sourceProvenance: sourceProvenance
 					)

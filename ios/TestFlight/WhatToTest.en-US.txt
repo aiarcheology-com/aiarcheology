@@ -1,10 +1,12 @@
-Test Focus: Saving a manual finding when the web page cannot be snapshotted
+Test Focus: Honest labels and preprocessing notices for converted ONNX models
 
 What's new:
 
-• If the browser cannot capture the current page for a manual finding, the app now exits pick mode cleanly without creating a duplicate error report.
+• Native ONNX conversion now records whether its labels came from model metadata, a known catalog, or a fallback convention.
+• The import confirmation names a fallback label/preprocessing convention when the source file had no usable label metadata. Metadata-backed YOLO labels remain quiet.
 
 Please test:
 
-1. Browse to a page, tap Find, then tap a point outside any detection box. The save-finding sheet should open as before.
-2. If the page cannot be captured, the Find overlay should dismiss and the browser should remain usable. Try again after the page finishes loading.
+1. Import a standard ImageNet ONNX classifier such as `resnet50-v1-7.onnx`. The success confirmation should state that ImageNet-1k labels and ImageNet RGB normalization were used, and advise checking known images.
+2. Import `tinyyolov2-8.onnx`. The confirmation should name the Pascal VOC fallback labels and say preprocessing is embedded in the graph.
+3. Import `yolo11n-aaurelions.onnx`. It should convert and import as before, but show no inferred-semantics warning because its labels come from the model's own metadata.

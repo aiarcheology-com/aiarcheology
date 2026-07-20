@@ -16,30 +16,21 @@ import Foundation
 public struct NativeModelCoreMLEmitter: Sendable {
 	private struct EmissionContext {
 		let metadata: NativeModelCoreMLMetadata?
-		/// Ordered class labels from the source package. When they match the single graph output's
-		/// width, the emitter wraps the logits as a Core ML classifier; otherwise they are ignored.
-		let classifierLabels: [String]?
-		/// When present and the single input is image-shaped, the emitter declares that input as a Core
-		/// ML image feature and prepends a per-channel normalization layer. Ignored otherwise.
-		let imagePreprocessing: NativeModelImagePreprocessing?
-		/// When present, the graph is emitted as a two-stage detector pipeline (network + NMS)
-		/// instead of a single model. Mutually exclusive with `classifierLabels`.
-		let detection: NativeModelDetectionInterface?
+		/// The exact target interface resolved before metadata is written. Keeping this single plan
+		/// prevents provenance from describing a requested image preprocessing that the emitter later
+		/// declined because the graph input was not image-shaped.
+		let interface: ResolvedEmissionInterface
 		let progress: NativeModelConversionProgressHandler?
 		let cancellationCheck: NativeModelConversionCancellationHandler?
 
 		init(
 			metadata: NativeModelCoreMLMetadata?,
-			classifierLabels: [String]? = nil,
-			imagePreprocessing: NativeModelImagePreprocessing? = nil,
-			detection: NativeModelDetectionInterface? = nil,
+			interface: ResolvedEmissionInterface,
 			progress: NativeModelConversionProgressHandler?,
 			cancellationCheck: NativeModelConversionCancellationHandler?
 		) {
 			self.metadata = metadata
-			self.classifierLabels = classifierLabels
-			self.imagePreprocessing = imagePreprocessing
-			self.detection = detection
+			self.interface = interface
 			self.progress = progress
 			self.cancellationCheck = cancellationCheck
 		}
@@ -51,6 +42,20 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		let operations: [NativeModelOperation]
 		let weightsByName: [String: NativeModelWeight]
 		let weights: Data
+	}
+
+	/// The target facts decided once and used for both protobuf emission and target metadata.
+	private struct ResolvedEmissionInterface {
+		let classifier: ClassifierPlan?
+		let imagePlan: ImageInputPlan?
+		let detection: NativeModelDetectionInterface?
+		let detectionTarget: NativeModelDetectionTargetInfo?
+		let targetSemantics: NativeModelTargetSemantics?
+
+		var modelFormat: String {
+			if detection != nil { return "pipeline" }
+			return classifier == nil ? "neuralNetwork" : "neuralNetworkClassifier"
+		}
 	}
 
 	public init() {}
@@ -79,7 +84,19 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	) throws -> NativeModelEmissionMetrics {
 		let emissionStartedAt = DispatchTime.now().uptimeNanoseconds
 		try cancellationCheck?()
-		let classifierLabels = eligibleClassifierLabels(graph: package.graph, labels: package.metadata?.labels)
+		let interface = try resolveEmissionInterface(
+			graph: package.graph,
+			classifierLabels: package.metadata?.labels,
+			imagePreprocessing: nil,
+			detection: nil,
+			detectionTarget: nil,
+			targetSemanticsIntent: package.metadata?.labels.map { _ in
+				NativeModelTargetSemanticsIntent(
+					labelProfile: .sourceMetadata,
+					preprocessingProfile: .none
+				)
+			}
+		)
 		let metadata = try targetMetadata(
 			from: package.metadata?.source,
 			checksums: NativeModelConversionChecksums(
@@ -89,7 +106,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			),
 			graph: package.graph,
 			sourceProvenance: sourceProvenance,
-			classifierLabelCount: classifierLabels?.count
+			interface: interface
 		)
 		try emit(
 			graph: package.graph,
@@ -97,7 +114,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			to: outputURL,
 			context: EmissionContext(
 				metadata: metadata,
-				classifierLabels: classifierLabels,
+				interface: interface,
 				progress: progress,
 				cancellationCheck: cancellationCheck
 			)
@@ -123,11 +140,19 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	/// ReLU and Conv2D so the protobuf path and weight encoding can be compiled and executed before
 	/// the rest of the MobileNetV2 operation sequence is added.
 	public func emit(graph: NativeModelGraph, weights: Data, to outputURL: URL) throws {
+		let interface = try resolveEmissionInterface(
+			graph: graph,
+			classifierLabels: nil,
+			imagePreprocessing: nil,
+			detection: nil,
+			detectionTarget: nil,
+			targetSemanticsIntent: nil
+		)
 		try emit(
 			graph: graph,
 			weights: weights,
 			to: outputURL,
-			context: EmissionContext(metadata: nil, progress: nil, cancellationCheck: nil)
+			context: EmissionContext(metadata: nil, interface: interface, progress: nil, cancellationCheck: nil)
 		)
 	}
 
@@ -143,19 +168,27 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		to outputURL: URL,
 		classifierLabels: [String]?,
 		imagePreprocessing: NativeModelImagePreprocessing?,
+		targetSemanticsIntent: NativeModelTargetSemanticsIntent? = nil,
 		sourceMetadata: NativeModelCoreMLMetadata? = nil,
 		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
 		reporting progress: NativeModelConversionProgressHandler? = nil,
 		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws {
-		let eligibleLabels = eligibleClassifierLabels(graph: graph, labels: classifierLabels)
+		let interface = try resolveEmissionInterface(
+			graph: graph,
+			classifierLabels: classifierLabels,
+			imagePreprocessing: imagePreprocessing,
+			detection: nil,
+			detectionTarget: nil,
+			targetSemanticsIntent: targetSemanticsIntent
+		)
 		// Hash the exact blob being emitted for correct provenance. On this path that is `weights`.
 		let metadata = try onnxTargetMetadata(
 			source: sourceMetadata,
 			sourceProvenance: sourceProvenance,
 			graph: graph,
 			emittedWeights: weights,
-			classifierLabelCount: eligibleLabels?.count
+			interface: interface
 		)
 		try emit(
 			graph: graph,
@@ -163,8 +196,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			to: outputURL,
 			context: EmissionContext(
 				metadata: metadata,
-				classifierLabels: eligibleLabels,
-				imagePreprocessing: eligibleLabels == nil ? nil : imagePreprocessing,
+				interface: interface,
 				progress: progress,
 				cancellationCheck: cancellationCheck
 			)
@@ -186,6 +218,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		detection: NativeModelDetectionInterface,
 		detectionTarget: NativeModelDetectionTargetInfo,
 		imagePreprocessing: NativeModelImagePreprocessing? = nil,
+		targetSemanticsIntent: NativeModelTargetSemanticsIntent? = nil,
 		sourceMetadata: NativeModelCoreMLMetadata? = nil,
 		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
 		reporting progress: NativeModelConversionProgressHandler? = nil,
@@ -198,6 +231,14 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				reason: "detection target class count \(detectionTarget.classCount) does not match \(detection.labels.count) labels"
 			)
 		}
+		let interface = try resolveEmissionInterface(
+			graph: graph,
+			classifierLabels: nil,
+			imagePreprocessing: imagePreprocessing,
+			detection: detection,
+			detectionTarget: detectionTarget,
+			targetSemanticsIntent: targetSemanticsIntent
+		)
 		// `weights` here is the detector blob (network weights + synthesized decode constants), which
 		// is exactly what gets emitted — so hashing it yields a truthful weights-sha256 for the
 		// pipeline model. makeModel attaches this metadata to the OUTER pipeline description.
@@ -206,8 +247,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			sourceProvenance: sourceProvenance,
 			graph: graph,
 			emittedWeights: weights,
-			classifierLabelCount: nil,
-			detection: detectionTarget
+			interface: interface
 		)
 		try emit(
 			graph: graph,
@@ -215,8 +255,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			to: outputURL,
 			context: EmissionContext(
 				metadata: metadata,
-				imagePreprocessing: imagePreprocessing,
-				detection: detection,
+				interface: interface,
 				progress: progress,
 				cancellationCheck: cancellationCheck
 			)
@@ -290,6 +329,77 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		return size
 	}
 
+	/// Resolves the interface once, before both target metadata and protobuf layers are produced.
+	/// A target-semantics intent is advisory until this function proves it matches an interface that
+	/// will really be emitted.
+	private func resolveEmissionInterface(
+		graph: NativeModelGraph,
+		classifierLabels: [String]?,
+		imagePreprocessing: NativeModelImagePreprocessing?,
+		detection: NativeModelDetectionInterface?,
+		detectionTarget: NativeModelDetectionTargetInfo?,
+		targetSemanticsIntent: NativeModelTargetSemanticsIntent?
+	) throws -> ResolvedEmissionInterface {
+		let tensors = tensorIndex(for: graph)
+		let outputs = graph.outputs.compactMap { tensors[$0] }
+		let classifier = detection == nil
+			? classifierPlan(outputs: outputs, operations: graph.operations, labels: classifierLabels)
+			: nil
+		let imagePlan = imageInputPlan(
+			inputTensors: graph.inputs,
+			declaresImageInterface: classifier != nil || detection != nil,
+			preprocessing: imagePreprocessing
+		)
+
+		let task: NativeModelTargetSemantics.Task?
+		let classCount: Int?
+		if let detection {
+			guard let detectionTarget else {
+				throw NativeModelCoreMLEmissionError.invalidDetectionInterface(
+					reason: "a detector target requires matching target metadata"
+				)
+			}
+			guard detectionTarget.classCount == detection.labels.count else {
+				throw NativeModelCoreMLEmissionError.invalidDetectionInterface(
+					reason: "detection target class count \(detectionTarget.classCount) does not match \(detection.labels.count) labels"
+				)
+			}
+			if let targetSemanticsIntent,
+				targetSemanticsIntent.labelProfile.provenance.rawValue != detectionTarget.labelProvenance.rawValue {
+				throw NativeModelCoreMLEmissionError.invalidDetectionInterface(
+					reason: "target semantics label provenance does not match the detection target"
+				)
+			}
+			task = .detection
+			classCount = detection.labels.count
+		} else if let classifier {
+			task = .classification
+			classCount = classifier.labels.count
+		} else {
+			task = nil
+			classCount = nil
+		}
+
+		let targetSemantics: NativeModelTargetSemantics?
+		if let targetSemanticsIntent, let task, let classCount {
+			targetSemantics = targetSemanticsIntent.resolved(
+				task: task,
+				classCount: classCount,
+				imagePreprocessingWasApplied: imagePlan != nil
+			)
+		} else {
+			targetSemantics = nil
+		}
+
+		return ResolvedEmissionInterface(
+			classifier: classifier,
+			imagePlan: imagePlan,
+			detection: detection,
+			detectionTarget: detectionTarget,
+			targetSemantics: targetSemantics
+		)
+	}
+
 	private func makeModel(
 		input: ModelBuildInput,
 		context: EmissionContext
@@ -297,20 +407,12 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		let inputTensors = input.inputTensors
 		let outputTensors = input.outputTensors
 		let operations = input.operations
-		let weightsByName = input.weightsByName
-		let weights = input.weights
 		let metadata = context.metadata
 		let progress = context.progress
 		let cancellationCheck = context.cancellationCheck
 		let specificationVersion = (inputTensors + outputTensors).contains { $0.dataType == .float16 } ? 7 : 4
-		let classifier = context.detection == nil
-			? classifierPlan(outputs: outputTensors, operations: operations, labels: context.classifierLabels)
-			: nil
-		let imagePlan = imageInputPlan(
-			inputTensors: inputTensors,
-			declaresImageInterface: classifier != nil || context.detection != nil,
-			preprocessing: context.imagePreprocessing
-		)
+		let classifier = context.interface.classifier
+		let imagePlan = context.interface.imagePlan
 
 		// Computed before the layers are written: softmax emission depends on which shape mapping the
 		// finished network will declare (see softmaxLayer).
@@ -325,7 +427,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			cancellationCheck: cancellationCheck
 		)
 
-		let detection = context.detection
+		let detection = context.interface.detection
 		if let detection {
 			try validate(detection: detection, against: outputTensors)
 		}
@@ -684,8 +786,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		sourceProvenance: NativeModelConversionSourceProvenance?,
 		graph: NativeModelGraph,
 		emittedWeights: Data,
-		classifierLabelCount: Int?,
-		detection: NativeModelDetectionTargetInfo? = nil
+		interface: ResolvedEmissionInterface
 	) throws -> NativeModelCoreMLMetadata {
 		try targetMetadata(
 			from: source,
@@ -694,8 +795,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			),
 			graph: graph,
 			sourceProvenance: sourceProvenance,
-			classifierLabelCount: classifierLabelCount,
-			detection: detection
+			interface: interface
 		)
 	}
 
@@ -704,19 +804,12 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		checksums: NativeModelConversionChecksums,
 		graph: NativeModelGraph,
 		sourceProvenance: NativeModelConversionSourceProvenance?,
-		classifierLabelCount: Int? = nil,
-		detection: NativeModelDetectionTargetInfo? = nil
+		interface: ResolvedEmissionInterface
 	) throws -> NativeModelCoreMLMetadata {
 		// A detector is emitted as a Core ML pipeline (network + NMS); a classifier interface is only
 		// emitted when labels match the output. The format string reflects what was actually written.
-		let modelFormat: String
-		if detection != nil {
-			modelFormat = "pipeline"
-		} else {
-			modelFormat = classifierLabelCount == nil ? "neuralNetwork" : "neuralNetworkClassifier"
-		}
 		var userDefined: [String: String] = [
-			"com.aiarcheology.native.target.model-format": modelFormat,
+			"com.aiarcheology.native.target.model-format": interface.modelFormat,
 			"com.aiarcheology.native.target.graph-format-version": String(graph.formatVersion),
 			"com.aiarcheology.native.converter.package-version": NativeModelConverterVersion.packageVersion,
 			"com.aiarcheology.native.converter.conversion-revision": String(NativeModelConverterVersion.conversionRevision),
@@ -744,17 +837,20 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		if let url = sourceProvenance?.originalModelURL {
 			userDefined["com.aiarcheology.native.conversion.original-model-url"] = url
 		}
-		if let classifierLabelCount {
+		if let classifier = interface.classifier {
 			userDefined["com.aiarcheology.native.target.task"] = "classification"
-			userDefined["com.aiarcheology.native.target.class-count"] = String(classifierLabelCount)
+			userDefined["com.aiarcheology.native.target.class-count"] = String(classifier.labels.count)
 		}
-		if let detection {
+		if let detection = interface.detection, let detectionTarget = interface.detectionTarget {
 			// The facts AIA-0471's import UI reads to decide whether the labels are trustworthy or
 			// inferred, and how the coordinates were normalized.
 			userDefined["com.aiarcheology.native.target.task"] = "detection"
-			userDefined["com.aiarcheology.native.target.class-count"] = String(detection.classCount)
-			userDefined["com.aiarcheology.native.target.label-provenance"] = detection.labelProvenanceValue
-			userDefined["com.aiarcheology.native.target.coordinate-space"] = detection.coordinateSpaceValue
+			userDefined["com.aiarcheology.native.target.class-count"] = String(detection.labels.count)
+			userDefined["com.aiarcheology.native.target.label-provenance"] = detectionTarget.labelProvenanceValue
+			userDefined["com.aiarcheology.native.target.coordinate-space"] = detectionTarget.coordinateSpaceValue
+		}
+		if let targetSemantics = interface.targetSemantics {
+			targetSemantics.write(to: &userDefined)
 		}
 
 		guard let source else {
