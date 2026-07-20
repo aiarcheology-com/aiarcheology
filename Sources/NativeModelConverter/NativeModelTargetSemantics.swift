@@ -134,8 +134,8 @@ public struct NativeModelTargetSemantics: Equatable, Sendable {
 		)
 	}
 
-	/// Adds the complete contract to the target metadata. `target.task` and
-	/// `target.class-count` remain the established compatibility keys.
+	/// Writes the semantics v1 fields into the target metadata. Callers must also ensure the
+	/// converter marker and model-format keys are present so the contract is parseable.
 	func write(to userDefined: inout [String: String]) {
 		userDefined[Keys.semanticsVersion] = Self.currentFormatVersion
 		userDefined[Keys.task] = task.rawValue
