@@ -306,9 +306,9 @@ public actor NativeModelGraphPackageReader {
 		guard manifest.format == NativeModelGraphPackageManifest.formatIdentifier else {
 			throw NativeModelGraphPackageError.invalidManifest("unsupported format '\(manifest.format)'")
 		}
-		guard manifest.formatVersion == NativeModelGraph.currentFormatVersion else {
+		guard NativeModelGraph.isSupportedFormatVersion(manifest.formatVersion) else {
 			throw NativeModelGraphPackageError.invalidManifest(
-				"unsupported formatVersion \(manifest.formatVersion); expected \(NativeModelGraph.currentFormatVersion)"
+				"unsupported formatVersion \(manifest.formatVersion)"
 			)
 		}
 		guard manifest.graph == "graph.json", manifest.weights == "weights.bin" else {
