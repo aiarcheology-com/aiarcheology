@@ -122,8 +122,9 @@ public struct NativeModelTargetSemantics: Equatable, Sendable {
 			labelProfile.provenance == labelProvenance,
 			preprocessingProfile.origin == preprocessingOrigin,
 			userDefined[Keys.modelFormat] == Self.modelFormat(for: task),
-			Self.isValid(labelProfile: labelProfile, for: task)
-		else {
+			Self.isValid(labelProfile: labelProfile, for: task),
+			(labelProfile != .imageNet1K || classCount == 1000),
+			(labelProfile != .pascalVOC || classCount == 20)
 			return nil
 		}
 		self.init(
