@@ -191,7 +191,15 @@ public actor ModelLoadingService: ModelMetadataLoading {
     /// Core ML reports some absent standard metadata fields as an empty string. Treat it as absent
     /// rather than persisting a value the configuration screen would have to render as an empty row.
     static func normalizedMetadataString(_ value: Any?) -> String? {
-        guard let string = value as? String else { return nil }
+        let string: String?
+        if let direct = value as? String {
+            string = direct
+        } else if let optional = value as? String? {
+            string = optional
+        } else {
+            return nil
+        }
+        guard let string else { return nil }
         let normalized = string.trimmingCharacters(in: .whitespacesAndNewlines)
         return normalized.isEmpty ? nil : normalized
     }
