@@ -867,7 +867,12 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			try softmaxLayer(for: operation, usesLegacyShapeMapping: usesLegacyShapeMapping)
 		case .constant:
 			try loadConstantLayer(for: operation, weightsByName: weightsByName, weights: weights)
-		case .leakyReLU, .sigmoid, .exponential, .multiply, .reshape, .transpose, .sliceChannels, .softmaxChannel, .upsample2D:
+		case .constantND:
+			try loadConstantNDLayer(for: operation, weightsByName: weightsByName, weights: weights)
+		case .concatenateND:
+			try concatenateNDLayer(for: operation)
+		case .leakyReLU, .sigmoid, .exponential, .multiply, .reshape, .transpose, .sliceChannels, .softmaxChannel, .upsample2D,
+			.reshapeND, .transposeND, .sliceND, .splitND, .batchedMatrixMultiplicationND:
 			try detectionLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
@@ -1240,6 +1245,11 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		case .sliceChannels: try sliceChannelsLayer(for: operation)
 		case .softmaxChannel: try softmaxChannelLayer(for: operation)
 		case .upsample2D: try upsampleLayer(for: operation)
+		case .reshapeND: try reshapeNDLayer(for: operation)
+		case .transposeND: try transposeNDLayer(for: operation)
+		case .sliceND: try sliceNDLayer(for: operation)
+		case .splitND: try splitNDLayer(for: operation)
+		case .batchedMatrixMultiplicationND: try batchedMatrixMultiplicationNDLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
 				operation: operation.name,
@@ -1394,6 +1404,116 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 350, parameters: parameters)
 	}
 
+	/// Exact-rank static reshape (Core ML `ReshapeStaticLayerParams`, field 1140). Unlike the classic
+	/// reshape this uses the ONNX target verbatim, including rank 2 and ranks above 4.
+	private func reshapeNDLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let shape = operation.attributes["shape"]?.integerArrayValue,
+			!shape.isEmpty, shape.allSatisfy({ $0 > 0 })
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "reshapeND requires a non-empty 'shape' of positive integers"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendPackedVarintField(1, values: shape.map(UInt64.init), to: &parameters)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 1140, parameters: parameters)
+	}
+
+	/// Exact-rank axis permutation (Core ML `TransposeLayerParams`, field 985).
+	private func transposeNDLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let axes = operation.attributes["permutation"]?.integerArrayValue,
+			!axes.isEmpty, Set(axes) == Set(0 ..< axes.count)
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "transposeND requires 'permutation' to be a complete axis permutation"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendPackedVarintField(1, values: axes.map(UInt64.init), to: &parameters)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 985, parameters: parameters)
+	}
+
+	/// Exact-rank concatenation along the normalized non-negative axis preserved by the reader.
+	private func concatenateNDLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count >= 2,
+			let axis = operation.attributes["axis"]?.integerValue, axis >= 0
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "concatND requires at least two inputs and a non-negative axis"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(axis), to: &parameters)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 980, parameters: parameters)
+	}
+
+	/// Exact-rank static slice with full-rank normalized begin/end/stride lists.
+	private func sliceNDLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let beginIds = operation.attributes["beginIds"]?.integerArrayValue,
+			let endIds = operation.attributes["endIds"]?.integerArrayValue,
+			let strides = operation.attributes["strides"]?.integerArrayValue,
+			beginIds.count == endIds.count, beginIds.count == strides.count,
+			!beginIds.isEmpty, beginIds.allSatisfy({ $0 >= 0 }), endIds.allSatisfy({ $0 >= 0 }), strides.allSatisfy({ $0 > 0 })
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "sliceND requires equal-length non-negative begin/end and positive stride lists"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendPackedVarintField(1, values: beginIds.map(UInt64.init), to: &parameters)
+			// SliceStatic declares all three mask vectors as required, even when every bit is false.
+			// Omitting their proto3-default values makes Core ML reject the model at compile time.
+			CoreMLProtobufEncoder.appendPackedVarintField(2, values: Array(repeating: 0, count: beginIds.count), to: &parameters)
+			CoreMLProtobufEncoder.appendPackedVarintField(3, values: endIds.map(UInt64.init), to: &parameters)
+			CoreMLProtobufEncoder.appendPackedVarintField(4, values: Array(repeating: 0, count: endIds.count), to: &parameters)
+			CoreMLProtobufEncoder.appendPackedVarintField(5, values: strides.map(UInt64.init), to: &parameters)
+			CoreMLProtobufEncoder.appendPackedVarintField(6, values: Array(repeating: 0, count: strides.count), to: &parameters)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 995, parameters: parameters)
+	}
+
+	/// Multi-output exact-ND split. `splitSizes` is carried rather than inferred, so the emitted
+	/// graph remains faithful to Q/K/V partitions such as `[32, 32, 64]`.
+	private func splitNDLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count == 1, operation.outputs.count >= 2,
+			let axis = operation.attributes["axis"]?.integerValue, axis >= 0,
+			let splitSizes = operation.attributes["splitSizes"]?.integerArrayValue,
+			splitSizes.count == operation.outputs.count, splitSizes.allSatisfy({ $0 > 0 })
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "splitND requires one input, one positive split size per output, and a non-negative axis"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(axis), to: &parameters)
+			CoreMLProtobufEncoder.appendVarintField(2, value: UInt64(operation.outputs.count), to: &parameters)
+			CoreMLProtobufEncoder.appendPackedVarintField(3, values: splitSizes.map(UInt64.init), to: &parameters)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 975, parameters: parameters)
+	}
+
+	/// Core ML's `BatchedMatMulLayerParams` requires no parameters for the direct `A × B` form.
+	private func batchedMatrixMultiplicationNDLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "batchedMatmulND requires exactly two activation inputs"
+			)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 1045, parameters: Data())
+	}
+
 	/// A `loadConstant` layer: an input-free layer that materializes a fixed tensor, used by the
 	/// detection decode for grid offsets and anchor sizes.
 	///
@@ -1429,6 +1549,33 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		// A load-constant layer has no inputs at all; passing one would make Core ML expect a blob
 		// that never exists.
 		return layer(name: operation.name, inputs: [], outputs: operation.outputs, parameterField: 290, parameters: parameters)
+	}
+
+	/// `loadConstantND` is the exact-rank counterpart of `loadConstant`: it retains every declared
+	/// ONNX dimension (including batch) and is therefore safe to feed an exact-ND elementwise op.
+	private func loadConstantNDLayer(
+		for operation: NativeModelOperation,
+		weightsByName: [String: NativeModelWeight],
+		weights: Data
+	) throws -> Data {
+		guard operation.inputs.count == 1 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "constantND takes exactly one input naming the weight that holds its values"
+			)
+		}
+		let constant = try weight(named: operation.inputs[0], in: weightsByName)
+		guard !constant.shape.isEmpty, constant.shape.allSatisfy({ $0 > 0 }) else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "constantND '\(constant.name)' must have a non-empty positive shape"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendPackedVarintField(1, values: constant.shape.map(UInt64.init), to: &parameters)
+			CoreMLProtobufEncoder.appendMessageField(2, value: weightParameters(for: constant, in: weights), to: &parameters)
+		}
+		return layer(name: operation.name, inputs: [], outputs: operation.outputs, parameterField: 1070, parameters: parameters)
 	}
 
 	private func linearLayer(

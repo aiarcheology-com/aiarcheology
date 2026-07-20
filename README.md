@@ -32,7 +32,8 @@ into the importer's **Download from URL** field.
 | `.mlmodel`, `.mlpackage`, `.mlmodelc` | Detection, classification | Loaded directly |
 | `.onnx` | Image classification | Converted on-device. When the output width matches ImageNet-1k, the ImageNet labels and RGB normalization are applied and the model runs as a Core ML classifier |
 | `.onnx` | Object detection — raw-grid YOLOv2-family heads | Converted on-device into a Core ML *pipeline* model (single file): the converted network plus a synthesized box decode, followed by Core ML's built-in non-maximum suppression. Vision then returns standard `VNRecognizedObjectObservation`s |
-| `.onnx` | Object detection — anchor-free raw exports (YOLOv5/v8, `nms=False`) | **Graph converts; detector interface not wired yet.** The whole trunk lowers and matches an onnxruntime oracle numerically, but no catalog entry claims the `[1, 84, N]` head, so the model imports as a plain network — disabled and flagged for review, producing no detections. Boxes arrive with the detector-head work |
+| `.onnx` | Object detection — anchor-free YOLOv8 / YOLO11 raw exports (`nms=False`, `[1, 4 + classes, N]`) | Structurally recognized and converted into a Core ML detector pipeline; labels use source metadata when present. This includes YOLO11's attention-based export graph. |
+| `.onnx` | YOLOv5 raw trunk (`[1, N, 5 + classes]`) | Converted and numerically checked as a plain Core ML network, including the rank-5 tensor operations used by the pinned export. It is **not** an app-ready detector: YOLOv5 box decode, objectness × class scoring, and NMS have not yet been implemented. |
 | `.onnx` | Detection with embedded post-processing (`NonMaxSuppression`, `Loop`, dynamic shapes) — SSD, tiny-yolov3, ssd-mobilenet | Rejected with a precise diagnostic naming the unsupported operator |
 | `.aiagraph` | — | Internal interchange package (versioned, SHA-256 pinned); not a format users are expected to author |
 | `.tflite` | — | Not supported yet |
@@ -63,6 +64,8 @@ Each model below converts on-device and reproduces the predictions of an indepen
 | SqueezeNet 1.0 | Classification | Top-1 label and probability |
 | Tiny YOLOv2 (Pascal VOC) | Detection | Box count, IoU ≥ 0.9 per box, class label, confidence |
 | YOLOv8n (raw export, 640×640) | Detection trunk | Raw `[1, 84, 8400]` output at 507 sampled positions, abs tolerance 0.002 |
+| YOLO11n (raw export, 640×640) | Detector | Raw `[1, 84, 8400]` output at 14 sampled positions; detector-pipeline class count and source-metadata label provenance |
+| YOLOv5-L custom (raw export, 640×640) | Conversion trunk only | Raw `[1, 25200, 6]` output at 20 sampled positions; not an app detector |
 
 ### ONNX operator coverage
 
@@ -73,12 +76,15 @@ Each model below converts on-device and reproduces the predictions of an indepen
 | `Relu`, `LeakyRelu`, `Sigmoid`, `Clip` | `Clip` maps to ReLU6 only at exactly `[0, 6]` |
 | `Add`, `Mul`, `Sub`, `Div` | Same-shape activations, or a constant operand — scalar, per-channel, or a spatial table expanded statically. `Sub` lowers to an add (Core ML has no subtract); `Div` accepts a constant divisor only, as a multiply by its reciprocal |
 | `MaxPool`, `GlobalAveragePool` | Dense, non-dilated pooling |
-| `Concat` | Channel axis at rank 3–4; the rank-3 axis-2 form is rewritten as transpose → channel concat → transpose |
-| `Slice` | Single-axis **channel** slices (static bounds, unit step) |
-| `Reshape`, `Flatten` | Static targets with `-1` inferred; a `[batch, features]` collapse stays a flatten so classifier interfaces are preserved |
-| `Transpose` | Explicit `perm` at rank 3–4 (the reverse-all-axes default is rejected) |
+| `Concat` | V1: channel axis at rank 3–4; V2: static tensors of any rank on a shared, explicit axis |
+| `Slice` | V1: single-axis **channel** slices. V2: static, unit-stride slices on any distinct tensor axes |
+| `Split` | Static input or attribute sizes. V1 channel splits lower to slices; V2 preserves multi-output splits on any axis |
+| `MatMul` | V2 batched matrix multiplication for rank-2-or-higher static tensors, including NumPy-style batch broadcasting |
+| `Pow` | V2 constant exponent `2` only, lowered exactly to `Mul(x, x)` |
+| `Reshape`, `Flatten` | Static targets with `-1` inferred. V2 preserves arbitrary static rank; a `[batch, features]` collapse stays a flatten so classifier interfaces are preserved |
+| `Transpose` | Explicit `perm`. V1 accepts rank 3–4; V2 preserves an explicit permutation of any static rank (the reverse-all-axes default is rejected) |
 | `Resize` | Nearest + `asymmetric` + `floor` + integer scale factors only — the one configuration Core ML's upsample reproduces exactly |
-| `Softmax` | Opset-aware axis semantics; the channel axis under Core ML's legacy rank-5 layout |
+| `Softmax` | Opset-aware axis semantics. V2 supports any explicit axis, including `axis=-1`; V1 uses the legacy rank-5 channel layout |
 | `Dropout`, `Identity`, `Shape`, `Constant`, `ConstantOfShape` | Folded away |
 
 Anything outside this set is rejected rather than approximated: a model that converts is expected to
@@ -99,7 +105,7 @@ in native Swift—no Python is bundled with, or invoked by, the iOS app. See
 | Supported platforms | iOS 17+, macOS 14+ |
 | App use | An `.onnx` or `.aiagraph` import journals a path-free conversion report, validates/writes `converted.mlmodel` off the main actor, then uses the existing Core ML loading path. Interrupted imports can resume or be explicitly discarded; a registered conversion can be explicitly exported as a metadata-preserving ZIP. |
 | Development CLIs | `native-model-converter` converts one package; `native-model-evaluator` runs an emitted model through Core ML for terminal parity tests. |
-| Format version | Native graph package v1; graph, weights, and optional source metadata are SHA-256 pinned. Converted source metadata is retained as `converted.metadata.json`; the app retains a path-free `native-conversion-report.json` with lifecycle and support evidence. |
+| Format version | Native graph package v1 (legacy Core ML layout) and v2 (exact N-D tensor layout); graph, weights, and optional source metadata are SHA-256 pinned. Converted source metadata is retained as `converted.metadata.json`; the app retains a path-free `native-conversion-report.json` with lifecycle and support evidence. |
 | Converter provenance | Source package filename, original filename/remote URL when known, source exporter name/version, graph format, Swift package SemVer, conversion revision, interface, and artifact hashes are embedded in the generated `.mlmodel`; version history remains traceable after the app converter evolves. |
 | Client observability | `NativeModelConverter.convert` reports package/emission progress, process-memory samples, cancellation, stable diagnostics, artifact sizes, and monotonic timings; it also emits OSLog signposts for Instruments. A process-global FIFO gate runs one high-level conversion at a time and reports `waitingForExclusiveAccess` to queued jobs. |
 

@@ -86,6 +86,27 @@ final class ONNXModelReaderTests: XCTestCase {
 		XCTAssertEqual(conversion.graph.weights.map(\.name), ["w", "b"])
 	}
 
+	func testRead_channelSplitV1_decomposesToChannelSlices() throws {
+		let split = onnxNode(
+			op: "Split", inputs: ["x", "sizes"], outputs: ["first", "second"], name: "split",
+			attributes: [onnxIntAttr(name: "axis", value: 1)]
+		)
+		let model = onnxModel(
+			nodes: [split], initializers: [onnxInt64Tensor(name: "sizes", dims: [2], ints: [2, 4])],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 6, 3])],
+			outputs: [onnxValueInfo(name: "second", shape: [1, 4, 3])], opsetVersion: 13
+		)
+
+		let conversion = try ONNXModelReader().read(data: model)
+		XCTAssertEqual(conversion.graph.formatVersion, NativeModelGraph.legacyFormatVersion)
+		XCTAssertEqual(conversion.graph.operations.map(\.kind), [.sliceChannels, .sliceChannels])
+		XCTAssertEqual(conversion.graph.operations.map(\.name), ["split__split0", "split__split1"])
+		XCTAssertEqual(conversion.graph.operations.map { $0.attributes["startChannel"]?.integerValue }, [0, 2])
+		XCTAssertEqual(conversion.graph.operations.map { $0.attributes["endChannel"]?.integerValue }, [2, 6])
+		XCTAssertEqual(conversion.graph.operations.map { $0.outputs[0].shape }, [[1, 2, 3], [1, 4, 3]])
+		XCTAssertTrue(NativeModelGraphValidator().validate(conversion.graph).isConvertible)
+	}
+
 	func testConvertONNX_endToEnd_producesLoadableModel() async throws {
 		// Exercises the high-level `convert(onnx:to:)` orchestration (file read, FIFO gate, metrics,
 		// atomic model write) rather than the reader in isolation.

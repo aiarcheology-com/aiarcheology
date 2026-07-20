@@ -201,6 +201,26 @@
           ]
         }
       ]
+    },
+    {
+      "id": "hf.aaurelions-yolo11n",
+      "comment": "Object detector (YOLO11n raw output; the V2 exact-ND backend preserves its attention split/matmuls, and the anchor-free recognizer builds the Core ML NMS pipeline). A deliberately impossible confidence threshold asserts the live detector interface and 80-column metadata-derived labels without tying this manifest test to a particular image's detections; the raw-output oracle is in YOLO11TrunkOracle.json.",
+      "fileName": "yolo11n-aaurelions.onnx",
+      "url": "https://huggingface.co/aaurelions/yolo11n.onnx/resolve/f46d9b72aa9a0f02bc00484446e2310b1a549bce/yolo11n.onnx",
+      "sha256": "5ad2aa77f7f678c06880f024444cb02f5eb53f991b4a64c819805c6c701fc9b8",
+      "convertedInput": {
+        "name": "image",
+        "width": 640,
+        "height": 640
+      },
+      "expectedClassCount": 80,
+      "detectionProbes": [
+        {
+          "solidColor": { "red": 128, "green": 128, "blue": 128 },
+          "confidenceThreshold": 2.0,
+          "expectedBoxes": []
+        }
+      ]
     }
   ]
 }

@@ -105,7 +105,8 @@ public struct ONNXModelReader {
 			throw ONNXModelReaderError.invalidModel("expected exactly one model output, found \(outputs.count)")
 		}
 
-		var lowering = Lowering(initializers: initializersByName, opsetVersion: opsetVersion)
+		let layoutFamily = try layoutFamily(for: nodes)
+		var lowering = Lowering(initializers: initializersByName, opsetVersion: opsetVersion, layoutFamily: layoutFamily)
 		try lowering.seedInput(realInputs[0])
 		for node in nodes {
 			try lowering.lower(node)
@@ -121,7 +122,7 @@ public struct ONNXModelReader {
 			name.utf8.count <= ONNXMetadataMapping.maximumValueByteCount ? name : nil
 		}
 		let nativeGraph = NativeModelGraph(
-			formatVersion: NativeModelGraph.currentFormatVersion,
+			formatVersion: layoutFamily.formatVersion,
 			// ModelProto.producer_version is field 3.
 			producer: NativeModelGraphProducer(
 				name: producerName.flatMap { $0.isEmpty ? nil : $0 } ?? "onnx",
@@ -214,6 +215,37 @@ public struct ONNXModelReader {
 		let shape: [Int]
 	}
 
+	/// The Core ML neural-network backend has two incompatible tensor-layout families. Choose before
+	/// lowering so constants and shape operations never begin in one family and end in the other.
+	private enum LayoutFamily {
+		case legacyV1
+		case exactNDV2
+
+		var formatVersion: Int {
+			switch self {
+			case .legacyV1: NativeModelGraph.legacyFormatVersion
+			case .exactNDV2: NativeModelGraph.exactNDFormatVersion
+			}
+		}
+	}
+
+	/// Closed preflight routing table. All established V1 forms remain on the existing classic route;
+	/// attention MatMul and a non-channel Split require the exact-ND Core ML primitives. This runs
+	/// before `Lowering` owns a weight blob, so a later operation cannot retroactively change a
+	/// synthesized constant's rank semantics.
+	private func layoutFamily(for nodes: [ONNXNode]) throws -> LayoutFamily {
+		for node in nodes {
+			guard node.domain.isEmpty || node.domain == "ai.onnx" else {
+				throw ONNXModelReaderError.unsupportedOperation("\(node.domain).\(node.opType)")
+			}
+			if node.opType == "MatMul" { return .exactNDV2 }
+			if node.opType == "Split", (node.attributes["axis"]?.int ?? 0) != 1 {
+				return .exactNDV2
+			}
+		}
+		return .legacyV1
+	}
+
 	private func parseTensor(_ data: Data) throws -> ONNXTensor {
 		let fields = try ProtobufReader.fields(in: data)
 		let dims = try fields.repeatedInts(1)
@@ -289,6 +321,7 @@ public struct ONNXModelReader {
 		// The default-domain opset version, retained so opset-sensitive ops (e.g. Softmax at opset 13) can
 		// branch on it as coverage grows.
 		let opsetVersion: Int
+		let layoutFamily: LayoutFamily
 		var operations: [NativeModelOperation] = []
 		var weights: [NativeModelWeight] = []
 		var weightBlob = Data()
@@ -303,10 +336,14 @@ public struct ONNXModelReader {
 		// are stored already-resolved, so a single lookup collapses any chain of aliases.
 		private var aliases: [String: String] = [:]
 
-		init(initializers: [String: ONNXTensor], opsetVersion: Int) {
+		init(initializers: [String: ONNXTensor], opsetVersion: Int, layoutFamily: LayoutFamily) {
 			self.initializers = initializers
 			self.opsetVersion = opsetVersion
+			self.layoutFamily = layoutFamily
 		}
+
+		private var usesExactND: Bool { layoutFamily == .exactNDV2 }
+		private var constantKind: NativeModelOperationKind { usesExactND ? .constantND : .constant }
 
 		func tensor(named name: String) -> NativeModelTensor {
 			NativeModelTensor(name: name, dataType: .float32, shape: shapes[name] ?? [])
@@ -443,6 +480,8 @@ public struct ONNXModelReader {
 			case "Add": try lowerAdd(node)
 			case "Mul": try lowerMul(node)
 			case "Concat": try lowerConcat(node)
+			case "Split": try lowerSplit(node)
+			case "MatMul": try lowerMatMul(node)
 			case "GlobalAveragePool": try lowerGlobalAveragePool(node)
 			case "MaxPool": try lowerMaxPool(node)
 			case "Flatten": try lowerFlatten(node)
@@ -465,6 +504,7 @@ public struct ONNXModelReader {
 			case "Slice": try lowerSlice(node)
 			case "Sub": try lowerSub(node)
 			case "Div": try lowerDiv(node)
+			case "Pow": try lowerPow(node)
 			case "Resize": try lowerResize(node)
 			default: throw ONNXModelReaderError.unsupportedOperation(node.opType)
 			}
@@ -536,6 +576,33 @@ public struct ONNXModelReader {
 				inputs: activationInputs + weightNames,
 				outputs: [NativeModelTensor(name: outputName, dataType: .float32, shape: outputShape)],
 				attributes: attributes
+			))
+		}
+
+		/// Records an operation with one tensor per declared ONNX output. Currently this is the exact-ND
+		/// Split route; keeping it central means duplicate output names and shape bookkeeping receive the
+		/// same checks as every one-output lowerer.
+		private mutating func recordMulti(
+			_ node: ONNXNode,
+			kind: NativeModelOperationKind,
+			activationInputs: [String],
+			weightInputs: [String],
+			attributes: [String: NativeModelAttribute],
+			outputShapes: [[Int]]
+		) throws {
+			guard node.outputs.count == outputShapes.count, node.outputs.count >= 2 else {
+				throw ONNXModelReaderError.invalidModel(
+					"operator '\(node.opType)' (\(node.name)) declares \(node.outputs.count) outputs for \(outputShapes.count) inferred shapes"
+				)
+			}
+			let weightNames = try weightInputs.map { try weightName($0) }
+			let outputs = zip(node.outputs, outputShapes).map { name, shape in
+				shapes[name] = shape
+				return NativeModelTensor(name: name, dataType: .float32, shape: shape)
+			}
+			operations.append(NativeModelOperation(
+				name: node.name, kind: kind, inputs: activationInputs + weightNames,
+				outputs: outputs, attributes: attributes
 			))
 		}
 
@@ -695,6 +762,173 @@ public struct ONNXModelReader {
 			try lowerBinaryElementwise(node, kind: .multiply)
 		}
 
+		/// ONNX `Pow` is deliberately narrow in this conversion slice: the real YOLOv5 export uses a
+		/// constant exponent of two, which is exactly `x · x`. Other exponents would need a distinct
+		/// Core ML lowering with different domain/NaN behaviour, so reject them rather than approximate.
+		private mutating func lowerPow(_ node: ONNXNode) throws {
+			guard node.inputs.count == 2 else {
+				throw ONNXModelReaderError.invalidModel("Pow '\(node.name)' requires 2 inputs")
+			}
+			try rejectLegacyBroadcast(node)
+			guard let inputShape = shapes[node.inputs[0]] else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Pow base must be an activation")
+			}
+			guard shapes[node.inputs[1]] == nil,
+				let exponent = constantFloats(node.inputs[1]), exponent.count == 1,
+				exponent[0].isFinite, exponent[0] == 2
+			else {
+				throw ONNXModelReaderError.unsupportedAttribute(
+					operation: node.name,
+					detail: "Pow supports only one finite float32 constant exponent equal to 2"
+				)
+			}
+			try record(node, kind: .multiply, activationInputs: [node.inputs[0], node.inputs[0]], weightInputs: [], attributes: [:], outputShape: inputShape)
+		}
+
+		/// ONNX `Split` has one output per requested partition. V1 keeps the historical channel-only
+		/// Core ML lowering by expanding it into ordinary channel slices. V2 preserves the native
+		/// multi-output operation so attention's axis-2 Q/K/V partition is not rewritten through a
+		/// layout-changing approximation.
+		private mutating func lowerSplit(_ node: ONNXNode) throws {
+			guard let input = node.inputs.first, let inputShape = shapes[input], !inputShape.isEmpty else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "unknown input shape")
+			}
+			guard node.outputs.count >= 2 else {
+				throw ONNXModelReaderError.invalidModel("Split '\(node.name)' requires at least 2 outputs")
+			}
+			let axis = try normalizedAxis(node.attributes["axis"]?.int ?? 0, rank: inputShape.count, operation: node.name, operatorName: "Split")
+			let splitSizes: [Int]
+			if node.inputs.count > 1, !node.inputs[1].isEmpty {
+				guard let sizes = constantInts(node.inputs[1]) else {
+					throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Split sizes must be a constant integer initializer")
+				}
+				splitSizes = sizes
+			} else if let sizes = node.attributes["split"]?.ints {
+				splitSizes = sizes
+			} else {
+				guard inputShape[axis] % node.outputs.count == 0 else {
+					throw ONNXModelReaderError.unsupportedAttribute(
+						operation: node.name,
+						detail: "Split axis extent \(inputShape[axis]) is not divisible by \(node.outputs.count) outputs"
+					)
+				}
+				splitSizes = Array(repeating: inputShape[axis] / node.outputs.count, count: node.outputs.count)
+			}
+			guard splitSizes.count == node.outputs.count, splitSizes.allSatisfy({ $0 > 0 }) else {
+				throw ONNXModelReaderError.unsupportedAttribute(
+					operation: node.name,
+					detail: "Split sizes \(splitSizes) must contain one positive extent for each output"
+				)
+			}
+		let total = try checkedExtentSum(splitSizes, operation: node.name, operatorName: "Split")
+			guard total == inputShape[axis] else {
+				throw ONNXModelReaderError.shapeInferenceFailed(
+					operation: node.name,
+					detail: "Split sizes \(splitSizes) total \(total), not axis \(axis)'s extent \(inputShape[axis])"
+				)
+			}
+
+			var outputShapes: [[Int]] = []
+			for size in splitSizes {
+				var shape = inputShape
+				shape[axis] = size
+				outputShapes.append(shape)
+			}
+			if usesExactND {
+				try recordMulti(node, kind: .splitND, activationInputs: [input], weightInputs: [],
+					attributes: ["axis": .integer(axis), "splitSizes": .integers(splitSizes)], outputShapes: outputShapes)
+				return
+			}
+
+			guard axis == 1, inputShape.count == 3 || inputShape.count == 4 else {
+				throw ONNXModelReaderError.unsupportedAttribute(
+					operation: node.name,
+					detail: "V1 Split supports only axis 1 at rank 3 or 4; got axis \(axis), shape \(inputShape)"
+				)
+			}
+			var start = 0
+			for (index, output) in node.outputs.enumerated() {
+				let end = start + splitSizes[index]
+				let operationName = "\(node.name)__split\(index)"
+				guard try claimSynthesized(operationName) else {
+					throw ONNXModelReaderError.invalidModel("duplicate Split node name '\(node.name)'")
+				}
+				shapes[output] = outputShapes[index]
+				operations.append(NativeModelOperation(
+					name: operationName, kind: .sliceChannels, inputs: [input],
+					outputs: [NativeModelTensor(name: output, dataType: .float32, shape: outputShapes[index])],
+					attributes: ["startChannel": .integer(start), "endChannel": .integer(end)]
+				))
+				start = end
+			}
+		}
+
+		/// Rank-N `MatMul`, restricted to two activation operands so the V2 `batchedMatmul` layer has a
+		/// direct, fully-shaped counterpart. Matrix weights remain the established Gemm/linear path.
+		private mutating func lowerMatMul(_ node: ONNXNode) throws {
+			guard usesExactND else {
+				throw ONNXModelReaderError.unsupportedOperation("MatMul")
+			}
+			guard node.inputs.count == 2,
+				let lhs = shapes[node.inputs[0]], let rhs = shapes[node.inputs[1]],
+				lhs.count >= 2, rhs.count >= 2
+			else {
+				throw ONNXModelReaderError.shapeInferenceFailed(
+					operation: node.name,
+					detail: "MatMul requires two rank-2-or-higher activation inputs"
+				)
+			}
+			guard lhs[lhs.count - 1] == rhs[rhs.count - 2] else {
+				throw ONNXModelReaderError.shapeInferenceFailed(
+					operation: node.name,
+					detail: "MatMul inner dimensions differ: \(lhs[lhs.count - 1]) and \(rhs[rhs.count - 2])"
+				)
+			}
+			let batch = try broadcastBatchShape(Array(lhs.dropLast(2)), Array(rhs.dropLast(2)), operation: node.name)
+			try record(node, kind: .batchedMatrixMultiplicationND, activationInputs: node.inputs, weightInputs: [], attributes: [:],
+				outputShape: batch + [lhs[lhs.count - 2], rhs[rhs.count - 1]])
+		}
+
+		private func normalizedAxis(_ rawAxis: Int, rank: Int, operation: String, operatorName: String) throws -> Int {
+			let axis = rawAxis < 0 ? rawAxis + rank : rawAxis
+			guard axis >= 0, axis < rank else {
+				throw ONNXModelReaderError.unsupportedAttribute(
+					operation: operation,
+					detail: "\(operatorName) axis \(rawAxis) is out of range for rank \(rank)"
+				)
+			}
+			return axis
+		}
+
+	private func checkedExtentSum(_ values: [Int], operation: String, operatorName: String) throws -> Int {
+			var total = 0
+			for value in values {
+				let (sum, overflow) = total.addingReportingOverflow(value)
+				guard !overflow else {
+					throw ONNXModelReaderError.shapeInferenceFailed(operation: operation, detail: "\(operatorName) extents overflow")
+				}
+				total = sum
+			}
+			return total
+		}
+
+		private func broadcastBatchShape(_ lhs: [Int], _ rhs: [Int], operation: String) throws -> [Int] {
+			let count = max(lhs.count, rhs.count)
+			var result = [Int](repeating: 1, count: count)
+			for offset in 0 ..< count {
+				let lhsDimension = offset < lhs.count ? lhs[lhs.count - 1 - offset] : 1
+				let rhsDimension = offset < rhs.count ? rhs[rhs.count - 1 - offset] : 1
+				guard lhsDimension == rhsDimension || lhsDimension == 1 || rhsDimension == 1 else {
+					throw ONNXModelReaderError.shapeInferenceFailed(
+						operation: operation,
+						detail: "MatMul batch dimensions \(lhs) and \(rhs) are not broadcast-compatible"
+					)
+				}
+				result[count - 1 - offset] = max(lhsDimension, rhsDimension)
+			}
+			return result
+		}
+
 		/// ONNX `Sub`. Core ML's classic elementwise layers add and multiply but never subtract, so every
 		/// form is rewritten into an add:
 		/// - `activation − constant`: negate the constant at read time and add it (one broadcast constant).
@@ -805,7 +1039,7 @@ public struct ONNXModelReader {
 		/// for activation operands, which have no read-time floats to negate. Both the constant and the
 		/// per-activation product are cached so repeated Subs reuse them.
 		private mutating func negate(_ activation: String, shape: [Int]) throws -> String {
-			let negOne = try negativeOneConstant()
+			let negOne = try negativeOneConstant(over: shape)
 			let product = "\(activation)__neg"
 			if try claimSynthesized(product) {
 				shapes[product] = shape
@@ -818,9 +1052,19 @@ public struct ONNXModelReader {
 			return product
 		}
 
-		/// The single `[1, 1, 1]` load-constant carrying scalar −1, created lazily and shared by every
-		/// `negate(_:shape:)` call.
-		private mutating func negativeOneConstant() throws -> String {
+		/// A lazily materialized −1 constant. V1 uses the historical scalar `[1, 1, 1]`; V2 writes a
+		/// same-shape `loadConstantND`, keeping all elementwise inputs in the exact-rank family.
+		private mutating func negativeOneConstant(over shape: [Int]) throws -> String {
+			if usesExactND {
+				let elementCount = try checkedElementCount(shape, operation: "negate")
+				var payload = Data(capacity: elementCount * MemoryLayout<Float>.size)
+				for _ in 0 ..< elementCount {
+					var value = Float(-1)
+					withUnsafeBytes(of: &value) { payload.append(contentsOf: $0) }
+				}
+				let shapeKey = shape.map(String.init).joined(separator: "x")
+				return try emitConstant(baseName: "__aiaNegativeOne", suffix: "__expandedND\(shapeKey)", shape: shape, payload: payload)
+			}
 			let constantOutput = "__aiaNegativeOne"
 			if try claimSynthesized(constantOutput) {
 				let weightName = "\(constantOutput)Weight"
@@ -921,6 +1165,9 @@ public struct ONNXModelReader {
 			}
 			guard tensor.dataType == 1 else {
 				throw ONNXModelReaderError.unsupportedDataType(tensor: name, dataType: tensor.dataType)
+			}
+			if usesExactND {
+				return try expandExactNDConstant(named: name, tensor: tensor, over: activationShape, operation: operation, transform: transform)
 			}
 			// Fast paths, under ONNX's *right-aligned* broadcasting: any all-unit shape (a scalar), or a
 			// per-channel vector whose channel extent sits three-from-last — `[C, 1, 1]` / `[1, C, 1, 1]`.
@@ -1043,6 +1290,84 @@ public struct ONNXModelReader {
 			return try emitConstant(baseName: name, suffix: "__expanded\(shapeKey)\(transform.nameSuffix)", shape: constantShape, payload: expanded)
 		}
 
+		/// V2 constants are expanded over the *full* ONNX shape, including batch and every trailing
+		/// dimension. This avoids the legacy `[C, H, W]` canonicalization and gives Core ML exact-ND
+		/// elementwise layers two identically shaped inputs.
+		private mutating func expandExactNDConstant(named name: String, tensor: ONNXTensor, over activationShape: [Int], operation: String, transform: ConstantTransform) throws -> String {
+			guard !activationShape.isEmpty else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: operation, detail: "cannot broadcast against a scalar activation")
+			}
+			var aligned = Array(repeating: 1, count: max(0, activationShape.count - tensor.dims.count)) + tensor.dims
+			if aligned.count > activationShape.count {
+				let excess = aligned.count - activationShape.count
+				guard aligned.prefix(excess).allSatisfy({ $0 == 1 }) else {
+					throw ONNXModelReaderError.unsupportedAttribute(
+						operation: operation,
+						detail: "constant operand '\(name)' of shape \(tensor.dims) does not broadcast against activation \(activationShape)"
+					)
+				}
+				aligned = Array(aligned.suffix(activationShape.count))
+			}
+			for (constantDimension, activationDimension) in zip(aligned, activationShape) {
+				guard constantDimension == 1 || constantDimension == activationDimension else {
+					throw ONNXModelReaderError.unsupportedAttribute(
+						operation: operation,
+						detail: "constant operand '\(name)' of shape \(tensor.dims) does not broadcast against activation \(activationShape)"
+					)
+				}
+			}
+			let sourceCount = try checkedElementCount(tensor.dims, operation: operation)
+			guard tensor.rawData.count == sourceCount * MemoryLayout<Float>.size else {
+				throw ONNXModelReaderError.invalidModel("initializer '\(name)' declares shape \(tensor.dims) but carries \(tensor.rawData.count) bytes")
+			}
+			let total = try checkedElementCount(activationShape, operation: operation)
+			guard total <= 8_000_000 else {
+				throw ONNXModelReaderError.unsupportedAttribute(
+					operation: operation,
+					detail: "constant operand '\(name)' expands to \(total) elements, over the 8000000 limit"
+				)
+			}
+			let source = floats(from: tensor.rawData)
+			var strides = [Int](repeating: 0, count: activationShape.count)
+			var running = 1
+			for axis in stride(from: activationShape.count - 1, through: 0, by: -1) where aligned[axis] != 1 {
+				strides[axis] = running
+				running *= aligned[axis]
+			}
+			var expanded = Data(capacity: total * MemoryLayout<Float>.size)
+			var coordinate = [Int](repeating: 0, count: activationShape.count)
+			for _ in 0 ..< total {
+				var offset = 0
+				for axis in 0 ..< activationShape.count { offset += coordinate[axis] * strides[axis] }
+				var value = try transform.apply(source[offset], name: name, operation: operation)
+				withUnsafeBytes(of: &value) { expanded.append(contentsOf: $0) }
+				var axis = activationShape.count - 1
+				while axis >= 0 {
+					coordinate[axis] += 1
+					if coordinate[axis] < activationShape[axis] { break }
+					coordinate[axis] = 0
+					axis -= 1
+				}
+			}
+			let shapeKey = activationShape.map(String.init).joined(separator: "x")
+			return try emitConstant(baseName: name, suffix: "__expandedND\(shapeKey)\(transform.nameSuffix)", shape: activationShape, payload: expanded)
+		}
+
+		private func checkedElementCount(_ dimensions: [Int], operation: String) throws -> Int {
+			var count = 1
+			for dimension in dimensions {
+				guard dimension > 0 else {
+					throw ONNXModelReaderError.invalidModel("\(operation) has a non-positive tensor dimension \(dimension)")
+				}
+				let (product, overflow) = count.multipliedReportingOverflow(by: dimension)
+				guard !overflow else {
+					throw ONNXModelReaderError.shapeInferenceFailed(operation: operation, detail: "tensor element count overflows")
+				}
+				count = product
+			}
+			return count
+		}
+
 		/// Interprets `data` as host-order float32 and rewrites each value through `transform`.
 		private func transformedFloatBytes(_ data: Data, name: String, operation: String, transform: ConstantTransform) throws -> Data {
 			if case .identity = transform { return data }
@@ -1075,7 +1400,7 @@ public struct ONNXModelReader {
 				weightBlob.append(payload)
 				shapes[constantOutput] = shape
 				operations.append(NativeModelOperation(
-					name: constantOutput, kind: .constant, inputs: [weightName],
+					name: constantOutput, kind: constantKind, inputs: [weightName],
 					outputs: [NativeModelTensor(name: constantOutput, dataType: .float32, shape: shape)],
 					attributes: [:]
 				))
@@ -1112,8 +1437,8 @@ public struct ONNXModelReader {
 				return shape
 			}
 			let rank = inputShapes[0].count
-			guard rank == 3 || rank == 4, inputShapes.allSatisfy({ $0.count == rank }) else {
-				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Concat expects same-rank rank-3/rank-4 inputs, got \(inputShapes)")
+			guard rank > 0, inputShapes.allSatisfy({ $0.count == rank }) else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Concat expects same-rank non-scalar inputs, got \(inputShapes)")
 			}
 			// ONNX Concat requires an explicit axis from opset 4 on (only the long-dead opset-1 form
 			// defaulted it), so a missing one is unconvertible rather than assumed. A negative axis
@@ -1121,10 +1446,18 @@ public struct ONNXModelReader {
 			guard let rawAxis = node.attributes["axis"]?.int else {
 				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Concat requires an axis attribute")
 			}
-			let axis = rawAxis < 0 ? rawAxis + rank : rawAxis
+			let axis = try normalizedAxis(rawAxis, rank: rank, operation: node.name, operatorName: "Concat")
 			// Non-concatenated dims must agree; the concatenated dim sums (overflow-reported: crafted
 			// counts must throw, not trap — same rationale as the flatten feature-count product).
 			let joined = try joinedConcatShape(inputShapes, axis: axis, rank: rank, operation: node.name)
+			if usesExactND {
+				try record(node, kind: .concatenateND, activationInputs: node.inputs, weightInputs: [],
+					attributes: ["axis": .integer(axis)], outputShape: joined)
+				return
+			}
+			guard rank == 3 || rank == 4 else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Concat expects rank-3/rank-4 inputs on the V1 route, got \(inputShapes)")
+			}
 			switch axis {
 			case 1:
 				try record(node, kind: .concatenate, activationInputs: node.inputs, weightInputs: [],
@@ -1410,6 +1743,12 @@ public struct ONNXModelReader {
 			let staticTarget: [Int]?
 			if node.inputs.count >= 2 {
 				if shapeTensors.contains(node.inputs[1]) {
+					guard !usesExactND else {
+						throw ONNXModelReaderError.unsupportedAttribute(
+							operation: node.name,
+							detail: "V2 Reshape requires a static integer target; shape-tensor targets are not lowered"
+						)
+					}
 					// Folded dynamic-flatten subgraph — exactly the case lowerFlatten always handled.
 					return try lowerFlatten(node)
 				}
@@ -1429,6 +1768,11 @@ public struct ONNXModelReader {
 				return try lowerFlatten(node)
 			}
 			let resolved = try resolveReshapeTarget(staticTarget, inputShape: inputShape, operation: node.name)
+			if usesExactND {
+				try record(node, kind: .reshapeND, activationInputs: [node.inputs[0]], weightInputs: [],
+					attributes: ["shape": .integers(resolved)], outputShape: resolved)
+				return
+			}
 			// Flatten fast-path: a [batch, features] collapse stays a flatten so classifier graphs never
 			// acquire a .reshape op (which would force the legacy rank-5 mapping network-wide).
 			if resolved.count == 2, resolved[0] == inputShape[0] {
@@ -1504,8 +1848,8 @@ public struct ONNXModelReader {
 		/// it is absent, which the four-axis permute cannot express, so a missing `perm` is rejected
 		/// rather than silently applied.
 		private mutating func lowerTranspose(_ node: ONNXNode) throws {
-			guard let inputShape = shapes[node.inputs[0]], inputShape.count == 3 || inputShape.count == 4 else {
-				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Transpose expects a rank-3 or rank-4 input")
+			guard let inputShape = shapes[node.inputs[0]], !inputShape.isEmpty else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Transpose expects a non-scalar input")
 			}
 			guard let perm = node.attributes["perm"]?.ints else {
 				throw ONNXModelReaderError.unsupportedAttribute(
@@ -1517,9 +1861,17 @@ public struct ONNXModelReader {
 			guard perm.count == rank, Set(perm) == Set(0 ..< rank) else {
 				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Transpose perm \(perm) is not a permutation of 0..<\(rank)")
 			}
+			let outputShape = perm.map { inputShape[$0] }
+			if usesExactND {
+				try record(node, kind: .transposeND, activationInputs: [node.inputs[0]], weightInputs: [],
+					attributes: ["permutation": .integers(perm)], outputShape: outputShape)
+				return
+			}
+			guard rank == 3 || rank == 4 else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Transpose expects a rank-3 or rank-4 input on the V1 route")
+			}
 			// The IR/output shape is the ONNX result (perm applied to the real input), but the recorded
 			// permutation is over the canonical four axes: a rank-3 perm gains the trailing axis 3.
-			let outputShape = perm.map { inputShape[$0] }
 			let canonicalPerm = rank == 4 ? perm : perm + [3]
 			try record(node, kind: .transpose, activationInputs: [node.inputs[0]], weightInputs: [],
 				attributes: ["permutation": .integers(canonicalPerm)], outputShape: outputShape)
@@ -1532,8 +1884,8 @@ public struct ONNXModelReader {
 		/// attribute form. Anything that steps, spans multiple axes, or touches a non-channel axis is
 		/// rejected rather than misconverted, because the native IR's `.sliceChannels` addresses only axis 1.
 		private mutating func lowerSlice(_ node: ONNXNode) throws {
-			guard let inputShape = shapes[node.inputs[0]], inputShape.count == 3 || inputShape.count == 4 else {
-				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Slice expects a rank-3 or rank-4 input")
+			guard let inputShape = shapes[node.inputs[0]], !inputShape.isEmpty else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Slice expects a non-scalar input")
 			}
 			// starts/ends are required; a missing or non-constant one is unrepresentable, so reject it.
 			guard let starts = sliceInts(node, inputIndex: 1, attribute: "starts") else {
@@ -1541,6 +1893,13 @@ public struct ONNXModelReader {
 			}
 			guard let ends = sliceInts(node, inputIndex: 2, attribute: "ends") else {
 				throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Slice 'ends' must be a constant integer initializer or attribute")
+			}
+			if usesExactND {
+				try lowerExactNDSlice(node, inputShape: inputShape, starts: starts, ends: ends)
+				return
+			}
+			guard inputShape.count == 3 || inputShape.count == 4 else {
+				throw ONNXModelReaderError.shapeInferenceFailed(operation: node.name, detail: "Slice expects a rank-3 or rank-4 input on the V1 route")
 			}
 			// axes absent defaults to [0, 1, …] over starts.count (ONNX rule); steps absent defaults to [1].
 			let axes = sliceInts(node, inputIndex: 3, attribute: "axes") ?? Array(0 ..< starts.count)
@@ -1568,6 +1927,48 @@ public struct ONNXModelReader {
 			outputShape[1] = end - start
 			try record(node, kind: .sliceChannels, activationInputs: [node.inputs[0]], weightInputs: [],
 				attributes: ["startChannel": .integer(start), "endChannel": .integer(end)], outputShape: outputShape)
+		}
+
+		/// Exact-ND Slice supports static, forward unit-step ranges over any set of distinct axes. The
+		/// bounds are normalized while still in ONNX coordinates, then emitted as full-rank Core ML
+		/// begin/end/stride vectors so every omitted axis retains its original extent.
+		private mutating func lowerExactNDSlice(_ node: ONNXNode, inputShape: [Int], starts: [Int], ends: [Int]) throws {
+			let axes = sliceInts(node, inputIndex: 3, attribute: "axes") ?? Array(0 ..< starts.count)
+			let steps = sliceInts(node, inputIndex: 4, attribute: "steps") ?? Array(repeating: 1, count: starts.count)
+			guard starts.count == ends.count, starts.count == axes.count, starts.count == steps.count, !starts.isEmpty else {
+				throw ONNXModelReaderError.unsupportedAttribute(
+					operation: node.name,
+					detail: "Slice starts/ends/axes/steps must be equal-length non-empty lists"
+				)
+			}
+			var beginIds = [Int](repeating: 0, count: inputShape.count)
+			var endIds = inputShape
+			let strides = [Int](repeating: 1, count: inputShape.count)
+			var outputShape = inputShape
+			var seenAxes = Set<Int>()
+			for index in starts.indices {
+				guard steps[index] == 1 else {
+					throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Slice step \(steps[index]) is unsupported; V2 currently supports only 1")
+				}
+				let axis = try normalizedAxis(axes[index], rank: inputShape.count, operation: node.name, operatorName: "Slice")
+				guard seenAxes.insert(axis).inserted else {
+					throw ONNXModelReaderError.unsupportedAttribute(operation: node.name, detail: "Slice repeats axis \(axes[index])")
+				}
+				let extent = inputShape[axis]
+				let start = min(max(starts[index] < 0 ? starts[index] + extent : starts[index], 0), extent)
+				let end = min(max(ends[index] < 0 ? ends[index] + extent : ends[index], 0), extent)
+				guard end > start else {
+					throw ONNXModelReaderError.unsupportedAttribute(
+						operation: node.name,
+						detail: "Slice range [\(starts[index]), \(ends[index])) is empty after normalization on axis \(axes[index])"
+					)
+				}
+				beginIds[axis] = start
+				endIds[axis] = end
+				outputShape[axis] = end - start
+			}
+			try record(node, kind: .sliceND, activationInputs: [node.inputs[0]], weightInputs: [],
+				attributes: ["beginIds": .integers(beginIds), "endIds": .integers(endIds), "strides": .integers(strides)], outputShape: outputShape)
 		}
 
 		/// Resolves one of Slice's integer bound lists from whichever encoding the exporter used: the

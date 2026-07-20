@@ -83,6 +83,7 @@ public enum NativeModelAnchorFreeHead {
 		labels: [String],
 		coordinateMode: CoordinateMode,
 		weightOffset: UInt64,
+		formatVersion: Int = NativeModelGraph.legacyFormatVersion,
 		namePrefix: String = "af"
 	) throws -> Plan {
 		guard !labels.isEmpty else { throw PlanError.noLabels }
@@ -106,7 +107,7 @@ public enum NativeModelAnchorFreeHead {
 			throw PlanError.tooManyBoxes(count: boxCount)
 		}
 
-		var builder = Builder(prefix: namePrefix, weightOffset: weightOffset)
+		var builder = Builder(prefix: namePrefix, weightOffset: weightOffset, usesExactND: formatVersion == NativeModelGraph.exactNDFormatVersion)
 
 		// Separate geometry from class scores along the channel axis of the packed `[1, C, N]` tensor.
 		let boxSlice = builder.slice(output.name, from: 0, to: 4, shape: [1, 4, boxCount], name: "box")
@@ -114,8 +115,10 @@ public enum NativeModelAnchorFreeHead {
 
 		// Bring each attribute onto its own channel with the box axis behind it, so a following permute
 		// turns box index into the row index the suppression stage expects.
-		var box = builder.reshape(boxSlice, to: [1, 4, boxCount, 1], shape: [4, boxCount, 1], name: "box_column")
-		let scores = builder.reshape(scoreSlice, to: [1, classCount, boxCount, 1], shape: [classCount, boxCount, 1], name: "score_column")
+		let boxColumnShape = builder.usesExactND ? [1, 4, boxCount, 1] : [4, boxCount, 1]
+		let scoreColumnShape = builder.usesExactND ? [1, classCount, boxCount, 1] : [classCount, boxCount, 1]
+		var box = builder.reshape(boxSlice, to: [1, 4, boxCount, 1], shape: boxColumnShape, name: "box_column")
+		let scores = builder.reshape(scoreSlice, to: [1, classCount, boxCount, 1], shape: scoreColumnShape, name: "score_column")
 
 		// Pixel-space boxes become 0–1 by scaling (cx, w) by 1/width and (cy, h) by 1/height. The scale
 		// is a full `[4, N, 1]` constant — one factor per channel, repeated across every box — because
@@ -126,14 +129,16 @@ public enum NativeModelAnchorFreeHead {
 			guard width > 0, height > 0 else { throw PlanError.invalidCoordinateScale(width: width, height: height) }
 			let scale = builder.constant(
 				values: Self.inverseSizeScale(width: width, height: height, boxCount: boxCount),
-				shape: [4, boxCount, 1], name: "pixel_scale"
+				shape: boxColumnShape, name: "pixel_scale"
 			)
-			box = builder.binary(.multiply, [box, scale], shape: [4, boxCount, 1], name: "box_normalized")
+			box = builder.binary(.multiply, [box, scale], shape: boxColumnShape, name: "box_normalized")
 		}
 
 		// [box, attribute, 1] — the row-major layout Core ML's suppression consumes.
-		let coordinates = builder.transpose(box, permutation: [0, 2, 1, 3], shape: [boxCount, 4, 1], name: "coordinates")
-		let confidence = builder.transpose(scores, permutation: [0, 2, 1, 3], shape: [boxCount, classCount, 1], name: "confidence")
+		let coordinatesShape = builder.usesExactND ? [1, boxCount, 4, 1] : [boxCount, 4, 1]
+		let confidenceShape = builder.usesExactND ? [1, boxCount, classCount, 1] : [boxCount, classCount, 1]
+		let coordinates = builder.transpose(box, permutation: [0, 2, 1, 3], shape: coordinatesShape, name: "coordinates")
+		let confidence = builder.transpose(scores, permutation: [0, 2, 1, 3], shape: confidenceShape, name: "confidence")
 
 		return Plan(
 			operations: builder.operations,
@@ -168,14 +173,16 @@ public enum NativeModelAnchorFreeHead {
 	/// Mirrors `NativeModelYOLOHead.Builder`; only the op helpers this thinner head needs are kept.
 	private struct Builder {
 		let prefix: String
+		let usesExactND: Bool
 		var operations: [NativeModelOperation] = []
 		var weights: [NativeModelWeight] = []
 		var weightData = Data()
 		private let weightOffset: UInt64
 
-		init(prefix: String, weightOffset: UInt64) {
+		init(prefix: String, weightOffset: UInt64, usesExactND: Bool) {
 			self.prefix = prefix
 			self.weightOffset = weightOffset
+			self.usesExactND = usesExactND
 		}
 
 		private func name(_ suffix: String) -> String { "\(prefix)_\(suffix)" }
@@ -188,19 +195,24 @@ public enum NativeModelAnchorFreeHead {
 				offset: weightOffset + UInt64(weightData.count), byteCount: UInt64(payload.count)
 			))
 			weightData.append(payload)
-			return record(.constant, inputs: [weightName], shape: shape, name: suffix)
+			return record(usesExactND ? .constantND : .constant, inputs: [weightName], shape: shape, name: suffix)
 		}
 
 		mutating func reshape(_ input: String, to target: [Int], shape: [Int], name suffix: String) -> String {
-			record(.reshape, inputs: [input], shape: shape, name: suffix, attributes: ["shape": .integers(target)])
+			record(usesExactND ? .reshapeND : .reshape, inputs: [input], shape: shape, name: suffix, attributes: ["shape": .integers(target)])
 		}
 
 		mutating func transpose(_ input: String, permutation: [Int], shape: [Int], name suffix: String) -> String {
-			record(.transpose, inputs: [input], shape: shape, name: suffix, attributes: ["permutation": .integers(permutation)])
+			record(usesExactND ? .transposeND : .transpose, inputs: [input], shape: shape, name: suffix, attributes: ["permutation": .integers(permutation)])
 		}
 
 		mutating func slice(_ input: String, from start: Int, to end: Int, shape: [Int], name suffix: String) -> String {
-			record(.sliceChannels, inputs: [input], shape: shape, name: suffix, attributes: [
+			if usesExactND {
+				return record(.sliceND, inputs: [input], shape: shape, name: suffix, attributes: [
+					"beginIds": .integers([0, start, 0]), "endIds": .integers([1, end, shape[2]]), "strides": .integers([1, 1, 1])
+				])
+			}
+			return record(.sliceChannels, inputs: [input], shape: shape, name: suffix, attributes: [
 				"startChannel": .integer(start), "endChannel": .integer(end)
 			])
 		}

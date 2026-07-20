@@ -1,0 +1,27 @@
+{
+  "comment": "onnxruntime oracle for aaurelions/yolo11n.onnx at f46d9b7. Input is the flat float32 pattern ((i*17+11) % 256)/255 over [1,3,640,640].",
+  "fileName": "yolo11n-aaurelions.onnx",
+  "url": "https://huggingface.co/aaurelions/yolo11n.onnx/resolve/f46d9b72aa9a0f02bc00484446e2310b1a549bce/yolo11n.onnx",
+  "sha256": "5ad2aa77f7f678c06880f024444cb02f5eb53f991b4a64c819805c6c701fc9b8",
+  "inputName": "images",
+  "outputName": "output0",
+  "outputShape": [1, 84, 8400],
+  "coordinateAbsoluteTolerance": 3.0,
+  "scoreAbsoluteTolerance": 0.01,
+  "samples": [
+    {"index": 0, "value": 5.564809799194336},
+    {"index": 1, "value": 16.035606384277344},
+    {"index": 5, "value": 43.34708023071289},
+    {"index": 6, "value": 45.32268142700195},
+    {"index": 97, "value": 146.18753051757812},
+    {"index": 1024, "value": 510.464599609375},
+    {"index": 4096, "value": 129.54104614257812},
+    {"index": 9999, "value": 151.6400146484375},
+    {"index": 70560, "value": 6.556510925292969e-07},
+    {"index": 176400, "value": 1.1920928955078125e-06},
+    {"index": 352800, "value": 6.318092346191406e-06},
+    {"index": 529200, "value": 6.556510925292969e-07},
+    {"index": 705594, "value": 1.2516975402832031e-06},
+    {"index": 705599, "value": 1.3709068298339844e-06}
+  ]
+}

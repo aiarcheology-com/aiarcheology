@@ -48,7 +48,7 @@ enum NativeModelAnchorFreeRecognizer {
 
 		// The output must be assembled by a channel-axis concat of exactly two branches.
 		guard let concat = producer(of: output.name, in: graph),
-			concat.kind == .concatenate,
+			(concat.kind == .concatenate || concat.kind == .concatenateND),
 			concat.attributes["axis"]?.integerValue == 1,
 			concat.inputs.count == 2,
 			let first = producer(of: concat.inputs[0], in: graph),
@@ -81,7 +81,8 @@ enum NativeModelAnchorFreeRecognizer {
 			classCount: classCount,
 			labels: labels,
 			coordinateMode: coordinateMode,
-			weightOffset: UInt64(input.weights.count)
+			weightOffset: UInt64(input.weights.count),
+			formatVersion: graph.formatVersion
 		)
 		let extendedGraph = NativeModelGraph(
 			formatVersion: graph.formatVersion,
@@ -215,13 +216,16 @@ enum NativeModelAnchorFreeRecognizer {
 		// Step back over the box path, past the scale multiplies, to the op that first joined the four
 		// channels. Bounded so a crafted graph cannot make this walk unbounded.
 		for _ in 0 ..< 8 {
-			guard let upstreamName = current.inputs.first(where: { producer(of: $0, in: graph)?.kind != .constant }),
+			guard let upstreamName = current.inputs.first(where: {
+				let kind = producer(of: $0, in: graph)?.kind
+				return kind != .constant && kind != .constantND
+			}),
 				let upstream = producer(of: upstreamName, in: graph)
 			else {
 				return false
 			}
 			switch upstream.kind {
-			case .concatenate:
+			case .concatenate, .concatenateND:
 				guard upstream.inputs.count == 2 else { return false }
 				return upstream.inputs.allSatisfy { name in
 					guard let part = producer(of: name, in: graph), let shape = part.outputs.first?.shape,
@@ -250,11 +254,12 @@ enum NativeModelAnchorFreeRecognizer {
 	}
 
 	/// Reads the float32 values of the constant feeding `operation` (the first input whose producer is
-	/// a `.constant`). Returns nil when no readable float constant feeds it.
+	/// a `.constant` or `.constantND`). Returns nil when no readable float constant feeds it.
 	private static func constantValues(feeding operation: NativeModelOperation, in graph: NativeModelGraph, weights: Data) -> [Float]? {
 		let weightsByName = Dictionary(graph.weights.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
 		for inputName in operation.inputs {
-			guard let producer = producer(of: inputName, in: graph), producer.kind == .constant,
+			guard let producer = producer(of: inputName, in: graph),
+				(producer.kind == .constant || producer.kind == .constantND),
 				let weightName = producer.inputs.first,
 				let weight = weightsByName[weightName],
 				weight.dataType == .float32

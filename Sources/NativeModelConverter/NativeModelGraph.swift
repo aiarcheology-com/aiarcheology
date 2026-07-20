@@ -14,7 +14,19 @@ import Foundation
 /// large weights file. See `NATIVE_MODEL_CONVERSION.md` for the package layout and Python-side
 /// exporter contract.
 public struct NativeModelGraph: Codable, Equatable, Sendable {
+	/// The original graph contract. It uses the classic Core ML rank-5 shape layers for the
+	/// detection decode and must remain readable/emittable for existing `.aiagraph` packages.
+	public static let legacyFormatVersion = 1
+	/// Exact-rank Core ML operations added for attention-style ONNX graphs (AIA-0469 PR 3).
+	public static let exactNDFormatVersion = 2
+	/// Kept as the conservative default for callers constructing a legacy graph directly. ONNX
+	/// lowering selects V2 explicitly only after its preflight chooses the exact-ND backend.
 	public static let currentFormatVersion = 1
+	public static let supportedFormatVersions: Set<Int> = [legacyFormatVersion, exactNDFormatVersion]
+
+	public static func isSupportedFormatVersion(_ version: Int) -> Bool {
+		supportedFormatVersions.contains(version)
+	}
 
 	public let formatVersion: Int
 	public let producer: NativeModelGraphProducer
@@ -159,6 +171,13 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 	case reshape
 	case transpose
 	case concatenate
+	case reshapeND
+	case transposeND
+	case concatenateND
+	case sliceND
+	case splitND
+	case batchedMatrixMultiplicationND
+	case constantND
 	case softmax
 	case matrixMultiplication
 	case add
@@ -190,6 +209,13 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		case .reshape: "reshape"
 		case .transpose: "transpose"
 		case .concatenate: "concat"
+		case .reshapeND: "reshapeND"
+		case .transposeND: "transposeND"
+		case .concatenateND: "concatND"
+		case .sliceND: "sliceND"
+		case .splitND: "splitND"
+		case .batchedMatrixMultiplicationND: "batchedMatmulND"
+		case .constantND: "constantND"
 		case .softmax: "softmax"
 		case .matrixMultiplication: "matmul"
 		case .add: "add"
@@ -229,6 +255,13 @@ public enum NativeModelOperationKind: Equatable, Sendable {
 		"reshape": .reshape,
 		"transpose": .transpose,
 		"concat": .concatenate,
+		"reshapeND": .reshapeND,
+		"transposeND": .transposeND,
+		"concatND": .concatenateND,
+		"sliceND": .sliceND,
+		"splitND": .splitND,
+		"batchedMatmulND": .batchedMatrixMultiplicationND,
+		"constantND": .constantND,
 		"softmax": .softmax,
 		"matmul": .matrixMultiplication,
 		"add": .add,
@@ -445,7 +478,7 @@ public struct NativeModelGraphValidator {
 		var issues: [NativeModelGraphValidationIssue] = []
 		var knownTensors: [String: NativeModelTensor] = [:]
 
-		if graph.formatVersion != NativeModelGraph.currentFormatVersion {
+		if !NativeModelGraph.isSupportedFormatVersion(graph.formatVersion) {
 			issues.append(.unsupportedFormatVersion(graph.formatVersion))
 		}
 		if graph.producer.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -467,6 +500,7 @@ public struct NativeModelGraphValidator {
 		for operation in graph.operations {
 			validate(
 				operation: operation,
+				formatVersion: graph.formatVersion,
 				knownTensors: &knownTensors,
 				operationNames: &operationNames,
 				issues: &issues
@@ -543,6 +577,7 @@ public struct NativeModelGraphValidator {
 
 	private func validate(
 		operation: NativeModelOperation,
+		formatVersion: Int,
 		knownTensors: inout [String: NativeModelTensor],
 		operationNames: inout Set<String>,
 		issues: inout [NativeModelGraphValidationIssue]
@@ -556,6 +591,9 @@ public struct NativeModelGraphValidator {
 			return
 		}
 		if !operation.kind.isSupported {
+			issues.append(.unsupportedOperation(operation: operation.name, kind: operation.kind.serializedValue))
+		}
+		if !isValid(operation.kind, forFormatVersion: formatVersion) {
 			issues.append(.unsupportedOperation(operation: operation.name, kind: operation.kind.serializedValue))
 		}
 
@@ -580,9 +618,16 @@ public struct NativeModelGraphValidator {
 	) {
 		guard operation.kind.isSupported else { return }
 
-		guard operation.outputs.count == 1 else {
-			issues.append(.invalidArity(operation: operation.name, expected: "exactly one output", actual: operation.outputs.count))
-			return
+		if operation.kind == .splitND {
+			guard operation.outputs.count >= 2 else {
+				issues.append(.invalidArity(operation: operation.name, expected: "at least two outputs", actual: operation.outputs.count))
+				return
+			}
+		} else {
+			guard operation.outputs.count == 1 else {
+				issues.append(.invalidArity(operation: operation.name, expected: "exactly one output", actual: operation.outputs.count))
+				return
+			}
 		}
 
 		switch operation.kind {
@@ -605,8 +650,12 @@ public struct NativeModelGraphValidator {
 			// so its only parameter is a positive [H, W] scaling factor.
 			requireArity(operation, exact: 1, issues: &issues)
 			requirePositiveIntegerArray(operation, name: "scalingFactor", count: 2, issues: &issues)
-		case .matrixMultiplication, .add, .subtract, .multiply, .divide:
+		case .batchedMatrixMultiplicationND, .add, .subtract, .multiply, .divide:
 			requireArity(operation, exact: 2, issues: &issues)
+		case .splitND:
+			requireArity(operation, exact: 1, issues: &issues)
+			requireInteger(operation, name: "axis", issues: &issues)
+			requirePositiveIntegerArray(operation, name: "splitSizes", count: operation.outputs.count, issues: &issues)
 		case .batchNormalization:
 			requireArity(operation, exact: 5, issues: &issues)
 			requirePositiveFloatingPoint(operation, name: "epsilon", issues: &issues)
@@ -637,16 +686,20 @@ public struct NativeModelGraphValidator {
 			requireNonNegativeInteger(operation, name: "startChannel", issues: &issues)
 			requirePositiveInteger(operation, name: "endChannel", issues: &issues)
 			requireOrderedChannelRange(operation, issues: &issues)
-		case .constant:
+		case .constant, .constantND:
 			// The single input names the weight holding the constant's values; there is no activation.
 			requireArity(operation, exact: 1, issues: &issues)
-		case .reshape:
+		case .reshape, .reshapeND:
 			requireArity(operation, exact: 1, issues: &issues)
 			requirePositiveIntegerArray(operation, name: "shape", count: nil, issues: &issues)
 		case .transpose:
 			requireArity(operation, exact: 1, issues: &issues)
-			requirePermutation(operation, issues: &issues)
-		case .concatenate:
+			requireLegacyPermutation(operation, issues: &issues)
+		case .transposeND:
+			requireArity(operation, exact: 1, issues: &issues)
+			guard let input = operation.inputs.first.flatMap({ knownTensors[$0] }) else { return }
+			requireExactNDPermutation(operation, rank: input.shape.count, issues: &issues)
+		case .concatenate, .concatenateND:
 			requireArity(operation, minimum: 2, issues: &issues)
 			requireInteger(operation, name: "axis", issues: &issues)
 		case .softmax:
@@ -655,8 +708,35 @@ public struct NativeModelGraphValidator {
 		case .flatten:
 			requireArity(operation, exact: 1, issues: &issues)
 			requireInteger(operation, name: "axis", issues: &issues)
+		case .sliceND:
+			requireArity(operation, exact: 1, issues: &issues)
+			guard let input = operation.inputs.first.flatMap({ knownTensors[$0] }) else { return }
+			requireNonNegativeIntegerArray(operation, name: "beginIds", count: input.shape.count, issues: &issues)
+			requireNonNegativeIntegerArray(operation, name: "endIds", count: input.shape.count, issues: &issues)
+			requirePositiveIntegerArray(operation, name: "strides", count: input.shape.count, issues: &issues)
 		default:
 			break
+		}
+	}
+
+	/// V2 is an exact-ND graph family. V1 retains the classic rank-5 layout operations exactly as
+	/// shipped; the two families may share ordinary convolution/activation/elementwise nodes only.
+	private func isValid(_ kind: NativeModelOperationKind, forFormatVersion formatVersion: Int) -> Bool {
+		let exactNDOnly: [NativeModelOperationKind] = [
+			.reshapeND, .transposeND, .concatenateND, .sliceND, .splitND,
+			.batchedMatrixMultiplicationND, .constantND
+		]
+		let legacyLayoutOnly: [NativeModelOperationKind] = [
+			.reshape, .transpose, .concatenate, .sliceChannels, .softmaxChannel, .constant
+		]
+		if kind == .matrixMultiplication { return false }
+		switch formatVersion {
+		case NativeModelGraph.legacyFormatVersion:
+			return !exactNDOnly.contains(kind)
+		case NativeModelGraph.exactNDFormatVersion:
+			return !legacyLayoutOnly.contains(kind)
+		default:
+			return false
 		}
 	}
 
@@ -783,6 +863,21 @@ public struct NativeModelGraphValidator {
 	private func requireNonNegativeIntegerArray(
 		_ operation: NativeModelOperation,
 		name: String,
+		count: Int,
+		issues: inout [NativeModelGraphValidationIssue]
+	) {
+		guard let values = operation.attributes[name]?.integerArrayValue,
+			values.count == count,
+			values.allSatisfy({ $0 >= 0 })
+		else {
+			issues.append(.invalidAttribute(operation: operation.name, attribute: name, expected: "\(count) non-negative integers"))
+			return
+		}
+	}
+
+	private func requireNonNegativeIntegerArray(
+		_ operation: NativeModelOperation,
+		name: String,
 		validCounts: Set<Int>,
 		issues: inout [NativeModelGraphValidationIssue]
 	) {
@@ -798,7 +893,7 @@ public struct NativeModelGraphValidator {
 	/// Core ML's permute layer always addresses the four `(sequence, channel, height, width)` axes of
 	/// its internal layout, whatever rank the declared tensor has — so the permutation is checked
 	/// against those four axes rather than against the input's own rank.
-	private func requirePermutation(
+	private func requireLegacyPermutation(
 		_ operation: NativeModelOperation,
 		issues: inout [NativeModelGraphValidationIssue]
 	) {
@@ -807,6 +902,20 @@ public struct NativeModelGraphValidator {
 			  Set(values) == Set(0 ..< 4)
 		else {
 			issues.append(.invalidAttribute(operation: operation.name, attribute: "permutation", expected: "a permutation of the four Core ML axes"))
+			return
+		}
+	}
+
+	private func requireExactNDPermutation(
+		_ operation: NativeModelOperation,
+		rank: Int,
+		issues: inout [NativeModelGraphValidationIssue]
+	) {
+		guard let values = operation.attributes["permutation"]?.integerArrayValue,
+			values.count == rank,
+			Set(values) == Set(0 ..< rank)
+		else {
+			issues.append(.invalidAttribute(operation: operation.name, attribute: "permutation", expected: "a permutation of the \(rank) tensor axes"))
 			return
 		}
 	}

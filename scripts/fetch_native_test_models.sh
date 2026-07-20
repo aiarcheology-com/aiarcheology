@@ -9,7 +9,7 @@
 #     TARGET_DIR defaults to .native-model-fixtures/ at the repo root.
 #
 # Then:
-#   NATIVE_MODEL_ONNX_DIRECTORY="<TARGET_DIR>" swift test --filter "ONNXConversionIntegrationTests|YOLOv8TrunkConversionTests"
+#   NATIVE_MODEL_ONNX_DIRECTORY="<TARGET_DIR>" swift test --filter "ONNXConversionIntegrationTests|YOLOv5TrunkConversionTests|YOLOv8TrunkConversionTests|YOLO11TrunkConversionTests"
 #
 set -euo pipefail
 
@@ -49,10 +49,15 @@ for x in m['models']:
     emit(x['fileName'], x['url'], x['sha256'])
 # The YOLOv8 trunk oracle shares its fixture with the manifest's s1777 detection entry (AIA-0469
 # PR 2 added the image probes); dedupe by fileName so the shared model is fetched once.
-o = json.load(open('$REPO_ROOT/Tests/NativeModelConverterTests/Fixtures/YOLOv8TrunkOracle.json'))
-emit(o['fileName'], o['url'], o['sha256'])
+for oracle_path in [
+    '$REPO_ROOT/Tests/NativeModelConverterTests/Fixtures/YOLOv5TrunkOracle.json',
+    '$REPO_ROOT/Tests/NativeModelConverterTests/Fixtures/YOLOv8TrunkOracle.json',
+    '$REPO_ROOT/Tests/NativeModelConverterTests/Fixtures/YOLO11TrunkOracle.json',
+]:
+    o = json.load(open(oracle_path))
+    emit(o['fileName'], o['url'], o['sha256'])
 ")
 
 echo ""
 echo "Fixtures ready in: $TARGET_DIR"
-echo "Run: NATIVE_MODEL_ONNX_DIRECTORY=\"$TARGET_DIR\" swift test --filter \"ONNXConversionIntegrationTests|YOLOv8TrunkConversionTests\""
+echo "Run: NATIVE_MODEL_ONNX_DIRECTORY=\"$TARGET_DIR\" swift test --filter \"ONNXConversionIntegrationTests|YOLOv5TrunkConversionTests|YOLOv8TrunkConversionTests|YOLO11TrunkConversionTests\""

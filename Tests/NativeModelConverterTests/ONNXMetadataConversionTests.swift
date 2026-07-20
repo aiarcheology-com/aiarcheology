@@ -37,10 +37,10 @@ final class ONNXMetadataConversionTests: XCTestCase {
 	/// A genuine Ultralytics export: description/author/version/license all in `metadata_props`,
 	/// plus many extra keys that must survive as provenance.
 	///
-	/// yolo11n uses `Split`, which the converter cannot lower yet (that is #469 PR 3), so this reads
-	/// the metadata straight from the real file's bytes through the reader's parsing + mapping — the
-	/// layer AIA-0473 actually changes — rather than a full conversion that would fail before emit.
-	func testYOLO11nRealFileParsesUltralyticsAttributionAndExtraKeys() throws {
+	/// A genuine Ultralytics YOLO11 export must remain a detector all the way through the live reader
+	/// and compiled Core ML pipeline. It is the only checked-in fixture that carries `names`, so this
+	/// also proves labels come from source metadata rather than a channel-count profile.
+	func testYOLO11nRealFileConvertsWithMetadataLabelProvenance() async throws {
 		guard let onnxURL = fixtureURL("yolo11n-aaurelions.onnx") else {
 			throw XCTSkip("yolo11n-aaurelions.onnx not found.")
 		}
@@ -57,6 +57,16 @@ final class ONNXMetadataConversionTests: XCTestCase {
 		XCTAssertEqual(metadata.userDefined["docs"], "https://docs.ultralytics.com")
 		XCTAssertEqual(metadata.userDefined["task"], "detect")
 		XCTAssertEqual(metadata.userDefined["stride"], "32")
+
+		let conversion = try ONNXModelReader().read(from: onnxURL)
+		let detector = try XCTUnwrap(NativeModelAnchorFreeRecognizer.conversion(of: conversion))
+		XCTAssertEqual(detector.labelProvenance, .metadata)
+		XCTAssertEqual(detector.interface.labels.first, "person")
+		XCTAssertEqual(detector.interface.labels.last, "toothbrush")
+
+		let emittedMetadata = try await convertAndReadMetadata(fixture: "yolo11n-aaurelions.onnx")
+		let userDefined = try XCTUnwrap(emittedMetadata[.creatorDefinedKey] as? [String: String])
+		XCTAssertEqual(userDefined["com.aiarcheology.native.target.label-provenance"], "metadata")
 	}
 
 	/// A model with no attribution still converts, records converter provenance (so it is known to
