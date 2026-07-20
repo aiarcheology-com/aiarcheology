@@ -234,13 +234,17 @@ final class ONNXConversionIntegrationTests: XCTestCase {
 			// fixture that supplies one. This keeps the general path free of a hardcoded label list.
 			if let classIndex = expected.classIndex {
 				XCTAssertEqual(topClass, classIndex, "\(context): the matched box has the wrong class index.")
-			} else if let label = expected.label, topClass < NativeModelDetectorCatalog.pascalVOCLabels.count {
-				XCTAssertEqual(
-					NativeModelDetectorCatalog.pascalVOCLabels[topClass], label,
-					"\(context): the matched box wears the wrong class."
-				)
+			} else if let label = expected.label {
+				if topClass < NativeModelDetectorCatalog.pascalVOCLabels.count {
+					XCTAssertEqual(
+						NativeModelDetectorCatalog.pascalVOCLabels[topClass], label,
+						"\(context): the matched box wears the wrong class."
+					)
+				} else {
+					XCTFail("\(context): top class index \(topClass) is outside the Pascal-VOC range; this fixture should assert a classIndex.")
+				}
 			} else {
-				XCTFail("\(context): an expected box needs a classIndex or a Pascal-VOC label.")
+				XCTFail("\(context): an expected box needs a classIndex or a label.")
 			}
 			XCTAssertEqual(
 				match.scores[topClass], expected.confidence, accuracy: 0.015,

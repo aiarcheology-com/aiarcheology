@@ -131,6 +131,14 @@ final class NativeModelAnchorFreeRecognizerTests: XCTestCase {
 		XCTAssertNil(try NativeModelDetectorCatalog.detectionConversion(of: input), "an unknown box scale must be refused")
 	}
 
+	func testRejects_whenBoxCountExceedsTheCeiling() throws {
+		// An oversized box axis is refused at the shape guard, before the scale constant is ever read.
+		let input = makeAnchorFreeInput(
+			boxScale: [1.0 / 640], boxCount: NativeModelAnchorFreeHead.maximumBoxCount + 1, classCount: 80
+		)
+		XCTAssertNil(try NativeModelDetectorCatalog.detectionConversion(of: input), "an oversized box axis must be refused")
+	}
+
 	func testRejects_whenBoxChannelsAreNotACentreSizeAssembly() throws {
 		// The four box channels reach the concat directly, not via a centre⊕size join — not a cxcywh head.
 		let input = makeAnchorFreeInput(

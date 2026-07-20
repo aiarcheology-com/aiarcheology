@@ -236,4 +236,23 @@ final class NativeModelDetectorPipelineTests: XCTestCase {
 			}
 		}
 	}
+
+	func testDetectorPipeline_rejectsATargetClassCountThatDisagreesWithLabels() {
+		// A target class count that disagrees with the label vector would emit metadata that lies about
+		// the model's class count; it must fail loudly instead.
+		let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
+		defer { try? FileManager.default.removeItem(at: url) }
+
+		XCTAssertThrowsError(
+			try NativeModelCoreMLEmitter().emit(
+				graph: passThroughGraph(boxCount: 3, classCount: 2), weights: Data(), to: url,
+				detection: interface(boxCount: 3, labels: ["a", "b"]),
+				detectionTarget: NativeModelDetectionTargetInfo(classCount: 3, labelProvenance: .unnamed, coordinateMode: .normalizedByGraph)
+			)
+		) { error in
+			guard case .invalidDetectionInterface = error as? NativeModelCoreMLEmissionError else {
+				return XCTFail("Expected invalidDetectionInterface, got \(error).")
+			}
+		}
+	}
 }

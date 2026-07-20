@@ -33,10 +33,16 @@ enum NativeModelAnchorFreeRecognizer {
 			return nil
 		}
 		// The output must be a rank-3 `[1, channels, boxes]` prediction with at least the four geometry
-		// channels plus one class, and more than one box. (Rank-3 is what keeps this path disjoint from
-		// the rank-4 anchor-based matcher — the two can never both fire.)
+		// channels plus one class, and a box count within the supported ceiling. (Rank-3 is what keeps
+		// this path disjoint from the rank-4 anchor-based matcher — the two can never both fire. The
+		// box-count cap is applied HERE, before the scale constant is read, so a crafted huge box axis
+		// cannot force a large allocation in `constantValues` on the way to the planner's own check.)
 		let shape = output.shape
-		guard shape.count == 3, shape[0] == 1, shape[1] >= 5, shape[2] > 1 else { return nil }
+		guard shape.count == 3, shape[0] == 1, shape[1] >= 5,
+			shape[2] > 1, shape[2] <= NativeModelAnchorFreeHead.maximumBoxCount
+		else {
+			return nil
+		}
 		let classCount = shape[1] - 4
 		let boxCount = shape[2]
 

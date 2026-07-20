@@ -191,6 +191,13 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		reporting progress: NativeModelConversionProgressHandler? = nil,
 		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws {
+		// The recorded class count must match the interface's labels; a mismatch would emit a model
+		// whose metadata states a class count its confidence matrix does not have.
+		guard detectionTarget.classCount == detection.labels.count else {
+			throw NativeModelCoreMLEmissionError.invalidDetectionInterface(
+				reason: "detection target class count \(detectionTarget.classCount) does not match \(detection.labels.count) labels"
+			)
+		}
 		// `weights` here is the detector blob (network weights + synthesized decode constants), which
 		// is exactly what gets emitted — so hashing it yields a truthful weights-sha256 for the
 		// pipeline model. makeModel attaches this metadata to the OUTER pipeline description.
