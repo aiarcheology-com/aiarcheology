@@ -465,7 +465,11 @@ struct WebScreenView: View {
 		}
 		Task { @MainActor in
 			guard let image = await appState.webViewRenderer.snapshot() else {
-				LoggingPolicy.error("Manual finding pick: snapshot failed", logger: .ui)
+				// WebSnapshotRenderer records the concrete WebKit error when one is
+				// available. Cancelling here is the expected fallback for a frame that
+				// cannot be snapshotted, so keep it as a breadcrumb instead of sending
+				// a second, context-free Sentry error for the same attempt.
+				LoggingPolicy.warning("Manual finding pick cancelled: snapshot unavailable", logger: .ui)
 				cancelFindPick()
 				return
 			}

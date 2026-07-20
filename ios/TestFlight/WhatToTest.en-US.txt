@@ -1,20 +1,10 @@
-Test Focus: Importing a YOLOv8 (.onnx) object detector by URL
+Test Focus: Saving a manual finding when the web page cannot be snapshotted
 
 What's new:
 
-• The on-device converter now recognizes modern YOLOv8-style raw-output detectors and turns them into working Core ML object detectors — so a YOLOv8n .onnx you import by URL actually draws bounding boxes, where before only classic YOLOv2-family detectors were supported.
-• Labels come from the file when it carries them; a file that names no classes gets honest generic placeholders (class_0, class_1, …) rather than guessed names. (A clearer in-app note about inferred labels is coming separately.)
+• If the browser cannot capture the current page for a manual finding, the app now exits pick mode cleanly without creating a duplicate error report.
 
 Please test:
 
-1. Add a model by URL using this YOLOv8n export:
-   https://huggingface.co/s1777/yolo-v8n-onnx/resolve/main/yolov8n.onnx
-   It should download, convert on-device, and import as a DETECTION model (not classification).
-2. Enable it and browse an image-heavy page — you should see bounding boxes drawn around objects. This particular file carries no class names, so box labels read as "class_60" etc. — that is expected for a name-less file.
-3. Confirm classic detectors still work: any previously-working detection model (e.g. the bundled tiny-YOLO) should behave exactly as before.
-4. Confirm classification models are unaffected — importing and running an image classifier should be unchanged.
-
-Known limitations:
-
-• Newer YOLO11 models are not yet supported and should fail to import with a clear message (they use an attention block the converter can't lower yet — that support is in progress).
-• When an imported detector's file carries no class names, labels are generic placeholders; a future build will call that out in the import screen.
+1. Browse to a page, tap Find, then tap a point outside any detection box. The save-finding sheet should open as before.
+2. If the page cannot be captured, the Find overlay should dismiss and the browser should remain usable. Try again after the page finishes loading.
