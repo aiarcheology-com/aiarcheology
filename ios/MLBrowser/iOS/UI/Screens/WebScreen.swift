@@ -464,6 +464,7 @@ struct WebScreenView: View {
 			return
 		}
 		Task { @MainActor in
+			LoggingPolicy.info("Manual finding pick: taking web snapshot", logger: .ui)
 			guard let image = await appState.webViewRenderer.snapshot() else {
 				// WebSnapshotRenderer records the concrete WebKit error when one is
 				// available. Cancelling here is the expected fallback for a frame that
