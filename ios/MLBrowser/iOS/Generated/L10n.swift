@@ -329,6 +329,8 @@ internal enum L10n {
     internal static let flashOnFinding = L10n.tr("Localizable", "configuration.flashOnFinding", fallback: "Flash when object found")
     /// Flash border size
     internal static let flashSize = L10n.tr("Localizable", "configuration.flashSize", fallback: "Flash border size")
+    /// License
+    internal static let license = L10n.tr("Localizable", "configuration.license", fallback: "License")
     /// Link
     internal static let link = L10n.tr("Localizable", "configuration.link", fallback: "Link")
     /// Classification

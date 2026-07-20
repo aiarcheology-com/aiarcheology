@@ -154,7 +154,7 @@ final class NativeModelCoreMLEmitterTests: XCTestCase {
 			graph: graph, weights: Data(), to: modelURL,
 			classifierLabels: ["red", "green", "blue"], imagePreprocessing: .imageNetRGB,
 			targetSemanticsIntent: NativeModelTargetSemanticsIntent(
-				labelProfile: .imageNet1K, preprocessingProfile: .imageNetRGB
+				labelProfile: .sourceMetadata, preprocessingProfile: .imageNetRGB
 			)
 		)
 
@@ -162,7 +162,7 @@ final class NativeModelCoreMLEmitterTests: XCTestCase {
 		let model = try MLModel(contentsOf: compiledURL, configuration: cpuOnlyConfiguration())
 		let userDefined = try XCTUnwrap(model.modelDescription.metadata[.creatorDefinedKey] as? [String: String])
 		let targetSemantics = try XCTUnwrap(NativeModelTargetSemantics(userDefined: userDefined))
-		XCTAssertEqual(targetSemantics.labelProfile, .imageNet1K)
+		XCTAssertEqual(targetSemantics.labelProfile, .sourceMetadata)
 		XCTAssertEqual(targetSemantics.preprocessingProfile, .none)
 		XCTAssertEqual(model.modelDescription.inputDescriptionsByName["input"]?.type, .multiArray)
 	}

@@ -9,6 +9,7 @@
         <attribute name="enabled" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="entityId" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="file_" optional="YES" attributeType="URI"/>
+        <attribute name="license" optional="YES" attributeType="String"/>
         <attribute name="lifeCycleString" attributeType="String"/>
         <attribute name="modelDescription" optional="YES" attributeType="String"/>
         <attribute name="modelTypeParsed" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>

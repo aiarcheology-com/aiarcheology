@@ -16,6 +16,9 @@ public struct ExtractedModelInfo: Sendable, Equatable {
     public let modelVersion: String?
     public let modelDescription: String?
     public let author: String?
+    /// The source license declared in the Core ML model's standard metadata. Blank metadata is
+    /// normalized to `nil` so persistence and presentation never manufacture an empty license.
+    public let license: String?
     public let creationDateString: String?
     public let task: DeepDriverType
     /// `true` when `task` came from the metadata parser (authoritative). `false` when the parser
@@ -31,6 +34,7 @@ public struct ExtractedModelInfo: Sendable, Equatable {
         modelVersion: String?,
         modelDescription: String?,
         author: String?,
+        license: String? = nil,
         creationDateString: String?,
         task: DeepDriverType,
         typeWasParsed: Bool,
@@ -39,6 +43,7 @@ public struct ExtractedModelInfo: Sendable, Equatable {
         self.modelVersion = modelVersion
         self.modelDescription = modelDescription
         self.author = author
+        self.license = ModelLoadingService.normalizedMetadataString(license)
         self.creationDateString = creationDateString
         self.task = task
         self.typeWasParsed = typeWasParsed
@@ -82,6 +87,14 @@ public enum ModelLoadingError: Error, LocalizedError {
     }
 }
 
+/// Narrow boundary for metadata extraction from a Core ML model.
+///
+/// `ModelTypeBackfiller` uses the same extraction path as import, while tests can provide a
+/// deterministic loader without compiling a fixture model.
+protocol ModelMetadataLoading: Sendable {
+    func loadAndExtractMetadata(from url: URL, demo: Bool) async throws -> ExtractedModelInfo
+}
+
 /// Actor responsible for loading ML models and extracting metadata off the MainActor.
 ///
 /// This service handles:
@@ -98,7 +111,7 @@ public enum ModelLoadingError: Error, LocalizedError {
 /// let info = try await service.loadAndExtractMetadata(from: modelURL, demo: false)
 /// // info is Sendable, safe to use on MainActor
 /// ```
-public actor ModelLoadingService {
+public actor ModelLoadingService: ModelMetadataLoading {
 
     public init() {}
 
@@ -163,6 +176,7 @@ public actor ModelLoadingService {
             modelVersion: parser.modelVersion,
             modelDescription: parser.value(for: .description) as? String,
             author: parser.value(for: .author) as? String,
+            license: Self.normalizedMetadataString(parser.value(for: .license)),
             creationDateString: parser.value(for: .date) as? String,
             task: task,
             typeWasParsed: typeWasParsed,
@@ -172,6 +186,14 @@ public actor ModelLoadingService {
         LoggingPolicy.info("ModelLoadingService: Metadata extracted - task=\(info.task.rawValue), parsed=\(typeWasParsed), author=\(info.author ?? "unknown")", logger: .drivers)
 
         return info
+    }
+
+    /// Core ML reports some absent standard metadata fields as an empty string. Treat it as absent
+    /// rather than persisting a value the configuration screen would have to render as an empty row.
+    static func normalizedMetadataString(_ value: Any?) -> String? {
+        guard let string = value as? String else { return nil }
+        let normalized = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized.isEmpty ? nil : normalized
     }
 
     /// Parses the converter's versioned target-semantics contract from Core ML creator metadata.

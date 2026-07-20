@@ -598,6 +598,13 @@ final class FindingMigrationTests: XCTestCase {
                     if entity.attributesByName["creationDate_"] != nil {
                         row.setValue(Date(), forKey: "creationDate_")
                     }
+                    if entityName == "DeepConfiguration" {
+                        row.setValue(URL(string: "file:///legacy-\(index).mlmodel"), forKey: "file_")
+                        row.setValue("Legacy author \(index)", forKey: "author")
+                        row.setValue("Legacy model \(index)", forKey: "modelDescription")
+                        row.setValue("legacy-\(index)", forKey: "modelVersion")
+                        row.setValue("classify", forKey: "modelType")
+                    }
                 }
             }
             try seedContext.save()
@@ -641,7 +648,32 @@ final class FindingMigrationTests: XCTestCase {
             }
         }
 
-        // 4. The new Finding entity is usable in the migrated store.
+        // 4. Legacy DeepConfiguration metadata survives the custom migration policy and the
+        // newly-added optional license has the expected nil default.
+        let configurations = try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "DeepConfiguration"))
+        XCTAssertEqual(
+            Set(configurations.compactMap { $0.value(forKey: "file_") as? URL }.map(\.absoluteString)),
+            Set((0..<3).map { "file:///legacy-\($0).mlmodel" })
+        )
+        XCTAssertEqual(
+            Set(configurations.compactMap { $0.value(forKey: "author") as? String }),
+            Set((0..<3).map { "Legacy author \($0)" })
+        )
+        XCTAssertEqual(
+            Set(configurations.compactMap { $0.value(forKey: "modelTypeString") as? String }),
+            ["classify"]
+        )
+        XCTAssertTrue(
+            configurations.allSatisfy { ($0.value(forKey: "modelTypeParsed") as? Bool) == false },
+            "AIA-0402 must re-derive this new default after migration"
+        )
+        XCTAssertEqual(
+            Set(configurations.compactMap { $0.value(forKey: "modelVersion") as? String }),
+            Set((0..<3).map { "legacy-\($0)" })
+        )
+        XCTAssertTrue(configurations.allSatisfy { $0.value(forKey: "license") == nil })
+
+        // 5. The new Finding entity is usable in the migrated store.
         XCTAssertNotNil(container.managedObjectModel.entitiesByName["Finding"])
     }
 }

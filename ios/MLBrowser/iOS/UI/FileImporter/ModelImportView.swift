@@ -1025,6 +1025,7 @@ struct ModelImportView: View {
 			?? (description.isNotBlank ? description : modelURL.lastPathComponent.fileName)
 		configuration.modelVersion = extractedInfo.modelVersion
 		configuration.author = extractedInfo.author
+		configuration.license = extractedInfo.license
 		configuration.creationDate_ = extractedInfo.creationDateString?.toDate(.createMl)
 		configuration.modelType = extractedInfo.task
 		configuration.modelTypeParsed = extractedInfo.typeWasParsed
