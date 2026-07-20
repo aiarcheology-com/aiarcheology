@@ -59,6 +59,10 @@ enum NativeModelAnchorFreeRecognizer {
 			return nil
 		}
 
+		// The four box channels must be assembled as centre ⊕ size — strong evidence they are cx,cy,w,h
+		// and not, for example, xyxy corners that would feed the suppression stage garbage geometry.
+		guard boxBranchAssemblesCentreAndSize(boxBranch, in: graph) else { return nil }
+
 		// The box branch's terminal scale constant reveals the coordinate space (its value, not its
 		// shape — a normalized `÷size` and a pixel `×stride` are the same multiply op).
 		guard let coordinateMode = coordinateMode(fromBoxScale: boxBranch, graph: graph, weights: input.weights, boxCount: boxCount) else {
@@ -135,8 +139,12 @@ enum NativeModelAnchorFreeRecognizer {
 
 	/// The value classification, factored out so it is unit-testable without a graph. A per-position
 	/// (non-uniform) scale is a stride → pixels; a uniform scale equal to `[1/W, 1/H, 1/W, 1/H]` is the
-	/// graph having normalized; a uniform scale that is anything else is ambiguous → refuse.
+	/// graph having normalized; anything else — non-finite, non-positive, sub-unit non-uniform noise,
+	/// or a uniform value that is not the input reciprocal — is refused rather than guessed.
 	static func classify(boxScale values: [Float], boxCount: Int, width: Int, height: Int) -> NativeModelAnchorFreeHead.CoordinateMode? {
+		// A real normalization or stride is finite and strictly positive on every element. NaN, zero, or
+		// negative factors are neither and must not be classified as one.
+		guard !values.isEmpty, values.allSatisfy({ $0.isFinite && $0 > 0 }) else { return nil }
 		func channelValue(_ channel: Int) -> [Float]? {
 			if values.count == 4 * boxCount {
 				return Array(values[(channel * boxCount) ..< ((channel + 1) * boxCount)])
@@ -147,22 +155,30 @@ enum NativeModelAnchorFreeRecognizer {
 		}
 		let expected: [Float] = [1 / Float(width), 1 / Float(height), 1 / Float(width), 1 / Float(height)]
 		var uniformPerChannel: [Float] = []
+		var anyNonUniform = false
 		for channel in 0 ..< 4 {
 			guard let channelValues = channelValue(channel), let first = channelValues.first else { return nil }
-			// Non-uniform within a channel means a per-position scale (the stride) — the boxes are in
-			// pixels and the head must divide them down.
-			guard channelValues.allSatisfy({ abs($0 - first) <= 1e-5 * max(1, abs(first)) }) else {
-				return .pixelsOfInput(width: width, height: height)
+			if channelValues.allSatisfy({ abs($0 - first) <= 1e-6 * max(1, abs(first)) }) {
+				uniformPerChannel.append(first)
+			} else {
+				anyNonUniform = true
 			}
-			uniformPerChannel.append(first)
 		}
-		// Uniform on every channel: normalized only if it is exactly the input reciprocal per axis.
-		if zip(uniformPerChannel, expected).allSatisfy({ abs($0 - $1) <= 1e-3 * $1 }) {
-			return .normalizedByGraph
+		if anyNonUniform {
+			// A per-position scale is a pixel stride. Strides are integer feature-map steps ≥ 1, so
+			// requiring every factor ≥ 1 separates a real stride from sub-unit noise that is neither a
+			// stride nor a reciprocal. (The full stride-vector pattern is checked once the pixel path is
+			// integration-exercised in PR 3.)
+			guard values.allSatisfy({ $0 >= 1 }) else { return nil }
+			return .pixelsOfInput(width: width, height: height)
 		}
-		// A uniform box scale that is not `1/inputSize` is an unknown convention — refuse it rather than
-		// mislocate every box.
-		return nil
+		// Uniform on every channel: normalized only if it matches the input reciprocal per axis tightly.
+		guard uniformPerChannel.count == 4,
+			zip(uniformPerChannel, expected).allSatisfy({ abs($0 - $1) <= 1e-4 * $1 })
+		else {
+			return nil
+		}
+		return .normalizedByGraph
 	}
 
 	// MARK: - Labels
@@ -177,6 +193,45 @@ enum NativeModelAnchorFreeRecognizer {
 			return (names, .metadata)
 		}
 		return ((0 ..< classCount).map { "class_\($0)" }, .unnamed)
+	}
+
+	// MARK: - Box assembly
+
+	/// Confirms the box branch is the ultralytics centre⊕size assembly: upstream of its scale
+	/// multiplies (÷imgsz and/or ×stride), the four box channels are a channel-concat of exactly two
+	/// two-channel tensors (centre `[cx, cy]` and size `[w, h]`). A non-cxcywh head — e.g. one that
+	/// emits `xyxy` corners — assembles its four channels differently, so this refuses it.
+	///
+	/// It is a decode *signature*, not a full numeric proof; an unrecognized assembly is refused, which
+	/// keeps a two-headed but non-detector graph from importing as a mislocating detector.
+	private static func boxBranchAssemblesCentreAndSize(_ boxBranch: NativeModelOperation, in graph: NativeModelGraph) -> Bool {
+		var current = boxBranch
+		// Step back over the box path, past the scale multiplies, to the op that first joined the four
+		// channels. Bounded so a crafted graph cannot make this walk unbounded.
+		for _ in 0 ..< 8 {
+			guard let upstreamName = current.inputs.first(where: { producer(of: $0, in: graph)?.kind != .constant }),
+				let upstream = producer(of: upstreamName, in: graph)
+			else {
+				return false
+			}
+			switch upstream.kind {
+			case .concatenate:
+				guard upstream.inputs.count == 2 else { return false }
+				return upstream.inputs.allSatisfy { name in
+					guard let part = producer(of: name, in: graph), let shape = part.outputs.first?.shape,
+						shape.count == 3, shape[0] == 1
+					else {
+						return false
+					}
+					return shape[1] == 2
+				}
+			case .multiply:
+				current = upstream  // another scale layer — keep walking back
+			default:
+				return false  // some other op reached before a two-part concat — not the recognized assembly
+			}
+		}
+		return false
 	}
 
 	// MARK: - Graph helpers
@@ -200,10 +255,11 @@ enum NativeModelAnchorFreeRecognizer {
 			else {
 				continue
 			}
-			let start = Int(weight.offset)
-			let end = start + Int(weight.byteCount)
-			guard start >= 0, end <= weights.count, (end - start) % 4 == 0 else { continue }
-			return weights.subdata(in: start ..< end).withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+			// Bound-check entirely in UInt64 against a malformed offset/length before any Int conversion,
+			// so a hostile weight range cannot trap on `Int(_:)` or overflow the addition.
+			let (end, overflow) = weight.offset.addingReportingOverflow(weight.byteCount)
+			guard !overflow, end <= UInt64(weights.count), weight.byteCount % 4 == 0 else { continue }
+			return weights.subdata(in: Int(weight.offset) ..< Int(end)).withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
 		}
 		return nil
 	}

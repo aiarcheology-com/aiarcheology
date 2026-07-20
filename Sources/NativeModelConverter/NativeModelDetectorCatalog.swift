@@ -9,16 +9,31 @@ import Foundation
 
 /// The detector facts recorded in a converted model's target metadata (AIA-0469/0471): how many
 /// classes, whether the labels are trustworthy or inferred, and the coordinate space. The import UI
-/// reads these to be honest about inferred labels.
+/// reads these to be honest about inferred labels. The typed values are kept typed here and rendered
+/// to their wire strings only when the metadata is written.
 public struct NativeModelDetectionTargetInfo: Equatable, Sendable {
 	public let classCount: Int
-	public let labelProvenance: String
-	public let coordinateSpace: String
+	public let labelProvenance: NativeModelDetectorCatalog.DetectorLabelProvenance
+	public let coordinateMode: NativeModelAnchorFreeHead.CoordinateMode
 
-	public init(classCount: Int, labelProvenance: String, coordinateSpace: String) {
+	public init(
+		classCount: Int,
+		labelProvenance: NativeModelDetectorCatalog.DetectorLabelProvenance,
+		coordinateMode: NativeModelAnchorFreeHead.CoordinateMode
+	) {
 		self.classCount = classCount
 		self.labelProvenance = labelProvenance
-		self.coordinateSpace = coordinateSpace
+		self.coordinateMode = coordinateMode
+	}
+
+	/// The wire string recorded under `…target.label-provenance`.
+	var labelProvenanceValue: String { labelProvenance.rawValue }
+	/// The wire string recorded under `…target.coordinate-space`.
+	var coordinateSpaceValue: String {
+		switch coordinateMode {
+		case .normalizedByGraph: return "normalized-by-graph"
+		case .pixelsOfInput: return "pixels-of-input"
+		}
 	}
 }
 
@@ -100,15 +115,10 @@ public enum NativeModelDetectorCatalog {
 
 		/// The detector facts to record in the converted model's target metadata.
 		public var targetInfo: NativeModelDetectionTargetInfo {
-			let coordinateSpace: String
-			switch coordinateMode {
-			case .normalizedByGraph: coordinateSpace = "normalized-by-graph"
-			case .pixelsOfInput: coordinateSpace = "pixels-of-input"
-			}
-			return NativeModelDetectionTargetInfo(
+			NativeModelDetectionTargetInfo(
 				classCount: interface.labels.count,
-				labelProvenance: labelProvenance.rawValue,
-				coordinateSpace: coordinateSpace
+				labelProvenance: labelProvenance,
+				coordinateMode: coordinateMode
 			)
 		}
 	}

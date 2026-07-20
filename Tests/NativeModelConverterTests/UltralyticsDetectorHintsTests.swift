@@ -181,4 +181,33 @@ final class UltralyticsDetectorHintsTests: XCTestCase {
 		let raw = ONNXRawMetadata(props: [(" task ", "classify"), ("task", "detect")])
 		XCTAssertEqual(UltralyticsDetectorHints.parse(from: raw).task, "detect")
 	}
+
+	// MARK: - Review hardening: last-occurrence, leading-zero keys, control characters
+
+	func testParse_lastNamesOccurrenceWins() {
+		let raw = ONNXRawMetadata(props: [("names", "{0: 'a'}"), ("names", "{0: 'z'}")])
+		XCTAssertEqual(UltralyticsDetectorHints.parse(from: raw).names, ["z"])
+	}
+
+	func testParse_oversizeLastNames_isAbsentNotStaleEarlier() {
+		// An oversized FINAL occurrence must make names absent — never fall back to an earlier valid map.
+		let oversize = "{0: '" + String(repeating: "x", count: UltralyticsDetectorHints.maximumValueByteCount) + "'}"
+		let raw = ONNXRawMetadata(props: [("names", "{0: 'a', 1: 'b'}"), ("names", oversize)])
+		XCTAssertNil(UltralyticsDetectorHints.parse(from: raw).names)
+	}
+
+	func testNames_leadingZeroKey_rejected() {
+		XCTAssertNil(UltralyticsDetectorHints.parseNames("{00: 'a'}"))
+		XCTAssertNil(UltralyticsDetectorHints.parseNames("{0: 'a', 01: 'b'}"))
+	}
+
+	func testNames_rawControlCharInLabel_rejected() {
+		XCTAssertNil(UltralyticsDetectorHints.parseNames("{0: 'a\nb'}"))
+		XCTAssertNil(UltralyticsDetectorHints.parseNames("{0: 'a\tb'}"))
+	}
+
+	func testNames_escapedNewlineStillDecodes() {
+		// The escaped form is preserved even though a raw newline is rejected.
+		XCTAssertEqual(UltralyticsDetectorHints.parseNames("{0: 'a\\nb'}"), ["a\nb"])
+	}
 }

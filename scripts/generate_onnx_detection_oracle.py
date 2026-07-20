@@ -61,7 +61,11 @@ def main() -> int:
         print(__doc__)
         return 2
     model_path = sys.argv[1]
-    seed = int(sys.argv[2], 16)
+    seed_text = sys.argv[2]
+    if not seed_text.startswith("0x"):
+        print(f"Seed must be a 0x-prefixed hex literal (matching the Swift test): {seed_text!r}", file=sys.stderr)
+        return 2
+    seed = int(seed_text[2:], 16)
     confidence_threshold = float(sys.argv[3])
     iou_threshold = float(sys.argv[4]) if len(sys.argv) > 4 else 0.45
     size = int(sys.argv[5]) if len(sys.argv) > 5 else 640

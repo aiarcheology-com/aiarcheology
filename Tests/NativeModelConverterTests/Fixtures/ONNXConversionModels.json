@@ -184,6 +184,7 @@
         "width": 640,
         "height": 640
       },
+      "expectedClassCount": 80,
       "detectionProbes": [
         {
           "noiseSeed": "0xACE",

@@ -34,11 +34,15 @@ while IFS=$'\t' read -r fileName url sha256; do
   echo "✓ $fileName (sha256 ok)"
 done < <(python3 -c "
 import json, sys
-seen = set()
+seen = {}
 def emit(name, url, sha):
     if name in seen:
+        # A shared fixture must agree on url + sha256 across sources; a mismatch means one drifted.
+        if seen[name] != (url, sha):
+            sys.stderr.write('conflicting url/sha256 for shared fixture %s\n' % name)
+            sys.exit(1)
         return
-    seen.add(name)
+    seen[name] = (url, sha)
     print('\t'.join([name, url, sha]))
 m = json.load(open('$MANIFEST'))
 for x in m['models']:

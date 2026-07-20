@@ -55,19 +55,20 @@ extension UltralyticsDetectorHints {
 	/// field: each of `task`/`names`/`imgsz`/`nms` is present only when it parses exactly.
 	/// Internal: `ONNXRawMetadata` is an in-module detail, and only the reader produces hints.
 	static func parse(from raw: ONNXRawMetadata) -> UltralyticsDetectorHints {
-		// Last-occurrence-wins with exact (untrimmed) keys and a size cap — the same discipline
-		// ONNXMetadataMapping uses so both readers see the same value for a key.
+		// Last-occurrence-wins with exact (untrimmed) keys — the same discipline ONNXMetadataMapping uses
+		// so both readers see the same value for a key. The size cap is applied at read time, NOT here:
+		// dropping an oversized final occurrence during dedup would leave an earlier one active, which
+		// would apply a stale value instead of treating the (malformed) last occurrence as absent.
 		var props: [String: String] = [:]
 		for (key, value) in raw.props {
 			guard key == key.trimmingCharacters(in: .whitespacesAndNewlines), !key.isEmpty else { continue }
-			guard value.utf8.count <= maximumValueByteCount else { continue }
 			props[key] = value
 		}
 		func prop(_ name: String) -> String? {
-			guard let value = props[name]?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
-				return nil
-			}
-			return value
+			// An oversized surviving value makes the field absent (all-or-nothing), never a fallback.
+			guard let raw = props[name], raw.utf8.count <= maximumValueByteCount else { return nil }
+			let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+			return value.isEmpty ? nil : value
 		}
 		return UltralyticsDetectorHints(
 			task: prop("task"),
@@ -186,6 +187,9 @@ private struct Scanner {
 		let start = index
 		while index < chars.count, chars[index] >= "0", chars[index] <= "9" { index += 1 }
 		guard index > start else { return nil }
+		// Reject a leading-zero multi-digit run: `00` / `01` is invalid Python dict-key syntax and must
+		// not parse as a dense index.
+		if index - start > 1, chars[start] == "0" { return nil }
 		return Int(String(chars[start..<index]))
 	}
 
@@ -214,6 +218,9 @@ private struct Scanner {
 				index += 1
 				return output
 			} else {
+				// Reject a raw control character (a literal newline, tab, or NUL in a label is malformed);
+				// the escaped \n and \t forms are handled above and still decode.
+				guard !character.unicodeScalars.contains(where: { $0.value < 0x20 }) else { return nil }
 				output.append(character)
 				index += 1
 			}

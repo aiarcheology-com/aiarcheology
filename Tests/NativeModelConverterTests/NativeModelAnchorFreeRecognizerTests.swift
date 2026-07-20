@@ -131,6 +131,14 @@ final class NativeModelAnchorFreeRecognizerTests: XCTestCase {
 		XCTAssertNil(try NativeModelDetectorCatalog.detectionConversion(of: input), "an unknown box scale must be refused")
 	}
 
+	func testRejects_whenBoxChannelsAreNotACentreSizeAssembly() throws {
+		// The four box channels reach the concat directly, not via a centre⊕size join — not a cxcywh head.
+		let input = makeAnchorFreeInput(
+			boxScale: [Float](repeating: 1.0 / 640, count: 4 * 8), boxCount: 8, classCount: 80, boxAssembly: false
+		)
+		XCTAssertNil(try NativeModelDetectorCatalog.detectionConversion(of: input), "a box branch that is not centre⊕size is not a cxcywh detector")
+	}
+
 	// MARK: - Synthetic graph builder
 
 	/// Builds a minimal lowered graph shaped like an anchor-free head: an image input, a box branch
@@ -142,6 +150,7 @@ final class NativeModelAnchorFreeRecognizerTests: XCTestCase {
 		classCount: Int,
 		scoreKind: NativeModelOperationKind = .sigmoid,
 		outputIsConcat: Bool = true,
+		boxAssembly: Bool = true,
 		hints: UltralyticsDetectorHints = UltralyticsDetectorHints()
 	) -> ONNXConversionInput {
 		func tensor(_ name: String, _ shape: [Int]) -> NativeModelTensor {
@@ -156,11 +165,20 @@ final class NativeModelAnchorFreeRecognizerTests: XCTestCase {
 			name: "box_scale_w", dataType: .float32, shape: [4, boxCount, 1], offset: 0, byteCount: UInt64(weights.count)
 		)
 		var operations: [NativeModelOperation] = [
-			operation("box_src", .identity, ["images"], [1, 4, boxCount]),
 			operation("box_scale", .constant, ["box_scale_w"], [4, boxCount, 1]),
-			operation("box", .multiply, ["box_src", "box_scale"], [1, 4, boxCount]),
 			operation("scores", scoreKind, ["images"], [1, classCount, boxCount])
 		]
+		if boxAssembly {
+			// The ultralytics centre⊕size assembly the recognizer requires: two 2-channel tensors joined.
+			operations.append(operation("centre", .identity, ["images"], [1, 2, boxCount]))
+			operations.append(operation("size", .identity, ["images"], [1, 2, boxCount]))
+			operations.append(operation("box_assembled", .concatenate, ["centre", "size"], [1, 4, boxCount], ["axis": .integer(1)]))
+			operations.append(operation("box", .multiply, ["box_assembled", "box_scale"], [1, 4, boxCount]))
+		} else {
+			// A box branch whose four channels are not a centre⊕size concat (a direct source).
+			operations.append(operation("box_src", .identity, ["images"], [1, 4, boxCount]))
+			operations.append(operation("box", .multiply, ["box_src", "box_scale"], [1, 4, boxCount]))
+		}
 		if outputIsConcat {
 			operations.append(operation("output0", .concatenate, ["box", "scores"], [1, channels, boxCount], ["axis": .integer(1)]))
 		} else {

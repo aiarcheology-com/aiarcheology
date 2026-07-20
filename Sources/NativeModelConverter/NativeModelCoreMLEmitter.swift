@@ -184,8 +184,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		weights: Data,
 		to outputURL: URL,
 		detection: NativeModelDetectionInterface,
+		detectionTarget: NativeModelDetectionTargetInfo,
 		imagePreprocessing: NativeModelImagePreprocessing? = nil,
-		detectionTarget: NativeModelDetectionTargetInfo? = nil,
 		sourceMetadata: NativeModelCoreMLMetadata? = nil,
 		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
 		reporting progress: NativeModelConversionProgressHandler? = nil,
@@ -746,8 +746,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			// inferred, and how the coordinates were normalized.
 			userDefined["com.aiarcheology.native.target.task"] = "detection"
 			userDefined["com.aiarcheology.native.target.class-count"] = String(detection.classCount)
-			userDefined["com.aiarcheology.native.target.label-provenance"] = detection.labelProvenance
-			userDefined["com.aiarcheology.native.target.coordinate-space"] = detection.coordinateSpace
+			userDefined["com.aiarcheology.native.target.label-provenance"] = detection.labelProvenanceValue
+			userDefined["com.aiarcheology.native.target.coordinate-space"] = detection.coordinateSpaceValue
 		}
 
 		guard let source else {

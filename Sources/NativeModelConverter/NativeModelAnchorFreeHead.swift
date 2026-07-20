@@ -53,6 +53,7 @@ public enum NativeModelAnchorFreeHead {
 		case classCountMismatch(channels: Int, labels: Int)
 		case tooManyBoxes(count: Int)
 		case noLabels
+		case invalidCoordinateScale(width: Int, height: Int)
 
 		public var errorDescription: String? {
 			switch self {
@@ -65,6 +66,8 @@ public enum NativeModelAnchorFreeHead {
 			case .tooManyBoxes(let count):
 				"A \(count)-box tensor exceeds the supported maximum of \(maximumBoxCount) boxes."
 			case .noLabels: "An anchor-free head requires at least one class label."
+			case .invalidCoordinateScale(let width, let height):
+				"Pixel-space boxes need a positive input size to normalize by; got \(width)×\(height)."
 			}
 		}
 	}
@@ -118,6 +121,9 @@ public enum NativeModelAnchorFreeHead {
 		// is a full `[4, N, 1]` constant — one factor per channel, repeated across every box — because
 		// classic Core ML multiply is per-position, not broadcast per-channel here.
 		if case let .pixelsOfInput(width, height) = coordinateMode {
+			// A zero or negative input size cannot normalize pixels (it would bake infinities into the
+			// scale constant); reject it rather than emit a NaN-producing model.
+			guard width > 0, height > 0 else { throw PlanError.invalidCoordinateScale(width: width, height: height) }
 			let scale = builder.constant(
 				values: Self.inverseSizeScale(width: width, height: height, boxCount: boxCount),
 				shape: [4, boxCount, 1], name: "pixel_scale"

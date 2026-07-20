@@ -213,6 +213,9 @@ final class ONNXConversionIntegrationTests: XCTestCase {
 		}
 
 		let context = "\(manifestModel.id) probe \(probe.noiseSeed ?? "solid")"
+		if let expectedClassCount = manifestModel.expectedClassCount {
+			XCTAssertEqual(classCount, expectedClassCount, "\(context): detector class count diverged from the manifest.")
+		}
 		XCTAssertEqual(boxes.count, probe.expectedBoxes.count, "\(context): box count diverged from the oracle.")
 		// Suppression order is confidence-based and could legally tie-break differently, so each
 		// expected box is matched by geometry rather than position — and consumed, so two expected
@@ -307,6 +310,9 @@ private struct ONNXConversionModel: Decodable {
 	let solidColorProbes: [SolidColorProbe]?
 	/// Present on detector fixtures.
 	let detectionProbes: [DetectionProbe]?
+	/// Expected number of confidence columns (classes). Guards against a label/class-count regression
+	/// that an index-only box assertion would miss.
+	let expectedClassCount: Int?
 }
 
 private struct DetectionProbe: Decodable {

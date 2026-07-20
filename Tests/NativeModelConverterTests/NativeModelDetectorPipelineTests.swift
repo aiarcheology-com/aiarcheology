@@ -60,7 +60,12 @@ final class NativeModelDetectorPipelineTests: XCTestCase {
 	private func compile(_ graph: NativeModelGraph, _ detection: NativeModelDetectionInterface) async throws -> MLModel {
 		let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
 		addTeardownBlock { try? FileManager.default.removeItem(at: url) }
-		try NativeModelCoreMLEmitter().emit(graph: graph, weights: Data(), to: url, detection: detection)
+		try NativeModelCoreMLEmitter().emit(
+			graph: graph, weights: Data(), to: url, detection: detection,
+			detectionTarget: NativeModelDetectionTargetInfo(
+				classCount: detection.labels.count, labelProvenance: .convention, coordinateMode: .normalizedByGraph
+			)
+		)
 		let compiled = try await MLModel.compileModel(at: url)
 		addTeardownBlock { try? FileManager.default.removeItem(at: compiled) }
 		let configuration = MLModelConfiguration()
@@ -202,7 +207,8 @@ final class NativeModelDetectorPipelineTests: XCTestCase {
 		XCTAssertThrowsError(
 			try NativeModelCoreMLEmitter().emit(
 				graph: graph, weights: Data(), to: url,
-				detection: interface(boxCount: 3, labels: ["a", "b", "c"])
+				detection: interface(boxCount: 3, labels: ["a", "b", "c"]),
+				detectionTarget: NativeModelDetectionTargetInfo(classCount: 3, labelProvenance: .convention, coordinateMode: .normalizedByGraph)
 			)
 		) { error in
 			guard case .invalidDetectionInterface = error as? NativeModelCoreMLEmissionError else {
@@ -221,7 +227,8 @@ final class NativeModelDetectorPipelineTests: XCTestCase {
 				detection: NativeModelDetectionInterface(
 					labels: ["a", "b"], boxCount: 3,
 					coordinatesBlobName: "not_a_blob", confidenceBlobName: "raw_confidence"
-				)
+				),
+				detectionTarget: NativeModelDetectionTargetInfo(classCount: 2, labelProvenance: .convention, coordinateMode: .normalizedByGraph)
 			)
 		) { error in
 			guard case .invalidDetectionInterface = error as? NativeModelCoreMLEmissionError else {
