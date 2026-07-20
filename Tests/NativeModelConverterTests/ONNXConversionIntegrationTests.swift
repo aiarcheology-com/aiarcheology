@@ -213,6 +213,9 @@ final class ONNXConversionIntegrationTests: XCTestCase {
 		}
 
 		let context = "\(manifestModel.id) probe \(probe.noiseSeed ?? "solid")"
+		if let expectedClassCount = manifestModel.expectedClassCount {
+			XCTAssertEqual(classCount, expectedClassCount, "\(context): detector class count diverged from the manifest.")
+		}
 		XCTAssertEqual(boxes.count, probe.expectedBoxes.count, "\(context): box count diverged from the oracle.")
 		// Suppression order is confidence-based and could legally tie-break differently, so each
 		// expected box is matched by geometry rather than position — and consumed, so two expected
@@ -227,10 +230,22 @@ final class ONNXConversionIntegrationTests: XCTestCase {
 			}
 			let match = unmatched.remove(at: matchIndex)
 			let topClass: Int = try XCTUnwrap(match.scores.indices.max { match.scores[$0] < match.scores[$1] })
-			XCTAssertEqual(
-				NativeModelDetectorCatalog.pascalVOCLabels[topClass], expected.label,
-				"\(context): the matched box wears the wrong class."
-			)
+			// Prefer an index assertion; fall back to the catalogued VOC label only for the anchor-based
+			// fixture that supplies one. This keeps the general path free of a hardcoded label list.
+			if let classIndex = expected.classIndex {
+				XCTAssertEqual(topClass, classIndex, "\(context): the matched box has the wrong class index.")
+			} else if let label = expected.label {
+				if topClass < NativeModelDetectorCatalog.pascalVOCLabels.count {
+					XCTAssertEqual(
+						NativeModelDetectorCatalog.pascalVOCLabels[topClass], label,
+						"\(context): the matched box wears the wrong class."
+					)
+				} else {
+					XCTFail("\(context): top class index \(topClass) is outside the Pascal-VOC range; this fixture should assert a classIndex.")
+				}
+			} else {
+				XCTFail("\(context): an expected box needs a classIndex or a label.")
+			}
 			XCTAssertEqual(
 				match.scores[topClass], expected.confidence, accuracy: 0.015,
 				"\(context): confidence drifted from the onnxruntime oracle."
@@ -299,6 +314,9 @@ private struct ONNXConversionModel: Decodable {
 	let solidColorProbes: [SolidColorProbe]?
 	/// Present on detector fixtures.
 	let detectionProbes: [DetectionProbe]?
+	/// Expected number of confidence columns (classes). Guards against a label/class-count regression
+	/// that an index-only box assertion would miss.
+	let expectedClassCount: Int?
 }
 
 private struct DetectionProbe: Decodable {
@@ -316,7 +334,12 @@ private struct SolidColor: Decodable {
 }
 
 private struct ExpectedBox: Decodable {
-	let label: String
+	/// A catalogued-convention label (tiny-yolov2's Pascal VOC). Mutually exclusive with `classIndex`.
+	let label: String?
+	/// The expected top class *index*. Preferred for heads whose labels are file-supplied or generic
+	/// `class_<i>` placeholders, where a label-string assertion would couple the test to a naming that
+	/// is not the property under test.
+	let classIndex: Int?
 	let confidence: Double
 	let x: Double
 	let y: Double

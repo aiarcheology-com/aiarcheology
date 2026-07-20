@@ -14,6 +14,7 @@
 /// ``NativeModelProducer/name`` and ``NativeModelProducer/version`` in the graph package.
 public enum NativeModelConverterVersion {
 	public static let packageVersion = "0.1.0"
-	/// Revision 2 adds converted-model source-artifact provenance keys.
-	public static let conversionRevision = 2
+	/// Revision 3 adds anchor-free detector emission (a Core ML NMS pipeline for v8/v11 raw heads)
+	/// and its target metadata: task, class count, label provenance, and coordinate space.
+	public static let conversionRevision = 3
 }

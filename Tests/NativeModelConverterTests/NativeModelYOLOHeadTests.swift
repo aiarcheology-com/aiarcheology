@@ -100,7 +100,12 @@ final class NativeModelYOLOHeadTests: XCTestCase {
 		let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mlmodel")
 		addTeardownBlock { try? FileManager.default.removeItem(at: url) }
 		if detection {
-			try NativeModelCoreMLEmitter().emit(graph: graph, weights: weights, to: url, detection: interface)
+			try NativeModelCoreMLEmitter().emit(
+				graph: graph, weights: weights, to: url, detection: interface,
+				detectionTarget: NativeModelDetectionTargetInfo(
+					classCount: interface.labels.count, labelProvenance: .convention, coordinateMode: .normalizedByGraph
+				)
+			)
 		} else {
 			try NativeModelCoreMLEmitter().emit(graph: graph, weights: weights, to: url)
 		}

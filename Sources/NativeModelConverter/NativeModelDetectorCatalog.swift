@@ -7,6 +7,36 @@
 
 import Foundation
 
+/// The detector facts recorded in a converted model's target metadata (AIA-0469/0471): how many
+/// classes, whether the labels are trustworthy or inferred, and the coordinate space. The import UI
+/// reads these to be honest about inferred labels. The typed values are kept typed here and rendered
+/// to their wire strings only when the metadata is written.
+public struct NativeModelDetectionTargetInfo: Equatable, Sendable {
+	public let classCount: Int
+	public let labelProvenance: NativeModelDetectorCatalog.DetectorLabelProvenance
+	public let coordinateMode: NativeModelAnchorFreeHead.CoordinateMode
+
+	public init(
+		classCount: Int,
+		labelProvenance: NativeModelDetectorCatalog.DetectorLabelProvenance,
+		coordinateMode: NativeModelAnchorFreeHead.CoordinateMode
+	) {
+		self.classCount = classCount
+		self.labelProvenance = labelProvenance
+		self.coordinateMode = coordinateMode
+	}
+
+	/// The wire string recorded under `…target.label-provenance`.
+	var labelProvenanceValue: String { labelProvenance.rawValue }
+	/// The wire string recorded under `…target.coordinate-space`.
+	var coordinateSpaceValue: String {
+		switch coordinateMode {
+		case .normalizedByGraph: return "normalized-by-graph"
+		case .pixelsOfInput: return "pixels-of-input"
+		}
+	}
+}
+
 /// Matches a lowered ONNX graph against known detector heads and, on a match, appends the
 /// synthesized decode so the emitter can write a detector pipeline.
 ///
@@ -61,18 +91,48 @@ public enum NativeModelDetectorCatalog {
 	/// feature onto the graph's input blob) without normalizing twice.
 	static let identityRGB = NativeModelImagePreprocessing(colorSpace: .rgb, scale: [1, 1, 1], bias: [0, 0, 0])
 
+	/// How a detector's labels were determined, surfaced in the converted model's metadata so the
+	/// import UI (AIA-0471) can be honest when labels are inferred rather than read from the file.
+	public enum DetectorLabelProvenance: String, Equatable, Sendable {
+		/// Labels came from the file's own `names` map — trustworthy, no warning needed.
+		case metadata
+		/// Labels are a catalogued convention for a recognized head (e.g. tiny-yolov2's Pascal VOC).
+		case convention
+		/// The file named no classes; labels are generic `class_<i>` placeholders.
+		case unnamed
+	}
+
 	/// A conversion input whose graph has been extended with a recognized head's decode.
 	public struct DetectionConversion {
 		public let graph: NativeModelGraph
 		public let weights: Data
 		public let interface: NativeModelDetectionInterface
 		public let imagePreprocessing: NativeModelImagePreprocessing
+		/// How the labels in `interface` were determined.
+		public let labelProvenance: DetectorLabelProvenance
+		/// The coordinate space the head decoded from, recorded as provenance.
+		public let coordinateMode: NativeModelAnchorFreeHead.CoordinateMode
+
+		/// The detector facts to record in the converted model's target metadata.
+		public var targetInfo: NativeModelDetectionTargetInfo {
+			NativeModelDetectionTargetInfo(
+				classCount: interface.labels.count,
+				labelProvenance: labelProvenance,
+				coordinateMode: coordinateMode
+			)
+		}
 	}
 
-	/// Returns the detection extension of `input` when its single output is a recognized raw grid,
-	/// nil when it is not a known detector. Throws only if a matched head fails to plan — that is a
-	/// converter bug or corrupt graph, not an unrecognized model.
+	/// Returns the detection extension of `input` when its single output is a recognized detector head
+	/// — a catalogued anchor-based grid, or an anchor-free raw-prediction tensor — or nil when it is
+	/// not a known detector. Throws only if a matched head fails to plan (a converter bug or corrupt
+	/// graph, not an unrecognized model).
 	public static func detectionConversion(of input: ONNXConversionInput) throws -> DetectionConversion? {
+		if let anchorBased = try anchorBasedConversion(of: input) { return anchorBased }
+		return try NativeModelAnchorFreeRecognizer.conversion(of: input)
+	}
+
+	private static func anchorBasedConversion(of input: ONNXConversionInput) throws -> DetectionConversion? {
 		let graph = input.graph
 		// The grid-size ceiling keeps a crafted small-on-disk model declaring an enormous grid from
 		// matching: planning materializes dense S²-sized constants, and an oversized tensor is not a
@@ -105,11 +165,15 @@ public enum NativeModelDetectorCatalog {
 			graph: extendedGraph,
 			weights: input.weights + plan.weightData,
 			interface: plan.interface,
-			imagePreprocessing: entry.preprocessing
+			imagePreprocessing: entry.preprocessing,
+			// A catalogued head brings its published class list, and it folds 1/S into its decode so the
+			// boxes it emits are already normalized.
+			labelProvenance: .convention,
+			coordinateMode: .normalizedByGraph
 		)
 	}
 
-	private static func outputTensor(of graph: NativeModelGraph) -> NativeModelTensor? {
+	static func outputTensor(of graph: NativeModelGraph) -> NativeModelTensor? {
 		let name = graph.outputs[0]
 		for operation in graph.operations {
 			for tensor in operation.outputs where tensor.name == name {

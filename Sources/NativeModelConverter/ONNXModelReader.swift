@@ -15,11 +15,21 @@ public struct ONNXConversionInput: Sendable {
 	/// (AIA-0473). `nil` when the file records nothing worth attributing, so a bare model keeps its
 	/// existing filename fallback rather than acquiring an empty metadata block.
 	public let metadata: NativeModelCoreMLMetadata?
+	/// Detector semantics (task/names/imgsz/nms) recovered from the same `metadata_props` (AIA-0469).
+	/// Unlike `metadata`, these DRIVE conversion — they supply a detector's labels when present — and
+	/// are parsed with a stricter, all-or-nothing posture. Empty for a model that carries none.
+	public let detectorHints: UltralyticsDetectorHints
 
-	public init(graph: NativeModelGraph, weights: Data, metadata: NativeModelCoreMLMetadata? = nil) {
+	public init(
+		graph: NativeModelGraph,
+		weights: Data,
+		metadata: NativeModelCoreMLMetadata? = nil,
+		detectorHints: UltralyticsDetectorHints = UltralyticsDetectorHints()
+	) {
 		self.graph = graph
 		self.weights = weights
 		self.metadata = metadata
+		self.detectorHints = detectorHints
 	}
 }
 
@@ -124,10 +134,12 @@ public struct ONNXModelReader {
 			// through the alias table so the emitted output points at the real upstream tensor.
 			outputs: [lowering.resolve(outputs[0].name)]
 		)
+		let raw = rawMetadata(from: model)
 		return ONNXConversionInput(
 			graph: nativeGraph,
 			weights: lowering.weightBlob,
-			metadata: ONNXMetadataMapping.metadata(from: rawMetadata(from: model))
+			metadata: ONNXMetadataMapping.metadata(from: raw),
+			detectorHints: UltralyticsDetectorHints.parse(from: raw)
 		)
 	}
 

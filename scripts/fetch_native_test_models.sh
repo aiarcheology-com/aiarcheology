@@ -34,13 +34,23 @@ while IFS=$'\t' read -r fileName url sha256; do
   echo "✓ $fileName (sha256 ok)"
 done < <(python3 -c "
 import json, sys
+seen = {}
+def emit(name, url, sha):
+    if name in seen:
+        # A shared fixture must agree on url + sha256 across sources; a mismatch means one drifted.
+        if seen[name] != (url, sha):
+            sys.stderr.write('conflicting url/sha256 for shared fixture %s\n' % name)
+            sys.exit(1)
+        return
+    seen[name] = (url, sha)
+    print('\t'.join([name, url, sha]))
 m = json.load(open('$MANIFEST'))
 for x in m['models']:
-    print('\t'.join([x['fileName'], x['url'], x['sha256']]))
-# The YOLOv8 trunk oracle's model is not a manifest entry (it has no image probes yet — that
-# arrives with the detector catalog PR); its fixture carries its own url + sha256.
+    emit(x['fileName'], x['url'], x['sha256'])
+# The YOLOv8 trunk oracle shares its fixture with the manifest's s1777 detection entry (AIA-0469
+# PR 2 added the image probes); dedupe by fileName so the shared model is fetched once.
 o = json.load(open('$REPO_ROOT/Tests/NativeModelConverterTests/Fixtures/YOLOv8TrunkOracle.json'))
-print('\t'.join([o['fileName'], o['url'], o['sha256']]))
+emit(o['fileName'], o['url'], o['sha256'])
 ")
 
 echo ""

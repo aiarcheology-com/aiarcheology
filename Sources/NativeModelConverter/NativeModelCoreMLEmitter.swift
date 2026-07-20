@@ -184,12 +184,20 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		weights: Data,
 		to outputURL: URL,
 		detection: NativeModelDetectionInterface,
+		detectionTarget: NativeModelDetectionTargetInfo,
 		imagePreprocessing: NativeModelImagePreprocessing? = nil,
 		sourceMetadata: NativeModelCoreMLMetadata? = nil,
 		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
 		reporting progress: NativeModelConversionProgressHandler? = nil,
 		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws {
+		// The recorded class count must match the interface's labels; a mismatch would emit a model
+		// whose metadata states a class count its confidence matrix does not have.
+		guard detectionTarget.classCount == detection.labels.count else {
+			throw NativeModelCoreMLEmissionError.invalidDetectionInterface(
+				reason: "detection target class count \(detectionTarget.classCount) does not match \(detection.labels.count) labels"
+			)
+		}
 		// `weights` here is the detector blob (network weights + synthesized decode constants), which
 		// is exactly what gets emitted — so hashing it yields a truthful weights-sha256 for the
 		// pipeline model. makeModel attaches this metadata to the OUTER pipeline description.
@@ -198,7 +206,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			sourceProvenance: sourceProvenance,
 			graph: graph,
 			emittedWeights: weights,
-			classifierLabelCount: nil
+			classifierLabelCount: nil,
+			detection: detectionTarget
 		)
 		try emit(
 			graph: graph,
@@ -675,7 +684,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		sourceProvenance: NativeModelConversionSourceProvenance?,
 		graph: NativeModelGraph,
 		emittedWeights: Data,
-		classifierLabelCount: Int?
+		classifierLabelCount: Int?,
+		detection: NativeModelDetectionTargetInfo? = nil
 	) throws -> NativeModelCoreMLMetadata {
 		try targetMetadata(
 			from: source,
@@ -684,7 +694,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			),
 			graph: graph,
 			sourceProvenance: sourceProvenance,
-			classifierLabelCount: classifierLabelCount
+			classifierLabelCount: classifierLabelCount,
+			detection: detection
 		)
 	}
 
@@ -693,12 +704,19 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		checksums: NativeModelConversionChecksums,
 		graph: NativeModelGraph,
 		sourceProvenance: NativeModelConversionSourceProvenance?,
-		classifierLabelCount: Int? = nil
+		classifierLabelCount: Int? = nil,
+		detection: NativeModelDetectionTargetInfo? = nil
 	) throws -> NativeModelCoreMLMetadata {
+		// A detector is emitted as a Core ML pipeline (network + NMS); a classifier interface is only
+		// emitted when labels match the output. The format string reflects what was actually written.
+		let modelFormat: String
+		if detection != nil {
+			modelFormat = "pipeline"
+		} else {
+			modelFormat = classifierLabelCount == nil ? "neuralNetwork" : "neuralNetworkClassifier"
+		}
 		var userDefined: [String: String] = [
-			// A classifier interface is emitted only when labels match the output; the format then
-			// reflects what was actually written and is safe to state as a target fact.
-			"com.aiarcheology.native.target.model-format": classifierLabelCount == nil ? "neuralNetwork" : "neuralNetworkClassifier",
+			"com.aiarcheology.native.target.model-format": modelFormat,
 			"com.aiarcheology.native.target.graph-format-version": String(graph.formatVersion),
 			"com.aiarcheology.native.converter.package-version": NativeModelConverterVersion.packageVersion,
 			"com.aiarcheology.native.converter.conversion-revision": String(NativeModelConverterVersion.conversionRevision),
@@ -729,6 +747,14 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		if let classifierLabelCount {
 			userDefined["com.aiarcheology.native.target.task"] = "classification"
 			userDefined["com.aiarcheology.native.target.class-count"] = String(classifierLabelCount)
+		}
+		if let detection {
+			// The facts AIA-0471's import UI reads to decide whether the labels are trustworthy or
+			// inferred, and how the coordinates were normalized.
+			userDefined["com.aiarcheology.native.target.task"] = "detection"
+			userDefined["com.aiarcheology.native.target.class-count"] = String(detection.classCount)
+			userDefined["com.aiarcheology.native.target.label-provenance"] = detection.labelProvenanceValue
+			userDefined["com.aiarcheology.native.target.coordinate-space"] = detection.coordinateSpaceValue
 		}
 
 		guard let source else {

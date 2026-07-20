@@ -209,6 +209,7 @@ public struct NativeModelConverter: Sendable {
 						weights: detection.weights,
 						to: outputURL,
 						detection: detection.interface,
+						detectionTarget: detection.targetInfo,
 						imagePreprocessing: detection.imagePreprocessing,
 						sourceMetadata: conversion.metadata,
 						sourceProvenance: sourceProvenance
