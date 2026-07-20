@@ -46,6 +46,13 @@ make_asc_auth() {
     chmod 700 "$dir"; chmod 600 "$dir"/*
 }
 
+# Each test sets exactly the ASC_* state it needs, so clear any ambient values first. This keeps the
+# suite hermetic whether it is run standalone or from the deliver.sh preflight — which resolves and
+# EXPORTS a real ASC_KEY_ID/ISSUER before running the sweep. A leaked ASC_KEY_ID would otherwise be
+# seen by `load_deliver` at source time, flip deliver.sh's ASC_FROM_ENVIRONMENT to 1, and make the
+# materialized-credentials tests (which do not set that flag themselves) fall through to 1Password.
+unset ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_PATH ASC_KEY_OP_REF ASC_FROM_ENVIRONMENT RESOLVED_KEY_PATH ASC_AUTH_DIR
+
 echo "▸ deliver.sh credential resolution"
 
 # ------------------------------------------------------------------------------------------------
