@@ -1,12 +1,11 @@
-Test Focus: Honest labels and preprocessing notices for converted ONNX models
+Test Focus: Source license shown for imported models
 
 What's new:
 
-• Native ONNX conversion now records whether its labels came from model metadata, a known catalog, or a fallback convention.
-• The import confirmation names a fallback label/preprocessing convention when the source file had no usable label metadata. Metadata-backed YOLO labels remain quiet.
+• The app now saves and shows the license declared by an imported Core ML or converted ONNX model.
 
 Please test:
 
-1. Import a standard ImageNet ONNX classifier such as `resnet50-v1-7.onnx`. The success confirmation should state that ImageNet-1k labels and ImageNet RGB normalization were used, and advise checking known images.
-2. Import `tinyyolov2-8.onnx`. The confirmation should name the Pascal VOC fallback labels and say preprocessing is embedded in the graph.
-3. Import `yolo11n-aaurelions.onnx`. It should convert and import as before, but show no inferred-semantics warning because its labels come from the model's own metadata.
+1. Import `tinyyolov2-8.onnx`, open its configuration, and confirm the source details show `Public Domain` as the license.
+2. Import `yolo11n-aaurelions.onnx`, open its configuration, and confirm the source details show `AGPL-3.0`.
+3. Import a model with no license metadata. Its configuration must not show an empty License row.

@@ -51,24 +51,53 @@ final class DeepConfigurationTests: XCTestCase {
         XCTAssertEqual(config.lifeCycle, .empty)
     }
     
-    func testDeepConfiguration_SetProperties_ValuesArePersisted() {
+    func testDeepConfiguration_SetProperties_ValuesArePersisted() throws {
         let config = DeepConfiguration(context: context)
         let uuid = UUID()
         config.entityId = uuid
         config.author = "Test Author"
+        config.license = "MIT"
         config.modelDescription = "Test Description"
         config.modelVersion = "1.0"
         config.demo = false
         config.enabled = true
         config.phaseOutTime = 1.5
-        
+
+        try DeepConfiguration.save(in: context)
+        context.refresh(config, mergeChanges: false)
+
         XCTAssertEqual(config.entityId, uuid)
         XCTAssertEqual(config.author, "Test Author")
+        XCTAssertEqual(config.license, "MIT")
         XCTAssertEqual(config.modelDescription, "Test Description")
         XCTAssertEqual(config.modelVersion, "1.0")
         XCTAssertFalse(config.demo)
         XCTAssertTrue(config.enabled)
         XCTAssertEqual(config.phaseOutTime, 1.5)
+    }
+
+    func testDeepConfiguration_EqualityTreatsLicenseAsConfigurationState() {
+        let entityID = UUID()
+        let creationDate = Date(timeIntervalSinceReferenceDate: 123)
+        let first = DeepConfiguration(context: context)
+        let second = DeepConfiguration(context: context)
+
+        for configuration in [first, second] {
+            configuration.entityId = entityID
+            configuration.file_ = URL(string: "file:///model.mlpackage")
+            configuration.modelDescription = "Model"
+            configuration.modelTypeString = "detect"
+            configuration.author = "Author"
+            configuration.creationDate_ = creationDate
+            configuration.annotationColor = .red
+            configuration.phaseOutTime = 0.5
+            configuration.selectedSymbol = .circle
+            configuration.enabled = true
+        }
+        first.license = "MIT"
+        second.license = "Apache-2.0"
+
+        XCTAssertFalse(first == second)
     }
 
     func testCatalogSource_IsSharedWithCatalogDownloadByConfigurationID() {

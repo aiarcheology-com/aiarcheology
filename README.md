@@ -311,7 +311,16 @@ environment, Release uses **Production**. Tests and previews never touch the net
 - **Branches**: `feature/…`, `fix/…`, `doc/…`, `test/…` with a short kebab-case description; pull requests target `develop`. Never commit directly to `develop` or `main`.
 - **Commits**: imperative summary prefixed with the issue key — `[AIA-XXXX] Fix crash when…`.
 - **Issues**: GitHub Issues carry `AIA-####` keys (normalized automatically by the `auto-issue-key` workflow); production crashes arrive as issues via Sentry → Cloudflare relay.
-- **Core Data model version**: production ships **0.0.0** (`ios/…/MLBrowser.xcdatamodeld/MLBrowser.xcdatamodel`). `develop` has advanced to **0.0.1** (adds `Finding`/`WebVisit`, etc.) but that schema is **unreleased** — every store in the wild is 0.0.0, so migrations are authored and tested from 0.0.0 (see `FindingMigrationTests`). Don't treat 0.0.1 as a released schema.
+
+### Core Data release baseline
+
+| State | Model version | Migration rule |
+|-|-|-|
+| Current public release | `0.0.0` (`MLBrowser.xcdatamodel`) | Every store in the wild starts here. |
+| Current development target | `0.0.1` (`MLBrowser_0.0.1.xcdatamodel`) | Unreleased; changes belong here until it ships. |
+| Required release path | `0.0.0 → 0.0.1` | Regenerate the Xcode mapping model whenever the 0.0.1 schema changes, retain its migration policies, and extend `FindingMigrationTests` with the released-store path. |
+
+Do not treat `0.0.1` as a released schema or introduce a `0.0.1 → …` migration before it ships.
 
 ## Further reading
 

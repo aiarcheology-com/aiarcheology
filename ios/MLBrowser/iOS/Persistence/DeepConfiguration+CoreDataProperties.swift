@@ -23,6 +23,7 @@ extension DeepConfiguration {
     @NSManaged public var entityId: UUID
     @NSManaged public var file_: URL?
     @NSManaged public var downloadURL: URL?
+    @NSManaged public var license: String?
     @NSManaged public var modelDescription: String?
     @NSManaged public var modelTypeString: String?
     /// Whether the model's type came from the metadata parser (an authoritative `task`/preview/turi

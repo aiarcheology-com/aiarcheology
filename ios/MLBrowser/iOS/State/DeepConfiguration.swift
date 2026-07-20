@@ -100,6 +100,7 @@ extension DeepConfiguration {
 		guard lhs.modelDescription == rhs.modelDescription else { return false }
 		guard lhs.modelTypeString == rhs.modelTypeString else { return false }
 		guard lhs.author == rhs.author else { return false }
+		guard lhs.license == rhs.license else { return false }
 		guard lhs.creationDate == rhs.creationDate else { return false }
 		guard lhs.annotationColor == rhs.annotationColor else { return false }
 		guard lhs.phaseOutTime == rhs.phaseOutTime else { return false }
@@ -155,10 +156,9 @@ extension DeepConfiguration {
 
 	// MARK: - Per-model finding flash (AIA-0374)
 	//
-	// Stored in UserDefaults keyed by entityId, NOT Core Data: model version 0.0.1 has
-	// shipped, so new attributes need the full versioning/migration step (AGENTS §6 —
-	// Xcode-generated mapping model). Promotion to real attributes is tracked in
-	// AIA-0375; the accessors below keep call sites identical for that migration.
+	// Stored in UserDefaults keyed by entityId, NOT Core Data: the public schema is still 0.0.0
+	// and 0.0.1 must retain its tested migration from it. Promotion to real attributes is tracked
+	// in AIA-0375; the accessors below keep call sites identical for that future schema work.
 
 	static let flashSizeRange: ClosedRange<Double> = 2.0...24.0
 	static let flashEnabledDefault = true

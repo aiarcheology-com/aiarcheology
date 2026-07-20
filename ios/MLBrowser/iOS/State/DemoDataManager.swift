@@ -224,6 +224,7 @@ final class DemoDataManager {
         configuration.modelVersion = extractedInfo.modelVersion
         configuration.modelDescription = extractedInfo.modelDescription
         configuration.author = extractedInfo.author
+        configuration.license = extractedInfo.license
         configuration.creationDate_ = extractedInfo.creationDateString?.toDate(.createMl)
         configuration.modelType = extractedInfo.task
         configuration.modelTypeParsed = extractedInfo.typeWasParsed

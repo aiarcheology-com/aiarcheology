@@ -125,6 +125,7 @@ public struct NativeModelTargetSemantics: Equatable, Sendable {
 			Self.isValid(labelProfile: labelProfile, for: task),
 			(labelProfile != .imageNet1K || classCount == 1000),
 			(labelProfile != .pascalVOC || classCount == 20)
+		else {
 			return nil
 		}
 		self.init(

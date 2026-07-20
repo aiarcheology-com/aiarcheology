@@ -5109,6 +5109,18 @@
         }
       }
     },
+    "configuration.license" : {
+      "comment" : "License label in configuration",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "License"
+          }
+        }
+      }
+    },
     "configuration.link" : {
       "comment" : "Link label in configuration",
       "extractionState" : "manual",

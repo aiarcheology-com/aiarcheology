@@ -19,6 +19,7 @@ final class ExtractedModelInfoTests: XCTestCase {
             modelVersion: "1.0.0",
             modelDescription: "Test model",
             author: "Test Author",
+            license: "MIT",
             creationDateString: "2025-01-01",
             task: .detector,
             typeWasParsed: true
@@ -27,6 +28,7 @@ final class ExtractedModelInfoTests: XCTestCase {
         XCTAssertEqual(info.modelVersion, "1.0.0")
         XCTAssertEqual(info.modelDescription, "Test model")
         XCTAssertEqual(info.author, "Test Author")
+        XCTAssertEqual(info.license, "MIT")
         XCTAssertEqual(info.creationDateString, "2025-01-01")
         XCTAssertEqual(info.task, .detector)
         XCTAssertTrue(info.typeWasParsed)
@@ -45,6 +47,7 @@ final class ExtractedModelInfoTests: XCTestCase {
         XCTAssertNil(info.modelVersion)
         XCTAssertNil(info.modelDescription)
         XCTAssertNil(info.author)
+        XCTAssertNil(info.license)
         XCTAssertNil(info.creationDateString)
         XCTAssertEqual(info.task, .invalid)
         XCTAssertFalse(info.typeWasParsed)
@@ -124,6 +127,43 @@ final class ExtractedModelInfoTests: XCTestCase {
         )
 
         XCTAssertNotEqual(base, other)
+    }
+
+    func test_init_withBlankLicense_normalizesToNil() {
+        let info = ExtractedModelInfo(
+            modelVersion: nil,
+            modelDescription: nil,
+            author: nil,
+            license: " \n ",
+            creationDateString: nil,
+            task: .invalid,
+            typeWasParsed: false
+        )
+
+        XCTAssertNil(info.license)
+    }
+
+    func test_equatable_withDifferentLicense_returnsFalse() {
+        let base = ExtractedModelInfo(
+            modelVersion: "1.0", modelDescription: nil, author: nil, license: "MIT",
+            creationDateString: nil, task: .detector, typeWasParsed: true
+        )
+        let other = ExtractedModelInfo(
+            modelVersion: "1.0", modelDescription: nil, author: nil, license: "Apache-2.0",
+            creationDateString: nil, task: .detector, typeWasParsed: true
+        )
+
+        XCTAssertNotEqual(base, other)
+    }
+}
+
+final class ModelMetadataNormalizationTests: XCTestCase {
+
+    func test_normalizedMetadataString_trimsNonEmptyTextAndRejectsBlankOrWrongType() {
+        XCTAssertEqual(ModelLoadingService.normalizedMetadataString(" AGPL-3.0 \n"), "AGPL-3.0")
+        XCTAssertNil(ModelLoadingService.normalizedMetadataString(" \t\n "))
+        XCTAssertNil(ModelLoadingService.normalizedMetadataString(42))
+        XCTAssertNil(ModelLoadingService.normalizedMetadataString(nil))
     }
 }
 
