@@ -32,6 +32,11 @@ final class ONNXMetadataConversionTests: XCTestCase {
 		XCTAssertTrue(description.hasPrefix("Converted Core ML"), "description should state it is a conversion")
 		XCTAssertEqual(metadata[.author] as? String, "Original paper: Joseph Redmon, Ali Farhadi")
 		XCTAssertEqual(metadata[.license] as? String, "Public Domain")
+		let userDefined = try XCTUnwrap(metadata[.creatorDefinedKey] as? [String: String])
+		let targetSemantics = try XCTUnwrap(NativeModelTargetSemantics(userDefined: userDefined))
+		XCTAssertEqual(targetSemantics.labelProfile, .pascalVOC)
+		XCTAssertEqual(targetSemantics.preprocessingProfile, .identityRGB)
+		XCTAssertTrue(targetSemantics.requiresImportAssumptionNotice)
 	}
 
 	/// A genuine Ultralytics export: description/author/version/license all in `metadata_props`,
@@ -67,6 +72,10 @@ final class ONNXMetadataConversionTests: XCTestCase {
 		let emittedMetadata = try await convertAndReadMetadata(fixture: "yolo11n-aaurelions.onnx")
 		let userDefined = try XCTUnwrap(emittedMetadata[.creatorDefinedKey] as? [String: String])
 		XCTAssertEqual(userDefined["com.aiarcheology.native.target.label-provenance"], "metadata")
+		let targetSemantics = try XCTUnwrap(NativeModelTargetSemantics(userDefined: userDefined))
+		XCTAssertEqual(targetSemantics.labelProfile, .sourceMetadata)
+		XCTAssertEqual(targetSemantics.preprocessingProfile, .rgbZeroToOne)
+		XCTAssertFalse(targetSemantics.requiresImportAssumptionNotice)
 	}
 
 	/// A model with no attribution still converts, records converter provenance (so it is known to
@@ -94,6 +103,10 @@ final class ONNXMetadataConversionTests: XCTestCase {
 			userDefined["com.aiarcheology.native.converter.package-version"],
 			NativeModelConverterVersion.packageVersion
 		)
+		let targetSemantics = try XCTUnwrap(NativeModelTargetSemantics(userDefined: userDefined))
+		XCTAssertEqual(targetSemantics.labelProfile, .imageNet1K)
+		XCTAssertEqual(targetSemantics.preprocessingProfile, .imageNetRGB)
+		XCTAssertTrue(targetSemantics.requiresImportAssumptionNotice)
 		// But nothing sourced from an (absent) source metadata block — no empty-string noise.
 		XCTAssertFalse(
 			userDefined.keys.contains { $0.hasPrefix("com.aiarcheology.native.source.") },

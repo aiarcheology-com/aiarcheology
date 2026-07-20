@@ -175,8 +175,43 @@ struct ModelImportView: View {
 				dismiss()
 			}
 		} message: {
-			Text(importedModelInfo?.needsReview == true ? L10n.Import.typeConfirmation : L10n.Import.success)
+			Text(importSuccessMessage(for: importedModelInfo))
 		}
+	}
+
+	private func importSuccessMessage(for info: ImportedModelInfo?) -> String {
+		let base = info?.needsReview == true ? L10n.Import.typeConfirmation : L10n.Import.success
+		guard let assumption = info?.nativeModelImportAssumption else { return base }
+		return "\(base)\n\n\(inferredSemanticsMessage(for: assumption))"
+	}
+
+	private func inferredSemanticsMessage(for assumption: NativeModelImportAssumption) -> String {
+		let labels: String
+		switch assumption.labelProfile {
+		case .imageNet1K:
+			labels = L10n.Import.inferredLabelsImageNet
+		case .pascalVOC:
+			labels = L10n.Import.inferredLabelsPascalVoc
+		case .genericClassIndex:
+			labels = L10n.Import.inferredLabelsGeneric
+		case .sourceMetadata:
+			// Source-metadata labels cannot form an assumption by construction. Keep the UI safe if a
+			// future contract extends the parser before this view is updated.
+			assertionFailure("Source-metadata labels should not produce an import assumption.")
+			labels = L10n.Import.inferredLabelsGeneric
+		}
+		let preprocessing: String
+		switch assumption.preprocessingProfile {
+		case .imageNetRGB:
+			preprocessing = L10n.Import.inferredPreprocessingImageNetRgb
+		case .rgbZeroToOne:
+			preprocessing = L10n.Import.inferredPreprocessingRgbZeroToOne
+		case .identityRGB:
+			preprocessing = L10n.Import.inferredPreprocessingEmbedded
+		case .none:
+			preprocessing = L10n.Import.inferredPreprocessingNone
+		}
+		return L10n.Import.inferredSemantics(labels, preprocessing)
 	}
 
 	private func importRetentionDialogs(_ content: some View) -> some View {
@@ -970,7 +1005,11 @@ struct ModelImportView: View {
 		// rather than creating a second configuration with the same UUID.
 		if let existing = DeepConfiguration.select(id, in: moc) {
 			provider.result(.importSucceeded, id: id)
-			return ImportedModelInfo(id: id, needsReview: !existing.modelTypeParsed)
+			return ImportedModelInfo(
+				id: id,
+				needsReview: !existing.modelTypeParsed,
+				nativeModelImportAssumption: extractedInfo.nativeModelImportAssumption
+			)
 		}
 
 		// Create a new configuration entity
@@ -1026,7 +1065,11 @@ struct ModelImportView: View {
 			}
 			analytics.track(.modelImported(source: source))
 
-			return ImportedModelInfo(id: id, needsReview: !extractedInfo.typeWasParsed)
+			return ImportedModelInfo(
+				id: id,
+				needsReview: !extractedInfo.typeWasParsed,
+				nativeModelImportAssumption: extractedInfo.nativeModelImportAssumption
+			)
 		} else {
 			moc.delete(configuration)
 			provider.result(.importFailed, id: id)
@@ -1079,6 +1122,7 @@ private struct NativeGraphConversionRequest {
 private struct ImportedModelInfo {
 	let id: UUID
 	let needsReview: Bool
+	let nativeModelImportAssumption: NativeModelImportAssumption?
 }
 
 // MARK: - Supporting Types

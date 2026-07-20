@@ -99,6 +99,8 @@ final class NativeModelAnchorFreeRecognizerTests: XCTestCase {
 		XCTAssertEqual(detector.coordinateMode, .normalizedByGraph)
 		XCTAssertEqual(detector.interface.labels.count, 80)
 		XCTAssertEqual(detector.interface.boxCount, 8)
+		XCTAssertEqual(detector.targetSemanticsIntent.labelProfile, .genericClassIndex)
+		XCTAssertEqual(detector.targetSemanticsIntent.preprocessingProfile, .rgbZeroToOne)
 	}
 
 	func testRecognizes_withMatchingMetadataNames_asAMetadataDetector() throws {
@@ -110,6 +112,8 @@ final class NativeModelAnchorFreeRecognizerTests: XCTestCase {
 		let detector = try XCTUnwrap(try NativeModelDetectorCatalog.detectionConversion(of: input))
 		XCTAssertEqual(detector.labelProvenance, .metadata)
 		XCTAssertEqual(detector.interface.labels, names)
+		XCTAssertEqual(detector.targetSemanticsIntent.labelProfile, .sourceMetadata)
+		XCTAssertEqual(detector.targetSemanticsIntent.preprocessingProfile, .rgbZeroToOne)
 	}
 
 	func testRejects_whenScoreBranchIsNotSigmoid() throws {

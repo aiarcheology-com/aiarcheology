@@ -8,6 +8,7 @@
 import Foundation
 import CoreML
 import OSLog
+import NativeModelConverter
 
 /// Sendable struct containing extracted model metadata.
 /// Safe to pass across actor boundaries.
@@ -21,6 +22,10 @@ public struct ExtractedModelInfo: Sendable, Equatable {
     /// couldn't determine it and `task` is a structural-signature recommendation for the user to
     /// confirm — the driver of the locked-vs-editable type control (AIA-0402).
     public let typeWasParsed: Bool
+    /// A one-time import warning for a converted model whose emitted labels were selected from a
+    /// known convention or generated because the source carried no labels. This is deliberately
+    /// transient: the model metadata remains the durable audit trail, not Core Data.
+    public let nativeModelImportAssumption: NativeModelImportAssumption?
 
     public init(
         modelVersion: String?,
@@ -28,7 +33,8 @@ public struct ExtractedModelInfo: Sendable, Equatable {
         author: String?,
         creationDateString: String?,
         task: DeepDriverType,
-        typeWasParsed: Bool
+        typeWasParsed: Bool,
+        nativeModelImportAssumption: NativeModelImportAssumption? = nil
     ) {
         self.modelVersion = modelVersion
         self.modelDescription = modelDescription
@@ -36,6 +42,22 @@ public struct ExtractedModelInfo: Sendable, Equatable {
         self.creationDateString = creationDateString
         self.task = task
         self.typeWasParsed = typeWasParsed
+        self.nativeModelImportAssumption = nativeModelImportAssumption
+    }
+}
+
+/// A fallback-label fact extracted from a complete converter target-semantics contract.
+///
+/// The app never guesses this from a model's output shape. Metadata-backed labels deliberately
+/// produce `nil`, even when the converter also added a known image preprocessing layer.
+public struct NativeModelImportAssumption: Sendable, Equatable {
+    public let labelProfile: NativeModelTargetSemantics.LabelProfile
+    public let preprocessingProfile: NativeModelTargetSemantics.PreprocessingProfile
+
+    init?(targetSemantics: NativeModelTargetSemantics) {
+        guard targetSemantics.requiresImportAssumptionNotice else { return nil }
+        labelProfile = targetSemantics.labelProfile
+        preprocessingProfile = targetSemantics.preprocessingProfile
     }
 }
 
@@ -127,6 +149,7 @@ public actor ModelLoadingService {
         }
 
         let parser = MLModelMetadataParser(metadata: metadata)
+        let nativeModelImportAssumption = Self.nativeModelImportAssumption(from: metadata)
 
         // Determine the model type. The metadata `task`/preview/turi key is authoritative when the
         // parser yields one; when it can't (`.invalid`), the type was NOT parsed — fall back to the
@@ -142,12 +165,26 @@ public actor ModelLoadingService {
             author: parser.value(for: .author) as? String,
             creationDateString: parser.value(for: .date) as? String,
             task: task,
-            typeWasParsed: typeWasParsed
+            typeWasParsed: typeWasParsed,
+            nativeModelImportAssumption: nativeModelImportAssumption
         )
 
         LoggingPolicy.info("ModelLoadingService: Metadata extracted - task=\(info.task.rawValue), parsed=\(typeWasParsed), author=\(info.author ?? "unknown")", logger: .drivers)
 
         return info
+    }
+
+    /// Parses the converter's versioned target-semantics contract from Core ML creator metadata.
+    /// A missing, older, malformed, or unknown contract is intentionally silent rather than guessed.
+    static func nativeModelImportAssumption(
+        from metadata: [MLModelMetadataKey: Any]
+    ) -> NativeModelImportAssumption? {
+        guard let userDefined = metadata[.creatorDefinedKey] as? [String: String],
+            let targetSemantics = NativeModelTargetSemantics(userDefined: userDefined)
+        else {
+            return nil
+        }
+        return NativeModelImportAssumption(targetSemantics: targetSemantics)
     }
 
     /// Validates that a model can be loaded without extracting full metadata.

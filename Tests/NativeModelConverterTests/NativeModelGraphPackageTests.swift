@@ -254,6 +254,12 @@ final class NativeModelGraphPackageTests: XCTestCase {
 
 		let compiledURL = try await MLModel.compileModel(at: modelURL)
 		let model = try MLModel(contentsOf: compiledURL)
+		let userDefined = try XCTUnwrap(model.modelDescription.metadata[.creatorDefinedKey] as? [String: String])
+		let targetSemantics = try XCTUnwrap(NativeModelTargetSemantics(userDefined: userDefined))
+		XCTAssertEqual(targetSemantics.task, .classification)
+		XCTAssertEqual(targetSemantics.labelProfile, .sourceMetadata)
+		XCTAssertEqual(targetSemantics.preprocessingProfile, .none)
+		XCTAssertFalse(targetSemantics.requiresImportAssumptionNotice)
 		// The model description must expose the classifier interface, not a raw multi-array.
 		XCTAssertEqual(model.modelDescription.predictedFeatureName, "classLabel")
 		XCTAssertEqual(model.modelDescription.outputDescriptionsByName["classLabel"]?.type, .string)

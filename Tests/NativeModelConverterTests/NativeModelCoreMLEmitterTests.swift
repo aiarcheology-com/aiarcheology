@@ -48,6 +48,11 @@ final class NativeModelCoreMLEmitterTests: XCTestCase {
 
 		let compiledURL = try MLModel.compileModel(at: modelURL)
 		let model = try MLModel(contentsOf: compiledURL, configuration: cpuOnlyConfiguration())
+		let userDefined = try XCTUnwrap(model.modelDescription.metadata[.creatorDefinedKey] as? [String: String])
+		XCTAssertNil(
+			NativeModelTargetSemantics(userDefined: userDefined),
+			"The generic public emitter must not guess provenance from arbitrary labels or affine preprocessing."
+		)
 
 		// The input must be an image feature, not a multi-array.
 		let inputDescription = try XCTUnwrap(model.modelDescription.inputDescriptionsByName["image"])
@@ -128,6 +133,67 @@ final class NativeModelCoreMLEmitterTests: XCTestCase {
 		XCTAssertEqual(probabilities["red"] ?? -1, expected[0], accuracy: 1e-4)
 		XCTAssertEqual(probabilities["green"] ?? -1, expected[1], accuracy: 1e-4)
 		XCTAssertEqual(probabilities["blue"] ?? -1, expected[2], accuracy: 1e-4)
+	}
+
+	func testEmit_targetSemanticsRecordsNoPreprocessingWhenImagePlanIsIneligible() throws {
+		let graph = NativeModelGraph(
+			formatVersion: 1,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [tensor("input", shape: [1, 3])],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "scores", kind: .relu, inputs: ["input"],
+					outputs: [tensor("scores", shape: [1, 3])], attributes: [:]
+				)
+			],
+			outputs: ["scores"]
+		)
+		let modelURL = try temporaryDirectory().appendingPathComponent("vector-classifier.mlmodel")
+		try NativeModelCoreMLEmitter().emit(
+			graph: graph, weights: Data(), to: modelURL,
+			classifierLabels: ["red", "green", "blue"], imagePreprocessing: .imageNetRGB,
+			targetSemanticsIntent: NativeModelTargetSemanticsIntent(
+				labelProfile: .imageNet1K, preprocessingProfile: .imageNetRGB
+			)
+		)
+
+		let compiledURL = try MLModel.compileModel(at: modelURL)
+		let model = try MLModel(contentsOf: compiledURL, configuration: cpuOnlyConfiguration())
+		let userDefined = try XCTUnwrap(model.modelDescription.metadata[.creatorDefinedKey] as? [String: String])
+		let targetSemantics = try XCTUnwrap(NativeModelTargetSemantics(userDefined: userDefined))
+		XCTAssertEqual(targetSemantics.labelProfile, .imageNet1K)
+		XCTAssertEqual(targetSemantics.preprocessingProfile, .none)
+		XCTAssertEqual(model.modelDescription.inputDescriptionsByName["input"]?.type, .multiArray)
+	}
+
+	func testEmit_targetSemanticsIsAbsentWhenLabelsCannotCreateAClassifier() throws {
+		let graph = NativeModelGraph(
+			formatVersion: 1,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [tensor("input", shape: [1, 3])],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "scores", kind: .relu, inputs: ["input"],
+					outputs: [tensor("scores", shape: [1, 3])], attributes: [:]
+				)
+			],
+			outputs: ["scores"]
+		)
+		let modelURL = try temporaryDirectory().appendingPathComponent("raw-network.mlmodel")
+		try NativeModelCoreMLEmitter().emit(
+			graph: graph, weights: Data(), to: modelURL,
+			classifierLabels: ["red", "green"], imagePreprocessing: .imageNetRGB,
+			targetSemanticsIntent: NativeModelTargetSemanticsIntent(
+				labelProfile: .imageNet1K, preprocessingProfile: .imageNetRGB
+			)
+		)
+
+		let compiledURL = try MLModel.compileModel(at: modelURL)
+		let model = try MLModel(contentsOf: compiledURL, configuration: cpuOnlyConfiguration())
+		let userDefined = try XCTUnwrap(model.modelDescription.metadata[.creatorDefinedKey] as? [String: String])
+		XCTAssertNil(NativeModelTargetSemantics(userDefined: userDefined))
 	}
 
 	private func uniformBGRAPixelBuffer(width: Int, height: Int, red: UInt8, green: UInt8, blue: UInt8) throws -> CVPixelBuffer {

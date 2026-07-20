@@ -76,6 +76,17 @@ enum NativeModelAnchorFreeRecognizer {
 		}
 
 		let (labels, provenance) = resolveLabels(hints: input.detectorHints, classCount: classCount)
+		let labelProfile: NativeModelTargetSemantics.LabelProfile
+		switch provenance {
+		case .metadata:
+			labelProfile = .sourceMetadata
+		case .unnamed:
+			labelProfile = .genericClassIndex
+		case .convention:
+			// The anchor-free path never selects a catalogue label list; keep the switch exhaustive so
+			// a future recognizer cannot accidentally claim a generic profile for a convention.
+			return nil
+		}
 		let plan = try NativeModelAnchorFreeHead.plan(
 			output: output,
 			classCount: classCount,
@@ -98,6 +109,10 @@ enum NativeModelAnchorFreeRecognizer {
 			interface: plan.interface,
 			imagePreprocessing: normalizedRGB,
 			labelProvenance: provenance,
+			targetSemanticsIntent: NativeModelTargetSemanticsIntent(
+				labelProfile: labelProfile,
+				preprocessingProfile: .rgbZeroToOne
+			),
 			coordinateMode: coordinateMode
 		)
 	}

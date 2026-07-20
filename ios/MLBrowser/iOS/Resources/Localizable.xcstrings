@@ -9711,6 +9711,102 @@
         }
       }
     },
+    "import.inferredLabelsGeneric" : {
+      "comment" : "Fallback label profile selected by the native converter when a recognised detector has no source label metadata (AIA-0471)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "generic class-index labels"
+          }
+        }
+      }
+    },
+    "import.inferredLabelsImageNet" : {
+      "comment" : "Fallback ImageNet label profile selected by the native converter (AIA-0471)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ImageNet-1k labels"
+          }
+        }
+      }
+    },
+    "import.inferredLabelsPascalVoc" : {
+      "comment" : "Fallback Pascal VOC label profile selected by the native converter (AIA-0471)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pascal VOC labels"
+          }
+        }
+      }
+    },
+    "import.inferredPreprocessingEmbedded" : {
+      "comment" : "Preprocessing description when scaling is embedded in a recognised model graph (AIA-0471)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "preprocessing embedded in the model graph"
+          }
+        }
+      }
+    },
+    "import.inferredPreprocessingImageNetRgb" : {
+      "comment" : "Preprocessing description for ImageNet RGB normalization selected by the native converter (AIA-0471)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ImageNet RGB normalization"
+          }
+        }
+      }
+    },
+    "import.inferredPreprocessingNone" : {
+      "comment" : "Preprocessing description when the converted target has no image preprocessing layer (AIA-0471)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "no image preprocessing"
+          }
+        }
+      }
+    },
+    "import.inferredPreprocessingRgbZeroToOne" : {
+      "comment" : "Preprocessing description for RGB pixels divided by 255 by the native converter (AIA-0471)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RGB pixels scaled to 0–1"
+          }
+        }
+      }
+    },
+    "import.inferredSemantics" : {
+      "comment" : "Import warning naming the fallback labels and preprocessing chosen by the native converter (AIA-0471)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file has no label metadata. AI Archeology used %@ and %@. Check a few known images before relying on its results."
+          }
+        }
+      }
+    },
     "import.keepOriginal" : {
       "comment" : "Button that retains the copied original native model package beside the converted Core ML model",
       "extractionState" : "manual",
