@@ -57,4 +57,63 @@ final class NativeModelConverterPackageTests: XCTestCase {
 		XCTAssertFalse(result.isConvertible)
 		XCTAssertTrue(result.issues.contains(.overflowingWeightRange(name: "w")))
 	}
+
+	func testValidate_reservedMatrixMultiplicationReportsOneUnsupportedOperation() {
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.legacyFormatVersion,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [NativeModelTensor(name: "input", dataType: .float32, shape: [1])],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "reserved-matmul",
+					kind: .matrixMultiplication,
+					inputs: ["input"],
+					outputs: [NativeModelTensor(name: "output", dataType: .float32, shape: [1])],
+					attributes: [:]
+				)
+			],
+			outputs: ["output"]
+		)
+
+		let result = NativeModelGraphValidator().validate(graph)
+
+		XCTAssertEqual(
+			result.issues.filter { $0 == .unsupportedOperation(operation: "reserved-matmul", kind: "matmul") }.count,
+			1
+		)
+	}
+
+	func testValidate_exactNDSliceRejectsNegativeBounds() {
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [NativeModelTensor(name: "input", dataType: .float32, shape: [1, 3, 2])],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "slice",
+					kind: .sliceND,
+					inputs: ["input"],
+					outputs: [NativeModelTensor(name: "output", dataType: .float32, shape: [1, 3, 1])],
+					attributes: [
+						"beginIds": .integers([0, 0, -1]),
+						"endIds": .integers([1, 3, -1]),
+						"strides": .integers([1, 1, 1])
+					]
+				)
+			],
+			outputs: ["output"]
+		)
+
+		let result = NativeModelGraphValidator().validate(graph)
+
+		XCTAssertFalse(result.isConvertible)
+		XCTAssertTrue(result.issues.contains(
+			.invalidAttribute(operation: "slice", attribute: "beginIds", expected: "3 non-negative integers")
+		))
+		XCTAssertTrue(result.issues.contains(
+			.invalidAttribute(operation: "slice", attribute: "endIds", expected: "3 non-negative integers")
+		))
+	}
 }

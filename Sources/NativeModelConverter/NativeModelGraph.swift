@@ -656,10 +656,6 @@ public struct NativeModelGraphValidator {
 			requireArity(operation, exact: 1, issues: &issues)
 			requireInteger(operation, name: "axis", issues: &issues)
 			requirePositiveIntegerArray(operation, name: "splitSizes", count: operation.outputs.count, issues: &issues)
-		case .matrixMultiplication:
-			// `matmul` was published in the V1 enum but never had an emitter. Keep it reserved so a
-			// hand-authored package fails at validation instead of acquiring an undocumented meaning.
-			issues.append(.unsupportedOperation(operation: operation.name, kind: operation.kind.serializedValue))
 		case .batchNormalization:
 			requireArity(operation, exact: 5, issues: &issues)
 			requirePositiveFloatingPoint(operation, name: "epsilon", issues: &issues)
@@ -715,9 +711,9 @@ public struct NativeModelGraphValidator {
 		case .sliceND:
 			requireArity(operation, exact: 1, issues: &issues)
 			guard let input = operation.inputs.first.flatMap({ knownTensors[$0] }) else { return }
-			requireIntegerArray(operation, name: "beginIds", count: input.shape.count, positive: false, issues: &issues)
-			requireIntegerArray(operation, name: "endIds", count: input.shape.count, positive: false, issues: &issues)
-			requireIntegerArray(operation, name: "strides", count: input.shape.count, positive: true, issues: &issues)
+			requireNonNegativeIntegerArray(operation, name: "beginIds", count: input.shape.count, issues: &issues)
+			requireNonNegativeIntegerArray(operation, name: "endIds", count: input.shape.count, issues: &issues)
+			requirePositiveIntegerArray(operation, name: "strides", count: input.shape.count, issues: &issues)
 		default:
 			break
 		}
@@ -864,19 +860,17 @@ public struct NativeModelGraphValidator {
 		}
 	}
 
-	private func requireIntegerArray(
+	private func requireNonNegativeIntegerArray(
 		_ operation: NativeModelOperation,
 		name: String,
 		count: Int,
-		positive: Bool,
 		issues: inout [NativeModelGraphValidationIssue]
 	) {
 		guard let values = operation.attributes[name]?.integerArrayValue,
 			values.count == count,
-			(!positive || values.allSatisfy { $0 > 0 })
+			values.allSatisfy({ $0 >= 0 })
 		else {
-			let expected = positive ? "(count) positive integers" : "(count) integers"
-			issues.append(.invalidAttribute(operation: operation.name, attribute: name, expected: expected))
+			issues.append(.invalidAttribute(operation: operation.name, attribute: name, expected: "\(count) non-negative integers"))
 			return
 		}
 	}

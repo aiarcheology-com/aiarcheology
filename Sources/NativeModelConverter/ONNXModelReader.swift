@@ -820,7 +820,7 @@ public struct ONNXModelReader {
 					detail: "Split sizes \(splitSizes) must contain one positive extent for each output"
 				)
 			}
-			let total = try checkedProductSum(splitSizes, operation: node.name, operatorName: "Split")
+		let total = try checkedExtentSum(splitSizes, operation: node.name, operatorName: "Split")
 			guard total == inputShape[axis] else {
 				throw ONNXModelReaderError.shapeInferenceFailed(
 					operation: node.name,
@@ -900,7 +900,7 @@ public struct ONNXModelReader {
 			return axis
 		}
 
-		private func checkedProductSum(_ values: [Int], operation: String, operatorName: String) throws -> Int {
+	private func checkedExtentSum(_ values: [Int], operation: String, operatorName: String) throws -> Int {
 			var total = 0
 			for value in values {
 				let (sum, overflow) = total.addingReportingOverflow(value)
