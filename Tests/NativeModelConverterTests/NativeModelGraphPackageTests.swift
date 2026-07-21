@@ -123,6 +123,28 @@ final class NativeModelGraphPackageTests: XCTestCase {
 		}
 	}
 
+	func testRead_manifestFormatVersionDiffersFromGraph_isRejected() async throws {
+		let graph = makeReLUGraph()
+		let packageURL = try makePackage(graph: graph, weights: Data())
+		defer { try? FileManager.default.removeItem(at: packageURL) }
+		let graphData = try Data(contentsOf: packageURL.appendingPathComponent("graph.json"))
+		// Both versions are individually supported and every checksum is correct; only the pairing of
+		// the manifest's declared version with the graph it ships is inconsistent.
+		let mismatchedManifest = """
+		{"format":"com.aiarcheology.native-model-graph","formatVersion":\(NativeModelGraph.exactNDFormatVersion),\
+		"graph":"graph.json","weights":"weights.bin","graphSHA256":"\(checksum(of: graphData))",\
+		"weightsSHA256":"\(checksum(of: Data()))"}
+		"""
+		try Data(mismatchedManifest.utf8).write(to: packageURL.appendingPathComponent("manifest.json"))
+
+		await XCTAssertThrowsErrorAsync(try await NativeModelGraphPackageReader().read(from: packageURL)) { error in
+			guard case .invalidManifest(let reason) = error as? NativeModelGraphPackageError else {
+				return XCTFail("Expected an invalid-manifest failure, got \(error).")
+			}
+			XCTAssertTrue(reason.contains("does not match graph formatVersion"), reason)
+		}
+	}
+
 	func testRead_symbolicLinkPackageRoot_isRejected() async throws {
 		let packageURL = try makePackage(graph: makeReLUGraph(), weights: Data())
 		defer { try? FileManager.default.removeItem(at: packageURL) }

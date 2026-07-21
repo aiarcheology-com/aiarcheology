@@ -166,6 +166,13 @@ public actor NativeModelGraphPackageReader {
 		} catch {
 			throw NativeModelGraphPackageError.invalidGraphJSON(error.localizedDescription)
 		}
+		// The manifest's declared version must describe the graph it ships; a mismatch means the
+		// package was assembled inconsistently and nothing downstream should trust either value.
+		guard graph.formatVersion == manifest.formatVersion else {
+			throw NativeModelGraphPackageError.invalidManifest(
+				"manifest formatVersion \(manifest.formatVersion) does not match graph formatVersion \(graph.formatVersion)"
+			)
+		}
 		let graphValidation = NativeModelGraphValidator().validate(graph)
 		guard graphValidation.isConvertible else {
 			throw NativeModelGraphPackageError.invalidGraph(graphValidation.issues)

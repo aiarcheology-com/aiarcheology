@@ -200,6 +200,11 @@ public struct NativeModelTargetSemanticsIntent: Equatable, Sendable {
 		imagePreprocessingWasApplied: Bool
 	) -> NativeModelTargetSemantics? {
 		guard NativeModelTargetSemantics.isValid(labelProfile: labelProfile, for: task) else { return nil }
+		// The catalogued conventions have fixed cardinalities. An intent naming one with a different
+		// class count would write a contract ``init?(userDefined:)`` rejects; refuse it at the writer
+		// so the two sides cannot drift apart.
+		guard labelProfile != .imageNet1K || classCount == 1000 else { return nil }
+		guard labelProfile != .pascalVOC || classCount == 20 else { return nil }
 		// A raw-tensor classifier may still have an eligible label wrapper. It must record that no
 		// image preprocessing was actually emitted, not the convention that was merely requested.
 		let resolvedPreprocessing = imagePreprocessingWasApplied ? preprocessingProfile : .none

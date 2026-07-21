@@ -820,7 +820,7 @@ public struct ONNXModelReader {
 					detail: "Split sizes \(splitSizes) must contain one positive extent for each output"
 				)
 			}
-		let total = try checkedExtentSum(splitSizes, operation: node.name, operatorName: "Split")
+			let total = try checkedExtentSum(splitSizes, operation: node.name, operatorName: "Split")
 			guard total == inputShape[axis] else {
 				throw ONNXModelReaderError.shapeInferenceFailed(
 					operation: node.name,
@@ -864,10 +864,18 @@ public struct ONNXModelReader {
 		}
 
 		/// Rank-N `MatMul`, restricted to two activation operands so the V2 `batchedMatmul` layer has a
-		/// direct, fully-shaped counterpart. Matrix weights remain the established Gemm/linear path.
+		/// direct, fully-shaped counterpart. A weight (initializer) operand has no lowering here or
+		/// elsewhere — it is rejected by name below so the gap stays visible instead of surfacing as a
+		/// misleading shape-inference failure.
 		private mutating func lowerMatMul(_ node: ONNXNode) throws {
 			guard usesExactND else {
 				throw ONNXModelReaderError.unsupportedOperation("MatMul")
+			}
+			if let weightName = node.inputs.first(where: { initializers[$0] != nil }) {
+				throw ONNXModelReaderError.unsupportedAttribute(
+					operation: node.name,
+					detail: "MatMul with initializer operand '\(weightName)' is not supported; express the layer as Gemm"
+				)
 			}
 			guard node.inputs.count == 2,
 				let lhs = shapes[node.inputs[0]], let rhs = shapes[node.inputs[1]],
@@ -900,7 +908,7 @@ public struct ONNXModelReader {
 			return axis
 		}
 
-	private func checkedExtentSum(_ values: [Int], operation: String, operatorName: String) throws -> Int {
+		private func checkedExtentSum(_ values: [Int], operation: String, operatorName: String) throws -> Int {
 			var total = 0
 			for value in values {
 				let (sum, overflow) = total.addingReportingOverflow(value)
@@ -1057,6 +1065,14 @@ public struct ONNXModelReader {
 		private mutating func negativeOneConstant(over shape: [Int]) throws -> String {
 			if usesExactND {
 				let elementCount = try checkedElementCount(shape, operation: "negate")
+				// Same expansion bound as `expandExactNDConstant`: a crafted huge activation shape must
+				// throw before this loop allocates, not exhaust memory during import.
+				guard elementCount <= 8_000_000 else {
+					throw ONNXModelReaderError.unsupportedAttribute(
+						operation: "negate",
+						detail: "negated activation expands to \(elementCount) elements, over the 8000000 limit"
+					)
+				}
 				var payload = Data(capacity: elementCount * MemoryLayout<Float>.size)
 				for _ in 0 ..< elementCount {
 					var value = Float(-1)

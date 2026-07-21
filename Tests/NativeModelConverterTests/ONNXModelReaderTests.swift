@@ -1663,6 +1663,45 @@ final class ONNXModelReaderTests: XCTestCase {
 		}
 	}
 
+	func testRead_subOverEightMillionElementActivation_isRejected() throws {
+		// Sub(x, y) negates `y` via a same-shape expanded −1 constant on the exact-ND path; a
+		// [1, 1, 3000, 3000] activation would expand to 9,000,000 floats, over the reader's
+		// 8,000,000-element expansion bound. The trailing MatMul routes the model to the exact-ND family.
+		let sub = onnxNode(op: "Sub", inputs: ["x", "x"], outputs: ["s"], name: "sub")
+		let matmul = onnxNode(op: "MatMul", inputs: ["s", "s"], outputs: ["m"], name: "matmul")
+		let model = onnxModel(
+			nodes: [sub, matmul],
+			initializers: [],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 1, 3000, 3000])],
+			outputs: [onnxValueInfo(name: "m", shape: [1, 1, 3000, 3000])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute(_, let detail) = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+			XCTAssertTrue(detail.contains("over the 8000000 limit"), detail)
+		}
+	}
+
+	func testRead_matMulWithInitializerOperand_isRejected() throws {
+		// MatMul only lowers activation×activation; an initializer operand must produce the Gemm
+		// guidance rather than a misleading shape-inference failure.
+		let weight = onnxTensor(name: "w", dims: [3, 4], floats: Array(repeating: 0, count: 12))
+		let matmul = onnxNode(op: "MatMul", inputs: ["x", "w"], outputs: ["y"], name: "matmul")
+		let model = onnxModel(
+			nodes: [matmul],
+			initializers: [weight],
+			inputs: [onnxValueInfo(name: "x", shape: [1, 2, 3])],
+			outputs: [onnxValueInfo(name: "y", shape: [1, 2, 4])]
+		)
+		XCTAssertThrowsError(try ONNXModelReader().read(data: model)) { error in
+			guard case ONNXModelReaderError.unsupportedAttribute(_, let detail) = error else {
+				return XCTFail("Expected unsupportedAttribute, got \(error)")
+			}
+			XCTAssertTrue(detail.contains("MatMul with initializer operand"), detail)
+		}
+	}
+
 	/// Builds a Slice model in the opset-≥10 tensor-input form. `axes`/`steps` become extra initializer
 	/// inputs when present; an absent `axes` beneath a present `steps` fills the positional slot with the
 	/// empty-string optional-input marker ONNX uses.
