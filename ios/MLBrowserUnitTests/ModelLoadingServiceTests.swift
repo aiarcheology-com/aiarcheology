@@ -165,6 +165,21 @@ final class ModelMetadataNormalizationTests: XCTestCase {
         XCTAssertNil(ModelLoadingService.normalizedMetadataString(42))
         XCTAssertNil(ModelLoadingService.normalizedMetadataString(nil))
     }
+
+    /// Covers the parser link `loadAndExtractMetadata` relies on for AIA-0478: the standard license
+    /// key must survive `MLModelMetadataParser` and the normalization the extraction applies.
+    func test_parserLicenseKey_roundTripsThroughNormalization() {
+        let parser = MLModelMetadataParser(metadata: [.license: " AGPL-3.0 \n"])
+
+        XCTAssertEqual(ModelLoadingService.normalizedMetadataString(parser.value(for: .license)), "AGPL-3.0")
+    }
+
+    func test_parserLicenseKey_missingOrBlank_yieldsNil() {
+        XCTAssertNil(MLModelMetadataParser(metadata: [:]).value(for: .license))
+
+        let blank = MLModelMetadataParser(metadata: [.license: " \t "])
+        XCTAssertNil(ModelLoadingService.normalizedMetadataString(blank.value(for: .license)))
+    }
 }
 
 // MARK: - Native Target Semantics Tests (AIA-0471)
@@ -176,6 +191,7 @@ final class NativeModelImportAssumptionTests: XCTestCase {
             from: convertedMetadata(
                 task: "classification",
                 modelFormat: "neuralNetworkClassifier",
+                classCount: "1000",
                 labelProvenance: "convention",
                 labelProfile: "imagenet-1k",
                 preprocessingOrigin: "convention",
@@ -206,6 +222,7 @@ final class NativeModelImportAssumptionTests: XCTestCase {
         var userDefined = creatorDefined(
             task: "classification",
             modelFormat: "neuralNetworkClassifier",
+            classCount: "1000",
             labelProvenance: "convention",
             labelProfile: "imagenet-1k",
             preprocessingOrigin: "convention",
@@ -214,13 +231,33 @@ final class NativeModelImportAssumptionTests: XCTestCase {
         userDefined["com.aiarcheology.native.target.label-provenance"] = "metadata"
 
         XCTAssertNil(ModelLoadingService.nativeModelImportAssumption(from: [.creatorDefinedKey: userDefined]))
+
+        // Restore the provenance so the second assertion isolates the missing-version case.
+        userDefined["com.aiarcheology.native.target.label-provenance"] = "convention"
         userDefined.removeValue(forKey: "com.aiarcheology.native.target.semantics-version")
         XCTAssertNil(ModelLoadingService.nativeModelImportAssumption(from: [.creatorDefinedKey: userDefined]))
+    }
+
+    func test_fallbackImageNetContract_withWrongClassCount_returnsNoAssumption() {
+        let assumption = ModelLoadingService.nativeModelImportAssumption(
+            from: convertedMetadata(
+                task: "classification",
+                modelFormat: "neuralNetworkClassifier",
+                classCount: "3",
+                labelProvenance: "convention",
+                labelProfile: "imagenet-1k",
+                preprocessingOrigin: "convention",
+                preprocessingProfile: "image-net-rgb"
+            )
+        )
+
+        XCTAssertNil(assumption, "An imagenet-1k contract without 1000 classes is untruthful and must not parse.")
     }
 
     private func convertedMetadata(
         task: String,
         modelFormat: String,
+        classCount: String = "3",
         labelProvenance: String,
         labelProfile: String,
         preprocessingOrigin: String,
@@ -229,6 +266,7 @@ final class NativeModelImportAssumptionTests: XCTestCase {
         [.creatorDefinedKey: creatorDefined(
             task: task,
             modelFormat: modelFormat,
+            classCount: classCount,
             labelProvenance: labelProvenance,
             labelProfile: labelProfile,
             preprocessingOrigin: preprocessingOrigin,
@@ -239,6 +277,7 @@ final class NativeModelImportAssumptionTests: XCTestCase {
     private func creatorDefined(
         task: String,
         modelFormat: String,
+        classCount: String = "3",
         labelProvenance: String,
         labelProfile: String,
         preprocessingOrigin: String,
@@ -249,7 +288,7 @@ final class NativeModelImportAssumptionTests: XCTestCase {
             "com.aiarcheology.native.target.semantics-version": "1",
             "com.aiarcheology.native.target.model-format": modelFormat,
             "com.aiarcheology.native.target.task": task,
-            "com.aiarcheology.native.target.class-count": "3",
+            "com.aiarcheology.native.target.class-count": classCount,
             "com.aiarcheology.native.target.label-provenance": labelProvenance,
             "com.aiarcheology.native.target.label-profile": labelProfile,
             "com.aiarcheology.native.target.preprocessing-origin": preprocessingOrigin,
