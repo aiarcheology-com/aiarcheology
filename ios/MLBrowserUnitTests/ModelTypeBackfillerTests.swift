@@ -27,6 +27,12 @@ private actor StubModelMetadataLoader: ModelMetadataLoading {
     }
 }
 
+private actor FailingModelMetadataLoader: ModelMetadataLoading {
+    func loadAndExtractMetadata(from url: URL, demo: Bool) async throws -> ExtractedModelInfo {
+        throw ModelLoadingError.modelLoadFailed(url)
+    }
+}
+
 @MainActor
 final class ModelTypeBackfillerTests: XCTestCase {
 
@@ -168,6 +174,27 @@ final class ModelTypeBackfillerTests: XCTestCase {
 
         let calls = await loader.calls()
         XCTAssertEqual(calls, 0, "A completed missing-file scan must not be retried on a later launch")
+    }
+
+    /// A row whose metadata load throws must not be counted as scanned: the guards stay unarmed so
+    /// the next launch retries the row instead of leaving it permanently without a license.
+    func test_backfill_failedLoadLeavesGuardsUnarmedAndNextLaunchRetries() async {
+        let config = seed(demo: false, fileName: "file:///tmp/aia0478-model.mlmodel", typeString: "classify", parsed: false)
+
+        await backfiller(loader: FailingModelMetadataLoader()).backfillIfNeeded()
+
+        XCTAssertFalse(config.modelTypeParsed, "A failed load must leave the row untouched")
+        XCTAssertNil(config.license)
+        XCTAssertFalse(defaults.bool(forKey: ModelTypeBackfiller.defaultsKey), "A scan with load failures must not arm the type guard")
+        XCTAssertFalse(defaults.bool(forKey: ModelTypeBackfiller.licenseDefaultsKey), "A scan with load failures must not arm the license guard")
+
+        // The next launch retries the same row and a clean scan completes both passes.
+        await backfiller(loader: StubModelMetadataLoader(result: metadata())).backfillIfNeeded()
+
+        XCTAssertTrue(config.modelTypeParsed, "The retried row must be locked once its load succeeds")
+        XCTAssertEqual(config.license, "AGPL-3.0")
+        XCTAssertTrue(defaults.bool(forKey: ModelTypeBackfiller.defaultsKey))
+        XCTAssertTrue(defaults.bool(forKey: ModelTypeBackfiller.licenseDefaultsKey))
     }
 
     /// A row that already carries both fields is not re-read or overwritten during the upgrade scan.
