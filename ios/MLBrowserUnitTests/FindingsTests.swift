@@ -671,6 +671,10 @@ final class FindingMigrationTests: XCTestCase {
             Set(configurations.compactMap { $0.value(forKey: "modelVersion") as? String }),
             Set((0..<3).map { "legacy-\($0)" })
         )
+        XCTAssertEqual(
+            Set(configurations.compactMap { $0.value(forKey: "modelDescription") as? String }),
+            Set((0..<3).map { "Legacy model \($0)" })
+        )
         XCTAssertTrue(configurations.allSatisfy { $0.value(forKey: "license") == nil })
 
         // 5. The new Finding entity is usable in the migrated store.
