@@ -458,12 +458,12 @@ final class FixturePatternQualificationTests: XCTestCase {
             path.append(UIBezierPath(rect: CGRect(x: 0, y: 0, width: size, height: size)))
             for row in 0...cells {
                 for col in 0...cells {
-                    let x = CGFloat(col) * cell, y = CGFloat(row) * cell
+                    let xPosition = CGFloat(col) * cell, yPosition = CGFloat(row) * cell
                     if rand() { // horizontal wall segment
-                        path.move(to: CGPoint(x: x, y: y)); path.addLine(to: CGPoint(x: x + cell, y: y))
+                        path.move(to: CGPoint(x: xPosition, y: yPosition)); path.addLine(to: CGPoint(x: xPosition + cell, y: yPosition))
                     }
                     if rand() { // vertical wall segment
-                        path.move(to: CGPoint(x: x, y: y)); path.addLine(to: CGPoint(x: x, y: y + cell))
+                        path.move(to: CGPoint(x: xPosition, y: yPosition)); path.addLine(to: CGPoint(x: xPosition, y: yPosition + cell))
                     }
                 }
             }

@@ -68,8 +68,8 @@ final class DeepStateTests: XCTestCase {
             .toAsyncStream()
         
         // Enable it - this triggers async driver loading via CoreData notification
-        deepState.updateConfiguration(config.entityId) { c in
-            c.enabled = true
+        deepState.updateConfiguration(config.entityId) { configuration in
+            configuration.enabled = true
         }
         
         // Use async/await to wait for the error to be published with timeout
@@ -107,8 +107,8 @@ final class DeepStateTests: XCTestCase {
                       "Detector should load and register for the enabled demo model")
 
         // Flip the type — triggers handleUpdatedConfigurations via the CoreData notification.
-        deepState.updateConfiguration(id) { c in
-            c.modelType = .classificator
+        deepState.updateConfiguration(id) { configuration in
+            configuration.modelType = .classificator
         }
 
         // The stale detector must be removed and a classifier registered in its place.

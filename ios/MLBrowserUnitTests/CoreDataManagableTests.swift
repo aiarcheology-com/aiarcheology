@@ -146,9 +146,9 @@ final class CoreDataManagableTests: XCTestCase {
         let context = testStack.viewContext
 
         // Create 5 entries
-        for i in 1...5 {
+        for index in 1...5 {
             let entry = WebHistoryEntry.create(in: context)
-            entry.page = URL(string: "https://example\(i).com")
+            entry.page = URL(string: "https://example\(index).com")
             entry.creationDate_ = Date()
         }
         try WebHistoryEntry.save(in: context)
