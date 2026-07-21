@@ -4,4 +4,7 @@
    <FileRef
       location = "container:MLBrowser.xcodeproj">
    </FileRef>
+   <FileRef
+      location = "group:..">
+   </FileRef>
 </Workspace>
