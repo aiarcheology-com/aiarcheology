@@ -152,31 +152,11 @@ final class ModelTypeBackfiller {
             }
         }
 
-        // A scan with load failures is incomplete: leave both guards unarmed so the next launch
-        // retries the failed rows. Rows are only ever re-parsed, so the retry is idempotent, and the
-        // scan stays bounded to still-pending rows.
-        //
-        // The retry is capped: a file that fails this many launches is not transiently unavailable
-        // (it is corrupt, or no longer loadable on this OS), and re-compiling it on every launch
-        // forever would be a permanent cost for a row that will never succeed.
-        let failedAttempts = loadFailureCount == 0 ? 0 : defaults.integer(forKey: Self.failedAttemptsKey) + 1
-        if loadFailureCount == 0 || failedAttempts >= Self.maximumFailedAttempts {
-            if loadFailureCount > 0 {
-                LoggingPolicy.warning(
-                    "ModelTypeBackfiller: giving up after \(failedAttempts) scans with load failures; \(loadFailureCount) row(s) keep their defaults",
-                    logger: .configuration
-                )
-            }
-            if shouldBackfillType {
-                defaults.set(true, forKey: Self.defaultsKey)
-            }
-            if shouldBackfillLicense {
-                defaults.set(true, forKey: Self.licenseDefaultsKey)
-            }
-            defaults.removeObject(forKey: Self.failedAttemptsKey)
-        } else {
-            defaults.set(failedAttempts, forKey: Self.failedAttemptsKey)
-        }
+        armGuardsIfScanIsComplete(
+            loadFailureCount: loadFailureCount,
+            shouldBackfillType: shouldBackfillType,
+            shouldBackfillLicense: shouldBackfillLicense
+        )
         LoggingPolicy.info(
             """
             ModelTypeBackfiller: locked \(backfilledTypeCount) of \(typeEligibleCount) type-pending and \
@@ -185,5 +165,40 @@ final class ModelTypeBackfiller {
             """,
             logger: .configuration
         )
+    }
+
+    /// Arms the one-shot guards once a scan is complete enough to never repeat.
+    ///
+    /// A scan with load failures is incomplete: leaving both guards unarmed makes the next launch
+    /// retry the failed rows. Rows are only ever re-parsed, so the retry is idempotent and stays
+    /// bounded to still-pending rows. The retry itself is capped, because a file that fails this
+    /// many launches is not transiently unavailable — it is corrupt, or no longer loadable on this
+    /// OS — and re-compiling it on every launch forever costs a row that will never succeed.
+    private func armGuardsIfScanIsComplete(
+        loadFailureCount: Int,
+        shouldBackfillType: Bool,
+        shouldBackfillLicense: Bool
+    ) {
+        let failedAttempts = loadFailureCount == 0 ? 0 : defaults.integer(forKey: Self.failedAttemptsKey) + 1
+        guard loadFailureCount == 0 || failedAttempts >= Self.maximumFailedAttempts else {
+            defaults.set(failedAttempts, forKey: Self.failedAttemptsKey)
+            return
+        }
+        if loadFailureCount > 0 {
+            LoggingPolicy.warning(
+                """
+                ModelTypeBackfiller: giving up after \(failedAttempts) scans with load failures; \
+                \(loadFailureCount) row(s) keep their defaults
+                """,
+                logger: .configuration
+            )
+        }
+        if shouldBackfillType {
+            defaults.set(true, forKey: Self.defaultsKey)
+        }
+        if shouldBackfillLicense {
+            defaults.set(true, forKey: Self.licenseDefaultsKey)
+        }
+        defaults.removeObject(forKey: Self.failedAttemptsKey)
     }
 }
