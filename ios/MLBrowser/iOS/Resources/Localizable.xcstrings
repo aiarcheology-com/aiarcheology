@@ -9814,7 +9814,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This file has no label metadata. AI Archeology used %@ and %@. Check a few known images before relying on its results."
+            "value" : "This file has no label metadata. AI Archeology used %1$@ and %2$@. Check a few known images before relying on its results."
           }
         }
       }

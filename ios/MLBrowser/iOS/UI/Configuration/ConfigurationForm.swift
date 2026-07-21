@@ -349,7 +349,9 @@ struct ConfigurationForm: View {
 	private var authorSection: some View {
 		Section(header: Text(L10n.Configuration.Section.author)) {
 			ConfigurationDetailRow(label: L10n.Configuration.author, value: "\(configuration.author ?? "")")
-			if let license = ModelLoadingService.normalizedMetadataString(configuration.license) {
+			// Every writer persists nil-or-normalized (import, demo seeding, backfill), so the view
+			// renders the stored value as-is.
+			if let license = configuration.license {
 				ExpandableDetailRow(label: L10n.Configuration.license, value: license, layout: .leadingStacked)
 			}
 			ConfigurationDetailRow(label: L10n.Configuration.created, value: "\(configuration.creationDate)")

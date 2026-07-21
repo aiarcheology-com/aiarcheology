@@ -299,6 +299,42 @@ final class NativeModelCoreMLEmitterTests: XCTestCase {
 		XCTAssertTrue(description.contains("\(UInt64.max - 3)"))
 	}
 
+	func testEmit_sliceNDWithEmptyRange_reportsInvalidOperation() {
+		// beginIds == endIds on an axis describes an empty slice. The lists satisfy the graph
+		// validator's full-rank non-negative rules, so only the emitter's end > begin check can
+		// reject it rather than write a SliceStatic layer Core ML fails to compile.
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			producer: NativeModelGraphProducer(name: "tests", version: "1.0.0"),
+			inputs: [tensor("input", shape: [1, 3, 2])],
+			weights: [],
+			operations: [
+				NativeModelOperation(
+					name: "slice",
+					kind: .sliceND,
+					inputs: ["input"],
+					outputs: [tensor("output", shape: [1, 3, 2])],
+					attributes: [
+						"beginIds": .integers([0, 1, 0]),
+						"endIds": .integers([1, 1, 2]),
+						"strides": .integers([1, 1, 1])
+					]
+				)
+			],
+			outputs: ["output"]
+		)
+
+		XCTAssertThrowsError(try NativeModelCoreMLEmitter().emit(graph: graph, to: temporaryDirectory())) { error in
+			XCTAssertEqual(
+				error as? NativeModelCoreMLEmissionError,
+				.invalidOperation(
+					operation: "slice",
+					reason: "sliceND requires equal-length non-negative begin/end lists with end > begin and positive strides"
+				)
+			)
+		}
+	}
+
 	func testEmit_float16ReluGraph_compiles() throws {
 		let graph = NativeModelGraph(
 			formatVersion: 1,

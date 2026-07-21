@@ -4,49 +4,61 @@ import UIKit
 @testable import ML_Browser
 
 final class ColorExtensionsTests: XCTestCase {
-	private func rgba(_ color: Color, file: StaticString = #filePath, line: UInt = #line) -> (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat) {
+	private struct RGBAComponents {
+		let red: CGFloat
+		let green: CGFloat
+		let blue: CGFloat
+		let alpha: CGFloat
+	}
+
+	private func rgba(_ color: Color, file: StaticString = #filePath, line: UInt = #line) -> RGBAComponents {
 		let uiColor = UIColor(color)
-		var r: CGFloat = 0
-		var g: CGFloat = 0
-		var b: CGFloat = 0
-		var a: CGFloat = 0
-		XCTAssertTrue(uiColor.getRed(&r, green: &g, blue: &b, alpha: &a), "Failed to extract RGBA components from UIColor", file: file, line: line)
+		var red: CGFloat = 0
+		var green: CGFloat = 0
+		var blue: CGFloat = 0
+		var alpha: CGFloat = 0
+		XCTAssertTrue(uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha), "Failed to extract RGBA components from UIColor", file: file, line: line)
 
 		func normalize(_ value: CGFloat) -> CGFloat {
 			if value.isNaN || !value.isFinite { return 0 }
 			// Some color conversions can yield 0...255-ish values. Normalize those.
-			let v = value > 1 ? value / 255.0 : value
-			return min(max(v, 0), 1)
+			let normalized = value > 1 ? value / 255.0 : value
+			return min(max(normalized, 0), 1)
 		}
 
-		return (normalize(r), normalize(g), normalize(b), normalize(a))
+		return RGBAComponents(
+			red: normalize(red),
+			green: normalize(green),
+			blue: normalize(blue),
+			alpha: normalize(alpha)
+		)
 	}
 
 	func testRGBInitializer_Normalizes255Scale() {
 		let red: Int = 255, green: Int = 128, blue: Int = 0
 		let result = rgba(Color(red: red, green: green, blue: blue, opacity: 0.5))
-		XCTAssertEqual(result.r, 1.0, accuracy: 0.0001)
-		XCTAssertEqual(result.g, 128.0 / 255.0, accuracy: 0.0001)
-		XCTAssertEqual(result.b, 0.0, accuracy: 0.0001)
-		XCTAssertEqual(result.a, 0.5, accuracy: 0.0001)
+		XCTAssertEqual(result.red, 1.0, accuracy: 0.0001)
+		XCTAssertEqual(result.green, 128.0 / 255.0, accuracy: 0.0001)
+		XCTAssertEqual(result.blue, 0.0, accuracy: 0.0001)
+		XCTAssertEqual(result.alpha, 0.5, accuracy: 0.0001)
 	}
 
 	func testRGBInitializer_ClampsOutOfRangeValues() {
 		let red: Int = -10, green: Int = 300, blue: Int = 999
 		let result = rgba(Color(red: red, green: green, blue: blue, opacity: -1))
-		XCTAssertEqual(result.r, 0.0, accuracy: 0.0001)
-		XCTAssertEqual(result.g, 1.0, accuracy: 0.0001)
-		XCTAssertEqual(result.b, 1.0, accuracy: 0.0001)
-		XCTAssertEqual(result.a, 0.0, accuracy: 0.0001)
+		XCTAssertEqual(result.red, 0.0, accuracy: 0.0001)
+		XCTAssertEqual(result.green, 1.0, accuracy: 0.0001)
+		XCTAssertEqual(result.blue, 1.0, accuracy: 0.0001)
+		XCTAssertEqual(result.alpha, 0.0, accuracy: 0.0001)
 	}
 
 	func testRGBInitializer_DefaultOpacityIsOne() {
 		let red: Int = 0, green: Int = 0, blue: Int = 0
 		let result = rgba(Color(red: red, green: green, blue: blue))
-		XCTAssertEqual(result.r, 0.0, accuracy: 0.0001)
-		XCTAssertEqual(result.g, 0.0, accuracy: 0.0001)
-		XCTAssertEqual(result.b, 0.0, accuracy: 0.0001)
-		XCTAssertEqual(result.a, 1.0, accuracy: 0.0001)
+		XCTAssertEqual(result.red, 0.0, accuracy: 0.0001)
+		XCTAssertEqual(result.green, 0.0, accuracy: 0.0001)
+		XCTAssertEqual(result.blue, 0.0, accuracy: 0.0001)
+		XCTAssertEqual(result.alpha, 1.0, accuracy: 0.0001)
 	}
 
 	// MARK: - Random Color Tests
@@ -54,19 +66,19 @@ final class ColorExtensionsTests: XCTestCase {
 	func testRandomColor_ProducesValidRGBAComponents() {
 		let color = Color.random()
 		let result = rgba(color)
-		XCTAssertGreaterThanOrEqual(result.r, 0.0)
-		XCTAssertLessThanOrEqual(result.r, 1.0)
-		XCTAssertGreaterThanOrEqual(result.g, 0.0)
-		XCTAssertLessThanOrEqual(result.g, 1.0)
-		XCTAssertGreaterThanOrEqual(result.b, 0.0)
-		XCTAssertLessThanOrEqual(result.b, 1.0)
-		XCTAssertEqual(result.a, 1.0, accuracy: 0.0001)
+		XCTAssertGreaterThanOrEqual(result.red, 0.0)
+		XCTAssertLessThanOrEqual(result.red, 1.0)
+		XCTAssertGreaterThanOrEqual(result.green, 0.0)
+		XCTAssertLessThanOrEqual(result.green, 1.0)
+		XCTAssertGreaterThanOrEqual(result.blue, 0.0)
+		XCTAssertLessThanOrEqual(result.blue, 1.0)
+		XCTAssertEqual(result.alpha, 1.0, accuracy: 0.0001)
 	}
 
 	func testRandomColor_RespectsCustomOpacity() {
 		let color = Color.random(opacity: 0.5)
 		let result = rgba(color)
-		XCTAssertEqual(result.a, 0.5, accuracy: 0.0001)
+		XCTAssertEqual(result.alpha, 0.5, accuracy: 0.0001)
 	}
 
 	func testRandomColor_CanBeConvertedToUIColorAndBack() {
@@ -85,10 +97,10 @@ final class ColorExtensionsTests: XCTestCase {
 		let original = rgba(originalColor)
 		let restored = rgba(restoredColor)
 
-		XCTAssertEqual(original.r, restored.r, accuracy: 0.0001)
-		XCTAssertEqual(original.g, restored.g, accuracy: 0.0001)
-		XCTAssertEqual(original.b, restored.b, accuracy: 0.0001)
-		XCTAssertEqual(original.a, restored.a, accuracy: 0.0001)
+		XCTAssertEqual(original.red, restored.red, accuracy: 0.0001)
+		XCTAssertEqual(original.green, restored.green, accuracy: 0.0001)
+		XCTAssertEqual(original.blue, restored.blue, accuracy: 0.0001)
+		XCTAssertEqual(original.alpha, restored.alpha, accuracy: 0.0001)
 	}
 
 	func testUIColorRandom_ProducesValidComponents() {
@@ -112,13 +124,13 @@ final class ColorExtensionsTests: XCTestCase {
 			let result = rgba(color)
 			
 			// All RGB components should be within the specified range
-			XCTAssertGreaterThanOrEqual(result.r, 0.0, "Red component should be >= 0.0")
-			XCTAssertLessThanOrEqual(result.r, 0.5, "Red component should be <= 0.5")
-			XCTAssertGreaterThanOrEqual(result.g, 0.0, "Green component should be >= 0.0")
-			XCTAssertLessThanOrEqual(result.g, 0.5, "Green component should be <= 0.5")
-			XCTAssertGreaterThanOrEqual(result.b, 0.0, "Blue component should be >= 0.0")
-			XCTAssertLessThanOrEqual(result.b, 0.5, "Blue component should be <= 0.5")
-			XCTAssertEqual(result.a, 1.0, accuracy: 0.0001)
+			XCTAssertGreaterThanOrEqual(result.red, 0.0, "Red component should be >= 0.0")
+			XCTAssertLessThanOrEqual(result.red, 0.5, "Red component should be <= 0.5")
+			XCTAssertGreaterThanOrEqual(result.green, 0.0, "Green component should be >= 0.0")
+			XCTAssertLessThanOrEqual(result.green, 0.5, "Green component should be <= 0.5")
+			XCTAssertGreaterThanOrEqual(result.blue, 0.0, "Blue component should be >= 0.0")
+			XCTAssertLessThanOrEqual(result.blue, 0.5, "Blue component should be <= 0.5")
+			XCTAssertEqual(result.alpha, 1.0, accuracy: 0.0001)
 		}
 	}
 

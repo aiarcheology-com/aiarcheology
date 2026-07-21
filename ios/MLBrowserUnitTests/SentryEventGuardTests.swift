@@ -34,15 +34,15 @@ final class SentryEventGuardTests: XCTestCase {
 		XCTAssertEqual(d3.dropReason, .duplicate)
 		
 		// Verify intermediate occurrences (3-9) are dropped
-		for i in 3..<10 {
-			let decision = sut.decide(signatureHex: sig, now: t0.advanced(by: .seconds(Int64(i))))
-			if i < 9 {
+		for index in 3..<10 {
+			let decision = sut.decide(signatureHex: sig, now: t0.advanced(by: .seconds(Int64(index))))
+			if index < 9 {
 				// Events 3-8 should be dropped
-				XCTAssertFalse(decision.isAllowed, "Event \(i+1) should be dropped")
+				XCTAssertFalse(decision.isAllowed, "Event \(index+1) should be dropped")
 				XCTAssertEqual(decision.dropReason, .duplicate)
 			} else {
 				// 10th occurrence should be allowed due to sampling (every 10th duplicate)
-				XCTAssertTrue(decision.isAllowed, "Event \(i+1) (10th total) should be allowed by sampling")
+				XCTAssertTrue(decision.isAllowed, "Event \(index+1) (10th total) should be allowed by sampling")
 			}
 		}
 	}
@@ -138,15 +138,15 @@ final class SentryEventGuardTests: XCTestCase {
 		
 		let sut = SentryEventGuard(config: config, clock: clock)
 		
-		let a = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-		let b = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-		let c = "cccccccccccccccccccccccccccccccc"
+		let signatureA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		let signatureB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+		let signatureC = "cccccccccccccccccccccccccccccccc"
 		
-		XCTAssertTrue(sut.decide(signatureHex: a, now: t0).isAllowed)
-		XCTAssertTrue(sut.decide(signatureHex: b, now: t0).isAllowed)
-		XCTAssertTrue(sut.decide(signatureHex: c, now: t0).isAllowed) // evicts A
+		XCTAssertTrue(sut.decide(signatureHex: signatureA, now: t0).isAllowed)
+		XCTAssertTrue(sut.decide(signatureHex: signatureB, now: t0).isAllowed)
+		XCTAssertTrue(sut.decide(signatureHex: signatureC, now: t0).isAllowed) // evicts A
 		
 		// A should be treated as new (allowed) because it was evicted.
-		XCTAssertTrue(sut.decide(signatureHex: a, now: t0.advanced(by: .seconds(1))).isAllowed)
+		XCTAssertTrue(sut.decide(signatureHex: signatureA, now: t0.advanced(by: .seconds(1))).isAllowed)
 	}
 }

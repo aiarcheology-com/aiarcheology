@@ -221,11 +221,11 @@ final class DataControllerTests: XCTestCase {
         let context = dataController.container.viewContext
 
         // Create 3 entities
-        for i in 0..<3 {
+        for index in 0..<3 {
             let entry = WebHistoryEntry.create(in: context)
             entry.entityId = UUID()
             entry.creationDate_ = .now
-            entry.page = URL(string: "https://example\(i).com")
+            entry.page = URL(string: "https://example\(index).com")
         }
         try WebHistoryEntry.save(in: context)
 
@@ -241,11 +241,11 @@ final class DataControllerTests: XCTestCase {
         let targetId = UUID()
 
         // Create 3 entities, one with a specific ID
-        for i in 0..<3 {
+        for index in 0..<3 {
             let entry = WebHistoryEntry.create(in: context)
-            entry.entityId = i == 1 ? targetId : UUID()
+            entry.entityId = index == 1 ? targetId : UUID()
             entry.creationDate_ = .now
-            entry.page = URL(string: "https://example\(i).com")
+            entry.page = URL(string: "https://example\(index).com")
         }
         try WebHistoryEntry.save(in: context)
 
@@ -260,11 +260,11 @@ final class DataControllerTests: XCTestCase {
         let context = dataController.container.viewContext
 
         // Create some entities
-        for i in 0..<3 {
+        for index in 0..<3 {
             let entry = WebHistoryEntry.create(in: context)
             entry.entityId = UUID()
             entry.creationDate_ = .now
-            entry.page = URL(string: "https://example\(i).com")
+            entry.page = URL(string: "https://example\(index).com")
         }
         try WebHistoryEntry.save(in: context)
 
@@ -282,12 +282,12 @@ final class DataControllerTests: XCTestCase {
 
         // Create 3 entities
         var entityIds: [UUID] = []
-        for i in 0..<3 {
+        for index in 0..<3 {
             let entry = WebHistoryEntry.create(in: context)
             let id = UUID()
             entry.entityId = id
             entry.creationDate_ = .now
-            entry.page = URL(string: "https://example\(i).com")
+            entry.page = URL(string: "https://example\(index).com")
             entityIds.append(id)
         }
         try WebHistoryEntry.save(in: context)
@@ -308,12 +308,12 @@ final class DataControllerTests: XCTestCase {
 
         // Create entities and track their IDs
         var entityIds: [UUID] = []
-        for i in 0..<5 {
+        for index in 0..<5 {
             let entry = WebHistoryEntry.create(in: context)
             let id = UUID()
             entry.entityId = id
             entry.creationDate_ = .now
-            entry.page = URL(string: "https://example\(i).com")
+            entry.page = URL(string: "https://example\(index).com")
             entityIds.append(id)
         }
         try WebHistoryEntry.save(in: context)
@@ -333,11 +333,11 @@ final class DataControllerTests: XCTestCase {
         let context = dataController.container.viewContext
 
         // Create WebHistoryEntry entities
-        for i in 0..<2 {
+        for index in 0..<2 {
             let entry = WebHistoryEntry.create(in: context)
             entry.entityId = UUID()
             entry.creationDate_ = .now
-            entry.page = URL(string: "https://example\(i).com")
+            entry.page = URL(string: "https://example\(index).com")
         }
         try WebHistoryEntry.save(in: context)
 
@@ -359,11 +359,11 @@ final class DataControllerTests: XCTestCase {
         let context = dataController.container.viewContext
 
         // Create entities
-        for i in 0..<4 {
+        for index in 0..<4 {
             let entry = WebHistoryEntry.create(in: context)
             entry.entityId = UUID()
             entry.creationDate_ = .now
-            entry.page = URL(string: "https://example\(i).com")
+            entry.page = URL(string: "https://example\(index).com")
         }
         try WebHistoryEntry.save(in: context)
 
@@ -380,14 +380,14 @@ final class DataControllerTests: XCTestCase {
         let cutoffDate = Date()
 
         // Create entities with different dates
-        for i in 0..<5 {
+        for index in 0..<5 {
             let entry = WebHistoryEntry.create(in: context)
             entry.entityId = UUID()
             // Some before cutoff, some after
-            entry.creationDate_ = i < 3
-                ? cutoffDate.addingTimeInterval(-Double(i + 1) * 3600)
-                : cutoffDate.addingTimeInterval(Double(i) * 3600)
-            entry.page = URL(string: "https://example\(i).com")
+            entry.creationDate_ = index < 3
+                ? cutoffDate.addingTimeInterval(-Double(index + 1) * 3600)
+                : cutoffDate.addingTimeInterval(Double(index) * 3600)
+            entry.page = URL(string: "https://example\(index).com")
         }
         try WebHistoryEntry.save(in: context)
 

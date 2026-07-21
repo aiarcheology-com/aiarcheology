@@ -78,8 +78,8 @@ final class SentryBreadcrumbGuardTests: XCTestCase {
 		XCTAssertTrue(sut.shouldAllow(signatureHex: sig, now: t0.advanced(by: .seconds(4))))
 		
 		// 6-9 should be dropped
-		for i in 5..<9 {
-			XCTAssertFalse(sut.shouldAllow(signatureHex: sig, now: t0.advanced(by: .seconds(Int64(i)))))
+		for index in 5..<9 {
+			XCTAssertFalse(sut.shouldAllow(signatureHex: sig, now: t0.advanced(by: .seconds(Int64(index)))))
 		}
 		
 		// 10th should be allowed

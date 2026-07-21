@@ -1,11 +1,12 @@
-Test Focus: Source license shown for imported models
+Test Focus: Review fixes for recent import features (model conversion, import notices, licenses)
 
 What's new:
 
-• The app now saves and shows the license declared by an imported Core ML or converted ONNX model.
+• Hardening and fixes from a code review of the recent converter, import-notice, and license features. No new user-facing features; existing flows should keep working.
 
 Please test:
 
-1. Import `tinyyolov2-8.onnx`, open its configuration, and confirm the source details show `Public Domain` as the license.
-2. Import `yolo11n-aaurelions.onnx`, open its configuration, and confirm the source details show `AGPL-3.0`.
-3. Import a model with no license metadata. Its configuration must not show an empty License row.
+1. Import `yolo11n-aaurelions.onnx` and confirm it converts, detects on a live page, and its configuration shows `AGPL-3.0` as the license.
+2. Import an ONNX classifier without label metadata and confirm the import message still explains the assumed labels and preprocessing in one readable sentence.
+3. Update from a previous build with older imported models: their configurations should gain licenses where the model file declares one, and nothing should be lost if the first launch is interrupted.
+4. Import a model with no license metadata. Its configuration must not show an empty License row.

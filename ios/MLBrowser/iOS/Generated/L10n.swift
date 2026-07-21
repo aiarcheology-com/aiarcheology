@@ -577,9 +577,9 @@ internal enum L10n {
     internal static let inferredPreprocessingNone = L10n.tr("Localizable", "import.inferredPreprocessingNone", fallback: "no image preprocessing")
     /// RGB pixels scaled to 0–1
     internal static let inferredPreprocessingRgbZeroToOne = L10n.tr("Localizable", "import.inferredPreprocessingRgbZeroToOne", fallback: "RGB pixels scaled to 0–1")
-    /// This file has no label metadata. AI Archeology used %@ and %@. Check a few known images before relying on its results.
+    /// This file has no label metadata. AI Archeology used %1$@ and %2$@. Check a few known images before relying on its results.
     internal static func inferredSemantics(_ p1: Any, _ p2: Any) -> String {
-      return L10n.tr("Localizable", "import.inferredSemantics", String(describing: p1), String(describing: p2), fallback: "This file has no label metadata. AI Archeology used %@ and %@. Check a few known images before relying on its results.")
+      return L10n.tr("Localizable", "import.inferredSemantics", String(describing: p1), String(describing: p2), fallback: "This file has no label metadata. AI Archeology used %1$@ and %2$@. Check a few known images before relying on its results.")
     }
     /// Keep Original
     internal static let keepOriginal = L10n.tr("Localizable", "import.keepOriginal", fallback: "Keep Original")

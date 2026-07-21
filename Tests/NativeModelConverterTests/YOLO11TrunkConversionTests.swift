@@ -78,7 +78,8 @@ final class YOLO11TrunkConversionTests: XCTestCase {
 		XCTAssertEqual(output.dataType, .float32)
 		for sample in oracle.samples {
 			guard sample.index >= 0, sample.index < output.count else {
-				return XCTFail("oracle sample index \(sample.index) is outside the output")
+				XCTFail("oracle sample index \(sample.index) is outside the output")
+				continue
 			}
 			let channel = sample.index / 8_400
 			let tolerance = channel < 4 ? oracle.coordinateAbsoluteTolerance : oracle.scoreAbsoluteTolerance

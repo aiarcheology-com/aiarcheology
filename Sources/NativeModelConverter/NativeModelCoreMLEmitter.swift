@@ -365,7 +365,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				)
 			}
 			if let targetSemanticsIntent,
-				targetSemanticsIntent.labelProfile.provenance.rawValue != detectionTarget.labelProvenance.rawValue {
+				targetSemanticsIntent.labelProfile.provenance != Self.semanticsProvenance(of: detectionTarget.labelProvenance) {
 				throw NativeModelCoreMLEmissionError.invalidDetectionInterface(
 					reason: "target semantics label provenance does not match the detection target"
 				)
@@ -398,6 +398,19 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			detectionTarget: detectionTarget,
 			targetSemantics: targetSemantics
 		)
+	}
+
+	/// Explicit bridge between the detector catalog's provenance and the target-semantics one. The
+	/// two enums align by name today, but a rawValue comparison would silently change behavior if
+	/// either side ever diverged.
+	private static func semanticsProvenance(
+		of provenance: NativeModelDetectorCatalog.DetectorLabelProvenance
+	) -> NativeModelTargetSemantics.LabelProvenance {
+		switch provenance {
+		case .metadata: .metadata
+		case .convention: .convention
+		case .unnamed: .unnamed
+		}
 	}
 
 	private func makeModel(
@@ -1558,11 +1571,12 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			let endIds = operation.attributes["endIds"]?.integerArrayValue,
 			let strides = operation.attributes["strides"]?.integerArrayValue,
 			beginIds.count == endIds.count, beginIds.count == strides.count,
-			!beginIds.isEmpty, beginIds.allSatisfy({ $0 >= 0 }), endIds.allSatisfy({ $0 >= 0 }), strides.allSatisfy({ $0 > 0 })
+			!beginIds.isEmpty, beginIds.allSatisfy({ $0 >= 0 }), endIds.allSatisfy({ $0 >= 0 }), strides.allSatisfy({ $0 > 0 }),
+			zip(beginIds, endIds).allSatisfy({ $0.1 > $0.0 })
 		else {
 			throw NativeModelCoreMLEmissionError.invalidOperation(
 				operation: operation.name,
-				reason: "sliceND requires equal-length non-negative begin/end and positive stride lists"
+				reason: "sliceND requires equal-length non-negative begin/end lists with end > begin and positive strides"
 			)
 		}
 		let parameters = CoreMLProtobufEncoder.message { parameters in

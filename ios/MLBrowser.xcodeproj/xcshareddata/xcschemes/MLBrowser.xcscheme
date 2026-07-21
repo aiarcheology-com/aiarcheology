@@ -63,6 +63,17 @@
                ReferencedContainer = "container:MLBrowser.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "NativeModelConverterTests"
+               BuildableName = "NativeModelConverterTests"
+               BlueprintName = "NativeModelConverterTests"
+               ReferencedContainer = "container:..">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

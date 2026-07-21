@@ -154,7 +154,10 @@ final class CatalogProviderTests: XCTestCase {
 			if task == CatalogTask.objectDetection.rawValue {
 				payload = "[{\"id\":\"acme/detector\",\"author\":\"acme\",\"downloads\":12,\"likes\":3,\"siblings\":[{\"rfilename\":\"Detector.mlmodel\"}]}]"
 			} else {
-				payload = "[{\"id\":\"acme/detector\",\"author\":\"acme\",\"downloads\":12,\"likes\":3,\"siblings\":[{\"rfilename\":\"Detector.mlmodel\"}]},{\"id\":\"acme/classifier\",\"downloads\":5,\"likes\":1,\"siblings\":[{\"rfilename\":\"Classifier.mlmodel\"}]}]"
+				payload = "[{\"id\":\"acme/detector\",\"author\":\"acme\",\"downloads\":12,\"likes\":3,"
+					+ "\"siblings\":[{\"rfilename\":\"Detector.mlmodel\"}]},"
+					+ "{\"id\":\"acme/classifier\",\"downloads\":5,\"likes\":1,"
+					+ "\"siblings\":[{\"rfilename\":\"Classifier.mlmodel\"}]}]"
 			}
 			return (200, Data(payload.utf8))
 		}
@@ -173,7 +176,9 @@ final class CatalogProviderTests: XCTestCase {
 
 	func testSearch_filtersNestedModelWithoutInstallableArtifact() async throws {
 		CatalogURLProtocol.responseHandler = { _ in
-			let payload = "[{\"id\":\"acme/unsupported\",\"siblings\":[{\"rfilename\":\"compiled/model.mlmodel\"}]},{\"id\":\"acme/package\",\"siblings\":[{\"rfilename\":\"Package.mlpackage/Data/model.mlmodel\"},{\"rfilename\":\"Package.mlpackage/Manifest.json\"}]}]"
+			let payload = "[{\"id\":\"acme/unsupported\",\"siblings\":[{\"rfilename\":\"compiled/model.mlmodel\"}]},"
+				+ "{\"id\":\"acme/package\",\"siblings\":[{\"rfilename\":\"Package.mlpackage/Data/model.mlmodel\"},"
+				+ "{\"rfilename\":\"Package.mlpackage/Manifest.json\"}]}]"
 			return (200, Data(payload.utf8))
 		}
 
@@ -228,7 +233,9 @@ final class CatalogProviderTests: XCTestCase {
 
 	func testResolveFiles_collectsOnePackageTree() async throws {
 		CatalogURLProtocol.responseHandler = { _ in
-			let payload = "{\"siblings\":[{\"rfilename\":\"One.mlpackage/Data/model.bin\",\"size\":10},{\"rfilename\":\"One.mlpackage/Manifest.json\",\"size\":20},{\"rfilename\":\"Other.mlpackage/data\",\"size\":30}]}"
+			let payload = "{\"siblings\":[{\"rfilename\":\"One.mlpackage/Data/model.bin\",\"size\":10},"
+				+ "{\"rfilename\":\"One.mlpackage/Manifest.json\",\"size\":20},"
+				+ "{\"rfilename\":\"Other.mlpackage/data\",\"size\":30}]}"
 			return (200, Data(payload.utf8))
 		}
 
