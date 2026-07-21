@@ -31,6 +31,11 @@ final class ModelTypeBackfiller {
     /// AIA-0478's independent upgrade pass. It deliberately does not share AIA-0402's key: most
     /// installed configurations have already completed the type pass but still need their license.
     static let licenseDefaultsKey = "aia0478.didBackfillLicense"
+    /// Consecutive scans that ended with at least one failed metadata load. Cleared on the first
+    /// clean scan; at `maximumFailedAttempts` the guards arm anyway so a permanently unloadable
+    /// file cannot make every launch re-compile it.
+    static let failedAttemptsKey = "aia0478.backfillFailedAttempts"
+    static let maximumFailedAttempts = 3
 
     private let dataController: DataController
     private let defaults: UserDefaults
@@ -71,15 +76,21 @@ final class ModelTypeBackfiller {
         var backfilledTypeCount = 0
         var backfilledLicenseCount = 0
         var loadFailureCount = 0
-        var didMutate = false
+        // Tracked per row so a failed save can discard exactly what this scan changed. The
+        // `viewContext` is shared with live UI and we `await` the loader mid-scan, so unrelated
+        // pending edits can accumulate alongside ours.
+        var mutatedConfigurations: [DeepConfiguration] = []
         for configuration in pending {
+            var rowDidMutate = false
+            defer { if rowDidMutate { mutatedConfigurations.append(configuration) } }
+
             // Normalize a legacy blank even when the source file is no longer available. This
             // keeps persistence consistent with the presentation rule without inventing a license.
             if shouldBackfillLicense,
                 ModelLoadingService.normalizedMetadataString(configuration.license) == nil,
                 configuration.license != nil {
                 configuration.license = nil
-                didMutate = true
+                rowDidMutate = true
             }
 
             // A row whose file can't be resolved (missing/renamed) retains the safe defaults. This
@@ -109,7 +120,7 @@ final class ModelTypeBackfiller {
                 configuration.modelType = info.task   // authoritative value → corrects a stale stored type
                 configuration.modelTypeParsed = true
                 backfilledTypeCount += 1
-                didMutate = true
+                rowDidMutate = true
             }
 
             if shouldBackfillLicense,
@@ -117,20 +128,26 @@ final class ModelTypeBackfiller {
                 if let license = info.license {
                     configuration.license = license
                     backfilledLicenseCount += 1
-                    didMutate = true
+                    rowDidMutate = true
                 }
             }
         }
 
-        if didMutate {
+        if !mutatedConfigurations.isEmpty {
             do {
                 try DeepConfiguration.save(in: context)
             } catch {
                 // Don't set either guard on a failed save — let the next launch retry. Discard the
                 // unsaved mutations so a later unrelated save cannot commit a partial backfill, and
                 // surface the failure rather than claiming the one-shot scan completed.
+                //
+                // Refresh only the rows this scan touched: `context.rollback()` would also discard
+                // unrelated pending edits that other main-actor code made on the shared viewContext
+                // while we awaited the loader.
                 LoggingPolicy.error("ModelTypeBackfiller: save failed; will retry next launch", error: error, logger: .configuration)
-                context.rollback()
+                for configuration in mutatedConfigurations {
+                    context.refresh(configuration, mergeChanges: false)
+                }
                 return
             }
         }
@@ -138,13 +155,27 @@ final class ModelTypeBackfiller {
         // A scan with load failures is incomplete: leave both guards unarmed so the next launch
         // retries the failed rows. Rows are only ever re-parsed, so the retry is idempotent, and the
         // scan stays bounded to still-pending rows.
-        if loadFailureCount == 0 {
+        //
+        // The retry is capped: a file that fails this many launches is not transiently unavailable
+        // (it is corrupt, or no longer loadable on this OS), and re-compiling it on every launch
+        // forever would be a permanent cost for a row that will never succeed.
+        let failedAttempts = loadFailureCount == 0 ? 0 : defaults.integer(forKey: Self.failedAttemptsKey) + 1
+        if loadFailureCount == 0 || failedAttempts >= Self.maximumFailedAttempts {
+            if loadFailureCount > 0 {
+                LoggingPolicy.warning(
+                    "ModelTypeBackfiller: giving up after \(failedAttempts) scans with load failures; \(loadFailureCount) row(s) keep their defaults",
+                    logger: .configuration
+                )
+            }
             if shouldBackfillType {
                 defaults.set(true, forKey: Self.defaultsKey)
             }
             if shouldBackfillLicense {
                 defaults.set(true, forKey: Self.licenseDefaultsKey)
             }
+            defaults.removeObject(forKey: Self.failedAttemptsKey)
+        } else {
+            defaults.set(failedAttempts, forKey: Self.failedAttemptsKey)
         }
         LoggingPolicy.info(
             """

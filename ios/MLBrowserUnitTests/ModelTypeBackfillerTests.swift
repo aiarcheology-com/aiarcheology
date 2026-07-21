@@ -208,6 +208,55 @@ final class ModelTypeBackfillerTests: XCTestCase {
         XCTAssertTrue(defaults.bool(forKey: ModelTypeBackfiller.licenseDefaultsKey))
     }
 
+    /// The retry is capped: a file that fails every scan must not make every future launch
+    /// re-compile it. After `maximumFailedAttempts` the guards arm and the row keeps its defaults.
+    func test_backfill_repeatedLoadFailures_stopRetryingAfterCap() async {
+        let config = seed(
+            demo: false,
+            fileName: "file:///tmp/aia0478-model.mlmodel",
+            typeString: "classify",
+            parsed: false
+        )
+
+        for attempt in 1 ..< ModelTypeBackfiller.maximumFailedAttempts {
+            await backfiller(loader: FailingModelMetadataLoader()).backfillIfNeeded()
+            XCTAssertFalse(
+                defaults.bool(forKey: ModelTypeBackfiller.licenseDefaultsKey),
+                "Scan \(attempt) is below the cap and must still retry next launch"
+            )
+        }
+
+        // The scan that reaches the cap gives up and arms both guards.
+        await backfiller(loader: FailingModelMetadataLoader()).backfillIfNeeded()
+
+        XCTAssertTrue(defaults.bool(forKey: ModelTypeBackfiller.defaultsKey))
+        XCTAssertTrue(defaults.bool(forKey: ModelTypeBackfiller.licenseDefaultsKey))
+        XCTAssertFalse(config.modelTypeParsed, "A permanently unloadable row keeps the safe defaults")
+        XCTAssertNil(config.license)
+
+        // A later launch must not scan again now that the backfill has given up.
+        let loader = StubModelMetadataLoader(result: metadata())
+        await backfiller(loader: loader).backfillIfNeeded()
+        let calls = await loader.calls()
+        XCTAssertEqual(calls, 0, "Once the cap armed the guards, no further launch may re-read files")
+    }
+
+    /// A clean scan clears the failure counter, so an unrelated later backfill starts fresh.
+    func test_backfill_cleanScanAfterFailure_resetsTheFailureCounter() async {
+        seed(demo: false, fileName: "file:///tmp/aia0478-model.mlmodel", typeString: "classify", parsed: false)
+
+        await backfiller(loader: FailingModelMetadataLoader()).backfillIfNeeded()
+        XCTAssertEqual(defaults.integer(forKey: ModelTypeBackfiller.failedAttemptsKey), 1)
+
+        await backfiller(loader: StubModelMetadataLoader(result: metadata())).backfillIfNeeded()
+
+        XCTAssertEqual(
+            defaults.integer(forKey: ModelTypeBackfiller.failedAttemptsKey), 0,
+            "A clean scan must clear the counter rather than leave a latent strike"
+        )
+        XCTAssertTrue(defaults.bool(forKey: ModelTypeBackfiller.licenseDefaultsKey))
+    }
+
     /// A row that already carries both fields is not re-read or overwritten during the upgrade scan.
     func test_backfill_skipsRowsWithPersistedTypeAndLicense() async {
         let alreadyBackfilled = seed(
