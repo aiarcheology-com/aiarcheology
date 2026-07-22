@@ -1,12 +1,17 @@
-Test Focus: New Settings toggle to disable detection animations (reduce CPU/GPU load).
+Test Focus: A batch of small improvements — a detection-animation toggle and a remotely-controllable Request-a-Refund row.
 
 What's new:
 
-• Settings now has a "Disable Detection Animations" toggle. When on, detected and classified items show as static markers instead of the animated pulsing/fading circles and squares — reducing CPU/GPU use when many items are found at once.
+• Disable Detection Animations (Settings): detected/classified items can render as static markers instead of animated pulsing/fading circles and squares, reducing CPU/GPU use when many items are found at once.
+• The Settings → Subscription "Request a Refund" row is now behind a remote feature flag (default on), so it can be withdrawn without an app update.
 
 Please test:
 
+Disable Detection Animations —
 1. Open Settings and confirm the new "Disable Detection Animations" toggle appears in the detection/annotation group.
-2. With it OFF (the default), run detection on a page and confirm the found-item circles/squares still pulse and fade as before.
+2. With it OFF (the default), run detection on a page and confirm found-item circles/squares still pulse and fade as before.
 3. Turn it ON, run detection again, and confirm found items still appear and clear but WITHOUT the pulse/fade animation (static markers), and that whole-image classification no longer flashes.
-4. Toggle it back OFF and confirm the animation returns. The setting must persist across an app relaunch.
+4. Toggle it back OFF and confirm the animation returns; the setting must persist across an app relaunch.
+
+Request a Refund —
+5. With an active subscription, open Settings → Account → Subscription and confirm opening it does not crash and the "Request a Refund" row still appears and works (the flag defaults on).

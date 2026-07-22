@@ -107,6 +107,8 @@ extension TestabilityIdentification {
 		case paywallSubscribe
 		case paywallRestore
 		case paywallRequestRefund
+		// AIA-0461: the Settings → Subscription "Request a Refund" row (feature-flag gated)
+		case settingsRequestRefund
 		case paywallSignOut
 		// Optional analytics first-run choice
 		case analyticsChoiceEnable

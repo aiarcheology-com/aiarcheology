@@ -14,6 +14,7 @@ cannot be consulted.
 | `isModelCatalogEnabled` | `true` | **live** | The public model-catalog acquisition surface (AIA-0413) |
 | `isPaymentsEnabled` | `true` | **launch only** | The subscription/paywall surface (AIA-0343) |
 | `isAnalyticsEnabled` | `true` | **live** | Optional analytics availability: when off, no prompt or Settings control is shown and no provider can activate. When on, users retain their own opt-in/out choice. |
+| `isRefundRequestEnabled` | `true` | **live** | The Settings → Subscription "Request a Refund" row (AIA-0461). When off, the row is hidden; refunds remain available through the App Store. |
 
 ## How it fits together
 
