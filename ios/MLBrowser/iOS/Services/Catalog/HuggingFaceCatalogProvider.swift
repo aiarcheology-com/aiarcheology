@@ -132,9 +132,13 @@ private extension HuggingFaceCatalogProvider {
 		// that only ranked because the filter excluded everything else. So we keep `filter=coreml`
 		// and add a concurrent `filter=onnx` fan-out (on-device convertible), then union them.
 		// Overlap is de-duplicated by `search(query:)`'s `seen.insert($0.id)`.
-		async let coreML = search(query: query, task: task, filter: "coreml")
-		async let onnx = search(query: query, task: task, filter: "onnx")
-		return try await coreML + onnx
+		async let coreMLResults = search(query: query, task: task, filter: "coreml")
+		async let onnxResults = search(query: query, task: task, filter: "onnx")
+		// The ONNX fan-out is a best-effort broadening: if that request fails, it must not throw away
+		// the Core ML results (a transient ONNX failure used to hide every Hugging Face result).
+		let coreML = try await coreMLResults
+		let onnx = (try? await onnxResults) ?? []
+		return coreML + onnx
 	}
 
 	func search(query: String, task: CatalogTask, filter: String) async throws -> [CatalogModel] {

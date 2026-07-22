@@ -656,6 +656,35 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertTrue(models.isEmpty)
 	}
 
+	func testAppleCatalog_listsAllEntriesForEmptyQueryToSupportBrowse() async throws {
+		let provider = AppleCoreMLCatalogProvider()
+
+		let all = try await provider.search(query: "")
+		XCTAssertFalse(all.isEmpty, "an empty query must list the manifest so the filter chips can browse it")
+		XCTAssertTrue(all.contains { $0.family == .mobileNetV2 })
+		XCTAssertTrue(all.contains { $0.family == .resNet50 })
+		XCTAssertTrue(all.contains { $0.family == .yolo })
+
+		let mobilenet = try await provider.search(query: "mobilenet")
+		XCTAssertLessThan(mobilenet.count, all.count, "a term query still narrows the full browse list")
+		XCTAssertTrue(mobilenet.allSatisfy { $0.family == .mobileNetV2 })
+	}
+
+	func testSearch_onnxFanoutFailureDoesNotHideCoreMLResults() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			// The best-effort ONNX fan-out fails; the Core ML fan-out succeeds with one model.
+			if (url.query ?? "").contains("filter=onnx") {
+				return (500, Data())
+			}
+			let json = "[{\"id\":\"acme/coreml-model\",\"siblings\":[{\"rfilename\":\"model.mlmodel\"}]}]"
+			return (200, Data(json.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "resnet")
+		XCTAssertFalse(models.isEmpty, "a failed ONNX fan-out must not discard the Core ML results")
+		XCTAssertTrue(models.allSatisfy { $0.format == .mlmodel && $0.support == .coreMLNative })
+	}
+
 	func testVerifiedONNXCatalog_exposesOnnxEntriesWithFamilyAndSupport() async throws {
 		let provider = ONNXModelZooCatalogProvider()
 		XCTAssertEqual(provider.descriptor.id, "onnx-verified")
