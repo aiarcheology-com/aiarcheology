@@ -166,7 +166,7 @@ final class CatalogProviderTests: XCTestCase {
 		let first = try await provider.search(query: "animals")
 		let second = try await provider.search(query: "animals")
 
-		XCTAssertEqual(requestCounter.value, 2, "one request is made for each supported vision task")
+		XCTAssertEqual(requestCounter.value, 4, "each vision task fans out to both the coreml and onnx library filters")
 		XCTAssertEqual(first.map(\.id), ["acme/detector", "acme/classifier"])
 		XCTAssertEqual(second, first)
 		XCTAssertEqual(first[0].task, .objectDetection)
@@ -187,6 +187,75 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertEqual(models.map(\.id), ["acme/package"])
 		XCTAssertEqual(models.first?.format, .mlpackage)
 		XCTAssertEqual(models.first?.artifactURL?.lastPathComponent, "Manifest.json")
+	}
+
+	func testSearch_surfacesStandaloneOnnxAsConvertibleWithDerivedFamily() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			// The family token lives only in `tags`, so this also proves `tags` is decoded.
+			let payload = "[{\"id\":\"acme/onnx-export\",\"author\":\"acme\",\"downloads\":9,\"likes\":2,"
+				+ "\"tags\":[\"MobileNet\",\"image-classification\"],"
+				+ "\"siblings\":[{\"rfilename\":\"model.onnx\"}]}]"
+			return (200, Data(payload.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "onnx")
+		let model = try XCTUnwrap(models.first)
+
+		XCTAssertEqual(model.id, "acme/onnx-export")
+		XCTAssertEqual(model.format, .onnx)
+		XCTAssertEqual(model.support, .convertible)
+		XCTAssertEqual(model.family, .mobileNetV2)
+		XCTAssertEqual(model.artifactURL?.absoluteString, "https://catalog.test/acme/onnx-export/resolve/main/model.onnx")
+	}
+
+	func testSearch_keepsRootCoreMLModelAsNativeSupport() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			let payload = "[{\"id\":\"acme/detector\",\"author\":\"acme\","
+				+ "\"siblings\":[{\"rfilename\":\"Detector.mlmodel\"}]}]"
+			return (200, Data(payload.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "detector")
+		let model = try XCTUnwrap(models.first)
+
+		XCTAssertEqual(model.format, .mlmodel)
+		XCTAssertEqual(model.support, .coreMLNative)
+	}
+
+	func testResolveFiles_returnsStandaloneOnnxFileWithXetMetadata() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			if url.path.contains("/tree/") {
+				let payload = "[{\"path\":\"mobilenetv2-10.onnx\",\"size\":512,\"xetHash\":\"onnx-file-id\"}]"
+				return (200, Data(payload.utf8))
+			}
+			let payload = "{\"siblings\":[{\"rfilename\":\"README.md\"},{\"rfilename\":\"mobilenetv2-10.onnx\"}]}"
+			return (200, Data(payload.utf8))
+		}
+
+		let files = try await makeProvider().resolveFiles(for: catalogModel())
+		let file = try XCTUnwrap(files.first)
+
+		XCTAssertEqual(files.count, 1)
+		XCTAssertTrue(file.relativePath.hasSuffix(".onnx"))
+		XCTAssertEqual(file.relativePath, "mobilenetv2-10.onnx")
+		XCTAssertEqual(file.xetFile?.fileID, "onnx-file-id")
+		XCTAssertEqual(file.xetFile?.sizeBytes, 512)
+		XCTAssertEqual(
+			file.resolveURL.absoluteString,
+			"https://catalog.test/acme/detector/resolve/main/mobilenetv2-10.onnx"
+		)
+	}
+
+	func testSearch_skipsRepoWithoutInstallableArtifact() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			let payload = "[{\"id\":\"acme/pytorch-only\","
+				+ "\"siblings\":[{\"rfilename\":\"pytorch_model.bin\"},{\"rfilename\":\"config.json\"}]}]"
+			return (200, Data(payload.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "pytorch")
+
+		XCTAssertTrue(models.isEmpty)
 	}
 
 	func testResolveFiles_prefersSingleModelFile() async throws {
