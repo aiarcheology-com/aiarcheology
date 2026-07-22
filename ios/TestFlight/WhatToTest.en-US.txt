@@ -1,9 +1,10 @@
-Test Focus: A batch of small improvements — a detection-animation toggle and a remotely-controllable Request-a-Refund row.
+Test Focus: A batch of small improvements — a detection-animation toggle, a remotely-controllable Request-a-Refund row, and a cleaner intro-wizard spotlight.
 
 What's new:
 
 • Disable Detection Animations (Settings): detected/classified items can render as static markers instead of animated pulsing/fading circles and squares, reducing CPU/GPU use when many items are found at once.
 • The Settings → Subscription "Request a Refund" row is now behind a remote feature flag (default on), so it can be withdrawn without an app update.
+• The intro-wizard spotlight no longer draws a white rounded frame/halo around the focused control — only the surrounding dim marks the focused area.
 
 Please test:
 
@@ -15,3 +16,7 @@ Disable Detection Animations —
 
 Request a Refund —
 5. With an active subscription, open Settings → Account → Subscription and confirm opening it does not crash and the "Request a Refund" row still appears and works (the flag defaults on).
+
+Intro wizard —
+6. Replay the onboarding tour (Settings → replay onboarding, or a fresh first launch) and confirm the highlighted control at each step no longer has a white rounded frame/halo around it — only the surrounding dim marks the focused area. The highlighted control should still be tappable and the Skip button should still dismiss the tour.
+
