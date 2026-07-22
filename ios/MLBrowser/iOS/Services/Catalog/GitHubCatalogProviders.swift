@@ -27,15 +27,18 @@ struct CuratedCatalogManifest: Sendable {
 			.split(whereSeparator: { $0.isWhitespace })
 			.map(String.init)
 
-		guard terms.isEmpty == false else { return [] }
-
-		return entries
-			.filter { entry in
+		// An empty/whitespace query lists the whole (small, static) curated manifest so the catalog
+		// filter chips have a real browse surface to narrow (AIA-0497). A term query filters it.
+		let matchedEntries = terms.isEmpty
+			? entries
+			: entries.filter { entry in
 				let searchableText = ([entry.model.displayName, entry.model.author, entry.model.id] + entry.keywords)
 					.joined(separator: " ")
 					.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
 				return terms.allSatisfy(searchableText.contains)
 			}
+
+		return matchedEntries
 			.map(\.model)
 			.sorted { lhs, rhs in
 				lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedAscending

@@ -44,6 +44,17 @@ extension ModelFamily {
 		if haystack.contains("yolo") { return .yolo }
 		return nil
 	}
+
+	/// Non-localized brand labels for catalog family filter chips. These are proper nouns, so they
+	/// are the same in every locale and are intentionally not routed through the String Catalog.
+	var displayName: String {
+		switch self {
+		case .mobileNetV2: return "MobileNetV2"
+		case .resNet50: return "ResNet-50"
+		case .squeezeNet: return "SqueezeNet"
+		case .yolo: return "YOLO"
+		}
+	}
 }
 
 /// How well a catalog entry is supported on-device. These are structural levels rather than a

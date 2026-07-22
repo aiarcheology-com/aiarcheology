@@ -90,6 +90,9 @@ extension TestabilityIdentification {
 		case catalogDownloads
 		case catalogResult
 		case catalogProviderFilter
+		case catalogTaskFilter
+		case catalogFamilyFilter
+		case catalogClearFilters
 		// Settings
 		case settingsDismiss
 		case settingsDeleteCache
