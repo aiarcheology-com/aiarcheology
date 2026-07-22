@@ -10,11 +10,39 @@ import Foundation
 enum CatalogArtifactFormat: String, Codable, Sendable {
 	case mlmodel
 	case mlpackage
+	/// An ONNX graph that is converted to Core ML on-device at import time.
+	case onnx
 }
 
 enum CatalogTask: String, Codable, Sendable {
 	case objectDetection = "object-detection"
 	case imageClassification = "image-classification"
+}
+
+/// A coarse model-family tag used purely for catalog display and filtering. It is derived from a
+/// model's id/keywords and MUST NOT influence labels, preprocessing, or task semantics
+/// (AIA-0497: a URL or name may decide what we *say*, never what we *do*).
+enum ModelFamily: String, Codable, Sendable, CaseIterable {
+	case mobileNetV2
+	case resNet50
+	case squeezeNet
+	case yolo
+}
+
+/// How well a catalog entry is supported on-device. These are structural levels rather than a
+/// free-text caveat, so the honesty of each level cannot be silently dropped by a later refactor
+/// (AIA-0497).
+enum CatalogSupport: String, Codable, Sendable {
+	/// A Core ML artifact (`.mlmodel`/`.mlpackage`) that imports directly.
+	case coreMLNative
+	/// Oracle-verified ONNX with a correct, usable interface (recognizable labels / catalogued head).
+	case verifiedConvertible
+	/// Oracle-verified box geometry, but the export carries no class names, so it imports with
+	/// generic `class_<i>` labels (e.g. metadata-less YOLO exports).
+	case verifiedGeometryGenericLabels
+	/// Unverified ONNX (e.g. live Hugging Face search): on-device conversion is attempted and may
+	/// fail for unsupported operators.
+	case convertible
 }
 
 struct CatalogModel: Identifiable, Codable, Hashable, Sendable {
@@ -33,6 +61,12 @@ struct CatalogModel: Identifiable, Codable, Hashable, Sendable {
 	/// A directly downloadable single-file artifact when the search response exposes one. This lets
 	/// the catalog reflect an existing job or imported model without issuing another request.
 	let artifactURL: URL?
+	/// A coarse family tag for display and filtering only (see `ModelFamily`). `nil` means the
+	/// classifier did not recognise a family — such entries stay visible unless a family filter is
+	/// active, where they belong to the explicit "Other" bucket.
+	let family: ModelFamily?
+	/// How honestly the catalog can promise this entry works on-device (see `CatalogSupport`).
+	let support: CatalogSupport
 
 	init(
 		id: String,
@@ -44,7 +78,9 @@ struct CatalogModel: Identifiable, Codable, Hashable, Sendable {
 		task: CatalogTask,
 		format: CatalogArtifactFormat?,
 		sizeBytes: Int64?,
-		artifactURL: URL? = nil
+		artifactURL: URL? = nil,
+		family: ModelFamily? = nil,
+		support: CatalogSupport = .coreMLNative
 	) {
 		self.id = id
 		self.providerId = providerId
@@ -56,6 +92,8 @@ struct CatalogModel: Identifiable, Codable, Hashable, Sendable {
 		self.format = format
 		self.sizeBytes = sizeBytes
 		self.artifactURL = artifactURL
+		self.family = family
+		self.support = support
 	}
 }
 
