@@ -17,6 +17,11 @@ import StoreKit
 struct SubscriptionStatusView: View {
 	@ObservedObject var subscriptionState: SubscriptionState
 
+	/// Read the flag snapshot directly from the state object (never through `appState`), and note
+	/// this view is pushed inside the Settings sheet — that sheet must re-inject `featureFlags`
+	/// (DrawerContent) or this `@EnvironmentObject` traps at runtime. See FEATUREFLAGS.md / AGENTS §3.
+	@EnvironmentObject private var featureFlags: FeatureFlagsState
+
 	@State private var isWorking = false
 	@State private var showManage = false
 	@State private var showRefund = false
@@ -85,7 +90,12 @@ struct SubscriptionStatusView: View {
 				}
 				.disabled(isWorking)
 
-				if let transactionID = subscriptionState.currentTransactionID {
+				// AIA-0461: the "Request a Refund" entry point is gated behind a remote flag so it
+				// can be withdrawn without a release. The flag is a stable per-session value, so
+				// this condition does not introduce the presentation-time structure churn that
+				// AIA-0448 warns about below (that was `showRefund`-dependent attribute mutation).
+				if let transactionID = subscriptionState.currentTransactionID,
+					featureFlags.snapshot.isRefundRequestEnabled {
 					// While the sheet is up, feedback may only change ATTRIBUTES of this row
 					// (opacity), never its STRUCTURE. Inserting/removing views here at
 					// presentation time — the spinner swap, a footnote row, `.disabled` — was
@@ -114,6 +124,7 @@ struct SubscriptionStatusView: View {
 								.accessibilityHidden(true)
 						}
 					}
+					.testability(Testability.Button.settingsRequestRefund)
 					.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
 						LoggingPolicy.info("Refund sheet dismissed: \(result)", logger: .state)
 						notice = SubscriptionNotice.forRefund(result)

@@ -33,6 +33,14 @@ final class FeatureFlagsTests: XCTestCase {
 		XCTAssertEqual(FeatureFlagKey.isPaymentsEnabled.rawValue, "isPaymentsEnabled")
 		XCTAssertEqual(FeatureFlagKey.isAnalyticsEnabled.rawValue, "isAnalyticsEnabled")
 		XCTAssertEqual(FeatureFlagKey.isSupportReportingEnabled.rawValue, "isSupportReportingEnabled")
+		XCTAssertEqual(FeatureFlagKey.isRefundRequestEnabled.rawValue, "isRefundRequestEnabled")
+	}
+
+	/// The refund-row flag maps to its own key and defaults open (AIA-0461).
+	func test_refundRequestFlag_defaultsOpenAndMapsToItsKey() {
+		XCTAssertTrue(FeatureFlagKey.isRefundRequestEnabled.defaultValue)
+		XCTAssertTrue(FeatureFlagSnapshot.defaults.isRefundRequestEnabled)
+		XCTAssertFalse(FeatureFlagSnapshot(values: [.isRefundRequestEnabled: false]).isRefundRequestEnabled)
 	}
 
 	func test_defaultsSnapshot_usesEveryKeysDefault() {
