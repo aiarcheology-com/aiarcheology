@@ -14,14 +14,12 @@ import SwiftUI
 /// so taps inside the cutout do NOT reach the real control beneath it (measured on-device). With
 /// four rects there is literally **no overlay view over the hole**, so the real control there is
 /// fully tappable — which is what the interactive tour steps require. Each dim rect swallows taps
-/// (the dimmed app stays inert; only the Skip button dismisses the tour). A thin stroke outlines
-/// the hole so the focused element reads clearly, including in dark mode.
+/// (the dimmed app stays inert; only the Skip button dismisses the tour). The surrounding dim alone
+/// defines the focused area — there is no border/halo around the hole (AIA-0380).
 struct TourSpotlight: View {
 	@Environment(\.colorScheme) private var colorScheme
 	/// Cutout rect in the overlay's coordinate space. `nil` dims the whole screen (no hole).
 	let cutout: CGRect?
-	/// Corner radius of the cutout.
-	var cornerRadius: CGFloat = 10
 	/// Padding added around the target rect so the control isn't cropped by the hole edge.
 	var inset: CGFloat = 6
 	/// Whether the dim swallows taps. `false` makes it visual only (everything beneath stays
@@ -44,14 +42,9 @@ struct TourSpotlight: View {
 					dimRect(CGRect(x: 0, y: hole.maxY, width: full.width, height: full.maxY - hole.maxY))
 					dimRect(CGRect(x: 0, y: hole.minY, width: hole.minX, height: hole.height))
 					dimRect(CGRect(x: hole.maxX, y: hole.minY, width: full.maxX - hole.maxX, height: hole.height))
-					// A focus ring around the cutout: a clear rounded border + a soft halo, so the
-					// spotlighted control reads as "enclosed" (matches the macOS look) — AIA-0333.
-					RoundedRectangle(cornerRadius: cornerRadius)
-						.stroke(Color.white.opacity(0.95), lineWidth: 2)
-						.shadow(color: .white.opacity(0.45), radius: 5)
-						.frame(width: hole.width, height: hole.height)
-						.offset(x: hole.minX, y: hole.minY)
-						.allowsHitTesting(false)
+					// No focus ring: the surrounding dim alone defines the focused area. The white
+					// rounded border + halo were removed (AIA-0380) — the frame read as clutter
+					// around the spotlighted control.
 				} else {
 					dimRect(full)
 				}
