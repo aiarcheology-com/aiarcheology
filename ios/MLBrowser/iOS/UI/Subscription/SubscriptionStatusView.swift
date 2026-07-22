@@ -91,11 +91,13 @@ struct SubscriptionStatusView: View {
 				.disabled(isWorking)
 
 				// AIA-0461: the "Request a Refund" entry point is gated behind a remote flag so it
-				// can be withdrawn without a release. The flag is a stable per-session value, so
-				// this condition does not introduce the presentation-time structure churn that
-				// AIA-0448 warns about below (that was `showRefund`-dependent attribute mutation).
+				// can be withdrawn without a release. The flag is LIVE — ConfigCat's auto-poll can
+				// flip it mid-session — so `|| showRefund` keeps the row in the tree while its own
+				// refund sheet is presented. Without that, a flip to off would structurally remove
+				// the row hosting `.refundRequestSheet` mid-presentation, the exact AIA-0448 churn
+				// class that wedged the sheet's dismissal on iOS-on-Mac.
 				if let transactionID = subscriptionState.currentTransactionID,
-					featureFlags.snapshot.isRefundRequestEnabled {
+					featureFlags.snapshot.isRefundRequestEnabled || showRefund {
 					// While the sheet is up, feedback may only change ATTRIBUTES of this row
 					// (opacity), never its STRUCTURE. Inserting/removing views here at
 					// presentation time — the spinner swap, a footnote row, `.disabled` — was

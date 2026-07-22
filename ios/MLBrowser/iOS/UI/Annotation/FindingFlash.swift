@@ -223,6 +223,12 @@ struct FindingFlashOverlay: View {
 				guard active, pulses else { return }
 				dimmed.toggle()
 			}
+			.onChange(of: pulses) { _, arePulsing in
+				// Toggling the disable-detection-animations setting (or Reduce Motion) mid-flash
+				// changes `pulses` without changing `active`; re-arm so an ON flip resumes the
+				// pulse immediately instead of waiting for `active` to cycle (AIA-0461 review).
+				dimmed = active && arePulsing
+			}
 	}
 
 	private var overlayOpacity: Double {
