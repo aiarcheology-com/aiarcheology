@@ -140,6 +140,8 @@ struct SettingsForm: View {
 				.testability(Testability.Toggle.settingsRunAtLaunch)
 			Toggle(L10n.Settings.showLabels, isOn: $settings.showIdentifiers)
 				.testability(Testability.Toggle.settingsShowLabels)
+			Toggle(L10n.Settings.disableDetectionAnimations, isOn: $settings.disableDetectionAnimations)
+				.testability(Testability.Toggle.settingsDisableDetectionAnimations)
 			NavigationLink(destination: TiledDetectionSettingsView()) {
 				Text(L10n.Settings.tiledDetection)
 			}

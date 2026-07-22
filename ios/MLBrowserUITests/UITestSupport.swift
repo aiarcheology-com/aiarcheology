@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 7
+	var version = 8
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -33,6 +33,7 @@ struct LaunchConfig: Encodable {
 	var defaultPageOverride: String?
 	var lastPage: String?
 	var fullscreenDetection: Bool?
+	var disableDetectionAnimations: Bool?
 	var fixtureName: String?
 	var stubDownloads: Bool?
 	var enableClassifyDemo: Bool?
@@ -101,6 +102,7 @@ enum AID {
 	static let supportRequestIncludeApplicationLog = "_AIA:Toggle.SupportRequestIncludeApplicationLog"
 	static let supportRequestSendUnredactedData = "_AIA:Toggle.SupportRequestSendUnredactedData"
 	static let settingsFullscreenDetection = "_AIA:Toggle.SettingsFullscreenDetection"
+	static let settingsDisableDetectionAnimations = "_AIA:Toggle.SettingsDisableDetectionAnimations"
 	static let settingsAnalytics = "_AIA:Toggle.SettingsAnalytics"
 	static let settingsReopenLastPage = "_AIA:Toggle.SettingsReopenLastPage"
 	static let settingsFrequency = "_AIA:Picker.SettingsFrequency"

@@ -189,9 +189,16 @@ struct FindingFlashOverlay: View {
 	let period: Double
 	/// Border width; the blur radius scales with it.
 	let size: Double
+	/// Whether detection overlays animate. `false` (settings.disableDetectionAnimations on)
+	/// renders a steady, non-pulsing border — the finding still shows and clears with the data.
+	let animateDetections: Bool
 
 	@Environment(\.accessibilityReduceMotion) private var reduceMotion
 	@State private var dimmed = false
+
+	/// Pulse only when animations are enabled and Reduce Motion is off; otherwise render a
+	/// steady border (static marker), matching the detection-animations setting.
+	private var pulses: Bool { animateDetections && reduceMotion.not }
 
 	var body: some View {
 		Rectangle()
@@ -207,26 +214,26 @@ struct FindingFlashOverlay: View {
 				// when inactive, freeze it (the 0-opacity fade above hides the border).
 				// `initial: true` arms the pulse even if the overlay first appears with
 				// `active` already true (review: latent static-border bug).
-				dimmed = isActive && reduceMotion.not
+				dimmed = isActive && pulses
 			}
 			.onChange(of: period) { _, _ in
 				// The config sheet pushes live driver updates; a running repeatForever
 				// animation keeps its old duration, so re-toggle to restart the pulse
 				// at the new period immediately (review: live-update gap).
-				guard active, reduceMotion.not else { return }
+				guard active, pulses else { return }
 				dimmed.toggle()
 			}
 	}
 
 	private var overlayOpacity: Double {
 		guard active else { return 0 }
-		// Reduce Motion: steady border, no pulsing.
-		if reduceMotion { return 0.8 }
+		// Reduce Motion or animations disabled: steady border, no pulsing.
+		if pulses.not { return 0.8 }
 		return dimmed ? 0.15 : 1.0
 	}
 
 	private var activeAnimation: Animation? {
-		guard active, reduceMotion.not else { return nil }
+		guard active, pulses else { return nil }
 		return .easeInOut(duration: period / 2).repeatForever(autoreverses: true)
 	}
 }
@@ -286,7 +293,7 @@ struct ClassificationLabelBubble: View {
 			ZStack {
 				Color(white: 0.9)
 				Text("Tap to toggle the pulse").font(.caption)
-				FindingFlashOverlay(active: active, color: .yellow, period: 2.0, size: 8)
+				FindingFlashOverlay(active: active, color: .yellow, period: 2.0, size: 8, animateDetections: true)
 			}
 			.onTapGesture { active.toggle() }
 		}

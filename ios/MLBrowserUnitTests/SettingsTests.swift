@@ -52,6 +52,22 @@ final class SettingsTests: XCTestCase {
         settings.reset()
         XCTAssertFalse(settings.showIdentifiers)
     }
+
+    func testSettings_DefaultDisableDetectionAnimations_IsFalse() {
+        settings.reset()
+        XCTAssertFalse(settings.disableDetectionAnimations)
+    }
+
+    func testSettings_DisableDetectionAnimations_PersistsAndResets() {
+        settings.reset()
+        settings.disableDetectionAnimations = true
+        // The registered default is false, so a fresh instance reading true proves the
+        // value was actually persisted (bool(forKey:) alone would pass vacuously).
+        XCTAssertTrue(Settings().disableDetectionAnimations)
+        settings.reset()
+        XCTAssertFalse(settings.disableDetectionAnimations)
+        XCTAssertFalse(Settings().disableDetectionAnimations)
+    }
     
     func testSettings_DefaultRemoveAnnotationOnDrag_IsFalse() {
         settings.reset()

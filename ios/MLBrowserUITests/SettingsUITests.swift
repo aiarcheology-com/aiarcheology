@@ -16,6 +16,7 @@ final class SettingsUITests: UITestCase {
         AID.settingsFrequency,
         AID.settingsRunAtLaunch,
         AID.settingsShowLabels,
+        AID.settingsDisableDetectionAnimations,
         AID.settingsTiledDetection,
         AID.settingsFullscreenDetection,
         AID.settingsDefaultPage,
@@ -42,6 +43,13 @@ final class SettingsUITests: UITestCase {
         openSettings()
         XCTAssertTrue(scrollTo(AID.settingsShowLabels), "Show-labels toggle missing")
         XCTAssertTrue(flipSwitch(AID.settingsShowLabels), "Show-labels toggle did not change state")
+    }
+
+    func testSettings_toggleDisableDetectionAnimations_flipsState() {
+        launch()
+        openSettings()
+        XCTAssertTrue(scrollTo(AID.settingsDisableDetectionAnimations), "Disable-detection-animations toggle missing")
+        XCTAssertTrue(flipSwitch(AID.settingsDisableDetectionAnimations), "Disable-detection-animations toggle did not change state")
     }
 
     func testSettings_toggleFullscreenDetection_flipsState() {

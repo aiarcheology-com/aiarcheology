@@ -193,6 +193,7 @@ extension TestabilityIdentification {
 		case settingsShowLabels
 		case settingsReopenLastPage
 		case settingsFullscreenDetection
+		case settingsDisableDetectionAnimations
 		case settingsAnalytics
 		// AIA-0426: Tiled Detection submenu + Debug tiled-border overlay
 		case settingsPyramidTiling
