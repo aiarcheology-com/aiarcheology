@@ -11,7 +11,7 @@ import Foundation
 /// not registries with stable search APIs, so the app deliberately keeps only reviewed direct Core
 /// ML artifacts here. This avoids scraping GitHub on every keystroke or offering a repository page,
 /// archive, or package that the importer cannot install.
-private struct CuratedCatalogManifest: Sendable {
+struct CuratedCatalogManifest: Sendable {
 	struct Entry: Sendable {
 		let model: CatalogModel
 		let file: CatalogFile
@@ -72,7 +72,7 @@ private enum CuratedCatalogURLs {
 	}
 }
 
-private extension CuratedCatalogManifest.Entry {
+extension CuratedCatalogManifest.Entry {
 	init(
 		id: String,
 		providerID: String,
@@ -83,6 +83,8 @@ private extension CuratedCatalogManifest.Entry {
 		artifactURL: URL,
 		artifactFilename: String? = nil,
 		family: ModelFamily? = nil,
+		format: CatalogArtifactFormat = .mlmodel,
+		support: CatalogSupport = .coreMLNative,
 		keywords: [String]
 	) {
 		self.model = CatalogModel(
@@ -93,10 +95,11 @@ private extension CuratedCatalogManifest.Entry {
 			downloads: 0,
 			likes: 0,
 			task: task,
-			format: .mlmodel,
+			format: format,
 			sizeBytes: sizeBytes,
 			artifactURL: artifactURL,
-			family: family
+			family: family,
+			support: support
 		)
 		self.file = CatalogFile(
 			relativePath: artifactFilename ?? artifactURL.lastPathComponent,

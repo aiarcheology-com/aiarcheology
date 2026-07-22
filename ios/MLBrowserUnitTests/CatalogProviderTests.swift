@@ -586,6 +586,62 @@ final class CatalogProviderTests: XCTestCase {
 		let models = try await provider.search(query: "yolo")
 		XCTAssertTrue(models.isEmpty)
 	}
+
+	func testVerifiedONNXCatalog_exposesOnnxEntriesWithFamilyAndSupport() async throws {
+		let provider = ONNXModelZooCatalogProvider()
+		XCTAssertEqual(provider.descriptor.id, "onnx-verified")
+
+		let squeezeNet = try await provider.search(query: "squeezenet")
+		let squeezeNetModel = try XCTUnwrap(squeezeNet.first)
+		XCTAssertEqual(squeezeNetModel.id, "onnx-squeezenet1.0-12")
+		XCTAssertEqual(squeezeNetModel.format, .onnx)
+		XCTAssertEqual(squeezeNetModel.family, .squeezeNet)
+		XCTAssertEqual(squeezeNetModel.support, .verifiedConvertible)
+		XCTAssertEqual(squeezeNetModel.task, .imageClassification)
+
+		let resnet = try await provider.search(query: "resnet")
+		let resnetModel = try XCTUnwrap(resnet.first)
+		XCTAssertEqual(resnetModel.id, "onnx-resnet50-v1-7")
+		XCTAssertEqual(resnetModel.family, .resNet50)
+		XCTAssertEqual(resnetModel.support, .verifiedConvertible)
+
+		let yolo = try await provider.search(query: "yolo")
+		XCTAssertTrue(yolo.contains { $0.id == "onnx-yolov8n-s1777" })
+		XCTAssertTrue(yolo.allSatisfy { $0.family == .yolo && $0.task == .objectDetection })
+	}
+
+	func testVerifiedONNXCatalog_resolvesPlainHTTPSOnnxFileWithoutXetMetadata() async throws {
+		let provider = ONNXModelZooCatalogProvider()
+		let models = try await provider.search(query: "mobilenet")
+		let model = try XCTUnwrap(models.first)
+		let files = try await provider.resolveFiles(for: model)
+		let file = try XCTUnwrap(files.first)
+
+		XCTAssertEqual(model.format, .onnx)
+		XCTAssertEqual(file.relativePath, "mobilenetv2-10.onnx")
+		XCTAssertEqual(file.resolveURL.scheme, "https")
+		XCTAssertEqual(file.resolveURL.lastPathComponent, "mobilenetv2-10.onnx")
+		XCTAssertNil(file.xetFile)
+		XCTAssertEqual(
+			file.resolveURL.absoluteString,
+			"https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/mobilenetv2-10.onnx"
+		)
+	}
+
+	func testVerifiedONNXCatalog_enumeratesSixOnnxEntriesWithHonestSupportLevels() {
+		let entries = ONNXModelZooCatalogProvider.verifiedEntries
+		XCTAssertEqual(entries.count, 6)
+		XCTAssertTrue(entries.allSatisfy { $0.format == .onnx })
+
+		let genericLabelIDs = Set(entries.filter { $0.support == .verifiedGeometryGenericLabels }.map(\.id))
+		XCTAssertEqual(genericLabelIDs, ["onnx-yolov8n-s1777", "onnx-yolo11n-aaurelions"])
+
+		let convertibleIDs = Set(entries.filter { $0.support == .verifiedConvertible }.map(\.id))
+		XCTAssertEqual(
+			convertibleIDs,
+			["onnx-mobilenetv2-10", "onnx-resnet50-v1-7", "onnx-squeezenet1.0-12", "onnx-tinyyolov2-8"]
+		)
+	}
 }
 
 @MainActor
