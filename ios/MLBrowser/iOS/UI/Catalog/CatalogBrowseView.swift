@@ -725,28 +725,49 @@ final class CatalogSearchManager: ObservableObject {
 		selectedTasks.isEmpty == false || selectedFamilies.isEmpty == false
 	}
 
+	/// Whether the current query/filter state warrants a provider fetch: a 2+ character text query, or
+	/// an active task/family filter (browse mode). Task/family narrowing is itself client-side in
+	/// `visibleResults`, so a toggle only needs to (re)fetch when this value flips — re-fetching on
+	/// every toggle would needlessly re-hit the providers (including rate-limited Hugging Face) for
+	/// identical data and discard the resolved-files cache.
+	private var shouldSearchForCurrentState: Bool {
+		query.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 || hasActiveFilters
+	}
+
 	func toggleTask(_ task: CatalogTask) {
+		let wasSearching = shouldSearchForCurrentState
 		if selectedTasks.contains(task) {
 			selectedTasks.remove(task)
 		} else {
 			selectedTasks.insert(task)
 		}
-		searchCurrentQuery()
+		refetchIfSearchStateChanged(from: wasSearching)
 	}
 
 	func toggleFamily(_ family: CatalogFamilyFilter) {
+		let wasSearching = shouldSearchForCurrentState
 		if selectedFamilies.contains(family) {
 			selectedFamilies.remove(family)
 		} else {
 			selectedFamilies.insert(family)
 		}
-		searchCurrentQuery()
+		refetchIfSearchStateChanged(from: wasSearching)
 	}
 
 	func clearFilters() {
+		let wasSearching = shouldSearchForCurrentState
 		selectedTasks.removeAll()
 		selectedFamilies.removeAll()
-		searchCurrentQuery()
+		refetchIfSearchStateChanged(from: wasSearching)
+	}
+
+	/// Re-runs the provider fetch only when a filter toggle changed whether a search should run (e.g.
+	/// the first filter in browse mode starts the fetch; removing the last one clears it). While a text
+	/// query is active the state stays `true`, so toggling only re-filters `visibleResults` client-side.
+	private func refetchIfSearchStateChanged(from wasSearching: Bool) {
+		if shouldSearchForCurrentState != wasSearching {
+			searchCurrentQuery()
+		}
 	}
 
 	func providerName(for providerID: String) -> String {

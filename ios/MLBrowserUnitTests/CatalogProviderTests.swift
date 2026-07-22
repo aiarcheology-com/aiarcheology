@@ -788,6 +788,37 @@ final class CatalogSearchManagerTests: XCTestCase {
 		XCTAssertEqual(manager.visibleResults.map(\.providerId), ["apple-coreml"])
 	}
 
+	func testToggleTaskFilter_withActiveQueryFiltersClientSideWithoutRefetching() async {
+		let provider = TestCatalogProvider(
+			id: "huggingface",
+			models: [
+				TestCatalogProvider.model(id: "acme/yolo", providerID: "huggingface", task: .objectDetection),
+				TestCatalogProvider.model(id: "acme/mobilenet", providerID: "huggingface", task: .imageClassification)
+			]
+		)
+		let manager = CatalogSearchManager(providers: [provider], searchDebounce: .zero)
+		let completed = expectation(description: "search completes")
+		let cancellable = manager.$isLoading
+			.dropFirst()
+			.filter { $0 == false }
+			.sink { _ in completed.fulfill() }
+
+		manager.updateQuery("acme")
+		await fulfillment(of: [completed], timeout: 1)
+		withExtendedLifetime(cancellable) { }
+
+		let callsAfterSearch = await provider.searchCallCount
+		XCTAssertEqual(callsAfterSearch, 1)
+		XCTAssertEqual(Set(manager.visibleResults.map(\.id)), ["acme/yolo", "acme/mobilenet"])
+
+		// Toggling a task filter while a text query is active must narrow results client-side, not
+		// re-hit the providers for the same data.
+		manager.toggleTask(.objectDetection)
+		XCTAssertEqual(manager.visibleResults.map(\.id), ["acme/yolo"])
+		let callsAfterToggle = await provider.searchCallCount
+		XCTAssertEqual(callsAfterToggle, 1, "toggling a filter with an active text query must not refetch")
+	}
+
 	func testSearch_keepsSuccessfulResultsWhenAnotherSourceFails() async {
 		let successfulProvider = TestCatalogProvider(
 			id: "apple-coreml",
@@ -916,7 +947,12 @@ private actor TestCatalogProvider: CatalogProvider {
 		return resolvedFiles
 	}
 
-	nonisolated static func model(id: String, providerID: String) -> CatalogModel {
+	nonisolated static func model(
+		id: String,
+		providerID: String,
+		task: CatalogTask = .objectDetection,
+		family: ModelFamily? = nil
+	) -> CatalogModel {
 		CatalogModel(
 			id: id,
 			providerId: providerID,
@@ -924,9 +960,10 @@ private actor TestCatalogProvider: CatalogProvider {
 			author: providerID,
 			downloads: 0,
 			likes: 0,
-			task: .objectDetection,
+			task: task,
 			format: .mlmodel,
-			sizeBytes: 1
+			sizeBytes: 1,
+			family: family
 		)
 	}
 }
