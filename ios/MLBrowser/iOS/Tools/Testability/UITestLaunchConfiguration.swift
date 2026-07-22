@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 7
+	static let currentVersion = 8
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -65,6 +65,8 @@ struct UITestLaunchConfiguration: Codable {
 	var fixtureName: String?
 	/// Override fullscreen-detection setting. `nil` keeps the baseline (off).
 	var fullscreenDetection: Bool?
+	/// Override the disable-detection-animations setting. `nil` keeps the baseline (off = animated).
+	var disableDetectionAnimations: Bool?
 	/// Route model downloads through `StubDownloadURLProtocol` (AIA-0318) so tests never hit the
 	/// network. `nil`/`false` keeps the real network path.
 	var stubDownloads: Bool?
@@ -116,6 +118,7 @@ struct UITestLaunchConfiguration: Codable {
 		settings.snapAfterAppStart = false
 		settings.isDetectionPaused = false
 		settings.fullscreenDetection = false
+		settings.disableDetectionAnimations = false
 		settings.reopenLastPage = false
 		settings.lastPage = nil
 		settings.defaultPage = URL(string: baselineHome)
@@ -154,6 +157,10 @@ struct UITestLaunchConfiguration: Codable {
 
 		if let fullscreen = config.fullscreenDetection {
 			settings.fullscreenDetection = fullscreen
+		}
+
+		if let disableDetectionAnimations = config.disableDetectionAnimations {
+			settings.disableDetectionAnimations = disableDetectionAnimations
 		}
 
 		switch config.analyticsScenario {

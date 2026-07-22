@@ -12,16 +12,17 @@ struct AnnotationViewBuilder: View {
 	var geometry: GeometryProxy
 	var params: DeepDriverParams
 	var showIdentifiers: Bool
+	var animateDetections: Bool
 
     var body: some View {
         Group {
             switch params.selectedSymbol {
             case .circle:
-                ObservationCircleView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime, showIdentifiers: showIdentifiers)
+                ObservationCircleView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime, showIdentifiers: showIdentifiers, animateDetections: animateDetections)
             case .square:
-                ObservationRectangleView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime, showIdentifiers: showIdentifiers)
+                ObservationRectangleView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime, showIdentifiers: showIdentifiers, animateDetections: animateDetections)
             case .point:
-                ObservationPointView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime, showIdentifiers: showIdentifiers)
+                ObservationPointView(observation: observation, geometry: geometry, color: params.annotationColor, phaseOutTime: params.phaseOutTime, showIdentifiers: showIdentifiers, animateDetections: animateDetections)
             }
         }
     }

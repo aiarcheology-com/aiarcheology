@@ -737,6 +737,8 @@ internal enum L10n {
     internal static let defaultPage = L10n.tr("Localizable", "settings.defaultPage", fallback: "Default Page")
     /// Delete Cache
     internal static let deleteCache = L10n.tr("Localizable", "settings.deleteCache", fallback: "Delete Cache")
+    /// Disable Detection Animations
+    internal static let disableDetectionAnimations = L10n.tr("Localizable", "settings.disableDetectionAnimations", fallback: "Disable Detection Animations")
     /// Frequency
     internal static let frequency = L10n.tr("Localizable", "settings.frequency", fallback: "Frequency")
     /// Fullscreen Detection

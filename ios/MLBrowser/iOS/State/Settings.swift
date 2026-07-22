@@ -35,6 +35,7 @@ final class Settings: ObservableObject, Validatable {
 		static let removeAnnotationOnDrag = "removeAnnotationOnDrag"
 		static let entityId = "entityId"
 		static let fullscreenDetection = "fullscreenDetection"
+		static let disableDetectionAnimations = "disableDetectionAnimations"
 		/// Legacy key retained so the rename `tiledDetection`→`pyramidTiling` (AIA-0426) keeps every
 		/// existing user's persisted value.
 		static let pyramidTiling = "tiledDetection"
@@ -133,6 +134,15 @@ final class Settings: ObservableObject, Validatable {
 	@Published public var fullscreenDetection: Bool {
 		didSet {
 			defaults.set(fullscreenDetection, forKey: UserDefaultsKeys.fullscreenDetection)
+		}
+	}
+
+	/// When enabled, detection overlays render as a static marker instead of animating
+	/// (no per-frame pulse/scale/fade), cutting the animation CPU/GPU cost. Detections still
+	/// appear and clear with the data. Off by default (today's animated behavior).
+	@Published public var disableDetectionAnimations: Bool {
+		didSet {
+			defaults.set(disableDetectionAnimations, forKey: UserDefaultsKeys.disableDetectionAnimations)
 		}
 	}
 
@@ -254,6 +264,9 @@ final class Settings: ObservableObject, Validatable {
             // Off by default: hitting play and losing the chrome surprises
             // first-time users; fullscreen detection is an opt-in.
             UserDefaultsKeys.fullscreenDetection: false,
+            // Off by default: preserves today's animated detection overlays; turning it
+            // on renders detections as static markers to cut the animation cost.
+            UserDefaultsKeys.disableDetectionAnimations: false,
             // On by default: simulator verification confirmed the edge-detection win
             // (AIA-0217 plan, decision 1); the toggle exists to opt out of the 6x
             // inference cost.
@@ -278,6 +291,7 @@ final class Settings: ObservableObject, Validatable {
 		self.lastPage = defaults.url(forKey: UserDefaultsKeys.lastPage)
 		self.removeAnnotationOnDrag = defaults.bool(forKey: UserDefaultsKeys.removeAnnotationOnDrag)
 		self.fullscreenDetection = defaults.bool(forKey: UserDefaultsKeys.fullscreenDetection)
+		self.disableDetectionAnimations = defaults.bool(forKey: UserDefaultsKeys.disableDetectionAnimations)
 		self.pyramidTiling = defaults.bool(forKey: UserDefaultsKeys.pyramidTiling)
 		self.grid3x3Tiling = defaults.bool(forKey: UserDefaultsKeys.grid3x3Tiling)
 		self.tiledBorders = defaults.bool(forKey: UserDefaultsKeys.tiledBorders)
@@ -343,6 +357,7 @@ final class Settings: ObservableObject, Validatable {
 		entityId = UUID()
 		lastPage = nil
 		fullscreenDetection = false
+		disableDetectionAnimations = false
 		pyramidTiling = true
 		grid3x3Tiling = false
 		tiledBorders = false
@@ -362,6 +377,7 @@ final class Settings: ObservableObject, Validatable {
 		defaults.set(removeAnnotationOnDrag, forKey: UserDefaultsKeys.removeAnnotationOnDrag)
 		defaults.set(entityId?.uuidString, forKey: UserDefaultsKeys.entityId)
 		defaults.set(fullscreenDetection, forKey: UserDefaultsKeys.fullscreenDetection)
+		defaults.set(disableDetectionAnimations, forKey: UserDefaultsKeys.disableDetectionAnimations)
 		defaults.set(pyramidTiling, forKey: UserDefaultsKeys.pyramidTiling)
 		defaults.set(grid3x3Tiling, forKey: UserDefaultsKeys.grid3x3Tiling)
 		defaults.set(tiledBorders, forKey: UserDefaultsKeys.tiledBorders)

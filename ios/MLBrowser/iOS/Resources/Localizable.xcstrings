@@ -13261,6 +13261,18 @@
         }
       }
     },
+    "settings.disableDetectionAnimations" : {
+      "comment" : "Toggle that disables detection overlay animations (renders static markers instead of pulsing/scaling/fading)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disable Detection Animations"
+          }
+        }
+      }
+    },
     "settings.fullscreenDetection" : {
       "comment" : "Toggle for the fullscreen detection feature (hide browser chrome while detection runs)",
       "extractionState" : "manual",

@@ -104,6 +104,9 @@ struct WebScreenView: View {
 	@State private var intendedPageKind = ""
 	@State private var currentPageFile = ""
 	@State private var showIdentifiers: Bool = false
+	/// Positive "should the overlays animate" flag (= !settings.disableDetectionAnimations).
+	/// Seeded on appear and kept live below; passed to DetectableView's leaf annotations.
+	@State private var animateDetections: Bool = true
 	@State private var tiling: TilingScheme = []
 	/// Mirrors the "Tiled Borders" setting (AIA-0426) into local state so DetectableView can draw the
 	/// per-tile debug outlines. Available in all builds, toggled from the Tiled Detection submenu.
@@ -194,6 +197,7 @@ struct WebScreenView: View {
             drivers: appState.deep.drivers,
             trigger: appState.snap.combinedPublishers,
             showIdentifiers: showIdentifiers,
+            animateDetections: animateDetections,
             tiling: tiling,
             tiledBorders: tiledBorders,
             detectionActive: detectionActive,
@@ -228,6 +232,9 @@ struct WebScreenView: View {
         .onReceive(appState.settings.$showIdentifiers) { value in
             showIdentifiers = value
         }
+        .onReceive(appState.settings.$disableDetectionAnimations) { value in
+            animateDetections = !value
+        }
         .onReceive(appState.settings.$pyramidTiling) { _ in
             tiling = appState.settings.tilingSchemes
         }
@@ -248,6 +255,7 @@ struct WebScreenView: View {
         }
         .onAppear {
             showIdentifiers = appState.settings.showIdentifiers
+            animateDetections = !appState.settings.disableDetectionAnimations
             tiling = appState.settings.tilingSchemes
             tiledBorders = appState.settings.tiledBorders
             if hasPerformedInitialAction.not {

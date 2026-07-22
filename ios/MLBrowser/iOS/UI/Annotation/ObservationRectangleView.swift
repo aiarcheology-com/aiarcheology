@@ -13,6 +13,7 @@ struct ObservationRectangleView: View {
 	var color: Color
 	var phaseOutTime: CFTimeInterval
 	var showIdentifiers: Bool
+	var animateDetections: Bool
 
 	@State private var animate = false
 
@@ -43,6 +44,9 @@ struct ObservationRectangleView: View {
 				.frame(width: size.width, height: size.height)
 				.position(center)
 				.onAppear {
+					// Static-marker mode (settings.disableDetectionAnimations): leave `animate`
+					// at its initial `false` so the marker holds its visible steady state.
+					guard animateDetections else { return }
 					withAnimation(.easeInOut(duration: phaseOutTime)) {
 						animate = true
 					}

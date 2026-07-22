@@ -30,6 +30,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     let drivers: DeepDrivers
     let trigger: P
     let showIdentifiers: Bool
+    /// Whether detection overlays animate on appear. `false` (settings.disableDetectionAnimations
+    /// on) renders each marker at its static visible state — no per-frame pulse/scale/fade.
+    let animateDetections: Bool
     let tiling: TilingScheme
     /// AIA-0426: draw a red border around each detector tile (the "Tiled Borders" setting, available
     /// in all builds from the Tiled Detection submenu). Purely visual — read from the same
@@ -66,6 +69,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         drivers: DeepDrivers,
         trigger: P,
         showIdentifiers: Bool,
+        animateDetections: Bool = true,
         tiling: TilingScheme = [],
         tiledBorders: Bool = false,
         detectionActive: Bool = false,
@@ -78,6 +82,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         self.drivers = drivers
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
+        self.animateDetections = animateDetections
         self.tiling = tiling
         self.tiledBorders = tiledBorders
         self.detectionActive = detectionActive
@@ -143,7 +148,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 AnnotationOverlay(
                     observations: coordinator.appliedFrame?.results ?? [],
                     geometry: geometry,
-                    showIdentifiers: showIdentifiers
+                    showIdentifiers: showIdentifiers,
+                    animateDetections: animateDetections
                 )
 
                 // Finding flash (AIA-0374): classification's presentation — no boxes
@@ -154,7 +160,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                     active: flashController.qualifyingCount > 0,
                     color: flashController.flashColor,
                     period: flashController.pulsePeriod,
-                    size: flashController.flashSize
+                    size: flashController.flashSize,
+                    animateDetections: animateDetections
                 )
 
                 // Classified labels (AIA-0374): the same "Show labels" setting that
@@ -372,6 +379,7 @@ struct AnnotationOverlay: View {
     let observations: [DetectionResult]
     let geometry: GeometryProxy
     let showIdentifiers: Bool
+    let animateDetections: Bool
 
     var body: some View {
         ForEach(Array(observations.enumerated()), id: \.offset) { _, observationGroup in
@@ -380,7 +388,8 @@ struct AnnotationOverlay: View {
                     observation: detection,
                     geometry: geometry,
                     params: observationGroup.params,
-                    showIdentifiers: showIdentifiers
+                    showIdentifiers: showIdentifiers,
+                    animateDetections: animateDetections
                 )
             }
         }
