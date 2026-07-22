@@ -29,6 +29,23 @@ enum ModelFamily: String, Codable, Sendable, CaseIterable {
 	case yolo
 }
 
+extension ModelFamily {
+	/// Derives a display/filter-only family tag from a model's id and keywords. It matches a closed
+	/// token set, case- and diacritic-folded (locale-independent), with the first match winning. This
+	/// is deterministic and side-effect free: it MUST NOT influence labels, preprocessing, or task
+	/// (AIA-0497 — a name may decide what we *say*, never what we *do*).
+	static func derive(fromID id: String, keywords: [String]) -> ModelFamily? {
+		let haystack = ([id] + keywords)
+			.joined(separator: " ")
+			.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+		if haystack.contains("mobilenet") { return .mobileNetV2 }
+		if haystack.contains("resnet") { return .resNet50 }
+		if haystack.contains("squeezenet") { return .squeezeNet }
+		if haystack.contains("yolo") { return .yolo }
+		return nil
+	}
+}
+
 /// How well a catalog entry is supported on-device. These are structural levels rather than a
 /// free-text caveat, so the honesty of each level cannot be silently dropped by a later refactor
 /// (AIA-0497).

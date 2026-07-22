@@ -543,6 +543,41 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertEqual(githubFiles.first?.resolveURL.host, "raw.githubusercontent.com")
 	}
 
+	func testModelFamilyDerive_matchesClosedTokenSetCaseAndDiacriticInsensitively() {
+		XCTAssertEqual(ModelFamily.derive(fromID: "mobilenet-v2-int8", keywords: []), .mobileNetV2)
+		XCTAssertEqual(ModelFamily.derive(fromID: "yolov3-tiny", keywords: []), .yolo)
+		XCTAssertEqual(ModelFamily.derive(fromID: "squeezenet", keywords: []), .squeezeNet)
+		XCTAssertEqual(ModelFamily.derive(fromID: "resnet50", keywords: []), .resNet50)
+		XCTAssertNil(ModelFamily.derive(fromID: "bert-base", keywords: []))
+
+		// Folding is case-insensitive and applies to the keywords as well as the id.
+		XCTAssertEqual(ModelFamily.derive(fromID: "YOLOv8s", keywords: []), .yolo)
+		XCTAssertEqual(ModelFamily.derive(fromID: "some-export", keywords: ["MobileNet"]), .mobileNetV2)
+	}
+
+	func testCuratedProviders_tagKnownModelFamiliesForFilteringOnly() async throws {
+		let apple = AppleCoreMLCatalogProvider()
+		let appleMobileNet = try await apple.search(query: "mobilenet")
+		let appleResNet = try await apple.search(query: "resnet")
+		let appleYOLO = try await apple.search(query: "yolo")
+		XCTAssertEqual(try XCTUnwrap(appleMobileNet.first).family, .mobileNetV2)
+		XCTAssertEqual(try XCTUnwrap(appleResNet.first).family, .resNet50)
+		XCTAssertEqual(try XCTUnwrap(appleYOLO.first).family, .yolo)
+
+		let awesome = AwesomeCoreMLCatalogProvider()
+		let awesomeMobileNet = try await awesome.search(query: "mobilenet")
+		let awesomeYOLO = try await awesome.search(query: "tiny yolo")
+		let awesomeCar = try await awesome.search(query: "vehicle")
+		XCTAssertEqual(try XCTUnwrap(awesomeMobileNet.first).family, .mobileNetV2)
+		XCTAssertEqual(try XCTUnwrap(awesomeYOLO.first).family, .yolo)
+		// A non-family entry stays in the explicit "Other" bucket rather than being mislabelled.
+		XCTAssertNil(try XCTUnwrap(awesomeCar.first).family)
+
+		let github = GitHubCuratedCatalogProvider()
+		let githubResNet = try await github.search(query: "resnet")
+		XCTAssertEqual(try XCTUnwrap(githubResNet.first).family, .resNet50)
+	}
+
 	func testPintoCatalog_isVisibleButNotSearchableUntilItPublishesDirectArtifacts() async throws {
 		let provider = PintoModelZooCatalogProvider()
 

@@ -22,7 +22,8 @@ actor AppleCoreMLCatalogProvider: CatalogProvider {
 				path: "Image/ImageClassification/MobileNetV2/MobileNetV2Int8LUT.mlmodel",
 				sizeBytes: 6_300_000,
 				task: .imageClassification,
-				keywords: ["mobilenet", "image", "imagenet", "efficient", "mobile"]
+				keywords: ["mobilenet", "image", "imagenet", "efficient", "mobile"],
+				family: .mobileNetV2
 			)
 		),
 		entry(
@@ -32,7 +33,8 @@ actor AppleCoreMLCatalogProvider: CatalogProvider {
 				path: "Image/ImageClassification/MobileNetV2/MobileNetV2FP16.mlmodel",
 				sizeBytes: 12_400_000,
 				task: .imageClassification,
-				keywords: ["mobilenet", "image", "imagenet", "efficient", "mobile"]
+				keywords: ["mobilenet", "image", "imagenet", "efficient", "mobile"],
+				family: .mobileNetV2
 			)
 		),
 		entry(
@@ -42,7 +44,8 @@ actor AppleCoreMLCatalogProvider: CatalogProvider {
 				path: "Image/ImageClassification/Resnet50/Resnet50FP16.mlmodel",
 				sizeBytes: 51_300_000,
 				task: .imageClassification,
-				keywords: ["resnet", "image", "imagenet", "classification"]
+				keywords: ["resnet", "image", "imagenet", "classification"],
+				family: .resNet50
 			)
 		),
 		entry(
@@ -52,7 +55,8 @@ actor AppleCoreMLCatalogProvider: CatalogProvider {
 				path: "Image/ObjectDetection/YOLOv3Tiny/YOLOv3TinyInt8LUT.mlmodel",
 				sizeBytes: 8_900_000,
 				task: .objectDetection,
-				keywords: ["yolo", "coco", "object", "detection", "tiny"]
+				keywords: ["yolo", "coco", "object", "detection", "tiny"],
+				family: .yolo
 			)
 		),
 		entry(
@@ -62,7 +66,8 @@ actor AppleCoreMLCatalogProvider: CatalogProvider {
 				path: "Image/ObjectDetection/YOLOv3Tiny/YOLOv3TinyFP16.mlmodel",
 				sizeBytes: 17_700_000,
 				task: .objectDetection,
-				keywords: ["yolo", "coco", "object", "detection", "tiny"]
+				keywords: ["yolo", "coco", "object", "detection", "tiny"],
+				family: .yolo
 			)
 		),
 		entry(
@@ -72,7 +77,8 @@ actor AppleCoreMLCatalogProvider: CatalogProvider {
 				path: "Image/ObjectDetection/YOLOv3/YOLOv3Int8LUT.mlmodel",
 				sizeBytes: 62_200_000,
 				task: .objectDetection,
-				keywords: ["yolo", "coco", "object", "detection"]
+				keywords: ["yolo", "coco", "object", "detection"],
+				family: .yolo
 			)
 		)
 	]
@@ -121,6 +127,7 @@ private extension AppleCoreMLCatalogProvider {
 		let sizeBytes: Int64
 		let task: CatalogTask
 		let keywords: [String]
+		var family: ModelFamily?
 	}
 
 	static func entry(_ manifestEntry: ManifestEntry) -> Entry {
@@ -141,7 +148,8 @@ private extension AppleCoreMLCatalogProvider {
 				task: manifestEntry.task,
 				format: .mlmodel,
 				sizeBytes: manifestEntry.sizeBytes,
-				artifactURL: file.resolveURL
+				artifactURL: file.resolveURL,
+				family: manifestEntry.family
 			),
 			file: file,
 			keywords: manifestEntry.keywords
