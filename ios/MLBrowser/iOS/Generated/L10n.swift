@@ -232,8 +232,8 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "catalog.download.title", fallback: "Downloading model")
     }
     internal enum Empty {
-      /// Search for an object-detection or image-classification Core ML model.
-      internal static let message = L10n.tr("Localizable", "catalog.empty.message", fallback: "Search for an object-detection or image-classification Core ML model.")
+      /// Search for an object-detection or image-classification model.
+      internal static let message = L10n.tr("Localizable", "catalog.empty.message", fallback: "Search for an object-detection or image-classification model.")
       /// Try a different search term.
       internal static let noResultsMessage = L10n.tr("Localizable", "catalog.empty.noResultsMessage", fallback: "Try a different search term.")
       /// No models found
@@ -246,8 +246,32 @@ internal enum L10n {
       internal static let message = L10n.tr("Localizable", "catalog.error.message", fallback: "We couldn’t load the catalog. Check your connection and try again.")
       /// Catalog unavailable
       internal static let title = L10n.tr("Localizable", "catalog.error.title", fallback: "Catalog unavailable")
-      /// This result does not include an installable Core ML model.
-      internal static let unsupportedModel = L10n.tr("Localizable", "catalog.error.unsupportedModel", fallback: "This result does not include an installable Core ML model.")
+      /// This result does not include an installable model.
+      internal static let unsupportedModel = L10n.tr("Localizable", "catalog.error.unsupportedModel", fallback: "This result does not include an installable model.")
+    }
+    internal enum Filter {
+      /// Clear Filters
+      internal static let clear = L10n.tr("Localizable", "catalog.filter.clear", fallback: "Clear Filters")
+      /// No models match the selected filters. Clear filters to see more.
+      internal static let emptyMessage = L10n.tr("Localizable", "catalog.filter.emptyMessage", fallback: "No models match the selected filters. Clear filters to see more.")
+      /// No Matching Models
+      internal static let emptyTitle = L10n.tr("Localizable", "catalog.filter.emptyTitle", fallback: "No Matching Models")
+      internal enum Family {
+        /// Other
+        internal static let other = L10n.tr("Localizable", "catalog.filter.family.other", fallback: "Other")
+      }
+      internal enum Model {
+        /// Model
+        internal static let title = L10n.tr("Localizable", "catalog.filter.model.title", fallback: "Model")
+      }
+      internal enum Task {
+        /// Classification
+        internal static let classification = L10n.tr("Localizable", "catalog.filter.task.classification", fallback: "Classification")
+        /// Detection
+        internal static let detection = L10n.tr("Localizable", "catalog.filter.task.detection", fallback: "Detection")
+        /// Task
+        internal static let title = L10n.tr("Localizable", "catalog.filter.task.title", fallback: "Task")
+      }
     }
     internal enum Results {
       /// All sources
@@ -266,12 +290,22 @@ internal enum L10n {
       }
       /// Detection
       internal static let objectDetection = L10n.tr("Localizable", "catalog.results.objectDetection", fallback: "Detection")
+      /// ONNX
+      internal static let onnx = L10n.tr("Localizable", "catalog.results.onnx", fallback: "ONNX")
       /// Models
       internal static let title = L10n.tr("Localizable", "catalog.results.title", fallback: "Models")
     }
     internal enum Search {
       /// Search models
       internal static let prompt = L10n.tr("Localizable", "catalog.search.prompt", fallback: "Search models")
+    }
+    internal enum Support {
+      /// Convertible
+      internal static let convertible = L10n.tr("Localizable", "catalog.support.convertible", fallback: "Convertible")
+      /// Generic Labels
+      internal static let genericLabels = L10n.tr("Localizable", "catalog.support.genericLabels", fallback: "Generic Labels")
+      /// Verified
+      internal static let verified = L10n.tr("Localizable", "catalog.support.verified", fallback: "Verified")
     }
   }
   internal enum Clipboard {
@@ -611,8 +645,8 @@ internal enum L10n {
     }
     /// Supported Models
     internal static let supportedModels = L10n.tr("Localizable", "import.supportedModels", fallback: "Supported Models")
-    /// Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an image-classification model in ONNX format (.onnx) — the app converts it to Core ML on your device. Other model types are not supported in this version.
-    internal static let supportedModelsInfo = L10n.tr("Localizable", "import.supportedModelsInfo", fallback: "Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an image-classification model in ONNX format (.onnx) — the app converts it to Core ML on your device. Other model types are not supported in this version.")
+    /// Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an object-detection or image-classification model in ONNX format (.onnx) — the app converts it to Core ML on your device. Other model types are not supported in this version.
+    internal static let supportedModelsInfo = L10n.tr("Localizable", "import.supportedModelsInfo", fallback: "Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an object-detection or image-classification model in ONNX format (.onnx) — the app converts it to Core ML on your device. Other model types are not supported in this version.")
     /// Import Model
     internal static let title = L10n.tr("Localizable", "import.title", fallback: "Import Model")
     /// The model was imported. The app can't verify what an imported model does, so please confirm its type on the next screen. You're responsible for the choice, and a wrong type can produce incorrect results.

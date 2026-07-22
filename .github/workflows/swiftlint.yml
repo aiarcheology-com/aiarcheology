@@ -8,6 +8,8 @@ on:
       - "ios/**"
       - ".swiftlint.yml"
       - ".github/workflows/swiftlint.yml"
+      - "Tests/NativeModelConverterTests/Fixtures/ONNXConversionModels.json"
+      - "scripts/verify_catalog_onnx_sync.sh"
   workflow_dispatch:
 
 concurrency:
@@ -66,3 +68,6 @@ jobs:
       - name: Run SwiftLint
         working-directory: ios
         run: swiftlint lint --force-exclude .
+
+      - name: Verify catalog ONNX entries stay oracle-verified
+        run: ./scripts/verify_catalog_onnx_sync.sh

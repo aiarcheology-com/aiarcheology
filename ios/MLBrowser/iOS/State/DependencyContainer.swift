@@ -54,7 +54,8 @@ class DependencyContainer {
             AwesomeCoreMLCatalogProvider(),
             PintoModelZooCatalogProvider(),
             JohnRockyCoreMLCatalogProvider(),
-            GitHubCuratedCatalogProvider()
+            GitHubCuratedCatalogProvider(),
+            ONNXModelZooCatalogProvider()
         ]
     }()
     

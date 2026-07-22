@@ -1,12 +1,16 @@
-Test Focus: Review fixes for recent import features (model conversion, import notices, licenses)
+Test Focus: Extended model catalog — browse and download convertible ONNX models with an honest support badge, and filter by task and model family.
 
 What's new:
 
-• Hardening and fixes from a code review of the recent converter, import-notice, and license features. No new user-facing features; existing flows should keep working.
+• The catalog now lists on-device-convertible ONNX models (not only Core ML), including SqueezeNet, each with an honest badge: Verified, Generic Labels, or Convertible.
+• New filter chips — Task (Classification / Detection) and Model (MobileNetV2 / ResNet-50 / SqueezeNet / YOLO / Other) — that combine with AND and compose with the source filter and search.
+• With a filter selected and no search text, curated sources now browse their full list.
 
 Please test:
 
-1. Import `yolo11n-aaurelions.onnx` and confirm it converts, detects on a live page, and its configuration shows `AGPL-3.0` as the license.
-2. Import an ONNX classifier without label metadata and confirm the import message still explains the assumed labels and preprocessing in one readable sentence.
-3. Update from a previous build with older imported models: their configurations should gain licenses where the model file declares one, and nothing should be lost if the first launch is interrupted.
-4. Import a model with no license metadata. Its configuration must not show an empty License row.
+1. Open the catalog, tap the Detection task chip with no search text, and confirm you can browse detection models across sources without typing anything.
+2. Add the YOLO model filter on top of Detection; confirm only YOLO detectors remain, then tap Clear Filters and confirm the full list returns.
+3. Download and open the curated SqueezeNet (ONNX) entry; confirm it downloads, converts on-device, and imports as a working classifier.
+4. Open a model showing the "Generic Labels" badge (a YOLOv8n or YOLO11n ONNX entry); after import it should detect boxes with generic class_<i> labels rather than COCO names — this is expected and is what the badge warns about.
+5. Search "resnet": ResNet-50 may appear from more than one source (Apple Core ML, GitHub, verified ONNX) with different format/support badges. That is intentional provenance, not a duplicate bug.
+6. Confirm a model tagged "ONNX" is never also labelled "Core ML", and a search result whose format is not yet known shows no format tag at all.

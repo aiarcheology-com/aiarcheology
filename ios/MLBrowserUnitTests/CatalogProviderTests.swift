@@ -166,7 +166,7 @@ final class CatalogProviderTests: XCTestCase {
 		let first = try await provider.search(query: "animals")
 		let second = try await provider.search(query: "animals")
 
-		XCTAssertEqual(requestCounter.value, 2, "one request is made for each supported vision task")
+		XCTAssertEqual(requestCounter.value, 4, "each vision task fans out to both the coreml and onnx library filters")
 		XCTAssertEqual(first.map(\.id), ["acme/detector", "acme/classifier"])
 		XCTAssertEqual(second, first)
 		XCTAssertEqual(first[0].task, .objectDetection)
@@ -187,6 +187,75 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertEqual(models.map(\.id), ["acme/package"])
 		XCTAssertEqual(models.first?.format, .mlpackage)
 		XCTAssertEqual(models.first?.artifactURL?.lastPathComponent, "Manifest.json")
+	}
+
+	func testSearch_surfacesStandaloneOnnxAsConvertibleWithDerivedFamily() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			// The family token lives only in `tags`, so this also proves `tags` is decoded.
+			let payload = "[{\"id\":\"acme/onnx-export\",\"author\":\"acme\",\"downloads\":9,\"likes\":2,"
+				+ "\"tags\":[\"MobileNet\",\"image-classification\"],"
+				+ "\"siblings\":[{\"rfilename\":\"model.onnx\"}]}]"
+			return (200, Data(payload.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "onnx")
+		let model = try XCTUnwrap(models.first)
+
+		XCTAssertEqual(model.id, "acme/onnx-export")
+		XCTAssertEqual(model.format, .onnx)
+		XCTAssertEqual(model.support, .convertible)
+		XCTAssertEqual(model.family, .mobileNetV2)
+		XCTAssertEqual(model.artifactURL?.absoluteString, "https://catalog.test/acme/onnx-export/resolve/main/model.onnx")
+	}
+
+	func testSearch_keepsRootCoreMLModelAsNativeSupport() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			let payload = "[{\"id\":\"acme/detector\",\"author\":\"acme\","
+				+ "\"siblings\":[{\"rfilename\":\"Detector.mlmodel\"}]}]"
+			return (200, Data(payload.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "detector")
+		let model = try XCTUnwrap(models.first)
+
+		XCTAssertEqual(model.format, .mlmodel)
+		XCTAssertEqual(model.support, .coreMLNative)
+	}
+
+	func testResolveFiles_returnsStandaloneOnnxFileWithXetMetadata() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			if url.path.contains("/tree/") {
+				let payload = "[{\"path\":\"mobilenetv2-10.onnx\",\"size\":512,\"xetHash\":\"onnx-file-id\"}]"
+				return (200, Data(payload.utf8))
+			}
+			let payload = "{\"siblings\":[{\"rfilename\":\"README.md\"},{\"rfilename\":\"mobilenetv2-10.onnx\"}]}"
+			return (200, Data(payload.utf8))
+		}
+
+		let files = try await makeProvider().resolveFiles(for: catalogModel())
+		let file = try XCTUnwrap(files.first)
+
+		XCTAssertEqual(files.count, 1)
+		XCTAssertTrue(file.relativePath.hasSuffix(".onnx"))
+		XCTAssertEqual(file.relativePath, "mobilenetv2-10.onnx")
+		XCTAssertEqual(file.xetFile?.fileID, "onnx-file-id")
+		XCTAssertEqual(file.xetFile?.sizeBytes, 512)
+		XCTAssertEqual(
+			file.resolveURL.absoluteString,
+			"https://catalog.test/acme/detector/resolve/main/mobilenetv2-10.onnx"
+		)
+	}
+
+	func testSearch_skipsRepoWithoutInstallableArtifact() async throws {
+		CatalogURLProtocol.responseHandler = { _ in
+			let payload = "[{\"id\":\"acme/pytorch-only\","
+				+ "\"siblings\":[{\"rfilename\":\"pytorch_model.bin\"},{\"rfilename\":\"config.json\"}]}]"
+			return (200, Data(payload.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "pytorch")
+
+		XCTAssertTrue(models.isEmpty)
 	}
 
 	func testResolveFiles_prefersSingleModelFile() async throws {
@@ -543,6 +612,41 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertEqual(githubFiles.first?.resolveURL.host, "raw.githubusercontent.com")
 	}
 
+	func testModelFamilyDerive_matchesClosedTokenSetCaseAndDiacriticInsensitively() {
+		XCTAssertEqual(ModelFamily.derive(fromID: "mobilenet-v2-int8", keywords: []), .mobileNetV2)
+		XCTAssertEqual(ModelFamily.derive(fromID: "yolov3-tiny", keywords: []), .yolo)
+		XCTAssertEqual(ModelFamily.derive(fromID: "squeezenet", keywords: []), .squeezeNet)
+		XCTAssertEqual(ModelFamily.derive(fromID: "resnet50", keywords: []), .resNet50)
+		XCTAssertNil(ModelFamily.derive(fromID: "bert-base", keywords: []))
+
+		// Folding is case-insensitive and applies to the keywords as well as the id.
+		XCTAssertEqual(ModelFamily.derive(fromID: "YOLOv8s", keywords: []), .yolo)
+		XCTAssertEqual(ModelFamily.derive(fromID: "some-export", keywords: ["MobileNet"]), .mobileNetV2)
+	}
+
+	func testCuratedProviders_tagKnownModelFamiliesForFilteringOnly() async throws {
+		let apple = AppleCoreMLCatalogProvider()
+		let appleMobileNet = try await apple.search(query: "mobilenet")
+		let appleResNet = try await apple.search(query: "resnet")
+		let appleYOLO = try await apple.search(query: "yolo")
+		XCTAssertEqual(try XCTUnwrap(appleMobileNet.first).family, .mobileNetV2)
+		XCTAssertEqual(try XCTUnwrap(appleResNet.first).family, .resNet50)
+		XCTAssertEqual(try XCTUnwrap(appleYOLO.first).family, .yolo)
+
+		let awesome = AwesomeCoreMLCatalogProvider()
+		let awesomeMobileNet = try await awesome.search(query: "mobilenet")
+		let awesomeYOLO = try await awesome.search(query: "tiny yolo")
+		let awesomeCar = try await awesome.search(query: "vehicle")
+		XCTAssertEqual(try XCTUnwrap(awesomeMobileNet.first).family, .mobileNetV2)
+		XCTAssertEqual(try XCTUnwrap(awesomeYOLO.first).family, .yolo)
+		// A non-family entry stays in the explicit "Other" bucket rather than being mislabelled.
+		XCTAssertNil(try XCTUnwrap(awesomeCar.first).family)
+
+		let github = GitHubCuratedCatalogProvider()
+		let githubResNet = try await github.search(query: "resnet")
+		XCTAssertEqual(try XCTUnwrap(githubResNet.first).family, .resNet50)
+	}
+
 	func testPintoCatalog_isVisibleButNotSearchableUntilItPublishesDirectArtifacts() async throws {
 		let provider = PintoModelZooCatalogProvider()
 
@@ -550,6 +654,91 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertFalse(provider.descriptor.isSearchable)
 		let models = try await provider.search(query: "yolo")
 		XCTAssertTrue(models.isEmpty)
+	}
+
+	func testAppleCatalog_listsAllEntriesForEmptyQueryToSupportBrowse() async throws {
+		let provider = AppleCoreMLCatalogProvider()
+
+		let all = try await provider.search(query: "")
+		XCTAssertFalse(all.isEmpty, "an empty query must list the manifest so the filter chips can browse it")
+		XCTAssertTrue(all.contains { $0.family == .mobileNetV2 })
+		XCTAssertTrue(all.contains { $0.family == .resNet50 })
+		XCTAssertTrue(all.contains { $0.family == .yolo })
+
+		let mobilenet = try await provider.search(query: "mobilenet")
+		XCTAssertLessThan(mobilenet.count, all.count, "a term query still narrows the full browse list")
+		XCTAssertTrue(mobilenet.allSatisfy { $0.family == .mobileNetV2 })
+	}
+
+	func testSearch_onnxFanoutFailureDoesNotHideCoreMLResults() async throws {
+		CatalogURLProtocol.responseHandler = { url in
+			// The best-effort ONNX fan-out fails; the Core ML fan-out succeeds with one model.
+			if (url.query ?? "").contains("filter=onnx") {
+				return (500, Data())
+			}
+			let json = "[{\"id\":\"acme/coreml-model\",\"siblings\":[{\"rfilename\":\"model.mlmodel\"}]}]"
+			return (200, Data(json.utf8))
+		}
+
+		let models = try await makeProvider().search(query: "resnet")
+		XCTAssertFalse(models.isEmpty, "a failed ONNX fan-out must not discard the Core ML results")
+		XCTAssertTrue(models.allSatisfy { $0.format == .mlmodel && $0.support == .coreMLNative })
+	}
+
+	func testVerifiedONNXCatalog_exposesOnnxEntriesWithFamilyAndSupport() async throws {
+		let provider = ONNXModelZooCatalogProvider()
+		XCTAssertEqual(provider.descriptor.id, "onnx-verified")
+
+		let squeezeNet = try await provider.search(query: "squeezenet")
+		let squeezeNetModel = try XCTUnwrap(squeezeNet.first)
+		XCTAssertEqual(squeezeNetModel.id, "onnx-squeezenet1.0-12")
+		XCTAssertEqual(squeezeNetModel.format, .onnx)
+		XCTAssertEqual(squeezeNetModel.family, .squeezeNet)
+		XCTAssertEqual(squeezeNetModel.support, .verifiedConvertible)
+		XCTAssertEqual(squeezeNetModel.task, .imageClassification)
+
+		let resnet = try await provider.search(query: "resnet")
+		let resnetModel = try XCTUnwrap(resnet.first)
+		XCTAssertEqual(resnetModel.id, "onnx-resnet50-v1-7")
+		XCTAssertEqual(resnetModel.family, .resNet50)
+		XCTAssertEqual(resnetModel.support, .verifiedConvertible)
+
+		let yolo = try await provider.search(query: "yolo")
+		XCTAssertTrue(yolo.contains { $0.id == "onnx-yolov8n-s1777" })
+		XCTAssertTrue(yolo.allSatisfy { $0.family == .yolo && $0.task == .objectDetection })
+	}
+
+	func testVerifiedONNXCatalog_resolvesPlainHTTPSOnnxFileWithoutXetMetadata() async throws {
+		let provider = ONNXModelZooCatalogProvider()
+		let models = try await provider.search(query: "mobilenet")
+		let model = try XCTUnwrap(models.first)
+		let files = try await provider.resolveFiles(for: model)
+		let file = try XCTUnwrap(files.first)
+
+		XCTAssertEqual(model.format, .onnx)
+		XCTAssertEqual(file.relativePath, "mobilenetv2-10.onnx")
+		XCTAssertEqual(file.resolveURL.scheme, "https")
+		XCTAssertEqual(file.resolveURL.lastPathComponent, "mobilenetv2-10.onnx")
+		XCTAssertNil(file.xetFile)
+		XCTAssertEqual(
+			file.resolveURL.absoluteString,
+			"https://github.com/onnx/models/raw/main/validated/vision/classification/mobilenet/model/mobilenetv2-10.onnx"
+		)
+	}
+
+	func testVerifiedONNXCatalog_enumeratesSixOnnxEntriesWithHonestSupportLevels() {
+		let entries = ONNXModelZooCatalogProvider.verifiedEntries
+		XCTAssertEqual(entries.count, 6)
+		XCTAssertTrue(entries.allSatisfy { $0.format == .onnx })
+
+		let genericLabelIDs = Set(entries.filter { $0.support == .verifiedGeometryGenericLabels }.map(\.id))
+		XCTAssertEqual(genericLabelIDs, ["onnx-yolov8n-s1777", "onnx-yolo11n-aaurelions"])
+
+		let convertibleIDs = Set(entries.filter { $0.support == .verifiedConvertible }.map(\.id))
+		XCTAssertEqual(
+			convertibleIDs,
+			["onnx-mobilenetv2-10", "onnx-resnet50-v1-7", "onnx-squeezenet1.0-12", "onnx-tinyyolov2-8"]
+		)
 	}
 }
 
@@ -597,6 +786,37 @@ final class CatalogSearchManagerTests: XCTestCase {
 		XCTAssertEqual(manager.selectedProviderIDs, Set(["huggingface", "apple-coreml"]))
 		XCTAssertEqual(manager.resultProviderFilterID, "apple-coreml")
 		XCTAssertEqual(manager.visibleResults.map(\.providerId), ["apple-coreml"])
+	}
+
+	func testToggleTaskFilter_withActiveQueryFiltersClientSideWithoutRefetching() async {
+		let provider = TestCatalogProvider(
+			id: "huggingface",
+			models: [
+				TestCatalogProvider.model(id: "acme/yolo", providerID: "huggingface", task: .objectDetection),
+				TestCatalogProvider.model(id: "acme/mobilenet", providerID: "huggingface", task: .imageClassification)
+			]
+		)
+		let manager = CatalogSearchManager(providers: [provider], searchDebounce: .zero)
+		let completed = expectation(description: "search completes")
+		let cancellable = manager.$isLoading
+			.dropFirst()
+			.filter { $0 == false }
+			.sink { _ in completed.fulfill() }
+
+		manager.updateQuery("acme")
+		await fulfillment(of: [completed], timeout: 1)
+		withExtendedLifetime(cancellable) { }
+
+		let callsAfterSearch = await provider.searchCallCount
+		XCTAssertEqual(callsAfterSearch, 1)
+		XCTAssertEqual(Set(manager.visibleResults.map(\.id)), ["acme/yolo", "acme/mobilenet"])
+
+		// Toggling a task filter while a text query is active must narrow results client-side, not
+		// re-hit the providers for the same data.
+		manager.toggleTask(.objectDetection)
+		XCTAssertEqual(manager.visibleResults.map(\.id), ["acme/yolo"])
+		let callsAfterToggle = await provider.searchCallCount
+		XCTAssertEqual(callsAfterToggle, 1, "toggling a filter with an active text query must not refetch")
 	}
 
 	func testSearch_keepsSuccessfulResultsWhenAnotherSourceFails() async {
@@ -727,7 +947,12 @@ private actor TestCatalogProvider: CatalogProvider {
 		return resolvedFiles
 	}
 
-	nonisolated static func model(id: String, providerID: String) -> CatalogModel {
+	nonisolated static func model(
+		id: String,
+		providerID: String,
+		task: CatalogTask = .objectDetection,
+		family: ModelFamily? = nil
+	) -> CatalogModel {
 		CatalogModel(
 			id: id,
 			providerId: providerID,
@@ -735,9 +960,10 @@ private actor TestCatalogProvider: CatalogProvider {
 			author: providerID,
 			downloads: 0,
 			likes: 0,
-			task: .objectDetection,
+			task: task,
 			format: .mlmodel,
-			sizeBytes: 1
+			sizeBytes: 1,
+			family: family
 		)
 	}
 }

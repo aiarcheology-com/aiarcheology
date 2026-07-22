@@ -78,8 +78,8 @@ actor HuggingFaceCatalogProvider: CatalogProvider {
 		let siblings = info.siblings ?? []
 		let treeFiles = await treeFiles(for: model.id)
 
-		if let singleFile = standaloneModelFile(in: siblings) {
-			return [try catalogFile(for: model.id, sibling: singleFile, treeFiles: treeFiles)]
+		if let standalone = standaloneConvertibleFile(in: siblings) {
+			return [try catalogFile(for: model.id, sibling: standalone.sibling, treeFiles: treeFiles)]
 		}
 
 		guard let packageRoot = installablePackageRoot(in: siblings) else {
@@ -102,6 +102,7 @@ private extension HuggingFaceCatalogProvider {
 		let author: String?
 		let downloads: Int?
 		let likes: Int?
+		let tags: [String]?
 		let siblings: [Sibling]?
 	}
 
@@ -126,7 +127,22 @@ private extension HuggingFaceCatalogProvider {
 	}
 
 	func search(query: String, task: CatalogTask) async throws -> [CatalogModel] {
-		let url = try searchURL(query: query, task: task)
+		// The Hub returns a 40-result, downloads-sorted window. Simply dropping `filter=coreml`
+		// would let non-installable PyTorch repos fill that window and evict the Core ML models
+		// that only ranked because the filter excluded everything else. So we keep `filter=coreml`
+		// and add a concurrent `filter=onnx` fan-out (on-device convertible), then union them.
+		// Overlap is de-duplicated by `search(query:)`'s `seen.insert($0.id)`.
+		async let coreMLResults = search(query: query, task: task, filter: "coreml")
+		async let onnxResults = search(query: query, task: task, filter: "onnx")
+		// The ONNX fan-out is a best-effort broadening: if that request fails, it must not throw away
+		// the Core ML results (a transient ONNX failure used to hide every Hugging Face result).
+		let coreML = try await coreMLResults
+		let onnx = (try? await onnxResults) ?? []
+		return coreML + onnx
+	}
+
+	func search(query: String, task: CatalogTask, filter: String) async throws -> [CatalogModel] {
+		let url = try searchURL(query: query, task: task, filter: filter)
 		let response = try await client.get([SearchResponse].self, from: url)
 		return response.compactMap { item in
 			let siblings = item.siblings ?? []
@@ -147,18 +163,22 @@ private extension HuggingFaceCatalogProvider {
 				task: task,
 				format: format,
 				sizeBytes: nil,
-				artifactURL: artifactURL
+				artifactURL: artifactURL,
+				// A name/tag signal is display/filter only (AIA-0497): it decides what we *say*,
+				// never the task, labels, or preprocessing.
+				family: ModelFamily.derive(fromID: item.id, keywords: item.tags ?? []),
+				support: format == .onnx ? .convertible : .coreMLNative
 			)
 		}
 	}
 
-	func searchURL(query: String, task: CatalogTask) throws -> URL {
+	func searchURL(query: String, task: CatalogTask, filter: String) throws -> URL {
 		guard var components = URLComponents(url: baseURL.appendingPathComponent("api/models"), resolvingAgainstBaseURL: false) else {
 			throw CatalogError.invalidResponse
 		}
 		components.queryItems = [
 			URLQueryItem(name: "search", value: query),
-			URLQueryItem(name: "filter", value: "coreml"),
+			URLQueryItem(name: "filter", value: filter),
 			URLQueryItem(name: "pipeline_tag", value: task.rawValue),
 			URLQueryItem(name: "sort", value: "downloads"),
 			URLQueryItem(name: "limit", value: "40"),
@@ -301,15 +321,26 @@ private extension HuggingFaceCatalogProvider {
 		return components[...packageIndex].joined(separator: "/")
 	}
 
-	func standaloneModelFile(in siblings: [Sibling]) -> Sibling? {
-		siblings.first {
+	/// A root-level single-file artifact the importer can install: a `.mlmodel` (preferred, imports
+	/// directly) else a `.onnx` (converted to Core ML on-device). Returns the matched sibling and the
+	/// format it maps to. `.mlpackage` bundles are directories, handled by the package seam instead.
+	func standaloneConvertibleFile(in siblings: [Sibling]) -> (sibling: Sibling, format: CatalogArtifactFormat)? {
+		if let mlmodel = siblings.first(where: {
 			$0.rfilename.contains("/") == false && $0.rfilename.lowercased().hasSuffix(".mlmodel")
+		}) {
+			return (mlmodel, .mlmodel)
 		}
+		if let onnx = siblings.first(where: {
+			$0.rfilename.contains("/") == false && $0.rfilename.lowercased().hasSuffix(".onnx")
+		}) {
+			return (onnx, .onnx)
+		}
+		return nil
 	}
 
 	func primaryArtifactURL(modelID: String, siblings: [Sibling]) throws -> URL {
-		if let singleFile = standaloneModelFile(in: siblings) {
-			return try resolveURL(modelID: modelID, filePath: singleFile.rfilename)
+		if let standalone = standaloneConvertibleFile(in: siblings) {
+			return try resolveURL(modelID: modelID, filePath: standalone.sibling.rfilename)
 		}
 
 		guard let packageRoot = installablePackageRoot(in: siblings),
@@ -320,8 +351,8 @@ private extension HuggingFaceCatalogProvider {
 	}
 
 	func installableArtifactFormat(in siblings: [Sibling]) -> CatalogArtifactFormat? {
-		if standaloneModelFile(in: siblings) != nil {
-			return .mlmodel
+		if let standalone = standaloneConvertibleFile(in: siblings) {
+			return standalone.format
 		}
 		return installablePackageRoot(in: siblings) == nil ? nil : .mlpackage
 	}

@@ -622,6 +622,38 @@ final class DownloaderTests: XCTestCase {
 		XCTAssertEqual(restoredDownloader.packageFileCount(for: item), files.count)
 	}
 
+	func testCatalogDownload_stagesStandaloneONNXWithExtensionForOnDeviceConversion() async throws {
+		// A standalone .onnx routes through the package-download path and must (a) pass validation
+		// (previously rejected) and (b) stage with its `.onnx` extension intact, so the import flow's
+		// converter branch fires and converts it to Core ML on-device (AIA-0497 S5).
+		PackageDownloadURLProtocol.responseHandler = { _ in Data("onnx-graph-bytes".utf8) }
+		let configuration = URLSessionConfiguration.ephemeral
+		configuration.protocolClasses = [PackageDownloadURLProtocol.self]
+		let packageDownloader = CatalogPackageDownloader(session: URLSession(configuration: configuration))
+		downloader = Downloader(dataController: dataController, packageDownloader: packageDownloader)
+
+		let onnxFile = CatalogFile(
+			relativePath: "squeezenet1.0-12.onnx",
+			resolveURL: URL(string: "https://catalog.test/squeezenet1.0-12.onnx") ?? URL(fileURLWithPath: "/"),
+			sizeBytes: 16
+		)
+		let item = try downloader.catalogDownloadItem(files: [onnxFile], in: dataController.container.viewContext)
+		defer {
+			if let directory = FileManager.deepConfigurationDirectory(id: item.entityId) {
+				try? FileManager.default.removeItem(at: directory)
+			}
+		}
+
+		downloader.downloadTapped(item)
+		for _ in 0..<50 where item.state != .complete {
+			try await Task.sleep(for: .milliseconds(20))
+		}
+
+		let staged = try XCTUnwrap(item.file)
+		XCTAssertEqual(item.state, .complete)
+		XCTAssertEqual(staged.pathExtension.lowercased(), "onnx")
+	}
+
 	func testCatalogDownloadItem_reusesTheExistingArtifactJob() throws {
 		let file = CatalogFile(
 			relativePath: "Example.mlmodel",

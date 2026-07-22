@@ -458,8 +458,13 @@ private extension CatalogPackageDownloader {
 		guard files.isEmpty == false, files.count <= Self.maximumFileCount else {
 			throw files.isEmpty ? CatalogError.noInstallableArtifact : CatalogError.tooManyFiles
 		}
-		if files.count == 1, let file = files.first, file.relativePath.lowercased().hasSuffix(".mlmodel") {
-			return .singleFile(file.relativePath)
+		if files.count == 1, let file = files.first {
+			let lowercasedPath = file.relativePath.lowercased()
+			// A standalone Core ML model imports directly; a standalone ONNX graph is converted to
+			// Core ML on-device at import time (AIA-0497). Everything else must be a package (below).
+			if lowercasedPath.hasSuffix(".mlmodel") || lowercasedPath.hasSuffix(".onnx") {
+				return .singleFile(file.relativePath)
+			}
 		}
 
 		let roots = Set(files.compactMap { packageRoot(in: $0.relativePath) })

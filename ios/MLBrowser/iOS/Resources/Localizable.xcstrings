@@ -2968,7 +2968,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Search for an object-detection or image-classification Core ML model."
+            "value" : "Search for an object-detection or image-classification model."
           }
         }
       }
@@ -3040,7 +3040,103 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This result does not include an installable Core ML model."
+            "value" : "This result does not include an installable model."
+          }
+        }
+      }
+    },
+    "catalog.filter.clear" : {
+      "comment" : "Catalog filter clear-all button",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Filters"
+          }
+        }
+      }
+    },
+    "catalog.filter.emptyMessage" : {
+      "comment" : "Catalog message when active filters hide every result",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No models match the selected filters. Clear filters to see more."
+          }
+        }
+      }
+    },
+    "catalog.filter.emptyTitle" : {
+      "comment" : "Catalog title when active filters hide every result",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Matching Models"
+          }
+        }
+      }
+    },
+    "catalog.filter.family.other" : {
+      "comment" : "Catalog family filter chip for models without a recognised family",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other"
+          }
+        }
+      }
+    },
+    "catalog.filter.model.title" : {
+      "comment" : "Catalog model-family filter row title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Model"
+          }
+        }
+      }
+    },
+    "catalog.filter.task.classification" : {
+      "comment" : "Catalog task filter chip for image classification",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Classification"
+          }
+        }
+      }
+    },
+    "catalog.filter.task.detection" : {
+      "comment" : "Catalog task filter chip for object detection",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detection"
+          }
+        }
+      }
+    },
+    "catalog.filter.task.title" : {
+      "comment" : "Catalog task filter row title",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Task"
           }
         }
       }
@@ -3129,6 +3225,18 @@
         }
       }
     },
+    "catalog.results.onnx" : {
+      "comment" : "Catalog result ONNX format tag",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ONNX"
+          }
+        }
+      }
+    },
     "catalog.results.title" : {
       "comment" : "Catalog results section title",
       "extractionState" : "manual",
@@ -3149,6 +3257,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Search models"
+          }
+        }
+      }
+    },
+    "catalog.support.convertible" : {
+      "comment" : "Catalog badge for unverified on-device convertible models",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Convertible"
+          }
+        }
+      }
+    },
+    "catalog.support.genericLabels" : {
+      "comment" : "Catalog badge for verified-geometry models that import with generic labels",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generic Labels"
+          }
+        }
+      }
+    },
+    "catalog.support.verified" : {
+      "comment" : "Catalog badge for oracle-verified convertible models",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verified"
           }
         }
       }
@@ -10594,7 +10738,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an image-classification model in ONNX format (.onnx) — the app converts it to Core ML on your device. Other model types are not supported in this version."
+            "value" : "Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an object-detection or image-classification model in ONNX format (.onnx) — the app converts it to Core ML on your device. Other model types are not supported in this version."
           }
         },
         "es" : {

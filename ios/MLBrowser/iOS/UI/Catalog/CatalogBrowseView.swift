@@ -8,6 +8,32 @@
 import CoreData
 import SwiftUI
 
+/// A catalog family-filter selection. A plain `Set<ModelFamily>` cannot represent the "Other"
+/// bucket (entries whose `family` is `nil`), so the nil-family case is modelled explicitly here
+/// (AIA-0497). Display/filter only — it never drives labels, task, or preprocessing.
+enum CatalogFamilyFilter: Hashable {
+	case family(ModelFamily)
+	case other
+}
+
+extension CatalogFamilyFilter {
+	/// Chip label. Family names are non-localized proper nouns; the "Other" bucket is localized.
+	var displayName: String {
+		switch self {
+		case .family(let family): return family.displayName
+		case .other: return L10n.Catalog.Filter.Family.other
+		}
+	}
+
+	/// A stable, non-localized suffix so UI tests target the chip by identifier, not by its text.
+	var testabilityLabel: String {
+		switch self {
+		case .family(let family): return family.rawValue
+		case .other: return "other"
+		}
+	}
+}
+
 struct CatalogBrowseView: View {
 	@Environment(\.managedObjectContext) private var managedObjectContext
 	@EnvironmentObject private var downloader: Downloader
@@ -50,6 +76,8 @@ struct CatalogBrowseView: View {
 			searchSection
 			providerSection
 			resultProviderFilters
+			taskFilters
+			familyFilters
 			resultsSection
 		}
 		.listStyle(.insetGrouped)
@@ -172,6 +200,101 @@ private extension CatalogBrowseView {
 		.opacity(providerID.map { searchManager.selectedProviderIDs.contains($0) ? 1 : 0.45 } ?? 1)
 	}
 
+	var taskFilters: some View {
+		Section {
+			filterChipRow {
+				filterChip(
+					title: L10n.Catalog.Filter.Task.classification,
+					isSelected: searchManager.selectedTasks.contains(.imageClassification),
+					testabilityID: .catalogTaskFilter,
+					testabilityLabel: CatalogTask.imageClassification.rawValue
+				) {
+					searchManager.toggleTask(.imageClassification)
+				}
+				filterChip(
+					title: L10n.Catalog.Filter.Task.detection,
+					isSelected: searchManager.selectedTasks.contains(.objectDetection),
+					testabilityID: .catalogTaskFilter,
+					testabilityLabel: CatalogTask.objectDetection.rawValue
+				) {
+					searchManager.toggleTask(.objectDetection)
+				}
+			}
+		} header: {
+			filterSectionHeader(L10n.Catalog.Filter.Task.title)
+		}
+		.listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+	}
+
+	var familyFilters: some View {
+		Section(L10n.Catalog.Filter.Model.title) {
+			filterChipRow {
+				ForEach(ModelFamily.allCases, id: \.self) { family in
+					familyChip(.family(family))
+				}
+				familyChip(.other)
+			}
+		}
+		.listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+	}
+
+	func familyChip(_ filter: CatalogFamilyFilter) -> some View {
+		filterChip(
+			title: filter.displayName,
+			isSelected: searchManager.selectedFamilies.contains(filter),
+			testabilityID: .catalogFamilyFilter,
+			testabilityLabel: filter.testabilityLabel
+		) {
+			searchManager.toggleFamily(filter)
+		}
+	}
+
+	func filterChipRow<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+		ScrollView(.horizontal, showsIndicators: false) {
+			HStack(spacing: 8) {
+				content()
+			}
+			.padding(.vertical, 2)
+		}
+	}
+
+	func filterChip(
+		title: String,
+		isSelected: Bool,
+		testabilityID: Testability.Button,
+		testabilityLabel: String,
+		action: @escaping () -> Void
+	) -> some View {
+		Button(action: action) {
+			Text(title)
+				.font(.subheadline)
+				.fontWeight(isSelected ? .semibold : .regular)
+				.foregroundStyle(isSelected ? .white : .primary)
+				.padding(.horizontal, 12)
+				.padding(.vertical, 7)
+				.background(isSelected ? Color.accentColor : Color.secondary.opacity(0.12), in: Capsule())
+		}
+		.buttonStyle(.plain)
+		.testability(testabilityID, label: testabilityLabel)
+	}
+
+	@ViewBuilder
+	func filterSectionHeader(_ title: String) -> some View {
+		HStack {
+			Text(title)
+			Spacer()
+			if searchManager.hasActiveFilters {
+				Button(L10n.Catalog.Filter.clear) {
+					searchManager.clearFilters()
+				}
+				.font(.caption)
+				.textCase(nil)
+				.foregroundStyle(.blue)
+				.testability(Testability.Button.catalogClearFilters)
+			}
+		}
+	}
+
 	@ViewBuilder
 	var resultsSection: some View {
 		let newestDownloadItemsByURLSnapshot = newestDownloadItemsByURL
@@ -190,11 +313,19 @@ private extension CatalogBrowseView {
 					description: Text(errorMessage)
 				)
 			} else if searchManager.visibleResults.isEmpty {
-				ContentUnavailableView(
-					searchManager.query.isEmpty ? L10n.Catalog.Empty.title : L10n.Catalog.Empty.noResultsTitle,
-					systemImage: "magnifyingglass",
-					description: Text(searchManager.query.isEmpty ? L10n.Catalog.Empty.message : L10n.Catalog.Empty.noResultsMessage)
-				)
+				if searchManager.hasResultsHiddenByFilters {
+					ContentUnavailableView(
+						L10n.Catalog.Filter.emptyTitle,
+						systemImage: "line.3.horizontal.decrease.circle",
+						description: Text(L10n.Catalog.Filter.emptyMessage)
+					)
+				} else {
+					ContentUnavailableView(
+						searchManager.query.isEmpty ? L10n.Catalog.Empty.title : L10n.Catalog.Empty.noResultsTitle,
+						systemImage: "magnifyingglass",
+						description: Text(searchManager.query.isEmpty ? L10n.Catalog.Empty.message : L10n.Catalog.Empty.noResultsMessage)
+					)
+				}
 		} else {
 				ForEach(searchManager.visibleResults) { model in
 					let artifactURL = searchManager.resolvedArtifactURL(for: model)
@@ -337,13 +468,54 @@ private struct CatalogResultRow: View {
 	private var tags: some View {
 		HStack(spacing: 6) {
 			catalogTag
-			Text(L10n.Catalog.Results.coreML)
-				.tagStyle()
+			formatTag
+			supportBadge
 			if let sizeBytes = model.sizeBytes {
 				Text(Int(sizeBytes).formatBytesAsHumanReadable())
 					.tagStyle()
 			}
 		}
+	}
+
+	/// The artifact format tag, derived from `model.format`. A `nil` format renders no tag: absent is
+	/// honest, whereas guessing "Core ML" for an unresolved result would not be (AIA-0497).
+	@ViewBuilder
+	private var formatTag: some View {
+		switch model.format {
+		case .mlmodel, .mlpackage:
+			Text(L10n.Catalog.Results.coreML)
+				.tagStyle()
+		case .onnx:
+			Text(L10n.Catalog.Results.onnx)
+				.tagStyle()
+		case nil:
+			EmptyView()
+		}
+	}
+
+	/// A subtle on-device-support badge (AIA-0497). `.coreMLNative` shows none — its Core ML format
+	/// tag already communicates that it imports directly.
+	@ViewBuilder
+	private var supportBadge: some View {
+		switch model.support {
+		case .verifiedConvertible:
+			supportBadgeLabel(L10n.Catalog.Support.verified)
+		case .verifiedGeometryGenericLabels:
+			supportBadgeLabel(L10n.Catalog.Support.genericLabels)
+		case .convertible:
+			supportBadgeLabel(L10n.Catalog.Support.convertible)
+		case .coreMLNative:
+			EmptyView()
+		}
+	}
+
+	private func supportBadgeLabel(_ text: String) -> some View {
+		Text(text)
+			.font(.caption2)
+			.foregroundStyle(.secondary)
+			.padding(.horizontal, 6)
+			.padding(.vertical, 3)
+			.overlay(Capsule().strokeBorder(.quaternary, lineWidth: 1))
 	}
 
 	@ViewBuilder
@@ -433,6 +605,8 @@ final class CatalogSearchManager: ObservableObject {
 	@Published private(set) var errorMessage: String?
 	@Published private(set) var resolvingModelID: String?
 	@Published private(set) var resultProviderFilterID: String?
+	@Published private(set) var selectedTasks: Set<CatalogTask> = []
+	@Published private(set) var selectedFamilies: Set<CatalogFamilyFilter> = []
 
 	let providerDescriptors: [CatalogProviderDescriptor]
 	private let providersByID: [String: any CatalogProvider]
@@ -462,7 +636,8 @@ final class CatalogSearchManager: ObservableObject {
 		resolvedFilesByModelID.removeAll(keepingCapacity: true)
 		let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
 		let providers = selectedProviderIDs.compactMap { providersByID[$0] }
-		guard trimmedQuery.count >= 2, providers.isEmpty == false else {
+		let shouldSearch = trimmedQuery.count >= 2 || hasActiveFilters
+		guard shouldSearch, providers.isEmpty == false else {
 			isLoading = false
 			results = []
 			errorMessage = nil
@@ -508,6 +683,9 @@ final class CatalogSearchManager: ObservableObject {
 				self.results = outcome.models
 					.filter { seen.insert("\($0.providerId):\($0.id)").inserted }
 					.sorted { lhs, rhs in
+						let lhsBand = Self.supportSortBand(lhs.support)
+						let rhsBand = Self.supportSortBand(rhs.support)
+						if lhsBand != rhsBand { return lhsBand < rhsBand }
 						if lhs.downloads != rhs.downloads { return lhs.downloads > rhs.downloads }
 						return lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedAscending
 					}
@@ -541,6 +719,55 @@ final class CatalogSearchManager: ObservableObject {
 	func filterResults(to providerID: String?) {
 		guard providerID == nil || selectedProviderIDs.contains(providerID ?? "") else { return }
 		resultProviderFilterID = providerID
+	}
+
+	var hasActiveFilters: Bool {
+		selectedTasks.isEmpty == false || selectedFamilies.isEmpty == false
+	}
+
+	/// Whether the current query/filter state warrants a provider fetch: a 2+ character text query, or
+	/// an active task/family filter (browse mode). Task/family narrowing is itself client-side in
+	/// `visibleResults`, so a toggle only needs to (re)fetch when this value flips — re-fetching on
+	/// every toggle would needlessly re-hit the providers (including rate-limited Hugging Face) for
+	/// identical data and discard the resolved-files cache.
+	private var shouldSearchForCurrentState: Bool {
+		query.trimmingCharacters(in: .whitespacesAndNewlines).count >= 2 || hasActiveFilters
+	}
+
+	func toggleTask(_ task: CatalogTask) {
+		let wasSearching = shouldSearchForCurrentState
+		if selectedTasks.contains(task) {
+			selectedTasks.remove(task)
+		} else {
+			selectedTasks.insert(task)
+		}
+		refetchIfSearchStateChanged(from: wasSearching)
+	}
+
+	func toggleFamily(_ family: CatalogFamilyFilter) {
+		let wasSearching = shouldSearchForCurrentState
+		if selectedFamilies.contains(family) {
+			selectedFamilies.remove(family)
+		} else {
+			selectedFamilies.insert(family)
+		}
+		refetchIfSearchStateChanged(from: wasSearching)
+	}
+
+	func clearFilters() {
+		let wasSearching = shouldSearchForCurrentState
+		selectedTasks.removeAll()
+		selectedFamilies.removeAll()
+		refetchIfSearchStateChanged(from: wasSearching)
+	}
+
+	/// Re-runs the provider fetch only when a filter toggle changed whether a search should run (e.g.
+	/// the first filter in browse mode starts the fetch; removing the last one clears it). While a text
+	/// query is active the state stays `true`, so toggling only re-filters `visibleResults` client-side.
+	private func refetchIfSearchStateChanged(from wasSearching: Bool) {
+		if shouldSearchForCurrentState != wasSearching {
+			searchCurrentQuery()
+		}
 	}
 
 	func providerName(for providerID: String) -> String {
@@ -593,8 +820,41 @@ final class CatalogSearchManager: ObservableObject {
 	}
 
 	var visibleResults: [CatalogModel] {
-		guard let resultProviderFilterID else { return results }
-		return results.filter { $0.providerId == resultProviderFilterID }
+		results.filter { model in
+			matchesProviderFilter(model) && matchesTaskFilter(model) && matchesFamilyFilter(model)
+		}
+	}
+
+	/// True when a search produced results but every one is hidden by the active task/family filters,
+	/// so the UI can show a distinct "no matching models" message rather than the "no results" copy.
+	var hasResultsHiddenByFilters: Bool {
+		results.isEmpty == false && visibleResults.isEmpty
+	}
+
+	private func matchesProviderFilter(_ model: CatalogModel) -> Bool {
+		guard let resultProviderFilterID else { return true }
+		return model.providerId == resultProviderFilterID
+	}
+
+	private func matchesTaskFilter(_ model: CatalogModel) -> Bool {
+		guard selectedTasks.isEmpty == false else { return true }
+		return selectedTasks.contains(model.task)
+	}
+
+	private func matchesFamilyFilter(_ model: CatalogModel) -> Bool {
+		guard selectedFamilies.isEmpty == false else { return true }
+		let filter: CatalogFamilyFilter = model.family.map(CatalogFamilyFilter.family) ?? .other
+		return selectedFamilies.contains(filter)
+	}
+
+	/// Two-band ordering for catalog results (AIA-0497). Band A (imports now or oracle-verified) ranks
+	/// above band B (unverified, on-device conversion may fail). Native Core ML is NOT demoted below
+	/// verified-convertible inside band A — both import reliably and stay ordered by downloads.
+	private static func supportSortBand(_ support: CatalogSupport) -> Int {
+		switch support {
+		case .coreMLNative, .verifiedConvertible, .verifiedGeometryGenericLabels: return 0
+		case .convertible: return 1
+		}
 	}
 
 	var selectedProviderSummary: String {

@@ -11,7 +11,7 @@ import Foundation
 /// not registries with stable search APIs, so the app deliberately keeps only reviewed direct Core
 /// ML artifacts here. This avoids scraping GitHub on every keystroke or offering a repository page,
 /// archive, or package that the importer cannot install.
-private struct CuratedCatalogManifest: Sendable {
+struct CuratedCatalogManifest: Sendable {
 	struct Entry: Sendable {
 		let model: CatalogModel
 		let file: CatalogFile
@@ -27,15 +27,18 @@ private struct CuratedCatalogManifest: Sendable {
 			.split(whereSeparator: { $0.isWhitespace })
 			.map(String.init)
 
-		guard terms.isEmpty == false else { return [] }
-
-		return entries
-			.filter { entry in
+		// An empty/whitespace query lists the whole (small, static) curated manifest so the catalog
+		// filter chips have a real browse surface to narrow (AIA-0497). A term query filters it.
+		let matchedEntries = terms.isEmpty
+			? entries
+			: entries.filter { entry in
 				let searchableText = ([entry.model.displayName, entry.model.author, entry.model.id] + entry.keywords)
 					.joined(separator: " ")
 					.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
 				return terms.allSatisfy(searchableText.contains)
 			}
+
+		return matchedEntries
 			.map(\.model)
 			.sorted { lhs, rhs in
 				lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedAscending
@@ -72,7 +75,7 @@ private enum CuratedCatalogURLs {
 	}
 }
 
-private extension CuratedCatalogManifest.Entry {
+extension CuratedCatalogManifest.Entry {
 	init(
 		id: String,
 		providerID: String,
@@ -82,6 +85,9 @@ private extension CuratedCatalogManifest.Entry {
 		sizeBytes: Int64?,
 		artifactURL: URL,
 		artifactFilename: String? = nil,
+		family: ModelFamily? = nil,
+		format: CatalogArtifactFormat = .mlmodel,
+		support: CatalogSupport = .coreMLNative,
 		keywords: [String]
 	) {
 		self.model = CatalogModel(
@@ -92,9 +98,11 @@ private extension CuratedCatalogManifest.Entry {
 			downloads: 0,
 			likes: 0,
 			task: task,
-			format: .mlmodel,
+			format: format,
 			sizeBytes: sizeBytes,
-			artifactURL: artifactURL
+			artifactURL: artifactURL,
+			family: family,
+			support: support
 		)
 		self.file = CatalogFile(
 			relativePath: artifactFilename ?? artifactURL.lastPathComponent,
@@ -142,6 +150,7 @@ actor AwesomeCoreMLCatalogProvider: CatalogProvider {
 					revision: "6e98f1a23da51bcb0963e3f2125abebe5707c046",
 					path: "PhotoAssessment-Sample/Sources/MobileNet.mlmodel"
 				),
+				family: .mobileNetV2,
 				keywords: ["photo", "assessment", "quality", "mobilenet", "image", "classification"]
 			),
 			.init(
@@ -157,6 +166,7 @@ actor AwesomeCoreMLCatalogProvider: CatalogProvider {
 					revision: "e28b61e5909675c87935907f2ce0bb51852ef919",
 					path: "TinyYOLO-CoreML/TinyYOLO-CoreML/TinyYOLO.mlmodel"
 				),
+				family: .yolo,
 				keywords: ["yolo", "tiny", "object", "detection", "coco"]
 			)
 		]
@@ -211,6 +221,7 @@ actor JohnRockyCoreMLCatalogProvider: CatalogProvider {
 				sizeBytes: 29_188_748,
 				artifactURL: CuratedCatalogURLs.googleDrive(fileID: "1KT-9eKO4F-LYIJVYJg7dy2LEW_hVUq0M"),
 				artifactFilename: "yolov5s.mlmodel",
+				family: .yolo,
 				keywords: ["yolo", "yolov5", "coco", "object", "detection"]
 			),
 			.init(
@@ -222,6 +233,7 @@ actor JohnRockyCoreMLCatalogProvider: CatalogProvider {
 				sizeBytes: 22_431_142,
 				artifactURL: CuratedCatalogURLs.googleDrive(fileID: "1pLRh1Y37KLEMpQn3v8qH-A12swakoHbI"),
 				artifactFilename: "yolov8s.mlmodel",
+				family: .yolo,
 				keywords: ["yolo", "yolov8", "coco", "object", "detection"]
 			)
 		]
@@ -273,6 +285,7 @@ actor GitHubCuratedCatalogProvider: CatalogProvider {
 					revision: "fd4cd95865a59cfe70207d27d12c0129135e8b5d",
 					path: "CoreML-samples/Resnet50.mlmodel"
 				),
+				family: .resNet50,
 				keywords: ["resnet", "imagenet", "image", "classification"]
 			),
 			.init(

@@ -10,11 +10,67 @@ import Foundation
 enum CatalogArtifactFormat: String, Codable, Sendable {
 	case mlmodel
 	case mlpackage
+	/// An ONNX graph that is converted to Core ML on-device at import time.
+	case onnx
 }
 
 enum CatalogTask: String, Codable, Sendable {
 	case objectDetection = "object-detection"
 	case imageClassification = "image-classification"
+}
+
+/// A coarse model-family tag used purely for catalog display and filtering. It is derived from a
+/// model's id/keywords and MUST NOT influence labels, preprocessing, or task semantics
+/// (AIA-0497: a URL or name may decide what we *say*, never what we *do*).
+enum ModelFamily: String, Codable, Sendable, CaseIterable {
+	case mobileNetV2
+	case resNet50
+	case squeezeNet
+	case yolo
+}
+
+extension ModelFamily {
+	/// Derives a display/filter-only family tag from a model's id and keywords. It matches a closed
+	/// token set, case- and diacritic-folded (locale-independent), with the first match winning. This
+	/// is deterministic and side-effect free: it MUST NOT influence labels, preprocessing, or task
+	/// (AIA-0497 — a name may decide what we *say*, never what we *do*).
+	static func derive(fromID id: String, keywords: [String]) -> ModelFamily? {
+		let haystack = ([id] + keywords)
+			.joined(separator: " ")
+			.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+		if haystack.contains("mobilenet") { return .mobileNetV2 }
+		if haystack.contains("resnet") { return .resNet50 }
+		if haystack.contains("squeezenet") { return .squeezeNet }
+		if haystack.contains("yolo") { return .yolo }
+		return nil
+	}
+
+	/// Non-localized brand labels for catalog family filter chips. These are proper nouns, so they
+	/// are the same in every locale and are intentionally not routed through the String Catalog.
+	var displayName: String {
+		switch self {
+		case .mobileNetV2: return "MobileNetV2"
+		case .resNet50: return "ResNet-50"
+		case .squeezeNet: return "SqueezeNet"
+		case .yolo: return "YOLO"
+		}
+	}
+}
+
+/// How well a catalog entry is supported on-device. These are structural levels rather than a
+/// free-text caveat, so the honesty of each level cannot be silently dropped by a later refactor
+/// (AIA-0497).
+enum CatalogSupport: String, Codable, Sendable {
+	/// A Core ML artifact (`.mlmodel`/`.mlpackage`) that imports directly.
+	case coreMLNative
+	/// Oracle-verified ONNX with a correct, usable interface (recognizable labels / catalogued head).
+	case verifiedConvertible
+	/// Oracle-verified box geometry, but the export carries no class names, so it imports with
+	/// generic `class_<i>` labels (e.g. metadata-less YOLO exports).
+	case verifiedGeometryGenericLabels
+	/// Unverified ONNX (e.g. live Hugging Face search): on-device conversion is attempted and may
+	/// fail for unsupported operators.
+	case convertible
 }
 
 struct CatalogModel: Identifiable, Codable, Hashable, Sendable {
@@ -33,6 +89,12 @@ struct CatalogModel: Identifiable, Codable, Hashable, Sendable {
 	/// A directly downloadable single-file artifact when the search response exposes one. This lets
 	/// the catalog reflect an existing job or imported model without issuing another request.
 	let artifactURL: URL?
+	/// A coarse family tag for display and filtering only (see `ModelFamily`). `nil` means the
+	/// classifier did not recognise a family — such entries stay visible unless a family filter is
+	/// active, where they belong to the explicit "Other" bucket.
+	let family: ModelFamily?
+	/// How honestly the catalog can promise this entry works on-device (see `CatalogSupport`).
+	let support: CatalogSupport
 
 	init(
 		id: String,
@@ -44,7 +106,9 @@ struct CatalogModel: Identifiable, Codable, Hashable, Sendable {
 		task: CatalogTask,
 		format: CatalogArtifactFormat?,
 		sizeBytes: Int64?,
-		artifactURL: URL? = nil
+		artifactURL: URL? = nil,
+		family: ModelFamily? = nil,
+		support: CatalogSupport = .coreMLNative
 	) {
 		self.id = id
 		self.providerId = providerId
@@ -56,6 +120,8 @@ struct CatalogModel: Identifiable, Codable, Hashable, Sendable {
 		self.format = format
 		self.sizeBytes = sizeBytes
 		self.artifactURL = artifactURL
+		self.family = family
+		self.support = support
 	}
 }
 
