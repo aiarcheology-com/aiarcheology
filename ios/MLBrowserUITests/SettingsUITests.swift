@@ -26,6 +26,7 @@ final class SettingsUITests: UITestCase {
         AID.settingsDeleteCache,
         AID.settingsAbout,
         AID.settingsReplayOnboarding,
+        AID.settingsRemoveFindings,
         AID.settingsRestoreDefaults
     ]
 
@@ -232,6 +233,25 @@ final class SettingsUITests: UITestCase {
         XCTAssertTrue(scrollTo(AID.settingsRestoreDefaults))
         element(AID.settingsRestoreDefaults).tap()
         XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 5), "Restore-defaults confirmation not shown")
+    }
+
+    /// AIA-0303: tapping Remove Findings shows the confirmation alert, and Cancel dismisses it
+    /// without deleting. This is a WIRING check only — the delete BEHAVIOR (rows + screenshots gone)
+    /// is proven by the disk-backed `RemoveAllFindingsTests`, because the UI-test app seeds no
+    /// findings, so an in-UI "nothing was deleted" assertion would be vacuous. The Delete action is
+    /// matched by its testability id, NOT its text: `.testability` overrides the accessibility LABEL
+    /// with the id under UI_TESTING, so a text query ("Delete All Findings") would never match.
+    func testSettings_removeFindings_cancelDismissesWithoutDeleting() {
+        launch()
+        openSettings()
+        XCTAssertTrue(scrollTo(AID.settingsRemoveFindings), "Remove Findings row missing")
+        element(AID.settingsRemoveFindings).tap()
+
+        let deleteAction = app.buttons[AID.settingsRemoveFindingsConfirm]
+        XCTAssertTrue(deleteAction.waitForExistence(timeout: 5), "Remove Findings confirmation not shown")
+
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(waitForDisappearance(of: deleteAction), "Confirmation should dismiss after Cancel")
     }
 
     func testSettings_dismiss() {

@@ -94,6 +94,52 @@ final class FindingRepository {
 		return finding
 	}
 
+	/// Removes every finding (AIA-0303, Settings → Reset → Remove Findings). Batch-deletes all
+	/// `Finding` rows on a background context, merging the deletion into the live `viewContext` so
+	/// an open `@FetchRequest` refreshes and no zombie rows can resurrect on a later save; then, and
+	/// only if the row delete succeeded, sweeps the now-orphaned screenshot PNGs.
+	///
+	/// Mirrors `DemoDataManager.deleteBrowsingHistory()` but PROPAGATES the delete error instead of
+	/// swallowing it, so the caller can surface it. The sweep is skipped when the delete throws (we
+	/// must never remove screenshots for rows that are still present). The sweep itself stays
+	/// best-effort — a leftover file self-heals on the next findings-list open
+	/// (`FindingScreenshotStore.sweepOrphans` contract). `.mergeByPropertyStoreTrump` matches the
+	/// history-delete precedent for parity only; a batch delete bypasses `context.save()`, so the
+	/// background context's merge policy never actually fires.
+	func removeAllFindings() async throws {
+		LoggingPolicy.info("Removing all findings", logger: .storage)
+		let viewContext = context
+		try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+			// The viewContext reference is only handed to mergeChanges(fromRemoteContextSave:into:),
+			// which is safe to call cross-queue (same rationale as deleteBrowsingHistory).
+			dataController.performBackgroundTask(mergePolicy: .mergeByPropertyStoreTrump) { bgContext in
+				do {
+					try Finding.deleteAll(in: bgContext, mergingInto: [viewContext])
+					continuation.resume()
+				} catch {
+					LoggingPolicy.error("Failed to remove all findings", error: error, logger: .storage)
+					continuation.resume(throwing: error)
+				}
+			}
+		}
+		// Reached only when the delete succeeded. After the merge above no finding references any
+		// file, so every screenshot is now an orphan and is removed here (MainActor / viewContext).
+		FindingScreenshotStore.sweepOrphans(in: viewContext)
+	}
+
+	/// Snapshots every stored finding for the export-before-delete flow (AIA-0303). Unlike
+	/// `FindingsListView`'s `.ready`-only, filtered export, this includes ALL lifecycles: the delete
+	/// that follows removes every row regardless of lifecycle, so the export must cover them too.
+	func allFindingSnapshots() -> [FindingSnapshot] {
+		Finding.selectAll(in: context).map(FindingSnapshot.init)
+	}
+
+	/// True if any finding exists — gates the "Export First…" action so an empty store never offers
+	/// an empty archive (AIA-0303).
+	func hasAnyFinding() -> Bool {
+		Finding.count(in: context, predicate: nil) > 0
+	}
+
 	/// Trim, then treat an all-whitespace field as absent (nil) — matches the former view helper.
 	private static func normalized(_ text: String) -> String? {
 		let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

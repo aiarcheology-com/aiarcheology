@@ -106,7 +106,10 @@ struct DrawerContent: View {
             .environment(\.managedObjectContext, moc)
         }
         .sheet(isPresented: $showSettings) {
-            SettingsForm()
+            // FindingRepository is a plain (non-ObservableObject) type, so it is passed by
+            // initializer rather than injected as an environment object (AIA-0303), the same way
+            // WebScreen hands it to SaveFindingSheet.
+            SettingsForm(findingRepository: appState.findingRepository)
                 .environmentObject(settings)
                 .environmentObject(chromeState)
                 .environmentObject(detectionState)

@@ -113,6 +113,10 @@ enum AID {
 	static let settingsReplayOnboarding = "_AIA:Button.SettingsReplayOnboarding"
 	static let settingsDeleteCache = "_AIA:Button.SettingsDeleteCache"
 	static let settingsRestoreDefaults = "_AIA:Button.SettingsRestoreDefaults"
+	// AIA-0303: Settings → Reset → Remove Findings (row, export-first action, delete confirm)
+	static let settingsRemoveFindings = "_AIA:Button.SettingsRemoveFindings"
+	static let settingsRemoveFindingsExport = "_AIA:Button.SettingsRemoveFindingsExport"
+	static let settingsRemoveFindingsConfirm = "_AIA:Button.SettingsRemoveFindingsConfirm"
 	static let supportSettingsSendEmail = "_AIA:Button.SupportSettingsSendEmail"
 	static let appDescriptionReportProblem = "_AIA:NavigationLink.AppDescriptionReportProblem"
 

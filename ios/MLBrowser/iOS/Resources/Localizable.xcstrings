@@ -13753,6 +13753,102 @@
         }
       }
     },
+    "settings.reset.removeFindings.button" : {
+      "comment" : "Button that opens the Remove Findings confirmation (AIA-0303)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove"
+          }
+        }
+      }
+    },
+    "settings.reset.removeFindings.delete" : {
+      "comment" : "Confirmation action that deletes all findings (AIA-0303)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete All Findings"
+          }
+        }
+      }
+    },
+    "settings.reset.removeFindings.error" : {
+      "comment" : "Error shown when removing findings fails (AIA-0303)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t remove findings. Please try again."
+          }
+        }
+      }
+    },
+    "settings.reset.removeFindings.export" : {
+      "comment" : "Confirmation action that exports findings before removing them (AIA-0303)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export First…"
+          }
+        }
+      }
+    },
+    "settings.reset.removeFindings.message" : {
+      "comment" : "Message of the Remove Findings confirmation dialog (AIA-0303)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This permanently deletes every saved finding and its photo. Export first if you want to keep a copy — exporting does not delete anything."
+          }
+        }
+      }
+    },
+    "settings.reset.removeFindings.row" : {
+      "comment" : "Row label for the Remove Findings reset action (AIA-0303)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove Findings"
+          }
+        }
+      }
+    },
+    "settings.reset.removeFindings.title" : {
+      "comment" : "Title of the Remove Findings confirmation dialog (AIA-0303)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove all findings?"
+          }
+        }
+      }
+    },
+    "settings.reset.title" : {
+      "comment" : "Header for the Settings Reset section (AIA-0303)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset"
+          }
+        }
+      }
+    },
     "settings.restoreDefaults" : {
       "comment" : "Label for restore defaults action",
       "extractionState" : "manual",

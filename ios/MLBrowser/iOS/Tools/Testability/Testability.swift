@@ -99,6 +99,10 @@ extension TestabilityIdentification {
 		case settingsRestoreDefaults
 		case settingsKeyboardDone
 		case settingsReplayOnboarding
+		// AIA-0303: Settings → Reset → Remove Findings (row, export-first action, delete confirm)
+		case settingsRemoveFindings
+		case settingsRemoveFindingsExport
+		case settingsRemoveFindingsConfirm
 		// Auth gate (AIA-0340)
 		case authSignIn
 		case authOfflineRetry

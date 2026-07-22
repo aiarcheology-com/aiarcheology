@@ -16,6 +16,11 @@ private enum AccountRoute: Hashable {
 }
 
 struct SettingsForm: View {
+	/// The findings persistence repository (AIA-0303), used by the Reset section's "Remove
+	/// Findings" action to delete all findings and to snapshot them for export. Passed by
+	/// initializer (it is not an `ObservableObject`), from `DrawerContent`.
+	let findingRepository: FindingRepository
+
 	@Environment(\.dismiss) private var dismiss
 	@Environment(DrawerManager.self) private var drawer
 	@Environment(TourState.self) private var tour
@@ -35,6 +40,15 @@ struct SettingsForm: View {
 	@State private var cleanCacheButtonColor: Color = .red
 	@State private var alertItem: AlertItem?
 
+	// Remove Findings (AIA-0303). The confirmation dialog offers Export / Delete / Cancel as
+	// independent choices; exporting never deletes (the user re-opens to delete).
+	@State private var showRemoveFindings = false
+	/// True while the export ZIP is being built (before the share sheet appears). Only fades the
+	/// row's spinner and disables its button — never restructures the row, because the share sheet
+	/// presents from this row and structural churn wedges its dismissal on iOS-on-Mac (AIA-0448).
+	@State private var isExportingFindings = false
+	@State private var findingsSharePayload: ActivitySharePayload?
+
 	var mergedObservable: [String] {[
 		// Updated from the user's input:
 		settings.snapFrequency.description,
@@ -50,6 +64,7 @@ struct SettingsForm: View {
 				privacySection
 				webContentSection
 				mlBrowserSection
+				resetSection
 				accountSection
 				debugSection
 			}
@@ -106,6 +121,31 @@ struct SettingsForm: View {
 			.alert(item: $alertItem) { item in
 				Self.createAlert(from: item)
 			}
+			// Remove Findings (AIA-0303). Attached here at the NavigationStack-content level — the
+			// same place the working `alertItem` alert lives — not on a Form row: a presentation
+			// hung off a recycled Form/List row does not present reliably. An `.alert` (not
+			// `.confirmationDialog`) because confirmationDialog did not present from this
+			// sheet-hosted Form; the alert's Export / Delete / Cancel actions are equivalent.
+			.alert(
+				L10n.Settings.Reset.RemoveFindings.title,
+				isPresented: $showRemoveFindings
+			) {
+				// Only offer export when there is something to export.
+				if findingRepository.hasAnyFinding() {
+					Button(L10n.Settings.Reset.RemoveFindings.export) {
+						exportFindingsBeforeRemoval()
+					}
+					.testability(Testability.Button.settingsRemoveFindingsExport)
+				}
+				Button(L10n.Settings.Reset.RemoveFindings.delete, role: .destructive) {
+					removeAllFindings()
+				}
+				.testability(Testability.Button.settingsRemoveFindingsConfirm)
+				Button(L10n.Common.cancel, role: .cancel) {}
+			} message: {
+				Text(L10n.Settings.Reset.RemoveFindings.message)
+			}
+			.activityShareSheet($findingsSharePayload)
 		}
 	}
 
@@ -228,8 +268,89 @@ struct SettingsForm: View {
 			}
 			.testability(Testability.NavigationLink.settingsAbout)
 			replayOnboardingRow
+		}
+	}
+
+	/// AIA-0303: a dedicated Reset grouping. "Remove Findings" (delete all findings + their photos,
+	/// with an export-first offer) and "Restore Defaults" (unchanged; it deliberately does NOT touch
+	/// findings) are two independent, individually confirmation-guarded actions.
+	private var resetSection: some View {
+		Section(header: Text(L10n.Settings.Reset.title)) {
+			removeFindingsRow
 			restoreDefaultsRow
 		}
+	}
+
+	/// Deletes every saved finding and its screenshot, guarded by a confirmation alert that also
+	/// offers to export first. Export and delete are separate explicit choices — exporting returns
+	/// to Settings without deleting; the user re-opens the alert to delete (AIA-0303). The alert
+	/// itself lives at the NavigationStack-content level (see `body`); this row only triggers it.
+	private var removeFindingsRow: some View {
+		HStack {
+			Text(L10n.Settings.Reset.RemoveFindings.row)
+			Spacer()
+			// Spinner is ALWAYS in the tree and only faded, and the button stays put with just its
+			// `.disabled` attribute toggled — no view is inserted/removed on this row while the
+			// share sheet is presented from it (AIA-0448 structural-churn class).
+			ProgressView()
+				.opacity(isExportingFindings ? 1 : 0)
+				.accessibilityHidden(true)
+			// A plain (red-tinted) trigger, NOT `Button(role: .destructive)`: a destructive-role
+			// button inside a Form row is treated specially and its tap did not open the dialog
+			// (AIA-0303). The destructive semantics live on the alert's "Delete" action instead.
+			Button {
+				showRemoveFindings = true
+			} label: {
+				Text(L10n.Settings.Reset.RemoveFindings.button)
+					.foregroundColor(.red)
+			}
+			.disabled(isExportingFindings)
+			.testability(Testability.Button.settingsRemoveFindings)
+		}
+	}
+
+	/// Builds a ZIP of all findings and hands it to the share sheet — WITHOUT deleting. The zip is
+	/// built detached; the payload is handed to the presenter one beat AFTER the confirmation dialog
+	/// has finished dismissing, so a fast (e.g. single-finding) export cannot hit the
+	/// "present while dismissing" no-op that would silently drop the share sheet (AIA-0402).
+	private func exportFindingsBeforeRemoval() {
+		let snapshots = findingRepository.allFindingSnapshots()
+		isExportingFindings = true
+		Task {
+			defer { isExportingFindings = false }
+			do {
+				let url = try await Task.detached(priority: .userInitiated) {
+					try FindingExporter.makeZip(from: snapshots)
+				}.value
+				// Outlast the confirmation alert's dismissal animation before presenting (AIA-0402).
+				try? await Task.sleep(for: .milliseconds(500))
+				findingsSharePayload = ActivitySharePayload(items: [url])
+			} catch {
+				LoggingPolicy.error("Failed to export findings before removal", error: error, logger: .storage)
+				showRemoveFindingsError(L10n.Findings.Export.error)
+			}
+		}
+	}
+
+	/// Permanently deletes all findings and their screenshots (AIA-0303).
+	private func removeAllFindings() {
+		Task {
+			do {
+				try await findingRepository.removeAllFindings()
+			} catch {
+				LoggingPolicy.error("Failed to remove all findings", error: error, logger: .storage)
+				showRemoveFindingsError(L10n.Settings.Reset.RemoveFindings.error)
+			}
+		}
+	}
+
+	/// Surfaces a Remove Findings failure through the existing settings alert (AIA-0303).
+	private func showRemoveFindingsError(_ message: String) {
+		alertItem = AlertItem(
+			title: Text(L10n.Alert.Error.title),
+			message: Text(message),
+			dismissButton: .default(Text(L10n.Common.ok))
+		)
 	}
 
 	/// Replays the interactive onboarding tour (AIA-0333). Dismisses Settings and closes the

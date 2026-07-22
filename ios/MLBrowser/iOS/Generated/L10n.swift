@@ -781,6 +781,26 @@ internal enum L10n {
         return L10n.tr("Localizable", "settings.frequency.seconds", p1, fallback: "%lld seconds")
       }
     }
+    internal enum Reset {
+      /// Reset
+      internal static let title = L10n.tr("Localizable", "settings.reset.title", fallback: "Reset")
+      internal enum RemoveFindings {
+        /// Remove
+        internal static let button = L10n.tr("Localizable", "settings.reset.removeFindings.button", fallback: "Remove")
+        /// Delete All Findings
+        internal static let delete = L10n.tr("Localizable", "settings.reset.removeFindings.delete", fallback: "Delete All Findings")
+        /// Couldn’t remove findings. Please try again.
+        internal static let error = L10n.tr("Localizable", "settings.reset.removeFindings.error", fallback: "Couldn’t remove findings. Please try again.")
+        /// Export First…
+        internal static let export = L10n.tr("Localizable", "settings.reset.removeFindings.export", fallback: "Export First…")
+        /// This permanently deletes every saved finding and its photo. Export first if you want to keep a copy — exporting does not delete anything.
+        internal static let message = L10n.tr("Localizable", "settings.reset.removeFindings.message", fallback: "This permanently deletes every saved finding and its photo. Export first if you want to keep a copy — exporting does not delete anything.")
+        /// Remove Findings
+        internal static let row = L10n.tr("Localizable", "settings.reset.removeFindings.row", fallback: "Remove Findings")
+        /// Remove all findings?
+        internal static let title = L10n.tr("Localizable", "settings.reset.removeFindings.title", fallback: "Remove all findings?")
+      }
+    }
     internal enum Section {
       /// Annotation
       internal static let annotation = L10n.tr("Localizable", "settings.section.annotation", fallback: "Annotation")

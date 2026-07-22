@@ -1,22 +1,21 @@
-Test Focus: A batch of small improvements — a detection-animation toggle, a remotely-controllable Request-a-Refund row, and a cleaner intro-wizard spotlight.
+Test Focus: A new "Remove Findings" reset in Settings — with the option to export your findings first — alongside the existing Restore Defaults.
 
 What's new:
 
-• Disable Detection Animations (Settings): detected/classified items can render as static markers instead of animated pulsing/fading circles and squares, reducing CPU/GPU use when many items are found at once.
-• The Settings → Subscription "Request a Refund" row is now behind a remote feature flag (default on), so it can be withdrawn without an app update.
-• The intro-wizard spotlight no longer draws a white rounded frame/halo around the focused control — only the surrounding dim marks the focused area.
+• Settings now has a "Reset" section with two independent, individually confirmed actions:
+  – Remove Findings: permanently deletes ALL your saved findings and their photos. Before deleting, you're offered to export them first (exporting never deletes anything).
+  – Restore Defaults: unchanged — it resets settings/models/history and recreates the demo, and still does NOT remove your findings.
 
 Please test:
 
-Disable Detection Animations —
-1. Open Settings and confirm the new "Disable Detection Animations" toggle appears in the detection/annotation group.
-2. With it OFF (the default), run detection on a page and confirm found-item circles/squares still pulse and fade as before.
-3. Turn it ON, run detection again, and confirm found items still appear and clear but WITHOUT the pulse/fade animation (static markers), and that whole-image classification no longer flashes.
-4. Toggle it back OFF and confirm the animation returns; the setting must persist across an app relaunch.
+Remove Findings —
+1. Save a few findings first (detect items on a page and store them) so you have findings to work with.
+2. Open Settings and confirm a new "Reset" section appears containing "Remove Findings" and "Restore Defaults".
+3. Tap "Remove Findings" and confirm a confirmation appears offering: Export First, Delete All Findings, and Cancel.
+4. Tap "Cancel" and confirm nothing is deleted (your findings are still there).
+5. Tap "Remove Findings" again and choose "Export First": confirm the share sheet appears with a findings export (a ZIP). Save or share it, then confirm that exporting did NOT delete anything — your findings are still present.
+6. Tap "Remove Findings" once more and choose "Delete All Findings": confirm every finding AND its photo is removed (open the Findings list — it should be empty).
+7. Repeat with zero findings saved: "Remove Findings" should not offer Export (nothing to export) and must not crash.
 
-Request a Refund —
-5. With an active subscription, open Settings → Account → Subscription and confirm opening it does not crash and the "Request a Refund" row still appears and works (the flag defaults on).
-
-Intro wizard —
-6. Replay the onboarding tour (Settings → replay onboarding, or a fresh first launch) and confirm the highlighted control at each step no longer has a white rounded frame/halo around it — only the surrounding dim marks the focused area. The highlighted control should still be tappable and the Skip button should still dismiss the tour.
-
+Restore Defaults (unchanged behavior) —
+8. With some findings saved, run Settings → Restore Defaults and confirm your findings REMAIN (Restore Defaults resets settings/models/history but must not touch findings).
