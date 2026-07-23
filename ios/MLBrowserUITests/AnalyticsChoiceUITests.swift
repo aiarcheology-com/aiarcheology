@@ -5,10 +5,12 @@
 
 import XCTest
 
-/// The optional analytics choice is the outermost user-facing gate. This also proves a UI-test
-/// app process can render the flow without ever initializing TelemetryDeck.
+/// The optional analytics choice is now gated behind login + paywall (AIA-0447). These tests also
+/// prove a UI-test app process can render the flow without ever initializing TelemetryDeck.
 final class AnalyticsChoiceUITests: UITestCase {
-	func testChoiceAppearsBeforeAuthenticationAndNotNowKeepsAnalyticsOff() {
+	func testChoiceIsGatedBehindSignIn() {
+		// AIA-0447: consent no longer fronts the app. Signed out → the sign-in screen shows and
+		// the analytics choice stays hidden behind it.
 		launch(
 			LaunchConfig(
 				featureFlagOverrides: ["isAnalyticsEnabled": true],
@@ -17,11 +19,38 @@ final class AnalyticsChoiceUITests: UITestCase {
 			mockAuthGate: "signedOut"
 		)
 
+		assertExists(AID.authSignIn, true)
+		assertExists(AID.analyticsChoiceNotNow, false)
+	}
+
+	func testChoiceIsGatedBehindPaywall() {
+		// Signed in but not subscribed → the paywall is the root; the choice stays hidden behind it.
+		launch(
+			LaunchConfig(
+				featureFlagOverrides: ["isAnalyticsEnabled": true],
+				analyticsScenario: .prompt
+			),
+			mockAuthGate: "ready",
+			mockSubscription: "notSubscribed"
+		)
+
+		assertExists(AID.paywallSignOut, true)   // paywall-as-root proof (see SubscriptionGateUITests)
+		assertExists(AID.analyticsChoiceNotNow, false)
+	}
+
+	func testChoiceAppearsAfterSignInAndPaywall() {
+		// Auth ready and subscription satisfied → the choice finally surfaces, after both gates.
+		launch(
+			LaunchConfig(
+				featureFlagOverrides: ["isAnalyticsEnabled": true],
+				analyticsScenario: .prompt
+			),
+			mockAuthGate: "ready",
+			mockSubscription: "subscribed"
+		)
+
 		assertExists(AID.analyticsChoiceNotNow, true)
 		assertExists(AID.authSignIn, false)
-
-		app.buttons[AID.analyticsChoiceNotNow].tap()
-		assertExists(AID.authSignIn, true)
 	}
 
 	func testNotNowLeavesAnalyticsDisabledInSettings() {

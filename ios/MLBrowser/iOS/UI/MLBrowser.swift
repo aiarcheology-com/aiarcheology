@@ -65,14 +65,19 @@ struct MLBrowser: App {
 				authState: appState.authState,
 				analytics: appState.analytics
 			) {
-				ContentView()
-					.environmentObject(appState)
-					.environmentObject(appState.analytics)
-					// Injected separately from `appState` because a nested ObservableObject
-					// does not republish through its parent — views that gate on a live flag
-					// must observe this directly (AIA-0350).
-					.environmentObject(appState.featureFlags)
-					.environment(\.managedObjectContext, appState.dataController.container.viewContext)
+				// Analytics consent is asked AFTER login + paywall (AIA-0447): the demanding
+				// question no longer fronts the app. Funnel events fired on the paywall are
+				// buffered by AnalyticsState until this choice is made, then flushed on enable.
+				AnalyticsChoiceGate(analytics: appState.analytics) {
+					ContentView()
+						.environmentObject(appState)
+						.environmentObject(appState.analytics)
+						// Injected separately from `appState` because a nested ObservableObject
+						// does not republish through its parent — views that gate on a live flag
+						// must observe this directly (AIA-0350).
+						.environmentObject(appState.featureFlags)
+						.environment(\.managedObjectContext, appState.dataController.container.viewContext)
+				}
 			}
 		}
 		if appState.usesRealAuth == false {
@@ -86,9 +91,7 @@ struct MLBrowser: App {
 		WindowGroup {
 			Group {
 				if appState.isReady {
-					AnalyticsChoiceGate(analytics: appState.analytics) {
-						authGatedContent
-					}
+					authGatedContent
 				} else {
 					ProgressView("Loading...")
 				}
@@ -133,8 +136,9 @@ struct MLBrowser: App {
 	}
 }
 
-/// Blocks every downstream gate until the user has made the first analytics choice. Keeping this
-/// as a distinct observed view is important: `AppState` does not republish nested objects.
+/// Shows the analytics choice — now after login + paywall (AIA-0447) — until the user has answered
+/// it, then renders its content. Keeping this as a distinct observed view is important: `AppState`
+/// does not republish nested objects.
 private struct AnalyticsChoiceGate<Content: View>: View {
 	@ObservedObject var analytics: AnalyticsState
 	private let content: Content

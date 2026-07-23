@@ -87,6 +87,14 @@ final class AnalyticsState: ObservableObject {
 	private let tracker: AnalyticsTracking
 	private let featureFlags: FeatureFlagsState
 	private var detectionRunCount = 0
+	/// Events recorded before the user answers the analytics choice (the login/paywall funnel).
+	/// Held in memory ONLY — never persisted, never logged — and flushed to the transport iff the
+	/// user enables analytics; discarded on decline, remote-flag-off, reset, or app termination.
+	/// This defers reporting until consent without anything leaving the device beforehand (AIA-0447).
+	private var pendingPreConsentEvents: [AnalyticsEvent] = []
+	/// Safety bound so a repeated `onAppear` cannot grow the buffer without limit — not a functional
+	/// cap (the pre-consent surface is two payload-free events). Drop-oldest on overflow.
+	private static let maxPendingPreConsentEvents = 16
 	private var featureFlagObservation: AnyCancellable?
 
 	/// True only while the remote feature is enabled and the user has not made a first choice.
@@ -117,12 +125,27 @@ final class AnalyticsState: ObservableObject {
 
 	func setAnalyticsEnabled(_ enabled: Bool) {
 		guard isAnalyticsFeatureEnabled else { return }
+		// Discard the pre-consent buffer on ANY disable, before the equality guard below — the
+		// decline path calls this from the default `analyticsEnabled == false` state, where the
+		// guard would otherwise return early and leave buffered events behind (AIA-0447).
+		if !enabled { pendingPreConsentEvents.removeAll() }
 		guard settings.analyticsEnabled != enabled else { return }
 		settings.analyticsEnabled = enabled
 		if enabled {
 			tracker.activate()
+			flushPendingPreConsentEvents()
 		} else {
 			tracker.deactivate()
+		}
+	}
+
+	/// Delivers the pre-consent buffer to the transport once analytics is enabled, then clears it.
+	/// Clears BEFORE iterating so a re-entrant `track` during delivery cannot double-send (AIA-0447).
+	private func flushPendingPreConsentEvents() {
+		let pending = pendingPreConsentEvents
+		pendingPreConsentEvents.removeAll()
+		for event in pending {
+			tracker.track(event)
 		}
 	}
 
@@ -130,6 +153,7 @@ final class AnalyticsState: ObservableObject {
 	/// down a currently active transport when Settings has already been reset elsewhere.
 	func resetAnalyticsChoice() {
 		detectionRunCount = 0
+		pendingPreConsentEvents.removeAll()
 		settings.analyticsEnabled = false
 		settings.analyticsChoiceMade = false
 		shouldShowChoice = isAnalyticsFeatureEnabled
@@ -137,8 +161,17 @@ final class AnalyticsState: ObservableObject {
 	}
 
 	func track(_ event: AnalyticsEvent) {
-		guard isAnalyticsFeatureEnabled, settings.analyticsEnabled else { return }
-		tracker.track(event)
+		guard isAnalyticsFeatureEnabled else { return }
+		if settings.analyticsEnabled {
+			tracker.track(event)
+		} else if settings.analyticsChoiceMade == false {
+			// Consent pending (pre-login/paywall funnel): record locally, deferred until the user
+			// decides. Sent only if they enable analytics; discarded on decline (AIA-0447).
+			pendingPreConsentEvents.append(event)
+			let overflow = pendingPreConsentEvents.count - Self.maxPendingPreConsentEvents
+			if overflow > 0 { pendingPreConsentEvents.removeFirst(overflow) }
+		}
+		// Otherwise the user declined (choiceMade && !enabled) — drop.
 	}
 
 	func recordDetectionRun() {
@@ -159,6 +192,7 @@ final class AnalyticsState: ObservableObject {
 		guard isEnabled else {
 			shouldShowChoice = false
 			detectionRunCount = 0
+			pendingPreConsentEvents.removeAll()
 			tracker.deactivate()
 			return
 		}
@@ -170,4 +204,9 @@ final class AnalyticsState: ObservableObject {
 			shouldShowChoice = settings.analyticsChoiceMade.not
 		}
 	}
+
+	#if DEBUG
+	/// Test-only: number of events currently buffered pre-consent. Not part of the production API.
+	var pendingPreConsentCount: Int { pendingPreConsentEvents.count }
+	#endif
 }
