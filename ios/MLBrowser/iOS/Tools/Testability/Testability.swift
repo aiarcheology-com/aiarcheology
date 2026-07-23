@@ -263,6 +263,7 @@ extension TestabilityIdentification {
 		case settingsTiledDetection
 		case settingsHistory
 		case settingsAbout
+		case settingsReset
 		case settingsManageAccount
 		case settingsSubscription
 		// App Description

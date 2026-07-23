@@ -26,9 +26,15 @@ final class SettingsUITests: UITestCase {
         AID.settingsDeleteCache,
         AID.settingsAbout,
         AID.settingsReplayOnboarding,
-        AID.settingsRemoveFindings,
-        AID.settingsRestoreDefaults
+        AID.settingsReset
     ]
+
+    /// Remove Findings and Restore Defaults now live behind the "Reset" entry in the ML Browser
+    /// section — navigate into that submenu before asserting either action.
+    private func openResetSubmenu() {
+        XCTAssertTrue(scrollTo(AID.settingsReset), "Reset row missing from ML Browser section")
+        element(AID.settingsReset).tap()
+    }
 
     func testSettings_allOptionsPresent() {
         launch()
@@ -227,9 +233,24 @@ final class SettingsUITests: UITestCase {
         )
     }
 
+    func testSettings_resetSubmenu_showsRemoveAndRestore() {
+        launch()
+        openSettings()
+        openResetSubmenu()
+        XCTAssertTrue(
+            element(AID.settingsRemoveFindings).waitForExistence(timeout: 10),
+            "Remove Findings action missing from the Reset submenu"
+        )
+        XCTAssertTrue(
+            element(AID.settingsRestoreDefaults).waitForExistence(timeout: 10),
+            "Restore Defaults action missing from the Reset submenu"
+        )
+    }
+
     func testSettings_restoreDefaults_showsConfirmation() {
         launch()
         openSettings()
+        openResetSubmenu()
         XCTAssertTrue(scrollTo(AID.settingsRestoreDefaults))
         element(AID.settingsRestoreDefaults).tap()
         XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 5), "Restore-defaults confirmation not shown")
@@ -244,6 +265,7 @@ final class SettingsUITests: UITestCase {
     func testSettings_removeFindings_cancelDismissesWithoutDeleting() {
         launch()
         openSettings()
+        openResetSubmenu()
         XCTAssertTrue(scrollTo(AID.settingsRemoveFindings), "Remove Findings row missing")
         element(AID.settingsRemoveFindings).tap()
 

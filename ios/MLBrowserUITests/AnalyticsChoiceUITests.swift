@@ -76,6 +76,9 @@ final class AnalyticsChoiceUITests: UITestCase {
 			)
 		)
 		openSettings()
+		// Restore Defaults now lives behind the "Reset" entry in the ML Browser section.
+		XCTAssertTrue(scrollTo(AID.settingsReset), "Reset row missing from ML Browser section")
+		element(AID.settingsReset).tap()
 		XCTAssertTrue(scrollTo(AID.settingsRestoreDefaults), "Restore Defaults is missing")
 		element(AID.settingsRestoreDefaults).tap()
 		let restoreAlert = app.alerts.firstMatch

@@ -1,16 +1,10 @@
-Test Focus: The analytics-consent question now appears AFTER sign-in and the paywall — not before — and pre-consent paywall activity is handled correctly.
-
-What's new:
-
-• The analytics opt-in ("Enable" / "Not now") no longer greets you on launch. You sign in and pass the paywall first; the analytics question appears only afterward, just before the main app.
-• If you opt in, usage from the paywall step that happened before you answered is still counted. If you choose "Not now," none of it is recorded or sent — nothing leaves the device without consent.
+Test Focus: The Reset actions (Remove Findings, Restore Defaults) moved under a new "Reset" entry in Settings → ML Browser, and the Remove button is now a prominent red button.
 
 Please test:
 
-1. Fresh install (or Settings → Restore Defaults, then relaunch): confirm the SIGN-IN screen appears first — NOT the analytics question.
-2. Sign in, then get past the paywall (subscribe or free trial). Confirm the analytics question appears only now, right before the browser.
-3. Choose "Not now": confirm you enter the app and Settings shows analytics OFF.
-4. On another run, choose "Enable": confirm the app works normally and Settings shows analytics ON.
-5. Confirm the analytics question never appears before you are signed in and past the paywall.
-
-Note: seeing the paywall more than once may count more than once after you opt in — that's expected. If the analytics feature is turned off server-side, no analytics question appears at all (unchanged).
+1. Open Settings and find the "ML Browser" section: confirm a new "Reset" row appears there (alongside About and Replay onboarding).
+2. Tap "Reset": confirm it opens a Reset screen listing both "Remove Findings" and "Restore Defaults".
+3. Confirm the "Remove" button is a prominent filled red button, matching the "Restore" button's style.
+4. Tap "Remove": confirm the confirmation appears (Delete + Cancel, plus "Export First…" when you have saved findings). Tap Cancel — nothing is deleted.
+5. (With findings saved) Tap "Remove" → "Export First…": confirm the share sheet appears with the export, and that sharing/saving does NOT delete anything. Try navigating back out of Reset while it prepares — the share sheet should still behave correctly.
+6. Tap "Restore Defaults" → "Restore": confirm it resets as before, and that Restore does NOT remove your findings.

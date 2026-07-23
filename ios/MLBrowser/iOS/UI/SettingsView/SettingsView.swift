@@ -44,8 +44,8 @@ struct SettingsForm: View {
 	// independent choices; exporting never deletes (the user re-opens to delete).
 	@State private var showRemoveFindings = false
 	/// True while the export ZIP is being built (before the share sheet appears). Only fades the
-	/// row's spinner and disables its button — never restructures the row, because the share sheet
-	/// presents from this row and structural churn wedges its dismissal on iOS-on-Mac (AIA-0448).
+	/// row's spinner and dims/disables its button — never restructures the row, because restructuring
+	/// it while the share sheet is up wedges the sheet's dismissal on iOS-on-Mac (AIA-0448).
 	@State private var isExportingFindings = false
 	@State private var findingsSharePayload: ActivitySharePayload?
 
@@ -64,7 +64,6 @@ struct SettingsForm: View {
 				privacySection
 				webContentSection
 				mlBrowserSection
-				resetSection
 				accountSection
 				debugSection
 			}
@@ -121,30 +120,9 @@ struct SettingsForm: View {
 			.alert(item: $alertItem) { item in
 				Self.createAlert(from: item)
 			}
-			// Remove Findings (AIA-0303). Attached here at the NavigationStack-content level — the
-			// same place the working `alertItem` alert lives — not on a Form row: a presentation
-			// hung off a recycled Form/List row does not present reliably. An `.alert` (not
-			// `.confirmationDialog`) because confirmationDialog did not present from this
-			// sheet-hosted Form; the alert's Export / Delete / Cancel actions are equivalent.
-			.alert(
-				L10n.Settings.Reset.RemoveFindings.title,
-				isPresented: $showRemoveFindings
-			) {
-				// Only offer export when there is something to export.
-				if findingRepository.hasAnyFinding() {
-					Button(L10n.Settings.Reset.RemoveFindings.export) {
-						exportFindingsBeforeRemoval()
-					}
-					.testability(Testability.Button.settingsRemoveFindingsExport)
-				}
-				Button(L10n.Settings.Reset.RemoveFindings.delete, role: .destructive) {
-					removeAllFindings()
-				}
-				.testability(Testability.Button.settingsRemoveFindingsConfirm)
-				Button(L10n.Common.cancel, role: .cancel) {}
-			} message: {
-				Text(L10n.Settings.Reset.RemoveFindings.message)
-			}
+			// The findings-export share sheet stays at the root NavigationStack: its presenter
+			// (a `.background` UIViewControllerRepresentable) must outlive the user popping the
+			// pushed Reset screen mid-export, since the ZIP builds after a delay (AIA-0402/0448).
 			.activityShareSheet($findingsSharePayload)
 		}
 	}
@@ -268,16 +246,51 @@ struct SettingsForm: View {
 			}
 			.testability(Testability.NavigationLink.settingsAbout)
 			replayOnboardingRow
+			NavigationLink(destination: resetOptionsView) {
+				Text(L10n.Settings.Reset.title)
+			}
+			.testability(Testability.NavigationLink.settingsReset)
 		}
 	}
 
-	/// AIA-0303: a dedicated Reset grouping. "Remove Findings" (delete all findings + their photos,
-	/// with an export-first offer) and "Restore Defaults" (unchanged; it deliberately does NOT touch
-	/// findings) are two independent, individually confirmation-guarded actions.
-	private var resetSection: some View {
-		Section(header: Text(L10n.Settings.Reset.title)) {
-			removeFindingsRow
-			restoreDefaultsRow
+	/// The Reset actions, reached via the "Reset" entry in the ML Browser section. "Remove Findings"
+	/// (delete all findings + their photos, with an export-first offer) and "Restore Defaults" (does
+	/// NOT touch findings) stay two independent, individually confirmation-guarded actions. The
+	/// Remove Findings confirmation alert lives on THIS pushed screen (a boolean `.alert` attached at
+	/// the root does not present when fired from a pushed view); the export share sheet and the
+	/// error/Restore `alertItem` stay at the root `NavigationStack` so their presenters outlive a push
+	/// (AIA-0303/0448/0402).
+	private var resetOptionsView: some View {
+		Form {
+			Section {
+				removeFindingsRow
+				restoreDefaultsRow
+			}
+		}
+		.navigationBarTitle(L10n.Settings.Reset.title, displayMode: .inline)
+		// Remove Findings confirmation (AIA-0303): attached at THIS pushed screen's content level —
+		// where the trigger row lives. A boolean `.alert` attached at the root NavigationStack does
+		// NOT present when fired from a pushed view (only the item-based `alertItem` does), and a
+		// row-level presentation is unreliable. `.alert` not `.confirmationDialog` (which did not
+		// present from this sheet-hosted Form). The export share sheet stays at the root (see `body`).
+		.alert(
+			L10n.Settings.Reset.RemoveFindings.title,
+			isPresented: $showRemoveFindings
+		) {
+			// Only offer export when there is something to export.
+			if findingRepository.hasAnyFinding() {
+				Button(L10n.Settings.Reset.RemoveFindings.export) {
+					exportFindingsBeforeRemoval()
+				}
+				.testability(Testability.Button.settingsRemoveFindingsExport)
+			}
+			Button(L10n.Settings.Reset.RemoveFindings.delete, role: .destructive) {
+				removeAllFindings()
+			}
+			.testability(Testability.Button.settingsRemoveFindingsConfirm)
+			Button(L10n.Common.cancel, role: .cancel) {}
+		} message: {
+			Text(L10n.Settings.Reset.RemoveFindings.message)
 		}
 	}
 
@@ -295,15 +308,18 @@ struct SettingsForm: View {
 			ProgressView()
 				.opacity(isExportingFindings ? 1 : 0)
 				.accessibilityHidden(true)
-			// A plain (red-tinted) trigger, NOT `Button(role: .destructive)`: a destructive-role
-			// button inside a Form row is treated specially and its tap did not open the dialog
-			// (AIA-0303). The destructive semantics live on the alert's "Delete" action instead.
+			// A prominent red button (PressableButtonStyle), matching Restore Defaults — but NOT
+			// `Button(role: .destructive)`: a destructive-role button inside a Form row is treated
+			// specially and its tap did not open the dialog (AIA-0303). The destructive semantics
+			// live on the alert's "Delete" action instead.
 			Button {
 				showRemoveFindings = true
 			} label: {
 				Text(L10n.Settings.Reset.RemoveFindings.button)
-					.foregroundColor(.red)
 			}
+			.buttonStyle(PressableButtonStyle(color: .red))
+			// PressableButtonStyle has no disabled state, so dim the filled button while exporting.
+			.opacity(isExportingFindings ? 0.5 : 1)
 			.disabled(isExportingFindings)
 			.testability(Testability.Button.settingsRemoveFindings)
 		}
