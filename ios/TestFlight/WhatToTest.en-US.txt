@@ -1,10 +1,11 @@
-Test Focus: The Reset actions (Remove Findings, Restore Defaults) moved under a new "Reset" entry in Settings → ML Browser, and the Remove button is now a prominent red button.
+Test Focus: The app can now show messages from us — as a card at the top of the screen (news, questions with buttons) and in Settings → About App. Messages arrive remotely; no update is needed for us to publish or withdraw one.
 
-Please test:
+Please test (a test message must be live — check with the team which ones are running):
 
-1. Open Settings and find the "ML Browser" section: confirm a new "Reset" row appears there (alongside About and Replay onboarding).
-2. Tap "Reset": confirm it opens a Reset screen listing both "Remove Findings" and "Restore Defaults".
-3. Confirm the "Remove" button is a prominent filled red button, matching the "Restore" button's style.
-4. Tap "Remove": confirm the confirmation appears (Delete + Cancel, plus "Export First…" when you have saved findings). Tap Cancel — nothing is deleted.
-5. (With findings saved) Tap "Remove" → "Export First…": confirm the share sheet appears with the export, and that sharing/saving does NOT delete anything. Try navigating back out of Reset while it prepares — the share sheet should still behave correctly.
-6. Tap "Restore Defaults" → "Restore": confirm it resets as before, and that Restore does NOT remove your findings.
+1. Launch the app. If a message campaign is live, a card appears at the top of the screen within a few seconds — over the sign-in screen, the subscription screen, or the app itself, depending on the campaign.
+2. Read the card: title and text should be fully visible and readable, in light and dark mode, also after rotating the device.
+3. If the card has no buttons: tap the ✕ to close it. It should slide away and NOT come back — not even after force-quitting and relaunching the app.
+4. If the card has answer buttons (e.g. Yes / No): tap one. The card should disappear and not return. If another message is waiting, it appears next — one card at a time.
+5. Open Settings → ML Browser → About App: campaign messages aimed at this screen are listed at the top. They stay visible there for their whole runtime (closing the top card does not remove them here).
+6. Signed out? The sign-in screen only ever shows plain announcements — never cards with answer buttons.
+7. If a campaign uses notifications: with the app closed, a quiet notification may appear in Notification Center (no sound or banner — that is intended). Tapping it opens the app directly on that message.

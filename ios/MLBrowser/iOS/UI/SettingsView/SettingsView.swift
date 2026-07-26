@@ -29,6 +29,9 @@ struct SettingsForm: View {
 	@EnvironmentObject var detectionState: DetectionSessionState
 	@EnvironmentObject var subscriptionState: SubscriptionState
 	@EnvironmentObject var analytics: AnalyticsState
+	/// Remote Settings-surface messages (AIA-0115). Observed directly, like in `AppDescriptionView`,
+	/// because a nested `ObservableObject` does not republish through `AppState`.
+	@EnvironmentObject private var messageCenter: MessageCenterState
 	/// Real vs. mock auth from the composition root (AIA-0385). Re-injected onto this sheet in
 	/// `DrawerContent` because custom env values don't cross the sheet boundary on Mac/iPad.
 	@Environment(\.usesRealAuth) private var usesRealAuth
@@ -60,6 +63,11 @@ struct SettingsForm: View {
 	var body: some View {
 		NavigationStack(path: $accountPath) {
 			Form {
+				// Remotely-delivered informational messages targeted at the Settings surface, pinned
+				// above the regular sections — only when the server actually delivered some.
+				if !messageCenter.settingsMessages.isEmpty {
+					messagesSection
+				}
 				annotationSection
 				privacySection
 				webContentSection
@@ -141,6 +149,18 @@ struct SettingsForm: View {
 	}
 
 	// MARK: - Sections
+
+	private var messagesSection: some View {
+		Section {
+			ForEach(messageCenter.settingsMessages, id: \.id) { message in
+				AppMessageInlineRow(
+					message: message,
+					languageCode: AppMessage.deviceLanguageCode,
+					testabilityLabel: .appMessageSettingsRow
+				)
+			}
+		}
+	}
 
 	private var annotationSection: some View {
 		Section(header: Text(L10n.Settings.Section.annotation)) {

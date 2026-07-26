@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 8
+	static let currentVersion = 9
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -88,6 +88,11 @@ struct UITestLaunchConfiguration: Codable {
 	/// Deterministic first-run analytics state. The baseline skips the choice for existing UI
 	/// suites; dedicated tests opt into `.prompt` and prove it precedes auth/subscription gates.
 	var analyticsScenario: AnalyticsScenario?
+	/// Raw JSON for the `appMessages` remote setting (AIA-0115), injected into
+	/// `StaticFeatureFlagProvider` so UI tests can serve deterministic messages. Deliberately
+	/// separate from `featureFlagOverrides`, which stays strictly `FeatureFlagKey` → Bool.
+	/// `nil` keeps the baseline (no messages).
+	var appMessagesJSON: String?
 
 	/// Decoded from the launch environment, or `nil` if absent. Traps on malformed input
 	/// or version mismatch — a UI test must never proceed on a misread configuration.

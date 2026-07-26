@@ -50,6 +50,11 @@ enum FeatureFlagKey: String, CaseIterable {
 	/// is always available to the user through the App Store. Fails open so a config outage never
 	/// removes it silently.
 	case isRefundRequestEnabled = "isRefundRequestEnabled"
+
+	/// Gates the app→user messaging surface (AIA-0115): whether remotely-published messages
+	/// (the `appMessages` setting) render at all. Fails open — safe because the content
+	/// setting itself defaults to empty, so an outage shows no messages rather than stale ones.
+	case isAppMessagingEnabled = "isAppMessagingEnabled"
 	// swiftlint:enable redundant_string_enum_value
 
 	/// The value used when remote config cannot be consulted.
@@ -60,8 +65,19 @@ enum FeatureFlagKey: String, CaseIterable {
 		case .isAnalyticsEnabled: return true
 		case .isSupportReportingEnabled: return true
 		case .isRefundRequestEnabled: return true
+		case .isAppMessagingEnabled: return true
 		}
 	}
+}
+
+/// Keys of non-boolean settings served from the same ConfigCat config.
+///
+/// Same contract as `FeatureFlagKey.rawValue`: the literal **is** the dashboard key, and a
+/// drifted key fails invisibly (the lookup just returns the default), so each constant is
+/// locked by `test_rawValues_areTheConfigCatKeys`.
+enum RemoteSettingKey {
+	/// JSON array of app-messaging payloads (AIA-0115), decoded by `AppMessage.decodeMessages`.
+	static let appMessages = "appMessages"
 }
 
 /// An immutable set of resolved flag values.
@@ -72,8 +88,14 @@ enum FeatureFlagKey: String, CaseIterable {
 struct FeatureFlagSnapshot: Equatable {
 	private let values: [FeatureFlagKey: Bool]
 
-	init(values: [FeatureFlagKey: Bool] = [:]) {
+	/// Raw JSON of the `RemoteSettingKey.appMessages` setting; `""` when absent, unfetched,
+	/// or offline (AIA-0115). Part of `Equatable` on purpose: a message edit must republish
+	/// the snapshot exactly like a flag flip does.
+	let appMessagesJSON: String
+
+	init(values: [FeatureFlagKey: Bool] = [:], appMessagesJSON: String = "") {
 		self.values = values
+		self.appMessagesJSON = appMessagesJSON
 	}
 
 	subscript(key: FeatureFlagKey) -> Bool {
@@ -85,6 +107,7 @@ struct FeatureFlagSnapshot: Equatable {
 	var isAnalyticsEnabled: Bool { self[.isAnalyticsEnabled] }
 	var isSupportReportingEnabled: Bool { self[.isSupportReportingEnabled] }
 	var isRefundRequestEnabled: Bool { self[.isRefundRequestEnabled] }
+	var isAppMessagingEnabled: Bool { self[.isAppMessagingEnabled] }
 
 	/// Every key at its compiled default — the launch/offline value.
 	static let defaults = FeatureFlagSnapshot()

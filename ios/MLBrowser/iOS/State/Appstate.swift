@@ -65,6 +65,10 @@ final class AppState: ObservableObject {
 	/// Optional analytics choice and transport. Kept separate from `Settings` so views can
 	/// trigger the state transition that initializes/terminates the SDK.
 	let analytics: AnalyticsState
+	/// Remote in-app messaging (AIA-0115). Injected once; views observe it directly as an
+	/// `@EnvironmentObject` — like `featureFlags`, a nested `ObservableObject` does not republish
+	/// through `AppState`.
+	let messageCenter: MessageCenterState
 
 	/// Indicates whether the app initialization is complete
 	@Published private(set) var isReady = false
@@ -93,6 +97,7 @@ final class AppState: ObservableObject {
 		account: AccountSession,
 		featureFlags: FeatureFlagsState,
 		analytics: AnalyticsState,
+		messageCenter: MessageCenterState,
 		usesRealAuth: Bool
 	) {
 		self.dataController = dataController
@@ -108,6 +113,7 @@ final class AppState: ObservableObject {
 		self.account = account
 		self.featureFlags = featureFlags
 		self.analytics = analytics
+		self.messageCenter = messageCenter
 		self.usesRealAuth = usesRealAuth
 
 		LoggingPolicy.debug("AppState initializing", logger: .lifecycle)

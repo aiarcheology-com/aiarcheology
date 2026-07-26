@@ -4,6 +4,14 @@
 <dict>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.aiarcheology.mlbrowser.messages.refresh</string>
+	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>ymail</string>

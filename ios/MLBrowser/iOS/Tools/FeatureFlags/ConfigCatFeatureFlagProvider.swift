@@ -70,13 +70,25 @@ final class ConfigCatFeatureFlagProvider: FeatureFlagProviding {
 		for key in FeatureFlagKey.allCases {
 			values[key] = snapshot.getValue(for: key.rawValue, defaultValue: key.defaultValue)
 		}
-		return FeatureFlagSnapshot(values: values)
+		let appMessagesJSON: String = snapshot.getValue(
+			for: RemoteSettingKey.appMessages,
+			defaultValue: ""
+		)
+		return FeatureFlagSnapshot(values: values, appMessagesJSON: appMessagesJSON)
 	}
 
 	func refresh() async {
 		// Result deliberately ignored: a failed refresh leaves the previous values (or the
 		// compiled defaults) in place. Flags are best-effort and must never surface an error.
 		_ = await client.forceRefresh()
+	}
+
+	func setUser(id: String, custom: [String: String]) {
+		client.setDefaultUser(user: ConfigCatUser(identifier: id, custom: custom))
+	}
+
+	func clearUser() {
+		client.clearDefaultUser()
 	}
 
 	/// The SDK key for this build: Debug talks to the ConfigCat **Test** environment,

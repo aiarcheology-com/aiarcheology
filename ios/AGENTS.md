@@ -37,6 +37,7 @@ You are acting as a Senior iOS Engineer pair-programming with the user. Your goa
 - `./ARCHITECTURE.md`: the app's concrete wiring — layering, composition root (`DependencyContainer`), app entry/gating, and the detection pipeline. Read this to orient in the codebase.
 - `../LOGGING_GUIDE.md`: OSLog usage, log levels, privacy annotations, and crash policy.
 - `./MLBrowser/README.md`: project setup, pinned tools, and secrets management via 1Password.
+- `../USERMESSAGING.md`: remote app→user messaging (AIA-0115) — payload schema, surfaces, targeting, replies, notifications, and the operator publish/retract runbook.
 
 ## 3. Architecture & State
 

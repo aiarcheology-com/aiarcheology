@@ -1,0 +1,17 @@
+[
+  { "id": "keeper", "title": "First wins", "body": "This one survives.", "surfaces": ["inApp"] },
+  { "id": "keeper", "title": "Duplicate", "body": "Dropped: id already taken.", "surfaces": ["inApp"] },
+  { "id": "no-valid-surface", "title": "Bad surfaces", "body": "Dropped: no known surface left.", "surfaces": ["carousel", "widget"] },
+  { "id": "impossible-window", "title": "Backwards window", "body": "Dropped: starts at or after its own expiry.", "surfaces": ["inApp"], "activeFrom": "2026-09-01T00:00:00Z", "expiresAt": "2026-08-01T00:00:00Z" },
+  { "id": "wrong-type", "title": "Bad field type", "body": "Dropped: notify is not a bool.", "surfaces": ["inApp"], "notify": "yes" },
+  { "id": "too-many-buttons", "title": "Nine buttons", "body": "Dropped: cap is eight.", "surfaces": ["inApp"], "buttons": [
+    { "id": "b1", "label": "1" }, { "id": "b2", "label": "2" }, { "id": "b3", "label": "3" },
+    { "id": "b4", "label": "4" }, { "id": "b5", "label": "5" }, { "id": "b6", "label": "6" },
+    { "id": "b7", "label": "7" }, { "id": "b8", "label": "8" }, { "id": "b9", "label": "9" }
+  ] },
+  { "id": "duplicate-button-ids", "title": "Repeated button id", "body": "Dropped: button ids must be unique.", "surfaces": ["inApp"], "buttons": [
+    { "id": "yes", "label": "Yes" }, { "id": "yes", "label": "Also yes" }
+  ] },
+  { "id": "missing-body", "title": "No body", "surfaces": ["inApp"] },
+  { "id": "notify-inline-only", "title": "Notify on an inline surface", "body": "Decodes fine, but is NOT notifiable: no alert surface can present it, so its tap would resolve to nothing.", "surfaces": ["aboutApp", "settings"], "notify": true }
+]

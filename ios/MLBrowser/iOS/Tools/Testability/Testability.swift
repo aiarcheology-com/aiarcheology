@@ -117,6 +117,9 @@ extension TestabilityIdentification {
 		// Optional analytics first-run choice
 		case analyticsChoiceEnable
 		case analyticsChoiceNotNow
+		// App Messages (AIA-0115)
+		case appMessageDismiss
+		case appMessageReply
 		// Browsing History
 		case browsingHistoryClear
 		case browsingHistoryDismiss
@@ -289,8 +292,12 @@ extension TestabilityIdentification {
 		case snapAdjustmentBrightnessValue
 		case snapAdjustmentContrastValue
 		case snapAdjustmentSaturationValue
+		// App Messages (AIA-0115)
+		case appMessageTitle
+		case appMessageAboutRow
+		case appMessageSettingsRow
 	}
-	
+
 	enum TextField: String, TestabilityIdentification {
 		case downloadDetailUrl
 		// Model Catalog
@@ -337,6 +344,8 @@ extension TestabilityIdentification {
 		case aView
 		// Onboarding tour coach-mark bubble.
 		case tourBubble
+		// App Messages banner container (AIA-0115)
+		case appMessageBanner
 	}
 
 	/// State-introspection probes for UI tests. A `.checkpoint(_:value:)` modifier

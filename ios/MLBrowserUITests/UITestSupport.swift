@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 8
+	var version = 9
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -41,6 +41,8 @@ struct LaunchConfig: Encodable {
 	/// Keyed by `FeatureFlagKey.rawValue`; an unknown key traps in the app (AIA-0350).
 	var featureFlagOverrides: [String: Bool]?
 	var analyticsScenario: AnalyticsScenario?
+	/// Raw JSON for the `appMessages` remote setting (AIA-0115). `nil` = no messages.
+	var appMessagesJSON: String?
 }
 
 // MARK: - Accessibility identifiers
@@ -146,6 +148,17 @@ enum AID {
 	// Subscription paywall (AIA-0343)
 	static let paywallSubscribe = "_AIA:Button.PaywallSubscribe"
 	static let paywallSignOut = "_AIA:Button.PaywallSignOut"
+
+	// App Messages (AIA-0115). The banner container, its title, and the informational dismiss carry
+	// bare identifiers; the reply buttons and About rows carry a `label:` (the button id / message
+	// id), which `TestabilityIdentification.callAsFunction` renders as `#<label>` *before* the element
+	// name (e.g. `_AIA:Button.#yesAppMessageReply`).
+	static let appMessageBanner = "_AIA:View.AppMessageBanner"
+	static let appMessageTitle = "_AIA:Label.AppMessageTitle"
+	static let appMessageDismiss = "_AIA:Button.AppMessageDismiss"
+	static func appMessageReply(_ buttonID: String) -> String { "_AIA:Button.#\(buttonID)AppMessageReply" }
+	static func appMessageAboutRow(_ messageID: String) -> String { "_AIA:Label.#\(messageID)AppMessageAboutRow" }
+	static func appMessageSettingsRow(_ messageID: String) -> String { "_AIA:Label.#\(messageID)AppMessageSettingsRow" }
 
 	// Location / address sheet
 	static let locationInput = "_AIA:TextField.LocationSheetInput"

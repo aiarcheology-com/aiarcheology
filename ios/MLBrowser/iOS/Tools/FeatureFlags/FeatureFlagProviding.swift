@@ -40,6 +40,15 @@ protocol FeatureFlagProviding: Sendable {
 	///
 	/// Single-consumer: an `AsyncStream` may only be iterated once.
 	func changes() -> AsyncStream<Void>
+
+	/// Sets the evaluation user for dashboard targeting rules (AIA-0115): identifier plus
+	/// custom attributes. Takes effect on the *next* snapshot — the SDK fires no change hook
+	/// for this, so the caller must force a refresh/republish itself (see
+	/// ``TargetingCoordinator``).
+	func setUser(id: String, custom: [String: String])
+
+	/// Clears the evaluation user; subsequent snapshots evaluate untargeted defaults.
+	func clearUser()
 }
 
 /// A fixed provider for unit tests, SwiftUI previews, and UI tests. Never touches the
@@ -47,8 +56,8 @@ protocol FeatureFlagProviding: Sendable {
 final class StaticFeatureFlagProvider: FeatureFlagProviding {
 	private let snapshot: FeatureFlagSnapshot
 
-	init(overrides: [FeatureFlagKey: Bool] = [:]) {
-		self.snapshot = FeatureFlagSnapshot(values: overrides)
+	init(overrides: [FeatureFlagKey: Bool] = [:], appMessagesJSON: String = "") {
+		self.snapshot = FeatureFlagSnapshot(values: overrides, appMessagesJSON: appMessagesJSON)
 	}
 
 	func currentSnapshot() -> FeatureFlagSnapshot { snapshot }
@@ -61,4 +70,8 @@ final class StaticFeatureFlagProvider: FeatureFlagProviding {
 	func changes() -> AsyncStream<Void> {
 		AsyncStream { $0.finish() }
 	}
+
+	/// Static values are user-independent by definition.
+	func setUser(id: String, custom: [String: String]) {}
+	func clearUser() {}
 }

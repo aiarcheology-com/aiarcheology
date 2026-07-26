@@ -118,6 +118,9 @@ struct DrawerContent: View {
                 // AIA-0461: SubscriptionStatusView (pushed inside this sheet) reads the refund
                 // feature flag; re-inject featureFlags or its @EnvironmentObject traps on Mac.
                 .environmentObject(appState.featureFlags)
+                // AIA-0115: AppDescriptionView (pushed inside this sheet) reads remote messages;
+                // same sheet-boundary trap as featureFlags above.
+                .environmentObject(appState.messageCenter)
                 .environment(drawer)
                 .environment(tour)
                 // Re-inject: custom env values don't reliably cross the sheet boundary on

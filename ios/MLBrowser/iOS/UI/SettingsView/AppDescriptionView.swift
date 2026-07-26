@@ -8,6 +8,11 @@
 import SwiftUI
 
 struct AppDescriptionView: View {
+    /// Remote About-screen messages (AIA-0115). Injected once at the app root; observed directly
+    /// because a nested `ObservableObject` does not republish through `AppState`.
+    @EnvironmentObject private var messageCenter: MessageCenterState
+    /// Device language for localized message content.
+    private let languageCode = AppMessage.deviceLanguageCode
     let versionString: String = appVersion()
     let buildString: String = appBuild()
     let appIcon: String = Bundle.main.iconFileName ?? "AppIcon"
@@ -22,6 +27,11 @@ struct AppDescriptionView: View {
 	var body: some View {
 		VStack {
 			Form {
+				// Remotely-delivered informational messages targeted at the About screen, shown
+				// inline above the app info — only when the server actually delivered some.
+				if !messageCenter.aboutMessages.isEmpty {
+					messagesSection
+				}
 				applicationSection
 				contactSection
 				legalSection
@@ -33,6 +43,18 @@ struct AppDescriptionView: View {
 		}
 		.sheetDismissButton(testability: .appDescriptionDismiss)
 		.navigationBarTitle(L10n.Settings.about, displayMode: .inline)
+	}
+
+	private var messagesSection: some View {
+		Section {
+			ForEach(messageCenter.aboutMessages, id: \.id) { message in
+				AppMessageInlineRow(
+					message: message,
+					languageCode: languageCode,
+					testabilityLabel: .appMessageAboutRow
+				)
+			}
+		}
 	}
 
 	private var applicationSection: some View {

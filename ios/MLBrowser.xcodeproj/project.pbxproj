@@ -82,6 +82,24 @@
 		AA0454010000000000000002 /* SupportRequestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0454000000000000000002 /* SupportRequestView.swift */; };
 		AA0454010000000000000003 /* ScreenshotReportModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0454000000000000000003 /* ScreenshotReportModifier.swift */; };
 		AA0454010000000000000004 /* SupportSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0454000000000000000004 /* SupportSettingsView.swift */; };
+		ABAA0115000000000000B001 /* AppMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A001 /* AppMessage.swift */; };
+		ABAA0115000000000000B002 /* AppMessageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A002 /* AppMessageTests.swift */; };
+		ABAA0115000000000000B003 /* MessageCenterState.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A003 /* MessageCenterState.swift */; };
+		ABAA0115000000000000B004 /* MessageCenterStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A004 /* MessageCenterStateTests.swift */; };
+		ABAA0115000000000000B005 /* MessageSurfaceResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A005 /* MessageSurfaceResolver.swift */; };
+		ABAA0115000000000000B006 /* AppMessageModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A006 /* AppMessageModifier.swift */; };
+		ABAA0115000000000000B007 /* MessageSurfaceResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A007 /* MessageSurfaceResolverTests.swift */; };
+		ABAA0115000000000000B008 /* MessageReplyPatchBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A008 /* MessageReplyPatchBuilder.swift */; };
+		ABAA0115000000000000B009 /* MessageReplyCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A009 /* MessageReplyCoordinator.swift */; };
+		ABAA0115000000000000B010 /* ClerkMessageReplyWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A010 /* ClerkMessageReplyWriter.swift */; };
+		ABAA0115000000000000B011 /* MessageReplyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A011 /* MessageReplyTests.swift */; };
+		ABAA0115000000000000B012 /* TargetingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A012 /* TargetingCoordinator.swift */; };
+		ABAA0115000000000000B013 /* TargetingCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A013 /* TargetingCoordinatorTests.swift */; };
+		ABAA0115000000000000B014 /* MessageNotificationPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A014 /* MessageNotificationPlanner.swift */; };
+		ABAA0115000000000000B015 /* UserNotificationScheduling.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A015 /* UserNotificationScheduling.swift */; };
+		ABAA0115000000000000B016 /* MessageNotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A016 /* MessageNotificationCoordinator.swift */; };
+		ABAA0115000000000000B017 /* MessageNotificationPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A017 /* MessageNotificationPlannerTests.swift */; };
+		ABAA0115000000000000B018 /* AppMessagesUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A018 /* AppMessagesUITests.swift */; };
 		8A4256E62B1E0C4C009153B1 /* UIApplication+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4256E52B1E0C4C009153B1 /* UIApplication+Extensions.swift */; };
 		8A4F0E122F110A0100ABCDEF /* FloatingChromeButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E112F110A0100ABCDEF /* FloatingChromeButton.swift */; };
 		8A4F0E142F110A0200ABCDEF /* BrowserRevampUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */; };
@@ -389,6 +407,24 @@
 		AA0454000000000000000002 /* SupportRequestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportRequestView.swift; sourceTree = "<group>"; };
 		AA0454000000000000000003 /* ScreenshotReportModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotReportModifier.swift; sourceTree = "<group>"; };
 		AA0454000000000000000004 /* SupportSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportSettingsView.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A001 /* AppMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMessage.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A002 /* AppMessageTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppMessageTests.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A003 /* MessageCenterState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageCenterState.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A004 /* MessageCenterStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MessageCenterStateTests.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A005 /* MessageSurfaceResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageSurfaceResolver.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A006 /* AppMessageModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMessageModifier.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A007 /* MessageSurfaceResolverTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MessageSurfaceResolverTests.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A008 /* MessageReplyPatchBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageReplyPatchBuilder.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A009 /* MessageReplyCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageReplyCoordinator.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A010 /* ClerkMessageReplyWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClerkMessageReplyWriter.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A011 /* MessageReplyTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MessageReplyTests.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A012 /* TargetingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TargetingCoordinator.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A013 /* TargetingCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TargetingCoordinatorTests.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A014 /* MessageNotificationPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageNotificationPlanner.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A015 /* UserNotificationScheduling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserNotificationScheduling.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A016 /* MessageNotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageNotificationCoordinator.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A017 /* MessageNotificationPlannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MessageNotificationPlannerTests.swift; sourceTree = "<group>"; };
+		ABAA0115000000000000A018 /* AppMessagesUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppMessagesUITests.swift; sourceTree = "<group>"; };
 		8A4256E52B1E0C4C009153B1 /* UIApplication+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplication+Extensions.swift"; sourceTree = "<group>"; };
 		8A4F0E112F110A0100ABCDEF /* FloatingChromeButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingChromeButton.swift; sourceTree = "<group>"; };
 		8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserRevampUITests.swift; sourceTree = "<group>"; };
@@ -840,8 +876,31 @@
 				952E8A6BBB23D84896D53765 /* Auth */,
 				52C7290D621F23BD541A171B /* Subscription */,
 				AA0454FF00000000000000FF /* Support */,
+				ABAA0115000000000000C002 /* AppMessages */,
 			);
 			path = UI;
+			sourceTree = "<group>";
+		};
+		ABAA0115000000000000C001 /* AppMessages */ = {
+			isa = PBXGroup;
+			children = (
+				ABAA0115000000000000A001 /* AppMessage.swift */,
+				ABAA0115000000000000A003 /* MessageCenterState.swift */,
+				ABAA0115000000000000A005 /* MessageSurfaceResolver.swift */,
+				ABAA0115000000000000A009 /* MessageReplyCoordinator.swift */,
+				ABAA0115000000000000A010 /* ClerkMessageReplyWriter.swift */,
+				ABAA0115000000000000A012 /* TargetingCoordinator.swift */,
+				ABAA0115000000000000A016 /* MessageNotificationCoordinator.swift */,
+			);
+			path = AppMessages;
+			sourceTree = "<group>";
+		};
+		ABAA0115000000000000C002 /* AppMessages */ = {
+			isa = PBXGroup;
+			children = (
+				ABAA0115000000000000A006 /* AppMessageModifier.swift */,
+			);
+			path = AppMessages;
 			sourceTree = "<group>";
 		};
 		8A61C5122AB9A85900BF72BE /* State */ = {
@@ -882,6 +941,7 @@
 				5FF6A50AC2646F384CFCDAAB /* AccountSession.swift */,
 				C1C8537D6BC5C025193305C8 /* DetectionSessionState.swift */,
 				7CBFB4DBA150A11E6A85D783 /* ModelTypeBackfiller.swift */,
+				ABAA0115000000000000C001 /* AppMessages */,
 			);
 			path = State;
 			sourceTree = "<group>";
@@ -1090,6 +1150,12 @@
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
 				94FF0001000000000000B004 /* FeatureFlagsTests.swift */,
 				AA0454020000000000000001 /* SupportRequestTests.swift */,
+				ABAA0115000000000000A002 /* AppMessageTests.swift */,
+				ABAA0115000000000000A004 /* MessageCenterStateTests.swift */,
+				ABAA0115000000000000A007 /* MessageSurfaceResolverTests.swift */,
+				ABAA0115000000000000A011 /* MessageReplyTests.swift */,
+				ABAA0115000000000000A013 /* TargetingCoordinatorTests.swift */,
+				ABAA0115000000000000A017 /* MessageNotificationPlannerTests.swift */,
 				A35000000000000000000006 /* AnalyticsTests.swift */,
 				94D79C8E2EE37DBF0027C9FA /* BundleExtensionsTests.swift */,
 				94AE91772F0DA08300B326B7 /* ColorExtensionsTests.swift */,
@@ -1181,6 +1247,7 @@
 				DDCA151D54FB4492B8A89AB4 /* AuthGateUITests.swift */,
 				37FF65EDA41F1D0083A25351 /* SubscriptionGateUITests.swift */,
 				A35000000000000000000008 /* AnalyticsChoiceUITests.swift */,
+				ABAA0115000000000000A018 /* AppMessagesUITests.swift */,
 			);
 			path = MLBrowserUITests;
 			sourceTree = "<group>";
@@ -1317,6 +1384,9 @@
 		A1B2C3D42F0104A300000001 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				ABAA0115000000000000A008 /* MessageReplyPatchBuilder.swift */,
+				ABAA0115000000000000A014 /* MessageNotificationPlanner.swift */,
+				ABAA0115000000000000A015 /* UserNotificationScheduling.swift */,
 				A41320010000000000000001 /* Catalog */,
 				A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */,
 				B10000000000000000000012 /* NativeModelConversionImportReport.swift */,
@@ -1776,6 +1846,17 @@
 				15A2A9B169BF17E5F22D64B3 /* ClerkAuthProvider.swift in Sources */,
 				F3926A4B067E92D228D819B2 /* AuthGateView.swift in Sources */,
 				A99519915315C5955FDC6159 /* FeatureFlags.swift in Sources */,
+				ABAA0115000000000000B001 /* AppMessage.swift in Sources */,
+				ABAA0115000000000000B003 /* MessageCenterState.swift in Sources */,
+				ABAA0115000000000000B005 /* MessageSurfaceResolver.swift in Sources */,
+				ABAA0115000000000000B006 /* AppMessageModifier.swift in Sources */,
+				ABAA0115000000000000B008 /* MessageReplyPatchBuilder.swift in Sources */,
+				ABAA0115000000000000B009 /* MessageReplyCoordinator.swift in Sources */,
+				ABAA0115000000000000B014 /* MessageNotificationPlanner.swift in Sources */,
+				ABAA0115000000000000B015 /* UserNotificationScheduling.swift in Sources */,
+				ABAA0115000000000000B016 /* MessageNotificationCoordinator.swift in Sources */,
+				ABAA0115000000000000B010 /* ClerkMessageReplyWriter.swift in Sources */,
+				ABAA0115000000000000B012 /* TargetingCoordinator.swift in Sources */,
 				94FF0001000000000000B101 /* FeatureFlagProviding.swift in Sources */,
 				94FF0001000000000000B102 /* ConfigCatFeatureFlagProvider.swift in Sources */,
 				94FF0001000000000000B103 /* FeatureFlagsState.swift in Sources */,
@@ -1845,6 +1926,12 @@
 				94D79C9A2EE37DBF0027C9FA /* AppEnvironmentTests.swift in Sources */,
 				94FF0001000000000000B104 /* FeatureFlagsTests.swift in Sources */,
 				AA0454030000000000000001 /* SupportRequestTests.swift in Sources */,
+				ABAA0115000000000000B002 /* AppMessageTests.swift in Sources */,
+				ABAA0115000000000000B011 /* MessageReplyTests.swift in Sources */,
+				ABAA0115000000000000B013 /* TargetingCoordinatorTests.swift in Sources */,
+				ABAA0115000000000000B004 /* MessageCenterStateTests.swift in Sources */,
+				ABAA0115000000000000B017 /* MessageNotificationPlannerTests.swift in Sources */,
+				ABAA0115000000000000B007 /* MessageSurfaceResolverTests.swift in Sources */,
 				A35000000000000000000007 /* AnalyticsTests.swift in Sources */,
 				94929E812ED63ADE001A4C63 /* DeviceInfoTests.swift in Sources */,
 				94929E822ED63ADE001A4C63 /* ModelEnumsTests.swift in Sources */,
@@ -1902,6 +1989,7 @@
 				2E053D53518C7F5210D3C98B /* AuthGateUITests.swift in Sources */,
 				28D6668F15B4BCB10A61D33D /* SubscriptionGateUITests.swift in Sources */,
 				A35000000000000000000009 /* AnalyticsChoiceUITests.swift in Sources */,
+				ABAA0115000000000000B018 /* AppMessagesUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

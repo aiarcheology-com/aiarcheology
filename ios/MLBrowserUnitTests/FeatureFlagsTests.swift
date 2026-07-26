@@ -34,6 +34,9 @@ final class FeatureFlagsTests: XCTestCase {
 		XCTAssertEqual(FeatureFlagKey.isAnalyticsEnabled.rawValue, "isAnalyticsEnabled")
 		XCTAssertEqual(FeatureFlagKey.isSupportReportingEnabled.rawValue, "isSupportReportingEnabled")
 		XCTAssertEqual(FeatureFlagKey.isRefundRequestEnabled.rawValue, "isRefundRequestEnabled")
+		XCTAssertEqual(FeatureFlagKey.isAppMessagingEnabled.rawValue, "isAppMessagingEnabled")
+		// Non-boolean settings share the same dashboard-key contract (AIA-0115).
+		XCTAssertEqual(RemoteSettingKey.appMessages, "appMessages")
 	}
 
 	/// The refund-row flag maps to its own key and defaults open (AIA-0461).
@@ -65,6 +68,24 @@ final class FeatureFlagsTests: XCTestCase {
 		XCTAssertFalse(sut.isPaymentsEnabled)
 		XCTAssertTrue(sut.isAnalyticsEnabled)
 	}
+
+	/// The appMessages payload rides the snapshot (AIA-0115): empty when absent, carried
+	/// verbatim when served, and part of equality so a message edit republishes like a flag flip.
+	func test_snapshot_appMessagesJSON_defaultsEmptyAndParticipatesInEquality() {
+		XCTAssertEqual(FeatureFlagSnapshot.defaults.appMessagesJSON, "")
+		let payload = #"[{"id":"m1"}]"#
+		let sut = FeatureFlagSnapshot(appMessagesJSON: payload)
+		XCTAssertEqual(sut.appMessagesJSON, payload)
+		XCTAssertNotEqual(sut, FeatureFlagSnapshot.defaults)
+	}
+
+	/// The messaging flag maps to its own key and defaults open (AIA-0115): safe because the
+	/// content setting defaults to empty, so the open failure mode is "no messages".
+	func test_appMessagingFlag_defaultsOpenAndMapsToItsKey() {
+		XCTAssertTrue(FeatureFlagKey.isAppMessagingEnabled.defaultValue)
+		XCTAssertTrue(FeatureFlagSnapshot.defaults.isAppMessagingEnabled)
+		XCTAssertFalse(FeatureFlagSnapshot(values: [.isAppMessagingEnabled: false]).isAppMessagingEnabled)
+	}
 }
 
 final class StaticFeatureFlagProviderTests: XCTestCase {
@@ -78,6 +99,13 @@ final class StaticFeatureFlagProviderTests: XCTestCase {
 		let sut = StaticFeatureFlagProvider(overrides: [.isPaymentsEnabled: false])
 		XCTAssertFalse(sut.currentSnapshot().isPaymentsEnabled)
 		XCTAssertTrue(sut.currentSnapshot().isModelCatalogEnabled)
+	}
+
+	/// UI tests inject deterministic messages through the same static seam (AIA-0115).
+	func test_appMessagesJSON_isCarriedIntoTheSnapshot() {
+		let payload = #"[{"id":"m1"}]"#
+		let sut = StaticFeatureFlagProvider(appMessagesJSON: payload)
+		XCTAssertEqual(sut.currentSnapshot().appMessagesJSON, payload)
 	}
 
 	/// `refresh()` must be a no-op that never touches the network in tests.
@@ -122,6 +150,9 @@ private final class ChangingFeatureFlagProvider: FeatureFlagProviding, @unchecke
 	func refresh() async {}
 
 	func changes() -> AsyncStream<Void> { stream }
+
+	func setUser(id: String, custom: [String: String]) {}
+	func clearUser() {}
 
 	/// Simulates new config landing in the SDK's cache.
 	func emit(_ next: FeatureFlagSnapshot) {

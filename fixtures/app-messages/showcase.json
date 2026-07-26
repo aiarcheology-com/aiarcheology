@@ -1,0 +1,99 @@
+[
+  {
+    "id": "welcome-inapp",
+    "title": "On-device conversion is live",
+    "body": "Model conversion now runs **entirely on device** — no upload, no queue. Read the [release notes](https://example.com/releases) for the full list.",
+    "surfaces": ["inApp"],
+    "style": "info",
+    "notify": true,
+    "revision": 1,
+    "expiresAt": "2026-12-31T23:59:59Z"
+  },
+  {
+    "id": "feedback-interactive",
+    "title": "How is the new converter working out?",
+    "body": "You have converted a few models this week. *One tap* is enough — we read every answer.",
+    "surfaces": ["inApp", "paywall"],
+    "style": "success",
+    "buttons": [
+      { "id": "great", "label": "Works great" },
+      { "id": "rough", "label": "Hit some problems" },
+      { "id": "later", "label": "Ask me later" }
+    ]
+  },
+  {
+    "id": "localized-maintenance",
+    "title": "Scheduled maintenance",
+    "body": "Sync will be unavailable on Sunday between 02:00 and 04:00 UTC.",
+    "surfaces": ["inApp", "settings"],
+    "style": "warning",
+    "localized": {
+      "cs": {
+        "title": "Plánovaná údržba",
+        "body": "Synchronizace nebude v neděli mezi 02:00 a 04:00 UTC dostupná."
+      },
+      "de": {
+        "title": "Geplante Wartung"
+      }
+    }
+  },
+  {
+    "id": "localized-chinese-variants",
+    "title": "Model licences updated",
+    "body": "The attribution list has changed. Matched no override — this is the source text.",
+    "surfaces": ["inApp"],
+    "style": "info",
+    "localized": {
+      "zh-Hans": { "title": "模型许可已更新", "body": "Matched the zh-Hans key (Simplified)." },
+      "zh-Hant": { "title": "模型授權已更新", "body": "Matched the zh-Hant key (Traditional)." },
+      "zh-HK": { "title": "模型授權已更新", "body": "Matched the zh-HK key (Hong Kong)." }
+    }
+  },
+  {
+    "id": "markdown-showcase",
+    "title": "Markdown is inline-only",
+    "body": "This renders **bold**, *italic*, `code spans`, and [links](https://example.com). Block syntax does not: a leading # or a - bullet stays literal, and line breaks are preserved as written.",
+    "surfaces": ["inApp"],
+    "style": "info"
+  },
+  {
+    "id": "scheduled-window",
+    "title": "Early access opens Saturday",
+    "body": "The ONNX importer opens to everyone on **1 August**. Nothing to do — it appears by itself.",
+    "surfaces": ["inApp"],
+    "style": "info",
+    "notify": true,
+    "revision": 0,
+    "activeFrom": "2026-08-01T09:00:00Z",
+    "expiresAt": "2026-08-15T09:00:00Z"
+  },
+  {
+    "id": "version-targeted",
+    "title": "Update available",
+    "body": "Builds before 2.0 cannot open the new catalog format. Updating takes a moment.",
+    "surfaces": ["inApp", "settings"],
+    "style": "warning",
+    "maxAppVersion": "1.9.9"
+  },
+  {
+    "id": "about-credits",
+    "title": "Model licences",
+    "body": "Detection models ship under their original licences — see [the attribution list](https://example.com/licences). Conversion never sends your models anywhere.",
+    "surfaces": ["aboutApp"],
+    "style": "info"
+  },
+  {
+    "id": "settings-hint",
+    "title": "Looking for annotation frequency?",
+    "body": "It moved into **Annotation** at the top of this screen.",
+    "surfaces": ["settings"],
+    "style": "success"
+  },
+  {
+    "id": "login-notice",
+    "title": "Welcome back",
+    "body": "Sign in to sync your findings across devices. Interactive prompts never appear on this screen.",
+    "surfaces": ["login"],
+    "style": "info"
+  }
+]

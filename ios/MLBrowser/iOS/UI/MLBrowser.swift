@@ -9,11 +9,28 @@ import SwiftUI
 import OSLog
 import UIKit
 import ClerkKit
+import BackgroundTasks
+import UserNotifications
 
-// MARK: - App Delegate bridge (Background URLSession)
+// MARK: - App Delegate bridge (Background URLSession + message notifications)
 
 /// Needed for background `URLSession` to relaunch the app and deliver download completion callbacks.
+/// Also the bootstrap home (sanctioned `.shared` site, AGENTS §3) for message-notification taps and
+/// the background app-refresh that keeps notifications current (AIA-0115, S7).
 final class BackgroundDownloadAppDelegate: NSObject, UIApplicationDelegate {
+
+	// The delegate conforms to `UIApplicationDelegate` (@MainActor), so the type is main-actor
+	// isolated; the constants and the background-task entry points below are `nonisolated` because
+	// BGTaskScheduler invokes them off the main actor.
+
+	/// BGAppRefreshTask identifier for the periodic app-messages notification sync (AIA-0115, S7).
+	/// Must match the `BGTaskSchedulerPermittedIdentifiers` entry in `MLBrowser-Info.plist`.
+	nonisolated static let messagesRefreshTaskIdentifier = "com.aiarcheology.mlbrowser.messages.refresh"
+
+	/// How far out the next background refresh is requested. iOS treats this as the *earliest* begin
+	/// date and decides the actual timing from usage patterns.
+	nonisolated private static let messagesRefreshInterval: TimeInterval = 4 * 60 * 60
+
 	@MainActor
 	func application(
 		_ application: UIApplication,
@@ -31,6 +48,145 @@ final class BackgroundDownloadAppDelegate: NSObject, UIApplicationDelegate {
 			downloader.backgroundSessionCompletionHandler = completionHandler
 			downloader.reconnectBackgroundSession()
 		}
+	}
+
+	@MainActor
+	func application(
+		_ application: UIApplication,
+		didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+	) -> Bool {
+		// Receive taps / foreground presentation for message notifications (AIA-0115, S7).
+		UNUserNotificationCenter.current().delegate = self
+
+		// Register the background app-refresh handler before launch completes (BGTaskScheduler
+		// requires registration during launch). `using: nil` runs the handler on a background queue;
+		// the handler hops to the main actor for the actual work.
+		BGTaskScheduler.shared.register(
+			forTaskWithIdentifier: Self.messagesRefreshTaskIdentifier,
+			using: nil
+		) { task in
+			Self.handleMessagesRefresh(task)
+		}
+
+		// Ask for the first refresh window. Submit errors are expected on the simulator (BGTask
+		// submission is unsupported there) and are logged-and-ignored.
+		Self.scheduleNextMessagesRefresh()
+		return true
+	}
+
+	// MARK: Background app-refresh (message notifications)
+
+	/// Submits the next background app-refresh request. Idempotent — a pending request of the same
+	/// identifier is replaced.
+	nonisolated static func scheduleNextMessagesRefresh() {
+		let request = BGAppRefreshTaskRequest(identifier: messagesRefreshTaskIdentifier)
+		request.earliestBeginDate = Date(timeIntervalSinceNow: messagesRefreshInterval)
+		do {
+			try BGTaskScheduler.shared.submit(request)
+		} catch {
+			LoggingPolicy.debug(
+				"Background message-refresh submit failed: \(error.localizedDescription)",
+				logger: .lifecycle
+			)
+		}
+	}
+
+	/// Runs a background message-notification sync, then completes the task exactly once. Reschedules
+	/// the next window up front so a missed/expired run still re-arms.
+	nonisolated static func handleMessagesRefresh(_ task: BGTask) {
+		scheduleNextMessagesRefresh()
+
+		let completion = BackgroundRefreshCompletion(task)
+		let work = Task { @MainActor in
+			await runMessagesRefresh()
+			completion.complete(success: true)
+		}
+		task.expirationHandler = {
+			work.cancel()
+			completion.complete(success: false)
+		}
+	}
+
+	/// The main-actor work for a background refresh: restore targeting, refresh flags, re-evaluate
+	/// visibility, and reconcile scheduled notifications without requesting authorization.
+	@MainActor
+	private static func runMessagesRefresh() async {
+		let container = DependencyContainer.shared
+
+		// Restore the last targeting context so a background refresh evaluates the same targeted
+		// config a signed-in session would (AIA-0115). Fail closed: apply a persisted context if
+		// present; if absent, leave the provider untouched (evaluate untargeted defaults) rather
+		// than clearing a user another path may have set.
+		if let data = UserDefaults.standard.data(forKey: TargetingCoordinator.contextDefaultsKey),
+		   let context = try? JSONDecoder().decode(TargetingCoordinator.Context.self, from: data) {
+			container.featureFlagProvider.setUser(id: context.id, custom: context.custom)
+		}
+
+		// Cooperative cancellation between stages: when iOS expires the task, the expiration
+		// handler cancels this Task and completes unsuccessfully — mutating notification state
+		// after that point would race the system's suspension.
+		await container.featureFlagsState.refresh()
+		guard !Task.isCancelled else { return }
+		container.messageCenterState.reevaluate()
+		guard !Task.isCancelled else { return }
+		await container.messageNotificationCoordinator.sync(allowAuthorizationRequest: false)
+	}
+}
+
+// MARK: - Message-notification delegate
+
+extension BackgroundDownloadAppDelegate: UNUserNotificationCenterDelegate {
+
+	/// A tapped message notification buffers its message id; presentation happens once a surface is
+	/// available (``MessageCenterState/presentMessage(id:)``). The completion handler is called
+	/// synchronously so we never capture the non-`Sendable` block across the main-actor hop.
+	/// `nonisolated`: UNUserNotificationCenterDelegate is not main-actor isolated, so it must opt out
+	/// of the type's inferred @MainActor and hop explicitly for the buffered-tap mutation.
+	nonisolated func userNotificationCenter(
+		_ center: UNUserNotificationCenter,
+		didReceive response: UNNotificationResponse,
+		withCompletionHandler completionHandler: @escaping () -> Void
+	) {
+		if let messageID = MessageNotificationPlanner.messageID(
+			fromNotificationID: response.notification.request.identifier
+		) {
+			Task { @MainActor in
+				DependencyContainer.shared.messageCenterState.presentMessage(id: messageID)
+			}
+		}
+		completionHandler()
+	}
+
+	/// Present our message notifications while the app is in the foreground; ignore any foreign ones.
+	nonisolated func userNotificationCenter(
+		_ center: UNUserNotificationCenter,
+		willPresent notification: UNNotification,
+		withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+	) {
+		let isMessageNotification = MessageNotificationPlanner.messageID(
+			fromNotificationID: notification.request.identifier
+		) != nil
+		completionHandler(isMessageNotification ? [.banner, .list] : [])
+	}
+}
+
+/// Bridges a non-`Sendable` `BGTask` across the Swift 6 concurrency boundary so both the async
+/// refresh work and the system's expiration handler can signal completion. `BGTask`'s
+/// `setTaskCompleted(success:)` is documented as callable from any thread; the lock guarantees it
+/// fires exactly once.
+private final class BackgroundRefreshCompletion: @unchecked Sendable {
+	private let task: BGTask
+	private let lock = NSLock()
+	private var didComplete = false
+
+	init(_ task: BGTask) { self.task = task }
+
+	func complete(success: Bool) {
+		lock.lock()
+		defer { lock.unlock() }
+		guard !didComplete else { return }
+		didComplete = true
+		task.setTaskCompleted(success: success)
 	}
 }
 
@@ -76,6 +232,8 @@ struct MLBrowser: App {
 						// does not republish through its parent — views that gate on a live flag
 						// must observe this directly (AIA-0350).
 						.environmentObject(appState.featureFlags)
+						// Same rationale (AIA-0115): the About screen observes remote messages directly.
+						.environmentObject(appState.messageCenter)
 						.environment(\.managedObjectContext, appState.dataController.container.viewContext)
 				}
 			}
@@ -125,6 +283,16 @@ struct MLBrowser: App {
 				// injection above, so its sheet cannot inherit the value.
 				usesRealAuth: appState.usesRealAuth,
 				currentURL: { appState.browserState.currentURL?.absoluteString }
+			)
+			// Above the auth/subscription/analytics gates (AIA-0115): a remote message can appear
+			// over the login and paywall screens too. The banner is state-driven — it renders only
+			// while `messageCenter.presented != nil`, so it stays in the tree while visible.
+			.appMessageBanner(
+				messageCenter: appState.messageCenter,
+				authState: appState.authState,
+				subscriptionState: appState.subscriptionState,
+				analytics: appState.analytics,
+				isReady: appState.isReady
 			)
 			.task {
 				// Reconnect to background URLSession tasks after app launch.

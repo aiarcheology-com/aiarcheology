@@ -9,6 +9,10 @@ import Foundation
 import CoreData
 import Combine
 import OSLog
+import ClerkKit
+// UIKit is composition-root-only here: it supplies the foreground notification name that
+// MessageCenterState receives by injection (keeping `*State` types UI-framework-free, AGENTS §7).
+import UIKit
 
 /// The app's **single composition root** (AIA-0385). Owns every shared service (Core Data,
 /// settings, snap/deep state, downloader, demo data, auth/subscription providers) and builds
@@ -136,7 +140,10 @@ class DependencyContainer {
         if AppEnvironment.isRunningUITests
             || AppEnvironment.isRunningUnderAnyTests
             || AppEnvironment.isRunningInPreviews {
-            return StaticFeatureFlagProvider(overrides: Self.uiTestFlagOverrides())
+            return StaticFeatureFlagProvider(
+                overrides: Self.uiTestFlagOverrides(),
+                appMessagesJSON: UITestLaunchConfiguration.fromEnvironment?.appMessagesJSON ?? ""
+            )
         }
         return ConfigCatFeatureFlagProvider(sdkKey: ConfigCatFeatureFlagProvider.sdkKeyFromInfoPlist())
             ?? StaticFeatureFlagProvider()
@@ -182,6 +189,76 @@ class DependencyContainer {
 		)
 	}()
 
+	// MARK: - Remote in-app messaging (AIA-0115)
+
+	/// Reply storage on the Clerk user record. The mock-auth path (UI tests, previews, keyless
+	/// clones) gets the no-op writer for the same reason it gets `MockAuthProvider`: `Clerk.shared`
+	/// traps when Clerk was never configured.
+	lazy var messageReplyWriter: MessageReplyWriting = {
+		if usesMockAuth {
+			return NoOpMessageReplyWriter()
+		}
+		return ClerkMessageReplyWriter()
+	}()
+
+	/// Identity for account-scoped messaging state and ConfigCat targeting. Mirrors
+	/// SupportRequestView: the real Clerk user id only on the real-auth path — the mock / UI-test
+	/// path has no configured Clerk instance, and touching `Clerk.shared` there traps — so it
+	/// stays anonymous. One helper shared by both closures below so they can never drift.
+	private func messagingUserContext() -> (userID: String?, isSignedIn: Bool) {
+		let userID = usesMockAuth ? nil : Clerk.shared.user?.id
+		return (userID: userID, isSignedIn: authProvider.isSignedIn)
+	}
+
+	lazy var messageCenterState: MessageCenterState = {
+		MessageCenterState(
+			featureFlags: self.featureFlagsState,
+			userContext: { [weak self] in self?.messagingUserContext() ?? (nil, false) },
+			// The authoritative replied set: what the server already holds. Local unsynced marks
+			// are unioned in by MessageCenterState itself.
+			serverRepliedIDs: { [writer = self.messageReplyWriter] in
+				Set(writer.serverReplies().keys)
+			},
+			foregroundNotification: UIApplication.willEnterForegroundNotification
+		)
+	}()
+
+	/// Retained here (nothing observes it); instantiated from `makeAppState()` so reply delivery
+	/// is armed exactly once, alongside the state it drains.
+	lazy var messageReplyCoordinator: MessageReplyCoordinator = {
+		MessageReplyCoordinator(
+			messageCenter: self.messageCenterState,
+			writer: self.messageReplyWriter,
+			isSignedIn: { [authProvider = self.authProvider] in authProvider.isSignedIn }
+		)
+	}()
+
+	/// Keeps ConfigCat targeting in step with the signed-in identity (AIA-0115). Built in
+	/// `makeAppState()` — it observes the auth/subscription state that `AccountSession` owns —
+	/// and retained here.
+	private(set) var targetingCoordinator: TargetingCoordinator?
+
+	/// Local-notification scheduling seam (AIA-0115, S7). Tests, UI tests, and previews get the
+	/// no-op recorder for the same reason `analyticsTracker` does: they must never touch
+	/// UNUserNotificationCenter or request authorization.
+	lazy var userNotificationScheduler: UserNotificationScheduling = {
+		if AppEnvironment.isRunningUITests
+			|| AppEnvironment.isRunningUnderAnyTests
+			|| AppEnvironment.isRunningInPreviews {
+			return NoOpUserNotificationScheduler()
+		}
+		return UNUserNotificationCenterScheduler()
+	}()
+
+	/// Keeps scheduled local notifications in step with the notify-worthy message set (AIA-0115, S7).
+	/// Hooks `messageCenterState` on init and is retained here; armed from `makeAppState()`.
+	lazy var messageNotificationCoordinator: MessageNotificationCoordinator = {
+		MessageNotificationCoordinator(
+			messageCenter: self.messageCenterState,
+			scheduler: self.userNotificationScheduler
+		)
+	}()
+
 	// MARK: - Composition root
 
 	/// Builds the fully-wired `AppState` from this container's shared services (AIA-0385).
@@ -207,6 +284,25 @@ class DependencyContainer {
 			subscriptionProvider: subscriptionProvider,
 			isPaymentsEnabled: featureFlagsState.snapshot.isPaymentsEnabled
 		)
+		// Arm reply delivery (AIA-0115): the coordinator hooks messageCenterState on init and is
+		// retained by this container; nothing else references it.
+		_ = messageReplyCoordinator
+		// Arm notification scheduling (AIA-0115, S7): hooks messageCenterState's reevaluation
+		// observer on init so every visibility recompute reconciles scheduled notifications.
+		_ = messageNotificationCoordinator
+		// Arm identity-driven targeting (AIA-0115): auth/subscription transitions retarget
+		// ConfigCat and re-run message visibility (interactive requires sign-in).
+		targetingCoordinator = TargetingCoordinator(
+			identity: { [weak self] in self?.messagingUserContext() ?? (nil, false) },
+			isSubscribed: { [subscriptionState = account.subscriptionState] in
+				subscriptionState.isSubscribed
+			},
+			authGateChanges: account.authState.$gate.eraseToAnyPublisher(),
+			subscriptionChanges: account.subscriptionState.$isSubscribed.eraseToAnyPublisher(),
+			provider: featureFlagProvider,
+			featureFlags: featureFlagsState,
+			messageCenter: messageCenterState
+		)
 		return AppState(
 			dataController: dataController,
 			settings: settings,
@@ -221,6 +317,7 @@ class DependencyContainer {
 			account: account,
 			featureFlags: featureFlagsState,
 			analytics: analyticsState,
+			messageCenter: messageCenterState,
 			usesRealAuth: usesMockAuth == false
 		)
 	}

@@ -275,6 +275,9 @@ private final class ChangingAnalyticsFeatureFlagProvider: FeatureFlagProviding, 
 
 	func changes() -> AsyncStream<Void> { stream }
 
+	func setUser(id: String, custom: [String: String]) {}
+	func clearUser() {}
+
 	func emit(_ next: FeatureFlagSnapshot) {
 		lock.lock()
 		snapshot = next
