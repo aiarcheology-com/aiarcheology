@@ -142,6 +142,42 @@ final class AppMessageTests: XCTestCase {
 		XCTAssertEqual(messages[0].title, "First")
 	}
 
+	// MARK: Decode — element cap
+
+	/// The payload is bounded in element count, keeping the first `messages` in payload order —
+	/// the same first-wins rule duplicate ids follow.
+	func testDecodeMessages_elementCap_keepsTheFirstNInOrder() {
+		let elements = (0..<250).map {
+			#"{"id":"m\#($0)","title":"T","body":"B","surfaces":["inApp"]}"#
+		}
+		let messages = AppMessage.decodeMessages(from: "[\(elements.joined(separator: ","))]")
+
+		XCTAssertEqual(messages.count, 200, "capped")
+		XCTAssertEqual(messages.first?.id, "m0")
+		XCTAssertEqual(messages.last?.id, "m199", "the cap keeps the head of the payload, not the tail")
+	}
+
+	/// A payload exactly at the cap is untouched — the bound is inclusive.
+	func testDecodeMessages_elementCapBoundary_isAccepted() {
+		let elements = (0..<200).map {
+			#"{"id":"m\#($0)","title":"T","body":"B","surfaces":["inApp"]}"#
+		}
+		XCTAssertEqual(AppMessage.decodeMessages(from: "[\(elements.joined(separator: ","))]").count, 200)
+	}
+
+	/// Elements past the cap are never parsed: a malformed element beyond it cannot affect the
+	/// outcome, which is what makes the cap a bound on *parse cost* and not just on output size.
+	func testDecodeMessages_elementsPastTheCap_areNeverParsed() {
+		let good = (0..<200).map {
+			#"{"id":"m\#($0)","title":"T","body":"B","surfaces":["inApp"]}"#
+		}
+		let poison = #"{"id":"m0","title":"T","body":"B","surfaces":["inApp"]}"#  // duplicate id
+		let messages = AppMessage.decodeMessages(from: "[\((good + [poison]).joined(separator: ","))]")
+
+		XCTAssertEqual(messages.count, 200)
+		XCTAssertEqual(messages.map(\.id).filter { $0 == "m0" }.count, 1)
+	}
+
 	// MARK: Decode — size caps
 
 	func testDecodeMessages_sizeCapViolations_dropElement() {

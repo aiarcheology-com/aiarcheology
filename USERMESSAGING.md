@@ -71,7 +71,8 @@ one-at-a-time TOP BANNER              passive About board (whole active window)
 
 Each array element is a message object. Decoding is **tolerant and element-wise**: a malformed
 element is dropped without affecting the others; malformed JSON (or a top level that is not an
-array) is a **no-op** (`[]`). Unknown keys are ignored.
+array) is a **no-op** (`[]`). Unknown keys are ignored. At most **200 elements** are examined —
+see Keep payloads lean.
 
 Every character cap below is **also a byte cap of 4× that count** in UTF-8. A Swift `Character`
 is an extended grapheme cluster and can carry unboundedly many scalars, so counting characters
@@ -236,6 +237,11 @@ poll. (Compiled default is `true` / fail-open — the dashboard value is the con
 
 **Keep payloads lean.** The whole config downloads on every poll; there is no practical
 dashboard size limit, but bandwidth and the free-tier budget matter.
+
+> **The client stops at 200 elements.** Anything past the 200th is never parsed — the truncation
+> is logged on the `.state` logger, not surfaced to users. Real campaigns run to tens, so this is
+> a runaway guard against a mis-pasted payload rather than a limit to plan around. If you ever
+> approach it, the payload is the problem.
 
 ### Copy-paste example
 

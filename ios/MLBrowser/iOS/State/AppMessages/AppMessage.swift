@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import OSLog
 
 /// A single remotely-delivered message that the app can surface on one or more UI surfaces
 /// (login, paywall, in-app, about).
@@ -282,6 +283,13 @@ extension AppMessage {
 		static let buttonLabel = 60
 
 		static let bytesPerCharacter = 4
+
+		/// Upper bound on elements decoded from one payload. A runaway guard, not a product limit:
+		/// real campaigns run to tens, and the dashboard imposes no practical size limit, so a
+		/// mis-pasted payload is the only way to approach it. Every element is parsed on the main
+		/// actor, and the survivors are re-filtered and re-sorted on every foreground, dismiss and
+		/// boundary tick — so the cost of an unbounded array is paid repeatedly, not once.
+		static let messages = 200
 	}
 
 	/// True when `text` is within a field's character cap *and* its derived byte cap.
@@ -301,6 +309,8 @@ extension AppMessage {
 	/// - Unknown surface strings are dropped from a message's set; a message left with no valid
 	///   surface is dropped.
 	/// - Duplicate `id`s keep the **first** occurrence.
+	/// - At most ``Limit/messages`` elements are examined; anything beyond is never parsed, and the
+	///   truncation is logged.
 	static func decodeMessages(from json: String) -> [AppMessage] {
 		guard let data = json.data(using: .utf8),
 			  let top = try? JSONSerialization.jsonObject(with: data),
@@ -308,9 +318,20 @@ extension AppMessage {
 			return []
 		}
 
+		// Bound the parse itself, not just the output: elements past the cap are never examined.
+		// Logged rather than dropped in silence — a truncated payload otherwise looks like a
+		// complete one, and the operator would be left wondering where message 201 went.
+		if array.count > Limit.messages {
+			LoggingPolicy.debug(
+				"App messages: payload carried \(array.count) elements, capped at \(Limit.messages) — "
+					+ "\(array.count - Limit.messages) never parsed",
+				logger: .state
+			)
+		}
+
 		var result: [AppMessage] = []
 		var seenIDs = Set<String>()
-		for element in array {
+		for element in array.prefix(Limit.messages) {
 			guard let message = parse(element) else { continue }
 			guard seenIDs.insert(message.id).inserted else { continue } // duplicate id ⇒ first wins
 			result.append(message)
