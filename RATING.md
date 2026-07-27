@@ -68,19 +68,39 @@ immediately. Losing the count can only ever delay a prompt; losing the date coul
 - **Finish or skip the onboarding tour.** It auto-starts on first launch and suppresses the
   prompt — saves would count but never fire.
 
-## ⚠️ Read the values from the app container, not `defaults`
+## ⚠️ Three traps when reading the state
 
-`xcrun simctl spawn booted defaults read/write` does **not** see a simulator app's sandboxed
+All three produce the same symptom — values that look wrong or missing — for entirely
+different reasons. Each one has cost someone a debugging detour.
+
+### 1. `defaults` cannot see the app's preferences
+
+`xcrun simctl spawn … defaults read/write` does **not** see a simulator app's sandboxed
 preferences. It reports "does not exist" for keys that are plainly set, and writes land
-somewhere the app never reads. Always go through the container:
+somewhere the app never reads. Always go through the app container (below).
+
+### 2. `booted` is ambiguous when more than one simulator is running
+
+`booted` resolves to *a* booted device, not the one you are testing. With an iPhone and an
+iPad both up you will silently read the wrong container. Pin the device instead:
 
 ```bash
-PREFS="$(xcrun simctl get_app_container booted com.aiarcheology.ios data)/Library/Preferences/com.aiarcheology.ios.plist"
+# List what is actually booted, then pin the one running the app.
+xcrun simctl list devices booted
+SIM=8A7DB3D1-…            # ← the UDID from that list
+PREFS="$(xcrun simctl get_app_container "$SIM" com.aiarcheology.ios data)/Library/Preferences/com.aiarcheology.ios.plist"
+
 /usr/libexec/PlistBuddy -c "Print :ratingPromptEventCount" "$PREFS"
 /usr/libexec/PlistBuddy -c "Print :ratingPromptLastRequestDate" "$PREFS"
 ```
 
 Re-derive `$PREFS` every time — the container UUID changes whenever the app is reinstalled.
+
+### 3. The values lag while the app is running
+
+`UserDefaults` writes are batched by `cfprefsd`; they reach the plist when the app is
+backgrounded or exits cleanly. **Press Home in the simulator before reading.** Xcode's Stop
+button sends `SIGKILL`, which can discard writes that had not flushed yet.
 
 An *absent* `ratingPromptEventCount` is normal on a fresh install: `register(defaults:)`
 writes to the registration domain, not to disk, and `didSet` does not fire during `init`. The
@@ -96,8 +116,7 @@ key appears only once a moment is actually recorded.
 To shortcut, seed the counter with the app **stopped** (otherwise it overwrites your edit on exit):
 
 ```bash
-xcrun simctl terminate booted com.aiarcheology.ios
-PREFS="$(xcrun simctl get_app_container booted com.aiarcheology.ios data)/Library/Preferences/com.aiarcheology.ios.plist"
+xcrun simctl terminate "$SIM" com.aiarcheology.ios
 /usr/libexec/PlistBuddy -c "Set :ratingPromptEventCount 2" "$PREFS"
 ```
 
@@ -133,8 +152,7 @@ bottom sheet.
 You are in the 122-day cooldown after a successful prompt. Clear it with the app stopped:
 
 ```bash
-xcrun simctl terminate booted com.aiarcheology.ios
-PREFS="$(xcrun simctl get_app_container booted com.aiarcheology.ios data)/Library/Preferences/com.aiarcheology.ios.plist"
+xcrun simctl terminate "$SIM" com.aiarcheology.ios
 /usr/libexec/PlistBuddy -c "Delete :ratingPromptLastRequestDate" "$PREFS"
 /usr/libexec/PlistBuddy -c "Set :ratingPromptEventCount 2" "$PREFS"
 ```
@@ -143,7 +161,15 @@ Note that "Restore Defaults" in the app will **not** clear the date — that is 
 
 ## If the dialog does not appear
 
-Read the two values first.
+Read the two values first — but before concluding anything from them, rule out the two traps
+that make a *working* feature look broken:
+
+1. **Are you reading the simulator the app actually ran on?** With two simulators booted, a
+   `booted`-derived path silently points at the other one.
+2. **Was the app backgrounded before you read?** Values written since the last flush are not on
+   disk yet.
+
+Then:
 
 - **They changed as expected** → the app did its job and StoreKit declined to render. A Debug
   build on a real device is the reliable visual check.

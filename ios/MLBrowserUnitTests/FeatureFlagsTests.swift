@@ -35,6 +35,9 @@ final class FeatureFlagsTests: XCTestCase {
 		XCTAssertEqual(FeatureFlagKey.isSupportReportingEnabled.rawValue, "isSupportReportingEnabled")
 		XCTAssertEqual(FeatureFlagKey.isRefundRequestEnabled.rawValue, "isRefundRequestEnabled")
 		XCTAssertEqual(FeatureFlagKey.isRatingPromptEnabled.rawValue, "isRatingPromptEnabled")
+		XCTAssertEqual(FeatureFlagKey.isAppMessagingEnabled.rawValue, "isAppMessagingEnabled")
+		// Non-boolean settings share the same dashboard-key contract (AIA-0115).
+		XCTAssertEqual(RemoteSettingKey.appMessages, "appMessages")
 	}
 
 	/// The rating-prompt flag maps to its own key and defaults open (AIA-0117).
@@ -42,9 +45,6 @@ final class FeatureFlagsTests: XCTestCase {
 		XCTAssertTrue(FeatureFlagKey.isRatingPromptEnabled.defaultValue)
 		XCTAssertTrue(FeatureFlagSnapshot.defaults.isRatingPromptEnabled)
 		XCTAssertFalse(FeatureFlagSnapshot(values: [.isRatingPromptEnabled: false]).isRatingPromptEnabled)
-		XCTAssertEqual(FeatureFlagKey.isAppMessagingEnabled.rawValue, "isAppMessagingEnabled")
-		// Non-boolean settings share the same dashboard-key contract (AIA-0115).
-		XCTAssertEqual(RemoteSettingKey.appMessages, "appMessages")
 	}
 
 	/// The refund-row flag maps to its own key and defaults open (AIA-0461).

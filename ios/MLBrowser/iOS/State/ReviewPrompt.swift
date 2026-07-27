@@ -41,8 +41,16 @@ enum ReviewPromptPolicy {
 }
 
 /// Which flow produced a winning moment. A moment can only be consumed by the flow that recorded
-/// it: `AppState` — and so this coordinator — is shared by every window of the `WindowGroup`, so an
-/// unrelated sheet closing in a second window must not be able to spend another window's moment.
+/// it, so a dismissal belonging to a *different* flow cannot spend it — the case that matters in
+/// practice, since an ordinary configuration sheet closes far more often than an import completes.
+///
+/// The scope is per-flow, **not** per-window. `AppState`, and so this coordinator, is shared by
+/// every window of the `WindowGroup`, so two windows running the *same* flow still share one
+/// pending moment: if window A saves a finding and window B then cancels its own save sheet, B's
+/// dismissal consumes A's moment and the prompt appears in B. Only placement is wrong — the policy
+/// still caps how often a request can be spent. Making the per-window claim true would require
+/// keying the pending moment to a per-presentation token, which is not worth the plumbing for a
+/// correctly-earned prompt surfacing in a sibling window.
 enum ReviewPromptSource {
 	case findingSaved
 	case modelImported
@@ -108,10 +116,11 @@ final class ReviewPromptCoordinator {
 	///   is what "spends" a request: it stamps the date and zeroes the count. Every suppressed or
 	///   ineligible path returns `false` and leaves the count intact, so the moment is never lost.
 	func consumePendingRequest(_ source: ReviewPromptSource, isTourActive: Bool) -> Bool {
-		// Only the flow that recorded the moment may spend it. Every window shares this
-		// coordinator, so without the match an unrelated sheet closing in another window could
-		// consume a moment recorded here and show the prompt in the wrong place.
+		// Only the flow that recorded the moment may spend it — see ``ReviewPromptSource`` for what
+		// this does and does not guarantee across windows.
 		guard pendingMoment == source else { return false }
+		// Cleared before every eligibility guard below on purpose: an ineligible consume must still
+		// end the moment, or it would linger and fire on some later, unrelated dismissal.
 		pendingMoment = nil
 
 		guard featureFlags.snapshot.isRatingPromptEnabled else { return false }

@@ -128,6 +128,27 @@ final class ReviewPromptTests: XCTestCase {
 		XCTAssertFalse(sut.consumePendingRequest(.findingSaved, isTourActive: false))
 	}
 
+	/// An **ineligible** consume must still end the moment. Without this, deleting
+	/// `pendingMoment = nil` would leave the moment alive after a suppressed consume, and the next
+	/// unrelated dismissal — a cancelled capture, say — would fire the prompt.
+	///
+	/// `testConsume_TwiceWithoutNewMoment_AsksOnce` cannot catch that: there the first consume
+	/// succeeds, so the zeroed count and the fresh cooldown independently force the second to
+	/// `false` whether or not the moment was cleared. Here nothing is ever spent, so the pending
+	/// flag is the only thing that can stop the second call.
+	func testConsume_WhenIneligible_StillClearsThePendingMoment() {
+		let sut = makeCoordinator()
+		for _ in 0..<ReviewPromptPolicy.requiredEventCount { sut.recordPositiveMoment(.findingSaved) }
+
+		XCTAssertFalse(sut.consumePendingRequest(.findingSaved, isTourActive: true))
+		XCTAssertFalse(
+			sut.consumePendingRequest(.findingSaved, isTourActive: false),
+			"the tour-suppressed consume must have ended the moment, not parked it for a later dismissal"
+		)
+		XCTAssertNil(settings.ratingPromptLastRequestDate)
+		XCTAssertEqual(settings.ratingPromptEventCount, ReviewPromptPolicy.requiredEventCount)
+	}
+
 	func testConsume_WithinCooldown_IsFalseAndKeepsCount() {
 		let sut = makeCoordinator()
 		settings.ratingPromptLastRequestDate = now.addingTimeInterval(-60)
