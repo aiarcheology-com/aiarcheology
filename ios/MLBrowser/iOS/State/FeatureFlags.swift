@@ -51,6 +51,11 @@ enum FeatureFlagKey: String, CaseIterable {
 	/// removes it silently.
 	case isRefundRequestEnabled = "isRefundRequestEnabled"
 
+	/// Gates the native App Store rating request offered after a positive moment — a finding saved,
+	/// or a model imported/converted (AIA-0117). Turning it off stops the app from *asking*; it has
+	/// no bearing on reviews the user writes from the App Store themselves. Fails open so a config
+	/// outage does not silently remove a shipped behaviour.
+	case isRatingPromptEnabled = "isRatingPromptEnabled"
 	/// Gates the app→user messaging surface (AIA-0115): whether remotely-published messages
 	/// (the `appMessages` setting) render at all. Fails open — safe because the content
 	/// setting itself defaults to empty, so an outage shows no messages rather than stale ones.
@@ -65,6 +70,7 @@ enum FeatureFlagKey: String, CaseIterable {
 		case .isAnalyticsEnabled: return true
 		case .isSupportReportingEnabled: return true
 		case .isRefundRequestEnabled: return true
+		case .isRatingPromptEnabled: return true
 		case .isAppMessagingEnabled: return true
 		}
 	}
@@ -107,6 +113,7 @@ struct FeatureFlagSnapshot: Equatable {
 	var isAnalyticsEnabled: Bool { self[.isAnalyticsEnabled] }
 	var isSupportReportingEnabled: Bool { self[.isSupportReportingEnabled] }
 	var isRefundRequestEnabled: Bool { self[.isRefundRequestEnabled] }
+	var isRatingPromptEnabled: Bool { self[.isRatingPromptEnabled] }
 	var isAppMessagingEnabled: Bool { self[.isAppMessagingEnabled] }
 
 	/// Every key at its compiled default — the launch/offline value.

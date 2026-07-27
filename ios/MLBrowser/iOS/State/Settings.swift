@@ -52,6 +52,13 @@ final class Settings: ObservableObject, Validatable {
 		/// answer, then removed because a former `supportPromptShown` value was not a decision.
 		static let legacySupportPromptShown = "supportPromptShown"
 		static let legacySupportPromptDeclined = "supportPromptDeclined"
+		/// Winning moments accumulated since the last review request (AIA-0117). A suppressed or
+		/// ineligible moment keeps its count; the only two things that zero it are spending a
+		/// request and `reset()`, and losing the count can only ever delay a prompt.
+		static let ratingPromptEventCount = "ratingPromptEventCount"
+		/// When the app last *requested* a review — never when one was *displayed*, which StoreKit
+		/// does not report. Absent until the first request.
+		static let ratingPromptLastRequestDate = "ratingPromptLastRequestDate"
 	}
 
 	public var isFirstLaunchMarked: Bool = false
@@ -204,6 +211,29 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	/// Winning moments (a finding saved, a model imported/converted) since the last review request
+	/// (AIA-0117). See ``ReviewPromptPolicy``.
+	@Published public var ratingPromptEventCount: Int {
+		didSet {
+			defaults.set(ratingPromptEventCount, forKey: UserDefaultsKeys.ratingPromptEventCount)
+		}
+	}
+
+	/// When the app last asked for a review. `nil` until the first request (AIA-0117).
+	///
+	/// Deliberately **not** cleared by ``reset()``: how recently the user was asked is anti-nag
+	/// memory, not a preference they set, so "Restore Defaults" (AIA-0303) must not turn into a
+	/// licence to ask again immediately.
+	@Published public var ratingPromptLastRequestDate: Date? {
+		didSet {
+			if let ratingPromptLastRequestDate {
+				defaults.set(ratingPromptLastRequestDate, forKey: UserDefaultsKeys.ratingPromptLastRequestDate)
+			} else {
+				defaults.removeObject(forKey: UserDefaultsKeys.ratingPromptLastRequestDate)
+			}
+		}
+	}
+
 	/// The tiling scheme(s) currently enabled, derived from the two independent toggles. Empty when
 	/// both are off (the detector then runs full-frame only).
 	var tilingSchemes: TilingScheme {
@@ -275,7 +305,8 @@ final class Settings: ObservableObject, Validatable {
             UserDefaultsKeys.grid3x3Tiling: false,
 			UserDefaultsKeys.tiledBorders: false,
 			UserDefaultsKeys.analyticsEnabled: false,
-			UserDefaultsKeys.analyticsChoiceMade: false
+			UserDefaultsKeys.analyticsChoiceMade: false,
+			UserDefaultsKeys.ratingPromptEventCount: 0
         ]
 
 		// Register default values
@@ -297,6 +328,10 @@ final class Settings: ObservableObject, Validatable {
 		self.tiledBorders = defaults.bool(forKey: UserDefaultsKeys.tiledBorders)
 		self.analyticsEnabled = defaults.bool(forKey: UserDefaultsKeys.analyticsEnabled)
 		self.analyticsChoiceMade = defaults.bool(forKey: UserDefaultsKeys.analyticsChoiceMade)
+		self.ratingPromptEventCount = defaults.integer(forKey: UserDefaultsKeys.ratingPromptEventCount)
+		// There is no `defaults.date(forKey:)`; an absent key must stay `nil` rather than become a
+		// 1970 date, which `shouldRequest` would read as "asked very long ago".
+		self.ratingPromptLastRequestDate = defaults.object(forKey: UserDefaultsKeys.ratingPromptLastRequestDate) as? Date
 		if let storedScreenshotDetection = defaults.object(forKey: UserDefaultsKeys.screenshotDetectionEnabled) as? Bool {
 			self.screenshotDetectionEnabled = storedScreenshotDetection
 		} else if defaults.bool(forKey: UserDefaultsKeys.legacySupportPromptDeclined) {
@@ -364,6 +399,10 @@ final class Settings: ObservableObject, Validatable {
 		analyticsEnabled = false
 		analyticsChoiceMade = false
 		screenshotDetectionEnabled = nil
+		// Count only: `ratingPromptLastRequestDate` deliberately survives a reset (AIA-0117) so
+		// "Restore Defaults" cannot be used — deliberately or accidentally — to re-trigger the
+		// review prompt. Anti-nag memory is not a user preference.
+		ratingPromptEventCount = 0
 
 		defaults.removeObject(forKey: UserDefaultsKeys.lastPage)
 		defaults.set(historySize, forKey: UserDefaultsKeys.sizeHistory)
@@ -383,6 +422,7 @@ final class Settings: ObservableObject, Validatable {
 		defaults.set(tiledBorders, forKey: UserDefaultsKeys.tiledBorders)
 		defaults.set(analyticsEnabled, forKey: UserDefaultsKeys.analyticsEnabled)
 		defaults.set(analyticsChoiceMade, forKey: UserDefaultsKeys.analyticsChoiceMade)
+		defaults.set(ratingPromptEventCount, forKey: UserDefaultsKeys.ratingPromptEventCount)
 		defaults.removeObject(forKey: UserDefaultsKeys.screenshotDetectionEnabled)
 		defaults.removeObject(forKey: UserDefaultsKeys.legacySupportPromptShown)
 		defaults.removeObject(forKey: UserDefaultsKeys.legacySupportPromptDeclined)

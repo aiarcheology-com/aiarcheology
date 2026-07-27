@@ -15,6 +15,7 @@ cannot be consulted.
 | `isPaymentsEnabled` | `true` | **launch only** | The subscription/paywall surface (AIA-0343) |
 | `isAnalyticsEnabled` | `true` | **live** | Optional analytics availability: when off, no prompt or Settings control is shown and no provider can activate. When on, users retain their own opt-in/out choice. |
 | `isRefundRequestEnabled` | `true` | **live** | The Settings → Subscription "Request a Refund" row (AIA-0461). When off, the row is hidden; refunds remain available through the App Store. |
+| `isRatingPromptEnabled` | `true` | **live** | The native App Store rating request offered after a positive moment — a finding saved, or a model imported/converted (AIA-0117). When off, the app never asks; the user can still review from the App Store. |
 
 ## How it fits together
 

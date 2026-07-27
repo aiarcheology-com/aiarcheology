@@ -171,6 +171,10 @@ struct SaveFindingSheet: View {
 	/// intent — the Core Data + screenshot write lives here, not in the View.
 	let repository: FindingRepository
 
+	/// Rating-prompt bookkeeping (AIA-0117). A saved finding is a winning moment; the request
+	/// itself is made by `WebScreen`'s `onDismiss`, once this sheet is off screen.
+	let reviewPrompt: ReviewPromptCoordinator
+
 	/// Required, user-facing name shown in the inventory; Save is blocked until it
 	/// is non-empty.
 	@State private var title = ""
@@ -360,6 +364,8 @@ struct SaveFindingSheet: View {
 			// Onboarding tour (AIA-0333): the finding is saved → advance the in-sheet save step
 			// before dismissing, so the dismiss isn't mistaken for a cancel.
 			tour.findingDidSave()
+			// AIA-0117: recorded before `dismiss()`; WebScreen's onDismiss decides whether to ask.
+			reviewPrompt.recordPositiveMoment(.findingSaved)
 			dismiss()
 		} catch {
 			saveFailed = true

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreData
+import StoreKit
 
 /// The content displayed inside the drawer for MLBrowser.
 ///
@@ -18,6 +19,7 @@ struct DrawerContent: View {
     @Environment(DrawerManager.self) private var drawer
     @Environment(TourState.self) private var tour
     @Environment(\.usesRealAuth) private var usesRealAuth
+    @Environment(\.requestReview) private var requestReview
     @EnvironmentObject private var chromeState: AppChromeState
 	@EnvironmentObject private var appState: AppState
     /// Not used by DrawerContent itself — forwarded into the Settings sheet, which needs it
@@ -74,7 +76,10 @@ struct DrawerContent: View {
         }
         .sheet(isPresented: $showImport, onDismiss: presentTypeReviewIfNeeded) {
             ModelImportView(
-                onImported: { importedForReviewId = $0 },
+                onImported: { id, needsReview in
+                    appState.reviewPrompt.recordPositiveMoment(.modelImported)
+                    if needsReview { importedForReviewId = id }
+                },
                 catalogProviders: appState.catalogProviders,
                 catalogSearchManager: appState.catalogSearchManager
             )
@@ -85,7 +90,14 @@ struct DrawerContent: View {
                 .environmentObject(appState.featureFlags)
 				.environmentObject(analytics)
         }
-        .sheet(item: $selectedConfigurationId, onDismiss: { typeReviewConfigId = nil }) { configId in
+        .sheet(item: $selectedConfigurationId, onDismiss: {
+            // Only the post-import type review continues the import flow (AIA-0117); an ordinary
+            // configuration sheet closing must not be able to spend a moment, least of all one
+            // another window recorded.
+            let wasTypeReview = typeReviewConfigId != nil
+            typeReviewConfigId = nil
+            if wasTypeReview { requestReviewIfEarned() }
+        }) { configId in
             if let config = deep.selectConfiguration(configId) {
                 ConfigurationForm(pendingTypeReview: configId == typeReviewConfigId)
                     .environmentObject(deep)
@@ -133,10 +145,23 @@ struct DrawerContent: View {
     /// user confirms its type. Presenting the settings sheet here (not while the import sheet is
     /// still up) avoids the "present while dismissing" no-op (AIA-0402).
     private func presentTypeReviewIfNeeded() {
-        guard let id = importedForReviewId else { return }
+        guard let id = importedForReviewId else {
+            // AIA-0117: no type review follows, so the import flow ends here. When one does
+            // follow, the ask waits for that sheet's dismissal instead.
+            requestReviewIfEarned()
+            return
+        }
         importedForReviewId = nil
         typeReviewConfigId = id
         selectedConfigurationId = id
+    }
+
+    /// Asks for an App Store review iff an import moment is pending and the policy allows it
+    /// (AIA-0117). Only the two dismissals that end an import flow call this.
+    private func requestReviewIfEarned() {
+        if appState.reviewPrompt.consumePendingRequest(.modelImported, isTourActive: tour.isActive) {
+            requestReview()
+        }
     }
 
     // MARK: - Configuration List

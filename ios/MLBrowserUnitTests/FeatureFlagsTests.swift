@@ -34,6 +34,14 @@ final class FeatureFlagsTests: XCTestCase {
 		XCTAssertEqual(FeatureFlagKey.isAnalyticsEnabled.rawValue, "isAnalyticsEnabled")
 		XCTAssertEqual(FeatureFlagKey.isSupportReportingEnabled.rawValue, "isSupportReportingEnabled")
 		XCTAssertEqual(FeatureFlagKey.isRefundRequestEnabled.rawValue, "isRefundRequestEnabled")
+		XCTAssertEqual(FeatureFlagKey.isRatingPromptEnabled.rawValue, "isRatingPromptEnabled")
+	}
+
+	/// The rating-prompt flag maps to its own key and defaults open (AIA-0117).
+	func test_ratingPromptFlag_defaultsOpenAndMapsToItsKey() {
+		XCTAssertTrue(FeatureFlagKey.isRatingPromptEnabled.defaultValue)
+		XCTAssertTrue(FeatureFlagSnapshot.defaults.isRatingPromptEnabled)
+		XCTAssertFalse(FeatureFlagSnapshot(values: [.isRatingPromptEnabled: false]).isRatingPromptEnabled)
 		XCTAssertEqual(FeatureFlagKey.isAppMessagingEnabled.rawValue, "isAppMessagingEnabled")
 		// Non-boolean settings share the same dashboard-key contract (AIA-0115).
 		XCTAssertEqual(RemoteSettingKey.appMessages, "appMessages")

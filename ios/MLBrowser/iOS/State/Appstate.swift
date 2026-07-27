@@ -65,6 +65,9 @@ final class AppState: ObservableObject {
 	/// Optional analytics choice and transport. Kept separate from `Settings` so views can
 	/// trigger the state transition that initializes/terminates the SDK.
 	let analytics: AnalyticsState
+	/// Rating-prompt bookkeeping (AIA-0117). A plain type passed by initializer, like
+	/// `findingRepository` — nothing renders from it, so it is not an `ObservableObject`.
+	let reviewPrompt: ReviewPromptCoordinator
 	/// Remote in-app messaging (AIA-0115). Injected once; views observe it directly as an
 	/// `@EnvironmentObject` — like `featureFlags`, a nested `ObservableObject` does not republish
 	/// through `AppState`.
@@ -97,6 +100,7 @@ final class AppState: ObservableObject {
 		account: AccountSession,
 		featureFlags: FeatureFlagsState,
 		analytics: AnalyticsState,
+		reviewPrompt: ReviewPromptCoordinator,
 		messageCenter: MessageCenterState,
 		usesRealAuth: Bool
 	) {
@@ -113,6 +117,7 @@ final class AppState: ObservableObject {
 		self.account = account
 		self.featureFlags = featureFlags
 		self.analytics = analytics
+		self.reviewPrompt = reviewPrompt
 		self.messageCenter = messageCenter
 		self.usesRealAuth = usesRealAuth
 

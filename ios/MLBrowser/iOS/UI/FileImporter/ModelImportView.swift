@@ -23,10 +23,15 @@ struct ModelImportView: View {
 	@EnvironmentObject private var featureFlags: FeatureFlagsState
 	@EnvironmentObject private var analytics: AnalyticsState
 
-	/// Called with the new configuration's id after a successful import, so the presenter can
-	/// auto-open the model's settings for the user to confirm its type (AIA-0402). No imported
-	/// model runs on an unconfirmed type — the app can't verify what a model actually does.
-	var onImported: (UUID) -> Void = { _ in }
+	/// Called with the new configuration's id after **every** successful import, so the presenter
+	/// can auto-open the model's settings for the user to confirm its type when `needsReview` is
+	/// true (AIA-0402). No imported model runs on an unconfirmed type — the app can't verify what a
+	/// model actually does.
+	///
+	/// It fires on success regardless of `needsReview` (AIA-0117): the presenter also treats a
+	/// completed import as a winning moment, and a converted non-CoreML package — the case most
+	/// likely to arrive without a parseable type — must not be excluded from that.
+	var onImported: (_ id: UUID, _ needsReview: Bool) -> Void = { _, _ in }
 	let catalogProviders: [any CatalogProvider]
 	/// Shared for the running app session so closing and reopening the catalog keeps its search.
 	private let catalogSearchManager: CatalogSearchManager
@@ -85,7 +90,7 @@ struct ModelImportView: View {
 	@State private var importedModelInfo: ImportedModelInfo?
 
 	init(
-		onImported: @escaping (UUID) -> Void = { _ in },
+		onImported: @escaping (_ id: UUID, _ needsReview: Bool) -> Void = { _, _ in },
 		catalogProviders: [any CatalogProvider],
 		catalogSearchManager: CatalogSearchManager? = nil
 	) {
@@ -171,7 +176,7 @@ struct ModelImportView: View {
 				// parsed (authoritative) type is trusted and locked, so its import just confirms
 				// success. Hand the id to the presenter FIRST so its onDismiss can open the
 				// settings sheet once this import sheet finishes dismissing (AIA-0402).
-				if let info, info.needsReview { onImported(info.id) }
+				if let info { onImported(info.id, info.needsReview) }
 				dismiss()
 			}
 		} message: {

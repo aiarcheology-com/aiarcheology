@@ -7,6 +7,7 @@
 
 import SwiftUI
 import OSLog
+import StoreKit
 
 @MainActor
 struct WebScreen: Screen {
@@ -76,6 +77,7 @@ struct WebScreenView: View {
 	/// top `.principal` slot. Computed once in `ContentView` so the two gates can't
 	/// disagree on rotation; defaults to false (top bar) — see `bottomAddressBarActive`.
 	@Environment(\.bottomAddressBarActive) private var bottomAddressBarActive
+	@Environment(\.requestReview) private var requestReview
 	/// iPad and Mac place BACK/FORWARD/RELOAD in the top bar; iPhone keeps them in the
 	/// floating capsule, so the top bar has room for the address + Find (AIA-0294).
 	private var showsTopBarNavigation: Bool { HostPlatform.current.isiPhone == false }
@@ -333,8 +335,17 @@ struct WebScreenView: View {
             // Tour (AIA-0333): a dismiss without a save returns to the capture step (no-op once
             // the finding was saved, which already advanced the step).
             appState.tour.captureCancelled()
+            // AIA-0117: a cancel recorded no moment, so this is a no-op on that path.
+            if appState.reviewPrompt.consumePendingRequest(.findingSaved, isTourActive: appState.tour.isActive) {
+                requestReview()
+            }
         }) { capture in
-            SaveFindingSheet(capture: capture, tour: appState.tour, repository: appState.findingRepository)
+            SaveFindingSheet(
+                capture: capture,
+                tour: appState.tour,
+                repository: appState.findingRepository,
+                reviewPrompt: appState.reviewPrompt
+            )
         }
         .onReceive(appState.chromeState.$pageToOpen) { url in
             // A finding's "open page" action lands here (the findings UI cannot

@@ -189,6 +189,22 @@ class DependencyContainer {
 		)
 	}()
 
+	/// Rating-prompt bookkeeping (AIA-0117).
+	///
+	/// The suppression set is the usual three test/preview markers plus **TestFlight-like
+	/// distribution**: Apple does not display the review sheet in TestFlight builds, so a request
+	/// made there would be spent against our own cooldown for a prompt nobody could ever see.
+	lazy var reviewPromptCoordinator: ReviewPromptCoordinator = {
+		ReviewPromptCoordinator(
+			settings: self.settings,
+			featureFlags: self.featureFlagsState,
+			isSuppressedEnvironment: AppEnvironment.isRunningUITests
+				|| AppEnvironment.isRunningUnderAnyTests
+				|| AppEnvironment.isRunningInPreviews
+				|| AppEnvironment.isTestFlightLikeDistribution
+		)
+	}()
+
 	// MARK: - Remote in-app messaging (AIA-0115)
 
 	/// Reply storage on the Clerk user record. The mock-auth path (UI tests, previews, keyless
@@ -317,6 +333,7 @@ class DependencyContainer {
 			account: account,
 			featureFlags: featureFlagsState,
 			analytics: analyticsState,
+			reviewPrompt: reviewPromptCoordinator,
 			messageCenter: messageCenterState,
 			usesRealAuth: usesMockAuth == false
 		)

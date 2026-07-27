@@ -1,11 +1,12 @@
-Test Focus: The app can now show messages from us — as a card at the top of the screen (news, questions with buttons) and in Settings → About App. Messages arrive remotely; no update is needed for us to publish or withdraw one.
+Test Focus: After a good moment — saving a finding, or importing/converting a model — the app may now ask you to rate it on the App Store.
 
-Please test (a test message must be live — check with the team which ones are running):
+IMPORTANT: Apple does NOT show the rating dialog in TestFlight builds. You will not see it here, and that is expected — please do not report the missing dialog as a bug. What matters for this build is that the flows below still work exactly as before.
 
-1. Launch the app. If a message campaign is live, a card appears at the top of the screen within a few seconds — over the sign-in screen, the subscription screen, or the app itself, depending on the campaign.
-2. Read the card: title and text should be fully visible and readable, in light and dark mode, also after rotating the device.
-3. If the card has no buttons: tap the ✕ to close it. It should slide away and NOT come back — not even after force-quitting and relaunching the app.
-4. If the card has answer buttons (e.g. Yes / No): tap one. The card should disappear and not return. If another message is waiting, it appears next — one card at a time.
-5. Open Settings → ML Browser → About App: campaign messages aimed at this screen are listed at the top. They stay visible there for their whole runtime (closing the top card does not remove them here).
-6. Signed out? The sign-in screen only ever shows plain announcements — never cards with answer buttons.
-7. If a campaign uses notifications: with the app closed, a quiet notification may appear in Notification Center (no sound or banner — that is intended). Tapping it opens the app directly on that message.
+Please test:
+
+1. Save a finding as usual (tap a detection, fill in the title, tap Save). Confirm the sheet closes normally, the finding appears in your inventory, and detection resumes as before.
+2. Cancel a finding capture (swipe the sheet away, or leave without saving). Confirm nothing is saved and the app behaves exactly as before.
+3. Import a CoreML model (Models → import). Confirm the success message appears and the model lands in your list.
+4. Import a non-CoreML model that has to be converted. Confirm the conversion runs, the success message appears, and — when the app asks you to confirm the model's type — that the settings screen still opens right after the import sheet closes.
+5. Open and close a model's settings from the list a few times. Confirm nothing unexpected appears.
+6. Settings → ML Browser → Reset → "Restore Defaults": confirm it still works as before.
