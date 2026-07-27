@@ -122,6 +122,24 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		context.coordinator.browserState = browserState
 		browserState.attach(webView)
 
+		// AIA-0509: restore the back-forward stack after a recovery rebuild. Deliberately last —
+		// after `navigationDelegate` is assigned above, so the restore navigation is observed, and
+		// after `browserState.attach`, so KVO mirrors the restored URL.
+		//
+		// INVARIANT: a restore is ALWAYS followed by the explicit load `updateUIView` issues
+		// (the fresh Coordinator has no `lastLoadedGeneration`, so it cannot dedup), and that load
+		// supersedes the restore navigation. This matters and must not be "optimised" away as a
+		// redundant second navigation: restoring a session navigates the current back-forward item
+		// with cache-permissive semantics, so a restore alone would happily re-serve the very
+		// document the rebuild is trying to escape. The restore navigation dies with
+		// NSURLErrorCancelled, which `WebLoadFailure.classify` ignores by design.
+		//
+		// Consumed on read: makeUIView also runs for ordinary identity changes (tab/mode switch),
+		// and a stale session must never be restored over a healthy live one.
+		if let sessionState = browserState.consumePendingSessionState() {
+			webView.interactionState = sessionState
+		}
+
 		// No initial load here: SwiftUI guarantees updateUIView runs right after makeUIView,
 		// so loading in both places fired a duplicate request (and this path bypassed the
 		// withHTTPS/browserInputType normalization).
@@ -175,7 +193,9 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			}
 			// Synchronous load: updateUIView already runs on the main thread, and the
 			// returned navigation token keys the user-load display gate.
-			let navigation = uiView.load(URLRequest(url: url))
+			// The request's cache policy is normally the protocol default; AIA-0509's rebuild rung
+			// sets `.reloadIgnoringLocalCacheData` so the recovered page cannot come from cache.
+			let navigation = uiView.load(URLRequest(url: url, cachePolicy: request.cachePolicy, timeoutInterval: 60))
 			browserState.navigationIssued(navigation)
         }
 
@@ -259,10 +279,19 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 
 		// MARK: - WKNavigationDelegate
 
+		// AIA-0509: navigation identity for failure publication. Recorded for EVERY navigation,
+		// not just user-initiated ones — recovery loads and restore-lastPage loads never reach
+		// `navigationIssued`, so this is the only token that covers them.
+		// swiftlint:disable:next implicitly_unwrapped_optional
+		public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+			browserState?.navigationStarted(navigation, from: webView)
+		}
+
         // swiftlint:disable:next implicitly_unwrapped_optional
         public func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
             parent.loadStatusChanged?(true, nil)
 			browserState?.navigationSettled(navigation, error: nil)
+			browserState?.navigationCommitted(navigation, from: webView)
         }
 
         // swiftlint:disable:next implicitly_unwrapped_optional
@@ -274,7 +303,10 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			}
 
 			func removeJSObjects_agsCuzkCz() {
-				let jsRemoveButton = "document.querySelector('.esri-component.esri-compass.esri-widget').remove();"
+				// Optional-chained: the compass is queried at didFinish, before the ESRI app has
+				// necessarily rendered it, so an unguarded `.remove()` on a null result threw on
+				// every load and logged a spurious error (AIA-0509).
+				let jsRemoveButton = "document.querySelector('.esri-component.esri-compass.esri-widget')?.remove();"
 				webView.evaluateJavaScript(jsRemoveButton) { (_, error) in
 					if let error = error {
 						LoggingPolicy.debug("Error removing compass button via JavaScript: \(error.localizedDescription)", logger: .ui)
@@ -293,6 +325,7 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
         public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
             parent.loadStatusChanged?(false, error)
 			browserState?.navigationSettled(navigation, error: error)
+			browserState?.navigationFailed(navigation, error: error, from: webView)
         }
 
 		// DNS/no-network failures and a superseded load's NSURLErrorCancelled arrive
@@ -301,6 +334,14 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
 			parent.loadStatusChanged?(false, error)
 			browserState?.navigationSettled(navigation, error: error)
+			browserState?.navigationFailed(navigation, error: error, from: webView)
+		}
+
+		/// WebKit's content process died. This is the only dedicated signal — no navigation
+		/// delegate error accompanies it — so without this the web view goes blank, `browserState`
+		/// never settles, nothing is logged, and nothing ever recovers (AIA-0509).
+		public func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+			browserState?.webContentProcessDidTerminate(from: webView)
 		}
 
 		// MARK: - WKUIDelegate (JavaScript dialogs)

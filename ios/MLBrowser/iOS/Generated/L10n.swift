@@ -155,6 +155,16 @@ internal enum L10n {
       /// Show or hide browser controls
       internal static let label = L10n.tr("Localizable", "browser.floatingButton.label", fallback: "Show or hide browser controls")
     }
+    internal enum Load {
+      /// Try Again
+      internal static let retry = L10n.tr("Localizable", "browser.load.retry", fallback: "Try Again")
+      internal enum Error {
+        /// The page couldn’t be reached. Check your connection and try again.
+        internal static let message = L10n.tr("Localizable", "browser.load.error.message", fallback: "The page couldn’t be reached. Check your connection and try again.")
+        /// Page didn’t load
+        internal static let title = L10n.tr("Localizable", "browser.load.error.title", fallback: "Page didn’t load")
+      }
+    }
     internal enum Location {
       /// Data
       internal static let data = L10n.tr("Localizable", "browser.location.data", fallback: "Data")

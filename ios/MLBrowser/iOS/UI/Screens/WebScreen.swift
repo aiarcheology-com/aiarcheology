@@ -137,6 +137,14 @@ struct WebScreenView: View {
 	/// principal cluster is sized explicitly from this (AIA-0294 follow-up). A proper custom
 	/// top bar (`safeAreaInset`) is the real fix, tracked in AIA-0339; this is the stopgap.
 	@State private var topBarWidth: CGFloat = 0
+	/// Mirror of `BrowserState.loadFailure` (AIA-0509). Mirrored into `@State` rather than
+	/// observing `BrowserState` here: `WebScreenView` holds only `appState`, and adding an
+	/// `@EnvironmentObject` for the browser would subscribe this whole `DetectableView` tree to
+	/// `currentURL`/`isLoading` churn — which SPAs emit per inertial map frame.
+	@State private var loadFailure: WebLoadFailure?
+	/// Bumped to give `MLWebView` a fresh SwiftUI identity, rebuilding the underlying `WKWebView`
+	/// (AIA-0509 recovery rung 2).
+	@State private var webViewGeneration: UInt64 = 0
 
 	/// Horizontal space the leading (cpu ≈ 68pt) + trailing (find/detection/adjust ≈ 166pt)
 	/// toolbar clusters and the bar's margins occupy. The principal footprint is the rest;
@@ -230,6 +238,9 @@ struct WebScreenView: View {
                 interactionState.wrappedValue = state
             })
             .equatable()
+            // AIA-0509: a changed identity rebuilds the underlying WKWebView, which is the only
+            // recovery available when the renderer itself is wedged rather than the navigation.
+            .id(webViewGeneration)
         }
         .onReceive(appState.settings.$showIdentifiers) { value in
             showIdentifiers = value
@@ -371,6 +382,43 @@ struct WebScreenView: View {
                     onCancel: cancelFindPick
                 )
             }
+        }
+        // AIA-0509: the page failed to load and automatic recovery is exhausted. Attached as an
+        // overlay (like FindPickOverlay above) rather than inside DetectableView's content
+        // builder, so it sits above the annotation layers and blocks interaction with them —
+        // the builder's content renders inside SnapableGroup's GeometryReader, below them.
+        .overlay {
+            if let failure = loadFailure {
+                WebLoadFailureOverlay(failure: failure) {
+                    appState.browserState.retryRequested()
+                }
+            }
+        }
+        .onReceive(appState.browserState.$loadFailure) { failure in
+            loadFailure = failure
+        }
+        .onReceive(appState.browserState.$rebuildRequest) { request in
+            guard let request else { return }
+            // A rebuild mid-capture yanks the web view out from under a frozen frame: the
+            // renderer holds it weakly, so `snapshot()` starts returning nil and the pick is
+            // silently cancelled. Both states are user-driven and brief, so skip the rebuild and
+            // leave the failure overlay standing — Try Again is available once the capture ends.
+            guard isCapturingFinding == false, findPickActive == false else {
+                appState.browserState.rebuildRequestDeclined()
+                return
+            }
+            // Point the request at where the user actually is, with caching bypassed: the fresh
+            // Coordinator has no `lastLoadedGeneration`, so it loads whatever `loadRequest` holds
+            // — without this it would reload the original `.onAppear` page instead.
+            loadRequest = loadRequest.next(
+                request.url.absoluteString,
+                cachePolicy: .reloadIgnoringLocalCacheData
+            )
+            // Clears the display gate before the web view that owns its navigation token is
+            // destroyed; otherwise the address bar freezes for the rest of the session.
+            appState.browserState.webViewInvalidated()
+            webViewGeneration = request.generation
+            appState.browserState.rebuildRequestHandled()
         }
         .onDisappear {
             // The screen can be unmounted mid-capture (mode switch): without

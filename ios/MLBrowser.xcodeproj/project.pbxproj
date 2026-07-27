@@ -49,6 +49,7 @@
 		7B8F569C69DC02205FDB1A21 /* SubscriptionStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D07182C65A29B05EA7B102F /* SubscriptionStateTests.swift */; };
 		84CE788174C6B2AEC9CBE2BA /* ModelConfigurationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4644DE7995D4B5B57C7B44F /* ModelConfigurationRepository.swift */; };
 		8A112CB92ABDE0BB00786384 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CB82ABDE0BB00786384 /* WebView.swift */; };
+		8A4F0E952F110A0300ABCDEF /* WebLoadFailureOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E942F110A0300ABCDEF /* WebLoadFailureOverlay.swift */; };
 		8A112CC42AC0852B00786384 /* String+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CC32AC0852B00786384 /* String+Extensions.swift */; };
 		8A112CC62AC0863300786384 /* Bool+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CC52AC0863300786384 /* Bool+Extensions.swift */; };
 		8A112CCB2AC2BCBC00786384 /* Detector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A112CCA2AC2BCBC00786384 /* Detector.swift */; };
@@ -105,6 +106,8 @@
 		8A4F0E122F110A0100ABCDEF /* FloatingChromeButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E112F110A0100ABCDEF /* FloatingChromeButton.swift */; };
 		8A4F0E142F110A0200ABCDEF /* BrowserRevampUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */; };
 		8A4F0E162F110A0300ABCDEF /* BrowserState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E152F110A0300ABCDEF /* BrowserState.swift */; };
+		8A4F0E932F110A0300ABCDEF /* WebContentRecoveryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E922F110A0300ABCDEF /* WebContentRecoveryPolicy.swift */; };
+		8A4F0E912F110A0300ABCDEF /* WebLoadFailure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E902F110A0300ABCDEF /* WebLoadFailure.swift */; };
 		8A4F0E182F110A0300ABCDEF /* FloatingNavBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E172F110A0300ABCDEF /* FloatingNavBar.swift */; };
 		8A4F0E1A2F110A0300ABCDEF /* LocationSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E192F110A0300ABCDEF /* LocationSheetView.swift */; };
 		8A4F0E1C2F110A0300ABCDEF /* BrowserStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E1B2F110A0300ABCDEF /* BrowserStateTests.swift */; };
@@ -235,6 +238,8 @@
 		949DB6E32EE4F1B0002E904E /* DataControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 949DB6E02EE4F1B0002E904E /* DataControllerTests.swift */; };
 		94AA03070000000000000002 /* BrowsingHistoryRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AA03070000000000000001 /* BrowsingHistoryRefreshTests.swift */; };
 		94AB0C2960296000000A0002 /* WebViewLoadErrorLevelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AB0C2960296000000A0001 /* WebViewLoadErrorLevelTests.swift */; };
+		94AB0C2960296000000A0012 /* WebContentRecoveryPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AB0C2960296000000A0011 /* WebContentRecoveryPolicyTests.swift */; };
+		94AB0C2960296000000A0022 /* WebLoadFailureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AB0C2960296000000A0021 /* WebLoadFailureTests.swift */; };
 		94AE91762F0D9E2F00B326B7 /* Color+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AE91752F0D9E2800B326B7 /* Color+Extension.swift */; };
 		94AE91782F0DA08300B326B7 /* ColorExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94AE91772F0DA08300B326B7 /* ColorExtensionsTests.swift */; };
 		94BAD1842EB0ED3D0079869F /* UUID+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94BAD1832EB0ED370079869F /* UUID+Extension.swift */; };
@@ -375,6 +380,7 @@
 		86D0C80027004283842AFBDF /* ClassificationDemoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClassificationDemoUITests.swift; sourceTree = "<group>"; };
 		885E22610F638752785ADEBB /* SnapshotRenderingTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SnapshotRenderingTests.swift; sourceTree = "<group>"; };
 		8A112CB82ABDE0BB00786384 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
+		8A4F0E942F110A0300ABCDEF /* WebLoadFailureOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebLoadFailureOverlay.swift; sourceTree = "<group>"; };
 		8A112CC02AC0757900786384 /* MLBrowser-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "MLBrowser-Info.plist"; sourceTree = SOURCE_ROOT; };
 		8A112CC32AC0852B00786384 /* String+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Extensions.swift"; sourceTree = "<group>"; };
 		8A112CC52AC0863300786384 /* Bool+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Bool+Extensions.swift"; sourceTree = "<group>"; };
@@ -431,6 +437,8 @@
 		8A4F0E112F110A0100ABCDEF /* FloatingChromeButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingChromeButton.swift; sourceTree = "<group>"; };
 		8A4F0E132F110A0200ABCDEF /* BrowserRevampUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserRevampUITests.swift; sourceTree = "<group>"; };
 		8A4F0E152F110A0300ABCDEF /* BrowserState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserState.swift; sourceTree = "<group>"; };
+		8A4F0E922F110A0300ABCDEF /* WebContentRecoveryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebContentRecoveryPolicy.swift; sourceTree = "<group>"; };
+		8A4F0E902F110A0300ABCDEF /* WebLoadFailure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebLoadFailure.swift; sourceTree = "<group>"; };
 		8A4F0E172F110A0300ABCDEF /* FloatingNavBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingNavBar.swift; sourceTree = "<group>"; };
 		8A4F0E192F110A0300ABCDEF /* LocationSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSheetView.swift; sourceTree = "<group>"; };
 		8A4F0E1B2F110A0300ABCDEF /* BrowserStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserStateTests.swift; sourceTree = "<group>"; };
@@ -576,6 +584,8 @@
 		949DB6E12EE4F1B0002E904E /* DemoDataManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoDataManagerTests.swift; sourceTree = "<group>"; };
 		94AA03070000000000000001 /* BrowsingHistoryRefreshTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowsingHistoryRefreshTests.swift; sourceTree = "<group>"; };
 		94AB0C2960296000000A0001 /* WebViewLoadErrorLevelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewLoadErrorLevelTests.swift; sourceTree = "<group>"; };
+		94AB0C2960296000000A0011 /* WebContentRecoveryPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebContentRecoveryPolicyTests.swift; sourceTree = "<group>"; };
+		94AB0C2960296000000A0021 /* WebLoadFailureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebLoadFailureTests.swift; sourceTree = "<group>"; };
 		94AE91752F0D9E2800B326B7 /* Color+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Extension.swift"; sourceTree = "<group>"; };
 		94AE91772F0DA08300B326B7 /* ColorExtensionsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorExtensionsTests.swift; sourceTree = "<group>"; };
 		94BAD1832EB0ED370079869F /* UUID+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UUID+Extension.swift"; sourceTree = "<group>"; };
@@ -865,6 +875,7 @@
 				8AE0BC032A97B0B30086DDF9 /* MLBrowser.swift */,
 				8AE0BC052A97B0B30086DDF9 /* ContentView.swift */,
 				8A112CB82ABDE0BB00786384 /* WebView.swift */,
+				8A4F0E942F110A0300ABCDEF /* WebLoadFailureOverlay.swift */,
 				8AA9962B2AD9EB6400371EC8 /* Appearance.swift */,
 				8A13281A2AF1598500F119C6 /* ViewContainer.swift */,
 				8A13281C2AF159E100F119C6 /* NavigationBarItems.swift */,
@@ -925,6 +936,8 @@
 				8AC650A22B2B4BB000922648 /* DeepState.swift */,
 				8AC650AC2B2B9A6200922648 /* AppChromeState.swift */,
 				8A4F0E152F110A0300ABCDEF /* BrowserState.swift */,
+				8A4F0E922F110A0300ABCDEF /* WebContentRecoveryPolicy.swift */,
+				8A4F0E902F110A0300ABCDEF /* WebLoadFailure.swift */,
 				8A4F0E212F110A0400ABCDEF /* VisitTrail.swift */,
 				8A8153712B3E272800B3B079 /* ModelProvider.swift */,
 				8AC650A02B2B495B00922648 /* Settings.swift */,
@@ -1199,6 +1212,8 @@
 				942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */,
 				94929E752ED633C1001A4C63 /* LoggingPolicyTests.swift */,
 				94AB0C2960296000000A0001 /* WebViewLoadErrorLevelTests.swift */,
+				94AB0C2960296000000A0011 /* WebContentRecoveryPolicyTests.swift */,
+				94AB0C2960296000000A0021 /* WebLoadFailureTests.swift */,
 				940A10042F0500010000A004 /* LocalizationTests.swift */,
 				94929E842ED65555001A4C63 /* LowerPriorityTests.swift */,
 				94D79C912EE37DBF0027C9FA /* NSManagedObjectExtensionsTests.swift */,
@@ -1786,6 +1801,7 @@
 				8AC650A52B2B4BE200922648 /* DeepConfiguration.swift in Sources */,
 				8A1D49B92ABB87D500C2D7C1 /* FileManagerExtensions.swift in Sources */,
 				8A112CB92ABDE0BB00786384 /* WebView.swift in Sources */,
+				8A4F0E952F110A0300ABCDEF /* WebLoadFailureOverlay.swift in Sources */,
 				8AC093E82B3210CA00E455D5 /* DateFormatter+Extension.swift in Sources */,
 				8A1328112AF142FF00F119C6 /* GalleryScreen.swift in Sources */,
 				8AC393BE2B2B9EEF00C9BA57 /* CopiedToClipboardModifier.swift in Sources */,
@@ -1823,6 +1839,8 @@
 				8AC393DE2B2BA3DC00C9BA57 /* AnnotationViewBuilder.swift in Sources */,
 				8A112CC62AC0863300786384 /* Bool+Extensions.swift in Sources */,
 				8A4F0E162F110A0300ABCDEF /* BrowserState.swift in Sources */,
+				8A4F0E932F110A0300ABCDEF /* WebContentRecoveryPolicy.swift in Sources */,
+				8A4F0E912F110A0300ABCDEF /* WebLoadFailure.swift in Sources */,
 				8A4F0E182F110A0300ABCDEF /* FloatingNavBar.swift in Sources */,
 				8A4F0E1A2F110A0300ABCDEF /* LocationSheetView.swift in Sources */,
 				8A4F0E362F110A0600ABCDEF /* Finding+CoreDataClass.swift in Sources */,
@@ -1949,6 +1967,8 @@
 				63CDF1E9BC41E124832411D6 /* TourStateTests.swift in Sources */,
 				94929E762ED633C1001A4C63 /* LoggingPolicyTests.swift in Sources */,
 				94AB0C2960296000000A0002 /* WebViewLoadErrorLevelTests.swift in Sources */,
+				94AB0C2960296000000A0012 /* WebContentRecoveryPolicyTests.swift in Sources */,
+				94AB0C2960296000000A0022 /* WebLoadFailureTests.swift in Sources */,
 				940A10052F0500010000A005 /* LocalizationTests.swift in Sources */,
 				94929E772ED633C1001A4C63 /* DeepDriversTests.swift in Sources */,
 				02B1903E63D04C4784D17645 /* FindingFlashTests.swift in Sources */,

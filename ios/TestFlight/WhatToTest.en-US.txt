@@ -1,12 +1,14 @@
-Test Focus: After a good moment — saving a finding, or importing/converting a model — the app may now ask you to rate it on the App Store.
+Test Focus: The browser now notices when a page cannot load, tells you so, and tries to recover by itself — instead of leaving a blank page with no explanation.
 
-IMPORTANT: Apple does NOT show the rating dialog in TestFlight builds. You will not see it here, and that is expected — please do not report the missing dialog as a bug. What matters for this build is that the flows below still work exactly as before.
+Background: on Mac (and after the device has been asleep or the app left in the background for a long time), the web view could come back blank and stay blank, with no error and no way to retry. The app now detects that, reloads the page automatically, and if that is not enough it rebuilds the browser view. If it still cannot load, you get a message with a "Try Again" button.
 
 Please test:
 
-1. Save a finding as usual (tap a detection, fill in the title, tap Save). Confirm the sheet closes normally, the finding appears in your inventory, and detection resumes as before.
-2. Cancel a finding capture (swipe the sheet away, or leave without saving). Confirm nothing is saved and the app behaves exactly as before.
-3. Import a CoreML model (Models → import). Confirm the success message appears and the model lands in your list.
-4. Import a non-CoreML model that has to be converted. Confirm the conversion runs, the success message appears, and — when the app asks you to confirm the model's type — that the settings screen still opens right after the import sheet closes.
-5. Open and close a model's settings from the list a few times. Confirm nothing unexpected appears.
-6. Settings → ML Browser → Reset → "Restore Defaults": confirm it still works as before.
+1. Normal browsing, first and foremost. Open pages, follow links, use Back/Forward and Reload, pan and zoom the maps. Everything should behave exactly as before — no new messages, no unexpected reloads, no flicker. This is the most important check in this build.
+2. Leave the app in the background for a long time (overnight if you can, and on Mac put the machine to sleep with the app running). Come back to it. The page should either still be there or reload itself within a moment. Report it if you get a blank page that never recovers.
+3. Turn Wi-Fi off, then open a new page from the address bar. You should see "Page didn't load" with the address and a "Try Again" button — not a blank screen.
+4. With that message showing, turn Wi-Fi back on and tap "Try Again". The page should load. Also try: leave the message showing, switch to another app, and switch back — the app should retry on its own.
+5. After a recovery has happened, check that Back and Forward still work and still take you through the pages you visited. (Your scroll position on the page is not preserved — that is expected.)
+6. Tap a link that downloads a file, and a "mailto:" or "tel:" link. You should NOT get the "Page didn't load" message for these — the page you are on is fine, so nothing should appear.
+7. Start saving a finding (tap a detection, or use Find/Store) and complete it as usual. Confirm the capture is never interrupted or cancelled by the browser reloading underneath you.
+8. Visit a cuzk.cz map page. Confirm it still displays and behaves normally.

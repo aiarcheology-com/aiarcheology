@@ -2865,6 +2865,42 @@
         }
       }
     },
+    "browser.load.error.title" : {
+      "comment" : "Title of the overlay shown when a web page could not be loaded.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page didn’t load"
+          }
+        }
+      }
+    },
+    "browser.load.error.message" : {
+      "comment" : "Body of the overlay shown when a web page could not be loaded.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The page couldn’t be reached. Check your connection and try again."
+          }
+        }
+      }
+    },
+    "browser.load.retry" : {
+      "comment" : "Button that retries loading the current web page.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try Again"
+          }
+        }
+      }
+    },
     "browser.navigation.reload" : {
       "comment" : "Accessibility label of the browser reload button",
       "extractionState" : "manual",

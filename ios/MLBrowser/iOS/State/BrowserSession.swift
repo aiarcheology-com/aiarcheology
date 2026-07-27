@@ -18,13 +18,17 @@ final class BrowserSession {
 	// `initialize()` touches it to subscribe).
 	private let settings: Settings
 	private let dataController: DataController
+	/// Forwarded to `BrowserState` so it can retry a failed load when the app becomes active
+	/// (AIA-0509) without importing UIKit itself.
+	private let activeNotification: Notification.Name?
 
 	// MARK: - Owned browser feature state (lazy → forced on first access, exactly as before).
-	lazy var browserState = BrowserState(settings: self.settings)
+	lazy var browserState = BrowserState(settings: self.settings, activeNotification: self.activeNotification)
 	lazy var visitTrail = VisitTrailRecorder(browserState: self.browserState, dataController: self.dataController)
 
-	init(settings: Settings, dataController: DataController) {
+	init(settings: Settings, dataController: DataController, activeNotification: Notification.Name? = nil) {
 		self.settings = settings
 		self.dataController = dataController
+		self.activeNotification = activeNotification
 	}
 }
