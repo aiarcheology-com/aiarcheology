@@ -167,6 +167,54 @@ final class ArchitectureTests: XCTestCase {
         return findings
     }
 
+    /// One `LoggingPolicy.<method>(…)` call site: where it is, and the argument text it passes.
+    private struct LoggingPolicyCall {
+        let finding: PatternFinding
+        let arguments: String
+    }
+
+    /// Matches a whole `LoggingPolicy.<method>(…)` call, capturing its parenthesised argument
+    /// text in group 1. Parentheses are balanced three levels deep — enough for a string
+    /// interpolation containing a nested call — which is what keeps the capture confined to one
+    /// call: a flat window would either stop short of a wrapped call or run on into the next
+    /// statement. `\w+` covers every level (`debug`/`info`/`warning`/`error`/…), because the
+    /// invariant is about what is handed to the logger, not which severity it is handed at.
+    private static let loggingPolicyCallPattern =
+        #"LoggingPolicy\s*\.\s*\w+\s*(\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\))"#
+
+    /// Every `LoggingPolicy.<method>(…)` call in the file, paired with its argument text, so a
+    /// caller can test what a call *passes* rather than merely that a token appears nearby.
+    /// Matching against the captured arguments is what sees a value inside `\(…)` interpolation
+    /// — the way an identifier actually reaches a log line.
+    ///
+    /// **Throws when the file can't be read** so the caller fails closed — a read error must
+    /// never silently become "no offenders found".
+    private static func findLoggingPolicyCalls(of fileURL: URL) throws -> [LoggingPolicyCall] {
+        let data = try Data(contentsOf: fileURL)
+        guard let contents = String(data: data, encoding: .utf8) else {
+            throw CocoaError(.fileReadInapplicableStringEncoding)
+        }
+        let relative = relativePath(for: fileURL)
+        let regex = try NSRegularExpression(pattern: loggingPolicyCallPattern)
+        let ns = contents as NSString
+
+        var calls: [LoggingPolicyCall] = []
+        for match in regex.matches(in: contents, range: NSRange(location: 0, length: ns.length)) {
+            let argumentsRange = match.range(at: 1)
+            guard argumentsRange.location != NSNotFound else { continue }
+            let lineNumber = ns.substring(to: match.range.location).reduce(1) { $1 == "\n" ? $0 + 1 : $0 }
+            let lineText = ns.substring(with: ns.lineRange(for: NSRange(location: match.range.location, length: 0)))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            calls.append(
+                .init(
+                    finding: .init(relativePath: relative, lineNumber: lineNumber, line: lineText),
+                    arguments: ns.substring(with: argumentsRange)
+                )
+            )
+        }
+        return calls
+    }
+
     /// True when the declaration at `declarationIndex` carries `@MainActor` — on the declaration
     /// line itself, or on attribute lines directly above it (skipping comments and blank lines,
     /// stopping at any other code line so a preceding declaration's attributes are never blamed).
@@ -494,6 +542,88 @@ final class ArchitectureTests: XCTestCase {
 
                 Route the write through FindingRepository, or — if a new writer is genuinely justified —
                 add its file to the allowlist here with a comment explaining the privacy review.
+                """
+            )
+        }
+    }
+
+    /// Privacy invariant (AIA-0437): the raw Clerk account identifier is never passed to
+    /// `LoggingPolicy`.
+    ///
+    /// This is an acceptance criterion, not a style preference. `LoggingPolicy.debug/info/warning/
+    /// error` do not only write to OSLog — each one also forwards its message to Sentry as a
+    /// breadcrumb (`Observability.recordBreadcrumb`), which is uploaded with any crash or error
+    /// event. AIA-0437 requires that the raw identifier never reaches app logs, and puts linking
+    /// analytics identity to Sentry explicitly out of scope; a single interpolated
+    /// `\(accountIdentifier)` in a log line would do both at once, silently and retroactively.
+    ///
+    /// The account id may still be *used* — handed to the analytics transport, hashed into an
+    /// `appAccountToken`, compared between refreshes. Only the logging edge is closed here, which
+    /// is why the scan tests what a `LoggingPolicy` call passes rather than where the identifier
+    /// appears.
+    ///
+    /// The allowlist is empty on purpose: there is no reviewed reason to log this value. Anything
+    /// added to it needs a comment explaining the privacy review that approved it.
+    func testAccountIdentifierIsNeverLogged() throws {
+        // Fail closed: an empty scan means the production root moved or couldn't be enumerated, which
+        // would otherwise let this privacy invariant pass vacuously.
+        let files = Self.productionSwiftFiles()
+
+        let approvedFiles: Set<String> = []
+
+        // The raw account id as it is spelled at every point it can be read: the `AuthProviding`
+        // property, and the Clerk SDK expressions it is derived from. `user?.id` is deliberately
+        // loose — it catches `clerk.user?.id` and any other receiver as well.
+        let identifierRegex = try NSRegularExpression(
+            pattern: #"accountIdentifier|Clerk\s*\.\s*shared\s*\.\s*user\s*\?\s*\.\s*id|user\s*\?\s*\.\s*id"#
+        )
+
+        var offenders: [PatternFinding] = []
+        var scannedCalls = 0
+        for fileURL in files {
+            let rel = Self.relativePath(for: fileURL)
+            let calls: [LoggingPolicyCall]
+            do {
+                calls = try Self.findLoggingPolicyCalls(of: fileURL)
+            } catch {
+                XCTFail("Account-identifier log scan could not read \(rel): \(error) — failing closed.")
+                continue
+            }
+            scannedCalls += calls.count
+            guard approvedFiles.contains(rel) == false else { continue }
+            for call in calls {
+                let range = NSRange(location: 0, length: (call.arguments as NSString).length)
+                guard identifierRegex.firstMatch(in: call.arguments, range: range) != nil else { continue }
+                offenders.append(call.finding)
+            }
+        }
+
+        // Second fail-closed guard, on the scan itself rather than the file list: the rule can only
+        // report offenders among the calls it managed to parse, so a call regex that silently stopped
+        // matching would make this pass with zero findings for entirely the wrong reason.
+        XCTAssertGreaterThan(
+            scannedCalls,
+            0,
+            "Found no LoggingPolicy call sites to inspect — the scan is broken, not clean."
+        )
+
+        if !offenders.isEmpty {
+            let formatted = offenders
+                .sorted { ($0.relativePath, $0.lineNumber) < ($1.relativePath, $1.lineNumber) }
+                .map { "\($0.relativePath):\($0.lineNumber)  \($0.line.trimmingCharacters(in: .whitespaces))" }
+                .joined(separator: "\n")
+
+            XCTFail(
+                """
+                The raw Clerk account identifier must never be passed to LoggingPolicy (AIA-0437).
+                LoggingPolicy.debug/info/warning/error forward the message to Sentry as a breadcrumb,
+                so logging it would put the account id in crash reports — which the ticket rules out.
+                Offending log call sites:
+                \(formatted)
+
+                Log something non-identifying instead (a state name, a bool, a count). If a call site
+                is genuinely justified, add its file to the allowlist here with a comment explaining
+                the privacy review that approved it.
                 """
             )
         }

@@ -106,6 +106,62 @@ final class SubscriptionStateTests: XCTestCase {
 		XCTAssertFalse(sut.isPaymentsSurfaceEnabled)
 	}
 
+	/// AIA-0350: the payments flag is captured **once**, at construction, and deliberately not
+	/// observed. `SubscriptionGateView` is the app root, so honouring a mid-session flip would
+	/// either drop a paywall on a user mid-detection or release an unpaid one from behind it —
+	/// a remote change must take effect on the next launch, not on the next poll.
+	///
+	/// The flags snapshot really does change here (asserted), so this cannot pass merely because
+	/// nothing moved.
+	func testPaymentsSurface_CapturedAtConstruction_SurvivesLaterFlagFlip() async {
+		let flagProvider = MutablePaymentsFlagProvider(
+			initial: FeatureFlagSnapshot(values: [.isPaymentsEnabled: true])
+		)
+		let flags = FeatureFlagsState(provider: flagProvider)
+		XCTAssertTrue(flags.snapshot.isPaymentsEnabled, "precondition: the session starts with payments on")
+
+		let sut = SubscriptionState(
+			provider: MockSubscriptionProvider(outcome: .subscribed),
+			isPaymentsEnabled: flags.snapshot.isPaymentsEnabled
+		)
+		await sut.start()
+		XCTAssertTrue(sut.isPaymentsSurfaceEnabled)
+		XCTAssertTrue(sut.isPremiumUnlocked)
+
+		// A remote poll lands with payments switched off.
+		flagProvider.emit(FeatureFlagSnapshot(values: [.isPaymentsEnabled: false]))
+		await flags.refresh()
+		XCTAssertFalse(flags.snapshot.isPaymentsEnabled, "the snapshot must actually have flipped")
+
+		XCTAssertTrue(sut.isPaymentsSurfaceEnabled, "the captured flag must not follow a mid-session flip")
+		XCTAssertTrue(sut.isPremiumUnlocked, "…so the root gate cannot swap under the user")
+	}
+
+	// MARK: - Free trial
+
+	/// A free trial is an active entitlement: the trial user is both subscribed and in-trial,
+	/// and passes the gate. Until `MockSubscriptionProvider.isInTrial` became settable it was a
+	/// hardcoded `false`, so this whole axis was unreachable from any test.
+	func testStart_TrialSubscriber_IsSubscribedAndInTrial() async {
+		let sut = SubscriptionState(
+			provider: MockSubscriptionProvider(outcome: .subscribed, isInTrial: true),
+			isPaymentsEnabled: true
+		)
+		await sut.start()
+		XCTAssertTrue(sut.isSubscribed, "a free trial is an active entitlement")
+		XCTAssertTrue(sut.isInTrial)
+		XCTAssertTrue(sut.isPremiumUnlocked, "a trial user must pass the whole-app gate")
+	}
+
+	/// The paired negative, so the positive above cannot pass because `isInTrial` is stuck on:
+	/// a paying subscriber (the default) is entitled but not in a trial.
+	func testStart_PaidSubscriber_IsNotInTrial() async {
+		let sut = SubscriptionState(provider: MockSubscriptionProvider(outcome: .subscribed), isPaymentsEnabled: true)
+		await sut.start()
+		XCTAssertTrue(sut.isSubscribed)
+		XCTAssertFalse(sut.isInTrial, "the default mock must stay out of trial")
+	}
+
 	// MARK: - Outcome plumbing (AIA-0376)
 
 	/// `purchase(_:)` cannot be exercised here — it needs a real `Product`, which is
@@ -205,5 +261,39 @@ final class SubscriptionNoticeTests: XCTestCase {
 		let notice = try XCTUnwrap(SubscriptionNotice.forRefund(.failure(.failed)))
 		XCTAssertEqual(notice.title, L10n.Alert.Error.title)
 		XCTAssertEqual(notice.message, L10n.Subscription.Refund.Failed.message)
+	}
+}
+
+/// A flag provider whose resolved values change after construction, standing in for what
+/// ConfigCat's auto-poll does mid-session. `FeatureFlagsState.refresh()` republishes from it,
+/// so the flip is observed deterministically rather than by racing the change stream.
+private final class MutablePaymentsFlagProvider: FeatureFlagProviding, @unchecked Sendable {
+	private let lock = NSLock()
+	private var snapshot: FeatureFlagSnapshot
+
+	init(initial: FeatureFlagSnapshot) {
+		snapshot = initial
+	}
+
+	func currentSnapshot() -> FeatureFlagSnapshot {
+		lock.lock()
+		defer { lock.unlock() }
+		return snapshot
+	}
+
+	func refresh() async {}
+
+	/// Finishes immediately: this test drives republication through `refresh()`, so an
+	/// observation task that could never fire would just leak.
+	func changes() -> AsyncStream<Void> { AsyncStream { $0.finish() } }
+
+	func setUser(id: String, custom: [String: String]) {}
+	func clearUser() {}
+
+	/// Simulates new config landing in the SDK's cache.
+	func emit(_ next: FeatureFlagSnapshot) {
+		lock.lock()
+		snapshot = next
+		lock.unlock()
 	}
 }

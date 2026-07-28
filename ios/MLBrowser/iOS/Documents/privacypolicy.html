@@ -39,7 +39,7 @@
 </head>
 <body>
 <h1>Privacy Policy</h1>
-<p class="updated">Last updated: July 17, 2026</p>
+<p class="updated">Last updated: July 28, 2026</p>
 
 <p>This Privacy Policy explains how we collect, use, share, and protect your information
 when you use the <strong>ML Browser</strong> mobile application (the &ldquo;App&rdquo;) and the
@@ -178,7 +178,26 @@ in the App. You can turn them off at any time in <em>Settings → Privacy</em>.<
 
 <h2>8. Telemetry</h2>
 <p>If enabled, ML Browser uses TelemetryDeck to understand high-level, aggregated app usage and
-improve the App.</p>
+improve the App. Optional usage analytics is <strong>off by default</strong>; it starts only after
+you make an explicit choice in the App, and you can change that choice at any time in
+<em>Settings &rarr; Privacy</em>.</p>
+
+<p>Each usage signal carries an identifier so that repeated signals can be recognized as coming from
+the same user. <strong>If you turn analytics on while you are signed in</strong>, that identifier is
+derived from your account identifier, so your usage is counted once across all the devices you sign
+in on. <strong>If you are signed out, or have not turned analytics on for your account</strong>, any
+usage data that is sent uses an anonymous per-installation identifier instead &mdash; a value your
+device generates for this App that is not connected to your account. In either case
+TelemetryDeck&rsquo;s software converts the
+value into a hashed form on your device before any signal is sent: the underlying identifier itself
+is never transmitted in plain form.</p>
+<p class="muted">Because the account-derived identifier is stable over time, optional usage data is
+<strong>pseudonymous rather than anonymous</strong>, and we treat it as personal data.</p>
+<p>Your analytics choice is recorded <strong>per account</strong>: if a different account signs in on
+the same device, it is asked separately and analytics stays off for that account until it makes its
+own choice. When you sign out, the App immediately stops associating any further usage with your
+account &mdash; nothing you do while signed out is linked to it.</p>
+
 <p>We do not send page content, screenshots, images, detection results, URLs, page titles,
 filenames, model names, account names, email addresses, or advertising identifiers. We do not use
 analytics for advertising, cross-app tracking, or sale of personal data.</p>

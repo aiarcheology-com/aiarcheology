@@ -20,6 +20,27 @@ final class TelemetryDeckAnalyticsProvider: AnalyticsTracking {
 	private var urlSession: URLSession?
 	private var configuration: TelemetryDeck.Config?
 
+	/// The account identity every signal is attributed to, retained across activations.
+	///
+	/// `activate()` builds a **fresh** `TelemetryDeck.Config` each time it runs, which resets
+	/// `defaultUser`. Without retaining the value here, any re-activation — a remote flag flip, or
+	/// a re-enable after `deactivate()` — would silently fall back to the anonymous installation
+	/// identity (AIA-0437). Deliberately *not* cleared by `deactivate()`: withdrawing consent and
+	/// changing account are orthogonal, and the same account re-consenting must be re-attributed.
+	private var accountIdentifier: String?
+
+	/// Every TelemetryDeck symbol must be reached through here.
+	///
+	/// `TelemetryManager.shared` `assertionFailure`s when the SDK was never initialized and returns
+	/// a throwaway manager whose `init` schedules another `generateNewSession()` half a second
+	/// later — which re-enters `TelemetryManager.shared`. So one unguarded call traps in DEBUG and,
+	/// in Release, spawns managers indefinitely and reaches the network with no consent at all.
+	/// Keeping the guard in exactly one place is what stops a future method from forgetting it.
+	private func withInitializedSDK(_ body: () -> Void) {
+		guard isInitialized, configuration?.analyticsDisabled == false else { return }
+		body()
+	}
+
 	func activate() {
 		guard let appID = Self.appIDFromInfoPlist() else {
 			LoggingPolicy.warning("TelemetryDeck is not configured; optional analytics remain disabled", logger: .lifecycle)
@@ -41,6 +62,10 @@ final class TelemetryDeckAnalyticsProvider: AnalyticsTracking {
 		let session = URLSession(configuration: configuration)
 		let telemetryConfiguration = TelemetryDeck.Config(appID: appID)
 		telemetryConfiguration.urlSession = session
+		// Seeded BEFORE `initialize`, not after: initialization itself emits the SDK's automatic
+		// session signal, and `SignalManager` reads `configuration.defaultUser` when it hashes.
+		// Applying the identity afterwards would leave that first signal anonymous (AIA-0437).
+		telemetryConfiguration.defaultUser = accountIdentifier
 		TelemetryDeck.initialize(config: telemetryConfiguration)
 		urlSession = session
 		self.configuration = telemetryConfiguration
@@ -48,6 +73,13 @@ final class TelemetryDeckAnalyticsProvider: AnalyticsTracking {
 	}
 
 	func deactivate() {
+		// Clear the transport's identity while the SDK is still live. After `analyticsDisabled`
+		// flips below, `withInitializedSDK` (correctly) refuses to touch the SDK, so the identity
+		// would otherwise survive on the retained manager. No session rotation: nothing more will
+		// be sent, and the next `activate()` builds a fresh Config with a fresh session anyway.
+		withInitializedSDK {
+			TelemetryDeck.updateDefaultUserID(to: nil)
+		}
 		// Cancel first, so no queued request can escape while the choice is being withdrawn.
 		urlSession?.invalidateAndCancel()
 		urlSession = nil
@@ -60,8 +92,38 @@ final class TelemetryDeckAnalyticsProvider: AnalyticsTracking {
 	}
 
 	func track(_ event: AnalyticsEvent) {
-		guard isInitialized, configuration?.analyticsDisabled == false else { return }
-		TelemetryDeck.signal(event.name, parameters: event.parameters)
+		withInitializedSDK {
+			// `customUserID` is bound HERE, at call time. The transport's own `defaultUser` is read
+			// later, on a queue hop inside `processSignal` — so an identity change landing after
+			// this call but before that queue drains would otherwise re-attribute this event to the
+			// NEW account. Passing the identity explicitly is what pins it (AIA-0437).
+			TelemetryDeck.signal(
+				event.name,
+				parameters: event.parameters,
+				customUserID: accountIdentifier
+			)
+		}
+	}
+
+	func updateAccountIdentity(_ identifier: String?) {
+		// Normalise blank to nil: the SDK's "no custom identity" test is `defaultUser == nil`, so an
+		// empty string counts as a real identifier and would hash every signed-out user into one
+		// shared bucket.
+		let trimmed = identifier?.trimmingCharacters(in: .whitespacesAndNewlines)
+		let newValue = trimmed?.isEmpty == false ? trimmed : nil
+		guard newValue != accountIdentifier else { return }
+		accountIdentifier = newValue
+		withInitializedSDK {
+			TelemetryDeck.updateDefaultUserID(to: newValue)
+			// Rotate on EVERY identity change, including a clear. `sessionID` rides every signal,
+			// so a shared session is enough to join two identities together — and that is just as
+			// true for account-to-anonymous as for account-to-account. Not conditioning it on the
+			// new value also removes a dependency on callers always deactivating after a clear,
+			// which is the kind of assumption that quietly stops holding.
+			// Ordering is load-bearing: the rotation itself emits a session signal, which must
+			// carry the identity we moved TO — hence strictly after the identity is set.
+			TelemetryDeck.generateNewSession()
+		}
 	}
 
 	private static func appIDFromInfoPlist() -> String? {

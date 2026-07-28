@@ -76,20 +76,20 @@ internal enum L10n {
     internal enum Choice {
       /// Enable analytics
       internal static let enable = L10n.tr("Localizable", "analytics.choice.enable", fallback: "Enable analytics")
-      /// Share anonymous, privacy-safe usage statistics to help improve the app. Analytics is off unless you enable it.
-      internal static let message = L10n.tr("Localizable", "analytics.choice.message", fallback: "Share anonymous, privacy-safe usage statistics to help improve the app. Analytics is off unless you enable it.")
+      /// Share basic usage statistics to help improve the app. When you're signed in, they're linked to your account, so your usage is counted once across all your devices. Analytics is off unless you enable it, and you can change this at any time.
+      internal static let message = L10n.tr("Localizable", "analytics.choice.message", fallback: "Share basic usage statistics to help improve the app. When you're signed in, they're linked to your account, so your usage is counted once across all your devices. Analytics is off unless you enable it, and you can change this at any time.")
       /// Not now
       internal static let notNow = L10n.tr("Localizable", "analytics.choice.notNow", fallback: "Not now")
       /// Help improve ML Browser
       internal static let title = L10n.tr("Localizable", "analytics.choice.title", fallback: "Help improve ML Browser")
     }
     internal enum Settings {
-      /// Analytics is off by default. You can change this at any time. Page content, images, URLs, titles, filenames, detection results, and model names are never sent.
-      internal static let footer = L10n.tr("Localizable", "analytics.settings.footer", fallback: "Analytics is off by default. You can change this at any time. Page content, images, URLs, titles, filenames, detection results, and model names are never sent.")
+      /// Analytics is off by default. You can change this at any time. When you're signed in, usage statistics are linked to your account, so your usage is counted once across all your devices. Page content, images, URLs, titles, filenames, detection results, and model names are never sent.
+      internal static let footer = L10n.tr("Localizable", "analytics.settings.footer", fallback: "Analytics is off by default. You can change this at any time. When you're signed in, usage statistics are linked to your account, so your usage is counted once across all your devices. Page content, images, URLs, titles, filenames, detection results, and model names are never sent.")
       /// Privacy
       internal static let title = L10n.tr("Localizable", "analytics.settings.title", fallback: "Privacy")
-      /// Share anonymous usage data
-      internal static let toggle = L10n.tr("Localizable", "analytics.settings.toggle", fallback: "Share anonymous usage data")
+      /// Share usage data
+      internal static let toggle = L10n.tr("Localizable", "analytics.settings.toggle", fallback: "Share usage data")
     }
   }
   internal enum Auth {

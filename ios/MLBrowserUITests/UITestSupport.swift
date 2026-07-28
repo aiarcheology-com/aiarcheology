@@ -148,6 +148,8 @@ enum AID {
 	// Subscription paywall (AIA-0343)
 	static let paywallSubscribe = "_AIA:Button.PaywallSubscribe"
 	static let paywallSignOut = "_AIA:Button.PaywallSignOut"
+	static let paywallDeleteAccount = "_AIA:Button.PaywallDeleteAccount"
+	static let paywallDeleteAccountConfirm = "_AIA:Button.PaywallDeleteAccountConfirm"
 
 	// App Messages (AIA-0115). The banner container, its title, and the informational dismiss carry
 	// bare identifiers; the reply buttons and About rows carry a `label:` (the button id / message
@@ -199,7 +201,12 @@ class UITestCase: XCTestCase {
 	/// Launches the app with a deterministic configuration. The default config applies the
 	/// baseline only (wizard skipped, detection off, home page = about:blank).
 	@discardableResult
-	func launch(_ config: LaunchConfig = LaunchConfig(), mockAuthGate: String? = nil, mockSubscription: String? = nil) -> XCUIApplication {
+	func launch(
+		_ config: LaunchConfig = LaunchConfig(),
+		mockAuthGate: String? = nil,
+		mockSubscription: String? = nil,
+		mockAccountID: String? = nil
+	) -> XCUIApplication {
 		let app = XCUIApplication()
 		app.launchEnvironment["UI_TESTING"] = "1"
 		// swiftlint:disable:next force_try
@@ -216,6 +223,12 @@ class UITestCase: XCTestCase {
 		// `.subscribed`, so existing tests pass straight through the whole-app gate.
 		if let mockSubscription {
 			app.launchArguments += ["-mockSubscription", mockSubscription]
+		}
+		// AIA-0437: choose which account the mock auth provider reports, so a test can drive the
+		// account-scoped analytics choice across a switch. Default (nil) keeps the mock's own
+		// stable account, so every existing test sees the same person on every launch.
+		if let mockAccountID {
+			app.launchArguments += ["-mockAccountID", mockAccountID]
 		}
 		app.launch()
 		self.app = app

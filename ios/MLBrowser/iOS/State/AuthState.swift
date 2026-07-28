@@ -44,6 +44,14 @@ protocol AuthProviding {
     /// True once a persisted session has been hydrated and a user is signed in.
     var isSignedIn: Bool { get }
 
+    /// The stable, server-assigned identifier of the signed-in account, or `nil` when signed out.
+    ///
+    /// Stable **across devices** for the same account — that property is the whole basis of the
+    /// cross-device analytics identity (AIA-0437). It is the account id, never the session id,
+    /// which is per-device. Treat the value as sensitive: it may be hashed by the analytics
+    /// transport, but it must never be logged or sent as an event parameter.
+    var accountIdentifier: String? { get }
+
     /// Ensure the backend has finished loading its persisted session/environment.
     func prepare() async
 
@@ -65,6 +73,18 @@ protocol AuthProviding {
 final class AuthState: ObservableObject {
     /// The current gate. Views branch on this to pick the root screen.
     @Published private(set) var gate: AuthGate = .checkingSession
+
+    /// The signed-in account, or `nil` when signed out (AIA-0437).
+    ///
+    /// Published separately from ``gate`` because ``setGate(_:)`` suppresses equal values: an
+    /// in-place account switch (A signs out and B signs in without the gate leaving `.ready`)
+    /// publishes nothing on `gate`, so an observer watching only the gate would keep attributing
+    /// events to A forever.
+    ///
+    /// Written at exactly the points that write the gate, and only there. `.ready` implies a
+    /// validated account; `.signedOut` implies `nil`. `.offline` and `.checkingSession` leave it
+    /// untouched — a transient loss of connectivity is not a change of account.
+    @Published private(set) var accountIdentifier: String?
 
     private let provider: AuthProviding
 
@@ -106,18 +126,34 @@ final class AuthState: ObservableObject {
 
     private func evaluateGate() async {
         guard provider.isSignedIn else {
-            setGate(.signedOut)
+            setSignedOut()
             return
+        }
+
+        // Bind this validation to a specific account. `validateSession()` suspends, and a sign-out
+        // followed by a *different* sign-in can complete inside that window — in which case the
+        // round-trip that returns successfully validated the OLD account. Checking `isSignedIn`
+        // alone cannot tell the two apart, because it is true for either one (AIA-0437).
+        let accountUnderValidation = provider.accountIdentifier
+
+        // Stop publishing the OUTGOING account before suspending. Clerk can switch accounts
+        // out-of-band (the embedded profile UI), and the watcher only kicks off a refresh — so
+        // without this the previous account stays published for the whole validation round-trip
+        // and anything tracked in that window is attributed to a user who is no longer signed in.
+        // The post-`await` guard below protects the incoming account; this protects the outgoing one.
+        if accountUnderValidation != accountIdentifier {
+            accountIdentifier = nil
         }
 
         do {
             try await provider.validateSession()
         } catch AuthValidationError.offline {
+            // Identity deliberately left as-is: losing connectivity is not a change of account.
             setGate(.offline)
             return
         } catch {
             // Revoked / banned / signed out elsewhere — fall back to sign-in.
-            setGate(.signedOut)
+            setSignedOut()
             return
         }
 
@@ -125,22 +161,42 @@ final class AuthState: ObservableObject {
         // interleave on the main actor during that await. Without this re-check, a
         // mid-refresh sign-out would still land on `.ready` rather than `.signedOut`.
         guard provider.isSignedIn else {
-            setGate(.signedOut)
+            setSignedOut()
             return
         }
 
+        // A different account arrived while we were validating. Publishing now would mark the new
+        // account ready — and hand its identity to analytics — on the strength of a validation
+        // that was never about it. Queue another pass instead; the loop in `refresh()` runs it.
+        guard provider.accountIdentifier == accountUnderValidation else {
+            refreshPending = true
+            return
+        }
+
+        // Read fresh rather than reusing the pre-`await` local, so the published value can only
+        // ever be the one this pass actually validated.
+        accountIdentifier = provider.accountIdentifier
         setGate(.ready)
     }
 
     /// Sign out and return to the sign-in screen.
     func signOut() async {
         await provider.signOut()
-        setGate(.signedOut)
+        setSignedOut()
     }
 
     /// Delete the account and return to the sign-in screen.
     func deleteAccount() async throws {
         try await provider.deleteAccount()
+        setSignedOut()
+    }
+
+    /// The only way to reach `.signedOut`. Clears the identity *before* the gate so nothing can
+    /// observe "signed out" while a stale account is still published. `signOut()` and
+    /// `deleteAccount()` reach this directly without passing through ``evaluateGate()``, which is
+    /// why the identity cannot be maintained there alone.
+    private func setSignedOut() {
+        accountIdentifier = nil
         setGate(.signedOut)
     }
 

@@ -1,14 +1,15 @@
-Test Focus: The browser now notices when a page cannot load, tells you so, and tries to recover by itself — instead of leaving a blank page with no explanation.
+Test Focus: The optional analytics choice is now tied to the account you are signed in with, rather than to the device — and the wording that used to call the data "anonymous" has been corrected.
 
-Background: on Mac (and after the device has been asleep or the app left in the background for a long time), the web view could come back blank and stay blank, with no error and no way to retry. The app now detects that, reloads the page automatically, and if that is not enough it rebuilds the browser view. If it still cannot load, you get a message with a "Try Again" button.
+Background: if you turn analytics on, your usage can now be counted once across all the devices you sign in on, instead of every device looking like a separate person. Because that links usage to your account, the choice now belongs to the account that made it: someone else signing in on the same phone is asked for themselves. Analytics itself stays off until you turn it on — none of this collects anything from you unless you say yes.
 
 Please test:
 
-1. Normal browsing, first and foremost. Open pages, follow links, use Back/Forward and Reload, pan and zoom the maps. Everything should behave exactly as before — no new messages, no unexpected reloads, no flicker. This is the most important check in this build.
-2. Leave the app in the background for a long time (overnight if you can, and on Mac put the machine to sleep with the app running). Come back to it. The page should either still be there or reload itself within a moment. Report it if you get a blank page that never recovers.
-3. Turn Wi-Fi off, then open a new page from the address bar. You should see "Page didn't load" with the address and a "Try Again" button — not a blank screen.
-4. With that message showing, turn Wi-Fi back on and tap "Try Again". The page should load. Also try: leave the message showing, switch to another app, and switch back — the app should retry on its own.
-5. After a recovery has happened, check that Back and Forward still work and still take you through the pages you visited. (Your scroll position on the page is not preserved — that is expected.)
-6. Tap a link that downloads a file, and a "mailto:" or "tel:" link. You should NOT get the "Page didn't load" message for these — the page you are on is fine, so nothing should appear.
-7. Start saving a finding (tap a detection, or use Find/Store) and complete it as usual. Confirm the capture is never interrupted or cancelled by the browser reloading underneath you.
-8. Visit a cuzk.cz map page. Confirm it still displays and behaves normally.
+1. Normal use, first and foremost. Sign in, browse, run detections, save findings, open Settings. Nothing about signing in, paying, or browsing should feel different. This is the most important check in this build.
+2. Settings → Privacy. The toggle now reads "Share usage data" (it used to say "Share anonymous usage data"), and the text below it explains that while you are signed in, usage is linked to your account so it counts once across your devices. Check the wording reads clearly and has no typos.
+3. Turn the analytics toggle off and on a few times, then force-quit the app and reopen it. Your choice should be exactly as you left it.
+4. Settings → About → Privacy Policy, and read the Telemetry section. It should describe the account-linked identifier, say it is scrambled on your device before anything is sent, and say that signing out stops further usage being linked to your account. Report anything that reads as wrong or unclear.
+5. Settings → Reset → Restore Defaults. Afterwards the analytics question should be offered again as if fresh.
+6. Sign out and sign back in with the SAME account. You should not be asked the analytics question again.
+7. If you have a second account, sign out and sign in with it. That account should be asked the analytics question for itself, and answering for one account must not answer for the other. Analytics must stay off for the second account until it says yes. This is the main new behaviour in this build.
+8. On the subscribe screen (visible when you are signed in but not subscribed), check that "Sign Out" and "Delete Account" both work and return you to the sign-in screen. Delete Account asks you to confirm first — please use a throwaway account, as deletion is permanent.
+9. Report immediately if the analytics question keeps reappearing after you have answered it, or if the toggle shows as on for an account that never agreed to it.

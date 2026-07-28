@@ -15,6 +15,8 @@
 		15A2A9B169BF17E5F22D64B3 /* ClerkAuthProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE763C674E423AFA68061960 /* ClerkAuthProvider.swift */; };
 		19B58655B75A45CFBA520E82 /* FindingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A2CA562207959549FC331DA /* FindingRepository.swift */; };
 		1C2C07EA2917960C501206AB /* SubscriptionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D8A8FA0182207F209BD6EF /* SubscriptionState.swift */; };
+		AC0437000000000000B001 /* AccountAnalyticsCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0437000000000000A001 /* AccountAnalyticsCoordinator.swift */; };
+		AC0437000000000000B002 /* AccountAnalyticsCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0437000000000000A002 /* AccountAnalyticsCoordinatorTests.swift */; };
 		1EE996F7FF225DAB591EC7B3 /* BrowserSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9ED702A061548A1DE38F772D /* BrowserSession.swift */; };
 		26769AC1FF4553E49037C3BE /* TourStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB4535BB4D2FCF4B8B65E72A /* TourStep.swift */; };
 		28D6668F15B4BCB10A61D33D /* SubscriptionGateUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37FF65EDA41F1D0083A25351 /* SubscriptionGateUITests.swift */; };
@@ -662,6 +664,8 @@
 		D0AE619C61BACCB171E8FA2E /* TourStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TourStateTests.swift; sourceTree = "<group>"; };
 		D3885A2E1FF15193BEAD07C6 /* DetectionSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DetectionSession.swift; sourceTree = "<group>"; };
 		D3D8A8FA0182207F209BD6EF /* SubscriptionState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionState.swift; sourceTree = "<group>"; };
+		AC0437000000000000A001 /* AccountAnalyticsCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountAnalyticsCoordinator.swift; sourceTree = "<group>"; };
+		AC0437000000000000A002 /* AccountAnalyticsCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountAnalyticsCoordinatorTests.swift; sourceTree = "<group>"; };
 		D4644DE7995D4B5B57C7B44F /* ModelConfigurationRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModelConfigurationRepository.swift; sourceTree = "<group>"; };
 		D62680C730044014008E38F9 /* MLBrowser_0.0.0_0.0.1.xcmappingmodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcmappingmodel; path = MLBrowser_0.0.0_0.0.1.xcmappingmodel; sourceTree = "<group>"; };
 		DDCA151D54FB4492B8A89AB4 /* AuthGateUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthGateUITests.swift; sourceTree = "<group>"; };
@@ -950,6 +954,7 @@
 				A35000000000000000000100 /* ReviewPrompt.swift */,
 				94FF0001000000000000B003 /* FeatureFlagsState.swift */,
 				D3D8A8FA0182207F209BD6EF /* SubscriptionState.swift */,
+				AC0437000000000000A001 /* AccountAnalyticsCoordinator.swift */,
 				04CC35810A5A24A66927181A /* StoreKitSubscriptionProvider.swift */,
 				2584DEF459E2929567E5582F /* ModelAssetStore.swift */,
 				D4644DE7995D4B5B57C7B44F /* ModelConfigurationRepository.swift */,
@@ -1173,6 +1178,7 @@
 				ABAA0115000000000000A007 /* MessageSurfaceResolverTests.swift */,
 				ABAA0115000000000000A011 /* MessageReplyTests.swift */,
 				ABAA0115000000000000A013 /* TargetingCoordinatorTests.swift */,
+				AC0437000000000000A002 /* AccountAnalyticsCoordinatorTests.swift */,
 				ABAA0115000000000000A017 /* MessageNotificationPlannerTests.swift */,
 				A35000000000000000000006 /* AnalyticsTests.swift */,
 				A35000000000000000000102 /* ReviewPromptTests.swift */,
@@ -1888,6 +1894,7 @@
 				A35000000000000000000002 /* TelemetryDeckAnalyticsService.swift in Sources */,
 				A3500000000000000000000B /* Analytics.swift in Sources */,
 				1C2C07EA2917960C501206AB /* SubscriptionState.swift in Sources */,
+				AC0437000000000000B001 /* AccountAnalyticsCoordinator.swift in Sources */,
 				917A15383011E3F093BF1F14 /* StoreKitSubscriptionProvider.swift in Sources */,
 				401A266CB4BCBDC00E517F03 /* PaywallView.swift in Sources */,
 				C4F8BE60D36C0129DD2C4066 /* SubscriptionGateView.swift in Sources */,
@@ -1954,6 +1961,7 @@
 				ABAA0115000000000000B002 /* AppMessageTests.swift in Sources */,
 				ABAA0115000000000000B011 /* MessageReplyTests.swift in Sources */,
 				ABAA0115000000000000B013 /* TargetingCoordinatorTests.swift in Sources */,
+				AC0437000000000000B002 /* AccountAnalyticsCoordinatorTests.swift in Sources */,
 				ABAA0115000000000000B004 /* MessageCenterStateTests.swift in Sources */,
 				ABAA0115000000000000B017 /* MessageNotificationPlannerTests.swift in Sources */,
 				ABAA0115000000000000B007 /* MessageSurfaceResolverTests.swift in Sources */,

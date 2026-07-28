@@ -42,9 +42,17 @@ final class Settings: ObservableObject, Validatable {
 		static let grid3x3Tiling = "grid3x3Tiling"
 		static let tiledBorders = "tiledBorders"
 		/// Optional TelemetryDeck analytics. Both values default to false: a fresh install sends
-		/// no telemetry and presents a choice before the app's auth/subscription gates.
+		/// no telemetry and presents a choice after the app's auth/subscription gates (AIA-0447).
 		static let analyticsEnabled = "analyticsEnabled"
 		static let analyticsChoiceMade = "analyticsChoiceMade"
+		/// Which account the stored analytics choice belongs to (AIA-0437).
+		static let analyticsConsentAccountHash = "analyticsConsentAccountHash"
+		/// Which account has already had each once-per-account funnel event reported (AIA-0437).
+		/// Stored as the same SHA-256 as the consent hash, never a raw account id.
+		static let analyticsActivationReportedAccountHash = "analyticsActivationReportedAccountHash"
+		static let analyticsSignedInReportedAccountHash = "analyticsSignedInReportedAccountHash"
+		/// The dashboard's last-known value of the identity flag, mirrored for the next launch.
+		static let analyticsAccountIdentityRemoteValue = "analyticsAccountIdentityRemoteValue"
 		/// A user's screenshot-reporting decision (AIA-0454). An absent value means the user has
 		/// not decided yet; `true` enables offers and `false` disables them.
 		static let screenshotDetectionEnabled = "screenshotDetectionEnabled"
@@ -195,6 +203,82 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	/// Which account the stored analytics choice belongs to, as a SHA-256 of the Clerk account id
+	/// so no raw account identifier is ever persisted (AIA-0437).
+	///
+	/// Consent is **per account**, not per device. A device-wide choice plus an account-derived
+	/// analytics identity would mean account B is tracked under a cross-device identity that only
+	/// account A ever agreed to. When the signed-in account does not match this hash, the stored
+	/// choice does not apply: the user is asked again and the state fails closed until they answer.
+	///
+	/// Only one account's choice is remembered at a time, so alternating between two accounts on
+	/// one device asks each time it switches. That is the deliberate trade for not keeping a
+	/// per-account consent ledger on the device.
+	///
+	/// `nil` means "no choice belongs to any account yet" — either a fresh install, or a legacy
+	/// device-wide choice that has not yet been bound to an account by `AnalyticsState`.
+	@Published public var analyticsConsentAccountHash: String? {
+		didSet {
+			Self.write(analyticsConsentAccountHash, forKey: UserDefaultsKeys.analyticsConsentAccountHash, to: defaults)
+		}
+	}
+
+	/// Which account has already reported `subscription.activated` (AIA-0437).
+	///
+	/// Persisted because the event marks a **conversion**: without it, every launch of an already
+	/// subscribed user would report a fresh activation and the metric would silently become a
+	/// retention count. Keyed by account hash rather than a `Bool` so a second account on the same
+	/// device neither inherits the first one's suppression nor clears it.
+	@Published public var analyticsActivationReportedAccountHash: String? {
+		didSet {
+			Self.write(analyticsActivationReportedAccountHash, forKey: UserDefaultsKeys.analyticsActivationReportedAccountHash, to: defaults)
+		}
+	}
+
+	/// Which account has already reported `account.signed_in` (AIA-0437). Same contract: the event
+	/// is a funnel stage, not a launch counter, so it must survive relaunches.
+	@Published public var analyticsSignedInReportedAccountHash: String? {
+		didSet {
+			Self.write(analyticsSignedInReportedAccountHash, forKey: UserDefaultsKeys.analyticsSignedInReportedAccountHash, to: defaults)
+		}
+	}
+
+	/// The dashboard's last-known value of `isCrossDeviceAnalyticsIdentityEnabled`, mirrored on
+	/// every flag-snapshot republish and read back at the NEXT launch (AIA-0437).
+	///
+	/// Exists because the flag in force is captured once per session, at construction — and at
+	/// construction the ConfigCat snapshot has not synced yet, so capturing from it reads the
+	/// compiled default on every launch and the dashboard could never take effect at all (found
+	/// by manual testing: the remote flag was inert in both directions). `nil` means the remote
+	/// value has never been observed — a true first launch, or any test — and the capture then
+	/// falls back to the live snapshot, which is what keeps UI-test static overrides working.
+	///
+	/// Deliberately NOT cleared by `reset()`: this mirrors remote configuration, not a user
+	/// preference, and forgetting it would resurrect the inert-flag state until the next sync
+	/// (same survives-reset reasoning as `ratingPromptLastRequestDate`).
+	@Published public var analyticsAccountIdentityRemoteValue: Bool? {
+		didSet {
+			if let analyticsAccountIdentityRemoteValue {
+				defaults.set(analyticsAccountIdentityRemoteValue, forKey: UserDefaultsKeys.analyticsAccountIdentityRemoteValue)
+			} else {
+				defaults.removeObject(forKey: UserDefaultsKeys.analyticsAccountIdentityRemoteValue)
+			}
+		}
+	}
+
+	/// Writes an optional string, removing the key when `nil`.
+	///
+	/// `set(_:forKey:)` with a `nil` optional goes through the `Any?` overload, where removal has
+	/// historically not been guaranteed equivalent. The other optionals in this type already branch
+	/// explicitly; this keeps "no value" stored exactly one way.
+	private static func write(_ value: String?, forKey key: String, to defaults: UserDefaults) {
+		if let value {
+			defaults.set(value, forKey: key)
+		} else {
+			defaults.removeObject(forKey: key)
+		}
+	}
+
 	/// Whether screenshot detection should offer a problem report (AIA-0454).
 	///
 	/// `nil` is intentionally distinct from `true` and `false`: it means the user has not yet
@@ -328,6 +412,10 @@ final class Settings: ObservableObject, Validatable {
 		self.tiledBorders = defaults.bool(forKey: UserDefaultsKeys.tiledBorders)
 		self.analyticsEnabled = defaults.bool(forKey: UserDefaultsKeys.analyticsEnabled)
 		self.analyticsChoiceMade = defaults.bool(forKey: UserDefaultsKeys.analyticsChoiceMade)
+		self.analyticsConsentAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsConsentAccountHash)
+		self.analyticsActivationReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsActivationReportedAccountHash)
+		self.analyticsSignedInReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsSignedInReportedAccountHash)
+		self.analyticsAccountIdentityRemoteValue = defaults.object(forKey: UserDefaultsKeys.analyticsAccountIdentityRemoteValue) as? Bool
 		self.ratingPromptEventCount = defaults.integer(forKey: UserDefaultsKeys.ratingPromptEventCount)
 		// There is no `defaults.date(forKey:)`; an absent key must stay `nil` rather than become a
 		// 1970 date, which `shouldRequest` would read as "asked very long ago".
@@ -398,6 +486,9 @@ final class Settings: ObservableObject, Validatable {
 		tiledBorders = false
 		analyticsEnabled = false
 		analyticsChoiceMade = false
+		analyticsConsentAccountHash = nil
+		analyticsActivationReportedAccountHash = nil
+		analyticsSignedInReportedAccountHash = nil
 		screenshotDetectionEnabled = nil
 		// Count only: `ratingPromptLastRequestDate` deliberately survives a reset (AIA-0117) so
 		// "Restore Defaults" cannot be used — deliberately or accidentally — to re-trigger the
@@ -423,6 +514,9 @@ final class Settings: ObservableObject, Validatable {
 		defaults.set(analyticsEnabled, forKey: UserDefaultsKeys.analyticsEnabled)
 		defaults.set(analyticsChoiceMade, forKey: UserDefaultsKeys.analyticsChoiceMade)
 		defaults.set(ratingPromptEventCount, forKey: UserDefaultsKeys.ratingPromptEventCount)
+		defaults.removeObject(forKey: UserDefaultsKeys.analyticsConsentAccountHash)
+		defaults.removeObject(forKey: UserDefaultsKeys.analyticsActivationReportedAccountHash)
+		defaults.removeObject(forKey: UserDefaultsKeys.analyticsSignedInReportedAccountHash)
 		defaults.removeObject(forKey: UserDefaultsKeys.screenshotDetectionEnabled)
 		defaults.removeObject(forKey: UserDefaultsKeys.legacySupportPromptShown)
 		defaults.removeObject(forKey: UserDefaultsKeys.legacySupportPromptDeclined)

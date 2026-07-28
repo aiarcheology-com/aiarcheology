@@ -281,8 +281,18 @@ final class MockSubscriptionProvider: SubscriptionProviding {
 	/// paywall renders its "unavailable" state under the mock. Entitlement is still driven.
 	let products: [Product] = []
 
-	init(outcome: Outcome = .notSubscribed) {
+	/// Whether the simulated entitlement is the introductory free trial. Stored rather than
+	/// hardcoded `false` so the trial axis is reachable at all — while it was a constant, no
+	/// test or preview could distinguish a trial subscriber from a paying one. Defaults to
+	/// `false`, so every existing caller keeps the exact behaviour it had.
+	/// Backing store. Read through ``isInTrial``, which also requires an active entitlement — a
+	/// trial that outlives the subscription is a state StoreKit cannot produce, and letting tests
+	/// observe an "unsubscribed trial user" would let them assert on nonsense.
+	private var isInTrialFlag: Bool
+
+	init(outcome: Outcome = .notSubscribed, isInTrial: Bool = false) {
 		self.outcome = outcome
+		self.isInTrialFlag = isInTrial
 	}
 
 	/// Parse `-mockSubscription <state>` from the launch arguments, defaulting to
@@ -318,7 +328,7 @@ final class MockSubscriptionProvider: SubscriptionProviding {
 	/// previews/UI tests (the real refund sheet only works against StoreKit).
 	var currentTransactionID: UInt64? { outcome == .subscribed ? 1 : nil }
 	var currentExpirationDate: Date? { nil }
-	var isInTrial: Bool { false }
+	var isInTrial: Bool { isInTrialFlag && outcome == .subscribed }
 
 	/// Simulate a background entitlement change (Ask-to-Buy approval / refund) and fire
 	/// the callback, so tests can verify `SubscriptionState` republishes.

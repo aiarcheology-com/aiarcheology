@@ -36,6 +36,10 @@ final class FeatureFlagsTests: XCTestCase {
 		XCTAssertEqual(FeatureFlagKey.isRefundRequestEnabled.rawValue, "isRefundRequestEnabled")
 		XCTAssertEqual(FeatureFlagKey.isRatingPromptEnabled.rawValue, "isRatingPromptEnabled")
 		XCTAssertEqual(FeatureFlagKey.isAppMessagingEnabled.rawValue, "isAppMessagingEnabled")
+		XCTAssertEqual(
+			FeatureFlagKey.isCrossDeviceAnalyticsIdentityEnabled.rawValue,
+			"isCrossDeviceAnalyticsIdentityEnabled"
+		)
 		// Non-boolean settings share the same dashboard-key contract (AIA-0115).
 		XCTAssertEqual(RemoteSettingKey.appMessages, "appMessages")
 	}

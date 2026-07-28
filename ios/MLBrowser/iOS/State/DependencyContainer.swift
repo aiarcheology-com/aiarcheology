@@ -152,8 +152,14 @@ class DependencyContainer {
     /// Scenario flag overrides from the UI-test launch configuration (AIA-0350). Empty for
     /// unit tests and for UI tests that do not vary a flag, leaving every compiled default.
     private static func uiTestFlagOverrides() -> [FeatureFlagKey: Bool] {
-        guard let raw = UITestLaunchConfiguration.fromEnvironment?.featureFlagOverrides else { return [:] }
-        var overrides: [FeatureFlagKey: Bool] = [:]
+        // Baseline: UI tests run in the pre-AIA-0437 device-wide consent model unless a test opts
+        // in. The suite's deterministic baseline skips the consent screen by setting
+        // `analyticsChoiceMade`, and under account-scoped consent that flag alone no longer
+        // qualifies — so without this every unrelated UI test would stop at the consent gate.
+        // Tests that mean to exercise the account-scoped path override it explicitly, and the
+        // loop below lets any explicit value win.
+        var overrides: [FeatureFlagKey: Bool] = [.isCrossDeviceAnalyticsIdentityEnabled: false]
+        guard let raw = UITestLaunchConfiguration.fromEnvironment?.featureFlagOverrides else { return overrides }
         for (key, value) in raw {
             guard let flag = FeatureFlagKey(rawValue: key) else {
                 fatalError("Unknown feature flag override '\(key)' — a UI test must never proceed on a misread configuration")
@@ -181,13 +187,42 @@ class DependencyContainer {
 		return TelemetryDeckAnalyticsProvider()
 	}()
 
+	/// The identity flag actually in force this session (AIA-0437), resolved **once** and shared by
+	/// both of its consumers — `analyticsState` and the coordinator gate in `makeAppState()`.
+	///
+	/// One resolution rather than two reads is load-bearing: if the two diverged, a coordinator
+	/// could feed account ids into an `AnalyticsState` running device-wide, installing an identity
+	/// under a consent model that never asked the user about one.
+	///
+	/// Reads the previous session's mirrored dashboard value first. The ConfigCat snapshot is not
+	/// synchronously available here — reading it directly captures the compiled default on every
+	/// launch and the dashboard never takes effect (the inert-flag defect found by manual testing).
+	/// The snapshot fallback serves exactly the cases with no mirror: a true first launch, and
+	/// tests, where the static provider IS synchronous and the mirror is never written.
+	private lazy var isAccountIdentityEnabledResolved: Bool =
+		settings.analyticsAccountIdentityRemoteValue
+		?? featureFlagsState.snapshot.isCrossDeviceAnalyticsIdentityEnabled
+
 	lazy var analyticsState: AnalyticsState = {
 		AnalyticsState(
 			settings: self.settings,
 			tracker: self.analyticsTracker,
-			featureFlags: self.featureFlagsState
+			featureFlags: self.featureFlagsState,
+			// Session-boundary capture like `isPaymentsEnabled` (AIA-0350): this flag selects which
+			// consent model is in force, so a mid-session flip would move the goalposts under a
+			// user who has already answered. See `isAccountIdentityEnabledResolved` for why the
+			// value must come from the mirror rather than the snapshot.
+			isAccountIdentityEnabled: self.isAccountIdentityEnabledResolved
 		)
 	}()
+
+	/// Cross-device analytics identity + funnel events (AIA-0437).
+	///
+	/// Retained here for the same reason as `targetingCoordinator` — it is pure Combine
+	/// subscriptions, so a local would deallocate and silently stop working. `nil` while
+	/// `isCrossDeviceAnalyticsIdentityEnabled` is off, which is what makes the feature ship dark:
+	/// with no coordinator no identity is installed and neither funnel event fires.
+	private(set) var accountAnalyticsCoordinator: AccountAnalyticsCoordinator?
 
 	/// Rating-prompt bookkeeping (AIA-0117).
 	///
@@ -325,6 +360,15 @@ class DependencyContainer {
 			featureFlags: featureFlagsState,
 			messageCenter: messageCenterState
 		)
+		// Arm the cross-device analytics identity (AIA-0437). Built only while the flag is on, and
+		// before `AppState` starts its work, so the first account transition is already observed.
+		if isAccountIdentityEnabledResolved {
+			accountAnalyticsCoordinator = AccountAnalyticsCoordinator(
+				analytics: analyticsState,
+				authState: account.authState,
+				subscriptionState: account.subscriptionState
+			)
+		}
 		return AppState(
 			dataController: dataController,
 			settings: settings,

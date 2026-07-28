@@ -2330,7 +2330,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Share anonymous, privacy-safe usage statistics to help improve the app. Analytics is off unless you enable it."
+            "value" : "Share basic usage statistics to help improve the app. When you're signed in, they're linked to your account, so your usage is counted once across all your devices. Analytics is off unless you enable it, and you can change this at any time."
           }
         }
       }
@@ -2366,7 +2366,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Analytics is off by default. You can change this at any time. Page content, images, URLs, titles, filenames, detection results, and model names are never sent."
+            "value" : "Analytics is off by default. You can change this at any time. When you're signed in, usage statistics are linked to your account, so your usage is counted once across all your devices. Page content, images, URLs, titles, filenames, detection results, and model names are never sent."
           }
         }
       }
@@ -2390,7 +2390,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Share anonymous usage data"
+            "value" : "Share usage data"
           }
         }
       }

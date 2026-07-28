@@ -131,6 +131,9 @@ struct UITestLaunchConfiguration: Codable {
 		settings.pyramidTiling = true
 		settings.analyticsEnabled = false
 		settings.analyticsChoiceMade = true
+		// The identity-flag mirror must never leak across launches in the harness: the resolution
+		// in the composition root prefers it over the static provider's overrides (AIA-0437).
+		settings.analyticsAccountIdentityRemoteValue = nil
 
 		// 2) Scenario deltas.
 		switch config.pageScenario {

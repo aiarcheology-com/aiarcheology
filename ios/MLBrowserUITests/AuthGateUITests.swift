@@ -20,8 +20,15 @@ final class AuthGateUITests: UITestCase {
 	}
 
 	/// `offline` → the fail-closed "needs connection" screen with a retry affordance.
+	///
+	/// The entitlement is pinned explicitly: the intent is that a **paying** user is still held
+	/// at the offline screen, because the auth gate sits outside the subscription gate and fails
+	/// closed regardless of what they own. That was only ever covered by accident before — the
+	/// mock subscription happens to default to `.subscribed`, so the case the test actually ran
+	/// was invisible in its own source and one default change away from silently becoming a
+	/// different test.
 	func testGate_offline_showsOfflineScreen() {
-		launch(mockAuthGate: "offline")
+		launch(mockAuthGate: "offline", mockSubscription: "subscribed")
 		assertExists(AID.authOfflineRetry, true)
 		assertExists(AID.cpu, false)
 	}

@@ -218,6 +218,8 @@ struct PaywallView: View {
 					}
 				}
 			}
+			.testability(Testability.Button.paywallDeleteAccountConfirm)
+
 			Button(L10n.Common.cancel, role: .cancel) {}
 		} message: {
 			Text(L10n.Auth.Account.Delete.message)
@@ -375,6 +377,7 @@ struct PaywallView: View {
 				}
 				.buttonStyle(.bordered)
 				.controlSize(.large)
+				.testability(Testability.Button.paywallDeleteAccount)
 			}
 			.padding(.top, 8)
 		}

@@ -114,6 +114,12 @@ extension TestabilityIdentification {
 		// AIA-0461: the Settings → Subscription "Request a Refund" row (feature-flag gated)
 		case settingsRequestRefund
 		case paywallSignOut
+		/// Delete Account on the root paywall — the other half of the Apple 5.1.1(v) escape, so a
+		/// test can drive it without depending on localized button text.
+		case paywallDeleteAccount
+		/// The destructive action inside the delete-account confirmation dialog. It shares its
+		/// label with the button that opens it, so a test cannot tell them apart by text alone.
+		case paywallDeleteAccountConfirm
 		// Optional analytics first-run choice
 		case analyticsChoiceEnable
 		case analyticsChoiceNotNow

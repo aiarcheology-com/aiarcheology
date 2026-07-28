@@ -60,6 +60,22 @@ enum FeatureFlagKey: String, CaseIterable {
 	/// (the `appMessages` setting) render at all. Fails open — safe because the content
 	/// setting itself defaults to empty, so an outage shows no messages rather than stale ones.
 	case isAppMessagingEnabled = "isAppMessagingEnabled"
+
+	/// Gates the cross-device, Clerk-derived analytics identity (AIA-0437): whether a signed-in
+	/// account is attributed consistently across their devices instead of falling back to the
+	/// per-device installation identity — and, with it, whether the analytics choice is scoped to
+	/// the account rather than the device.
+	///
+	/// **Fails open**, like every other flag here, and deliberately so after review.
+	///
+	/// The tempting argument is that an account-linked identity should never switch itself on. It
+	/// does not: the flag never gates consent, it only selects *which consent model* is in force,
+	/// and an account must explicitly agree either way. So a `false` default protected nothing —
+	/// while actively causing harm. With the flag on in the dashboard, a single offline cold launch
+	/// would read the compiled `false`, re-prompt a consented user in device-wide mode, and clear
+	/// their `analyticsConsentAccountHash` — destroying the account-scoped record and prompting them
+	/// again when the flag came back. Failing open removes that path entirely.
+	case isCrossDeviceAnalyticsIdentityEnabled = "isCrossDeviceAnalyticsIdentityEnabled"
 	// swiftlint:enable redundant_string_enum_value
 
 	/// The value used when remote config cannot be consulted.
@@ -72,6 +88,7 @@ enum FeatureFlagKey: String, CaseIterable {
 		case .isRefundRequestEnabled: return true
 		case .isRatingPromptEnabled: return true
 		case .isAppMessagingEnabled: return true
+		case .isCrossDeviceAnalyticsIdentityEnabled: return true
 		}
 	}
 }
@@ -115,6 +132,7 @@ struct FeatureFlagSnapshot: Equatable {
 	var isRefundRequestEnabled: Bool { self[.isRefundRequestEnabled] }
 	var isRatingPromptEnabled: Bool { self[.isRatingPromptEnabled] }
 	var isAppMessagingEnabled: Bool { self[.isAppMessagingEnabled] }
+	var isCrossDeviceAnalyticsIdentityEnabled: Bool { self[.isCrossDeviceAnalyticsIdentityEnabled] }
 
 	/// Every key at its compiled default — the launch/offline value.
 	static let defaults = FeatureFlagSnapshot()

@@ -106,6 +106,13 @@ final class ClerkAuthProvider: AuthProviding {
         Clerk.shared.user != nil
     }
 
+    /// The Clerk **user** id (`user_…`), which is server-assigned and identical for the same
+    /// account on every device. Deliberately not `Clerk.shared.session?.id` (`sess_…`), which is
+    /// per-device and would defeat the cross-device attribution it is used for (AIA-0437).
+    var accountIdentifier: String? {
+        Clerk.shared.user?.id
+    }
+
     func prepare() async {
         // `Clerk.configure` loads the cached client/session synchronously, so the
         // persisted signed-in state is already available here. `validateSession`
@@ -184,21 +191,29 @@ final class MockAuthProvider: AuthProviding {
     }
 
     private var outcome: Outcome
+    private var accountID: String?
 
-    init(outcome: Outcome = .ready) {
+    init(outcome: Outcome = .ready, accountID: String? = MockAuthProvider.defaultMockAccountID) {
         self.outcome = outcome
+        self.accountID = accountID
     }
 
     /// Parse `-mockAuthGate <state>` from the launch arguments, defaulting to `.ready`
-    /// so existing UI tests bypass the gate straight into the app.
+    /// so existing UI tests bypass the gate straight into the app. `-mockAccountID <id>` sets the
+    /// simulated account; `UITestCase.launch(mockAccountID:)` passes it, which is how the
+    /// account-scoped analytics choice is driven across a switch (AIA-0437).
     static func fromLaunchArguments() -> MockAuthProvider {
         let args = ProcessInfo.processInfo.arguments
+        var accountID = defaultMockAccountID
+        if let idx = args.firstIndex(of: "-mockAccountID"), idx + 1 < args.count {
+            accountID = args[idx + 1]
+        }
         if let idx = args.firstIndex(of: "-mockAuthGate"),
            idx + 1 < args.count,
            let parsed = Outcome(rawValue: args[idx + 1]) {
-            return MockAuthProvider(outcome: parsed)
+            return MockAuthProvider(outcome: parsed, accountID: accountID)
         }
-        return MockAuthProvider(outcome: .ready)
+        return MockAuthProvider(outcome: .ready, accountID: accountID)
     }
 
     /// Mutate the simulated outcome between refreshes (tests/previews only).
@@ -206,7 +221,19 @@ final class MockAuthProvider: AuthProviding {
         outcome = newOutcome
     }
 
+    /// Simulate an account switch without leaving the `.ready` outcome (tests/previews only) —
+    /// the in-place A-to-B transition that publishes nothing on the gate.
+    func setAccountIDForTesting(_ newAccountID: String?) {
+        accountID = newAccountID
+    }
+
     var isSignedIn: Bool { outcome != .signedOut }
+
+    /// Shaped like a real Clerk id so anything that pattern-matches on it behaves the same.
+    static let defaultMockAccountID = "user_mock0000000000000000000"
+
+    /// `nil` while signed out, mirroring the real provider: there is no account to identify.
+    var accountIdentifier: String? { outcome == .signedOut ? nil : accountID }
 
     func prepare() async {}
 
