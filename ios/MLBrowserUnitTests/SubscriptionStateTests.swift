@@ -168,8 +168,15 @@ final class SubscriptionStateTests: XCTestCase {
 	/// unconstructable outside the StoreKitTest framework (see
 	/// `testPurchase_FromNotSubscribed_BecomesSubscribed` above for the same limitation).
 	/// Its outcome forwarding is identical to `restore()`'s, covered below, and the
-	/// user-facing half is covered by ``SubscriptionNoticeTests``. An SKTestSession harness
-	/// would close this gap — tracked as the optional item on AIA-0376.
+	/// user-facing half is covered by ``SubscriptionNoticeTests``.
+	///
+	/// An `SKTestSession` harness was expected to close this gap (the optional item on
+	/// AIA-0376). AIA-0518 established that it cannot on iOS 26.5: the session loads a
+	/// `.storekit` configuration, so products resolve, but every state-changing call fails —
+	/// `disableDialogs` does not stick and `buyProduct` returns `notEntitled`, identically from
+	/// the command line, from the Xcode IDE, and from a UI test that creates the session before
+	/// launching the app. What that harness would have covered is instead covered as pure rules
+	/// in ``EntitlementResolverTests``; the StoreKit round-trip itself stays uncovered.
 	func testRestore_ForwardsProviderOutcome() async {
 		let provider = MockSubscriptionProvider(outcome: .notSubscribed)
 		let sut = SubscriptionState(provider: provider, isPaymentsEnabled: true)

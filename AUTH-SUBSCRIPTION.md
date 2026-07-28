@@ -82,6 +82,55 @@ say so.
 Sharing is enabled for the product in App Store Connect, a family member's entirely different Clerk
 account is entitled. Consistent with the device model — but it is an unstated policy, not a decision.
 
+## What the money path can and cannot be tested with
+
+`SKTestSession` — Apple's StoreKit Testing framework, and the mechanism AIA-0376 and AIA-0518 both
+assumed would cover purchase, refund and Ask-to-Buy — **does not work on iOS 26.5**. Measured, not
+inferred:
+
+|call|result|
+|-|-|
+|`SKTestSession(configurationFileNamed:)`|succeeds|
+|`Product.products(for:)`|succeeds — returns the configured product|
+|`session.disableDialogs = true`|reads back `false`; the setter is a no-op|
+|`session.buyProduct(identifier:)`|throws `notEntitled`|
+|`session.clearTransactions()`, `allTransactions()`|`SKInternalErrorDomain Code=3`|
+
+Identical from `xcodebuild test`, from the Xcode IDE, and from a UI test that creates the session
+*before* launching the app — so it is neither a CLI limitation nor the launch-ordering issue the
+Apple forums describe. The split is clean: **configuration loading works, state control does not.**
+
+Consequence: a real purchase cannot be driven from a test on this runtime. With dialogs impossible
+to disable, `Product.purchase()` blocks forever on a sheet no unit test can tap.
+
+What that harness would have covered is instead covered by seams: `EntitlementResolver` holds every
+condition that grants or withholds access, including revocation (the refund path), and injecting
+`entitlementSource` / `accountIdentifierSource` puts the provider's published state and its
+`appAccountToken` tagging under test too.
+
+What remains uncovered, and why:
+
+- **The `Transaction` → `EntitlementCandidate` projection** and the drop of unverified results. Both
+  need a real `Transaction`, which is exactly what cannot be constructed. This is the one link of
+  the refund-safety chain with no test behind it: a projection that stopped carrying
+  `revocationDate` would re-grant access to refunded users and nothing would fail.
+- **The StoreKit round-trip itself** — purchase, `AppStore.sync()`, `Transaction.updates` delivery.
+- **Ask-to-Buy** and **`ownershipType` under Family Sharing**.
+
+If this is ever revisited: the untried option is an older simulator runtime. Nothing here shows
+whether the breakage is specific to iOS 26.5 or spans the whole 26 line.
+
+### The coupling that made it untestable at all
+
+Until AIA-0518, `StoreKitSubscriptionProvider.purchase()` read `Clerk.shared.user?.id` directly to
+build the `appAccountToken`. `Clerk.shared` **traps** when Clerk was never configured — the state of
+every test process — so any test reaching `purchase(_:)` died with a signal trap before StoreKit was
+consulted. The account reader is now injected (`accountIdentifierSource`, defaulting to the same
+Clerk read), and the derivation lives in `AppAccountToken`.
+
+This is the auth×subscription entanglement this document exists to name: the two gates are
+independent in the UI, but the *purchase* was not independent of the auth SDK.
+
 ## What the analytics identity does *not* change
 
 AIA-0437 makes one Clerk account resolve to one analytics user across devices. It has no effect on

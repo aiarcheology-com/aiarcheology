@@ -11,7 +11,6 @@
 import Foundation
 import StoreKit
 import OSLog
-import CryptoKit
 #if canImport(ClerkKit)
 import ClerkKit
 #endif
@@ -47,6 +46,36 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 	/// Long-lived task draining `Transaction.updates`. Held so it lives for the app's
 	/// lifetime and is cancelled if the provider is ever torn down.
 	private var updatesListener: Task<Void, Never>?
+
+	/// How the provider learns which account to tag a purchase with (AIA-0518).
+	///
+	/// Injected rather than read from `Clerk.shared` at the point of use: touching that
+	/// singleton **traps** when Clerk was never configured, which is the state in every test
+	/// process (`DependencyContainer.usesMockAuth` exists for the same reason). Before this,
+	/// any test that reached ``purchase(_:)`` crashed with a signal trap before StoreKit was
+	/// ever consulted, which is why the money path had no coverage at all.
+	///
+	/// The default is the production reader, so behaviour outside tests is unchanged.
+	private let accountIdentifierSource: @MainActor () -> String?
+
+	/// Where the entitlement candidates come from (AIA-0518).
+	///
+	/// Injected for the same reason as ``accountIdentifierSource``: the production reader walks
+	/// `Transaction.currentEntitlements`, and `Transaction` cannot be constructed outside
+	/// `StoreKitTest` — whose control channel is non-functional on iOS 26.5. Without this seam
+	/// the four published properties below are wired up by code no test can execute, so an
+	/// inverted `isSubscribed`, a swapped transaction id, or a dropped expiry would all ship
+	/// green. What stays untestable is only the projection itself (`EntitlementCandidate.init`)
+	/// and the `verified()` drop, which genuinely need a real `Transaction`.
+	private let entitlementSource: @MainActor () async -> [EntitlementCandidate]
+
+	init(
+		accountIdentifierSource: (@MainActor () -> String?)? = nil,
+		entitlementSource: (@MainActor () async -> [EntitlementCandidate])? = nil
+	) {
+		self.accountIdentifierSource = accountIdentifierSource ?? Self.clerkAccountIdentifier
+		self.entitlementSource = entitlementSource ?? Self.currentEntitlementCandidates
+	}
 
 	deinit {
 		updatesListener?.cancel()
@@ -159,17 +188,25 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 	/// `appAccountToken` so a future backend can reconcile the transaction to a user.
 	/// Read defensively: the mock/UI-test path never touches Clerk, and a signed-out
 	/// user simply gets no token.
-	private func purchaseOptions() -> Set<Product.PurchaseOption> {
+	///
+	/// Internal rather than private so a test can assert what a purchase would actually be
+	/// tagged with. Its only production caller is ``purchase(_:)``, which needs a `Product` and
+	/// is therefore unreachable from a test — leaving this the sole way to catch a regression
+	/// that silently stops tagging purchases at all (AIA-0518).
+	func purchaseOptions() -> Set<Product.PurchaseOption> {
 		guard let token = appAccountToken() else { return [] }
 		return [.appAccountToken(token)]
 	}
 
 	private func appAccountToken() -> UUID? {
+		AppAccountToken.make(from: accountIdentifierSource())
+	}
+
+	/// The production account reader. Only ever called through ``accountIdentifierSource``,
+	/// so a test can substitute it without configuring Clerk.
+	private static func clerkAccountIdentifier() -> String? {
 		#if canImport(ClerkKit)
-		// Clerk user ids are not UUIDs; map deterministically into one so the same user
-		// always yields the same token. Tolerate nil (signed out / Clerk not configured).
-		guard let userID = Clerk.shared.user?.id else { return nil }
-		return Self.deterministicUUID(from: userID)
+		return Clerk.shared.user?.id
 		#else
 		return nil
 		#endif
@@ -212,26 +249,36 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 
 	/// Recompute ``isSubscribed`` from the device's current entitlements, counting only
 	/// cryptographically verified, non-revoked subscription transactions for our group.
-	private func refreshEntitlement() async {
-		var entitled = false
-		var transactionID: UInt64?
-		var expiration: Date?
-		var inTrial = false
+	///
+	/// Reading the candidates and deciding on them are now separate: the read needs StoreKit,
+	/// the decision is ``EntitlementResolver``'s, and publishing the result is this method's.
+	/// Only the read is beyond a test's reach (AIA-0518).
+	///
+	/// Internal rather than private so a test can drive it with an injected `entitlementSource`.
+	/// Its production callers all make a real StoreKit round-trip first — `restore()` calls
+	/// `AppStore.sync()`, `start()` drains `Transaction.unfinished` — which a unit test must not
+	/// do; calling this directly is what keeps the publication wiring testable without one.
+	func refreshEntitlement() async {
+		let resolved = EntitlementResolver.resolve(await entitlementSource())
+		isSubscribed = resolved != nil
+		currentTransactionID = resolved?.transactionID
+		currentExpirationDate = resolved?.expirationDate
+		isInTrial = resolved?.isInTrial ?? false
+	}
+
+	/// The production candidate reader. Only ever called through ``entitlementSource``.
+	///
+	/// Collects before resolving rather than deciding inside the loop, so the "skip an
+	/// ineligible entry and keep scanning" rule lives in one testable place. The sequence holds
+	/// the latest transaction per product, so materializing it is not a cost.
+	private static func currentEntitlementCandidates() async -> [EntitlementCandidate] {
+		var candidates: [EntitlementCandidate] = []
 		for await result in Transaction.currentEntitlements {
-			guard let transaction = verified(result) else { continue }
-			guard transaction.productType == .autoRenewable,
-				  SubscriptionProduct.allIDs.contains(transaction.productID),
-				  transaction.revocationDate == nil else { continue }
-			entitled = true
-			transactionID = transaction.id
-			expiration = transaction.expirationDate
-			inTrial = transaction.offer?.type == .introductory
-			break
+			// Unverified results are dropped — they cannot be trusted as entitlement on-device.
+			guard case .verified(let transaction) = result else { continue }
+			candidates.append(EntitlementCandidate(transaction))
 		}
-		isSubscribed = entitled
-		currentTransactionID = transactionID
-		currentExpirationDate = expiration
-		isInTrial = inTrial
+		return candidates
 	}
 
 	/// Unwrap a `VerificationResult`, returning the payload only when StoreKit verified
@@ -246,18 +293,25 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 		}
 	}
 
-	/// Deterministic UUID derived from an arbitrary string id, so the same Clerk user
-	/// always maps to the same `appAccountToken` — including across app launches and
-	/// reinstalls (needed so a future backend can reconcile transactions to a user).
+}
+
+// MARK: - StoreKit projection
+
+extension EntitlementCandidate {
+	/// Project a verified StoreKit transaction onto the facts the entitlement decision reads.
 	///
-	/// Uses SHA-256 (stable) rather than `Hasher`, whose seed is randomized per process
-	/// run — `Hasher` would produce a different token every launch.
-	private static func deterministicUUID(from string: String) -> UUID {
-		let digest = Array(SHA256.hash(data: Data(string.utf8)).prefix(16))
-		return UUID(uuid: (digest[0], digest[1], digest[2], digest[3],
-						   digest[4], digest[5], digest[6], digest[7],
-						   digest[8], digest[9], digest[10], digest[11],
-						   digest[12], digest[13], digest[14], digest[15]))
+	/// The only place `Transaction` and ``EntitlementResolver`` meet. Keeping the projection
+	/// here — rather than in the resolver — is what lets the resolver stay free of StoreKit and
+	/// therefore testable (AIA-0518).
+	init(_ transaction: Transaction) {
+		self.init(
+			productID: transaction.productID,
+			transactionID: transaction.id,
+			isAutoRenewable: transaction.productType == .autoRenewable,
+			revocationDate: transaction.revocationDate,
+			expirationDate: transaction.expirationDate,
+			isIntroductoryOffer: transaction.offer?.type == .introductory
+		)
 	}
 }
 
