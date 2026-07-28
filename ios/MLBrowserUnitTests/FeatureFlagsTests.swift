@@ -58,6 +58,91 @@ final class FeatureFlagsTests: XCTestCase {
 		XCTAssertFalse(FeatureFlagSnapshot(values: [.isRefundRequestEnabled: false]).isRefundRequestEnabled)
 	}
 
+	// MARK: - Launch-captured flags (AIA-0513)
+
+	/// The defect this guards: a flag captured once at launch reads the snapshot before the
+	/// ConfigCat SDK has synced, so it gets the compiled default on every launch and the dashboard
+	/// is inert in both directions. `isPaymentsEnabled` was in that state since AIA-0350 — the
+	/// payments kill switch could not be turned off. Unit tests could not see it because they
+	/// inject the resolved boolean; this pins the resolution itself.
+	func test_launchCapturedFlag_prefersTheMirrorOverAnUnsyncedSnapshot() {
+		// What a cold launch actually looks like: the snapshot is still compiled defaults...
+		let unsynced = FeatureFlagSnapshot.defaults
+		XCTAssertTrue(unsynced.isPaymentsEnabled, "precondition: the compiled default is open")
+
+		// ...while the previous session observed the dashboard turning payments off.
+		let mirror = ["isPaymentsEnabled": false]
+
+		XCTAssertFalse(
+			LaunchCapturedFlags.resolve(.isPaymentsEnabled, mirror: mirror, snapshot: unsynced),
+			"a launch-captured flag must honour the observed dashboard value, not the compiled default"
+		)
+	}
+
+	/// No mirror yet — a genuine first launch, or any test, where the static provider is
+	/// synchronous and the snapshot is therefore trustworthy at construction.
+	func test_launchCapturedFlag_withoutAMirror_fallsBackToTheSnapshot() {
+		let snapshot = FeatureFlagSnapshot(values: [.isPaymentsEnabled: false])
+		XCTAssertFalse(LaunchCapturedFlags.resolve(.isPaymentsEnabled, mirror: [:], snapshot: snapshot))
+		XCTAssertTrue(LaunchCapturedFlags.resolve(.isModelCatalogEnabled, mirror: [:], snapshot: snapshot))
+	}
+
+	/// The mirror must carry every flag, so adding one cannot silently opt it out of the fix.
+	func test_mirror_capturesEveryFlag() {
+		let mirrored = LaunchCapturedFlags.mirror(from: FeatureFlagSnapshot.defaults)
+		XCTAssertEqual(Set(mirrored.keys), Set(FeatureFlagKey.allCases.map(\.rawValue)))
+		for key in FeatureFlagKey.allCases {
+			XCTAssertEqual(mirrored[key.rawValue], key.defaultValue, "\(key.rawValue) mirrored wrongly")
+		}
+	}
+
+	/// A round trip: what one session mirrors is what the next session captures.
+	func test_mirrorThenResolve_roundTripsTheObservedValue() {
+		let observed = FeatureFlagSnapshot(values: [.isPaymentsEnabled: false, .isAnalyticsEnabled: false])
+		let mirror = LaunchCapturedFlags.mirror(from: observed)
+		for key in FeatureFlagKey.allCases {
+			XCTAssertEqual(
+				LaunchCapturedFlags.resolve(key, mirror: mirror, snapshot: .defaults),
+				observed[key],
+				"\(key.rawValue) did not survive the mirror round trip"
+			)
+		}
+	}
+
+	/// The **wiring**, not just the pure helper. The pure tests above pass whether or not anything
+	/// actually persists a snapshot, which is exactly the gap that hid the original bug one level
+	/// down — so this drives a real republish through a real `FeatureFlagsState` and asserts the
+	/// mirror lands in `Settings`.
+	@MainActor
+	func test_mirror_persistsObservedSnapshotsButNeverTheSeed() async {
+		let settings = Settings()
+		settings.reset()
+		settings.remoteFlagLaunchValues = [:]
+		let provider = ChangingFeatureFlagProvider(initial: .defaults)
+		let flags = FeatureFlagsState(provider: provider)
+		let sut = FlagLaunchValueMirror(flags: flags, settings: settings)
+		defer { withExtendedLifetime(sut) {} }
+
+		// The seed is the compiled defaults and must NOT be persisted — writing it would overwrite
+		// a real dashboard value with a placeholder on every launch.
+		XCTAssertTrue(settings.remoteFlagLaunchValues.isEmpty, "the compiled-default seed was persisted")
+
+		// Config lands, with payments switched off.
+		let republished = expectation(description: "republished")
+		let token = flags.$snapshot.dropFirst().sink { _ in republished.fulfill() }
+		provider.emit(FeatureFlagSnapshot(values: [.isPaymentsEnabled: false]))
+        await fulfillment(of: [republished], timeout: 2)
+		token.cancel()
+
+		XCTAssertEqual(settings.remoteFlagLaunchValues["isPaymentsEnabled"], false,
+					   "an observed dashboard value must be mirrored for the next launch")
+		// And the next launch resolves from it rather than from an unsynced snapshot.
+		XCTAssertFalse(LaunchCapturedFlags.resolve(.isPaymentsEnabled,
+												   mirror: settings.remoteFlagLaunchValues,
+												   snapshot: .defaults))
+		settings.reset()
+	}
+
 	func test_defaultsSnapshot_usesEveryKeysDefault() {
 		let sut = FeatureFlagSnapshot.defaults
 		for key in FeatureFlagKey.allCases {

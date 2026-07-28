@@ -212,41 +212,6 @@ final class AnalyticsTests: XCTestCase {
 		XCTAssertEqual(analytics.pendingPreConsentCount, 0)
 	}
 
-	/// The merge-blocker regression lock (found by MANUAL testing, invisible to unit tests that
-	/// inject the boolean): the mode is captured once per launch, and the ConfigCat snapshot is not
-	/// synced at capture time — so the dashboard can only ever take effect if each session mirrors
-	/// the observed value for the NEXT launch to capture. This pins the mirror write.
-	func testRemoteRepublish_MirrorsTheIdentityFlagForTheNextLaunch() async {
-		let provider = ChangingAnalyticsFeatureFlagProvider(
-			initial: FeatureFlagSnapshot(values: [.isAnalyticsEnabled: true])
-		)
-		let flags = FeatureFlagsState(provider: provider)
-		// The mirror deliberately survives `reset()` (it is remote config, not a preference), so a
-		// value written by an earlier test in this process is still in UserDefaults — clear it, or
-		// this test measures contamination rather than behaviour.
-		settings.analyticsAccountIdentityRemoteValue = nil
-		// Retained for the test's duration: the mirror is written by the instance's own Combine
-		// subscription, so `_ =` would deallocate it and silently write nothing.
-		let sut = AnalyticsState(settings: settings, tracker: RecordingAnalyticsTracker(), featureFlags: flags, isAccountIdentityEnabled: true)
-		defer { withExtendedLifetime(sut) {} }
-
-		// Nothing observed yet: the mirror must stay nil — persisting the construction-time
-		// snapshot would stomp a previously mirrored dashboard value with compiled defaults.
-		XCTAssertNil(settings.analyticsAccountIdentityRemoteValue)
-
-		// The dashboard turns the identity off; config lands mid-session.
-		await republish(provider, into: flags, FeatureFlagSnapshot(values: [
-			.isAnalyticsEnabled: true, .isCrossDeviceAnalyticsIdentityEnabled: false
-		]))
-		XCTAssertEqual(settings.analyticsAccountIdentityRemoteValue, false)
-
-		// And back on: the mirror tracks the latest observation, not the first.
-		await republish(provider, into: flags, FeatureFlagSnapshot(values: [
-			.isAnalyticsEnabled: true, .isCrossDeviceAnalyticsIdentityEnabled: true
-		]))
-		XCTAssertEqual(settings.analyticsAccountIdentityRemoteValue, true)
-	}
-
 	/// Device-wide mode must be structurally unable to receive an account identity — not merely
 	/// protected by the coordinator happening not to exist. If the composition root's two reads of
 	/// the flag ever diverged, a coordinator could push account ids at a device-wide

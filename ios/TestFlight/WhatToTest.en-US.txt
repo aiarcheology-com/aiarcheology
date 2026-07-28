@@ -1,15 +1,12 @@
-Test Focus: The optional analytics choice is now tied to the account you are signed in with, rather than to the device — and the wording that used to call the data "anonymous" has been corrected.
+Test Focus: Turning features off from our remote config now actually works. Previously a switch we flipped had no effect until the app was reinstalled — most importantly the one that controls whether the app asks you to subscribe at all.
 
-Background: if you turn analytics on, your usage can now be counted once across all the devices you sign in on, instead of every device looking like a separate person. Because that links usage to your account, the choice now belongs to the account that made it: someone else signing in on the same phone is asked for themselves. Analytics itself stays off until you turn it on — none of this collects anything from you unless you say yes.
+Background: the app reads its remote settings at startup, but it was reading them a fraction too early — before they had arrived — so it always fell back to the values built into the app. This build makes each run remember what it received, and the next start uses it. A change we make therefore takes effect the second time you open the app, not the first.
 
 Please test:
 
-1. Normal use, first and foremost. Sign in, browse, run detections, save findings, open Settings. Nothing about signing in, paying, or browsing should feel different. This is the most important check in this build.
-2. Settings → Privacy. The toggle now reads "Share usage data" (it used to say "Share anonymous usage data"), and the text below it explains that while you are signed in, usage is linked to your account so it counts once across your devices. Check the wording reads clearly and has no typos.
-3. Turn the analytics toggle off and on a few times, then force-quit the app and reopen it. Your choice should be exactly as you left it.
-4. Settings → About → Privacy Policy, and read the Telemetry section. It should describe the account-linked identifier, say it is scrambled on your device before anything is sent, and say that signing out stops further usage being linked to your account. Report anything that reads as wrong or unclear.
-5. Settings → Reset → Restore Defaults. Afterwards the analytics question should be offered again as if fresh.
-6. Sign out and sign back in with the SAME account. You should not be asked the analytics question again.
-7. If you have a second account, sign out and sign in with it. That account should be asked the analytics question for itself, and answering for one account must not answer for the other. Analytics must stay off for the second account until it says yes. This is the main new behaviour in this build.
-8. On the subscribe screen (visible when you are signed in but not subscribed), check that "Sign Out" and "Delete Account" both work and return you to the sign-in screen. Delete Account asks you to confirm first — please use a throwaway account, as deletion is permanent.
-9. Report immediately if the analytics question keeps reappearing after you have answered it, or if the toggle shows as on for an account that never agreed to it.
+1. Normal use, first and foremost. Open the app, sign in, browse, run detections, save findings. Nothing should look or behave differently. This is the most important check in this build.
+2. If you are a subscriber, confirm you still go straight into the app and are never shown the subscribe screen.
+3. If you are not a subscriber, confirm you still see the subscribe screen exactly as before, and that Restore Purchases still works.
+4. Force-quit the app and reopen it a few times. Nothing about subscribing, signing in, or your settings should change between launches.
+5. Settings → Privacy: your analytics choice should be exactly as you left it, including after a force-quit.
+6. Report anything where the app suddenly asks you to subscribe when it did not before, or lets you in when it should not have.

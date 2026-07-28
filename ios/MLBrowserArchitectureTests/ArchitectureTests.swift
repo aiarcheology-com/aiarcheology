@@ -496,6 +496,49 @@ final class ArchitectureTests: XCTestCase {
     /// user export). Any other PRODUCTION caller of `FindingScreenshotStore.save` is an unreviewed
     /// image-persistence path and fails CI. Tests call it directly, but they live outside the
     /// production root scanned here, so they are not offenders.
+    /// Launch-captured flags must be resolved through `LaunchCapturedFlags`, never read straight
+    /// off the live snapshot (AIA-0513).
+    ///
+    /// `FeatureFlagsState` seeds synchronously and the ConfigCat SDK has not synced at composition
+    /// time, so `featureFlagsState.snapshot.someFlag` in the composition root captures the compiled
+    /// default on *every* launch and the dashboard is inert. That is how the payments kill switch
+    /// was silently non-functional from AIA-0350. Unit tests cannot catch a regression here — they
+    /// inject the resolved boolean — so this is a static guard on the shape of the code.
+    ///
+    /// Fails closed: it asserts the file was actually read, so a broken path fails rather than
+    /// silently reporting zero offenders.
+    func testCompositionRootResolvesLaunchCapturedFlagsThroughTheMirror() {
+        let root = Self.repoRootURL()
+            .appendingPathComponent("ios/MLBrowser/iOS/State/DependencyContainer.swift")
+        guard let source = try? String(contentsOf: root, encoding: .utf8) else {
+            return XCTFail("Could not read DependencyContainer.swift — the rule cannot fail closed")
+        }
+        XCTAssertTrue(source.contains("launchCapturedFlag("),
+                      "The composition root should resolve launch-captured flags via launchCapturedFlag(_:)")
+
+        // The only sanctioned direct read is inside the resolver itself, which passes the snapshot
+        // to `LaunchCapturedFlags.resolve` as the no-mirror fallback.
+        let offenders = source
+            .components(separatedBy: .newlines)
+            .enumerated()
+            .filter { _, line in
+                line.contains("featureFlagsState.snapshot.")
+                    && !line.contains("//")
+            }
+            .map { index, line in "DependencyContainer.swift:\(index + 1): \(line.trimmingCharacters(in: .whitespaces))" }
+
+        XCTAssertTrue(
+            offenders.isEmpty,
+            """
+            A launch-captured flag is being read from the unsynced snapshot. Use \
+            `launchCapturedFlag(_:)` instead, or the dashboard value will never take effect.
+            See AIA-0513.
+            Offenders:
+            \(offenders.joined(separator: "\n"))
+            """
+        )
+    }
+
     func testOnlyFindingRepositoryWritesScreenshots() {
         // Fail closed: an empty scan means the production root moved or couldn't be enumerated, which
         // would otherwise let this privacy invariant pass vacuously.

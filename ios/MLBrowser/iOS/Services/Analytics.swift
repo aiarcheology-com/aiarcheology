@@ -136,12 +136,10 @@ final class AnalyticsState: ObservableObject {
 	/// model is in force, so honouring a mid-session flip would either start attributing events to
 	/// an account that answered a device-wide question, or strand a user mid-consent.
 	///
-	/// The value the composition root passes comes from `Settings.analyticsAccountIdentityRemoteValue`
-	/// — the dashboard value mirrored by the previous session — falling back to the live snapshot
-	/// only when no mirror exists (first launch, tests). It must never be read straight off the
-	/// ConfigCat snapshot at construction: that snapshot has not synced yet, so a direct read
-	/// captures the compiled default on every launch and the dashboard never takes effect. A remote
-	/// change therefore lands one cold launch after it is first observed.
+	/// The composition root resolves this through its launch-value mirror (AIA-0513), never from
+	/// the live snapshot: the snapshot has not synced at construction, so a direct read captures
+	/// the compiled default on every launch and the dashboard never takes effect. A remote change
+	/// therefore lands one cold launch after it is first observed.
 	private let isAccountIdentityEnabled: Bool
 
 	init(
@@ -164,16 +162,6 @@ final class AnalyticsState: ObservableObject {
 		featureFlagObservation = featureFlags.$snapshot
 			.dropFirst()
 			.sink { [weak self] snapshot in
-				// Mirror the identity flag for the NEXT launch. The mode in force this session was
-				// captured at construction and deliberately never moves; what a republish CAN do is
-				// record what the dashboard now says, so the next cold launch captures that instead
-				// of the compiled default. Without the mirror the remote flag is inert in both
-				// directions: the ConfigCat snapshot is not synchronously available at construction,
-				// so a launch-captured read sees only the compiled default, forever — found by
-				// manual testing, not by any unit test, because tests inject the boolean directly.
-				// `dropFirst()` matters here too: the construction-time snapshot IS the compiled
-				// defaults, and persisting it would overwrite a previously mirrored dashboard value.
-				self?.settings.analyticsAccountIdentityRemoteValue = snapshot.isCrossDeviceAnalyticsIdentityEnabled
 				self?.applyRemoteFeatureFlag(snapshot.isAnalyticsEnabled)
 			}
 	}

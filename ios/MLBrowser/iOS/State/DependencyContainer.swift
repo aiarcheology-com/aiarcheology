@@ -170,7 +170,13 @@ class DependencyContainer {
     }
 
     lazy var featureFlagsState: FeatureFlagsState = {
-        FeatureFlagsState(provider: self.featureFlagProvider)
+        let state = FeatureFlagsState(provider: self.featureFlagProvider)
+        // Armed here rather than from `makeAppState()`: a background app-refresh launch touches
+        // `featureFlagsState` and syncs it without ever building `AppState`, so arming later would
+        // subscribe with an already-synced snapshot current — which `dropFirst()` would then
+        // swallow, losing that session's only observation (AIA-0513).
+        self.flagLaunchValueMirror = FlagLaunchValueMirror(flags: state, settings: self.settings)
+        return state
     }()
 
 	// MARK: - Optional analytics (AIA-0350)
@@ -187,21 +193,37 @@ class DependencyContainer {
 		return TelemetryDeckAnalyticsProvider()
 	}()
 
-	/// The identity flag actually in force this session (AIA-0437), resolved **once** and shared by
-	/// both of its consumers — `analyticsState` and the coordinator gate in `makeAppState()`.
+	/// Retained here; nothing else references it. Constructed inside the `featureFlagsState`
+	/// initializer so it subscribes in the same synchronous frame as the state it mirrors —
+	/// see ``FlagLaunchValueMirror`` for why arming it later would silently lose a value.
+	private var flagLaunchValueMirror: FlagLaunchValueMirror?
+
+	/// The value a **launch-captured** flag should be resolved with (AIA-0513).
+	///
+	/// Reads the previous session's mirrored dashboard value first. Reading the live snapshot here
+	/// instead would capture the compiled default on every launch, because the ConfigCat SDK has
+	/// not synced when the composition root runs — that is the whole defect. The snapshot fallback
+	/// serves exactly the cases with no mirror: a genuine first launch, and tests, where the static
+	/// provider IS synchronous.
+	///
+	/// Only for flags captured once per session. Anything read live must use the published
+	/// snapshot so it still tracks changes within a session.
+	private func launchCapturedFlag(_ key: FeatureFlagKey) -> Bool {
+		LaunchCapturedFlags.resolve(
+			key,
+			mirror: settings.remoteFlagLaunchValues,
+			snapshot: featureFlagsState.snapshot
+		)
+	}
+
+	/// The identity flag in force this session (AIA-0437), resolved **once** and shared by both of
+	/// its consumers — `analyticsState` and the coordinator gate in `makeAppState()`.
 	///
 	/// One resolution rather than two reads is load-bearing: if the two diverged, a coordinator
 	/// could feed account ids into an `AnalyticsState` running device-wide, installing an identity
 	/// under a consent model that never asked the user about one.
-	///
-	/// Reads the previous session's mirrored dashboard value first. The ConfigCat snapshot is not
-	/// synchronously available here — reading it directly captures the compiled default on every
-	/// launch and the dashboard never takes effect (the inert-flag defect found by manual testing).
-	/// The snapshot fallback serves exactly the cases with no mirror: a true first launch, and
-	/// tests, where the static provider IS synchronous and the mirror is never written.
 	private lazy var isAccountIdentityEnabledResolved: Bool =
-		settings.analyticsAccountIdentityRemoteValue
-		?? featureFlagsState.snapshot.isCrossDeviceAnalyticsIdentityEnabled
+		launchCapturedFlag(.isCrossDeviceAnalyticsIdentityEnabled)
 
 	lazy var analyticsState: AnalyticsState = {
 		AnalyticsState(
@@ -339,7 +361,10 @@ class DependencyContainer {
 		let account = AccountSession(
 			authProvider: authProvider,
 			subscriptionProvider: subscriptionProvider,
-			isPaymentsEnabled: featureFlagsState.snapshot.isPaymentsEnabled
+			// AIA-0513: resolved through the launch mirror, not the live snapshot. Reading the
+			// snapshot here captured the compiled default on every launch, so the payments kill
+			// switch could never be turned off from the dashboard.
+			isPaymentsEnabled: launchCapturedFlag(.isPaymentsEnabled)
 		)
 		// Arm reply delivery (AIA-0115): the coordinator hooks messageCenterState on init and is
 		// retained by this container; nothing else references it.

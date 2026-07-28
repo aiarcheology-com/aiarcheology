@@ -93,6 +93,35 @@ enum FeatureFlagKey: String, CaseIterable {
 	}
 }
 
+/// Resolution for flags captured **once per session** rather than observed live (AIA-0513).
+///
+/// A launch-captured flag cannot read the live snapshot: `FeatureFlagsState` seeds synchronously
+/// and the ConfigCat SDK has not synced by then — not even from its own on-disk cache — so the read
+/// returns the compiled default on *every* launch and the dashboard is inert in both directions.
+/// Flags read live are unaffected, because they observe the republish; flags captured once never do.
+///
+/// The fix is a one-launch delay: each session mirrors what it observes, and the next session
+/// captures the mirror. Pure and static so it is testable without the composition root.
+enum LaunchCapturedFlags {
+	/// The values to persist for the next launch, taken from an observed (post-sync) snapshot.
+	static func mirror(from snapshot: FeatureFlagSnapshot) -> [String: Bool] {
+		var values: [String: Bool] = [:]
+		for key in FeatureFlagKey.allCases { values[key.rawValue] = snapshot[key] }
+		return values
+	}
+
+	/// The value to capture for `key`: the previous session's observation, or the live snapshot
+	/// when nothing has been observed yet (a genuine first launch, or a test whose provider is
+	/// synchronous and therefore trustworthy at construction).
+	static func resolve(
+		_ key: FeatureFlagKey,
+		mirror: [String: Bool],
+		snapshot: FeatureFlagSnapshot
+	) -> Bool {
+		mirror[key.rawValue] ?? snapshot[key]
+	}
+}
+
 /// Keys of non-boolean settings served from the same ConfigCat config.
 ///
 /// Same contract as `FeatureFlagKey.rawValue`: the literal **is** the dashboard key, and a

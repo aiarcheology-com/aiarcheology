@@ -51,8 +51,8 @@ final class Settings: ObservableObject, Validatable {
 		/// Stored as the same SHA-256 as the consent hash, never a raw account id.
 		static let analyticsActivationReportedAccountHash = "analyticsActivationReportedAccountHash"
 		static let analyticsSignedInReportedAccountHash = "analyticsSignedInReportedAccountHash"
-		/// The dashboard's last-known value of the identity flag, mirrored for the next launch.
-		static let analyticsAccountIdentityRemoteValue = "analyticsAccountIdentityRemoteValue"
+		/// Last-known remote values of every feature flag, mirrored for the next launch (AIA-0513).
+		static let remoteFlagLaunchValues = "remoteFlagLaunchValues"
 		/// A user's screenshot-reporting decision (AIA-0454). An absent value means the user has
 		/// not decided yet; `true` enables offers and `false` disables them.
 		static let screenshotDetectionEnabled = "screenshotDetectionEnabled"
@@ -243,26 +243,23 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
-	/// The dashboard's last-known value of `isCrossDeviceAnalyticsIdentityEnabled`, mirrored on
-	/// every flag-snapshot republish and read back at the NEXT launch (AIA-0437).
+	/// The dashboard's last-known value for each feature flag, keyed by `FeatureFlagKey.rawValue`,
+	/// mirrored on every snapshot republish and read back at the NEXT launch (AIA-0513).
 	///
-	/// Exists because the flag in force is captured once per session, at construction — and at
-	/// construction the ConfigCat snapshot has not synced yet, so capturing from it reads the
-	/// compiled default on every launch and the dashboard could never take effect at all (found
-	/// by manual testing: the remote flag was inert in both directions). `nil` means the remote
-	/// value has never been observed — a true first launch, or any test — and the capture then
-	/// falls back to the live snapshot, which is what keeps UI-test static overrides working.
+	/// Exists because a flag captured once at launch never sees its dashboard value at all. The
+	/// snapshot is seeded synchronously in `FeatureFlagsState.init`, and the ConfigCat SDK has not
+	/// synced by then — not even from its own on-disk cache — so a launch-time read returns the
+	/// compiled default on *every* launch and the remote switch is inert in both directions. Flags
+	/// read live are unaffected: they observe the republish. Flags captured once never do.
+	///
+	/// Empty means nothing has been observed yet (first launch, or any test), and the resolver
+	/// falls back to the live snapshot — which is what keeps the static test provider working.
 	///
 	/// Deliberately NOT cleared by `reset()`: this mirrors remote configuration, not a user
-	/// preference, and forgetting it would resurrect the inert-flag state until the next sync
-	/// (same survives-reset reasoning as `ratingPromptLastRequestDate`).
-	@Published public var analyticsAccountIdentityRemoteValue: Bool? {
+	/// preference, and forgetting it would resurrect the inert state until the next sync.
+	@Published public var remoteFlagLaunchValues: [String: Bool] {
 		didSet {
-			if let analyticsAccountIdentityRemoteValue {
-				defaults.set(analyticsAccountIdentityRemoteValue, forKey: UserDefaultsKeys.analyticsAccountIdentityRemoteValue)
-			} else {
-				defaults.removeObject(forKey: UserDefaultsKeys.analyticsAccountIdentityRemoteValue)
-			}
+			defaults.set(remoteFlagLaunchValues, forKey: UserDefaultsKeys.remoteFlagLaunchValues)
 		}
 	}
 
@@ -415,7 +412,7 @@ final class Settings: ObservableObject, Validatable {
 		self.analyticsConsentAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsConsentAccountHash)
 		self.analyticsActivationReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsActivationReportedAccountHash)
 		self.analyticsSignedInReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsSignedInReportedAccountHash)
-		self.analyticsAccountIdentityRemoteValue = defaults.object(forKey: UserDefaultsKeys.analyticsAccountIdentityRemoteValue) as? Bool
+		self.remoteFlagLaunchValues = defaults.dictionary(forKey: UserDefaultsKeys.remoteFlagLaunchValues) as? [String: Bool] ?? [:]
 		self.ratingPromptEventCount = defaults.integer(forKey: UserDefaultsKeys.ratingPromptEventCount)
 		// There is no `defaults.date(forKey:)`; an absent key must stay `nil` rather than become a
 		// 1970 date, which `shouldRequest` would read as "asked very long ago".

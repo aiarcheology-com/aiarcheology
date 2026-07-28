@@ -7,6 +7,11 @@ Flags are **remote**: they can be flipped from the ConfigCat dashboard without a
 Store release. Every flag also has a **compiled default** used whenever remote config
 cannot be consulted.
 
+> **Launch-captured flags carry one cold launch of latency.** A flag captured once per session is
+> resolved from the previous session's observation (`LaunchCapturedFlags`), because the remote
+> config has not synced when the composition root runs. Offline or on a first launch it falls back
+> to the compiled default. See AIA-0513.
+
 ## The current flags
 
 | Key | Default | Applies | Gates |
@@ -53,6 +58,15 @@ DependencyContainer  →  AppState.featureFlags  →  views
 - **No app-owned cache.** The ConfigCat SDK already persists config JSON to `UserDefaults`
   under `com.configcat-` and exposes a synchronous `client.snapshot()`. A second cache
   would be a competing source of truth that diverges across environments.
+- **A launch-captured flag cannot read the snapshot (AIA-0513).** `FeatureFlagsState` seeds
+  synchronously and the ConfigCat SDK has not synced at composition time — not even from its own
+  on-disk cache, which loads asynchronously. Reading `snapshot` at launch therefore yields the
+  **compiled default on every launch**, and the dashboard is inert in both directions. This is not
+  theoretical: `isPaymentsEnabled` was in that state from AIA-0350 until AIA-0513, so the payments
+  kill switch never worked, and no unit test could see it because tests inject the resolved value.
+  Launch-captured flags resolve through `LaunchCapturedFlags`, which mirrors each observed snapshot
+  for the *next* launch to capture — remote changes land one cold launch after they are first
+  observed. Flags read live are unaffected; they observe the republish.
 - **Live vs launch-only is a real decision.** `SubscriptionGateView` is the *app root*:
   applying a mid-session `isPaymentsEnabled` flip would drop a paywall on someone
   mid-detection, or release an unpaid user from it. That flag is captured once in
@@ -142,7 +156,10 @@ Dashboard: org `Aiarcheology` → `Aiarcheology's Product` → `Main Config`.
    the compiled default and the flag looks healthy but can never be flipped.
 2. Add a `case` to `FeatureFlagKey` and its `defaultValue`.
 3. Decide **live or launch-only** and wire it accordingly.
-4. Read it from `featureFlags.snapshot` (live) or capture it at launch (session-boundary).
+4. Read it from `featureFlags.snapshot` (live) **or**, for a launch-captured flag, resolve it via
+   `DependencyContainer.launchCapturedFlag(_:)` — **never** `featureFlagsState.snapshot.yourFlag`
+   in the composition root. See "Launch-captured flags" below; getting this wrong makes the flag
+   permanently inert, and an architecture test now fails if you do.
 5. UI tests can force it via `UITestLaunchConfiguration.featureFlagOverrides`
    (keyed by `rawValue`; an unknown key traps). Assert on the *overridden* value, never a
    value that equals the compiled default — a test that agrees with the default passes even
