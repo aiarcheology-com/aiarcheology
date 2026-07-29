@@ -47,6 +47,7 @@ final class Settings: ObservableObject, Validatable {
 		static let analyticsChoiceMade = "analyticsChoiceMade"
 		/// Which account the stored analytics choice belongs to (AIA-0437).
 		static let analyticsConsentAccountHash = "analyticsConsentAccountHash"
+		static let analyticsAccountEnabled = "analyticsAccountEnabled"
 		/// Which account has already had each once-per-account funnel event reported (AIA-0437).
 		/// Stored as the same SHA-256 as the consent hash, never a raw account id.
 		static let analyticsActivationReportedAccountHash = "analyticsActivationReportedAccountHash"
@@ -223,6 +224,22 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	/// The account bucket's on/off value, paired with ``analyticsConsentAccountHash`` (AIA-0536).
+	///
+	/// Separate from ``analyticsEnabled`` because there are two consent buckets and one flag cannot
+	/// hold two independent answers. ``analyticsEnabled`` belongs to the anonymous/device-wide
+	/// bucket; this one belongs to whichever account the hash names. Nothing that writes one bucket
+	/// ever touches the other, which is what stops each from silently overwriting the other's answer
+	/// and re-prompting forever.
+	///
+	/// Shared across accounts — only the hash is per-account — so whoever consented last owns the
+	/// value, and the hash is what gates who may use it.
+	@Published public var analyticsAccountEnabled: Bool {
+		didSet {
+			defaults.set(analyticsAccountEnabled, forKey: UserDefaultsKeys.analyticsAccountEnabled)
+		}
+	}
+
 	/// Which account has already reported `subscription.activated` (AIA-0437).
 	///
 	/// Persisted because the event marks a **conversion**: without it, every launch of an already
@@ -387,6 +404,7 @@ final class Settings: ObservableObject, Validatable {
 			UserDefaultsKeys.tiledBorders: false,
 			UserDefaultsKeys.analyticsEnabled: false,
 			UserDefaultsKeys.analyticsChoiceMade: false,
+			UserDefaultsKeys.analyticsAccountEnabled: false,
 			UserDefaultsKeys.ratingPromptEventCount: 0
         ]
 
@@ -409,6 +427,7 @@ final class Settings: ObservableObject, Validatable {
 		self.tiledBorders = defaults.bool(forKey: UserDefaultsKeys.tiledBorders)
 		self.analyticsEnabled = defaults.bool(forKey: UserDefaultsKeys.analyticsEnabled)
 		self.analyticsChoiceMade = defaults.bool(forKey: UserDefaultsKeys.analyticsChoiceMade)
+		self.analyticsAccountEnabled = defaults.bool(forKey: UserDefaultsKeys.analyticsAccountEnabled)
 		self.analyticsConsentAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsConsentAccountHash)
 		self.analyticsActivationReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsActivationReportedAccountHash)
 		self.analyticsSignedInReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsSignedInReportedAccountHash)
@@ -483,6 +502,7 @@ final class Settings: ObservableObject, Validatable {
 		tiledBorders = false
 		analyticsEnabled = false
 		analyticsChoiceMade = false
+		analyticsAccountEnabled = false
 		analyticsConsentAccountHash = nil
 		analyticsActivationReportedAccountHash = nil
 		analyticsSignedInReportedAccountHash = nil
@@ -510,6 +530,7 @@ final class Settings: ObservableObject, Validatable {
 		defaults.set(tiledBorders, forKey: UserDefaultsKeys.tiledBorders)
 		defaults.set(analyticsEnabled, forKey: UserDefaultsKeys.analyticsEnabled)
 		defaults.set(analyticsChoiceMade, forKey: UserDefaultsKeys.analyticsChoiceMade)
+		defaults.set(analyticsAccountEnabled, forKey: UserDefaultsKeys.analyticsAccountEnabled)
 		defaults.set(ratingPromptEventCount, forKey: UserDefaultsKeys.ratingPromptEventCount)
 		defaults.removeObject(forKey: UserDefaultsKeys.analyticsConsentAccountHash)
 		defaults.removeObject(forKey: UserDefaultsKeys.analyticsActivationReportedAccountHash)

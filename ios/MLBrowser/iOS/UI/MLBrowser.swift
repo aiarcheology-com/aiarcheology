@@ -317,10 +317,21 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 	}
 
 	var body: some View {
-		if analytics.shouldShowChoice {
+		switch analytics.consentPresentation {
+		case .ask:
 			AnalyticsChoiceView(analytics: analytics)
-		} else {
+		case .resolved:
 			content
+		case .pending, .unavailable:
+			// Hold rather than render `content` and replace it when the scope resolves — that swap
+			// tears down the whole subtree and takes any in-flight browser state with it.
+			//
+			// Both are unreachable while the auth gate still stands above this one: it only mounts
+			// its children once a validated account exists, which always selects a scope. They
+			// become reachable with the paywall-first cut-over, which also owns the visual treatment
+			// — `.unavailable` should explain that a connection is needed rather than spin (#545).
+			ProgressView()
+				.frame(maxWidth: .infinity, maxHeight: .infinity)
 		}
 	}
 }

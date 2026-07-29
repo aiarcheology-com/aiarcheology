@@ -92,6 +92,44 @@ final class NoOpAnalyticsTracking: AnalyticsTracking {
 	func updateAccountIdentity(_: String?) {}
 }
 
+/// Who an analytics consent answer belongs to (AIA-0536).
+///
+/// **Two buckets, not three.** Device-wide consent — the pre-AIA-0437 model, still in force whenever
+/// `isCrossDeviceAnalyticsIdentityEnabled` is off — and anonymous consent are the *same* bucket.
+/// Device-wide mode never installs an identity at all, and anonymous mode installs `nil`, which per
+/// ``AnalyticsTracking/updateAccountIdentity(_:)`` means the transport's own anonymous installation
+/// identity. Identical bytes leave the device and an identical question is put to the user, so
+/// storing them separately would only create two ways to answer one question — and a way for each
+/// to silently overwrite the other, re-prompting forever.
+enum AnalyticsConsentScope: Equatable {
+	case anonymous
+	case account(String)
+
+	/// The raw account id, or `nil` for the anonymous bucket. This is exactly what the transport is
+	/// told, where `nil` means its own anonymous installation identity.
+	var accountIdentifier: String? {
+		if case let .account(identifier) = self { return identifier }
+		return nil
+	}
+}
+
+/// What the consent gate should do right now (AIA-0536).
+///
+/// A `Bool` cannot express this. Under the paywall-first gate order nothing blocks on auth, so the
+/// app can render before any scope is known — and a two-way branch would then *replace* a live
+/// content subtree when the scope resolves, destroying in-flight browser state.
+enum AnalyticsConsentPresentation: Equatable {
+	/// No scope resolved yet. Hold rather than render something that may have to be torn down.
+	case pending
+	/// A scope is selected and has not answered.
+	case ask
+	/// Nothing to ask: this scope has answered, or the remote feature is off.
+	case resolved
+	/// A session exists but cannot be verified, so no scope can be selected. Distinct from
+	/// ``pending`` because it will not resolve on its own — the gate should explain, not spin.
+	case unavailable
+}
+
 /// Main-actor state combining the remote feature switch with the user's local choice.
 ///
 /// The effective state is `ConfigCat isAnalyticsEnabled && Settings.analyticsEnabled`. The
@@ -116,17 +154,32 @@ final class AnalyticsState: ObservableObject {
 	/// what the transport hashes; it must never be logged or sent as a parameter (AIA-0437).
 	private var currentAccountIdentifier: String?
 
-	/// The last non-`nil` account seen, which survives a sign-out. Used to decide whether an
-	/// arriving account is genuinely *different* — see ``updateAccountIdentity(_:)``.
-	private var lastKnownAccountIdentifier: String?
+	/// The consent bucket in force right now, or `nil` while no scope can be selected.
+	private var currentScope: AnalyticsConsentScope?
+
+	/// The last scope actually selected, which survives a transition through "no scope". Used to
+	/// decide whether an arriving scope is genuinely *different* — see ``applyScope(_:)``.
+	private var lastKnownScope: AnalyticsConsentScope?
+
+	/// Whether the reason no scope is selected is an unverifiable session rather than one still
+	/// resolving. Recorded from `.suspended`, which is otherwise ignored: it changes nothing about
+	/// attribution, but a gate that cannot tell "resolving" from "cannot resolve" leaves an offline
+	/// user waiting on a spinner that will never finish.
+	private var isAuthUnverifiable = false
 
 	/// Mirrors what the tracker has actually been told, so a re-evaluation that changes nothing
 	/// stays silent instead of churning the transport.
 	private var isTrackerActive = false
 	private var trackedIdentity: String?
 
-	/// True only while the remote feature is enabled and the signed-in account has not chosen.
-	@Published private(set) var shouldShowChoice: Bool
+	/// What the consent gate should render. Replaces the old `shouldShowChoice` Bool (AIA-0536).
+	@Published private(set) var consentPresentation: AnalyticsConsentPresentation
+
+	/// Whether analytics is actually sending right now, for the Settings toggle to display.
+	///
+	/// Derived rather than read from `Settings.analyticsEnabled` directly: that field is only the
+	/// *anonymous* bucket's value, so an account-scoped user would see someone else's answer.
+	@Published private(set) var isAnalyticsEnabled: Bool
 	/// Drives visibility of the Settings control. It changes live with ConfigCat.
 	@Published private(set) var isAnalyticsFeatureEnabled: Bool
 
@@ -153,7 +206,8 @@ final class AnalyticsState: ObservableObject {
 		self.featureFlags = featureFlags
 		self.isAccountIdentityEnabled = isAccountIdentityEnabled
 		isAnalyticsFeatureEnabled = featureFlags.snapshot.isAnalyticsEnabled
-		shouldShowChoice = false
+		consentPresentation = .pending
+		isAnalyticsEnabled = false
 		// No account is known at launch — auth resolves later — so nothing activates here. That is
 		// deliberate and stronger than it looks: activating before the account is known would emit
 		// the transport's automatic session signal anonymously, and it is hashed at enqueue, so no
@@ -166,90 +220,114 @@ final class AnalyticsState: ObservableObject {
 			}
 	}
 
-	/// Point the analytics identity at `identifier`, or clear it with `nil` on sign-out.
+	/// Select the consent bucket the current auth context permits (AIA-0536).
 	///
-	/// Consent is per account, so this is also what decides whether analytics may run at all: an
-	/// account whose choice we do not hold fails closed and is asked.
-	/// Point analytics at whatever the current auth context permits (AIA-0536).
-	///
-	/// The context carries one distinction ``updateAccountIdentity(_:)`` structurally cannot: it
-	/// separates "signed out" from "not resolved yet", which are both `nil` there. Both still map to
-	/// the same call today, so routing the coordinator through here changes no behaviour — the
-	/// distinction becomes load-bearing when consent itself becomes scope-aware.
+	/// The context carries the one distinction ``updateAccountIdentity(_:)`` structurally cannot:
+	/// "signed out" and "not resolved yet" are both `nil` there, but only the first is a scope that
+	/// may be asked for consent and may answer.
 	func updateAuthContext(_ context: EffectiveAuthContext) {
-		// Not every context is something to react to. `.suspended` carries no write of the published
-		// identity, so acting on it would deactivate a consented transport on every offline
-		// foreground — and the re-activation rebuilds the transport, re-emitting its automatic
-		// session signal and inflating user counts for someone who never went anywhere.
-		guard context.isAttributionTransition else { return }
-		updateAccountIdentity(context.attributedAccount)
+		// Device-wide mode is the pre-AIA-0437 contract: no account identity, ever. Structural
+		// rather than an accident of the coordinator not being constructed.
+		guard isAccountIdentityEnabled else { return }
+
+		guard context.isAttributionTransition else {
+			// `.suspended` carries no write of the published identity, so acting on it would
+			// deactivate a consented transport on every offline foreground — and the re-activation
+			// rebuilds the transport, re-emitting its automatic session signal. Record only that the
+			// session is unverifiable, which selects no scope and so can tear nothing down.
+			isAuthUnverifiable = true
+			applyEffectiveState()
+			return
+		}
+
+		isAuthUnverifiable = false
+		applyScope(Self.scope(for: context))
 	}
 
+	/// Point the analytics identity at `identifier`, or clear it with `nil`.
+	///
+	/// Kept alongside ``updateAuthContext(_:)`` for callers holding a bare account id. A `nil` here
+	/// means *no scope* rather than the anonymous bucket — an identifier alone cannot express the
+	/// difference, which is the whole reason the context type exists.
 	func updateAccountIdentity(_ identifier: String?) {
-		// Device-wide mode is the pre-AIA-0437 contract: no account identity, ever. The guard makes
-		// that structural rather than an accident of the coordinator not being constructed — the two
-		// are resolved from one value in the composition root, but no future caller may be able to
-		// install an identity under a consent model that never asked the user about one.
 		guard isAccountIdentityEnabled else { return }
-		currentAccountIdentifier = identifier
+		isAuthUnverifiable = false
+		applyScope(identifier.map(AnalyticsConsentScope.account))
+	}
 
-		if let identifier {
-			// Discard the pre-consent buffer when a genuinely DIFFERENT account arrives. Sign Out
-			// is reachable from the root paywall — outside the consent gate — so without this, A's
-			// buffered funnel would be delivered under B's identity the moment B opts in. Compared
-			// against the last non-`nil` account, not the immediately previous value, so that
-			// signing out and back in as the same person keeps their own events.
-			if let last = lastKnownAccountIdentifier, last != identifier {
-				pendingPreConsentEvents.removeAll()
-				// The detection counter is account-scoped for exactly the same reason as the buffer,
-				// and is easy to miss because it is not an event yet. It accumulates while A is
-				// consented and is only spent at backgrounding, so carrying it across an account
-				// change would report A's activity in a summary attributed to B (AIA-0437).
-				detectionRunCount = 0
-			}
-			lastKnownAccountIdentifier = identifier
+	private static func scope(for context: EffectiveAuthContext) -> AnalyticsConsentScope? {
+		switch context {
+		case .anonymous: .anonymous
+		case let .validated(account): .account(account)
+		// `.indeterminate` selects nothing — nobody is there to answer. `.suspended` never reaches
+		// here; it is filtered as a non-transition before this is called.
+		case .indeterminate, .suspended: nil
 		}
+	}
+
+	private func applyScope(_ scope: AnalyticsConsentScope?) {
+		// The buffer and the detection counter both belong to the scope that produced them, and both
+		// are discarded when the scope genuinely changes. Sign Out is reachable outside the consent
+		// gate, so without this A's buffered funnel would be delivered under B's identity — or under
+		// the anonymous bucket — the moment that scope opts in.
+		//
+		// `if let last` is load-bearing: **the first scope selection of a session is never a
+		// boundary.** Written as `lastKnownScope != scope`, `nil != .anonymous` is true and every
+		// cold-launch funnel would be discarded before it could ever be delivered. Events recorded
+		// before any scope existed cannot belong to another scope, because there was none.
+		if let scope, let last = lastKnownScope, last != scope {
+			// Spend the OUTGOING scope's detection count before the scope changes.
+			// `flushDetectionSessionSummary()` is guarded on the effective state, so it has to run
+			// while the outgoing scope is still selected — after the reassignment below it would
+			// silently drop. Discarding instead would destroy the summary of exactly the sessions
+			// where someone signs in mid-session, which is the normal shape once login is contextual.
+			flushDetectionSessionSummary()
+			pendingPreConsentEvents.removeAll()
+			detectionRunCount = 0
+		}
+
+		currentScope = scope
+		currentAccountIdentifier = scope?.accountIdentifier
+		if let scope { lastKnownScope = scope }
 
 		applyEffectiveState()
 	}
 
 	func chooseAnalytics(enabled: Bool) {
-		guard isAnalyticsFeatureEnabled else { return }
-		if isAccountIdentityEnabled {
-			// The choice is recorded against the account that gave it, so only a signed-in account
-			// can answer. Nothing to record for nobody.
-			guard let identifier = currentAccountIdentifier else { return }
+		// Nothing to record for nobody: with no scope selected there is no bucket to write into.
+		guard isAnalyticsFeatureEnabled, let scope = activeScope else { return }
+		// Each branch writes its own bucket end-to-end and touches no key belonging to the other.
+		// That separation is the whole safety property — a shared key would let either scope's
+		// answer silently overwrite the other's, and a rollback of the cross-device flag would
+		// promote one into the other.
+		switch scope {
+		case .anonymous:
+			settings.analyticsChoiceMade = true
+		case let .account(identifier):
 			settings.analyticsConsentAccountHash = Self.accountHash(identifier)
-		} else {
-			// Device-wide mode records a device-wide choice. Clearing any account-scoped hash is
-			// what stops the rollback path above from looping: with a hash still present the
-			// predicate would keep failing closed and the prompt would never go away.
-			settings.analyticsConsentAccountHash = nil
 		}
-		settings.analyticsChoiceMade = true
-		shouldShowChoice = false
 		setAnalyticsEnabled(enabled)
 	}
 
 	func setAnalyticsEnabled(_ enabled: Bool) {
-		// Refuses to act for an account whose consent this device does not hold — otherwise a
-		// Settings toggle could enable sending for someone who never answered (AIA-0437).
-		guard isAnalyticsFeatureEnabled, consentAppliesToCurrentAccount else { return }
+		// Refuses to act for a scope whose consent this device does not hold — otherwise a Settings
+		// toggle could enable sending for someone who never answered (AIA-0437).
+		guard isAnalyticsFeatureEnabled, let scope = activeScope, consentApplies(to: scope) else { return }
 		// Discard the pre-consent buffer on ANY disable. The decline path arrives here from the
-		// default `analyticsEnabled == false` state, so a value-equality shortcut would leave the
-		// buffered events sitting there (AIA-0447).
+		// default off state, so a value-equality shortcut would leave the buffered events sitting
+		// there (AIA-0447).
 		if !enabled { pendingPreConsentEvents.removeAll() }
-		// Deliberately NOT guarded on `settings.analyticsEnabled != enabled`. The stored flag is
-		// device-wide while consent is per account, so after A enabled it the value is already
-		// `true` when B consents — an equality guard would return early, leave the transport torn
-		// down, never install B's identity, and silently drop everything B does while still
-		// reporting itself as enabled. Re-deriving is cheap and idempotent: `applyEffectiveState()`
-		// makes no tracker calls when nothing actually changed.
-		settings.analyticsEnabled = enabled
+		// Deliberately NOT guarded on the stored value being different. The account bucket's flag is
+		// shared across accounts, so after A enabled it the value is already `true` when B consents —
+		// an equality guard would return early, leave the transport torn down, never install B's
+		// identity, and silently drop everything B does while still reporting itself as enabled.
+		// Re-deriving is cheap and idempotent: `applyEffectiveState()` makes no tracker calls when
+		// nothing actually changed.
+		switch scope {
+		case .anonymous: settings.analyticsEnabled = enabled
+		case .account: settings.analyticsAccountEnabled = enabled
+		}
 		applyEffectiveState()
-		// Safe to call unconditionally — a no-op once the buffer is empty, which is what keeps a
-		// repeated enable from re-delivering anything.
-		if isEffectivelyEnabled { flushPendingPreConsentEvents() }
 	}
 
 	/// Delivers the pre-consent buffer to the transport once analytics is enabled, then clears it.
@@ -267,8 +345,10 @@ final class AnalyticsState: ObservableObject {
 	func resetAnalyticsChoice() {
 		detectionRunCount = 0
 		pendingPreConsentEvents.removeAll()
+		lastKnownScope = nil
 		settings.analyticsEnabled = false
 		settings.analyticsChoiceMade = false
+		settings.analyticsAccountEnabled = false
 		settings.analyticsConsentAccountHash = nil
 		// Forced rather than routed through `applyEffectiveState()`: Settings may already have been
 		// reset by another path, leaving the cached `isTrackerActive` stale.
@@ -284,11 +364,12 @@ final class AnalyticsState: ObservableObject {
 			tracker.track(event)
 			return
 		}
-		// This account has answered, and said no — drop.
-		guard consentAppliesToCurrentAccount == false else { return }
-		// Consent still an open question for whoever is signed in (including nobody yet): record
-		// locally, deferred until they decide. Sent only if they enable analytics; discarded on
-		// decline, and discarded outright if a different account arrives first (AIA-0447/0437).
+		// This scope has answered, and said no — drop.
+		if let scope = activeScope, consentApplies(to: scope) { return }
+		// Consent still an open question for whoever is here (including nobody yet, and nobody at
+		// all): record locally, deferred until they decide. Sent only if that scope enables
+		// analytics; discarded on decline, and discarded outright if a different scope is selected
+		// first (AIA-0447/0437/0536).
 		pendingPreConsentEvents.append(event)
 		let overflow = pendingPreConsentEvents.count - Self.maxPendingPreConsentEvents
 		if overflow > 0 { pendingPreConsentEvents.removeFirst(overflow) }
@@ -309,27 +390,48 @@ final class AnalyticsState: ObservableObject {
 
 	// MARK: - Effective state
 
-	/// True when the stored choice belongs to the account signed in right now. Fails closed: no
-	/// account, or an account we hold no choice for, is never "consented".
-	private var consentAppliesToCurrentAccount: Bool {
-		// Feature off: the pre-AIA-0437 contract. No account identity is ever sent, so a device-wide
-		// choice for device-scoped analytics is coherent and nobody is re-prompted.
-		//
-		// The stored hash is checked even here. A choice recorded against a specific account is NOT
-		// a device-wide choice, so if the feature is ever rolled back, letting any account inherit
-		// it would hand A's consent to B — the exact failure the account scoping exists to prevent.
-		// Fail closed and ask again instead.
-		guard isAccountIdentityEnabled else {
-			return settings.analyticsConsentAccountHash == nil && settings.analyticsChoiceMade
+	/// The scope whose answer applies right now.
+	///
+	/// With the cross-device identity **off** there is no scope machinery at all — the coordinator
+	/// that delivers contexts is not even constructed — so the anonymous bucket applies
+	/// unconditionally and `currentScope` is never consulted. Consulting it there would leave every
+	/// flag-off build with no scope, hence no prompt and no analytics: a total silent loss on
+	/// precisely the path taken when something else has already gone wrong.
+	private var activeScope: AnalyticsConsentScope? {
+		isAccountIdentityEnabled ? currentScope : .anonymous
+	}
+
+	/// True when this device holds `scope`'s own answer. Fails closed for a scope we hold none for.
+	private func consentApplies(to scope: AnalyticsConsentScope) -> Bool {
+		switch scope {
+		case .anonymous:
+			// No `analyticsConsentAccountHash == nil` conjunct any more. That guard existed because
+			// one stored on/off flag had to serve both consent models; now the account bucket owns
+			// `analyticsAccountEnabled` and never writes these keys, so an account's answer cannot
+			// be mistaken for an anonymous one — nor promoted into one by a flag rollback.
+			return settings.analyticsChoiceMade
+		case let .account(identifier):
+			return settings.analyticsConsentAccountHash == Self.accountHash(identifier)
 		}
-		guard let identifier = currentAccountIdentifier,
-			let storedHash = settings.analyticsConsentAccountHash else { return false }
-		return storedHash == Self.accountHash(identifier)
 	}
 
 	/// The single predicate for "may anything be sent at all".
 	private var isEffectivelyEnabled: Bool {
-		isAnalyticsFeatureEnabled && consentAppliesToCurrentAccount && settings.analyticsEnabled
+		guard isAnalyticsFeatureEnabled,
+			let scope = activeScope,
+			consentApplies(to: scope) else { return false }
+		switch scope {
+		case .anonymous: return settings.analyticsEnabled
+		case .account: return settings.analyticsAccountEnabled
+		}
+	}
+
+	private var derivedConsentPresentation: AnalyticsConsentPresentation {
+		guard isAnalyticsFeatureEnabled else { return .resolved }
+		guard let scope = activeScope else {
+			return isAuthUnverifiable ? .unavailable : .pending
+		}
+		return consentApplies(to: scope) ? .resolved : .ask
 	}
 
 	/// Re-derives everything that depends on remote flag × account × stored choice, and moves the
@@ -338,12 +440,17 @@ final class AnalyticsState: ObservableObject {
 	/// configuration and drops any identity it held, so a remote flag flip or a reset-then-re-enable
 	/// would otherwise resume sending anonymously (AIA-0437).
 	private func applyEffectiveState() {
-		shouldShowChoice = isAnalyticsFeatureEnabled
-			&& consentAppliesToCurrentAccount == false
-			// With the feature on, only a signed-in account can be asked — the question is "may we
-			// attribute *you* across devices", which is meaningless without an account. With it off
-			// there is no account requirement, matching the pre-AIA-0437 prompt.
-			&& (isAccountIdentityEnabled == false || currentAccountIdentifier != nil)
+		// Both derived values are computed BEFORE the switch, because `case (true, true)` returns
+		// early when the identity is unchanged and anything below it is therefore conditional on a
+		// transport detail that has nothing to do with either value.
+		//
+		// Structural, not a fix for a live defect: no reachable transition currently both takes that
+		// early return and changes these — reaching it requires delivery to stay enabled under an
+		// unchanged identity, which pins both values to what they already were. Mutation-testing the
+		// order confirms that (moving these below the switch fails no test). The order is kept
+		// anyway, because "correct only as long as nobody adds a case" is not worth the two lines.
+		consentPresentation = derivedConsentPresentation
+		isAnalyticsEnabled = isEffectivelyEnabled
 
 		switch (isTrackerActive, isEffectivelyEnabled) {
 		case (false, true):
@@ -363,6 +470,11 @@ final class AnalyticsState: ObservableObject {
 			tracker.activate()
 			trackedIdentity = currentAccountIdentifier
 			isTrackerActive = true
+			// The single activation edge, and therefore the only place a buffer flush cannot be
+			// missed. Previously only `setAnalyticsEnabled` flushed, which stranded events whenever
+			// delivery was enabled by an *arriving scope that had already consented* rather than by
+			// an answer — reachable today, and routine once sign-in is mid-session.
+			flushPendingPreConsentEvents()
 		case (true, true):
 			guard trackedIdentity != currentAccountIdentifier else { return }
 			tracker.updateAccountIdentity(currentAccountIdentifier)
