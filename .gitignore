@@ -106,5 +106,12 @@ CLERK_SSO_IDS.md
 **/CLERK_SSO_IDS.md
 *.p8
 
+# App Store Connect delivery credentials, materialized from 1Password by
+# `ProjectTool asc credentials generate` so deliver.sh does not depend on a live `op` session.
+# ASCCredentials.swift already describes this directory as gitignored; it was not.
+# The private key was covered only incidentally by `*.p8` above — the key id and issuer id
+# files were not covered at all.
+ios/asc.auth/
+
 # Downloaded ONNX test fixtures (scripts/fetch_native_test_models.sh)
 .native-model-fixtures/
