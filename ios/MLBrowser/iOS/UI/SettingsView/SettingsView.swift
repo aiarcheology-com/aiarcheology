@@ -25,7 +25,6 @@ struct SettingsForm: View {
 	/// order, so signed-out is a state Settings must render rather than one it can assume away.
 	@ObservedObject var authState: AuthState
 
-
 	@Environment(\.dismiss) private var dismiss
 	@Environment(DrawerManager.self) private var drawer
 	@Environment(TourState.self) private var tour
@@ -497,6 +496,19 @@ struct SettingsForm: View {
 					}
 				}
 				.testability(Testability.Button.settingsSignIn)
+			} else if case .suspended = authState.effectiveContext {
+				// Signed in but unverifiable: the account must stay visible — vanishing reads as
+				// broken (AIA-0536). Inert: Clerk cannot render the profile without a connection,
+				// and offline its cache does not even yield the email, hence the generic label.
+				HStack {
+					Text(L10n.Auth.Account.title)
+					Spacer()
+					Text(L10n.Auth.Offline.title)
+						.foregroundColor(.secondary)
+						// On the leaf Text, not the HStack: a container's identifier surfaces
+						// unreliably in the accessibility tree; a Text always does.
+						.testability(Testability.Label.settingsAccountOffline)
+				}
 			} else if usesRealAuth, let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress {
 				HStack {
 					Text(email)

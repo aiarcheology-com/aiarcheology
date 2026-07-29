@@ -290,6 +290,8 @@ extension TestabilityIdentification {
 	}
 	
 	enum Label: String, TestabilityIdentification {
+		case drawerAccountOffline
+		case settingsAccountOffline
 		case downloadDetailProgressWritten
 		case downloadDetailProgressExpected
 		// Side Menu Cell

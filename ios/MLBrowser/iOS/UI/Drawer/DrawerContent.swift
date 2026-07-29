@@ -288,7 +288,27 @@ struct DrawerContent: View {
                 showSettings = true
             }
             .testability(Testability.Button.drawerAccount)
-        case .indeterminate, .suspended:
+        case .suspended:
+            // Signed in, unverifiable — the account still EXISTS and the slot must say so
+            // (an empty slot reads as broken, which is how this state was found). Disabled:
+            // sign-in would fail with no network, and Clerk cannot render the profile.
+            accountFooterCard {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.Auth.Account.title)
+                        Text(L10n.Auth.Offline.title)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "person.crop.circle.badge.exclamationmark")
+                }
+                .foregroundStyle(.secondary)
+            }
+            .testability(Testability.Label.drawerAccountOffline)
+        case .indeterminate:
+            // Transient (auth is still resolving) — a row that flickers in and out for a second
+            // at launch is worse than a brief absence.
             EmptyView()
         }
     }
@@ -298,17 +318,28 @@ struct DrawerContent: View {
         title: String, systemImage: String, action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 14)
-                .padding(.horizontal, 16)
+            accountFooterLabel {
+                Label(title, systemImage: systemImage)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
         }
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal, 20)
-        .padding(.bottom, 8)
         .disabled(tour.isActive)
+    }
+
+    /// The non-interactive variant, for states with something to show but nothing to do.
+    private func accountFooterCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        accountFooterLabel(content: content)
+    }
+
+    private func accountFooterLabel<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 14)
+            .padding(.horizontal, 16)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
     }
 
     /// The signed-in row's label: the account email when Clerk can provide one, else "Account".

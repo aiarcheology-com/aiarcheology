@@ -143,6 +143,8 @@ enum AID {
 	static let authSignIn = "_AIA:Button.AuthSignIn"
 	static let drawerSignIn = "_AIA:Button.DrawerSignIn"
 	static let drawerAccount = "_AIA:Button.DrawerAccount"
+	static let drawerAccountOffline = "_AIA:Label.DrawerAccountOffline"
+	static let settingsAccountOffline = "_AIA:Label.SettingsAccountOffline"
 	static let settingsSignIn = "_AIA:Button.SettingsSignIn"
 	static let authOfflineRetry = "_AIA:Button.AuthOfflineRetry"
 	static let analyticsChoiceEnable = "_AIA:Button.AnalyticsChoiceEnable"

@@ -87,6 +87,27 @@ final class AuthGateUITests: UITestCase {
 		assertExists(AID.drawerAccount, false)
 	}
 
+	/// Offline, the account must stay *visible* — signed in and unverifiable is a state to show,
+	/// not to hide (an empty slot reads as broken, which is exactly how manual testing found it).
+	/// Inert rather than absent: sign-in would fail with no network, and Clerk cannot render the
+	/// profile, so neither actionable row appears — but the indicator does.
+	func testOffline_entitled_drawerShowsTheAccountAsUnreachable() {
+		launch(mockAuthGate: "offline", mockSubscription: "subscribed")
+		openDrawer()
+		assertExists(AID.drawerAccountOffline, true)
+		assertExists(AID.drawerAccount, false)
+		assertExists(AID.drawerSignIn, false)
+	}
+
+	func testOffline_entitled_settingsShowsTheAccountAsUnreachable() {
+		launch(mockAuthGate: "offline", mockSubscription: "subscribed")
+		openSettings()
+		// The account section sits deep in the Form and SwiftUI creates rows lazily — an
+		// off-screen row does not exist in the accessibility tree until scrolled to.
+		XCTAssertTrue(scrollTo(AID.settingsAccountOffline), "account-offline row missing from Settings")
+		assertExists(AID.settingsSignIn, false)
+	}
+
 	/// Not entitled → the paywall, whatever auth says. Entitlement is the gate, so this holds for a
 	/// signed-out user exactly as it does for a signed-in one.
 	func testSignedOut_notEntitled_showsPaywallWithSignIn() {
