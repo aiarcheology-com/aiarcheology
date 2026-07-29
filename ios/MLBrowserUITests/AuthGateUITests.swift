@@ -36,18 +36,15 @@ final class AuthGateUITests: UITestCase {
 		assertExists(AID.authOfflineRetry, false)
 	}
 
-	/// The same offline case **with analytics switched on**, which is the configuration that was
-	/// actually broken.
+	/// The same offline case with **both analytics flags on**, which is the configuration that was
+	/// actually broken — the plain test above passed while the app hung.
 	///
-	/// `testOffline_entitled_entersApp` passed while the app hung, because with the analytics
-	/// feature flag off the consent gate short-circuits to "resolved" and never holds. With the flag
-	/// on, an unverifiable session selects no consent scope, and the gate held on a spinner for a
-	/// state that by definition never resolves — reinstating the offline lockout through the consent
-	/// gate after the auth gate stopped causing it. Analytics is simply off until a scope exists.
-	/// Both flags on is the configuration that matters. With `isCrossDeviceAnalyticsIdentityEnabled`
-	/// **off**, consent uses the device-wide bucket, which needs no network — so an offline user is
-	/// simply asked, and the hang cannot occur. It is only when consent scope depends on *who is
-	/// signed in* that an unverifiable session leaves no scope to select at all.
+	/// With the feature flag off the consent gate short-circuits to "resolved" and never holds; with
+	/// `isCrossDeviceAnalyticsIdentityEnabled` off, consent uses the device-wide bucket, which needs
+	/// no network, so an offline user is simply asked. Only when the scope depends on *who is signed
+	/// in* does an unverifiable session leave nothing to select — and the gate then held on a spinner
+	/// for a state that by definition never resolves, reinstating through the consent gate the very
+	/// lockout the auth gate had stopped causing. Analytics is simply off until a scope exists.
 	func testOffline_entitled_withAccountScopedAnalytics_stillEntersApp() {
 		launch(
 			LaunchConfig(
@@ -71,6 +68,23 @@ final class AuthGateUITests: UITestCase {
 		launch(mockAuthGate: "ready", mockSubscription: "subscribed")
 		assertExists(AID.cpu, true)
 		assertExists(AID.authSignIn, false)
+	}
+
+	/// The drawer's bottom row is always "who am I" (AIA-0536): Sign In while signed out, the
+	/// account while signed in — never an empty slot. It vanishing after sign-in read as a context
+	/// cut in manual testing, so both directions are pinned.
+	func testDrawerBottomRow_followsTheSession() {
+		launch(mockAuthGate: "ready", mockSubscription: "subscribed")
+		openDrawer()
+		assertExists(AID.drawerAccount, true)
+		assertExists(AID.drawerSignIn, false)
+	}
+
+	func testDrawerBottomRow_offersSignInWhileSignedOut() {
+		launch(mockAuthGate: "signedOut", mockSubscription: "subscribed")
+		openDrawer()
+		assertExists(AID.drawerSignIn, true)
+		assertExists(AID.drawerAccount, false)
 	}
 
 	/// Not entitled → the paywall, whatever auth says. Entitlement is the gate, so this holds for a

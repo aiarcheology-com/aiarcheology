@@ -109,6 +109,7 @@ extension TestabilityIdentification {
 		case signInSheetCancel
 		case settingsSignIn
 		case drawerSignIn
+		case drawerAccount
 		// Paywall / subscriptions (AIA-0343)
 		case settingsUpgrade
 		case paywallSubscribe

@@ -142,6 +142,7 @@ enum AID {
 	// Auth gate (AIA-0340)
 	static let authSignIn = "_AIA:Button.AuthSignIn"
 	static let drawerSignIn = "_AIA:Button.DrawerSignIn"
+	static let drawerAccount = "_AIA:Button.DrawerAccount"
 	static let settingsSignIn = "_AIA:Button.SettingsSignIn"
 	static let authOfflineRetry = "_AIA:Button.AuthOfflineRetry"
 	static let analyticsChoiceEnable = "_AIA:Button.AnalyticsChoiceEnable"

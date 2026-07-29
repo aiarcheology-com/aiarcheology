@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreData
+import ClerkKit
 import StoreKit
 
 /// The content displayed inside the drawer for MLBrowser.
@@ -58,6 +59,10 @@ struct DrawerContent: View {
     @State private var showSettings = false
     /// Contextual sign-in from the drawer (AIA-0536).
     @State private var showSignIn = false
+
+    /// When true, the Settings sheet opens already pushed to Manage Account (AIA-0536) — the
+    /// drawer's account row is a shortcut to the profile, not to Settings generally.
+    @State private var settingsStartsAtProfile = false
 
     /// The configuration ID to show in detail sheet
     @State private var selectedConfigurationId: UUID?
@@ -131,11 +136,15 @@ struct DrawerContent: View {
                 // Clerk instance, so losing it here would trap rather than degrade.
                 .environment(\.usesRealAuth, usesRealAuth)
         }
-        .sheet(isPresented: $showSettings) {
+        .sheet(isPresented: $showSettings, onDismiss: { settingsStartsAtProfile = false }) {
             // FindingRepository is a plain (non-ObservableObject) type, so it is passed by
             // initializer rather than injected as an environment object (AIA-0303), the same way
             // WebScreen hands it to SaveFindingSheet.
-            SettingsForm(findingRepository: appState.findingRepository, authState: authState)
+            SettingsForm(
+                findingRepository: appState.findingRepository,
+                authState: authState,
+                startAtManageAccount: settingsStartsAtProfile
+            )
                 .environmentObject(settings)
                 .environmentObject(chromeState)
                 .environmentObject(detectionState)
@@ -247,11 +256,12 @@ struct DrawerContent: View {
             .testability(Testability.Button.drawerSettings)
             .disabled(tour.isActive)
 
-            // Sign-in lives at the bottom of the drawer, next to Settings, because under the
-            // paywall-first gate order it is an optional convenience rather than a precondition
-            // (AIA-0536). Shown only while genuinely signed out: `.indeterminate` is transient and
-            // `.suspended` cannot reach Clerk anyway, so offering it there only invites a failure.
-            if case .anonymous = authState.effectiveContext {
+            // The bottom row is always "who am I" (AIA-0536): Sign In while signed out, the
+            // signed-in account otherwise. A row that simply vanished after sign-in read as a
+            // context cut — the same slot should become the account, and tapping it lands on
+            // Settings already pushed to Manage Account.
+            switch authState.effectiveContext {
+            case .anonymous:
                 Button {
                     showSignIn = true
                 } label: {
@@ -259,8 +269,35 @@ struct DrawerContent: View {
                 }
                 .testability(Testability.Button.drawerSignIn)
                 .disabled(tour.isActive)
+            case .validated:
+                Button {
+                    settingsStartsAtProfile = true
+                    showSettings = true
+                } label: {
+                    // The email is read at render time, not observed — safe because the row itself
+                    // re-renders on every context change (authState IS observed), and the email
+                    // cannot change without one. Mock auth has no Clerk instance to read, so it
+                    // falls back to the generic label rather than trapping.
+                    Label(signedInLabel, systemImage: "person.crop.circle.fill")
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .testability(Testability.Button.drawerAccount)
+                .disabled(tour.isActive)
+            case .indeterminate, .suspended:
+                // Transient, or unverifiable offline — neither is a state worth a row: sign-in
+                // would fail, and the account row would promise a profile Clerk cannot show.
+                EmptyView()
             }
         }
+    }
+
+    /// The signed-in row's label: the account email when Clerk can provide one, else "Account".
+    private var signedInLabel: String {
+        if usesRealAuth, let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress {
+            return email
+        }
+        return L10n.Auth.Account.title
     }
     
     private var emptyStateView: some View {

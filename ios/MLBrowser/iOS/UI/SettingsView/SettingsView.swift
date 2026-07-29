@@ -25,6 +25,11 @@ struct SettingsForm: View {
 	/// order, so signed-out is a state Settings must render rather than one it can assume away.
 	@ObservedObject var authState: AuthState
 
+	/// When true, the stack opens already pushed to Manage Account (AIA-0536): the drawer's account
+	/// row deep-links here. A `Bool` rather than the route itself because `AccountRoute` is private
+	/// to this file, and the drawer has no business knowing the stack's internals.
+	var startAtManageAccount: Bool = false
+
 	@Environment(\.dismiss) private var dismiss
 	@Environment(DrawerManager.self) private var drawer
 	@Environment(TourState.self) private var tour
@@ -95,6 +100,16 @@ struct SettingsForm: View {
 				}
 			}
 			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
+			.onAppear {
+				// Seeded on appear rather than in an init so the guard can consult live state: the
+				// push only makes sense for a validated account on the real-auth path — the same
+				// conditions the Manage Account row itself requires. `isEmpty` keeps this a one-shot
+				// even if SwiftUI re-runs onAppear.
+				if startAtManageAccount, usesRealAuth,
+				   case .validated = authState.effectiveContext, accountPath.isEmpty {
+					accountPath.append(AccountRoute.profile)
+				}
+			}
 			.toolbar {
 				ToolbarItem(placement: .topBarTrailing) {
 					Button(action: {
