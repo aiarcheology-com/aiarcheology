@@ -175,6 +175,11 @@ struct SaveFindingSheet: View {
 	/// itself is made by `WebScreen`'s `onDismiss`, once this sheet is off screen.
 	let reviewPrompt: ReviewPromptCoordinator
 
+	/// Called after a successful save, before the sheet dismisses. Lets the presenter follow up —
+	/// the sign-in offer needs to know a finding was actually written, which it cannot infer from
+	/// the review prompt (that can decline for its own reasons) or from the tour (AIA-0536).
+	var onSaved: () -> Void = {}
+
 	/// Required, user-facing name shown in the inventory; Save is blocked until it
 	/// is non-empty.
 	@State private var title = ""
@@ -366,6 +371,7 @@ struct SaveFindingSheet: View {
 			tour.findingDidSave()
 			// AIA-0117: recorded before `dismiss()`; WebScreen's onDismiss decides whether to ask.
 			reviewPrompt.recordPositiveMoment(.findingSaved)
+			onSaved()
 			dismiss()
 		} catch {
 			saveFailed = true

@@ -21,6 +21,10 @@ struct SettingsForm: View {
 	/// initializer (it is not an `ObservableObject`), from `DrawerContent`.
 	let findingRepository: FindingRepository
 
+	/// Auth, for the account section (AIA-0536). Sign-in is optional under the paywall-first gate
+	/// order, so signed-out is a state Settings must render rather than one it can assume away.
+	@ObservedObject var authState: AuthState
+
 	@Environment(\.dismiss) private var dismiss
 	@Environment(DrawerManager.self) private var drawer
 	@Environment(TourState.self) private var tour
@@ -35,6 +39,9 @@ struct SettingsForm: View {
 	/// Real vs. mock auth from the composition root (AIA-0385). Re-injected onto this sheet in
 	/// `DrawerContent` because custom env values don't cross the sheet boundary on Mac/iPad.
 	@Environment(\.usesRealAuth) private var usesRealAuth
+
+	/// Contextual sign-in, offered from the account section when signed out (AIA-0536).
+	@State private var showSignIn = false
 	@FocusState private var isHistoryLimitFocused: Bool
 	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
 	@State private var accountPath = NavigationPath()
@@ -132,6 +139,17 @@ struct SettingsForm: View {
 			// (a `.background` UIViewControllerRepresentable) must outlive the user popping the
 			// pushed Reset screen mid-export, since the ZIP builds after a delay (AIA-0402/0448).
 			.activityShareSheet($findingsSharePayload)
+			.sheet(isPresented: $showSignIn) {
+				SignInSheet(authState: authState)
+			}
+			// Signing out from inside Clerk's embedded profile leaves that screen pushed with
+			// nothing left to show (AIA-0536). Before the paywall-first cut-over the whole app was
+			// torn down on sign-out, so this could not happen; now the user stays in the app and the
+			// stale screen would remain until they popped it by hand.
+			.onChange(of: authState.effectiveContext) { _, context in
+				guard case .anonymous = context, !accountPath.isEmpty else { return }
+				accountPath.removeLast(accountPath.count)
+			}
 		}
 	}
 
@@ -444,7 +462,19 @@ struct SettingsForm: View {
 	/// devices, and the App Store-required account deletion (Apple 5.1.1(v)).
 	private var accountSection: some View {
 		Section(header: Text(L10n.Auth.Account.title)) {
-			if usesRealAuth, let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress {
+			// Signed out is a first-class state now (AIA-0536): the app is usable without an
+			// account, so Settings offers sign-in instead of assuming it already happened.
+			if case .anonymous = authState.effectiveContext {
+				Button {
+					showSignIn = true
+				} label: {
+					HStack {
+						Text(L10n.Auth.SignIn.button)
+						Spacer()
+					}
+				}
+				.testability(Testability.Button.settingsSignIn)
+			} else if usesRealAuth, let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress {
 				HStack {
 					Text(email)
 						.foregroundColor(.secondary)
@@ -477,7 +507,9 @@ struct SettingsForm: View {
 				}
 			}
 
-			if usesRealAuth {
+			// Requires a *validated* account, not merely the real-auth path: Clerk's profile has
+			// nothing to show for a signed-out user, and after the cut-over that is reachable here.
+			if usesRealAuth, case .validated = authState.effectiveContext {
 				// Push Clerk's profile onto the Settings stack (not a sheet): Settings is
 				// itself a sheet, and a sheet-over-a-sheet presents-then-auto-dismisses.
 				// Value-based push so UserProfileView and its own sub-screens (Manage

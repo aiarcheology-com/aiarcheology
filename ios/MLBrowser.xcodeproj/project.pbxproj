@@ -342,6 +342,7 @@
 		F123020452F330E251BF7ACD /* DetectionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 712469EC93143F6B26F643B4 /* DetectionCoordinator.swift */; };
 		F35245B164FCF75B65DC9CAC /* AuthStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D13058A1B4013C29CD5016E /* AuthStateTests.swift */; };
 		F3926A4B067E92D228D819B2 /* AuthGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 064CE0046587D40387274BC8 /* AuthGateView.swift */; };
+		8B15D3F02C69A47E1D53B8C0 /* SignInSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E9C4A71B58D03F6C147A2E9 /* SignInSheet.swift */; };
 		7A31E96C4D82B05F9E63A1C8 /* ClerkTheme+App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D82B0F63A17C94E20D8F5B7 /* ClerkTheme+App.swift */; };
 		9C6B2E14A7F3508D2B94E6A1 /* AuthLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F4A7C3E9B2D06A85E31C7D4 /* AuthLifecycle.swift */; };
 		F91C3A2C067C269EC3C81972 /* SnapshotRenderingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 885E22610F638752785ADEBB /* SnapshotRenderingTests.swift */; };
@@ -375,6 +376,7 @@
 		3A7C1D0E5B92460F8E14A2C7 /* EffectiveAuthContext.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EffectiveAuthContext.swift; sourceTree = "<group>"; };
 		04CC35810A5A24A66927181A /* StoreKitSubscriptionProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StoreKitSubscriptionProvider.swift; sourceTree = "<group>"; };
 		064CE0046587D40387274BC8 /* AuthGateView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthGateView.swift; sourceTree = "<group>"; };
+		2E9C4A71B58D03F6C147A2E9 /* SignInSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignInSheet.swift; sourceTree = "<group>"; };
 		5D82B0F63A17C94E20D8F5B7 /* ClerkTheme+App.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ClerkTheme+App.swift"; sourceTree = "<group>"; };
 		1F4A7C3E9B2D06A85E31C7D4 /* AuthLifecycle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "AuthLifecycle.swift"; sourceTree = "<group>"; };
 		0DC6368CADB5F8D0D0AA102A /* DetectionCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DetectionCoordinatorTests.swift; sourceTree = "<group>"; };
@@ -1435,6 +1437,7 @@
 			isa = PBXGroup;
 			children = (
 				064CE0046587D40387274BC8 /* AuthGateView.swift */,
+				2E9C4A71B58D03F6C147A2E9 /* SignInSheet.swift */,
 				5D82B0F63A17C94E20D8F5B7 /* ClerkTheme+App.swift */,
 				1F4A7C3E9B2D06A85E31C7D4 /* AuthLifecycle.swift */,
 			);
@@ -1912,6 +1915,7 @@
 				A1BFBE0657B9A36E1EE3DAAF /* AuthState.swift in Sources */,
 				15A2A9B169BF17E5F22D64B3 /* ClerkAuthProvider.swift in Sources */,
 				F3926A4B067E92D228D819B2 /* AuthGateView.swift in Sources */,
+				8B15D3F02C69A47E1D53B8C0 /* SignInSheet.swift in Sources */,
 				7A31E96C4D82B05F9E63A1C8 /* ClerkTheme+App.swift in Sources */,
 				9C6B2E14A7F3508D2B94E6A1 /* AuthLifecycle.swift in Sources */,
 				A99519915315C5955FDC6159 /* FeatureFlags.swift in Sources */,

@@ -52,6 +52,8 @@ struct DrawerContent: View {
     /// Controls the settings sheet (presented here, not at ContentView level,
     /// so the drawer stays open behind it — same behavior as Findings)
     @State private var showSettings = false
+    /// Contextual sign-in from the drawer (AIA-0536).
+    @State private var showSignIn = false
 
     /// The configuration ID to show in detail sheet
     @State private var selectedConfigurationId: UUID?
@@ -117,11 +119,19 @@ struct DrawerContent: View {
             // the fetch/distinctLabels would hit the empty default context and crash.
             .environment(\.managedObjectContext, moc)
         }
+        .sheet(isPresented: $showSignIn) {
+            SignInSheet(authState: appState.authState)
+                // Re-inject: custom env values don't reliably cross a sheet boundary on Mac
+                // (Designed for iPad) — AGENTS.md §3. `SignInSheet` branches on this to decide
+                // whether to build Clerk's `AuthView` at all, and the mock path has no configured
+                // Clerk instance, so losing it here would trap rather than degrade.
+                .environment(\.usesRealAuth, usesRealAuth)
+        }
         .sheet(isPresented: $showSettings) {
             // FindingRepository is a plain (non-ObservableObject) type, so it is passed by
             // initializer rather than injected as an environment object (AIA-0303), the same way
             // WebScreen hands it to SaveFindingSheet.
-            SettingsForm(findingRepository: appState.findingRepository)
+            SettingsForm(findingRepository: appState.findingRepository, authState: appState.authState)
                 .environmentObject(settings)
                 .environmentObject(chromeState)
                 .environmentObject(detectionState)
@@ -232,6 +242,20 @@ struct DrawerContent: View {
             }
             .testability(Testability.Button.drawerSettings)
             .disabled(tour.isActive)
+
+            // Sign-in lives at the bottom of the drawer, next to Settings, because under the
+            // paywall-first gate order it is an optional convenience rather than a precondition
+            // (AIA-0536). Shown only while genuinely signed out: `.indeterminate` is transient and
+            // `.suspended` cannot reach Clerk anyway, so offering it there only invites a failure.
+            if case .anonymous = appState.authState.effectiveContext {
+                Button {
+                    showSignIn = true
+                } label: {
+                    Label(L10n.Auth.SignIn.button, systemImage: "person.crop.circle")
+                }
+                .testability(Testability.Button.drawerSignIn)
+                .disabled(tour.isActive)
+            }
         }
     }
     

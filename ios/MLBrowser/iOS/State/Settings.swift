@@ -48,6 +48,7 @@ final class Settings: ObservableObject, Validatable {
 		/// Which account the stored analytics choice belongs to (AIA-0437).
 		static let analyticsConsentAccountHash = "analyticsConsentAccountHash"
 		static let analyticsAccountEnabled = "analyticsAccountEnabled"
+		static let signInOfferShown = "signInOfferShown"
 		/// Which account has already had each once-per-account funnel event reported (AIA-0437).
 		/// Stored as the same SHA-256 as the consent hash, never a raw account id.
 		static let analyticsActivationReportedAccountHash = "analyticsActivationReportedAccountHash"
@@ -237,6 +238,19 @@ final class Settings: ObservableObject, Validatable {
 	@Published public var analyticsAccountEnabled: Bool {
 		didSet {
 			defaults.set(analyticsAccountEnabled, forKey: UserDefaultsKeys.analyticsAccountEnabled)
+		defaults.set(signInOfferShown, forKey: UserDefaultsKeys.signInOfferShown)
+		}
+	}
+
+	/// Whether the one-time "sign in to keep your findings" offer has already been presented
+	/// (AIA-0536).
+	///
+	/// Marked when the offer is **shown**, not when a finding is saved. A save that yields no offer —
+	/// because the review prompt won that dismissal, or the tour is running — must not silently
+	/// consume the single chance to ask.
+	@Published public var signInOfferShown: Bool {
+		didSet {
+			defaults.set(signInOfferShown, forKey: UserDefaultsKeys.signInOfferShown)
 		}
 	}
 
@@ -405,6 +419,7 @@ final class Settings: ObservableObject, Validatable {
 			UserDefaultsKeys.analyticsEnabled: false,
 			UserDefaultsKeys.analyticsChoiceMade: false,
 			UserDefaultsKeys.analyticsAccountEnabled: false,
+			UserDefaultsKeys.signInOfferShown: false,
 			UserDefaultsKeys.ratingPromptEventCount: 0
         ]
 
@@ -428,6 +443,7 @@ final class Settings: ObservableObject, Validatable {
 		self.analyticsEnabled = defaults.bool(forKey: UserDefaultsKeys.analyticsEnabled)
 		self.analyticsChoiceMade = defaults.bool(forKey: UserDefaultsKeys.analyticsChoiceMade)
 		self.analyticsAccountEnabled = defaults.bool(forKey: UserDefaultsKeys.analyticsAccountEnabled)
+		self.signInOfferShown = defaults.bool(forKey: UserDefaultsKeys.signInOfferShown)
 		self.analyticsConsentAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsConsentAccountHash)
 		self.analyticsActivationReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsActivationReportedAccountHash)
 		self.analyticsSignedInReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsSignedInReportedAccountHash)
@@ -503,6 +519,7 @@ final class Settings: ObservableObject, Validatable {
 		analyticsEnabled = false
 		analyticsChoiceMade = false
 		analyticsAccountEnabled = false
+		signInOfferShown = false
 		analyticsConsentAccountHash = nil
 		analyticsActivationReportedAccountHash = nil
 		analyticsSignedInReportedAccountHash = nil
