@@ -25,10 +25,6 @@ struct SettingsForm: View {
 	/// order, so signed-out is a state Settings must render rather than one it can assume away.
 	@ObservedObject var authState: AuthState
 
-	/// When true, the stack opens already pushed to Manage Account (AIA-0536): the drawer's account
-	/// row deep-links here. A `Bool` rather than the route itself because `AccountRoute` is private
-	/// to this file, and the drawer has no business knowing the stack's internals.
-	var startAtManageAccount: Bool = false
 
 	@Environment(\.dismiss) private var dismiss
 	@Environment(DrawerManager.self) private var drawer
@@ -49,7 +45,21 @@ struct SettingsForm: View {
 	@State private var showSignIn = false
 	@FocusState private var isHistoryLimitFocused: Bool
 	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
-	@State private var accountPath = NavigationPath()
+	@State private var accountPath: NavigationPath
+
+	/// `startAtManageAccount` seeds the stack **at birth**, not in `onAppear` (AIA-0536): mutating a
+	/// `NavigationPath` while the sheet's first-ever presentation is still installing the stack gets
+	/// silently dropped, so the drawer's deep link worked on every open except the one that mattered.
+	/// A path the stack is born with has no timing to lose. A `Bool` rather than the route because
+	/// `AccountRoute` is private to this file; the *validity* guards (validated account, real auth)
+	/// live with the caller, which is the only party that can consult them at tap time.
+	init(findingRepository: FindingRepository, authState: AuthState, startAtManageAccount: Bool = false) {
+		self.findingRepository = findingRepository
+		self._authState = ObservedObject(wrappedValue: authState)
+		var path = NavigationPath()
+		if startAtManageAccount { path.append(AccountRoute.profile) }
+		self._accountPath = State(initialValue: path)
+	}
 	@State private var defaultWebPlaceholder: String = "www.google.com"
 	@State private var resetButtonColor: Color = .red
 	@State private var cleanCacheButtonColor: Color = .red
@@ -100,16 +110,6 @@ struct SettingsForm: View {
 				}
 			}
 			.navigationBarTitle(L10n.Settings.title, displayMode: .inline)
-			.onAppear {
-				// Seeded on appear rather than in an init so the guard can consult live state: the
-				// push only makes sense for a validated account on the real-auth path — the same
-				// conditions the Manage Account row itself requires. `isEmpty` keeps this a one-shot
-				// even if SwiftUI re-runs onAppear.
-				if startAtManageAccount, usesRealAuth,
-				   case .validated = authState.effectiveContext, accountPath.isEmpty {
-					accountPath.append(AccountRoute.profile)
-				}
-			}
 			.toolbar {
 				ToolbarItem(placement: .topBarTrailing) {
 					Button(action: {
@@ -162,13 +162,16 @@ struct SettingsForm: View {
 					// Clerk instance, so `SignInSheet` refuses to present rather than trapping.
 					.environment(\.usesRealAuth, usesRealAuth)
 			}
-			// Signing out from inside Clerk's embedded profile leaves that screen pushed with
-			// nothing left to show (AIA-0536). Before the paywall-first cut-over the whole app was
-			// torn down on sign-out, so this could not happen; now the user stays in the app and the
-			// stale screen would remain until they popped it by hand.
+			// Signing out from inside Clerk's embedded profile dismisses the whole Settings sheet
+			// (AIA-0536): sign-out means "I am done with account things", and popping back to the
+			// Settings root would leave the user standing in a menu they did not ask for. Dismissal
+			// lands them back in the app — which is what sign-out now means everywhere. Gated on a
+			// non-empty path so an out-of-band session revocation while someone merely browses
+			// Settings does not yank the sheet from under them; before the cut-over none of this
+			// could happen, because sign-out tore the whole tree down.
 			.onChange(of: authState.effectiveContext) { _, context in
 				guard case .anonymous = context, !accountPath.isEmpty else { return }
-				accountPath.removeLast(accountPath.count)
+				dismiss()
 			}
 		}
 	}

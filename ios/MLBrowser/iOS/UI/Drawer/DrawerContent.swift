@@ -84,6 +84,11 @@ struct DrawerContent: View {
                 .navigationTitle(L10n.Models.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
+                // Pinned to the drawer's bottom edge, outside the scrolling list (AIA-0536): the
+                // account slot is chrome, not content — it should not scroll away under a long
+                // model list, and "sign in / who am I" living in the bottom corner of the slide
+                // menu is the standard place users look for it.
+                .safeAreaInset(edge: .bottom) { accountFooter }
         }
         .sheet(isPresented: $showImport, onDismiss: presentTypeReviewIfNeeded) {
             ModelImportView(
@@ -255,41 +260,55 @@ struct DrawerContent: View {
             }
             .testability(Testability.Button.drawerSettings)
             .disabled(tour.isActive)
-
-            // The bottom row is always "who am I" (AIA-0536): Sign In while signed out, the
-            // signed-in account otherwise. A row that simply vanished after sign-in read as a
-            // context cut — the same slot should become the account, and tapping it lands on
-            // Settings already pushed to Manage Account.
-            switch authState.effectiveContext {
-            case .anonymous:
-                Button {
-                    showSignIn = true
-                } label: {
-                    Label(L10n.Auth.SignIn.button, systemImage: "person.crop.circle")
-                }
-                .testability(Testability.Button.drawerSignIn)
-                .disabled(tour.isActive)
-            case .validated:
-                Button {
-                    settingsStartsAtProfile = true
-                    showSettings = true
-                } label: {
-                    // The email is read at render time, not observed — safe because the row itself
-                    // re-renders on every context change (authState IS observed), and the email
-                    // cannot change without one. Mock auth has no Clerk instance to read, so it
-                    // falls back to the generic label rather than trapping.
-                    Label(signedInLabel, systemImage: "person.crop.circle.fill")
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-                .testability(Testability.Button.drawerAccount)
-                .disabled(tour.isActive)
-            case .indeterminate, .suspended:
-                // Transient, or unverifiable offline — neither is a state worth a row: sign-in
-                // would fail, and the account row would promise a profile Clerk cannot show.
-                EmptyView()
-            }
         }
+    }
+
+    /// The drawer's bottom slot: always "who am I" (AIA-0536). Sign In while signed out; the
+    /// signed-in account otherwise, deep-linking to Settings → Manage Account. Pinned via
+    /// `safeAreaInset` so it cannot scroll away, and absent entirely for `.indeterminate` /
+    /// `.suspended` — sign-in would fail offline, and the account row would promise a profile
+    /// Clerk cannot show.
+    @ViewBuilder
+    private var accountFooter: some View {
+        switch authState.effectiveContext {
+        case .anonymous:
+            accountFooterButton(title: L10n.Auth.SignIn.button, systemImage: "person.crop.circle") {
+                showSignIn = true
+            }
+            .testability(Testability.Button.drawerSignIn)
+        case .validated:
+            // The email is read at render time, not observed — safe because the footer re-renders
+            // on every context change (authState IS observed), and the email cannot change without
+            // one. Mock auth has no Clerk instance to read, so it falls back to the generic label.
+            accountFooterButton(title: signedInLabel, systemImage: "person.crop.circle.fill") {
+                // Deep-link only on the real-auth path: the profile destination reads
+                // `Clerk.shared`, which traps when Clerk was never configured, so a mock-auth tap
+                // opens plain Settings instead of pushing a screen that would crash.
+                settingsStartsAtProfile = usesRealAuth
+                showSettings = true
+            }
+            .testability(Testability.Button.drawerAccount)
+        case .indeterminate, .suspended:
+            EmptyView()
+        }
+    }
+
+    /// One footer card, styled to match the drawer's inset-grouped rows.
+    private func accountFooterButton(
+        title: String, systemImage: String, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 14)
+                .padding(.horizontal, 16)
+        }
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 20)
+        .padding(.bottom, 8)
+        .disabled(tour.isActive)
     }
 
     /// The signed-in row's label: the account email when Clerk can provide one, else "Account".
