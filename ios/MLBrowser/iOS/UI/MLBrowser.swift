@@ -209,21 +209,32 @@ struct MLBrowser: App {
 		LoggingPolicy.info("MLBrowser app launching", logger: .lifecycle)
 	}
 
-	/// The app behind the authentication gate (AIA-0340). `Clerk.shared` is injected
-	/// only on the real-auth path; the mock path never accesses it.
+	/// The app behind the subscription gate (AIA-0536).
+	///
+	/// **Entitlement is the gate; signing in is not.** The auth gate used to wrap this, so nobody
+	/// reached the paywall — or the app — without an account. That inverted on #543: a paywall the
+	/// user meets before they have experienced anything is a worse ask than a sign-in wall, and the
+	/// sign-in wall was the larger 5.1.1(v) risk. Sign-in is now offered contextually instead
+	/// (`SignInSheet`), from the paywall, the drawer, Settings, and once after a finding is saved.
+	///
+	/// `AuthState` is still driven — by `.authLifecycle()` below — because analytics consent,
+	/// purchase tagging and the account UI all depend on knowing who is signed in. It just no
+	/// longer decides whether the app renders.
+	///
+	/// `Clerk.shared` is injected only on the real-auth path; the mock path never accesses it.
 	@ViewBuilder
 	private var authGatedContent: some View {
-		let gate = AuthGateView(authState: appState.authState) {
-			// Whole-app subscription gate (AIA-0343): once signed in, the app proper shows
-			// only while subscribed (free trial counts); otherwise the paywall is the root.
+		let gate = Group {
+			// Whole-app subscription gate (AIA-0343), now the root: the app proper shows only while
+			// subscribed (a free trial counts); otherwise the paywall is what the user meets.
 			SubscriptionGateView(
 				subscriptionState: appState.subscriptionState,
 				authState: appState.authState,
 				analytics: appState.analytics
 			) {
-				// Analytics consent is asked AFTER login + paywall (AIA-0447): the demanding
-				// question no longer fronts the app. Funnel events fired on the paywall are
-				// buffered by AnalyticsState until this choice is made, then flushed on enable.
+				// Analytics consent is asked after the paywall (AIA-0447), of every entitled user —
+				// anonymous included (AIA-0536). Funnel events fired on the paywall are buffered by
+				// AnalyticsState until this choice is made, then flushed on enable.
 				AnalyticsChoiceGate(analytics: appState.analytics) {
 					ContentView()
 						.environmentObject(appState)
@@ -238,7 +249,7 @@ struct MLBrowser: App {
 				}
 			}
 		}
-		// The Clerk environment is injected here, above the gates, and is what
+		// The Clerk environment is injected here, above the gate, and is what
 		// `AuthLifecycleModifier`'s session watcher reads. Injection and watcher are rehomed
 		// together on purpose (AIA-0536): separated, the watcher stays mounted and inert, and
 		// out-of-band sign-outs stop being noticed with nothing failing to show it.
@@ -291,11 +302,10 @@ struct MLBrowser: App {
 				currentURL: { appState.browserState.currentURL?.absoluteString }
 			)
 			// Above the auth/subscription/analytics gates (AIA-0115): a remote message can appear
-			// over the login and paywall screens too. The banner is state-driven — it renders only
+			// over the paywall too. The banner is state-driven — it renders only
 			// while `messageCenter.presented != nil`, so it stays in the tree while visible.
 			.appMessageBanner(
 				messageCenter: appState.messageCenter,
-				authState: appState.authState,
 				subscriptionState: appState.subscriptionState,
 				analytics: appState.analytics,
 				isReady: appState.isReady

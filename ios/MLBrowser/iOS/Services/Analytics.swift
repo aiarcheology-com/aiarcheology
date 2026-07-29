@@ -521,8 +521,27 @@ final class AnalyticsState: ObservableObject {
 
 	/// `subscription.activated` — conversion *timing* for this account. See ANALYTICS.md for why it
 	/// is not a conversion rate under the current gate order.
+	///
+	/// Refuses to fire for an entitlement whose provenance is anonymous (AIA-0536). Under
+	/// paywall-first, buying happens before signing in — often instead of it — so "an account holds
+	/// an entitlement" no longer implies that account bought it. Attributing it to whoever signs in
+	/// next would invent a conversion, and the funnel would over-count every anonymous purchase
+	/// followed by a sign-in. The honest report is nothing; a real association needs a backend that
+	/// can prove ownership.
 	func reportSubscriptionActivationIfNeeded() {
+		guard settings.subscriptionObservedAnonymously == false else { return }
 		reportOncePerAccount(.subscriptionActivated, markedBy: \.analyticsActivationReportedAccountHash)
+	}
+
+	/// Record that the current entitlement was first seen with nobody signed in.
+	func markEntitlementObservedAnonymously() {
+		settings.subscriptionObservedAnonymously = true
+	}
+
+	/// Forget the anonymous provenance once the entitlement itself is gone: the next one is a fresh
+	/// purchase, and its provenance is decided when it arrives rather than inherited.
+	func forgetAnonymousEntitlementProvenance() {
+		settings.subscriptionObservedAnonymously = false
 	}
 
 	/// SHA-256 of the account id, so the device never persists a raw account identifier.

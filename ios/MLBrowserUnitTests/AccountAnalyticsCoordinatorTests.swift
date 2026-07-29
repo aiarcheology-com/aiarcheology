@@ -187,6 +187,77 @@ final class AccountAnalyticsCoordinatorTests: XCTestCase {
 
 	// MARK: - subscription.activated
 
+	// MARK: - Anonymous-purchase provenance (AIA-0536)
+
+	/// Under paywall-first, buying happens before signing in — often instead of it. So an account
+	/// holding an entitlement no longer implies that account bought it, and crediting whoever signs
+	/// in next would invent a conversion.
+	func testAnonymousPurchaseThenSignIn_ReportsNoActivationForTheArrivingAccount() async {
+		makeCoordinator(auth: .signedOut, accountID: nil, subscription: .subscribed)
+		await subscriptionState.start()
+		await authState.start()
+
+		XCTAssertTrue(settings.subscriptionObservedAnonymously, "an entitlement seen while signed out is anonymous")
+
+		// B signs in afterwards and consents. Nothing about the purchase becomes theirs.
+		authProvider.setOutcomeForTesting(.ready)
+		authProvider.setAccountIDForTesting(Self.accountB)
+		await authState.refresh()
+		analytics.chooseAnalytics(enabled: true)
+
+		XCTAssertNil(settings.analyticsActivationReportedAccountHash)
+		XCTAssertFalse(tracker.events.contains(.subscriptionActivated))
+	}
+
+	/// The provenance is persisted, so a relaunch cannot forget it and re-attribute the purchase on
+	/// the next cold start.
+	func testAnonymousProvenance_SurvivesIntoANewCoordinator() async {
+		makeCoordinator(auth: .signedOut, accountID: nil, subscription: .subscribed)
+		await subscriptionState.start()
+		await authState.start()
+		XCTAssertTrue(settings.subscriptionObservedAnonymously)
+
+		// A fresh graph over the same Settings — what a relaunch produces.
+		makeCoordinator(subscription: .subscribed)
+		await subscriptionState.start()
+		await authState.start()
+		analytics.chooseAnalytics(enabled: true)
+
+		XCTAssertNil(settings.analyticsActivationReportedAccountHash)
+		XCTAssertFalse(tracker.events.contains(.subscriptionActivated))
+	}
+
+	/// **The launch-ordering trap.** Entitlement resolves before auth, so a signed-in subscriber's
+	/// entitlement lands while the context is still `.indeterminate` — indistinguishable from
+	/// anonymity if you look only at the account id. Marking provenance there would suppress every
+	/// signed-in subscriber's activation, on every launch, permanently.
+	func testSignedInSubscriberAtLaunch_IsNotMarkedAnonymousDespiteEntitlementArrivingFirst() async {
+		makeCoordinator(subscription: .subscribed)
+
+		// Deliberately the production order: entitlement first, auth second.
+		await subscriptionState.start()
+		XCTAssertFalse(settings.subscriptionObservedAnonymously, "auth had not resolved — that is not anonymity")
+
+		await authState.start()
+		analytics.chooseAnalytics(enabled: true)
+
+		XCTAssertFalse(settings.subscriptionObservedAnonymously)
+		XCTAssertTrue(tracker.events.contains(.subscriptionActivated))
+	}
+
+	/// A lapse clears the provenance: the next entitlement is a fresh purchase and must be judged on
+	/// its own, not inherited from the one it replaced.
+	func testEntitlementLapses_ClearsAnonymousProvenance() async {
+		makeCoordinator(auth: .signedOut, accountID: nil, subscription: .subscribed)
+		await subscriptionState.start()
+		await authState.start()
+		XCTAssertTrue(settings.subscriptionObservedAnonymously)
+
+		subscriptionProvider.simulateEntitlementChange(to: .notSubscribed)
+
+		XCTAssertFalse(settings.subscriptionObservedAnonymously)
+	}
+
 	/// An activation with no identity would land on the anonymous device identity and could never be
 	/// joined to the account that paid, so it must not be emitted at all.
 	func testSubscriptionActivated_EntitlementWithNoAccount_NeverFires() async {

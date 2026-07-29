@@ -49,6 +49,7 @@ final class Settings: ObservableObject, Validatable {
 		static let analyticsConsentAccountHash = "analyticsConsentAccountHash"
 		static let analyticsAccountEnabled = "analyticsAccountEnabled"
 		static let signInOfferShown = "signInOfferShown"
+		static let subscriptionObservedAnonymously = "subscriptionObservedAnonymously"
 		/// Which account has already had each once-per-account funnel event reported (AIA-0437).
 		/// Stored as the same SHA-256 as the consent hash, never a raw account id.
 		static let analyticsActivationReportedAccountHash = "analyticsActivationReportedAccountHash"
@@ -239,6 +240,7 @@ final class Settings: ObservableObject, Validatable {
 		didSet {
 			defaults.set(analyticsAccountEnabled, forKey: UserDefaultsKeys.analyticsAccountEnabled)
 		defaults.set(signInOfferShown, forKey: UserDefaultsKeys.signInOfferShown)
+		defaults.set(subscriptionObservedAnonymously, forKey: UserDefaultsKeys.subscriptionObservedAnonymously)
 		}
 	}
 
@@ -251,6 +253,18 @@ final class Settings: ObservableObject, Validatable {
 	@Published public var signInOfferShown: Bool {
 		didSet {
 			defaults.set(signInOfferShown, forKey: UserDefaultsKeys.signInOfferShown)
+		}
+	}
+
+	/// Whether the current entitlement was first seen with nobody signed in (AIA-0536).
+	///
+	/// Persisted because it decides attribution, and attribution must survive a relaunch: an
+	/// anonymous purchase followed by someone signing in would otherwise be reported as *their*
+	/// conversion on the next cold launch. Cleared when the entitlement lapses — the next one is a
+	/// fresh purchase whose provenance is decided when it arrives.
+	@Published public var subscriptionObservedAnonymously: Bool {
+		didSet {
+			defaults.set(subscriptionObservedAnonymously, forKey: UserDefaultsKeys.subscriptionObservedAnonymously)
 		}
 	}
 
@@ -420,6 +434,7 @@ final class Settings: ObservableObject, Validatable {
 			UserDefaultsKeys.analyticsChoiceMade: false,
 			UserDefaultsKeys.analyticsAccountEnabled: false,
 			UserDefaultsKeys.signInOfferShown: false,
+			UserDefaultsKeys.subscriptionObservedAnonymously: false,
 			UserDefaultsKeys.ratingPromptEventCount: 0
         ]
 
@@ -444,6 +459,7 @@ final class Settings: ObservableObject, Validatable {
 		self.analyticsChoiceMade = defaults.bool(forKey: UserDefaultsKeys.analyticsChoiceMade)
 		self.analyticsAccountEnabled = defaults.bool(forKey: UserDefaultsKeys.analyticsAccountEnabled)
 		self.signInOfferShown = defaults.bool(forKey: UserDefaultsKeys.signInOfferShown)
+		self.subscriptionObservedAnonymously = defaults.bool(forKey: UserDefaultsKeys.subscriptionObservedAnonymously)
 		self.analyticsConsentAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsConsentAccountHash)
 		self.analyticsActivationReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsActivationReportedAccountHash)
 		self.analyticsSignedInReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsSignedInReportedAccountHash)
@@ -520,6 +536,7 @@ final class Settings: ObservableObject, Validatable {
 		analyticsChoiceMade = false
 		analyticsAccountEnabled = false
 		signInOfferShown = false
+		subscriptionObservedAnonymously = false
 		analyticsConsentAccountHash = nil
 		analyticsActivationReportedAccountHash = nil
 		analyticsSignedInReportedAccountHash = nil

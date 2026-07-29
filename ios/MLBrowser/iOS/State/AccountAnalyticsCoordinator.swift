@@ -24,9 +24,18 @@ final class AccountAnalyticsCoordinator {
 	private let subscriptionState: SubscriptionState
 	private var observations: Set<AnyCancellable> = []
 
-	/// The account currently signed in, tracked locally because the entitlement observer needs it
+	/// The auth context as last delivered, tracked locally because the entitlement observer needs it
 	/// and `@Published` values must be read from the sink that delivers them, never re-read.
-	private var currentAccount: String?
+	///
+	/// The *context*, not just the account id: entitlement resolves before auth at launch, so "no
+	/// account yet" and "no account, signed out" both look like `nil` at exactly the moment the
+	/// entitlement lands. Conflating them would stamp anonymous provenance on every signed-in
+	/// subscriber's entitlement, once per launch.
+	private var currentContext: EffectiveAuthContext = .indeterminate
+
+	/// The last entitlement value seen, so a lapse can be told from the publisher's initial
+	/// delivery. See ``handleEntitlementChange(isSubscribed:)``.
+	private var wasSubscribed = false
 
 	init(
 		analytics: AnalyticsState,
@@ -57,7 +66,7 @@ final class AccountAnalyticsCoordinator {
 	/// correspond to a write of `AuthState.accountIdentifier`.
 	///
 	/// The two are not the same set, and the difference is load-bearing. `.suspended` is not an
-	/// attribution transition — this type must not touch `currentAccount` or emit funnel events for
+	/// attribution transition — this type must not touch `currentContext` or emit funnel events for
 	/// it — but `AnalyticsState` still needs to see it, because it is the only signal distinguishing
 	/// "no scope yet, still resolving" from "no scope, and none is coming". Filtering it out here
 	/// leaves that branch unreachable in the wired app and strands an offline user on a hold screen
@@ -70,12 +79,18 @@ final class AccountAnalyticsCoordinator {
 		analytics.updateAuthContext(context)
 
 		guard context.isAttributionTransition else { return }
-		// `.indeterminate` and `.anonymous` both resolve to no account today. They stop being
-		// interchangeable once consent is scope-aware: only `.anonymous` may be asked and answer.
-		let identifier = context.validatedAccount
-		currentAccount = identifier
+		currentContext = context
 
-		guard identifier != nil else { return }
+		// `.indeterminate` and `.anonymous` both resolve to no account for *attribution*. They are
+		// not interchangeable elsewhere: only `.anonymous` may answer a consent question, and only
+		// `.anonymous` stamps anonymous provenance on an entitlement.
+		guard context.validatedAccount != nil else {
+			// Signing out — or an anonymous user who was already entitled before this fired — still
+			// has to reach the entitlement observer, or an anonymous purchase made while signed out
+			// would never be marked and would be credited to whoever signs in next.
+			handleEntitlementChange(isSubscribed: subscriptionState.isSubscribed)
+			return
+		}
 		// Both funnel events are once-per-account-ever, and `AnalyticsState` owns that bookkeeping:
 		// it is the only type that knows how an account maps to its stored marker. Keeping the
 		// dedup here in memory would have made `account.signed_in` a launch counter.
@@ -89,9 +104,36 @@ final class AccountAnalyticsCoordinator {
 	}
 
 	private func handleEntitlementChange(isSubscribed: Bool) {
-		// Attributable only with an account: an activation with no identity would land on the
-		// anonymous device identity and could never be joined to the account that paid.
-		guard isSubscribed, currentAccount != nil else { return }
-		analytics.reportSubscriptionActivationIfNeeded()
+		defer { wasSubscribed = isSubscribed }
+
+		guard isSubscribed else {
+			// Only a genuine lapse clears provenance, which is why this needs the previous value
+			// rather than just the current one. `@Published` delivers its *current* value the moment
+			// this coordinator subscribes, and at launch that value is `false` — so treating every
+			// `false` as a lapse would wipe a persisted anonymous purchase's provenance on every
+			// cold start, and hand the credit to whoever signed in next.
+			//
+			// After a real lapse, whatever replaces the entitlement is a fresh purchase whose
+			// provenance is decided when it arrives rather than inherited from this one.
+			if wasSubscribed {
+				analytics.forgetAnonymousEntitlementProvenance()
+			}
+			return
+		}
+
+		switch currentContext {
+		case .validated:
+			analytics.reportSubscriptionActivationIfNeeded()
+		case .anonymous:
+			// Bought without an account — the normal shape under paywall-first. Recorded durably so
+			// that whoever signs in later is not credited with someone else's purchase.
+			analytics.markEntitlementObservedAnonymously()
+		case .indeterminate, .suspended:
+			// Auth has not resolved. At launch the entitlement lands *first* (`AppState.initialize`
+			// awaits `subscriptionState.start()` before the gates render), so treating "no account
+			// yet" as anonymity would mark every signed-in subscriber anonymous on every launch.
+			// The account's arrival re-checks the entitlement, which is where this gets decided.
+			break
+		}
 	}
 }
