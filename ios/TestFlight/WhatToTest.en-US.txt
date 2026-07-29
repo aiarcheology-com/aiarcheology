@@ -1,6 +1,6 @@
-Test Focus: Nothing should change. This build reorganises the code that decides whether your subscription is active, so that it can be checked automatically from now on. The behaviour is meant to be identical — the point of this round is to prove that it is.
+Test Focus: Nothing should change. This build finishes reorganising the code that decides whether your subscription is active, so all of it can now be checked automatically. The behaviour is meant to be identical — the point of this round is to prove it is.
 
-Background: the rules for what counts as an active subscription (is it the right product, has it been refunded, is it a free trial) were buried in a place no test could reach. They have been moved somewhere they can be, and every rule now has a test. No rule was intentionally changed.
+Background: the last piece was the step that reads a purchase from the App Store and turns it into "this person has paid". No test could reach it, which mattered most for refunds: if that step ever stopped noticing a refund, refunded users would keep their access and nothing would have caught it. It is now covered.
 
 Please test:
 

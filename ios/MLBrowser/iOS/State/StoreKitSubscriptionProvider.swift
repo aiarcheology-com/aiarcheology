@@ -292,27 +292,6 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 			return nil
 		}
 	}
-
-}
-
-// MARK: - StoreKit projection
-
-extension EntitlementCandidate {
-	/// Project a verified StoreKit transaction onto the facts the entitlement decision reads.
-	///
-	/// The only place `Transaction` and ``EntitlementResolver`` meet. Keeping the projection
-	/// here — rather than in the resolver — is what lets the resolver stay free of StoreKit and
-	/// therefore testable (AIA-0518).
-	init(_ transaction: Transaction) {
-		self.init(
-			productID: transaction.productID,
-			transactionID: transaction.id,
-			isAutoRenewable: transaction.productType == .autoRenewable,
-			revocationDate: transaction.revocationDate,
-			expirationDate: transaction.expirationDate,
-			isIntroductoryOffer: transaction.offer?.type == .introductory
-		)
-	}
 }
 
 #if DEBUG

@@ -103,19 +103,28 @@ Apple forums describe. The split is clean: **configuration loading works, state 
 Consequence: a real purchase cannot be driven from a test on this runtime. With dialogs impossible
 to disable, `Product.purchase()` blocks forever on a sheet no unit test can tap.
 
-What that harness would have covered is instead covered by seams: `EntitlementResolver` holds every
-condition that grants or withholds access, including revocation (the refund path), and injecting
-`entitlementSource` / `accountIdentifierSource` puts the provider's published state and its
-`appAccountToken` tagging under test too.
+What that harness would have covered is instead covered by seams, each one placed where a StoreKit
+type stopped being constructible:
+
+- `EntitlementResolver` — every condition that grants or withholds access, including revocation.
+- `EntitlementTransaction` — the projection off a real transaction: what counts as a subscription,
+  what counts as a trial, whether a refund is carried through.
+- `entitlementSource` / `accountIdentifierSource` — the provider's published state and its
+  `appAccountToken` tagging.
 
 What remains uncovered, and why:
 
-- **The `Transaction` → `EntitlementCandidate` projection** and the drop of unverified results. Both
-  need a real `Transaction`, which is exactly what cannot be constructed. This is the one link of
-  the refund-safety chain with no test behind it: a projection that stopped carrying
-  `revocationDate` would re-grant access to refunded users and nothing would fail.
+- **One line**: `Transaction.offerType`, the alias `offer?.type` that lets `Transaction` satisfy
+  `EntitlementTransaction`. Everything it feeds is covered; reaching the alias itself needs a real
+  transaction. Keep it a pure alias — logic added there is invisible to the suite (AIA-0530).
+- **The drop of unverified results** in `currentEntitlementCandidates()`.
 - **The StoreKit round-trip itself** — purchase, `AppStore.sync()`, `Transaction.updates` delivery.
 - **Ask-to-Buy** and **`ownershipType` under Family Sharing**.
+
+The projection *was* on this list. AIA-0530 removed it: `StoreKit.Transaction` cannot be
+constructed (internal storage, no public initializer, not `Decodable`), but `Product.ProductType`
+and `Transaction.OfferType` can be, so a protocol over the six fields the projection reads makes
+every judgement in it testable — including whether a refund is carried through.
 
 If this is ever revisited: the untried option is an older simulator runtime. Nothing here shows
 whether the breakage is specific to iOS 26.5 or spans the whole 26 line.
