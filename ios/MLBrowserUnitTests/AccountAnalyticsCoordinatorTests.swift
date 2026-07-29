@@ -149,6 +149,42 @@ final class AccountAnalyticsCoordinatorTests: XCTestCase {
 		XCTAssertEqual(tracker.calls, callsBefore)
 	}
 
+	/// Exercises the **wired** path, which a test calling `AnalyticsState` directly cannot.
+	///
+	/// The coordinator must forward `.suspended` even though it is not an attribution transition:
+	/// it is the only signal that separates "no scope yet, still resolving" from "no scope, and none
+	/// is coming". An earlier draft filtered it out here, which left the analytics branch dead in the
+	/// app — `.unavailable` unreachable, and a cold-offline user held on a spinner indefinitely —
+	/// while the direct `AnalyticsState` test carried on passing.
+	func testColdOfflineLaunch_ReachesUnavailableThroughTheWiredCoordinator() async {
+		makeCoordinator(auth: .offline)
+
+		await authState.start()
+
+		XCTAssertEqual(authState.effectiveContext, .suspended(nil))
+		XCTAssertEqual(analytics.consentPresentation, .unavailable)
+		XCTAssertTrue(tracker.calls.isEmpty)
+	}
+
+	/// A consented account recovering from an offline blip must not disturb the transport at any
+	/// point in the round-trip. `testOfflineRevalidation…` stops at the blip; this carries through
+	/// the recovery, where the context re-delivers `.validated(A)` after `.suspended(A)` — a
+	/// re-delivery the old identifier-keyed pipeline never produced.
+	func testOfflineRecovery_ConsentedAccount_StaysSilentAcrossTheWholeRoundTrip() async {
+		makeCoordinator()
+		await authState.start()
+		analytics.chooseAnalytics(enabled: true)
+		let callsBefore = tracker.calls
+
+		authProvider.setOutcomeForTesting(.offline)
+		await authState.refresh()
+		authProvider.setOutcomeForTesting(.ready)
+		await authState.refresh()
+
+		XCTAssertEqual(authState.effectiveContext, .validated(Self.accountA))
+		XCTAssertEqual(tracker.calls, callsBefore)
+	}
+
 	// MARK: - subscription.activated
 
 	/// An activation with no identity would land on the anonymous device identity and could never be

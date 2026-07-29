@@ -53,21 +53,27 @@ final class AccountAnalyticsCoordinator {
 			.store(in: &observations)
 	}
 
-	/// Acts on every context that corresponds to a write of `AuthState.accountIdentifier`, and on no
-	/// others. That correspondence is the invariant: `.suspended` is the single context produced
-	/// without such a write, and is therefore the single one ignored here.
+	/// Forwards **every** context to analytics, then acts on its own behalf only for those that
+	/// correspond to a write of `AuthState.accountIdentifier`.
+	///
+	/// The two are not the same set, and the difference is load-bearing. `.suspended` is not an
+	/// attribution transition — this type must not touch `currentAccount` or emit funnel events for
+	/// it — but `AnalyticsState` still needs to see it, because it is the only signal distinguishing
+	/// "no scope yet, still resolving" from "no scope, and none is coming". Filtering it out here
+	/// leaves that branch unreachable in the wired app and strands an offline user on a hold screen
+	/// forever, while a test calling `AnalyticsState` directly still passes.
 	private func handleContextChange(_ context: EffectiveAuthContext) {
-		// Offline is not a change of account. Shares its definition with the analytics seam rather
-		// than restating it — see `EffectiveAuthContext.isAttributionTransition`.
+		// Always first, and always unconditional: the identity must be installed before any event is
+		// handed over, or the event is attributed to whoever was signed in before (AIA-0437).
+		// `AnalyticsState` decides for itself which contexts change attribution — that judgement is
+		// not duplicated here (see `EffectiveAuthContext.isAttributionTransition`).
+		analytics.updateAuthContext(context)
+
 		guard context.isAttributionTransition else { return }
 		// `.indeterminate` and `.anonymous` both resolve to no account today. They stop being
 		// interchangeable once consent is scope-aware: only `.anonymous` may be asked and answer.
 		let identifier = context.attributedAccount
-
 		currentAccount = identifier
-		// Always first: the identity must be installed before any event is handed over, or the
-		// event is attributed to whoever was signed in before (AIA-0437).
-		analytics.updateAuthContext(context)
 
 		guard identifier != nil else { return }
 		// Both funnel events are once-per-account-ever, and `AnalyticsState` owns that bookkeeping:

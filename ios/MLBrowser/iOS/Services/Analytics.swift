@@ -380,7 +380,13 @@ final class AnalyticsState: ObservableObject {
 		detectionRunCount += 1
 	}
 
-	/// Emits at most one coarse detection summary per app session.
+	/// Emits at most one coarse detection summary per **scope stint** — one uninterrupted run of a
+	/// single consent scope being selected — not per app session (AIA-0536).
+	///
+	/// A scope change spends the outgoing scope's count on the way out (see ``applyScope(_:)``), so
+	/// A → B → A within one session emits two summaries for A. Both carry only A's own runs and each
+	/// is attributed to A, so nothing is misreported; the cardinality is what changed. Anything
+	/// aggregating these must not assume one per user per session.
 	func flushDetectionSessionSummary() {
 		guard isEffectivelyEnabled,
 			let bucket = DetectionRunCountBucket.bucket(for: detectionRunCount) else { return }
