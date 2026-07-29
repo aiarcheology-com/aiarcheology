@@ -99,16 +99,18 @@ final class AppMessagesUITests: UITestCase {
 		assertExists(AID.appMessageBanner, false)
 	}
 
-	/// The login surface shows an informational (display-only) message; an interactive message is
-	/// hidden pre-auth and renders no banner there.
-	func test_login_surface_showsDisplayOnlyMessage() {
-		launch(messagingConfig(infoLogin), mockAuthGate: "signedOut")
-		assertExists(AID.authSignIn, true)
-		assertExists(AID.appMessageBanner, true)
-
-		// Interactive messages are display-only pre-auth: no banner on the login surface.
-		launch(messagingConfig(interactiveLogin), mockAuthGate: "signedOut")
-		assertExists(AID.authSignIn, true)
+	/// **Removed by AIA-0536: there is no login surface to render on.**
+	///
+	/// `.signedOut` used to be a whole root screen, so a banner could sit on it and `.login` was a
+	/// resolvable surface. Sign-in is a transient sheet now — a signed-out user is looking at the
+	/// paywall or at the app — so `MessageSurfaceResolver` never returns `.login` and a message
+	/// targeting it is undeliverable. This asserts the consequence rather than leaving it as a
+	/// silently-missing case: a signed-out entitled user sees the app, and a login-targeted message
+	/// produces no banner anywhere.
+	func test_loginTargetedMessage_isUndeliverableAfterTheCutOver() {
+		launch(messagingConfig(infoLogin), mockAuthGate: "signedOut", mockSubscription: "subscribed")
+		assertExists(AID.cpu, true)
+		assertExists(AID.authSignIn, false)
 		assertExists(AID.appMessageBanner, false)
 	}
 
@@ -156,11 +158,12 @@ final class AppMessagesUITests: UITestCase {
 		assertExists(AID.appMessageSettingsRow(infoSettingsID), true)
 	}
 
-	/// Signed out, an interactive message targeting login (and inApp) renders no banner anywhere on
-	/// the sign-in screen.
-	func test_signedOut_interactiveHiddenEverywhere() {
-		launch(messagingConfig(interactiveLogin), mockAuthGate: "signedOut")
-		assertExists(AID.authSignIn, true)
+	/// Interactive messages still require a signed-in account — that rule survives the cut-over, but
+	/// the surface it applies on has changed. A signed-out user now reaches the app itself, so this
+	/// checks the `.inApp` surface rather than a sign-in screen that no longer exists.
+	func test_signedOut_interactiveHiddenInApp() {
+		launch(messagingConfig(interactiveLogin), mockAuthGate: "signedOut", mockSubscription: "subscribed")
+		assertExists(AID.cpu, true)
 		assertExists(AID.appMessageBanner, false)
 	}
 

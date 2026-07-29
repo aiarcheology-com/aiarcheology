@@ -55,6 +55,11 @@ struct ContentView: View {
                 .environmentObject(appState.settings)
                 .environmentObject(appState.subscriptionState)
 				.environmentObject(appState.analytics)
+                // Observed, not reached through `appState` (AIA-0536): a nested ObservableObject
+                // does not republish through its parent, so the drawer's sign-in row would go stale
+                // the moment the session changed under it. Before the cut-over a sign-out unmounted
+                // the whole tree, so nothing here ever had to notice.
+                .environmentObject(appState.authState)
         }
         .environment(drawer)
         // The single root attachment of the onboarding tour overlay (AIA-0333). Inert while

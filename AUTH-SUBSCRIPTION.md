@@ -14,65 +14,95 @@ on-device.** Everything surprising below follows from those two scopes diverging
 
 ## Gate order
 
-`AuthGateView` → `SubscriptionGateView` → `AnalyticsChoiceGate` → `ContentView`
-(`ios/MLBrowser/iOS/UI/MLBrowser.swift`). Sign-in is outermost, so nothing subscription-related is
-reachable while signed out. Analytics consent is innermost — asked only after both gates pass
-(AIA-0447).
+`SubscriptionGateView` → `AnalyticsChoiceGate` → `ContentView`
+(`ios/MLBrowser/iOS/UI/MLBrowser.swift`).
 
-Two modifiers sit *above* all three: the screenshot problem-reporter and the app-message banner, so
-a user stuck on the sign-in screen or the paywall can still report a bug and still receive a message.
+**Entitlement is the gate; signing in is not** (AIA-0536, implementing the #543 decision). The auth
+gate used to be outermost, so nothing — not even the paywall — was reachable while signed out. That
+inverted: a sign-in wall in front of an app nobody has tried yet is both the larger 5.1.1(v) risk and
+the worse ask. Sign-in is now a **sheet** (`SignInSheet`) offered from four places: the paywall, the
+drawer, Settings, and once after a finding is saved.
+
+`AuthState` is still driven, by `.authLifecycle()` applied above the gate — consent scoping, purchase
+tagging and the account UI all need to know who is signed in. It just no longer decides whether the
+app renders. Those four lifecycle pieces (`start()`, foreground re-validation, the real-auth-only
+`ClerkSessionWatcher`, **and its Clerk environment injection**) must stay together: the watcher reads
+the environment, so separating them leaves it mounted and inert with nothing failing to show it.
+
+Analytics consent is innermost — asked after the paywall, of every entitled user, anonymous included.
+
+Two modifiers sit *above* the gate: the screenshot problem-reporter and the app-message banner, so a
+user on the paywall can still report a bug and still receive a message.
 
 ## State table
 
-Axes: `isReady` × auth gate (4 states) × payments flag × entitlement. Rows are collapsed only where
-the code provably cannot distinguish them.
+Axes: `isReady` × payments flag × entitlement × auth context. Auth no longer gates, so it appears
+only where it changes what is *shown*, not whether anything is.
 
-|#|isReady|Auth gate|Flag|Entitlement|User sees|Correct?|
+|#|isReady|Flag|Entitlement|Auth context|User sees|Correct?|
 |-|-|-|-|-|-|-|
 |1|false|any|any|any|`ProgressView`|yes, transient|
-|2|true|checkingSession|any|any|`AuthLoadingView`|yes, transient|
-|3|true|signedOut|any|any|Sign-in screen — even with a valid entitlement|yes: auth outranks entitlement by design|
-|4|true|offline|any|any|"Needs connection" + Retry — even with a valid entitlement|deliberate v1 fail-closed; see below|
-|5|true|ready|off|unobservable|App content; Settings shows "Free Beta"|yes: ship-dark contract|
-|6|true|ready|on|subscribed (paid)|App content; Settings "Active"|yes|
-|7|true|ready|on|subscribed (trial)|App content; Settings "Trial"|yes: a trial counts as active|
-|8|true|ready|on|not subscribed|Paywall as root, with Sign Out / Delete Account|yes: Apple 5.1.1(v) escape|
-|9|true|ready|on|not yet synced|Paywall until StoreKit syncs or the user taps Restore|acceptable: Restore is the sanctioned recovery|
+|2|true|off|unobservable|any|App content; Settings shows "Free Beta"|yes: ship-dark contract|
+|3|true|on|subscribed (paid)|any|App content; Settings "Active"|yes — including signed out|
+|4|true|on|subscribed (trial)|any|App content; Settings "Trial"|yes: a trial counts as active|
+|5|true|on|not subscribed|validated|Paywall, with Sign Out / Delete Account|yes: Apple 5.1.1(v) escape|
+|6|true|on|not subscribed|anonymous|Paywall, with **Sign In**|yes: a signed-out lapsed subscriber must reach account recovery without buying first|
+|7|true|on|not subscribed|indeterminate / suspended|Paywall, no account controls|yes: the first is transient, the second cannot reach Clerk anyway|
+|8|true|on|not yet synced|any|Paywall until StoreKit syncs or the user taps Restore|acceptable: Restore is the sanctioned recovery|
+|9|true|on|subscribed|indeterminate (launch)|A brief hold until auth resolves a consent scope, then the app|acceptable: the same wait the old `AuthLoadingView` covered — but see the note below|
+|10|true|on|subscribed|suspended (offline)|App content, analytics off|yes: no scope can ever be selected, so waiting would never end (#532)|
 
-Row 5 note: with the payments flag off, `subscriptionState.start()` never runs, so no
+Row 9 note: with **both** analytics flags on, the first render of an entitled launch waits for a
+consent scope, which means waiting for Clerk. Auth no longer decides *whether* the app renders, but
+in this one configuration it still influences *when*. The wait is bounded by the same round-trip the
+old auth gate made, and it is skipped entirely once a scope resolves (row 10 shows the case where it
+never can).
+
+Row 2 note: with the payments flag off, `subscriptionState.start()` never runs, so no
 `Transaction.updates` listener is installed and `isSubscribed` stays frozen `false` for the whole
-session. The app cannot observe real entitlement at all while shipped dark.
+session. The app cannot observe real entitlement at all while shipped dark — and with no auth gate
+either, a flag-off build is fully open.
 
 ## Transitions
 
 |Trigger|Effect|
 |-|-|
-|Sign-in completes|Gate re-evaluates → ready → subscription gate decides|
-|Sign Out (available on the root paywall)|Auth → signedOut. `SubscriptionState` is deliberately **not** reset — the entitlement is device property, so clearing it would be a lie|
+|Sign-in completes|Context → `.validated`. Access does not change — the user stays where they are. Analytics switches to that account's consent bucket, and if that account has never answered, the consent question is asked **as a sheet over the app**, never by replacing it. Later purchases carry its `appAccountToken`|
+|Sign Out|Context → `.anonymous`. **The user stays in the app** (AIA-0536): entitlement is the gate, so signing out does not eject an entitled user. `SubscriptionState` is deliberately **not** reset either — the entitlement is device property, so clearing it would be a lie. Analytics switches to the anonymous consent bucket|
 |Delete Account|Clerk user deleted → signedOut. **The Apple subscription keeps billing**|
 |Refund / revocation|`Transaction.updates` → entitlement false → root swaps to the paywall live|
 |Ask-to-Buy approval|Arrives via `Transaction.updates`, the launch drain, or the foreground re-check|
 |Foreground|Auth re-validates online; entitlement re-checked so a lapse raises the paywall without a cold launch|
 |Remote payments-flag flip|No effect until relaunch — captured once at construction (AIA-0350)|
 
-## The four consequences worth knowing
+## The consequences worth knowing
 
 **1. A second Clerk account on one device inherits the first one's subscription.** Entitlement is
 read from `Transaction.currentEntitlements` for the device's Apple Account; no Clerk id is consulted.
 A subscribes, signs out, B signs in — B gets premium. This is the standard iOS model (the Apple
 Account paid, and Apple would grant that purchase to any install under it), and it is accepted for
-now. `StoreKitSubscriptionProvider` already writes a Clerk-derived `appAccountToken` into purchases
-so a future backend can reconcile; nothing reads it yet.
+now. `StoreKitSubscriptionProvider` writes a Clerk-derived `appAccountToken` into purchases so a future
+backend can reconcile; nothing reads it yet — and since AIA-0536 that token is written **only** from
+a freshly validated context, never from a stale or unverifiable session.
+
+Under paywall-first this consequence acquires a reporting counterpart: buying now happens before
+signing in, often instead of it, so an account holding an entitlement no longer implies that account
+bought it. An entitlement first observed with nobody signed in is marked **anonymous, persistently**,
+and `subscription.activated` refuses to fire for it — otherwise every anonymous purchase followed by
+a sign-in would be reported as that account's conversion. The honest report is nothing until a
+backend can prove ownership.
 
 **2. The same Clerk account on a device with a different Apple Account pays twice.** `Restore` calls
 `AppStore.sync()`, which syncs the *device's* Apple Account, not the Clerk account — so it returns
 "nothing to restore" and the same person is asked to buy again. This is not fixable on-device; it
 needs the App Store Server Notifications → backend → Clerk-entitlement path.
 
-**3. Offline locks out paying subscribers.** Auth fails closed at launch *and every foreground*,
-while entitlement is checked purely locally. So a paying user who foregrounds the app in airplane
-mode is blocked from an app whose ML features are entirely on-device. Deliberate for v1. If this is
-ever relaxed, the subscription gate needs no change.
+**3. ~~Offline locks out paying subscribers.~~ Dissolved by AIA-0536.** Auth used to fail closed at
+launch *and every foreground*, blocking a paying user who foregrounded in airplane mode out of an app
+whose ML features are entirely on-device. Auth no longer gates, so an entitled offline user goes
+straight in; the unverifiable session surfaces as `.suspended`, which pauses nothing and simply
+declines to tag purchases or select a consent scope. Analytics fails closed; the app does not.
+See #532, which this closes.
 
 **4. Deleting an account does not cancel the subscription.** Clerk deletion is offered where Apple
 requires it, but the auto-renewing subscription continues billing and the confirmation copy does not

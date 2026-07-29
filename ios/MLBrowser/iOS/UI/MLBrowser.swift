@@ -249,16 +249,20 @@ struct MLBrowser: App {
 				}
 			}
 		}
-		// The Clerk environment is injected here, above the gate, and is what
-		// `AuthLifecycleModifier`'s session watcher reads. Injection and watcher are rehomed
-		// together on purpose (AIA-0536): separated, the watcher stays mounted and inert, and
-		// out-of-band sign-outs stop being noticed with nothing failing to show it.
+		// `.environment` must come AFTER `.authLifecycle`, not before (AIA-0536).
+		//
+		// The lifecycle modifier mounts `ClerkSessionWatcher` in its own `.background`, which is a
+		// *sibling* of the content it wraps — not a descendant of it. Applying the environment to
+		// `gate` first therefore hands Clerk to everything except the one view that needs it, and
+		// the watcher is left mounted and inert: out-of-band sign-outs stop being noticed, with
+		// nothing failing to show it. Applied last, the environment is an ancestor of the whole
+		// modified view, background included.
 		if appState.usesRealAuth == false {
 			gate.authLifecycle(appState.authState)
 		} else {
 			gate
-				.environment(Clerk.shared)
 				.authLifecycle(appState.authState)
+				.environment(Clerk.shared)
 		}
 	}
 
@@ -345,14 +349,33 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 		case hold
 	}
 
+	/// Whether the consent question is being asked *over* content the user is already using, rather
+	/// than as the screen they arrive at. Rendered as an overlay in that case — see ``body``.
+	private var asksOverContent: Bool {
+		hasEverResolved && analytics.consentPresentation == .ask
+	}
+
 	private var display: Display {
 		switch analytics.consentPresentation {
-		case .ask: .choice
+		// Asking is a full screen only on the way *in*. Afterwards it must not replace the root:
+		// under paywall-first, signing in happens mid-session by design, and a first sign-in — or an
+		// A→B switch, or a sign-out for anyone whose anonymous bucket is unanswered — selects a new
+		// scope with no stored choice, which lands here. Swapping the root then destroys the
+		// `WKWebView` the user is looking at, along with the page, scroll position and history.
+		// Before the cut-over this was unreachable: consent could only ever be asked at launch.
+		case .ask: hasEverResolved ? .content : .choice
 		case .resolved: .content
-		// Holding is only right *before* anything has been shown. Afterwards the user is already in
-		// the app and an unresolved scope is not a reason to throw them out of it — analytics simply
-		// fails closed until it resolves.
-		case .pending, .unavailable: hasEverResolved ? .content : .hold
+		// Holding is only right *before* anything has been shown, and only while the wait is going
+		// to end. Afterwards the user is already in the app, and an unresolved scope is not a reason
+		// to throw them out of it — analytics simply fails closed until it resolves.
+		case .pending: hasEverResolved ? .content : .hold
+		// **Never hold on `.unavailable`.** It means no scope can be selected *at all* — the session
+		// cannot be verified — so the wait would never end. On a cold launch in airplane mode an
+		// entitled user reaches exactly this state, and holding here would strand them on a spinner
+		// in front of an app whose features are entirely on-device. That is the lockout AIA-0536
+		// exists to remove (#532); it must not come back through the consent gate. They go in, with
+		// analytics off until a scope can be resolved.
+		case .unavailable: .content
 		}
 	}
 
@@ -370,6 +393,24 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 				// `.unavailable` should explain that a connection is needed rather than spin (#545).
 				ProgressView()
 					.frame(maxWidth: .infinity, maxHeight: .infinity)
+			}
+		}
+		// An **overlay**, deliberately not a sheet. Both keep `content` mounted, which is the point —
+		// but this gate is an ancestor of every sheet the app presents, and a sheet presented from an
+		// ancestor while a descendant's sheet is up presents-then-auto-dismisses (the same trap
+		// `SettingsView` documents for the Clerk profile). Sign-in and Restore Defaults both happen
+		// *inside* the Settings sheet, so a sheet here would never be seen on exactly the paths that
+		// raise the question.
+		//
+		// The consequence is deliberate and worth stating: while a sheet covers the app, the question
+		// waits behind it and appears when that sheet closes. Finishing in Settings and then being
+		// asked is a better sequence than having Settings yanked away mid-action, which is what the
+		// old root swap did.
+		.overlay {
+			if asksOverContent {
+				AnalyticsChoiceView(analytics: analytics)
+					.background(Color(uiColor: .systemBackground))
+					.transition(.opacity)
 			}
 		}
 		.onChange(of: analytics.consentPresentation, initial: true) { _, presentation in

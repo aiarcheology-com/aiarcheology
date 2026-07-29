@@ -239,8 +239,6 @@ final class Settings: ObservableObject, Validatable {
 	@Published public var analyticsAccountEnabled: Bool {
 		didSet {
 			defaults.set(analyticsAccountEnabled, forKey: UserDefaultsKeys.analyticsAccountEnabled)
-		defaults.set(signInOfferShown, forKey: UserDefaultsKeys.signInOfferShown)
-		defaults.set(subscriptionObservedAnonymously, forKey: UserDefaultsKeys.subscriptionObservedAnonymously)
 		}
 	}
 
@@ -535,8 +533,6 @@ final class Settings: ObservableObject, Validatable {
 		analyticsEnabled = false
 		analyticsChoiceMade = false
 		analyticsAccountEnabled = false
-		signInOfferShown = false
-		subscriptionObservedAnonymously = false
 		analyticsConsentAccountHash = nil
 		analyticsActivationReportedAccountHash = nil
 		analyticsSignedInReportedAccountHash = nil
@@ -544,6 +540,13 @@ final class Settings: ObservableObject, Validatable {
 		// Count only: `ratingPromptLastRequestDate` deliberately survives a reset (AIA-0117) so
 		// "Restore Defaults" cannot be used — deliberately or accidentally — to re-trigger the
 		// review prompt. Anti-nag memory is not a user preference.
+		//
+		// `signInOfferShown` and `subscriptionObservedAnonymously` survive for the same reason
+		// (AIA-0536), and neither is listed above. The first is anti-nag memory exactly like the
+		// rating prompt. The second is *provenance*: it records that the active entitlement was
+		// bought with nobody signed in. Clearing it would let Restore Defaults hand an anonymous
+		// purchase to whoever signs in next, which is the misattribution the marker exists to
+		// prevent — a reset must not be a way to launder it.
 		ratingPromptEventCount = 0
 
 		defaults.removeObject(forKey: UserDefaultsKeys.lastPage)

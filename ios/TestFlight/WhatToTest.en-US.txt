@@ -1,12 +1,17 @@
-Test Focus: Nothing should change. This build finishes reorganising the code that decides whether your subscription is active, so all of it can now be checked automatically. The behaviour is meant to be identical — the point of this round is to prove it is.
+Build: TBD
 
-Background: the last piece was the step that reads a purchase from the App Store and turns it into "this person has paid". No test could reach it, which mattered most for refunds: if that step ever stopped noticing a refund, refunded users would keep their access and nothing would have caught it. It is now covered.
+Test Focus: The order of the opening screens has changed. You now reach the subscribe screen first, and signing in is optional — offered when it is actually useful rather than demanded up front. Nothing about what the app *does* has changed.
+
+Background: previously the app asked you to sign in before it would show you anything, including the price. That is a lot to ask of someone who has not seen the app work yet, and it meant a paying subscriber with no internet connection was locked out of features that run entirely on their own device. Access is now decided by your subscription; your account is for saving findings and syncing them later.
 
 Please test:
 
-1. If you are a subscriber, confirm you still go straight into the app and are never shown the subscribe screen. Force-quit and reopen a few times.
-2. If you are not a subscriber, confirm you still see the subscribe screen exactly as before, and that Restore Purchases behaves the same.
-3. If you are on the free trial, check the app still shows you as being on a trial everywhere it did before.
-4. If you have ever been refunded for a subscription, confirm the app still treats you as not subscribed.
-5. Subscribe, then use the app normally for a while. Access should not come and go between launches.
-6. Report immediately if the app lets you in without a subscription, or asks you to subscribe when you already have one. Those are the two failures this change could plausibly cause, and they matter more than anything else in this build.
+1. Fresh install, no subscription: you should reach the subscribe screen without being asked to sign in. Confirm the screen offers Sign In near the bottom, alongside Subscribe and Restore.
+2. If you subscribe (or already have), you should go straight into the app without ever signing in. Use it normally for a while.
+3. Turn on Airplane Mode and launch the app while subscribed. You should get straight in. Previously this showed a "needs connection" screen — if you see one, that is the most important bug in this build.
+4. Sign in from each of the four places, signing out again between each one — otherwise the other entry points disappear once you are signed in. The four are: the subscribe screen, the side menu (bottom), Settings, and the offer that appears once after you save a finding.
+5. Save a finding while signed out. The finding must be saved whether or not you sign in afterwards — choosing "Cancel" on the sign-in offer must never lose it. Save several more findings and confirm the offer does not appear again: it is meant to be shown once per install.
+6. While signed in, open Settings and sign out. You should stay exactly where you are, still in the app. Previously this threw you out to a sign-in screen. If you are asked about analytics at any point after signing in or out, it should appear as a panel over the app — the page you were on must still be there behind it, on the same scroll position.
+7. If you are not subscribed and you sign out from the subscribe screen, confirm the Sign Out button is replaced by Sign In, and that you can sign back in and reach Delete Account.
+8. Analytics consent: if you are asked whether to enable analytics, that question should come after the subscribe screen, and you should be asked even if you never sign in. Answer it, then check Settings shows the same answer you gave.
+9. Report immediately if you are ever asked to sign in before you can see the price, or if a subscribed user is blocked from the app for any reason. Those are the two failures this change could plausibly cause, and they matter more than anything else in this build.

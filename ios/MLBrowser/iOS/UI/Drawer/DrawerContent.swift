@@ -29,6 +29,10 @@ struct DrawerContent: View {
     @EnvironmentObject private var downloader: Downloader
     @EnvironmentObject private var settings: Settings
     @EnvironmentObject private var subscriptionState: SubscriptionState
+    /// Observed rather than reached through `appState` (AIA-0536): a nested ObservableObject does
+    /// not republish through its parent, so the sign-in row below would go stale the moment the
+    /// session changed. Before the cut-over a sign-out unmounted this whole tree.
+    @EnvironmentObject private var authState: AuthState
 	@EnvironmentObject private var analytics: AnalyticsState
 
     @FetchRequest(
@@ -120,7 +124,7 @@ struct DrawerContent: View {
             .environment(\.managedObjectContext, moc)
         }
         .sheet(isPresented: $showSignIn) {
-            SignInSheet(authState: appState.authState)
+            SignInSheet(authState: authState)
                 // Re-inject: custom env values don't reliably cross a sheet boundary on Mac
                 // (Designed for iPad) — AGENTS.md §3. `SignInSheet` branches on this to decide
                 // whether to build Clerk's `AuthView` at all, and the mock path has no configured
@@ -131,7 +135,7 @@ struct DrawerContent: View {
             // FindingRepository is a plain (non-ObservableObject) type, so it is passed by
             // initializer rather than injected as an environment object (AIA-0303), the same way
             // WebScreen hands it to SaveFindingSheet.
-            SettingsForm(findingRepository: appState.findingRepository, authState: appState.authState)
+            SettingsForm(findingRepository: appState.findingRepository, authState: authState)
                 .environmentObject(settings)
                 .environmentObject(chromeState)
                 .environmentObject(detectionState)
@@ -247,7 +251,7 @@ struct DrawerContent: View {
             // paywall-first gate order it is an optional convenience rather than a precondition
             // (AIA-0536). Shown only while genuinely signed out: `.indeterminate` is transient and
             // `.suspended` cannot reach Clerk anyway, so offering it there only invites a failure.
-            if case .anonymous = appState.authState.effectiveContext {
+            if case .anonymous = authState.effectiveContext {
                 Button {
                     showSignIn = true
                 } label: {

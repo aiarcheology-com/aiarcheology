@@ -109,8 +109,17 @@ struct PaywallView: View {
 	var authState: AuthState?
 
 	/// True when this is the whole-app root gate (vs. the Settings sheet). Enables the
-	/// sign-out / delete-account affordances.
+	/// account affordances.
 	var isRootGate = false
+
+	/// Which account controls to show, passed as a **value** from the parent (AIA-0536).
+	///
+	/// Deliberately not read from `authState`: that is a plain `var`, not an `@ObservedObject`, so
+	/// this view does not re-render when the context changes. It never had to before — signing out
+	/// tore down the whole view tree, because auth was the outer gate. The paywall now stays mounted
+	/// across a sign-out and has to swap Sign Out / Delete for Sign In in place, so the value comes
+	/// from `SubscriptionGateView`, which *does* observe auth.
+	var authContext: EffectiveAuthContext = .indeterminate
 
 	@Environment(\.dismiss) private var dismiss
 
@@ -386,7 +395,7 @@ struct PaywallView: View {
 		// `.indeterminate` and `.suspended` deliberately show nothing: the first is transient, and
 		// the second cannot reach Clerk anyway, so offering sign-in there only invites a failure.
 		if isRootGate, let authState {
-			switch authState.effectiveContext {
+			switch authContext {
 			case .validated:
 				VStack(spacing: 12) {
 					Button {

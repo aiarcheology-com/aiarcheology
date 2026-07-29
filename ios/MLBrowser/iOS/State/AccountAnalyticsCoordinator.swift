@@ -33,10 +33,6 @@ final class AccountAnalyticsCoordinator {
 	/// subscriber's entitlement, once per launch.
 	private var currentContext: EffectiveAuthContext = .indeterminate
 
-	/// The last entitlement value seen, so a lapse can be told from the publisher's initial
-	/// delivery. See ``handleEntitlementChange(isSubscribed:)``.
-	private var wasSubscribed = false
-
 	init(
 		analytics: AnalyticsState,
 		authState: AuthState,
@@ -104,19 +100,25 @@ final class AccountAnalyticsCoordinator {
 	}
 
 	private func handleEntitlementChange(isSubscribed: Bool) {
-		defer { wasSubscribed = isSubscribed }
-
 		guard isSubscribed else {
-			// Only a genuine lapse clears provenance, which is why this needs the previous value
-			// rather than just the current one. `@Published` delivers its *current* value the moment
-			// this coordinator subscribes, and at launch that value is `false` — so treating every
-			// `false` as a lapse would wipe a persisted anonymous purchase's provenance on every
-			// cold start, and hand the credit to whoever signed in next.
+			// Not entitled. Clear the provenance — but only once auth has actually resolved.
 			//
-			// After a real lapse, whatever replaces the entitlement is a fresh purchase whose
-			// provenance is decided when it arrives rather than inherited from this one.
-			if wasSubscribed {
+			// The timing is the whole difficulty. `@Published` delivers its *current* value the
+			// moment this coordinator subscribes, and at launch that value is `false`, before auth
+			// has said anything. Clearing then would wipe a persisted anonymous purchase's
+			// provenance on every cold start and hand the credit to whoever signed in next.
+			//
+			// Gating on "did we previously see `true` in this process" is not enough either: an
+			// anonymous entitlement that lapses while the app is *terminated* is never observed
+			// going false, so the marker would survive forever and suppress the next legitimate
+			// activation. Keying on the context fixes both — by the time a real scope is selected,
+			// `isSubscribed == false` genuinely means this device holds no entitlement, whenever it
+			// went away.
+			switch currentContext {
+			case .validated, .anonymous:
 				analytics.forgetAnonymousEntitlementProvenance()
+			case .indeterminate, .suspended:
+				break
 			}
 			return
 		}

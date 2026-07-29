@@ -34,30 +34,61 @@ works.
 
 ```text
 first launch → ConfigCat availability ON
-    → AuthGateView → SubscriptionGateView
+    → SubscriptionGateView (paywall, if not entitled)
     → notice (default OFF: "Enable analytics" / "Not now")
     → active choice to enable → TelemetryDeck.initialize(...)   ← first time the SDK exists
     → ContentView → Settings toggle
 ```
 
-**The notice renders *after* the auth and subscription gates** (AIA-0447): the demanding question no
-longer fronts the app. Funnel events fired on the paywall are buffered in memory by `AnalyticsState`
-until the choice is made, then flushed on enable and discarded on decline — so nothing leaves the
-device before consent. `MLBrowser.swift` nests
-`AuthGateView { SubscriptionGateView { AnalyticsChoiceGate { ContentView } } }`.
+**The notice renders *after* the paywall** (AIA-0447), of every entitled user — anonymous included
+(AIA-0536). Funnel events fired on the paywall are buffered in memory by `AnalyticsState` until the
+choice is made, then flushed on enable and discarded on decline, so nothing leaves the device before
+consent. `MLBrowser.swift` nests `SubscriptionGateView { AnalyticsChoiceGate { ContentView } }`.
 
-### Consequence: the acquisition funnel is degenerate
+### Consent is scoped, and there are exactly two scopes
 
-Because consent is the innermost gate, **only users who already signed in and already got past the
-paywall are ever asked**. A user who abandons at sign-in, or sees the price and leaves, never enters
-the dataset. So "opened → signed in → signed in + paid" is the same population at every stage and
-all three counts are equal, by construction.
+`AnalyticsConsentScope` is `anonymous | account`. **Anonymous and the pre-AIA-0437 device-wide model
+are the same bucket, not two** — device-wide mode never installs an identity, and anonymous mode
+installs `nil`, which per `AnalyticsTracking` means the transport's own anonymous installation
+identity. Identical bytes, identical question. Storing them apart would only create two ways to
+answer one question, and a way for each to overwrite the other.
 
-This is a gate-order consequence, not a reporting bug. **Do not build a conversion dashboard on
-these stages** — the drop-offs you would want to read are structurally invisible. `subscription
-activated` is therefore useful as conversion *timing* (when did this account first become entitled),
-not as a conversion *rate*. Making the funnel real would mean moving consent above the paywall,
-which is a partial reversal of AIA-0447 and belongs in its own ticket.
+|bucket|keys|
+|-|-|
+|anonymous / device-wide|`analyticsChoiceMade`, `analyticsEnabled`|
+|account|`analyticsConsentAccountHash`, `analyticsAccountEnabled`|
+
+Each branch writes only its own keys. That separation is what makes a rollback of
+`isCrossDeviceAnalyticsIdentityEnabled` harmless rather than a leak.
+
+The pre-consent buffer and the detection counter are **scope-owned**: both are discarded when the
+selected scope genuinely changes, so one scope's activity can never be delivered under another's.
+Two rules there are easy to get backwards and are pinned by tests — the *first* scope selection of a
+session is never a boundary (events recorded before any scope existed cannot belong to another
+scope), and the detection count is *spent* under the outgoing scope rather than discarded, which
+makes the summary one-per-scope-stint rather than one-per-session.
+
+### Consequence: the acquisition funnel is still not a rate
+
+Consent now sits behind the paywall only, not behind sign-in as well, so the population asked is
+"everyone entitled" rather than "everyone entitled *and* signed in". That is wider than before but
+still not the top of a funnel: a user who sees the price and leaves is never asked, so pre-purchase
+drop-off remains structurally invisible.
+
+**Do not build a conversion dashboard on these stages.** `subscription.activated` is useful as
+conversion *timing* for an account, never as a conversion *rate*.
+
+Two further limits under paywall-first:
+
+- **Anonymous users emit neither *account* funnel event.** `account.signed_in` and
+  `subscription.activated` are both once-per-account and require one, so an entitled user who never
+  signs in contributes to neither. They do still emit everything else once they consent — the
+  buffered paywall events, model imports, detection summaries — so this is a gap in the funnel
+  stages specifically, not in analytics as a whole.
+- **An anonymous purchase is never credited to a later sign-in.** An entitlement first observed with
+  nobody signed in is marked anonymous *persistently*, and `subscription.activated` refuses to fire
+  for it — otherwise buying-then-signing-in, which is now the normal shape, would be reported as that
+  account's conversion. See `AUTH-SUBSCRIPTION.md`.
 
 ## Planned events
 

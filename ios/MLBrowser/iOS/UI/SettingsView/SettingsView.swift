@@ -141,6 +141,11 @@ struct SettingsForm: View {
 			.activityShareSheet($findingsSharePayload)
 			.sheet(isPresented: $showSignIn) {
 				SignInSheet(authState: authState)
+					// Settings is itself a sheet, so this is a *second* boundary and needs its own
+					// re-injection (AGENTS.md §3). Without it the value falls back to `false` on Mac
+					// and the sign-in button silently does nothing — the mock path has no configured
+					// Clerk instance, so `SignInSheet` refuses to present rather than trapping.
+					.environment(\.usesRealAuth, usesRealAuth)
 			}
 			// Signing out from inside Clerk's embedded profile leaves that screen pushed with
 			// nothing left to show (AIA-0536). Before the paywall-first cut-over the whole app was

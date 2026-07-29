@@ -5,22 +5,27 @@
 
 import XCTest
 
-/// The optional analytics choice is now gated behind login + paywall (AIA-0447). These tests also
-/// prove a UI-test app process can render the flow without ever initializing TelemetryDeck.
+/// The optional analytics choice sits behind the paywall (AIA-0447), and since the paywall-first
+/// cut-over that is the *only* thing in front of it (AIA-0536). These tests also prove a UI-test app
+/// process can render the flow without ever initializing TelemetryDeck.
 final class AnalyticsChoiceUITests: UITestCase {
-	func testChoiceIsGatedBehindSignIn() {
-		// AIA-0447: consent no longer fronts the app. Signed out → the sign-in screen shows and
-		// the analytics choice stays hidden behind it.
+
+	/// **Inverted by AIA-0536.** Consent used to require an account: the prompt demanded one and a
+	/// signed-out user met the sign-in screen instead. Entitled anonymous users exist now, and the
+	/// question — "may we attribute your usage" — is one they can answer, so they are asked.
+	func testChoiceIsAskedOfAnEntitledAnonymousUser() {
 		launch(
 			LaunchConfig(
 				featureFlagOverrides: ["isAnalyticsEnabled": true],
 				analyticsScenario: .prompt
 			),
-			mockAuthGate: "signedOut"
+			mockAuthGate: "signedOut",
+			mockSubscription: "subscribed"
 		)
 
-		assertExists(AID.authSignIn, true)
-		assertExists(AID.analyticsChoiceNotNow, false)
+		assertExists(AID.analyticsChoiceNotNow, true)
+		// There is no sign-in screen that could have been shown instead.
+		assertExists(AID.authSignIn, false)
 	}
 
 	func testChoiceIsGatedBehindPaywall() {
@@ -38,8 +43,8 @@ final class AnalyticsChoiceUITests: UITestCase {
 		assertExists(AID.analyticsChoiceNotNow, false)
 	}
 
-	func testChoiceAppearsAfterSignInAndPaywall() {
-		// Auth ready and subscription satisfied → the choice finally surfaces, after both gates.
+	func testChoiceAppearsAfterThePaywall() {
+		// Entitled → the choice surfaces. Signing in is no longer part of reaching it.
 		launch(
 			LaunchConfig(
 				featureFlagOverrides: ["isAnalyticsEnabled": true],
@@ -85,7 +90,30 @@ final class AnalyticsChoiceUITests: UITestCase {
 		XCTAssertTrue(restoreAlert.waitForExistence(timeout: 5), "Restore Defaults confirmation is missing")
 		restoreAlert.buttons["Restore"].tap()
 
-		assertExists(AID.analyticsChoiceNotNow, true)
+		// The question is raised at once but waits *behind* Settings rather than tearing it away
+		// (AIA-0536). It used to appear instantly only because resetting swapped the app root out,
+		// which destroyed this sheet as a side effect — along with whatever the user was browsing.
+		//
+		// Hittability, not existence: the overlay is in the accessibility tree the moment it renders,
+		// it simply is not reachable while a sheet covers it. Asserting absence would pass for the
+		// wrong reason if the overlay never rendered at all, so existence is asserted first.
+		let choice = element(AID.analyticsChoiceNotNow)
+		XCTAssertTrue(choice.waitForExistence(timeout: 5), "Restore Defaults should raise the choice again")
+		XCTAssertFalse(choice.isHittable, "the choice must wait behind Settings, not tear it away")
+
+		// Restore Defaults lives on a pushed sub-screen, so leave it before the sheet can be closed.
+		let back = app.navigationBars.buttons.element(boundBy: 0)
+		XCTAssertTrue(back.waitForExistence(timeout: 5), "Reset screen has no back button")
+		back.tap()
+		// `.firstMatch`, not a subscript: under UI testing `.testability` mirrors the identifier into
+		// the accessibility label too, so a plain lookup matches the same control twice and the tap
+		// fails as ambiguous rather than as missing (same trap as `SubscriptionGateUITests`).
+		let dismiss = app.buttons.matching(identifier: AID.settingsDismiss).firstMatch
+		XCTAssertTrue(dismiss.waitForExistence(timeout: 5), "Settings root did not come back")
+		dismiss.tap()
+
+		XCTAssertTrue(choice.waitForExistence(timeout: 5), "the choice should survive Settings closing")
+		XCTAssertTrue(choice.isHittable, "once Settings is closed the choice is answerable")
 	}
 
 	// MARK: - Account-scoped consent (AIA-0437)
