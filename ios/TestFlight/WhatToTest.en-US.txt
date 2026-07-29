@@ -2,6 +2,8 @@ Test Focus: Nothing should change. This build finishes reorganising the code tha
 
 Background: the last piece was the step that reads a purchase from the App Store and turns it into "this person has paid". No test could reach it, which mattered most for refunds: if that step ever stopped noticing a refund, refunded users would keep their access and nothing would have caught it. It is now covered.
 
+This build also contains changes to our own build and testing setup. They do not touch the app, so there is nothing extra to try because of them.
+
 Please test:
 
 1. If you are a subscriber, confirm you still go straight into the app and are never shown the subscribe screen. Force-quit and reopen a few times.
