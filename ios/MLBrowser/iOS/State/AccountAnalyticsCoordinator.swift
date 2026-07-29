@@ -39,9 +39,12 @@ final class AccountAnalyticsCoordinator {
 		// The value is taken from the sink, never re-read from `authState`. `@Published` fires on
 		// `willSet`, so a sink that re-read the property would observe the value being replaced —
 		// i.e. it would install the OUTGOING account (documented in `TargetingCoordinator`).
-		authState.$accountIdentifier
+		//
+		// Driven by the context rather than the raw identifier (AIA-0536): the identifier alone
+		// cannot distinguish "signed out" from "still resolving", and consent needs to.
+		authState.$effectiveContext
 			.removeDuplicates()
-			.sink { [weak self] identifier in self?.handleAccountChange(to: identifier) }
+			.sink { [weak self] context in self?.handleContextChange(context) }
 			.store(in: &observations)
 
 		subscriptionState.$isSubscribed
@@ -50,11 +53,21 @@ final class AccountAnalyticsCoordinator {
 			.store(in: &observations)
 	}
 
-	private func handleAccountChange(to identifier: String?) {
+	/// Acts on every context that corresponds to a write of `AuthState.accountIdentifier`, and on no
+	/// others. That correspondence is the invariant: `.suspended` is the single context produced
+	/// without such a write, and is therefore the single one ignored here.
+	private func handleContextChange(_ context: EffectiveAuthContext) {
+		// Offline is not a change of account. Shares its definition with the analytics seam rather
+		// than restating it — see `EffectiveAuthContext.isAttributionTransition`.
+		guard context.isAttributionTransition else { return }
+		// `.indeterminate` and `.anonymous` both resolve to no account today. They stop being
+		// interchangeable once consent is scope-aware: only `.anonymous` may be asked and answer.
+		let identifier = context.attributedAccount
+
 		currentAccount = identifier
 		// Always first: the identity must be installed before any event is handed over, or the
 		// event is attributed to whoever was signed in before (AIA-0437).
-		analytics.updateAccountIdentity(identifier)
+		analytics.updateAuthContext(context)
 
 		guard identifier != nil else { return }
 		// Both funnel events are once-per-account-ever, and `AnalyticsState` owns that bookkeeping:

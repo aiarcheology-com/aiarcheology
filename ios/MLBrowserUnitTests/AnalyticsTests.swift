@@ -39,6 +39,53 @@ final class AnalyticsTests: XCTestCase {
 		try await super.tearDown()
 	}
 
+	// MARK: - updateAuthContext (AIA-0536)
+
+	/// `.suspended` is the absence of a transition, not a state to act on. ``AuthState`` writes no
+	/// identifier when validation fails offline, so there is nothing here to react to — and reacting
+	/// anyway would deactivate a consented transport on every offline foreground, whose
+	/// re-activation rebuilds the transport and re-emits its automatic session signal.
+	func testUpdateAuthContext_Suspended_LeavesAConsentedTransportUntouched() {
+		analytics.chooseAnalytics(enabled: true)
+		let callsBefore = tracker.calls
+		XCTAssertTrue(callsBefore.contains(.activate))
+
+		analytics.updateAuthContext(.suspended(Self.accountA))
+		analytics.updateAuthContext(.suspended(nil))
+
+		XCTAssertEqual(tracker.calls, callsBefore)
+	}
+
+	/// `.indeterminate` **is** a transition. `AuthState` clears the outgoing account before it
+	/// suspends (AIA-0437), so the identity must stop being used for the whole validation
+	/// round-trip; ignoring it would leave the transport attributing to an account on its way out.
+	func testUpdateAuthContext_Indeterminate_TearsDownAConsentedAccountsTransport() {
+		analytics.chooseAnalytics(enabled: true)
+		XCTAssertEqual(tracker.deactivations, 0)
+
+		analytics.updateAuthContext(.indeterminate)
+
+		XCTAssertEqual(tracker.deactivations, 1)
+	}
+
+	/// Signed out and unresolved both clear the identity today, which is what makes routing the
+	/// coordinator through the context behaviour-preserving. They stop being interchangeable once
+	/// consent itself is scope-aware — only `.anonymous` is a scope that can answer a question.
+	func testUpdateAuthContext_Anonymous_ClearsLikeIndeterminate() {
+		analytics.chooseAnalytics(enabled: true)
+
+		analytics.updateAuthContext(.anonymous)
+
+		XCTAssertEqual(tracker.deactivations, 1)
+	}
+
+	func testUpdateAuthContext_Validated_InstallsThatAccountsIdentity() {
+		analytics.updateAuthContext(.validated(Self.accountB))
+		analytics.chooseAnalytics(enabled: true)
+
+		XCTAssertEqual(tracker.identities, [Self.accountB])
+	}
+
 	func testDefaultIsOffAndDoesNotInitializeOrSend() {
 		XCTAssertFalse(settings.analyticsEnabled)
 		XCTAssertFalse(settings.analyticsChoiceMade)

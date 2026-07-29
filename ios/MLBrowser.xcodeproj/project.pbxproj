@@ -14,6 +14,7 @@
 		EC413C641459AD902417BE22 /* EntitlementResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BA5244E4A6FCBAABD5D3540 /* EntitlementResolverTests.swift */; };
 		B49058D02D6135CEAACDD928 /* AppAccountToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8CF376D75E083E37CB74C79 /* AppAccountToken.swift */; };
 		61B3C02BC674F0B78E380B52 /* EntitlementResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFCC1FAB6E927E7D65B90A8B /* EntitlementResolver.swift */; };
+		6E2B84F19CD3407AB5710D63 /* EffectiveAuthContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A7C1D0E5B92460F8E14A2C7 /* EffectiveAuthContext.swift */; };
 		001369B340919454DB66C1A1 /* TourOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA98D77D0D8F44834E7D6D95 /* TourOverlay.swift */; };
 		02B1903E63D04C4784D17645 /* FindingFlashTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 347CED5074B64105979052CC /* FindingFlashTests.swift */; };
 		08D7ED0944917EE700C5D894 /* SubscriptionStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3AA71FCC687FDCCBD2E764F /* SubscriptionStatusView.swift */; };
@@ -369,6 +370,7 @@
 		8BA5244E4A6FCBAABD5D3540 /* EntitlementResolverTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EntitlementResolverTests.swift; sourceTree = "<group>"; };
 		F8CF376D75E083E37CB74C79 /* AppAccountToken.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppAccountToken.swift; sourceTree = "<group>"; };
 		CFCC1FAB6E927E7D65B90A8B /* EntitlementResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EntitlementResolver.swift; sourceTree = "<group>"; };
+		3A7C1D0E5B92460F8E14A2C7 /* EffectiveAuthContext.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EffectiveAuthContext.swift; sourceTree = "<group>"; };
 		04CC35810A5A24A66927181A /* StoreKitSubscriptionProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StoreKitSubscriptionProvider.swift; sourceTree = "<group>"; };
 		064CE0046587D40387274BC8 /* AuthGateView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AuthGateView.swift; sourceTree = "<group>"; };
 		0DC6368CADB5F8D0D0AA102A /* DetectionCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DetectionCoordinatorTests.swift; sourceTree = "<group>"; };
@@ -944,6 +946,7 @@
 				A1DC63B8535B544C7E1BDAE6 /* EntitlementTransaction.swift */,
 				F8CF376D75E083E37CB74C79 /* AppAccountToken.swift */,
 				CFCC1FAB6E927E7D65B90A8B /* EntitlementResolver.swift */,
+				3A7C1D0E5B92460F8E14A2C7 /* EffectiveAuthContext.swift */,
 				8AD3A82F2B2EFA3E0058E018 /* Annotation.swift */,
 				8AC6509E2B2B492C00922648 /* AppMode.swift */,
 				8AC6509C2B2B48D500922648 /* Appstate.swift */,
@@ -1737,6 +1740,7 @@
 				DA47E3026E55F36F98549973 /* EntitlementTransaction.swift in Sources */,
 				B49058D02D6135CEAACDD928 /* AppAccountToken.swift in Sources */,
 				61B3C02BC674F0B78E380B52 /* EntitlementResolver.swift in Sources */,
+				6E2B84F19CD3407AB5710D63 /* EffectiveAuthContext.swift in Sources */,
 				8A6AE18E2B1BCC48005A5A79 /* WebHistoryEntry+CoreDataProperties.swift in Sources */,
 				8A4F0E1E2F110A0400ABCDEF /* WebVisit+CoreDataClass.swift in Sources */,
 				8A4F0E202F110A0400ABCDEF /* WebVisit+CoreDataProperties.swift in Sources */,

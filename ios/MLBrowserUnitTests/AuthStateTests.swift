@@ -5,6 +5,7 @@
 //  AIA-0340: authentication launch-gate state machine coverage.
 //
 
+import Combine
 import XCTest
 @testable import ML_Browser
 
@@ -16,6 +17,75 @@ final class AuthStateTests: XCTestCase {
 	func testInitialGate_BeforeStart_IsCheckingSession() {
 		let sut = AuthState(provider: MockAuthProvider(outcome: .ready))
 		XCTAssertEqual(sut.gate, .checkingSession)
+	}
+
+	// MARK: - EffectiveAuthContext (AIA-0536)
+
+	func testEffectiveContext_BeforeStart_IsIndeterminate() {
+		let sut = AuthState(provider: MockAuthProvider(outcome: .ready))
+		XCTAssertEqual(sut.effectiveContext, .indeterminate)
+	}
+
+	func testEffectiveContext_SignedOutProvider_IsAnonymous() async {
+		let sut = AuthState(provider: MockAuthProvider(outcome: .signedOut))
+		await sut.start()
+		XCTAssertEqual(sut.effectiveContext, .anonymous)
+	}
+
+	func testEffectiveContext_SignedInAndValidated_CarriesTheAccount() async {
+		let sut = AuthState(provider: MockAuthProvider(outcome: .ready, accountID: Self.accountA))
+		await sut.start()
+		XCTAssertEqual(sut.effectiveContext, .validated(Self.accountA))
+	}
+
+	/// The **common** offline shape, not the exotic one: at launch nothing has been published yet, so
+	/// the identifier the offline catch preserves is `nil`. UI that assumes a payload here would be
+	/// wrong for most offline users.
+	func testEffectiveContext_ColdOfflineLaunch_IsSuspendedWithNoAccount() async {
+		let sut = AuthState(provider: MockAuthProvider(outcome: .offline, accountID: Self.accountA))
+		await sut.start()
+		XCTAssertEqual(sut.effectiveContext, .suspended(nil))
+	}
+
+	/// Losing connectivity *after* a successful validation is the only case that retains the account.
+	func testEffectiveContext_OfflineAfterReady_RetainsTheValidatedAccount() async {
+		let provider = MockAuthProvider(outcome: .ready, accountID: Self.accountA)
+		let sut = AuthState(provider: provider)
+		await sut.start()
+		XCTAssertEqual(sut.effectiveContext, .validated(Self.accountA))
+
+		provider.setOutcomeForTesting(.offline)
+		await sut.refresh()
+
+		XCTAssertEqual(sut.effectiveContext, .suspended(Self.accountA))
+	}
+
+	func testEffectiveContext_SignOut_IsAnonymous() async {
+		let sut = AuthState(provider: MockAuthProvider(outcome: .ready, accountID: Self.accountA))
+		await sut.start()
+		await sut.signOut()
+		XCTAssertEqual(sut.effectiveContext, .anonymous)
+	}
+
+	/// The regression lock for the `(.ready, nil)` window. ``AuthState`` clears the outgoing account
+	/// before it suspends, so anything deriving the context from the identifier alone would read
+	/// `.anonymous` mid-switch — handing the anonymous consent scope a slice of time that belongs to
+	/// neither account, long enough to select a bucket and ask a question of the wrong person.
+	func testEffectiveContext_InPlaceSwitchAToB_PassesThroughIndeterminateAndNeverAnonymous() async {
+		let provider = MockAuthProvider(outcome: .ready, accountID: Self.accountA)
+		let sut = AuthState(provider: provider)
+		await sut.start()
+
+		let log = ContextLog()
+		let observation = sut.$effectiveContext.sink { log.values.append($0) }
+		defer { observation.cancel() }
+
+		provider.setAccountIDForTesting(Self.accountB)
+		await sut.refresh()
+
+		XCTAssertFalse(log.values.contains(.anonymous), "the switch window must never look like a sign-out")
+		XCTAssertTrue(log.values.contains(.indeterminate), "the outgoing account must stop being published")
+		XCTAssertEqual(log.values.last, .validated(Self.accountB))
 	}
 
 	// MARK: - refresh() resolves each terminal state
@@ -230,4 +300,11 @@ private final class SuspendableAuthProvider: AuthProviding {
 		isSignedIn = false
 		accountIdentifier = nil
 	}
+}
+
+/// Collects published contexts from a Combine sink. A reference box rather than a captured local
+/// `var`: `sink` is not actor-isolated, so Swift 6 concurrency checking rejects mutating a local
+/// from inside it.
+private final class ContextLog: @unchecked Sendable {
+	var values: [EffectiveAuthContext] = []
 }

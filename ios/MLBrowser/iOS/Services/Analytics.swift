@@ -170,6 +170,21 @@ final class AnalyticsState: ObservableObject {
 	///
 	/// Consent is per account, so this is also what decides whether analytics may run at all: an
 	/// account whose choice we do not hold fails closed and is asked.
+	/// Point analytics at whatever the current auth context permits (AIA-0536).
+	///
+	/// The context carries one distinction ``updateAccountIdentity(_:)`` structurally cannot: it
+	/// separates "signed out" from "not resolved yet", which are both `nil` there. Both still map to
+	/// the same call today, so routing the coordinator through here changes no behaviour — the
+	/// distinction becomes load-bearing when consent itself becomes scope-aware.
+	func updateAuthContext(_ context: EffectiveAuthContext) {
+		// Not every context is something to react to. `.suspended` carries no write of the published
+		// identity, so acting on it would deactivate a consented transport on every offline
+		// foreground — and the re-activation rebuilds the transport, re-emitting its automatic
+		// session signal and inflating user counts for someone who never went anywhere.
+		guard context.isAttributionTransition else { return }
+		updateAccountIdentity(context.attributedAccount)
+	}
+
 	func updateAccountIdentity(_ identifier: String?) {
 		// Device-wide mode is the pre-AIA-0437 contract: no account identity, ever. The guard makes
 		// that structural rather than an accident of the coordinator not being constructed — the two
