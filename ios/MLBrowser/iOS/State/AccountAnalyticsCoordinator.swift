@@ -72,7 +72,7 @@ final class AccountAnalyticsCoordinator {
 		guard context.isAttributionTransition else { return }
 		// `.indeterminate` and `.anonymous` both resolve to no account today. They stop being
 		// interchangeable once consent is scope-aware: only `.anonymous` may be asked and answer.
-		let identifier = context.attributedAccount
+		let identifier = context.validatedAccount
 		currentAccount = identifier
 
 		guard identifier != nil else { return }

@@ -124,8 +124,24 @@ class DependencyContainer {
             return MockSubscriptionProvider.fromLaunchArguments()
         }
         #endif
-        return StoreKitSubscriptionProvider()
+        return StoreKitSubscriptionProvider(
+            // Purchase tagging reads the *validated* auth context, never `Clerk.shared` directly
+            // (AIA-0536). The paywall-first gate order lets a purchase happen while auth is still
+            // checking, offline, or signed out, and a stale session must not tag one — so anything
+            // short of `.validated` yields no token and the purchase is simply untagged.
+            accountIdentifierSource: { [weak self] in
+                self?.taggingAuthState?.effectiveContext.validatedAccount
+            }
+        )
     }()
+
+    /// Late-bound `AuthState` for purchase tagging.
+    ///
+    /// The subscription provider is constructed *before* the `AccountSession` that owns `AuthState`,
+    /// so the reference cannot be passed at init. Assigned once in `makeAppState()` and read only
+    /// when a purchase actually happens, long afterwards. Weak because `AppState` owns the session;
+    /// the container must not be what keeps it alive.
+    private weak var taggingAuthState: AuthState?
 
     /// Remote feature flags (AIA-0350). Tests and previews never reach ConfigCat, and a
     /// missing/empty SDK key degrades to the compiled defaults rather than failing launch.
@@ -368,6 +384,8 @@ class DependencyContainer {
 		)
 		// Arm reply delivery (AIA-0115): the coordinator hooks messageCenterState on init and is
 		// retained by this container; nothing else references it.
+		// Late-bind purchase tagging now that `AuthState` exists (AIA-0536).
+		taggingAuthState = account.authState
 		_ = messageReplyCoordinator
 		// Arm notification scheduling (AIA-0115, S7): hooks messageCenterState's reevaluation
 		// observer on init so every visibility recompute reconciles scheduled notifications.

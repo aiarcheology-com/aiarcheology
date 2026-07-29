@@ -238,10 +238,16 @@ struct MLBrowser: App {
 				}
 			}
 		}
+		// The Clerk environment is injected here, above the gates, and is what
+		// `AuthLifecycleModifier`'s session watcher reads. Injection and watcher are rehomed
+		// together on purpose (AIA-0536): separated, the watcher stays mounted and inert, and
+		// out-of-band sign-outs stop being noticed with nothing failing to show it.
 		if appState.usesRealAuth == false {
-			gate
+			gate.authLifecycle(appState.authState)
 		} else {
-			gate.environment(Clerk.shared)
+			gate
+				.environment(Clerk.shared)
+				.authLifecycle(appState.authState)
 		}
 	}
 

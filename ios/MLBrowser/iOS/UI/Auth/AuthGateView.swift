@@ -13,56 +13,27 @@ import ClerkKitUI
 
 /// Routes the app to the correct root screen based on ``AuthState/gate``.
 ///
-/// Wraps the real app (`content`) once the user is signed in and entitled. Runs
-/// the initial session check on appear and re-validates on every foreground so a
-/// Dashboard ban / de-entitlement is caught within one refresh.
+/// Wraps the real app (`content`) once the user is signed in and entitled.
+///
+/// Does **not** drive ``AuthState`` — that moved to ``AuthLifecycleModifier`` at the app root
+/// (AIA-0536). This view only decides what to render, so the paywall-first cut-over can remove it
+/// without taking the session check, the foreground re-validation, or Clerk's out-of-band sign-out
+/// observer with it.
 struct AuthGateView<Content: View>: View {
     @ObservedObject var authState: AuthState
     @ViewBuilder var content: () -> Content
-    @Environment(\.usesRealAuth) private var usesRealAuth
 
     var body: some View {
-        Group {
-            switch authState.gate {
-            case .checkingSession:
-                AuthLoadingView()
-            case .signedOut:
-                SignInGateView(authState: authState)
-            case .offline:
-                AuthUnavailableView(authState: authState)
-            case .ready:
-                content()
-            }
+        switch authState.gate {
+        case .checkingSession:
+            AuthLoadingView()
+        case .signedOut:
+            SignInGateView(authState: authState)
+        case .offline:
+            AuthUnavailableView(authState: authState)
+        case .ready:
+            content()
         }
-        .task { await authState.start() }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            Task { await authState.refresh() }
-        }
-        .background {
-            // Real-auth only: keep the gate in sync with Clerk's session so that a
-            // sign-out done out-of-band (e.g. inside the embedded UserProfileView)
-            // immediately drops the user back to the gate. The mock path has no Clerk
-            // environment, so this observer is omitted there.
-            if usesRealAuth {
-                ClerkSessionWatcher(authState: authState)
-            }
-        }
-    }
-}
-
-// MARK: - Clerk session sync
-
-/// Invisible observer that refreshes the gate whenever Clerk's signed-in user changes
-/// (sign-in, sign-out, or account switch) from anywhere in the app.
-private struct ClerkSessionWatcher: View {
-    @ObservedObject var authState: AuthState
-    @Environment(Clerk.self) private var clerk
-
-    var body: some View {
-        Color.clear
-            .onChange(of: clerk.user?.id) { _, _ in
-                Task { await authState.refresh() }
-            }
     }
 }
 
@@ -207,27 +178,6 @@ private struct AuthUnavailableView: View {
             .testability(Testability.Button.authOfflineRetry)
         }
     }
-}
-
-// MARK: - Clerk theme
-
-extension ClerkTheme {
-    /// App-matched theme for Clerk's prebuilt screens (`AuthView`, `UserProfileView`) so
-    /// they read as part of AI Archeology rather than Clerk's default styling. Clerk only
-    /// exposes palette / font / corner-radius tokens — the screens' layout (avatar header,
-    /// row structure, "Secured by Clerk" footer) is fixed and can't be made into a native
-    /// grouped `Form`.
-    @MainActor
-    static let app = ClerkTheme(
-        colors: .init(
-            primary: .green,                          // matches the app's green primary action
-            background: Color(uiColor: .systemBackground),
-            danger: .red,
-            foreground: .primary,
-            primaryForeground: .white                 // label/icon on the green primary button
-        ),
-        design: .init(borderRadius: 10)               // ~iOS inset-grouped cell radius
-    )
 }
 
 // MARK: - Shared message layout

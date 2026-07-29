@@ -72,12 +72,17 @@ extension EffectiveAuthContext {
 		return true
 	}
 
-	/// The account this context attributes to. `nil` for every scope that has no account, which
-	/// includes both ``anonymous`` (nobody) and ``indeterminate`` (not known yet) — they differ in
-	/// whether consent may be *asked*, not in who is attributed.
+	/// The account this context has actually validated, or `nil` for every context that has not.
 	///
-	/// Meaningless unless ``isAttributionTransition`` is `true`; callers must check that first.
-	var attributedAccount: String? {
+	/// `nil` for ``anonymous`` (nobody), ``indeterminate`` (not known yet), **and ``suspended(_:)``**
+	/// — whose retained identifier is precisely the one thing this must not return, because it was
+	/// not freshly validated.
+	///
+	/// Two consumers, one requirement: analytics attribution within a transition, and StoreKit
+	/// purchase tagging (AIA-0536). Both need "an account proven right now", and for both a session
+	/// we could not verify has to read as no account at all — a stale Clerk session must never tag a
+	/// purchase.
+	var validatedAccount: String? {
 		if case let .validated(account) = self { return account }
 		return nil
 	}
