@@ -161,6 +161,13 @@ final class AnalyticsState: ObservableObject {
 	/// decide whether an arriving scope is genuinely *different* — see ``applyScope(_:)``.
 	private var lastKnownScope: AnalyticsConsentScope?
 
+	/// True while the current `.ask` was raised by **signing out** rather than by arriving or by an
+	/// explicit reset (AIA-0536). Sign-out is a disengagement act — surfacing a consent question at
+	/// that moment reads as nagging, and consent fails closed, so staying quiet costs nothing. The
+	/// gate keeps content up; the question returns at the next arrival, the next sign-in, or an
+	/// explicit Restore Defaults.
+	@Published private(set) var isAskDeferredAfterSignOut = false
+
 	/// Whether the reason no scope is selected is an unverifiable session rather than one still
 	/// resolving. Recorded from `.suspended`, which is otherwise ignored: it changes nothing about
 	/// attribution, but a gate that cannot tell "resolving" from "cannot resolve" leaves an offline
@@ -286,6 +293,19 @@ final class AnalyticsState: ObservableObject {
 			detectionRunCount = 0
 		}
 
+		// The ask-deferral bookkeeping (AIA-0536). Set only on a genuine account→anonymous
+		// transition — a sign-out — never on the first selection of a session, so the arrival ask
+		// at a cold launch is untouched. Any account arriving clears it: the account question is
+		// about the identity just established, and asking then is contextual rather than nagging.
+		switch scope {
+		case .anonymous where lastKnownScope.map({ if case .account = $0 { true } else { false } }) == true:
+			isAskDeferredAfterSignOut = true
+		case .account:
+			isAskDeferredAfterSignOut = false
+		default:
+			break
+		}
+
 		currentScope = scope
 		currentAccountIdentifier = scope?.accountIdentifier
 		if let scope { lastKnownScope = scope }
@@ -306,6 +326,8 @@ final class AnalyticsState: ObservableObject {
 		case let .account(identifier):
 			settings.analyticsConsentAccountHash = Self.accountHash(identifier)
 		}
+		// Answered — whatever raised the question, it is no longer deferred.
+		isAskDeferredAfterSignOut = false
 		setAnalyticsEnabled(enabled)
 	}
 
@@ -343,6 +365,9 @@ final class AnalyticsState: ObservableObject {
 	/// Used by the whole-app reset path. Unlike `setAnalyticsEnabled(false)`, this also tears
 	/// down a currently active transport when Settings has already been reset elsewhere.
 	func resetAnalyticsChoice() {
+		// An explicit reset is the user ASKING to be re-asked — the sign-out deferral must not
+		// swallow that (AIA-0536).
+		isAskDeferredAfterSignOut = false
 		detectionRunCount = 0
 		pendingPreConsentEvents.removeAll()
 		lastKnownScope = nil

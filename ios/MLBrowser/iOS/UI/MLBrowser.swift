@@ -352,7 +352,10 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 	/// Whether the consent question is being asked *over* content the user is already using, rather
 	/// than as the screen they arrive at. Rendered as an overlay in that case — see ``body``.
 	private var asksOverContent: Bool {
-		hasEverResolved && analytics.consentPresentation == .ask
+		// Deferred asks stay silent (AIA-0536): a sign-out that reveals an unanswered anonymous
+		// bucket must not pop a question over someone who just disengaged. Analytics simply stays
+		// off; the question returns at the next arrival, sign-in, or explicit reset.
+		hasEverResolved && analytics.consentPresentation == .ask && !analytics.isAskDeferredAfterSignOut
 	}
 
 	private var display: Display {
