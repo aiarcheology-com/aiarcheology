@@ -467,4 +467,96 @@ final class BrowserStateTests: XCTestCase {
         XCTAssertNotNil(sut.loadFailure, "Try Again must stay available after a declined rebuild")
     }
 
+    // MARK: - AIA-0552: content-preserving suppression
+
+    /// Starts and commits a navigation, arming `hasCommittedContent`.
+    private func commitAPage() throws {
+        let committed = try XCTUnwrap(webView.loadHTMLString(Self.html, baseURL: Self.baseURL))
+        sut.navigationStarted(committed)
+        sut.navigationCommitted(committed)
+    }
+
+    func testProvisionalFailure_OverCommittedContent_PublishesNothing() throws {
+        try commitAPage()
+
+        // The committed page is still fully rendered and interactive; the opaque overlay would
+        // replace usable content — exactly the offline case AIA-0552 removes.
+        let next = try XCTUnwrap(webView.loadHTMLString(Self.html, baseURL: URL(string: "https://example.com/next")!))
+        sut.navigationStarted(next)
+        sut.navigationFailed(next, error: Self.offlineError, provisional: true)
+
+        XCTAssertNil(sut.loadFailure)
+        XCTAssertTrue(sut.hasCommittedContent,
+                      "A suppressed failure must not spend the flag — later offline failures stay suppressed too")
+    }
+
+    func testProvisionalFailure_WithNothingCommitted_StillPublishes() throws {
+        // Cold offline launch: the web view is blank, so the overlay is the only honest state.
+        let navigation = try XCTUnwrap(webView.loadHTMLString(Self.html, baseURL: Self.baseURL))
+        sut.navigationStarted(navigation)
+
+        sut.navigationFailed(navigation, error: Self.offlineError, provisional: true)
+
+        XCTAssertEqual(sut.loadFailure?.kind, .unreachable)
+    }
+
+    func testPostCommitFailure_OverCommittedContent_StillPublishes() throws {
+        try commitAPage()
+        let failing = try XCTUnwrap(webView.loadHTMLString(Self.html, baseURL: Self.baseURL))
+        sut.navigationStarted(failing)
+
+        // A post-commit failure's committed document IS the failed page — there is no healthy
+        // content left for the overlay to hide.
+        sut.navigationFailed(failing, error: Self.offlineError, provisional: false)
+
+        XCTAssertEqual(sut.loadFailure?.kind, .unreachable)
+        XCTAssertFalse(sut.hasCommittedContent,
+                       "Invariant: loadFailure != nil ⇒ hasCommittedContent == false (see BrowserState)")
+    }
+
+    func testPublishedFailure_RearmsPublication_ForTheNextProvisionalFailure() throws {
+        try commitAPage()
+        let failing = try XCTUnwrap(webView.loadHTMLString(Self.html, baseURL: Self.baseURL))
+        sut.navigationStarted(failing)
+        sut.navigationFailed(failing, error: Self.offlineError, provisional: false)
+        XCTAssertNotNil(sut.loadFailure, "Precondition: the post-commit failure is published")
+
+        // Try Again's rung — or a fresh submit — starts a navigation, dropping the overlay …
+        let retry = try XCTUnwrap(webView.loadHTMLString(Self.html, baseURL: Self.baseURL))
+        sut.navigationStarted(retry)
+        XCTAssertNil(sut.loadFailure, "Precondition: the overlay drops while the retry is in flight")
+
+        // … and its provisional failure must publish again: the page was already declared broken,
+        // so suppressing here would strand the user with no overlay and, with `loadFailure` stuck
+        // nil, a permanently disarmed become-active ladder.
+        sut.navigationFailed(retry, error: Self.offlineError, provisional: true)
+
+        XCTAssertNotNil(sut.loadFailure)
+    }
+
+    func testWebViewInvalidated_ClearsTheCommittedContentFlag() throws {
+        try commitAPage()
+
+        // Rebuild or process death: the committed document does not survive the instance, so the
+        // next provisional failure fires over a genuinely blank view and must surface.
+        sut.webViewInvalidated()
+        let next = try XCTUnwrap(webView.loadHTMLString(Self.html, baseURL: Self.baseURL))
+        sut.navigationStarted(next)
+        sut.navigationFailed(next, error: Self.offlineError, provisional: true)
+
+        XCTAssertEqual(sut.loadFailure?.kind, .unreachable)
+    }
+
+    func testAttach_OfAFreshWebView_ClearsTheCommittedContentFlag() throws {
+        try commitAPage()
+
+        // `makeUIView` always hands over a freshly constructed, blank instance (tab/mode switch
+        // included) — the previous instance's committed page must not vouch for it.
+        sut.attach(WKWebView())
+
+        sut.navigationFailed(nil, error: Self.offlineError, provisional: true)
+
+        XCTAssertEqual(sut.loadFailure?.kind, .unreachable)
+    }
+
 }
