@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreData
+import ClerkKit
 import StoreKit
 
 /// The content displayed inside the drawer for MLBrowser.
@@ -29,6 +30,10 @@ struct DrawerContent: View {
     @EnvironmentObject private var downloader: Downloader
     @EnvironmentObject private var settings: Settings
     @EnvironmentObject private var subscriptionState: SubscriptionState
+    /// Observed rather than reached through `appState` (AIA-0536): a nested ObservableObject does
+    /// not republish through its parent, so the sign-in row below would go stale the moment the
+    /// session changed. Before the cut-over a sign-out unmounted this whole tree.
+    @EnvironmentObject private var authState: AuthState
 	@EnvironmentObject private var analytics: AnalyticsState
 
     @FetchRequest(
@@ -52,6 +57,12 @@ struct DrawerContent: View {
     /// Controls the settings sheet (presented here, not at ContentView level,
     /// so the drawer stays open behind it — same behavior as Findings)
     @State private var showSettings = false
+    /// Contextual sign-in from the drawer (AIA-0536).
+    @State private var showSignIn = false
+
+    /// When true, the Settings sheet opens already pushed to Manage Account (AIA-0536) — the
+    /// drawer's account row is a shortcut to the profile, not to Settings generally.
+    @State private var settingsStartsAtProfile = false
 
     /// The configuration ID to show in detail sheet
     @State private var selectedConfigurationId: UUID?
@@ -73,6 +84,11 @@ struct DrawerContent: View {
                 .navigationTitle(L10n.Models.title)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
+                // Pinned to the drawer's bottom edge, outside the scrolling list (AIA-0536): the
+                // account slot is chrome, not content — it should not scroll away under a long
+                // model list, and "sign in / who am I" living in the bottom corner of the slide
+                // menu is the standard place users look for it.
+                .safeAreaInset(edge: .bottom) { accountFooter }
         }
         .sheet(isPresented: $showImport, onDismiss: presentTypeReviewIfNeeded) {
             ModelImportView(
@@ -117,11 +133,23 @@ struct DrawerContent: View {
             // the fetch/distinctLabels would hit the empty default context and crash.
             .environment(\.managedObjectContext, moc)
         }
-        .sheet(isPresented: $showSettings) {
+        .sheet(isPresented: $showSignIn) {
+            SignInSheet(authState: authState)
+                // Re-inject: custom env values don't reliably cross a sheet boundary on Mac
+                // (Designed for iPad) — AGENTS.md §3. `SignInSheet` branches on this to decide
+                // whether to build Clerk's `AuthView` at all, and the mock path has no configured
+                // Clerk instance, so losing it here would trap rather than degrade.
+                .environment(\.usesRealAuth, usesRealAuth)
+        }
+        .sheet(isPresented: $showSettings, onDismiss: { settingsStartsAtProfile = false }) {
             // FindingRepository is a plain (non-ObservableObject) type, so it is passed by
             // initializer rather than injected as an environment object (AIA-0303), the same way
             // WebScreen hands it to SaveFindingSheet.
-            SettingsForm(findingRepository: appState.findingRepository)
+            SettingsForm(
+                findingRepository: appState.findingRepository,
+                authState: authState,
+                startAtManageAccount: settingsStartsAtProfile
+            )
                 .environmentObject(settings)
                 .environmentObject(chromeState)
                 .environmentObject(detectionState)
@@ -233,6 +261,93 @@ struct DrawerContent: View {
             .testability(Testability.Button.drawerSettings)
             .disabled(tour.isActive)
         }
+    }
+
+    /// The drawer's bottom slot: always "who am I" (AIA-0536). Sign In while signed out; the
+    /// signed-in account otherwise, deep-linking to Settings → Manage Account. Pinned via
+    /// `safeAreaInset` so it cannot scroll away, and absent entirely for `.indeterminate` /
+    /// `.suspended` — sign-in would fail offline, and the account row would promise a profile
+    /// Clerk cannot show.
+    @ViewBuilder
+    private var accountFooter: some View {
+        switch authState.effectiveContext {
+        case .anonymous:
+            accountFooterButton(title: L10n.Auth.SignIn.button, systemImage: "person.crop.circle") {
+                showSignIn = true
+            }
+            .testability(Testability.Button.drawerSignIn)
+        case .validated:
+            // The email is read at render time, not observed — safe because the footer re-renders
+            // on every context change (authState IS observed), and the email cannot change without
+            // one. Mock auth has no Clerk instance to read, so it falls back to the generic label.
+            accountFooterButton(title: signedInLabel, systemImage: "person.crop.circle.fill") {
+                // Deep-link only on the real-auth path: the profile destination reads
+                // `Clerk.shared`, which traps when Clerk was never configured, so a mock-auth tap
+                // opens plain Settings instead of pushing a screen that would crash.
+                settingsStartsAtProfile = usesRealAuth
+                showSettings = true
+            }
+            .testability(Testability.Button.drawerAccount)
+        case .suspended:
+            // Signed in, unverifiable — the account still EXISTS and the slot must say so
+            // (an empty slot reads as broken, which is how this state was found). Disabled:
+            // sign-in would fail with no network, and Clerk cannot render the profile.
+            accountFooterCard {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L10n.Auth.Account.title)
+                        Text(L10n.Auth.Offline.title)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "person.crop.circle.badge.exclamationmark")
+                }
+                .foregroundStyle(.secondary)
+            }
+            .testability(Testability.Label.drawerAccountOffline)
+        case .indeterminate:
+            // Transient (auth is still resolving) — a row that flickers in and out for a second
+            // at launch is worse than a brief absence.
+            EmptyView()
+        }
+    }
+
+    /// One footer card, styled to match the drawer's inset-grouped rows.
+    private func accountFooterButton(
+        title: String, systemImage: String, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            accountFooterLabel {
+                Label(title, systemImage: systemImage)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        }
+        .disabled(tour.isActive)
+    }
+
+    /// The non-interactive variant, for states with something to show but nothing to do.
+    private func accountFooterCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        accountFooterLabel(content: content)
+    }
+
+    private func accountFooterLabel<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 14)
+            .padding(.horizontal, 16)
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal, 20)
+            .padding(.bottom, 8)
+    }
+
+    /// The signed-in row's label: the account email when Clerk can provide one, else "Account".
+    private var signedInLabel: String {
+        if usesRealAuth, let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress {
+            return email
+        }
+        return L10n.Auth.Account.title
     }
     
     private var emptyStateView: some View {

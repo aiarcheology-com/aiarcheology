@@ -141,12 +141,18 @@ enum AID {
 
 	// Auth gate (AIA-0340)
 	static let authSignIn = "_AIA:Button.AuthSignIn"
+	static let drawerSignIn = "_AIA:Button.DrawerSignIn"
+	static let drawerAccount = "_AIA:Button.DrawerAccount"
+	static let drawerAccountOffline = "_AIA:Label.DrawerAccountOffline"
+	static let settingsAccountOffline = "_AIA:Label.SettingsAccountOffline"
+	static let settingsSignIn = "_AIA:Button.SettingsSignIn"
 	static let authOfflineRetry = "_AIA:Button.AuthOfflineRetry"
 	static let analyticsChoiceEnable = "_AIA:Button.AnalyticsChoiceEnable"
 	static let analyticsChoiceNotNow = "_AIA:Button.AnalyticsChoiceNotNow"
 
 	// Subscription paywall (AIA-0343)
 	static let paywallSubscribe = "_AIA:Button.PaywallSubscribe"
+	static let paywallSignIn = "_AIA:Button.PaywallSignIn"
 	static let paywallSignOut = "_AIA:Button.PaywallSignOut"
 	static let paywallDeleteAccount = "_AIA:Button.PaywallDeleteAccount"
 	static let paywallDeleteAccountConfirm = "_AIA:Button.PaywallDeleteAccountConfirm"

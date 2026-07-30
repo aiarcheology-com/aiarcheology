@@ -78,6 +78,8 @@ struct WebScreenView: View {
 	/// disagree on rotation; defaults to false (top bar) — see `bottomAddressBarActive`.
 	@Environment(\.bottomAddressBarActive) private var bottomAddressBarActive
 	@Environment(\.requestReview) private var requestReview
+	/// Real vs. mock auth (AIA-0385); forwarded into the sign-in sheet across its boundary.
+	@Environment(\.usesRealAuth) private var usesRealAuth
 	/// iPad and Mac place BACK/FORWARD/RELOAD in the top bar; iPhone keeps them in the
 	/// floating capsule, so the top bar has room for the address + Find (AIA-0294).
 	private var showsTopBarNavigation: Bool { HostPlatform.current.isiPhone == false }
@@ -129,6 +131,13 @@ struct WebScreenView: View {
 	/// Pick mode (Find/Store button): the next tap on the content marks the
 	/// place to store — independent of whether detection is running.
 	@State private var findPickActive: Bool = false
+
+	/// Set by the save sheet when a finding is actually written, read once on its dismissal. The
+	/// review prompt cannot stand in for this — it declines for its own reasons (AIA-0536).
+	@State private var didSaveFinding = false
+
+	/// The one-time contextual sign-in offer that follows a save (AIA-0536).
+	@State private var showSignInOffer = false
 	/// Mirror of DetectableView's displayed frame (updated on every apply/clear):
 	/// pick mode hit-tests its boxes and reuses its snapshot.
 	@State private var appliedFrame: AppliedDetectionFrame?
@@ -347,16 +356,28 @@ struct WebScreenView: View {
             // the finding was saved, which already advanced the step).
             appState.tour.captureCancelled()
             // AIA-0117: a cancel recorded no moment, so this is a no-op on that path.
+            let saved = didSaveFinding
+            didSaveFinding = false
             if appState.reviewPrompt.consumePendingRequest(.findingSaved, isTourActive: appState.tour.isActive) {
                 requestReview()
+            } else if saved {
+                // Only when the review prompt stayed quiet: two modals racing one dismissal is a
+                // bug, and the review moment is the older claim on it (AIA-0117/0536).
+                offerSignInIfEarned()
             }
         }) { capture in
             SaveFindingSheet(
                 capture: capture,
                 tour: appState.tour,
                 repository: appState.findingRepository,
-                reviewPrompt: appState.reviewPrompt
+                reviewPrompt: appState.reviewPrompt,
+                onSaved: { didSaveFinding = true }
             )
+        }
+        .sheet(isPresented: $showSignInOffer) {
+            SignInSheet(authState: appState.authState)
+                // Re-inject across the sheet boundary (AGENTS.md §3).
+                .environment(\.usesRealAuth, usesRealAuth)
         }
         .onReceive(appState.chromeState.$pageToOpen) { url in
             // A finding's "open page" action lands here (the findings UI cannot
@@ -493,6 +514,20 @@ struct WebScreenView: View {
 	/// annotations would clash with the web app's own gestures, like panning a map).
 	/// A tap inside a frozen detection box snaps to that detection, preserving its
 	/// class/confidence/driver; anywhere else becomes a synthetic manual observation.
+	/// Offer sign-in once, after a save, to someone who could actually act on it.
+	///
+	/// Deliberately narrow. The offer is a convenience, not a gate: the save already succeeded and
+	/// nothing about it depends on an account. So it is skipped during onboarding, for anyone not
+	/// plainly signed out, and after it has been shown once — with the marker set here, at the moment
+	/// of showing, so a save that produced no offer never spends the single chance to ask.
+	private func offerSignInIfEarned() {
+		guard case .anonymous = appState.authState.effectiveContext else { return }
+		guard !appState.tour.isActive else { return }
+		guard !appState.settings.signInOfferShown else { return }
+		appState.settings.signInOfferShown = true
+		showSignInOffer = true
+	}
+
 	private func pick(at location: CGPoint, in size: CGSize) {
 		// Snap to a displayed detection: the frozen frame's snapshot is the exact
 		// image its boxes came from, so the pair is coherent by construction.

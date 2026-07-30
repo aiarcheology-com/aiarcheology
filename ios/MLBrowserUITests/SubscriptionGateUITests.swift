@@ -48,22 +48,28 @@ final class SubscriptionGateUITests: UITestCase {
 		assertExists(AID.paywallSubscribe, false)
 	}
 
-	/// Apple 5.1.1(v): a non-subscriber stuck behind the root paywall must be able to leave.
-	/// The control's *existence* was already asserted above; this actually taps it and proves
-	/// the app returns to the sign-in screen, which is the part that has to work.
-	func testPaywallSignOut_returnsToSignInScreen() {
+	/// Apple 5.1.1(v): a non-subscriber must be able to leave their account from the root paywall.
+	///
+	/// **Inverted by AIA-0536.** Signing out used to eject the user to a sign-in screen, because auth
+	/// was the outer gate. It no longer is: the user stays exactly where they are, and the paywall's
+	/// account controls swap to Sign In. That swap is the whole 5.1.1(v) story now — without it a
+	/// signed-out lapsed subscriber could not reach their account again without buying first.
+	func testPaywallSignOut_staysOnPaywallAndOffersSignIn() {
 		launch(mockAuthGate: "ready", mockSubscription: "notSubscribed")
 		let signOut = app.buttons[AID.paywallSignOut]
 		XCTAssertTrue(signOut.waitForExistence(timeout: 10), "Paywall sign-out affordance missing")
 		signOut.tap()
 
-		assertExists(AID.authSignIn, true)
+		let signIn = app.buttons[AID.paywallSignIn]
+		XCTAssertTrue(signIn.waitForExistence(timeout: 10), "Paywall did not offer sign-in after signing out")
 		assertExists(AID.paywallSignOut, false)
+		// Still the paywall, not the app: the entitlement did not change, so the gate did not move.
+		assertExists(AID.cpu, false)
 	}
 
-	/// The other half of the 5.1.1(v) escape: delete the account from behind the root paywall.
+	/// The other half of the 5.1.1(v) escape: delete the account from the root paywall.
 	/// Confirms the dialog, since the destructive action is the whole point of the flow.
-	func testPaywallDeleteAccount_confirmed_returnsToSignInScreen() {
+	func testPaywallDeleteAccount_confirmed_staysOnPaywallAndOffersSignIn() {
 		launch(mockAuthGate: "ready", mockSubscription: "notSubscribed")
 
 		// Both the button and the dialog's destructive action carry their own identifiers, so this
@@ -90,7 +96,9 @@ final class SubscriptionGateUITests: UITestCase {
 		XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Confirmation is missing its destructive action")
 		confirm.tap()
 
-		assertExists(AID.authSignIn, true)
+		// Same inversion as sign-out: deletion leaves the user on the paywall, now signed out.
+		let signIn = app.buttons[AID.paywallSignIn]
+		XCTAssertTrue(signIn.waitForExistence(timeout: 10), "Paywall did not offer sign-in after deletion")
 		assertExists(AID.paywallSignOut, false)
 	}
 }

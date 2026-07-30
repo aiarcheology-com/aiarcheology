@@ -8,20 +8,21 @@
 import SwiftUI
 
 /// Presents the currently-owned remote message as a prominent top banner, for the surface that is
-/// mounted right now. Attached once at the scene root, *above* the auth / subscription / analytics
-/// gates (like ``ScreenshotReportModifier``), so a message can appear over the login and paywall
-/// screens too.
+/// mounted right now. Attached once at the scene root, *above* the subscription / analytics gates
+/// (like ``ScreenshotReportModifier``), so a message can appear over the paywall too.
+///
+/// Auth is no longer an input (AIA-0536): sign-in became a transient sheet rather than a root
+/// screen, so there is no login *surface* to target — see ``MessageSurfaceResolver``.
 ///
 /// The modifier is deliberately dumb (AGENTS §3): all gating lives in ``MessageCenterState``.
 /// ``MessageSurfaceResolver`` maps the launch gates to the mounted ``MessageSurface`` (or `nil`
 /// when none is), and the modifier only forwards two intents to the state object for that surface —
 /// `drainPendingTap(for:)` then `presentNextIfNeeded(for:)`. It never decides *whether* a message is
-/// visible; when the resolver returns `nil` (a loading/offline/consent screen) nothing is presented
+/// visible; when the resolver returns `nil` (a loading or consent screen) nothing is presented
 /// and no banner renders. The overlay is driven purely by `messageCenter.presented`, so it stays in
 /// the view tree while visible (the AIA-0448 hazard cannot apply here).
 struct AppMessageModifier: ViewModifier {
 	@ObservedObject var messageCenter: MessageCenterState
-	@ObservedObject var authState: AuthState
 	@ObservedObject var subscriptionState: SubscriptionState
 	@ObservedObject var analytics: AnalyticsState
 
@@ -36,7 +37,6 @@ struct AppMessageModifier: ViewModifier {
 	private var surface: MessageSurface? {
 		MessageSurfaceResolver.surface(
 			isReady: isReady,
-			gate: authState.gate,
 			paymentsSurfaceEnabled: subscriptionState.isPaymentsSurfaceEnabled,
 			isSubscribed: subscriptionState.isSubscribed,
 			// Anything short of resolved counts as pending: a message banner over a consent
@@ -68,8 +68,8 @@ struct AppMessageModifier: ViewModifier {
 			.onAppear { presentIfPossible() }
 			.onChange(of: surface) { _, newSurface in
 				// A surface change first evicts a presented message that does not target the new
-				// surface (a login-only banner must not ride through sign-in), then presents the
-				// new surface's own head.
+				// surface (a paywall-only banner must not ride through into the app), then presents
+				// the new surface's own head.
 				if let newSurface {
 					messageCenter.reconcilePresented(for: newSurface)
 				}
@@ -312,10 +312,9 @@ struct AppMessageInlineRow: View {
 
 extension View {
 	/// Presents remote in-app messages as a top banner for the mounted surface. See
-	/// ``AppMessageModifier``. Attach at the scene root, above the auth/subscription/analytics gates.
+	/// ``AppMessageModifier``. Attach at the scene root, above the subscription/analytics gates.
 	func appMessageBanner(
 		messageCenter: MessageCenterState,
-		authState: AuthState,
 		subscriptionState: SubscriptionState,
 		analytics: AnalyticsState,
 		isReady: Bool,
@@ -323,7 +322,6 @@ extension View {
 	) -> some View {
 		modifier(AppMessageModifier(
 			messageCenter: messageCenter,
-			authState: authState,
 			subscriptionState: subscriptionState,
 			analytics: analytics,
 			isReady: isReady,

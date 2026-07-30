@@ -88,6 +88,18 @@ final class AuthStateTests: XCTestCase {
 		XCTAssertEqual(log.values.last, .validated(Self.accountB))
 	}
 
+	/// Purchase tagging and analytics attribution share this, and both need a session we could not
+	/// verify to read as *no account* — a stale Clerk session must never tag a purchase (AIA-0536).
+	func testValidatedAccount_IsNilForEverythingButAFreshValidation() {
+		XCTAssertEqual(EffectiveAuthContext.validated(Self.accountA).validatedAccount, Self.accountA)
+		XCTAssertNil(EffectiveAuthContext.anonymous.validatedAccount)
+		XCTAssertNil(EffectiveAuthContext.indeterminate.validatedAccount)
+		// The one that is easy to get wrong: `.suspended` *carries* an identifier, and returning it
+		// would tag a purchase with an account this device could not prove was still signed in.
+		XCTAssertNil(EffectiveAuthContext.suspended(Self.accountA).validatedAccount)
+		XCTAssertNil(EffectiveAuthContext.suspended(nil).validatedAccount)
+	}
+
 	// MARK: - refresh() resolves each terminal state
 
 	func testStart_SignedOutProvider_ResolvesToSignedOut() async {

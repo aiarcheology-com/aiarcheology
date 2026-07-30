@@ -209,21 +209,32 @@ struct MLBrowser: App {
 		LoggingPolicy.info("MLBrowser app launching", logger: .lifecycle)
 	}
 
-	/// The app behind the authentication gate (AIA-0340). `Clerk.shared` is injected
-	/// only on the real-auth path; the mock path never accesses it.
+	/// The app behind the subscription gate (AIA-0536).
+	///
+	/// **Entitlement is the gate; signing in is not.** The auth gate used to wrap this, so nobody
+	/// reached the paywall — or the app — without an account. That inverted on #543: a paywall the
+	/// user meets before they have experienced anything is a worse ask than a sign-in wall, and the
+	/// sign-in wall was the larger 5.1.1(v) risk. Sign-in is now offered contextually instead
+	/// (`SignInSheet`), from the paywall, the drawer, Settings, and once after a finding is saved.
+	///
+	/// `AuthState` is still driven — by `.authLifecycle()` below — because analytics consent,
+	/// purchase tagging and the account UI all depend on knowing who is signed in. It just no
+	/// longer decides whether the app renders.
+	///
+	/// `Clerk.shared` is injected only on the real-auth path; the mock path never accesses it.
 	@ViewBuilder
 	private var authGatedContent: some View {
-		let gate = AuthGateView(authState: appState.authState) {
-			// Whole-app subscription gate (AIA-0343): once signed in, the app proper shows
-			// only while subscribed (free trial counts); otherwise the paywall is the root.
+		let gate = Group {
+			// Whole-app subscription gate (AIA-0343), now the root: the app proper shows only while
+			// subscribed (a free trial counts); otherwise the paywall is what the user meets.
 			SubscriptionGateView(
 				subscriptionState: appState.subscriptionState,
 				authState: appState.authState,
 				analytics: appState.analytics
 			) {
-				// Analytics consent is asked AFTER login + paywall (AIA-0447): the demanding
-				// question no longer fronts the app. Funnel events fired on the paywall are
-				// buffered by AnalyticsState until this choice is made, then flushed on enable.
+				// Analytics consent is asked after the paywall (AIA-0447), of every entitled user —
+				// anonymous included (AIA-0536). Funnel events fired on the paywall are buffered by
+				// AnalyticsState until this choice is made, then flushed on enable.
 				AnalyticsChoiceGate(analytics: appState.analytics) {
 					ContentView()
 						.environmentObject(appState)
@@ -238,10 +249,20 @@ struct MLBrowser: App {
 				}
 			}
 		}
+		// `.environment` must come AFTER `.authLifecycle`, not before (AIA-0536).
+		//
+		// The lifecycle modifier mounts `ClerkSessionWatcher` in its own `.background`, which is a
+		// *sibling* of the content it wraps — not a descendant of it. Applying the environment to
+		// `gate` first therefore hands Clerk to everything except the one view that needs it, and
+		// the watcher is left mounted and inert: out-of-band sign-outs stop being noticed, with
+		// nothing failing to show it. Applied last, the environment is an ancestor of the whole
+		// modified view, background included.
 		if appState.usesRealAuth == false {
-			gate
+			gate.authLifecycle(appState.authState)
 		} else {
-			gate.environment(Clerk.shared)
+			gate
+				.authLifecycle(appState.authState)
+				.environment(Clerk.shared)
 		}
 	}
 
@@ -285,11 +306,10 @@ struct MLBrowser: App {
 				currentURL: { appState.browserState.currentURL?.absoluteString }
 			)
 			// Above the auth/subscription/analytics gates (AIA-0115): a remote message can appear
-			// over the login and paywall screens too. The banner is state-driven — it renders only
+			// over the paywall too. The banner is state-driven — it renders only
 			// while `messageCenter.presented != nil`, so it stays in the tree while visible.
 			.appMessageBanner(
 				messageCenter: appState.messageCenter,
-				authState: appState.authState,
 				subscriptionState: appState.subscriptionState,
 				analytics: appState.analytics,
 				isReady: appState.isReady
@@ -329,14 +349,36 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 		case hold
 	}
 
+	/// Whether the consent question is being asked *over* content the user is already using, rather
+	/// than as the screen they arrive at. Rendered as an overlay in that case — see ``body``.
+	private var asksOverContent: Bool {
+		// Deferred asks stay silent (AIA-0536): a sign-out that reveals an unanswered anonymous
+		// bucket must not pop a question over someone who just disengaged. Analytics simply stays
+		// off; the question returns at the next arrival, sign-in, or explicit reset.
+		hasEverResolved && analytics.consentPresentation == .ask && !analytics.isAskDeferredAfterSignOut
+	}
+
 	private var display: Display {
 		switch analytics.consentPresentation {
-		case .ask: .choice
+		// Asking is a full screen only on the way *in*. Afterwards it must not replace the root:
+		// under paywall-first, signing in happens mid-session by design, and a first sign-in — or an
+		// A→B switch, or a sign-out for anyone whose anonymous bucket is unanswered — selects a new
+		// scope with no stored choice, which lands here. Swapping the root then destroys the
+		// `WKWebView` the user is looking at, along with the page, scroll position and history.
+		// Before the cut-over this was unreachable: consent could only ever be asked at launch.
+		case .ask: hasEverResolved ? .content : .choice
 		case .resolved: .content
-		// Holding is only right *before* anything has been shown. Afterwards the user is already in
-		// the app and an unresolved scope is not a reason to throw them out of it — analytics simply
-		// fails closed until it resolves.
-		case .pending, .unavailable: hasEverResolved ? .content : .hold
+		// Holding is only right *before* anything has been shown, and only while the wait is going
+		// to end. Afterwards the user is already in the app, and an unresolved scope is not a reason
+		// to throw them out of it — analytics simply fails closed until it resolves.
+		case .pending: hasEverResolved ? .content : .hold
+		// **Never hold on `.unavailable`.** It means no scope can be selected *at all* — the session
+		// cannot be verified — so the wait would never end. On a cold launch in airplane mode an
+		// entitled user reaches exactly this state, and holding here would strand them on a spinner
+		// in front of an app whose features are entirely on-device. That is the lockout AIA-0536
+		// exists to remove (#532); it must not come back through the consent gate. They go in, with
+		// analytics off until a scope can be resolved.
+		case .unavailable: .content
 		}
 	}
 
@@ -354,6 +396,24 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 				// `.unavailable` should explain that a connection is needed rather than spin (#545).
 				ProgressView()
 					.frame(maxWidth: .infinity, maxHeight: .infinity)
+			}
+		}
+		// An **overlay**, deliberately not a sheet. Both keep `content` mounted, which is the point —
+		// but this gate is an ancestor of every sheet the app presents, and a sheet presented from an
+		// ancestor while a descendant's sheet is up presents-then-auto-dismisses (the same trap
+		// `SettingsView` documents for the Clerk profile). Sign-in and Restore Defaults both happen
+		// *inside* the Settings sheet, so a sheet here would never be seen on exactly the paths that
+		// raise the question.
+		//
+		// The consequence is deliberate and worth stating: while a sheet covers the app, the question
+		// waits behind it and appears when that sheet closes. Finishing in Settings and then being
+		// asked is a better sequence than having Settings yanked away mid-action, which is what the
+		// old root swap did.
+		.overlay {
+			if asksOverContent {
+				AnalyticsChoiceView(analytics: analytics)
+					.background(Color(uiColor: .systemBackground))
+					.transition(.opacity)
 			}
 		}
 		.onChange(of: analytics.consentPresentation, initial: true) { _, presentation in

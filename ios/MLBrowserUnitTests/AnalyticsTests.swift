@@ -245,6 +245,65 @@ final class AnalyticsTests: XCTestCase {
 		XCTAssertNil(settings.analyticsConsentAccountHash)
 	}
 
+	// MARK: - Sign-out ask deferral (AIA-0536)
+
+	/// Sign-out is a disengagement act: revealing the unanswered anonymous bucket must not pop a
+	/// consent question over someone who just signed out. The state still *asks* — analytics stays
+	/// off, failing closed — but the gate is told to stay quiet.
+	func testSignOut_WithUnansweredAnonymousBucket_DefersTheAsk() {
+		// setUp installed account A; signing out reveals the anonymous bucket, never answered.
+		analytics.updateAuthContext(.anonymous)
+
+		XCTAssertEqual(analytics.consentPresentation, .ask)
+		XCTAssertTrue(analytics.isAskDeferredAfterSignOut)
+	}
+
+	/// Signing in clears the deferral: the account question is about the identity just established,
+	/// so asking at that moment is contextual rather than nagging.
+	func testSignIn_AfterADeferredAsk_ClearsTheDeferral() {
+		analytics.updateAuthContext(.anonymous)
+		XCTAssertTrue(analytics.isAskDeferredAfterSignOut)
+
+		analytics.updateAuthContext(.validated(Self.accountB))
+
+		XCTAssertEqual(analytics.consentPresentation, .ask)
+		XCTAssertFalse(analytics.isAskDeferredAfterSignOut)
+	}
+
+	/// Restore Defaults is the user ASKING to be re-asked — the deferral must not swallow it.
+	func testReset_AfterADeferredAsk_ClearsTheDeferral() {
+		analytics.updateAuthContext(.anonymous)
+		XCTAssertTrue(analytics.isAskDeferredAfterSignOut)
+
+		analytics.resetAnalyticsChoice()
+
+		XCTAssertEqual(analytics.consentPresentation, .ask)
+		XCTAssertFalse(analytics.isAskDeferredAfterSignOut)
+	}
+
+	/// A cold launch as anonymous is an *arrival*, not a sign-out: the first scope selection of a
+	/// session never defers, so the gate's full-screen arrival ask is untouched.
+	func testFirstAnonymousSelection_IsAnArrivalNotADeferral() {
+		let launchTracker = RecordingAnalyticsTracker()
+		let launch = makeUnscopedState(tracker: launchTracker)
+
+		launch.updateAuthContext(.anonymous)
+
+		XCTAssertEqual(launch.consentPresentation, .ask)
+		XCTAssertFalse(launch.isAskDeferredAfterSignOut)
+	}
+
+	/// Answering — from anywhere — ends the deferral along with the question.
+	func testAnswering_ClearsTheDeferral() {
+		analytics.updateAuthContext(.anonymous)
+		XCTAssertTrue(analytics.isAskDeferredAfterSignOut)
+
+		analytics.chooseAnalytics(enabled: false)
+
+		XCTAssertEqual(analytics.consentPresentation, .resolved)
+		XCTAssertFalse(analytics.isAskDeferredAfterSignOut)
+	}
+
 	func testDefaultIsOffAndDoesNotInitializeOrSend() {
 		XCTAssertFalse(settings.analyticsEnabled)
 		XCTAssertFalse(settings.analyticsChoiceMade)

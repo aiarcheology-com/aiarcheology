@@ -106,6 +106,10 @@ extension TestabilityIdentification {
 		// Auth gate (AIA-0340)
 		case authSignIn
 		case authOfflineRetry
+		case signInSheetCancel
+		case settingsSignIn
+		case drawerSignIn
+		case drawerAccount
 		// Paywall / subscriptions (AIA-0343)
 		case settingsUpgrade
 		case paywallSubscribe
@@ -113,6 +117,7 @@ extension TestabilityIdentification {
 		case paywallRequestRefund
 		// AIA-0461: the Settings → Subscription "Request a Refund" row (feature-flag gated)
 		case settingsRequestRefund
+		case paywallSignIn
 		case paywallSignOut
 		/// Delete Account on the root paywall — the other half of the Apple 5.1.1(v) escape, so a
 		/// test can drive it without depending on localized button text.
@@ -285,6 +290,8 @@ extension TestabilityIdentification {
 	}
 	
 	enum Label: String, TestabilityIdentification {
+		case drawerAccountOffline
+		case settingsAccountOffline
 		case downloadDetailProgressWritten
 		case downloadDetailProgressExpected
 		// Side Menu Cell

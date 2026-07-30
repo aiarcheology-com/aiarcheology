@@ -48,6 +48,8 @@ final class Settings: ObservableObject, Validatable {
 		/// Which account the stored analytics choice belongs to (AIA-0437).
 		static let analyticsConsentAccountHash = "analyticsConsentAccountHash"
 		static let analyticsAccountEnabled = "analyticsAccountEnabled"
+		static let signInOfferShown = "signInOfferShown"
+		static let subscriptionObservedAnonymously = "subscriptionObservedAnonymously"
 		/// Which account has already had each once-per-account funnel event reported (AIA-0437).
 		/// Stored as the same SHA-256 as the consent hash, never a raw account id.
 		static let analyticsActivationReportedAccountHash = "analyticsActivationReportedAccountHash"
@@ -240,6 +242,30 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	/// Whether the one-time "sign in to keep your findings" offer has already been presented
+	/// (AIA-0536).
+	///
+	/// Marked when the offer is **shown**, not when a finding is saved. A save that yields no offer —
+	/// because the review prompt won that dismissal, or the tour is running — must not silently
+	/// consume the single chance to ask.
+	@Published public var signInOfferShown: Bool {
+		didSet {
+			defaults.set(signInOfferShown, forKey: UserDefaultsKeys.signInOfferShown)
+		}
+	}
+
+	/// Whether the current entitlement was first seen with nobody signed in (AIA-0536).
+	///
+	/// Persisted because it decides attribution, and attribution must survive a relaunch: an
+	/// anonymous purchase followed by someone signing in would otherwise be reported as *their*
+	/// conversion on the next cold launch. Cleared when the entitlement lapses — the next one is a
+	/// fresh purchase whose provenance is decided when it arrives.
+	@Published public var subscriptionObservedAnonymously: Bool {
+		didSet {
+			defaults.set(subscriptionObservedAnonymously, forKey: UserDefaultsKeys.subscriptionObservedAnonymously)
+		}
+	}
+
 	/// Which account has already reported `subscription.activated` (AIA-0437).
 	///
 	/// Persisted because the event marks a **conversion**: without it, every launch of an already
@@ -405,6 +431,8 @@ final class Settings: ObservableObject, Validatable {
 			UserDefaultsKeys.analyticsEnabled: false,
 			UserDefaultsKeys.analyticsChoiceMade: false,
 			UserDefaultsKeys.analyticsAccountEnabled: false,
+			UserDefaultsKeys.signInOfferShown: false,
+			UserDefaultsKeys.subscriptionObservedAnonymously: false,
 			UserDefaultsKeys.ratingPromptEventCount: 0
         ]
 
@@ -428,6 +456,8 @@ final class Settings: ObservableObject, Validatable {
 		self.analyticsEnabled = defaults.bool(forKey: UserDefaultsKeys.analyticsEnabled)
 		self.analyticsChoiceMade = defaults.bool(forKey: UserDefaultsKeys.analyticsChoiceMade)
 		self.analyticsAccountEnabled = defaults.bool(forKey: UserDefaultsKeys.analyticsAccountEnabled)
+		self.signInOfferShown = defaults.bool(forKey: UserDefaultsKeys.signInOfferShown)
+		self.subscriptionObservedAnonymously = defaults.bool(forKey: UserDefaultsKeys.subscriptionObservedAnonymously)
 		self.analyticsConsentAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsConsentAccountHash)
 		self.analyticsActivationReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsActivationReportedAccountHash)
 		self.analyticsSignedInReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsSignedInReportedAccountHash)
@@ -510,6 +540,13 @@ final class Settings: ObservableObject, Validatable {
 		// Count only: `ratingPromptLastRequestDate` deliberately survives a reset (AIA-0117) so
 		// "Restore Defaults" cannot be used — deliberately or accidentally — to re-trigger the
 		// review prompt. Anti-nag memory is not a user preference.
+		//
+		// `signInOfferShown` and `subscriptionObservedAnonymously` survive for the same reason
+		// (AIA-0536), and neither is listed above. The first is anti-nag memory exactly like the
+		// rating prompt. The second is *provenance*: it records that the active entitlement was
+		// bought with nobody signed in. Clearing it would let Restore Defaults hand an anonymous
+		// purchase to whoever signs in next, which is the misattribution the marker exists to
+		// prevent — a reset must not be a way to launder it.
 		ratingPromptEventCount = 0
 
 		defaults.removeObject(forKey: UserDefaultsKeys.lastPage)

@@ -109,10 +109,22 @@ struct PaywallView: View {
 	var authState: AuthState?
 
 	/// True when this is the whole-app root gate (vs. the Settings sheet). Enables the
-	/// sign-out / delete-account affordances.
+	/// account affordances.
 	var isRootGate = false
 
+	/// Which account controls to show, passed as a **value** from the parent (AIA-0536).
+	///
+	/// Deliberately not read from `authState`: that is a plain `var`, not an `@ObservedObject`, so
+	/// this view does not re-render when the context changes. It never had to before — signing out
+	/// tore down the whole view tree, because auth was the outer gate. The paywall now stays mounted
+	/// across a sign-out and has to swap Sign Out / Delete for Sign In in place, so the value comes
+	/// from `SubscriptionGateView`, which *does* observe auth.
+	var authContext: EffectiveAuthContext = .indeterminate
+
 	@Environment(\.dismiss) private var dismiss
+
+	/// Real vs. mock auth from the composition root (AIA-0385); forwarded into the sign-in sheet.
+	@Environment(\.usesRealAuth) private var usesRealAuth
 
 	/// The purchase/restore round-trip currently in flight, or `nil` when idle. Knowing
 	/// *which* action runs (not just a Bool) lets the tapped button show its own spinner —
@@ -123,6 +135,9 @@ struct PaywallView: View {
 		case restore
 	}
 	@State private var inFlight: InFlightAction?
+
+	/// Presents the contextual sign-in sheet from the root paywall (AIA-0536).
+	@State private var showSignIn = false
 
 	/// Drives Apple's in-app refund request sheet for the active subscription.
 	@State private var showRefund = false
@@ -238,6 +253,18 @@ struct PaywallView: View {
 			Button(L10n.Common.ok, role: .cancel) {}
 		} message: {
 			Text(notice?.message ?? "")
+		}
+		// Contextual sign-in from the root paywall (AIA-0536). The account controls above are the
+		// only route a signed-out lapsed subscriber has to their own account, so this must be
+		// reachable without a purchase.
+		.sheet(isPresented: $showSignIn) {
+			if let authState {
+				SignInSheet(authState: authState)
+					// Re-inject across the sheet boundary (AGENTS.md §3): `SignInSheet` uses this to
+					// decide whether to build Clerk's `AuthView`, and the mock path has no configured
+					// Clerk instance, so losing it here traps rather than degrades.
+					.environment(\.usesRealAuth, usesRealAuth)
+			}
 		}
 	}
 
@@ -357,29 +384,52 @@ struct PaywallView: View {
 
 		legalFooter
 
-		// Whole-app root gate only: let a non-subscriber leave or delete their account
-		// (they can't reach Settings from behind the gate). Apple 5.1.1(v).
+		// Whole-app root gate only: account controls, because Settings is unreachable from behind
+		// the gate. Apple 5.1.1(v).
+		//
+		// Which controls depends on whether anyone is signed in (AIA-0536). A signed-out lapsed
+		// subscriber is the case that forces this: with only Sign Out / Delete shown, they would
+		// have to buy a subscription before they could reach their own account to recover or delete
+		// it. Sign In is the fourth entry point and exists for exactly them.
+		//
+		// `.indeterminate` and `.suspended` deliberately show nothing: the first is transient, and
+		// the second cannot reach Clerk anyway, so offering sign-in there only invites a failure.
 		if isRootGate, let authState {
-			VStack(spacing: 12) {
-				Button {
-					Task { await authState.signOut() }
-				} label: {
-					Text(L10n.Auth.signOut).frame(maxWidth: .infinity)
-				}
-				.buttonStyle(.bordered)
-				.controlSize(.large)
-				.testability(Testability.Button.paywallSignOut)
+			switch authContext {
+			case .validated:
+				VStack(spacing: 12) {
+					Button {
+						Task { await authState.signOut() }
+					} label: {
+						Text(L10n.Auth.signOut).frame(maxWidth: .infinity)
+					}
+					.buttonStyle(.bordered)
+					.controlSize(.large)
+					.testability(Testability.Button.paywallSignOut)
 
-				Button(role: .destructive) {
-					showDeleteConfirmation = true
+					Button(role: .destructive) {
+						showDeleteConfirmation = true
+					} label: {
+						Text(L10n.Auth.Account.Delete.action).frame(maxWidth: .infinity)
+					}
+					.buttonStyle(.bordered)
+					.controlSize(.large)
+					.testability(Testability.Button.paywallDeleteAccount)
+				}
+				.padding(.top, 8)
+			case .anonymous:
+				Button {
+					showSignIn = true
 				} label: {
-					Text(L10n.Auth.Account.Delete.action).frame(maxWidth: .infinity)
+					Text(L10n.Auth.SignIn.button).frame(maxWidth: .infinity)
 				}
 				.buttonStyle(.bordered)
 				.controlSize(.large)
-				.testability(Testability.Button.paywallDeleteAccount)
+				.padding(.top, 8)
+				.testability(Testability.Button.paywallSignIn)
+			case .indeterminate, .suspended:
+				EmptyView()
 			}
-			.padding(.top, 8)
 		}
 	}
 

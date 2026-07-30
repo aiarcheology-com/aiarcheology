@@ -21,6 +21,10 @@ struct SettingsForm: View {
 	/// initializer (it is not an `ObservableObject`), from `DrawerContent`.
 	let findingRepository: FindingRepository
 
+	/// Auth, for the account section (AIA-0536). Sign-in is optional under the paywall-first gate
+	/// order, so signed-out is a state Settings must render rather than one it can assume away.
+	@ObservedObject var authState: AuthState
+
 	@Environment(\.dismiss) private var dismiss
 	@Environment(DrawerManager.self) private var drawer
 	@Environment(TourState.self) private var tour
@@ -35,9 +39,26 @@ struct SettingsForm: View {
 	/// Real vs. mock auth from the composition root (AIA-0385). Re-injected onto this sheet in
 	/// `DrawerContent` because custom env values don't cross the sheet boundary on Mac/iPad.
 	@Environment(\.usesRealAuth) private var usesRealAuth
+
+	/// Contextual sign-in, offered from the account section when signed out (AIA-0536).
+	@State private var showSignIn = false
 	@FocusState private var isHistoryLimitFocused: Bool
 	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
-	@State private var accountPath = NavigationPath()
+	@State private var accountPath: NavigationPath
+
+	/// `startAtManageAccount` seeds the stack **at birth**, not in `onAppear` (AIA-0536): mutating a
+	/// `NavigationPath` while the sheet's first-ever presentation is still installing the stack gets
+	/// silently dropped, so the drawer's deep link worked on every open except the one that mattered.
+	/// A path the stack is born with has no timing to lose. A `Bool` rather than the route because
+	/// `AccountRoute` is private to this file; the *validity* guards (validated account, real auth)
+	/// live with the caller, which is the only party that can consult them at tap time.
+	init(findingRepository: FindingRepository, authState: AuthState, startAtManageAccount: Bool = false) {
+		self.findingRepository = findingRepository
+		self._authState = ObservedObject(wrappedValue: authState)
+		var path = NavigationPath()
+		if startAtManageAccount { path.append(AccountRoute.profile) }
+		self._accountPath = State(initialValue: path)
+	}
 	@State private var defaultWebPlaceholder: String = "www.google.com"
 	@State private var resetButtonColor: Color = .red
 	@State private var cleanCacheButtonColor: Color = .red
@@ -132,6 +153,25 @@ struct SettingsForm: View {
 			// (a `.background` UIViewControllerRepresentable) must outlive the user popping the
 			// pushed Reset screen mid-export, since the ZIP builds after a delay (AIA-0402/0448).
 			.activityShareSheet($findingsSharePayload)
+			.sheet(isPresented: $showSignIn) {
+				SignInSheet(authState: authState)
+					// Settings is itself a sheet, so this is a *second* boundary and needs its own
+					// re-injection (AGENTS.md §3). Without it the value falls back to `false` on Mac
+					// and the sign-in button silently does nothing — the mock path has no configured
+					// Clerk instance, so `SignInSheet` refuses to present rather than trapping.
+					.environment(\.usesRealAuth, usesRealAuth)
+			}
+			// Signing out from inside Clerk's embedded profile dismisses the whole Settings sheet
+			// (AIA-0536): sign-out means "I am done with account things", and popping back to the
+			// Settings root would leave the user standing in a menu they did not ask for. Dismissal
+			// lands them back in the app — which is what sign-out now means everywhere. Gated on a
+			// non-empty path so an out-of-band session revocation while someone merely browses
+			// Settings does not yank the sheet from under them; before the cut-over none of this
+			// could happen, because sign-out tore the whole tree down.
+			.onChange(of: authState.effectiveContext) { _, context in
+				guard case .anonymous = context, !accountPath.isEmpty else { return }
+				dismiss()
+			}
 		}
 	}
 
@@ -444,7 +484,32 @@ struct SettingsForm: View {
 	/// devices, and the App Store-required account deletion (Apple 5.1.1(v)).
 	private var accountSection: some View {
 		Section(header: Text(L10n.Auth.Account.title)) {
-			if usesRealAuth, let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress {
+			// Signed out is a first-class state now (AIA-0536): the app is usable without an
+			// account, so Settings offers sign-in instead of assuming it already happened.
+			if case .anonymous = authState.effectiveContext {
+				Button {
+					showSignIn = true
+				} label: {
+					HStack {
+						Text(L10n.Auth.SignIn.button)
+						Spacer()
+					}
+				}
+				.testability(Testability.Button.settingsSignIn)
+			} else if case .suspended = authState.effectiveContext {
+				// Signed in but unverifiable: the account must stay visible — vanishing reads as
+				// broken (AIA-0536). Inert: Clerk cannot render the profile without a connection,
+				// and offline its cache does not even yield the email, hence the generic label.
+				HStack {
+					Text(L10n.Auth.Account.title)
+					Spacer()
+					Text(L10n.Auth.Offline.title)
+						.foregroundColor(.secondary)
+						// On the leaf Text, not the HStack: a container's identifier surfaces
+						// unreliably in the accessibility tree; a Text always does.
+						.testability(Testability.Label.settingsAccountOffline)
+				}
+			} else if usesRealAuth, let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress {
 				HStack {
 					Text(email)
 						.foregroundColor(.secondary)
@@ -477,7 +542,9 @@ struct SettingsForm: View {
 				}
 			}
 
-			if usesRealAuth {
+			// Requires a *validated* account, not merely the real-auth path: Clerk's profile has
+			// nothing to show for a signed-out user, and after the cut-over that is reachable here.
+			if usesRealAuth, case .validated = authState.effectiveContext {
 				// Push Clerk's profile onto the Settings stack (not a sheet): Settings is
 				// itself a sheet, and a sheet-over-a-sheet presents-then-auto-dismisses.
 				// Value-based push so UserProfileView and its own sub-screens (Manage
