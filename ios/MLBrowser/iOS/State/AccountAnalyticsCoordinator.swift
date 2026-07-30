@@ -39,9 +39,12 @@ final class AccountAnalyticsCoordinator {
 		// The value is taken from the sink, never re-read from `authState`. `@Published` fires on
 		// `willSet`, so a sink that re-read the property would observe the value being replaced —
 		// i.e. it would install the OUTGOING account (documented in `TargetingCoordinator`).
-		authState.$accountIdentifier
+		//
+		// Driven by the context rather than the raw identifier (AIA-0536): the identifier alone
+		// cannot distinguish "signed out" from "still resolving", and consent needs to.
+		authState.$effectiveContext
 			.removeDuplicates()
-			.sink { [weak self] identifier in self?.handleAccountChange(to: identifier) }
+			.sink { [weak self] context in self?.handleContextChange(context) }
 			.store(in: &observations)
 
 		subscriptionState.$isSubscribed
@@ -50,11 +53,27 @@ final class AccountAnalyticsCoordinator {
 			.store(in: &observations)
 	}
 
-	private func handleAccountChange(to identifier: String?) {
+	/// Forwards **every** context to analytics, then acts on its own behalf only for those that
+	/// correspond to a write of `AuthState.accountIdentifier`.
+	///
+	/// The two are not the same set, and the difference is load-bearing. `.suspended` is not an
+	/// attribution transition — this type must not touch `currentAccount` or emit funnel events for
+	/// it — but `AnalyticsState` still needs to see it, because it is the only signal distinguishing
+	/// "no scope yet, still resolving" from "no scope, and none is coming". Filtering it out here
+	/// leaves that branch unreachable in the wired app and strands an offline user on a hold screen
+	/// forever, while a test calling `AnalyticsState` directly still passes.
+	private func handleContextChange(_ context: EffectiveAuthContext) {
+		// Always first, and always unconditional: the identity must be installed before any event is
+		// handed over, or the event is attributed to whoever was signed in before (AIA-0437).
+		// `AnalyticsState` decides for itself which contexts change attribution — that judgement is
+		// not duplicated here (see `EffectiveAuthContext.isAttributionTransition`).
+		analytics.updateAuthContext(context)
+
+		guard context.isAttributionTransition else { return }
+		// `.indeterminate` and `.anonymous` both resolve to no account today. They stop being
+		// interchangeable once consent is scope-aware: only `.anonymous` may be asked and answer.
+		let identifier = context.attributedAccount
 		currentAccount = identifier
-		// Always first: the identity must be installed before any event is handed over, or the
-		// event is attributed to whoever was signed in before (AIA-0437).
-		analytics.updateAccountIdentity(identifier)
 
 		guard identifier != nil else { return }
 		// Both funnel events are once-per-account-ever, and `AnalyticsState` owns that bookkeeping:

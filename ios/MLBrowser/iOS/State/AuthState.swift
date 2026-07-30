@@ -86,6 +86,17 @@ final class AuthState: ObservableObject {
     /// untouched — a transient loss of connectivity is not a change of account.
     @Published private(set) var accountIdentifier: String?
 
+    /// The consent/attribution identity derived from ``gate`` and ``accountIdentifier`` (AIA-0536).
+    ///
+    /// A total function over that *pair*, not over either alone — `.ready` with a `nil` identifier
+    /// is a real, reachable state (see ``evaluateGate()``) and is **not** anonymity.
+    ///
+    /// Written at exactly the points that write those two properties and nowhere else. That gives
+    /// observers an invariant they can rely on: the set of context transitions equals the set of
+    /// writes to ``accountIdentifier``, with ``EffectiveAuthContext/suspended(_:)`` as the one
+    /// context corresponding to *no* write — which is why it must be ignored rather than acted on.
+    @Published private(set) var effectiveContext: EffectiveAuthContext = .indeterminate
+
     private let provider: AuthProviding
 
     /// Coalesces overlapping refreshes. `refresh()` is triggered from several places
@@ -143,12 +154,19 @@ final class AuthState: ObservableObject {
         // The post-`await` guard below protects the incoming account; this protects the outgoing one.
         if accountUnderValidation != accountIdentifier {
             accountIdentifier = nil
+            // Not `.anonymous`: nobody signed out. This is the `(.ready, nil)` window, and calling it
+            // anonymity would hand the anonymous consent scope a slice of time in the middle of a
+            // sign-in — long enough to select a bucket and ask a question of the wrong person.
+            effectiveContext = .indeterminate
         }
 
         do {
             try await provider.validateSession()
         } catch AuthValidationError.offline {
             // Identity deliberately left as-is: losing connectivity is not a change of account.
+            // On a cold offline launch that identity is still `nil` — this line is the reason
+            // `.suspended(nil)` is the common shape rather than the exotic one.
+            effectiveContext = .suspended(accountIdentifier)
             setGate(.offline)
             return
         } catch {
@@ -175,7 +193,11 @@ final class AuthState: ObservableObject {
 
         // Read fresh rather than reusing the pre-`await` local, so the published value can only
         // ever be the one this pass actually validated.
-        accountIdentifier = provider.accountIdentifier
+        let validatedAccount = provider.accountIdentifier
+        accountIdentifier = validatedAccount
+        // Total over the pair: a provider reporting "signed in" with no identifier is not an
+        // anonymous user, it is an unusable one. Fail to `.indeterminate` rather than select a scope.
+        effectiveContext = validatedAccount.map(EffectiveAuthContext.validated) ?? .indeterminate
         setGate(.ready)
     }
 
@@ -197,6 +219,10 @@ final class AuthState: ObservableObject {
     /// why the identity cannot be maintained there alone.
     private func setSignedOut() {
         accountIdentifier = nil
+        // The one place anonymity is declared. Every other `nil` identifier means "unknown", not
+        // "nobody" — only an actual sign-out, revocation, or a provider reporting no session
+        // produces a scope that may be asked for consent in its own right.
+        effectiveContext = .anonymous
         setGate(.signedOut)
     }
 

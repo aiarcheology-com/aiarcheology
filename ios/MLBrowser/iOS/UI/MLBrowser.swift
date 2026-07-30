@@ -316,11 +316,48 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 		self.content = content()
 	}
 
+	/// Whether content has ever been shown. Once it has, a *transient* loss of scope must not evict
+	/// it: an out-of-band account switch keeps `gate == .ready` (``AuthState/setGate(_:)`` suppresses
+	/// equal values) while the outgoing account is cleared, so this gate stays mounted and the
+	/// presentation dips to `.pending` for the whole validation round-trip. Rendering the hold there
+	/// would tear down the browser subtree mid-session and lose in-flight web-view state.
+	@State private var hasEverResolved = false
+
+	private enum Display {
+		case choice
+		case content
+		case hold
+	}
+
+	private var display: Display {
+		switch analytics.consentPresentation {
+		case .ask: .choice
+		case .resolved: .content
+		// Holding is only right *before* anything has been shown. Afterwards the user is already in
+		// the app and an unresolved scope is not a reason to throw them out of it — analytics simply
+		// fails closed until it resolves.
+		case .pending, .unavailable: hasEverResolved ? .content : .hold
+		}
+	}
+
 	var body: some View {
-		if analytics.shouldShowChoice {
-			AnalyticsChoiceView(analytics: analytics)
-		} else {
-			content
+		// One `case` per outcome rather than per presentation, so `.resolved → .pending` with content
+		// already shown keeps the same structural identity and SwiftUI does not remount the subtree.
+		Group {
+			switch display {
+			case .choice:
+				AnalyticsChoiceView(analytics: analytics)
+			case .content:
+				content
+			case .hold:
+				// First-launch hold. The paywall-first cut-over owns the visual treatment —
+				// `.unavailable` should explain that a connection is needed rather than spin (#545).
+				ProgressView()
+					.frame(maxWidth: .infinity, maxHeight: .infinity)
+			}
+		}
+		.onChange(of: analytics.consentPresentation, initial: true) { _, presentation in
+			if presentation == .resolved { hasEverResolved = true }
 		}
 	}
 }

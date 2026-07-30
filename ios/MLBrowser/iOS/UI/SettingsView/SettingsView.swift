@@ -139,8 +139,11 @@ struct SettingsForm: View {
 	private var privacySection: some View {
 		if analytics.isAnalyticsFeatureEnabled {
 			Section(header: Text(L10n.Analytics.Settings.title), footer: Text(L10n.Analytics.Settings.footer)) {
+				// Reads the derived value, not `settings.analyticsEnabled` — that field holds only
+				// the anonymous bucket's answer, so an account-scoped user would be shown someone
+				// else's choice while their own is in force (AIA-0536).
 				Toggle(L10n.Analytics.Settings.toggle, isOn: Binding(
-					get: { settings.analyticsEnabled },
+					get: { analytics.isAnalyticsEnabled },
 					set: { analytics.setAnalyticsEnabled($0) }
 				))
 				.testability(Testability.Toggle.settingsAnalytics)

@@ -39,7 +39,9 @@ struct AppMessageModifier: ViewModifier {
 			gate: authState.gate,
 			paymentsSurfaceEnabled: subscriptionState.isPaymentsSurfaceEnabled,
 			isSubscribed: subscriptionState.isSubscribed,
-			analyticsChoicePending: analytics.shouldShowChoice
+			// Anything short of resolved counts as pending: a message banner over a consent
+			// question, a hold, or a "needs connection" screen is wrong for the same reason.
+			analyticsChoicePending: analytics.consentPresentation != .resolved
 		)
 	}
 

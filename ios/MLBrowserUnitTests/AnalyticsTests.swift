@@ -39,10 +39,216 @@ final class AnalyticsTests: XCTestCase {
 		try await super.tearDown()
 	}
 
+	// MARK: - updateAuthContext (AIA-0536)
+
+	/// `.suspended` is the absence of a transition, not a state to act on. ``AuthState`` writes no
+	/// identifier when validation fails offline, so there is nothing here to react to — and reacting
+	/// anyway would deactivate a consented transport on every offline foreground, whose
+	/// re-activation rebuilds the transport and re-emits its automatic session signal.
+	func testUpdateAuthContext_Suspended_LeavesAConsentedTransportUntouched() {
+		analytics.chooseAnalytics(enabled: true)
+		let callsBefore = tracker.calls
+		XCTAssertTrue(callsBefore.contains(.activate))
+
+		analytics.updateAuthContext(.suspended(Self.accountA))
+		analytics.updateAuthContext(.suspended(nil))
+
+		XCTAssertEqual(tracker.calls, callsBefore)
+	}
+
+	/// `.indeterminate` **is** a transition. `AuthState` clears the outgoing account before it
+	/// suspends (AIA-0437), so the identity must stop being used for the whole validation
+	/// round-trip; ignoring it would leave the transport attributing to an account on its way out.
+	func testUpdateAuthContext_Indeterminate_TearsDownAConsentedAccountsTransport() {
+		analytics.chooseAnalytics(enabled: true)
+		XCTAssertEqual(tracker.deactivations, 0)
+
+		analytics.updateAuthContext(.indeterminate)
+
+		XCTAssertEqual(tracker.deactivations, 1)
+	}
+
+	/// Signed out and unresolved both clear the identity today, which is what makes routing the
+	/// coordinator through the context behaviour-preserving. They stop being interchangeable once
+	/// consent itself is scope-aware — only `.anonymous` is a scope that can answer a question.
+	func testUpdateAuthContext_Anonymous_ClearsLikeIndeterminate() {
+		analytics.chooseAnalytics(enabled: true)
+
+		analytics.updateAuthContext(.anonymous)
+
+		XCTAssertEqual(tracker.deactivations, 1)
+	}
+
+	func testUpdateAuthContext_Validated_InstallsThatAccountsIdentity() {
+		analytics.updateAuthContext(.validated(Self.accountB))
+		analytics.chooseAnalytics(enabled: true)
+
+		XCTAssertEqual(tracker.identities, [Self.accountB])
+	}
+
+	// MARK: - Scoped consent (AIA-0536)
+
+	/// A fresh state with no scope selected — `setUp` installs an account, which these need to avoid.
+	private func makeUnscopedState(
+		tracker: RecordingAnalyticsTracker,
+		accountIdentity: Bool = true
+	) -> AnalyticsState {
+		AnalyticsState(
+			settings: settings,
+			tracker: tracker,
+			featureFlags: featureFlags,
+			isAccountIdentityEnabled: accountIdentity
+		)
+	}
+
+	/// **The first scope selection of a session is never a boundary.** Written as
+	/// `lastKnownScope != arriving`, `nil != .anonymous` is true and this event — every cold-launch
+	/// funnel — would be discarded before it could ever be delivered. Events recorded before any
+	/// scope existed cannot belong to another scope, because there was none.
+	func testFirstScopeSelection_IsNotABoundary_AndDeliversTheLaunchFunnel() {
+		let launchTracker = RecordingAnalyticsTracker()
+		let launch = makeUnscopedState(tracker: launchTracker)
+
+		launch.track(.paywallShown)
+		XCTAssertEqual(launch.pendingPreConsentCount, 1)
+
+		launch.updateAuthContext(.validated(Self.accountA))
+		launch.chooseAnalytics(enabled: true)
+
+		XCTAssertEqual(launchTracker.events, [.paywallShown])
+	}
+
+	/// An account's buffered funnel must not be delivered under the anonymous bucket when that
+	/// bucket opts in. Sign-out is reachable outside the consent gate, so this interleaving is real.
+	func testBoundary_AccountBuffersThenAnonymousConsents_DiscardsTheAccountsEvents() {
+		analytics.track(.paywallShown)
+		XCTAssertEqual(analytics.pendingPreConsentCount, 1)
+
+		analytics.updateAuthContext(.anonymous)
+		analytics.chooseAnalytics(enabled: true)
+
+		XCTAssertTrue(tracker.events.isEmpty, "account A's buffered funnel was delivered anonymously")
+	}
+
+	/// And the mirror image: anonymous activity must not be delivered under an account that signs in
+	/// afterwards.
+	func testBoundary_AnonymousBuffersThenAccountConsents_DiscardsTheAnonymousEvents() {
+		let mixedTracker = RecordingAnalyticsTracker()
+		let mixed = makeUnscopedState(tracker: mixedTracker)
+
+		mixed.updateAuthContext(.anonymous)
+		mixed.track(.paywallShown)
+		XCTAssertEqual(mixed.pendingPreConsentCount, 1)
+
+		mixed.updateAuthContext(.validated(Self.accountA))
+		mixed.chooseAnalytics(enabled: true)
+
+		XCTAssertTrue(mixedTracker.events.isEmpty, "anonymous activity was delivered under account A")
+	}
+
+	/// The transport transition the bucket merge newly creates: before it, the anonymous bucket could
+	/// never be consented under the flag, so `(active, still enabled)` with no account was
+	/// unreachable. Signing out into an already-consented anonymous bucket must hand the identity
+	/// over, not tear the transport down and rebuild it.
+	func testSignOutIntoConsentedAnonymousBucket_HandsOverWithoutTearingDown() {
+		let handoverTracker = RecordingAnalyticsTracker()
+		let handover = makeUnscopedState(tracker: handoverTracker)
+
+		handover.updateAuthContext(.anonymous)
+		handover.chooseAnalytics(enabled: true)
+		handover.updateAuthContext(.validated(Self.accountA))
+		handover.chooseAnalytics(enabled: true)
+		let callsBefore = handoverTracker.calls.count
+
+		handover.updateAuthContext(.anonymous)
+
+		let afterSignOut = Array(handoverTracker.calls.dropFirst(callsBefore))
+		XCTAssertEqual(afterSignOut, [.identity(nil)])
+	}
+
+	/// Rolling the cross-device flag back must honour the answer already given, not re-ask and not
+	/// silently widen it. The two buckets are the same bucket, so this is a no-op by construction —
+	/// which is exactly why they were merged rather than stored separately.
+	func testFlagRollback_AnonymousConsentIsHonouredUnderDeviceWideMode() {
+		let anonTracker = RecordingAnalyticsTracker()
+		let anon = makeUnscopedState(tracker: anonTracker)
+		anon.updateAuthContext(.anonymous)
+		anon.chooseAnalytics(enabled: true)
+
+		let rolledBackTracker = RecordingAnalyticsTracker()
+		let rolledBack = makeUnscopedState(tracker: rolledBackTracker, accountIdentity: false)
+
+		XCTAssertEqual(rolledBack.consentPresentation, .resolved)
+		rolledBack.track(.paywallShown)
+		XCTAssertEqual(rolledBackTracker.events, [.paywallShown])
+	}
+
+	/// An account's answer must never be readable as an anonymous one, in either flag state. This is
+	/// the leak the merge has to *not* reintroduce: only the hash is per-account, so the account
+	/// bucket's stored value is worthless without it.
+	func testAccountConsent_IsNotVisibleToTheAnonymousBucket() {
+		analytics.chooseAnalytics(enabled: true)
+		XCTAssertTrue(settings.analyticsAccountEnabled)
+
+		let rolledBackTracker = RecordingAnalyticsTracker()
+		let rolledBack = makeUnscopedState(tracker: rolledBackTracker, accountIdentity: false)
+
+		XCTAssertEqual(rolledBack.consentPresentation, .ask)
+		rolledBack.track(.paywallShown)
+		XCTAssertTrue(rolledBackTracker.events.isEmpty)
+	}
+
+	/// `.suspended` selects no scope, but the gate has to tell "resolving" from "cannot resolve" —
+	/// otherwise an offline user waits on a spinner that will never finish.
+	func testPresentation_DistinguishesPendingFromUnavailable() {
+		let offlineTracker = RecordingAnalyticsTracker()
+		let offline = makeUnscopedState(tracker: offlineTracker)
+
+		XCTAssertEqual(offline.consentPresentation, .pending)
+
+		offline.updateAuthContext(.suspended(nil))
+		XCTAssertEqual(offline.consentPresentation, .unavailable)
+
+		offline.updateAuthContext(.indeterminate)
+		XCTAssertEqual(offline.consentPresentation, .pending)
+	}
+
+	/// The Settings toggle reads this, and it must reflect the scope in force rather than the
+	/// anonymous bucket's raw field — otherwise an account-scoped user is shown someone else's answer.
+	func testIsAnalyticsEnabled_TracksTheActiveScopeNotTheStoredAnonymousField() {
+		let scopedTracker = RecordingAnalyticsTracker()
+		let scoped = makeUnscopedState(tracker: scopedTracker)
+		scoped.updateAuthContext(.anonymous)
+		scoped.chooseAnalytics(enabled: true)
+
+		XCTAssertTrue(scoped.isAnalyticsEnabled)
+		XCTAssertTrue(settings.analyticsEnabled)
+
+		// An account arrives that has never answered. The stored anonymous field is still `true`,
+		// but nothing is in force for this scope.
+		scoped.updateAuthContext(.validated(Self.accountA))
+
+		XCTAssertFalse(scoped.isAnalyticsEnabled)
+		XCTAssertTrue(settings.analyticsEnabled)
+	}
+
+	func testResetAnalyticsChoice_ClearsBothBuckets() {
+		analytics.chooseAnalytics(enabled: true)
+		analytics.updateAuthContext(.anonymous)
+		analytics.chooseAnalytics(enabled: true)
+
+		analytics.resetAnalyticsChoice()
+
+		XCTAssertFalse(settings.analyticsEnabled)
+		XCTAssertFalse(settings.analyticsChoiceMade)
+		XCTAssertFalse(settings.analyticsAccountEnabled)
+		XCTAssertNil(settings.analyticsConsentAccountHash)
+	}
+
 	func testDefaultIsOffAndDoesNotInitializeOrSend() {
 		XCTAssertFalse(settings.analyticsEnabled)
 		XCTAssertFalse(settings.analyticsChoiceMade)
-		XCTAssertTrue(analytics.shouldShowChoice)
+		XCTAssertEqual(analytics.consentPresentation, .ask)
 		XCTAssertEqual(tracker.activations, 0)
 
 		analytics.track(.paywallShown)
@@ -68,7 +274,7 @@ final class AnalyticsTests: XCTestCase {
 		)
 
 		XCTAssertFalse(disabledAnalytics.isAnalyticsFeatureEnabled)
-		XCTAssertFalse(disabledAnalytics.shouldShowChoice)
+		XCTAssertEqual(disabledAnalytics.consentPresentation, .resolved)
 		disabledAnalytics.chooseAnalytics(enabled: true)
 		XCTAssertFalse(settings.analyticsEnabled)
 		XCTAssertEqual(disabledTracker.activations, 0)
@@ -77,9 +283,13 @@ final class AnalyticsTests: XCTestCase {
 	func testActiveChoiceInitializesAndSendsOnlyAllowListedEvent() {
 		analytics.chooseAnalytics(enabled: true)
 
-		XCTAssertTrue(settings.analyticsEnabled)
-		XCTAssertTrue(settings.analyticsChoiceMade)
-		XCTAssertFalse(analytics.shouldShowChoice)
+		// An account's answer lands in the account bucket and touches neither anonymous key —
+		// that separation is what stops either bucket overwriting the other (AIA-0536).
+		XCTAssertTrue(settings.analyticsAccountEnabled)
+		XCTAssertNotNil(settings.analyticsConsentAccountHash)
+		XCTAssertFalse(settings.analyticsEnabled)
+		XCTAssertFalse(settings.analyticsChoiceMade)
+		XCTAssertEqual(analytics.consentPresentation, .resolved)
 		XCTAssertEqual(tracker.activations, 1)
 
 		analytics.track(.modelImported(source: .catalog))
@@ -108,7 +318,7 @@ final class AnalyticsTests: XCTestCase {
 
 		XCTAssertFalse(settings.analyticsEnabled)
 		XCTAssertFalse(settings.analyticsChoiceMade)
-		XCTAssertTrue(analytics.shouldShowChoice)
+		XCTAssertEqual(analytics.consentPresentation, .ask)
 		XCTAssertEqual(tracker.deactivations, 1)
 	}
 
@@ -359,24 +569,36 @@ final class AnalyticsTests: XCTestCase {
 	/// the app backgrounds, so an account change in between would report A's activity in a summary
 	/// carrying B's identity. That is the whole defect the buffer discard exists to prevent, in a
 	/// counter rather than a queue — and it is easy to miss precisely because nothing is queued.
-	func testUpdateAccountIdentity_DifferentAccountArrives_DiscardsTheDetectionCount() {
+	/// **Behaviour changed by AIA-0536, deliberately.** The count used to be discarded on a scope
+	/// change; it is now *spent* under the outgoing scope first. Discarding was safe but lossy, and
+	/// it destroyed the summary of exactly the sessions where somebody signs in partway through —
+	/// which is the normal shape once login is contextual rather than a launch gate.
+	///
+	/// The invariant that matters is unchanged and still asserted below: nothing A did is ever
+	/// attributed to B. The flush happens while A is still the selected scope, which is why
+	/// `flushDetectionSessionSummary()` has to run *before* the scope is reassigned — its own guard
+	/// reads the effective state, so afterwards it would silently drop.
+	func testUpdateAccountIdentity_DifferentAccountArrives_SpendsTheCountUnderTheOutgoingAccount() {
 		// A consents and does some work.
 		analytics.chooseAnalytics(enabled: true)
 		for _ in 0..<7 { analytics.recordDetectionRun() }
 
-		// The account changes under it, and the incoming account consents too.
+		// The account changes under it. A's seven runs are reported here, under A.
 		analytics.updateAccountIdentity(Self.accountB)
-		analytics.chooseAnalytics(enabled: true)
 
-		// Backgrounding must not attribute A's seven runs to B. With the counter cleared there is
-		// no bucket to report at all, so nothing is sent.
+		XCTAssertEqual(tracker.events.last, .detectionSessionSummary(runCountBucket: .sixToTwenty))
+		XCTAssertEqual(tracker.identities, [Self.accountA], "the summary must be attributed to A")
+
+		// B consents. Backgrounding must not report A's runs a second time, now under B.
+		analytics.chooseAnalytics(enabled: true)
 		analytics.flushDetectionSessionSummary()
-		XCTAssertFalse(
-			tracker.events.contains { if case .detectionSessionSummary = $0 { true } else { false } },
-			"account A's detection activity was reported under account B"
+		XCTAssertEqual(
+			tracker.events.filter { if case .detectionSessionSummary = $0 { true } else { false } }.count,
+			1,
+			"account A's detection activity was reported again under account B"
 		)
 
-		// And B's own activity still reports normally, so the fix is a reset rather than a mute.
+		// And B's own activity still reports normally, so this is a hand-off rather than a mute.
 		for _ in 0..<3 { analytics.recordDetectionRun() }
 		analytics.flushDetectionSessionSummary()
 		XCTAssertEqual(tracker.events.last, .detectionSessionSummary(runCountBucket: .oneToFive))
@@ -458,7 +680,7 @@ final class AnalyticsTests: XCTestCase {
 			isAccountIdentityEnabled: false
 		)
 
-		XCTAssertTrue(legacy.shouldShowChoice)
+		XCTAssertEqual(legacy.consentPresentation, .ask)
 
 		legacy.chooseAnalytics(enabled: true)
 		legacy.track(.paywallShown)
@@ -483,7 +705,7 @@ final class AnalyticsTests: XCTestCase {
 			isAccountIdentityEnabled: true
 		)
 
-		XCTAssertFalse(anonymous.shouldShowChoice)
+		XCTAssertEqual(anonymous.consentPresentation, .pending)
 		anonymous.chooseAnalytics(enabled: true)
 		anonymous.setAnalyticsEnabled(true)
 		anonymous.track(.paywallShown)
@@ -495,16 +717,17 @@ final class AnalyticsTests: XCTestCase {
 	}
 
 	/// Consent does not travel with the device: a second account is asked for itself, and until it
-	/// answers nothing is sent for it — even though the device-level toggle is still on from A.
+	/// answers nothing is sent for it — even though the account bucket's stored value is still on
+	/// from A. That value is shared; the hash is what decides who may use it (AIA-0536).
 	func testUpdateAccountIdentity_SecondAccountAfterFirstConsented_DoesNotInheritConsent() {
 		analytics.chooseAnalytics(enabled: true)
-		XCTAssertFalse(analytics.shouldShowChoice)
+		XCTAssertEqual(analytics.consentPresentation, .resolved)
 
 		analytics.updateAccountIdentity(Self.accountB)
 
-		XCTAssertTrue(analytics.shouldShowChoice)
+		XCTAssertEqual(analytics.consentPresentation, .ask)
 		XCTAssertEqual(tracker.deactivations, 1)
-		XCTAssertTrue(settings.analyticsEnabled)
+		XCTAssertTrue(settings.analyticsAccountEnabled)
 
 		analytics.track(.paywallShown)
 		// The Settings toggle must not enable sending for someone who never answered.
