@@ -118,9 +118,14 @@ final class BrowserState: ObservableObject {
 	/// `currentURL`, which KVO drives to `nil` when the content process dies.
 	private(set) var lastRestorableURL: URL?
 	/// Whether the attached web view currently renders a committed document (AIA-0552). Set on
-	/// commit; cleared when the instance is invalidated or replaced — and cleared again whenever a
-	/// failure is *published*, because a page the overlay has declared broken no longer counts as
-	/// content worth protecting. Deliberately tracked here rather than read off `webView.url`:
+	/// commit; cleared when the instance is invalidated or replaced — and cleared at
+	/// `navigationFailed`'s publish point, because a page the overlay has declared broken no
+	/// longer counts as content worth protecting. Accepted residual: a post-commit failure
+	/// *outside* the reachability allowlist returns at the classify guard and leaves the flag
+	/// armed, so later provisional reachability failures over that (possibly broken) page stay
+	/// silent — same class as the ticket's own silent-failure trade-off, and clearing before
+	/// classify would be worse (a superseded load's cancellation would spend the flag).
+	/// Deliberately tracked here rather than read off `webView.url`:
 	/// at delegate-callback timing KVO may still report the provisional URL, and it goes `nil` on
 	/// process death anyway — explicit commit tracking is deterministic and unit-testable.
 	///
