@@ -117,6 +117,18 @@ final class BrowserState: ObservableObject {
 	/// Last mirrored URL that is actually reopenable. Recovery targets this rather than
 	/// `currentURL`, which KVO drives to `nil` when the content process dies.
 	private(set) var lastRestorableURL: URL?
+	/// Whether the attached web view currently renders a committed document (AIA-0552). Set on
+	/// commit; cleared when the instance is invalidated or replaced — and cleared again whenever a
+	/// failure is *published*, because a page the overlay has declared broken no longer counts as
+	/// content worth protecting. Deliberately tracked here rather than read off `webView.url`:
+	/// at delegate-callback timing KVO may still report the provisional URL, and it goes `nil` on
+	/// process death anyway — explicit commit tracking is deterministic and unit-testable.
+	///
+	/// INVARIANT: `loadFailure != nil ⇒ hasCommittedContent == false`. `navigationFailed` is the
+	/// only publish path that may be *reached* with the flag true (it clears it as it publishes);
+	/// every other `loadFailure` set site is reachable only after a prior publish or
+	/// `webViewInvalidated()` has already cleared it. A new direct-set site must keep this true.
+	private(set) var hasCommittedContent = false
 	/// `WKWebView.interactionState`, captured off the live instance in `webViewInvalidated()` and
 	/// consumed exactly once by the next `makeUIView`. Named `sessionState` because
 	/// `interactionState` already means `ContentInteractionState` across `DetectableView`.
@@ -150,6 +162,10 @@ final class BrowserState: ObservableObject {
 	func attach(_ webView: WKWebView) {
 		subscriptions.removeAll()
 		self.webView = webView
+		// Every attach hands over a freshly constructed, blank instance (`makeUIView` never
+		// re-attaches a content-bearing one), so it holds nothing committed until its first
+		// didCommit (AIA-0552).
+		hasCommittedContent = false
 
 		// One KVO observation feeds all three URL paths. A CurrentValueSubject (not
 		// .share()) so every downstream gets the current value regardless of
@@ -320,14 +336,34 @@ final class BrowserState: ObservableObject {
 		recoveryStartedAt = nil
 		retryTarget = nil
 		loadFailure = nil
+		hasCommittedContent = true
 	}
 
 	/// A navigation failed. Publishes only reachability-class failures (see `WebLoadFailure`) and
 	/// only for the newest navigation.
-	func navigationFailed(_ navigation: WKNavigation?, error: Error, from webView: WKWebView? = nil) {
+	///
+	/// `provisional` distinguishes the two delegate failure callbacks: a provisional failure
+	/// leaves the previously committed page fully rendered and interactive, a post-commit one
+	/// means the committed document is the failed page itself.
+	func navigationFailed(
+		_ navigation: WKNavigation?,
+		error: Error,
+		provisional: Bool = false,
+		from webView: WKWebView? = nil
+	) {
 		guard isCurrent(webView), isLatest(navigation) else { return }
 		recoveryStartedAt = nil
 		guard var failure = WebLoadFailure.classify(error) else { return }
+		// AIA-0552: never replace usable content with the opaque overlay. On-device detection and
+		// classification keep working on the committed page, so any navigation intent that fails
+		// provisionally over it — an offline submit, reload, or back/forward — fails silently by
+		// design; the overlay is reserved for a screen with nothing worth keeping on it.
+		if provisional && hasCommittedContent { return }
+		// Publishing declares the committed document broken (a post-commit failure IS that
+		// document), so it stops counting as content worth protecting. Without this, the retry
+		// rung — or a fresh submit — failing provisionally afterwards would be suppressed, and
+		// with `loadFailure` stuck nil the become-active ladder would never run again.
+		hasCommittedContent = false
 		if failure.retryURL == nil {
 			failure = WebLoadFailure(kind: failure.kind, retryURL: lastRestorableURL)
 		}
@@ -380,6 +416,9 @@ final class BrowserState: ObservableObject {
 		isUserLoadPending = false
 		pendingNavigation = nil
 		latestNavigation = nil
+		// Whichever path invalidated the instance (rebuild or process death), its committed
+		// document does not survive it (AIA-0552).
+		hasCommittedContent = false
 		// Preserved when a rebuild is what is invalidating us: the view calls this *while* serving
 		// the request, so clearing it here would disarm the stall deadline of the very rung just
 		// armed, and a trigger arriving before the rebuilt view starts loading would find the
