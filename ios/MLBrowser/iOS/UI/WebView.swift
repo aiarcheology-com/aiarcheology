@@ -325,7 +325,8 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
         public func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
             parent.loadStatusChanged?(false, error)
 			browserState?.navigationSettled(navigation, error: error)
-			browserState?.navigationFailed(navigation, error: error, from: webView)
+			// Post-commit: the committed document is the failed page itself (AIA-0552).
+			browserState?.navigationFailed(navigation, error: error, provisional: false, from: webView)
         }
 
 		// DNS/no-network failures and a superseded load's NSURLErrorCancelled arrive
@@ -334,7 +335,9 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		public func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
 			parent.loadStatusChanged?(false, error)
 			browserState?.navigationSettled(navigation, error: error)
-			browserState?.navigationFailed(navigation, error: error, from: webView)
+			// Provisional: the previously committed page is still fully rendered, so over live
+			// content this publishes nothing (AIA-0552).
+			browserState?.navigationFailed(navigation, error: error, provisional: true, from: webView)
 		}
 
 		/// WebKit's content process died. This is the only dedicated signal — no navigation
