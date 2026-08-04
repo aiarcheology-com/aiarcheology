@@ -18,6 +18,12 @@ final class AnalyticsTests: XCTestCase {
 		try await super.setUp()
 		settings = Settings()
 		settings.reset()
+		// `reset()` deliberately preserves anonymous-entitlement provenance (AIA-0536), and it is
+		// persisted in the host app's real `UserDefaults`: one anonymous purchase observed on this
+		// simulator — a UI test, or a human driving the paywall — would otherwise make
+		// `reportSubscriptionActivationIfNeeded` honestly refuse forever and fail the funnel tests
+		// on every later run (AIA-0552 hit exactly this). The fixture owns its world; clear it.
+		settings.subscriptionObservedAnonymously = false
 		tracker = RecordingAnalyticsTracker()
 		featureFlags = FeatureFlagsState(provider: StaticFeatureFlagProvider(overrides: [.isAnalyticsEnabled: true]))
 		analytics = AnalyticsState(settings: settings, tracker: tracker, featureFlags: featureFlags, isAccountIdentityEnabled: true)

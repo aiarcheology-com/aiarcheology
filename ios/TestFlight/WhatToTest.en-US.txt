@@ -17,3 +17,9 @@ Please test:
 7. If you are not subscribed and you sign out from the subscribe screen, confirm the Sign Out button is replaced by Sign In, and that you can sign back in and reach Delete Account.
 8. Analytics consent: if you are asked whether to enable analytics, that question should come after the subscribe screen, and you should be asked even if you never sign in. Answer it, then check Settings shows the same answer you gave.
 9. Report immediately if you are ever asked to sign in before you can see the price, or if a subscribed user is blocked from the app for any reason. Those are the two failures this change could plausibly cause, and they matter more than anything else in this build.
+
+Also in this build: going offline no longer wipes the page you have open.
+
+10. Load any page, then turn on Airplane Mode. The page must stay exactly as it was — readable, scrollable, and detection and classification still work on it.
+11. While offline, tap a link, reload, or enter an address: nothing loads, and no error screen replaces your page. The silence is deliberate — keeping your page beats an error screen. The address bar may show the address that failed. (Some sites, like some news portals, serve their own "you are offline" page from cache; that message comes from the site, not from the app.)
+12. "Page didn't load / Try Again" should now appear only when there was nothing on screen worth keeping — for example relaunching the app while offline. From there, Try Again must load the page normally once you are back online.
