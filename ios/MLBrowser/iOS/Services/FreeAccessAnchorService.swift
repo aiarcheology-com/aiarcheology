@@ -172,10 +172,19 @@ final class FreeAccessAnchorService {
 
 	/// Reads both stores and returns a settled window.
 	///
-	/// A durable **read failure** leaves the window in ``FreeAccessWindow/Anchor/reconciling``,
-	/// so granting stays forbidden: an unreadable Keychain is not proof that no anchor exists, and
-	/// granting on that assumption is the reinstall farm itself. Such a user simply has no free
-	/// window this session and lands wherever a user without one lands.
+	/// A durable **read failure** never grants — an unreadable Keychain is not proof that no anchor
+	/// exists, and granting on that assumption is the reinstall farm itself. What it does with an
+	/// *existing* window depends on the fast record, and that asymmetry is deliberate:
+	///
+	/// - **A fast record is present** → settle on it and honour the window. A present fast record
+	///   proves the app container survived, so this is not a reinstall; walling a legitimate
+	///   mid-window user because the Keychain was momentarily unreadable is the worse failure. It
+	///   opens no farm: ``FreeAccessWindow/canGrant`` is only ever true for
+	///   ``FreeAccessWindow/Anchor/absent``, so honouring a record can never itself hand out a window.
+	/// - **No fast record** → stay in ``FreeAccessWindow/Anchor/reconciling``, where granting is
+	///   forbidden. That is exactly the reinstall shape, because deleting the app destroys the
+	///   container the fast record lived in. Such a user simply has no free window this session and
+	///   lands wherever a user without one lands.
 	///
 	/// A store that is missing the anchor the other one has is repaired here, which is what lets a
 	/// reinstall resume rather than restart. The repair is best-effort: the returned window is
@@ -187,6 +196,10 @@ final class FreeAccessAnchorService {
 		do {
 			durableRecord = try durableStore.loadRecord()
 		} catch {
+			// See the asymmetry above. No repair is attempted on this path: the store that would be
+			// written is the one that just failed to answer.
+			guard let survivingFastRecord = loadFastRecord() else { return window }
+			window.settle(fast: survivingFastRecord, durable: nil)
 			return window
 		}
 

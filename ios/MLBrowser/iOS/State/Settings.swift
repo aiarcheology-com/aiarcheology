@@ -384,6 +384,15 @@ final class Settings: ObservableObject, Validatable {
 	/// defaults (AIA-0298).
 	private let defaults: UserDefaults
 
+	/// The store this instance actually resolved to, for the composition root alone (AIA-0556).
+	///
+	/// `FreeAccessAnchorService` keeps the fast half of the free-access anchor in `UserDefaults` and
+	/// must be handed the **same** store, not `.standard`. Under UI testing the two differ: this
+	/// type moves to the ephemeral suite above, so a service left on its own default would write the
+	/// anchor into a domain nothing else reads — and the fast and durable halves would disagree
+	/// without anything failing to say so.
+	var persistenceStore: UserDefaults { defaults }
+
 	private static let uiTestSuiteName = "com.aiarcheology.uitests"
 
 	init() {

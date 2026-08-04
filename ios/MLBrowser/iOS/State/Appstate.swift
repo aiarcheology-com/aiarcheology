@@ -58,6 +58,11 @@ final class AppState: ObservableObject {
 	let browser: BrowserSession
 	let account: AccountSession
 
+	/// The app-managed free-access window that precedes the paywall (AIA-0556). Injected once and
+	/// observed directly by the root gate — like `featureFlags`, a nested `ObservableObject` does
+	/// not republish through `AppState`.
+	let freeAccess: FreeAccessState
+
 	/// Remote feature flags (AIA-0350). Views read `featureFlags.snapshot` for flags that
 	/// apply live; `isPaymentsEnabled` is captured at launch inside `AccountSession` instead
 	/// and must not be read from here for gating the app root.
@@ -98,6 +103,7 @@ final class AppState: ObservableObject {
 		detection: DetectionSession,
 		browser: BrowserSession,
 		account: AccountSession,
+		freeAccess: FreeAccessState,
 		featureFlags: FeatureFlagsState,
 		analytics: AnalyticsState,
 		reviewPrompt: ReviewPromptCoordinator,
@@ -115,6 +121,7 @@ final class AppState: ObservableObject {
 		self.detection = detection
 		self.browser = browser
 		self.account = account
+		self.freeAccess = freeAccess
 		self.featureFlags = featureFlags
 		self.analytics = analytics
 		self.reviewPrompt = reviewPrompt
@@ -159,6 +166,20 @@ final class AppState: ObservableObject {
 		if subscriptionState.isPaymentsSurfaceEnabled {
 			await subscriptionState.start()
 		}
+
+		// 3c. Settle the app-managed free-access window (AIA-0556). Deliberately *after* the
+		// entitlement above is published and *before* `isReady`, so the root gate's first frame
+		// already has a real answer instead of the paywall flash a "not reconciled yet" reads as.
+		// Ordering after StoreKit is what lets it refuse to grant a window to someone who already
+		// pays; it costs nothing extra, because it reads only the two local anchor stores.
+		//
+		// The payments flag is passed for a separate refusal: with payments off, `start` above is
+		// skipped so `isSubscribed` is false for everyone, and granting on that would run every
+		// install's 14 days down behind a gate that is not even showing.
+		freeAccess.start(
+			isEntitled: subscriptionState.isSubscribed,
+			isPaymentsSurfaceEnabled: subscriptionState.isPaymentsSurfaceEnabled
+		)
 
 		// 4. Signal ready
 		isReady = true

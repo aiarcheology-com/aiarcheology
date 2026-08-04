@@ -187,16 +187,53 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 		XCTAssertNil(try storedFastRecord())
 	}
 
-	func testReconciledWindow_whenTheDurableReadFails_forbidsGranting() throws {
+	func testReconciledWindow_whenTheDurableReadFailsAndNoFastRecordExists_forbidsGranting() throws {
 		let durableStore = StubDurableStore()
 		durableStore.readError = FreeAccessAnchorError.keychain(errSecIO)
 		let service = try makeService(durableStore: durableStore, now: date(2026, 3, 2))
 
 		let window = service.reconciledWindow()
 
-		// An unreadable Keychain is not proof that no anchor exists.
+		// An unreadable Keychain is not proof that no anchor exists — and an absent fast record is
+		// exactly the shape a reinstall leaves behind, because deleting the app destroys the container.
 		XCTAssertFalse(window.canGrant)
 		XCTAssertEqual(window.anchor, .reconciling)
+	}
+
+	/// The other branch, and the one that wrongly walled a legitimate user. A surviving fast record
+	/// proves the app container was never destroyed, so this cannot be a reinstall; a Keychain that
+	/// momentarily would not answer must not cost a mid-window user their remaining days.
+	func testReconciledWindow_whenTheDurableReadFailsButTheFastRecordSurvived_honoursTheWindow() throws {
+		let grantDate = try date(2026, 3, 2)
+		let fast = FreeAccessWindow.record(grantedAt: grantDate, thresholds: .standard, calendar: calendar)
+		try XCTUnwrap(defaults).set(JSONEncoder().encode(fast), forKey: FreeAccessAnchorService.defaultsKey)
+		let durableStore = StubDurableStore()
+		durableStore.readError = FreeAccessAnchorError.keychain(errSecIO)
+		let service = try makeService(durableStore: durableStore, now: day(3, after: grantDate))
+
+		let window = service.reconciledWindow()
+
+		XCTAssertEqual(try grantedRecord(in: window).grantedAt, grantDate)
+		XCTAssertEqual(service.phase(of: window), .active(remaining: 11))
+		// Honouring a record can never itself hand one out: `canGrant` is only ever true for `.absent`.
+		XCTAssertFalse(window.canGrant)
+	}
+
+	/// A fast record that is already spent still settles — the user is walled by their *window*
+	/// having run out, not by the Keychain being unreadable, and either way no new one is granted.
+	func testReconciledWindow_whenTheDurableReadFailsAndTheFastRecordIsExpired_doesNotRegrant() throws {
+		let grantDate = try date(2026, 3, 2)
+		let fast = FreeAccessWindow.record(grantedAt: grantDate, thresholds: .standard, calendar: calendar)
+		try XCTUnwrap(defaults).set(JSONEncoder().encode(fast), forKey: FreeAccessAnchorService.defaultsKey)
+		let durableStore = StubDurableStore()
+		durableStore.readError = FreeAccessAnchorError.keychain(errSecIO)
+		let service = try makeService(durableStore: durableStore, now: day(20, after: grantDate))
+
+		var window = service.reconciledWindow()
+		let regranted = try service.grant(&window)
+
+		XCTAssertFalse(regranted)
+		XCTAssertEqual(service.phase(of: window), .expired)
 	}
 
 	// MARK: - Reinstall

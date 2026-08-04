@@ -225,11 +225,13 @@ struct MLBrowser: App {
 	@ViewBuilder
 	private var authGatedContent: some View {
 		let gate = Group {
-			// Whole-app subscription gate (AIA-0343), now the root: the app proper shows only while
-			// subscribed (a free trial counts); otherwise the paywall is what the user meets.
+			// Whole-app subscription gate (AIA-0343), now the root: the app proper shows while
+			// subscribed (a free trial counts) or inside the app-managed free-access window
+			// (AIA-0556); otherwise the paywall is what the user meets.
 			SubscriptionGateView(
 				subscriptionState: appState.subscriptionState,
 				authState: appState.authState,
+				freeAccess: appState.freeAccess,
 				analytics: appState.analytics
 			) {
 				// Analytics consent is asked after the paywall (AIA-0447), of every entitled user —
