@@ -54,6 +54,9 @@ final class Settings: ObservableObject, Validatable {
 		/// Stored as the same SHA-256 as the consent hash, never a raw account id.
 		static let analyticsActivationReportedAccountHash = "analyticsActivationReportedAccountHash"
 		static let analyticsSignedInReportedAccountHash = "analyticsSignedInReportedAccountHash"
+		/// Whether the free window's expiry has already been reported to the funnel (AIA-0556).
+		/// Device-scoped, not account-scoped: the window belongs to the install.
+		static let analyticsFreeAccessExpiryReported = "analyticsFreeAccessExpiryReported"
 		/// Last-known remote values of every feature flag, mirrored for the next launch (AIA-0513).
 		static let remoteFlagLaunchValues = "remoteFlagLaunchValues"
 		/// A user's screenshot-reporting decision (AIA-0454). An absent value means the user has
@@ -286,6 +289,16 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	/// Whether `free_access.window_expired` has already been reported (AIA-0556). Same contract as
+	/// the two hashes above — a funnel stage, not a launch counter — but a plain `Bool`, because the
+	/// window belongs to the install rather than to an account and nobody need be signed in when it
+	/// runs out. See ``AnalyticsState/reportFreeAccessWindowExpiredIfNeeded()``.
+	@Published public var analyticsFreeAccessExpiryReported: Bool {
+		didSet {
+			defaults.set(analyticsFreeAccessExpiryReported, forKey: UserDefaultsKeys.analyticsFreeAccessExpiryReported)
+		}
+	}
+
 	/// The dashboard's last-known value for each feature flag, keyed by `FeatureFlagKey.rawValue`,
 	/// mirrored on every snapshot republish and read back at the NEXT launch (AIA-0513).
 	///
@@ -442,6 +455,7 @@ final class Settings: ObservableObject, Validatable {
 			UserDefaultsKeys.analyticsAccountEnabled: false,
 			UserDefaultsKeys.signInOfferShown: false,
 			UserDefaultsKeys.subscriptionObservedAnonymously: false,
+			UserDefaultsKeys.analyticsFreeAccessExpiryReported: false,
 			UserDefaultsKeys.ratingPromptEventCount: 0
         ]
 
@@ -470,6 +484,7 @@ final class Settings: ObservableObject, Validatable {
 		self.analyticsConsentAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsConsentAccountHash)
 		self.analyticsActivationReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsActivationReportedAccountHash)
 		self.analyticsSignedInReportedAccountHash = defaults.string(forKey: UserDefaultsKeys.analyticsSignedInReportedAccountHash)
+		self.analyticsFreeAccessExpiryReported = defaults.bool(forKey: UserDefaultsKeys.analyticsFreeAccessExpiryReported)
 		self.remoteFlagLaunchValues = defaults.dictionary(forKey: UserDefaultsKeys.remoteFlagLaunchValues) as? [String: Bool] ?? [:]
 		self.ratingPromptEventCount = defaults.integer(forKey: UserDefaultsKeys.ratingPromptEventCount)
 		// There is no `defaults.date(forKey:)`; an absent key must stay `nil` rather than become a
@@ -556,6 +571,13 @@ final class Settings: ObservableObject, Validatable {
 		// bought with nobody signed in. Clearing it would let Restore Defaults hand an anonymous
 		// purchase to whoever signs in next, which is the misattribution the marker exists to
 		// prevent — a reset must not be a way to launder it.
+		//
+		// `analyticsFreeAccessExpiryReported` survives for a third variant of the same reason
+		// (AIA-0556). The two account-scoped funnel hashes *are* cleared above, because a reset also
+		// clears the consent they are paired with and the question is asked afresh. This one is
+		// paired with the anchor instead — and the anchor deliberately survives, immediately below.
+		// Clearing the marker while leaving the window expired would report one expiry again on the
+		// very next launch, for every user who ever taps Restore Defaults.
 		//
 		// The free-access anchor (AIA-0556) survives too. Its key belongs to
 		// `FreeAccessAnchorService`, not to this type, precisely because it is a fact about the

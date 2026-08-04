@@ -73,6 +73,18 @@ final class FreeAccessState: ObservableObject {
 
 	private let service: FreeAccessAnchorService
 
+	/// The funnel this window feeds (AIA-0556). Optional and defaulted for the same reason
+	/// ``DetectionSessionState`` and ``AppChromeState`` take it that way: analytics is a bolt-on the
+	/// feature must work without, and every test that is not about reporting can leave it out.
+	///
+	/// Three of the four free-access stages are emitted from here rather than from the gate, because
+	/// this is where they *happen*: a grant and an expiry have no screen at all, and the reminder's
+	/// once-per-window guarantee is the persisted marker written a line away. Events raised before
+	/// the consent question is answered are buffered by ``AnalyticsState`` and delivered only if the
+	/// user later enables analytics — which is most of them now that the ask is deferred past the
+	/// day-0 paywall.
+	private let analytics: AnalyticsState?
+
 	/// Captured **once** at construction and deliberately not observed, exactly like
 	/// ``SubscriptionState/isPaymentsEnabled`` (AIA-0350): this decides what happens at the app
 	/// root, so a mid-session flip would either drop a paywall on a user mid-detection or release a
@@ -100,6 +112,7 @@ final class FreeAccessState: ObservableObject {
 	init(
 		service: FreeAccessAnchorService,
 		isFreeAccessPeriodEnabled: Bool,
+		analytics: AnalyticsState? = nil,
 		notificationCenter: NotificationCenter = .default,
 		// Injected (not defaulted to the UIKit constant) so this file needs no UIKit import —
 		// `*State` types stay UI-framework-free (ArchitectureTests ratchet, AGENTS §7). The
@@ -108,6 +121,7 @@ final class FreeAccessState: ObservableObject {
 	) {
 		self.service = service
 		self.isFreeAccessPeriodEnabled = isFreeAccessPeriodEnabled
+		self.analytics = analytics
 		self.notificationCenter = notificationCenter
 
 		// Half of the expiry story. A backgrounded app has no running wake-up to fire, so a window
@@ -165,6 +179,10 @@ final class FreeAccessState: ObservableObject {
 			// leaves them with no window at all, and deferring the consent question on the strength
 			// of a window that does not exist would silence it for a launch for no reason.
 			isDay0AcknowledgementPending = (try? service.grant(&window)) == true
+			// Reported off the same value, so the funnel counts windows that actually opened. A
+			// grant that failed its durable write left the user with nothing, and a stage reported
+			// for it would make every later stage look like drop-off.
+			if isDay0AcknowledgementPending { analytics?.track(.freeAccessWindowGranted) }
 		}
 
 		reevaluate()
@@ -189,8 +207,16 @@ final class FreeAccessState: ObservableObject {
 	/// instant it is shown, which is why the presenter holds its own copy.
 	func markPromptShown(_ prompt: FreeAccessPrompt) {
 		switch prompt {
-		case .day0: service.markDay0Shown(&window)
-		case .reminder: service.markReminderShown(&window)
+		case .day0:
+			service.markDay0Shown(&window)
+		case .reminder:
+			service.markReminderShown(&window)
+			// Reported here rather than from the presenter because *this* is the call the
+			// once-per-window marker is written by: a reminder can only reach this line while it is
+			// still due, so the event cannot outnumber the screen (AIA-0556). Day 0 needs no
+			// counterpart — `paywall.shown` already covers the screen, and `window_granted` covers
+			// the window it explains.
+			analytics?.track(.freeAccessReminderShown)
 		}
 		duePrompt = service.duePrompt(for: window)
 	}
@@ -209,7 +235,15 @@ final class FreeAccessState: ObservableObject {
 		switch service.phase(of: window) {
 		case .active, .reminderDue:
 			availability = .open
-		case .expired, .notGranted:
+		case .expired:
+			availability = .closed
+			// Split from `.notGranted` purely so this can fire: both close access, but only one of
+			// them is a window that ran out. Reporting the other would count every user who never
+			// had a window — the whole population with the flag off — as a lapsed free trial.
+			// Deduplicated durably by `AnalyticsState`, because this line runs on every launch and
+			// every foreground for the rest of that install's life.
+			analytics?.reportFreeAccessWindowExpiredIfNeeded()
+		case .notGranted:
 			availability = .closed
 		}
 		duePrompt = service.duePrompt(for: window)

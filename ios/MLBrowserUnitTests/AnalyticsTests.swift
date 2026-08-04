@@ -24,6 +24,10 @@ final class AnalyticsTests: XCTestCase {
 		// `reportSubscriptionActivationIfNeeded` honestly refuse forever and fail the funnel tests
 		// on every later run (AIA-0552 hit exactly this). The fixture owns its world; clear it.
 		settings.subscriptionObservedAnonymously = false
+		// The free-access expiry marker survives `reset()` for the same kind of reason and is
+		// persisted in the same real `UserDefaults` (AIA-0556), so one window that ran out on this
+		// simulator would make `reportFreeAccessWindowExpiredIfNeeded` refuse forever.
+		settings.analyticsFreeAccessExpiryReported = false
 		tracker = RecordingAnalyticsTracker()
 		featureFlags = FeatureFlagsState(provider: StaticFeatureFlagProvider(overrides: [.isAnalyticsEnabled: true]))
 		analytics = AnalyticsState(settings: settings, tracker: tracker, featureFlags: featureFlags, isAccountIdentityEnabled: true)
@@ -38,6 +42,10 @@ final class AnalyticsTests: XCTestCase {
 
 	override func tearDown() async throws {
 		settings.reset()
+		// Neither of these is cleared by `reset()`, by design. Leaving one set would silently disarm
+		// the next run of this suite on the same simulator.
+		settings.subscriptionObservedAnonymously = false
+		settings.analyticsFreeAccessExpiryReported = false
 		analytics = nil
 		featureFlags = nil
 		tracker = nil
@@ -801,6 +809,68 @@ final class AnalyticsTests: XCTestCase {
 		XCTAssertTrue(tracker.events.isEmpty)
 		XCTAssertEqual(tracker.identities, [Self.accountA])
 		XCTAssertEqual(analytics.pendingPreConsentCount, 1)
+	}
+
+	// MARK: - Free-access funnel (AIA-0556)
+
+	/// Expiry is a fact the app re-observes on every launch after day 14, not an act. Without the
+	/// durable marker the last stage of the funnel would out-number the first by however often the
+	/// user opens the app.
+	func testReportFreeAccessWindowExpired_IsReportedOnceEver() {
+		analytics.chooseAnalytics(enabled: true)
+
+		analytics.reportFreeAccessWindowExpiredIfNeeded()
+		analytics.reportFreeAccessWindowExpiredIfNeeded()
+
+		XCTAssertEqual(tracker.events, [.freeAccessWindowExpired])
+	}
+
+	/// The same, across a relaunch — an in-memory guard would pass the test above and still report
+	/// one expiry per cold launch for the rest of that install's life.
+	func testReportFreeAccessWindowExpired_StaysReportedAcrossARelaunch() {
+		analytics.chooseAnalytics(enabled: true)
+		analytics.reportFreeAccessWindowExpiredIfNeeded()
+
+		let relaunched = AnalyticsState(
+			settings: settings,
+			tracker: tracker,
+			featureFlags: featureFlags,
+			isAccountIdentityEnabled: true
+		)
+		relaunched.updateAccountIdentity(Self.accountA)
+		relaunched.reportFreeAccessWindowExpiredIfNeeded()
+
+		XCTAssertEqual(tracker.events, [.freeAccessWindowExpired])
+	}
+
+	/// The ordering AIA-0556 changed: the consent question is now *deferred* while the day-0 paywall
+	/// is still owed, so a first launch produces its whole free-access funnel **before** anyone has
+	/// answered. Those events must buffer and flush on enable, exactly like the paywall's — dropping
+	/// them would leave the funnel with no top for every user who consents after seeing the window.
+	func testFreeAccessEvents_FiredBeforeConsent_AreBufferedAndFlushedOnEnable() {
+		XCTAssertEqual(analytics.consentPresentation, .ask)
+
+		analytics.track(.freeAccessWindowGranted)
+		analytics.track(.paywallShown)
+		analytics.track(.freeAccessContinueTapped)
+		XCTAssertTrue(tracker.events.isEmpty, "Nothing may leave the device before the choice is made")
+		XCTAssertEqual(analytics.pendingPreConsentCount, 3)
+
+		analytics.chooseAnalytics(enabled: true)
+
+		XCTAssertEqual(tracker.events, [.freeAccessWindowGranted, .paywallShown, .freeAccessContinueTapped])
+	}
+
+	/// The other half: declining discards them. The deferral makes this the *common* path for the
+	/// free-access stages, where before AIA-0556 the buffer only ever held paywall events.
+	func testFreeAccessEvents_FiredBeforeConsent_AreDiscardedOnDecline() {
+		analytics.track(.freeAccessWindowGranted)
+		analytics.track(.freeAccessContinueTapped)
+
+		analytics.chooseAnalytics(enabled: false)
+
+		XCTAssertTrue(tracker.events.isEmpty)
+		XCTAssertEqual(analytics.pendingPreConsentCount, 0)
 	}
 
 	/// Emits a new snapshot and waits for `FeatureFlagsState` to republish it (mirrors the live

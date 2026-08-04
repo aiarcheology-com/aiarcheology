@@ -182,6 +182,9 @@ class DependencyContainer {
             // launch mirror rather than the unsynced snapshot (AIA-0513). It gates granting only:
             // a window already open is honoured to its natural expiry whatever the flag later says.
             isFreeAccessPeriodEnabled: self.launchCapturedFlag(.isFreeAccessPeriodEnabled),
+            // The free-access funnel (AIA-0556). A grant and an expiry have no screen to report
+            // them from, so the state that decides both is what emits them.
+            analytics: self.analyticsState,
             foregroundNotification: UIApplication.willEnterForegroundNotification
         )
     }()

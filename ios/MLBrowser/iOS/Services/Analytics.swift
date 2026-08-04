@@ -19,6 +19,21 @@ enum AnalyticsEvent: Equatable {
 	case modelImported(source: ModelAcquisitionSource)
 	case detectionSessionSummary(runCountBucket: DetectionRunCountBucket)
 
+	// The app-managed free-access window (AIA-0556). Four stages of one funnel: a window opens, the
+	// user declines to subscribe for now, the reminder lands, the window runs out. `paywallShown`
+	// already covers each screen; these say which *window* stage produced it, which that event
+	// structurally cannot.
+	//
+	// Three of the four are once-per-window by construction — a grant is only ever possible for an
+	// install with no anchor, and both prompts carry a persisted shown-marker. Expiry is the
+	// exception, because it is a fact about the clock rather than an act, and every launch after
+	// day 14 re-observes it; ``AnalyticsState/reportFreeAccessWindowExpiredIfNeeded()`` is what
+	// keeps it a stage count rather than a launch count.
+	case freeAccessWindowGranted
+	case freeAccessContinueTapped
+	case freeAccessReminderShown
+	case freeAccessWindowExpired
+
 	var name: String {
 		switch self {
 		case .paywallShown: "com.aiarcheology.paywall.shown"
@@ -27,14 +42,22 @@ enum AnalyticsEvent: Equatable {
 		case .subscriptionActivated: "com.aiarcheology.subscription.activated"
 		case .modelImported: "com.aiarcheology.model.imported"
 		case .detectionSessionSummary: "com.aiarcheology.detection.session_summary"
+		case .freeAccessWindowGranted: "com.aiarcheology.free_access.window_granted"
+		case .freeAccessContinueTapped: "com.aiarcheology.free_access.continue_tapped"
+		case .freeAccessReminderShown: "com.aiarcheology.free_access.reminder_shown"
+		case .freeAccessWindowExpired: "com.aiarcheology.free_access.window_expired"
 		}
 	}
 
 	var parameters: [String: String] {
 		switch self {
-		case .paywallShown, .subscribeTapped, .accountSignedIn, .subscriptionActivated:
+		case .paywallShown, .subscribeTapped, .accountSignedIn, .subscriptionActivated,
+			 .freeAccessWindowGranted, .freeAccessContinueTapped,
+			 .freeAccessReminderShown, .freeAccessWindowExpired:
 			// Deliberately payload-free. The account is expressed only as the transport's
 			// hashed `clientUser`; the raw Clerk id must never travel as a parameter (AIA-0437).
+			// The window's own numbers — grant date, days remaining — stay on the device: they
+			// are a per-install timestamp, and a funnel needs the stage, not the calendar.
 			[:]
 		case let .modelImported(source):
 			["source": source.rawValue]
@@ -146,7 +169,14 @@ final class AnalyticsState: ObservableObject {
 	/// This defers reporting until consent without anything leaving the device beforehand (AIA-0447).
 	private var pendingPreConsentEvents: [AnalyticsEvent] = []
 	/// Safety bound so a repeated `onAppear` cannot grow the buffer without limit — not a functional
-	/// cap (the pre-consent surface is two payload-free events). Drop-oldest on overflow.
+	/// cap. Drop-oldest on overflow.
+	///
+	/// The pre-consent surface grew with AIA-0556: the ask is now *deferred* while a day-0 free
+	/// window is waiting for the paywall that explains it, so a first launch buffers the grant, the
+	/// day-0 `paywallShown`, and the Continue that releases the deferral before the question is even
+	/// put. Still a handful of payload-free events against a bound of 16, and bounded in the same
+	/// way it always was: the consent gate takes the screen the moment the deferral lifts, so
+	/// nothing can accumulate behind it indefinitely.
 	private static let maxPendingPreConsentEvents = 16
 	private var featureFlagObservation: AnyCancellable?
 
@@ -556,6 +586,28 @@ final class AnalyticsState: ObservableObject {
 	func reportSubscriptionActivationIfNeeded() {
 		guard settings.subscriptionObservedAnonymously == false else { return }
 		reportOncePerAccount(.subscriptionActivated, markedBy: \.analyticsActivationReportedAccountHash)
+	}
+
+	/// `free_access.window_expired` — the free window ran out. Reported once per device, ever.
+	///
+	/// The marker is what makes this a funnel stage instead of a launch counter. Expiry is not an
+	/// act the user performs; it is a fact the app re-observes on **every** launch after day 14, so
+	/// an unguarded report would out-number `window_granted` by however often that user opens the
+	/// app — and the ratio between those two is the only thing the stage is good for.
+	///
+	/// Marked at *emit*, not at delivery, for the same reason ``reportOncePerAccount(_:markedBy:)``
+	/// is: an event emitted before consent is buffered and may never be delivered, and re-reporting
+	/// it later would count one expiry twice. Deliberately **not** account-scoped either — the
+	/// window belongs to the install, and nobody need be signed in for it to run out.
+	///
+	/// Reports nothing about the purchase that may follow. A subscription bought at this wall
+	/// carries whatever provenance the entitlement observer gives it, and with nobody signed in
+	/// that is anonymous and stays anonymous (AIA-0536) — a free period ending is not evidence of
+	/// who owns what came next.
+	func reportFreeAccessWindowExpiredIfNeeded() {
+		guard isAnalyticsFeatureEnabled, settings.analyticsFreeAccessExpiryReported == false else { return }
+		settings.analyticsFreeAccessExpiryReported = true
+		track(.freeAccessWindowExpired)
 	}
 
 	/// Record that the current entitlement was first seen with nobody signed in.

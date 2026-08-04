@@ -12071,6 +12071,18 @@
         }
       }
     },
+    "paywall.billing.immediate" : {
+      "comment" : "Billing note for a user who is no longer eligible for the introductory free trial: they are charged at once. Shown only where a free trial exists to have been spent, so it never claims a trial the product does not offer.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Apple Account has already used the free trial, so billing starts as soon as you subscribe."
+          }
+        }
+      }
+    },
     "paywall.continueButton" : {
       "comment" : "Keeps the user in the app on the free-access window instead of subscribing. Only shown where there is something to continue past.",
       "extractionState" : "manual",

@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 9
+	var version = 10
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -43,6 +43,10 @@ struct LaunchConfig: Encodable {
 	var analyticsScenario: AnalyticsScenario?
 	/// Raw JSON for the `appMessages` remote setting (AIA-0115). `nil` = no messages.
 	var appMessagesJSON: String?
+	/// Seed the free-access window as granted this many days ago (AIA-0556). `nil` = no anchor,
+	/// i.e. a genuine first install. Every UI-test launch wipes its own storage, so this is the
+	/// only way to reach the day-7 reminder or the expired wall.
+	var freeAccessAnchorAgeDays: Int?
 }
 
 // MARK: - Accessibility identifiers
@@ -152,10 +156,17 @@ enum AID {
 
 	// Subscription paywall (AIA-0343)
 	static let paywallSubscribe = "_AIA:Button.PaywallSubscribe"
+	static let paywallRestore = "_AIA:Button.PaywallRestore"
 	static let paywallSignIn = "_AIA:Button.PaywallSignIn"
 	static let paywallSignOut = "_AIA:Button.PaywallSignOut"
 	static let paywallDeleteAccount = "_AIA:Button.PaywallDeleteAccount"
 	static let paywallDeleteAccountConfirm = "_AIA:Button.PaywallDeleteAccountConfirm"
+
+	// Free-access window (AIA-0556). `paywallContinue` and the headline exist only on the two
+	// informational presentations, so their absence is itself the proof that the hard wall is showing.
+	static let paywallContinue = "_AIA:Button.PaywallContinue"
+	static let paywallFreeAccessHeadline = "_AIA:Label.PaywallFreeAccessHeadline"
+	static let settingsUpgrade = "_AIA:Button.SettingsUpgrade"
 
 	// App Messages (AIA-0115). The banner container, its title, and the informational dismiss carry
 	// bare identifiers; the reply buttons and About rows carry a `label:` (the button id / message

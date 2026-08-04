@@ -230,12 +230,18 @@ struct PaywallView: View {
 	/// deletion; `nil` while there is nothing to say (AIA-0376).
 	@State private var notice: SubscriptionNotice?
 
-	/// Whether *this user* is still eligible for the introductory free trial. A user who
-	/// already used the trial is charged the full price immediately, so the "free for N"
-	/// copy must only show when they'd actually get it (else it's misleading / an App
-	/// Review risk). Resolved per-user from StoreKit on appear; defaults to `false` so we
-	/// never over-promise a trial.
-	@State private var introOfferEligible = false
+	/// Whether *this user* is still eligible for the introductory free trial, or `nil` until
+	/// StoreKit has said. A user who already used the trial is charged the full price immediately,
+	/// so the "free for N" copy must only show when they'd actually get it (else it's misleading /
+	/// an App Review risk). Resolved per-user from StoreKit on appear.
+	///
+	/// Three-valued rather than a `Bool` defaulting to `false`, because both answers now render
+	/// copy: eligible states when the trial ends, ineligible states that billing starts at once
+	/// (AIA-0556). A `false` default would put the ineligible sentence on screen for the fraction of
+	/// a second before StoreKit answers, and then swap it for the opposite claim — a flicker between
+	/// two contradictory statements about money. Unresolved says nothing, which is what the previous
+	/// default achieved by accident and this makes explicit.
+	@State private var introOfferEligibility: Bool?
 
 	/// Whether this install has anything saved that a user walking away would still want (AIA-0556).
 	///
@@ -325,7 +331,7 @@ struct PaywallView: View {
 			// intro-offer eligibility so the trial copy only shows when they'd get it.
 			await subscriptionState.loadProducts()
 			if let subscription = subscriptionState.products.first?.subscription {
-				introOfferEligible = await subscription.isEligibleForIntroOffer
+				introOfferEligibility = await subscription.isEligibleForIntroOffer
 			}
 		}
 		.onAppear {
@@ -725,7 +731,7 @@ struct PaywallView: View {
 			// Free-trial terms — only when *this user* is still eligible (a returning user
 			// who already used the trial is charged immediately, so showing "free for N"
 			// would be misleading). Length/price come from the product (set in ASC).
-			if introOfferEligible, let trial = Self.freeTrialText(for: product) {
+			if introOfferEligibility == true, let trial = Self.freeTrialText(for: product) {
 				Text(trial)
 					.font(.footnote)
 					.foregroundStyle(.secondary)
@@ -776,9 +782,19 @@ struct PaywallView: View {
 	/// approval — so the copy says "around", and says why. **After** the purchase the answer stops
 	/// being a guess and comes from the transaction's own expiration date, so it is stated plainly.
 	///
-	/// Silent for a user who is not trial-eligible: there is no free period, and a billing date is
-	/// simply the purchase date. Silent for a subscriber past their trial too, where the renewal date
-	/// is `SubscriptionStatusView`'s job, not the paywall's.
+	/// A user who is **not** trial-eligible gets a date too, and it is "now" (AIA-0556). They used to
+	/// get nothing, which was defensible while this screen was only ever reached voluntarily: the
+	/// trial line was simply absent and the price stood on its own. It is not defensible at the hard
+	/// wall. That user has just spent fourteen days of free access, arrives at a screen whose entire
+	/// job is to state the offer, and — because they redeemed Apple's introductory offer at some
+	/// point in the past — reads a price with nothing said about when it is taken. Every other reader
+	/// of the same screen is told. The absence is not neutral there; it reads as a sentence that lost
+	/// its second half, and the honest completion is that there is no free period left to wait
+	/// through.
+	///
+	/// Silent for a subscriber past their trial, where the renewal date is `SubscriptionStatusView`'s
+	/// job, not the paywall's — and silent until StoreKit has answered at all, so the two mutually
+	/// exclusive claims can never trade places on screen.
 	@ViewBuilder
 	private func billingNote(for product: Product) -> some View {
 		if subscriptionState.isSubscribed {
@@ -787,11 +803,26 @@ struct PaywallView: View {
 					expiration.formatted(date: .abbreviated, time: .omitted)
 				))
 			}
-		} else if introOfferEligible, let estimate = Self.estimatedFirstBillingDate(for: product) {
-			billingNoteText(L10n.Paywall.Billing.estimate(
-				estimate.formatted(date: .abbreviated, time: .omitted)
-			))
+		} else if introOfferEligibility == true {
+			if let estimate = Self.estimatedFirstBillingDate(for: product) {
+				billingNoteText(L10n.Paywall.Billing.estimate(
+					estimate.formatted(date: .abbreviated, time: .omitted)
+				))
+			}
+		} else if introOfferEligibility == false, Self.hasFreeTrialOffer(product) {
+			// The offer's *existence* is checked separately from this customer's eligibility for it.
+			// StoreKit answers only the second question, and a product carrying no introductory offer
+			// can report `false` for everyone — telling those users they have used up a trial that
+			// was never on sale would be a plain untruth. Only the conjunction is safe to state.
+			billingNoteText(L10n.Paywall.Billing.immediate)
 		}
+	}
+
+	/// Whether the product ships an introductory **free trial** — as opposed to no introductory offer
+	/// at all, or a paid-introductory one. The single question separating "this user spent the trial"
+	/// from "there is no trial to spend".
+	private static func hasFreeTrialOffer(_ product: Product) -> Bool {
+		product.subscription?.introductoryOffer?.paymentMode == .freeTrial
 	}
 
 	private func billingNoteText(_ text: String) -> some View {

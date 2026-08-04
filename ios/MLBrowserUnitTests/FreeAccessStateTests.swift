@@ -100,14 +100,51 @@ final class FreeAccessStateTests: XCTestCase {
 	@MainActor
 	private func makeState(
 		service: FreeAccessAnchorService,
-		isFreeAccessPeriodEnabled: Bool = true
+		isFreeAccessPeriodEnabled: Bool = true,
+		analytics: AnalyticsState? = nil
 	) -> FreeAccessState {
 		FreeAccessState(
 			service: service,
 			isFreeAccessPeriodEnabled: isFreeAccessPeriodEnabled,
+			analytics: analytics,
 			notificationCenter: notificationCenter,
 			foregroundNotification: foregroundNotification
 		)
+	}
+
+	/// A consented analytics stack whose deliveries the funnel tests can read (AIA-0556).
+	///
+	/// Device-wide mode (`isAccountIdentityEnabled: false`) on purpose: the free-access stages are
+	/// facts about the *install*, so they must report with nobody signed in — which is also the only
+	/// state a first launch is ever in. Consent is answered up front so the events land in the
+	/// tracker rather than the pre-consent buffer; `AnalyticsTests` owns the buffered path.
+	@MainActor
+	private func makeAnalytics() -> (AnalyticsState, RecordingAnalyticsTracker) {
+		let settings = Settings()
+		settings.reset()
+		// `reset()` deliberately preserves the expiry marker (AIA-0556) and it lives in the host
+		// app's real `UserDefaults`, so one earlier expiry observed on this simulator would make
+		// `reportFreeAccessWindowExpiredIfNeeded` honestly refuse forever and fail these tests on
+		// every later run. The fixture owns its world — see the same guard in `AnalyticsTests`.
+		settings.analyticsFreeAccessExpiryReported = false
+		// And leave the container as clean as it was found, for the same reason: a marker left set
+		// here would silently disarm the next run of this suite and of `AnalyticsTests`. A teardown
+		// block rather than `tearDownWithError`, which is not main-actor isolated.
+		addTeardownBlock { @MainActor in
+			settings.reset()
+			settings.analyticsFreeAccessExpiryReported = false
+		}
+
+		let tracker = RecordingAnalyticsTracker()
+		let flags = FeatureFlagsState(provider: StaticFeatureFlagProvider(overrides: [.isAnalyticsEnabled: true]))
+		let analytics = AnalyticsState(
+			settings: settings,
+			tracker: tracker,
+			featureFlags: flags,
+			isAccountIdentityEnabled: false
+		)
+		analytics.chooseAnalytics(enabled: true)
+		return (analytics, tracker)
 	}
 
 	// MARK: - Reconciliation must not read as a refusal
@@ -466,5 +503,131 @@ final class FreeAccessStateTests: XCTestCase {
 		state.reevaluate()
 
 		XCTAssertNil(state.scheduledExpiry)
+	}
+
+	// MARK: - Funnel events (AIA-0556)
+
+	@MainActor
+	func testStart_whenAWindowIsGranted_reportsTheGrant() throws {
+		let (analytics, tracker) = makeAnalytics()
+		let clock = TestClock(try date(2026, 3, 2))
+		let state = makeState(
+			service: try makeService(clock: clock, durableStore: StubDurableStore()),
+			analytics: analytics
+		)
+
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		XCTAssertEqual(tracker.events, [.freeAccessWindowGranted])
+	}
+
+	/// A grant whose durable write failed leaves the user with **no** window, so reporting one would
+	/// make every later stage read as drop-off from a cohort that never existed.
+	@MainActor
+	func testStart_whenTheGrantFailsToPersist_reportsNothing() throws {
+		let (analytics, tracker) = makeAnalytics()
+		let clock = TestClock(try date(2026, 3, 2))
+		let durableStore = StubDurableStore()
+		durableStore.writeError = FreeAccessAnchorError.keychain(errSecIO)
+		let state = makeState(
+			service: try makeService(clock: clock, durableStore: durableStore),
+			analytics: analytics
+		)
+
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		XCTAssertEqual(tracker.events, [])
+	}
+
+	/// An install that already had a window resumes it. Nothing was granted, so nothing is reported —
+	/// otherwise `window_granted` would count launches rather than windows.
+	@MainActor
+	func testStart_whenAWindowWasAlreadyOpen_reportsNoGrant() throws {
+		let (analytics, tracker) = makeAnalytics()
+		let grantDate = try date(2026, 3, 2)
+		let clock = TestClock(grantDate)
+		let durableStore = StubDurableStore()
+		makeState(service: try makeService(clock: clock, durableStore: durableStore))
+			.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		let relaunched = makeState(
+			service: try makeService(clock: clock, durableStore: durableStore),
+			analytics: analytics
+		)
+		relaunched.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		XCTAssertEqual(tracker.events, [])
+	}
+
+	/// The reminder reports; day 0 does not. `paywall.shown` already covers the day-0 screen and
+	/// `window_granted` covers the window it explains, so a third event there would only double-count
+	/// the same moment.
+	@MainActor
+	func testMarkPromptShown_reportsTheReminderAndNotDay0() throws {
+		let (analytics, tracker) = makeAnalytics()
+		let grantDate = try date(2026, 3, 2)
+		let clock = TestClock(grantDate)
+		let state = makeState(
+			service: try makeService(clock: clock, durableStore: StubDurableStore()),
+			analytics: analytics
+		)
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		state.markPromptShown(try XCTUnwrap(state.duePrompt))
+		XCTAssertEqual(tracker.events, [.freeAccessWindowGranted])
+
+		clock.now = try day(7, after: grantDate)
+		state.reevaluate()
+		state.markPromptShown(try XCTUnwrap(state.duePrompt))
+
+		XCTAssertEqual(tracker.events, [.freeAccessWindowGranted, .freeAccessReminderShown])
+	}
+
+	/// Expiry is re-observed on every launch and every foreground for the rest of the install's life.
+	/// The stage has to survive that, or it stops being comparable with `window_granted` at all.
+	@MainActor
+	func testExpiry_isReportedOnceHoweverOftenItIsObserved() throws {
+		let (analytics, tracker) = makeAnalytics()
+		let grantDate = try date(2026, 3, 2)
+		let clock = TestClock(grantDate)
+		let durableStore = StubDurableStore()
+		let state = makeState(
+			service: try makeService(clock: clock, durableStore: durableStore),
+			analytics: analytics
+		)
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		clock.now = try day(20, after: grantDate)
+		state.reevaluate()
+		notificationCenter.post(name: foregroundNotification, object: nil)
+
+		// A cold launch on top of the two in-session observations, which is the case a purely
+		// in-memory guard would miss: the marker is durable, so the relaunch stays silent.
+		let relaunched = makeState(
+			service: try makeService(clock: clock, durableStore: durableStore),
+			analytics: analytics
+		)
+		relaunched.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		XCTAssertEqual(tracker.events, [.freeAccessWindowGranted, .freeAccessWindowExpired])
+	}
+
+	/// `.notGranted` closes access exactly as `.expired` does, and it is what every user with the
+	/// flag off reports. Counting them as expired free trials would make the funnel's last stage
+	/// larger than its first.
+	@MainActor
+	func testNoWindowEverGranted_reportsNoExpiry() throws {
+		let (analytics, tracker) = makeAnalytics()
+		let clock = TestClock(try date(2026, 3, 2))
+		let state = makeState(
+			service: try makeService(clock: clock, durableStore: StubDurableStore()),
+			isFreeAccessPeriodEnabled: false,
+			analytics: analytics
+		)
+
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		XCTAssertEqual(state.availability, .closed)
+		XCTAssertEqual(tracker.events, [])
 	}
 }

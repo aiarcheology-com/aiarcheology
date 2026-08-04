@@ -724,6 +724,8 @@ internal enum L10n {
       internal static func exact(_ p1: Any) -> String {
         return L10n.tr("Localizable", "paywall.billing.exact", String(describing: p1), fallback: "Your free trial ends on %@, when billing begins.")
       }
+      /// Your Apple Account has already used the free trial, so billing starts as soon as you subscribe.
+      internal static let immediate = L10n.tr("Localizable", "paywall.billing.immediate", fallback: "Your Apple Account has already used the free trial, so billing starts as soon as you subscribe.")
     }
     internal enum Failed {
       /// The purchase could not be completed. Please try again, or use Restore Purchases if your Apple Account was already charged.

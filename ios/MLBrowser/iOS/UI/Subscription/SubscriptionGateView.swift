@@ -212,7 +212,13 @@ struct SubscriptionGateView<Content: View>: View {
 	/// The root paywall. Passing a `prompt` turns it into an informational screen with a way past;
 	/// passing none is the hard wall, which must stay develop's screen exactly (criterion 8).
 	private func paywall(prompt: FreeAccessPrompt? = nil) -> some View {
-		let continueAction: (() -> Void)? = prompt == nil ? nil : { lowerPrompt() }
+		// The one free-access event that has to come from the view: `lowerPrompt()` is also how a
+		// prompt comes down when the user *buys* from it, or when the tour takes the screen back, and
+		// neither of those is somebody declining to subscribe for now. Only the button knows.
+		let continueAction: (() -> Void)? = prompt == nil ? nil : {
+			analytics.track(.freeAccessContinueTapped)
+			lowerPrompt()
+		}
 		return PaywallView(
 			subscriptionState: subscriptionState,
 			analytics: analytics,

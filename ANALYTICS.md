@@ -40,10 +40,18 @@ first launch → ConfigCat availability ON
     → ContentView → Settings toggle
 ```
 
-**The notice renders *after* the paywall** (AIA-0447), of every entitled user — anonymous included
-(AIA-0536). Funnel events fired on the paywall are buffered in memory by `AnalyticsState` until the
-choice is made, then flushed on enable and discarded on decline, so nothing leaves the device before
-consent. `MLBrowser.swift` nests `SubscriptionGateView { AnalyticsChoiceGate { ContentView } }`.
+**The notice renders *after* the paywall** (AIA-0447), of every user who reaches the app — anonymous
+included (AIA-0536), and since AIA-0556 unentitled too, because a free-access window opens the gate
+without a purchase. Funnel events fired before the choice are buffered in memory by `AnalyticsState`
+until it is made, then flushed on enable and discarded on decline, so nothing leaves the device
+before consent. `MLBrowser.swift` nests `SubscriptionGateView { AnalyticsChoiceGate { ContentView } }`.
+
+That buffer now carries more than it used to. The question is **deferred** while a window granted on
+this launch has not yet been explained by its day-0 paywall — otherwise "Enable analytics?" is the
+first screen of a brand-new install and the onboarding tour never mounts — so a first run buffers the
+grant, the day-0 `paywall.shown` and the Continue that releases the deferral before anyone has
+answered. Still a handful of payload-free events against a bound of 16, and still bounded the same
+way: the consent gate takes the screen the moment the deferral lifts.
 
 ### Consent is scoped, and there are exactly two scopes
 
@@ -101,6 +109,18 @@ Two further limits under paywall-first:
 | account signed in | none | funnel stage; fired once per account, not per launch |
 | subscription activated | none | conversion **timing**, not rate — see the degeneracy note above. Fired on the first observation that an account holds an active entitlement, deduplicated per account. A paywall tap structurally cannot trigger it |
 | model imported / downloaded | source category (enum) | catalog vs import usage |
+| free access: window granted | none | top of the free-period funnel. Once per install by construction — a window can only be granted where no anchor exists — and reported only for a grant whose durable write landed |
+| free access: continue tapped | none | declined to subscribe *for now*. Fired from the button alone, because the same dismissal path also runs when the user buys from that screen or the tour takes it back |
+| free access: reminder shown | none | the day-7 stage. Emitted where the once-per-window marker is written, so it cannot out-number the screen |
+| free access: window expired | none | the free period ran out without a purchase. Deduplicated **durably and per device** (`analyticsFreeAccessExpiryReported`): expiry is a fact re-observed on every later launch, not an act, so an unguarded report would be a launch counter |
+
+The four free-access stages carry no dates and no day counts. The window's numbers are a per-install
+timestamp; a funnel needs the stage, not the calendar.
+
+`window_expired` says nothing about what happens next. A subscription bought at that wall gets
+whatever provenance the entitlement observer assigns it, and with nobody signed in that is
+**anonymous** and stays anonymous — a free period ending is not evidence of who owns the purchase
+that followed it.
 
 Detection is aggregated **per session**, never per run — a per-run signal on a
 continuously-detecting browser would exhaust the ~100k signals/month free tier by itself.
