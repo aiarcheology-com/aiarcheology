@@ -145,7 +145,12 @@ struct SubscriptionGateView<Content: View>: View {
 			// Passed as a value from here, where auth *is* observed, so the paywall's
 			// account controls swap in place when the user signs out without leaving it
 			// (AIA-0536) — previously a sign-out replaced the whole tree.
-			authContext: authState.effectiveContext
+			authContext: authState.effectiveContext,
+			// Criterion 9 wants the billing date at the wall — the screen a spent window leaves the
+			// user on — but criterion 8 wants a flag-off build to be develop's paywall exactly. So
+			// it follows the feature, not the gate: with the flag off this is false and nothing
+			// about a free period renders here at all.
+			showsBillingEstimate: freeAccess.isFeatureEnabled
 		)
 	}
 }

@@ -689,6 +689,8 @@ internal enum L10n {
   internal enum Paywall {
     /// Subscribed
     internal static let active = L10n.tr("Localizable", "paywall.active", fallback: "Subscribed")
+    /// Continue
+    internal static let continueButton = L10n.tr("Localizable", "paywall.continueButton", fallback: "Continue")
     /// Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.
     internal static let disclosure = L10n.tr("Localizable", "paywall.disclosure", fallback: "Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.")
     /// Manage Subscription
@@ -711,9 +713,33 @@ internal enum L10n {
     }
     /// Subscriptions are not available right now. Please try again later.
     internal static let unavailable = L10n.tr("Localizable", "paywall.unavailable", fallback: "Subscriptions are not available right now. Please try again later.")
+    internal enum Billing {
+      /// If you subscribe today, billing starts around %@. The exact date is set when your purchase completes.
+      internal static func estimate(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "paywall.billing.estimate", String(describing: p1), fallback: "If you subscribe today, billing starts around %@. The exact date is set when your purchase completes.")
+      }
+      /// Your free trial ends on %@, when billing begins.
+      internal static func exact(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "paywall.billing.exact", String(describing: p1), fallback: "Your free trial ends on %@, when billing begins.")
+      }
+    }
     internal enum Failed {
       /// The purchase could not be completed. Please try again, or use Restore Purchases if your Apple Account was already charged.
       internal static let message = L10n.tr("Localizable", "paywall.failed.message", fallback: "The purchase could not be completed. Please try again, or use Restore Purchases if your Apple Account was already charged.")
+    }
+    internal enum FreeAccess {
+      /// %lld days free
+      internal static func daysFree(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "paywall.freeAccess.daysFree", p1, fallback: "%lld days free")
+      }
+      /// %lld days left
+      internal static func daysLeft(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "paywall.freeAccess.daysLeft", p1, fallback: "%lld days left")
+      }
+      /// Free access ends on %@. Subscribe by then to keep using the app.
+      internal static func subscribeBy(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "paywall.freeAccess.subscribeBy", String(describing: p1), fallback: "Free access ends on %@. Subscribe by then to keep using the app.")
+      }
     }
     internal enum Pending {
       /// This purchase needs approval before it can complete. Access is granted automatically once it is approved — you can close this screen.

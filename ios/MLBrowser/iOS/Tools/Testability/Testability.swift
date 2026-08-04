@@ -114,6 +114,10 @@ extension TestabilityIdentification {
 		case settingsUpgrade
 		case paywallSubscribe
 		case paywallRestore
+		/// Continue past the paywall on the app-managed free-access window (AIA-0556). Present only
+		/// where there is something to continue past, so its absence is itself the assertion that a
+		/// gate or a Settings sheet is showing.
+		case paywallContinue
 		case paywallRequestRefund
 		// AIA-0461: the Settings → Subscription "Request a Refund" row (feature-flag gated)
 		case settingsRequestRefund
@@ -309,6 +313,10 @@ extension TestabilityIdentification {
 		case appMessageTitle
 		case appMessageAboutRow
 		case appMessageSettingsRow
+		/// The paywall's free-access headline (AIA-0556) — "14 days free" on day 0, "7 days left" at
+		/// the reminder. Identified so a test can tell the two informational paywalls apart without
+		/// matching localized copy.
+		case paywallFreeAccessHeadline
 	}
 
 	enum TextField: String, TestabilityIdentification {

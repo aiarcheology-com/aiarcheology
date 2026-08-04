@@ -96,9 +96,47 @@ struct SubscriptionNotice: Equatable {
 	}
 }
 
+/// What the app-managed free-access window (AIA-0556) has to say on a given presentation.
+///
+/// Two cases rather than a day count plus a flag, because they read differently and must not be
+/// confusable: day 0 states an offer the user has not taken yet, while the reminder states what is
+/// left of one they are already inside. Both carry the date the window runs out — the date a
+/// subscription has to start by.
+enum FreeAccessOffer: Equatable {
+	/// The window is being offered. `days` is its whole length.
+	case offered(days: Int, endsOn: Date)
+
+	/// The window is running and this is the reminder. `days` is what remains of it.
+	case remaining(days: Int, endsOn: Date)
+
+	var endsOn: Date {
+		switch self {
+		case let .offered(_, endsOn), let .remaining(_, endsOn): endsOn
+		}
+	}
+
+	/// The headline, pluralized: "14 days free" on day 0, "7 days left" at the reminder.
+	var headline: String {
+		switch self {
+		case let .offered(days, _): L10n.Paywall.FreeAccess.daysFree(days)
+		case let .remaining(days, _): L10n.Paywall.FreeAccess.daysLeft(days)
+		}
+	}
+}
+
 /// The paywall. Presented as the whole-app root gate (`SubscriptionGateView`) when the
 /// signed-in user isn't subscribed. Reads products and entitlement from
 /// ``SubscriptionState`` and drives purchase / restore intents.
+///
+/// The free-access controls (AIA-0556) are **optional and independently absent**: no
+/// `continueAction` means no Continue button, no `freeAccessOffer` means no window copy. The hard
+/// wall and the Settings sheet pass neither and keep the screen they had — acceptance criterion 8.
+///
+/// ``showsBillingEstimate`` is the third, and it is deliberately independent of both: criterion 9
+/// asks for the date billing begins **at the wall**, which is the one screen carrying no offer at
+/// all. It stays off wherever the feature does not reach, so a flag-off build and the Settings sheet
+/// keep develop's paywall exactly. See ``billingNote(for:)`` for why that date is hedged before a
+/// purchase and exact after one.
 struct PaywallView: View {
 	@ObservedObject var subscriptionState: SubscriptionState
 	let analytics: AnalyticsState?
@@ -120,6 +158,32 @@ struct PaywallView: View {
 	/// across a sign-out and has to swap Sign Out / Delete for Sign In in place, so the value comes
 	/// from `SubscriptionGateView`, which *does* observe auth.
 	var authContext: EffectiveAuthContext = .indeterminate
+
+	/// What to do when the user declines to subscribe *for now* — `nil` wherever that is not an
+	/// option (AIA-0556).
+	///
+	/// Presence is the whole switch between an informational paywall and a wall. At the wall there
+	/// is nothing to continue past, and in the Settings sheet dismissal is the sheet's own, so both
+	/// pass `nil` and get today's screen unchanged.
+	var continueAction: (() -> Void)?
+
+	/// The free-access window this presentation is about, or `nil` when there is none to state.
+	///
+	/// Independent of ``continueAction`` on purpose: the copy is about the window, the button is
+	/// about the exit, and a caller that has one without the other is not a contradiction.
+	var freeAccessOffer: FreeAccessOffer?
+
+	/// Whether to state when billing begins (acceptance criterion 9).
+	///
+	/// Separate from ``freeAccessOffer`` because the two are needed at different moments. The day-0
+	/// screen and the reminder carry an offer *and* want the date; the hard wall carries no offer —
+	/// the window is already spent — yet is precisely where criterion 9 asks for it, because the
+	/// question there is "if I subscribe now, when am I charged".
+	///
+	/// Default `false` so the screens that are not part of this feature keep the paywall they had:
+	/// with the flag off, and from Settings, nothing about a free period renders. That is acceptance
+	/// criterion 8, and it is what makes the feature revertible by a dashboard switch alone.
+	var showsBillingEstimate = false
 
 	@Environment(\.dismiss) private var dismiss
 
@@ -189,6 +253,26 @@ struct PaywallView: View {
 					.multilineTextAlignment(.center)
 			}
 			.padding(.horizontal, 32)
+
+			// The free-access window, stated as the offer plus the date a subscription has to start
+			// by (acceptance criterion 9). Absent on the wall, where there is no window left to state.
+			if let freeAccessOffer {
+				VStack(spacing: 6) {
+					Text(freeAccessOffer.headline)
+						.font(.headline)
+						.testability(Testability.Label.paywallFreeAccessHeadline)
+					Text(L10n.Paywall.FreeAccess.subscribeBy(
+						freeAccessOffer.endsOn.formatted(date: .abbreviated, time: .omitted)
+					))
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.multilineTextAlignment(.center)
+					// The date is the point of the sentence — let it wrap rather than truncate under
+					// vertical compression or large Dynamic Type.
+					.fixedSize(horizontal: false, vertical: true)
+				}
+				.padding(.horizontal, 32)
+			}
 
 			if subscriptionState.isSubscribed {
 				Label(L10n.Paywall.active, systemImage: "checkmark.seal.fill")
@@ -309,6 +393,30 @@ struct PaywallView: View {
 				.font(.callout)
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.center)
+		}
+
+		// Directly under Subscribe and shaped like it — same prominence, same control size, same
+		// full width — so it reads as a real second choice rather than a way out of the screen.
+		// The tint is what keeps the hierarchy: a desaturated slate blue against Subscribe's green,
+		// from a colorset with its own dark appearance because the app hardcodes no colours
+		// (`Assets.xcassets/ContinueButton`, both appearances ≥ 4.5:1 against a white label).
+		//
+		// Rendered only when a caller supplied an action: on the hard wall there is nothing to
+		// continue past, and this whole block is absent.
+		if let continueAction {
+			Button {
+				guard isBusy.not else { return }
+				continueAction()
+			} label: {
+				Text(L10n.Paywall.continueButton)
+					.fontWeight(.bold)
+					.frame(maxWidth: .infinity)
+			}
+			.buttonStyle(.borderedProminent)
+			.tint(Color(Self.continueButtonColorName, bundle: .main))
+			.controlSize(.large)
+			.disabled(inFlight != nil)
+			.testability(Testability.Button.paywallContinue)
 		}
 
 		Button {
@@ -484,6 +592,10 @@ struct PaywallView: View {
 					.foregroundStyle(.secondary)
 					.multilineTextAlignment(.center)
 			}
+
+			if showsBillingEstimate {
+				billingNote(for: product)
+			}
 		}
 
 		Button {
@@ -517,6 +629,67 @@ struct PaywallView: View {
 		.underConstructionBadge()
 	}
 
+	/// When the free trial ends and billing begins (acceptance criterion 9).
+	///
+	/// The precision here is the point, and it is not symmetrical. **Before** a purchase the app can
+	/// only add the offer's period to today: the trial actually starts whenever the transaction
+	/// completes, which may be minutes later after Ask-to-Buy, a password prompt or a pending
+	/// approval — so the copy says "around", and says why. **After** the purchase the answer stops
+	/// being a guess and comes from the transaction's own expiration date, so it is stated plainly.
+	///
+	/// Silent for a user who is not trial-eligible: there is no free period, and a billing date is
+	/// simply the purchase date. Silent for a subscriber past their trial too, where the renewal date
+	/// is `SubscriptionStatusView`'s job, not the paywall's.
+	@ViewBuilder
+	private func billingNote(for product: Product) -> some View {
+		if subscriptionState.isSubscribed {
+			if subscriptionState.isInTrial, let expiration = subscriptionState.currentExpirationDate {
+				billingNoteText(L10n.Paywall.Billing.exact(
+					expiration.formatted(date: .abbreviated, time: .omitted)
+				))
+			}
+		} else if introOfferEligible, let estimate = Self.estimatedFirstBillingDate(for: product) {
+			billingNoteText(L10n.Paywall.Billing.estimate(
+				estimate.formatted(date: .abbreviated, time: .omitted)
+			))
+		}
+	}
+
+	private func billingNoteText(_ text: String) -> some View {
+		Text(text)
+			.font(.caption2)
+			.foregroundStyle(.secondary)
+			.multilineTextAlignment(.center)
+			.fixedSize(horizontal: false, vertical: true)
+	}
+
+	/// Today plus the introductory offer's period, or `nil` when the offer is not a free trial.
+	///
+	/// An estimate by construction — see ``billingNote(for:)`` for why it must be presented as one.
+	/// A period unit Apple adds later returns `nil` rather than a wrong date: saying nothing is
+	/// always better than naming the wrong day money moves.
+	private static func estimatedFirstBillingDate(
+		for product: Product,
+		from now: Date = .now,
+		calendar: Calendar = .current
+	) -> Date? {
+		guard let offer = product.subscription?.introductoryOffer,
+			  offer.paymentMode == .freeTrial else { return nil }
+		let component: Calendar.Component
+		switch offer.period.unit {
+		case .day: component = .day
+		case .week: component = .weekOfYear
+		case .month: component = .month
+		case .year: component = .year
+		@unknown default: return nil
+		}
+		return calendar.date(byAdding: component, value: offer.period.value, to: now)
+	}
+
+	/// The `Assets.xcassets` colorset backing ``continueAction``'s button. Named here rather than at
+	/// the call site so the asset and its one consumer stay visibly paired.
+	private static let continueButtonColorName = "ContinueButton"
+
 	/// Apple's standard "Manage Subscriptions" deep link. The hardcoded literal always
 	/// parses, so the force-unwrap cannot fail.
 	// swiftlint:disable:next force_unwrapping
@@ -545,5 +718,25 @@ struct PaywallView: View {
 	let state = SubscriptionState(provider: MockSubscriptionProvider(outcome: .subscribed), isPaymentsEnabled: true)
 	return PaywallView(subscriptionState: state, analytics: nil)
 		.task { await state.start() }
+}
+
+/// Day 0 (AIA-0556): the window is being offered, and Continue is a real peer of Subscribe.
+#Preview("Free access — offered") {
+	PaywallView(
+		subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true),
+		analytics: nil,
+		continueAction: {},
+		freeAccessOffer: .offered(days: 14, endsOn: .now.addingTimeInterval(14 * 24 * 60 * 60))
+	)
+}
+
+/// The reminder: same screen, stating what is left instead of what is offered.
+#Preview("Free access — reminder") {
+	PaywallView(
+		subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true),
+		analytics: nil,
+		continueAction: {},
+		freeAccessOffer: .remaining(days: 7, endsOn: .now.addingTimeInterval(7 * 24 * 60 * 60))
+	)
 }
 #endif
