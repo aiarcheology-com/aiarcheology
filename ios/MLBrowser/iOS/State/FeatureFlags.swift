@@ -76,6 +76,28 @@ enum FeatureFlagKey: String, CaseIterable {
 	/// their `analyticsConsentAccountHash` — destroying the account-scoped record and prompting them
 	/// again when the flag came back. Failing open removes that path entirely.
 	case isCrossDeviceAnalyticsIdentityEnabled = "isCrossDeviceAnalyticsIdentityEnabled"
+
+	/// Gates the 14-day app-managed free-access window in front of the paywall (AIA-0556):
+	/// whether a device that has never had one is **granted** a window.
+	///
+	/// It governs *granting* only. A window already open is honoured to its natural expiry
+	/// regardless of what this reads later, so turning it off is not a way to wall someone
+	/// mid-window — that would replace a working app with a paywall, which is exactly the
+	/// root-gate churn AIA-0350 forbids.
+	///
+	/// **Fails open**, like every other flag here, and the consequence is worth stating plainly.
+	/// This flag is launch-captured, and a genuine first launch has no mirror to read
+	/// (`LaunchCapturedFlags.resolve`), so it resolves to this compiled default. A first launch is
+	/// also the *only* moment a window can be granted. Therefore a `false` default would make the
+	/// feature unreachable for every new user — the exact population it exists for — while looking
+	/// perfectly correct in tests, which inject a synchronous provider and take the other branch.
+	///
+	/// The price of `true` is the honest limit of this kill switch: switching it off in the
+	/// dashboard stops grants for the existing install base from their next launch, but a brand-new
+	/// install still receives one window, because its first launch precedes any sync. Accepted
+	/// deliberately — the exposure is free *app use*, never free subscription time, which Apple
+	/// tracks per Apple ID server-side and this app cannot give away.
+	case isFreeAccessPeriodEnabled = "isFreeAccessPeriodEnabled"
 	// swiftlint:enable redundant_string_enum_value
 
 	/// The value used when remote config cannot be consulted.
@@ -89,6 +111,7 @@ enum FeatureFlagKey: String, CaseIterable {
 		case .isRatingPromptEnabled: return true
 		case .isAppMessagingEnabled: return true
 		case .isCrossDeviceAnalyticsIdentityEnabled: return true
+		case .isFreeAccessPeriodEnabled: return true
 		}
 	}
 }
@@ -162,6 +185,7 @@ struct FeatureFlagSnapshot: Equatable {
 	var isRatingPromptEnabled: Bool { self[.isRatingPromptEnabled] }
 	var isAppMessagingEnabled: Bool { self[.isAppMessagingEnabled] }
 	var isCrossDeviceAnalyticsIdentityEnabled: Bool { self[.isCrossDeviceAnalyticsIdentityEnabled] }
+	var isFreeAccessPeriodEnabled: Bool { self[.isFreeAccessPeriodEnabled] }
 
 	/// Every key at its compiled default — the launch/offline value.
 	static let defaults = FeatureFlagSnapshot()
