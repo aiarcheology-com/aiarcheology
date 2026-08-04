@@ -237,7 +237,12 @@ struct MLBrowser: App {
 				// Analytics consent is asked after the paywall (AIA-0447), of every entitled user —
 				// anonymous included (AIA-0536). Funnel events fired on the paywall are buffered by
 				// AnalyticsState until this choice is made, then flushed on enable.
-				AnalyticsChoiceGate(analytics: appState.analytics) {
+				//
+				// `freeAccess` is passed for the ordering, not the gating: a window granted on this
+				// launch opens the gate before the user has seen anything, so the ask waits until the
+				// paywall that explains the window has been shown (AIA-0556) — otherwise "Enable
+				// analytics?" is the first screen of a brand-new install and the tour never mounts.
+				AnalyticsChoiceGate(analytics: appState.analytics, freeAccess: appState.freeAccess) {
 					ContentView()
 						.environmentObject(appState)
 						.environmentObject(appState.analytics)
@@ -314,6 +319,7 @@ struct MLBrowser: App {
 				messageCenter: appState.messageCenter,
 				subscriptionState: appState.subscriptionState,
 				analytics: appState.analytics,
+				freeAccess: appState.freeAccess,
 				isReady: appState.isReady
 			)
 			.task {
@@ -329,12 +335,18 @@ struct MLBrowser: App {
 /// Shows the analytics choice — now after login + paywall (AIA-0447) — until the user has answered
 /// it, then renders its content. Keeping this as a distinct observed view is important: `AppState`
 /// does not republish nested objects.
+///
+/// The ask is *deferred*, never skipped, while something else has the floor: a sign-out that
+/// revealed an unanswered bucket (AIA-0536), or a free-access window granted on this launch whose
+/// paywall the user has not met yet (AIA-0556) — see ``isAskDeferred``.
 private struct AnalyticsChoiceGate<Content: View>: View {
 	@ObservedObject var analytics: AnalyticsState
+	@ObservedObject var freeAccess: FreeAccessState
 	private let content: Content
 
-	init(analytics: AnalyticsState, @ViewBuilder content: () -> Content) {
+	init(analytics: AnalyticsState, freeAccess: FreeAccessState, @ViewBuilder content: () -> Content) {
 		self.analytics = analytics
+		self.freeAccess = freeAccess
 		self.content = content()
 	}
 
@@ -343,21 +355,36 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 	/// equal values) while the outgoing account is cleared, so this gate stays mounted and the
 	/// presentation dips to `.pending` for the whole validation round-trip. Rendering the hold there
 	/// would tear down the browser subtree mid-session and lose in-flight web-view state.
-	@State private var hasEverResolved = false
+	///
+	/// Derived from what was *shown*, not from consent having resolved (AIA-0556). A deferred ask
+	/// renders content while consent is still unanswered, so "has resolved" no longer implies "has
+	/// been on screen" — and when the deferral lifts, this is what routes the question to the
+	/// overlay instead of a root swap that would take the tour's web view with it.
+	@State private var hasEverShownContent = false
 
-	private enum Display {
+	private enum Display: Equatable {
 		case choice
 		case content
 		case hold
 	}
 
+	/// Whether the consent question must wait rather than be put to the user right now.
+	///
+	/// Two independent reasons, both of them about *when* to ask rather than whether analytics may
+	/// run: a sign-out that revealed an unanswered anonymous bucket (AIA-0536), and a free-access
+	/// window granted on this launch that has not yet been introduced by its paywall (AIA-0556).
+	/// Consent fails closed while either holds, so waiting costs nothing.
+	private var isAskDeferred: Bool {
+		analytics.isAskDeferredAfterSignOut || freeAccess.isDay0AcknowledgementPending
+	}
+
 	/// Whether the consent question is being asked *over* content the user is already using, rather
 	/// than as the screen they arrive at. Rendered as an overlay in that case — see ``body``.
 	private var asksOverContent: Bool {
-		// Deferred asks stay silent (AIA-0536): a sign-out that reveals an unanswered anonymous
-		// bucket must not pop a question over someone who just disengaged. Analytics simply stays
-		// off; the question returns at the next arrival, sign-in, or explicit reset.
-		hasEverResolved && analytics.consentPresentation == .ask && !analytics.isAskDeferredAfterSignOut
+		// Deferred asks stay silent: a sign-out is a disengagement act, and a first-run window is
+		// still being explained. Analytics simply stays off; the question returns at the next
+		// arrival, sign-in, explicit reset, or once the day-0 paywall has been seen.
+		hasEverShownContent && analytics.consentPresentation == .ask && !isAskDeferred
 	}
 
 	private var display: Display {
@@ -368,12 +395,15 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 		// scope with no stored choice, which lands here. Swapping the root then destroys the
 		// `WKWebView` the user is looking at, along with the page, scroll position and history.
 		// Before the cut-over this was unreachable: consent could only ever be asked at launch.
-		case .ask: hasEverResolved ? .content : .choice
+		//
+		// A deferred ask takes the same branch for a different reason: the question is not refused,
+		// it is queued behind the paywall that explains the free window, and content goes up first.
+		case .ask: (hasEverShownContent || isAskDeferred) ? .content : .choice
 		case .resolved: .content
 		// Holding is only right *before* anything has been shown, and only while the wait is going
 		// to end. Afterwards the user is already in the app, and an unresolved scope is not a reason
 		// to throw them out of it — analytics simply fails closed until it resolves.
-		case .pending: hasEverResolved ? .content : .hold
+		case .pending: hasEverShownContent ? .content : .hold
 		// **Never hold on `.unavailable`.** It means no scope can be selected *at all* — the session
 		// cannot be verified — so the wait would never end. On a cold launch in airplane mode an
 		// entitled user reaches exactly this state, and holding here would strand them on a spinner
@@ -418,8 +448,8 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 					.transition(.opacity)
 			}
 		}
-		.onChange(of: analytics.consentPresentation, initial: true) { _, presentation in
-			if presentation == .resolved { hasEverResolved = true }
+		.onChange(of: display, initial: true) { _, value in
+			if value == .content { hasEverShownContent = true }
 		}
 	}
 }

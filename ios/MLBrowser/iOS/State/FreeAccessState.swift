@@ -48,6 +48,21 @@ final class FreeAccessState: ObservableObject {
 	/// Something has to be able to assert it is actually armed.
 	private(set) var scheduledExpiry: Date?
 
+	/// Whether a window granted on *this* launch is still waiting for the paywall that explains it.
+	///
+	/// It exists so the analytics consent question cannot jump the queue. `AnalyticsChoiceGate` is
+	/// nested inside the root gate and replaces its content full-screen while consent is `.ask`, so
+	/// the moment a granted window opens that gate the first thing a brand-new user would meet is
+	/// "Enable analytics?" — with `ContentView`, and therefore the onboarding tour, not yet mounted.
+	/// The intended first run is tour → paywall → consent (AIA-0447); this holds the ask back until
+	/// the free window has been introduced.
+	///
+	/// **In memory only, deliberately.** A force-quit before the day-0 paywall appears lets the next
+	/// launch ask normally, so the question is only ever *deferred* — no persisted marker can leave
+	/// a user who is never asked again. It is also false for everyone who was not granted a window
+	/// on this launch, which is every returning user.
+	@Published private(set) var isDay0AcknowledgementPending = false
+
 	private let service: FreeAccessAnchorService
 
 	/// Captured **once** at construction and deliberately not observed, exactly like
@@ -59,6 +74,14 @@ final class FreeAccessState: ObservableObject {
 	/// after the flag reads false: the flag is a tap on the intake, not a revocation of days the
 	/// user was already promised.
 	private let isFreeAccessPeriodEnabled: Bool
+
+	/// Whether the free-access feature is in force for this session at all.
+	///
+	/// Distinct from ``availability``, which answers "is a window open right now". This answers "is
+	/// this app even the kind that has free windows", and it is what keeps acceptance criterion 8
+	/// honest: with the flag off the paywall must be develop's screen exactly, down to the copy, so
+	/// nothing that exists only to explain a free period may render there.
+	var isFeatureEnabled: Bool { isFreeAccessPeriodEnabled }
 
 	private let notificationCenter: NotificationCenter
 	private var foregroundObservation: AnyCancellable?
@@ -130,10 +153,23 @@ final class FreeAccessState: ObservableObject {
 		// itself fails closed: a durable write failure leaves `window` untouched, so this session
 		// has no window rather than a farmable one.
 		if isFreeAccessPeriodEnabled, isPaymentsSurfaceEnabled, isEntitled == false, window.canGrant {
-			try? service.grant(&window)
+			// Only a grant that actually landed owes the user an explanation. A durable-write failure
+			// leaves them with no window at all, and deferring the consent question on the strength
+			// of a window that does not exist would silence it for a launch for no reason.
+			isDay0AcknowledgementPending = (try? service.grant(&window)) == true
 		}
 
 		reevaluate()
+	}
+
+	/// Records that the paywall introducing the free window has had its turn, releasing the consent
+	/// question that was waiting behind it.
+	///
+	/// Called by whatever presents that paywall, on any exit from it — continue or subscribe. It is
+	/// the only thing that ends the deferral within a session; a launch that never presents it simply
+	/// asks on the next one.
+	func acknowledgeDay0Presentation() {
+		isDay0AcknowledgementPending = false
 	}
 
 	// MARK: - Re-evaluation

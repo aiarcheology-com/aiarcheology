@@ -23,6 +23,7 @@ final class FreeAccessStateTests: XCTestCase {
 	private final class StubDurableStore: FreeAccessAnchorDurableStore {
 		var record: FreeAccessWindow.Record?
 		var readError: Error?
+		var writeError: Error?
 
 		init(record: FreeAccessWindow.Record? = nil) {
 			self.record = record
@@ -33,7 +34,10 @@ final class FreeAccessStateTests: XCTestCase {
 			return record
 		}
 
-		func saveRecord(_ record: FreeAccessWindow.Record) throws { self.record = record }
+		func saveRecord(_ record: FreeAccessWindow.Record) throws {
+			if let writeError { throw writeError }
+			self.record = record
+		}
 
 		func deleteRecord() throws { record = nil }
 	}
@@ -247,6 +251,66 @@ final class FreeAccessStateTests: XCTestCase {
 		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
 
 		XCTAssertEqual(durableStore.record?.grantedAt, firstGrant)
+	}
+
+	// MARK: - Day-0 acknowledgement (the analytics-ask deferral)
+
+	/// The ordering bug this flag exists for: a granted window opens the root gate, and without the
+	/// deferral the very first screen of a brand-new install is "Enable analytics?" — `ContentView`,
+	/// and with it the onboarding tour, never mounts until it is answered (AIA-0447).
+	@MainActor
+	func testStart_whenAWindowIsGranted_defersTheAnalyticsAskUntilAcknowledged() throws {
+		let clock = TestClock(try date(2026, 3, 2))
+		let state = makeState(service: try makeService(clock: clock, durableStore: StubDurableStore()))
+		XCTAssertFalse(state.isDay0AcknowledgementPending, "nothing is owed before the window exists")
+
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		XCTAssertTrue(state.isDay0AcknowledgementPending)
+	}
+
+	@MainActor
+	func testAcknowledgeDay0Presentation_releasesTheDeferral() throws {
+		let clock = TestClock(try date(2026, 3, 2))
+		let state = makeState(service: try makeService(clock: clock, durableStore: StubDurableStore()))
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		state.acknowledgeDay0Presentation()
+
+		XCTAssertFalse(state.isDay0AcknowledgementPending)
+	}
+
+	/// A returning user is mid-window, not day 0. Nothing new is being explained to them, so the
+	/// consent question must not be silenced for the launch.
+	@MainActor
+	func testStart_whenAWindowWasAlreadyOpen_defersNothing() throws {
+		let grantDate = try date(2026, 3, 2)
+		let clock = TestClock(try day(3, after: grantDate))
+		let record = FreeAccessWindow.record(grantedAt: grantDate, thresholds: .standard, calendar: calendar)
+		try seedFastRecord(record)
+		let state = makeState(
+			service: try makeService(clock: clock, durableStore: StubDurableStore(record: record))
+		)
+
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		XCTAssertEqual(state.availability, .open)
+		XCTAssertFalse(state.isDay0AcknowledgementPending)
+	}
+
+	/// Fail-closed grants must not silence the ask either: a durable write that fails leaves the user
+	/// with no window, so there is nothing to introduce and nothing to wait for.
+	@MainActor
+	func testStart_whenTheGrantFailsToPersist_defersNothing() throws {
+		let clock = TestClock(try date(2026, 3, 2))
+		let durableStore = StubDurableStore()
+		durableStore.writeError = FreeAccessAnchorError.keychain(errSecIO)
+		let state = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		XCTAssertEqual(state.availability, .closed)
+		XCTAssertFalse(state.isDay0AcknowledgementPending)
 	}
 
 	// MARK: - Expiry

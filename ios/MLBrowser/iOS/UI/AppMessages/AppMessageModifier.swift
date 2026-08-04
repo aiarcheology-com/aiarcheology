@@ -25,6 +25,9 @@ struct AppMessageModifier: ViewModifier {
 	@ObservedObject var messageCenter: MessageCenterState
 	@ObservedObject var subscriptionState: SubscriptionState
 	@ObservedObject var analytics: AnalyticsState
+	/// Observed, not passed as a value: the window opens and closes on its own schedule (a startup
+	/// reconciliation, an expiry wake-up), and the mounted surface changes with it (AIA-0556).
+	@ObservedObject var freeAccess: FreeAccessState
 
 	/// App-ready flag, passed as a value: the scene root re-renders this modifier when it flips
 	/// (the body already branches on `appState.isReady`), so it needs no separate observation.
@@ -39,6 +42,7 @@ struct AppMessageModifier: ViewModifier {
 			isReady: isReady,
 			paymentsSurfaceEnabled: subscriptionState.isPaymentsSurfaceEnabled,
 			isSubscribed: subscriptionState.isSubscribed,
+			freeAccess: freeAccess.availability,
 			// Anything short of resolved counts as pending: a message banner over a consent
 			// question, a hold, or a "needs connection" screen is wrong for the same reason.
 			analyticsChoicePending: analytics.consentPresentation != .resolved
@@ -317,6 +321,7 @@ extension View {
 		messageCenter: MessageCenterState,
 		subscriptionState: SubscriptionState,
 		analytics: AnalyticsState,
+		freeAccess: FreeAccessState,
 		isReady: Bool,
 		languageCode: String = AppMessage.deviceLanguageCode
 	) -> some View {
@@ -324,6 +329,7 @@ extension View {
 			messageCenter: messageCenter,
 			subscriptionState: subscriptionState,
 			analytics: analytics,
+			freeAccess: freeAccess,
 			isReady: isReady,
 			languageCode: languageCode
 		))
