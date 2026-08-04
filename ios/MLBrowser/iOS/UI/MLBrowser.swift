@@ -232,6 +232,10 @@ struct MLBrowser: App {
 				subscriptionState: appState.subscriptionState,
 				authState: appState.authState,
 				freeAccess: appState.freeAccess,
+				// The tour decides *when* the day-0 paywall may land, and the repository is what
+				// lets a walled user still get their findings out (AIA-0556).
+				tour: appState.tour,
+				findingRepository: appState.findingRepository,
 				analytics: appState.analytics
 			) {
 				// Analytics consent is asked after the paywall (AIA-0447), of every entitled user —

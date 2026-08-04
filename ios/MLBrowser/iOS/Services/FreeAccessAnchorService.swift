@@ -237,6 +237,11 @@ final class FreeAccessAnchorService {
 		window.phase(at: now())
 	}
 
+	/// Which paywall `window` still owes the user at the injected clock.
+	func duePrompt(for window: FreeAccessWindow) -> FreeAccessPrompt? {
+		window.duePrompt(at: now())
+	}
+
 	/// Advances the monotonic floor to the injected clock and persists it when it moved.
 	func observe(_ window: inout FreeAccessWindow) {
 		guard let record = window.observe(at: now()) else { return }
@@ -249,11 +254,17 @@ final class FreeAccessAnchorService {
 		persistProgress(record)
 	}
 
-	/// Writes a progress-only change (the monotonic floor, the reminder marker) to both stores.
+	/// Records that the day-0 paywall has been surfaced, and persists that.
+	func markDay0Shown(_ window: inout FreeAccessWindow) {
+		guard let record = window.markDay0Shown() else { return }
+		persistProgress(record)
+	}
+
+	/// Writes a progress-only change (the monotonic floor, the two shown-markers) to both stores.
 	///
 	/// Unlike a grant this does not fail closed, because the anchor's identity — the grant date and
 	/// the frozen thresholds — is already durable and unchanged. A dropped progress write costs at
-	/// most one extra reminder or a weaker clamp, never an extra window.
+	/// most one repeated paywall or a weaker clamp, never an extra window.
 	private func persistProgress(_ record: FreeAccessWindow.Record) {
 		writeFastRecord(record)
 		try? durableStore.saveRecord(record)

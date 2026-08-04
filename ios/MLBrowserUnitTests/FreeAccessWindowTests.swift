@@ -195,6 +195,111 @@ final class FreeAccessWindowTests: XCTestCase {
 		XCTAssertNil(second)
 	}
 
+	// MARK: - What the window still owes the user (S9, S10)
+
+	func testDuePrompt_onAFreshWindow_offersTheWholeWindow() throws {
+		let grantDate = try date(2026, 3, 2)
+		let window = grantedWindow(at: grantDate)
+		let record = try grantedRecord(in: window)
+
+		XCTAssertEqual(
+			window.duePrompt(at: grantDate),
+			.day0(days: 14, endsOn: record.expiresAt)
+		)
+	}
+
+	func testDuePrompt_onceTheDay0PaywallWasShown_owesNothingUntilTheReminderDay() throws {
+		let grantDate = try date(2026, 3, 2)
+		var window = grantedWindow(at: grantDate)
+		_ = window.markDay0Shown()
+
+		XCTAssertNil(window.duePrompt(at: grantDate))
+		XCTAssertNil(window.duePrompt(at: try day(6, after: grantDate)))
+	}
+
+	func testDuePrompt_onTheReminderDay_countsDownWhatIsLeft() throws {
+		let grantDate = try date(2026, 3, 2)
+		var window = grantedWindow(at: grantDate)
+		_ = window.markDay0Shown()
+		let record = try grantedRecord(in: window)
+
+		XCTAssertEqual(
+			window.duePrompt(at: try day(7, after: grantDate)),
+			.reminder(days: 7, endsOn: record.expiresAt)
+		)
+	}
+
+	/// A first launch on day 10 — granted, force-quit before the day-0 paywall appeared, away since.
+	/// The window has to be explained before it is counted down, or the first thing the user is ever
+	/// told about their free period is how little of it is left.
+	func testDuePrompt_onTheReminderDayWithDay0NeverShown_explainsBeforeCountingDown() throws {
+		let grantDate = try date(2026, 3, 2)
+		let window = grantedWindow(at: grantDate)
+		let record = try grantedRecord(in: window)
+
+		XCTAssertEqual(window.phase(at: try day(10, after: grantDate)), .reminderDue(remaining: 4))
+		XCTAssertEqual(
+			window.duePrompt(at: try day(10, after: grantDate)),
+			.day0(days: 14, endsOn: record.expiresAt)
+		)
+	}
+
+	/// A user away from day 5 to day 16 gets no reminder at all: expiry wins, and a paywall
+	/// promising days that are already gone is worse than the wall it precedes.
+	func testDuePrompt_afterExpiry_owesNothingSoTheReminderNeverFiresLate() throws {
+		let grantDate = try date(2026, 3, 2)
+		let window = grantedWindow(at: grantDate)
+
+		XCTAssertNil(window.duePrompt(at: try day(14, after: grantDate)))
+		XCTAssertNil(window.duePrompt(at: try day(40, after: grantDate)))
+	}
+
+	/// The offer states the window the user was actually granted, not the one the dashboard is
+	/// handing out today — the same freeze the phase arithmetic honours.
+	func testDuePrompt_offersTheGrantedWindow_notTheThresholdsInForceToday() throws {
+		let grantDate = try date(2026, 3, 2)
+		let window = grantedWindow(
+			at: grantDate,
+			thresholds: FreeAccessThresholds(grantDays: 7, reminderOnDay: 3)
+		)
+		let record = try grantedRecord(in: window)
+
+		XCTAssertEqual(window.duePrompt(at: grantDate), .day0(days: 7, endsOn: record.expiresAt))
+	}
+
+	func testMarkDay0Shown_calledTwice_reportsNoSecondChange() throws {
+		var window = grantedWindow(at: try date(2026, 3, 2))
+
+		let first = window.markDay0Shown()
+		let second = window.markDay0Shown()
+
+		XCTAssertNotNil(first)
+		XCTAssertNil(second)
+	}
+
+	/// The Keychain mirror outlives app deletion and `simctl erase`, so a record in the shape that
+	/// predates the day-0 marker is one a running app can still meet. It must read as "not shown
+	/// yet"; throwing would discard the anchor, and with it the resume-don't-restart guarantee.
+	func testRecord_decodedWithoutTheDay0Marker_readsAsNotShown() throws {
+		let grantDate = try date(2026, 3, 2)
+		let record = FreeAccessWindow.record(grantedAt: grantDate, thresholds: .standard, calendar: calendar)
+		var fields = try XCTUnwrap(
+			JSONSerialization.jsonObject(with: try JSONEncoder().encode(record)) as? [String: Any]
+		)
+		XCTAssertNotNil(fields.removeValue(forKey: "day0Shown"))
+
+		let decoded = try JSONDecoder().decode(
+			FreeAccessWindow.Record.self,
+			from: try JSONSerialization.data(withJSONObject: fields)
+		)
+
+		XCTAssertFalse(decoded.day0Shown)
+		XCTAssertEqual(decoded.grantedAt.timeIntervalSinceReferenceDate,
+					   record.grantedAt.timeIntervalSinceReferenceDate,
+					   accuracy: 0.001)
+		XCTAssertFalse(decoded.reminderShown)
+	}
+
 	// MARK: - Monotonic clamp
 
 	func testPhase_whenTheDeviceClockRollsBack_clampsToTheObservedFloor() throws {

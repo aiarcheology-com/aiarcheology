@@ -313,6 +313,100 @@ final class FreeAccessStateTests: XCTestCase {
 		XCTAssertFalse(state.isDay0AcknowledgementPending)
 	}
 
+	// MARK: - The paywalls an open window owes (S9, S10)
+
+	@MainActor
+	func testStart_onAFreshInstall_owesTheDay0Paywall() throws {
+		let clock = TestClock(try date(2026, 3, 2))
+		let durableStore = StubDurableStore()
+		let state = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		guard case let .day0(days, endsOn) = state.duePrompt else {
+			return XCTFail("Expected the day-0 paywall to be due, found \(String(describing: state.duePrompt)).")
+		}
+		XCTAssertEqual(days, 14)
+		// The date the copy tells the user to subscribe by is the window's own expiry, not a
+		// recomputation that could drift from the record that was actually written.
+		XCTAssertEqual(endsOn, durableStore.record?.expiresAt)
+	}
+
+	/// The marker is written at presentation, so a force-quit while the paywall is up cannot make it
+	/// fire again on every later launch.
+	@MainActor
+	func testMarkPromptShown_forDay0_isRememberedAcrossARelaunch() throws {
+		let clock = TestClock(try date(2026, 3, 2))
+		let durableStore = StubDurableStore()
+		let state = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		state.markPromptShown(try XCTUnwrap(state.duePrompt))
+		XCTAssertNil(state.duePrompt)
+
+		let relaunched = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+		relaunched.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+		XCTAssertNil(relaunched.duePrompt)
+	}
+
+	/// The other half of the same rule: a launch that died before the paywall was ever raised must
+	/// not lose it. Nothing was marked, so it is still owed.
+	@MainActor
+	func testStart_whenAnEarlierLaunchNeverShowedTheDay0Paywall_stillOwesIt() throws {
+		let clock = TestClock(try date(2026, 3, 2))
+		let durableStore = StubDurableStore()
+		let state = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+		XCTAssertNotNil(state.duePrompt)
+
+		let relaunched = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+		relaunched.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		guard case .day0 = relaunched.duePrompt else {
+			return XCTFail("Expected the day-0 paywall to still be owed, found \(String(describing: relaunched.duePrompt)).")
+		}
+	}
+
+	/// The reminder fires once, ever — explicitly not once per launch.
+	@MainActor
+	func testMarkPromptShown_forTheReminder_isRememberedAcrossARelaunch() throws {
+		let grantDate = try date(2026, 3, 2)
+		let clock = TestClock(grantDate)
+		let durableStore = StubDurableStore()
+		let state = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+		state.markPromptShown(try XCTUnwrap(state.duePrompt))
+
+		clock.now = try day(7, after: grantDate)
+		state.reevaluate()
+		guard case let .reminder(days, _) = state.duePrompt else {
+			return XCTFail("Expected the reminder to be due, found \(String(describing: state.duePrompt)).")
+		}
+		XCTAssertEqual(days, 7)
+
+		state.markPromptShown(try XCTUnwrap(state.duePrompt))
+		XCTAssertNil(state.duePrompt)
+
+		let relaunched = makeState(service: try makeService(clock: clock, durableStore: durableStore))
+		relaunched.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+		XCTAssertNil(relaunched.duePrompt)
+	}
+
+	/// Away from day 5 to day 16: the wall is what they meet, and the reminder does not fire late.
+	@MainActor
+	func testReevaluate_afterTheWindowRunsOut_owesNothing() throws {
+		let grantDate = try date(2026, 3, 2)
+		let clock = TestClock(grantDate)
+		let state = makeState(service: try makeService(clock: clock, durableStore: StubDurableStore()))
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		clock.now = try day(16, after: grantDate)
+		state.reevaluate()
+
+		XCTAssertEqual(state.availability, .closed)
+		XCTAssertNil(state.duePrompt)
+	}
+
 	// MARK: - Expiry
 
 	/// A `Date`-derived phase does not recompute itself. This is the re-read the wake-up and the

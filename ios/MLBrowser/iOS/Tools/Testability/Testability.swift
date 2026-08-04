@@ -111,6 +111,9 @@ extension TestabilityIdentification {
 		case drawerSignIn
 		case drawerAccount
 		// Paywall / subscriptions (AIA-0343)
+		/// Settings → Account → Subscription, while payments are on and nothing is owned. The row
+		/// used to be inert; it opens the paywall from AIA-0556 on, which is the only place a
+		/// free-window user can subscribe without waiting to be walled.
 		case settingsUpgrade
 		case paywallSubscribe
 		case paywallRestore
@@ -129,6 +132,12 @@ extension TestabilityIdentification {
 		/// The destructive action inside the delete-account confirmation dialog. It shares its
 		/// label with the button that opens it, so a test cannot tell them apart by text alone.
 		case paywallDeleteAccountConfirm
+		/// The findings escape hatch on the hard wall (AIA-0556) and the two choices inside its
+		/// confirmation. Present only where the paywall is a dead end, so its absence is itself the
+		/// assertion that an informational free-access paywall — not the wall — is showing.
+		case paywallRemoveFindings
+		case paywallFindingsExport
+		case paywallFindingsDelete
 		// Optional analytics first-run choice
 		case analyticsChoiceEnable
 		case analyticsChoiceNotNow

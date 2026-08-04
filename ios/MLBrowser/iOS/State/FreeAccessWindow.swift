@@ -41,6 +41,20 @@ enum FreeAccessPhase: Equatable, Sendable {
 	case expired
 }
 
+/// A paywall an open window still owes the user (AIA-0556).
+///
+/// Deliberately not folded into ``FreeAccessPhase``: the phase is what the clock says, this is what
+/// has not yet been *said to the user*. The two come apart in both directions — a window can be
+/// `.active` and owe nothing, and it can still owe the day-0 explanation days later, because a
+/// force-quit before that screen appeared must not swallow it for good.
+enum FreeAccessPrompt: Equatable, Sendable {
+	/// The window has never been explained. `days` is its whole length — "14 days free".
+	case day0(days: Int, endsOn: Date)
+
+	/// The reminder day has arrived and the reminder has not been shown. `days` is what is left.
+	case reminder(days: Int, endsOn: Date)
+}
+
 /// The 14-day app-managed free-access period, as a pure value (AIA-0556).
 ///
 /// A `struct`, not an `ObservableObject`: this mirrors the ``FeatureFlagSnapshot`` /
@@ -91,6 +105,47 @@ struct FreeAccessWindow: Equatable, Sendable {
 
 		/// Whether the reminder has already been surfaced, so it is shown once per window.
 		var reminderShown: Bool
+
+		/// Whether the day-0 paywall that explains this window has already been surfaced.
+		///
+		/// Written when that screen is *shown*, never when it is dismissed: a force-quit while it is
+		/// up must not make it reappear on every later launch, and one that happens before it was
+		/// ever raised must not lose it. Durable like the rest of the record, so a reinstall does not
+		/// re-offer "14 days free" to someone with three days left.
+		var day0Shown: Bool
+
+		init(
+			grantedAt: Date,
+			expiresAt: Date,
+			reminderDueAt: Date,
+			maxObservedDate: Date,
+			reminderShown: Bool,
+			day0Shown: Bool
+		) {
+			self.grantedAt = grantedAt
+			self.expiresAt = expiresAt
+			self.reminderDueAt = reminderDueAt
+			self.maxObservedDate = maxObservedDate
+			self.reminderShown = reminderShown
+			self.day0Shown = day0Shown
+		}
+
+		/// Tolerates a stored record written before ``day0Shown`` existed instead of rejecting it.
+		///
+		/// The Keychain mirror deliberately outlives app deletion — and `simctl erase` — so a record
+		/// in the older shape is not hypothetical on any device this feature has ever run on. An
+		/// absent marker reads as "not shown yet"; the synthesized decoder would instead throw, and a
+		/// throw here discards the whole anchor, which is precisely the resume-don't-restart
+		/// guarantee the mirror exists to provide.
+		init(from decoder: any Decoder) throws {
+			let container = try decoder.container(keyedBy: CodingKeys.self)
+			grantedAt = try container.decode(Date.self, forKey: .grantedAt)
+			expiresAt = try container.decode(Date.self, forKey: .expiresAt)
+			reminderDueAt = try container.decode(Date.self, forKey: .reminderDueAt)
+			maxObservedDate = try container.decode(Date.self, forKey: .maxObservedDate)
+			reminderShown = try container.decode(Bool.self, forKey: .reminderShown)
+			day0Shown = try container.decodeIfPresent(Bool.self, forKey: .day0Shown) ?? false
+		}
 	}
 
 	/// How much the app knows about the anchor. This *is* the reconciliation gate.
@@ -136,7 +191,8 @@ struct FreeAccessWindow: Equatable, Sendable {
 			expiresAt: expiresAt,
 			reminderDueAt: reminderDueAt,
 			maxObservedDate: grantedAt,
-			reminderShown: false
+			reminderShown: false,
+			day0Shown: false
 		)
 	}
 
@@ -206,6 +262,29 @@ struct FreeAccessWindow: Equatable, Sendable {
 		return .active(remaining: remaining)
 	}
 
+	/// Which paywall this window still owes the user at `now`, or `nil` when it owes none.
+	///
+	/// Day 0 outranks the reminder: a window that has never been explained has to be explained
+	/// before it is counted down, and the two only coincide for someone who did not open the app
+	/// between the grant and the reminder day.
+	///
+	/// An expired window owes neither. That is the rule that keeps the reminder from firing late —
+	/// a user who is away from day 5 to day 16 meets the wall, and being told "7 days left" on the
+	/// way to it would be a lie.
+	func duePrompt(at now: Date) -> FreeAccessPrompt? {
+		guard case let .granted(record) = anchor else { return nil }
+		let day0 = FreeAccessPrompt.day0(days: grantedDays(of: record), endsOn: record.expiresAt)
+		switch phase(at: now) {
+		case .notGranted, .expired:
+			return nil
+		case .active:
+			return record.day0Shown ? nil : day0
+		case let .reminderDue(remaining):
+			guard record.day0Shown else { return day0 }
+			return .reminder(days: remaining, endsOn: record.expiresAt)
+		}
+	}
+
 	/// Advances the monotonic floor to `now`.
 	///
 	/// Returns the updated record when the floor actually moved and therefore needs persisting,
@@ -225,6 +304,26 @@ struct FreeAccessWindow: Equatable, Sendable {
 		record.reminderShown = true
 		anchor = .granted(record)
 		return record
+	}
+
+	/// Records that the day-0 paywall has been surfaced, so it is shown once per window.
+	///
+	/// Returns the updated record to persist, or `nil` when there was nothing to mark.
+	mutating func markDay0Shown() -> Record? {
+		guard case .granted(var record) = anchor, record.day0Shown == false else { return nil }
+		record.day0Shown = true
+		anchor = .granted(record)
+		return record
+	}
+
+	/// The window's whole length in calendar days — the "14 days free" day 0 offers.
+	///
+	/// Recomputed from the record rather than read off ``FreeAccessThresholds``, for the same reason
+	/// the thresholds are frozen at grant: the values in force today are not necessarily the ones
+	/// this window was opened with, and the offer must state the window the user actually has.
+	private func grantedDays(of record: Record) -> Int {
+		let firstDay = calendar.startOfDay(for: record.grantedAt)
+		return max(calendar.dateComponents([.day], from: firstDay, to: record.expiresAt).day ?? 1, 1)
 	}
 
 	/// Whole calendar days between `now`'s day and the frozen expiry.

@@ -12106,6 +12106,18 @@
         }
       }
     },
+    "paywall.findings" : {
+      "comment" : "Opens the export-or-delete choice for the user's saved findings. Only on the hard wall, where Settings — and with it the findings inventory — is unreachable.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export or Delete Findings"
+          }
+        }
+      }
+    },
     "paywall.freeAccess.daysFree" : {
       "comment" : "Day-0 headline: the length of the app-managed free-access window being offered.",
       "extractionState" : "manual",

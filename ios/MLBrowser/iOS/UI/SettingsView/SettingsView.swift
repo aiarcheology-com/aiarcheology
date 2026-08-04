@@ -42,6 +42,9 @@ struct SettingsForm: View {
 
 	/// Contextual sign-in, offered from the account section when signed out (AIA-0536).
 	@State private var showSignIn = false
+
+	/// The paywall, opened from the Subscription row while nothing is owned (AIA-0556).
+	@State private var showPaywall = false
 	@FocusState private var isHistoryLimitFocused: Bool
 	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
 	@State private var accountPath: NavigationPath
@@ -159,6 +162,18 @@ struct SettingsForm: View {
 					// re-injection (AGENTS.md §3). Without it the value falls back to `false` on Mac
 					// and the sign-in button silently does nothing — the mock path has no configured
 					// Clerk instance, so `SignInSheet` refuses to present rather than trapping.
+					.environment(\.usesRealAuth, usesRealAuth)
+			}
+			// Subscribing from the Subscription row (AIA-0556). `isRootGate: false` and no
+			// `continueAction`: this is not a gate, so there is nothing to continue past and
+			// dismissal is the sheet's own — which keeps the screen develop's paywall exactly,
+			// down to the copy (acceptance criterion 8). No `authState` either: sign-out and
+			// account deletion live in the Clerk profile one row below.
+			.sheet(isPresented: $showPaywall) {
+				PaywallView(subscriptionState: subscriptionState, analytics: analytics)
+					// A second sheet boundary, like the sign-in sheet above: custom environment
+					// values do not reliably cross one on Mac (AGENTS.md §3), and the paywall reads
+					// this to decide whether its own sign-in sheet may build Clerk's view.
 					.environment(\.usesRealAuth, usesRealAuth)
 			}
 			// Signing out from inside Clerk's embedded profile dismisses the whole Settings sheet
@@ -531,13 +546,30 @@ struct SettingsForm: View {
 					}
 				}
 				.testability(Testability.NavigationLink.settingsSubscription)
+			} else if subscriptionState.isPaymentsSurfaceEnabled {
+				// Payments on but nothing owned. Before AIA-0556 this was an inert `HStack` and
+				// there was no way to subscribe from Settings at all — which only became a problem
+				// once the free-access window let an unentitled user reach Settings in the first
+				// place. Same row, same detail text; it just does something now.
+				Button {
+					showPaywall = true
+				} label: {
+					HStack {
+						Text(L10n.Auth.Account.subscription)
+						Spacer()
+						// "Not subscribed" also covers a lapse/refund before the gate refreshes.
+						Text(L10n.Subscription.notSubscribed)
+							.foregroundColor(.secondary)
+					}
+				}
+				.testability(Testability.Button.settingsUpgrade)
 			} else {
+				// Payments off: the "Free Beta" row stays exactly as it was. There is no gate to be
+				// let through and no product to buy, so tapping it could only lead nowhere.
 				HStack {
 					Text(L10n.Auth.Account.subscription)
 					Spacer()
-					// Payments on but no entitlement (e.g. a lapse/refund before the gate
-					// refreshes) → "Not subscribed". Payments off → the "Free Beta" label.
-					Text(subscriptionState.isPaymentsSurfaceEnabled ? L10n.Subscription.notSubscribed : L10n.Auth.Account.freeBeta)
+					Text(L10n.Auth.Account.freeBeta)
 						.foregroundColor(.secondary)
 				}
 			}

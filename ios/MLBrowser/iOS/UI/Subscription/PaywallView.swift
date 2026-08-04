@@ -146,6 +146,10 @@ struct PaywallView: View {
 	/// presented from Settings (sign-out/delete live in the Clerk profile there).
 	var authState: AuthState?
 
+	/// The findings store, supplied only by the root gate (AIA-0556). `nil` everywhere the user has
+	/// a way back into the app, because that is where the findings inventory already lives.
+	var findingRepository: FindingRepository?
+
 	/// True when this is the whole-app root gate (vs. the Settings sheet). Enables the
 	/// account affordances.
 	var isRootGate = false
@@ -233,6 +237,31 @@ struct PaywallView: View {
 	/// never over-promise a trial.
 	@State private var introOfferEligible = false
 
+	/// Whether this install has anything saved that a user walking away would still want (AIA-0556).
+	///
+	/// Read once on appear rather than on every render: a Core Data count is cheap, but this screen
+	/// re-renders on every StoreKit tick and the answer only ever changes from the button below it.
+	/// `false` until answered, so an install with nothing saved keeps develop's paywall exactly.
+	@State private var hasSavedFindings = false
+
+	/// Drives the Export / Delete / Cancel confirmation for the saved findings.
+	@State private var showRemoveFindings = false
+
+	/// True while the export ZIP is being built, before the share sheet appears. Only fades the
+	/// button's spinner and disables it — it never restructures the button, because structural churn
+	/// on a view the share sheet is presented from wedges the dismissal on iOS-on-Mac (AIA-0448).
+	@State private var isExportingFindings = false
+
+	@State private var findingsSharePayload: ActivitySharePayload?
+
+	/// Whether this paywall is the only screen the user has.
+	///
+	/// Not the same question as ``isRootGate``, which is also true of the informational day-0 and
+	/// reminder presentations (AIA-0556) — those have the whole app, and with it the findings
+	/// inventory, one Continue away. Only the hard wall is a dead end, and only a dead end owes the
+	/// user a way to get their data out of it.
+	private var isDeadEnd: Bool { isRootGate && continueAction == nil }
+
 	var body: some View {
 		VStack(spacing: 24) {
 			Spacer()
@@ -301,6 +330,37 @@ struct PaywallView: View {
 		}
 		.onAppear {
 			analytics?.track(.paywallShown)
+			// Only the dead end offers this, so only the dead end pays for the count (AIA-0556).
+			if isDeadEnd { hasSavedFindings = findingRepository?.hasAnyFinding() == true }
+		}
+		// The export share sheet is attached at the same level as the paywall's own content rather
+		// than to the button, so its presenter outlives the confirmation dialog's dismissal — the
+		// ZIP is built after a delay and the presenter must still be in the tree when it lands
+		// (AIA-0303/0402/0448, mirroring Settings → Reset).
+		.activityShareSheet($findingsSharePayload)
+		// Export and Delete are independent explicit choices, exactly as in Settings → Reset:
+		// exporting never deletes, and the user re-opens this to delete. A `.confirmationDialog`
+		// rather than a second `.alert`, because this screen deliberately keeps one alert for
+		// everything it has to say — the delete-account confirmation below is the precedent for
+		// stacking a second dialog alongside that one.
+		.confirmationDialog(
+			L10n.Settings.Reset.RemoveFindings.title,
+			isPresented: $showRemoveFindings,
+			titleVisibility: .visible
+		) {
+			Button(L10n.Settings.Reset.RemoveFindings.export) {
+				exportFindings()
+			}
+			.testability(Testability.Button.paywallFindingsExport)
+
+			Button(L10n.Settings.Reset.RemoveFindings.delete, role: .destructive) {
+				removeAllFindings()
+			}
+			.testability(Testability.Button.paywallFindingsDelete)
+
+			Button(L10n.Common.cancel, role: .cancel) {}
+		} message: {
+			Text(L10n.Settings.Reset.RemoveFindings.message)
 		}
 		.confirmationDialog(
 			L10n.Auth.Account.Delete.title,
@@ -492,6 +552,39 @@ struct PaywallView: View {
 
 		legalFooter
 
+		// The wall is otherwise a dead end for the user's own data: Settings — and with it the
+		// findings inventory and its export — sits behind the gate, so an unsubscribed user has no
+		// route to the findings they saved during the free period (AIA-0556). Not free-period copy
+		// and therefore not flag-gated; it is simply absent when there is nothing saved to reach.
+		//
+		// No new data layer: this is the same `FindingRepository` + `FindingExporter` pair that
+		// Settings → Reset → Remove Findings drives, down to the copy.
+		if isDeadEnd, hasSavedFindings {
+			Button {
+				guard isBusy.not, isExportingFindings.not else { return }
+				showRemoveFindings = true
+			} label: {
+				// Both the label and the spinner are always in the tree and only trade opacities —
+				// the same no-structural-churn rule the refund button follows (AIA-0448), because
+				// the share sheet is presented from this screen.
+				// Its own label rather than Settings' "Remove Findings": here the export is the
+				// point — the delete is what Apple and the GDPR ask for alongside it — and a button
+				// that only advertises deletion is one nobody looking for their data would press.
+				Text(L10n.Paywall.findings)
+					.frame(maxWidth: .infinity)
+					.opacity(isExportingFindings ? 0 : 1)
+					.overlay {
+						ProgressView()
+							.opacity(isExportingFindings ? 1 : 0)
+							.accessibilityHidden(true)
+					}
+			}
+			.buttonStyle(.bordered)
+			.controlSize(.large)
+			.padding(.top, 8)
+			.testability(Testability.Button.paywallRemoveFindings)
+		}
+
 		// Whole-app root gate only: account controls, because Settings is unreachable from behind
 		// the gate. Apple 5.1.1(v).
 		//
@@ -537,6 +630,52 @@ struct PaywallView: View {
 				.testability(Testability.Button.paywallSignIn)
 			case .indeterminate, .suspended:
 				EmptyView()
+			}
+		}
+	}
+
+	// MARK: - Findings escape hatch (AIA-0556)
+
+	/// Builds a ZIP of every saved finding and hands it to the share sheet — **without** deleting.
+	///
+	/// The payload is handed over one beat after the confirmation dialog has finished dismissing:
+	/// a fast export (a single finding) would otherwise present while the dialog is still going
+	/// down, which is a silent no-op that drops the share sheet entirely (AIA-0402).
+	private func exportFindings() {
+		guard let findingRepository else { return }
+		let snapshots = findingRepository.allFindingSnapshots()
+		isExportingFindings = true
+		Task {
+			defer { isExportingFindings = false }
+			do {
+				let url = try await Task.detached(priority: .userInitiated) {
+					try FindingExporter.makeZip(from: snapshots)
+				}.value
+				try? await Task.sleep(for: .milliseconds(500))
+				findingsSharePayload = ActivitySharePayload(items: [url])
+			} catch {
+				LoggingPolicy.error("Failed to export findings from the paywall", error: error, logger: .storage)
+				notice = .init(title: L10n.Alert.Error.title, message: L10n.Findings.Export.error)
+			}
+		}
+	}
+
+	/// Permanently deletes every saved finding and its screenshot.
+	///
+	/// The button retires itself on success rather than waiting for a re-render that this screen has
+	/// no reason to perform — nothing here observes Core Data.
+	private func removeAllFindings() {
+		guard let findingRepository else { return }
+		Task {
+			do {
+				try await findingRepository.removeAllFindings()
+				hasSavedFindings = false
+			} catch {
+				LoggingPolicy.error("Failed to remove all findings from the paywall", error: error, logger: .storage)
+				notice = .init(
+					title: L10n.Alert.Error.title,
+					message: L10n.Settings.Reset.RemoveFindings.error
+				)
 			}
 		}
 	}

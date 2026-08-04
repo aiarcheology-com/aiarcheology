@@ -63,6 +63,14 @@ final class FreeAccessState: ObservableObject {
 	/// on this launch, which is every returning user.
 	@Published private(set) var isDay0AcknowledgementPending = false
 
+	/// Which paywall the open window still owes the user, or `nil` when it owes none.
+	///
+	/// Recomputed on every ``reevaluate()``, so a reminder that came due while the app was
+	/// backgrounded is picked up on the next foreground. It answers only *what* is owed — **when**
+	/// it may go on screen is the root gate's call, because the onboarding tour has to have finished
+	/// with the screen first (AIA-0556).
+	@Published private(set) var duePrompt: FreeAccessPrompt?
+
 	private let service: FreeAccessAnchorService
 
 	/// Captured **once** at construction and deliberately not observed, exactly like
@@ -172,6 +180,21 @@ final class FreeAccessState: ObservableObject {
 		isDay0AcknowledgementPending = false
 	}
 
+	/// Records that `prompt` has been put on screen, so it is shown once per window and never again.
+	///
+	/// Called at **presentation**, not at dismissal, and that ordering is the whole contract: a
+	/// force-quit while the paywall is up must not make it fire again on every later launch, and one
+	/// that happens before it was ever raised must not lose it. Persisting immediately also means the
+	/// caller cannot keep reading ``duePrompt`` as "what is on screen" — it stops being due the
+	/// instant it is shown, which is why the presenter holds its own copy.
+	func markPromptShown(_ prompt: FreeAccessPrompt) {
+		switch prompt {
+		case .day0: service.markDay0Shown(&window)
+		case .reminder: service.markReminderShown(&window)
+		}
+		duePrompt = service.duePrompt(for: window)
+	}
+
 	// MARK: - Re-evaluation
 
 	/// Re-reads the clock and republishes. Called by the expiry wake-up and on every foreground.
@@ -189,6 +212,7 @@ final class FreeAccessState: ObservableObject {
 		case .expired, .notGranted:
 			availability = .closed
 		}
+		duePrompt = service.duePrompt(for: window)
 		scheduleExpiry()
 	}
 

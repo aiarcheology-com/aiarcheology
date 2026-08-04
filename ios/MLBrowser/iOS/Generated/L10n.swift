@@ -693,6 +693,8 @@ internal enum L10n {
     internal static let continueButton = L10n.tr("Localizable", "paywall.continueButton", fallback: "Continue")
     /// Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.
     internal static let disclosure = L10n.tr("Localizable", "paywall.disclosure", fallback: "Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.")
+    /// Export or Delete Findings
+    internal static let findings = L10n.tr("Localizable", "paywall.findings", fallback: "Export or Delete Findings")
     /// Manage Subscription
     internal static let manage = L10n.tr("Localizable", "paywall.manage", fallback: "Manage Subscription")
     /// Request a Refund
