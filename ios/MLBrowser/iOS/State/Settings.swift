@@ -547,6 +547,14 @@ final class Settings: ObservableObject, Validatable {
 		// bought with nobody signed in. Clearing it would let Restore Defaults hand an anonymous
 		// purchase to whoever signs in next, which is the misattribution the marker exists to
 		// prevent — a reset must not be a way to launder it.
+		//
+		// The free-access anchor (AIA-0556) survives too. Its key belongs to
+		// `FreeAccessAnchorService`, not to this type, precisely because it is a fact about the
+		// install rather than a preference the user chose: when the 14-day window started. Clearing
+		// it would make "Restore Defaults" a repeatable way for a walled user to earn another 14
+		// days. The Keychain mirror would in fact resume the window even if this copy were dropped,
+		// but only when the durable read succeeds — and a reset that leans on a fallback to stay
+		// correct is one refactor away from being a farm.
 		ratingPromptEventCount = 0
 
 		defaults.removeObject(forKey: UserDefaultsKeys.lastPage)

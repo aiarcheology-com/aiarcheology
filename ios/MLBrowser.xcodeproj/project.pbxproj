@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AC055600000000000000B004 /* FreeAccessAnchorServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A004 /* FreeAccessAnchorServiceTests.swift */; };
+		AC055600000000000000B003 /* FreeAccessWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A003 /* FreeAccessWindowTests.swift */; };
+		AC055600000000000000B002 /* FreeAccessAnchorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A002 /* FreeAccessAnchorService.swift */; };
+		AC055600000000000000B001 /* FreeAccessWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A001 /* FreeAccessWindow.swift */; };
 		C54CDEC7AD84AB111D4A8319 /* EntitlementTransactionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 548E8E7AA59A9B9E0C56C84C /* EntitlementTransactionTests.swift */; };
 		DA47E3026E55F36F98549973 /* EntitlementTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1DC63B8535B544C7E1BDAE6 /* EntitlementTransaction.swift */; };
 		EA89403E84DBCD956619A996 /* StoreKitSubscriptionProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A400E2EB12B7D3CA1F9151EB /* StoreKitSubscriptionProviderTests.swift */; };
@@ -366,6 +370,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		AC055600000000000000A004 /* FreeAccessAnchorServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessAnchorServiceTests.swift; sourceTree = "<group>"; };
+		AC055600000000000000A003 /* FreeAccessWindowTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessWindowTests.swift; sourceTree = "<group>"; };
+		AC055600000000000000A002 /* FreeAccessAnchorService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessAnchorService.swift; sourceTree = "<group>"; };
+		AC055600000000000000A001 /* FreeAccessWindow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessWindow.swift; sourceTree = "<group>"; };
 		548E8E7AA59A9B9E0C56C84C /* EntitlementTransactionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EntitlementTransactionTests.swift; sourceTree = "<group>"; };
 		A1DC63B8535B544C7E1BDAE6 /* EntitlementTransaction.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EntitlementTransaction.swift; sourceTree = "<group>"; };
 		A400E2EB12B7D3CA1F9151EB /* StoreKitSubscriptionProviderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StoreKitSubscriptionProviderTests.swift; sourceTree = "<group>"; };
@@ -949,6 +957,7 @@
 		8A61C5122AB9A85900BF72BE /* State */ = {
 			isa = PBXGroup;
 			children = (
+				AC055600000000000000A001 /* FreeAccessWindow.swift */,
 				A1DC63B8535B544C7E1BDAE6 /* EntitlementTransaction.swift */,
 				F8CF376D75E083E37CB74C79 /* AppAccountToken.swift */,
 				CFCC1FAB6E927E7D65B90A8B /* EntitlementResolver.swift */,
@@ -1198,6 +1207,8 @@
 		8AE0BC192A97B0B40086DDF9 /* MLBrowserUnitTests */ = {
 			isa = PBXGroup;
 			children = (
+				AC055600000000000000A004 /* FreeAccessAnchorServiceTests.swift */,
+				AC055600000000000000A003 /* FreeAccessWindowTests.swift */,
 				548E8E7AA59A9B9E0C56C84C /* EntitlementTransactionTests.swift */,
 				A400E2EB12B7D3CA1F9151EB /* StoreKitSubscriptionProviderTests.swift */,
 				42AE5954921999DA282D1621 /* AppAccountTokenTests.swift */,
@@ -1447,6 +1458,7 @@
 		A1B2C3D42F0104A300000001 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				AC055600000000000000A002 /* FreeAccessAnchorService.swift */,
 				ABAA0115000000000000A008 /* MessageReplyPatchBuilder.swift */,
 				ABAA0115000000000000A014 /* MessageNotificationPlanner.swift */,
 				ABAA0115000000000000A015 /* UserNotificationScheduling.swift */,
@@ -1746,6 +1758,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC055600000000000000B002 /* FreeAccessAnchorService.swift in Sources */,
+				AC055600000000000000B001 /* FreeAccessWindow.swift in Sources */,
 				DA47E3026E55F36F98549973 /* EntitlementTransaction.swift in Sources */,
 				B49058D02D6135CEAACDD928 /* AppAccountToken.swift in Sources */,
 				61B3C02BC674F0B78E380B52 /* EntitlementResolver.swift in Sources */,
@@ -1962,6 +1976,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AC055600000000000000B004 /* FreeAccessAnchorServiceTests.swift in Sources */,
+				AC055600000000000000B003 /* FreeAccessWindowTests.swift in Sources */,
 				C54CDEC7AD84AB111D4A8319 /* EntitlementTransactionTests.swift in Sources */,
 				EA89403E84DBCD956619A996 /* StoreKitSubscriptionProviderTests.swift in Sources */,
 				04F763C84B7120838746D17C /* AppAccountTokenTests.swift in Sources */,
