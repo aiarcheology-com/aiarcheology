@@ -73,11 +73,40 @@ final class DetectionCoordinatorTests: XCTestCase {
 		cont.resume(returning: results)
 	}
 
-	/// The resumed detection task runs its apply-or-discard synchronously (no awaits after the
-	/// continuation resumes), so draining the main-actor queue lets it finish before we assert.
-	private func settle() async {
-		await Task.yield()
-		await Task.yield()
+	/// Yields the main actor until `condition` holds, bounded like ``awaitDetectSuspended(timeout:)``
+	/// so a broken seam fails fast and readably.
+	///
+	/// Replaces a pair of bare `Task.yield()` calls whose comment claimed the resumed pass "runs its
+	/// apply-or-discard synchronously … so draining the main-actor queue lets it finish". `Task
+	/// yield()` offers a suspension point; it does not drain a queue, and under parallel test load
+	/// two of them were not reliably enough — which is how this file produced an intermittent
+	/// failure that never reproduced when the test was run on its own.
+	private func settle(
+		until condition: () -> Bool,
+		_ message: @autoclosure () -> String,
+		timeout: TimeInterval = 2,
+		file: StaticString = #filePath,
+		line: UInt = #line
+	) async {
+		let deadline = Date().addingTimeInterval(timeout)
+		while condition() == false {
+			if Date() > deadline {
+				XCTFail(message(), file: file, line: line)
+				return
+			}
+			await Task.yield()
+		}
+	}
+
+	/// For the discard paths, where success is the *absence* of a frame change.
+	///
+	/// Deliberately a separate name rather than a defaulted argument on ``settle(until:_:timeout:)``,
+	/// because it is genuinely weaker and should not be mistaken for it: with nothing positive to
+	/// wait for, a pass that has not run yet is indistinguishable from one that ran and correctly
+	/// discarded. Its failure mode is a false pass, never a flake, so the yields are simply generous
+	/// enough that the resumed pass has run in practice.
+	private func settleForDiscard() async {
+		for _ in 0..<20 { await Task.yield() }
 	}
 
 	/// Runs one full happy-path apply and returns the snapshot that was applied.
@@ -87,7 +116,10 @@ final class DetectionCoordinatorTests: XCTestCase {
 		coordinator.ingest(snapshot: snapshot)
 		await awaitDetectSuspended()
 		resumeDetect(with: results)
-		await settle()
+		await settle(
+			until: { coordinator.appliedFrame != nil },
+			"the resumed pass never applied a frame"
+		)
 		return snapshot
 	}
 
@@ -115,7 +147,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 		// must discard the result.
 		interacting = true
 		resumeDetect(with: [cannedResult()])
-		await settle()
+		await settleForDiscard()
 
 		XCTAssertNil(coordinator.appliedFrame)
 	}
@@ -126,7 +158,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 		await awaitDetectSuspended()
 		capturing = true
 		resumeDetect(with: [cannedResult()])
-		await settle()
+		await settleForDiscard()
 
 		XCTAssertNil(coordinator.appliedFrame)
 	}
@@ -138,7 +170,7 @@ final class DetectionCoordinatorTests: XCTestCase {
 		// Geometry changed after the pass began: its generation is now stale, result must not apply.
 		coordinator.geometryChanged()
 		resumeDetect(with: [cannedResult()])
-		await settle()
+		await settleForDiscard()
 
 		XCTAssertNil(coordinator.appliedFrame)
 	}
