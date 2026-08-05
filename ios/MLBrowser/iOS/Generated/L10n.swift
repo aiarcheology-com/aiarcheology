@@ -703,8 +703,8 @@ internal enum L10n {
     internal static let restore = L10n.tr("Localizable", "paywall.restore", fallback: "Restore Purchases")
     /// Subscribe
     internal static let subscribe = L10n.tr("Localizable", "paywall.subscribe", fallback: "Subscribe")
-    /// Every feature is included — a subscription is what keeps your access.
-    internal static let tagline = L10n.tr("Localizable", "paywall.tagline", fallback: "Every feature is included — a subscription is what keeps your access.")
+    /// Subscribe to keep your access.
+    internal static let tagline = L10n.tr("Localizable", "paywall.tagline", fallback: "Subscribe to keep your access.")
     /// Terms of Use
     internal static let terms = L10n.tr("Localizable", "paywall.terms", fallback: "Terms of Use")
     /// ML Browser

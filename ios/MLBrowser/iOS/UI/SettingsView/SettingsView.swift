@@ -528,7 +528,14 @@ struct SettingsForm: View {
 	}
 
 	private var accountSection: some View {
-		Section(header: Text(L10n.Auth.Account.title), footer: subscriptionFootnote.map { Text($0) }) {
+		// The footer restates `.secondary` because this whole section is wrapped in
+		// `.foregroundColor(.primary)` below, which a footer would otherwise inherit — rendering it
+		// in body text while every other Settings footer stays grey. Set on the leaf so the
+		// section-wide modifier still governs the rows it was added for.
+		Section(
+			header: Text(L10n.Auth.Account.title),
+			footer: subscriptionFootnote.map { Text($0).foregroundStyle(.secondary) }
+		) {
 			// Signed out is a first-class state now (AIA-0536): the app is usable without an
 			// account, so Settings offers sign-in instead of assuming it already happened.
 			if case .anonymous = authState.effectiveContext {

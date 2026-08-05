@@ -10,6 +10,13 @@ simulator, not for CI.
 **backwards will not give free time back** — that is the monotonic clamp working as designed, not a
 bug. Turn *Set Automatically* back on when you finish.
 
+**Move time forward only, and reset before testing any purchase.** StoreKit validates against the
+device clock, so winding the date *backwards* leaves the store in a state no real user reaches:
+products stop loading, and because the Subscribe button only renders when a product exists, the
+paywall appears to have no way to buy anything. That is the clock, not the app — it clears as soon
+as *Set Automatically* is back on and the app is relaunched. Observed during testing and mistaken
+for a broken Settings subscribe route, which is why it is written down here.
+
 **The flag must be on.** `isFreeAccessPeriodEnabled` in ConfigCat, on for the environment you build
 against. It defaults on, and it is captured once at launch, so a dashboard change lands **one cold
 launch later** (AIA-0513). A first run that shows the old hard paywall is that lag, not a defect.
