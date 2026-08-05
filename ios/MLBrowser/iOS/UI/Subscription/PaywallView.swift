@@ -720,8 +720,29 @@ struct PaywallView: View {
 		VStack(spacing: 4) {
 			Text(product.displayName)
 				.font(.headline)
-			Text(product.displayPrice)
+
+			// What the subscription actually provides, in the words App Store Connect already
+			// carries ("Full access to ML Browser."). App Review 3.1.2 asks the sign-up screen to
+			// describe the content or services, and the tagline above is the app's pitch, not the
+			// product's description — so this comes from the product or not at all.
+			if product.description.isEmpty.not {
+				Text(product.description)
+					.font(.subheadline)
+					.foregroundStyle(.secondary)
+					.multilineTextAlignment(.center)
+					.fixedSize(horizontal: false, vertical: true)
+			}
+
+			// Price *and* the period it recurs over (AIA-0559). App Review 3.1.2 wants the
+			// sign-up screen to state what the money buys and how often — a bare "$3.99" says
+			// neither. Like the disclosure below, it must show in full: this screen is a fixed
+			// VStack, so let the line claim its height and wrap rather than truncate the word
+			// the guideline is about.
+			Text(product.localizedPriceWithTerm)
 				.font(.title2).bold()
+				.multilineTextAlignment(.center)
+				.fixedSize(horizontal: false, vertical: true)
+				.accessibilityLabel(product.spokenPriceWithTerm)
 
 			// Free-trial terms — only when *this user* is still eligible (a returning user
 			// who already used the trial is charged immediately, so showing "free for N"
@@ -864,13 +885,17 @@ struct PaywallView: View {
 	// swiftlint:disable:next force_unwrapping
 	private static let termsOfUseURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
 
-	/// "Free for 1 month, then €9.99" when the product carries an introductory free-trial
-	/// offer; `nil` otherwise. The length and price come from the product (configured in
-	/// App Store Connect), so the copy follows whatever offer ships.
+	/// "Free for 2 weeks, then $3.99 / month" when the product carries an introductory free-trial
+	/// offer; `nil` otherwise. The trial length, the price and the period it recurs over all come
+	/// from the product (configured in App Store Connect), so the copy follows whatever ships.
+	///
+	/// The second half states the term as well as the amount (AIA-0559): "then $3.99" leaves the
+	/// most important question about a subscription — *how often* — unanswered on the one screen
+	/// App Review 3.1.2 says must answer it.
 	private static func freeTrialText(for product: Product) -> String? {
 		guard let offer = product.subscription?.introductoryOffer,
 			  offer.paymentMode == .freeTrial else { return nil }
-		return L10n.Paywall.trialFormat(offer.period.localizedDescription, product.displayPrice)
+		return L10n.Paywall.trialFormat(offer.period.localizedDescription, product.localizedPriceWithTerm)
 	}
 }
 

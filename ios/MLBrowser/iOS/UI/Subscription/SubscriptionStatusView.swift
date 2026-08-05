@@ -192,12 +192,13 @@ struct SubscriptionStatusView: View {
 		}
 	}
 
-	/// The plan's price with its billing term, e.g. "$3.99 / month". Falls back to the bare
-	/// price when the subscription period can't be resolved (no regression vs. before).
+	/// The plan's price with its billing term, e.g. "$3.99 / month".
+	///
+	/// Shares its composition with the paywall (AIA-0559) rather than repeating it: the paywall's
+	/// copy of this line is an App Review 3.1.2 surface, and a Settings-side edit that quietly
+	/// rewrote the sign-up screen is exactly the failure one implementation prevents.
 	private var planText: String? {
-		guard let product = subscriptionState.products.first else { return nil }
-		guard let period = product.subscription?.subscriptionPeriod else { return product.displayPrice }
-		return L10n.Subscription.planTerm(product.displayPrice, period.localizedTerm)
+		subscriptionState.products.first?.localizedPriceWithTerm
 	}
 
 	/// The current period's end date, formatted, if known.

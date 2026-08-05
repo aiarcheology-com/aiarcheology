@@ -15033,13 +15033,25 @@
       }
     },
     "subscription.planTerm" : {
-      "comment" : "Subscription plan price with billing term, e.g. \"$3.99 / month\". %1$@ = price, %2$@ = term.",
+      "comment" : "Subscription plan price with billing term, e.g. \"$3.99 / month\". %1$@ = price, %2$@ = term. Used by BOTH the Settings plan row and the paywall price — the paywall is an App Review 3.1.2 surface, so changing this changes the sign-up screen.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ / %2$@"
+          }
+        }
+      }
+    },
+    "subscription.planTermSpoken" : {
+      "comment" : "Spoken (VoiceOver) form of the plan price with its billing term — \"$3.99 per month\". Exists because the displayed \"/\" is announced as \"slash\". %1$@ = price, %2$@ = term.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ per %2$@"
           }
         }
       }

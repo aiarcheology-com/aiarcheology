@@ -875,6 +875,10 @@ internal enum L10n {
     internal static func planTerm(_ p1: Any, _ p2: Any) -> String {
       return L10n.tr("Localizable", "subscription.planTerm", String(describing: p1), String(describing: p2), fallback: "%1$@ / %2$@")
     }
+    /// %1$@ per %2$@
+    internal static func planTermSpoken(_ p1: Any, _ p2: Any) -> String {
+      return L10n.tr("Localizable", "subscription.planTermSpoken", String(describing: p1), String(describing: p2), fallback: "%1$@ per %2$@")
+    }
     /// Renews
     internal static let renews = L10n.tr("Localizable", "subscription.renews", fallback: "Renews")
     /// Status

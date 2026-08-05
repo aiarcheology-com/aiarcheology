@@ -55,4 +55,44 @@ extension Product.SubscriptionPeriod {
 		@unknown default: return localizedDescription(unit: unit, value: value)
 		}
 	}
+
+	/// A price joined to the term it recurs over — "$3.99 / month" (AIA-0559).
+	///
+	/// Separate from ``localizedTerm`` so the join lives in one place: this exact string is both
+	/// what Settings calls the current plan and what App Review 3.1.2 requires the sign-up screen
+	/// to state. Two implementations could drift, and the direction that drifts is a rejection.
+	static func priceTerm(price: String, unit: Unit, value: Int) -> String {
+		L10n.Subscription.planTerm(price, localizedTerm(unit: unit, value: value))
+	}
+
+	/// The same fact, spoken: "$3.99 per month".
+	///
+	/// The displayed form joins with "/", which VoiceOver announces as "slash". On a purchase
+	/// screen the price is the headline, so it gets a spoken alternative rather than making
+	/// someone parse punctuation.
+	static func spokenPriceTerm(price: String, unit: Unit, value: Int) -> String {
+		L10n.Subscription.planTermSpoken(price, localizedTerm(unit: unit, value: value))
+	}
+}
+
+extension Product {
+	/// This product's recurring price with the period it recurs over — "$3.99 / month".
+	///
+	/// Both parts come from the product, so App Store Connect stays the single source of truth:
+	/// change the price or the period there and the copy follows without a build.
+	///
+	/// Falls back to the bare price when the product carries no subscription period. That branch
+	/// is unreachable for the product this app sells — `SubscriptionState.products` only ever
+	/// holds the auto-renewable subscription, and StoreKit always gives one a period — so it
+	/// exists to keep a surprising payload from blanking the price, not as a supported rendering.
+	var localizedPriceWithTerm: String {
+		guard let period = subscription?.subscriptionPeriod else { return displayPrice }
+		return Product.SubscriptionPeriod.priceTerm(price: displayPrice, unit: period.unit, value: period.value)
+	}
+
+	/// ``localizedPriceWithTerm`` for VoiceOver — "$3.99 per month". Same fallback, same reason.
+	var spokenPriceWithTerm: String {
+		guard let period = subscription?.subscriptionPeriod else { return displayPrice }
+		return Product.SubscriptionPeriod.spokenPriceTerm(price: displayPrice, unit: period.unit, value: period.value)
+	}
 }
