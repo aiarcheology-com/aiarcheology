@@ -12,8 +12,9 @@ import ClerkKit
 /// Drives ``AuthState``: the initial session check, re-validation on every foreground, and — on the
 /// real-auth path only — Clerk's own session observer plus the Clerk environment that observer needs.
 ///
-/// These four belong together and belong at a root that mounts **once**. They used to live on
-/// `AuthGateView`, which was safe only because that view was the root and never swapped. Under the
+/// These four belong together and belong at a root that mounts **once**. They used to live on the
+/// since-deleted `AuthGateView`, which was safe only because that view was the root and never
+/// swapped — the reason this modifier exists at all. Under the
 /// paywall-first gate order (AIA-0536) auth no longer decides the root, so attaching them to any view
 /// that can be swapped would restart the session check on every swap — and dropping the Clerk
 /// environment would silently disable the out-of-band sign-out observer while everything still

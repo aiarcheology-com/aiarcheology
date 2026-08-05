@@ -2483,17 +2483,6 @@
         }
       }
     },
-    "auth.checking" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Checking your session…"
-          }
-        }
-      }
-    },
     "auth.environment.development" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2556,28 +2545,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Access pending"
-          }
-        }
-      }
-    },
-    "auth.offline.message" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ML Browser needs an internet connection to verify your account. Reconnect and try again."
-          }
-        }
-      }
-    },
-    "auth.offline.retry" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Try Again"
           }
         }
       }

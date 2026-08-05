@@ -93,8 +93,6 @@ internal enum L10n {
     }
   }
   internal enum Auth {
-    /// Checking your session…
-    internal static let checking = L10n.tr("Localizable", "auth.checking", fallback: "Checking your session…")
     /// Sign Out
     internal static let signOut = L10n.tr("Localizable", "auth.signOut", fallback: "Sign Out")
     internal enum Account {
@@ -134,10 +132,6 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "auth.locked.title", fallback: "Access pending")
     }
     internal enum Offline {
-      /// ML Browser needs an internet connection to verify your account. Reconnect and try again.
-      internal static let message = L10n.tr("Localizable", "auth.offline.message", fallback: "ML Browser needs an internet connection to verify your account. Reconnect and try again.")
-      /// Try Again
-      internal static let retry = L10n.tr("Localizable", "auth.offline.retry", fallback: "Try Again")
       /// No connection
       internal static let title = L10n.tr("Localizable", "auth.offline.title", fallback: "No connection")
     }
