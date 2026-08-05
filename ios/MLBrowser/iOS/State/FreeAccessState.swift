@@ -240,9 +240,14 @@ final class FreeAccessState: ObservableObject {
 			// Split from `.notGranted` purely so this can fire: both close access, but only one of
 			// them is a window that ran out. Reporting the other would count every user who never
 			// had a window — the whole population with the flag off — as a lapsed free trial.
-			// Deduplicated durably by `AnalyticsState`, because this line runs on every launch and
-			// every foreground for the rest of that install's life.
-			analytics?.reportFreeAccessWindowExpiredIfNeeded()
+			// Two guards, because this line runs on every launch and every foreground for the rest
+			// of the install's life. The claim below is the durable one: it rides the anchor, so a
+			// reinstall cannot make one window report its own expiry twice — the window outlives the
+			// install by design, and an install-scoped marker alone would not. `AnalyticsState`
+			// keeps its own guard for the consent-buffering case it already handles.
+			if service.markExpiryReported(&window) {
+				analytics?.reportFreeAccessWindowExpiredIfNeeded()
+			}
 		case .notGranted:
 			availability = .closed
 		}

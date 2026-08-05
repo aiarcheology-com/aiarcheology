@@ -485,6 +485,55 @@ final class FreeAccessWindowTests: XCTestCase {
 		XCTAssertTrue(reconciled.day0Shown, "the day-0 paywall would be offered a second time")
 	}
 
+	/// Progress belongs to a window, not to a device. A discarded anchor's monotonic floor must not
+	/// be folded into the survivor: it can sit past the survivor's expiry and wall a user before
+	/// their window has actually run out.
+	func testReconcile_whenTheGrantsDiffer_keepsProgressWithItsOwnWindow() throws {
+		let firstGrant = try date(2026, 3, 2)
+		let fast = FreeAccessWindow.record(grantedAt: firstGrant, thresholds: .standard, calendar: calendar)
+		// A later, discarded anchor that has been observed well past the first window's expiry.
+		let laterGrant = try day(40, after: firstGrant)
+		var durable = FreeAccessWindow.record(grantedAt: laterGrant, thresholds: .standard, calendar: calendar)
+		durable.maxObservedDate = try day(50, after: firstGrant)
+
+		let reconciled = try XCTUnwrap(FreeAccessWindow.reconcile(fast: fast, durable: durable))
+
+		XCTAssertEqual(reconciled.grantedAt, firstGrant, "the earliest anchor must still win")
+		XCTAssertEqual(
+			reconciled.maxObservedDate,
+			fast.maxObservedDate,
+			"a discarded window's floor was merged in and would expire this one early"
+		)
+
+		var window = FreeAccessWindow(calendar: calendar)
+		window.settle(fast: reconciled, durable: nil)
+		XCTAssertEqual(window.phase(at: try day(3, after: firstGrant)), .active(remaining: 11))
+	}
+
+	/// The expiry stage is claimed once per *window*, and the claim rides the durable anchor — so a
+	/// reinstall cannot make one window report its own expiry a second time.
+	func testMarkExpiryReported_isClaimedOncePerWindow() throws {
+		let grantDate = try date(2026, 3, 2)
+		var window = FreeAccessWindow(calendar: calendar)
+		window.settle(
+			fast: FreeAccessWindow.record(grantedAt: grantDate, thresholds: .standard, calendar: calendar),
+			durable: nil
+		)
+
+		let claimed = try XCTUnwrap(window.markExpiryReported())
+		XCTAssertTrue(claimed.expiryReported)
+		XCTAssertNil(window.markExpiryReported(), "the stage was claimed twice")
+
+		// And it survives the round trip that a reinstall actually performs.
+		let restored = try JSONDecoder().decode(
+			FreeAccessWindow.Record.self,
+			from: try JSONEncoder().encode(claimed)
+		)
+		var reinstalled = FreeAccessWindow(calendar: calendar)
+		reinstalled.settle(fast: nil, durable: restored)
+		XCTAssertNil(reinstalled.markExpiryReported(), "a reinstall re-reported one window's expiry")
+	}
+
 	/// The fast store is a plain plist and editable in an unencrypted backup; the Keychain copy is
 	/// not. On an exact `grantedAt` tie the durable record must win, or an inflated `expiresAt`
 	/// would both take effect and be written back over the durable store by the reconciliation

@@ -114,13 +114,23 @@ struct FreeAccessWindow: Equatable, Sendable {
 		/// re-offer "14 days free" to someone with three days left.
 		var day0Shown: Bool
 
+		/// Whether `free_access.window_expired` has already been reported for *this* window.
+		///
+		/// It lives here rather than in `Settings` because the window outlives the install: the
+		/// Keychain mirror is what makes delete-and-reinstall resume rather than restart, so an
+		/// install-scoped marker would let one window report its own expiry twice — once before the
+		/// reinstall and once after. A funnel stage that can fire twice for one window is a launch
+		/// counter wearing a stage's name.
+		var expiryReported: Bool
+
 		init(
 			grantedAt: Date,
 			expiresAt: Date,
 			reminderDueAt: Date,
 			maxObservedDate: Date,
 			reminderShown: Bool,
-			day0Shown: Bool
+			day0Shown: Bool,
+			expiryReported: Bool = false
 		) {
 			self.grantedAt = grantedAt
 			self.expiresAt = expiresAt
@@ -128,6 +138,7 @@ struct FreeAccessWindow: Equatable, Sendable {
 			self.maxObservedDate = maxObservedDate
 			self.reminderShown = reminderShown
 			self.day0Shown = day0Shown
+			self.expiryReported = expiryReported
 		}
 
 		/// Tolerates a stored record written before ``day0Shown`` existed instead of rejecting it.
@@ -145,6 +156,7 @@ struct FreeAccessWindow: Equatable, Sendable {
 			maxObservedDate = try container.decode(Date.self, forKey: .maxObservedDate)
 			reminderShown = try container.decode(Bool.self, forKey: .reminderShown)
 			day0Shown = try container.decodeIfPresent(Bool.self, forKey: .day0Shown) ?? false
+			expiryReported = try container.decodeIfPresent(Bool.self, forKey: .expiryReported) ?? false
 		}
 	}
 
@@ -236,12 +248,23 @@ struct FreeAccessWindow: Equatable, Sendable {
 		// then be written back over the durable record by `reconciledWindow`'s repair, laundering
 		// the edit into the store that is supposed to be authoritative.
 		var winner = fast.grantedAt < durable.grantedAt ? fast : durable
+
+		// Progress belongs to a *window*, not to a device, so it is only merged between two records
+		// describing the same one. Folding a discarded anchor's progress into the survivor is not
+		// conservative, it is wrong in both directions: the loser's monotonic floor can sit past the
+		// winner's expiry and wall a user before their window has actually run out, and its
+		// shown-markers would suppress screens the surviving window has never presented.
+		guard fast.grantedAt == durable.grantedAt else { return winner }
+
 		winner.maxObservedDate = max(fast.maxObservedDate, durable.maxObservedDate)
 		winner.reminderShown = fast.reminderShown || durable.reminderShown
 		// `day0Shown` merges the same way, and for a sharper reason than the reminder: it outranks
 		// everything in `duePrompt(at:)`, so a marker lost because the *other* store happened to win
 		// the tie re-offers "14 days free" to someone already a week into their window.
 		winner.day0Shown = fast.day0Shown || durable.day0Shown
+		// Same direction, so one window cannot report its expiry twice because the stores disagreed
+		// about whether it already had.
+		winner.expiryReported = fast.expiryReported || durable.expiryReported
 		return winner
 	}
 
@@ -297,6 +320,8 @@ struct FreeAccessWindow: Equatable, Sendable {
 			// Progress is kept: whatever the clock said, the user did see those screens.
 			reminderShown: record.reminderShown,
 			day0Shown: record.day0Shown
+			// `expiryReported` deliberately resets to its default. This is a new window with a new
+			// expiry ahead of it, and the stage it will eventually reach is one nobody has reported.
 		)
 	}
 
@@ -367,6 +392,20 @@ struct FreeAccessWindow: Equatable, Sendable {
 	mutating func markReminderShown() -> Record? {
 		guard case .granted(var record) = anchor, record.reminderShown == false else { return nil }
 		record.reminderShown = true
+		anchor = .granted(record)
+		return record
+	}
+
+	/// Claims the right to report this window's expiry, once.
+	///
+	/// Returns the record to persist the first time it is called for a given window, and `nil`
+	/// every time after — including after a reinstall, because the marker rides the durable anchor
+	/// rather than the install. The expiry phase is re-observed on every launch and every foreground
+	/// for the rest of the install's life, so without a durable claim the funnel counts launches
+	/// instead of windows.
+	mutating func markExpiryReported() -> Record? {
+		guard case .granted(var record) = anchor, record.expiryReported == false else { return nil }
+		record.expiryReported = true
 		anchor = .granted(record)
 		return record
 	}

@@ -207,10 +207,23 @@ final class FreeAccessAnchorService {
 		do {
 			durableRecord = try durableStore.loadRecord()
 		} catch {
-			// See the asymmetry above. No repair is attempted on this path: the store that would be
-			// written is the one that just failed to answer.
+			// No *cross-store* repair is attempted on this path: the store that would be written is
+			// the one that just failed to answer.
+			//
+			// The future-dated repair still applies, though, and must. Honouring a forged fast
+			// anchor here would reinstate exactly the unbounded window that repair exists to end —
+			// and an unreadable Keychain is not a rare accident to wait for, it is a condition an
+			// attacker can arrange. The fast store is written because it is the one that is
+			// readable; the durable copy is left for a launch that can actually reach it.
 			guard let survivingFastRecord = loadFastRecord() else { return window }
-			window.settle(fast: survivingFastRecord, durable: nil)
+			let repairedFastRecord = FreeAccessWindow.reanchoredIfGrantedInTheFuture(
+				survivingFastRecord,
+				now: now(),
+				calendar: calendar
+			)
+			let honoured = repairedFastRecord ?? survivingFastRecord
+			window.settle(fast: honoured, durable: nil)
+			if repairedFastRecord != nil { writeFastRecord(honoured) }
 			return window
 		}
 
@@ -282,6 +295,16 @@ final class FreeAccessAnchorService {
 	func markDay0Shown(_ window: inout FreeAccessWindow) {
 		guard let record = window.markDay0Shown() else { return }
 		persistProgress(record)
+	}
+
+	/// Claims the right to report this window's expiry, once and durably.
+	///
+	/// `true` only on the first call for a given window — after that the claim rides the Keychain
+	/// anchor, so a reinstall cannot make one window report its own expiry a second time.
+	func markExpiryReported(_ window: inout FreeAccessWindow) -> Bool {
+		guard let record = window.markExpiryReported() else { return false }
+		persistProgress(record)
+		return true
 	}
 
 	/// Writes a progress-only change (the monotonic floor, the two shown-markers) to both stores.

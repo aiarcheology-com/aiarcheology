@@ -219,6 +219,36 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 		XCTAssertFalse(window.canGrant)
 	}
 
+	/// The forward-dated repair must apply on the unreadable-Keychain path too.
+	///
+	/// Found by two PR reviewers: the repair originally ran only after a *successful* durable read,
+	/// so a forged fast anchor was honoured whenever the Keychain failed to answer — reinstating the
+	/// unbounded window the repair exists to end. That is not a rare accident to wait for; it is a
+	/// condition an attacker can arrange.
+	func testReconciledWindow_whenTheDurableReadFailsAndTheFastRecordIsFutureDated_reanchorsIt() throws {
+		let realNow = try date(2026, 3, 2)
+		let forged = try XCTUnwrap(calendar.date(byAdding: .year, value: 4, to: realNow))
+		let fast = FreeAccessWindow.record(grantedAt: forged, thresholds: .standard, calendar: calendar)
+		try XCTUnwrap(defaults).set(JSONEncoder().encode(fast), forKey: FreeAccessAnchorService.defaultsKey)
+		let durableStore = StubDurableStore()
+		durableStore.readError = FreeAccessAnchorError.keychain(errSecIO)
+		let service = try makeService(durableStore: durableStore, now: realNow)
+
+		let window = service.reconciledWindow()
+
+		XCTAssertEqual(try grantedRecord(in: window).grantedAt, realNow, "the forged anchor was honoured")
+		// Fourteen days from now, not four years of them.
+		XCTAssertEqual(service.phase(of: window), .active(remaining: 14))
+		// The repair is written to the store that *is* readable, so it is not redone every launch.
+		let persisted = try XCTUnwrap(
+			try XCTUnwrap(defaults).data(forKey: FreeAccessAnchorService.defaultsKey)
+		)
+		let stored = try JSONDecoder().decode(FreeAccessWindow.Record.self, from: persisted)
+		XCTAssertEqual(stored.grantedAt, realNow)
+		// And nothing was written to the store that just failed to answer.
+		XCTAssertNil(durableStore.record)
+	}
+
 	/// A fast record that is already spent still settles — the user is walled by their *window*
 	/// having run out, not by the Keychain being unreadable, and either way no new one is granted.
 	func testReconciledWindow_whenTheDurableReadFailsAndTheFastRecordIsExpired_doesNotRegrant() throws {

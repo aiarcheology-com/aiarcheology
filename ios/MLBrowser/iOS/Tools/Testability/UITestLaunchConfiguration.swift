@@ -213,6 +213,12 @@ struct UITestLaunchConfiguration: Codable {
 		let calendar = Calendar.current
 		// Trap rather than fall back to "no anchor": a scenario that silently degraded into a fresh
 		// install would assert the wrong thing and pass.
+		// A negative age is a misconfigured scenario, not a supported one: it would seed a window
+		// granted in the *future*, which reconciliation now repairs — so the test would quietly
+		// assert against a freshly re-anchored day-0 window instead of the state it named.
+		guard ageDays >= 0 else {
+			fatalError("\(environmentKey) freeAccessAnchorAgeDays must be non-negative, got \(ageDays)")
+		}
 		guard let grantedAt = calendar.date(byAdding: .day, value: -ageDays, to: Date()) else {
 			fatalError("\(environmentKey) freeAccessAnchorAgeDays=\(ageDays) is not a representable date")
 		}

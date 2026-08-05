@@ -289,10 +289,16 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
-	/// Whether `free_access.window_expired` has already been reported (AIA-0556). Same contract as
-	/// the two hashes above — a funnel stage, not a launch counter — but a plain `Bool`, because the
-	/// window belongs to the install rather than to an account and nobody need be signed in when it
-	/// runs out. See ``AnalyticsState/reportFreeAccessWindowExpiredIfNeeded()``.
+	/// Whether `free_access.window_expired` has already been reported *on this install* (AIA-0556).
+	/// Same contract as the two hashes above — a funnel stage, not a launch counter — but a plain
+	/// `Bool`, because nobody need be signed in when a window runs out.
+	///
+	/// **This is the narrower of two guards, not the whole story.** The window deliberately outlives
+	/// the install — the Keychain anchor is what makes delete-and-reinstall resume rather than
+	/// restart — so this marker alone would let one window report its own expiry twice, once either
+	/// side of a reinstall. The durable claim lives on the anchor itself
+	/// (``FreeAccessWindow/Record/expiryReported``); this one covers the consent-buffering case.
+	/// See ``AnalyticsState/reportFreeAccessWindowExpiredIfNeeded()``.
 	@Published public var analyticsFreeAccessExpiryReported: Bool {
 		didSet {
 			defaults.set(analyticsFreeAccessExpiryReported, forKey: UserDefaultsKeys.analyticsFreeAccessExpiryReported)
