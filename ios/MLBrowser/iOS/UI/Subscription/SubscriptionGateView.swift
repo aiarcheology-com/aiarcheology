@@ -59,7 +59,7 @@ enum RootGateDisplay: Equatable {
 
 /// Gates the whole app behind an active subscription. **This is the app root** (AIA-0536): it used
 /// to sit inside an auth gate, so nothing here was reachable while signed out. Entitlement is now
-/// the only thing that decides whether the app renders — a 1-month free trial counts as active, so
+/// the only thing that decides whether the app renders — StoreKit's free trial counts as active, so
 /// trial users pass through — and signing in is offered contextually instead.
 ///
 /// AIA-0556 puts an app-managed free-access window in front of that: access is
