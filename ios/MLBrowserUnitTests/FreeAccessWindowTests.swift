@@ -444,6 +444,112 @@ final class FreeAccessWindowTests: XCTestCase {
 		XCTAssertTrue(reconciled.reminderShown)
 	}
 
+	/// The monotonic floor bounds *rewinding*, not the total duration — and this pins the difference
+	/// rather than letting the clamp read as more protection than it is.
+	///
+	/// Roll the clock back to before the grant and leave it there, and `maxObservedDate` never
+	/// advances, so the window reports itself perpetually fresh. The user keeps access indefinitely.
+	/// That is the accepted device-local limit the ticket records under "Clock rollback": defeating
+	/// it needs an authority the device does not have, which is #557's DeviceCheck or a server.
+	/// Documented here so the next reader does not mistake the clamp for a bound.
+	func testPhase_whenTheClockIsRolledBackBeforeTheGrantAndLeftThere_doesNotExpire() throws {
+		let grantDate = try date(2026, 3, 2)
+		var window = FreeAccessWindow(calendar: calendar)
+		window.settle(
+			fast: FreeAccessWindow.record(grantedAt: grantDate, thresholds: .standard, calendar: calendar),
+			durable: nil
+		)
+
+		let rolledBack = try XCTUnwrap(calendar.date(byAdding: .year, value: -1, to: grantDate))
+
+		// Not `.expired`, and the floor refuses to move backwards, so this repeats every launch.
+		XCTAssertEqual(window.phase(at: rolledBack), .active(remaining: 14))
+		XCTAssertNil(window.observe(at: rolledBack), "the floor must never be lowered")
+	}
+
+	/// `day0Shown` merges conservatively too, and the failure it prevents is louder than the
+	/// reminder's: day 0 outranks everything in `duePrompt(at:)`, so a marker dropped because the
+	/// other store won the `grantedAt` tie re-offers "14 days free" to someone a week into their
+	/// window. Found independently by two reviewers, which is why it is pinned here rather than
+	/// left to the merge looking obviously right.
+	func testReconcile_whenOnlyOneStoreSawTheDay0Paywall_keepsItShown() throws {
+		let grantDate = try date(2026, 3, 2)
+		var fast = FreeAccessWindow.record(grantedAt: grantDate, thresholds: .standard, calendar: calendar)
+		let durable = fast
+		fast.day0Shown = true
+
+		// The marker sits on the *loser* of the tie — durable wins an exact `grantedAt` match — so
+		// only the merge can carry it across.
+		let reconciled = try XCTUnwrap(FreeAccessWindow.reconcile(fast: fast, durable: durable))
+
+		XCTAssertTrue(reconciled.day0Shown, "the day-0 paywall would be offered a second time")
+	}
+
+	/// The fast store is a plain plist and editable in an unencrypted backup; the Keychain copy is
+	/// not. On an exact `grantedAt` tie the durable record must win, or an inflated `expiresAt`
+	/// would both take effect and be written back over the durable store by the reconciliation
+	/// repair — laundering the edit into the authoritative copy.
+	func testReconcile_whenTheStoresTieOnGrantDate_prefersTheDurableRecord() throws {
+		let grantDate = try date(2026, 3, 2)
+		let durable = FreeAccessWindow.record(grantedAt: grantDate, thresholds: .standard, calendar: calendar)
+		// Same identity, inflated expiry — what editing the plist in a backup would produce.
+		let tampered = FreeAccessWindow.Record(
+			grantedAt: durable.grantedAt,
+			expiresAt: try day(900, after: grantDate),
+			reminderDueAt: durable.reminderDueAt,
+			maxObservedDate: durable.maxObservedDate,
+			reminderShown: durable.reminderShown,
+			day0Shown: durable.day0Shown
+		)
+
+		let reconciled = try XCTUnwrap(FreeAccessWindow.reconcile(fast: tampered, durable: durable))
+
+		XCTAssertEqual(reconciled.expiresAt, durable.expiresAt, "a tampered fast record won the tie")
+	}
+
+	// MARK: - A grant stamped in the future
+
+	/// The attack the monotonic floor made permanent: date the device forward, take the grant, put
+	/// the clock back. `grantedAt` and the floor are both stamped in the future, and `phase(at:)`
+	/// clamps to that floor precisely so a rollback cannot rewind a window — so without this repair
+	/// the window stays open until real time catches up with the forged date.
+	func testReanchor_whenTheGrantIsStampedFarInTheFuture_restartsItFromNow() throws {
+		let realNow = try date(2026, 3, 2)
+		let forged = try XCTUnwrap(calendar.date(byAdding: .year, value: 4, to: realNow))
+		let record = FreeAccessWindow.record(grantedAt: forged, thresholds: .standard, calendar: calendar)
+
+		let repaired = try XCTUnwrap(
+			FreeAccessWindow.reanchoredIfGrantedInTheFuture(record, now: realNow, calendar: calendar)
+		)
+
+		XCTAssertEqual(repaired.grantedAt, realNow)
+		XCTAssertEqual(repaired.maxObservedDate, realNow, "the forged floor would rebuild the same window")
+		// The frozen duration is carried across, not re-read: still fourteen days, from now.
+		XCTAssertEqual(repaired.expiresAt, try day(14, after: realNow, hour: 0))
+
+		var window = FreeAccessWindow(calendar: calendar)
+		window.settle(fast: repaired, durable: repaired)
+		XCTAssertEqual(window.phase(at: try day(14, after: realNow)), .expired)
+	}
+
+	/// An ordinary record is left alone, and so is one a hair ahead — a clock corrected by NTP just
+	/// after a grant must not be read as an attack.
+	func testReanchor_whenTheGrantIsOrdinary_leavesItUntouched() throws {
+		let now = try date(2026, 3, 2)
+		let record = FreeAccessWindow.record(grantedAt: now, thresholds: .standard, calendar: calendar)
+
+		XCTAssertNil(FreeAccessWindow.reanchoredIfGrantedInTheFuture(record, now: now, calendar: calendar))
+
+		let slightlyAhead = FreeAccessWindow.record(
+			grantedAt: now.addingTimeInterval(60),
+			thresholds: .standard,
+			calendar: calendar
+		)
+		XCTAssertNil(
+			FreeAccessWindow.reanchoredIfGrantedInTheFuture(slightlyAhead, now: now, calendar: calendar)
+		)
+	}
+
 	func testSettle_withAnEarlierDurableAnchor_resumesRatherThanRestarts() throws {
 		let originalGrant = try date(2026, 3, 2)
 		var durable = FreeAccessWindow.record(grantedAt: originalGrant, thresholds: .standard, calendar: calendar)

@@ -165,6 +165,17 @@ final class SettingsTests: XCTestCase {
 		XCTAssertEqual(UserDefaults.standard.data(forKey: FreeAccessAnchorService.defaultsKey), encoded)
 	}
 
+	/// The expiry event marks a stage, not a launch. It is re-observed on every launch after day 14,
+	/// so if Restore Defaults cleared it the funnel would count "windows expired" once per launch
+	/// for the rest of the install's life.
+	func test_reset_doesNotClearFreeAccessExpiryReportedMarker() {
+		settings.analyticsFreeAccessExpiryReported = true
+
+		settings.reset()
+
+		XCTAssertTrue(settings.analyticsFreeAccessExpiryReported)
+	}
+
 	func testSettings_ScreenshotDetectionMigratesTheLegacyExplicitDecline() {
 		settings.reset()
 		UserDefaults.standard.set(true, forKey: "supportPromptDeclined")

@@ -229,10 +229,75 @@ struct FreeAccessWindow: Equatable, Sendable {
 	static func reconcile(fast: Record?, durable: Record?) -> Record? {
 		guard let fast else { return durable }
 		guard let durable else { return fast }
-		var winner = fast.grantedAt <= durable.grantedAt ? fast : durable
+		// The durable copy wins an exact tie. Both stores hold the same record after a legitimate
+		// grant, so the direction is invisible in normal use — it matters when they differ. The fast
+		// copy is a plain UserDefaults plist, editable in an unencrypted local backup; the Keychain
+		// copy is not. Preferring `fast` here would let an inflated `expiresAt` win the tie *and*
+		// then be written back over the durable record by `reconciledWindow`'s repair, laundering
+		// the edit into the store that is supposed to be authoritative.
+		var winner = fast.grantedAt < durable.grantedAt ? fast : durable
 		winner.maxObservedDate = max(fast.maxObservedDate, durable.maxObservedDate)
 		winner.reminderShown = fast.reminderShown || durable.reminderShown
+		// `day0Shown` merges the same way, and for a sharper reason than the reminder: it outranks
+		// everything in `duePrompt(at:)`, so a marker lost because the *other* store happened to win
+		// the tie re-offers "14 days free" to someone already a week into their window.
+		winner.day0Shown = fast.day0Shown || durable.day0Shown
 		return winner
+	}
+
+	/// How far ahead of the clock a grant may legitimately sit before it is treated as forged.
+	///
+	/// A grant is stamped with the device's own clock, so `grantedAt` should never be in the future.
+	/// The tolerance absorbs the ordinary reasons it might be by a hair — a clock corrected by NTP
+	/// moments after the grant, or a record written either side of a leap second — without leaving
+	/// room for the attack below.
+	static let futureGrantTolerance: TimeInterval = 60 * 60 * 24
+
+	/// Re-anchors a window that was granted under a **forward-dated** device clock, or `nil` when
+	/// the record is ordinary and needs no repair.
+	///
+	/// The attack this closes is cheap and permanent, and the monotonic floor is what made it stick.
+	/// Set the device date to 2030 before the first launch, take the grant, then put the clock back.
+	/// `grantedAt` and `maxObservedDate` are both stamped 2030, and `phase(at:)` clamps
+	/// `observedNow` to that floor precisely so a *rollback* cannot rewind a window — so the window
+	/// reports itself perpetually fresh until real wall-time reaches 2030. Nothing ends it: the
+	/// floor only moves forward, and the expiry wake-up is scheduled years out.
+	///
+	/// Re-anchoring to `now` rather than expiring the window is deliberate. A clock far ahead is
+	/// usually a tester or someone who mis-set the date, not an attacker, and the honest response to
+	/// "this anchor cannot be true" is to start the window from the first moment we can trust rather
+	/// than to punish. An attacker gains nothing either way: they end up with the same fourteen days
+	/// they would have had by not touching the clock at all.
+	///
+	/// The frozen durations are carried across rather than re-read from current thresholds, so the
+	/// repair cannot quietly re-length or shorten a window either (see ``FreeAccessThresholds``).
+	static func reanchoredIfGrantedInTheFuture(
+		_ record: Record,
+		now: Date,
+		calendar: Calendar
+	) -> Record? {
+		guard record.grantedAt > now.addingTimeInterval(futureGrantTolerance) else { return nil }
+
+		let originalStart = calendar.startOfDay(for: record.grantedAt)
+		let grantDays = calendar.dateComponents([.day], from: originalStart, to: record.expiresAt).day ?? 0
+		let reminderDay = calendar.dateComponents([.day], from: originalStart, to: record.reminderDueAt).day ?? 0
+		let rebuilt = Self.record(
+			grantedAt: now,
+			thresholds: FreeAccessThresholds(grantDays: grantDays, reminderOnDay: reminderDay),
+			calendar: calendar
+		)
+
+		return Record(
+			grantedAt: rebuilt.grantedAt,
+			expiresAt: rebuilt.expiresAt,
+			reminderDueAt: rebuilt.reminderDueAt,
+			// Reset with the anchor. Leaving the forged floor in place would re-create the same
+			// unbounded window the repair exists to end.
+			maxObservedDate: now,
+			// Progress is kept: whatever the clock said, the user did see those screens.
+			reminderShown: record.reminderShown,
+			day0Shown: record.day0Shown
+		)
 	}
 
 	/// Settles the reconciliation gate with the result of reading **both** stores.

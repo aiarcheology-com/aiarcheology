@@ -42,7 +42,18 @@ protocol FreeAccessAnchorDurableStore {
 /// `kSecAttrAccessibleAfterFirstUnlock` is load-bearing rather than decorative: the anchor is read
 /// during launch, which can happen before the user has unlocked the device, and `WhenUnlocked`
 /// would answer `errSecInteractionNotAllowed` there — a read failure that must not be mistaken for
-/// "no anchor". It is also the app-only, non-syncing class, so the anchor never leaves the device.
+/// "no anchor".
+///
+/// It is **not** the `…ThisDeviceOnly` variant, and that is a deliberate choice rather than an
+/// oversight. This class is excluded from iCloud Keychain sync, so the anchor never syncs sideways
+/// to a second device the user is holding — but it *does* travel in an encrypted backup or a
+/// device-to-device transfer. That is the behaviour worth having: replacing a phone mid-window
+/// resumes it rather than restarting it, and replacing one after the window is spent does not hand
+/// out a second free period. `…ThisDeviceOnly` would make a hardware upgrade a reliable way to
+/// farm another fourteen days.
+///
+/// What it is not is a guarantee. A device wiped and set up as new starts fresh, which is the
+/// accepted limit recorded in #557.
 /// No entitlement is added: with no keychain-access-group the item lands in the default group (the
 /// bundle id), and declaring one would change signing.
 final class KeychainFreeAccessAnchorService: FreeAccessAnchorDurableStore {
@@ -206,7 +217,20 @@ final class FreeAccessAnchorService {
 		let fastRecord = loadFastRecord()
 		window.settle(fast: fastRecord, durable: durableRecord)
 
-		guard case let .granted(record) = window.anchor else { return window }
+		guard case let .granted(settled) = window.anchor else { return window }
+
+		// A record stamped in the future cannot be honest, and honouring it is unbounded: the
+		// monotonic floor would hold the window open until real time caught up with the forged
+		// date. Repaired here, before anything reads the phase, so no caller ever sees the forged
+		// window — and written straight back to both stores so the repair is not re-done every
+		// launch. See `FreeAccessWindow.reanchoredIfGrantedInTheFuture`.
+		let record = FreeAccessWindow.reanchoredIfGrantedInTheFuture(
+			settled,
+			now: now(),
+			calendar: calendar
+		) ?? settled
+		if record != settled { window.settle(fast: record, durable: record) }
+
 		if durableRecord != record { try? durableStore.saveRecord(record) }
 		if fastRecord != record { writeFastRecord(record) }
 		return window

@@ -31,12 +31,14 @@ final class SubscriptionGateDisplayTests: XCTestCase {
 	/// trial and is `isSubscribed`; on day 14 their app-managed window runs out. Walling them there
 	/// bills someone for a paywall. Entitlement outranks an expired window, always.
 	func testTrialStartedOnDayThirteen_isNotWalledWhenTheFreeWindowExpiresOnDayFourteen() {
+		// Cold launch: nothing shown yet, so the wall would be the arrival screen.
 		XCTAssertEqual(resolve(subscribed: true, freeAccess: .closed), .content)
 
-		// And not by being rescued mid-session either: it must hold on a cold launch, where nothing
-		// has been shown yet and the wall would be the arrival screen.
+		// And mid-session, which is the likelier moment: the window runs out at midnight while the
+		// user is reading a page. Not `.wallOverContent` — they are paying, so there is nothing to
+		// cover. Previously this assertion re-ran the cold-launch case and proved nothing twice.
 		XCTAssertEqual(
-			resolve(subscribed: true, freeAccess: .closed, hasEverShownContent: false),
+			resolve(subscribed: true, freeAccess: .closed, hasEverShownContent: true),
 			.content
 		)
 	}

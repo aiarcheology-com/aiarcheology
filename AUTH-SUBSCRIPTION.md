@@ -41,6 +41,21 @@ open is honoured to its natural expiry whatever the flag later reads — so turn
 new windows without revoking days anybody was already promised. See `FreeAccessWindow`,
 `FreeAccessAnchorService`, `FreeAccessState`.
 
+**What the anchor does and does not survive**, since the Keychain invites overconfidence. It outlives
+app deletion, which is the whole point, and it travels in an encrypted backup or a device-to-device
+transfer — so replacing a phone mid-window resumes it, and replacing one after the window is spent
+does not hand out a second. It is *not* `…ThisDeviceOnly`, deliberately: that variant would make a
+hardware upgrade a reliable way to farm another fortnight. It does not sync sideways to a second
+device the user is holding, so a genuine second device gets its own window (out of scope, per the
+ticket). And it does not survive a device wiped and set up as new, nor a restore from a backup taken
+*before* the grant. Those are the accepted device-local limits; closing them needs an authority the
+device does not have — see #557.
+
+A grant stamped in the **future** is repaired rather than honoured. Dating the device forward before
+the first launch would otherwise be permanent: the monotonic floor that stops a rollback rewinding a
+window is exactly what would hold a forged one open until real time caught up. Reconciliation
+re-anchors such a record to now, carrying its frozen duration across.
+
 Two things follow that are easy to get wrong:
 
 - **Expiry covers, it never replaces.** A window running out mid-session lays the paywall *over* the
