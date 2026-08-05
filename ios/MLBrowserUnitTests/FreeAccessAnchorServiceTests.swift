@@ -225,7 +225,72 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 	/// so a forged fast anchor was honoured whenever the Keychain failed to answer — reinstating the
 	/// unbounded window the repair exists to end. That is not a rare accident to wait for; it is a
 	/// condition an attacker can arrange.
-	func testReconciledWindow_whenTheDurableReadFailsAndTheFastRecordIsFutureDated_reanchorsIt() throws {
+	/// The wiring, not the mechanism.
+	///
+	/// Every other test of the credibility bound calls `FreeAccessWindow.credible` directly, which
+	/// proves the rule and nothing about whether it is actually applied — delete the bound from this
+	/// service and all of them stay green. The previous version of this fix failed in exactly that
+	/// gap: a correct mechanism that a load path walked straight past. These two drive a forged
+	/// record through `reconciledWindow()` on both branches instead.
+	func testReconciledWindow_whenTheFastRecordClaimsAnUncappedWindow_boundsItBeforeItCanWin() throws {
+		let now = try date(2026, 3, 2)
+		let honest = FreeAccessWindow.record(grantedAt: now, thresholds: .standard, calendar: calendar)
+		// Backdated to win earliest-wins, claiming five years — well past the threshold ceiling.
+		let backdated = try XCTUnwrap(calendar.date(byAdding: .day, value: -30, to: now))
+		// Hand-built: `FreeAccessThresholds` clamps, so only a forged record can claim this.
+		let forgedFirstDay = calendar.startOfDay(for: backdated)
+		let forged = FreeAccessWindow.Record(
+			grantedAt: backdated,
+			expiresAt: try XCTUnwrap(calendar.date(byAdding: .day, value: 365 * 5, to: forgedFirstDay)),
+			reminderDueAt: try XCTUnwrap(calendar.date(byAdding: .day, value: 7, to: forgedFirstDay)),
+			maxObservedDate: backdated,
+			reminderShown: false,
+			day0Shown: false
+		)
+		try XCTUnwrap(defaults).set(JSONEncoder().encode(forged), forKey: FreeAccessAnchorService.defaultsKey)
+		let service = try makeService(durableStore: StubDurableStore(record: honest), now: now)
+
+		let window = service.reconciledWindow()
+
+		// It still wins the grant-date comparison; it just no longer buys anything by it, because a
+		// standard window from thirty days ago expired sixteen days ago.
+		XCTAssertEqual(service.phase(of: window), .expired, "an uncapped fast record bought access")
+	}
+
+	/// The same, on the branch where there is no durable copy to check it against — which is the
+	/// branch an attacker would rather be on.
+	func testReconciledWindow_whenTheDurableReadFailsAndTheFastRecordIsUncapped_boundsItAnyway() throws {
+		let now = try date(2026, 3, 2)
+		let backdated = try XCTUnwrap(calendar.date(byAdding: .day, value: -30, to: now))
+		// Hand-built: `FreeAccessThresholds` clamps, so only a forged record can claim this.
+		let forgedFirstDay = calendar.startOfDay(for: backdated)
+		let forged = FreeAccessWindow.Record(
+			grantedAt: backdated,
+			expiresAt: try XCTUnwrap(calendar.date(byAdding: .day, value: 365 * 5, to: forgedFirstDay)),
+			reminderDueAt: try XCTUnwrap(calendar.date(byAdding: .day, value: 7, to: forgedFirstDay)),
+			maxObservedDate: backdated,
+			reminderShown: false,
+			day0Shown: false
+		)
+		try XCTUnwrap(defaults).set(JSONEncoder().encode(forged), forKey: FreeAccessAnchorService.defaultsKey)
+		let durableStore = StubDurableStore()
+		durableStore.readError = FreeAccessAnchorError.keychain(errSecIO)
+		let service = try makeService(durableStore: durableStore, now: now)
+
+		let window = service.reconciledWindow()
+
+		XCTAssertEqual(service.phase(of: window), .expired, "an unreadable Keychain waived the bound")
+	}
+
+	/// A future-dated fast record must be **refused** here, not re-anchored.
+	///
+	/// This test previously asserted the opposite, and was wrong. Re-anchoring a forged grant to
+	/// `now` is the right repair everywhere the durable store can be read — it costs its author
+	/// nothing they could not have had honestly. On this path it *manufactures*: the Keychain may
+	/// hold a spent anchor that would have refused them, and an unreadable Keychain is exactly the
+	/// condition an attacker arranges to hide one. Forging a future date and provoking a read error
+	/// would have minted a fresh fourteen days out of an expired window.
+	func testReconciledWindow_whenTheDurableReadFailsAndTheFastRecordIsFutureDated_refusesToMintAWindow() throws {
 		let realNow = try date(2026, 3, 2)
 		let forged = try XCTUnwrap(calendar.date(byAdding: .year, value: 4, to: realNow))
 		let fast = FreeAccessWindow.record(grantedAt: forged, thresholds: .standard, calendar: calendar)
@@ -236,17 +301,11 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 
 		let window = service.reconciledWindow()
 
-		XCTAssertEqual(try grantedRecord(in: window).grantedAt, realNow, "the forged anchor was honoured")
-		// Fourteen days from now, not four years of them.
-		XCTAssertEqual(service.phase(of: window), .active(remaining: 14))
-		// The repair is written to the store that *is* readable, so it is not redone every launch.
-		let persisted = try XCTUnwrap(
-			try XCTUnwrap(defaults).data(forKey: FreeAccessAnchorService.defaultsKey)
-		)
-		let stored = try JSONDecoder().decode(FreeAccessWindow.Record.self, from: persisted)
-		XCTAssertEqual(stored.grantedAt, realNow)
-		// And nothing was written to the store that just failed to answer.
-		XCTAssertNil(durableStore.record)
+		// Unsettled: no access, and — just as important — no grant either, because `canGrant` is
+		// false while reconciling. The next launch that can read the Keychain resolves it properly.
+		XCTAssertEqual(window.anchor, .reconciling)
+		XCTAssertFalse(window.canGrant, "a forged future record opened the door to a fresh grant")
+		XCTAssertNil(durableStore.record, "nothing may be written to the store that just failed")
 	}
 
 	/// A fast record that is already spent still settles — the user is walled by their *window*

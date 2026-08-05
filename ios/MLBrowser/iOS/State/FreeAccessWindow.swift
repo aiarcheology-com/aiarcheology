@@ -20,6 +20,20 @@ struct FreeAccessThresholds: Equatable, Sendable {
 	/// The day on which the "your free access is running out" reminder becomes due.
 	let reminderOnDay: Int
 
+	/// Normalises on the way in, so a record written from these can never be one the credibility
+	/// check will later refuse.
+	///
+	/// Without this the writer and the reader disagree, and the disagreement runs in the dangerous
+	/// direction. An operator winding the window down to `grantDays: 0` while leaving
+	/// `reminderOnDay: 7` writes an immediately-expired record — correct — which the *next* launch
+	/// finds incredible, because a reminder cannot fall after an expiry, and rebuilds into a live
+	/// standard window. Switching the feature off would grant one, a launch later.
+	init(grantDays: Int, reminderOnDay: Int) {
+		let days = max(0, min(grantDays, FreeAccessWindow.maxCredibleGrantDays))
+		self.grantDays = days
+		self.reminderOnDay = max(0, min(reminderOnDay, days))
+	}
+
 	/// The shipped window: 14 days, reminding on day 7.
 	static let standard = FreeAccessThresholds(grantDays: 14, reminderOnDay: 7)
 }
@@ -270,25 +284,28 @@ struct FreeAccessWindow: Equatable, Sendable {
 	/// `now` matters because a grant cannot have happened in the future. That case is repaired
 	/// separately by ``reanchoredIfGrantedInTheFuture(_:now:calendar:)``, which re-anchors rather
 	/// than rebuilds; this only has to avoid *blessing* it in the meantime.
-	static func isCredible(_ record: Record, now: Date, calendar: Calendar) -> Bool {
-		guard record.grantedAt <= now.addingTimeInterval(futureGrantTolerance) else { return false }
-
+	/// The thresholds a stored record implies, or `nil` when they are outside anything an operator
+	/// could have configured.
+	///
+	/// `grantDays == 0` is legitimate and must survive: it is what winding the feature down looks
+	/// like, and it describes a window that expired the day it was granted. Treating it as
+	/// implausible and rebuilding it into the standard fourteen days would turn switching the
+	/// feature off into handing one out.
+	static func claimedThresholds(of record: Record, calendar: Calendar) -> FreeAccessThresholds? {
 		let firstDay = calendar.startOfDay(for: record.grantedAt)
 		guard let grantDays = calendar.dateComponents([.day], from: firstDay, to: record.expiresAt).day,
-			  let reminderDay = calendar.dateComponents([.day], from: firstDay, to: record.reminderDueAt).day
-		else { return false }
+			  let reminderDay = calendar.dateComponents([.day], from: firstDay, to: record.reminderDueAt).day,
+			  grantDays >= 0, grantDays <= maxCredibleGrantDays,
+			  reminderDay >= 0, reminderDay <= grantDays
+		else { return nil }
+		return FreeAccessThresholds(grantDays: grantDays, reminderOnDay: reminderDay)
+	}
 
-		// `grantDays == 0` is legitimate: it is what winding the feature down looks like, and it
-		// describes a window that expired the day it was granted. Rebuilding *that* into a standard
-		// fourteen days would turn switching the feature off into handing one out.
-		guard grantDays >= 0, grantDays <= maxCredibleGrantDays else { return false }
-		guard reminderDay >= 0, reminderDay <= grantDays else { return false }
+	static func isCredible(_ record: Record, now: Date, calendar: Calendar) -> Bool {
+		guard record.grantedAt <= now.addingTimeInterval(futureGrantTolerance) else { return false }
+		guard let claimed = claimedThresholds(of: record, calendar: calendar) else { return false }
 
-		let reproduced = Self.record(
-			grantedAt: record.grantedAt,
-			thresholds: FreeAccessThresholds(grantDays: grantDays, reminderOnDay: reminderDay),
-			calendar: calendar
-		)
+		let reproduced = Self.record(grantedAt: record.grantedAt, thresholds: claimed, calendar: calendar)
 		return reproduced.expiresAt == record.expiresAt && reproduced.reminderDueAt == record.reminderDueAt
 	}
 
@@ -313,7 +330,21 @@ struct FreeAccessWindow: Equatable, Sendable {
 	/// answer.
 	static func credible(_ record: Record, now: Date, calendar: Calendar) -> Record {
 		guard isCredible(record, now: now, calendar: calendar) == false else { return record }
-		let rebuilt = Self.record(grantedAt: record.grantedAt, thresholds: .standard, calendar: calendar)
+		// Rebuild with the record's *own* thresholds when they are themselves in range, and only
+		// fall back to the shipped ones when they are not.
+		//
+		// This is what keeps an honest traveller whole. `Calendar.current` carries the device's time
+		// zone, so flying somewhere else re-aligns midnight and a frozen expiry stops landing exactly
+		// on a day boundary — reproduction then fails on equality even though the thresholds it
+		// implies are perfectly ordinary. Rebuilding to `.standard` there would silently cut a
+		// deliberately-configured 30-day window down to 14 and write that to both stores; rebuilding
+		// to what the record actually claims re-aligns it and keeps its length. A forger gains
+		// nothing either way, because those thresholds still have to pass the cap.
+		let rebuilt = Self.record(
+			grantedAt: record.grantedAt,
+			thresholds: claimedThresholds(of: record, calendar: calendar) ?? .standard,
+			calendar: calendar
+		)
 		return Record(
 			grantedAt: record.grantedAt,
 			expiresAt: rebuilt.expiresAt,
@@ -325,6 +356,15 @@ struct FreeAccessWindow: Equatable, Sendable {
 		)
 	}
 
+	/// Folds the two stores into the anchor the app must honour.
+	///
+	/// The **earliest** grant wins, never the newest: the Keychain copy outlives app deletion
+	/// precisely so a fresh UserDefaults cannot restart the clock, and preferring the newer record
+	/// would hand every reinstall a brand-new window.
+	///
+	/// Both records must already have passed ``credible(_:now:calendar:)`` — earliest-wins is only
+	/// safe on records this app could have written, since otherwise an edited one needs nothing but
+	/// an early date to win.
 	static func reconcile(fast: Record?, durable: Record?) -> Record? {
 		guard let fast else { return durable }
 		guard let durable else { return fast }

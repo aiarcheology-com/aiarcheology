@@ -552,6 +552,13 @@ final class FreeAccessWindowTests: XCTestCase {
 
 		let bounded = FreeAccessWindow.credible(forged, now: now, calendar: calendar)
 
+		// The dates, not just the phase: asserting only `.expired` would also pass if the rebuild
+		// produced something arbitrary that happened to be in the past.
+		let firstDay = calendar.startOfDay(for: forged.grantedAt)
+		XCTAssertEqual(bounded.grantedAt, forged.grantedAt, "the anchor's identity must survive")
+		XCTAssertEqual(bounded.expiresAt, try XCTUnwrap(calendar.date(byAdding: .day, value: 14, to: firstDay)))
+		XCTAssertEqual(bounded.reminderDueAt, try XCTUnwrap(calendar.date(byAdding: .day, value: 7, to: firstDay)))
+
 		var window = FreeAccessWindow(calendar: calendar)
 		window.settle(fast: bounded, durable: nil)
 		XCTAssertEqual(window.phase(at: now), .expired, "an edited record bought access")
@@ -609,6 +616,31 @@ final class FreeAccessWindowTests: XCTestCase {
 		XCTAssertEqual(bounded.expiresAt, honest.expiresAt)
 	}
 
+	/// An honest traveller must not lose their window.
+	///
+	/// `Calendar.current` carries the device's time zone, so flying re-aligns midnight and a frozen
+	/// expiry stops landing exactly on a day boundary. Reproduction then fails on equality even
+	/// though the thresholds the record implies are perfectly ordinary — and rebuilding to
+	/// `.standard` there would cut a deliberately-configured 30-day window down to 14 and persist
+	/// that to both stores. Rebuilding with the record's *own* thresholds re-aligns it instead.
+	func testCredible_whenTheTimeZoneMovedUnderAnHonestRecord_keepsItsLengthRatherThanTheDefault() throws {
+		let grantDate = try date(2026, 3, 2)
+		let honest = FreeAccessWindow.record(
+			grantedAt: grantDate,
+			thresholds: FreeAccessThresholds(grantDays: 30, reminderOnDay: 15),
+			calendar: calendar
+		)
+		var tokyo = Calendar(identifier: .gregorian)
+		tokyo.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Tokyo"))
+
+		let bounded = FreeAccessWindow.credible(honest, now: grantDate, calendar: tokyo)
+
+		// Re-aligned to the new midnight, so not byte-identical — but still the window they were
+		// granted. `.standard` would land ~14 days out; the honest length is ~30.
+		let days = bounded.expiresAt.timeIntervalSince(bounded.grantedAt) / 86_400
+		XCTAssertGreaterThan(days, 25, "a 30-day window was rebuilt as the default 14")
+	}
+
 	/// Where the ceiling actually sits, which the decade-long forgery above cannot show.
 	func testCredible_atTheThresholdCeiling_keepsTheLimitAndRebuildsBeyondIt() throws {
 		let grantDate = try date(2026, 3, 2)
@@ -617,10 +649,19 @@ final class FreeAccessWindowTests: XCTestCase {
 			thresholds: FreeAccessThresholds(grantDays: FreeAccessWindow.maxCredibleGrantDays, reminderOnDay: 7),
 			calendar: calendar
 		)
-		let overLimit = FreeAccessWindow.record(
+		// Built by hand: `FreeAccessThresholds` now clamps on construction, so it cannot express an
+		// over-cap window — which is the point of the clamp, and why a forged *record* is the only
+		// way this state arises at all.
+		let firstDay = calendar.startOfDay(for: grantDate)
+		let overLimit = FreeAccessWindow.Record(
 			grantedAt: grantDate,
-			thresholds: FreeAccessThresholds(grantDays: FreeAccessWindow.maxCredibleGrantDays + 1, reminderOnDay: 7),
-			calendar: calendar
+			expiresAt: try XCTUnwrap(
+				calendar.date(byAdding: .day, value: FreeAccessWindow.maxCredibleGrantDays + 1, to: firstDay)
+			),
+			reminderDueAt: try XCTUnwrap(calendar.date(byAdding: .day, value: 7, to: firstDay)),
+			maxObservedDate: grantDate,
+			reminderShown: false,
+			day0Shown: false
 		)
 
 		XCTAssertEqual(
@@ -628,7 +669,9 @@ final class FreeAccessWindowTests: XCTestCase {
 			atLimit.expiresAt,
 			"the ceiling itself must be allowed"
 		)
-		XCTAssertNotEqual(
+		// Asserts the *direction*, not merely that something changed: a rebuild that lengthened the
+		// window would also satisfy "not equal", and would be the failure this is guarding against.
+		XCTAssertLessThan(
 			FreeAccessWindow.credible(overLimit, now: grantDate, calendar: calendar).expiresAt,
 			overLimit.expiresAt,
 			"a window past the ceiling was honoured"

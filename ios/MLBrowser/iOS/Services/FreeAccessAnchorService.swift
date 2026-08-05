@@ -216,21 +216,24 @@ final class FreeAccessAnchorService {
 			// attacker can arrange. The fast store is written because it is the one that is
 			// readable; the durable copy is left for a launch that can actually reach it.
 			guard let storedFastRecord = loadFastRecord() else { return window }
-			// Bounded here too: an unreadable Keychain is the one path where a forged fast record
-			// has no durable copy to be checked against, so it is the *most* important place for it.
-			let survivingFastRecord = FreeAccessWindow.credible(
-				storedFastRecord,
-				now: now(),
-				calendar: calendar
-			)
-			let repairedFastRecord = FreeAccessWindow.reanchoredIfGrantedInTheFuture(
-				survivingFastRecord,
-				now: now(),
-				calendar: calendar
-			)
-			let honoured = repairedFastRecord ?? survivingFastRecord
+
+			// A future-dated record is refused outright here rather than repaired, and the
+			// difference matters. Everywhere else, re-anchoring a forged grant to `now` costs its
+			// author nothing they could not have had honestly. On *this* path it would manufacture
+			// something: the durable store may hold a spent anchor that would have refused them, and
+			// an unreadable Keychain is precisely the condition an attacker arranges to hide it. So
+			// forging a future date and provoking a Keychain error would mint a fresh window out of
+			// an expired one. Leaving the anchor unsettled denies access without granting anything —
+			// `canGrant` is false while reconciling — and the next launch that can read the Keychain
+			// resolves it properly.
+			guard storedFastRecord.grantedAt <= now().addingTimeInterval(FreeAccessWindow.futureGrantTolerance)
+			else { return window }
+
+			// Otherwise bound as usual. This is the one path with no durable copy to check against,
+			// so it is the most important place for the bound, not the least.
+			let honoured = FreeAccessWindow.credible(storedFastRecord, now: now(), calendar: calendar)
 			window.settle(fast: honoured, durable: nil)
-			if repairedFastRecord != nil { writeFastRecord(honoured) }
+			if honoured != storedFastRecord { writeFastRecord(honoured) }
 			return window
 		}
 
@@ -242,7 +245,11 @@ final class FreeAccessAnchorService {
 		let bound = { (record: FreeAccessWindow.Record) in
 			FreeAccessWindow.credible(record, now: self.now(), calendar: self.calendar)
 		}
-		let fastRecord = loadFastRecord().map(bound)
+		// The *stored* record is kept for the write-back comparison below. Comparing the bounded copy
+		// instead would let a forged record that happens to bound to the winner compare equal, so
+		// nothing is written and the forgery stays on disk to be re-bounded on every launch.
+		let storedFastRecord = loadFastRecord()
+		let fastRecord = storedFastRecord.map(bound)
 		let boundedDurableRecord = durableRecord.map(bound)
 		window.settle(fast: fastRecord, durable: boundedDurableRecord)
 
@@ -261,7 +268,7 @@ final class FreeAccessAnchorService {
 		if record != settled { window.settle(fast: record, durable: record) }
 
 		if durableRecord != record { try? durableStore.saveRecord(record) }
-		if fastRecord != record { writeFastRecord(record) }
+		if storedFastRecord != record { writeFastRecord(record) }
 		return window
 	}
 
