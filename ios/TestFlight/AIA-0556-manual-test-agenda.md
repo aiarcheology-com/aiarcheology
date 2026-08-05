@@ -119,11 +119,23 @@ The money path. A failure here bills someone for a paywall.
 Turn `isFreeAccessPeriodEnabled` **off** in ConfigCat and cold-launch **twice** (the flag is
 launch-captured; the first launch still sees the old value).
 
+**Read this before running section I, or you will report a bug that is not one.**
+
+A brand-new install **always gets one window, even with the flag off in ConfigCat.** The flag is
+captured once at launch from the previous session's mirror, and a fresh install has no mirror — so
+it falls back to the compiled default, which is `true`. The first launch therefore predates any
+possible sync. This is the accepted limit of the switch, decided deliberately: the flag governs the
+existing install base, not new downloads. Erase the device, turn the flag off, launch, and you
+**will** see the soft paywall with Continue. That is correct.
+
+So criterion 8 is testable at the level of *the gate*, not at the level of *a fresh device*:
+
 | # | Do | Expect |
 |-|-|-|
-| I1 | Fresh install, flag off. | Hard paywall immediately. No Continue, no "14 days free", **no free-period copy of any kind**, including no billing-date line. |
+| I1 | An install that has **never been granted a window**, with the flag captured off — i.e. flag off in ConfigCat, then a **second** cold launch on a device where no window was ever opened. | Hard paywall. No Continue, no "14 days free", **no free-period copy of any kind**, including no billing-date line. |
 | I2 | A user already mid-window when the flag goes off. | Their window is **honoured to its natural expiry**. The flag stops new grants; it does not revoke days already promised. |
 | I3 | Settings → Subscription, flag off, not subscribed. | Unchanged from before this feature. |
+| I4 | Erase the device, flag off, first launch. | **Soft paywall with Continue — expected, not a bug.** See the note above. |
 
 ## J. Clock manipulation
 
