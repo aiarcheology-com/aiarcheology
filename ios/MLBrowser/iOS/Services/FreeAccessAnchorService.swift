@@ -215,7 +215,14 @@ final class FreeAccessAnchorService {
 			// and an unreadable Keychain is not a rare accident to wait for, it is a condition an
 			// attacker can arrange. The fast store is written because it is the one that is
 			// readable; the durable copy is left for a launch that can actually reach it.
-			guard let survivingFastRecord = loadFastRecord() else { return window }
+			guard let storedFastRecord = loadFastRecord() else { return window }
+			// Bounded here too: an unreadable Keychain is the one path where a forged fast record
+			// has no durable copy to be checked against, so it is the *most* important place for it.
+			let survivingFastRecord = FreeAccessWindow.credible(
+				storedFastRecord,
+				now: now(),
+				calendar: calendar
+			)
 			let repairedFastRecord = FreeAccessWindow.reanchoredIfGrantedInTheFuture(
 				survivingFastRecord,
 				now: now(),
@@ -227,8 +234,17 @@ final class FreeAccessAnchorService {
 			return window
 		}
 
-		let fastRecord = loadFastRecord()
-		window.settle(fast: fastRecord, durable: durableRecord)
+		// Bound every record as it comes out of storage, before anything can win on it. The fast
+		// copy is a plist and editable in an unencrypted backup; reconciliation prefers the earliest
+		// grant and then repairs the *other* store from the winner, so an unbounded fast record
+		// would not merely be honoured, it would be written into the Keychain as authoritative.
+		// See `FreeAccessWindow.credible(_:now:calendar:)`.
+		let bound = { (record: FreeAccessWindow.Record) in
+			FreeAccessWindow.credible(record, now: self.now(), calendar: self.calendar)
+		}
+		let fastRecord = loadFastRecord().map(bound)
+		let boundedDurableRecord = durableRecord.map(bound)
+		window.settle(fast: fastRecord, durable: boundedDurableRecord)
 
 		guard case let .granted(settled) = window.anchor else { return window }
 

@@ -247,6 +247,84 @@ struct FreeAccessWindow: Equatable, Sendable {
 	/// When both stores hold the same grant, the progress fields are merged in the conservative
 	/// direction — the higher monotonic floor, and a reminder counted as shown if either store
 	/// saw it — so a store disagreement can neither rewind the clamp nor re-nag the user.
+	/// The longest window any operator may configure, and therefore the longest a stored record may
+	/// claim.
+	///
+	/// A ceiling on the *thresholds*, not on the raw dates. The shipped window is 14 days and the
+	/// values are remote-configurable, so this leaves room to lengthen one deliberately while still
+	/// refusing a record that awards itself a year.
+	static let maxCredibleGrantDays = 60
+
+	/// Whether this app could actually have written `record`.
+	///
+	/// The test is reproduction, not shape: derive the thresholds the record implies, rebuild from
+	/// its own `grantedAt`, and require the frozen dates to come back **identical**. A record that
+	/// cannot be reproduced was not written here.
+	///
+	/// Checking shape instead — "expiry after grant, reminder in between, span under a ceiling" —
+	/// is what an earlier version of this did, and it is not a bound at all: a forger simply writes
+	/// a well-shaped record with a 399-day span and keeps every day of it. Reproduction leaves no
+	/// such room, because the only thing left to vary is the thresholds themselves, and those are
+	/// bounded by ``maxCredibleGrantDays``.
+	///
+	/// `now` matters because a grant cannot have happened in the future. That case is repaired
+	/// separately by ``reanchoredIfGrantedInTheFuture(_:now:calendar:)``, which re-anchors rather
+	/// than rebuilds; this only has to avoid *blessing* it in the meantime.
+	static func isCredible(_ record: Record, now: Date, calendar: Calendar) -> Bool {
+		guard record.grantedAt <= now.addingTimeInterval(futureGrantTolerance) else { return false }
+
+		let firstDay = calendar.startOfDay(for: record.grantedAt)
+		guard let grantDays = calendar.dateComponents([.day], from: firstDay, to: record.expiresAt).day,
+			  let reminderDay = calendar.dateComponents([.day], from: firstDay, to: record.reminderDueAt).day
+		else { return false }
+
+		// `grantDays == 0` is legitimate: it is what winding the feature down looks like, and it
+		// describes a window that expired the day it was granted. Rebuilding *that* into a standard
+		// fourteen days would turn switching the feature off into handing one out.
+		guard grantDays >= 0, grantDays <= maxCredibleGrantDays else { return false }
+		guard reminderDay >= 0, reminderDay <= grantDays else { return false }
+
+		let reproduced = Self.record(
+			grantedAt: record.grantedAt,
+			thresholds: FreeAccessThresholds(grantDays: grantDays, reminderOnDay: reminderDay),
+			calendar: calendar
+		)
+		return reproduced.expiresAt == record.expiresAt && reproduced.reminderDueAt == record.reminderDueAt
+	}
+
+	/// Rebuilds an unreproducible record's durations from its own grant date, leaving a credible one
+	/// exactly as it was.
+	///
+	/// This is the bound that makes earliest-grant-wins safe. Reconciliation prefers the earliest
+	/// `grantedAt` and then repairs the losing store from the winner — so a fast record, a plist
+	/// editable in an unencrypted backup, needs only an early grant date to win outright and an
+	/// inflated `expiresAt` to buy the access, and it would be written into the Keychain as
+	/// authoritative on the way past. The tie-break does not reach that; it governs an exact match.
+	///
+	/// Rebuilding rather than rejecting is deliberate. A rejected record leaves nothing anchored,
+	/// and nothing anchored means ``canGrant`` — so refusing a forgery would *reward* it with a
+	/// fresh window. Rebuilt, an early grant date yields the window that grant would really have
+	/// produced, which has usually long expired: the edit costs its author access instead.
+	///
+	/// **Honest residual, and it is not closed by this.** A forgery that stays inside
+	/// ``maxCredibleGrantDays`` is reproducible and therefore credible, so it keeps what it claims —
+	/// bounded at that many days, once, since each later forgery must be earlier still and the
+	/// horizon only ratchets down. Device-local storage cannot do better; #557 tracks the durable
+	/// answer.
+	static func credible(_ record: Record, now: Date, calendar: Calendar) -> Record {
+		guard isCredible(record, now: now, calendar: calendar) == false else { return record }
+		let rebuilt = Self.record(grantedAt: record.grantedAt, thresholds: .standard, calendar: calendar)
+		return Record(
+			grantedAt: record.grantedAt,
+			expiresAt: rebuilt.expiresAt,
+			reminderDueAt: rebuilt.reminderDueAt,
+			maxObservedDate: record.maxObservedDate,
+			reminderShown: record.reminderShown,
+			day0Shown: record.day0Shown,
+			expiryReported: record.expiryReported
+		)
+	}
+
 	static func reconcile(fast: Record?, durable: Record?) -> Record? {
 		guard let fast else { return durable }
 		guard let durable else { return fast }
@@ -335,6 +413,10 @@ struct FreeAccessWindow: Equatable, Sendable {
 	}
 
 	/// Settles the reconciliation gate with the result of reading **both** stores.
+	/// Settles the reconciliation gate with the result of reading **both** stores.
+	///
+	/// Records must already have passed ``credible(_:now:calendar:)`` — `FreeAccessAnchorService`
+	/// applies it as each store is read, which is the only place storage is ever loaded.
 	mutating func settle(fast: Record?, durable: Record?) {
 		if let record = Self.reconcile(fast: fast, durable: durable) {
 			anchor = .granted(record)

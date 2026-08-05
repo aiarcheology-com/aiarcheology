@@ -534,6 +534,107 @@ final class FreeAccessWindowTests: XCTestCase {
 		XCTAssertNil(reinstalled.markExpiryReported(), "a reinstall re-reported one window's expiry")
 	}
 
+	// MARK: - An edited record cannot buy access
+
+	/// The attack the tie-break alone does not reach: an early `grantedAt` wins outright under
+	/// earliest-wins, so no tie is needed — and reconciliation then repairs the durable store from
+	/// the winner, writing the forgery into the Keychain as authoritative.
+	func testCredible_whenARecordClaimsMoreThanAnyOperatorCouldConfigure_rebuildsItFromItsOwnGrant() throws {
+		let now = try date(2026, 3, 2)
+		let forged = FreeAccessWindow.Record(
+			grantedAt: try XCTUnwrap(calendar.date(byAdding: .year, value: -1, to: now)),
+			expiresAt: try XCTUnwrap(calendar.date(byAdding: .year, value: 10, to: now)),
+			reminderDueAt: now,
+			maxObservedDate: now,
+			reminderShown: false,
+			day0Shown: false
+		)
+
+		let bounded = FreeAccessWindow.credible(forged, now: now, calendar: calendar)
+
+		var window = FreeAccessWindow(calendar: calendar)
+		window.settle(fast: bounded, durable: nil)
+		XCTAssertEqual(window.phase(at: now), .expired, "an edited record bought access")
+	}
+
+	/// The test that actually pins "leaves a credible record alone".
+	///
+	/// Deliberately **not** a `.standard` record: the rebuild also uses `.standard`, so on that
+	/// input the repair is the identity function and the assertion would hold even if every record
+	/// were being rewritten. A reproducible non-standard window is the only input that can tell the
+	/// difference.
+	func testCredible_withAReproducibleNonStandardRecord_leavesItsFrozenDatesExactlyAsTheyWere() throws {
+		let grantDate = try date(2026, 3, 2)
+		let thresholds = FreeAccessThresholds(grantDays: 30, reminderOnDay: 15)
+		let honest = FreeAccessWindow.record(grantedAt: grantDate, thresholds: thresholds, calendar: calendar)
+
+		let bounded = FreeAccessWindow.credible(honest, now: try day(3, after: grantDate), calendar: calendar)
+
+		XCTAssertEqual(bounded.expiresAt, honest.expiresAt, "a 30-day window was silently rewritten to 14")
+		XCTAssertEqual(bounded.reminderDueAt, honest.reminderDueAt)
+	}
+
+	/// Winding the feature down must not hand out a window. `grantDays: 0` describes one that
+	/// expired the day it was granted; rebuilding that into the standard fourteen days would turn
+	/// switching the feature off into switching it on.
+	func testCredible_withAZeroDayWindow_leavesItExpiredRatherThanGrantingFourteen() throws {
+		let grantDate = try date(2026, 3, 2)
+		let wound = FreeAccessWindow.record(
+			grantedAt: grantDate,
+			thresholds: FreeAccessThresholds(grantDays: 0, reminderOnDay: 0),
+			calendar: calendar
+		)
+
+		let bounded = FreeAccessWindow.credible(wound, now: grantDate, calendar: calendar)
+
+		var window = FreeAccessWindow(calendar: calendar)
+		window.settle(fast: bounded, durable: nil)
+		XCTAssertEqual(window.phase(at: grantDate), .expired, "winding the window down granted one")
+	}
+
+	/// A reminder on day 0 is legitimate, and every honest record written under it has
+	/// `reminderDueAt` at the start of the grant day — i.e. *before* `grantedAt` for any grant not
+	/// made at midnight. A bound comparing those two directly would reject all of them.
+	func testCredible_whenTheReminderFallsOnTheGrantDay_doesNotRewriteHonestRecords() throws {
+		let grantDate = try date(2026, 3, 2, hour: 18)
+		let honest = FreeAccessWindow.record(
+			grantedAt: grantDate,
+			thresholds: FreeAccessThresholds(grantDays: 14, reminderOnDay: 0),
+			calendar: calendar
+		)
+
+		let bounded = FreeAccessWindow.credible(honest, now: grantDate, calendar: calendar)
+
+		XCTAssertEqual(bounded.reminderDueAt, honest.reminderDueAt)
+		XCTAssertEqual(bounded.expiresAt, honest.expiresAt)
+	}
+
+	/// Where the ceiling actually sits, which the decade-long forgery above cannot show.
+	func testCredible_atTheThresholdCeiling_keepsTheLimitAndRebuildsBeyondIt() throws {
+		let grantDate = try date(2026, 3, 2)
+		let atLimit = FreeAccessWindow.record(
+			grantedAt: grantDate,
+			thresholds: FreeAccessThresholds(grantDays: FreeAccessWindow.maxCredibleGrantDays, reminderOnDay: 7),
+			calendar: calendar
+		)
+		let overLimit = FreeAccessWindow.record(
+			grantedAt: grantDate,
+			thresholds: FreeAccessThresholds(grantDays: FreeAccessWindow.maxCredibleGrantDays + 1, reminderOnDay: 7),
+			calendar: calendar
+		)
+
+		XCTAssertEqual(
+			FreeAccessWindow.credible(atLimit, now: grantDate, calendar: calendar).expiresAt,
+			atLimit.expiresAt,
+			"the ceiling itself must be allowed"
+		)
+		XCTAssertNotEqual(
+			FreeAccessWindow.credible(overLimit, now: grantDate, calendar: calendar).expiresAt,
+			overLimit.expiresAt,
+			"a window past the ceiling was honoured"
+		)
+	}
+
 	/// The fast store is a plain plist and editable in an unencrypted backup; the Keychain copy is
 	/// not. On an exact `grantedAt` tie the durable record must win, or an inflated `expiresAt`
 	/// would both take effect and be written back over the durable store by the reconciliation
