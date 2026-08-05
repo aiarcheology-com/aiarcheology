@@ -644,20 +644,15 @@ struct PaywallView: View {
 
 	/// Builds a ZIP of every saved finding and hands it to the share sheet — **without** deleting.
 	///
-	/// The payload is handed over one beat after the confirmation dialog has finished dismissing:
-	/// a fast export (a single finding) would otherwise present while the dialog is still going
-	/// down, which is a silent no-op that drops the share sheet entirely (AIA-0402).
+	/// ``FindingsEscapeHatch`` owns the build and returns only once the confirmation dialog has
+	/// finished dismissing, so the payload can never present into a dismissing presenter (AIA-0402).
 	private func exportFindings() {
 		guard let findingRepository else { return }
-		let snapshots = findingRepository.allFindingSnapshots()
 		isExportingFindings = true
 		Task {
 			defer { isExportingFindings = false }
 			do {
-				let url = try await Task.detached(priority: .userInitiated) {
-					try FindingExporter.makeZip(from: snapshots)
-				}.value
-				try? await Task.sleep(for: .milliseconds(500))
+				let url = try await FindingsEscapeHatch.makeShareableZip(from: findingRepository)
 				findingsSharePayload = ActivitySharePayload(items: [url])
 			} catch {
 				LoggingPolicy.error("Failed to export findings from the paywall", error: error, logger: .storage)

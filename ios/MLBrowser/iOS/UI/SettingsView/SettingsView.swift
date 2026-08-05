@@ -403,21 +403,17 @@ struct SettingsForm: View {
 		}
 	}
 
-	/// Builds a ZIP of all findings and hands it to the share sheet — WITHOUT deleting. The zip is
-	/// built detached; the payload is handed to the presenter one beat AFTER the confirmation dialog
+	/// Builds a ZIP of all findings and hands it to the share sheet — WITHOUT deleting.
+	///
+	/// ``FindingsEscapeHatch`` owns the detached build and returns only AFTER the confirmation alert
 	/// has finished dismissing, so a fast (e.g. single-finding) export cannot hit the
 	/// "present while dismissing" no-op that would silently drop the share sheet (AIA-0402).
 	private func exportFindingsBeforeRemoval() {
-		let snapshots = findingRepository.allFindingSnapshots()
 		isExportingFindings = true
 		Task {
 			defer { isExportingFindings = false }
 			do {
-				let url = try await Task.detached(priority: .userInitiated) {
-					try FindingExporter.makeZip(from: snapshots)
-				}.value
-				// Outlast the confirmation alert's dismissal animation before presenting (AIA-0402).
-				try? await Task.sleep(for: .milliseconds(500))
+				let url = try await FindingsEscapeHatch.makeShareableZip(from: findingRepository)
 				findingsSharePayload = ActivitySharePayload(items: [url])
 			} catch {
 				LoggingPolicy.error("Failed to export findings before removal", error: error, logger: .storage)
