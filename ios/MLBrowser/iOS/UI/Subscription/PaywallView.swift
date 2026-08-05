@@ -752,6 +752,10 @@ struct PaywallView: View {
 					.font(.footnote)
 					.foregroundStyle(.secondary)
 					.multilineTextAlignment(.center)
+					// This sentence embeds the price too, so it needs the spoken form for the
+					// same reason the price above does — otherwise an eligible user hears
+					// "then $3.99 slash month" and only an ineligible one is spared it.
+					.accessibilityLabel(Self.spokenFreeTrialText(for: product) ?? trial)
 			}
 
 			if showsBillingEstimate {
@@ -896,6 +900,14 @@ struct PaywallView: View {
 		guard let offer = product.subscription?.introductoryOffer,
 			  offer.paymentMode == .freeTrial else { return nil }
 		return L10n.Paywall.trialFormat(offer.period.localizedDescription, product.localizedPriceWithTerm)
+	}
+
+	/// ``freeTrialText(for:)`` for VoiceOver: same sentence, "per month" instead of a slash.
+	/// Same format string, so the two can only ever differ in that one substitution.
+	private static func spokenFreeTrialText(for product: Product) -> String? {
+		guard let offer = product.subscription?.introductoryOffer,
+			  offer.paymentMode == .freeTrial else { return nil }
+		return L10n.Paywall.trialFormat(offer.period.localizedDescription, product.spokenPriceWithTerm)
 	}
 }
 

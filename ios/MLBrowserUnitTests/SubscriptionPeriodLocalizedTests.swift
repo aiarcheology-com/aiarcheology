@@ -89,9 +89,13 @@ final class SubscriptionPeriodLocalizedTests: XCTestCase {
 		)
 	}
 
-	/// The separator is the catalog's, not the code's, so a translator can move or replace it.
-	/// Asserting against `planTerm` rather than a literal " / " is what keeps that true.
-	func test_priceTerm_joinsWithTheLocalizedPattern_notAHardcodedSeparator() {
+	/// The composed string is exactly the catalog's pattern filled in, in that argument order.
+	///
+	/// Note what this does **not** prove: with the English pattern being "%1$@ / %2$@", a
+	/// hardcoded `"\(price) / \(term)"` would satisfy it too. It catches a wrong argument order or
+	/// a lost placeholder, not a bypassed catalog — only a second localization could do that, and
+	/// the catalog has one language today.
+	func test_priceTerm_matchesTheCatalogPatternFilledIn() {
 		XCTAssertEqual(
 			Product.SubscriptionPeriod.priceTerm(price: "$3.99", unit: .month, value: 1),
 			L10n.Subscription.planTerm("$3.99", L10n.Subscription.Period.month)

@@ -44,8 +44,15 @@ period that Apple knows nothing about:
 2. **The StoreKit introductory offer — 2 weeks free.** Apple's trial, consumed per Apple Account
    when the user actually subscribes.
 
-They stack: a new user gets 14 days of the app, and subscribing at the end still starts the 2-week
-trial before the first charge. That is what `settings.subscription.freeAccessFootnote` tells them.
+They stack **only for an Apple Account that has not already used the group's introductory offer**.
+A first-time user gets 14 days of the app and then, on subscribing, the 2-week trial before the
+first charge — 28 days total. Someone who trialled this subscription before (on any install) is
+charged the moment they subscribe, and the paywall says so: it checks `introOfferEligibility` and
+swaps the trial line for `paywall.billing.immediate`.
+
+The runbook spells this out because the copy does not. `settings.subscription.freeAccessFootnote`
+promises the extra 2-week trial **unconditionally**, which is wrong for a returning user — tracked
+with the rest of the free-period wording in #562.
 
 ## Pricing & trial decisions (rationale)
 
@@ -85,7 +92,8 @@ $3.99/mo to keep using it.
   (compiled default ON), captured **once at launch**: the gate is the app root, so a mid-session
   flip must not drop a paywall on someone mid-detection.
 - **Naming:** the user-facing product is **"ML Browser"** (the app name; "AI Archeology" is the
-  project/org). Group, subscription display name and reference name all say ML Browser in ASC; the
+  project/org). In ASC the group and the subscription display name are both "ML Browser"; the
+  internal reference name stays "ML Browser Monthly" (it is never shown to a user); the
   paywall title and `Configuration.storekit` match. Product ID stays
   `com.aiarcheology.premium.monthly` (permanent identifier — can't change).
 

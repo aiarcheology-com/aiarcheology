@@ -82,7 +82,8 @@ protocol AuthProviding {
 /// scope, not because anything is waiting on it to render.
 @MainActor
 final class AuthState: ObservableObject {
-    /// The current gate. Views branch on this to pick the root screen.
+    /// The current gate. Nothing branches on this to pick a root screen any more (AIA-0536) —
+    /// views read it to decide which *account controls* to offer, and analytics to pick a scope.
     @Published private(set) var gate: AuthGate = .checkingSession
 
     /// The signed-in account, or `nil` when signed out (AIA-0437).

@@ -61,6 +61,12 @@ extension Product.SubscriptionPeriod {
 	/// Separate from ``localizedTerm`` so the join lives in one place: this exact string is both
 	/// what Settings calls the current plan and what App Review 3.1.2 requires the sign-up screen
 	/// to state. Two implementations could drift, and the direction that drifts is a rejection.
+	///
+	/// Known limit: a `Unit` Apple has not shipped yet falls through ``localizedTerm`` to the
+	/// count form, which renders any unknown unit as **days**. That is inherited from AIA-0354 and
+	/// harmless in Settings, but it would misstate a billing period on the purchase screen. If
+	/// StoreKit ever adds a unit, this is the line that has to be revisited before the next
+	/// submission.
 	static func priceTerm(price: String, unit: Unit, value: Int) -> String {
 		L10n.Subscription.planTerm(price, localizedTerm(unit: unit, value: value))
 	}
