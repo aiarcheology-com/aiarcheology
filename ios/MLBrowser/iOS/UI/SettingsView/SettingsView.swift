@@ -25,6 +25,13 @@ struct SettingsForm: View {
 	/// order, so signed-out is a state Settings must render rather than one it can assume away.
 	@ObservedObject var authState: AuthState
 
+	/// When the app-managed free window runs out, or `nil` when none is open (AIA-0556).
+	///
+	/// A plain `Date?` rather than the whole `FreeAccessState`: Settings only needs to state the
+	/// date, and it cannot change while this sheet is up — the expiry is frozen at grant. Passed by
+	/// initializer for the same reason `findingRepository` is.
+	var freeAccessEndsOn: Date?
+
 	@Environment(\.dismiss) private var dismiss
 	@Environment(DrawerManager.self) private var drawer
 	@Environment(TourState.self) private var tour
@@ -42,6 +49,9 @@ struct SettingsForm: View {
 
 	/// Contextual sign-in, offered from the account section when signed out (AIA-0536).
 	@State private var showSignIn = false
+
+	/// The paywall, opened from the Subscription row while nothing is owned (AIA-0556).
+	@State private var showPaywall = false
 	@FocusState private var isHistoryLimitFocused: Bool
 	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
 	@State private var accountPath: NavigationPath
@@ -52,9 +62,15 @@ struct SettingsForm: View {
 	/// A path the stack is born with has no timing to lose. A `Bool` rather than the route because
 	/// `AccountRoute` is private to this file; the *validity* guards (validated account, real auth)
 	/// live with the caller, which is the only party that can consult them at tap time.
-	init(findingRepository: FindingRepository, authState: AuthState, startAtManageAccount: Bool = false) {
+	init(
+		findingRepository: FindingRepository,
+		authState: AuthState,
+		freeAccessEndsOn: Date? = nil,
+		startAtManageAccount: Bool = false
+	) {
 		self.findingRepository = findingRepository
 		self._authState = ObservedObject(wrappedValue: authState)
+		self.freeAccessEndsOn = freeAccessEndsOn
 		var path = NavigationPath()
 		if startAtManageAccount { path.append(AccountRoute.profile) }
 		self._accountPath = State(initialValue: path)
@@ -159,6 +175,18 @@ struct SettingsForm: View {
 					// re-injection (AGENTS.md §3). Without it the value falls back to `false` on Mac
 					// and the sign-in button silently does nothing — the mock path has no configured
 					// Clerk instance, so `SignInSheet` refuses to present rather than trapping.
+					.environment(\.usesRealAuth, usesRealAuth)
+			}
+			// Subscribing from the Subscription row (AIA-0556). `isRootGate: false` and no
+			// `continueAction`: this is not a gate, so there is nothing to continue past and
+			// dismissal is the sheet's own — which keeps the screen develop's paywall exactly,
+			// down to the copy (acceptance criterion 8). No `authState` either: sign-out and
+			// account deletion live in the Clerk profile one row below.
+			.sheet(isPresented: $showPaywall) {
+				PaywallView(subscriptionState: subscriptionState, analytics: analytics)
+					// A second sheet boundary, like the sign-in sheet above: custom environment
+					// values do not reliably cross one on Mac (AGENTS.md §3), and the paywall reads
+					// this to decide whether its own sign-in sheet may build Clerk's view.
 					.environment(\.usesRealAuth, usesRealAuth)
 			}
 			// Signing out from inside Clerk's embedded profile dismisses the whole Settings sheet
@@ -388,21 +416,17 @@ struct SettingsForm: View {
 		}
 	}
 
-	/// Builds a ZIP of all findings and hands it to the share sheet — WITHOUT deleting. The zip is
-	/// built detached; the payload is handed to the presenter one beat AFTER the confirmation dialog
+	/// Builds a ZIP of all findings and hands it to the share sheet — WITHOUT deleting.
+	///
+	/// ``FindingsEscapeHatch`` owns the detached build and returns only AFTER the confirmation alert
 	/// has finished dismissing, so a fast (e.g. single-finding) export cannot hit the
 	/// "present while dismissing" no-op that would silently drop the share sheet (AIA-0402).
 	private func exportFindingsBeforeRemoval() {
-		let snapshots = findingRepository.allFindingSnapshots()
 		isExportingFindings = true
 		Task {
 			defer { isExportingFindings = false }
 			do {
-				let url = try await Task.detached(priority: .userInitiated) {
-					try FindingExporter.makeZip(from: snapshots)
-				}.value
-				// Outlast the confirmation alert's dismissal animation before presenting (AIA-0402).
-				try? await Task.sleep(for: .milliseconds(500))
+				let url = try await FindingsEscapeHatch.makeShareableZip(from: findingRepository)
 				findingsSharePayload = ActivitySharePayload(items: [url])
 			} catch {
 				LoggingPolicy.error("Failed to export findings before removal", error: error, logger: .storage)
@@ -482,8 +506,36 @@ struct SettingsForm: View {
 	/// Account management (AIA-0340). "Manage Account" opens Clerk's prebuilt
 	/// `UserProfileView`, which handles change password, email, security/MFA,
 	/// devices, and the App Store-required account deletion (Apple 5.1.1(v)).
+	/// The one line under the account block that says what the user is currently paying, or not
+	/// (AIA-0556). `nil` renders no footer at all.
+	///
+	/// Two free periods run through this app and they are easy to confuse, which is the whole reason
+	/// this exists. The app-managed window is free *usage*: no subscription, no card, measured from
+	/// install. Apple's introductory offer is a free *trial*: it belongs to a subscription, needs a
+	/// payment method, and is measured from the purchase. The two never show together — the first is
+	/// only reachable while unsubscribed, the second only once subscribed — so each line can state
+	/// its own terms without hedging about the other.
+	private var subscriptionFootnote: String? {
+		guard subscriptionState.isPaymentsSurfaceEnabled else { return nil }
+		if subscriptionState.isSubscribed {
+			guard subscriptionState.isInTrial, let ends = subscriptionState.currentExpirationDate else { return nil }
+			return L10n.Settings.Subscription.trialFootnote(ends.formatted(date: .abbreviated, time: .omitted))
+		}
+		guard let freeAccessEndsOn else { return nil }
+		return L10n.Settings.Subscription.freeAccessFootnote(
+			freeAccessEndsOn.formatted(date: .abbreviated, time: .omitted)
+		)
+	}
+
 	private var accountSection: some View {
-		Section(header: Text(L10n.Auth.Account.title)) {
+		// The footer restates `.secondary` because this whole section is wrapped in
+		// `.foregroundColor(.primary)` below, which a footer would otherwise inherit — rendering it
+		// in body text while every other Settings footer stays grey. Set on the leaf so the
+		// section-wide modifier still governs the rows it was added for.
+		Section(
+			header: Text(L10n.Auth.Account.title),
+			footer: subscriptionFootnote.map { Text($0).foregroundStyle(.secondary) }
+		) {
 			// Signed out is a first-class state now (AIA-0536): the app is usable without an
 			// account, so Settings offers sign-in instead of assuming it already happened.
 			if case .anonymous = authState.effectiveContext {
@@ -531,13 +583,30 @@ struct SettingsForm: View {
 					}
 				}
 				.testability(Testability.NavigationLink.settingsSubscription)
+			} else if subscriptionState.isPaymentsSurfaceEnabled {
+				// Payments on but nothing owned. Before AIA-0556 this was an inert `HStack` and
+				// there was no way to subscribe from Settings at all — which only became a problem
+				// once the free-access window let an unentitled user reach Settings in the first
+				// place. Same row, same detail text; it just does something now.
+				Button {
+					showPaywall = true
+				} label: {
+					HStack {
+						Text(L10n.Auth.Account.subscription)
+						Spacer()
+						// "Not subscribed" also covers a lapse/refund before the gate refreshes.
+						Text(L10n.Subscription.notSubscribed)
+							.foregroundColor(.secondary)
+					}
+				}
+				.testability(Testability.Button.settingsUpgrade)
 			} else {
+				// Payments off: the "Free Beta" row stays exactly as it was. There is no gate to be
+				// let through and no product to buy, so tapping it could only lead nowhere.
 				HStack {
 					Text(L10n.Auth.Account.subscription)
 					Spacer()
-					// Payments on but no entitlement (e.g. a lapse/refund before the gate
-					// refreshes) → "Not subscribed". Payments off → the "Free Beta" label.
-					Text(subscriptionState.isPaymentsSurfaceEnabled ? L10n.Subscription.notSubscribed : L10n.Auth.Account.freeBeta)
+					Text(L10n.Auth.Account.freeBeta)
 						.foregroundColor(.secondary)
 				}
 			}

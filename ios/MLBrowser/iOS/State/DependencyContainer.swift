@@ -143,6 +143,52 @@ class DependencyContainer {
     /// the container must not be what keeps it alive.
     private weak var taggingAuthState: AuthState?
 
+    // MARK: - Free-access period (AIA-0556)
+
+    /// The durable half of the free-access anchor.
+    ///
+    /// Tests and previews get the ephemeral store, for a reason specific to this feature: the
+    /// Keychain item deliberately outlives app deletion *and* `simctl erase`, while `Settings.init()`
+    /// wipes the UI-test defaults suite on every launch. A UI test that granted a window would
+    /// otherwise leave behind a durable anchor no later run could clear, permanently poisoning every
+    /// "fresh install" path on that simulator. `#if DEBUG` like `authProvider`'s mock: the markers
+    /// that select it are launch-controlled, so keeping the type out of shipping binaries is what
+    /// actually guarantees a Release build reaches the Keychain.
+    lazy var freeAccessDurableStore: FreeAccessAnchorDurableStore = {
+        #if DEBUG
+        if AppEnvironment.isRunningUITests
+            || AppEnvironment.isRunningUnderAnyTests
+            || AppEnvironment.isRunningInPreviews {
+            return EphemeralFreeAccessAnchorStore()
+        }
+        #endif
+        return KeychainFreeAccessAnchorService()
+    }()
+
+    lazy var freeAccessAnchorService: FreeAccessAnchorService = {
+        FreeAccessAnchorService(
+            // The store `Settings` actually resolved to, never `.standard`: under UI testing
+            // `Settings` moves to an ephemeral suite, and the fast half of the anchor has to land
+            // where the rest of the app is looking.
+            defaults: self.settings.persistenceStore,
+            durableStore: self.freeAccessDurableStore
+        )
+    }()
+
+    lazy var freeAccessState: FreeAccessState = {
+        FreeAccessState(
+            service: self.freeAccessAnchorService,
+            // Session-boundary capture like `isPaymentsEnabled` (AIA-0350), resolved through the
+            // launch mirror rather than the unsynced snapshot (AIA-0513). It gates granting only:
+            // a window already open is honoured to its natural expiry whatever the flag later says.
+            isFreeAccessPeriodEnabled: self.launchCapturedFlag(.isFreeAccessPeriodEnabled),
+            // The free-access funnel (AIA-0556). A grant and an expiry have no screen to report
+            // them from, so the state that decides both is what emits them.
+            analytics: self.analyticsState,
+            foregroundNotification: UIApplication.willEnterForegroundNotification
+        )
+    }()
+
     /// Remote feature flags (AIA-0350). Tests and previews never reach ConfigCat, and a
     /// missing/empty SDK key degrades to the compiled defaults rather than failing launch.
     ///
@@ -174,7 +220,15 @@ class DependencyContainer {
         // qualifies — so without this every unrelated UI test would stop at the consent gate.
         // Tests that mean to exercise the account-scoped path override it explicitly, and the
         // loop below lets any explicit value win.
-        var overrides: [FeatureFlagKey: Bool] = [.isCrossDeviceAnalyticsIdentityEnabled: false]
+        //
+        // `isFreeAccessPeriodEnabled` is baselined off for the same reason (AIA-0556). It defaults
+        // *on*, so without this every test that launches `-mockSubscription notSubscribed` to reach
+        // the paywall would be handed a 14-day window and land in the app instead — the paywall
+        // suites would pass while asserting nothing. Free-access scenarios override it explicitly.
+        var overrides: [FeatureFlagKey: Bool] = [
+            .isCrossDeviceAnalyticsIdentityEnabled: false,
+            .isFreeAccessPeriodEnabled: false
+        ]
         guard let raw = UITestLaunchConfiguration.fromEnvironment?.featureFlagOverrides else { return overrides }
         for (key, value) in raw {
             guard let flag = FeatureFlagKey(rawValue: key) else {
@@ -424,6 +478,7 @@ class DependencyContainer {
 			detection: detection,
 			browser: browser,
 			account: account,
+			freeAccess: freeAccessState,
 			featureFlags: featureFlagsState,
 			analytics: analyticsState,
 			reviewPrompt: reviewPromptCoordinator,

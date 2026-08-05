@@ -147,6 +147,35 @@ final class SettingsTests: XCTestCase {
 		XCTAssertNil(Settings().screenshotDetectionEnabled)
 	}
 
+	/// "Restore Defaults" must never be a way to earn another free-access window (AIA-0556).
+	///
+	/// A regression guard rather than a behaviour test: `reset()` clears only the keys it names, so
+	/// this fails the moment the anchor is added to that list — which is exactly the change that
+	/// would let a walled user tap Restore Defaults for another 14 days, repeatably.
+	func test_reset_doesNotClearFreeAccessAnchor() throws {
+		let record = FreeAccessWindow.record(grantedAt: Date(), thresholds: .standard, calendar: .current)
+		let encoded = try JSONEncoder().encode(record)
+		UserDefaults.standard.set(encoded, forKey: FreeAccessAnchorService.defaultsKey)
+		addTeardownBlock {
+			UserDefaults.standard.removeObject(forKey: FreeAccessAnchorService.defaultsKey)
+		}
+
+		settings.reset()
+
+		XCTAssertEqual(UserDefaults.standard.data(forKey: FreeAccessAnchorService.defaultsKey), encoded)
+	}
+
+	/// The expiry event marks a stage, not a launch. It is re-observed on every launch after day 14,
+	/// so if Restore Defaults cleared it the funnel would count "windows expired" once per launch
+	/// for the rest of the install's life.
+	func test_reset_doesNotClearFreeAccessExpiryReportedMarker() {
+		settings.analyticsFreeAccessExpiryReported = true
+
+		settings.reset()
+
+		XCTAssertTrue(settings.analyticsFreeAccessExpiryReported)
+	}
+
 	func testSettings_ScreenshotDetectionMigratesTheLegacyExplicitDecline() {
 		settings.reset()
 		UserDefaults.standard.set(true, forKey: "supportPromptDeclined")

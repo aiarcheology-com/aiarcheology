@@ -464,6 +464,28 @@ final class NativeModelGraphPackageTests: XCTestCase {
 		XCTAssertFalse(FileManager.default.fileExists(atPath: modelURL.path))
 	}
 
+	/// Waits until the process-wide gate actually holds `count` queued jobs.
+	///
+	/// Bounded so a broken seam fails fast with something readable rather than spinning to the
+	/// xcodebuild timeout. `Task.yield()` rather than a sleep: the jobs being waited on are hopping
+	/// to an actor, and yielding gives the cooperative pool the chance to run them.
+	private func awaitQueuedJobCount(
+		_ count: Int,
+		timeout: TimeInterval = 5,
+		file: StaticString = #filePath,
+		line: UInt = #line
+	) async {
+		let deadline = Date().addingTimeInterval(timeout)
+		while await NativeModelConverter.queuedJobCountForTesting() != count {
+			if Date() > deadline {
+				let actual = await NativeModelConverter.queuedJobCountForTesting()
+				XCTFail("expected \(count) queued job(s), found \(actual)", file: file, line: line)
+				return
+			}
+			await Task.yield()
+		}
+	}
+
 	func testConvert_serializesProcessWideJobsInFIFOOrder() async throws {
 		let packageURL = try makePackage(graph: makeTwoReLUGraph(), weights: Data())
 		defer { try? FileManager.default.removeItem(at: packageURL) }
@@ -507,6 +529,12 @@ final class NativeModelGraphPackageTests: XCTestCase {
 			}
 		}
 		XCTAssertEqual(secondQueued.wait(timeout: .now() + 5), .success)
+		// `secondQueued` fires from the progress callback, which runs *before* the job awaits the
+		// gate — so it proves the job started, not that it holds a queue slot. Launching the third
+		// job on that signal alone races the actor hop between the two, and Swift orders contending
+		// hops from different tasks arbitrarily: the third could enqueue first, run first on
+		// release, and fail the ordering assertions below in milliseconds. Wait for the queue itself.
+		await awaitQueuedJobCount(1)
 
 		let third = Task {
 			try await NativeModelConverter().convert(from: packageURL, to: thirdModelURL) { update in
@@ -517,6 +545,8 @@ final class NativeModelGraphPackageTests: XCTestCase {
 			}
 		}
 		XCTAssertEqual(thirdQueued.wait(timeout: .now() + 5), .success)
+		// Same reason: both must be *in* the queue before its order can be asserted.
+		await awaitQueuedJobCount(2)
 		XCTAssertEqual(secondProgress.values.map(\.phase), [.waitingForExclusiveAccess])
 		XCTAssertEqual(thirdProgress.values.map(\.phase), [.waitingForExclusiveAccess])
 

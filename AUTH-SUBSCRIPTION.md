@@ -17,11 +17,53 @@ on-device.** Everything surprising below follows from those two scopes diverging
 `SubscriptionGateView` → `AnalyticsChoiceGate` → `ContentView`
 (`ios/MLBrowser/iOS/UI/MLBrowser.swift`).
 
-**Entitlement is the gate; signing in is not** (AIA-0536, implementing the #543 decision). The auth
-gate used to be outermost, so nothing — not even the paywall — was reachable while signed out. That
-inverted: a sign-in wall in front of an app nobody has tried yet is both the larger 5.1.1(v) risk and
-the worse ask. Sign-in is now a **sheet** (`SignInSheet`) offered from four places: the paywall, the
-drawer, Settings, and once after a finding is saved.
+**Signing in is not the gate** (AIA-0536, implementing the #543 decision). The auth gate used to be
+outermost, so nothing — not even the paywall — was reachable while signed out. That inverted: a
+sign-in wall in front of an app nobody has tried yet is both the larger 5.1.1(v) risk and the worse
+ask. Sign-in is now a **sheet** (`SignInSheet`) offered from four places: the paywall, the drawer,
+Settings, and once after a finding is saved.
+
+**Entitlement is not the only thing that opens it either** (AIA-0556). Access is
+
+```
+payments surface off  ||  StoreKit entitled  ||  app-managed free window open
+```
+
+evaluated in exactly that order by `RootGateDisplay.resolve(...)`, which is where the contract lives
+rather than in the view. The order is the part that costs money if it regresses: entitlement is
+answered **before** the window is consulted and does not consult it at all, so a user who subscribes
+on day 13 of their free window is not walled on day 14 when it runs out underneath them.
+
+The window is a **14-day app-managed free-access period** anchored at the first launch on which
+payments are live, mirrored into the Keychain so delete-and-reinstall resumes it rather than
+restarting it. `FeatureFlagKey.isFreeAccessPeriodEnabled` gates **granting** only — a window already
+open is honoured to its natural expiry whatever the flag later reads — so turning the flag off stops
+new windows without revoking days anybody was already promised. See `FreeAccessWindow`,
+`FreeAccessAnchorService`, `FreeAccessState`.
+
+**What the anchor does and does not survive**, since the Keychain invites overconfidence. It outlives
+app deletion, which is the whole point, and it travels in an encrypted backup or a device-to-device
+transfer — so replacing a phone mid-window resumes it, and replacing one after the window is spent
+does not hand out a second. It is *not* `…ThisDeviceOnly`, deliberately: that variant would make a
+hardware upgrade a reliable way to farm another fortnight. It does not sync sideways to a second
+device the user is holding, so a genuine second device gets its own window (out of scope, per the
+ticket). And it does not survive a device wiped and set up as new, nor a restore from a backup taken
+*before* the grant. Those are the accepted device-local limits; closing them needs an authority the
+device does not have — see #557.
+
+A grant stamped in the **future** is repaired rather than honoured. Dating the device forward before
+the first launch would otherwise be permanent: the monotonic floor that stops a rollback rewinding a
+window is exactly what would hold a forged one open until real time caught up. Reconciliation
+re-anchors such a record to now, carrying its frozen duration across.
+
+Two things follow that are easy to get wrong:
+
+- **Expiry covers, it never replaces.** A window running out mid-session lays the paywall *over* the
+  app rather than swapping the root, because swapping it destroys the `WKWebView` and with it the
+  loaded page, the scroll position and the history.
+- **An unreconciled anchor is not a refusal.** Until both anchor stores have answered, the gate
+  renders neither side. Reading "no anchor yet" as "wall this user" would flash the paywall at every
+  valid mid-window user on every launch, for as long as the Keychain took to reply.
 
 `AuthState` is still driven, by `.authLifecycle()` applied above the gate — consent scoping, purchase
 tagging and the account UI all need to know who is signed in. It just no longer decides whether the
@@ -29,39 +71,60 @@ app renders. Those four lifecycle pieces (`start()`, foreground re-validation, t
 `ClerkSessionWatcher`, **and its Clerk environment injection**) must stay together: the watcher reads
 the environment, so separating them leaves it mounted and inert with nothing failing to show it.
 
-Analytics consent is innermost — asked after the paywall, of every entitled user, anonymous included.
+Analytics consent is innermost — asked after the paywall, of every user who reaches the app,
+anonymous included. It is *deferred*, never skipped, while a window granted on this launch has not
+yet been explained by its day-0 paywall: the gate is nested inside `SubscriptionGateView` and
+replaces its content full-screen while consent is `.ask`, so without the deferral "Enable analytics?"
+would be the first screen of a brand-new install and the onboarding tour would never mount. The
+intended first run is tour → paywall → consent.
 
 Two modifiers sit *above* the gate: the screenshot problem-reporter and the app-message banner, so a
-user on the paywall can still report a bug and still receive a message.
+user on the paywall can still report a bug and still receive a message. The banner's surface resolver
+takes the window state for this reason — a free-window user is unsubscribed but is sitting in the
+app, not on the paywall, so `.paywall`-targeted messages must not fire at them as banners.
 
 ## State table
 
-Axes: `isReady` × payments flag × entitlement × auth context. Auth no longer gates, so it appears
-only where it changes what is *shown*, not whether anything is.
+Axes: `isReady` × payments flag × entitlement × free-access window × auth context. Auth no longer
+gates, so it appears only where it changes what is *shown*, not whether anything is; the window
+column reads "any" wherever entitlement has already settled the answer.
 
-|#|isReady|Flag|Entitlement|Auth context|User sees|Correct?|
-|-|-|-|-|-|-|-|
-|1|false|any|any|any|`ProgressView`|yes, transient|
-|2|true|off|unobservable|any|App content; Settings shows "Free Beta"|yes: ship-dark contract|
-|3|true|on|subscribed (paid)|any|App content; Settings "Active"|yes — including signed out|
-|4|true|on|subscribed (trial)|any|App content; Settings "Trial"|yes: a trial counts as active|
-|5|true|on|not subscribed|validated|Paywall, with Sign Out / Delete Account|yes: Apple 5.1.1(v) escape|
-|6|true|on|not subscribed|anonymous|Paywall, with **Sign In**|yes: a signed-out lapsed subscriber must reach account recovery without buying first|
-|7|true|on|not subscribed|indeterminate / suspended|Paywall, no account controls|yes: the first is transient, the second cannot reach Clerk anyway|
-|8|true|on|not yet synced|any|Paywall until StoreKit syncs or the user taps Restore|acceptable: Restore is the sanctioned recovery|
-|9|true|on|subscribed|indeterminate (launch)|A brief hold until auth resolves a consent scope, then the app|acceptable: the same wait the old `AuthLoadingView` covered — but see the note below|
-|10|true|on|subscribed|suspended (offline)|App content, analytics off|yes: no scope can ever be selected, so waiting would never end (#532)|
+|#|isReady|Flag|Entitlement|Free window|Auth context|User sees|Correct?|
+|-|-|-|-|-|-|-|-|
+|1|false|any|any|any|any|`ProgressView`|yes, transient|
+|2|true|off|unobservable|never granted|any|App content; Settings shows "Free Beta"|yes: ship-dark contract, and no window is spent behind a gate that is not showing|
+|3|true|on|subscribed (paid)|any, **expired included**|any|App content; Settings "Active"|yes: entitlement is answered before the window is consulted|
+|4|true|on|subscribed (trial)|any|any|App content; Settings "Trial"|yes: a trial counts as active|
+|5|true|on|not subscribed|unreconciled|any|`ProgressView`|defensive, and not reached as wired: `AppState.initialize` settles the anchor before `isReady`, so this branch exists only so a reordering cannot silently turn "not read yet" into a wall|
+|6|true|on|not subscribed|open, day 0 unshown|any|App content, with the informational paywall over it once the tour is done; Continue dismisses|yes: the window is explained exactly once, and the marker is written when it is *shown*|
+|7|true|on|not subscribed|open, reminder due|any|App content, with the reminder over it; Continue extends nothing|yes: once ever, never once per launch|
+|8|true|on|not subscribed|open, nothing owed|any|App content|yes: this is the free period|
+|9|true|on|not subscribed|expires mid-session|any|The paywall fades in **over** the app, which stays mounted|yes: a root swap would take the `WKWebView`, the page and the history with it|
+|10|true|on|not subscribed|closed|validated|Paywall, with Sign Out / Delete Account|yes: Apple 5.1.1(v) escape|
+|11|true|on|not subscribed|closed|anonymous|Paywall, with **Sign In**|yes: a signed-out lapsed subscriber must reach account recovery without buying first|
+|12|true|on|not subscribed|closed|indeterminate / suspended|Paywall, no account controls|yes: the first is transient, the second cannot reach Clerk anyway|
+|13|true|on|not yet synced|closed|any|Paywall until StoreKit syncs or the user taps Restore|acceptable: Restore is the sanctioned recovery|
+|14|true|on|subscribed|any|indeterminate (launch)|A brief hold until auth resolves a consent scope, then the app|acceptable: the same wait the old `AuthLoadingView` covered — but see the note below|
+|15|true|on|subscribed|any|suspended (offline)|App content, analytics off|yes: no scope can ever be selected, so waiting would never end (#532)|
 
-Row 9 note: with **both** analytics flags on, the first render of an entitled launch waits for a
+Row 14 note: with **both** analytics flags on, the first render of an entitled launch waits for a
 consent scope, which means waiting for Clerk. Auth no longer decides *whether* the app renders, but
 in this one configuration it still influences *when*. The wait is bounded by the same round-trip the
-old auth gate made, and it is skipped entirely once a scope resolves (row 10 shows the case where it
+old auth gate made, and it is skipped entirely once a scope resolves (row 15 shows the case where it
 never can).
+
+Rows 10–13 note: this is the **hard wall**, and it is the only presentation of the paywall that is a
+dead end — Settings, and with it the findings inventory, sits behind the gate. It therefore carries
+export and delete affordances for whatever the user saved during the free period, and states when
+billing begins for the subscription it is offering, including for a user who already spent Apple's
+introductory offer and would be charged at once.
 
 Row 2 note: with the payments flag off, `subscriptionState.start()` never runs, so no
 `Transaction.updates` listener is installed and `isSubscribed` stays frozen `false` for the whole
 session. The app cannot observe real entitlement at all while shipped dark — and with no auth gate
-either, a flag-off build is fully open.
+either, a flag-off build is fully open. No free window is granted in this state either: everyone
+would look unentitled, so every install would run its 14 days down unseen and meet the wall the
+instant payments were switched on. The clock starts at the first launch on which payments are live.
 
 ## Transitions
 
@@ -70,10 +133,15 @@ either, a flag-off build is fully open.
 |Sign-in completes|Context → `.validated`. Access does not change — the user stays where they are. Analytics switches to that account's consent bucket, and if that account has never answered, the consent question is asked **as a sheet over the app**, never by replacing it. Later purchases carry its `appAccountToken`|
 |Sign Out|Context → `.anonymous`. **The user stays in the app** (AIA-0536): entitlement is the gate, so signing out does not eject an entitled user. `SubscriptionState` is deliberately **not** reset either — the entitlement is device property, so clearing it would be a lie. Analytics switches to the anonymous consent bucket|
 |Delete Account|Clerk user deleted → signedOut. **The Apple subscription keeps billing**|
-|Refund / revocation|`Transaction.updates` → entitlement false → root swaps to the paywall live|
+|Refund / revocation|`Transaction.updates` → entitlement false → the paywall is laid **over** the app if content has ever been shown this session, and is the root only on a launch that never got there (AIA-0556). It used to swap the root unconditionally|
 |Ask-to-Buy approval|Arrives via `Transaction.updates`, the launch drain, or the foreground re-check|
-|Foreground|Auth re-validates online; entitlement re-checked so a lapse raises the paywall without a cold launch|
+|Foreground|Auth re-validates online; entitlement re-checked so a lapse raises the paywall without a cold launch. The free window is re-evaluated too, which is how one that ran out overnight is noticed|
+|Free window granted|First launch with payments live and no entitlement. The day-0 paywall is presented once the tour reaches a terminal state — or immediately, for an install that has already seen the tour and would therefore never start one. The analytics consent question waits behind it|
+|Free window expires|A wake-up armed at the exact expiry instant fires, or the next foreground notices it: a `Date`-derived phase never recomputes itself, so without both halves a session left open across the last midnight is never walled. Access closes; entitlement is untouched|
+|Subscribe from an informational paywall|`isSubscribed` flips and the presentation is taken down **by the gate**, not by the screen: `@Environment(\.dismiss)` is inert inside an overlay|
+|Restore Defaults|Clears preferences and the analytics consent buckets. Deliberately does **not** clear the free-access anchor, which would make it a repeatable way for a walled user to earn another 14 days|
 |Remote payments-flag flip|No effect until relaunch — captured once at construction (AIA-0350)|
+|Remote free-access-flag flip|No effect on an open window, ever, and none on this session at all — captured once at construction. It gates granting only|
 
 ## The consequences worth knowing
 

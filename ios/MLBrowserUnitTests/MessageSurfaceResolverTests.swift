@@ -11,18 +11,20 @@ import XCTest
 
 final class MessageSurfaceResolverTests: XCTestCase {
 
-	/// Resolves with a "ready, subscribed, no analytics prompt" baseline, so each test varies only
-	/// the axis it is about.
+	/// Resolves with a "ready, subscribed, no free window, no analytics prompt" baseline, so each
+	/// test varies only the axis it is about.
 	private func resolve(
 		isReady: Bool = true,
 		paymentsSurfaceEnabled: Bool = false,
 		isSubscribed: Bool = true,
+		freeAccess: FreeAccessAvailability = .closed,
 		analyticsChoicePending: Bool = false
 	) -> MessageSurface? {
 		MessageSurfaceResolver.surface(
 			isReady: isReady,
 			paymentsSurfaceEnabled: paymentsSurfaceEnabled,
 			isSubscribed: isSubscribed,
+			freeAccess: freeAccess,
 			analyticsChoicePending: analyticsChoicePending
 		)
 	}
@@ -47,6 +49,63 @@ final class MessageSurfaceResolverTests: XCTestCase {
 	func testPaymentsOffNotSubscribed_yieldsInApp() {
 		// Payments flag off ⇒ the subscription gate is bypassed regardless of entitlement.
 		XCTAssertEqual(resolve(paymentsSurfaceEnabled: false, isSubscribed: false), .inApp)
+	}
+
+	// MARK: - The app-managed free-access window (AIA-0556)
+
+	/// The mis-targeting this parameter exists to stop. A free-window user matches
+	/// `paymentsSurfaceEnabled && !isSubscribed` exactly, but is sitting in `ContentView` — so
+	/// answering `.paywall` would fire "Subscribe now, 40% off" as a banner over the working app and
+	/// withhold every `.inApp` message for the length of the window.
+	func testFreeWindowOpen_yieldsInApp_notPaywall() {
+		XCTAssertEqual(
+			resolve(paymentsSurfaceEnabled: true, isSubscribed: false, freeAccess: .open),
+			.inApp
+		)
+	}
+
+	func testFreeWindowClosed_yieldsPaywall() {
+		// Never granted or expired: the paywall is what the user is looking at, whether it arrived as
+		// the root or as the overlay over content they already had.
+		XCTAssertEqual(
+			resolve(paymentsSurfaceEnabled: true, isSubscribed: false, freeAccess: .closed),
+			.paywall
+		)
+	}
+
+	func testFreeWindowUndetermined_yieldsNoSurface() {
+		// The gate is holding on a spinner while the anchor stores are read. Nothing to sit on.
+		XCTAssertNil(resolve(paymentsSurfaceEnabled: true, isSubscribed: false, freeAccess: .undetermined))
+	}
+
+	/// The window is consulted **only** when the two gates above it have not already opened — the
+	/// same order `RootGateDisplay.resolve` uses. An expired app window must never subtract from an
+	/// entitlement Apple is charging for, nor wall a build with payments switched off.
+	func testEntitlementAndPaymentsOffOutrankTheWindow() {
+		for availability: FreeAccessAvailability in [.open, .closed, .undetermined] {
+			XCTAssertEqual(
+				resolve(paymentsSurfaceEnabled: true, isSubscribed: true, freeAccess: availability),
+				.inApp,
+				"a subscriber's surface must not depend on the app window (\(availability))"
+			)
+			XCTAssertEqual(
+				resolve(paymentsSurfaceEnabled: false, isSubscribed: false, freeAccess: availability),
+				.inApp,
+				"payments off bypasses the gate entirely (\(availability))"
+			)
+		}
+	}
+
+	/// The window opens the gate; it does not open the one nested inside it.
+	func testFreeWindowOpen_stillYieldsToAPendingAnalyticsChoice() {
+		XCTAssertNil(
+			resolve(
+				paymentsSurfaceEnabled: true,
+				isSubscribed: false,
+				freeAccess: .open,
+				analyticsChoicePending: true
+			)
+		)
 	}
 
 	func testAnalyticsChoicePending_yieldsNoSurface() {
@@ -82,7 +141,9 @@ final class MessageSurfaceResolverTests: XCTestCase {
 			resolve(paymentsSurfaceEnabled: false, isSubscribed: false),
 			resolve(paymentsSurfaceEnabled: false, isSubscribed: true),
 			resolve(analyticsChoicePending: true),
-			resolve(paymentsSurfaceEnabled: true, isSubscribed: false, analyticsChoicePending: true)
+			resolve(paymentsSurfaceEnabled: true, isSubscribed: false, analyticsChoicePending: true),
+			resolve(paymentsSurfaceEnabled: true, isSubscribed: false, freeAccess: .open),
+			resolve(paymentsSurfaceEnabled: true, isSubscribed: false, freeAccess: .undetermined)
 		]
 		XCTAssertFalse(everyCombination.contains(.login))
 	}

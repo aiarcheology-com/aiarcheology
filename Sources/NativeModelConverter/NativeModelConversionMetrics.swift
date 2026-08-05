@@ -107,6 +107,19 @@ public struct NativeModelConverter: Sendable {
 	private let emitter: NativeModelCoreMLEmitter
 	private static let executionGate = NativeModelConversionExecutionGate()
 
+	#if DEBUG
+	/// How many conversions are queued behind the running one — test support only.
+	///
+	/// A test that wants to assert the queue's *order* has to know a job is actually in the queue,
+	/// and the `.waitingForExclusiveAccess` progress report cannot tell it: that fires before
+	/// ``NativeModelConversionExecutionGate/acquire()`` is awaited, leaving a suspension point in
+	/// which a later-launched job can reach the actor first. Sleeping does not close that window and
+	/// neither does a longer timeout — only observing the queue does.
+	static func queuedJobCountForTesting() async -> Int {
+		await executionGate.queuedJobCount
+	}
+	#endif
+
 	public init(limits: NativeModelGraphPackageLimits = .default) {
 		reader = NativeModelGraphPackageReader(limits: limits)
 		emitter = NativeModelCoreMLEmitter()
@@ -411,6 +424,16 @@ private actor NativeModelConversionExecutionGate {
 	private var isExecuting = false
 	private var waiters: [Waiter] = []
 
+	/// How many jobs are queued behind the running one.
+	///
+	/// Exists for tests, and for a reason worth stating: a caller reports
+	/// ``NativeModelConversionPhase/waitingForExclusiveAccess`` *before* it awaits ``acquire()``, so
+	/// that progress callback is not evidence that the job holds a queue slot yet. A test that
+	/// treats it as evidence — and then launches the next job — is racing the actor hop between the
+	/// two, and Swift gives no ordering guarantee for contending hops from different tasks. This is
+	/// the only observable that answers "is it actually enqueued".
+	var queuedJobCount: Int { waiters.count }
+
 	func acquire() async throws {
 		try Task.checkCancellation()
 		guard isExecuting else {
@@ -432,13 +455,16 @@ private actor NativeModelConversionExecutionGate {
 		})
 	}
 
+	/// Hands the gate to the longest-waiting job, or opens it when nobody is queued.
+	///
+	/// Ownership transfers directly: `isExecuting` deliberately stays `true` when a waiter is
+	/// resumed, because the gate never becomes free between the two.
 	func release() {
-		while !waiters.isEmpty {
-			let waiter = waiters.removeFirst()
-			waiter.continuation.resume()
+		guard waiters.isEmpty == false else {
+			isExecuting = false
 			return
 		}
-		isExecuting = false
+		waiters.removeFirst().continuation.resume()
 	}
 
 	private func cancelWaiter(id: UUID) {

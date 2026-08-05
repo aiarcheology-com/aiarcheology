@@ -23,3 +23,20 @@ Also in this build: going offline no longer wipes the page you have open.
 10. Load any page, then turn on Airplane Mode. The page must stay exactly as it was — readable, scrollable, and detection and classification still work on it.
 11. While offline, tap a link, reload, or enter an address: nothing loads, and no error screen replaces your page. The silence is deliberate — keeping your page beats an error screen. The address bar may show the address that failed. (Some sites, like some news portals, serve their own "you are offline" page from cache; that message comes from the site, not from the app.)
 12. "Page didn't load / Try Again" should now appear only when there was nothing on screen worth keeping — for example relaunching the app while offline. From there, Try Again must load the page normally once you are back online.
+
+Also in this build: a new install gets 14 days of free access before the subscribe screen becomes a wall.
+
+A fresh install now hands you 14 free days. You still meet the subscribe screen, but it carries a blue "Continue" button next to the green "Subscribe" one, and Continue takes you into the app. On day 7 the screen comes back once with the days you have left, and Continue again returns you to the app. From day 14 the Continue button is gone and a subscription is required. Subscribing at that point starts Apple's own 2-week free trial, so the first charge lands 28 days after you installed.
+
+You do not have to wait two weeks to test this. Change the device date in iOS Settings to jump forward — General > Date & Time, turn off "Set Automatically". Moving the clock **forward** works normally. Moving it **backwards** deliberately will not give you more free time back; that is intended, not a bug.
+
+13. Fresh install: finish the onboarding tour, and the subscribe screen should appear afterwards with a blue Continue button reading "14 days free". Tap Continue — you should land in the app and be able to use everything.
+14. Relaunch the app a few times over the next days. On days 1 to 6 you should see no subscribe screen at all. It appearing on every launch is the main thing to report.
+15. Move the date forward to day 7 and relaunch. The screen should return once, saying how many days are left, with Continue still available. Relaunch again the same day — it must not appear a second time.
+16. Move the date forward past day 14 and relaunch. The subscribe screen should now have no Continue button and no way past it. Check that "Export or Delete Findings" is offered there if you saved anything, and that exporting actually produces a file — being unable to reach your own findings at this point is a serious bug.
+17. While inside the free period, open Settings and tap Subscription. It should open the subscribe screen. Previously that row did nothing at all.
+18. Delete the app and reinstall it while your free period is running. **It must pick up where it left off, not start a fresh 14 days.** If reinstalling resets the counter, report it — that is the most important thing in this section.
+19. If you subscribe at any point, the free-period messaging should disappear entirely and never wall you, even after day 14 has passed.
+20. On the subscribe screen, check the dates read sensibly: before you buy it should say billing starts *around* a date, and after buying it should state the exact date your trial ends. If you have used the free trial on this Apple Account before, it should say so plainly instead of promising a trial you would not get.
+
+Note for testers: the Subscribe button carries an "under construction" badge in TestFlight builds. That is expected — purchases here run against Apple's Sandbox and never charge real money.

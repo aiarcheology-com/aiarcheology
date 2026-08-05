@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 9
+	static let currentVersion = 10
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -93,6 +93,17 @@ struct UITestLaunchConfiguration: Codable {
 	/// separate from `featureFlagOverrides`, which stays strictly `FeatureFlagKey` → Bool.
 	/// `nil` keeps the baseline (no messages).
 	var appMessagesJSON: String?
+	/// Pre-date the app-managed free-access window (AIA-0556) as though it had been granted this
+	/// many days ago. `nil`/absent keeps the baseline: no anchor, so a launch that may grant one
+	/// behaves like a genuine first install.
+	///
+	/// It exists because **every UI-test launch is a fresh install**: `Settings.init()` wipes the
+	/// ephemeral suite and `DependencyContainer` swaps the Keychain mirror for an in-memory store, so
+	/// relaunching cannot carry a window forward and the reminder and expiry states are otherwise
+	/// unreachable from a test. Seeding the *fast* half alone is enough —
+	/// `FreeAccessAnchorService.reconciledWindow()` folds an absent durable record into it and
+	/// repairs the mirror on the way past.
+	var freeAccessAnchorAgeDays: Int?
 
 	/// Decoded from the launch environment, or `nil` if absent. Traps on malformed input
 	/// or version mismatch — a UI test must never proceed on a misread configuration.
@@ -134,6 +145,11 @@ struct UITestLaunchConfiguration: Codable {
 		// The launch-value mirror must never leak across launches in the harness: the composition
 		// root prefers it over the static provider's overrides (AIA-0437, generalised in AIA-0513).
 		settings.remoteFlagLaunchValues = [:]
+		// Not a `Settings` property, so `Settings.init()`'s suite wipe is the only thing clearing it
+		// today. Cleared explicitly anyway: this is the file that promises a full baseline on every
+		// launch, and a seeded window bleeding into the next scenario would silently turn a
+		// first-install test into a day-N one (AIA-0556).
+		settings.persistenceStore.removeObject(forKey: FreeAccessAnchorService.defaultsKey)
 
 		// 2) Scenario deltas.
 		switch config.pageScenario {
@@ -180,6 +196,45 @@ struct UITestLaunchConfiguration: Codable {
 		case .enabled:
 			settings.analyticsEnabled = true
 		}
+
+		if let ageDays = config.freeAccessAnchorAgeDays {
+			seedFreeAccessAnchor(ageDays: ageDays, in: settings)
+		}
+	}
+
+	/// Writes a free-access anchor granted `ageDays` ago into the fast store (AIA-0556).
+	///
+	/// `day0Shown` is seeded `true`, which is not a detail: the day-0 paywall outranks the reminder
+	/// in `FreeAccessWindow.duePrompt(at:)`, so a window that had never been explained would owe
+	/// day 0 no matter how old it was and the reminder would be unreachable. A real user on day 7
+	/// has met that screen, and this seeds the state they are actually in.
+	@MainActor
+	private static func seedFreeAccessAnchor(ageDays: Int, in settings: Settings) {
+		let calendar = Calendar.current
+		// Trap rather than fall back to "no anchor": a scenario that silently degraded into a fresh
+		// install would assert the wrong thing and pass.
+		// A negative age is a misconfigured scenario, not a supported one: it would seed a window
+		// granted in the *future*, which reconciliation now repairs — so the test would quietly
+		// assert against a freshly re-anchored day-0 window instead of the state it named.
+		guard ageDays >= 0 else {
+			fatalError("\(environmentKey) freeAccessAnchorAgeDays must be non-negative, got \(ageDays)")
+		}
+		guard let grantedAt = calendar.date(byAdding: .day, value: -ageDays, to: Date()) else {
+			fatalError("\(environmentKey) freeAccessAnchorAgeDays=\(ageDays) is not a representable date")
+		}
+		let frozen = FreeAccessWindow.record(grantedAt: grantedAt, thresholds: .standard, calendar: calendar)
+		let record = FreeAccessWindow.Record(
+			grantedAt: frozen.grantedAt,
+			expiresAt: frozen.expiresAt,
+			reminderDueAt: frozen.reminderDueAt,
+			maxObservedDate: frozen.maxObservedDate,
+			reminderShown: false,
+			day0Shown: true
+		)
+		guard let data = try? JSONEncoder().encode(record) else {
+			fatalError("\(environmentKey) could not encode the seeded free-access anchor")
+		}
+		settings.persistenceStore.set(data, forKey: FreeAccessAnchorService.defaultsKey)
 	}
 
 	/// Whether this launch should force-start the onboarding tour (AIA-0333). The single

@@ -53,10 +53,18 @@ by constructor injection (`snap`, `deep`, `dataController`, `settings`, `downloa
 The UI is gated in layers before the app proper appears:
 
 ```text
-AuthGateView            (AIA-0340 — sign-in required)
-  └─ SubscriptionGateView   (AIA-0343 — subscription/free-trial required)
-       └─ ContentView       (the browser + detection UI)
+SubscriptionGateView      (AIA-0343 — the app root since AIA-0536)
+  └─ AnalyticsChoiceGate  (AIA-0447 — the optional-analytics question)
+       └─ ContentView     (the browser + detection UI)
 ```
+
+Signing in is **not** a gate: `AuthGateView` was the outermost layer until AIA-0536 and no longer
+exists as one — sign-in is a contextual sheet. Access is `payments surface off || StoreKit entitled
+|| app-managed free window open`, resolved in that order by `RootGateDisplay`
+(`UI/Subscription/SubscriptionGateView.swift`). The free window (AIA-0556) is a 14-day period owned
+by `FreeAccessWindow` / `FreeAccessAnchorService` / `FreeAccessState`, anchored in UserDefaults and
+mirrored into the Keychain so a reinstall resumes it rather than restarting it. `AUTH-SUBSCRIPTION.md`
+holds the full order, the state table and the edge cases.
 
 A `BackgroundDownloadAppDelegate` bridges background `URLSession` completion back into
 `Downloader` for downloads that finish while the app is suspended.

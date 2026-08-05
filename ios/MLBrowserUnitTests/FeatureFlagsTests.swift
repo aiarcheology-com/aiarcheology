@@ -40,6 +40,7 @@ final class FeatureFlagsTests: XCTestCase {
 			FeatureFlagKey.isCrossDeviceAnalyticsIdentityEnabled.rawValue,
 			"isCrossDeviceAnalyticsIdentityEnabled"
 		)
+		XCTAssertEqual(FeatureFlagKey.isFreeAccessPeriodEnabled.rawValue, "isFreeAccessPeriodEnabled")
 		// Non-boolean settings share the same dashboard-key contract (AIA-0115).
 		XCTAssertEqual(RemoteSettingKey.appMessages, "appMessages")
 	}
@@ -56,6 +57,20 @@ final class FeatureFlagsTests: XCTestCase {
 		XCTAssertTrue(FeatureFlagKey.isRefundRequestEnabled.defaultValue)
 		XCTAssertTrue(FeatureFlagSnapshot.defaults.isRefundRequestEnabled)
 		XCTAssertFalse(FeatureFlagSnapshot(values: [.isRefundRequestEnabled: false]).isRefundRequestEnabled)
+	}
+
+	/// The free-access-window flag maps to its own key and defaults open (AIA-0556).
+	///
+	/// The default is not a preference here, it is load-bearing. This flag is launch-captured, and
+	/// a genuine first launch has no mirror, so it resolves to `defaultValue` — and a first launch
+	/// is the only moment a window can be granted. A `false` default would make the feature
+	/// unreachable for every new user while every test still passed, because tests inject a
+	/// synchronous provider and never take that branch. `test_defaults_matchShippedBehaviour`
+	/// covers the whole enum; this pins the reasoning to the one flag it actually decides.
+	func test_freeAccessPeriodFlag_defaultsOpenAndMapsToItsKey() {
+		XCTAssertTrue(FeatureFlagKey.isFreeAccessPeriodEnabled.defaultValue)
+		XCTAssertTrue(FeatureFlagSnapshot.defaults.isFreeAccessPeriodEnabled)
+		XCTAssertFalse(FeatureFlagSnapshot(values: [.isFreeAccessPeriodEnabled: false]).isFreeAccessPeriodEnabled)
 	}
 
 	// MARK: - Launch-captured flags (AIA-0513)
