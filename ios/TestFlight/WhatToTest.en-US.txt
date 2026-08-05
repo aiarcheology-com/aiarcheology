@@ -39,4 +39,16 @@ You do not have to wait two weeks to test this. Change the device date in iOS Se
 19. If you subscribe at any point, the free-period messaging should disappear entirely and never wall you, even after day 14 has passed.
 20. On the subscribe screen, check the dates read sensibly: before you buy it should say billing starts *around* a date, and after buying it should state the exact date your trial ends. If you have used the free trial on this Apple Account before, it should say so plainly instead of promising a trial you would not get.
 
+Also in this build: the subscribe screen now says what the price recurs over.
+
+The price used to read as a bare "$3.99", which never said per what, and the screen never said what a subscription actually gets you. Both now come from the App Store listing itself rather than being typed into the app, so they cannot drift from what you are really charged.
+
+21. Open the subscribe screen and read the price. It must say "$3.99 / month", not "$3.99". Above it you should now also see a short line describing the subscription ("Full access to ML Browser."). If you are offered a free trial, the line under the price should read "Free for 2 weeks, then $3.99 / month".
+22. Check the same on the wall you reach after the free period ends, where there is no Continue button. That is the screen someone actually buys from, and a price with no period there is the one thing this change exists to prevent.
+23. Turn VoiceOver on and swipe to the price. It should be spoken as a price per month, not with the word "slash" in it.
+24. Set Settings > Accessibility > Display & Text Size > Larger Text to the largest size and reopen the subscribe screen. Two lines got longer, so this is where they would break: confirm nothing is cut off mid-word, and that Subscribe, Restore, Continue (if present) and the Terms/Privacy links are all still on screen and tappable.
+25. Open Settings > Subscription while subscribed and confirm the plan row still reads "$3.99 / month". It was already correct there; both screens now share one piece of code, so a break in one would show up in the other.
+
+Nothing else in this build is visible to you: a screen left over from the old sign-in-first flow was deleted (it had been unreachable since the subscribe screen became the first thing you see), and an internal setup document was brought up to date.
+
 Note for testers: the Subscribe button carries an "under construction" badge in TestFlight builds. That is expected — purchases here run against Apple's Sandbox and never charge real money.
