@@ -12300,7 +12300,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Subscribe to unlock the full app."
+            "value" : "Every feature is included — a subscription is what keeps your access."
           }
         }
       }
@@ -14769,6 +14769,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "顯示標籤"
+          }
+        }
+      }
+    },
+    "settings.subscription.freeAccessFootnote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free until %@ — no subscription, no payment method. Subscribing starts an extra 2-week free trial before the first charge."
+          }
+        }
+      }
+    },
+    "settings.subscription.trialFootnote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your free trial runs until %@, when the first charge is made."
           }
         }
       }

@@ -703,8 +703,8 @@ internal enum L10n {
     internal static let restore = L10n.tr("Localizable", "paywall.restore", fallback: "Restore Purchases")
     /// Subscribe
     internal static let subscribe = L10n.tr("Localizable", "paywall.subscribe", fallback: "Subscribe")
-    /// Subscribe to unlock the full app.
-    internal static let tagline = L10n.tr("Localizable", "paywall.tagline", fallback: "Subscribe to unlock the full app.")
+    /// Every feature is included — a subscription is what keeps your access.
+    internal static let tagline = L10n.tr("Localizable", "paywall.tagline", fallback: "Every feature is included — a subscription is what keeps your access.")
     /// Terms of Use
     internal static let terms = L10n.tr("Localizable", "paywall.terms", fallback: "Terms of Use")
     /// ML Browser
@@ -854,6 +854,16 @@ internal enum L10n {
     internal enum Sentry {
       /// Sentry Stats
       internal static let title = L10n.tr("Localizable", "settings.sentry.title", fallback: "Sentry Stats")
+    }
+    internal enum Subscription {
+      /// Free until %@ — no subscription, no payment method. Subscribing starts an extra 2-week free trial before the first charge.
+      internal static func freeAccessFootnote(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "settings.subscription.freeAccessFootnote", String(describing: p1), fallback: "Free until %@ — no subscription, no payment method. Subscribing starts an extra 2-week free trial before the first charge.")
+      }
+      /// Your free trial runs until %@, when the first charge is made.
+      internal static func trialFootnote(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "settings.subscription.trialFootnote", String(describing: p1), fallback: "Your free trial runs until %@, when the first charge is made.")
+      }
     }
   }
   internal enum Subscription {

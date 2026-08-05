@@ -208,6 +208,15 @@ struct FreeAccessWindow: Equatable, Sendable {
 		)
 	}
 
+	/// When the anchored window runs out, or `nil` while there is no anchor to ask.
+	///
+	/// For surfaces that need to *state* the date rather than compare against it. Callers must still
+	/// consult the phase for whether the window is open — a record exists for an expired one too.
+	var expiresAt: Date? {
+		guard case let .granted(record) = anchor else { return nil }
+		return record.expiresAt
+	}
+
 	/// `true` only when both stores have been read and neither held an anchor.
 	///
 	/// The caller must additionally honour `FeatureFlagKey.isFreeAccessPeriodEnabled`; this

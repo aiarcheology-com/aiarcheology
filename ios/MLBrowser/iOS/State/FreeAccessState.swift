@@ -227,6 +227,13 @@ final class FreeAccessState: ObservableObject {
 	///
 	/// Safe before ``start(isEntitled:isPaymentsSurfaceEnabled:)`` — availability stays
 	/// `.undetermined` rather than collapsing to a guess about a window nobody has read yet.
+	/// When the open window runs out, for anything that needs to *say* so — `nil` when none is open.
+	///
+	/// Separate from ``scheduledExpiry``, which is a timer's business and is cleared once the window
+	/// has closed. This is the date the user is told, and Settings shows it so the free period is
+	/// not something they have to infer from a paywall they may not have seen for a week.
+	@Published private(set) var windowEndsOn: Date?
+
 	func reevaluate() {
 		guard hasStarted else { return }
 		// Advances the monotonic floor and persists it when it moved, so a device clock wound
@@ -252,6 +259,7 @@ final class FreeAccessState: ObservableObject {
 			availability = .closed
 		}
 		duePrompt = service.duePrompt(for: window)
+		windowEndsOn = availability == .open ? window.expiresAt : nil
 		scheduleExpiry()
 	}
 

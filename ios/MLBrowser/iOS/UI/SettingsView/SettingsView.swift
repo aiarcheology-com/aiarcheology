@@ -25,6 +25,13 @@ struct SettingsForm: View {
 	/// order, so signed-out is a state Settings must render rather than one it can assume away.
 	@ObservedObject var authState: AuthState
 
+	/// When the app-managed free window runs out, or `nil` when none is open (AIA-0556).
+	///
+	/// A plain `Date?` rather than the whole `FreeAccessState`: Settings only needs to state the
+	/// date, and it cannot change while this sheet is up — the expiry is frozen at grant. Passed by
+	/// initializer for the same reason `findingRepository` is.
+	var freeAccessEndsOn: Date?
+
 	@Environment(\.dismiss) private var dismiss
 	@Environment(DrawerManager.self) private var drawer
 	@Environment(TourState.self) private var tour
@@ -55,9 +62,15 @@ struct SettingsForm: View {
 	/// A path the stack is born with has no timing to lose. A `Bool` rather than the route because
 	/// `AccountRoute` is private to this file; the *validity* guards (validated account, real auth)
 	/// live with the caller, which is the only party that can consult them at tap time.
-	init(findingRepository: FindingRepository, authState: AuthState, startAtManageAccount: Bool = false) {
+	init(
+		findingRepository: FindingRepository,
+		authState: AuthState,
+		freeAccessEndsOn: Date? = nil,
+		startAtManageAccount: Bool = false
+	) {
 		self.findingRepository = findingRepository
 		self._authState = ObservedObject(wrappedValue: authState)
+		self.freeAccessEndsOn = freeAccessEndsOn
 		var path = NavigationPath()
 		if startAtManageAccount { path.append(AccountRoute.profile) }
 		self._accountPath = State(initialValue: path)
@@ -493,8 +506,29 @@ struct SettingsForm: View {
 	/// Account management (AIA-0340). "Manage Account" opens Clerk's prebuilt
 	/// `UserProfileView`, which handles change password, email, security/MFA,
 	/// devices, and the App Store-required account deletion (Apple 5.1.1(v)).
+	/// The one line under the account block that says what the user is currently paying, or not
+	/// (AIA-0556). `nil` renders no footer at all.
+	///
+	/// Two free periods run through this app and they are easy to confuse, which is the whole reason
+	/// this exists. The app-managed window is free *usage*: no subscription, no card, measured from
+	/// install. Apple's introductory offer is a free *trial*: it belongs to a subscription, needs a
+	/// payment method, and is measured from the purchase. The two never show together — the first is
+	/// only reachable while unsubscribed, the second only once subscribed — so each line can state
+	/// its own terms without hedging about the other.
+	private var subscriptionFootnote: String? {
+		guard subscriptionState.isPaymentsSurfaceEnabled else { return nil }
+		if subscriptionState.isSubscribed {
+			guard subscriptionState.isInTrial, let ends = subscriptionState.currentExpirationDate else { return nil }
+			return L10n.Settings.Subscription.trialFootnote(ends.formatted(date: .abbreviated, time: .omitted))
+		}
+		guard let freeAccessEndsOn else { return nil }
+		return L10n.Settings.Subscription.freeAccessFootnote(
+			freeAccessEndsOn.formatted(date: .abbreviated, time: .omitted)
+		)
+	}
+
 	private var accountSection: some View {
-		Section(header: Text(L10n.Auth.Account.title)) {
+		Section(header: Text(L10n.Auth.Account.title), footer: subscriptionFootnote.map { Text($0) }) {
 			// Signed out is a first-class state now (AIA-0536): the app is usable without an
 			// account, so Settings offers sign-in instead of assuming it already happened.
 			if case .anonymous = authState.effectiveContext {
