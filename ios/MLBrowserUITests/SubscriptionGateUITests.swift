@@ -34,11 +34,12 @@ final class SubscriptionGateUITests: UITestCase {
 		)
 		let paywall = app.scrollViews[AID.paywallContent]
 		XCTAssertTrue(paywall.waitForExistence(timeout: 10), "Paywall content is not scrollable")
+		let signOut = app.buttons[AID.paywallSignOut]
+		XCTAssertTrue(signOut.waitForExistence(timeout: 10), "Paywall root account actions did not load")
 
 		XCUIDevice.shared.orientation = .landscapeLeft
 		XCTAssertTrue(waitForLandscape(), "Paywall did not relayout in landscape")
 
-		let signOut = app.buttons[AID.paywallSignOut]
 		for _ in 0..<8 where !signOut.isHittable {
 			paywall.swipeUp()
 		}
