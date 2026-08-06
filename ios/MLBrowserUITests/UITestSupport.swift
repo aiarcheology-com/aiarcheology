@@ -162,10 +162,8 @@ enum AID {
 	static let paywallDeleteAccount = "_AIA:Button.PaywallDeleteAccount"
 	static let paywallDeleteAccountConfirm = "_AIA:Button.PaywallDeleteAccountConfirm"
 
-	// Free-access window (AIA-0556). `paywallContinue` and the headline exist only on the two
-	// informational presentations, so their absence is itself the proof that the hard wall is showing.
-	static let paywallContinue = "_AIA:Button.PaywallContinue"
-	static let paywallFreeAccessHeadline = "_AIA:Label.PaywallFreeAccessHeadline"
+	// Free-access window (AIA-0556). Since AIA-0567 split the screens, the only informational
+	// presentation is the Welcome screen below — the paywall is the hard wall and the Settings sheet.
 	static let settingsUpgrade = "_AIA:Button.SettingsUpgrade"
 
 	// Welcome screen (AIA-0567) — the zero-pressure day-0 screen. It carries no Subscribe and no

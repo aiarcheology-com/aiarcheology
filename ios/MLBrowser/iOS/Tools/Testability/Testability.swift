@@ -116,10 +116,6 @@ extension TestabilityIdentification {
 		case settingsUpgrade
 		case paywallSubscribe
 		case paywallRestore
-		/// Continue past the paywall on the app-managed free-access window (AIA-0556). Present only
-		/// where there is something to continue past, so its absence is itself the assertion that a
-		/// gate or a Settings sheet is showing.
-		case paywallContinue
 		case paywallRequestRefund
 		// AIA-0461: the Settings → Subscription "Request a Refund" row (feature-flag gated)
 		case settingsRequestRefund
@@ -325,10 +321,6 @@ extension TestabilityIdentification {
 		case appMessageTitle
 		case appMessageAboutRow
 		case appMessageSettingsRow
-		/// The paywall's free-access headline (AIA-0556) — "14 days free" on day 0. Identified so a
-		/// test can tell the informational paywall from the hard wall without matching localized
-		/// copy.
-		case paywallFreeAccessHeadline
 		/// The welcome screen's free-access headline (AIA-0567) — "Explore everything free for 14
 		/// days". Identified so a test can read back the granted length the screen actually rendered,
 		/// which is remote-configurable, without matching localized copy.
