@@ -312,7 +312,14 @@ environment, Release uses **Production**. Tests and previews never touch the net
 - **Commits**: imperative summary prefixed with the issue key — `[AIA-XXXX] Fix crash when…`.
 - **Issues**: GitHub Issues carry `AIA-####` keys (normalized automatically by the `auto-issue-key` workflow); production crashes arrive as issues via Sentry → Cloudflare relay.
 
-### Core Data release baseline
+### Release baseline
+
+**In production: app `1.0.6`, Core Data model `0.0.0`.**
+
+`1.0.7` is in preparation and has not been submitted. Keep both figures current — they are what
+tells you whether a migration is required, whether a stored format may still change freely, and
+which build a bug report is actually about. Updating them is part of shipping a release; see
+`ios/AGENTS.md` §13.
 
 | State | Model version | Migration rule |
 |-|-|-|
