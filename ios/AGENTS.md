@@ -312,6 +312,32 @@ Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule
 xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBrowserUnitTests test
 ```
 
+#### `test-without-building` can report a green run for code that does not compile
+
+Splitting a run into `build-for-testing` then `test-without-building` is worth doing — it keeps a
+long suite off the critical path and lets several `-only-testing:` passes share one build. It also
+has a trap that looks exactly like success:
+
+**`test-without-building` does not check that the build succeeded.** It runs whatever `.xctest`
+bundles are already in the products directory. If `build-for-testing` failed — even on a single
+typo in a test file you were still writing — the previous build's products are still sitting there,
+and the test step will run them and print a full, plausible pass count.
+
+Observed while shipping AIA-0567: `build-for-testing` exited 65 on a missing argument in a new
+test, and the very next step reported `1832 passed, 0 failed`. Every one of those was the *old*
+binary. Nothing in the output says so.
+
+Two habits close it:
+
+- **Check every step's exit code, not just the last one.** `&&` between the steps, or an explicit
+  `echo "exit=$?"` after each. A pass count is not evidence that the thing you just wrote compiled.
+- **Expect the count to move when you add tests.** If you added three and the total is unchanged,
+  you are looking at stale products — that is the cheapest tell there is.
+
+The same applies to the *app* binary you hand a human to test: verify what is installed rather than
+trusting that the build you ran produced it. See §13 on `WhatToTest` — a tester reporting "the new
+screen is missing" is usually a stale install, not a bug.
+
 ### Branches & commits
 
 - Never push without explicit user consent.

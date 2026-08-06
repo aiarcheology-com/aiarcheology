@@ -174,7 +174,18 @@ final class FreeAccessUITests: UITestCase {
 		launchFirstRunWithTourArmed()
 
 		assertExists(AID.welcomeContent, true)
+
+		// The negative assertion has to outlast the launch, not just the two seconds
+		// `assertExists(_, false)` waits. The tour is started from the gate's `onChange` handlers,
+		// which fire as `display`, `duePrompt` and the entitlement settle — several seconds in on a
+		// cold launch — so a short window would report "not started yet" as "never starts".
+		Thread.sleep(forTimeInterval: 8)
+
+		assertExists(AID.welcomeContent, true)
 		assertExists(AID.tourBubble, false)
+		// The bubble is the tour's UI; this checkpoint is the tour's *engine*. Asserting both means
+		// a tour running invisibly behind the overlay fails the test too.
+		assertExists(AID.cpTourStep, false)
 	}
 
 	/// The same launch, asserted the other way round: the tour is not merely invisible behind the

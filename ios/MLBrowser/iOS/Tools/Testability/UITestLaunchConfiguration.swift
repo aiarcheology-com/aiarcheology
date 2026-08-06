@@ -52,7 +52,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Force-start the interactive onboarding tour on launch, bypassing the
 	/// `hasSeenOnboardingTour` gate (AIA-0333). Baseline leaves the tour off. Consumed by the
-	/// composition root (`Appstate.initialize()`) via ``shouldStartOnboardingTour``, which arms the
+	/// composition root (`AppState.initialize()`) via ``shouldStartOnboardingTour``, which arms the
 	/// tour; `SubscriptionGateView` starts it once nothing is owed the screen ahead of it (AIA-0567).
 	var startOnboardingTour: Bool?
 	/// Which page the browser should decide to load. `nil` keeps the baseline (home).

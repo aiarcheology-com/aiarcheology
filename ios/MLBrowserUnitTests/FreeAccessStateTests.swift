@@ -534,6 +534,46 @@ final class FreeAccessStateTests: XCTestCase {
 	/// Showing the day-0 paywall reports nothing of its own. `paywall.shown` already covers the
 	/// screen and `window_granted` covers the window it explains, so a third event there would only
 	/// double-count the same moment.
+	// MARK: - Cross-window Welcome claims (AIA-0567)
+
+	@MainActor
+	func testWelcomeClaim_isVisibleImmediately() throws {
+		let state = makeState(service: try makeService(clock: TestClock(try date(2026, 3, 2)), durableStore: StubDurableStore()))
+
+		XCTAssertFalse(state.isWelcomePresented)
+		_ = state.claimWelcomePresentation()
+		XCTAssertTrue(state.isWelcomePresented, "The claim must be visible on the same turn it is taken")
+	}
+
+	/// Two windows, and only the second one closing frees the screen.
+	@MainActor
+	func testWelcomeClaim_releasingOneOfTwo_keepsTheScreenClaimed() throws {
+		let state = makeState(service: try makeService(clock: TestClock(try date(2026, 3, 2)), durableStore: StubDurableStore()))
+
+		let first = state.claimWelcomePresentation()
+		let second = state.claimWelcomePresentation()
+
+		state.releaseWelcomePresentation(first)
+		XCTAssertTrue(state.isWelcomePresented, "A sibling window still has its Welcome screen up")
+		state.releaseWelcomePresentation(second)
+		XCTAssertFalse(state.isWelcomePresented)
+	}
+
+	/// The reason this is a token set and not a count: a duplicated `onDisappear` must not release
+	/// somebody else's screen. A count would have decremented twice and freed the tour under it.
+	@MainActor
+	func testWelcomeClaim_releasingTheSameTokenTwice_cannotFreeASiblingsClaim() throws {
+		let state = makeState(service: try makeService(clock: TestClock(try date(2026, 3, 2)), durableStore: StubDurableStore()))
+
+		let mine = state.claimWelcomePresentation()
+		_ = state.claimWelcomePresentation()
+
+		state.releaseWelcomePresentation(mine)
+		state.releaseWelcomePresentation(mine)
+
+		XCTAssertTrue(state.isWelcomePresented, "A double release freed a claim it did not own")
+	}
+
 	@MainActor
 	func testMarkPromptShown_forDay0_reportsTheWelcomeScreen() throws {
 		// AIA-0567 inverted this. Day 0 used to report nothing of its own, on the grounds that

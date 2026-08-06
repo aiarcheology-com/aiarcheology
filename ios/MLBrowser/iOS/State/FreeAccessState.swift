@@ -73,25 +73,47 @@ final class FreeAccessState: ObservableObject {
 	/// round, and the tour waits for this.
 	@Published private(set) var duePrompt: FreeAccessPrompt?
 
-	/// Whether a Welcome screen is on screen **in any window** right now (AIA-0567).
+	/// The windows that currently have a Welcome screen on screen, one token each (AIA-0567).
 	///
-	/// Shared rather than per-scene, and that is the whole point. `SubscriptionGateView` holds its
-	/// own `presentedPrompt` in `@State`, which is scene-local, while this object and `TourState`
-	/// are owned by `AppState` and shared across the whole `WindowGroup` — and the app ships with
-	/// `UIApplicationSupportsMultipleScenes`, so two iPad windows are a real configuration, not a
-	/// hypothetical.
+	/// Shared rather than scene-local, and that is the point. `SubscriptionGateView` holds its own
+	/// `presentedPrompt` in `@State`, which is per-window, while this object and `TourState` are
+	/// owned by `AppState` and shared across the whole `WindowGroup` — and the app ships with
+	/// `UIApplicationSupportsMultipleScenes`, so two iPad windows are a real configuration.
 	///
-	/// Without this, two restored windows deadlock the ordering the ticket exists to impose: window
-	/// A raises the Welcome screen and, in doing so, clears the shared `duePrompt`; window B then
-	/// sees nothing owed, concludes the screen is free, and starts the shared tour. The tour runs
-	/// visibly in B and *underneath* the Welcome screen in A — the exact arrangement
-	/// ``SubscriptionGateView/startTourIfClear()`` exists to prevent, reached by a route its
-	/// scene-local guard cannot see.
-	@Published private(set) var isWelcomePresented = false
+	/// Without it, two windows defeat the ordering this ticket imposes: window A raises the Welcome
+	/// screen and in doing so clears the shared `duePrompt`; window B then sees nothing owed,
+	/// concludes the screen is free, and starts the shared tour — which runs visibly in B and
+	/// *underneath* the Welcome screen in A.
+	///
+	/// **Tokens, claimed synchronously, and both halves of that matter.**
+	///
+	/// *Synchronously*, because the claim has to be in place before the publish that starts the
+	/// race. `markPromptShown()` clears `duePrompt` on the same turn the screen is raised, and that
+	/// publish is what wakes the other window; a claim taken later — when the overlay appears, a
+	/// render commit afterwards — leaves a gap in which B sees nothing owed and nothing presented,
+	/// and starts the tour anyway. Cross-scene commit order is not specified, so that gap is a race
+	/// on exactly the event the guard exists for.
+	///
+	/// *Tokens* rather than a count, because release must be idempotent and attributable. A window
+	/// releases the claim it took, so a duplicated `onDisappear` cannot decrement twice and a
+	/// spurious one belonging to a torn-down scene cannot release a live sibling's screen. A bare
+	/// count made both of those silent, and a `Bool` before it leaked permanently.
+	@Published private(set) var welcomeClaims: Set<UUID> = []
 
-	/// Records that a window has put the Welcome screen up, or taken it down.
-	func setWelcomePresented(_ presented: Bool) {
-		isWelcomePresented = presented
+	/// Whether a Welcome screen is on screen in **any** window.
+	var isWelcomePresented: Bool { welcomeClaims.isEmpty == false }
+
+	/// Claims the Welcome screen for the calling window. Call this *before* anything that publishes.
+	func claimWelcomePresentation() -> UUID {
+		let token = UUID()
+		welcomeClaims.insert(token)
+		return token
+	}
+
+	/// Releases one window's claim. Safe to call more than once with the same token, and safe to
+	/// call for a window whose claim was already released — both are no-ops.
+	func releaseWelcomePresentation(_ token: UUID) {
+		welcomeClaims.remove(token)
 	}
 
 	private let service: FreeAccessAnchorService

@@ -469,16 +469,18 @@ struct FreeAccessWindow: Equatable, Sendable {
 		switch phase(at: now) {
 		case .notGranted, .expired:
 			return nil
-		case .active:
+		case let .active(remaining):
 			guard record.day0Shown == false else { return nil }
 			// What is *left*, not what was granted. These are the same number on day 0, which is the
 			// only day this normally appears — but `day0Shown` is written at presentation, so a user
 			// who force-quits before the screen renders is owed it again later, and telling someone
 			// on day 5 that they have "14 days free" overstates the offer by the days they spent.
-			return FreeAccessPrompt(
-				days: remainingDays(from: now, to: record.expiresAt),
-				endsOn: record.expiresAt
-			)
+			//
+			// Taken from the phase rather than recomputed, so the screen and the gate can never
+			// disagree. `phase(at:)` counts from `max(now, maxObservedDate)` — the monotonic floor
+			// that stops a rolled-back clock rewinding the window — and an independent count from
+			// the raw `now` would let the Welcome screen advertise days the gate does not believe in.
+			return FreeAccessPrompt(days: remaining, endsOn: record.expiresAt)
 		}
 	}
 

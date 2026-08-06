@@ -290,7 +290,7 @@ struct ContentView: View {
         // Onboarding tour (AIA-0333): bind the live drawer, and nothing else.
         //
         // This used to start the tour on the UI-test path. It cannot any more (AIA-0567): both the
-        // production and the UI-test arming decisions run in `Appstate.initialize()`, and
+        // production and the UI-test arming decisions run in `AppState.initialize()`, and
         // `SubscriptionGateView` starts what they armed. Starting here as well would race that —
         // and starting here *instead* would be worse, since this runs after the gate's
         // `onChange(initial: true)` handlers, so the tests would cover a path the app never takes.

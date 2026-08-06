@@ -490,9 +490,18 @@ final class AnalyticsState: ObservableObject {
 		// number of distinct stages, well under the cap. What overflows is volume events, and the
 		// honest thing to lose is their tail.
 		if pendingPreConsentEvents.count > Self.maxPendingPreConsentEvents {
-			let volumeIndex = pendingPreConsentEvents
-				.lastIndex { $0.isCollapsibleWhileBuffered == false }
-			pendingPreConsentEvents.remove(at: volumeIndex ?? pendingPreConsentEvents.startIndex)
+			if let volumeIndex = pendingPreConsentEvents.lastIndex(where: { $0.isCollapsibleWhileBuffered == false }) {
+				pendingPreConsentEvents.remove(at: volumeIndex)
+			} else {
+				// Unreachable while the number of *distinct* payload-free events stays under the cap
+				// — they collapse on append, so they cannot exceed their own count, which is well
+				// below 16. Written out anyway because the guarantee above is a claim about the
+				// funnel, and the obvious fallback quietly breaks it: removing from the front takes
+				// `freeAccessWindowGranted`, the denominator. Dropping the newest loses a late stage
+				// instead, which is the cheaper end to lose.
+				assertionFailure("Pre-consent buffer overflowed with no volume event — the funnel stages have outgrown the cap.")
+				pendingPreConsentEvents.removeLast()
+			}
 		}
 	}
 

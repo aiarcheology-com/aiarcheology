@@ -124,7 +124,7 @@ struct SubscriptionGateView<Content: View>: View {
 	///
 	/// The relationship inverted. The day-0 screen used to wait for the tour to finish, because the
 	/// tour was already running by the time this view existed; now the Welcome screen goes first and
-	/// hands the tour the screen on Continue. `Appstate.initialize()` arms it, this view starts it —
+	/// hands the tour the screen on Continue. `AppState.initialize()` arms it, this view starts it —
 	/// see ``startTourIfClear()`` for the conditions, which are subtler than they look.
 	///
 	/// `@Observable`, so reading it during `body` is all the tracking it needs.
@@ -151,6 +151,12 @@ struct SubscriptionGateView<Content: View>: View {
 	/// ``FreeAccessState/markPromptShown()`` for why the marker is written at presentation.
 	@State private var presentedPrompt: FreeAccessPrompt?
 
+	/// This window's claim on the shared Welcome presentation, or `nil` when it has none.
+	///
+	/// Scene-local because the claim belongs to *this* window, while the set it joins is shared —
+	/// which is what lets a release be attributed rather than merely counted.
+	@State private var welcomeClaim: UUID?
+
 	/// Whether the Welcome screen may go on screen right now.
 	///
 	/// Two conditions, each for its own reason. The app proper must be what is showing: there is
@@ -160,11 +166,16 @@ struct SubscriptionGateView<Content: View>: View {
 	/// out of band, since this screen sells nothing: an Ask-to-Buy approval, Family Sharing, or a
 	/// purchase made on another device.
 	///
-	/// The third condition — that the tour had finished — is gone with AIA-0567. The Welcome screen
-	/// now precedes the tour, so waiting for it would deadlock: the tour waits for this screen, and
-	/// this screen would be waiting for the tour.
+	/// The third — that no tour is running — reads like the AIA-0556 condition this ticket removed,
+	/// and is not. That one waited for a tour that had *already started*, which under the new
+	/// ordering would deadlock: the tour waits for this screen and this screen would wait for the
+	/// tour. This one cannot, because the tour only ever starts when nothing is owed the screen.
+	/// It covers the reverse arrival: an entitlement revoked mid-session — a refund, a lapsed
+	/// subscription — can make a window due again while onboarding is underway, and raising the
+	/// Welcome screen over a running tour would leave Continue merely uncovering it. Deferring
+	/// re-evaluates for free: `isActive` is observed, so the tour ending re-renders this.
 	private var canPresentPrompt: Bool {
-		display == .content && subscriptionState.isSubscribed == false
+		display == .content && subscriptionState.isSubscribed == false && tour.isActive == false
 	}
 
 	/// Starts the armed onboarding tour once nothing else is owed the screen ahead of it (AIA-0567).
@@ -275,6 +286,14 @@ struct SubscriptionGateView<Content: View>: View {
 			raisePromptIfDue()
 			startTourIfClear()
 		}
+		// The Welcome screen actually leaving the display is its own event, and the one the tour
+		// waits on. `lowerPrompt()` runs on the tap, while the view is still mounted — its
+		// `onDisappear`, and so the release of the shared count, comes a beat later. Without this the
+		// tour is refused at Continue for a count that is about to drop and never asked again.
+		// It is also how a *second window* learns that the window owning the Welcome screen has gone.
+		.onChange(of: freeAccess.welcomeClaims) { _, _ in
+			startTourIfClear()
+		}
         // Re-check entitlement on foreground: a subscription that lapses while backgrounded
         // may push no `Transaction.updates` event, so without this the gate could stay open
         // on a stale entitlement until the next cold launch.
@@ -284,11 +303,26 @@ struct SubscriptionGateView<Content: View>: View {
         }
     }
 
+	/// Gives up this window's claim on the Welcome presentation, if it holds one.
+	///
+	/// Called from both the Continue tap and the screen's `onDisappear`, and idempotent so that
+	/// costs nothing: whichever arrives first clears the token, and the other becomes a no-op. That
+	/// pairing is deliberate — `onDisappear` alone is not guaranteed on scene teardown, and
+	/// `lowerPrompt()` alone never runs for a window closed without tapping anything.
+	private func releaseWelcomeClaim() {
+		guard let token = welcomeClaim else { return }
+		welcomeClaim = nil
+		freeAccess.releaseWelcomePresentation(token)
+	}
+
 	/// Raises whatever the window owes, and marks it shown in the same breath.
 	private func raisePromptIfDue() {
 		guard canPresentPrompt, presentedPrompt == nil, let due = freeAccess.duePrompt else { return }
 		presentedPrompt = due
-		freeAccess.setWelcomePresented(true)
+		// Claimed before `markPromptShown()`, never after. That call clears `duePrompt` on this same
+		// turn, and the resulting publish is what wakes the other window — so the claim has to be
+		// visible by then or the guard is armed after the race it exists to prevent.
+		welcomeClaim = freeAccess.claimWelcomePresentation()
 		freeAccess.markPromptShown()
 	}
 
@@ -301,7 +335,7 @@ struct SubscriptionGateView<Content: View>: View {
 	/// are released by different things and either can be absent.
 	private func lowerPrompt() {
 		presentedPrompt = nil
-		freeAccess.setWelcomePresented(false)
+		releaseWelcomeClaim()
 		freeAccess.acknowledgeDay0Presentation()
 		startTourIfClear()
 	}
@@ -346,5 +380,12 @@ struct SubscriptionGateView<Content: View>: View {
 				lowerPrompt()
 			}
 		)
+		// Tied to the screen's own lifecycle rather than to `raisePromptIfDue`/`lowerPrompt`, so a
+		// window closed while the Welcome screen is up still releases the shared guard. Driving it
+		// from the raise/lower pair would leak on scene teardown and block onboarding everywhere.
+		// The claim is taken in `raisePromptIfDue()`, not here — see `welcomeClaims`. This only has
+		// to cover the exits that never reach `lowerPrompt()`: the window being closed with the
+		// screen still up.
+		.onDisappear { releaseWelcomeClaim() }
 	}
 }

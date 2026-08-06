@@ -36,7 +36,7 @@ final class TourState {
 
 	/// Whether a first-launch tour has been decided on but not yet started (AIA-0567).
 	///
-	/// The tour used to start the instant `Appstate.initialize()` decided it should, which is why it
+	/// The tour used to start the instant `AppState.initialize()` decided it should, which is why it
 	/// ran *before* the day-0 paywall: it was simply already going. AIA-0567 puts the Welcome screen
 	/// first, so the decision and the start had to come apart — the decision still happens in
 	/// `initialize()`, before `isReady` and before anything renders, and the start waits for whoever
@@ -205,7 +205,7 @@ final class TourState {
 		// active window via the `isActive` render gate in ContentView.
 		//
 		// These resets used to be inert on the first launch: the tour started from
-		// `Appstate.initialize()` before `ContentView` existed, so there was no drawer to close and
+		// `AppState.initialize()` before `ContentView` existed, so there was no drawer to close and
 		// no detection to stop. AIA-0567 moved the start to *after* the Welcome screen, by which
 		// point `ContentView` is mounted and its references are bound — so this is now a live reset
 		// on every path, first launch included. `ContentView` withholds its launch auto-detect while

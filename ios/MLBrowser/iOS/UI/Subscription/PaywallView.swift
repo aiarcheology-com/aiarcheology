@@ -116,9 +116,10 @@ struct SubscriptionNotice: Equatable {
 /// Two things still vary, and both are about telling a given reader only what is true of them.
 /// ``addressesAReturningUser`` picks the voice — title, headline and description together, because
 /// addressing a first-time arrival as a returning one in any single line reads as a form letter.
-/// And ``isGettingFreeTrial`` picks which renewal disclosure appears: the standard text states that
+/// And ``trialEligibility`` picks which renewal disclosure appears: the standard text states that
 /// payment is taken at confirmation, which is false for a trial customer and would sit a few points
-/// from the note promising them nothing is charged.
+/// from the note promising them nothing is charged. It is three-valued, so neither claim is made
+/// while StoreKit is still answering.
 struct PaywallView: View {
 	@ObservedObject var subscriptionState: SubscriptionState
 	let analytics: AnalyticsState?
@@ -662,15 +663,30 @@ struct PaywallView: View {
 		}
 	}
 
-	/// Whether *this* viewer is actually getting a free trial, and so must not be told that payment
-	/// is taken at confirmation (AIA-0567).
+	/// Whether *this* viewer is getting a free trial — with "not yet known" kept distinct from "no".
 	///
-	/// The same conjunction the button label and the billing note use, and for the same reason:
-	/// StoreKit's eligibility answer alone is not enough, because a product carrying no introductory
-	/// offer reports every customer ineligible.
-	private var isGettingFreeTrial: Bool {
-		guard introOfferEligibility == true, let product = subscriptionState.products.first else { return false }
-		return Self.hasFreeTrialOffer(product)
+	/// Three-valued for the reason the original trial line was: `introOfferEligibility` is `nil`
+	/// until StoreKit answers, and collapsing that to `false` puts the wrong claim about money on
+	/// screen and then swaps it. On this screen that means an eligible customer briefly reads
+	/// "payment is charged at confirmation" under a button labelled Subscribe, and both change
+	/// under them a moment later. Every consumer below waits instead.
+	///
+	/// Both halves of the resolved answer are load-bearing: StoreKit's eligibility alone is not
+	/// enough, because a product carrying no introductory offer reports every customer ineligible.
+	private enum TrialEligibility: Equatable {
+		case unresolved
+		case gettingTrial
+		case noTrial
+	}
+
+	private var trialEligibility: TrialEligibility {
+		guard let product = subscriptionState.products.first else { return .unresolved }
+		guard Self.hasFreeTrialOffer(product) else { return .noTrial }
+		switch introOfferEligibility {
+		case .none: return .unresolved
+		case .some(true): return .gettingTrial
+		case .some(false): return .noTrial
+		}
 	}
 
 	/// Auto-renewable subscription disclosures required on the purchase screen
@@ -685,13 +701,19 @@ struct PaywallView: View {
 	@ViewBuilder
 	private var legalFooter: some View {
 		VStack(spacing: 8) {
-			Text(isGettingFreeTrial ? L10n.Paywall.disclosureTrial : L10n.Paywall.disclosure)
-				.font(.footnote)
-				.foregroundStyle(.secondary)
-				.multilineTextAlignment(.center)
-				// Required disclosure (App Review 3.1.2) must show in full — let it claim its
-				// natural height so it wraps instead of truncating under vertical compression.
-				.fixedSize(horizontal: false, vertical: true)
+			// Silent while eligibility is unresolved rather than guessing. Nothing can be bought in
+			// that instant either — the purchase button is disabled — so no renewal disclosure is
+			// owed yet, and stating the wrong one and correcting it under the reader is worse than
+			// stating the right one a moment later.
+			if trialEligibility != .unresolved {
+				Text(trialEligibility == .gettingTrial ? L10n.Paywall.disclosureTrial : L10n.Paywall.disclosure)
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.multilineTextAlignment(.center)
+					// Required disclosure (App Review 3.1.2) must show in full — let it claim its
+					// natural height so it wraps instead of truncating under vertical compression.
+					.fixedSize(horizontal: false, vertical: true)
+			}
 
 			HStack(spacing: 16) {
 				Link(L10n.Paywall.terms, destination: Self.termsOfUseURL)
@@ -783,7 +805,10 @@ struct PaywallView: View {
 		.buttonStyle(.borderedProminent)
 		.tint(.green)
 		.controlSize(.large)
-		.disabled(inFlight != nil || subscriptionState.isSubscribed)
+		// Also disabled while eligibility is unresolved: for that instant the label cannot say
+		// truthfully what the tap buys, and a purchase started from a mislabelled button is the one
+		// mistake on this screen that costs the user money.
+		.disabled(inFlight != nil || subscriptionState.isSubscribed || trialEligibility == .unresolved)
 		.testability(Testability.Button.paywallSubscribe)
 		// In non-production builds the purchase runs against Apple's Sandbox (no real
 		// charge); flag the button so testers know it's safe to tap (AIA-0354).
@@ -804,8 +829,7 @@ struct PaywallView: View {
 	/// The period comes from the offer, never a literal: the ticket's "Start 14-Day Free Trial"
 	/// hardcodes a length that App Store Connect owns and can change without a release.
 	private func purchaseButtonTitle(for product: Product) -> String {
-		guard introOfferEligibility == true,
-			  Self.hasFreeTrialOffer(product),
+		guard trialEligibility == .gettingTrial,
 			  let period = product.subscription?.introductoryOffer?.period.localizedDescription
 		else { return L10n.Paywall.subscribe }
 		return L10n.Paywall.startTrial(period)
@@ -834,10 +858,10 @@ struct PaywallView: View {
 	private func billingNote(for product: Product) -> some View {
 		if subscriptionState.isSubscribed {
 			EmptyView()
-		} else if introOfferEligibility == true, Self.hasFreeTrialOffer(product),
+		} else if trialEligibility == .gettingTrial,
 				  let period = product.subscription?.introductoryOffer?.period.localizedDescription {
 			billingNoteText(L10n.Paywall.trialSupport(period))
-		} else if introOfferEligibility == false, Self.hasFreeTrialOffer(product) {
+		} else if trialEligibility == .noTrial, Self.hasFreeTrialOffer(product) {
 			// The offer's *existence* is checked separately from this customer's eligibility for it.
 			// StoreKit answers only the second question, and a product carrying no introductory offer
 			// can report `false` for everyone — telling those users they have used up a trial that
