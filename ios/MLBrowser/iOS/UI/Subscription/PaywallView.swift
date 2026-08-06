@@ -291,26 +291,6 @@ struct PaywallView: View {
 					}
 					.padding(.horizontal, 32)
 
-					// The free-access window, stated as the offer plus the date a subscription has to start
-					// by (acceptance criterion 9). Absent on the wall, where there is no window left to state.
-					if let freeAccessOffer {
-						VStack(spacing: 6) {
-							Text(freeAccessOffer.headline)
-								.font(.headline)
-								.testability(Testability.Label.paywallFreeAccessHeadline)
-							Text(L10n.Paywall.FreeAccess.subscribeBy(
-								freeAccessOffer.endsOn.formatted(date: .abbreviated, time: .omitted)
-							))
-							.font(.footnote)
-							.foregroundStyle(.secondary)
-							.multilineTextAlignment(.center)
-							// The date is the point of the sentence — let it wrap rather than truncate under
-							// vertical compression or large Dynamic Type.
-							.fixedSize(horizontal: false, vertical: true)
-						}
-						.padding(.horizontal, 32)
-					}
-
 					if subscriptionState.isSubscribed {
 						Label(L10n.Paywall.active, systemImage: "checkmark.seal.fill")
 							.foregroundStyle(.green)
@@ -476,8 +456,28 @@ struct PaywallView: View {
 				.multilineTextAlignment(.center)
 		}
 
-		// Directly under Subscribe and shaped like it — same prominence, same control size, same
-		// full width — so it reads as a real second choice rather than a way out of the screen.
+		// The free-access window is the context for the second choice: subscribe now, or use the
+		// time that remains. Keeping the callout directly above Continue makes that relationship
+		// clear while still allowing the unavailable-product fallback to explain the offer.
+		if let freeAccessOffer {
+			VStack(spacing: 6) {
+				Text(freeAccessOffer.headline)
+					.font(.headline)
+					.testability(Testability.Label.paywallFreeAccessHeadline)
+				Text(L10n.Paywall.FreeAccess.subscribeBy(
+					freeAccessOffer.endsOn.formatted(date: .abbreviated, time: .omitted)
+				))
+				.font(.footnote)
+				.foregroundStyle(.secondary)
+				.multilineTextAlignment(.center)
+				// The date is the point of the sentence — let it wrap rather than truncate under
+				// vertical compression or large Dynamic Type.
+				.fixedSize(horizontal: false, vertical: true)
+			}
+		}
+
+		// The alternative action keeps Subscribe's control size and full width so it reads as a
+		// real second choice rather than a way out of the screen.
 		// The tint is what keeps the hierarchy: a desaturated slate blue against Subscribe's green,
 		// from a colorset with its own dark appearance because the app hardcodes no colours
 		// (`Assets.xcassets/ContinueButton`, both appearances ≥ 4.5:1 against a white label).
@@ -512,15 +512,15 @@ struct PaywallView: View {
 				notice = SubscriptionNotice.forRestore(outcome)
 			}
 		} label: {
-			// Opacity + overlay (not an if/else swap) so the spinner never changes the
-			// button's size mid-flight.
+			// A text action matching Manage Subscription visually. Opacity + overlay (not an
+			// if/else swap) keeps its footprint stable while the restore is in flight.
 			Text(L10n.Paywall.restore)
-				.frame(maxWidth: .infinity)
+				.font(.footnote)
 				.opacity(inFlight == .restore ? 0 : 1)
 				.overlay { if inFlight == .restore { ProgressView() } }
 		}
-		.buttonStyle(.bordered)
-		.controlSize(.large)
+		.buttonStyle(.plain)
+		.foregroundStyle(.tint)
 		.disabled(inFlight != nil)
 		.testability(Testability.Button.paywallRestore)
 
