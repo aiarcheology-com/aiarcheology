@@ -8,12 +8,19 @@
 import Foundation
 import OSLog
 
-/// The launch-gate state machine for authentication (AIA-0340).
+/// Who is signed in, as a state machine (AIA-0340).
+///
+/// It was the launch gate until AIA-0536 — every state below used to decide which root screen the
+/// app rendered, and `AuthGateView` was the view that did it. **None of them gate anything now**:
+/// entitlement and the free-access window decide access, and this only tells the rest of the app
+/// who it is talking to (analytics consent scope, purchase tagging, which account controls to
+/// offer). Read a state here as a fact, never as a permission.
 ///
 /// Flow: `checkingSession` resolves into exactly one of the terminal states.
 /// - `signedOut`: no valid session (never signed in, signed out, revoked, or banned).
-/// - `offline`: validation could not reach the server. v1 fails closed here.
-/// - `ready`: signed in — the app proper is shown.
+/// - `offline`: validation could not reach the server. It no longer fails closed — an entitled
+///   user in airplane mode reaches the app, which is the lockout AIA-0536 exists to have fixed.
+/// - `ready`: signed in.
 enum AuthGate: Equatable {
     case checkingSession
     case signedOut
@@ -24,7 +31,8 @@ enum AuthGate: Equatable {
 /// Failure modes surfaced by an ``AuthProviding`` while validating a session.
 enum AuthValidationError: Error {
     /// The validation round-trip failed because the device is offline or the
-    /// Clerk endpoint was unreachable. v1 fails closed → "needs connection".
+    /// Clerk endpoint was unreachable. Since AIA-0536 this costs the user nothing:
+    /// it blocks no screen, it only leaves the session unverifiable.
     case offline
     /// The session is no longer valid (signed out elsewhere, revoked, or banned).
     case noValidSession
@@ -66,12 +74,16 @@ protocol AuthProviding {
     func deleteAccount() async throws
 }
 
-/// Owns the authentication launch-gate. Drives which root screen the app shows
-/// before `ContentView`. Re-evaluated at launch and on every foreground so that
-/// a Dashboard ban/de-entitlement takes effect within one refresh.
+/// Owns ``AuthGate``. Re-evaluated at launch and on every foreground so that a Dashboard
+/// ban/revocation takes effect within one refresh.
+///
+/// Drives no root screen since AIA-0536 — see ``AuthGate``. It is still evaluated at launch
+/// because the answer is needed the moment the app has to attribute a purchase or pick a consent
+/// scope, not because anything is waiting on it to render.
 @MainActor
 final class AuthState: ObservableObject {
-    /// The current gate. Views branch on this to pick the root screen.
+    /// The current gate. Nothing branches on this to pick a root screen any more (AIA-0536) —
+    /// views read it to decide which *account controls* to offer, and analytics to pick a scope.
     @Published private(set) var gate: AuthGate = .checkingSession
 
     /// The signed-in account, or `nil` when signed out (AIA-0437).

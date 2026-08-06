@@ -58,8 +58,8 @@ SubscriptionGateView      (AIA-0343 — the app root since AIA-0536)
        └─ ContentView     (the browser + detection UI)
 ```
 
-Signing in is **not** a gate: `AuthGateView` was the outermost layer until AIA-0536 and no longer
-exists as one — sign-in is a contextual sheet. Access is `payments surface off || StoreKit entitled
+Signing in is **not** a gate: `AuthGateView` was the outermost layer until AIA-0536, and the view
+itself has since been deleted — sign-in is a contextual sheet (`SignInSheet`). Access is `payments surface off || StoreKit entitled
 || app-managed free window open`, resolved in that order by `RootGateDisplay`
 (`UI/Subscription/SubscriptionGateView.swift`). The free window (AIA-0556) is a 14-day period owned
 by `FreeAccessWindow` / `FreeAccessAnchorService` / `FreeAccessState`, anchored in UserDefaults and

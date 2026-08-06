@@ -39,7 +39,7 @@ import Foundation
 /// and it is what they are targetable as.
 ///
 /// ## Why auth no longer appears here
-/// Before the paywall-first cut-over, `AuthGateView` wrapped everything and its `.signedOut` branch
+/// Before the paywall-first cut-over, the since-deleted `AuthGateView` wrapped everything and its `.signedOut` branch
 /// was a whole screen, so `.login` was a *mounted surface* a banner could sit on. Sign-in is now a
 /// transient sheet reachable from four places, so there is no such surface: a signed-out user is
 /// looking at the paywall or the app, and that is what they are targetable as.

@@ -103,9 +103,8 @@ extension TestabilityIdentification {
 		case settingsRemoveFindings
 		case settingsRemoveFindingsExport
 		case settingsRemoveFindingsConfirm
-		// Auth gate (AIA-0340)
+		// Sign-in, offered contextually (AIA-0340, moved out of the root gate by AIA-0536)
 		case authSignIn
-		case authOfflineRetry
 		case signInSheetCancel
 		case settingsSignIn
 		case drawerSignIn
