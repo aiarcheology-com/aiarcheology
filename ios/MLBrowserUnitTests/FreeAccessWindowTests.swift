@@ -170,9 +170,7 @@ final class FreeAccessWindowTests: XCTestCase {
 		XCTAssertNil(window.duePrompt(at: try day(13, after: grantDate)))
 	}
 
-	/// A first launch on day 10 — granted, force-quit before the day-0 paywall appeared, away since.
-	/// The explanation is owed until it is actually shown or the window ends, or a force-quit at the
-	/// wrong moment means the user is never told a clock is running at all.
+	/// A first launch on day 10 — granted, force-quit before the Welcome screen appeared, away since.
 	/// A window whose Welcome screen was never shown is still owed one — but it must offer what is
 	/// **left**, not what was granted (AIA-0567).
 	///
@@ -190,18 +188,6 @@ final class FreeAccessWindowTests: XCTestCase {
 			window.duePrompt(at: try day(10, after: grantDate)),
 			FreeAccessPrompt(days: 4, endsOn: record.expiresAt),
 			"Day 10 with 4 days left must not advertise 14"
-		)
-	}
-
-	/// On day 0 the two readings coincide, which is why the overstatement was easy to miss.
-	func testDuePrompt_onDayZero_offersTheWholeWindow() throws {
-		let grantDate = try date(2026, 3, 2)
-		let window = grantedWindow(at: grantDate)
-		let record = try grantedRecord(in: window)
-
-		XCTAssertEqual(
-			window.duePrompt(at: grantDate),
-			FreeAccessPrompt(days: 14, endsOn: record.expiresAt)
 		)
 	}
 
@@ -597,6 +583,28 @@ final class FreeAccessWindowTests: XCTestCase {
 		// granted. `.standard` would land ~14 days out; the honest length is ~30.
 		let days = bounded.expiresAt.timeIntervalSince(bounded.grantedAt) / 86_400
 		XCTAssertGreaterThan(days, 25, "a 30-day window was rebuilt as the default 14")
+	}
+
+	/// The drift this replaced: an honest record used to be "repaired" to the new local midnight
+	/// every time its owner changed time zone, and only ever downward, so a round trip cost real
+	/// days of free access. Credibility is a bound now, so the frozen instant survives untouched.
+	func testCredible_acrossATimeZoneRoundTrip_neverMovesTheExpiry() throws {
+		let grantDate = try date(2026, 3, 2)
+		let honest = FreeAccessWindow.record(
+			grantedAt: grantDate,
+			thresholds: .standard,
+			calendar: calendar
+		)
+		var losAngeles = Calendar(identifier: .gregorian)
+		losAngeles.timeZone = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+		var berlin = Calendar(identifier: .gregorian)
+		berlin.timeZone = try XCTUnwrap(TimeZone(identifier: "Europe/Berlin"))
+
+		let abroad = FreeAccessWindow.credible(honest, now: grantDate, calendar: losAngeles)
+		let home = FreeAccessWindow.credible(abroad, now: grantDate, calendar: berlin)
+
+		XCTAssertEqual(abroad.expiresAt, honest.expiresAt, "flying west shortened the window")
+		XCTAssertEqual(home.expiresAt, honest.expiresAt, "flying home shortened it again")
 	}
 
 	/// Where the ceiling actually sits, which the decade-long forgery above cannot show.

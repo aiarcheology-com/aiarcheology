@@ -728,12 +728,12 @@ internal enum L10n {
     internal enum Benefit {
       /// Cancel anytime
       internal static let cancel = L10n.tr("Localizable", "paywall.benefit.cancel", fallback: "Cancel anytime")
-      /// All current and future features
-      internal static let features = L10n.tr("Localizable", "paywall.benefit.features", fallback: "All current and future features")
+      /// Every feature in ML Browser
+      internal static let features = L10n.tr("Localizable", "paywall.benefit.features", fallback: "Every feature in ML Browser")
       /// Unlimited access
       internal static let unlimited = L10n.tr("Localizable", "paywall.benefit.unlimited", fallback: "Unlimited access")
-      /// Regular updates
-      internal static let updates = L10n.tr("Localizable", "paywall.benefit.updates", fallback: "Regular updates")
+      /// Ongoing improvements
+      internal static let updates = L10n.tr("Localizable", "paywall.benefit.updates", fallback: "Ongoing improvements")
     }
     internal enum Billing {
       /// Your Apple Account has already used the free trial, so billing starts as soon as you subscribe.

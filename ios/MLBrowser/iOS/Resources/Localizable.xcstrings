@@ -12027,13 +12027,13 @@
       }
     },
     "paywall.benefit.features" : {
-      "comment" : "What the subscription includes (AIA-0567), bullet 2.",
+      "comment" : "What the subscription includes (AIA-0567), bullet 2. Deliberately not \"all current and future features\": that is a commitment a later tier or a paid add-on would retroactively break for everyone who subscribed under it, and it lives in the binary where only a release can change it.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "All current and future features"
+            "value" : "Every feature in ML Browser"
           }
         }
       }
@@ -12051,13 +12051,13 @@
       }
     },
     "paywall.benefit.updates" : {
-      "comment" : "What the subscription includes (AIA-0567), bullet 3.",
+      "comment" : "What the subscription includes (AIA-0567), bullet 3. Deliberately not \"regular updates\", which promises a cadence nothing guarantees.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Regular updates"
+            "value" : "Ongoing improvements"
           }
         }
       }

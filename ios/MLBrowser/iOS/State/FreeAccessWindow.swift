@@ -229,15 +229,6 @@ struct FreeAccessWindow: Equatable, Sendable {
 
 	// MARK: - Reconciliation
 
-	/// Folds the two stores into the anchor the app must honour.
-	///
-	/// The **earliest** grant wins, never the newest. The Keychain copy outlives app deletion
-	/// precisely so a fresh UserDefaults cannot restart the clock; preferring the newer record
-	/// would hand every reinstall a brand-new window, which is the farm the mirror exists to close.
-	///
-	/// When both stores hold the same grant, the progress fields are merged in the conservative
-	/// direction — the higher monotonic floor, and a screen counted as shown if either store saw
-	/// it — so a store disagreement can neither rewind the clamp nor re-nag the user.
 	/// The longest window any operator may configure, and therefore the longest a stored record may
 	/// claim.
 	///
@@ -246,21 +237,6 @@ struct FreeAccessWindow: Equatable, Sendable {
 	/// refusing a record that awards itself a year.
 	static let maxCredibleGrantDays = 60
 
-	/// Whether this app could actually have written `record`.
-	///
-	/// The test is reproduction, not shape: derive the thresholds the record implies, rebuild from
-	/// its own `grantedAt`, and require the frozen dates to come back **identical**. A record that
-	/// cannot be reproduced was not written here.
-	///
-	/// Checking shape instead — "expiry after grant, span under a ceiling" — is what an earlier
-	/// version of this did, and it is not a bound at all: a forger simply writes
-	/// a well-shaped record with a 399-day span and keeps every day of it. Reproduction leaves no
-	/// such room, because the only thing left to vary is the thresholds themselves, and those are
-	/// bounded by ``maxCredibleGrantDays``.
-	///
-	/// `now` matters because a grant cannot have happened in the future. That case is repaired
-	/// separately by ``reanchoredIfGrantedInTheFuture(_:now:calendar:)``, which re-anchors rather
-	/// than rebuilds; this only has to avoid *blessing* it in the meantime.
 	/// The thresholds a stored record implies, or `nil` when they are outside anything an operator
 	/// could have configured.
 	///
@@ -276,19 +252,39 @@ struct FreeAccessWindow: Equatable, Sendable {
 		return FreeAccessThresholds(grantDays: grantDays)
 	}
 
+	/// Whether this app could actually have written `record`.
+	///
+	/// The test is a bound, not a reproduction: the grant cannot be in the future, and the window it
+	/// claims must be a length an operator could actually have configured. A record outside that is
+	/// rebuilt from its own `grantedAt`.
+	///
+	/// The ceiling is doing all the work here, and it is enough. A forger editing their own storage
+	/// can claim at most ``maxCredibleGrantDays``; they could do that before this was relaxed too,
+	/// because a record claiming the full ceiling reproduces exactly. What the stricter check added
+	/// was that the expiry had to land on local midnight — worth a few hours to an attacker, and
+	/// worth real days to an honest user who changed time zone, which is why it is gone.
+	///
+	/// `now` matters because a grant cannot have happened in the future. That case is repaired
+	/// separately by ``reanchoredIfGrantedInTheFuture(_:now:calendar:)``, which re-anchors rather
+	/// than rebuilds; this only has to avoid *blessing* it in the meantime.
 	static func isCredible(_ record: Record, now: Date, calendar: Calendar) -> Bool {
 		guard record.grantedAt <= now.addingTimeInterval(futureGrantTolerance) else { return false }
-		guard let claimed = claimedThresholds(of: record, calendar: calendar) else { return false }
-
-		// One frozen field left to cross-reference (AIA-0567). This check used to require two derived
-		// dates to reproduce, so a record edited to buy extra days had to keep both mutually
-		// consistent; the second was deleted with the feature that owned it, and only `expiresAt`
-		// remains. The bound itself is unchanged — reproduction from the record's own `grantedAt`
-		// still leaves nothing to vary but the thresholds, and those are capped by
-		// ``maxCredibleGrantDays`` — but an editor no longer has to get a second date right, so the
-		// check is that much cheaper to satisfy. Stated rather than left to be noticed.
-		let reproduced = Self.record(grantedAt: record.grantedAt, thresholds: claimed, calendar: calendar)
-		return reproduced.expiresAt == record.expiresAt
+		// Bounded, not reproduced — deliberately (AIA-0567).
+		//
+		// This used to rebuild the record from its own `grantedAt` and demand the frozen dates come
+		// back identical. That is exact only while the calendar is the one the grant was written
+		// under: `claimedThresholds` measures from `startOfDay(grantedAt)`, which moves when the
+		// device does, so an honest record stopped reproducing the moment its owner changed time
+		// zone and was "repaired" to the new local midnight. It only ever repaired *downward*, and
+		// it ratcheted — a Berlin grant loses hours in Los Angeles, then loses more coming back.
+		// A fortnight of free access is not something to shave off by flying.
+		//
+		// Nothing is given up. Reproduction never bounded a forger: a record claiming the full
+		// ceiling, aligned to local midnight, reproduces exactly and always did. The bound is
+		// ``maxCredibleGrantDays``, which `claimedThresholds` enforces and which is unchanged. All
+		// the equality ever caught was an expiry that missed midnight — a few hours to somebody
+		// already editing their own storage, against real days taken from an honest traveller.
+		return claimedThresholds(of: record, calendar: calendar) != nil
 	}
 
 	/// Rebuilds an unreproducible record's durations from its own grant date, leaving a credible one
@@ -345,6 +341,15 @@ struct FreeAccessWindow: Equatable, Sendable {
 	/// Both records must already have passed ``credible(_:now:calendar:)`` — earliest-wins is only
 	/// safe on records this app could have written, since otherwise an edited one needs nothing but
 	/// an early date to win.
+	/// Folds the two stores into the anchor the app must honour.
+	///
+	/// The **earliest** grant wins, never the newest. The Keychain copy outlives app deletion
+	/// precisely so a fresh UserDefaults cannot restart the clock; preferring the newer record
+	/// would hand every reinstall a brand-new window, which is the farm the mirror exists to close.
+	///
+	/// When both stores hold the same grant, the progress fields are merged in the conservative
+	/// direction — the higher monotonic floor, and a screen counted as shown if either store saw
+	/// it — so a store disagreement can neither rewind the clamp nor re-nag the user.
 	static func reconcile(fast: Record?, durable: Record?) -> Record? {
 		guard let fast else { return durable }
 		guard let durable else { return fast }
@@ -428,7 +433,6 @@ struct FreeAccessWindow: Equatable, Sendable {
 		)
 	}
 
-	/// Settles the reconciliation gate with the result of reading **both** stores.
 	/// Settles the reconciliation gate with the result of reading **both** stores.
 	///
 	/// Records must already have passed ``credible(_:now:calendar:)`` — `FreeAccessAnchorService`
