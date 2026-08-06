@@ -23,6 +23,28 @@ final class SubscriptionGateUITests: UITestCase {
 		assertExists(AID.cpu, false)
 	}
 
+	/// AIA-0564: the centered, full-height stack clipped the paywall's upper and lower content in
+	/// landscape. The free-access presentation has enough required copy and actions to overflow a
+	/// short window, so it proves this is a real ScrollView rather than merely a shorter layout.
+	func testGate_landscapeScrollsToRootAccountActions() {
+		launch(
+			LaunchConfig(featureFlagOverrides: ["isFreeAccessPeriodEnabled": true]),
+			mockAuthGate: "ready",
+			mockSubscription: "notSubscribed"
+		)
+		let paywall = app.scrollViews[AID.paywallContent]
+		XCTAssertTrue(paywall.waitForExistence(timeout: 10), "Paywall content is not scrollable")
+
+		XCUIDevice.shared.orientation = .landscapeLeft
+		XCTAssertTrue(waitForLandscape(), "Paywall did not relayout in landscape")
+
+		let signOut = app.buttons[AID.paywallSignOut]
+		for _ in 0..<8 where !signOut.isHittable {
+			paywall.swipeUp()
+		}
+		XCTAssertTrue(signOut.isHittable, "Landscape paywall never reached its root account actions")
+	}
+
 	/// `subscribed` (the default) → the gate passes through to the app.
 	func testGate_subscribed_entersApp() {
 		launch(mockSubscription: "subscribed")

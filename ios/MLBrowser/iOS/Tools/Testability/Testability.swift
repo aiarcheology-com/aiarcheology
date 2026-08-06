@@ -371,6 +371,9 @@ extension TestabilityIdentification {
 	
 	enum View: String, TestabilityIdentification {
 		case aView
+		/// The vertically scrollable paywall content (AIA-0564). Identified so the landscape
+		/// regression test can prove every required purchase and account control remains reachable.
+		case paywallContent
 		// Onboarding tour coach-mark bubble.
 		case tourBubble
 		// App Messages banner container (AIA-0115)

@@ -269,62 +269,69 @@ struct PaywallView: View {
 	private var isDeadEnd: Bool { isRootGate && continueAction == nil }
 
 	var body: some View {
-		VStack(spacing: 24) {
-			Spacer()
+		GeometryReader { geometry in
+			ScrollView {
+				VStack(spacing: 24) {
+					Spacer(minLength: 0)
 
-			Image("AppLogo")
-				.resizable()
-				.scaledToFit()
-				.frame(maxWidth: 120, maxHeight: 120)
-				.accessibilityHidden(true)
+					Image("AppLogo")
+						.resizable()
+						.scaledToFit()
+						.frame(maxWidth: 120, maxHeight: 120)
+						.accessibilityHidden(true)
 
-			VStack(spacing: 8) {
-				Text(L10n.Paywall.title)
-					.font(.title).bold()
-					.multilineTextAlignment(.center)
-				Text(L10n.Paywall.tagline)
-					.font(.body)
-					.foregroundStyle(.secondary)
-					.multilineTextAlignment(.center)
-			}
-			.padding(.horizontal, 32)
+					VStack(spacing: 8) {
+						Text(L10n.Paywall.title)
+							.font(.title).bold()
+							.multilineTextAlignment(.center)
+						Text(L10n.Paywall.tagline)
+							.font(.body)
+							.foregroundStyle(.secondary)
+							.multilineTextAlignment(.center)
+					}
+					.padding(.horizontal, 32)
 
-			// The free-access window, stated as the offer plus the date a subscription has to start
-			// by (acceptance criterion 9). Absent on the wall, where there is no window left to state.
-			if let freeAccessOffer {
-				VStack(spacing: 6) {
-					Text(freeAccessOffer.headline)
-						.font(.headline)
-						.testability(Testability.Label.paywallFreeAccessHeadline)
-					Text(L10n.Paywall.FreeAccess.subscribeBy(
-						freeAccessOffer.endsOn.formatted(date: .abbreviated, time: .omitted)
-					))
-					.font(.footnote)
-					.foregroundStyle(.secondary)
-					.multilineTextAlignment(.center)
-					// The date is the point of the sentence — let it wrap rather than truncate under
-					// vertical compression or large Dynamic Type.
-					.fixedSize(horizontal: false, vertical: true)
+					// The free-access window, stated as the offer plus the date a subscription has to start
+					// by (acceptance criterion 9). Absent on the wall, where there is no window left to state.
+					if let freeAccessOffer {
+						VStack(spacing: 6) {
+							Text(freeAccessOffer.headline)
+								.font(.headline)
+								.testability(Testability.Label.paywallFreeAccessHeadline)
+							Text(L10n.Paywall.FreeAccess.subscribeBy(
+								freeAccessOffer.endsOn.formatted(date: .abbreviated, time: .omitted)
+							))
+							.font(.footnote)
+							.foregroundStyle(.secondary)
+							.multilineTextAlignment(.center)
+							// The date is the point of the sentence — let it wrap rather than truncate under
+							// vertical compression or large Dynamic Type.
+							.fixedSize(horizontal: false, vertical: true)
+						}
+						.padding(.horizontal, 32)
+					}
+
+					if subscriptionState.isSubscribed {
+						Label(L10n.Paywall.active, systemImage: "checkmark.seal.fill")
+							.foregroundStyle(.green)
+							.font(.headline)
+					}
+
+					Spacer(minLength: 0)
+
+					content
+						.padding(.horizontal, 32)
+						.padding(.bottom, 24)
 				}
-				.padding(.horizontal, 32)
+				// When the content is short, this minimum height lets the two spacers retain the
+				// centered layout. When landscape, Dynamic Type, or extra disclosures make it taller,
+				// the stack grows past the viewport and the ScrollView exposes every control instead of
+				// clipping the top or bottom of the purchase screen.
+				.frame(maxWidth: 480)
+				.frame(maxWidth: .infinity, minHeight: geometry.size.height)
 			}
-
-			if subscriptionState.isSubscribed {
-				Label(L10n.Paywall.active, systemImage: "checkmark.seal.fill")
-					.foregroundStyle(.green)
-					.font(.headline)
-			}
-
-			Spacer()
-
-			content
-				.padding(.horizontal, 32)
-				.padding(.bottom, 24)
+			.testability(Testability.View.paywallContent)
 		}
-		// Cap the content/buttons width so the paywall doesn't stretch edge-to-edge on
-		// iPad; the outer frame then centers that block on the full screen.
-		.frame(maxWidth: 480)
-		.frame(maxWidth: .infinity, maxHeight: .infinity)
 		.task {
 			// Load products when the paywall appears (kept off the launch path so a slow
 			// App Store fetch never delays app readiness), then resolve this user's
