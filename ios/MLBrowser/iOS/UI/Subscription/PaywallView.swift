@@ -702,7 +702,7 @@ struct PaywallView: View {
 	private var legalFooter: some View {
 		VStack(spacing: 8) {
 			Text(L10n.Paywall.disclosure)
-				.font(.caption2)
+				.font(.footnote)
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.center)
 				// Required disclosure (App Review 3.1.2) must show in full — let it claim its
@@ -862,7 +862,7 @@ struct PaywallView: View {
 
 	private func billingNoteText(_ text: String) -> some View {
 		Text(text)
-			.font(.caption2)
+			.font(.footnote)
 			.foregroundStyle(.secondary)
 			.multilineTextAlignment(.center)
 			.fixedSize(horizontal: false, vertical: true)
