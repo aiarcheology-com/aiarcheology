@@ -236,32 +236,89 @@ final class TourStateTests: XCTestCase {
 
 	// MARK: - Gate & migration (object(forKey:))
 
-	func testMigration_noLegacyKey_autostarts() {
+	func testMigration_noLegacyKey_arms() {
 		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
-		tour.migrateAndAutostartIfNeeded()
-		XCTAssertTrue(tour.isActive, "Fresh install with no legacy key auto-starts the tour")
+		tour.migrateAndArmIfNeeded()
+		XCTAssertTrue(tour.isArmed, "Fresh install with no legacy key arms the tour")
+		XCTAssertFalse(tour.isActive, "Arming must not start it — the Welcome screen goes first (AIA-0567)")
 	}
 
-	func testMigration_legacyOptOut_seedsGateWithoutStarting() {
+	func testMigration_legacyOptOut_seedsGateWithoutArming() {
 		defaults.set(false, forKey: TourState.legacySlideshowKey) // user disabled old slideshow
 		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
-		tour.migrateAndAutostartIfNeeded()
-		XCTAssertFalse(tour.isActive, "Legacy opt-out users are not re-onboarded")
+		tour.migrateAndArmIfNeeded()
+		XCTAssertFalse(tour.isArmed, "Legacy opt-out users are not re-onboarded")
+		XCTAssertFalse(tour.isActive)
 		XCTAssertTrue(tour.hasSeenTour, "The gate is seeded so they are never re-shown")
 	}
 
-	func testMigration_legacyOptIn_autostarts() {
+	func testMigration_legacyOptIn_arms() {
 		defaults.set(true, forKey: TourState.legacySlideshowKey) // slideshow was still on
 		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
-		tour.migrateAndAutostartIfNeeded()
-		XCTAssertTrue(tour.isActive, "Non-opt-out users see the tour once on upgrade")
+		tour.migrateAndArmIfNeeded()
+		XCTAssertTrue(tour.isArmed, "Non-opt-out users see the tour once on upgrade")
 	}
 
 	func testMigration_gateAlreadySeen_doesNothing() {
 		defaults.set(true, forKey: TourState.gateKey)
 		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
-		tour.migrateAndAutostartIfNeeded()
-		XCTAssertFalse(tour.isActive, "An already-seen gate suppresses auto-start")
+		tour.migrateAndArmIfNeeded()
+		XCTAssertFalse(tour.isArmed, "An already-seen gate suppresses arming")
+		XCTAssertFalse(tour.isActive)
+	}
+
+	// MARK: - Arm / start split (AIA-0567)
+
+	func testStartIfArmed_withoutAnArm_doesNothing() {
+		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
+		tour.startIfArmed()
+		XCTAssertFalse(tour.isActive, "Nothing was owed, so nothing starts")
+	}
+
+	func testStartIfArmed_consumesTheArm() {
+		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
+		tour.migrateAndArmIfNeeded()
+		tour.startIfArmed()
+		XCTAssertTrue(tour.isActive)
+		XCTAssertFalse(tour.isArmed, "The arm is consumed, or every later screen change restarts the tour")
+	}
+
+	func testStartIfArmed_whileRunning_doesNotRestart() {
+		// The gate calls this from several lifecycle handlers, any of which can fire again while
+		// the tour is mid-step. A second `start()` would reset the index and close the drawer.
+		let tour = TourState(steps: scriptedSteps(count: 3), defaults: defaults)
+		tour.arm()
+		tour.startIfArmed()
+		tour.advance()
+		XCTAssertEqual(tour.currentIndex, 1)
+		tour.arm()          // a stray re-arm must not be honoured while running
+		tour.startIfArmed()
+		XCTAssertEqual(tour.currentIndex, 1, "A running tour is never restarted from under the user")
+	}
+
+	func testIsPendingOrRunning_spansArmedThroughTermination() {
+		// What `AnalyticsChoiceGate` reads to hold the consent question back. It has to be true
+		// from the arm — before anything renders — and stay true until the tour is genuinely done,
+		// with no gap in the middle where consent could slip in over a starting tour.
+		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
+		XCTAssertFalse(tour.isPendingOrRunning)
+		tour.arm()
+		XCTAssertTrue(tour.isPendingOrRunning, "Armed but not started still owes the user a turn")
+		tour.startIfArmed()
+		XCTAssertTrue(tour.isPendingOrRunning, "Running")
+		tour.skip()
+		XCTAssertFalse(tour.isPendingOrRunning, "Terminal — consent may now be asked")
+	}
+
+	func testTerminate_clearsAStrayArm() {
+		// Settings → Replay calls `start()` directly, bypassing the arm. If an arm were still
+		// outstanding, `isPendingOrRunning` would stay true forever and defer consent for good.
+		let tour = TourState(steps: scriptedSteps(count: 1), defaults: defaults)
+		tour.arm()
+		tour.start()
+		tour.finish()
+		XCTAssertFalse(tour.isArmed)
+		XCTAssertFalse(tour.isPendingOrRunning)
 	}
 
 	func testGate_distinguishesAbsentFromFalse() {

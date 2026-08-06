@@ -276,23 +276,25 @@ struct ContentView: View {
         guard appState.snap.delayedTimer.not else { return }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-            if appState.settings.snapAfterAppStart {
+            // Not while onboarding still owes the user a turn (AIA-0567). This content is now
+            // mounted *underneath* the day-0 Welcome screen, where it never used to be — so without
+            // this guard detection would start behind a screen the user is still reading, and then
+            // be stopped again by `TourState.start()`'s reset the moment they tapped Continue. The
+            // user would see a detection run they never asked for, bracketed by nothing.
+            if appState.settings.snapAfterAppStart, appState.tour.isPendingOrRunning.not {
                 appState.detectionState.ontheflyDetectionTapped()
             }
             appState.snap.delayedTimer = true
         }
 
-        // Onboarding tour (AIA-0333): bind the live drawer. Under UI tests the tour starts
-        // only when a test explicitly opts in via `startOnboardingTour`, so the overlay never
-        // covers the chrome other tests assert against. In shipping, run the first-launch
-        // gate/migration decision.
-        // The production auto-start decision runs earlier, in `AppState.initialize()`, so the
-        // onboarding demo page is staged before this view appears. Here we only bind the live
-        // drawer and honor the UI-test launch flag.
+        // Onboarding tour (AIA-0333): bind the live drawer, and nothing else.
+        //
+        // This used to start the tour on the UI-test path. It cannot any more (AIA-0567): both the
+        // production and the UI-test arming decisions run in `AppState.initialize()`, and
+        // `SubscriptionGateView` starts what they armed. Starting here as well would race that —
+        // and starting here *instead* would be worse, since this runs after the gate's
+        // `onChange(initial: true)` handlers, so the tests would cover a path the app never takes.
         appState.tour.bind(drawer: drawer, chromeState: appState.chromeState, detectionState: appState.detectionState)
-        if AppEnvironment.isRunningUITests, UITestLaunchConfiguration.shouldStartOnboardingTour {
-            appState.tour.start()
-        }
     }
 }
 

@@ -19,20 +19,40 @@ enum AnalyticsEvent: Equatable {
 	case modelImported(source: ModelAcquisitionSource)
 	case detectionSessionSummary(runCountBucket: DetectionRunCountBucket)
 
-	// The app-managed free-access window (AIA-0556). Four stages of one funnel: a window opens, the
-	// user declines to subscribe for now, the reminder lands, the window runs out. `paywallShown`
-	// already covers each screen; these say which *window* stage produced it, which that event
-	// structurally cannot.
+	// The app-managed free-access window (AIA-0556, extended by AIA-0567). One funnel: a window
+	// opens, its Welcome screen is shown, the user goes exploring, onboarding ends one way or the
+	// other, and eventually the window runs out.
 	//
-	// Three of the four are once-per-window by construction — a grant is only ever possible for an
-	// install with no anchor, and both prompts carry a persisted shown-marker. Expiry is the
-	// exception, because it is a fact about the clock rather than an act, and every launch after
-	// day 14 re-observes it; ``AnalyticsState/reportFreeAccessWindowExpiredIfNeeded()`` is what
-	// keeps it a stage count rather than a launch count.
+	// The grant is once-per-window by construction — it is only ever possible for an install with no
+	// anchor. Expiry is not, because it is a fact about the clock rather than an act, and every
+	// launch after day 14 re-observes it; ``AnalyticsState/reportFreeAccessWindowExpiredIfNeeded()``
+	// is what keeps it a stage count rather than a launch count.
 	case freeAccessWindowGranted
 	case freeAccessContinueTapped
-	case freeAccessReminderShown
 	case freeAccessWindowExpired
+
+	/// The day-0 Welcome screen went on screen (AIA-0567).
+	///
+	/// Needed because the split took the day-0 population away from `paywallShown`: that event used
+	/// to fire for the day-0 paywall and now cannot, since ``WelcomeView`` is a different screen and
+	/// deliberately not a purchase screen. Without this the funnel would lose its second stage
+	/// entirely and `paywall.shown` would silently change meaning with no replacement.
+	///
+	/// Emitted where the once-per-window marker is written, so it cannot outnumber the screen.
+	case welcomeShown
+
+	/// Onboarding finished, or the user skipped out of it (AIA-0567).
+	///
+	/// The tour now sits between the Welcome screen and the consent question, which makes its
+	/// drop-off the first-run metric — and until this ticket there was no tour telemetry at all.
+	/// Both fire **only for a first run**: Settings → Replay terminates through the same methods,
+	/// and counting replays would let this stage outnumber `freeAccessWindowGranted`, which is
+	/// once-per-window.
+	///
+	/// `completed + skipped < continueTapped` by construction — a force-quit mid-tour emits neither.
+	/// That gap is abandonment, not event loss.
+	case onboardingTourCompleted
+	case onboardingTourSkipped
 
 	var name: String {
 		switch self {
@@ -44,16 +64,18 @@ enum AnalyticsEvent: Equatable {
 		case .detectionSessionSummary: "com.aiarcheology.detection.session_summary"
 		case .freeAccessWindowGranted: "com.aiarcheology.free_access.window_granted"
 		case .freeAccessContinueTapped: "com.aiarcheology.free_access.continue_tapped"
-		case .freeAccessReminderShown: "com.aiarcheology.free_access.reminder_shown"
 		case .freeAccessWindowExpired: "com.aiarcheology.free_access.window_expired"
+		case .welcomeShown: "com.aiarcheology.welcome.shown"
+		case .onboardingTourCompleted: "com.aiarcheology.onboarding.tour_completed"
+		case .onboardingTourSkipped: "com.aiarcheology.onboarding.tour_skipped"
 		}
 	}
 
 	var parameters: [String: String] {
 		switch self {
 		case .paywallShown, .subscribeTapped, .accountSignedIn, .subscriptionActivated,
-			 .freeAccessWindowGranted, .freeAccessContinueTapped,
-			 .freeAccessReminderShown, .freeAccessWindowExpired:
+			 .freeAccessWindowGranted, .freeAccessContinueTapped, .freeAccessWindowExpired,
+			 .welcomeShown, .onboardingTourCompleted, .onboardingTourSkipped:
 			// Deliberately payload-free. The account is expressed only as the transport's
 			// hashed `clientUser`; the raw Clerk id must never travel as a parameter (AIA-0437).
 			// The window's own numbers — grant date, days remaining — stay on the device: they
@@ -65,6 +87,15 @@ enum AnalyticsEvent: Equatable {
 			["run_count_bucket": runCountBucket.rawValue]
 		}
 	}
+
+	/// Whether this event carries no payload, and is therefore safe to collapse to one occurrence
+	/// while buffered pre-consent (AIA-0567).
+	///
+	/// Every funnel stage answers "did this happen", never "how many times" — two identical
+	/// payload-free events are indistinguishable downstream anyway. Events that DO carry a payload
+	/// are excluded: `modelImported` and `detectionSessionSummary` are volume measurements whose
+	/// counts are the point. See ``AnalyticsState/maxPendingPreConsentEvents``.
+	var isCollapsibleWhileBuffered: Bool { parameters.isEmpty }
 }
 
 /// The only model-acquisition detail allowed to leave the device. Model name, URL, filename,
@@ -169,14 +200,27 @@ final class AnalyticsState: ObservableObject {
 	/// This defers reporting until consent without anything leaving the device beforehand (AIA-0447).
 	private var pendingPreConsentEvents: [AnalyticsEvent] = []
 	/// Safety bound so a repeated `onAppear` cannot grow the buffer without limit — not a functional
-	/// cap. Drop-oldest on overflow.
+	/// cap. Payload-free events are collapsed on append; overflow evicts the newest **volume** event.
 	///
-	/// The pre-consent surface grew with AIA-0556: the ask is now *deferred* while a day-0 free
-	/// window is waiting for the paywall that explains it, so a first launch buffers the grant, the
-	/// day-0 `paywallShown`, and the Continue that releases the deferral before the question is even
-	/// put. Still a handful of payload-free events against a bound of 16, and bounded in the same
-	/// way it always was: the consent gate takes the screen the moment the deferral lifts, so
-	/// nothing can accumulate behind it indefinitely.
+	/// The old justification no longer holds and is worth stating plainly, because the bound is
+	/// unchanged and it would be easy to assume the reasoning is too. It used to read: "the consent
+	/// gate takes the screen the moment the deferral lifts, so nothing can accumulate behind it
+	/// indefinitely." AIA-0567 broke that. Consent now also waits for the onboarding tour, and a
+	/// tour abandoned mid-step — backgrounded, never terminated — leaves the user inside the app,
+	/// using it, with the buffer open for as long as they like. `modelImported` and
+	/// `detectionSessionSummary` both fire from in there.
+	///
+	/// Two changes restore a real bound rather than a hopeful one. Collapsing payload-free repeats
+	/// caps the funnel stages at one entry each, fewer than ten in total. And overflow evicts the
+	/// newest *volume* event rather than either end of the buffer, so no funnel stage can ever be
+	/// pushed out — by anything, at any length of session.
+	///
+	/// Both naive policies fail, in opposite directions, and a test pins each. Drop-oldest evicts
+	/// `freeAccessWindowGranted` first, the denominator every later stage is measured against.
+	/// Drop-newest never admits anything once full — which bites hardest at a cold hard wall, the
+	/// one surface that mounts no `AnalyticsChoiceGate` at all and so leaves `.ask` standing
+	/// indefinitely while `paywallShown` and `subscribeTapped` fire. There, drop-newest throws away
+	/// the Subscribe tap that converted.
 	private static let maxPendingPreConsentEvents = 16
 	private var featureFlagObservation: AnyCancellable?
 
@@ -425,9 +469,40 @@ final class AnalyticsState: ObservableObject {
 		// all): record locally, deferred until they decide. Sent only if that scope enables
 		// analytics; discarded on decline, and discarded outright if a different scope is selected
 		// first (AIA-0447/0437/0536).
+		// Collapse repeats of payload-free events rather than stacking them (AIA-0567). This is what
+		// keeps the bound unreachable instead of merely survivable: the funnel stages are finitely
+		// many and each can now appear at most once, so no amount of re-mounting the paywall or
+		// re-tapping Subscribe can push a stage out of the buffer. The cost is that pre-consent
+		// *retry counts* are lost — a funnel wants "did they tap Subscribe", not how many times.
+		if event.isCollapsibleWhileBuffered, pendingPreConsentEvents.contains(event) { return }
 		pendingPreConsentEvents.append(event)
-		let overflow = pendingPreConsentEvents.count - Self.maxPendingPreConsentEvents
-		if overflow > 0 { pendingPreConsentEvents.removeFirst(overflow) }
+		// On overflow, evict the most recent **volume** event — never a funnel stage, and never the
+		// arrival that caused the overflow.
+		//
+		// Neither of the obvious policies works. Dropping the oldest evicts `freeAccessWindowGranted`
+		// first, the denominator every later stage is measured against, which biases conversion
+		// upward by shrinking it. Dropping the newest is worse in the case that matters most: once
+		// the buffer is full nothing new is ever admitted, so at a cold hard wall — which mounts no
+		// consent gate at all, leaving `.ask` standing indefinitely — a `subscribeTapped` arriving
+		// after a long session is refused entry. That is the tap that converted.
+		//
+		// Funnel stages are payload-free and already collapsed on append, so they are bounded by the
+		// number of distinct stages, well under the cap. What overflows is volume events, and the
+		// honest thing to lose is their tail.
+		if pendingPreConsentEvents.count > Self.maxPendingPreConsentEvents {
+			if let volumeIndex = pendingPreConsentEvents.lastIndex(where: { $0.isCollapsibleWhileBuffered == false }) {
+				pendingPreConsentEvents.remove(at: volumeIndex)
+			} else {
+				// Unreachable while the number of *distinct* payload-free events stays under the cap
+				// — they collapse on append, so they cannot exceed their own count, which is well
+				// below 16. Written out anyway because the guarantee above is a claim about the
+				// funnel, and the obvious fallback quietly breaks it: removing from the front takes
+				// `freeAccessWindowGranted`, the denominator. Dropping the newest loses a late stage
+				// instead, which is the cheaper end to lose.
+				assertionFailure("Pre-consent buffer overflowed with no volume event — the funnel stages have outgrown the cap.")
+				pendingPreConsentEvents.removeLast()
+			}
+		}
 	}
 
 	func recordDetectionRun() {

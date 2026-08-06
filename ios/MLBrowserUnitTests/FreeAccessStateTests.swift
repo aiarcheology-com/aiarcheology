@@ -360,13 +360,11 @@ final class FreeAccessStateTests: XCTestCase {
 
 		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
 
-		guard case let .day0(days, endsOn) = state.duePrompt else {
-			return XCTFail("Expected the day-0 paywall to be due, found \(String(describing: state.duePrompt)).")
-		}
-		XCTAssertEqual(days, 14)
+		let prompt = try XCTUnwrap(state.duePrompt, "Expected the day-0 paywall to be due.")
+		XCTAssertEqual(prompt.days, 14)
 		// The date the copy tells the user to subscribe by is the window's own expiry, not a
 		// recomputation that could drift from the record that was actually written.
-		XCTAssertEqual(endsOn, durableStore.record?.expiresAt)
+		XCTAssertEqual(prompt.endsOn, durableStore.record?.expiresAt)
 	}
 
 	/// The marker is written at presentation, so a force-quit while the paywall is up cannot make it
@@ -378,7 +376,7 @@ final class FreeAccessStateTests: XCTestCase {
 		let state = makeState(service: try makeService(clock: clock, durableStore: durableStore))
 		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
 
-		state.markPromptShown(try XCTUnwrap(state.duePrompt))
+		state.markPromptShown()
 		XCTAssertNil(state.duePrompt)
 
 		let relaunched = makeState(service: try makeService(clock: clock, durableStore: durableStore))
@@ -399,37 +397,11 @@ final class FreeAccessStateTests: XCTestCase {
 		let relaunched = makeState(service: try makeService(clock: clock, durableStore: durableStore))
 		relaunched.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
 
-		guard case .day0 = relaunched.duePrompt else {
-			return XCTFail("Expected the day-0 paywall to still be owed, found \(String(describing: relaunched.duePrompt)).")
-		}
+		XCTAssertNotNil(relaunched.duePrompt, "the day-0 paywall must still be owed")
 	}
 
-	/// The reminder fires once, ever — explicitly not once per launch.
-	@MainActor
-	func testMarkPromptShown_forTheReminder_isRememberedAcrossARelaunch() throws {
-		let grantDate = try date(2026, 3, 2)
-		let clock = TestClock(grantDate)
-		let durableStore = StubDurableStore()
-		let state = makeState(service: try makeService(clock: clock, durableStore: durableStore))
-		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
-		state.markPromptShown(try XCTUnwrap(state.duePrompt))
-
-		clock.now = try day(7, after: grantDate)
-		state.reevaluate()
-		guard case let .reminder(days, _) = state.duePrompt else {
-			return XCTFail("Expected the reminder to be due, found \(String(describing: state.duePrompt)).")
-		}
-		XCTAssertEqual(days, 7)
-
-		state.markPromptShown(try XCTUnwrap(state.duePrompt))
-		XCTAssertNil(state.duePrompt)
-
-		let relaunched = makeState(service: try makeService(clock: clock, durableStore: durableStore))
-		relaunched.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
-		XCTAssertNil(relaunched.duePrompt)
-	}
-
-	/// Away from day 5 to day 16: the wall is what they meet, and the reminder does not fire late.
+	/// Away from day 5 to day 16: the wall is what they meet, and the explanation of a window that is
+	/// already spent does not fire on the way to it.
 	@MainActor
 	func testReevaluate_afterTheWindowRunsOut_owesNothing() throws {
 		let grantDate = try date(2026, 3, 2)
@@ -559,11 +531,55 @@ final class FreeAccessStateTests: XCTestCase {
 		XCTAssertEqual(tracker.events, [])
 	}
 
-	/// The reminder reports; day 0 does not. `paywall.shown` already covers the day-0 screen and
-	/// `window_granted` covers the window it explains, so a third event there would only double-count
-	/// the same moment.
+	/// Showing the day-0 paywall reports nothing of its own. `paywall.shown` already covers the
+	/// screen and `window_granted` covers the window it explains, so a third event there would only
+	/// double-count the same moment.
+	// MARK: - Cross-window Welcome claims (AIA-0567)
+
 	@MainActor
-	func testMarkPromptShown_reportsTheReminderAndNotDay0() throws {
+	func testWelcomeClaim_isVisibleImmediately() throws {
+		let state = makeState(service: try makeService(clock: TestClock(try date(2026, 3, 2)), durableStore: StubDurableStore()))
+
+		XCTAssertFalse(state.isWelcomePresented)
+		_ = state.claimWelcomePresentation()
+		XCTAssertTrue(state.isWelcomePresented, "The claim must be visible on the same turn it is taken")
+	}
+
+	/// Two windows, and only the second one closing frees the screen.
+	@MainActor
+	func testWelcomeClaim_releasingOneOfTwo_keepsTheScreenClaimed() throws {
+		let state = makeState(service: try makeService(clock: TestClock(try date(2026, 3, 2)), durableStore: StubDurableStore()))
+
+		let first = state.claimWelcomePresentation()
+		let second = state.claimWelcomePresentation()
+
+		state.releaseWelcomePresentation(first)
+		XCTAssertTrue(state.isWelcomePresented, "A sibling window still has its Welcome screen up")
+		state.releaseWelcomePresentation(second)
+		XCTAssertFalse(state.isWelcomePresented)
+	}
+
+	/// The reason this is a token set and not a count: a duplicated `onDisappear` must not release
+	/// somebody else's screen. A count would have decremented twice and freed the tour under it.
+	@MainActor
+	func testWelcomeClaim_releasingTheSameTokenTwice_cannotFreeASiblingsClaim() throws {
+		let state = makeState(service: try makeService(clock: TestClock(try date(2026, 3, 2)), durableStore: StubDurableStore()))
+
+		let mine = state.claimWelcomePresentation()
+		_ = state.claimWelcomePresentation()
+
+		state.releaseWelcomePresentation(mine)
+		state.releaseWelcomePresentation(mine)
+
+		XCTAssertTrue(state.isWelcomePresented, "A double release freed a claim it did not own")
+	}
+
+	@MainActor
+	func testMarkPromptShown_forDay0_reportsTheWelcomeScreen() throws {
+		// AIA-0567 inverted this. Day 0 used to report nothing of its own, on the grounds that
+		// `paywallShown` already covered the screen — but the day-0 screen is now `WelcomeView`,
+		// which is deliberately not a purchase screen and does not emit that event, so without
+		// `welcomeShown` the funnel would simply lose the stage.
 		let (analytics, tracker) = makeAnalytics()
 		let grantDate = try date(2026, 3, 2)
 		let clock = TestClock(grantDate)
@@ -573,14 +589,28 @@ final class FreeAccessStateTests: XCTestCase {
 		)
 		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
 
-		state.markPromptShown(try XCTUnwrap(state.duePrompt))
-		XCTAssertEqual(tracker.events, [.freeAccessWindowGranted])
+		state.markPromptShown()
 
-		clock.now = try day(7, after: grantDate)
-		state.reevaluate()
-		state.markPromptShown(try XCTUnwrap(state.duePrompt))
+		XCTAssertEqual(tracker.events, [.freeAccessWindowGranted, .welcomeShown])
+	}
 
-		XCTAssertEqual(tracker.events, [.freeAccessWindowGranted, .freeAccessReminderShown])
+	@MainActor
+	func testMarkPromptShown_calledTwice_reportsTheWelcomeScreenOnce() throws {
+		// The once-per-window guarantee, and the reason the event is emitted here rather than from
+		// the presenter: this is the call that writes the durable marker, so the event cannot
+		// outnumber the screen even if a view re-raised it.
+		let (analytics, tracker) = makeAnalytics()
+		let clock = TestClock(try date(2026, 3, 2))
+		let state = makeState(
+			service: try makeService(clock: clock, durableStore: StubDurableStore()),
+			analytics: analytics
+		)
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		state.markPromptShown()
+		state.markPromptShown()
+
+		XCTAssertEqual(tracker.events.filter { $0 == .welcomeShown }.count, 1)
 	}
 
 	/// Expiry is re-observed on every launch and every foreground for the rest of the install's life.

@@ -116,10 +116,6 @@ extension TestabilityIdentification {
 		case settingsUpgrade
 		case paywallSubscribe
 		case paywallRestore
-		/// Continue past the paywall on the app-managed free-access window (AIA-0556). Present only
-		/// where there is something to continue past, so its absence is itself the assertion that a
-		/// gate or a Settings sheet is showing.
-		case paywallContinue
 		case paywallRequestRefund
 		// AIA-0461: the Settings → Subscription "Request a Refund" row (feature-flag gated)
 		case settingsRequestRefund
@@ -137,6 +133,10 @@ extension TestabilityIdentification {
 		case paywallRemoveFindings
 		case paywallFindingsExport
 		case paywallFindingsDelete
+		/// Continue past the day-0 welcome screen (AIA-0567). The welcome screen's *only* action, so
+		/// a test that finds it knows the user was shown the zero-pressure screen rather than a
+		/// purchase screen — there is no Subscribe or Restore beside it to disambiguate.
+		case welcomeContinue
 		// Optional analytics first-run choice
 		case analyticsChoiceEnable
 		case analyticsChoiceNotNow
@@ -321,10 +321,10 @@ extension TestabilityIdentification {
 		case appMessageTitle
 		case appMessageAboutRow
 		case appMessageSettingsRow
-		/// The paywall's free-access headline (AIA-0556) — "14 days free" on day 0, "7 days left" at
-		/// the reminder. Identified so a test can tell the two informational paywalls apart without
-		/// matching localized copy.
-		case paywallFreeAccessHeadline
+		/// The welcome screen's free-access headline (AIA-0567) — "Explore everything free for 14
+		/// days". Identified so a test can read back the granted length the screen actually rendered,
+		/// which is remote-configurable, without matching localized copy.
+		case welcomeHeadline
 	}
 
 	enum TextField: String, TestabilityIdentification {
@@ -374,6 +374,10 @@ extension TestabilityIdentification {
 		/// The vertically scrollable paywall content (AIA-0564). Identified so the landscape
 		/// regression test can prove every required purchase and account control remains reachable.
 		case paywallContent
+		/// The vertically scrollable welcome content (AIA-0567). Identified for the same reason its
+		/// paywall sibling is: the landscape test needs a scroll view to drive before it can prove
+		/// the footer bullets and the price note stay reachable on a short viewport.
+		case welcomeContent
 		// Onboarding tour coach-mark bubble.
 		case tourBubble
 		// App Messages banner container (AIA-0115)

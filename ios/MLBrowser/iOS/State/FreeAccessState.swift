@@ -54,22 +54,67 @@ final class FreeAccessState: ObservableObject {
 	/// nested inside the root gate and replaces its content full-screen while consent is `.ask`, so
 	/// the moment a granted window opens that gate the first thing a brand-new user would meet is
 	/// "Enable analytics?" — with `ContentView`, and therefore the onboarding tour, not yet mounted.
-	/// The intended first run is tour → paywall → consent (AIA-0447); this holds the ask back until
-	/// the free window has been introduced.
+	/// The intended first run is Welcome → tour → consent (AIA-0447, reordered by AIA-0567); this
+	/// holds the ask back until the free window has been introduced, and `TourState` holds it back
+	/// for the tour that follows.
 	///
-	/// **In memory only, deliberately.** A force-quit before the day-0 paywall appears lets the next
+	/// **In memory only, deliberately.** A force-quit before the Welcome screen appears lets the next
 	/// launch ask normally, so the question is only ever *deferred* — no persisted marker can leave
 	/// a user who is never asked again. It is also false for everyone who was not granted a window
 	/// on this launch, which is every returning user.
 	@Published private(set) var isDay0AcknowledgementPending = false
 
-	/// Which paywall the open window still owes the user, or `nil` when it owes none.
+	/// The day-0 paywall the open window still owes the user, or `nil` when it owes none.
 	///
-	/// Recomputed on every ``reevaluate()``, so a reminder that came due while the app was
-	/// backgrounded is picked up on the next foreground. It answers only *what* is owed — **when**
-	/// it may go on screen is the root gate's call, because the onboarding tour has to have finished
-	/// with the screen first (AIA-0556).
+	/// Recomputed on every ``reevaluate()``, so a window whose explanation never made it on screen —
+	/// a force-quit before it appeared — is owed it again on the next foreground rather than losing
+	/// it for good. It answers only *what* is owed — **when** it may go on screen is the root gate's
+	/// call. That used to mean waiting for the onboarding tour; since AIA-0567 it is the other way
+	/// round, and the tour waits for this.
 	@Published private(set) var duePrompt: FreeAccessPrompt?
+
+	/// The windows that currently have a Welcome screen on screen, one token each (AIA-0567).
+	///
+	/// Shared rather than scene-local, and that is the point. `SubscriptionGateView` holds its own
+	/// `presentedPrompt` in `@State`, which is per-window, while this object and `TourState` are
+	/// owned by `AppState` and shared across the whole `WindowGroup` — and the app ships with
+	/// `UIApplicationSupportsMultipleScenes`, so two iPad windows are a real configuration.
+	///
+	/// Without it, two windows defeat the ordering this ticket imposes: window A raises the Welcome
+	/// screen and in doing so clears the shared `duePrompt`; window B then sees nothing owed,
+	/// concludes the screen is free, and starts the shared tour — which runs visibly in B and
+	/// *underneath* the Welcome screen in A.
+	///
+	/// **Tokens, claimed synchronously, and both halves of that matter.**
+	///
+	/// *Synchronously*, because the claim has to be in place before the publish that starts the
+	/// race. `markPromptShown()` clears `duePrompt` on the same turn the screen is raised, and that
+	/// publish is what wakes the other window; a claim taken later — when the overlay appears, a
+	/// render commit afterwards — leaves a gap in which B sees nothing owed and nothing presented,
+	/// and starts the tour anyway. Cross-scene commit order is not specified, so that gap is a race
+	/// on exactly the event the guard exists for.
+	///
+	/// *Tokens* rather than a count, because release must be idempotent and attributable. A window
+	/// releases the claim it took, so a duplicated `onDisappear` cannot decrement twice and a
+	/// spurious one belonging to a torn-down scene cannot release a live sibling's screen. A bare
+	/// count made both of those silent, and a `Bool` before it leaked permanently.
+	@Published private(set) var welcomeClaims: Set<UUID> = []
+
+	/// Whether a Welcome screen is on screen in **any** window.
+	var isWelcomePresented: Bool { welcomeClaims.isEmpty == false }
+
+	/// Claims the Welcome screen for the calling window. Call this *before* anything that publishes.
+	func claimWelcomePresentation() -> UUID {
+		let token = UUID()
+		welcomeClaims.insert(token)
+		return token
+	}
+
+	/// Releases one window's claim. Safe to call more than once with the same token, and safe to
+	/// call for a window whose claim was already released — both are no-ops.
+	func releaseWelcomePresentation(_ token: UUID) {
+		welcomeClaims.remove(token)
+	}
 
 	private let service: FreeAccessAnchorService
 
@@ -77,9 +122,8 @@ final class FreeAccessState: ObservableObject {
 	/// ``DetectionSessionState`` and ``AppChromeState`` take it that way: analytics is a bolt-on the
 	/// feature must work without, and every test that is not about reporting can leave it out.
 	///
-	/// Three of the four free-access stages are emitted from here rather than from the gate, because
-	/// this is where they *happen*: a grant and an expiry have no screen at all, and the reminder's
-	/// once-per-window guarantee is the persisted marker written a line away. Events raised before
+	/// Two of the three free-access stages are emitted from here rather than from the gate, because
+	/// this is where they *happen*: a grant and an expiry have no screen at all. Events raised before
 	/// the consent question is answered are buffered by ``AnalyticsState`` and delivered only if the
 	/// user later enables analytics — which is most of them now that the ask is deferred past the
 	/// day-0 paywall.
@@ -95,13 +139,22 @@ final class FreeAccessState: ObservableObject {
 	/// user was already promised.
 	private let isFreeAccessPeriodEnabled: Bool
 
-	/// Whether the free-access feature is in force for this session at all.
+	/// Whether access is closed because a window ran out, as opposed to one never having been granted
+	/// (AIA-0567).
 	///
-	/// Distinct from ``availability``, which answers "is a window open right now". This answers "is
-	/// this app even the kind that has free windows", and it is what keeps acceptance criterion 8
-	/// honest: with the flag off the paywall must be develop's screen exactly, down to the copy, so
-	/// nothing that exists only to explain a free period may render there.
-	var isFeatureEnabled: Bool { isFreeAccessPeriodEnabled }
+	/// ``availability`` deliberately collapses both into ``FreeAccessAvailability/closed`` — for
+	/// deciding whether to wall someone they are the same answer. They are not the same *sentence*:
+	/// the paywall may only say "your free access has ended" to a user who actually had some, and
+	/// telling a user who never had a window that theirs ran out is a plain untruth.
+	///
+	/// Computed rather than a stored latch. `availability` already has two writers, and a second
+	/// published flag set only in the `.expired` branch is one refactor away from disagreeing with
+	/// it. Nothing observes this on its own: it is read during `body` next to `availability`, which
+	/// does publish, so the re-render that can change the answer is the one that already happens.
+	var hasSpentWindow: Bool {
+		guard hasStarted else { return false }
+		return service.phase(of: window) == .expired
+	}
 
 	private let notificationCenter: NotificationCenter
 	private var foregroundObservation: AnyCancellable?
@@ -205,19 +258,19 @@ final class FreeAccessState: ObservableObject {
 	/// that happens before it was ever raised must not lose it. Persisting immediately also means the
 	/// caller cannot keep reading ``duePrompt`` as "what is on screen" — it stops being due the
 	/// instant it is shown, which is why the presenter holds its own copy.
-	func markPromptShown(_ prompt: FreeAccessPrompt) {
-		switch prompt {
-		case .day0:
-			service.markDay0Shown(&window)
-		case .reminder:
-			service.markReminderShown(&window)
-			// Reported here rather than from the presenter because *this* is the call the
-			// once-per-window marker is written by: a reminder can only reach this line while it is
-			// still due, so the event cannot outnumber the screen (AIA-0556). Day 0 needs no
-			// counterpart — `paywall.shown` already covers the screen, and `window_granted` covers
-			// the window it explains.
-			analytics?.track(.freeAccessReminderShown)
-		}
+	func markPromptShown() {
+		let didMark = service.markDay0Shown(&window)
+		// Reported here rather than from the presenter because *this* is the call that writes the
+		// once-per-window marker: the screen can only reach this line while it is still due, so the
+		// event cannot outnumber the screen (the guarantee the retired reminder event had).
+		//
+		// Day 0 used to need no counterpart, on the grounds that `paywall.shown` already covered the
+		// screen and `window_granted` covered the window it explains. AIA-0567 ended that: the
+		// day-0 screen is now ``WelcomeView``, which is deliberately not a purchase screen and
+		// deliberately does not emit `paywall.shown`. Without this the funnel loses the stage
+		// outright — and `window_granted` cannot stand in for it, because the two come apart exactly
+		// where it matters: a force-quit between the grant and the presentation.
+		if didMark { analytics?.track(.welcomeShown) }
 		duePrompt = service.duePrompt(for: window)
 	}
 
@@ -240,7 +293,7 @@ final class FreeAccessState: ObservableObject {
 		// backwards cannot rewind a window that has already been observed further along.
 		service.observe(&window)
 		switch service.phase(of: window) {
-		case .active, .reminderDue:
+		case .active:
 			availability = .open
 		case .expired:
 			availability = .closed

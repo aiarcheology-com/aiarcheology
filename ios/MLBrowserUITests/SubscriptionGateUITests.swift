@@ -24,11 +24,20 @@ final class SubscriptionGateUITests: UITestCase {
 	}
 
 	/// AIA-0564: the centered, full-height stack clipped the paywall's upper and lower content in
-	/// landscape. The free-access presentation has enough required copy and actions to overflow a
-	/// short window, so it proves this is a real ScrollView rather than merely a shorter layout.
+	/// landscape. The tallest presentation is used deliberately, so this proves a real ScrollView
+	/// rather than merely a shorter layout.
+	///
+	/// That used to be the day-0 free-access presentation. Since AIA-0567 split the screen, day 0 is
+	/// `WelcomeView` — which carries no account actions and is not this screen at all — so the launch
+	/// seeds an **expired** window instead. The wall is now the tallest paywall by some margin: it
+	/// alone adds the findings escape hatch and the 5.1.1(v) account controls on top of the headline,
+	/// the description, the benefit bullets and the required 3.1.2 disclosure.
 	func testGate_landscapeScrollsToRootAccountActions() {
 		launch(
-			LaunchConfig(featureFlagOverrides: ["isFreeAccessPeriodEnabled": true]),
+			LaunchConfig(
+				featureFlagOverrides: ["isFreeAccessPeriodEnabled": true],
+				freeAccessAnchorAgeDays: 20
+			),
 			mockAuthGate: "ready",
 			mockSubscription: "notSubscribed"
 		)

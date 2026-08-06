@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 10
+	static let currentVersion = 11
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -52,7 +52,8 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Force-start the interactive onboarding tour on launch, bypassing the
 	/// `hasSeenOnboardingTour` gate (AIA-0333). Baseline leaves the tour off. Consumed by the
-	/// view layer (`ContentView.handleOnAppear`) via ``shouldStartOnboardingTour``.
+	/// composition root (`AppState.initialize()`) via ``shouldStartOnboardingTour``, which arms the
+	/// tour; `SubscriptionGateView` starts it once nothing is owed the screen ahead of it (AIA-0567).
 	var startOnboardingTour: Bool?
 	/// Which page the browser should decide to load. `nil` keeps the baseline (home).
 	var pageScenario: PageScenario?
@@ -99,8 +100,8 @@ struct UITestLaunchConfiguration: Codable {
 	///
 	/// It exists because **every UI-test launch is a fresh install**: `Settings.init()` wipes the
 	/// ephemeral suite and `DependencyContainer` swaps the Keychain mirror for an in-memory store, so
-	/// relaunching cannot carry a window forward and the reminder and expiry states are otherwise
-	/// unreachable from a test. Seeding the *fast* half alone is enough —
+	/// relaunching cannot carry a window forward and the expired-wall state is otherwise unreachable
+	/// from a test. Seeding the *fast* half alone is enough —
 	/// `FreeAccessAnchorService.reconciledWindow()` folds an absent durable record into it and
 	/// repairs the mirror on the way past.
 	var freeAccessAnchorAgeDays: Int?
@@ -204,10 +205,10 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Writes a free-access anchor granted `ageDays` ago into the fast store (AIA-0556).
 	///
-	/// `day0Shown` is seeded `true`, which is not a detail: the day-0 paywall outranks the reminder
-	/// in `FreeAccessWindow.duePrompt(at:)`, so a window that had never been explained would owe
-	/// day 0 no matter how old it was and the reminder would be unreachable. A real user on day 7
-	/// has met that screen, and this seeds the state they are actually in.
+	/// `day0Shown` is seeded `true`, which is not a detail: a window that had never been explained
+	/// owes its day-0 paywall no matter how old it is, so a mid-window scenario would meet that
+	/// screen instead of whatever it named. A real user that far in has already met it, and this
+	/// seeds the state they are actually in.
 	@MainActor
 	private static func seedFreeAccessAnchor(ageDays: Int, in settings: Settings) {
 		let calendar = Calendar.current
@@ -226,9 +227,7 @@ struct UITestLaunchConfiguration: Codable {
 		let record = FreeAccessWindow.Record(
 			grantedAt: frozen.grantedAt,
 			expiresAt: frozen.expiresAt,
-			reminderDueAt: frozen.reminderDueAt,
 			maxObservedDate: frozen.maxObservedDate,
-			reminderShown: false,
 			day0Shown: true
 		)
 		guard let data = try? JSONEncoder().encode(record) else {

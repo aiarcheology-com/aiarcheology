@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 10
+	var version = 11
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -45,7 +45,7 @@ struct LaunchConfig: Encodable {
 	var appMessagesJSON: String?
 	/// Seed the free-access window as granted this many days ago (AIA-0556). `nil` = no anchor,
 	/// i.e. a genuine first install. Every UI-test launch wipes its own storage, so this is the
-	/// only way to reach the day-7 reminder or the expired wall.
+	/// only way to reach the expired wall.
 	var freeAccessAnchorAgeDays: Int?
 }
 
@@ -162,11 +162,15 @@ enum AID {
 	static let paywallDeleteAccount = "_AIA:Button.PaywallDeleteAccount"
 	static let paywallDeleteAccountConfirm = "_AIA:Button.PaywallDeleteAccountConfirm"
 
-	// Free-access window (AIA-0556). `paywallContinue` and the headline exist only on the two
-	// informational presentations, so their absence is itself the proof that the hard wall is showing.
-	static let paywallContinue = "_AIA:Button.PaywallContinue"
-	static let paywallFreeAccessHeadline = "_AIA:Label.PaywallFreeAccessHeadline"
+	// Free-access window (AIA-0556). Since AIA-0567 split the screens, the only informational
+	// presentation is the Welcome screen below — the paywall is the hard wall and the Settings sheet.
 	static let settingsUpgrade = "_AIA:Button.SettingsUpgrade"
+
+	// Welcome screen (AIA-0567) — the zero-pressure day-0 screen. It carries no Subscribe and no
+	// Restore, so `welcomeContinue` alone distinguishes it from either paywall presentation.
+	static let welcomeContent = "_AIA:View.WelcomeContent"
+	static let welcomeContinue = "_AIA:Button.WelcomeContinue"
+	static let welcomeHeadline = "_AIA:Label.WelcomeHeadline"
 
 	// App Messages (AIA-0115). The banner container, its title, and the informational dismiss carry
 	// bare identifiers; the reply buttons and About rows carry a `label:` (the button id / message

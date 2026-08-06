@@ -34,6 +34,31 @@ final class TourState {
 	/// Whether the tour overlay is currently shown.
 	private(set) var isActive: Bool = false
 
+	/// Whether a first-launch tour has been decided on but not yet started (AIA-0567).
+	///
+	/// The tour used to start the instant `AppState.initialize()` decided it should, which is why it
+	/// ran *before* the day-0 paywall: it was simply already going. AIA-0567 puts the Welcome screen
+	/// first, so the decision and the start had to come apart — the decision still happens in
+	/// `initialize()`, before `isReady` and before anything renders, and the start waits for whoever
+	/// owns the screen to hand it over.
+	///
+	/// Armed **before the first frame** on purpose. Every consumer of ``isPendingOrRunning`` asks
+	/// "does onboarding still owe this user a turn", and a flag that only became true later would
+	/// answer no on exactly the launch where it matters.
+	private(set) var isArmed: Bool = false
+
+	/// Whether onboarding still owes this user its turn — armed and waiting, or running (AIA-0567).
+	///
+	/// Both halves are stored properties, so `@Observable` tracks them and a view reading this
+	/// re-renders when either moves. That is the whole reason this is not `hasSeenTour`, which reads
+	/// `UserDefaults` — observation does not see that write, so a gate deferring on it would never
+	/// learn the tour had finished.
+	var isPendingOrRunning: Bool { isArmed || isActive }
+
+	/// Whether the run in progress is this install's first, as opposed to a Settings → Replay
+	/// (AIA-0567). Gates the terminal funnel events; see ``startIfArmed()``.
+	private var isFirstRun = false
+
 	/// Whether the current step's bubble shows its **Next** button. True immediately for teaching
 	/// (`.scripted`) steps; for `.userAction` steps it flips to true only once the user performs
 	/// the real action, so Next can never advance the tour out of sync with the UI (AIA-0333).
@@ -63,8 +88,18 @@ final class TourState {
 	/// key never bleeds across scenarios (AIA-0298 isolation, mirrored here).
 	private static let uiTestSuiteName = "com.aiarcheology.uitests"
 
-	init(steps: [TourStep] = TourStep.slice, defaults: UserDefaults? = nil) {
+	/// The funnel this onboarding feeds (AIA-0567). Optional and defaulted, the same bolt-on pattern
+	/// ``FreeAccessState`` uses: analytics is something the feature must work without, and every test
+	/// that is not about reporting can leave it out.
+	private let analytics: AnalyticsState?
+
+	init(
+		steps: [TourStep] = TourStep.slice,
+		defaults: UserDefaults? = nil,
+		analytics: AnalyticsState? = nil
+	) {
 		self.steps = steps
+		self.analytics = analytics
 		if let defaults {
 			self.defaults = defaults
 		} else if AppEnvironment.isRunningUITests, let suite = UserDefaults(suiteName: Self.uiTestSuiteName) {
@@ -94,17 +129,22 @@ final class TourState {
 		defaults.object(forKey: Self.gateKey) != nil
 	}
 
-	/// One-shot migration from the deleted slideshow + first-launch auto-start decision.
+	/// One-shot migration from the deleted slideshow + first-launch **arming** decision (AIA-0567).
 	///
 	/// - If a legacy opt-out is present (`keepSlideShowActive == false`), seed the gate so
 	///   we never re-onboard users who already dismissed the old slideshow.
-	/// - Otherwise, if the gate is unseen, auto-start the tour.
+	/// - Otherwise, if the gate is unseen, arm the tour.
 	///
 	/// Idempotent: once the gate exists this is a no-op.
 	///
-	/// - Returns: `true` if it started the tour, so the caller can stage the onboarding page.
+	/// This used to call ``start()`` directly, and the rename is the ticket. The tour now runs
+	/// *after* the day-0 Welcome screen, so the caller can no longer both decide and begin — see
+	/// ``isArmed``. The return value is unchanged in meaning: `true` says onboarding is owed, which
+	/// is still what tells the caller to stage the demo page.
+	///
+	/// - Returns: `true` if it armed the tour, so the caller can stage the onboarding page.
 	@discardableResult
-	func migrateAndAutostartIfNeeded() -> Bool {
+	func migrateAndArmIfNeeded() -> Bool {
 		if hasSeenTour { return false }
 
 		// Legacy opt-out: the user turned the old slideshow off. Don't re-onboard them.
@@ -114,8 +154,40 @@ final class TourState {
 			return false
 		}
 
-		start()
+		arm()
 		return true
+	}
+
+	/// Marks onboarding as owed without starting it. Also the UI-test entry point (AIA-0567).
+	///
+	/// Separate from ``migrateAndArmIfNeeded()`` because UI tests opt in explicitly by launch flag
+	/// and must not run the migration — but they must arm through the *same* mechanism the app uses,
+	/// or the suite would exercise a start path production does not have.
+	func arm() {
+		guard steps.isEmpty == false, isActive == false else { return }
+		isArmed = true
+	}
+
+	/// Starts an armed tour, once whatever had the screen has given it up (AIA-0567).
+	///
+	/// A no-op unless a tour is actually owed *and* none is running. Both guards earn their place:
+	/// this is called from view lifecycle handlers that fire more than once, and ``start()`` resets
+	/// the step index and closes the drawer — so an unguarded second call would restart a tour the
+	/// user is halfway through. Settings → Replay and the UI-test flag can both leave one running.
+	///
+	/// The arm is cleared **after** `start()` returns, in this one synchronous body. If the clear
+	/// ever moved into a `Task`, ``isPendingOrRunning`` would read false for a frame between the two
+	/// — long enough for `AnalyticsChoiceGate` to decide the coast was clear and put the consent
+	/// question over a tour that was starting.
+	func startIfArmed() {
+		guard isArmed, isActive == false else { return }
+		start()
+		isArmed = false
+		// Only a run that began from an arm is a first run, and only a first run is a funnel stage.
+		// Settings → Replay calls `start()` directly and never sets this, so replays cannot inflate
+		// a stage that is read against `freeAccessWindowGranted` — which is once-per-window by
+		// construction. Same discipline as `markExpiryReported`.
+		isFirstRun = true
 	}
 
 	private func markSeen() {
@@ -130,8 +202,15 @@ final class TourState {
 		guard steps.isEmpty == false else { return }
 		// Reset to a clean state so the scripted flow isn't fighting live UI (esp. on Replay):
 		// close the drawer, stop any running detection. Fullscreen is suppressed for the whole
-		// active window via the `isActive` render gate in ContentView. (drawer/state refs are nil on
-		// the first-launch autostart — already clean — and bound by the time Replay runs.)
+		// active window via the `isActive` render gate in ContentView.
+		//
+		// These resets used to be inert on the first launch: the tour started from
+		// `AppState.initialize()` before `ContentView` existed, so there was no drawer to close and
+		// no detection to stop. AIA-0567 moved the start to *after* the Welcome screen, by which
+		// point `ContentView` is mounted and its references are bound — so this is now a live reset
+		// on every path, first launch included. `ContentView` withholds its launch auto-detect while
+		// `isPendingOrRunning`, which is what stops that reset from becoming a visible
+		// start-then-stop of detection underneath the Welcome screen.
 		drawer?.close()
 		if detectionState?.ontheflyDetectionEnabled == true {
 			detectionState?.ontheflyDetectionTapped()
@@ -155,17 +234,27 @@ final class TourState {
 
 	/// Ends the tour gracefully (slice end / last Next). Flips the gate and cleans up.
 	func finish() {
-		terminate()
+		terminate(skipped: false)
 	}
 
 	/// User dismissed the tour early. Same terminal handling as finish.
 	func skip() {
-		terminate()
+		terminate(skipped: true)
 	}
 
-	private func terminate() {
+	private func terminate(skipped: Bool) {
 		isActive = false
 		showsNextButton = false
+		if isFirstRun {
+			analytics?.track(skipped ? .onboardingTourSkipped : .onboardingTourCompleted)
+			isFirstRun = false
+		}
+		// Belt and braces with ``startIfArmed()``, which clears the arm as it consumes it. That is
+		// the path this normally takes; this covers a tour begun some other way — Settings → Replay
+		// calls ``start()`` directly — while an arm was still outstanding, which would otherwise
+		// leave `isPendingOrRunning` true forever and, via `AnalyticsChoiceGate`, defer the consent
+		// question for good.
+		isArmed = false
 		markSeen()
 	}
 

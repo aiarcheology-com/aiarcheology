@@ -475,15 +475,46 @@ final class AnalyticsTests: XCTestCase {
 		XCTAssertEqual(analytics.pendingPreConsentCount, 0)
 	}
 
-	func testPreConsentBufferIsCappedDroppingOldest() {
-		// Overflow with paywallShown, then a final subscribeTapped — the newest events win.
+	func testPreConsentBuffer_collapsesRepeatsOfPayloadFreeEvents() {
+		// AIA-0567. This used to overflow the buffer and assert the newest events won. Repeats of a
+		// payload-free event are now collapsed on append, so the same 40 mounts cannot displace
+		// anything: the funnel asks "did they see the paywall", never "how many times".
 		for _ in 0..<40 { analytics.track(.paywallShown) }
 		analytics.track(.subscribeTapped)
-		XCTAssertEqual(analytics.pendingPreConsentCount, 16)   // maxPendingPreConsentEvents
+		XCTAssertEqual(analytics.pendingPreConsentCount, 2)
 
 		analytics.chooseAnalytics(enabled: true)
-		XCTAssertEqual(tracker.events.count, 16)
-		XCTAssertEqual(tracker.events.last, .subscribeTapped)  // the most recent event is retained
+		XCTAssertEqual(tracker.events, [.paywallShown, .subscribeTapped])
+	}
+
+	func testPreConsentBuffer_survivesALongAbandonedTourWithoutEvictingTheDenominator() {
+		// The failure mode AIA-0567 introduced and then closed. Consent now waits for the onboarding
+		// tour, and a tour abandoned mid-step leaves the user inside the app with the buffer open —
+		// where payload-carrying volume events keep firing. Under the old drop-oldest policy the
+		// first casualty was `freeAccessWindowGranted`, the denominator every later stage is read
+		// against, which would have biased conversion upward by silently shrinking it.
+		analytics.track(.freeAccessWindowGranted)
+		analytics.track(.welcomeShown)
+		analytics.track(.freeAccessContinueTapped)
+		for _ in 0..<60 { analytics.track(.modelImported(source: .fileImport)) }
+
+		analytics.chooseAnalytics(enabled: true)
+		XCTAssertEqual(tracker.events.prefix(3),
+					   [.freeAccessWindowGranted, .welcomeShown, .freeAccessContinueTapped],
+					   "The funnel's opening stages must be the ones that survive an overflow")
+		XCTAssertLessThanOrEqual(tracker.events.count, 16)
+	}
+
+	func testPreConsentBuffer_keepsTheConvertingSubscribeTap() {
+		// A cold hard wall mounts no `AnalyticsChoiceGate` at all, so consent stays `.ask` while the
+		// user taps Subscribe. Drop-newest alone would have thrown away the last tap — the one that
+		// converted; collapsing is what keeps it.
+		for _ in 0..<60 { analytics.track(.modelImported(source: .fileImport)) }
+		analytics.track(.subscribeTapped)
+
+		analytics.chooseAnalytics(enabled: true)
+		XCTAssertTrue(tracker.events.contains(.subscribeTapped),
+					  "The tap that converted must never be the one evicted")
 	}
 
 	func testResetAnalyticsChoiceClearsBuffer() {

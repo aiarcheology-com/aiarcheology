@@ -7,7 +7,7 @@
 
 import Foundation
 
-/// How long a granted window lasts, and when it reminds.
+/// How long a granted window lasts.
 ///
 /// Passed to a grant and frozen into the resulting record — never read again while a window is
 /// open. That is the whole point of the type: shortening `grantDays` from 14 to 7 must not wall
@@ -17,25 +17,20 @@ struct FreeAccessThresholds: Equatable, Sendable {
 	/// Calendar days of free access, counted from the grant day.
 	let grantDays: Int
 
-	/// The day on which the "your free access is running out" reminder becomes due.
-	let reminderOnDay: Int
-
 	/// Normalises on the way in, so a record written from these can never be one the credibility
 	/// check will later refuse.
 	///
 	/// Without this the writer and the reader disagree, and the disagreement runs in the dangerous
-	/// direction. An operator winding the window down to `grantDays: 0` while leaving
-	/// `reminderOnDay: 7` writes an immediately-expired record — correct — which the *next* launch
-	/// finds incredible, because a reminder cannot fall after an expiry, and rebuilds into a live
-	/// standard window. Switching the feature off would grant one, a launch later.
-	init(grantDays: Int, reminderOnDay: Int) {
-		let days = max(0, min(grantDays, FreeAccessWindow.maxCredibleGrantDays))
-		self.grantDays = days
-		self.reminderOnDay = max(0, min(reminderOnDay, days))
+	/// direction. An operator lengthening the window past ``FreeAccessWindow/maxCredibleGrantDays``
+	/// writes a record the *next* launch finds incredible and rebuilds — into the shipped fourteen
+	/// days, since the record's own claim is out of range too. Clamping here means the record that
+	/// gets written is always one this app will still recognise as its own.
+	init(grantDays: Int) {
+		self.grantDays = max(0, min(grantDays, FreeAccessWindow.maxCredibleGrantDays))
 	}
 
-	/// The shipped window: 14 days, reminding on day 7.
-	static let standard = FreeAccessThresholds(grantDays: 14, reminderOnDay: 7)
+	/// The shipped window: 14 days.
+	static let standard = FreeAccessThresholds(grantDays: 14)
 }
 
 /// What the free-access window is doing at a given instant.
@@ -48,9 +43,6 @@ enum FreeAccessPhase: Equatable, Sendable {
 	/// day it would reach 0 is the day the window is `.expired`.
 	case active(remaining: Int)
 
-	/// A window is open, the reminder day has arrived, and the reminder has not been shown yet.
-	case reminderDue(remaining: Int)
-
 	/// The window has run out.
 	case expired
 }
@@ -61,12 +53,12 @@ enum FreeAccessPhase: Equatable, Sendable {
 /// has not yet been *said to the user*. The two come apart in both directions — a window can be
 /// `.active` and owe nothing, and it can still owe the day-0 explanation days later, because a
 /// force-quit before that screen appeared must not swallow it for good.
-enum FreeAccessPrompt: Equatable, Sendable {
-	/// The window has never been explained. `days` is its whole length — "14 days free".
-	case day0(days: Int, endsOn: Date)
+struct FreeAccessPrompt: Equatable, Sendable {
+	/// The window's whole length — "14 days free".
+	let days: Int
 
-	/// The reminder day has arrived and the reminder has not been shown. `days` is what is left.
-	case reminder(days: Int, endsOn: Date)
+	/// The instant the window runs out; the date a subscription has to start by.
+	let endsOn: Date
 }
 
 /// The 14-day app-managed free-access period, as a pure value (AIA-0556).
@@ -110,15 +102,9 @@ struct FreeAccessWindow: Equatable, Sendable {
 		/// First instant at which free access is over. Frozen at grant (see ``FreeAccessThresholds``).
 		let expiresAt: Date
 
-		/// First instant at which the reminder is due. Frozen at grant.
-		let reminderDueAt: Date
-
 		/// The latest instant this record has ever been shown — the floor that a device clock
 		/// rolled backwards is clamped to.
 		var maxObservedDate: Date
-
-		/// Whether the reminder has already been surfaced, so it is shown once per window.
-		var reminderShown: Bool
 
 		/// Whether the day-0 paywall that explains this window has already been surfaced.
 		///
@@ -140,17 +126,13 @@ struct FreeAccessWindow: Equatable, Sendable {
 		init(
 			grantedAt: Date,
 			expiresAt: Date,
-			reminderDueAt: Date,
 			maxObservedDate: Date,
-			reminderShown: Bool,
 			day0Shown: Bool,
 			expiryReported: Bool = false
 		) {
 			self.grantedAt = grantedAt
 			self.expiresAt = expiresAt
-			self.reminderDueAt = reminderDueAt
 			self.maxObservedDate = maxObservedDate
-			self.reminderShown = reminderShown
 			self.day0Shown = day0Shown
 			self.expiryReported = expiryReported
 		}
@@ -166,9 +148,7 @@ struct FreeAccessWindow: Equatable, Sendable {
 			let container = try decoder.container(keyedBy: CodingKeys.self)
 			grantedAt = try container.decode(Date.self, forKey: .grantedAt)
 			expiresAt = try container.decode(Date.self, forKey: .expiresAt)
-			reminderDueAt = try container.decode(Date.self, forKey: .reminderDueAt)
 			maxObservedDate = try container.decode(Date.self, forKey: .maxObservedDate)
-			reminderShown = try container.decode(Bool.self, forKey: .reminderShown)
 			day0Shown = try container.decodeIfPresent(Bool.self, forKey: .day0Shown) ?? false
 			expiryReported = try container.decodeIfPresent(Bool.self, forKey: .expiryReported) ?? false
 		}
@@ -211,13 +191,10 @@ struct FreeAccessWindow: Equatable, Sendable {
 	) -> Record {
 		let firstDay = calendar.startOfDay(for: grantedAt)
 		let expiresAt = calendar.date(byAdding: .day, value: thresholds.grantDays, to: firstDay) ?? firstDay
-		let reminderDueAt = calendar.date(byAdding: .day, value: thresholds.reminderOnDay, to: firstDay) ?? firstDay
 		return Record(
 			grantedAt: grantedAt,
 			expiresAt: expiresAt,
-			reminderDueAt: reminderDueAt,
 			maxObservedDate: grantedAt,
-			reminderShown: false,
 			day0Shown: false
 		)
 	}
@@ -252,15 +229,6 @@ struct FreeAccessWindow: Equatable, Sendable {
 
 	// MARK: - Reconciliation
 
-	/// Folds the two stores into the anchor the app must honour.
-	///
-	/// The **earliest** grant wins, never the newest. The Keychain copy outlives app deletion
-	/// precisely so a fresh UserDefaults cannot restart the clock; preferring the newer record
-	/// would hand every reinstall a brand-new window, which is the farm the mirror exists to close.
-	///
-	/// When both stores hold the same grant, the progress fields are merged in the conservative
-	/// direction — the higher monotonic floor, and a reminder counted as shown if either store
-	/// saw it — so a store disagreement can neither rewind the clamp nor re-nag the user.
 	/// The longest window any operator may configure, and therefore the longest a stored record may
 	/// claim.
 	///
@@ -269,21 +237,6 @@ struct FreeAccessWindow: Equatable, Sendable {
 	/// refusing a record that awards itself a year.
 	static let maxCredibleGrantDays = 60
 
-	/// Whether this app could actually have written `record`.
-	///
-	/// The test is reproduction, not shape: derive the thresholds the record implies, rebuild from
-	/// its own `grantedAt`, and require the frozen dates to come back **identical**. A record that
-	/// cannot be reproduced was not written here.
-	///
-	/// Checking shape instead — "expiry after grant, reminder in between, span under a ceiling" —
-	/// is what an earlier version of this did, and it is not a bound at all: a forger simply writes
-	/// a well-shaped record with a 399-day span and keeps every day of it. Reproduction leaves no
-	/// such room, because the only thing left to vary is the thresholds themselves, and those are
-	/// bounded by ``maxCredibleGrantDays``.
-	///
-	/// `now` matters because a grant cannot have happened in the future. That case is repaired
-	/// separately by ``reanchoredIfGrantedInTheFuture(_:now:calendar:)``, which re-anchors rather
-	/// than rebuilds; this only has to avoid *blessing* it in the meantime.
 	/// The thresholds a stored record implies, or `nil` when they are outside anything an operator
 	/// could have configured.
 	///
@@ -294,19 +247,44 @@ struct FreeAccessWindow: Equatable, Sendable {
 	static func claimedThresholds(of record: Record, calendar: Calendar) -> FreeAccessThresholds? {
 		let firstDay = calendar.startOfDay(for: record.grantedAt)
 		guard let grantDays = calendar.dateComponents([.day], from: firstDay, to: record.expiresAt).day,
-			  let reminderDay = calendar.dateComponents([.day], from: firstDay, to: record.reminderDueAt).day,
-			  grantDays >= 0, grantDays <= maxCredibleGrantDays,
-			  reminderDay >= 0, reminderDay <= grantDays
+			  grantDays >= 0, grantDays <= maxCredibleGrantDays
 		else { return nil }
-		return FreeAccessThresholds(grantDays: grantDays, reminderOnDay: reminderDay)
+		return FreeAccessThresholds(grantDays: grantDays)
 	}
 
+	/// Whether this app could actually have written `record`.
+	///
+	/// The test is a bound, not a reproduction: the grant cannot be in the future, and the window it
+	/// claims must be a length an operator could actually have configured. A record outside that is
+	/// rebuilt from its own `grantedAt`.
+	///
+	/// The ceiling is doing all the work here, and it is enough. A forger editing their own storage
+	/// can claim at most ``maxCredibleGrantDays``; they could do that before this was relaxed too,
+	/// because a record claiming the full ceiling reproduces exactly. What the stricter check added
+	/// was that the expiry had to land on local midnight — worth a few hours to an attacker, and
+	/// worth real days to an honest user who changed time zone, which is why it is gone.
+	///
+	/// `now` matters because a grant cannot have happened in the future. That case is repaired
+	/// separately by ``reanchoredIfGrantedInTheFuture(_:now:calendar:)``, which re-anchors rather
+	/// than rebuilds; this only has to avoid *blessing* it in the meantime.
 	static func isCredible(_ record: Record, now: Date, calendar: Calendar) -> Bool {
 		guard record.grantedAt <= now.addingTimeInterval(futureGrantTolerance) else { return false }
-		guard let claimed = claimedThresholds(of: record, calendar: calendar) else { return false }
-
-		let reproduced = Self.record(grantedAt: record.grantedAt, thresholds: claimed, calendar: calendar)
-		return reproduced.expiresAt == record.expiresAt && reproduced.reminderDueAt == record.reminderDueAt
+		// Bounded, not reproduced — deliberately (AIA-0567).
+		//
+		// This used to rebuild the record from its own `grantedAt` and demand the frozen dates come
+		// back identical. That is exact only while the calendar is the one the grant was written
+		// under: `claimedThresholds` measures from `startOfDay(grantedAt)`, which moves when the
+		// device does, so an honest record stopped reproducing the moment its owner changed time
+		// zone and was "repaired" to the new local midnight. It only ever repaired *downward*, and
+		// it ratcheted — a Berlin grant loses hours in Los Angeles, then loses more coming back.
+		// A fortnight of free access is not something to shave off by flying.
+		//
+		// Nothing is given up. Reproduction never bounded a forger: a record claiming the full
+		// ceiling, aligned to local midnight, reproduces exactly and always did. The bound is
+		// ``maxCredibleGrantDays``, which `claimedThresholds` enforces and which is unchanged. All
+		// the equality ever caught was an expiry that missed midnight — a few hours to somebody
+		// already editing their own storage, against real days taken from an honest traveller.
+		return claimedThresholds(of: record, calendar: calendar) != nil
 	}
 
 	/// Rebuilds an unreproducible record's durations from its own grant date, leaving a credible one
@@ -348,9 +326,7 @@ struct FreeAccessWindow: Equatable, Sendable {
 		return Record(
 			grantedAt: record.grantedAt,
 			expiresAt: rebuilt.expiresAt,
-			reminderDueAt: rebuilt.reminderDueAt,
 			maxObservedDate: record.maxObservedDate,
-			reminderShown: record.reminderShown,
 			day0Shown: record.day0Shown,
 			expiryReported: record.expiryReported
 		)
@@ -365,6 +341,15 @@ struct FreeAccessWindow: Equatable, Sendable {
 	/// Both records must already have passed ``credible(_:now:calendar:)`` — earliest-wins is only
 	/// safe on records this app could have written, since otherwise an edited one needs nothing but
 	/// an early date to win.
+	/// Folds the two stores into the anchor the app must honour.
+	///
+	/// The **earliest** grant wins, never the newest. The Keychain copy outlives app deletion
+	/// precisely so a fresh UserDefaults cannot restart the clock; preferring the newer record
+	/// would hand every reinstall a brand-new window, which is the farm the mirror exists to close.
+	///
+	/// When both stores hold the same grant, the progress fields are merged in the conservative
+	/// direction — the higher monotonic floor, and a screen counted as shown if either store saw
+	/// it — so a store disagreement can neither rewind the clamp nor re-nag the user.
 	static func reconcile(fast: Record?, durable: Record?) -> Record? {
 		guard let fast else { return durable }
 		guard let durable else { return fast }
@@ -384,10 +369,9 @@ struct FreeAccessWindow: Equatable, Sendable {
 		guard fast.grantedAt == durable.grantedAt else { return winner }
 
 		winner.maxObservedDate = max(fast.maxObservedDate, durable.maxObservedDate)
-		winner.reminderShown = fast.reminderShown || durable.reminderShown
-		// `day0Shown` merges the same way, and for a sharper reason than the reminder: it outranks
-		// everything in `duePrompt(at:)`, so a marker lost because the *other* store happened to win
-		// the tie re-offers "14 days free" to someone already a week into their window.
+		// `day0Shown` merges as "shown if either store saw it": it is the whole of `duePrompt(at:)`,
+		// so a marker lost because the *other* store happened to win the tie re-offers "14 days free"
+		// to someone already a week into their window.
 		winner.day0Shown = fast.day0Shown || durable.day0Shown
 		// Same direction, so one window cannot report its expiry twice because the stores disagreed
 		// about whether it already had.
@@ -430,29 +414,25 @@ struct FreeAccessWindow: Equatable, Sendable {
 
 		let originalStart = calendar.startOfDay(for: record.grantedAt)
 		let grantDays = calendar.dateComponents([.day], from: originalStart, to: record.expiresAt).day ?? 0
-		let reminderDay = calendar.dateComponents([.day], from: originalStart, to: record.reminderDueAt).day ?? 0
 		let rebuilt = Self.record(
 			grantedAt: now,
-			thresholds: FreeAccessThresholds(grantDays: grantDays, reminderOnDay: reminderDay),
+			thresholds: FreeAccessThresholds(grantDays: grantDays),
 			calendar: calendar
 		)
 
 		return Record(
 			grantedAt: rebuilt.grantedAt,
 			expiresAt: rebuilt.expiresAt,
-			reminderDueAt: rebuilt.reminderDueAt,
 			// Reset with the anchor. Leaving the forged floor in place would re-create the same
 			// unbounded window the repair exists to end.
 			maxObservedDate: now,
-			// Progress is kept: whatever the clock said, the user did see those screens.
-			reminderShown: record.reminderShown,
+			// Progress is kept: whatever the clock said, the user did see that screen.
 			day0Shown: record.day0Shown
 			// `expiryReported` deliberately resets to its default. This is a new window with a new
 			// expiry ahead of it, and the stage it will eventually reach is one nobody has reported.
 		)
 	}
 
-	/// Settles the reconciliation gate with the result of reading **both** stores.
 	/// Settles the reconciliation gate with the result of reading **both** stores.
 	///
 	/// Records must already have passed ``credible(_:now:calendar:)`` — `FreeAccessAnchorService`
@@ -476,33 +456,31 @@ struct FreeAccessWindow: Equatable, Sendable {
 		// A device clock rolled backwards must not rewind the window, so the floor wins.
 		let observedNow = max(now, record.maxObservedDate)
 		guard observedNow < record.expiresAt else { return .expired }
-		let remaining = remainingDays(from: observedNow, to: record.expiresAt)
-		if record.reminderShown == false, observedNow >= record.reminderDueAt {
-			return .reminderDue(remaining: remaining)
-		}
-		return .active(remaining: remaining)
+		return .active(remaining: remainingDays(from: observedNow, to: record.expiresAt))
 	}
 
-	/// Which paywall this window still owes the user at `now`, or `nil` when it owes none.
+	/// The day-0 paywall this window still owes the user at `now`, or `nil` when it owes none.
 	///
-	/// Day 0 outranks the reminder: a window that has never been explained has to be explained
-	/// before it is counted down, and the two only coincide for someone who did not open the app
-	/// between the grant and the reminder day.
-	///
-	/// An expired window owes neither. That is the rule that keeps the reminder from firing late —
-	/// a user who is away from day 5 to day 16 meets the wall, and being told "7 days left" on the
-	/// way to it would be a lie.
+	/// An expired window owes nothing. A user away from day 5 to day 16 meets the wall, and being
+	/// offered "14 days free" on the way to it would be a lie — the window it describes is already
+	/// spent.
 	func duePrompt(at now: Date) -> FreeAccessPrompt? {
 		guard case let .granted(record) = anchor else { return nil }
-		let day0 = FreeAccessPrompt.day0(days: grantedDays(of: record), endsOn: record.expiresAt)
 		switch phase(at: now) {
 		case .notGranted, .expired:
 			return nil
-		case .active:
-			return record.day0Shown ? nil : day0
-		case let .reminderDue(remaining):
-			guard record.day0Shown else { return day0 }
-			return .reminder(days: remaining, endsOn: record.expiresAt)
+		case let .active(remaining):
+			guard record.day0Shown == false else { return nil }
+			// What is *left*, not what was granted. These are the same number on day 0, which is the
+			// only day this normally appears — but `day0Shown` is written at presentation, so a user
+			// who force-quits before the screen renders is owed it again later, and telling someone
+			// on day 5 that they have "14 days free" overstates the offer by the days they spent.
+			//
+			// Taken from the phase rather than recomputed, so the screen and the gate can never
+			// disagree. `phase(at:)` counts from `max(now, maxObservedDate)` — the monotonic floor
+			// that stops a rolled-back clock rewinding the window — and an independent count from
+			// the raw `now` would let the Welcome screen advertise days the gate does not believe in.
+			return FreeAccessPrompt(days: remaining, endsOn: record.expiresAt)
 		}
 	}
 
@@ -513,16 +491,6 @@ struct FreeAccessWindow: Equatable, Sendable {
 	mutating func observe(at now: Date) -> Record? {
 		guard case .granted(var record) = anchor, now > record.maxObservedDate else { return nil }
 		record.maxObservedDate = now
-		anchor = .granted(record)
-		return record
-	}
-
-	/// Records that the reminder has been surfaced, so it is shown once per window.
-	///
-	/// Returns the updated record to persist, or `nil` when there was nothing to mark.
-	mutating func markReminderShown() -> Record? {
-		guard case .granted(var record) = anchor, record.reminderShown == false else { return nil }
-		record.reminderShown = true
 		anchor = .granted(record)
 		return record
 	}

@@ -96,47 +96,30 @@ struct SubscriptionNotice: Equatable {
 	}
 }
 
-/// What the app-managed free-access window (AIA-0556) has to say on a given presentation.
-///
-/// Two cases rather than a day count plus a flag, because they read differently and must not be
-/// confusable: day 0 states an offer the user has not taken yet, while the reminder states what is
-/// left of one they are already inside. Both carry the date the window runs out — the date a
-/// subscription has to start by.
-enum FreeAccessOffer: Equatable {
-	/// The window is being offered. `days` is its whole length.
-	case offered(days: Int, endsOn: Date)
-
-	/// The window is running and this is the reminder. `days` is what remains of it.
-	case remaining(days: Int, endsOn: Date)
-
-	var endsOn: Date {
-		switch self {
-		case let .offered(_, endsOn), let .remaining(_, endsOn): endsOn
-		}
-	}
-
-	/// The headline, pluralized: "14 days free" on day 0, "7 days left" at the reminder.
-	var headline: String {
-		switch self {
-		case let .offered(days, _): L10n.Paywall.FreeAccess.daysFree(days)
-		case let .remaining(days, _): L10n.Paywall.FreeAccess.daysLeft(days)
-		}
-	}
-}
-
 /// The paywall. Presented as the whole-app root gate (`SubscriptionGateView`) when the
 /// signed-in user isn't subscribed. Reads products and entitlement from
 /// ``SubscriptionState`` and drives purchase / restore intents.
 ///
-/// The free-access controls (AIA-0556) are **optional and independently absent**: no
-/// `continueAction` means no Continue button, no `freeAccessOffer` means no window copy. The hard
-/// wall and the Settings sheet pass neither and keep the screen they had — acceptance criterion 8.
+/// AIA-0567 made this **one** screen instead of four. It used to serve the day-0 offer, the day-7
+/// reminder, the hard wall and the Settings sheet, switching between them on whether a
+/// `continueAction` and a `freeAccessOffer` were passed. The first two are now ``WelcomeView``, the
+/// reminder is gone, and what is left is the screen that asks for money: the wall a spent window
+/// leaves the user on, and the same offer reached voluntarily from Settings.
 ///
-/// ``showsBillingEstimate`` is the third, and it is deliberately independent of both: criterion 9
-/// asks for the date billing begins **at the wall**, which is the one screen carrying no offer at
-/// all. It stays off wherever the feature does not reach, so a flag-off build and the Settings sheet
-/// keep develop's paywall exactly. See ``billingNote(for:)`` for why that date is hedged before a
-/// purchase and exact after one.
+/// That collapse is why the optional inputs went with it. There is no Continue here — this screen is
+/// only ever shown when there is nothing to continue *to* — so ``isDeadEnd`` reduces to
+/// ``isRootGate``, and every App Review 3.1.2 disclosure is unconditional rather than gated on a
+/// feature flag. **Acceptance criterion 8 of AIA-0556 is retired by that**: turning
+/// `isFreeAccessPeriodEnabled` off no longer restores develop's paywall, so the flag is no longer a
+/// revert path for this screen.
+///
+/// Two things still vary, and both are about telling a given reader only what is true of them.
+/// ``addressesAReturningUser`` picks the voice — title, headline and description together, because
+/// addressing a first-time arrival as a returning one in any single line reads as a form letter.
+/// And ``trialEligibility`` picks which renewal disclosure appears: the standard text states that
+/// payment is taken at confirmation, which is false for a trial customer and would sit a few points
+/// from the note promising them nothing is charged. It is three-valued, so neither claim is made
+/// while StoreKit is still answering.
 struct PaywallView: View {
 	@ObservedObject var subscriptionState: SubscriptionState
 	let analytics: AnalyticsState?
@@ -163,31 +146,18 @@ struct PaywallView: View {
 	/// from `SubscriptionGateView`, which *does* observe auth.
 	var authContext: EffectiveAuthContext = .indeterminate
 
-	/// What to do when the user declines to subscribe *for now* — `nil` wherever that is not an
-	/// option (AIA-0556).
+	/// Whether a free-access window actually **ran out** to put the user here (AIA-0567).
 	///
-	/// Presence is the whole switch between an informational paywall and a wall. At the wall there
-	/// is nothing to continue past, and in the Settings sheet dismissal is the sheet's own, so both
-	/// pass `nil` and get today's screen unchanged.
-	var continueAction: (() -> Void)?
-
-	/// The free-access window this presentation is about, or `nil` when there is none to state.
+	/// Governs one sentence, and it is a sentence that must not be said to the wrong person.
+	/// `FreeAccessAvailability.closed` covers both a window that expired and one that was never
+	/// granted — for deciding whether to wall someone those are the same answer, which is why the
+	/// gate collapses them — but "Your free access has ended" is only true of the first. A user who
+	/// never had a window (payments on, free access off; or a build that ships the feature dark) is
+	/// told what the subscription *is* instead of what they supposedly lost.
 	///
-	/// Independent of ``continueAction`` on purpose: the copy is about the window, the button is
-	/// about the exit, and a caller that has one without the other is not a contradiction.
-	var freeAccessOffer: FreeAccessOffer?
-
-	/// Whether to state when billing begins (acceptance criterion 9).
-	///
-	/// Separate from ``freeAccessOffer`` because the two are needed at different moments. The day-0
-	/// screen and the reminder carry an offer *and* want the date; the hard wall carries no offer —
-	/// the window is already spent — yet is precisely where criterion 9 asks for it, because the
-	/// question there is "if I subscribe now, when am I charged".
-	///
-	/// Default `false` so the screens that are not part of this feature keep the paywall they had:
-	/// with the flag off, and from Settings, nothing about a free period renders. That is acceptance
-	/// criterion 8, and it is what makes the feature revertible by a dashboard switch alone.
-	var showsBillingEstimate = false
+	/// Defaults `false`, which is also what the Settings sheet wants: someone opening this
+	/// voluntarily mid-window has lost nothing.
+	var statesExpiredFreeAccess = false
 
 	@Environment(\.dismiss) private var dismiss
 
@@ -262,11 +232,47 @@ struct PaywallView: View {
 
 	/// Whether this paywall is the only screen the user has.
 	///
-	/// Not the same question as ``isRootGate``, which is also true of the informational day-0 and
-	/// reminder presentations (AIA-0556) — those have the whole app, and with it the findings
-	/// inventory, one Continue away. Only the hard wall is a dead end, and only a dead end owes the
-	/// user a way to get their data out of it.
-	private var isDeadEnd: Bool { isRootGate && continueAction == nil }
+	/// Identical to ``isRootGate`` since AIA-0567, and kept as its own name because the *question* is
+	/// not the same one. It used to differ: the informational day-0 presentation was also a root gate
+	/// but had the whole app one Continue away, so `continueAction` was what told them apart. That
+	/// presentation is now ``WelcomeView`` and every remaining root presentation is a dead end.
+	/// Only a dead end owes the user a way to get their data out of it — if a future presentation
+	/// ever puts this screen over a reachable app again, this is the line that has to change, not the
+	/// three call sites below.
+	private var isDeadEnd: Bool { isRootGate }
+
+	/// "Enjoying ML Browser?" — but only of someone who has actually used it (AIA-0567).
+	///
+	/// The engaged title is right for the two ways a user normally arrives here: a spent free window,
+	/// or opening this from Settings. It is wrong for the one configuration where this screen is a
+	/// brand-new install's *first* screen — payments on with free access off — where asking whether
+	/// they are enjoying an app they have never opened reads as a form letter. That user gets the
+	/// plain app name, which is what this screen said before the split.
+	private var title: String {
+		addressesAReturningUser ? L10n.Paywall.titleEngaged : L10n.Paywall.title
+	}
+
+	/// The sentence under the headline, in the voice this reader has earned.
+	///
+	/// Three cases, not two: a spent window is told it ended, a Settings visitor or a flag-off
+	/// arrival is offered the subscription in the ordinary way, and a user who has never had access
+	/// at all is not told to "keep using" something they have not started.
+	private var description: String {
+		if statesExpiredFreeAccess { return L10n.Paywall.expired }
+		return addressesAReturningUser ? L10n.Paywall.pitch : L10n.Paywall.pitchFirstMeeting
+	}
+
+	/// Whether this screen is talking to somebody who has actually used the app.
+	///
+	/// True for the two ordinary arrivals — a spent free window, or opening this from Settings — and
+	/// false in exactly one configuration: payments on with free access off, where this screen is a
+	/// brand-new install's *first*. Everything written in the returning-user voice keys off this, not
+	/// just the title: an earlier version made only the title conditional and left the headline and
+	/// the description addressing a user who had never opened the app, which fixed a third of the
+	/// problem and documented it as if it were the whole.
+	private var addressesAReturningUser: Bool {
+		statesExpiredFreeAccess || isRootGate == false
+	}
 
 	var body: some View {
 		GeometryReader { geometry in
@@ -281,13 +287,17 @@ struct PaywallView: View {
 						.accessibilityHidden(true)
 
 					VStack(spacing: 8) {
-						Text(L10n.Paywall.title)
+						Text(title)
 							.font(.title).bold()
 							.multilineTextAlignment(.center)
-						Text(L10n.Paywall.tagline)
+						Text(addressesAReturningUser ? L10n.Paywall.headline : L10n.Paywall.headlineFirstMeeting)
+							.font(.headline)
+							.multilineTextAlignment(.center)
+						Text(description)
 							.font(.body)
 							.foregroundStyle(.secondary)
 							.multilineTextAlignment(.center)
+							.fixedSize(horizontal: false, vertical: true)
 					}
 					.padding(.horizontal, 32)
 
@@ -438,14 +448,6 @@ struct PaywallView: View {
 	private var content: some View {
 		if let product = subscriptionState.products.first {
 			productSection(product)
-
-			// The free-access window presents two legitimate paths: subscribe now or keep using
-			// the app until it ends. Keep that choice explicit between the equally sized actions.
-			if continueAction != nil {
-				Text(L10n.Paywall.or)
-					.font(.footnote.weight(.semibold))
-					.foregroundStyle(.secondary)
-			}
 		} else {
 			// Empty product list: App Store Connect not configured yet, the local
 			// .storekit file isn't wired into the scheme, or the mock path. Degrade
@@ -456,49 +458,14 @@ struct PaywallView: View {
 				.multilineTextAlignment(.center)
 		}
 
-		// The free-access window is the context for the second choice: subscribe now, or use the
-		// time that remains. Keeping the callout directly above Continue makes that relationship
-		// clear while still allowing the unavailable-product fallback to explain the offer.
-		if let freeAccessOffer {
-			VStack(spacing: 6) {
-				Text(freeAccessOffer.headline)
-					.font(.headline)
-					.testability(Testability.Label.paywallFreeAccessHeadline)
-				Text(L10n.Paywall.FreeAccess.subscribeBy(
-					freeAccessOffer.endsOn.formatted(date: .abbreviated, time: .omitted)
-				))
-				.font(.footnote)
-				.foregroundStyle(.secondary)
-				.multilineTextAlignment(.center)
-				// The date is the point of the sentence — let it wrap rather than truncate under
-				// vertical compression or large Dynamic Type.
-				.fixedSize(horizontal: false, vertical: true)
-			}
-		}
-
-		// The alternative action keeps Subscribe's control size and full width so it reads as a
-		// real second choice rather than a way out of the screen.
-		// The tint is what keeps the hierarchy: a desaturated slate blue against Subscribe's green,
-		// from a colorset with its own dark appearance because the app hardcodes no colours
-		// (`Assets.xcassets/ContinueButton`, both appearances ≥ 4.5:1 against a white label).
-		//
-		// Rendered only when a caller supplied an action: on the hard wall there is nothing to
-		// continue past, and this whole block is absent.
-		if let continueAction {
-			Button {
-				guard isBusy.not else { return }
-				continueAction()
-			} label: {
-				Text(L10n.Paywall.continueButton)
-					.fontWeight(.bold)
-					.frame(maxWidth: .infinity)
-			}
-			.buttonStyle(.borderedProminent)
-			.tint(Color(Self.continueButtonColorName, bundle: .main))
-			.controlSize(.large)
-			.disabled(inFlight != nil)
-			.testability(Testability.Button.paywallContinue)
-		}
+		// Where the money goes, once, in the words the user will see on their statement. Rendered
+		// under the action rather than in the card because it answers the question the button
+		// raises — "and then what" — and reads as reassurance there rather than as terms.
+		Text(L10n.Paywall.cancelFooter)
+			.font(.footnote)
+			.foregroundStyle(.secondary)
+			.multilineTextAlignment(.center)
+			.fixedSize(horizontal: false, vertical: true)
 
 		Button {
 			guard isBusy.not else { return }
@@ -696,18 +663,57 @@ struct PaywallView: View {
 		}
 	}
 
+	/// Whether *this* viewer is getting a free trial — with "not yet known" kept distinct from "no".
+	///
+	/// Three-valued for the reason the original trial line was: `introOfferEligibility` is `nil`
+	/// until StoreKit answers, and collapsing that to `false` puts the wrong claim about money on
+	/// screen and then swaps it. On this screen that means an eligible customer briefly reads
+	/// "payment is charged at confirmation" under a button labelled Subscribe, and both change
+	/// under them a moment later. Every consumer below waits instead.
+	///
+	/// Both halves of the resolved answer are load-bearing: StoreKit's eligibility alone is not
+	/// enough, because a product carrying no introductory offer reports every customer ineligible.
+	private enum TrialEligibility: Equatable {
+		case unresolved
+		case gettingTrial
+		case noTrial
+	}
+
+	private var trialEligibility: TrialEligibility {
+		guard let product = subscriptionState.products.first else { return .unresolved }
+		guard Self.hasFreeTrialOffer(product) else { return .noTrial }
+		switch introOfferEligibility {
+		case .none: return .unresolved
+		case .some(true): return .gettingTrial
+		case .some(false): return .noTrial
+		}
+	}
+
 	/// Auto-renewable subscription disclosures required on the purchase screen
 	/// (App Review Guideline 3.1.2): renewal terms + Terms of Use + Privacy Policy.
+	///
+	/// The renewal sentence has two forms, and picking the wrong one puts two contradictory claims
+	/// about money a few points apart on the screen App Review reads most carefully. The standard
+	/// text says payment is charged **at confirmation**, which is true — unless the customer is
+	/// getting a free trial, in which case the note under the button says nothing is charged during
+	/// it. Both were rendered together before this was split (AIA-0567), for exactly the population
+	/// the trial copy exists to reassure.
 	@ViewBuilder
 	private var legalFooter: some View {
 		VStack(spacing: 8) {
-			Text(L10n.Paywall.disclosure)
-				.font(.footnote)
-				.foregroundStyle(.secondary)
-				.multilineTextAlignment(.center)
-				// Required disclosure (App Review 3.1.2) must show in full — let it claim its
-				// natural height so it wraps instead of truncating under vertical compression.
-				.fixedSize(horizontal: false, vertical: true)
+			// Silent while eligibility is unresolved rather than guessing. Nothing can be bought in
+			// that instant either — the purchase button is disabled — so no renewal disclosure is
+			// owed yet, and stating the wrong one and correcting it under the reader is worse than
+			// stating the right one a moment later.
+			if trialEligibility != .unresolved {
+				Text(trialEligibility == .gettingTrial ? L10n.Paywall.disclosureTrial : L10n.Paywall.disclosure)
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.multilineTextAlignment(.center)
+					// Required disclosure (App Review 3.1.2) must show in full — let it claim its
+					// natural height so it wraps instead of truncating under vertical compression.
+					.fixedSize(horizontal: false, vertical: true)
+			}
 
 			HStack(spacing: 16) {
 				Link(L10n.Paywall.terms, destination: Self.termsOfUseURL)
@@ -759,23 +765,20 @@ struct PaywallView: View {
 				.fixedSize(horizontal: false, vertical: true)
 				.accessibilityLabel(product.spokenPriceWithTerm)
 
-			// Free-trial terms — only when *this user* is still eligible (a returning user
-			// who already used the trial is charged immediately, so showing "free for N"
-			// would be misleading). Length/price come from the product (set in ASC).
-			if introOfferEligibility == true, let trial = Self.freeTrialText(for: product) {
-				Text(trial)
-					.font(.footnote)
-					.foregroundStyle(.secondary)
-					.multilineTextAlignment(.center)
-					// This sentence embeds the price too, so it needs the spoken form for the
-					// same reason the price above does — otherwise an eligible user hears
-					// "then $3.99 slash month" and only an ineligible one is spared it.
-					.accessibilityLabel(Self.spokenFreeTrialText(for: product) ?? trial)
+			// What the subscription includes, stated concretely (AIA-0567). The ASC description
+			// above says what it *is*; these say what you get, which is the question a user at a
+			// wall is actually asking. Deliberately additive to the ASC line rather than a
+			// replacement for it — App Review 3.1.2 wants the store's own description of the
+			// service on the sign-up screen, and four in-app bullets are not that.
+			VStack(alignment: .leading, spacing: 4) {
+				ForEach(Self.benefits, id: \.self) { benefit in
+					Label(benefit, systemImage: "checkmark")
+						.font(.footnote)
+						.foregroundStyle(.secondary)
+						.fixedSize(horizontal: false, vertical: true)
+				}
 			}
-
-			if showsBillingEstimate {
-				billingNote(for: product)
-			}
+			.padding(.top, 4)
 		}
 
 		Button {
@@ -793,7 +796,7 @@ struct PaywallView: View {
 				notice = SubscriptionNotice.forPurchase(outcome)
 			}
 		} label: {
-			Text(L10n.Paywall.subscribe)
+			Text(purchaseButtonTitle(for: product))
 				.fontWeight(.bold)
 				.frame(maxWidth: .infinity)
 				.opacity(inFlight == .purchase ? 0 : 1)
@@ -802,49 +805,63 @@ struct PaywallView: View {
 		.buttonStyle(.borderedProminent)
 		.tint(.green)
 		.controlSize(.large)
-		.disabled(inFlight != nil || subscriptionState.isSubscribed)
+		// Also disabled while eligibility is unresolved: for that instant the label cannot say
+		// truthfully what the tap buys, and a purchase started from a mislabelled button is the one
+		// mistake on this screen that costs the user money.
+		.disabled(inFlight != nil || subscriptionState.isSubscribed || trialEligibility == .unresolved)
 		.testability(Testability.Button.paywallSubscribe)
 		// In non-production builds the purchase runs against Apple's Sandbox (no real
 		// charge); flag the button so testers know it's safe to tap (AIA-0354).
 		.underConstructionBadge()
+
+		billingNote(for: product)
 	}
 
-	/// When the free trial ends and billing begins (acceptance criterion 9).
+	/// "Start 1 Month Free Trial" for a user who will actually get one; "Subscribe" for everyone else.
 	///
-	/// The precision here is the point, and it is not symmetrical. **Before** a purchase the app can
-	/// only add the offer's period to today: the trial actually starts whenever the transaction
-	/// completes, which may be minutes later after Ask-to-Buy, a password prompt or a pending
-	/// approval — so the copy says "around", and says why. **After** the purchase the answer stops
-	/// being a guess and comes from the transaction's own expiration date, so it is stated plainly.
+	/// Both halves of the condition are load-bearing and they answer different questions.
+	/// `introOfferEligibility` is StoreKit's answer about *this Apple Account* — a returning user who
+	/// already spent the trial is charged at once, and promising them a free one is the kind of copy
+	/// that gets a build rejected. ``hasFreeTrialOffer`` asks whether the product carries a trial at
+	/// all, because a product with no introductory offer reports ineligible for *everyone*, and
+	/// without this the label would be right by accident rather than by construction.
 	///
-	/// A user who is **not** trial-eligible gets a date too, and it is "now" (AIA-0556). They used to
-	/// get nothing, which was defensible while this screen was only ever reached voluntarily: the
-	/// trial line was simply absent and the price stood on its own. It is not defensible at the hard
-	/// wall. That user has just spent fourteen days of free access, arrives at a screen whose entire
-	/// job is to state the offer, and — because they redeemed Apple's introductory offer at some
-	/// point in the past — reads a price with nothing said about when it is taken. Every other reader
-	/// of the same screen is told. The absence is not neutral there; it reads as a sentence that lost
-	/// its second half, and the honest completion is that there is no free period left to wait
-	/// through.
+	/// The period comes from the offer, never a literal: the ticket's "Start 14-Day Free Trial"
+	/// hardcodes a length that App Store Connect owns and can change without a release.
+	private func purchaseButtonTitle(for product: Product) -> String {
+		guard trialEligibility == .gettingTrial,
+			  let period = product.subscription?.introductoryOffer?.period.localizedDescription
+		else { return L10n.Paywall.subscribe }
+		return L10n.Paywall.startTrial(period)
+	}
+
+	/// When money actually starts moving, under the button that starts it.
 	///
-	/// Silent for a subscriber past their trial, where the renewal date is `SubscriptionStatusView`'s
-	/// job, not the paywall's — and silent until StoreKit has answered at all, so the two mutually
-	/// exclusive claims can never trade places on screen.
+	/// The wording is **transaction-relative on purpose** (AIA-0567). The obvious copy — "billing
+	/// starts in 14 days" — is wrong twice over. It contradicts ``L10n/Paywall/disclosure`` rendered
+	/// a few points below it, which states that payment is charged *at confirmation*; a screen that
+	/// says both is a screen App Review reads twice. And it is not true: the trial starts when the
+	/// transaction completes, which after Ask-to-Buy or a pending approval can be days later, so a
+	/// countdown from today names a date the app cannot honour. Anchoring to "after your purchase
+	/// completes" keeps the plain-language promise the ticket asked for and stays true whenever the
+	/// purchase lands.
+	///
+	/// A user who is **not** trial-eligible is told instead that billing starts at once (AIA-0556).
+	/// That absence would not be neutral here: they have just spent their free window, arrive at a
+	/// screen whose whole job is to state the offer, and would otherwise read a price with nothing
+	/// said about when it is taken while every other reader of the same screen is told.
+	///
+	/// Silent until StoreKit has answered at all, so the two mutually exclusive claims can never
+	/// trade places on screen — and silent for a subscriber, whose renewal date is
+	/// `SubscriptionStatusView`'s job, not the paywall's.
 	@ViewBuilder
 	private func billingNote(for product: Product) -> some View {
 		if subscriptionState.isSubscribed {
-			if subscriptionState.isInTrial, let expiration = subscriptionState.currentExpirationDate {
-				billingNoteText(L10n.Paywall.Billing.exact(
-					expiration.formatted(date: .abbreviated, time: .omitted)
-				))
-			}
-		} else if introOfferEligibility == true {
-			if let estimate = Self.estimatedFirstBillingDate(for: product) {
-				billingNoteText(L10n.Paywall.Billing.estimate(
-					estimate.formatted(date: .abbreviated, time: .omitted)
-				))
-			}
-		} else if introOfferEligibility == false, Self.hasFreeTrialOffer(product) {
+			EmptyView()
+		} else if trialEligibility == .gettingTrial,
+				  let period = product.subscription?.introductoryOffer?.period.localizedDescription {
+			billingNoteText(L10n.Paywall.trialSupport(period))
+		} else if trialEligibility == .noTrial, Self.hasFreeTrialOffer(product) {
 			// The offer's *existence* is checked separately from this customer's eligibility for it.
 			// StoreKit answers only the second question, and a product carrying no introductory offer
 			// can report `false` for everyone — telling those users they have used up a trial that
@@ -868,32 +885,20 @@ struct PaywallView: View {
 			.fixedSize(horizontal: false, vertical: true)
 	}
 
-	/// Today plus the introductory offer's period, or `nil` when the offer is not a free trial.
+	/// What the subscription includes (AIA-0567), in the order the ticket specified.
 	///
-	/// An estimate by construction — see ``billingNote(for:)`` for why it must be presented as one.
-	/// A period unit Apple adds later returns `nil` rather than a wrong date: saying nothing is
-	/// always better than naming the wrong day money moves.
-	private static func estimatedFirstBillingDate(
-		for product: Product,
-		from now: Date = .now,
-		calendar: Calendar = .current
-	) -> Date? {
-		guard let offer = product.subscription?.introductoryOffer,
-			  offer.paymentMode == .freeTrial else { return nil }
-		let component: Calendar.Component
-		switch offer.period.unit {
-		case .day: component = .day
-		case .week: component = .weekOfYear
-		case .month: component = .month
-		case .year: component = .year
-		@unknown default: return nil
-		}
-		return calendar.date(byAdding: component, value: offer.period.value, to: now)
+	/// Static and localized rather than derived: these are product claims, not facts StoreKit knows.
+	/// Two of them — "all current and future features" and "regular updates" — are commitments, and
+	/// they live here so there is one place to change them if the product's shape ever stops
+	/// honouring them.
+	private static var benefits: [String] {
+		[
+			L10n.Paywall.Benefit.unlimited,
+			L10n.Paywall.Benefit.features,
+			L10n.Paywall.Benefit.updates,
+			L10n.Paywall.Benefit.cancel
+		]
 	}
-
-	/// The `Assets.xcassets` colorset backing ``continueAction``'s button. Named here rather than at
-	/// the call site so the asset and its one consumer stay visibly paired.
-	private static let continueButtonColorName = "ContinueButton"
 
 	/// Apple's standard "Manage Subscriptions" deep link. The hardcoded literal always
 	/// parses, so the force-unwrap cannot fail.
@@ -904,26 +909,6 @@ struct PaywallView: View {
 	// swiftlint:disable:next force_unwrapping
 	private static let termsOfUseURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
 
-	/// "Free for 2 weeks, then $3.99 / month" when the product carries an introductory free-trial
-	/// offer; `nil` otherwise. The trial length, the price and the period it recurs over all come
-	/// from the product (configured in App Store Connect), so the copy follows whatever ships.
-	///
-	/// The second half states the term as well as the amount (AIA-0559): "then $3.99" leaves the
-	/// most important question about a subscription — *how often* — unanswered on the one screen
-	/// App Review 3.1.2 says must answer it.
-	private static func freeTrialText(for product: Product) -> String? {
-		guard let offer = product.subscription?.introductoryOffer,
-			  offer.paymentMode == .freeTrial else { return nil }
-		return L10n.Paywall.trialFormat(offer.period.localizedDescription, product.localizedPriceWithTerm)
-	}
-
-	/// ``freeTrialText(for:)`` for VoiceOver: same sentence, "per month" instead of a slash.
-	/// Same format string, so the two can only ever differ in that one substitution.
-	private static func spokenFreeTrialText(for product: Product) -> String? {
-		guard let offer = product.subscription?.introductoryOffer,
-			  offer.paymentMode == .freeTrial else { return nil }
-		return L10n.Paywall.trialFormat(offer.period.localizedDescription, product.spokenPriceWithTerm)
-	}
 }
 
 #if DEBUG
@@ -937,23 +922,23 @@ struct PaywallView: View {
 		.task { await state.start() }
 }
 
-/// Day 0 (AIA-0556): the window is being offered, and Continue is a real peer of Subscribe.
-#Preview("Free access — offered") {
+/// The hard wall after a window ran out (AIA-0567) — the only presentation that says so.
+#Preview("Expired free access") {
 	PaywallView(
 		subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true),
 		analytics: nil,
-		continueAction: {},
-		freeAccessOffer: .offered(days: 14, endsOn: .now.addingTimeInterval(14 * 24 * 60 * 60))
+		isRootGate: true,
+		statesExpiredFreeAccess: true
 	)
 }
 
-/// The reminder: same screen, stating what is left instead of what is offered.
-#Preview("Free access — reminder") {
+/// The same wall for someone who never had a window — payments on, free access off. Proves the
+/// title and the description both stay neutral rather than claiming a loss that never happened.
+#Preview("Wall — no window was ever granted") {
 	PaywallView(
 		subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true),
 		analytics: nil,
-		continueAction: {},
-		freeAccessOffer: .remaining(days: 7, endsOn: .now.addingTimeInterval(7 * 24 * 60 * 60))
+		isRootGate: true
 	)
 }
 #endif
