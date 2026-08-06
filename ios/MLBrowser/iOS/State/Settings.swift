@@ -131,8 +131,9 @@ final class Settings: ObservableObject, Validatable {
 	public var launchFixtureURL: URL?
 
 	/// A remote page the browser should load on first launch when the onboarding tour
-	/// auto-starts, so the address-bar step points at a real demo page (the Bavaria LiDAR
-	/// geoportal) instead of the default home (AIA-0333). Set once by `AppState.initialize()`
+	/// auto-starts, so the address-bar step points at a real demo page
+	/// (`DemoDataManager.onboardingDemoPage`) instead of the default home (AIA-0333).
+	/// Set once by `AppState.initialize()`
 	/// before the UI appears; **not** persisted. Loaded through the normal pipeline (unlike
 	/// `launchFixtureURL`, which is a local file), so it records history and fills the bar.
 	public var onboardingInitialPage: URL?

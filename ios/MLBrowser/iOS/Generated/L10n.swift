@@ -1034,8 +1034,8 @@ internal enum L10n {
     /// Skip
     internal static let skip = L10n.tr("Localizable", "tour.skip", fallback: "Skip")
     internal enum AddressBar {
-      /// Type a page address here — a Bavaria LiDAR page is already in your history.
-      internal static let text = L10n.tr("Localizable", "tour.addressBar.text", fallback: "Type a page address here — a Bavaria LiDAR page is already in your history.")
+      /// Type a page address here — sample pages are already in your history.
+      internal static let text = L10n.tr("Localizable", "tour.addressBar.text", fallback: "Type a page address here — sample pages are already in your history.")
     }
     internal enum Capture {
       /// Now tap anywhere on the map to mark your finding.
