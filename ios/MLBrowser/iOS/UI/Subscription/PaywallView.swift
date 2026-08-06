@@ -458,6 +458,14 @@ struct PaywallView: View {
 	private var content: some View {
 		if let product = subscriptionState.products.first {
 			productSection(product)
+
+			// The free-access window presents two legitimate paths: subscribe now or keep using
+			// the app until it ends. Keep that choice explicit between the equally sized actions.
+			if continueAction != nil {
+				Text(L10n.Paywall.or)
+					.font(.footnote.weight(.semibold))
+					.foregroundStyle(.secondary)
+			}
 		} else {
 			// Empty product list: App Store Connect not configured yet, the local
 			// .storekit file isn't wired into the scheme, or the mock path. Degrade
