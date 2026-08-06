@@ -12168,6 +12168,18 @@
         }
       }
     },
+    "paywall.or" : {
+      "comment" : "Separates the Subscribe and Continue choices on a free-access paywall.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OR"
+          }
+        }
+      }
+    },
     "paywall.pending.message" : {
       "comment" : "Shown when a purchase awaits approval (Ask to Buy).",
       "extractionState" : "manual",

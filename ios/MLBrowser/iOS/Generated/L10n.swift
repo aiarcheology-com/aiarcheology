@@ -691,6 +691,8 @@ internal enum L10n {
     internal static let findings = L10n.tr("Localizable", "paywall.findings", fallback: "Export or Delete Findings")
     /// Manage Subscription
     internal static let manage = L10n.tr("Localizable", "paywall.manage", fallback: "Manage Subscription")
+    /// OR
+    internal static let or = L10n.tr("Localizable", "paywall.or", fallback: "OR")
     /// Request a Refund
     internal static let requestRefund = L10n.tr("Localizable", "paywall.requestRefund", fallback: "Request a Refund")
     /// Restore Purchases
