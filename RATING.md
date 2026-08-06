@@ -108,7 +108,7 @@ key appears only once a moment is actually recorded.
 
 ## Run it
 
-1. Build & Run the Debug scheme; sign in, pass the paywall, dismiss the tour.
+1. Build & Run the Debug scheme; sign in, pass the Welcome screen, dismiss the tour it hands over to.
 2. Save a finding. Repeat until the count reaches 3 — check it with the `PlistBuddy` command above.
 3. On the third save, **watch after the sheet closes**. The prompt fires on dismissal, not on
    the Save tap.

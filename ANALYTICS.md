@@ -34,24 +34,38 @@ works.
 
 ```text
 first launch → ConfigCat availability ON
-    → SubscriptionGateView (paywall, if not entitled)
+    → SubscriptionGateView (Welcome on day 0; the paywall once the window is spent)
+    → onboarding tour
     → notice (default OFF: "Enable analytics" / "Not now")
     → active choice to enable → TelemetryDeck.initialize(...)   ← first time the SDK exists
     → ContentView → Settings toggle
 ```
 
-**The notice renders *after* the paywall** (AIA-0447), of every user who reaches the app — anonymous
-included (AIA-0536), and since AIA-0556 unentitled too, because a free-access window opens the gate
-without a purchase. Funnel events fired before the choice are buffered in memory by `AnalyticsState`
-until it is made, then flushed on enable and discarded on decline, so nothing leaves the device
-before consent. `MLBrowser.swift` nests `SubscriptionGateView { AnalyticsChoiceGate { ContentView } }`.
+**The notice renders *after* the subscription gate** (AIA-0447), of every user who reaches the app
+— anonymous included (AIA-0536), and since AIA-0556 unentitled too, because a free-access window
+opens the gate without a purchase. Funnel events fired before the choice are buffered in memory by
+`AnalyticsState` until it is made, then flushed on enable and discarded on decline, so nothing leaves
+the device before consent. `MLBrowser.swift` nests
+`SubscriptionGateView { AnalyticsChoiceGate { ContentView } }`.
 
 That buffer now carries more than it used to. The question is **deferred** while a window granted on
-this launch has not yet been explained by its day-0 paywall — otherwise "Enable analytics?" is the
-first screen of a brand-new install and the onboarding tour never mounts — so a first run buffers the
-grant, the day-0 `paywall.shown` and the Continue that releases the deferral before anyone has
-answered. Still a handful of payload-free events against a bound of 16, and still bounded the same
-way: the consent gate takes the screen the moment the deferral lifts.
+this launch has not yet been explained by its Welcome screen, and while the onboarding tour is still
+owed a turn — otherwise "Enable analytics?" is the first screen of a brand-new install, or it lands
+on top of the tour that Welcome's Continue just started — so a first run buffers the grant,
+`welcome.shown`, the Continue that hands the screen over, and however the tour ends, all before
+anyone has answered.
+
+The bound of 16 is unchanged; the reason it holds is not, and that is worth stating because the old
+reason was written down here. It used to be "the consent gate takes the screen the moment the
+deferral lifts, so nothing can accumulate behind it". A tour abandoned mid-step — backgrounded, never
+finished or skipped — breaks that: the user is inside the app, using it, with the buffer still open,
+and `model.imported` and `detection.session_summary` both fire from in there. So payload-free events
+are now collapsed to one occurrence on append, which caps the funnel stages at one entry each, and
+overflow evicts the newest *volume* event rather than either end of the buffer. Neither naive policy
+works: dropping the oldest evicts `free_access.window_granted`, the denominator every later stage is
+read against, and dropping the newest admits nothing once full — which bites hardest at a cold hard
+wall, the one surface that mounts no consent gate at all, where it would throw away the
+`subscribe.tapped` that converted.
 
 ### Consent is scoped, and there are exactly two scopes
 
@@ -104,18 +118,43 @@ Two further limits under paywall-first:
 |-|-|-|
 | session / lifecycle | none (SDK automatic) | DAU/MAU, retention |
 | detection session summary | bucketed run count (1–5, 6–20, 20+) | core feature usage |
-| paywall shown | none | funnel top |
+| paywall shown | none | funnel top, for the screen that asks for money — see the discontinuity note below |
 | subscribe tapped | none | purchase intent billing data can't see |
 | account signed in | none | funnel stage; fired once per account, not per launch |
 | subscription activated | none | conversion **timing**, not rate — see the degeneracy note above. Fired on the first observation that an account holds an active entitlement, deduplicated per account. A paywall tap structurally cannot trigger it |
 | model imported / downloaded | source category (enum) | catalog vs import usage |
 | free access: window granted | none | top of the free-period funnel. Once per install by construction — a window can only be granted where no anchor exists — and reported only for a grant whose durable write landed |
+| welcome shown | none | the day-0 screen went up. Emitted where the once-per-window marker is written, so it cannot out-number the screen. This is the stage `paywall.shown` used to carry — see the discontinuity note below |
 | free access: continue tapped | none | declined to subscribe *for now*. Fired from the button alone, because the same dismissal path also runs when the user buys from that screen or the tour takes it back |
-| free access: reminder shown | none | the day-7 stage. Emitted where the once-per-window marker is written, so it cannot out-number the screen |
+| onboarding: tour completed | none | first-run onboarding reached its last step. The tour now sits between the Welcome screen and the consent question, so its drop-off is the first-run metric |
+| onboarding: tour skipped | none | the same stage, taken by the Skip button. Counted apart because "left early" and "saw all of it" are different answers |
 | free access: window expired | none | the free period ran out without a purchase. Deduplicated **durably and per device** (`analyticsFreeAccessExpiryReported`): expiry is a fact re-observed on every later launch, not an act, so an unguarded report would be a launch counter |
 
-The four free-access stages carry no dates and no day counts. The window's numbers are a per-install
+The free-access stages carry no dates and no day counts. The window's numbers are a per-install
 timestamp; a funnel needs the stage, not the calendar.
+
+**`com.aiarcheology.paywall.shown` changed meaning in AIA-0567 without changing its name.** It used
+to fire for the day-0 screen as well as the wall; day 0 is now `WelcomeView`, which is deliberately
+**not** a purchase screen and does not emit it — putting it there would count a screen that offers
+nothing to buy as an impression of the offer. So the event loses roughly its entire day-0 population
+while keeping its identifier, and any series spanning the release reads as a collapse that never
+happened. `welcome.shown` carries that population instead. Break the series at the release, or
+compare `paywall.shown + welcome.shown` against the old figure.
+
+**`tour_completed + tour_skipped` is always less than `free_access.continue_tapped`**, by
+construction rather than by loss. A tour ends by being finished or by being skipped, and a user who
+force-quits mid-step does neither: the tour re-arms and the abandoned run emits nothing at all. Read
+that gap as abandonment, not as dropped events.
+
+Both tour events describe **first runs only**. Settings → Replay terminates through the same methods
+and is deliberately excluded — counting replays would let the stage out-number
+`free_access.window_granted`, which is once per window by construction, and a funnel stage that can
+exceed its own denominator is not a stage.
+
+And the whole first-run funnel — grant, welcome, Continue, tour ending — happens **before the
+consent question is asked**. All of it is buffered, and a buffer is flushed only if the user then
+enables analytics and discarded if they decline. These numbers therefore describe consenting users,
+not installs, and cannot be read as a first-run rate for the population as a whole.
 
 `window_expired` says nothing about what happens next. A subscription bought at that wall gets
 whatever provenance the entitlement observer assigns it, and with nobody signed in that is

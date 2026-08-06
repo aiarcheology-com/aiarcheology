@@ -28,6 +28,7 @@ flowchart TB
 
     subgraph App["Existing app (integration points)"]
         AS["AppState @MainActor<br/>owns tour"]
+        SGV["SubscriptionGateView<br/>day-0 Welcome / paywall"]
         CV["ContentView"]
         DM["DrawerManager<br/>@Observable"]
         GT["GlobalToolbar<br/>CPU / PLAY / Find buttons"]
@@ -57,7 +58,8 @@ flowchart TB
     SFS -->|.tourTarget .saveButton| TGT
     TGT -->|anchorPreference .bounds| PK
 
-    CV -->|.task migrateAndAutostartIfNeeded| TS
+    AS -->|initialize → migrateAndArmIfNeeded (arms)| TS
+    SGV -->|startTourIfClear → startIfArmed (starts)| TS
     CV -->|onChange drawer.isOpen / onReceive detection,findMode → evaluate/pickModeDidStart| TS
     DC -->|cutout tap → performCutoutAction (enable)| TS
     SFS -->|onAppear captureDidStart / save → findingDidSave| TS
@@ -77,7 +79,7 @@ two sheet-coupled steps (capture / save) **auto-advance** (the modal sheet cover
 ```mermaid
 stateDiagram-v2
     [*] --> Inactive
-    Inactive --> AddressBar : start()<br/>(first-launch auto / Replay)
+    Inactive --> AddressBar : start()<br/>(first launch, after Welcome / Replay)
 
     AddressBar --> ModelsButton : Next (teaching)
     ModelsButton --> DemoModels : tap CPU → drawer opens → Next reveal → Next
@@ -100,16 +102,33 @@ stateDiagram-v2
     end note
 ```
 
-## 3. Gate + autostart decision (first frame)
+## 3. Gate + arm/start decision (first launch)
+
+Deciding that onboarding is owed and actually beginning it are two steps. `AppState.initialize()`
+runs the migration and **arms** the tour; `SubscriptionGateView.startTourIfClear()` **starts** what
+was armed, once nothing is owed the screen in front of it. The tour now runs *after* the day-0
+Welcome screen (`AUTH-SUBSCRIPTION.md`), so a caller that both decided and began would start it
+underneath one.
+
+Arming stays in `initialize()`, before `isReady`, for two reasons. The gate's
+`onChange(initial: true)` handlers are what start the tour and nothing re-fires them later, so arming
+from a view would arm something nobody would ever act on. And `AnalyticsChoiceGate` holds the consent
+question while `isPendingOrRunning` — armed **or** running, not just running — because on the launch
+after a force-quit over the Welcome screen the tour is merely armed when that gate first computes,
+and an `isActive` test would flash the consent screen full-width before the gate above had started
+anything.
 
 ```mermaid
 flowchart TD
-    A["ContentView .task → migrateAndAutostartIfNeeded()"] --> B{hasSeenOnboardingTour<br/>present?}
+    A["AppState.initialize() → migrateAndArmIfNeeded()"] --> B{hasSeenOnboardingTour<br/>present?}
     B -->|yes| Z["no-op (already onboarded)"]
     B -->|no| C{legacy keepSlideShowActive<br/>present AND == false?}
     C -->|yes opted out| D["markSeen() — don't re-onboard"]
-    C -->|no| E["start() — auto-run the tour"]
-    F["UI tests: startOnboardingTour flag<br/>(ephemeral suite, opt-in only)"] -.-> E
+    C -->|no| E["arm() — onboarding is owed, nothing runs yet"]
+    E --> F{"SubscriptionGateView.startTourIfClear():<br/>content on screen, no Welcome presented,<br/>none due or none presentable?"}
+    F -->|no| G["wait — the Welcome screen has the display"]
+    F -->|yes| H["startIfArmed() → start(), arm cleared, isFirstRun set"]
+    I["UI tests: startOnboardingTour flag<br/>(ephemeral suite, opt-in only)"] -.-> E
 ```
 
 ## 4. Render + advance data flow (per active step)
@@ -146,6 +165,14 @@ sequenceDiagram
   matching `TourSpotlight`'s full-screen draw — otherwise every cutout is offset by the top inset.
 - **Dim taps never dismiss:** the dim has no tap gesture; only the explicit **Skip** button ends
   the tour. An interrupted tour re-arms (the gate flips only on a terminal state).
+- **`start()`'s resets are live now:** closing the drawer and stopping detection used to be no-ops on
+  a first launch, because the tour began from `AppState.initialize()` before `ContentView` existed.
+  It begins after the Welcome screen instead, with `ContentView` mounted and bound — which is why the
+  launch auto-detect is withheld while onboarding is owed, rather than starting behind a screen the
+  user is still reading and being stopped again the moment they tap Continue.
+- **A terminal state is also a funnel stage:** finish/skip emit `onboarding.tour_completed` /
+  `tour_skipped`, but only for a run that began from an arm. Settings → Replay calls `start()`
+  directly and is excluded, so the stage counts first runs — see `ANALYTICS.md`.
 - **Bubble always renders:** the coach-mark (with Skip/Next) shows even before the target anchor
   resolves (centered), so a step can never be a dead-end blank dim.
 - **Four-rectangle dim:** the dim is four rects around the cutout (no view over the hole) + a focus

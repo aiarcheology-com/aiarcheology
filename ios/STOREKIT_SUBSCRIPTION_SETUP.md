@@ -79,7 +79,9 @@ $3.99/mo to keep using it.
 - **The subscription gate is the root** (`MLBrowser.swift:231`). The chain is
   `SubscriptionGateView` → `AnalyticsChoiceGate` → `ContentView`. The app proper shows while the
   user is entitled (a StoreKit free trial counts) **or** while the app-managed free-access window
-  is open; otherwise `PaywallView` is what they meet.
+  is open; otherwise `PaywallView` is what they meet. Day 0 of an open window is `WelcomeView`, a
+  separate informational screen with no purchase control — `PaywallView` is only ever the screen
+  that asks for money (AIA-0567).
 - **Signing in is not a gate** (AIA-0536, implementing the #543 decision). Auth used to be the
   outermost gate — it no longer decides whether the app renders. `AuthState` is still driven, for
   analytics consent scope, purchase tagging and the account UI. Sign-in is offered contextually
@@ -101,7 +103,8 @@ $3.99/mo to keep using it.
 
 - StoreKit 2 DIY, **on-device entitlement** (`Transaction.currentEntitlements`, verified only) —
   **no backend, no Clerk writes** in Phase A.
-- The paywall carries every element Apple 3.1.2 wants on a sign-up screen, and all of the
+- The paywall carries every element Apple 3.1.2 wants on a sign-up screen — unconditionally since
+  AIA-0567; no feature flag removes any of them — and all of the
   product-specific ones are **derived from the product** so ASC stays the source of truth: the
   subscription name and its description, the **price with its recurring period** ("$3.99 / month",
   AIA-0559), the trial terms when *this* Apple Account is still eligible, the auto-renewable
