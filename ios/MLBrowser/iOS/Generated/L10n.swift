@@ -685,20 +685,24 @@ internal enum L10n {
     internal static let active = L10n.tr("Localizable", "paywall.active", fallback: "Subscribed")
     /// Cancel anytime in your Apple Account settings.
     internal static let cancelFooter = L10n.tr("Localizable", "paywall.cancelFooter", fallback: "Cancel anytime in your Apple Account settings.")
-    /// Continue
-    internal static let continueButton = L10n.tr("Localizable", "paywall.continueButton", fallback: "Continue")
     /// Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.
     internal static let disclosure = L10n.tr("Localizable", "paywall.disclosure", fallback: "Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.")
+    /// Payment is charged to your Apple ID when the free trial ends. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.
+    internal static let disclosureTrial = L10n.tr("Localizable", "paywall.disclosureTrial", fallback: "Payment is charged to your Apple ID when the free trial ends. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.")
     /// Your free access has ended. Subscribe to keep using ML Browser and receive all future updates and improvements.
     internal static let expired = L10n.tr("Localizable", "paywall.expired", fallback: "Your free access has ended. Subscribe to keep using ML Browser and receive all future updates and improvements.")
     /// Export or Delete Findings
     internal static let findings = L10n.tr("Localizable", "paywall.findings", fallback: "Export or Delete Findings")
     /// Continue with unlimited access
     internal static let headline = L10n.tr("Localizable", "paywall.headline", fallback: "Continue with unlimited access")
+    /// Unlimited access to every feature
+    internal static let headlineFirstMeeting = L10n.tr("Localizable", "paywall.headlineFirstMeeting", fallback: "Unlimited access to every feature")
     /// Manage Subscription
     internal static let manage = L10n.tr("Localizable", "paywall.manage", fallback: "Manage Subscription")
     /// Subscribe to keep using ML Browser and receive all future updates and improvements.
     internal static let pitch = L10n.tr("Localizable", "paywall.pitch", fallback: "Subscribe to keep using ML Browser and receive all future updates and improvements.")
+    /// Subscribe to use ML Browser and receive all future updates and improvements.
+    internal static let pitchFirstMeeting = L10n.tr("Localizable", "paywall.pitchFirstMeeting", fallback: "Subscribe to use ML Browser and receive all future updates and improvements.")
     /// Request a Refund
     internal static let requestRefund = L10n.tr("Localizable", "paywall.requestRefund", fallback: "Request a Refund")
     /// Restore Purchases
@@ -1069,6 +1073,8 @@ internal enum L10n {
   internal enum Welcome {
     /// No subscription required today. Take your time, discover the app, and decide later if it's right for you.
     internal static let body = L10n.tr("Localizable", "welcome.body", fallback: "No subscription required today. Take your time, discover the app, and decide later if it's right for you.")
+    /// Continue
+    internal static let continueButton = L10n.tr("Localizable", "welcome.continueButton", fallback: "Continue")
     /// Explore everything free for %lld days
     internal static func headline(_ p1: Int) -> String {
       return L10n.tr("Localizable", "welcome.headline", p1, fallback: "Explore everything free for %lld days")

@@ -24,31 +24,35 @@ Also in this build: going offline no longer wipes the page you have open.
 11. While offline, tap a link, reload, or enter an address: nothing loads, and no error screen replaces your page. The silence is deliberate — keeping your page beats an error screen. The address bar may show the address that failed. (Some sites, like some news portals, serve their own "you are offline" page from cache; that message comes from the site, not from the app.)
 12. "Page didn't load / Try Again" should now appear only when there was nothing on screen worth keeping — for example relaunching the app while offline. From there, Try Again must load the page normally once you are back online.
 
-Also in this build: a new install gets 14 days of free access before the subscribe screen becomes a wall.
+Also in this build: a new install gets 14 days of free access, and the opening screens have been split in two.
 
-A fresh install now hands you 14 free days. You still meet the subscribe screen, but it carries a blue "Continue" button next to the green "Subscribe" one, and Continue takes you into the app. On day 7 the screen comes back once with the days you have left, and Continue again returns you to the app. From day 14 the Continue button is gone and a subscription is required. Subscribing at that point starts Apple's own 2-week free trial, so the first charge lands 28 days after you installed.
+A fresh install now hands you 14 free days, and the first thing you see is a **Welcome screen**: the app logo, "Explore everything free for 14 days", and a single Continue button. It asks for nothing — no price to accept, no card, no subscribe button. Tapping Continue starts the guided tour, and the analytics question comes after that.
+
+The screen that asks for money is now a **separate** screen, and you only meet it once your 14 days are up (or if you open Settings > Subscription yourself). It states what a subscription includes, and from day 14 there is no way past it.
+
+The mid-period reminder that used to reappear on day 7 has been removed. Not seeing it is correct.
 
 You do not have to wait two weeks to test this. Change the device date in iOS Settings to jump forward — General > Date & Time, turn off "Set Automatically". Moving the clock **forward** works normally. Moving it **backwards** deliberately will not give you more free time back; that is intended, not a bug.
 
-13. Fresh install: finish the onboarding tour, and the subscribe screen should appear afterwards with a blue Continue button reading "14 days free". Tap Continue — you should land in the app and be able to use everything.
-14. Relaunch the app a few times over the next days. On days 1 to 6 you should see no subscribe screen at all. It appearing on every launch is the main thing to report.
-15. Move the date forward to day 7 and relaunch. The screen should return once, saying how many days are left, with Continue still available. Relaunch again the same day — it must not appear a second time.
-16. Move the date forward past day 14 and relaunch. The subscribe screen should now have no Continue button and no way past it. Check that "Export or Delete Findings" is offered there if you saved anything, and that exporting actually produces a file — being unable to reach your own findings at this point is a serious bug.
-17. While inside the free period, open Settings and tap Subscription. It should open the subscribe screen. Previously that row did nothing at all.
-18. Delete the app and reinstall it while your free period is running. **It must pick up where it left off, not start a fresh 14 days.** If reinstalling resets the counter, report it — that is the most important thing in this section.
-19. If you subscribe at any point, the free-period messaging should disappear entirely and never wall you, even after day 14 has passed.
-20. On the subscribe screen, check the dates read sensibly: before you buy it should say billing starts *around* a date, and after buying it should state the exact date your trial ends. If you have used the free trial on this Apple Account before, it should say so plainly instead of promising a trial you would not get.
+13. Fresh install: the Welcome screen must be the **first** thing you see — before the guided tour, not after it. Confirm it has a Continue button and no Subscribe button, and that no tour bubbles are visible behind it. Tap Continue: the tour should start, and the analytics question should follow only once the tour is finished or skipped. The order is Welcome, then tour, then analytics.
+14. Relaunch the app a few times over the next days. On days 1 to 13 you should see no Welcome screen and no subscribe screen at all. Either of them appearing on every launch is the main thing to report.
+15. Move the date forward past day 14 and relaunch. You should now meet the subscribe screen, with no way past it. It should say your free access has ended. Check that "Export or Delete Findings" is offered there if you saved anything, and that exporting actually produces a file — being unable to reach your own findings at this point is a serious bug.
+16. While inside the free period, open Settings and tap Subscription. It should open the subscribe screen — and it must NOT say your free access has ended, because it has not. It should simply offer the subscription.
+17. Delete the app and reinstall it while your free period is running. **It must pick up where it left off, not start a fresh 14 days.** If reinstalling resets the counter, report it — that is the most important thing in this section.
+18. If you subscribe at any point, the free-period messaging should disappear entirely and never wall you, even after day 14 has passed.
+19. On the subscribe screen, read the money copy as a whole and check it does not contradict itself. If you are being offered a free trial, the button says "Start ... Free Trial", the line under it says nothing is charged during the trial, and the legal paragraph at the bottom should agree — it must say payment is charged when the trial ends, not "at confirmation". If you have already used the free trial on this Apple Account, it should say plainly that billing starts as soon as you subscribe, instead of promising a trial you would not get.
+20. On an iPad, open a second window of the app (drag the icon to the side of the screen) during your first launch, while the Welcome screen is up. The tour must not start in either window while the Welcome screen is showing anywhere. This is fiddly to reach and worth trying once.
 
 Also in this build: the subscribe screen now says what the price recurs over.
 
 The price used to read as a bare "$3.99", which never said per what, and the screen never said what a subscription actually gets you. Both now come from the App Store listing itself rather than being typed into the app, so they cannot drift from what you are really charged.
 
-21. Open the subscribe screen and read the price. It must say "$3.99 / month", not "$3.99". Above it you should now also see a short line describing the subscription ("Full access to ML Browser."). If you are offered a free trial, the line under the price should read "Free for 2 weeks, then $3.99 / month".
-22. Check the same on the wall you reach after the free period ends, where there is no Continue button. That is the screen someone actually buys from, and a price with no period there is the one thing this change exists to prevent.
+21. Open the subscribe screen and read the price. It must say "$3.99 / month", not "$3.99". Above it you should see a short line describing the subscription ("Full access to ML Browser."), and below it a short list of what is included.
+22. Check the same on the wall you reach after the free period ends. That is the screen someone actually buys from, and a price with no period there is the one thing this change exists to prevent.
 23. Turn VoiceOver on and swipe to the price. It should be spoken as a price per month, not with the word "slash" in it.
 24. Set Settings > Accessibility > Display & Text Size > Larger Text to the largest size and reopen the subscribe screen. Two lines got longer, so this is where they would break: confirm nothing is cut off mid-word, and scroll if needed to confirm Subscribe, Restore, Continue (if present) and the Terms/Privacy links are all tappable.
 25. Open Settings > Subscription while subscribed and confirm the plan row still reads "$3.99 / month". It was already correct there; both screens now share one piece of code, so a break in one would show up in the other.
-26. Rotate an iPhone and iPad to landscape while on the subscribe screen. Scroll from top to bottom: the app logo/title, price and trial copy, Subscribe, Restore, Continue (if present), account controls, and Terms/Privacy links must all be reachable. Nothing may be clipped off-screen.
+26. Rotate an iPhone and iPad to landscape on **both** new screens and scroll each from top to bottom. On the Welcome screen: logo, headline, the note about what happens afterwards, the three reassurance lines, and Continue. On the subscribe screen: logo, price, what is included, the purchase button, Restore, account controls and the Terms/Privacy links. Nothing may be clipped off-screen on either.
 
 Nothing else in this build is visible to you: a screen left over from the old sign-in-first flow was deleted (it had been unreachable since the subscribe screen became the first thing you see), and an internal setup document was brought up to date.
 

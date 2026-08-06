@@ -108,4 +108,66 @@ final class SubscriptionGateDisplayTests: XCTestCase {
 	func testWindowClosedBeforeContentWasShown_makesTheWallTheArrivalScreen() {
 		XCTAssertEqual(resolve(freeAccess: .closed, hasEverShownContent: false), .wall)
 	}
+
+	// MARK: - When the armed onboarding tour may start (AIA-0567)
+
+	/// Every clause below closes a hole a review actually found. The failure modes are silent —
+	/// a tour that never runs again, or one running underneath the screen meant to precede it —
+	/// so none of them announces itself in manual testing.
+	private func mayStart(
+		isShowingContent: Bool = true,
+		isWelcomeOnScreenHere: Bool = false,
+		isWelcomeOnScreenAnywhere: Bool = false,
+		isWelcomeDue: Bool = false,
+		canPresentWelcome: Bool = true
+	) -> Bool {
+		TourStartDecision.mayStart(
+			isShowingContent: isShowingContent,
+			isWelcomeOnScreenHere: isWelcomeOnScreenHere,
+			isWelcomeOnScreenAnywhere: isWelcomeOnScreenAnywhere,
+			isWelcomeDue: isWelcomeDue,
+			canPresentWelcome: canPresentWelcome
+		)
+	}
+
+	/// The ordinary case: nothing is owed the screen, so onboarding gets it.
+	func testTourStarts_whenNothingIsOwedTheScreen() {
+		XCTAssertTrue(mayStart())
+	}
+
+	/// A wall is on screen, not the app. There is nothing to run a tour over.
+	func testTourWaits_whileTheAppIsNotWhatIsShowing() {
+		XCTAssertFalse(mayStart(isShowingContent: false))
+	}
+
+	/// The marker is written when the Welcome screen is *raised*, which clears the due flag at once
+	/// — so the due flag alone would start the tour underneath a screen on the display right now.
+	func testTourWaits_whileAWelcomeScreenIsUpInThisWindow() {
+		XCTAssertFalse(mayStart(isWelcomeOnScreenHere: true, isWelcomeDue: false))
+	}
+
+	/// The same question across windows. `presentedPrompt` is scene-local while the tour is shared,
+	/// so with two iPad windows the one that raised the Welcome screen is not the one that would
+	/// otherwise start the tour underneath it.
+	func testTourWaits_whileAWelcomeScreenIsUpInAnotherWindow() {
+		XCTAssertFalse(mayStart(isWelcomeOnScreenAnywhere: true, isWelcomeDue: false))
+	}
+
+	/// A Welcome screen is owed and can still be raised, so the tour must not jump the queue.
+	func testTourWaits_whenAWelcomeScreenIsStillOwedAndCanBeRaised() {
+		XCTAssertFalse(mayStart(isWelcomeDue: true, canPresentWelcome: true))
+	}
+
+    /// The inverse edge, and the reason "owed" alone is not the condition: a subscriber whose window
+	/// still owes an unshown day 0 can never have it raised. Blocking on owed-ness alone would leave
+	/// their tour armed forever, and with it their analytics consent question deferred forever.
+	func testTourStarts_whenAWelcomeIsOwedButCanNeverBeRaised() {
+		XCTAssertTrue(mayStart(isWelcomeDue: true, canPresentWelcome: false))
+	}
+
+	/// The regression that made the fallback key off `display` rather than "a Welcome could show":
+	/// a first launch that meets the wall and is then purchased past must still get its tour.
+	func testTourStarts_afterAWalledUserBuysTheirWayIntoTheApp() {
+		XCTAssertTrue(mayStart(isShowingContent: true, isWelcomeDue: false, canPresentWelcome: false))
+	}
 }

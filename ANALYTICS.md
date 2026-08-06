@@ -141,10 +141,19 @@ while keeping its identifier, and any series spanning the release reads as a col
 happened. `welcome.shown` carries that population instead. Break the series at the release, or
 compare `paywall.shown + welcome.shown` against the old figure.
 
-**`tour_completed + tour_skipped` is always less than `free_access.continue_tapped`**, by
-construction rather than by loss. A tour ends by being finished or by being skipped, and a user who
-force-quits mid-step does neither: the tour re-arms and the abandoned run emits nothing at all. Read
-that gap as abandonment, not as dropped events.
+**`tour_completed + tour_skipped` does not reconcile against `free_access.continue_tapped` in
+either direction**, and neither gap is event loss.
+
+It can fall *short*: a tour ends by being finished or by being skipped, and a user who force-quits
+mid-step does neither — the abandoned run emits nothing and the tour re-arms. Read that as
+abandonment.
+
+It can also *exceed*, which is the less obvious half. `welcome.shown` is written when the screen is
+raised, but `continue_tapped` only when the button is pressed, so a force-quit while the Welcome
+screen is on display leaves a durable marker and no tap. The next launch suppresses the Welcome
+screen, starts the armed tour anyway, and reports a terminal event — a tour stage with no Continue
+before it. The hard-wall-then-restore path produces the same orphan. Both are correct behaviour, so
+do not treat `tour_completed > continue_tapped` as instrumentation drift.
 
 Both tour events describe **first runs only**. Settings → Replay terminates through the same methods
 and is deliberately excluded — counting replays would let the stage out-number

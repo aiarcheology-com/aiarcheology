@@ -73,6 +73,27 @@ final class FreeAccessState: ObservableObject {
 	/// round, and the tour waits for this.
 	@Published private(set) var duePrompt: FreeAccessPrompt?
 
+	/// Whether a Welcome screen is on screen **in any window** right now (AIA-0567).
+	///
+	/// Shared rather than per-scene, and that is the whole point. `SubscriptionGateView` holds its
+	/// own `presentedPrompt` in `@State`, which is scene-local, while this object and `TourState`
+	/// are owned by `AppState` and shared across the whole `WindowGroup` — and the app ships with
+	/// `UIApplicationSupportsMultipleScenes`, so two iPad windows are a real configuration, not a
+	/// hypothetical.
+	///
+	/// Without this, two restored windows deadlock the ordering the ticket exists to impose: window
+	/// A raises the Welcome screen and, in doing so, clears the shared `duePrompt`; window B then
+	/// sees nothing owed, concludes the screen is free, and starts the shared tour. The tour runs
+	/// visibly in B and *underneath* the Welcome screen in A — the exact arrangement
+	/// ``SubscriptionGateView/startTourIfClear()`` exists to prevent, reached by a route its
+	/// scene-local guard cannot see.
+	@Published private(set) var isWelcomePresented = false
+
+	/// Records that a window has put the Welcome screen up, or taken it down.
+	func setWelcomePresented(_ presented: Bool) {
+		isWelcomePresented = presented
+	}
+
 	private let service: FreeAccessAnchorService
 
 	/// The funnel this window feeds (AIA-0556). Optional and defaulted for the same reason

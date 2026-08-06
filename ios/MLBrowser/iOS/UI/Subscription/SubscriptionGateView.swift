@@ -57,6 +57,44 @@ enum RootGateDisplay: Equatable {
 	}
 }
 
+/// Whether the armed onboarding tour may start right now (AIA-0567).
+///
+/// Extracted from ``SubscriptionGateView`` for the same reason ``RootGateDisplay`` was: every clause
+/// here closes a hole that a review actually found, three of them in a draft that looked obviously
+/// correct, and a SwiftUI view is a poor place to prove a four-way conjunction. The failure modes
+/// are silent — a tour that never runs again, or one running underneath the screen that is supposed
+/// to precede it — so none of them announces itself in manual testing.
+enum TourStartDecision {
+
+	/// - Parameters:
+	///   - isShowingContent: the app proper is what is on screen. Deliberately **not**
+	///     "a Welcome screen could be presented": that condition carries `isSubscribed == false`,
+	///     so keying off it would mean a first launch that meets the wall and is then *purchased*
+	///     never starts the tour, on that launch or any later one.
+	///   - isWelcomeOnScreenHere: a Welcome screen is up in **this** window. The marker is written
+	///     when it is raised, which clears `isWelcomeDue` immediately, so the due flag alone would
+	///     start the tour underneath a screen that is on the display right now.
+	///   - isWelcomeOnScreenAnywhere: a Welcome screen is up in **another** window. The app supports
+	///     multiple scenes; the window that raised it is not necessarily the one that would
+	///     otherwise start the shared tour.
+	///   - isWelcomeDue: the window still owes a Welcome screen.
+	///   - canPresentWelcome: this gate could actually raise it. Paired with `isWelcomeDue` as an
+	///     **or**, because a subscriber whose window still owes an unshown day 0 can never have it
+	///     raised — and a bare "something is owed, wait" would leave their tour armed forever, and
+	///     with it their analytics consent question deferred forever.
+	static func mayStart(
+		isShowingContent: Bool,
+		isWelcomeOnScreenHere: Bool,
+		isWelcomeOnScreenAnywhere: Bool,
+		isWelcomeDue: Bool,
+		canPresentWelcome: Bool
+	) -> Bool {
+		guard isShowingContent else { return false }
+		guard isWelcomeOnScreenHere == false, isWelcomeOnScreenAnywhere == false else { return false }
+		return isWelcomeDue == false || canPresentWelcome == false
+	}
+}
+
 /// Gates the whole app behind an active subscription. **This is the app root** (AIA-0536): it used
 /// to sit inside an auth gate, so nothing here was reachable while signed out. Who you are no
 /// longer decides whether the app renders — StoreKit's free trial counts as active, so trial users
@@ -118,7 +156,9 @@ struct SubscriptionGateView<Content: View>: View {
 	/// Two conditions, each for its own reason. The app proper must be what is showing: there is
 	/// nothing to lay it over otherwise, and an expired window already has a wall of its own. And the
 	/// user must not be paying: a subscriber has no app-managed window to be told about, and the same
-	/// condition is what takes the screen down when they buy from it.
+	/// condition is what takes the screen down if an entitlement lands while it is up — which happens
+	/// out of band, since this screen sells nothing: an Ask-to-Buy approval, Family Sharing, or a
+	/// purchase made on another device.
 	///
 	/// The third condition — that the tour had finished — is gone with AIA-0567. The Welcome screen
 	/// now precedes the tour, so waiting for it would deadlock: the tour waits for this screen, and
@@ -146,14 +186,22 @@ struct SubscriptionGateView<Content: View>: View {
 	///   wait" would leave their tour armed forever — and with it, via
 	///   ``TourState/isPendingOrRunning``, their consent question deferred forever.
 	///
+	/// - `freeAccess.isWelcomePresented == false` covers the same question across **other windows**.
+	///   `presentedPrompt` is `@State` and therefore scene-local, while this object and the tour are
+	///   shared by the whole `WindowGroup`; with two iPad windows open, the window that raised the
+	///   Welcome screen is not the one that would otherwise start the tour underneath it.
+	///
 	/// Called from both `onChange` handlers and from ``lowerPrompt()``, because between them they
 	/// cover every way the screen can come free; ``TourState/startIfArmed()`` makes the repetition
 	/// harmless.
 	private func startTourIfClear() {
-		guard display == .content,
-			  presentedPrompt == nil,
-			  freeAccess.duePrompt == nil || canPresentPrompt == false
-		else { return }
+		guard TourStartDecision.mayStart(
+			isShowingContent: display == .content,
+			isWelcomeOnScreenHere: presentedPrompt != nil,
+			isWelcomeOnScreenAnywhere: freeAccess.isWelcomePresented,
+			isWelcomeDue: freeAccess.duePrompt != nil,
+			canPresentWelcome: canPresentPrompt
+		) else { return }
 		tour.startIfArmed()
 	}
 
@@ -208,9 +256,10 @@ struct SubscriptionGateView<Content: View>: View {
 			startTourIfClear()
 		}
 		// Covers the arrival case — content becoming available on a fresh install — and every
-		// reason a raised prompt has to come back down, purchase included: buying from the Welcome
-		// screen flips `isSubscribed`, and `@Environment(\.dismiss)` is inert inside an overlay, so
-		// the screen has to be taken away from out here.
+		// reason a raised prompt has to come back down, an entitlement arriving included: it flips
+		// `isSubscribed`, and `@Environment(\.dismiss)` is inert inside an overlay, so the screen
+		// has to be taken away from out here. The Welcome screen itself sells nothing — such an
+		// entitlement always arrives from elsewhere.
 		.onChange(of: canPresentPrompt, initial: true) { _, canPresent in
 			if canPresent {
 				raisePromptIfDue()
@@ -239,6 +288,7 @@ struct SubscriptionGateView<Content: View>: View {
 	private func raisePromptIfDue() {
 		guard canPresentPrompt, presentedPrompt == nil, let due = freeAccess.duePrompt else { return }
 		presentedPrompt = due
+		freeAccess.setWelcomePresented(true)
 		freeAccess.markPromptShown()
 	}
 
@@ -251,6 +301,7 @@ struct SubscriptionGateView<Content: View>: View {
 	/// are released by different things and either can be absent.
 	private func lowerPrompt() {
 		presentedPrompt = nil
+		freeAccess.setWelcomePresented(false)
 		freeAccess.acknowledgeDay0Presentation()
 		startTourIfClear()
 	}
@@ -283,9 +334,9 @@ struct SubscriptionGateView<Content: View>: View {
 	/// The day-0 welcome screen (AIA-0567), laid over the app the user already has.
 	///
 	/// `continueAction` is built here rather than inside the screen for the reason it always was:
-	/// ``lowerPrompt()`` is *also* how this comes down when the user buys, or when something else
-	/// reclaims the screen, and neither of those is somebody choosing to explore first. Only the
-	/// button knows it was a decline, so only the button reports one.
+	/// ``lowerPrompt()`` is *also* how this comes down when an entitlement arrives from elsewhere, or
+	/// when something else reclaims the screen, and neither of those is somebody choosing to explore
+	/// first. Only the button knows it was a decline, so only the button reports one.
 	private func welcome(for prompt: FreeAccessPrompt) -> some View {
 		WelcomeView(
 			subscriptionState: subscriptionState,

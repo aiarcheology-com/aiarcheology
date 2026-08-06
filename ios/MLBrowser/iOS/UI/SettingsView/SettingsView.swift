@@ -177,11 +177,18 @@ struct SettingsForm: View {
 					// Clerk instance, so `SignInSheet` refuses to present rather than trapping.
 					.environment(\.usesRealAuth, usesRealAuth)
 			}
-			// Subscribing from the Subscription row (AIA-0556). `isRootGate: false` and no
-			// `continueAction`: this is not a gate, so there is nothing to continue past and
-			// dismissal is the sheet's own — which keeps the screen develop's paywall exactly,
-			// down to the copy (acceptance criterion 8). No `authState` either: sign-out and
-			// account deletion live in the Clerk profile one row below.
+			// Subscribing from the Subscription row (AIA-0556). `isRootGate: false`, because this is
+			// not a gate: dismissal is the sheet's own, so there are no account controls and no
+			// findings escape hatch — both exist only where the paywall is a dead end. No
+			// `authState` either: sign-out and account deletion live in the Clerk profile one row
+			// below.
+			//
+			// `statesExpiredFreeAccess` defaults false, which is what this presentation wants:
+			// someone opening this voluntarily has lost nothing, so the screen offers the
+			// subscription rather than announcing an ending. Note that it is otherwise the *same*
+			// screen as the wall now, benefit bullets and 3.1.2 copy included — AIA-0567 retired
+			// acceptance criterion 8, so this sheet is no longer develop's paywall and the
+			// free-access flag no longer makes it so.
 			.sheet(isPresented: $showPaywall) {
 				PaywallView(subscriptionState: subscriptionState, analytics: analytics)
 					// A second sheet boundary, like the sign-in sheet above: custom environment

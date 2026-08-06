@@ -111,8 +111,14 @@ struct SubscriptionNotice: Equatable {
 /// ``isRootGate``, and every App Review 3.1.2 disclosure is unconditional rather than gated on a
 /// feature flag. **Acceptance criterion 8 of AIA-0556 is retired by that**: turning
 /// `isFreeAccessPeriodEnabled` off no longer restores develop's paywall, so the flag is no longer a
-/// revert path for this screen. Only ``statesExpiredFreeAccess`` still varies, and only over one
-/// sentence.
+/// revert path for this screen.
+///
+/// Two things still vary, and both are about telling a given reader only what is true of them.
+/// ``addressesAReturningUser`` picks the voice — title, headline and description together, because
+/// addressing a first-time arrival as a returning one in any single line reads as a form letter.
+/// And ``isGettingFreeTrial`` picks which renewal disclosure appears: the standard text states that
+/// payment is taken at confirmation, which is false for a trial customer and would sit a few points
+/// from the note promising them nothing is charged.
 struct PaywallView: View {
 	@ObservedObject var subscriptionState: SubscriptionState
 	let analytics: AnalyticsState?
@@ -242,7 +248,29 @@ struct PaywallView: View {
 	/// they are enjoying an app they have never opened reads as a form letter. That user gets the
 	/// plain app name, which is what this screen said before the split.
 	private var title: String {
-		statesExpiredFreeAccess || isRootGate == false ? L10n.Paywall.titleEngaged : L10n.Paywall.title
+		addressesAReturningUser ? L10n.Paywall.titleEngaged : L10n.Paywall.title
+	}
+
+	/// The sentence under the headline, in the voice this reader has earned.
+	///
+	/// Three cases, not two: a spent window is told it ended, a Settings visitor or a flag-off
+	/// arrival is offered the subscription in the ordinary way, and a user who has never had access
+	/// at all is not told to "keep using" something they have not started.
+	private var description: String {
+		if statesExpiredFreeAccess { return L10n.Paywall.expired }
+		return addressesAReturningUser ? L10n.Paywall.pitch : L10n.Paywall.pitchFirstMeeting
+	}
+
+	/// Whether this screen is talking to somebody who has actually used the app.
+	///
+	/// True for the two ordinary arrivals — a spent free window, or opening this from Settings — and
+	/// false in exactly one configuration: payments on with free access off, where this screen is a
+	/// brand-new install's *first*. Everything written in the returning-user voice keys off this, not
+	/// just the title: an earlier version made only the title conditional and left the headline and
+	/// the description addressing a user who had never opened the app, which fixed a third of the
+	/// problem and documented it as if it were the whole.
+	private var addressesAReturningUser: Bool {
+		statesExpiredFreeAccess || isRootGate == false
 	}
 
 	var body: some View {
@@ -261,10 +289,10 @@ struct PaywallView: View {
 						Text(title)
 							.font(.title).bold()
 							.multilineTextAlignment(.center)
-						Text(L10n.Paywall.headline)
+						Text(addressesAReturningUser ? L10n.Paywall.headline : L10n.Paywall.headlineFirstMeeting)
 							.font(.headline)
 							.multilineTextAlignment(.center)
-						Text(statesExpiredFreeAccess ? L10n.Paywall.expired : L10n.Paywall.pitch)
+						Text(description)
 							.font(.body)
 							.foregroundStyle(.secondary)
 							.multilineTextAlignment(.center)
@@ -634,12 +662,30 @@ struct PaywallView: View {
 		}
 	}
 
+	/// Whether *this* viewer is actually getting a free trial, and so must not be told that payment
+	/// is taken at confirmation (AIA-0567).
+	///
+	/// The same conjunction the button label and the billing note use, and for the same reason:
+	/// StoreKit's eligibility answer alone is not enough, because a product carrying no introductory
+	/// offer reports every customer ineligible.
+	private var isGettingFreeTrial: Bool {
+		guard introOfferEligibility == true, let product = subscriptionState.products.first else { return false }
+		return Self.hasFreeTrialOffer(product)
+	}
+
 	/// Auto-renewable subscription disclosures required on the purchase screen
 	/// (App Review Guideline 3.1.2): renewal terms + Terms of Use + Privacy Policy.
+	///
+	/// The renewal sentence has two forms, and picking the wrong one puts two contradictory claims
+	/// about money a few points apart on the screen App Review reads most carefully. The standard
+	/// text says payment is charged **at confirmation**, which is true — unless the customer is
+	/// getting a free trial, in which case the note under the button says nothing is charged during
+	/// it. Both were rendered together before this was split (AIA-0567), for exactly the population
+	/// the trial copy exists to reassure.
 	@ViewBuilder
 	private var legalFooter: some View {
 		VStack(spacing: 8) {
-			Text(L10n.Paywall.disclosure)
+			Text(isGettingFreeTrial ? L10n.Paywall.disclosureTrial : L10n.Paywall.disclosure)
 				.font(.footnote)
 				.foregroundStyle(.secondary)
 				.multilineTextAlignment(.center)

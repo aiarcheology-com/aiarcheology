@@ -173,7 +173,14 @@ final class FreeAccessWindowTests: XCTestCase {
 	/// A first launch on day 10 — granted, force-quit before the day-0 paywall appeared, away since.
 	/// The explanation is owed until it is actually shown or the window ends, or a force-quit at the
 	/// wrong moment means the user is never told a clock is running at all.
-	func testDuePrompt_onDayTenWithDay0NeverShown_stillExplainsTheWindow() throws {
+	/// A window whose Welcome screen was never shown is still owed one — but it must offer what is
+	/// **left**, not what was granted (AIA-0567).
+	///
+	/// The marker is written when the screen is raised, so a user who force-quits before it renders
+	/// meets it on a later launch. Reporting the whole fourteen days there would promise four days'
+	/// worth of access that has already been spent, on the one screen whose entire job is to state
+	/// the offer honestly.
+	func testDuePrompt_onDayTenWithDay0NeverShown_offersWhatIsLeftNotWhatWasGranted() throws {
 		let grantDate = try date(2026, 3, 2)
 		let window = grantedWindow(at: grantDate)
 		let record = try grantedRecord(in: window)
@@ -181,6 +188,19 @@ final class FreeAccessWindowTests: XCTestCase {
 		XCTAssertEqual(window.phase(at: try day(10, after: grantDate)), .active(remaining: 4))
 		XCTAssertEqual(
 			window.duePrompt(at: try day(10, after: grantDate)),
+			FreeAccessPrompt(days: 4, endsOn: record.expiresAt),
+			"Day 10 with 4 days left must not advertise 14"
+		)
+	}
+
+	/// On day 0 the two readings coincide, which is why the overstatement was easy to miss.
+	func testDuePrompt_onDayZero_offersTheWholeWindow() throws {
+		let grantDate = try date(2026, 3, 2)
+		let window = grantedWindow(at: grantDate)
+		let record = try grantedRecord(in: window)
+
+		XCTAssertEqual(
+			window.duePrompt(at: grantDate),
 			FreeAccessPrompt(days: 14, endsOn: record.expiresAt)
 		)
 	}

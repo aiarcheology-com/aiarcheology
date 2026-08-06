@@ -12086,18 +12086,7 @@
         }
       }
     },
-    "paywall.continueButton" : {
-      "comment" : "Keeps the user in the app on the free-access window instead of subscribing. Only shown where there is something to continue past.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Continue"
-          }
-        }
-      }
-    },
+
     "paywall.disclosure" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12105,6 +12094,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings."
+          }
+        }
+      }
+    },
+    "paywall.disclosureTrial" : {
+      "comment" : "The 3.1.2 renewal disclosure, for a user who is getting a free trial. Identical to paywall.disclosure except that it does not claim payment is taken at confirmation \u2014 for a trial customer nothing is, and saying so beside the trial copy put two contradictory claims about money on the purchase screen.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment is charged to your Apple ID when the free trial ends. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings."
           }
         }
       }
@@ -12153,6 +12154,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Continue with unlimited access"
+          }
+        }
+      }
+    },
+    "paywall.headlineFirstMeeting" : {
+      "comment" : "Paywall headline for a user who has never had app access \u2014 payments on with free access off, where this screen is a brand-new install's first. Cannot say \"continue\", since there is nothing to continue.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited access to every feature"
+          }
+        }
+      }
+    },
+    "paywall.pitchFirstMeeting" : {
+      "comment" : "Paywall description for a user who has never had app access. The neutral pitch says \"keep using\", which is untrue for someone who has not started.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribe to use ML Browser and receive all future updates and improvements."
           }
         }
       }
@@ -16340,6 +16365,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No subscription required today. Take your time, discover the app, and decide later if it's right for you."
+          }
+        }
+      }
+    },
+    "welcome.continueButton" : {
+      "comment" : "The Welcome screen's only action: enter the app and start exploring.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
           }
         }
       }

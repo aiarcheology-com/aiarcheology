@@ -102,7 +102,7 @@ struct WelcomeView: View {
 		// The tint is the shared `ContinueButton` colorset, which carries its own dark appearance
 		// (the app hardcodes no colours).
 		Button(action: continueAction) {
-			Text(L10n.Paywall.continueButton)
+			Text(L10n.Welcome.continueButton)
 				.fontWeight(.bold)
 				.frame(maxWidth: .infinity)
 		}

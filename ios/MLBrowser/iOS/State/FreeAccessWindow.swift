@@ -467,7 +467,14 @@ struct FreeAccessWindow: Equatable, Sendable {
 			return nil
 		case .active:
 			guard record.day0Shown == false else { return nil }
-			return FreeAccessPrompt(days: grantedDays(of: record), endsOn: record.expiresAt)
+			// What is *left*, not what was granted. These are the same number on day 0, which is the
+			// only day this normally appears — but `day0Shown` is written at presentation, so a user
+			// who force-quits before the screen renders is owed it again later, and telling someone
+			// on day 5 that they have "14 days free" overstates the offer by the days they spent.
+			return FreeAccessPrompt(
+				days: remainingDays(from: now, to: record.expiresAt),
+				endsOn: record.expiresAt
+			)
 		}
 	}
 
