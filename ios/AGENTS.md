@@ -343,7 +343,7 @@ screen is missing" is usually a stale install, not a bug.
 When a version goes live, update the **Release baseline** in `../README.md` in the same pass:
 the app version now in production, and the Core Data model version that ships with it.
 
-It is two lines, and it is the only place that answers "what is actually live?". Everything
+It is two values, and the only place that answers "what is actually live?". Everything
 downstream leans on it — whether a Core Data migration is required at all, whether a persisted
 format is still free to change, and which build a crash report belongs to. Left to rot it does not
 merely go stale, it actively misleads: a contributor reading "production is `0.0.0`" while `0.0.1`
