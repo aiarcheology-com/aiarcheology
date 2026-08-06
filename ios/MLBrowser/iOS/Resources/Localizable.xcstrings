@@ -12297,6 +12297,12 @@
     "paywall.trialFormat" : {
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kostenlos für %1$@, danach %2$@"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -14944,6 +14950,12 @@
       "comment" : "Billing term for a per-day subscription (price suffix, e.g. \"$0.99 / day\").",
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tag"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -14956,6 +14968,12 @@
       "comment" : "Billing term for a per-month subscription (price suffix, e.g. \"$3.99 / month\").",
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monat"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -14968,6 +14986,12 @@
       "comment" : "Billing term for a per-week subscription (price suffix, e.g. \"$1.99 / week\").",
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Woche"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -14980,6 +15004,12 @@
       "comment" : "Billing term for a per-year subscription (price suffix, e.g. \"$39.99 / year\").",
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jahr"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -15003,6 +15033,12 @@
       "comment" : "Subscription plan price with billing term, e.g. \"$3.99 / month\". %1$@ = price, %2$@ = term. Used by BOTH the Settings plan row and the paywall price — the paywall is an App Review 3.1.2 surface, so changing this changes the sign-up screen.",
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ / %2$@"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
@@ -15015,6 +15051,12 @@
       "comment" : "Spoken (VoiceOver) form of the plan price with its billing term — \"$3.99 per month\". Exists because the displayed \"/\" is announced as \"slash\". %1$@ = price, %2$@ = term.",
       "extractionState" : "manual",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ pro %2$@"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",

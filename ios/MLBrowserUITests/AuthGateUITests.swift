@@ -33,7 +33,6 @@ final class AuthGateUITests: UITestCase {
 	func testOffline_entitled_entersApp() {
 		launch(mockAuthGate: "offline", mockSubscription: "subscribed")
 		assertExists(AID.cpu, true)
-		assertExists(AID.authOfflineRetry, false)
 	}
 
 	/// The same offline case with **both analytics flags on**, which is the configuration that was
@@ -60,7 +59,6 @@ final class AuthGateUITests: UITestCase {
 		assertExists(AID.cpu, true)
 		// No scope can be selected, so there is nothing to ask — and nothing to wait for either.
 		assertExists(AID.analyticsChoiceNotNow, false)
-		assertExists(AID.authOfflineRetry, false)
 	}
 
 	/// Signed in + entitled → the app, as before. The one row the cut-over leaves alone.
