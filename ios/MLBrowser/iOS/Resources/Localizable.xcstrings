@@ -16323,6 +16323,114 @@
     },
     "Version %@" : {
 
+    },
+    "welcome.body" : {
+      "comment" : "Welcome screen (AIA-0567): why there is nothing to decide on day 0.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No subscription required today. Take your time, discover the app, and decide later if it's right for you."
+          }
+        }
+      }
+    },
+    "welcome.footer.askLater" : {
+      "comment" : "Welcome screen footer bullet: when the subscription question is asked.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You'll only be asked to subscribe after your free access ends."
+          }
+        }
+      }
+    },
+    "welcome.footer.noCard" : {
+      "comment" : "Welcome screen footer bullet: no payment method is collected.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No credit card required."
+          }
+        }
+      }
+    },
+    "welcome.footer.noPayment" : {
+      "comment" : "Welcome screen footer bullet: nothing is charged today.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No payment today."
+          }
+        }
+      }
+    },
+    "welcome.headline" : {
+      "comment" : "Welcome screen headline: the length of the free-access window. Pluralized because the grant is remote-configurable and floored at 1.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Explore everything free for %lld day"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Explore everything free for %lld days"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "welcome.priceNote" : {
+      "comment" : "Welcome screen: what a subscription costs once the free window ends. %@ is the localized price with its term.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After your free access ends, you can subscribe for %@ to continue using ML Browser."
+          }
+        }
+      }
+    },
+    "welcome.priceNoteGeneric" : {
+      "comment" : "Welcome screen price note when no product resolved — never state a price the store has not given us.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After your free access ends, you can subscribe to continue using ML Browser."
+          }
+        }
+      }
+    },
+    "welcome.title" : {
+      "comment" : "Welcome screen title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Welcome to ML Browser"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

@@ -168,6 +168,12 @@ enum AID {
 	static let paywallFreeAccessHeadline = "_AIA:Label.PaywallFreeAccessHeadline"
 	static let settingsUpgrade = "_AIA:Button.SettingsUpgrade"
 
+	// Welcome screen (AIA-0567) — the zero-pressure day-0 screen. It carries no Subscribe and no
+	// Restore, so `welcomeContinue` alone distinguishes it from either paywall presentation.
+	static let welcomeContent = "_AIA:View.WelcomeContent"
+	static let welcomeContinue = "_AIA:Button.WelcomeContinue"
+	static let welcomeHeadline = "_AIA:Label.WelcomeHeadline"
+
 	// App Messages (AIA-0115). The banner container, its title, and the informational dismiss carry
 	// bare identifiers; the reply buttons and About rows carry a `label:` (the button id / message
 	// id), which `TestabilityIdentification.callAsFunction` renders as `#<label>` *before* the element

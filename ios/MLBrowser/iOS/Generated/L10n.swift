@@ -1068,6 +1068,30 @@ internal enum L10n {
       internal static let text = L10n.tr("Localizable", "tour.save.text", fallback: "Tap Save to store your finding.")
     }
   }
+  internal enum Welcome {
+    /// No subscription required today. Take your time, discover the app, and decide later if it's right for you.
+    internal static let body = L10n.tr("Localizable", "welcome.body", fallback: "No subscription required today. Take your time, discover the app, and decide later if it's right for you.")
+    /// Explore everything free for %lld days
+    internal static func headline(_ p1: Int) -> String {
+      return L10n.tr("Localizable", "welcome.headline", p1, fallback: "Explore everything free for %lld days")
+    }
+    /// After your free access ends, you can subscribe for %@ to continue using ML Browser.
+    internal static func priceNote(_ p1: Any) -> String {
+      return L10n.tr("Localizable", "welcome.priceNote", String(describing: p1), fallback: "After your free access ends, you can subscribe for %@ to continue using ML Browser.")
+    }
+    /// After your free access ends, you can subscribe to continue using ML Browser.
+    internal static let priceNoteGeneric = L10n.tr("Localizable", "welcome.priceNoteGeneric", fallback: "After your free access ends, you can subscribe to continue using ML Browser.")
+    /// Welcome to ML Browser
+    internal static let title = L10n.tr("Localizable", "welcome.title", fallback: "Welcome to ML Browser")
+    internal enum Footer {
+      /// You'll only be asked to subscribe after your free access ends.
+      internal static let askLater = L10n.tr("Localizable", "welcome.footer.askLater", fallback: "You'll only be asked to subscribe after your free access ends.")
+      /// No credit card required.
+      internal static let noCard = L10n.tr("Localizable", "welcome.footer.noCard", fallback: "No credit card required.")
+      /// No payment today.
+      internal static let noPayment = L10n.tr("Localizable", "welcome.footer.noPayment", fallback: "No payment today.")
+    }
+  }
 }
 // swiftlint:enable explicit_type_interface function_parameter_count identifier_name line_length
 // swiftlint:enable nesting type_body_length type_name vertical_whitespace_opening_braces
