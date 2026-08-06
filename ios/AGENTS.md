@@ -381,6 +381,19 @@ screen is missing" is usually a stale install, not a bug.
   - Instead: start simple; introduce abstraction when a second implementation or test seam is actually needed.
 - **Duplicated logic** (copy-pasting code, multiple sources of truth):
   - Instead: extract shared logic into a single implementation; prefer a single source of truth for data and behavior. 
+- **Prose that outlives what it describes** (a comment, doc, or store listing still explaining a
+  thing that has moved, been renamed, or been deleted):
+  - Why it bites *here*: the comments in this codebase assert invariants and justify decisions
+    rather than restating the code. A stale one therefore does not read as untidy — it reads as
+    authoritative and is believed until something independently checks it. Several of AIA-0567's
+    review findings were exactly this: a comment promising a guarantee the code no longer made.
+  - Instead: when you delete, rename or move something, grep for what refers to it **before**
+    calling the change done, and treat every hit as part of the same change. A doc comment left
+    pointing at a deleted symbol is a defect, not a tidy-up for later.
+  - The surface is wider than code, and the compiler covers none of it: doc comments, `ARCHITECTURE.md`,
+    `ANALYTICS.md`, `AUTH-SUBSCRIPTION.md`, `ios/TestFlight/WhatToTest.en-US.txt`, and the App Store
+    Connect review notes and screenshots. The last two live outside the repo, so nothing local will
+    ever tell you they are wrong — and they are read by App Review.
 
 ## 16. Version History & Evolving These Guidelines
 
