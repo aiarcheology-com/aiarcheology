@@ -246,7 +246,14 @@ struct MLBrowser: App {
 				// launch opens the gate before the user has seen anything, so the ask waits until the
 				// paywall that explains the window has been shown (AIA-0556) — otherwise "Enable
 				// analytics?" is the first screen of a brand-new install and the tour never mounts.
-				AnalyticsChoiceGate(analytics: appState.analytics, freeAccess: appState.freeAccess) {
+				AnalyticsChoiceGate(
+					analytics: appState.analytics,
+					freeAccess: appState.freeAccess,
+					// The tour is the third thing that can hold the consent question back, and since
+					// AIA-0567 it is the one that usually does: it now runs between the Welcome
+					// screen and this question.
+					tour: appState.tour
+				) {
 					ContentView()
 						.environmentObject(appState)
 						.environmentObject(appState.analytics)
@@ -346,11 +353,24 @@ struct MLBrowser: App {
 private struct AnalyticsChoiceGate<Content: View>: View {
 	@ObservedObject var analytics: AnalyticsState
 	@ObservedObject var freeAccess: FreeAccessState
+
+	/// The onboarding tour, read for one bit: whether it still owes the user a turn (AIA-0567).
+	///
+	/// `@Observable`, so reading ``TourState/isPendingOrRunning`` during `body` is all the tracking
+	/// it needs — and both properties behind it are stored, which is why it is not `hasSeenTour`.
+	let tour: TourState
+
 	private let content: Content
 
-	init(analytics: AnalyticsState, freeAccess: FreeAccessState, @ViewBuilder content: () -> Content) {
+	init(
+		analytics: AnalyticsState,
+		freeAccess: FreeAccessState,
+		tour: TourState,
+		@ViewBuilder content: () -> Content
+	) {
 		self.analytics = analytics
 		self.freeAccess = freeAccess
+		self.tour = tour
 		self.content = content()
 	}
 
@@ -374,12 +394,23 @@ private struct AnalyticsChoiceGate<Content: View>: View {
 
 	/// Whether the consent question must wait rather than be put to the user right now.
 	///
-	/// Two independent reasons, both of them about *when* to ask rather than whether analytics may
-	/// run: a sign-out that revealed an unanswered anonymous bucket (AIA-0536), and a free-access
-	/// window granted on this launch that has not yet been introduced by its paywall (AIA-0556).
-	/// Consent fails closed while either holds, so waiting costs nothing.
+	/// Three independent reasons, all of them about *when* to ask rather than whether analytics may
+	/// run: a sign-out that revealed an unanswered anonymous bucket (AIA-0536), a free-access window
+	/// granted on this launch that its Welcome screen has not introduced yet (AIA-0556), and an
+	/// onboarding tour that has not had its turn (AIA-0567). Consent fails closed while any of them
+	/// holds, so waiting costs nothing.
+	///
+	/// The third is what makes the new first-run order actually hold. Welcome's Continue releases
+	/// the second reason, and without this the consent question would land on top of the tour that
+	/// same tap starts. It is deliberately `isPendingOrRunning` and not `isActive`: on the launch
+	/// after a force-quit over the Welcome screen the tour is merely *armed* when this gate first
+	/// computes — `day0Shown` is durable, but `isDay0AcknowledgementPending` is in-memory and so
+	/// false — and an `isActive` test would flash the consent screen full-width, unmounting
+	/// `ContentView`, before the gate above had started anything.
 	private var isAskDeferred: Bool {
-		analytics.isAskDeferredAfterSignOut || freeAccess.isDay0AcknowledgementPending
+		analytics.isAskDeferredAfterSignOut
+			|| freeAccess.isDay0AcknowledgementPending
+			|| tour.isPendingOrRunning
 	}
 
 	/// Whether the consent question is being asked *over* content the user is already using, rather

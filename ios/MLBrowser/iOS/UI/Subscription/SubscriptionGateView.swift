@@ -123,7 +123,37 @@ struct SubscriptionGateView<Content: View>: View {
 	/// condition is what takes the screen down when they buy from it. And the tour must be finished
 	/// with the screen — see ``tour``.
 	private var canPresentPrompt: Bool {
-		display == .content && subscriptionState.isSubscribed == false && tour.isActive == false
+		display == .content && subscriptionState.isSubscribed == false
+	}
+
+	/// Starts the armed onboarding tour once nothing else is owed the screen ahead of it (AIA-0567).
+	///
+	/// This is the whole ordering inversion in one predicate, and each clause closes a hole that
+	/// actually existed in an earlier draft:
+	///
+	/// - `display == .content` and **not** `canPresentPrompt`. The latter carries
+	///   `isSubscribed == false`, so keying off it would mean a first launch that resolves to the
+	///   wall — payments on, free access off — and is then *purchased* never starts the tour, on
+	///   that launch or any later one, because nothing would ever re-satisfy the condition.
+	/// - `presentedPrompt == nil`, because ``FreeAccessState/markPromptShown(_:)`` clears
+	///   `duePrompt` at **presentation**. Guarding on `duePrompt` alone would start the tour
+	///   underneath a Welcome screen that is on the display right now — which is precisely the
+	///   arrangement this ticket exists to prevent.
+	/// - `duePrompt == nil` **or** `canPresentPrompt == false` — "no Welcome is due, or none can be
+	///   raised from here". The `or` is not slack. A subscriber whose window still owes an unshown
+	///   day 0 can never have it raised (`canPresentPrompt` refuses), so a bare "something is owed,
+	///   wait" would leave their tour armed forever — and with it, via
+	///   ``TourState/isPendingOrRunning``, their consent question deferred forever.
+	///
+	/// Called from both `onChange` handlers and from ``lowerPrompt()``, because between them they
+	/// cover every way the screen can come free; ``TourState/startIfArmed()`` makes the repetition
+	/// harmless.
+	private func startTourIfClear() {
+		guard display == .content,
+			  presentedPrompt == nil,
+			  freeAccess.duePrompt == nil || canPresentPrompt == false
+		else { return }
+		tour.startIfArmed()
 	}
 
 	private var display: RootGateDisplay {
@@ -170,23 +200,30 @@ struct SubscriptionGateView<Content: View>: View {
 		}
 		.onChange(of: display, initial: true) { _, value in
 			if value == .content { hasEverShownContent = true }
+			// The tour's fallback start, for every launch where no Welcome is owed at all: an
+			// install that has already seen one, a build with free access off, or a wall that was
+			// just purchased past. Deliberately hung off `display` rather than `canPresentPrompt`
+			// — see `startTourIfClear()`.
+			startTourIfClear()
 		}
-		// Covers both the arrival cases — the tour ending on a fresh install, and an install that
-		// never started one — and every reason a raised prompt has to come back down, purchase
-		// included: buying from this paywall flips `isSubscribed`, and `@Environment(\.dismiss)` is
-		// inert inside an overlay, so the screen has to be taken away from out here.
+		// Covers the arrival case — content becoming available on a fresh install — and every
+		// reason a raised prompt has to come back down, purchase included: buying from the Welcome
+		// screen flips `isSubscribed`, and `@Environment(\.dismiss)` is inert inside an overlay, so
+		// the screen has to be taken away from out here.
 		.onChange(of: canPresentPrompt, initial: true) { _, canPresent in
 			if canPresent {
 				raisePromptIfDue()
 			} else if presentedPrompt != nil {
 				lowerPrompt()
 			}
+			startTourIfClear()
 		}
 		// A prompt that only becomes due after this view has settled — the window is granted during
 		// `FreeAccessState.start()`, and re-evaluated on every foreground — arrives here, at which
 		// point `canPresentPrompt` has not moved at all.
 		.onChange(of: freeAccess.duePrompt) { _, _ in
 			raisePromptIfDue()
+			startTourIfClear()
 		}
         // Re-check entitlement on foreground: a subscription that lapses while backgrounded
         // may push no `Transaction.updates` event, so without this the gate could stay open
@@ -204,10 +241,17 @@ struct SubscriptionGateView<Content: View>: View {
 		freeAccess.markPromptShown(due)
 	}
 
-	/// Takes the paywall down and releases the analytics consent question queued behind it (AIA-0556).
+	/// Takes the Welcome screen down and hands the floor to the onboarding tour (AIA-0567).
+	///
+	/// `acknowledgeDay0Presentation()` releases the day-0 hold on the analytics consent question,
+	/// but that no longer means the question gets asked: `AnalyticsChoiceGate` also waits on
+	/// `TourState.isPendingOrRunning`, so the order the user actually experiences is
+	/// Welcome → tour → consent. Two independent holds rather than one chained one, because they
+	/// are released by different things and either can be absent.
 	private func lowerPrompt() {
 		presentedPrompt = nil
 		freeAccess.acknowledgeDay0Presentation()
+		startTourIfClear()
 	}
 
 	/// The hard wall: the screen a user with no access and no window left arrives at.

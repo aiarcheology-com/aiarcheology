@@ -149,9 +149,22 @@ final class AppState: ObservableObject {
 
 		// 2b. First-launch onboarding tour (AIA-0333). Decided here — before `isReady` flips
 		// and the UI appears — so the onboarding demo page is staged deterministically ahead of
-		// WebScreen's initial load (no race). UI-test launches start the tour from ContentView
-		// via the launch flag instead, so skip the production auto-start path here.
-		if AppEnvironment.isRunningUITests == false, tour.migrateAndAutostartIfNeeded() {
+		// WebScreen's initial load (no race).
+		//
+		// The decision no longer *starts* it (AIA-0567). The tour runs after the day-0 Welcome
+		// screen now, so this arms it and `SubscriptionGateView` starts it once nothing is owed the
+		// screen ahead of it. Arming has to happen here rather than from a view: it must be true on
+		// the gate's very first frame, both because the gate's `onChange(initial: true)` handlers
+		// are what start the tour — nothing would re-fire them later — and because
+		// `AnalyticsChoiceGate` reads `isPendingOrRunning` to know whether to hold the consent
+		// question back.
+		//
+		// UI tests arm through the same call, gated on their explicit launch flag rather than the
+		// first-launch migration, so the suite exercises the shipping start path instead of one of
+		// its own. They deliberately do not stage the demo page.
+		if AppEnvironment.isRunningUITests {
+			if UITestLaunchConfiguration.shouldStartOnboardingTour { tour.arm() }
+		} else if tour.migrateAndArmIfNeeded() {
 			settings.onboardingInitialPage = DemoDataManager.onboardingDemoPage
 		}
 
