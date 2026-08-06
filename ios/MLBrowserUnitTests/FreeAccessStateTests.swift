@@ -376,7 +376,7 @@ final class FreeAccessStateTests: XCTestCase {
 		let state = makeState(service: try makeService(clock: clock, durableStore: durableStore))
 		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
 
-		state.markPromptShown(try XCTUnwrap(state.duePrompt))
+		state.markPromptShown()
 		XCTAssertNil(state.duePrompt)
 
 		let relaunched = makeState(service: try makeService(clock: clock, durableStore: durableStore))
@@ -535,7 +535,11 @@ final class FreeAccessStateTests: XCTestCase {
 	/// screen and `window_granted` covers the window it explains, so a third event there would only
 	/// double-count the same moment.
 	@MainActor
-	func testMarkPromptShown_forDay0_reportsNothingOfItsOwn() throws {
+	func testMarkPromptShown_forDay0_reportsTheWelcomeScreen() throws {
+		// AIA-0567 inverted this. Day 0 used to report nothing of its own, on the grounds that
+		// `paywallShown` already covered the screen — but the day-0 screen is now `WelcomeView`,
+		// which is deliberately not a purchase screen and does not emit that event, so without
+		// `welcomeShown` the funnel would simply lose the stage.
 		let (analytics, tracker) = makeAnalytics()
 		let grantDate = try date(2026, 3, 2)
 		let clock = TestClock(grantDate)
@@ -545,9 +549,28 @@ final class FreeAccessStateTests: XCTestCase {
 		)
 		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
 
-		state.markPromptShown(try XCTUnwrap(state.duePrompt))
+		state.markPromptShown()
 
-		XCTAssertEqual(tracker.events, [.freeAccessWindowGranted])
+		XCTAssertEqual(tracker.events, [.freeAccessWindowGranted, .welcomeShown])
+	}
+
+	@MainActor
+	func testMarkPromptShown_calledTwice_reportsTheWelcomeScreenOnce() throws {
+		// The once-per-window guarantee, and the reason the event is emitted here rather than from
+		// the presenter: this is the call that writes the durable marker, so the event cannot
+		// outnumber the screen even if a view re-raised it.
+		let (analytics, tracker) = makeAnalytics()
+		let clock = TestClock(try date(2026, 3, 2))
+		let state = makeState(
+			service: try makeService(clock: clock, durableStore: StubDurableStore()),
+			analytics: analytics
+		)
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		state.markPromptShown()
+		state.markPromptShown()
+
+		XCTAssertEqual(tracker.events.filter { $0 == .welcomeShown }.count, 1)
 	}
 
 	/// Expiry is re-observed on every launch and every foreground for the rest of the install's life.

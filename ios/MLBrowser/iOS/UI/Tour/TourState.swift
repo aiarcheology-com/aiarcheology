@@ -55,6 +55,10 @@ final class TourState {
 	/// learn the tour had finished.
 	var isPendingOrRunning: Bool { isArmed || isActive }
 
+	/// Whether the run in progress is this install's first, as opposed to a Settings → Replay
+	/// (AIA-0567). Gates the terminal funnel events; see ``startIfArmed()``.
+	private var isFirstRun = false
+
 	/// Whether the current step's bubble shows its **Next** button. True immediately for teaching
 	/// (`.scripted`) steps; for `.userAction` steps it flips to true only once the user performs
 	/// the real action, so Next can never advance the tour out of sync with the UI (AIA-0333).
@@ -84,8 +88,18 @@ final class TourState {
 	/// key never bleeds across scenarios (AIA-0298 isolation, mirrored here).
 	private static let uiTestSuiteName = "com.aiarcheology.uitests"
 
-	init(steps: [TourStep] = TourStep.slice, defaults: UserDefaults? = nil) {
+	/// The funnel this onboarding feeds (AIA-0567). Optional and defaulted, the same bolt-on pattern
+	/// ``FreeAccessState`` uses: analytics is something the feature must work without, and every test
+	/// that is not about reporting can leave it out.
+	private let analytics: AnalyticsState?
+
+	init(
+		steps: [TourStep] = TourStep.slice,
+		defaults: UserDefaults? = nil,
+		analytics: AnalyticsState? = nil
+	) {
 		self.steps = steps
+		self.analytics = analytics
 		if let defaults {
 			self.defaults = defaults
 		} else if AppEnvironment.isRunningUITests, let suite = UserDefaults(suiteName: Self.uiTestSuiteName) {
@@ -169,6 +183,11 @@ final class TourState {
 		guard isArmed, isActive == false else { return }
 		start()
 		isArmed = false
+		// Only a run that began from an arm is a first run, and only a first run is a funnel stage.
+		// Settings → Replay calls `start()` directly and never sets this, so replays cannot inflate
+		// a stage that is read against `freeAccessWindowGranted` — which is once-per-window by
+		// construction. Same discipline as `markExpiryReported`.
+		isFirstRun = true
 	}
 
 	private func markSeen() {
@@ -215,17 +234,21 @@ final class TourState {
 
 	/// Ends the tour gracefully (slice end / last Next). Flips the gate and cleans up.
 	func finish() {
-		terminate()
+		terminate(skipped: false)
 	}
 
 	/// User dismissed the tour early. Same terminal handling as finish.
 	func skip() {
-		terminate()
+		terminate(skipped: true)
 	}
 
-	private func terminate() {
+	private func terminate(skipped: Bool) {
 		isActive = false
 		showsNextButton = false
+		if isFirstRun {
+			analytics?.track(skipped ? .onboardingTourSkipped : .onboardingTourCompleted)
+			isFirstRun = false
+		}
 		// Belt and braces with ``startIfArmed()``, which clears the arm as it consumes it. That is
 		// the path this normally takes; this covers a tour begun some other way — Settings → Replay
 		// calls ``start()`` directly — while an arm was still outstanding, which would otherwise

@@ -40,7 +40,9 @@ final class AppState: ObservableObject {
 	/// Interactive onboarding spotlight tour (AIA-0333). Dependency-free app-chrome state kept on
 	/// the shell (not a feature internal). Kept alongside `chromeState` (AIA-0391); a further merge
 	/// of the two chrome-level states is out of scope here.
-	lazy var tour = TourState()
+	// `lazy` so it can reference the stored `analytics` — this is the tour's only construction site
+	// in the app, and it feeds the onboarding half of the free-access funnel (AIA-0567).
+	lazy var tour = TourState(analytics: analytics)
 
 	/// App-chrome + navigation state (AIA-0391, formerly the chrome half of `Guide`). Lives on the
 	/// shell (not a detection feature internal). Lazy → forced on first UI access, exactly as the

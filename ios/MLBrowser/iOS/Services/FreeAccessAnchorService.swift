@@ -308,10 +308,17 @@ final class FreeAccessAnchorService {
 		persistProgress(record)
 	}
 
-	/// Records that the day-0 paywall has been surfaced, and persists that.
-	func markDay0Shown(_ window: inout FreeAccessWindow) {
-		guard let record = window.markDay0Shown() else { return }
+	/// Records that the day-0 Welcome screen has been surfaced, and persists that.
+	///
+	/// - Returns: `true` only when this call is what wrote the marker. The caller reports the funnel
+	///   stage off that answer, so a second call — a view re-raising the screen, a resumed
+	///   presentation — cannot make the event outnumber the screen. Same shape, and the same reason,
+	///   as ``FreeAccessWindow/markExpiryReported()``.
+	@discardableResult
+	func markDay0Shown(_ window: inout FreeAccessWindow) -> Bool {
+		guard let record = window.markDay0Shown() else { return false }
 		persistProgress(record)
+		return true
 	}
 
 	/// Claims the right to report this window's expiry, once and durably.

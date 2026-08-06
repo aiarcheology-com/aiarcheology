@@ -82,16 +82,14 @@ struct SubscriptionGateView<Content: View>: View {
     @ObservedObject var authState: AuthState
 	@ObservedObject var freeAccess: FreeAccessState
 
-	/// The onboarding tour, read for exactly one bit: whether it still has the screen (AIA-0556).
+	/// The onboarding tour — which this view now **starts** rather than waits for (AIA-0567).
 	///
-	/// The day-0 paywall explains a window the user has only just been given, and it has to land
-	/// *after* the tour rather than on top of it. `TourState.start()` deliberately does not flip the
-	/// seen gate, so the terminal transition is the only honest signal — and an install that has
-	/// already seen the tour never starts one, which is the same `isActive == false`. That is what
-	/// gives those users the paywall immediately instead of never: they would otherwise learn a clock
-	/// was running only from being walled once it ran out.
+	/// The relationship inverted. The day-0 screen used to wait for the tour to finish, because the
+	/// tour was already running by the time this view existed; now the Welcome screen goes first and
+	/// hands the tour the screen on Continue. `Appstate.initialize()` arms it, this view starts it —
+	/// see ``startTourIfClear()`` for the conditions, which are subtler than they look.
 	///
-	/// `@Observable`, so reading `isActive` during `body` is all the tracking it needs.
+	/// `@Observable`, so reading it during `body` is all the tracking it needs.
 	let tour: TourState
 
 	/// The findings store, for the data-export escape hatch the hard wall owes a user who never pays
@@ -112,16 +110,19 @@ struct SubscriptionGateView<Content: View>: View {
 	///
 	/// Held here rather than read straight off ``FreeAccessState/duePrompt`` because raising it
 	/// *marks it shown*, which immediately makes it no longer due — see
-	/// ``FreeAccessState/markPromptShown(_:)`` for why the marker is written at presentation.
+	/// ``FreeAccessState/markPromptShown()`` for why the marker is written at presentation.
 	@State private var presentedPrompt: FreeAccessPrompt?
 
-	/// Whether a free-access paywall may go on screen right now.
+	/// Whether the Welcome screen may go on screen right now.
 	///
-	/// Three conditions, each for its own reason. The app proper must be what is showing: there is
-	/// nothing to lay it over otherwise, and an expired window already has a wall of its own. The
+	/// Two conditions, each for its own reason. The app proper must be what is showing: there is
+	/// nothing to lay it over otherwise, and an expired window already has a wall of its own. And the
 	/// user must not be paying: a subscriber has no app-managed window to be told about, and the same
-	/// condition is what takes the screen down when they buy from it. And the tour must be finished
-	/// with the screen — see ``tour``.
+	/// condition is what takes the screen down when they buy from it.
+	///
+	/// The third condition — that the tour had finished — is gone with AIA-0567. The Welcome screen
+	/// now precedes the tour, so waiting for it would deadlock: the tour waits for this screen, and
+	/// this screen would be waiting for the tour.
 	private var canPresentPrompt: Bool {
 		display == .content && subscriptionState.isSubscribed == false
 	}
@@ -135,7 +136,7 @@ struct SubscriptionGateView<Content: View>: View {
 	///   `isSubscribed == false`, so keying off it would mean a first launch that resolves to the
 	///   wall — payments on, free access off — and is then *purchased* never starts the tour, on
 	///   that launch or any later one, because nothing would ever re-satisfy the condition.
-	/// - `presentedPrompt == nil`, because ``FreeAccessState/markPromptShown(_:)`` clears
+	/// - `presentedPrompt == nil`, because ``FreeAccessState/markPromptShown()`` clears
 	///   `duePrompt` at **presentation**. Guarding on `duePrompt` alone would start the tour
 	///   underneath a Welcome screen that is on the display right now — which is precisely the
 	///   arrangement this ticket exists to prevent.
@@ -238,7 +239,7 @@ struct SubscriptionGateView<Content: View>: View {
 	private func raisePromptIfDue() {
 		guard canPresentPrompt, presentedPrompt == nil, let due = freeAccess.duePrompt else { return }
 		presentedPrompt = due
-		freeAccess.markPromptShown(due)
+		freeAccess.markPromptShown()
 	}
 
 	/// Takes the Welcome screen down and hands the floor to the onboarding tour (AIA-0567).

@@ -54,10 +54,11 @@ final class FreeAccessState: ObservableObject {
 	/// nested inside the root gate and replaces its content full-screen while consent is `.ask`, so
 	/// the moment a granted window opens that gate the first thing a brand-new user would meet is
 	/// "Enable analytics?" — with `ContentView`, and therefore the onboarding tour, not yet mounted.
-	/// The intended first run is tour → paywall → consent (AIA-0447); this holds the ask back until
-	/// the free window has been introduced.
+	/// The intended first run is Welcome → tour → consent (AIA-0447, reordered by AIA-0567); this
+	/// holds the ask back until the free window has been introduced, and `TourState` holds it back
+	/// for the tour that follows.
 	///
-	/// **In memory only, deliberately.** A force-quit before the day-0 paywall appears lets the next
+	/// **In memory only, deliberately.** A force-quit before the Welcome screen appears lets the next
 	/// launch ask normally, so the question is only ever *deferred* — no persisted marker can leave
 	/// a user who is never asked again. It is also false for everyone who was not granted a window
 	/// on this launch, which is every returning user.
@@ -67,9 +68,9 @@ final class FreeAccessState: ObservableObject {
 	///
 	/// Recomputed on every ``reevaluate()``, so a window whose explanation never made it on screen —
 	/// a force-quit before it appeared — is owed it again on the next foreground rather than losing
-	/// it for good. It answers only *what* is owed — **when**
-	/// it may go on screen is the root gate's call, because the onboarding tour has to have finished
-	/// with the screen first (AIA-0556).
+	/// it for good. It answers only *what* is owed — **when** it may go on screen is the root gate's
+	/// call. That used to mean waiting for the onboarding tour; since AIA-0567 it is the other way
+	/// round, and the tour waits for this.
 	@Published private(set) var duePrompt: FreeAccessPrompt?
 
 	private let service: FreeAccessAnchorService
@@ -111,14 +112,6 @@ final class FreeAccessState: ObservableObject {
 		guard hasStarted else { return false }
 		return service.phase(of: window) == .expired
 	}
-
-	/// Whether the free-access feature is in force for this session at all.
-	///
-	/// Distinct from ``availability``, which answers "is a window open right now". This answers "is
-	/// this app even the kind that has free windows", and it is what keeps acceptance criterion 8
-	/// honest: with the flag off the paywall must be develop's screen exactly, down to the copy, so
-	/// nothing that exists only to explain a free period may render there.
-	var isFeatureEnabled: Bool { isFreeAccessPeriodEnabled }
 
 	private let notificationCenter: NotificationCenter
 	private var foregroundObservation: AnyCancellable?
@@ -222,10 +215,19 @@ final class FreeAccessState: ObservableObject {
 	/// that happens before it was ever raised must not lose it. Persisting immediately also means the
 	/// caller cannot keep reading ``duePrompt`` as "what is on screen" — it stops being due the
 	/// instant it is shown, which is why the presenter holds its own copy.
-	func markPromptShown(_ prompt: FreeAccessPrompt) {
-		service.markDay0Shown(&window)
-		// Day 0 needs no counterpart — `paywall.shown` already covers the screen, and
-		// `window_granted` covers the window it explains.
+	func markPromptShown() {
+		let didMark = service.markDay0Shown(&window)
+		// Reported here rather than from the presenter because *this* is the call that writes the
+		// once-per-window marker: the screen can only reach this line while it is still due, so the
+		// event cannot outnumber the screen (the guarantee the retired reminder event had).
+		//
+		// Day 0 used to need no counterpart, on the grounds that `paywall.shown` already covered the
+		// screen and `window_granted` covered the window it explains. AIA-0567 ended that: the
+		// day-0 screen is now ``WelcomeView``, which is deliberately not a purchase screen and
+		// deliberately does not emit `paywall.shown`. Without this the funnel loses the stage
+		// outright — and `window_granted` cannot stand in for it, because the two come apart exactly
+		// where it matters: a force-quit between the grant and the presentation.
+		if didMark { analytics?.track(.welcomeShown) }
 		duePrompt = service.duePrompt(for: window)
 	}
 
