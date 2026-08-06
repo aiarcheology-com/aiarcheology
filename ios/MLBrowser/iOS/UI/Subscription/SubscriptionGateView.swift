@@ -163,7 +163,7 @@ struct SubscriptionGateView<Content: View>: View {
 					.background(Color(uiColor: .systemBackground))
 					.transition(.opacity)
 			} else if let presentedPrompt {
-				paywall(prompt: presentedPrompt)
+				welcome(for: presentedPrompt)
 					.background(Color(uiColor: .systemBackground))
 					.transition(.opacity)
 			}
@@ -210,45 +210,45 @@ struct SubscriptionGateView<Content: View>: View {
 		freeAccess.acknowledgeDay0Presentation()
 	}
 
-	/// The root paywall. Passing a `prompt` turns it into an informational screen with a way past;
-	/// passing none is the hard wall, which must stay develop's screen exactly (criterion 8).
-	private func paywall(prompt: FreeAccessPrompt? = nil) -> some View {
-		// The one free-access event that has to come from the view: `lowerPrompt()` is also how a
-		// prompt comes down when the user *buys* from it, or when the tour takes the screen back, and
-		// neither of those is somebody declining to subscribe for now. Only the button knows.
-		let continueAction: (() -> Void)? = prompt == nil ? nil : {
-			analytics.track(.freeAccessContinueTapped)
-			lowerPrompt()
-		}
-		return PaywallView(
+	/// The hard wall: the screen a user with no access and no window left arrives at.
+	///
+	/// Since AIA-0567 this is the *only* thing `PaywallView` renders from here. The day-0
+	/// presentation it used to share is ``welcome(for:)``, and the reminder is gone, so every
+	/// optional that used to distinguish them went with them.
+	private func paywall() -> some View {
+		PaywallView(
 			subscriptionState: subscriptionState,
 			analytics: analytics,
 			authState: authState,
-			// The findings escape hatch is the wall's alone; the view decides that from
-			// `continueAction`, since an informational paywall has the whole app behind it.
+			// The escape hatch is the wall's alone, and the wall is now the only presentation this
+			// builds — an unsubscribed user here has no other route to the findings they saved.
 			findingRepository: findingRepository,
 			isRootGate: true,
 			// Passed as a value from here, where auth *is* observed, so the paywall's
 			// account controls swap in place when the user signs out without leaving it
 			// (AIA-0536) — previously a sign-out replaced the whole tree.
 			authContext: authState.effectiveContext,
-			continueAction: continueAction,
-			freeAccessOffer: prompt?.offer,
-			// Criterion 9 wants the billing date at the wall — the screen a spent window leaves the
-			// user on — but criterion 8 wants a flag-off build to be develop's paywall exactly. So
-			// it follows the feature, not the gate: with the flag off this is false and nothing
-			// about a free period renders here at all.
-			showsBillingEstimate: freeAccess.isFeatureEnabled
+			// Only a window that actually ran out may be told it ran out. `availability` collapses
+			// "expired" and "never granted" into `.closed` because the gate does not care which;
+			// the copy does.
+			statesExpiredFreeAccess: freeAccess.hasSpentWindow
 		)
 	}
-}
 
-private extension FreeAccessPrompt {
-	/// The copy this prompt renders as.
+	/// The day-0 welcome screen (AIA-0567), laid over the app the user already has.
 	///
-	/// The two types stay separate on purpose: one is a fact about the window and belongs with the
-	/// state machine, the other is what a screen says and belongs with the screen. This is the seam.
-	var offer: FreeAccessOffer {
-		.offered(days: days, endsOn: endsOn)
+	/// `continueAction` is built here rather than inside the screen for the reason it always was:
+	/// ``lowerPrompt()`` is *also* how this comes down when the user buys, or when something else
+	/// reclaims the screen, and neither of those is somebody choosing to explore first. Only the
+	/// button knows it was a decline, so only the button reports one.
+	private func welcome(for prompt: FreeAccessPrompt) -> some View {
+		WelcomeView(
+			subscriptionState: subscriptionState,
+			days: prompt.days,
+			continueAction: {
+				analytics.track(.freeAccessContinueTapped)
+				lowerPrompt()
+			}
+		)
 	}
 }

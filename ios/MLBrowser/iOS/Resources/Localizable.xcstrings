@@ -12014,26 +12014,50 @@
         }
       }
     },
-    "paywall.billing.estimate" : {
-      "comment" : "Pre-purchase billing date. Deliberately hedged: the app can only compute today + the trial length, and the real trial starts whenever the transaction completes, so this must never read as a promise.",
+    "paywall.benefit.cancel" : {
+      "comment" : "What the subscription includes (AIA-0567), bullet 4.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "If you subscribe today, billing starts around %@. The exact date is set when your purchase completes."
+            "value" : "Cancel anytime"
           }
         }
       }
     },
-    "paywall.billing.exact" : {
-      "comment" : "Post-purchase billing date, taken from the transaction's own expiration date — exact, unlike paywall.billing.estimate.",
+    "paywall.benefit.features" : {
+      "comment" : "What the subscription includes (AIA-0567), bullet 2.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Your free trial ends on %@, when billing begins."
+            "value" : "All current and future features"
+          }
+        }
+      }
+    },
+    "paywall.benefit.unlimited" : {
+      "comment" : "What the subscription includes (AIA-0567), bullet 1.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited access"
+          }
+        }
+      }
+    },
+    "paywall.benefit.updates" : {
+      "comment" : "What the subscription includes (AIA-0567), bullet 3.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Regular updates"
           }
         }
       }
@@ -12046,6 +12070,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your Apple Account has already used the free trial, so billing starts as soon as you subscribe."
+          }
+        }
+      }
+    },
+    "paywall.cancelFooter" : {
+      "comment" : "Paywall footer: where cancellation actually happens, since the app cannot do it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel anytime in your Apple Account settings."
           }
         }
       }
@@ -12069,6 +12105,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings."
+          }
+        }
+      }
+    },
+    "paywall.expired" : {
+      "comment" : "Paywall description when a free-access window actually ran out. Never shown to a user who never had one.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your free access has ended. Subscribe to keep using ML Browser and receive all future updates and improvements."
           }
         }
       }
@@ -12097,62 +12145,14 @@
         }
       }
     },
-    "paywall.freeAccess.daysFree" : {
-      "comment" : "Day-0 headline: the length of the app-managed free-access window being offered.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld day free"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld days free"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "paywall.freeAccess.daysLeft" : {
-      "comment" : "Reminder headline: what is left of a window the user is already inside.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld day left"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld days left"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "paywall.freeAccess.subscribeBy" : {
-      "comment" : "The date a subscription has to start by — the day the free-access window runs out.",
+    "paywall.headline" : {
+      "comment" : "Paywall headline: what subscribing gets you.",
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Free access ends on %@. Subscribe by then to keep using the app."
+            "value" : "Continue with unlimited access"
           }
         }
       }
@@ -12164,18 +12164,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Manage Subscription"
-          }
-        }
-      }
-    },
-    "paywall.or" : {
-      "comment" : "Separates the Subscribe and Continue choices on a free-access paywall.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OR"
           }
         }
       }
@@ -12200,6 +12188,18 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting for Approval"
+          }
+        }
+      }
+    },
+    "paywall.pitch" : {
+      "comment" : "Paywall description for a user who did not lose a free window — the Settings sheet, or a build that never granted one.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribe to keep using ML Browser and receive all future updates and improvements."
           }
         }
       }
@@ -12262,6 +12262,18 @@
         }
       }
     },
+    "paywall.startTrial" : {
+      "comment" : "Purchase button for a user still eligible for the introductory free trial. %@ is the trial length, from App Store Connect — never hardcoded.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start %@ Free Trial"
+          }
+        }
+      }
+    },
     "paywall.subscribe" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -12269,17 +12281,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Subscribe"
-          }
-        }
-      }
-    },
-    "paywall.tagline" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Subscribe to keep your access."
           }
         }
       }
@@ -12306,19 +12307,26 @@
         }
       }
     },
-    "paywall.trialFormat" : {
+    "paywall.titleEngaged" : {
+      "comment" : "Paywall title for a user who has actually used the app — a spent free window, or the Settings sheet.",
       "extractionState" : "manual",
       "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kostenlos für %1$@, danach %2$@"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Free for %1$@, then %2$@"
+            "value" : "Enjoying ML Browser?"
+          }
+        }
+      }
+    },
+    "paywall.trialSupport" : {
+      "comment" : "Under the purchase button when a free trial applies. Deliberately anchored to the purchase completing rather than to today: the trial starts when the transaction does, which Ask-to-Buy can delay by days, and 'in 14 days' would also contradict the renewal disclosure below it. %@ is the trial length.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing is charged during your free trial. Billing starts %@ after your purchase completes, unless you cancel."
           }
         }
       }

@@ -95,6 +95,23 @@ final class FreeAccessState: ObservableObject {
 	/// user was already promised.
 	private let isFreeAccessPeriodEnabled: Bool
 
+	/// Whether access is closed because a window ran out, as opposed to one never having been granted
+	/// (AIA-0567).
+	///
+	/// ``availability`` deliberately collapses both into ``FreeAccessAvailability/closed`` — for
+	/// deciding whether to wall someone they are the same answer. They are not the same *sentence*:
+	/// the paywall may only say "your free access has ended" to a user who actually had some, and
+	/// telling a user who never had a window that theirs ran out is a plain untruth.
+	///
+	/// Computed rather than a stored latch. `availability` already has two writers, and a second
+	/// published flag set only in the `.expired` branch is one refactor away from disagreeing with
+	/// it. Nothing observes this on its own: it is read during `body` next to `availability`, which
+	/// does publish, so the re-render that can change the answer is the one that already happens.
+	var hasSpentWindow: Bool {
+		guard hasStarted else { return false }
+		return service.phase(of: window) == .expired
+	}
+
 	/// Whether the free-access feature is in force for this session at all.
 	///
 	/// Distinct from ``availability``, which answers "is a window open right now". This answers "is
