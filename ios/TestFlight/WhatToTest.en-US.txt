@@ -46,8 +46,9 @@ The price used to read as a bare "$3.99", which never said per what, and the scr
 21. Open the subscribe screen and read the price. It must say "$3.99 / month", not "$3.99". Above it you should now also see a short line describing the subscription ("Full access to ML Browser."). If you are offered a free trial, the line under the price should read "Free for 2 weeks, then $3.99 / month".
 22. Check the same on the wall you reach after the free period ends, where there is no Continue button. That is the screen someone actually buys from, and a price with no period there is the one thing this change exists to prevent.
 23. Turn VoiceOver on and swipe to the price. It should be spoken as a price per month, not with the word "slash" in it.
-24. Set Settings > Accessibility > Display & Text Size > Larger Text to the largest size and reopen the subscribe screen. Two lines got longer, so this is where they would break: confirm nothing is cut off mid-word, and that Subscribe, Restore, Continue (if present) and the Terms/Privacy links are all still on screen and tappable.
+24. Set Settings > Accessibility > Display & Text Size > Larger Text to the largest size and reopen the subscribe screen. Two lines got longer, so this is where they would break: confirm nothing is cut off mid-word, and scroll if needed to confirm Subscribe, Restore, Continue (if present) and the Terms/Privacy links are all tappable.
 25. Open Settings > Subscription while subscribed and confirm the plan row still reads "$3.99 / month". It was already correct there; both screens now share one piece of code, so a break in one would show up in the other.
+26. Rotate an iPhone and iPad to landscape while on the subscribe screen. Scroll from top to bottom: the app logo/title, price and trial copy, Subscribe, Restore, Continue (if present), account controls, and Terms/Privacy links must all be reachable. Nothing may be clipped off-screen.
 
 Nothing else in this build is visible to you: a screen left over from the old sign-in-first flow was deleted (it had been unreachable since the subscribe screen became the first thing you see), and an internal setup document was brought up to date.
 

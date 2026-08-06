@@ -154,6 +154,7 @@ enum AID {
 	static let analyticsChoiceNotNow = "_AIA:Button.AnalyticsChoiceNotNow"
 
 	// Subscription paywall (AIA-0343)
+	static let paywallContent = "_AIA:View.PaywallContent"
 	static let paywallSubscribe = "_AIA:Button.PaywallSubscribe"
 	static let paywallRestore = "_AIA:Button.PaywallRestore"
 	static let paywallSignIn = "_AIA:Button.PaywallSignIn"
