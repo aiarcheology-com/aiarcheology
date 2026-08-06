@@ -94,7 +94,7 @@
           },
           "localizations" : [
             {
-              "description" : "Full access to ML Browser.",
+              "description" : "Run detection models on any page you browse.",
               "displayName" : "ML Browser",
               "locale" : "en_US"
             }
