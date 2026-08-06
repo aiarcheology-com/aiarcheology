@@ -242,9 +242,7 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 		let forged = FreeAccessWindow.Record(
 			grantedAt: backdated,
 			expiresAt: try XCTUnwrap(calendar.date(byAdding: .day, value: 365 * 5, to: forgedFirstDay)),
-			reminderDueAt: try XCTUnwrap(calendar.date(byAdding: .day, value: 7, to: forgedFirstDay)),
 			maxObservedDate: backdated,
-			reminderShown: false,
 			day0Shown: false
 		)
 		try XCTUnwrap(defaults).set(JSONEncoder().encode(forged), forKey: FreeAccessAnchorService.defaultsKey)
@@ -267,9 +265,7 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 		let forged = FreeAccessWindow.Record(
 			grantedAt: backdated,
 			expiresAt: try XCTUnwrap(calendar.date(byAdding: .day, value: 365 * 5, to: forgedFirstDay)),
-			reminderDueAt: try XCTUnwrap(calendar.date(byAdding: .day, value: 7, to: forgedFirstDay)),
 			maxObservedDate: backdated,
-			reminderShown: false,
 			day0Shown: false
 		)
 		try XCTUnwrap(defaults).set(JSONEncoder().encode(forged), forKey: FreeAccessAnchorService.defaultsKey)
@@ -345,7 +341,7 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 		XCTAssertFalse(resumed.canGrant)
 		XCTAssertFalse(regranted)
 		XCTAssertEqual(try grantedRecord(in: resumed).grantedAt, grantDate)
-		XCTAssertEqual(reinstalled.phase(of: resumed), .reminderDue(remaining: 1))
+		XCTAssertEqual(reinstalled.phase(of: resumed), .active(remaining: 1))
 		XCTAssertEqual(resumed.phase(at: try day(14, after: grantDate)), .expired)
 		// The fast path is repaired too, so the next launch does not depend on the Keychain again.
 		XCTAssertNotNil(try storedFastRecord())
@@ -390,12 +386,12 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 
 		// 14 → 7. A user who already holds 14 days keeps all of them.
 		let shortened = try makeService(
-			thresholds: FreeAccessThresholds(grantDays: 7, reminderOnDay: 3),
+			thresholds: FreeAccessThresholds(grantDays: 7),
 			now: day(10, after: grantDate)
 		)
 		let resumed = shortened.reconciledWindow()
 
-		XCTAssertEqual(shortened.phase(of: resumed), .reminderDue(remaining: 4))
+		XCTAssertEqual(shortened.phase(of: resumed), .active(remaining: 4))
 	}
 
 	func testReconciledWindow_whenTheOperatorLengthensGrantDaysMidWindow_doesNotExtendTheOpenWindow() throws {
@@ -406,7 +402,7 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 
 		// 14 → 21 buys the open window nothing: its expiry was frozen at grant time.
 		let lengthened = try makeService(
-			thresholds: FreeAccessThresholds(grantDays: 21, reminderOnDay: 14),
+			thresholds: FreeAccessThresholds(grantDays: 21),
 			now: day(14, after: grantDate)
 		)
 		let resumed = lengthened.reconciledWindow()
@@ -431,10 +427,12 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 
 		// A device wound back to the grant day now buys nothing.
 		let rolledBack = try makeService(now: grantDate)
-		XCTAssertEqual(rolledBack.phase(of: rolledBack.reconciledWindow()), .reminderDue(remaining: 4))
+		XCTAssertEqual(rolledBack.phase(of: rolledBack.reconciledWindow()), .active(remaining: 4))
 	}
 
-	func testMarkReminderShown_persistsSoTheReminderIsShownOncePerWindow() throws {
+	/// The day-0 marker is written through both stores, so the paywall that explains the window is
+	/// shown once per *window* rather than once per launch.
+	func testMarkDay0Shown_persistsSoTheWindowIsExplainedOncePerWindow() throws {
 		let grantDate = try date(2026, 3, 2)
 		let granting = try makeService(now: grantDate)
 		var window = granting.reconciledWindow()
@@ -442,12 +440,12 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 
 		let daySeven = try makeService(now: day(7, after: grantDate))
 		var resumed = daySeven.reconciledWindow()
-		XCTAssertEqual(daySeven.phase(of: resumed), .reminderDue(remaining: 7))
-		daySeven.markReminderShown(&resumed)
+		XCTAssertNotNil(daySeven.duePrompt(for: resumed))
+		daySeven.markDay0Shown(&resumed)
 
-		XCTAssertEqual(daySeven.phase(of: resumed), .active(remaining: 7))
+		XCTAssertNil(daySeven.duePrompt(for: resumed))
 		let relaunched = try makeService(now: day(7, after: grantDate))
-		XCTAssertEqual(relaunched.phase(of: relaunched.reconciledWindow()), .active(remaining: 7))
+		XCTAssertNil(relaunched.duePrompt(for: relaunched.reconciledWindow()))
 	}
 
 	// MARK: - Keychain round trip
@@ -462,9 +460,9 @@ final class FreeAccessAnchorServiceTests: XCTestCase {
 		XCTAssertEqual(try store.loadRecord(), first)
 
 		var updated = first
-		updated.reminderShown = true
+		updated.day0Shown = true
 		try store.saveRecord(updated)
-		XCTAssertEqual(try store.loadRecord()?.reminderShown, true)
+		XCTAssertEqual(try store.loadRecord()?.day0Shown, true)
 
 		try store.deleteRecord()
 		XCTAssertNil(try store.loadRecord())

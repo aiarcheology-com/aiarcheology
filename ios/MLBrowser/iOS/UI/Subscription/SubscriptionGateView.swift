@@ -89,7 +89,7 @@ struct SubscriptionGateView<Content: View>: View {
 	/// seen gate, so the terminal transition is the only honest signal — and an install that has
 	/// already seen the tour never starts one, which is the same `isActive == false`. That is what
 	/// gives those users the paywall immediately instead of never: they would otherwise learn a clock
-	/// was running only from the day-7 reminder, and then from being walled.
+	/// was running only from being walled once it ran out.
 	///
 	/// `@Observable`, so reading `isActive` during `body` is all the tracking it needs.
 	let tour: TourState
@@ -182,8 +182,9 @@ struct SubscriptionGateView<Content: View>: View {
 				lowerPrompt()
 			}
 		}
-		// A reminder that came due while the app was backgrounded arrives on the foreground
-		// re-evaluation, at which point `canPresentPrompt` has not moved at all.
+		// A prompt that only becomes due after this view has settled — the window is granted during
+		// `FreeAccessState.start()`, and re-evaluated on every foreground — arrives here, at which
+		// point `canPresentPrompt` has not moved at all.
 		.onChange(of: freeAccess.duePrompt) { _, _ in
 			raisePromptIfDue()
 		}
@@ -245,12 +246,9 @@ struct SubscriptionGateView<Content: View>: View {
 private extension FreeAccessPrompt {
 	/// The copy this prompt renders as.
 	///
-	/// The two enums stay separate on purpose: one is a fact about the window and belongs with the
+	/// The two types stay separate on purpose: one is a fact about the window and belongs with the
 	/// state machine, the other is what a screen says and belongs with the screen. This is the seam.
 	var offer: FreeAccessOffer {
-		switch self {
-		case let .day0(days, endsOn): .offered(days: days, endsOn: endsOn)
-		case let .reminder(days, endsOn): .remaining(days: days, endsOn: endsOn)
-		}
+		.offered(days: days, endsOn: endsOn)
 	}
 }

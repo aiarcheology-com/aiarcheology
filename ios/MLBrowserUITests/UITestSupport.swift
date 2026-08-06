@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 10
+	var version = 11
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -45,7 +45,7 @@ struct LaunchConfig: Encodable {
 	var appMessagesJSON: String?
 	/// Seed the free-access window as granted this many days ago (AIA-0556). `nil` = no anchor,
 	/// i.e. a genuine first install. Every UI-test launch wipes its own storage, so this is the
-	/// only way to reach the day-7 reminder or the expired wall.
+	/// only way to reach the expired wall.
 	var freeAccessAnchorAgeDays: Int?
 }
 

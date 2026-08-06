@@ -19,19 +19,16 @@ enum AnalyticsEvent: Equatable {
 	case modelImported(source: ModelAcquisitionSource)
 	case detectionSessionSummary(runCountBucket: DetectionRunCountBucket)
 
-	// The app-managed free-access window (AIA-0556). Four stages of one funnel: a window opens, the
-	// user declines to subscribe for now, the reminder lands, the window runs out. `paywallShown`
-	// already covers each screen; these say which *window* stage produced it, which that event
-	// structurally cannot.
+	// The app-managed free-access window (AIA-0556). Three stages of one funnel: a window opens, the
+	// user declines to subscribe for now, the window runs out. `paywallShown` already covers each
+	// screen; these say which *window* stage produced it, which that event structurally cannot.
 	//
-	// Three of the four are once-per-window by construction — a grant is only ever possible for an
-	// install with no anchor, and both prompts carry a persisted shown-marker. Expiry is the
-	// exception, because it is a fact about the clock rather than an act, and every launch after
-	// day 14 re-observes it; ``AnalyticsState/reportFreeAccessWindowExpiredIfNeeded()`` is what
-	// keeps it a stage count rather than a launch count.
+	// The grant is once-per-window by construction — it is only ever possible for an install with no
+	// anchor. Expiry is not, because it is a fact about the clock rather than an act, and every
+	// launch after day 14 re-observes it; ``AnalyticsState/reportFreeAccessWindowExpiredIfNeeded()``
+	// is what keeps it a stage count rather than a launch count.
 	case freeAccessWindowGranted
 	case freeAccessContinueTapped
-	case freeAccessReminderShown
 	case freeAccessWindowExpired
 
 	var name: String {
@@ -44,7 +41,6 @@ enum AnalyticsEvent: Equatable {
 		case .detectionSessionSummary: "com.aiarcheology.detection.session_summary"
 		case .freeAccessWindowGranted: "com.aiarcheology.free_access.window_granted"
 		case .freeAccessContinueTapped: "com.aiarcheology.free_access.continue_tapped"
-		case .freeAccessReminderShown: "com.aiarcheology.free_access.reminder_shown"
 		case .freeAccessWindowExpired: "com.aiarcheology.free_access.window_expired"
 		}
 	}
@@ -52,8 +48,7 @@ enum AnalyticsEvent: Equatable {
 	var parameters: [String: String] {
 		switch self {
 		case .paywallShown, .subscribeTapped, .accountSignedIn, .subscriptionActivated,
-			 .freeAccessWindowGranted, .freeAccessContinueTapped,
-			 .freeAccessReminderShown, .freeAccessWindowExpired:
+			 .freeAccessWindowGranted, .freeAccessContinueTapped, .freeAccessWindowExpired:
 			// Deliberately payload-free. The account is expressed only as the transport's
 			// hashed `clientUser`; the raw Clerk id must never travel as a parameter (AIA-0437).
 			// The window's own numbers — grant date, days remaining — stay on the device: they

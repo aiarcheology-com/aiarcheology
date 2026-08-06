@@ -321,9 +321,9 @@ extension TestabilityIdentification {
 		case appMessageTitle
 		case appMessageAboutRow
 		case appMessageSettingsRow
-		/// The paywall's free-access headline (AIA-0556) — "14 days free" on day 0, "7 days left" at
-		/// the reminder. Identified so a test can tell the two informational paywalls apart without
-		/// matching localized copy.
+		/// The paywall's free-access headline (AIA-0556) — "14 days free" on day 0. Identified so a
+		/// test can tell the informational paywall from the hard wall without matching localized
+		/// copy.
 		case paywallFreeAccessHeadline
 	}
 

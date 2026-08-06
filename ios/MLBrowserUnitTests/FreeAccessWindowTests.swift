@@ -40,18 +40,6 @@ final class FreeAccessWindowTests: XCTestCase {
 		return window
 	}
 
-	/// The same, for a user who has already seen the reminder. Needed for any assertion past the
-	/// reminder day: an undelivered reminder keeps reporting `.reminderDue`, which is correct
-	/// behaviour but would mask what those tests are actually about.
-	private func grantedWindowAfterReminder(
-		at grantDate: Date,
-		thresholds: FreeAccessThresholds = .standard
-	) -> FreeAccessWindow {
-		var window = grantedWindow(at: grantDate, thresholds: thresholds)
-		_ = window.markReminderShown()
-		return window
-	}
-
 	private enum TestFailure: Error { case anchorNotGranted }
 
 	private func grantedRecord(in window: FreeAccessWindow) throws -> FreeAccessWindow.Record {
@@ -125,17 +113,9 @@ final class FreeAccessWindowTests: XCTestCase {
 		XCTAssertEqual(phase, .active(remaining: 8))
 	}
 
-	func testPhase_onDaySeven_isReminderDue() throws {
+	func testPhase_onDaySeven_isActiveWithSevenDaysRemaining() throws {
 		let grantDate = try date(2026, 3, 2)
 		let window = grantedWindow(at: grantDate)
-		let phase = window.phase(at: try day(7, after: grantDate))
-
-		XCTAssertEqual(phase, .reminderDue(remaining: 7))
-	}
-
-	func testPhase_onDaySevenWhenTheReminderWasAlreadyShown_isActive() throws {
-		let grantDate = try date(2026, 3, 2)
-		let window = grantedWindowAfterReminder(at: grantDate)
 		let phase = window.phase(at: try day(7, after: grantDate))
 
 		XCTAssertEqual(phase, .active(remaining: 7))
@@ -143,7 +123,7 @@ final class FreeAccessWindowTests: XCTestCase {
 
 	func testPhase_onDayThirteen_isActiveWithOneDayRemaining() throws {
 		let grantDate = try date(2026, 3, 2)
-		let window = grantedWindowAfterReminder(at: grantDate)
+		let window = grantedWindow(at: grantDate)
 		let phase = window.phase(at: try day(13, after: grantDate))
 
 		XCTAssertEqual(phase, .active(remaining: 1))
@@ -151,48 +131,20 @@ final class FreeAccessWindowTests: XCTestCase {
 
 	func testPhase_onDayFourteen_isExpired() throws {
 		let grantDate = try date(2026, 3, 2)
-		let window = grantedWindowAfterReminder(at: grantDate)
-		let phase = window.phase(at: try day(14, after: grantDate))
+		let window = grantedWindow(at: grantDate)
 
-		XCTAssertEqual(phase, .expired)
+		XCTAssertEqual(window.phase(at: try day(14, after: grantDate)), .expired)
+		// And it stays expired: a window that has run out never reopens.
+		XCTAssertEqual(window.phase(at: try day(40, after: grantDate)), .expired)
 	}
 
 	func testPhase_atTheExactExpiryInstant_isExpired() throws {
 		let grantDate = try date(2026, 3, 2)
-		let window = grantedWindowAfterReminder(at: grantDate)
+		let window = grantedWindow(at: grantDate)
 		let record = try grantedRecord(in: window)
 
 		XCTAssertEqual(window.phase(at: record.expiresAt), .expired)
 		XCTAssertEqual(window.phase(at: record.expiresAt.addingTimeInterval(-1)), .active(remaining: 1))
-	}
-
-	func testPhase_afterExpiryWithTheReminderNeverShown_isExpiredNotReminderDue() throws {
-		let grantDate = try date(2026, 3, 2)
-		// The reminder came due on day 7 and was never delivered — a user who did not open the app.
-		let window = grantedWindow(at: grantDate)
-
-		// It must not fire late: expiry wins, or the wall arrives wearing a reminder's clothes.
-		XCTAssertEqual(window.phase(at: try day(14, after: grantDate)), .expired)
-		XCTAssertEqual(window.phase(at: try day(40, after: grantDate)), .expired)
-	}
-
-	func testPhase_onDayTenWithTheReminderStillUnshown_isReminderDue() throws {
-		let grantDate = try date(2026, 3, 2)
-		let window = grantedWindow(at: grantDate)
-		let phase = window.phase(at: try day(10, after: grantDate))
-
-		// Due, not missed: the reminder is owed until it is shown or the window ends.
-		XCTAssertEqual(phase, .reminderDue(remaining: 4))
-	}
-
-	func testMarkReminderShown_calledTwice_reportsNoSecondChange() throws {
-		var window = grantedWindow(at: try date(2026, 3, 2))
-
-		let first = window.markReminderShown()
-		let second = window.markReminderShown()
-
-		XCTAssertNotNil(first)
-		XCTAssertNil(second)
 	}
 
 	// MARK: - What the window still owes the user (S9, S10)
@@ -204,49 +156,38 @@ final class FreeAccessWindowTests: XCTestCase {
 
 		XCTAssertEqual(
 			window.duePrompt(at: grantDate),
-			.day0(days: 14, endsOn: record.expiresAt)
+			FreeAccessPrompt(days: 14, endsOn: record.expiresAt)
 		)
 	}
 
-	func testDuePrompt_onceTheDay0PaywallWasShown_owesNothingUntilTheReminderDay() throws {
+	func testDuePrompt_onceTheDay0PaywallWasShown_owesNothingForTheRestOfTheWindow() throws {
 		let grantDate = try date(2026, 3, 2)
 		var window = grantedWindow(at: grantDate)
 		_ = window.markDay0Shown()
 
 		XCTAssertNil(window.duePrompt(at: grantDate))
 		XCTAssertNil(window.duePrompt(at: try day(6, after: grantDate)))
-	}
-
-	func testDuePrompt_onTheReminderDay_countsDownWhatIsLeft() throws {
-		let grantDate = try date(2026, 3, 2)
-		var window = grantedWindow(at: grantDate)
-		_ = window.markDay0Shown()
-		let record = try grantedRecord(in: window)
-
-		XCTAssertEqual(
-			window.duePrompt(at: try day(7, after: grantDate)),
-			.reminder(days: 7, endsOn: record.expiresAt)
-		)
+		XCTAssertNil(window.duePrompt(at: try day(13, after: grantDate)))
 	}
 
 	/// A first launch on day 10 — granted, force-quit before the day-0 paywall appeared, away since.
-	/// The window has to be explained before it is counted down, or the first thing the user is ever
-	/// told about their free period is how little of it is left.
-	func testDuePrompt_onTheReminderDayWithDay0NeverShown_explainsBeforeCountingDown() throws {
+	/// The explanation is owed until it is actually shown or the window ends, or a force-quit at the
+	/// wrong moment means the user is never told a clock is running at all.
+	func testDuePrompt_onDayTenWithDay0NeverShown_stillExplainsTheWindow() throws {
 		let grantDate = try date(2026, 3, 2)
 		let window = grantedWindow(at: grantDate)
 		let record = try grantedRecord(in: window)
 
-		XCTAssertEqual(window.phase(at: try day(10, after: grantDate)), .reminderDue(remaining: 4))
+		XCTAssertEqual(window.phase(at: try day(10, after: grantDate)), .active(remaining: 4))
 		XCTAssertEqual(
 			window.duePrompt(at: try day(10, after: grantDate)),
-			.day0(days: 14, endsOn: record.expiresAt)
+			FreeAccessPrompt(days: 14, endsOn: record.expiresAt)
 		)
 	}
 
-	/// A user away from day 5 to day 16 gets no reminder at all: expiry wins, and a paywall
-	/// promising days that are already gone is worse than the wall it precedes.
-	func testDuePrompt_afterExpiry_owesNothingSoTheReminderNeverFiresLate() throws {
+	/// A user away from day 5 to day 16 is owed nothing but the wall: expiry wins, and offering
+	/// "14 days free" on the way to it would describe a window that is already spent.
+	func testDuePrompt_afterExpiry_owesNothing() throws {
 		let grantDate = try date(2026, 3, 2)
 		let window = grantedWindow(at: grantDate)
 
@@ -258,13 +199,13 @@ final class FreeAccessWindowTests: XCTestCase {
 	/// handing out today — the same freeze the phase arithmetic honours.
 	func testDuePrompt_offersTheGrantedWindow_notTheThresholdsInForceToday() throws {
 		let grantDate = try date(2026, 3, 2)
-		let window = grantedWindow(
-			at: grantDate,
-			thresholds: FreeAccessThresholds(grantDays: 7, reminderOnDay: 3)
-		)
+		let window = grantedWindow(at: grantDate, thresholds: FreeAccessThresholds(grantDays: 7))
 		let record = try grantedRecord(in: window)
 
-		XCTAssertEqual(window.duePrompt(at: grantDate), .day0(days: 7, endsOn: record.expiresAt))
+		XCTAssertEqual(
+			window.duePrompt(at: grantDate),
+			FreeAccessPrompt(days: 7, endsOn: record.expiresAt)
+		)
 	}
 
 	func testMarkDay0Shown_calledTwice_reportsNoSecondChange() throws {
@@ -297,7 +238,6 @@ final class FreeAccessWindowTests: XCTestCase {
 		XCTAssertEqual(decoded.grantedAt.timeIntervalSinceReferenceDate,
 					   record.grantedAt.timeIntervalSinceReferenceDate,
 					   accuracy: 0.001)
-		XCTAssertFalse(decoded.reminderShown)
 	}
 
 	// MARK: - Monotonic clamp
@@ -309,8 +249,8 @@ final class FreeAccessWindowTests: XCTestCase {
 		XCTAssertNotNil(observed)
 
 		// The user winds the device back to the grant day to buy themselves 10 more days.
-		XCTAssertEqual(window.phase(at: grantDate), .reminderDue(remaining: 4))
-		XCTAssertEqual(window.phase(at: try day(-30, after: grantDate)), .reminderDue(remaining: 4))
+		XCTAssertEqual(window.phase(at: grantDate), .active(remaining: 4))
+		XCTAssertEqual(window.phase(at: try day(-30, after: grantDate)), .active(remaining: 4))
 	}
 
 	func testObserve_whenTheClockRollsBack_doesNotLowerTheFloor() throws {
@@ -338,7 +278,7 @@ final class FreeAccessWindowTests: XCTestCase {
 
 	func testPhase_afterAClampedRollback_stillExpiresOnTime() throws {
 		let grantDate = try date(2026, 3, 2)
-		var window = grantedWindowAfterReminder(at: grantDate)
+		var window = grantedWindow(at: grantDate)
 		let advanced = window.observe(at: try day(10, after: grantDate))
 		XCTAssertNotNil(advanced)
 
@@ -354,12 +294,11 @@ final class FreeAccessWindowTests: XCTestCase {
 		let window = grantedWindow(at: grantDate)
 		let record = try grantedRecord(in: window)
 
-		// Both frozen dates hang off the *grant day's* midnight rather than the grant instant, so
+		// The frozen expiry hangs off the *grant day's* midnight rather than the grant instant, so
 		// an evening grant does not cost the user an evening.
 		XCTAssertEqual(record.expiresAt, try date(2026, 3, 16, hour: 0))
-		XCTAssertEqual(record.reminderDueAt, try date(2026, 3, 9, hour: 0))
 		XCTAssertEqual(record.maxObservedDate, grantDate)
-		XCTAssertFalse(record.reminderShown)
+		XCTAssertFalse(record.day0Shown)
 	}
 
 	func testPhase_whenTheOperatorShortensGrantDaysAfterAGrant_theOpenWindowIsUnaffected() throws {
@@ -368,19 +307,19 @@ final class FreeAccessWindowTests: XCTestCase {
 
 		// The operator drops the window to 7 days. Had that been in force at grant time this user
 		// would already be out of days...
-		let shortened = FreeAccessThresholds(grantDays: 7, reminderOnDay: 3)
+		let shortened = FreeAccessThresholds(grantDays: 7)
 		let wouldHaveBeen = FreeAccessWindow.record(grantedAt: grantDate, thresholds: shortened, calendar: calendar)
 		XCTAssertEqual(wouldHaveBeen.expiresAt, try date(2026, 3, 9, hour: 0))
 
 		// ...but the record froze its own expiry, and `phase(at:)` takes no thresholds at all.
-		XCTAssertEqual(window.phase(at: try day(10, after: grantDate)), .reminderDue(remaining: 4))
+		XCTAssertEqual(window.phase(at: try day(10, after: grantDate)), .active(remaining: 4))
 	}
 
 	func testPhase_whenTheOperatorLengthensGrantDaysAfterAGrant_theOpenWindowIsNotExtended() throws {
 		let grantDate = try date(2026, 3, 2)
-		let window = grantedWindowAfterReminder(at: grantDate, thresholds: .standard)
+		let window = grantedWindow(at: grantDate, thresholds: .standard)
 
-		let lengthened = FreeAccessThresholds(grantDays: 21, reminderOnDay: 14)
+		let lengthened = FreeAccessThresholds(grantDays: 21)
 		let wouldHaveBeen = FreeAccessWindow.record(grantedAt: grantDate, thresholds: lengthened, calendar: calendar)
 		XCTAssertEqual(wouldHaveBeen.expiresAt, try date(2026, 3, 23, hour: 0))
 
@@ -436,12 +375,12 @@ final class FreeAccessWindowTests: XCTestCase {
 		var durable = fast
 		fast.maxObservedDate = try day(9, after: grantDate)
 		durable.maxObservedDate = try day(4, after: grantDate)
-		durable.reminderShown = true
+		durable.expiryReported = true
 
 		let reconciled = try XCTUnwrap(FreeAccessWindow.reconcile(fast: fast, durable: durable))
 
 		XCTAssertEqual(reconciled.maxObservedDate, fast.maxObservedDate)
-		XCTAssertTrue(reconciled.reminderShown)
+		XCTAssertTrue(reconciled.expiryReported, "one window would report its own expiry twice")
 	}
 
 	/// The monotonic floor bounds *rewinding*, not the total duration — and this pins the difference
@@ -467,11 +406,11 @@ final class FreeAccessWindowTests: XCTestCase {
 		XCTAssertNil(window.observe(at: rolledBack), "the floor must never be lowered")
 	}
 
-	/// `day0Shown` merges conservatively too, and the failure it prevents is louder than the
-	/// reminder's: day 0 outranks everything in `duePrompt(at:)`, so a marker dropped because the
-	/// other store won the `grantedAt` tie re-offers "14 days free" to someone a week into their
-	/// window. Found independently by two reviewers, which is why it is pinned here rather than
-	/// left to the merge looking obviously right.
+	/// `day0Shown` merges conservatively, and the failure it prevents is the loudest one here: it is
+	/// the whole of `duePrompt(at:)`, so a marker dropped because the other store won the `grantedAt`
+	/// tie re-offers "14 days free" to someone a week into their window. Found independently by two
+	/// reviewers, which is why it is pinned here rather than left to the merge looking obviously
+	/// right.
 	func testReconcile_whenOnlyOneStoreSawTheDay0Paywall_keepsItShown() throws {
 		let grantDate = try date(2026, 3, 2)
 		var fast = FreeAccessWindow.record(grantedAt: grantDate, thresholds: .standard, calendar: calendar)
@@ -544,20 +483,17 @@ final class FreeAccessWindowTests: XCTestCase {
 		let forged = FreeAccessWindow.Record(
 			grantedAt: try XCTUnwrap(calendar.date(byAdding: .year, value: -1, to: now)),
 			expiresAt: try XCTUnwrap(calendar.date(byAdding: .year, value: 10, to: now)),
-			reminderDueAt: now,
 			maxObservedDate: now,
-			reminderShown: false,
 			day0Shown: false
 		)
 
 		let bounded = FreeAccessWindow.credible(forged, now: now, calendar: calendar)
 
-		// The dates, not just the phase: asserting only `.expired` would also pass if the rebuild
+		// The date, not just the phase: asserting only `.expired` would also pass if the rebuild
 		// produced something arbitrary that happened to be in the past.
 		let firstDay = calendar.startOfDay(for: forged.grantedAt)
 		XCTAssertEqual(bounded.grantedAt, forged.grantedAt, "the anchor's identity must survive")
 		XCTAssertEqual(bounded.expiresAt, try XCTUnwrap(calendar.date(byAdding: .day, value: 14, to: firstDay)))
-		XCTAssertEqual(bounded.reminderDueAt, try XCTUnwrap(calendar.date(byAdding: .day, value: 7, to: firstDay)))
 
 		var window = FreeAccessWindow(calendar: calendar)
 		window.settle(fast: bounded, durable: nil)
@@ -572,13 +508,13 @@ final class FreeAccessWindowTests: XCTestCase {
 	/// difference.
 	func testCredible_withAReproducibleNonStandardRecord_leavesItsFrozenDatesExactlyAsTheyWere() throws {
 		let grantDate = try date(2026, 3, 2)
-		let thresholds = FreeAccessThresholds(grantDays: 30, reminderOnDay: 15)
+		let thresholds = FreeAccessThresholds(grantDays: 30)
 		let honest = FreeAccessWindow.record(grantedAt: grantDate, thresholds: thresholds, calendar: calendar)
 
 		let bounded = FreeAccessWindow.credible(honest, now: try day(3, after: grantDate), calendar: calendar)
 
 		XCTAssertEqual(bounded.expiresAt, honest.expiresAt, "a 30-day window was silently rewritten to 14")
-		XCTAssertEqual(bounded.reminderDueAt, honest.reminderDueAt)
+		XCTAssertEqual(bounded.grantedAt, honest.grantedAt)
 	}
 
 	/// Winding the feature down must not hand out a window. `grantDays: 0` describes one that
@@ -588,7 +524,7 @@ final class FreeAccessWindowTests: XCTestCase {
 		let grantDate = try date(2026, 3, 2)
 		let wound = FreeAccessWindow.record(
 			grantedAt: grantDate,
-			thresholds: FreeAccessThresholds(grantDays: 0, reminderOnDay: 0),
+			thresholds: FreeAccessThresholds(grantDays: 0),
 			calendar: calendar
 		)
 
@@ -599,20 +535,22 @@ final class FreeAccessWindowTests: XCTestCase {
 		XCTAssertEqual(window.phase(at: grantDate), .expired, "winding the window down granted one")
 	}
 
-	/// A reminder on day 0 is legitimate, and every honest record written under it has
-	/// `reminderDueAt` at the start of the grant day — i.e. *before* `grantedAt` for any grant not
-	/// made at midnight. A bound comparing those two directly would reject all of them.
-	func testCredible_whenTheReminderFallsOnTheGrantDay_doesNotRewriteHonestRecords() throws {
+	/// Every honest record has its frozen `expiresAt` at the start of a *day*, so for any grant not
+	/// made at midnight it sits earlier in the day than `grantedAt` does. A bound comparing the two
+	/// instants directly would reject a legitimate `grantDays: 0` record — the shape winding the
+	/// feature down produces — and rebuilding it would hand out the fourteen days it was switched
+	/// off to stop.
+	func testCredible_withAnEveningGrantOfAZeroDayWindow_doesNotRewriteAnHonestRecord() throws {
 		let grantDate = try date(2026, 3, 2, hour: 18)
 		let honest = FreeAccessWindow.record(
 			grantedAt: grantDate,
-			thresholds: FreeAccessThresholds(grantDays: 14, reminderOnDay: 0),
+			thresholds: FreeAccessThresholds(grantDays: 0),
 			calendar: calendar
 		)
+		XCTAssertLessThan(honest.expiresAt, honest.grantedAt, "the fixture no longer poses the question")
 
 		let bounded = FreeAccessWindow.credible(honest, now: grantDate, calendar: calendar)
 
-		XCTAssertEqual(bounded.reminderDueAt, honest.reminderDueAt)
 		XCTAssertEqual(bounded.expiresAt, honest.expiresAt)
 	}
 
@@ -627,7 +565,7 @@ final class FreeAccessWindowTests: XCTestCase {
 		let grantDate = try date(2026, 3, 2)
 		let honest = FreeAccessWindow.record(
 			grantedAt: grantDate,
-			thresholds: FreeAccessThresholds(grantDays: 30, reminderOnDay: 15),
+			thresholds: FreeAccessThresholds(grantDays: 30),
 			calendar: calendar
 		)
 		var tokyo = Calendar(identifier: .gregorian)
@@ -646,7 +584,7 @@ final class FreeAccessWindowTests: XCTestCase {
 		let grantDate = try date(2026, 3, 2)
 		let atLimit = FreeAccessWindow.record(
 			grantedAt: grantDate,
-			thresholds: FreeAccessThresholds(grantDays: FreeAccessWindow.maxCredibleGrantDays, reminderOnDay: 7),
+			thresholds: FreeAccessThresholds(grantDays: FreeAccessWindow.maxCredibleGrantDays),
 			calendar: calendar
 		)
 		// Built by hand: `FreeAccessThresholds` now clamps on construction, so it cannot express an
@@ -658,9 +596,7 @@ final class FreeAccessWindowTests: XCTestCase {
 			expiresAt: try XCTUnwrap(
 				calendar.date(byAdding: .day, value: FreeAccessWindow.maxCredibleGrantDays + 1, to: firstDay)
 			),
-			reminderDueAt: try XCTUnwrap(calendar.date(byAdding: .day, value: 7, to: firstDay)),
 			maxObservedDate: grantDate,
-			reminderShown: false,
 			day0Shown: false
 		)
 
@@ -689,9 +625,7 @@ final class FreeAccessWindowTests: XCTestCase {
 		let tampered = FreeAccessWindow.Record(
 			grantedAt: durable.grantedAt,
 			expiresAt: try day(900, after: grantDate),
-			reminderDueAt: durable.reminderDueAt,
 			maxObservedDate: durable.maxObservedDate,
-			reminderShown: durable.reminderShown,
 			day0Shown: durable.day0Shown
 		)
 
@@ -746,7 +680,7 @@ final class FreeAccessWindowTests: XCTestCase {
 	func testSettle_withAnEarlierDurableAnchor_resumesRatherThanRestarts() throws {
 		let originalGrant = try date(2026, 3, 2)
 		var durable = FreeAccessWindow.record(grantedAt: originalGrant, thresholds: .standard, calendar: calendar)
-		durable.reminderShown = true
+		durable.day0Shown = true
 		var window = FreeAccessWindow(calendar: calendar)
 
 		window.settle(fast: nil, durable: durable)

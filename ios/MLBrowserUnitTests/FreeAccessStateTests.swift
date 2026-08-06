@@ -360,13 +360,11 @@ final class FreeAccessStateTests: XCTestCase {
 
 		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
 
-		guard case let .day0(days, endsOn) = state.duePrompt else {
-			return XCTFail("Expected the day-0 paywall to be due, found \(String(describing: state.duePrompt)).")
-		}
-		XCTAssertEqual(days, 14)
+		let prompt = try XCTUnwrap(state.duePrompt, "Expected the day-0 paywall to be due.")
+		XCTAssertEqual(prompt.days, 14)
 		// The date the copy tells the user to subscribe by is the window's own expiry, not a
 		// recomputation that could drift from the record that was actually written.
-		XCTAssertEqual(endsOn, durableStore.record?.expiresAt)
+		XCTAssertEqual(prompt.endsOn, durableStore.record?.expiresAt)
 	}
 
 	/// The marker is written at presentation, so a force-quit while the paywall is up cannot make it
@@ -399,37 +397,11 @@ final class FreeAccessStateTests: XCTestCase {
 		let relaunched = makeState(service: try makeService(clock: clock, durableStore: durableStore))
 		relaunched.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
 
-		guard case .day0 = relaunched.duePrompt else {
-			return XCTFail("Expected the day-0 paywall to still be owed, found \(String(describing: relaunched.duePrompt)).")
-		}
+		XCTAssertNotNil(relaunched.duePrompt, "the day-0 paywall must still be owed")
 	}
 
-	/// The reminder fires once, ever — explicitly not once per launch.
-	@MainActor
-	func testMarkPromptShown_forTheReminder_isRememberedAcrossARelaunch() throws {
-		let grantDate = try date(2026, 3, 2)
-		let clock = TestClock(grantDate)
-		let durableStore = StubDurableStore()
-		let state = makeState(service: try makeService(clock: clock, durableStore: durableStore))
-		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
-		state.markPromptShown(try XCTUnwrap(state.duePrompt))
-
-		clock.now = try day(7, after: grantDate)
-		state.reevaluate()
-		guard case let .reminder(days, _) = state.duePrompt else {
-			return XCTFail("Expected the reminder to be due, found \(String(describing: state.duePrompt)).")
-		}
-		XCTAssertEqual(days, 7)
-
-		state.markPromptShown(try XCTUnwrap(state.duePrompt))
-		XCTAssertNil(state.duePrompt)
-
-		let relaunched = makeState(service: try makeService(clock: clock, durableStore: durableStore))
-		relaunched.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
-		XCTAssertNil(relaunched.duePrompt)
-	}
-
-	/// Away from day 5 to day 16: the wall is what they meet, and the reminder does not fire late.
+	/// Away from day 5 to day 16: the wall is what they meet, and the explanation of a window that is
+	/// already spent does not fire on the way to it.
 	@MainActor
 	func testReevaluate_afterTheWindowRunsOut_owesNothing() throws {
 		let grantDate = try date(2026, 3, 2)
@@ -559,11 +531,11 @@ final class FreeAccessStateTests: XCTestCase {
 		XCTAssertEqual(tracker.events, [])
 	}
 
-	/// The reminder reports; day 0 does not. `paywall.shown` already covers the day-0 screen and
-	/// `window_granted` covers the window it explains, so a third event there would only double-count
-	/// the same moment.
+	/// Showing the day-0 paywall reports nothing of its own. `paywall.shown` already covers the
+	/// screen and `window_granted` covers the window it explains, so a third event there would only
+	/// double-count the same moment.
 	@MainActor
-	func testMarkPromptShown_reportsTheReminderAndNotDay0() throws {
+	func testMarkPromptShown_forDay0_reportsNothingOfItsOwn() throws {
 		let (analytics, tracker) = makeAnalytics()
 		let grantDate = try date(2026, 3, 2)
 		let clock = TestClock(grantDate)
@@ -574,13 +546,8 @@ final class FreeAccessStateTests: XCTestCase {
 		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
 
 		state.markPromptShown(try XCTUnwrap(state.duePrompt))
+
 		XCTAssertEqual(tracker.events, [.freeAccessWindowGranted])
-
-		clock.now = try day(7, after: grantDate)
-		state.reevaluate()
-		state.markPromptShown(try XCTUnwrap(state.duePrompt))
-
-		XCTAssertEqual(tracker.events, [.freeAccessWindowGranted, .freeAccessReminderShown])
 	}
 
 	/// Expiry is re-observed on every launch and every foreground for the rest of the install's life.

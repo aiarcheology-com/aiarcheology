@@ -308,12 +308,6 @@ final class FreeAccessAnchorService {
 		persistProgress(record)
 	}
 
-	/// Records that the reminder has been surfaced, and persists that.
-	func markReminderShown(_ window: inout FreeAccessWindow) {
-		guard let record = window.markReminderShown() else { return }
-		persistProgress(record)
-	}
-
 	/// Records that the day-0 paywall has been surfaced, and persists that.
 	func markDay0Shown(_ window: inout FreeAccessWindow) {
 		guard let record = window.markDay0Shown() else { return }
@@ -330,7 +324,8 @@ final class FreeAccessAnchorService {
 		return true
 	}
 
-	/// Writes a progress-only change (the monotonic floor, the two shown-markers) to both stores.
+	/// Writes a progress-only change (the monotonic floor, the shown- and reported-markers) to both
+	/// stores.
 	///
 	/// Unlike a grant this does not fail closed, because the anchor's identity — the grant date and
 	/// the frozen thresholds — is already durable and unchanged. A dropped progress write costs at

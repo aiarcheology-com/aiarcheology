@@ -63,10 +63,11 @@ final class FreeAccessState: ObservableObject {
 	/// on this launch, which is every returning user.
 	@Published private(set) var isDay0AcknowledgementPending = false
 
-	/// Which paywall the open window still owes the user, or `nil` when it owes none.
+	/// The day-0 paywall the open window still owes the user, or `nil` when it owes none.
 	///
-	/// Recomputed on every ``reevaluate()``, so a reminder that came due while the app was
-	/// backgrounded is picked up on the next foreground. It answers only *what* is owed — **when**
+	/// Recomputed on every ``reevaluate()``, so a window whose explanation never made it on screen —
+	/// a force-quit before it appeared — is owed it again on the next foreground rather than losing
+	/// it for good. It answers only *what* is owed — **when**
 	/// it may go on screen is the root gate's call, because the onboarding tour has to have finished
 	/// with the screen first (AIA-0556).
 	@Published private(set) var duePrompt: FreeAccessPrompt?
@@ -77,9 +78,8 @@ final class FreeAccessState: ObservableObject {
 	/// ``DetectionSessionState`` and ``AppChromeState`` take it that way: analytics is a bolt-on the
 	/// feature must work without, and every test that is not about reporting can leave it out.
 	///
-	/// Three of the four free-access stages are emitted from here rather than from the gate, because
-	/// this is where they *happen*: a grant and an expiry have no screen at all, and the reminder's
-	/// once-per-window guarantee is the persisted marker written a line away. Events raised before
+	/// Two of the three free-access stages are emitted from here rather than from the gate, because
+	/// this is where they *happen*: a grant and an expiry have no screen at all. Events raised before
 	/// the consent question is answered are buffered by ``AnalyticsState`` and delivered only if the
 	/// user later enables analytics — which is most of them now that the ask is deferred past the
 	/// day-0 paywall.
@@ -206,18 +206,9 @@ final class FreeAccessState: ObservableObject {
 	/// caller cannot keep reading ``duePrompt`` as "what is on screen" — it stops being due the
 	/// instant it is shown, which is why the presenter holds its own copy.
 	func markPromptShown(_ prompt: FreeAccessPrompt) {
-		switch prompt {
-		case .day0:
-			service.markDay0Shown(&window)
-		case .reminder:
-			service.markReminderShown(&window)
-			// Reported here rather than from the presenter because *this* is the call the
-			// once-per-window marker is written by: a reminder can only reach this line while it is
-			// still due, so the event cannot outnumber the screen (AIA-0556). Day 0 needs no
-			// counterpart — `paywall.shown` already covers the screen, and `window_granted` covers
-			// the window it explains.
-			analytics?.track(.freeAccessReminderShown)
-		}
+		service.markDay0Shown(&window)
+		// Day 0 needs no counterpart — `paywall.shown` already covers the screen, and
+		// `window_granted` covers the window it explains.
 		duePrompt = service.duePrompt(for: window)
 	}
 
@@ -240,7 +231,7 @@ final class FreeAccessState: ObservableObject {
 		// backwards cannot rewind a window that has already been observed further along.
 		service.observe(&window)
 		switch service.phase(of: window) {
-		case .active, .reminderDue:
+		case .active:
 			availability = .open
 		case .expired:
 			availability = .closed

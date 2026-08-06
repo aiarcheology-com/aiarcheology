@@ -98,28 +98,22 @@ struct SubscriptionNotice: Equatable {
 
 /// What the app-managed free-access window (AIA-0556) has to say on a given presentation.
 ///
-/// Two cases rather than a day count plus a flag, because they read differently and must not be
-/// confusable: day 0 states an offer the user has not taken yet, while the reminder states what is
-/// left of one they are already inside. Both carry the date the window runs out — the date a
-/// subscription has to start by.
+/// It states an offer the user has not taken yet, and carries the date the window runs out — the
+/// date a subscription has to start by.
 enum FreeAccessOffer: Equatable {
 	/// The window is being offered. `days` is its whole length.
 	case offered(days: Int, endsOn: Date)
 
-	/// The window is running and this is the reminder. `days` is what remains of it.
-	case remaining(days: Int, endsOn: Date)
-
 	var endsOn: Date {
 		switch self {
-		case let .offered(_, endsOn), let .remaining(_, endsOn): endsOn
+		case let .offered(_, endsOn): endsOn
 		}
 	}
 
-	/// The headline, pluralized: "14 days free" on day 0, "7 days left" at the reminder.
+	/// The headline, pluralized: "14 days free".
 	var headline: String {
 		switch self {
 		case let .offered(days, _): L10n.Paywall.FreeAccess.daysFree(days)
-		case let .remaining(days, _): L10n.Paywall.FreeAccess.daysLeft(days)
 		}
 	}
 }
@@ -180,7 +174,7 @@ struct PaywallView: View {
 	/// Whether to state when billing begins (acceptance criterion 9).
 	///
 	/// Separate from ``freeAccessOffer`` because the two are needed at different moments. The day-0
-	/// screen and the reminder carry an offer *and* want the date; the hard wall carries no offer —
+	/// screen carries an offer *and* wants the date; the hard wall carries no offer —
 	/// the window is already spent — yet is precisely where criterion 9 asks for it, because the
 	/// question there is "if I subscribe now, when am I charged".
 	///
@@ -262,8 +256,8 @@ struct PaywallView: View {
 
 	/// Whether this paywall is the only screen the user has.
 	///
-	/// Not the same question as ``isRootGate``, which is also true of the informational day-0 and
-	/// reminder presentations (AIA-0556) — those have the whole app, and with it the findings
+	/// Not the same question as ``isRootGate``, which is also true of the informational day-0
+	/// presentation (AIA-0556) — that one has the whole app, and with it the findings
 	/// inventory, one Continue away. Only the hard wall is a dead end, and only a dead end owes the
 	/// user a way to get their data out of it.
 	private var isDeadEnd: Bool { isRootGate && continueAction == nil }
@@ -944,16 +938,6 @@ struct PaywallView: View {
 		analytics: nil,
 		continueAction: {},
 		freeAccessOffer: .offered(days: 14, endsOn: .now.addingTimeInterval(14 * 24 * 60 * 60))
-	)
-}
-
-/// The reminder: same screen, stating what is left instead of what is offered.
-#Preview("Free access — reminder") {
-	PaywallView(
-		subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true),
-		analytics: nil,
-		continueAction: {},
-		freeAccessOffer: .remaining(days: 7, endsOn: .now.addingTimeInterval(7 * 24 * 60 * 60))
 	)
 }
 #endif
