@@ -18,8 +18,9 @@ and special empty-object formatting. A naïve `json.dump(...)` / `sort_keys=True
 **reformats the whole file** (and re-sorts keys), producing an unreadable diff. **Never round-trip
 the whole catalog** — and note that no serializer can do it faithfully anyway (AIA-0572 measured
 both reasons): key order matches neither ASCII (`"/ %@"` sorts before `"%.2f"`) nor Apple's
-`JSONSerialization(.sortedKeys)`, and escaping is inconsistent (two `comment` values carry a
-literal `—` while every other em dash is raw UTF-8).
+`JSONSerialization(.sortedKeys)`, and escaping is inconsistent: two `comment` values encode their
+em dash as the six-character escape `—`, while every other em dash in the file is stored as a
+raw UTF-8 character. No single serializer setting reproduces both forms.
 
 **Use the committed tool — never hand-roll a JSON dump:** `scripts/xcstrings_tool.py`
 (`check | report | export | merge | verify`). It splices individual locale blocks by byte span, so

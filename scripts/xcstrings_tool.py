@@ -385,7 +385,12 @@ def specifiers(value: str) -> list[str]:
     found = [(m.group(1), m.group(2), m.group(3)) for m in FORMAT_SPEC.finditer(value)]
     found = [f for f in found if f[2] != "%"]  # %% is a literal percent, not an argument
     if any(pos for pos, _, _ in found):
+        # Keep the positional index in the token. Without it, "%1$@: %2$@" and "%2$@: %3$@" both
+        # reduce to ["%@", "%@"] and compare equal — yet the second reads a third argument that was
+        # never passed. Sorting by index still lets a translation reorder the arguments on screen,
+        # which is the entire point of positional specifiers.
         found.sort(key=lambda f: int(f[0]) if f[0] else 0)
+        return [f"{int(pos) if pos else 0}:%{length}{conv}" for pos, length, conv in found]
     return [f"%{length}{conv}" for _, length, conv in found]
 
 
@@ -430,9 +435,11 @@ def cmd_check(args) -> int:
     for key, locale in mismatches[:5]:
         print(f"    mismatch: {key} / {locale}")
 
-    # Reproducing existing blocks proves nothing about escaping: the real catalog contains no
-    # backslash, no escaped quote and no control character, so every escape branch of render() is
-    # unreached above and live during `merge`. Exercise them synthetically instead.
+    # Reproducing existing blocks proves little about escaping. No *locale block* in the catalog
+    # contains a backslash, a control character or an embedded quote — the only escapes in the file
+    # are two `—` sequences, and those sit in `comment` fields, which are never re-rendered
+    # here. So render()'s escape branches are effectively unreached above and go live during a
+    # 4000-value `merge`. Exercise them synthetically instead.
     hostile = [
         'straight "quotes" inside',
         "back\\slash and \\\\ double",
@@ -707,7 +714,11 @@ def cmd_verify(args) -> int:
 
             if kind == "plural":
                 used = set(block)
-                required = REQUIRED_PLURAL_CATEGORIES.get(locale, {"other"})
+                required = set(REQUIRED_PLURAL_CATEGORIES.get(locale, {"other"}))
+                # An explicit English `zero` ("No items") is a deliberate string, not a plural
+                # form. Dropping it silently falls back to the counted form ("0 items").
+                if "zero" in en:
+                    required.add("zero")
                 if "other" not in used:
                     problems.append(f"{key} [{locale}]: plural block lacks the required `other`")
                 if missing := required - used:

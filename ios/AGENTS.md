@@ -247,7 +247,11 @@ Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule
   byte-faithful).
 - Translated values must carry exactly the format specifiers of their English sibling — same count,
   same kind, same positional indices, and `%lld` is not `%d`. A mismatch makes `String(format:)`
-  read the wrong argument. `xcstrings_tool.py verify` gates this and runs in CI via Harmonize.
+  read the wrong argument.
+  - **In CI:** the Harmonize workflow runs `LocalizationCatalogTests`, whose Swift tests enforce
+    format-specifier agreement and a per-locale coverage ratchet. That is the subset that gates a PR.
+  - **Before pushing:** run `python3 scripts/xcstrings_tool.py verify`, which additionally checks
+    entry shape, CLDR plural categories per locale, and protected terms. It is not run by CI.
 - Internationalization checks:
   - Right-to-left layouts (mirroring, alignment, icons with directionality).
   - Dynamic Type (large fonts) and text truncation.

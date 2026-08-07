@@ -27780,6 +27780,12 @@
                   "state" : "needs_review",
                   "value" : "%lld elementos"
                 }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Sin elementos"
+                }
               }
             }
           }
@@ -27827,6 +27833,12 @@
                 "stringUnit" : {
                   "state" : "needs_review",
                   "value" : "%lld éléments"
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Aucun élément"
                 }
               }
             }

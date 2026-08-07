@@ -150,10 +150,11 @@ final class LocalizationCatalogTests: XCTestCase {
     // drift. What CI must catch is the crash class and the regression class, and both are small
     // enough to implement once, natively, with no Python dependency in the test bundle.
 
-    /// The 16 translation targets.
+    /// The 16 translation targets, in the same casefold order the catalog and
+    /// `scripts/xcstrings_tool.py` use — zh-Hans and zh-Hant precede zh-HK.
     private static let targetLocales = [
         "ar", "bn", "cs", "de", "es", "fa", "fr", "he",
-        "hi", "hu", "pl", "ru", "uk", "zh-HK", "zh-Hans", "zh-Hant"
+        "hi", "hu", "pl", "ru", "uk", "zh-Hans", "zh-Hant", "zh-HK"
     ]
 
     /// Per-locale count of authored keys carrying a localization, as of AIA-0572.
@@ -193,6 +194,11 @@ final class LocalizationCatalogTests: XCTestCase {
         }
         if found.contains(where: { $0.index != nil }) {
             found.sort { ($0.index ?? 0) < ($1.index ?? 0) }
+            // Keep the positional index in the token. Without it "%1$@: %2$@" and "%2$@: %3$@"
+            // both reduce to ["%@", "%@"] and compare equal, yet the second reads a third argument
+            // that was never passed. Sorting by index still allows a translation to reorder the
+            // arguments on screen, which is what positional specifiers exist for.
+            return found.map { "\($0.index ?? 0):\($0.token)" }
         }
         return found.map(\.token)
     }
@@ -263,7 +269,14 @@ final class LocalizationCatalogTests: XCTestCase {
 
             for locale in Self.targetLocales {
                 guard let block = blocks[locale] else { continue }
-                for (variant, value) in Self.flatten(block) {
+                let translated = Self.flatten(block)
+                // A block that is present but yields no variants is malformed. Skipping it here
+                // would let a corrupted translation pass CI while still crashing at runtime.
+                if translated.isEmpty {
+                    problems.append("\(key) [\(locale)]: localization block is present but unreadable")
+                    continue
+                }
+                for (variant, value) in translated {
                     let actual = Self.specifiers(in: value, using: regex)
                     if let englishSibling = english[variant] {
                         let expected = Self.specifiers(in: englishSibling, using: regex)
