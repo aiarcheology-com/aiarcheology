@@ -777,6 +777,18 @@ def cmd_verify(args) -> int:
     print(f"\n  slots: {expected_slots - slot_deficit}/{expected_slots} filled"
           f"{'' if not slot_deficit else f' — {slot_deficit} EMPTY'}\n")
 
+    # An authored key with no English source is invisible to every other check here: it is absent
+    # from `translatable_keys` (which requires an `en` value), and the auto-extracted scan below
+    # skips it for being `manual`. It ships its raw key name as the UI string in all 17 locales.
+    for key, entry in cat["strings"].items():
+        if entry.get("extractionState") != "manual":
+            continue
+        if not (entry.get("localizations") or {}).get(SOURCE_LANGUAGE):
+            problems.append(
+                f"{key}: authored key with no `{SOURCE_LANGUAGE}` source. Nothing else here can "
+                f"see it — it is excluded from the parity check for lacking English — and at "
+                f"runtime it displays its own key name.")
+
     # A hardcoded SwiftUI literal is auto-extracted into an entry that can never be translated.
     # Catch it here, because neither the parity check below nor the id-shape guard can see it:
     # an auto-extracted key is in neither the authored set nor the id-shaped set.
@@ -822,6 +834,12 @@ def cmd_verify(args) -> int:
                     f"{key} [{locale}]: device variants {sorted(block)} != English {sorted(en)}")
 
             for variant, value in block.items():
+                # An empty value is not a translation. It counts as "present" everywhere else, so
+                # without this the locale reports complete and ships a blank label.
+                if not value.strip():
+                    problems.append(
+                        f"{key} [{locale}/{variant}]: empty value — blank in the UI, but counted "
+                        f"as translated by every presence check.")
                 got = specifiers(value)
 
                 # Mixing positional (%1$@) and bare (%@) specifiers in one string is undefined in

@@ -12,8 +12,16 @@ on:
     branches-ignore:
       - "copilot/**"
     paths:
-      - "ios/**/*.xcstrings"
-      - "ios/**/*.swift"
+      # Only what can actually change the answer. The check reads the catalog, so a pull request
+      # that does not touch a catalog produces byte-identical input and a byte-identical result.
+      #
+      # It deliberately does NOT trigger on **/*.swift. That looks like it would catch a new
+      # hardcoded `Text("literal")`, but it does not: the auto-extracted entry only appears once
+      # someone builds in Xcode and commits the regenerated catalog, so the introducing pull
+      # request has nothing for this check to see. Triggering on every Swift change bought noise
+      # on nearly every pull request and no coverage. Catching that case needs a source scan,
+      # which is a different tool.
+      - "**/*.xcstrings"
       - "scripts/xcstrings_tool.py"
       # The wrapper CI actually invokes — without this, a change to the gate itself would not
       # re-run the gate.
