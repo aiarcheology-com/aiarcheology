@@ -6,6 +6,10 @@ on:
       - "copilot/**"
     paths:
       - "ios/**/*.swift"
+      # The String Catalog is guarded by LocalizationCatalogTests, which runs in this workflow.
+      # Without this entry a translation-only PR skips Harmonize entirely and the guard never
+      # fires on exactly the changes it exists to police (AIA-0572).
+      - "ios/**/*.xcstrings"
       - "ios/**/*.c"
       - "ios/**/*.cc"
       - "ios/**/*.cpp"
