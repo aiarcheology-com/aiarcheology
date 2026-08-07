@@ -15,6 +15,9 @@ on:
       - "ios/**/*.xcstrings"
       - "ios/**/*.swift"
       - "scripts/xcstrings_tool.py"
+      # The wrapper CI actually invokes — without this, a change to the gate itself would not
+      # re-run the gate.
+      - "scripts/localization.sh"
       - ".github/workflows/localization.yml"
   workflow_dispatch:
 
