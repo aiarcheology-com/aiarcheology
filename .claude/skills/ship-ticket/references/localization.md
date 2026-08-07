@@ -4,8 +4,9 @@ Strings live in a **String Catalog** and are code-generated into `L10n.swift`. G
 exactly right or you'll either reformat the whole catalog or break the localization test.
 
 Files:
-- Catalog: `ios/MLBrowser/iOS/Resources/Localizable.xcstrings` (JSON, `sourceLanguage: en`, 424 keys —
-  412 authored plus 12 auto-extracted; 17 locales; ~41 000 lines after AIA-0572).
+- Catalog: `ios/MLBrowser/iOS/Resources/Localizable.xcstrings` (JSON, `sourceLanguage: en`, 429 keys —
+  417 authored plus 12 auto-extracted; 17 locales; ~41 000 lines after AIA-0572). Counts drift:
+  `python3 scripts/xcstrings_tool.py report` is the source of truth.
 - Generated: `ios/MLBrowser/iOS/Generated/L10n.swift` — **never hand-edit; it's regenerated.**
 - Key guard (test): `ios/MLBrowserArchitectureTests/LocalizationCatalogTests.swift` derives the
   authored key set from the catalog at test time (AIA-0417) — there is **no** hand-maintained key

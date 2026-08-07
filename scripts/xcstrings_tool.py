@@ -4,7 +4,7 @@ xcstrings_tool.py — inspect, translate-merge and validate the app String Catal
 
 Why this exists (AIA-0572)
 --------------------------
-`Localizable.xcstrings` is a 16k-line JSON document that Xcode owns. Re-serialising it with
+`Localizable.xcstrings` is a ~41 000-line JSON document that Xcode owns. Re-serialising it with
 `json.dump` reformats every line and re-sorts keys, producing an unreviewable diff — the trap
 documented in the ship-ticket localization reference.
 
@@ -73,7 +73,7 @@ REQUIRED_PLURAL_CATEGORIES = {
     "es": {"one", "many", "other"},
     "fa": {"one", "other"},
     "fr": {"one", "many", "other"},
-    "he": {"one", "two", "many", "other"},
+    "he": {"one", "two", "other"},
     "hi": {"one", "other"},
     "hu": {"one", "other"},
     "pl": {"one", "few", "many", "other"},
@@ -86,6 +86,12 @@ REQUIRED_PLURAL_CATEGORIES = {
 
 # Apple's exact-match special case, legal in any language.
 ALWAYS_ALLOWED_CATEGORIES = {"zero"}
+
+# Categories a locale may carry but is not required to. Hebrew's `many` (v=0, n%10=0, n>10) is
+# present in older CLDR data and absent from newer releases, so requiring it would force an
+# unreachable form while reporting it as dead would be wrong on the runtimes that still have it.
+# Accept it either way and stay silent.
+OPTIONAL_PLURAL_CATEGORIES = {"he": {"many"}}
 
 # Proper nouns, brand names and file extensions that must survive translation verbatim. Restricted
 # to unambiguous tokens — ordinary words that happen to be technical ("Vision", "URL") are excluded
@@ -453,18 +459,26 @@ def cmd_check(args) -> int:
         print(f"    {value!r}: {why}")
 
     # And the same for a full splice into a real key, proving an edited document still parses.
-    probe_key = next(k for k, i in spans.items() if i["localizations"] and "cs" not in i["locales"])
-    probe = apply_edits(text, [upsert_locale(
-        text, spans, probe_key, "cs", string_unit('spliced "value" — 中文 🎉', "needs_review"))])
-    try:
-        reparsed = json.loads(probe)
-        spliced_ok = (reparsed["strings"][probe_key]["localizations"]["cs"]["stringUnit"]["value"]
-                      == 'spliced "value" — 中文 🎉'
-                      and set(reparsed["strings"]) == keys_parsed)
-    except Exception as exc:  # noqa: BLE001 - report any failure shape
-        spliced_ok = False
-        print(f"    splice probe raised: {exc}")
-    print(f"splice into {probe_key!r} reparses correctly .. {'PASS' if spliced_ok else 'FAIL'}")
+    # `qps-ploc` is a pseudo-locale the catalog never ships, so the probe cannot collide with real
+    # data no matter how complete the translations become.
+    PROBE_LOCALE = "qps-ploc"
+    PROBE_VALUE = 'spliced "value" — 中文 🎉'
+    probe_key = next((k for k, i in spans.items() if i["localizations"]), None)
+    if probe_key is None:
+        print("splice probe .. SKIP (no key with localizations)")
+        spliced_ok = True
+    else:
+        try:
+            probe = apply_edits(text, [upsert_locale(
+                text, spans, probe_key, PROBE_LOCALE, string_unit(PROBE_VALUE, "needs_review"))])
+            reparsed = json.loads(probe)
+            spliced = reparsed["strings"][probe_key]["localizations"][PROBE_LOCALE]
+            spliced_ok = (spliced["stringUnit"]["value"] == PROBE_VALUE
+                          and set(reparsed["strings"]) == keys_parsed)
+        except Exception as exc:  # noqa: BLE001 - report any failure shape
+            spliced_ok = False
+            print(f"    splice probe raised: {exc}")
+        print(f"splice into {probe_key!r} reparses correctly .. {'PASS' if spliced_ok else 'FAIL'}")
 
     # Regression test for anchor-tie ordering. Inserting several locales into a key that has only
     # `en` makes them all resolve to the same offset; a naive right-to-left application reverses
@@ -487,8 +501,17 @@ def cmd_check(args) -> int:
         if not order_ok:
             print(f"    got  {got}\n    want {want}")
 
+    # Insertion points are chosen by comparing against the locales already present, so that logic is
+    # only sound while the file itself is casefold-ordered. Verify the premise rather than assume it.
+    unordered = [k for k, i in spans.items()
+                 if (o := i.get("locale_order")) and o != sorted(o, key=str.casefold)]
+    print(f"existing locale blocks are casefold-ordered .. "
+          f"{'PASS' if not unordered else f'FAIL ({len(unordered)} key(s))'}")
+    for k in unordered[:5]:
+        print(f"    {k}: {spans[k]['locale_order']}")
+
     return 0 if (ok and same_keys and not mismatches and not escape_failures
-                 and spliced_ok and order_ok) else 1
+                 and spliced_ok and order_ok and not unordered) else 1
 
 
 def cmd_report(args) -> int:
@@ -528,6 +551,13 @@ def cmd_merge(args) -> int:
     edits: list[tuple[int, int, str]] = []
     stats: dict[str, int] = {}
     skipped = 0
+    if not any((src / f"{locale}.json").exists() for locale in TARGET_LOCALES):
+        # `export` writes <locale>.source.json; pointing merge at that directory would otherwise
+        # report a cheerful "merged 0 blocks" and rewrite the catalog with no changes.
+        raise SystemExit(
+            f"no <locale>.json files in {src} — note that `export` writes <locale>.source.json, "
+            f"which is the worklist, not the translation")
+
     for locale in TARGET_LOCALES:
         f = src / f"{locale}.json"
         if not f.exists():
@@ -538,7 +568,11 @@ def cmd_merge(args) -> int:
         for key, value in payload.items():
             if key not in spans:
                 raise SystemExit(f"{locale}.json references unknown key {key!r}")
-            en = cat["strings"][key]["localizations"][SOURCE_LANGUAGE]
+            en = (cat["strings"][key].get("localizations") or {}).get(SOURCE_LANGUAGE)
+            if en is None:
+                raise SystemExit(
+                    f"{locale}.json key {key!r}: the catalog has no `{SOURCE_LANGUAGE}` source for "
+                    f"this key, so there is nothing to translate against")
             if isinstance(value, str):
                 block = string_unit(value, args.state)
             elif isinstance(value, dict) and "plural" in value:
@@ -680,7 +714,8 @@ def cmd_verify(args) -> int:
                     problems.append(
                         f"{key} [{locale}]: plural categories {sorted(missing)} are required by "
                         f"CLDR for this locale but absent — those counts fall back to `other`")
-                if extra := used - required - ALWAYS_ALLOWED_CATEGORIES:
+                optional = OPTIONAL_PLURAL_CATEGORIES.get(locale, set())
+                if extra := used - required - ALWAYS_ALLOWED_CATEGORIES - optional:
                     notes.append(
                         f"{key} [{locale}]: plural categories {sorted(extra)} can never match in "
                         f"this locale (harmless, but dead)")

@@ -255,7 +255,10 @@ final class LocalizationCatalogTests: XCTestCase {
         for (key, blocks) in catalog {
             guard let englishBlock = blocks["en"] else { continue }
             let english = Self.flatten(englishBlock)
-            guard let englishGeneral = english["other"] ?? english[""] ?? english.values.first else { continue }
+            // `values.first` on a Dictionary is not deterministic across runs, which would make a
+            // borderline failure appear and vanish between CI runs.
+            guard let englishGeneral = english["other"] ?? english[""]
+                    ?? english.sorted(by: { $0.key < $1.key }).first?.value else { continue }
             let generalSpecifiers = Self.specifiers(in: englishGeneral, using: regex)
 
             for locale in Self.targetLocales {
@@ -315,6 +318,9 @@ final class LocalizationCatalogTests: XCTestCase {
             """
             Translation coverage regressed:
             \(regressions.sorted().joined(separator: "\n"))
+            These counts are authored keys carrying a localization block for the locale — not the
+            percentage `xcstrings_tool.py report` prints, which additionally discounts values still
+            identical to English.
             Restore the missing translations, or lower the baseline deliberately if the keys were removed.
             Inspect with: python3 scripts/xcstrings_tool.py report
             """
