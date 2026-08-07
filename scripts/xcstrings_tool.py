@@ -56,6 +56,40 @@ TARGET_LOCALES = [
     "hi", "hu", "pl", "ru", "uk", "zh-Hans", "zh-Hant", "zh-HK",
 ]
 
+
+def discovered_locales(cat: dict) -> set[str]:
+    """Every non-source locale that actually appears anywhere in the catalog."""
+    found: set[str] = set()
+    for entry in cat["strings"].values():
+        found.update(entry.get("localizations") or {})
+    found.discard(SOURCE_LANGUAGE)
+    return found
+
+
+def locale_roster_problems(cat: dict) -> list[str]:
+    """
+    The declared roster must match what the catalog actually contains.
+
+    Without this, `TARGET_LOCALES` is a list of locales we *remember* to check. Add Italian in
+    Xcode, translate one string, and every loop below simply never looks at it — the report shows
+    16 happy locales and CI goes green while the app ships a language that is 1/417 translated.
+    Discovery alone would be worse (a locale could vanish unnoticed), so require exact agreement
+    and make adding a language a deliberate, reviewed edit.
+    """
+    declared, found = set(TARGET_LOCALES), discovered_locales(cat)
+    problems = []
+    for locale in sorted(found - declared):
+        problems.append(
+            f"locale `{locale}` exists in the catalog but is not in TARGET_LOCALES, so nothing "
+            f"checks it. Add it to scripts/xcstrings_tool.py and translate it fully, or remove it "
+            f"from the catalog.")
+    for locale in sorted(declared - found):
+        problems.append(
+            f"locale `{locale}` is declared in TARGET_LOCALES but appears nowhere in the catalog. "
+            f"Either it was dropped (remove it from the list) or every one of its translations was "
+            f"deleted.")
+    return problems
+
 # CLDR plural categories each locale REQUIRES. A missing category silently falls back to `other`,
 # which is a grammar bug in Slavic and Arabic ("5 položka" instead of "5 položek"), so absence is a
 # hard failure.
@@ -710,8 +744,16 @@ def cmd_verify(args) -> int:
     # numbers too rather than only proving absence of failure.
     source_total = len(keys)
     key_set = set(keys)
+
+    # Before counting anything, confirm we are counting the right set of locales. A locale absent
+    # from TARGET_LOCALES is not "passing" — it is unexamined.
+    roster = locale_roster_problems(cat)
+    problems.extend(roster)
+
     print(f"Localization parity — source language `{SOURCE_LANGUAGE}` is the reference")
-    print(f"  {SOURCE_LANGUAGE} authored strings: {source_total}\n")
+    print(f"  {SOURCE_LANGUAGE} authored strings: {source_total}")
+    print(f"  locales checked: {len(TARGET_LOCALES)}"
+          f"{'' if not roster else f'  ({len(roster)} ROSTER PROBLEM(S) — see below)'}\n")
     print(f"  {'locale':9} {'have':>6} {'missing':>8} {'extra':>6}  status")
 
     slot_deficit = 0
