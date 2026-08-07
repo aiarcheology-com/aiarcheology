@@ -121,6 +121,12 @@ REQUIRED_PLURAL_CATEGORIES = {
 # Apple's exact-match special case, legal in any language.
 ALWAYS_ALLOWED_CATEGORIES = {"zero"}
 
+# Above this share of values identical to English, a locale is a copy of the source language rather
+# than a translation. Real overlap is brand names, file extensions, invariants and cognates; the
+# highest genuine figure in this catalog is French at ~9%, so 50% is far above any honest locale
+# and far below a wholesale clone.
+CLONED_LOCALE_THRESHOLD = 0.50
+
 # Categories a locale may carry but is not required to. Hebrew's `many` (v=0, n%10=0, n>10) is
 # present in older CLDR data and absent from newer releases, so requiring it would force an
 # unreachable form while reporting it as dead would be wrong on the runtimes that still have it.
@@ -198,7 +204,8 @@ def _skip_ws(text: str, i: int) -> int:
 
 def _scan_string(text: str, i: int) -> int:
     """`i` points at the opening quote. Returns the index just past the closing quote."""
-    assert text[i] == '"', f"expected string at {i}, found {text[i]!r}"
+    if text[i] != '"':
+        raise ValueError(f"expected string at {i}, found {text[i]!r}")
     i += 1
     while i < len(text):
         c = text[i]
@@ -230,7 +237,8 @@ def _scan_value(text: str, i: int) -> int:
             elif ch in "}]":
                 depth -= 1
                 if depth == 0:
-                    assert ch == close, f"bracket mismatch at {i}"
+                    if ch != close:
+                        raise ValueError(f"bracket mismatch at {i}: expected {close!r}, got {ch!r}")
                     return i + 1
             i += 1
         raise ValueError("unterminated container")
@@ -251,7 +259,8 @@ def object_members(text: str, obj_start: int) -> tuple[list[dict], int]:
       value_start / value_end — span of the member's value
       member_end   — end of the value (comma excluded)
     """
-    assert text[obj_start] == "{", f"expected {{ at {obj_start}, found {text[obj_start]!r}"
+    if text[obj_start] != "{":
+        raise ValueError(f"expected {{ at {obj_start}, found {text[obj_start]!r}")
     i = obj_start + 1
     members: list[dict] = []
     while True:
@@ -265,7 +274,8 @@ def object_members(text: str, obj_start: int) -> tuple[list[dict], int]:
         key_end = _scan_string(text, i)
         key = json.loads(text[key_start:key_end])
         i = _skip_ws(text, key_end)
-        assert text[i] == ":", f"expected : at {i}"
+        if text[i] != ":":
+            raise ValueError(f"expected : at {i}, found {text[i]!r}")
         i = _skip_ws(text, i + 1)
         value_start = i
         value_end = _scan_value(text, i)
@@ -290,7 +300,8 @@ def catalog_spans(text: str) -> dict[str, dict]:
     """Map every top-level string key to its entry span and its `localizations` span."""
     root, _ = object_members(text, _skip_ws(text, 0))
     strings = find_member(root, "strings")
-    assert strings, "catalog has no top-level `strings` object"
+    if not strings:
+        raise ValueError("catalog has no top-level `strings` object")
     entries, _ = object_members(text, strings["value_start"])
 
     out: dict[str, dict] = {}
@@ -365,12 +376,14 @@ def apply_edits(text: str, edits: list[tuple[int, int, str]]) -> str:
     sorting by start alone leaves them reversed in the file.
     """
     for start, end, _ in edits:
-        assert start <= end, f"bad span {start}..{end}"
+        if start > end:
+            raise ValueError(f"bad span {start}..{end}")
     # Sort by (start, sequence) descending: among equal anchors the last-generated edit is applied
     # first and so ends up rightmost, preserving generation order in the output.
     ordered = [e for _, e in sorted(enumerate(edits), key=lambda ie: (ie[1][0], ie[0]), reverse=True)]
     for a, b in zip(ordered, ordered[1:]):
-        assert b[1] <= a[0], f"overlapping edits: {b[0]}..{b[1]} and {a[0]}..{a[1]}"
+        if b[1] > a[0]:
+            raise ValueError(f"overlapping edits: {b[0]}..{b[1]} and {a[0]}..{a[1]}")
     out = text
     for start, end, replacement in ordered:
         out = out[:start] + replacement + out[end:]
@@ -754,19 +767,32 @@ def cmd_verify(args) -> int:
     print(f"  {SOURCE_LANGUAGE} authored strings: {source_total}")
     print(f"  locales checked: {len(TARGET_LOCALES)}"
           f"{'' if not roster else f'  ({len(roster)} ROSTER PROBLEM(S) — see below)'}\n")
-    print(f"  {'locale':9} {'have':>6} {'missing':>8} {'extra':>6}  status")
+    print(f"  {'locale':9} {'have':>6} {'missing':>8} {'extra':>6} {'=en':>6}  status")
 
     slot_deficit = 0
     for locale in TARGET_LOCALES:
         have = sum(1 for k in keys if (cat["strings"][k].get("localizations") or {}).get(locale))
         missing = source_total - have
+        # Presence is not translation. Every check here counts a locale that holds an entry as
+        # done, so cloning English wholesale into a new language would pass everything. Legitimate
+        # overlap is small — brand names, file formats, invariants and true cognates run under 10%
+        # — so a locale mostly identical to English is a copy, not a translation.
+        same = sum(1 for k in keys
+                   if (blk := flatten((cat["strings"][k].get("localizations") or {}).get(locale)))
+                   is not None and blk == flatten(cat["strings"][k]["localizations"][SOURCE_LANGUAGE]))
+        if have and same / have > CLONED_LOCALE_THRESHOLD:
+            problems.append(
+                f"locale `{locale}`: {same}/{have} values are identical to English "
+                f"({same / have:.0%}). That is a copy of the source language, not a translation. "
+                f"Cognates and brand names alone stay well under "
+                f"{CLONED_LOCALE_THRESHOLD:.0%}.")
         # A locale holding a key English does not: an orphan left behind by a rename or deletion.
         # It ships dead weight and hides the fact that the real key lost its translation.
         extra = sum(1 for k, v in cat["strings"].items()
                     if k not in key_set and (v.get("localizations") or {}).get(locale))
         slot_deficit += missing
         flag = "OK" if not (missing or extra) else "FAIL"
-        print(f"  {locale:9} {have:6} {missing:8} {extra:6}  {flag}")
+        print(f"  {locale:9} {have:6} {missing:8} {extra:6} {same:6}  {flag}")
         if extra and args.strict_parity:
             orphans = sorted(k for k, v in cat["strings"].items()
                              if k not in key_set and (v.get("localizations") or {}).get(locale))
