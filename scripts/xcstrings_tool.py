@@ -703,6 +703,38 @@ def cmd_verify(args) -> int:
     problems: list[str] = []
     notes: list[str] = []
 
+    # ---- Hard slot count, English as the source of truth -------------------------------------
+    # The app is authored in English, so the English authored-key count IS the expected count for
+    # every other locale. Add 5 strings in code and this table shows N+5 for `en` and N for anyone
+    # who did not get them, before any other check runs. Printed always, so a green run records the
+    # numbers too rather than only proving absence of failure.
+    source_total = len(keys)
+    key_set = set(keys)
+    print(f"Localization parity — source language `{SOURCE_LANGUAGE}` is the reference")
+    print(f"  {SOURCE_LANGUAGE} authored strings: {source_total}\n")
+    print(f"  {'locale':9} {'have':>6} {'missing':>8} {'extra':>6}  status")
+
+    slot_deficit = 0
+    for locale in TARGET_LOCALES:
+        have = sum(1 for k in keys if (cat["strings"][k].get("localizations") or {}).get(locale))
+        missing = source_total - have
+        # A locale holding a key English does not: an orphan left behind by a rename or deletion.
+        # It ships dead weight and hides the fact that the real key lost its translation.
+        extra = sum(1 for k, v in cat["strings"].items()
+                    if k not in key_set and (v.get("localizations") or {}).get(locale))
+        slot_deficit += missing
+        flag = "OK" if not (missing or extra) else "FAIL"
+        print(f"  {locale:9} {have:6} {missing:8} {extra:6}  {flag}")
+        if extra and args.strict_parity:
+            orphans = sorted(k for k, v in cat["strings"].items()
+                             if k not in key_set and (v.get("localizations") or {}).get(locale))
+            problems.append(
+                f"[{locale}] {len(orphans)} orphaned localization(s) for key(s) with no English "
+                f"source: {orphans[:5]}")
+    expected_slots = source_total * len(TARGET_LOCALES)
+    print(f"\n  slots: {expected_slots - slot_deficit}/{expected_slots} filled"
+          f"{'' if not slot_deficit else f' — {slot_deficit} EMPTY'}\n")
+
     # A hardcoded SwiftUI literal is auto-extracted into an entry that can never be translated.
     # Catch it here, because neither the parity check below nor the id-shape guard can see it:
     # an auto-extracted key is in neither the authored set nor the id-shaped set.
