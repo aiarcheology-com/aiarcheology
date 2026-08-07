@@ -38,6 +38,7 @@ You do not have to wait two weeks to test this. Change the device date in iOS Se
 14. Relaunch the app a few times over the next days. On days 1 to 13 you should see no Welcome screen and no subscribe screen at all. Either of them appearing on every launch is the main thing to report.
 15. Move the date forward past day 14 and relaunch. You should now meet the subscribe screen, with no way past it. It should say your free access has ended. Check that "Export or Delete Findings" is offered there if you saved anything, and that exporting actually produces a file — being unable to reach your own findings at this point is a serious bug.
 16. While inside the free period, open Settings and tap Subscription. It should open the subscribe screen — and it must NOT say your free access has ended, because it has not. It should simply offer the subscription.
+
 17. Delete the app and reinstall it while your free period is running. **It must pick up where it left off, not start a fresh 14 days.** If reinstalling resets the counter, report it — that is the most important thing in this section.
 18. If you subscribe at any point, the free-period messaging should disappear entirely and never wall you, even after day 14 has passed.
 19. On the subscribe screen, read the money copy as a whole and check it does not contradict itself. If you are being offered a free trial, the button says "Start ... Free Trial", the line under it says nothing is charged during the trial, and the legal paragraph at the bottom should agree — it must say payment is charged when the trial ends, not "at confirmation". If you have already used the free trial on this Apple Account, it should say plainly that billing starts as soon as you subscribe, instead of promising a trial you would not get.
@@ -57,3 +58,18 @@ The price used to read as a bare "$3.99", which never said per what, and the scr
 Nothing else in this build is visible to you: a screen left over from the old sign-in-first flow was deleted (it had been unreachable since the subscribe screen became the first thing you see), and an internal setup document was brought up to date.
 
 Note for testers: the Subscribe button carries an "under construction" badge in TestFlight builds. That is expected — purchases here run against Apple's Sandbox and never charge real money.
+
+Also in this build: the app now speaks 16 languages properly.
+
+Until now the app claimed to support Arabic, Bengali, Czech, German, Spanish, Persian, French, Hebrew, Hindi, Hungarian, Polish, Russian, Ukrainian and three kinds of Chinese — but only about a quarter of the text was actually translated. If you set your phone to any of those languages, most of the app still came out in English. Roughly four thousand missing pieces of text have now been translated, so those languages should read as complete.
+
+Two things to know before you start. First, the translations were produced by machine, not by a professional translator — they are marked internally as needing review, and finding awkward or wrong wording is genuinely useful, so please report it. Second, the subscription, payment and account-deletion screens are deliberately still in English. That is not an oversight: getting billing or account-deletion wording wrong in a language we cannot read is a real risk, so those wait for a human translator.
+
+To test, change your phone's language in iOS Settings > General > Language & Region, then reopen the app.
+
+27. Pick any of the listed languages and walk through the app — the side menu, Settings, the model catalog, downloads, importing a model, and the findings list. The text should be in your language throughout. Report any screen that is still mostly English (other than the subscription and account-deletion screens, which are expected to be English for now).
+28. Set the language to Arabic, Hebrew or Persian. These read right-to-left, and this is the first build where they contain enough real text to see properly. The whole layout should mirror: menus, arrows and back buttons should sit on the opposite side. Look for text running off the edge, overlapping, or reading in the wrong direction — this is the single most likely place for something to look broken.
+29. Set the language to German or Russian. Both are noticeably longer than English. Check buttons, Settings rows and the tab labels for text that is cut off with "…" or spills outside its button. Report anything unreadable, with a screenshot.
+30. Find a screen that counts things — for example a findings or file count. Check it reads naturally for different numbers, especially 1, 2, 5 and 0. Languages like Czech, Polish, Russian, Ukrainian and Arabic change the word depending on the number, and this build is the first to get that right, so a wrong-sounding count is worth reporting.
+31. Anywhere a number or name is inserted into a sentence ("Files: 3 / 10", "The model X from Y has been imported"), confirm the numbers and names still appear and are in a sensible place in the sentence. Missing or duplicated numbers here would be a real bug, not a wording preference.
+32. Switch your phone back to English and confirm nothing changed: English text should be exactly as it was before this build.
