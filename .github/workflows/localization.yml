@@ -1,0 +1,63 @@
+name: Localization
+
+# Guards the String Catalog against the drift that took coverage to 26% (AIA-0572): keys land in
+# English, nothing complains, and the gap compounds one pull request at a time.
+#
+# Deliberately NOT part of Harmonize. That job needs macOS and a full Xcode build (~3 min) and is
+# skipped for many paths; this check is pure Python, runs on Ubuntu in seconds, and fires on every
+# change that can introduce an untranslated string — including a .swift change, since a new
+# `Text("…")` literal is exactly how an untranslated string gets in.
+on:
+  pull_request:
+    branches-ignore:
+      - "copilot/**"
+    paths:
+      - "ios/**/*.xcstrings"
+      - "ios/**/*.swift"
+      - "scripts/xcstrings_tool.py"
+      - ".github/workflows/localization.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Every string translated in every locale
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Coverage first, so a failure below is read against real numbers rather than guessed at.
+      - name: Coverage report
+        run: python3 scripts/xcstrings_tool.py report
+
+      # The gate. --strict-parity is what a ratchet cannot do: it fails on a NEW key that has no
+      # translations, which is the actual failure mode this workflow exists for. It also checks
+      # entry shape, per-locale CLDR plural categories, and format-specifier agreement with the
+      # English sibling (a mismatch there makes String(format:) read the wrong argument).
+      - name: Verify parity, shape, plurals and format specifiers
+        run: |
+          if ! python3 scripts/xcstrings_tool.py verify --strict-parity --limit 60; then
+            echo
+            echo "::error::Some strings are not translated in every locale."
+            echo "Fix it with the same tool, no hand-editing of the catalog:"
+            echo "  python3 scripts/xcstrings_tool.py export --out /tmp/worklists"
+            echo "  # translate each /tmp/worklists/<locale>.source.json into /tmp/translations/<locale>.json"
+            echo "  python3 scripts/xcstrings_tool.py merge  --source /tmp/translations"
+            echo "  python3 scripts/xcstrings_tool.py verify --strict-parity"
+            echo
+            echo "Legal/billing copy (paywall.*, subscription.*, auth.account.delete.*) needs"
+            echo "--include-restricted on export, and Apple's own store terminology. See AIA-0575."
+            exit 1
+          fi
+
+      # The splicer's own invariants. Cheap, and it fails loudly if the catalog has been hand-edited
+      # into a shape the tool can no longer round-trip safely.
+      - name: Verify the catalog is still machine-readable
+        run: python3 scripts/xcstrings_tool.py check

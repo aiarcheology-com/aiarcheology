@@ -116,6 +116,35 @@ RESTRICTED_PREFIXES = (
     "paywall.", "subscription.", "auth.account.delete.", "settings.subscription.",
 )
 
+# Auto-extracted entries (no `extractionState`) that are allowed to exist.
+#
+# `SWIFT_EMIT_LOC_STRINGS` turns a bare SwiftUI literal into a catalog entry with no
+# `extractionState`. Those entries never reach `L10n.swift`, so **no locale can ever translate
+# them** — which is how "Add Model", "Help" and "Loading..." shipped English in all 17 languages
+# until AIA-0572 promoted them. Nothing caught it, because an auto-extracted key is invisible to
+# both the id-shape guard and the parity guard.
+#
+# So: anything auto-extracted that contains actual words is a hardcoded UI string and fails
+# `verify`. This set is the accepted baseline, and adding to it should be a deliberate, reviewed
+# act — not the way a new untranslated string quietly gets in.
+ACCEPTED_AUTO_EXTRACTED = {
+    # Pure format/punctuation fragments from string interpolation. Not translatable text, and they
+    # come back on every build because the interpolation is the source (see AIA-0572): e.g.
+    # `Text("\(completed) / \(total)")` -> "%lld / %lld", `Text("/ \(bytes)")` -> "/ %@".
+    "", " %@|", "/ %@", "%.2f", "%@: %@", "%lld / %lld",
+    # Superseded by dot-namespaced keys in AIA-0572; their source literals are gone, so these are
+    # stale remnants Xcode will drop. Listed rather than deleted because deleting an entry Xcode
+    # still believes in just invites it back.
+    "0-100", "Add Model", "Help", "Loading...", "https://.../mymodel.mlmodel",
+    # STILL LIVE and genuinely untranslatable: `.accessibilityLabel("Version \(versionString)")`
+    # in AppDescriptionView.swift. A VoiceOver string that no locale can translate — it wants the
+    # same promotion the others got. Tracked, not silently blessed.
+    "Version %@",
+}
+
+# Two consecutive letters — enough to tell "Add Model" from "%lld / %lld" or "0-100".
+LOOKS_LIKE_PROSE = re.compile(r"[A-Za-z]{2}")
+
 # `%@`, `%lld`, `%1$@`, `%.2f`, `%%` … Captures the positional index so ordering can be compared,
 # and the length modifier, because `%d` and `%lld` consume different argument widths — treating
 # them as interchangeable would let a translation silently misread its argument.
@@ -647,6 +676,19 @@ def cmd_verify(args) -> int:
     keys = translatable_keys(cat)
     problems: list[str] = []
     notes: list[str] = []
+
+    # A hardcoded SwiftUI literal is auto-extracted into an entry that can never be translated.
+    # Catch it here, because neither the parity check below nor the id-shape guard can see it:
+    # an auto-extracted key is in neither the authored set nor the id-shaped set.
+    for key, entry in cat["strings"].items():
+        if entry.get("extractionState") == "manual":
+            continue
+        if key in ACCEPTED_AUTO_EXTRACTED or not LOOKS_LIKE_PROSE.search(key):
+            continue
+        problems.append(
+            f"{key!r}: hardcoded user-facing string, auto-extracted from source. It has no "
+            f"extractionState, so it never reaches L10n.swift and no locale can translate it. "
+            f"Route it through a dot-namespaced catalog key and use L10n instead of the literal.")
 
     for key in keys:
         locs = cat["strings"][key]["localizations"]
