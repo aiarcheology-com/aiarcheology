@@ -3166,10 +3166,106 @@
     "auth.account.delete.action" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "حذف الحساب"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "অ্যাকাউন্ট মুছে ফেলুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Smazat účet"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Account löschen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete Account"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Eliminar cuenta"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "حذف حساب"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Supprimer le compte"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מחיקת חשבון"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "अकाउंट डिलीट करें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Fiók törlése"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Usuń konto"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Удалить аккаунт"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Видалити акаунт"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "删除账户"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "刪除帳號"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "刪除帳戶"
           }
         }
       }
@@ -3177,10 +3273,106 @@
     "auth.account.delete.message" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "سيؤدي هذا إلى حذف حسابك نهائيًا، ولا يمكن التراجع عن ذلك. هل أنت متأكد؟"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এতে আপনার অ্যাকাউন্ট স্থায়ীভাবে মুছে যাবে এবং এটি আর ফেরানো যাবে না। আপনি কি নিশ্চিত?"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tímto trvale smažete svůj účet. Tuto akci nelze vrátit zpět. Opravdu chcete pokračovat?"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dadurch wird Ihr Account dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden. Sind Sie sicher?"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "This permanently deletes your account and cannot be undone. Are you sure?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Esto elimina tu cuenta de forma permanente y no se puede deshacer. ¿Seguro que quieres continuar?"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "این کار حساب شما را برای همیشه حذف می‌کند و قابل بازگشت نیست. مطمئن هستید؟"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cette action supprime définitivement votre compte et ne peut pas être annulée. Voulez-vous vraiment continuer ?"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "פעולה זו מוחקת את החשבון שלך לצמיתות ואי אפשר לבטל אותה. האם ברצונך להמשיך?"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "इससे आपका अकाउंट हमेशा के लिए डिलीट हो जाएगा और इसे पहले जैसा नहीं किया जा सकता। क्या आप निश्चित हैं?"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ez véglegesen törli a fiókját, és nem vonható vissza. Biztosan folytatja?"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Spowoduje to trwałe usunięcie Twojego konta. Tej operacji nie można cofnąć. Czy na pewno chcesz kontynuować?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Аккаунт будет удалён безвозвратно, это действие нельзя отменить. Вы уверены?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваш акаунт буде видалено назавжди, і цю дію неможливо скасувати. Ви впевнені?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此操作将永久删除你的账户，且无法撤销。确定要继续吗？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "這會永久刪除你的帳號，且無法復原。確定要繼續嗎？"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此操作會永久刪除你的帳戶，而且無法復原。確定要繼續嗎？"
           }
         }
       }
@@ -3188,10 +3380,106 @@
     "auth.account.delete.title" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "حذف الحساب؟"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "অ্যাকাউন্ট মুছে ফেলবেন?"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Smazat účet?"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Account löschen?"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete Account?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "¿Eliminar cuenta?"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "حساب حذف شود؟"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Supprimer le compte ?"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "למחוק את החשבון?"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "अकाउंट डिलीट करें?"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Törli a fiókját?"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Usunąć konto?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Удалить аккаунт?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Видалити акаунт?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "删除账户？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "刪除帳號？"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "刪除帳戶？"
           }
         }
       }
@@ -17332,9 +17620,105 @@
       "comment" : "Placeholder showing the expected shape of a model download URL.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "https://.../mymodel.mlmodel"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
             "value" : "https://.../mymodel.mlmodel"
           }
         }
@@ -28650,10 +29034,106 @@
     "paywall.active" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "مشترك"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "সাবস্ক্রাইব করা আছে"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Předplaceno"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abonniert"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Subscribed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Suscrito"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "اشتراک فعال"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abonné"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מינוי פעיל"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "सब्सक्राइब किया गया"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Előfizetve"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aktywna subskrypcja"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Подписка активна"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Передплата активна"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "已订阅"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "已訂閱"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "已訂閱"
           }
         }
       }
@@ -28662,10 +29142,106 @@
       "comment" : "What the subscription includes (AIA-0567), bullet 4.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "الإلغاء في أي وقت"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "যেকোনো সময় বাতিল করুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zrušení kdykoli"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Jederzeit kündbar"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cancel anytime"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cancela cuando quieras"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لغو در هر زمان"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Annulation à tout moment"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ביטול בכל עת"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "कभी भी रद्द करें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bármikor lemondható"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Anulowanie w dowolnym momencie"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Отмена в любой момент"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Скасувати можна будь-коли"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "随时可取消"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "隨時可取消"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "隨時可取消"
           }
         }
       }
@@ -28674,10 +29250,106 @@
       "comment" : "What the subscription includes (AIA-0567), bullet 2. Deliberately not \"all current and future features\": that is a commitment a later tier or a paid add-on would retroactively break for everyone who subscribed under it, and it lives in the binary where only a release can change it.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "كل ميزة في ML Browser"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser-এর প্রতিটি ফিচার"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Všechny funkce aplikace ML Browser"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Alle Funktionen in ML Browser"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Every feature in ML Browser"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Todas las funciones de ML Browser"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "همهٔ قابلیت‌های ML Browser"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Toutes les fonctionnalités de ML Browser"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "כל התכונות של ML Browser"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser की हर सुविधा"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az ML Browser összes funkciója"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wszystkie funkcje aplikacji ML Browser"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Все возможности ML Browser"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Усі можливості ML Browser"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser 的每一项功能"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser 的所有功能"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser 的每項功能"
           }
         }
       }
@@ -28686,10 +29358,106 @@
       "comment" : "What the subscription includes (AIA-0567), bullet 1.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "وصول غير محدود"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "সীমাহীন অ্যাক্সেস"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neomezený přístup"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Unbegrenzter Zugriff"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unlimited access"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Acceso ilimitado"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "دسترسی نامحدود"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Accès illimité"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "גישה בלתי מוגבלת"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "असीमित एक्सेस"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Korlátlan hozzáférés"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nieograniczony dostęp"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Неограниченный доступ"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Необмежений доступ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "无限制使用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無限制使用"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無限使用"
           }
         }
       }
@@ -28698,10 +29466,106 @@
       "comment" : "What the subscription includes (AIA-0567), bullet 3. Deliberately not \"regular updates\", which promises a cadence nothing guarantees.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تحسينات مستمرة"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "চলমান উন্নতি"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Průběžná vylepšení"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Laufende Verbesserungen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ongoing improvements"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mejoras continuas"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "بهبودهای مستمر"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Améliorations continues"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "שיפורים מתמשכים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "लगातार सुधार"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Folyamatos fejlesztések"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bieżące ulepszenia"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Постоянные улучшения"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Постійні вдосконалення"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "持续改进"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "持續改進"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "持續改良"
           }
         }
       }
@@ -28710,10 +29574,106 @@
       "comment" : "Billing note for a user who is no longer eligible for the introductory free trial: they are charged at once. Shown only where a free trial exists to have been spent, so it never claims a trial the product does not offer.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "سبق أن استُخدمت التجربة المجانية مع حساب Apple الخاص بك، لذا تبدأ الفوترة فور اشتراكك."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার Apple অ্যাকাউন্টে ইতিমধ্যেই ফ্রি ট্রায়াল ব্যবহার করা হয়েছে, তাই সাবস্ক্রাইব করার সঙ্গে সঙ্গেই বিলিং শুরু হয়।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Váš účet Apple už bezplatnou zkušební verzi využil, takže placení začne hned po objednání předplatného."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ihr Apple-Account hat den Gratiszeitraum bereits genutzt. Die Abrechnung beginnt daher, sobald Sie das Abo abschließen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your Apple Account has already used the free trial, so billing starts as soon as you subscribe."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tu cuenta de Apple ya ha usado la prueba gratuita, así que el cobro empieza en cuanto te suscribas."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "پیش‌تر با حساب Apple شما از دورهٔ آزمایشی رایگان استفاده شده است، بنابراین صورت‌حساب به‌محض مشترک شدن آغاز می‌شود."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Votre compte Apple a déjà utilisé l'essai gratuit : la facturation commence dès que vous vous abonnez."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "חשבון Apple שלך כבר ניצל את תקופת הניסיון בחינם, ולכן החיוב יתחיל מיד עם ההרשמה למינוי."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आपके Apple खाते पर मुफ़्त ट्रायल पहले ही इस्तेमाल हो चुका है, इसलिए सब्सक्राइब करते ही बिलिंग शुरू हो जाती है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az Apple-fiókja már felhasználta az ingyenes próbaidőszakot, ezért a számlázás az előfizetéssel azonnal megkezdődik."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Twoje konto Apple wykorzystało już bezpłatny okres próbny, więc naliczanie opłat rozpocznie się od razu po wykupieniu subskrypcji."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "В вашей учётной записи Apple бесплатный пробный период уже использован, поэтому оплата начнётся сразу после оформления подписки."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "У вашому обліковому записі Apple безкоштовний пробний період уже використано, тому оплата почнеться одразу після оформлення передплати."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的 Apple 账户已使用过免费试用，因此订阅后会立即开始收费。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的 Apple 帳號已使用過免費試用，因此訂閱後隨即開始計費。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的 Apple 帳戶已使用過免費試用，因此訂閱後會即時開始收費。"
           }
         }
       }
@@ -28722,10 +29682,106 @@
       "comment" : "Paywall footer: where cancellation actually happens, since the app cannot do it.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يمكنك الإلغاء في أي وقت من إعدادات حساب Apple."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার Apple অ্যাকাউন্টের সেটিংসে যেকোনো সময় বাতিল করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Předplatné můžete kdykoli zrušit v nastavení svého účtu Apple."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Jederzeit in den Einstellungen Ihres Apple-Accounts kündbar."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cancel anytime in your Apple Account settings."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cancela cuando quieras en los ajustes de tu cuenta de Apple."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "هر زمان که بخواهید می‌توانید از تنظیمات حساب Apple لغو کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Annulez à tout moment dans les réglages de votre compte Apple."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "אפשר לבטל בכל עת בהגדרות חשבון Apple שלך."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "अपने Apple खाते की सेटिंग्स में कभी भी रद्द करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bármikor lemondhatja az Apple-fiókja beállításaiban."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Subskrypcję możesz anulować w dowolnym momencie w ustawieniach swojego konta Apple."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Отменить подписку можно в любой момент в настройках учётной записи Apple."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Скасувати передплату можна будь-коли в налаштуваннях облікового запису Apple."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "随时可在系统“设置”的 Apple 账户中取消。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "可隨時在你的 Apple 帳號設定中取消。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "隨時可在系統「設定」的 Apple 帳戶中取消。"
           }
         }
       }
@@ -28734,10 +29790,106 @@
     "paywall.disclosure" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يتم خصم قيمة الاشتراك من معرّف Apple الخاص بك عند تأكيد عملية الشراء. ويتجدد الاشتراك تلقائيًا ما لم يتم إلغاؤه قبل 24 ساعة على الأقل من نهاية الفترة الحالية. يمكنك إدارة الاشتراك أو إلغاؤه في أي وقت من الإعدادات."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "নিশ্চিত করার সময় আপনার Apple ID থেকে পেমেন্ট নেওয়া হয়। বর্তমান মেয়াদ শেষ হওয়ার অন্তত 24 ঘণ্টা আগে বাতিল না করলে সাবস্ক্রিপশন স্বয়ংক্রিয়ভাবে রিনিউ হয়। আপনার Apple অ্যাকাউন্টের সেটিংসে যেকোনো সময় পরিচালনা করুন বা বাতিল করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Platba bude účtována k vašemu účtu Apple ID při potvrzení nákupu. Předplatné se automaticky obnovuje, pokud není zrušeno alespoň 24 hodin před koncem aktuálního období. Spravovat nebo zrušit ho můžete kdykoli v Nastavení zařízení v sekci účtu Apple."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Die Zahlung wird bei der Bestätigung des Kaufs über Ihre Apple-ID abgerechnet. Das Abonnement verlängert sich automatisch, sofern es nicht mindestens 24 Stunden vor Ende des laufenden Zeitraums gekündigt wird. Sie können das Abo jederzeit in den Einstellungen Ihres Apple-Accounts verwalten oder kündigen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "El pago se carga a tu cuenta de Apple al confirmar la compra. La suscripción se renueva automáticamente a menos que se cancele al menos 24 horas antes del final del período actual. Puedes gestionarla o cancelarla cuando quieras en Ajustes."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "مبلغ اشتراک هنگام تأیید خرید از شناسهٔ Apple شما کسر می‌شود. اشتراک به‌طور خودکار تمدید می‌شود، مگر آنکه دست‌کم ۲۴ ساعت پیش از پایان دورهٔ جاری لغو شود. هر زمان می‌توانید اشتراک را در تنظیمات مدیریت یا لغو کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Le paiement est débité de votre compte Apple au moment de la confirmation. L'abonnement se renouvelle automatiquement, sauf s'il est annulé au moins 24 heures avant la fin de la période en cours. Vous pouvez le gérer ou l'annuler à tout moment dans Réglages."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "התשלום ייגבה מחשבון Apple שלך בעת האישור. המינוי מתחדש אוטומטית אלא אם כן הוא יבוטל לפחות 24 שעות לפני תום התקופה הנוכחית. אפשר לנהל או לבטל את המינוי בכל עת בהגדרות חשבון Apple במכשיר."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "पुष्टि के समय भुगतान आपकी Apple ID से लिया जाता है। सब्सक्रिप्शन अपने आप रिन्यू हो जाता है, बशर्ते मौजूदा अवधि खत्म होने से कम से कम 24 घंटे पहले इसे रद्द न कर दिया जाए। अपने Apple खाते की सेटिंग्स में कभी भी प्रबंधित करें या रद्द करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A fizetés a vásárlás megerősítésekor az Apple-fiókja terhére történik. Az előfizetés automatikusan megújul, kivéve, ha legalább 24 órával az aktuális időszak vége előtt lemondja. Az előfizetést bármikor kezelheti vagy lemondhatja az Apple-fiókja beállításaiban."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Płatność zostanie pobrana z Twojego konta Apple ID w chwili potwierdzenia zakupu. Subskrypcja odnawia się automatycznie, o ile nie zostanie anulowana co najmniej 24 godziny przed końcem bieżącego okresu. Subskrypcją możesz zarządzać lub anulować ją w dowolnym momencie w Ustawieniach urządzenia, w sekcji konta Apple."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Оплата списывается с вашей учётной записи Apple при подтверждении покупки. Подписка продлевается автоматически, если не отменить её не менее чем за 24 часа до окончания текущего периода. Управлять подпиской или отменить её можно в любой момент в Настройках."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Оплата списується з вашого облікового запису Apple під час підтвердження покупки. Передплата продовжується автоматично, якщо не скасувати її щонайменше за 24 години до завершення поточного періоду. Керувати передплатою або скасувати її можна будь-коли в Налаштуваннях."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "确认购买时会向你的 Apple ID 收取费用。订阅将自动续订，除非在当前订阅周期结束前至少 24 小时取消。你可以随时在系统“设置”的 Apple 账户中管理或取消订阅。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "款項將於確認購買時向你的 Apple 帳號收取。訂閱項目會自動續訂，除非在目前訂閱期結束前至少 24 小時取消。你可以隨時在裝置「設定」的 Apple 帳號中管理或取消訂閱項目。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "確認購買時會向你的 Apple ID 收取費用。訂閱會自動續期，除非在目前訂閱期結束前最少 24 小時取消。你可隨時在系統「設定」的 Apple 帳戶中管理或取消訂閱。"
           }
         }
       }
@@ -28746,10 +29898,106 @@
       "comment" : "The 3.1.2 renewal disclosure, for a user who is getting a free trial. Identical to paywall.disclosure except that it does not claim payment is taken at confirmation \u2014 for a trial customer nothing is, and saying so beside the trial copy put two contradictory claims about money on the purchase screen.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يتم خصم قيمة الاشتراك من معرّف Apple الخاص بك عند انتهاء التجربة المجانية. ويتجدد الاشتراك تلقائيًا ما لم يتم إلغاؤه قبل 24 ساعة على الأقل من نهاية الفترة الحالية. يمكنك إدارة الاشتراك أو إلغاؤه في أي وقت من الإعدادات."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ফ্রি ট্রায়াল শেষ হলে আপনার Apple ID থেকে পেমেন্ট নেওয়া হয়। বর্তমান মেয়াদ শেষ হওয়ার অন্তত 24 ঘণ্টা আগে বাতিল না করলে সাবস্ক্রিপশন স্বয়ংক্রিয়ভাবে রিনিউ হয়। আপনার Apple অ্যাকাউন্টের সেটিংসে যেকোনো সময় পরিচালনা করুন বা বাতিল করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Platba bude účtována k vašemu účtu Apple ID po skončení bezplatné zkušební verze. Předplatné se automaticky obnovuje, pokud není zrušeno alespoň 24 hodin před koncem aktuálního období. Spravovat nebo zrušit ho můžete kdykoli v Nastavení zařízení v sekci účtu Apple."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Die Zahlung wird bei Ablauf des Gratiszeitraums über Ihre Apple-ID abgerechnet. Das Abonnement verlängert sich automatisch, sofern es nicht mindestens 24 Stunden vor Ende des laufenden Zeitraums gekündigt wird. Sie können das Abo jederzeit in den Einstellungen Ihres Apple-Accounts verwalten oder kündigen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Payment is charged to your Apple ID when the free trial ends. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "El pago se carga a tu cuenta de Apple cuando termina la prueba gratuita. La suscripción se renueva automáticamente a menos que se cancele al menos 24 horas antes del final del período actual. Puedes gestionarla o cancelarla cuando quieras en Ajustes."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "مبلغ اشتراک در پایان دورهٔ آزمایشی رایگان از شناسهٔ Apple شما کسر می‌شود. اشتراک به‌طور خودکار تمدید می‌شود، مگر آنکه دست‌کم ۲۴ ساعت پیش از پایان دورهٔ جاری لغو شود. هر زمان می‌توانید اشتراک را در تنظیمات مدیریت یا لغو کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Le paiement est débité de votre compte Apple à la fin de l'essai gratuit. L'abonnement se renouvelle automatiquement, sauf s'il est annulé au moins 24 heures avant la fin de la période en cours. Vous pouvez le gérer ou l'annuler à tout moment dans Réglages."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "התשלום ייגבה מחשבון Apple שלך עם סיום תקופת הניסיון בחינם. המינוי מתחדש אוטומטית אלא אם כן הוא יבוטל לפחות 24 שעות לפני תום התקופה הנוכחית. אפשר לנהל או לבטל את המינוי בכל עת בהגדרות חשבון Apple במכשיר."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मुफ़्त ट्रायल खत्म होने पर भुगतान आपकी Apple ID से लिया जाता है। सब्सक्रिप्शन अपने आप रिन्यू हो जाता है, बशर्ते मौजूदा अवधि खत्म होने से कम से कम 24 घंटे पहले इसे रद्द न कर दिया जाए। अपने Apple खाते की सेटिंग्स में कभी भी प्रबंधित करें या रद्द करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A fizetés az ingyenes próbaidőszak végén az Apple-fiókja terhére történik. Az előfizetés automatikusan megújul, kivéve, ha legalább 24 órával az aktuális időszak vége előtt lemondja. Az előfizetést bármikor kezelheti vagy lemondhatja az Apple-fiókja beállításaiban."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Płatność zostanie pobrana z Twojego konta Apple ID po zakończeniu bezpłatnego okresu próbnego. Subskrypcja odnawia się automatycznie, o ile nie zostanie anulowana co najmniej 24 godziny przed końcem bieżącego okresu. Subskrypcją możesz zarządzać lub anulować ją w dowolnym momencie w Ustawieniach urządzenia, w sekcji konta Apple."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Оплата списывается с вашей учётной записи Apple по окончании бесплатного пробного периода. Подписка продлевается автоматически, если не отменить её не менее чем за 24 часа до окончания текущего периода. Управлять подпиской или отменить её можно в любой момент в Настройках."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Оплата списується з вашого облікового запису Apple після завершення безкоштовного пробного періоду. Передплата продовжується автоматично, якщо не скасувати її щонайменше за 24 години до завершення поточного періоду. Керувати передплатою або скасувати її можна будь-коли в Налаштуваннях."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免费试用结束时会向你的 Apple ID 收取费用。订阅将自动续订，除非在当前订阅周期结束前至少 24 小时取消。你可以随时在系统“设置”的 Apple 账户中管理或取消订阅。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "款項將於免費試用結束時向你的 Apple 帳號收取。訂閱項目會自動續訂，除非在目前訂閱期結束前至少 24 小時取消。你可以隨時在裝置「設定」的 Apple 帳號中管理或取消訂閱項目。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免費試用結束時會向你的 Apple ID 收取費用。訂閱會自動續期，除非在目前訂閱期結束前最少 24 小時取消。你可隨時在系統「設定」的 Apple 帳戶中管理或取消訂閱。"
           }
         }
       }
@@ -28758,10 +30006,106 @@
       "comment" : "Paywall description when a free-access window actually ran out. Never shown to a user who never had one.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "انتهى وصولك المجاني. اشترك لمواصلة استخدام ML Browser والحصول على جميع التحديثات والتحسينات المستقبلية."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার ফ্রি অ্যাক্সেস শেষ হয়ে গেছে। ML Browser ব্যবহার চালিয়ে যেতে এবং ভবিষ্যতের সব আপডেট ও উন্নতি পেতে সাবস্ক্রাইব করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Váš bezplatný přístup skončil. Objednejte si předplatné, abyste mohli ML Browser dál používat a dostávat všechny budoucí aktualizace a vylepšení."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ihr kostenloser Zugriff ist beendet. Abonnieren Sie, um ML Browser weiterhin zu nutzen und alle künftigen Updates und Verbesserungen zu erhalten."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your free access has ended. Subscribe to keep using ML Browser and receive all future updates and improvements."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tu acceso gratuito ha finalizado. Suscríbete para seguir usando ML Browser y recibir todas las futuras actualizaciones y mejoras."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "دسترسی رایگان شما به پایان رسید. برای ادامهٔ استفاده از ML Browser و دریافت همهٔ به‌روزرسانی‌ها و بهبودهای آینده مشترک شوید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Votre accès gratuit est terminé. Abonnez-vous pour continuer à utiliser ML Browser et recevoir toutes les futures mises à jour et améliorations."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הגישה החינמית שלך הסתיימה. יש להירשם למינוי כדי להמשיך להשתמש ב-ML Browser ולקבל את כל העדכונים והשיפורים העתידיים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आपका मुफ़्त एक्सेस खत्म हो गया है। ML Browser का उपयोग जारी रखने और भविष्य के सभी अपडेट व सुधार पाने के लिए सब्सक्राइब करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az ingyenes hozzáférése véget ért. Fizessen elő az ML Browser további használatához, és megkapja az összes jövőbeli frissítést és fejlesztést."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Twój bezpłatny dostęp dobiegł końca. Wykup subskrypcję, aby dalej korzystać z aplikacji ML Browser i otrzymywać wszystkie przyszłe aktualizacje i ulepszenia."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваш бесплатный доступ закончился. Оформите подписку, чтобы продолжить пользоваться ML Browser и получать все будущие обновления и улучшения."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваш безкоштовний доступ завершився. Оформіть передплату, щоб продовжити користуватися ML Browser і отримувати всі майбутні оновлення та вдосконалення."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的免费使用期已结束。订阅即可继续使用 ML Browser，并获得日后的所有更新和改进。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的免費使用期已結束。訂閱即可繼續使用 ML Browser，並取得日後所有的更新與改進。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的免費使用期已結束。訂閱即可繼續使用 ML Browser，並取得日後所有更新及改良。"
           }
         }
       }
@@ -28770,10 +30114,106 @@
       "comment" : "Shown when a purchase attempt fails or cannot be verified. Deliberately does not assert whether the account was charged — an unverified transaction may already have settled.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تعذّر إتمام عملية الشراء. يُرجى المحاولة مرة أخرى، أو استخدم «استعادة المشتريات» إذا سبق أن تم خصم المبلغ من حساب Apple الخاص بك."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "কেনাকাটা সম্পূর্ণ করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন, অথবা আপনার Apple অ্যাকাউন্ট থেকে ইতিমধ্যেই টাকা কেটে নেওয়া হয়ে থাকলে “কেনাকাটা পুনরুদ্ধার করুন” ব্যবহার করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nákup se nepodařilo dokončit. Zkuste to prosím znovu, nebo použijte Obnovit nákupy, pokud už byla z vašeho účtu Apple stržena platba."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Der Kauf konnte nicht abgeschlossen werden. Bitte versuchen Sie es erneut oder verwenden Sie „Käufe wiederherstellen“, falls Ihr Apple-Account bereits belastet wurde."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The purchase could not be completed. Please try again, or use Restore Purchases if your Apple Account was already charged."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No se pudo completar la compra. Inténtalo de nuevo o usa Restaurar compras si ya se ha realizado el cargo en tu cuenta de Apple."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "خرید کامل نشد. لطفاً دوباره تلاش کنید، یا اگر مبلغ از حساب Apple شما کسر شده است از «بازیابی خریدها» استفاده کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "L'achat n'a pas pu être finalisé. Veuillez réessayer ou utiliser Restaurer les achats si votre compte Apple a déjà été débité."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "לא ניתן היה להשלים את הרכישה. יש לנסות שוב, או להשתמש באפשרות שחזור רכישות אם חשבון Apple שלך כבר חויב."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "खरीदारी पूरी नहीं हो सकी। कृपया फिर से कोशिश करें, या अगर आपके Apple खाते से पहले ही शुल्क लिया जा चुका है तो “खरीदारी पुनर्स्थापित करें” का उपयोग करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A vásárlást nem sikerült befejezni. Próbálja újra, vagy használja a Vásárlások visszaállítása lehetőséget, ha az Apple-fiókját már megterhelték."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nie udało się sfinalizować zakupu. Spróbuj ponownie lub użyj opcji Przywróć zakupy, jeśli z Twojego konta Apple pobrano już opłatę."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не удалось завершить покупку. Повторите попытку или используйте «Восстановить покупки», если средства с вашей учётной записи Apple уже были списаны."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не вдалося завершити покупку. Спробуйте ще раз або скористайтеся функцією «Відновити покупки», якщо кошти з вашого облікового запису Apple уже було списано."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "购买未能完成。请重试；如果你的 Apple 账户已被扣款，请使用“恢复购买项目”。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無法完成購買。請再試一次；如果你的 Apple 帳號已被收取款項，請使用「回復購買項目」。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "購買未能完成。請再試一次；如果你的 Apple 帳戶已被扣款，請使用「回復購買項目」。"
           }
         }
       }
@@ -28782,10 +30222,106 @@
       "comment" : "Opens the export-or-delete choice for the user's saved findings. Only on the hard wall, where Settings — and with it the findings inventory — is unreachable.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تصدير المكتشفات أو حذفها"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "সন্ধান এক্সপোর্ট বা মুছে ফেলুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Exportovat nebo smazat nálezy"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Funde exportieren oder löschen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Export or Delete Findings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Exportar o eliminar hallazgos"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "خروجی گرفتن یا حذف یافته‌ها"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Exporter ou supprimer les découvertes"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ייצוא או מחיקת ממצאים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "खोजें एक्सपोर्ट या डिलीट करें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Leletek exportálása vagy törlése"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Eksportuj lub usuń znaleziska"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Экспорт или удаление находок"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Експортувати або видалити знахідки"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "导出或删除发现记录"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "輸出或刪除發現項目"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "匯出或刪除發現記錄"
           }
         }
       }
@@ -28794,10 +30330,106 @@
       "comment" : "Paywall headline: what subscribing gets you.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تابع بوصول غير محدود"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "সীমাহীন অ্যাক্সেস নিয়ে চালিয়ে যান"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pokračujte s neomezeným přístupem"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Weiter mit unbegrenztem Zugriff"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Continue with unlimited access"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Continúa con acceso ilimitado"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "با دسترسی نامحدود ادامه دهید"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Continuez avec un accès illimité"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "להמשיך עם גישה בלתי מוגבלת"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "असीमित एक्सेस के साथ जारी रखें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Folytassa korlátlan hozzáféréssel"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Korzystaj dalej z nieograniczonym dostępem"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Продолжайте с неограниченным доступом"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Продовжуйте з необмеженим доступом"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "继续无限制使用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "繼續享有無限制使用"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "繼續無限使用"
           }
         }
       }
@@ -28806,10 +30438,106 @@
       "comment" : "Paywall headline for a user who has never had app access \u2014 payments on with free access off, where this screen is a brand-new install's first. Cannot say \"continue\", since there is nothing to continue.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "وصول غير محدود إلى كل الميزات"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "প্রতিটি ফিচারে সীমাহীন অ্যাক্সেস"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Neomezený přístup ke všem funkcím"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Unbegrenzter Zugriff auf alle Funktionen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Unlimited access to every feature"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Acceso ilimitado a todas las funciones"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "دسترسی نامحدود به همهٔ قابلیت‌ها"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Un accès illimité à toutes les fonctionnalités"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "גישה בלתי מוגבלת לכל התכונות"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "हर सुविधा तक असीमित एक्सेस"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Korlátlan hozzáférés minden funkcióhoz"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nieograniczony dostęp do wszystkich funkcji"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Неограниченный доступ ко всем возможностям"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Необмежений доступ до всіх можливостей"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "无限制使用每一项功能"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無限制使用所有功能"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無限使用每項功能"
           }
         }
       }
@@ -28818,10 +30546,106 @@
       "comment" : "Paywall description for a user who has never had app access. The neutral pitch says \"keep using\", which is untrue for someone who has not started.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "اشترك لاستخدام ML Browser والحصول على جميع التحديثات والتحسينات المستقبلية."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser ব্যবহার করতে এবং ভবিষ্যতের সব আপডেট ও উন্নতি পেতে সাবস্ক্রাইব করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Objednejte si předplatné, abyste mohli ML Browser používat a dostávat všechny budoucí aktualizace a vylepšení."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abonnieren Sie, um ML Browser zu nutzen und alle künftigen Updates und Verbesserungen zu erhalten."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Subscribe to use ML Browser and receive all future updates and improvements."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Suscríbete para usar ML Browser y recibir todas las futuras actualizaciones y mejoras."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "برای استفاده از ML Browser و دریافت همهٔ به‌روزرسانی‌ها و بهبودهای آینده مشترک شوید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abonnez-vous pour utiliser ML Browser et recevoir toutes les futures mises à jour et améliorations."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "יש להירשם למינוי כדי להשתמש ב-ML Browser ולקבל את כל העדכונים והשיפורים העתידיים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser का उपयोग करने और भविष्य के सभी अपडेट व सुधार पाने के लिए सब्सक्राइब करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Fizessen elő az ML Browser használatához, és megkapja az összes jövőbeli frissítést és fejlesztést."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wykup subskrypcję, aby korzystać z aplikacji ML Browser i otrzymywać wszystkie przyszłe aktualizacje i ulepszenia."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Оформите подписку, чтобы пользоваться ML Browser и получать все будущие обновления и улучшения."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Оформіть передплату, щоб користуватися ML Browser і отримувати всі майбутні оновлення та вдосконалення."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "订阅即可使用 ML Browser，并获得日后的所有更新和改进。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "訂閱即可使用 ML Browser，並取得日後所有的更新與改進。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "訂閱即可使用 ML Browser，並取得日後所有更新及改良。"
           }
         }
       }
@@ -28829,10 +30653,106 @@
     "paywall.manage" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "إدارة الاشتراك"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "সাবস্ক্রিপশন পরিচালনা করুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Spravovat předplatné"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abo verwalten"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Manage Subscription"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Gestionar suscripción"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "مدیریت اشتراک"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Gérer l'abonnement"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ניהול המינוי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "सब्सक्रिप्शन प्रबंधित करें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Előfizetés kezelése"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zarządzaj subskrypcją"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Управление подпиской"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Керування передплатою"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "管理订阅"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "管理訂閱項目"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "管理訂閱"
           }
         }
       }
@@ -28841,10 +30761,106 @@
       "comment" : "Shown when a purchase awaits approval (Ask to Buy).",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تحتاج عملية الشراء هذه إلى موافقة قبل أن تكتمل. وسيتم منح الوصول تلقائيًا بمجرد الموافقة عليها — يمكنك إغلاق هذه الشاشة."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই কেনাকাটা সম্পূর্ণ হওয়ার আগে অনুমোদন প্রয়োজন। অনুমোদন পাওয়ার সঙ্গে সঙ্গেই স্বয়ংক্রিয়ভাবে অ্যাক্সেস দেওয়া হয় — আপনি এই স্ক্রিন বন্ধ করতে পারেন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tento nákup musí být před dokončením schválen. Po schválení se přístup udělí automaticky – tuto obrazovku můžete zavřít."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dieser Kauf muss erst genehmigt werden. Nach der Genehmigung wird der Zugriff automatisch freigeschaltet – Sie können diese Ansicht schließen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "This purchase needs approval before it can complete. Access is granted automatically once it is approved — you can close this screen."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Esta compra necesita aprobación para poder completarse. El acceso se concede automáticamente en cuanto se apruebe — puedes cerrar esta pantalla."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "این خرید برای تکمیل شدن به تأیید نیاز دارد. پس از تأیید، دسترسی به‌طور خودکار داده می‌شود — می‌توانید این صفحه را ببندید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cet achat doit être approuvé avant d'être finalisé. L'accès est accordé automatiquement dès l'approbation — vous pouvez fermer cet écran."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הרכישה הזו מחייבת אישור לפני שאפשר יהיה להשלים אותה. הגישה תינתן אוטומטית לאחר האישור — אפשר לסגור את המסך הזה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "इस खरीदारी के पूरा होने से पहले मंज़ूरी ज़रूरी है। मंज़ूरी मिलते ही एक्सेस अपने आप मिल जाता है — आप यह स्क्रीन बंद कर सकते हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A vásárlást jóvá kell hagyni a befejezéshez. A jóváhagyás után a hozzáférés automatikusan megnyílik – ezt a képernyőt bezárhatja."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ten zakup wymaga zatwierdzenia, zanim będzie mógł zostać sfinalizowany. Po zatwierdzeniu dostęp zostanie przyznany automatycznie – możesz zamknąć ten ekran."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Эта покупка должна быть одобрена, прежде чем она завершится. После одобрения доступ будет предоставлен автоматически — этот экран можно закрыть."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Цю покупку потрібно схвалити, перш ніж вона завершиться. Після схвалення доступ буде надано автоматично — цей екран можна закрити."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此次购买需经批准才能完成。获批准后会自动开通使用权限，你可以关闭此界面。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此購買項目需經核准才能完成。核准後即會自動取得使用權限，你可以關閉此畫面。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此購買須經批准才能完成。獲批准後會自動開通使用權限，你可以關閉此畫面。"
           }
         }
       }
@@ -28853,10 +30869,106 @@
       "comment" : "Title of the Ask-to-Buy notice.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "في انتظار الموافقة"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "অনুমোদনের অপেক্ষায়"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Čeká na schválení"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Warten auf Genehmigung"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Waiting for Approval"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Esperando aprobación"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "در انتظار تأیید"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "En attente d'approbation"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ממתין לאישור"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मंज़ूरी की प्रतीक्षा"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Jóváhagyásra vár"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Oczekiwanie na zatwierdzenie"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ожидание одобрения"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Очікування схвалення"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "等待批准"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "等待核准"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "等待批准"
           }
         }
       }
@@ -28865,10 +30977,106 @@
       "comment" : "Paywall description for a user who did not lose a free window — the Settings sheet, or a build that never granted one.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "اشترك لمواصلة استخدام ML Browser والحصول على جميع التحديثات والتحسينات المستقبلية."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser ব্যবহার চালিয়ে যেতে এবং ভবিষ্যতের সব আপডেট ও উন্নতি পেতে সাবস্ক্রাইব করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Objednejte si předplatné, abyste mohli ML Browser dál používat a dostávat všechny budoucí aktualizace a vylepšení."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abonnieren Sie, um ML Browser weiterhin zu nutzen und alle künftigen Updates und Verbesserungen zu erhalten."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Subscribe to keep using ML Browser and receive all future updates and improvements."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Suscríbete para seguir usando ML Browser y recibir todas las futuras actualizaciones y mejoras."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "برای ادامهٔ استفاده از ML Browser و دریافت همهٔ به‌روزرسانی‌ها و بهبودهای آینده مشترک شوید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abonnez-vous pour continuer à utiliser ML Browser et recevoir toutes les futures mises à jour et améliorations."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "יש להירשם למינוי כדי להמשיך להשתמש ב-ML Browser ולקבל את כל העדכונים והשיפורים העתידיים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser का उपयोग जारी रखने और भविष्य के सभी अपडेट व सुधार पाने के लिए सब्सक्राइब करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Fizessen elő az ML Browser további használatához, és megkapja az összes jövőbeli frissítést és fejlesztést."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wykup subskrypcję, aby dalej korzystać z aplikacji ML Browser i otrzymywać wszystkie przyszłe aktualizacje i ulepszenia."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Оформите подписку, чтобы продолжить пользоваться ML Browser и получать все будущие обновления и улучшения."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Оформіть передплату, щоб продовжити користуватися ML Browser і отримувати всі майбутні оновлення та вдосконалення."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "订阅即可继续使用 ML Browser，并获得日后的所有更新和改进。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "訂閱即可繼續使用 ML Browser，並取得日後所有的更新與改進。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "訂閱即可繼續使用 ML Browser，並取得日後所有更新及改良。"
           }
         }
       }
@@ -28876,10 +31084,106 @@
     "paywall.requestRefund" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "طلب استرداد الأموال"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "রিফান্ডের অনুরোধ করুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Požádat o vrácení peněz"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Erstattung anfordern"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Request a Refund"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Solicitar un reembolso"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "درخواست بازپرداخت"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Demander un remboursement"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "בקשת החזר כספי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "रिफ़ंड का अनुरोध करें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Visszatérítés igénylése"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Poproś o zwrot pieniędzy"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Запросить возврат средств"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Подати запит на відшкодування"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "申请退款"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "申請退款"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "申請退款"
           }
         }
       }
@@ -28887,10 +31191,106 @@
     "paywall.restore" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "استعادة المشتريات"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "কেনাকাটা পুনরুদ্ধার করুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Obnovit nákupy"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Käufe wiederherstellen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Restore Purchases"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Restaurar compras"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "بازیابی خریدها"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Restaurer les achats"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "שחזור רכישות"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "खरीदारी पुनर्स्थापित करें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vásárlások visszaállítása"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Przywróć zakupy"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Восстановить покупки"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Відновити покупки"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "恢复购买项目"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "回復購買項目"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "回復購買項目"
           }
         }
       }
@@ -28899,10 +31299,106 @@
       "comment" : "Shown when a restore finds no prior subscription.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لم يتم العثور على اشتراك سابق باستخدام حساب Apple هذا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই Apple অ্যাকাউন্টের জন্য আগের কোনো সাবস্ক্রিপশন পাওয়া যায়নি।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pro tento účet Apple nebylo nalezeno žádné dřívější předplatné."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Für diesen Apple-Account wurde kein früheres Abonnement gefunden."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "No previous subscription was found for this Apple Account."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No se ha encontrado ninguna suscripción anterior para esta cuenta de Apple."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "هیچ اشتراک قبلی برای این حساب Apple پیدا نشد."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aucun abonnement antérieur n'a été trouvé pour ce compte Apple."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "לא נמצא מינוי קודם עבור חשבון Apple זה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "इस Apple खाते के लिए कोई पिछला सब्सक्रिप्शन नहीं मिला।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ehhez az Apple-fiókhoz nem található korábbi előfizetés."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nie znaleziono wcześniejszej subskrypcji dla tego konta Apple."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Предыдущих подписок для этой учётной записи Apple не найдено."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Попередньої передплати для цього облікового запису Apple не знайдено."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "未找到此 Apple 账户以往的订阅。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "找不到此 Apple 帳號先前的訂閱項目。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "找不到此 Apple 帳戶以往的訂閱。"
           }
         }
       }
@@ -28911,10 +31407,106 @@
       "comment" : "Title shown when a restore finds nothing.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لا يوجد ما يمكن استعادته"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "পুনরুদ্ধার করার মতো কিছু নেই"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Není co obnovit"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Keine Käufe gefunden"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nothing to Restore"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No hay nada que restaurar"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "چیزی برای بازیابی نیست"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Rien à restaurer"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "אין מה לשחזר"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "पुनर्स्थापित करने के लिए कुछ नहीं"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nincs mit visszaállítani"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Brak zakupów do przywrócenia"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Нечего восстанавливать"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Нічого відновлювати"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "没有可恢复的项目"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "沒有可回復的項目"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "沒有可回復的項目"
           }
         }
       }
@@ -28923,10 +31515,106 @@
       "comment" : "Shown when a restore does not complete. Neutral wording: AppStore.sync() throws on user cancellation as well as connectivity failure.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تعذّرت استعادة مشترياتك. يُرجى المحاولة مرة أخرى."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার কেনাকাটা পুনরুদ্ধার করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vaše nákupy se nepodařilo obnovit. Zkuste to prosím znovu."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ihre Käufe konnten nicht wiederhergestellt werden. Bitte versuchen Sie es erneut."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your purchases could not be restored. Please try again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No se han podido restaurar tus compras. Inténtalo de nuevo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "خریدهای شما بازیابی نشد. لطفاً دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vos achats n'ont pas pu être restaurés. Veuillez réessayer."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "לא ניתן היה לשחזר את הרכישות שלך. יש לנסות שוב."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आपकी खरीदारी पुनर्स्थापित नहीं की जा सकी। कृपया फिर से कोशिश करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A vásárlásokat nem sikerült visszaállítani. Próbálja újra."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nie udało się przywrócić Twoich zakupów. Spróbuj ponownie."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не удалось восстановить покупки. Повторите попытку."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не вдалося відновити покупки. Спробуйте ще раз."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "无法恢复你的购买项目。请重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無法回復你的購買項目。請再試一次。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無法回復你的購買項目。請再試一次。"
           }
         }
       }
@@ -28935,10 +31623,106 @@
       "comment" : "Purchase button for a user still eligible for the introductory free trial. %@ is the trial length, from App Store Connect — never hardcoded.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ابدأ تجربة مجانية لمدة %@"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ফ্রি ট্রায়াল শুরু করুন (%@)"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vyzkoušet zdarma na %@"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ gratis testen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Start %@ Free Trial"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Comenzar prueba gratuita de %@"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "شروع دورهٔ آزمایشی رایگان به مدت %@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Commencer l'essai gratuit de %@"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "התחלת ניסיון בחינם של %@"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मुफ़्त ट्रायल शुरू करें (%@)"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ ingyenes próbaidőszak indítása"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wypróbuj za darmo przez %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Начать бесплатный период: %@"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Почати безкоштовний період: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "开始 %@ 免费试用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "開始 %@ 免費試用"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "開始 %@ 免費試用"
           }
         }
       }
@@ -28946,10 +31730,106 @@
     "paywall.subscribe" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "اشترك"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "সাবস্ক্রাইব করুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Předplatit"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abonnieren"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Subscribe"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Suscribirse"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "مشترک شوید"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "S'abonner"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הרשמה למינוי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "सब्सक्राइब करें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Előfizetés"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Subskrybuj"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Оформить подписку"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Оформити передплату"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "订阅"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "訂閱"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "訂閱"
           }
         }
       }
@@ -28957,10 +31837,106 @@
     "paywall.terms" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "شروط الاستخدام"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ব্যবহারের শর্তাবলী"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Podmínky používání"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nutzungsbedingungen"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Terms of Use"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Términos de uso"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "شرایط استفاده"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Conditions d'utilisation"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "תנאי שימוש"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "उपयोग की शर्तें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Használati feltételek"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Warunki korzystania"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Условия использования"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Умови використання"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "使用条款"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "使用條款"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "使用條款"
           }
         }
       }
@@ -28968,9 +31944,105 @@
     "paywall.title" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
+            "value" : "ML Browser"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
             "value" : "ML Browser"
           }
         }
@@ -28980,10 +32052,106 @@
       "comment" : "Paywall title for a user who has actually used the app — a spent free window, or the Settings sheet.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "هل يعجبك ML Browser؟"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser ভালো লাগছে?"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Líbí se vám ML Browser?"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Gefällt Ihnen ML Browser?"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Enjoying ML Browser?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "¿Te gusta ML Browser?"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "از ML Browser لذت می‌برید؟"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser vous plaît ?"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "נהנים מ-ML Browser?"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ML Browser पसंद आ रहा है?"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tetszik az ML Browser?"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Podoba Ci się ML Browser?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Нравится ML Browser?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Подобається ML Browser?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "喜欢 ML Browser 吗？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "喜歡 ML Browser 嗎？"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "喜歡 ML Browser 嗎？"
           }
         }
       }
@@ -28992,10 +32160,106 @@
       "comment" : "Under the purchase button when a free trial applies. Deliberately anchored to the purchase completing rather than to today: the trial starts when the transaction does, which Ask-to-Buy can delay by days, and 'in 14 days' would also contradict the renewal disclosure below it. %@ is the trial length.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لا يتم خصم أي مبلغ خلال تجربتك المجانية. وتبدأ الفوترة بعد %@ من إتمام عملية الشراء، ما لم تقم بالإلغاء."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার ফ্রি ট্রায়াল চলাকালীন কোনো টাকা কাটা হয় না। আপনি বাতিল না করলে, কেনাকাটা সম্পূর্ণ হওয়ার %@ পরে বিলিং শুরু হয়।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Během bezplatné zkušební verze se nic neúčtuje. Placení začne %@ po dokončení nákupu, pokud předplatné nezrušíte."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Während des Gratiszeitraums wird nichts berechnet. Die Abrechnung beginnt %@ nach Abschluss Ihres Kaufs, sofern Sie nicht kündigen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nothing is charged during your free trial. Billing starts %@ after your purchase completes, unless you cancel."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No se cobra nada durante la prueba gratuita. El cobro empieza %@ después de que se complete tu compra, a menos que canceles."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "در طول دورهٔ آزمایشی رایگان هیچ مبلغی کسر نمی‌شود. صورت‌حساب %@ پس از تکمیل خرید آغاز می‌شود، مگر آنکه لغو کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aucun montant n'est débité pendant votre essai gratuit. La facturation commence %@ après la finalisation de votre achat, sauf si vous annulez."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "לא ייגבה תשלום במהלך תקופת הניסיון בחינם. החיוב יתחיל %@ לאחר השלמת הרכישה, אלא אם כן המינוי יבוטל."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आपके मुफ़्त ट्रायल के दौरान कोई शुल्क नहीं लिया जाता। खरीदारी पूरी होने के %@ बाद बिलिंग शुरू होती है, बशर्ते आप रद्द न करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az ingyenes próbaidőszak alatt nem történik terhelés. A számlázás a vásárlás befejezése után %@ múlva kezdődik, hacsak nem mondja le."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "W trakcie bezpłatnego okresu próbnego nie są pobierane żadne opłaty. Naliczanie opłat rozpocznie się %@ po sfinalizowaniu zakupu, o ile nie anulujesz subskrypcji."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Во время бесплатного пробного периода средства не списываются. Оплата начнётся через %@ после завершения покупки, если вы не отмените подписку."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Під час безкоштовного пробного періоду кошти не списуються. Оплата почнеться через %@ після завершення покупки, якщо ви не скасуєте передплату."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免费试用期间不收取任何费用。除非你取消，否则将在购买完成 %@ 后开始收费。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免費試用期間不會收取任何費用。除非你取消，否則將於購買完成 %@ 後開始計費。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免費試用期間不會收取任何費用。除非你取消，否則購買完成 %@ 後開始收費。"
           }
         }
       }
@@ -29003,10 +32267,106 @@
     "paywall.unavailable" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "الاشتراكات غير متوفرة في الوقت الحالي. يُرجى المحاولة لاحقًا."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই মুহূর্তে সাবস্ক্রিপশন পাওয়া যাচ্ছে না। অনুগ্রহ করে পরে আবার চেষ্টা করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Předplatné teď není k dispozici. Zkuste to prosím později."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abonnements sind derzeit nicht verfügbar. Bitte versuchen Sie es später erneut."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Subscriptions are not available right now. Please try again later."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Las suscripciones no están disponibles en este momento. Inténtalo de nuevo más tarde."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "اشتراک‌ها در حال حاضر در دسترس نیستند. لطفاً بعداً دوباره تلاش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Les abonnements ne sont pas disponibles pour le moment. Veuillez réessayer plus tard."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "המינויים אינם זמינים כרגע. יש לנסות שוב מאוחר יותר."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "सब्सक्रिप्शन अभी उपलब्ध नहीं हैं। कृपया बाद में फिर से कोशिश करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az előfizetések jelenleg nem érhetők el. Próbálja újra később."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Subskrypcje są teraz niedostępne. Spróbuj ponownie później."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Подписки сейчас недоступны. Повторите попытку позже."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Передплати зараз недоступні. Спробуйте ще раз пізніше."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "订阅目前不可用。请稍后再试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "目前無法使用訂閱項目。請稍後再試。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "訂閱目前無法使用。請稍後再試。"
           }
         }
       }
@@ -30713,9 +34073,105 @@
       "comment" : "Placeholder for the history size field, showing the accepted range.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
+            "value" : "0-100"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "0-100"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
             "value" : "0-100"
           }
         }
@@ -32884,10 +36340,106 @@
     "settings.subscription.freeAccessFootnote" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "مجاني حتى %@ — بدون اشتراك وبدون طريقة دفع. ويمنحك الاشتراك تجربة مجانية إضافية لمدة أسبوعين قبل أول عملية خصم."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ পর্যন্ত ফ্রি — কোনো সাবস্ক্রিপশন নেই, কোনো পেমেন্ট পদ্ধতি নেই। সাবস্ক্রাইব করলে প্রথম চার্জের আগে অতিরিক্ত 2 সপ্তাহের ফ্রি ট্রায়াল শুরু হয়।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zdarma do %@ — bez předplatného, bez platební metody. Objednáním předplatného navíc získáte dvoutýdenní bezplatnou zkušební verzi, teprve pak se strhne první platba."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Kostenlos bis %@ – kein Abo, keine Zahlungsmethode. Mit einem Abo beginnt vor der ersten Abrechnung zusätzlich ein 2-wöchiger Gratiszeitraum."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Free until %@ — no subscription, no payment method. Subscribing starts an extra 2-week free trial before the first charge."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Gratis hasta el %@ — sin suscripción ni método de pago. Al suscribirte, comienza una prueba gratuita adicional de 2 semanas antes del primer cargo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تا %@ رایگان — بدون اشتراک و بدون روش پرداخت. با مشترک شدن، پیش از نخستین پرداخت، دو هفته دورهٔ آزمایشی رایگان اضافی آغاز می‌شود."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Gratuit jusqu'au %@ — sans abonnement ni moyen de paiement. En vous abonnant, vous démarrez un essai gratuit supplémentaire de 2 semaines avant le premier débit."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "בחינם עד %@ — ללא מינוי וללא אמצעי תשלום. ההרשמה למינוי מתחילה תקופת ניסיון נוספת בחינם של שבועיים לפני החיוב הראשון."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ तक मुफ़्त — कोई सब्सक्रिप्शन नहीं, कोई भुगतान विधि नहीं। सब्सक्राइब करने पर पहले शुल्क से पहले 2 हफ़्ते का अतिरिक्त मुफ़्त ट्रायल शुरू होता है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ingyenes eddig: %@ – nincs előfizetés, nincs fizetési mód. Az előfizetéssel további 2 hetes ingyenes próbaidőszak indul az első terhelés előtt."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bezpłatnie do %@ — bez subskrypcji, bez metody płatności. Wykupienie subskrypcji uruchamia dodatkowy dwutygodniowy bezpłatny okres próbny przed pierwszą opłatą."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Бесплатно до %@ — без подписки и способа оплаты. При оформлении подписки начнётся дополнительный 2-недельный бесплатный пробный период до первого списания."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Безкоштовно до %@ — без передплати та способу оплати. Після оформлення передплати почнеться додатковий 2-тижневий безкоштовний пробний період до першого списання."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "在 %@ 之前免费使用，无需订阅，也无需付款方式。订阅后会先获得额外 2 周免费试用，之后才首次扣款。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "在 %@ 之前免費 — 不需訂閱，也不需付款方式。訂閱後會再獲得額外兩週的免費試用，之後才會首次收費。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "在 %@ 之前免費使用，無需訂閱，也無需付款方式。訂閱後會先獲得額外 2 星期免費試用，之後才首次扣款。"
           }
         }
       }
@@ -32895,10 +36447,106 @@
     "settings.subscription.trialFootnote" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تستمر تجربتك المجانية حتى %@، حيث يتم عندها أول خصم."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার ফ্রি ট্রায়াল %@ পর্যন্ত চলে, তখন প্রথম চার্জ নেওয়া হয়।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bezplatná zkušební verze běží do %@, kdy bude stržena první platba."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ihr Gratiszeitraum läuft bis %@; dann erfolgt die erste Abrechnung."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Your free trial runs until %@, when the first charge is made."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tu prueba gratuita dura hasta el %@, fecha en la que se realiza el primer cargo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "دورهٔ آزمایشی رایگان شما تا %@ ادامه دارد و در همان زمان نخستین پرداخت انجام می‌شود."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Votre essai gratuit court jusqu'au %@, date à laquelle le premier débit est effectué."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "תקופת הניסיון בחינם שלך נמשכת עד %@, ואז מתבצע החיוב הראשון."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आपका मुफ़्त ट्रायल %@ तक चलता है, तब पहला शुल्क लिया जाता है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az ingyenes próbaidőszak eddig tart: %@ – ekkor történik az első terhelés."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Twój bezpłatny okres próbny trwa do %@, kiedy zostanie pobrana pierwsza opłata."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Бесплатный пробный период действует до %@ — тогда будет сделано первое списание."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваш безкоштовний пробний період триває до %@ — тоді буде здійснено перше списання."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的免费试用持续到 %@，届时进行首次扣款。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的免費試用將持續到 %@，屆時會進行首次收費。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你的免費試用至 %@ 結束，屆時進行首次扣款。"
           }
         }
       }
@@ -33553,10 +37201,106 @@
     "subscription.notSubscribed" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "غير مشترك"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "সাবস্ক্রাইব করা নেই"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bez předplatného"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nicht abonniert"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Not subscribed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sin suscripción"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "بدون اشتراک"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Non abonné"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "אין מינוי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "सब्सक्राइब नहीं किया गया"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nincs előfizetés"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Brak subskrypcji"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Подписки нет"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Передплату не оформлено"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "未订阅"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "尚未訂閱"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "未訂閱"
           }
         }
       }
@@ -33565,6 +37309,24 @@
       "comment" : "Billing term for a per-day subscription (price suffix, e.g. \"$0.99 / day\").",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يوم"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "দিন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "den"
+          }
+        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
@@ -33576,6 +37338,78 @@
             "state" : "translated",
             "value" : "day"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "día"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "روز"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "jour"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "יום"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "दिन"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "nap"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "dzień"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "день"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "день"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "日"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "日"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "日"
+          }
         }
       }
     },
@@ -33583,6 +37417,24 @@
       "comment" : "Billing term for a per-month subscription (price suffix, e.g. \"$3.99 / month\").",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "شهر"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "মাস"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "měsíc"
+          }
+        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
@@ -33594,6 +37446,78 @@
             "state" : "translated",
             "value" : "month"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "mes"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ماه"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "mois"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "חודש"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "माह"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "hónap"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "miesiąc"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "месяц"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "місяць"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "月"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "月"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "月"
+          }
         }
       }
     },
@@ -33601,6 +37525,24 @@
       "comment" : "Billing term for a per-week subscription (price suffix, e.g. \"$1.99 / week\").",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "أسبوع"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "সপ্তাহ"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "týden"
+          }
+        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
@@ -33612,6 +37554,78 @@
             "state" : "translated",
             "value" : "week"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "semana"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "هفته"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "semaine"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "שבוע"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "सप्ताह"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "hét"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "tydzień"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "неделя"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "тиждень"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "周"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "週"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "週"
+          }
         }
       }
     },
@@ -33619,6 +37633,24 @@
       "comment" : "Billing term for a per-year subscription (price suffix, e.g. \"$39.99 / year\").",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "سنة"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "বছর"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "rok"
+          }
+        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
@@ -33630,16 +37662,184 @@
             "state" : "translated",
             "value" : "year"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "año"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "سال"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "an"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "שנה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "वर्ष"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "év"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "rok"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "год"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "рік"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "年"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "年"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "年"
+          }
         }
       }
     },
     "subscription.plan" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "الخطة"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "প্ল্যান"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tarif"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tarif"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Plan"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Plan"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "طرح"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Formule"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "תוכנית"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "प्लान"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Csomag"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Plan"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Тариф"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Тариф"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "方案"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "方案"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "方案"
           }
         }
       }
@@ -33648,6 +37848,24 @@
       "comment" : "Subscription plan price with billing term, e.g. \"$3.99 / month\". %1$@ = price, %2$@ = term. Used by BOTH the Settings plan row and the paywall price — the paywall is an App Review 3.1.2 surface, so changing this changes the sign-up screen.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ / %2$@"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ / %2$@"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ / %2$@"
+          }
+        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
@@ -33659,6 +37877,78 @@
             "state" : "translated",
             "value" : "%1$@ / %2$@"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ / %2$@"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ / %2$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ / %2$@"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ / %2$@"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ / %2$@"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ / %2$@"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ / %2$@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ / %2$@"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ / %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@/%2$@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@/%2$@"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@/%2$@"
+          }
         }
       }
     },
@@ -33666,6 +37956,24 @@
       "comment" : "Spoken (VoiceOver) form of the plan price with its billing term — \"$3.99 per month\". Exists because the displayed \"/\" is announced as \"slash\". %1$@ = price, %2$@ = term.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ لكل %2$@"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ প্রতি %2$@"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ za %2$@"
+          }
+        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
@@ -33677,6 +37985,78 @@
             "state" : "translated",
             "value" : "%1$@ per %2$@"
           }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ por %2$@"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ در هر %2$@"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ par %2$@"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ ל%2$@"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ प्रति %2$@"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ per %2$@"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ za %2$@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ — %2$@"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%1$@ на %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "每%2$@ %1$@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "每%2$@ %1$@"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "每%2$@ %1$@"
+          }
         }
       }
     },
@@ -33684,10 +38064,106 @@
       "comment" : "Body when a refund was already requested for this purchase.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لقد سبق أن طلبت استرداد الأموال لعملية الشراء هذه، ولا تزال Apple تراجع الطلب."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনি এই কেনাকাটার জন্য ইতিমধ্যেই রিফান্ডের অনুরোধ করেছেন। Apple এখনও সেটি পর্যালোচনা করছে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "O vrácení peněz za tento nákup jste už požádali. Apple žádost stále posuzuje."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Für diesen Kauf haben Sie bereits eine Erstattung angefordert. Apple prüft die Anfrage noch."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "You have already requested a refund for this purchase. Apple is still reviewing it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ya has solicitado un reembolso para esta compra. Apple aún está revisando la solicitud."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "شما پیش‌تر برای این خرید درخواست بازپرداخت داده‌اید. Apple هنوز در حال بررسی آن است."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vous avez déjà demandé un remboursement pour cet achat. Apple est encore en train d'examiner votre demande."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "כבר הוגשה בקשה להחזר כספי עבור הרכישה הזו. Apple עדיין בודקת אותה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आप इस खरीदारी के लिए पहले ही रिफ़ंड का अनुरोध कर चुके हैं। Apple अब भी इसकी समीक्षा कर रहा है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ehhez a vásárláshoz már igényelt visszatérítést. Az Apple még vizsgálja a kérelmet."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wniosek o zwrot pieniędzy za ten zakup został już złożony. Apple wciąż go rozpatruje."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Вы уже запросили возврат средств за эту покупку. Apple ещё рассматривает запрос."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ви вже подали запит на відшкодування за цю покупку. Apple ще розглядає його."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你已为此次购买申请过退款，Apple 仍在审核中。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你已針對此購買項目申請退款，Apple 仍在審核中。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "你已就此購買申請退款，Apple 仍在審核中。"
           }
         }
       }
@@ -33696,10 +38172,106 @@
       "comment" : "Title when a refund was already requested for this purchase.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "سبق طلبه"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ইতিমধ্যেই অনুরোধ করা হয়েছে"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Žádost už byla podána"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bereits angefordert"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Already Requested"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ya solicitado"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "قبلاً درخواست شده"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Demande déjà envoyée"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הבקשה כבר הוגשה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "पहले ही अनुरोध किया जा चुका है"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Már igényelve"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wniosek już złożony"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Запрос уже отправлен"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Запит уже надіслано"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "已申请"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "已申請"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "已提出申請"
           }
         }
       }
@@ -33708,10 +38280,106 @@
       "comment" : "Body when the refund request could not be sent.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تعذّر إرسال طلب استرداد الأموال. ويمكنك أيضًا طلب استرداد الأموال عبر reportaproblem.apple.com."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "রিফান্ডের অনুরোধ পাঠানো যায়নি। আপনি reportaproblem.apple.com সাইটেও রিফান্ডের অনুরোধ করতে পারেন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Žádost o vrácení peněz se nepodařilo odeslat. O vrácení peněz můžete požádat také na reportaproblem.apple.com."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Die Erstattungsanfrage konnte nicht gesendet werden. Sie können eine Erstattung auch auf reportaproblem.apple.com anfordern."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The refund request could not be sent. You can also request a refund at reportaproblem.apple.com."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No se ha podido enviar la solicitud de reembolso. También puedes solicitar un reembolso en reportaproblem.apple.com."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "درخواست بازپرداخت ارسال نشد. می‌توانید از طریق reportaproblem.apple.com نیز درخواست بازپرداخت کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "La demande de remboursement n'a pas pu être envoyée. Vous pouvez également demander un remboursement sur reportaproblem.apple.com."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "לא ניתן היה לשלוח את הבקשה להחזר כספי. אפשר גם לבקש החזר כספי בכתובת reportaproblem.apple.com."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "रिफ़ंड का अनुरोध नहीं भेजा जा सका। आप reportaproblem.apple.com पर भी रिफ़ंड का अनुरोध कर सकते हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A visszatérítési kérelmet nem sikerült elküldeni. Visszatérítést a reportaproblem.apple.com oldalon is igényelhet."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nie udało się wysłać wniosku o zwrot pieniędzy. O zwrot pieniędzy możesz poprosić także na stronie reportaproblem.apple.com."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не удалось отправить запрос на возврат средств. Вы также можете запросить возврат на reportaproblem.apple.com."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не вдалося надіслати запит на відшкодування. Ви також можете подати запит на відшкодування на reportaproblem.apple.com."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "退款申请未能发送。你也可以前往 reportaproblem.apple.com 申请退款。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無法送出退款申請。你也可以前往 reportaproblem.apple.com 申請退款。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "退款申請未能傳送。你也可以前往 reportaproblem.apple.com 申請退款。"
           }
         }
       }
@@ -33720,10 +38388,106 @@
       "comment" : "Body confirming the refund request reached Apple. Must not promise an outcome — Apple decides.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تلقّى App Store طلبك. وتقرر Apple النتيجة وستُعلمك بها. ويظل اشتراكك نشطًا إلى أن تتم الموافقة على استرداد الأموال."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store আপনার অনুরোধ পেয়েছে। ফলাফল Apple ঠিক করে এবং আপনাকে জানাবে। রিফান্ড অনুমোদিত না হওয়া পর্যন্ত আপনার সাবস্ক্রিপশন সক্রিয় থাকে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store vaši žádost přijal. O výsledku rozhoduje Apple a dá vám vědět. Vaše předplatné zůstává aktivní, dokud nebude vrácení peněz schváleno."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ihre Anfrage liegt dem App Store vor. Apple entscheidet über das Ergebnis und informiert Sie. Ihr Abonnement bleibt aktiv, bis eine Erstattung genehmigt wird."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "The App Store has your request. Apple decides the outcome and will let you know. Your subscription stays active until a refund is approved."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "El App Store ha recibido tu solicitud. Apple decide el resultado y te lo comunicará. Tu suscripción permanece activa hasta que se apruebe un reembolso."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store درخواست شما را دریافت کرد. نتیجه را Apple تعیین می‌کند و به شما اطلاع می‌دهد. اشتراک شما تا زمانی که بازپرداخت تأیید شود فعال می‌ماند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "L'App Store a bien reçu votre demande. Apple décide de l'issue et vous tiendra informé. Votre abonnement reste actif tant qu'un remboursement n'est pas approuvé."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הבקשה שלך התקבלה ב-App Store. Apple מחליטה לגבי התוצאה ותעדכן אותך. המינוי שלך יישאר פעיל עד לאישור ההחזר הכספי."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store को आपका अनुरोध मिल गया है। नतीजा Apple तय करता है और आपको सूचित करेगा। रिफ़ंड मंज़ूर होने तक आपका सब्सक्रिप्शन सक्रिय रहता है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Az App Store megkapta a kérelmét. A döntést az Apple hozza meg, és értesíti Önt. Az előfizetése aktív marad, amíg a visszatérítést jóvá nem hagyják."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store otrzymał Twój wniosek. O wyniku decyduje Apple i poinformuje Cię o nim. Twoja subskrypcja pozostaje aktywna do czasu zatwierdzenia zwrotu pieniędzy."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваш запрос передан в App Store. Решение принимает Apple, и вам сообщат о нём. Подписка остаётся активной, пока возврат не будет одобрен."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ваш запит отримано App Store. Рішення ухвалює Apple, і вам повідомлять про нього. Передплата залишається активною, доки відшкодування не буде схвалено."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store 已收到你的申请。结果由 Apple 决定，并会通知你。在退款获批准之前，你的订阅仍然有效。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store 已收到你的申請。結果由 Apple 決定，並會通知你。在退款獲准前，你的訂閱項目仍會保持有效。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "App Store 已收到你的申請。結果由 Apple 決定，並會通知你。在退款獲批准之前，你的訂閱仍然有效。"
           }
         }
       }
@@ -33732,10 +38496,106 @@
       "comment" : "Title confirming the refund request reached Apple.",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تم طلب استرداد الأموال"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "রিফান্ডের অনুরোধ পাঠানো হয়েছে"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Požádáno o vrácení peněz"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Erstattung angefordert"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Refund Requested"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Reembolso solicitado"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "درخواست بازپرداخت ثبت شد"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Remboursement demandé"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "בקשת ההחזר נשלחה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "रिफ़ंड का अनुरोध भेजा गया"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Visszatérítés igényelve"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wniosek o zwrot pieniędzy złożony"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Запрос на возврат отправлен"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Запит на відшкодування надіслано"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "已申请退款"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "已提出退款申請"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "已申請退款"
           }
         }
       }
@@ -33743,10 +38603,106 @@
     "subscription.renews" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يتجدد"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "রিনিউ হবে"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Obnovení"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Verlängerung am"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Renews"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Se renueva"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تمدید"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Renouvellement"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מתחדש"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "रिन्यू होगा"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Megújul"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Odnowienie"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Продление"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Продовження"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "续订日期"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "續訂日期"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "續期日期"
           }
         }
       }
@@ -33754,10 +38710,106 @@
     "subscription.state" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "الحالة"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "স্ট্যাটাস"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Stav"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Status"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Status"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Estado"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "وضعیت"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "État"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מצב"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "स्थिति"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Állapot"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Status"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Статус"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Статус"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "状态"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "狀態"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "狀態"
           }
         }
       }
@@ -33765,10 +38817,106 @@
     "subscription.trial" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تجربة مجانية"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ফ্রি ট্রায়াল"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bezplatná zkušební verze"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Gratiszeitraum"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Free trial"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Prueba gratuita"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "دورهٔ آزمایشی رایگان"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Essai gratuit"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ניסיון בחינם"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मुफ़्त ट्रायल"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ingyenes próbaidőszak"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bezpłatny okres próbny"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Бесплатный пробный период"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Безкоштовний пробний період"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免费试用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免費試用"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免費試用"
           }
         }
       }
@@ -33776,10 +38924,106 @@
     "subscription.trialEnds" : {
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تجربة مجانية حتى"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ফ্রি ট্রায়াল এই তারিখ পর্যন্ত"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bezplatná zkušební verze do"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Gratiszeitraum bis"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Free trial until"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Prueba gratuita hasta el"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "دورهٔ آزمایشی رایگان تا"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Essai gratuit jusqu'au"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ניסיון בחינם עד"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मुफ़्त ट्रायल इस तारीख तक"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ingyenes próbaidőszak vége"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bezpłatny okres próbny do"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Пробный период до"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Пробний період до"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免费试用截止"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免費試用至"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免費試用至"
           }
         }
       }
