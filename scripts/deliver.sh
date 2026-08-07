@@ -489,6 +489,18 @@ preflight() {
             log "Validating build secrets (ProjectTool)…"
             (cd "$REPO_ROOT" && swift run --package-path Tools ProjectTool secrets validate) \
                 || die "Preflight failed: ProjectTool secrets validate (run: swift run --package-path Tools ProjectTool secrets generate)."
+            # The tester notes are validated up front, not at the `notes` step. That check lives
+            # after the archive and the upload, so an over-length file failed only once the build
+            # was already on App Store Connect — which is how builds shipped with no "What to Test"
+            # text at all (AIA-0574). Failing here costs a second.
+            if [[ -f "$WHATSNEW_FILE" ]]; then
+                whatsnew_len="$(wc -c < "$WHATSNEW_FILE" | tr -d ' ')"
+                if (( whatsnew_len > WHATSNEW_MAX )); then
+                    preflight_fail "$(basename "$WHATSNEW_FILE") is ${whatsnew_len} chars; App Store Connect caps whatsNew at ${WHATSNEW_MAX}. Prune the sections for builds that already shipped — the file is notes for THIS build, not a changelog."
+                fi
+                log "Tester notes: ${whatsnew_len}/${WHATSNEW_MAX} chars."
+            fi
+
             log "Running the pre-push sweep (lint + localization + harmonize + unit tests)…"
             # Localization runs early and costs about a second: it is pure Python over the catalog
             # and needs no Xcode, so a missing translation fails here rather than after a

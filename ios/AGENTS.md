@@ -387,6 +387,14 @@ has in fact shipped will treat a released schema as editable.
   - **Tester-facing, not dev jargon** — describe the user-visible behavior and concrete steps to exercise it, not the implementation.
   - **Scoped to this change** — what's new/changed in this PR and how to verify it; call out anything risky or easy to miss.
   - **Concise** — a short intro line plus a few bullet steps.
+  - **Notes for ONE build, not a changelog.** Adding a section is only half the job: **remove the
+    sections for features that already shipped.** Their notes went out with their builds, and a
+    tester opening TestFlight should see what to test *now*, not instructions for a build from
+    weeks ago.
+  - **Under 4000 characters** — App Store Connect's hard cap on `whatsNew`. Exceeding it does not
+    truncate, it fails the upload of the notes, so the build ships with **no** tester notes at all.
+    Only ever adding sections is how the file reached 12 480 characters and silently stopped
+    publishing (AIA-0574). Enforced by the TestFlight notes workflow and by `deliver.sh` preflight.
 
 ## 14. Code Review Guidelines (what "good" looks like)
 
