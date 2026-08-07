@@ -8,25 +8,19 @@ name: Localization
 # change that can introduce an untranslated string — including a .swift change, since a new
 # `Text("…")` literal is exactly how an untranslated string gets in.
 on:
+  # Deliberately NOT path-filtered, because this check is REQUIRED to merge into develop.
+  #
+  # A required check that is path-filtered deadlocks: GitHub waits for a status that a skipped
+  # workflow never reports, so any pull request not touching the filtered paths sits at
+  # "Expected — waiting for status" and can never merge. The alternative is a companion job that
+  # reports the same check name when paths do not match, which is machinery to save nine seconds.
+  #
+  # A run on an unrelated pull request re-verifies an unchanged catalog and is therefore a no-op,
+  # but it costs about nine seconds of Ubuntu — no Xcode, no simulator, no network beyond checkout
+  # — and buys real enforcement. That trade is why the filter is gone.
   pull_request:
     branches-ignore:
       - "copilot/**"
-    paths:
-      # Only what can actually change the answer. The check reads the catalog, so a pull request
-      # that does not touch a catalog produces byte-identical input and a byte-identical result.
-      #
-      # It deliberately does NOT trigger on **/*.swift. That looks like it would catch a new
-      # hardcoded `Text("literal")`, but it does not: the auto-extracted entry only appears once
-      # someone builds in Xcode and commits the regenerated catalog, so the introducing pull
-      # request has nothing for this check to see. Triggering on every Swift change bought noise
-      # on nearly every pull request and no coverage. Catching that case needs a source scan,
-      # which is a different tool.
-      - "**/*.xcstrings"
-      - "scripts/xcstrings_tool.py"
-      # The wrapper CI actually invokes — without this, a change to the gate itself would not
-      # re-run the gate.
-      - "scripts/localization.sh"
-      - ".github/workflows/localization.yml"
   workflow_dispatch:
 
 concurrency:
