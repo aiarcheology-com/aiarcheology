@@ -58,10 +58,16 @@ struct WelcomeView: View {
 						Text(L10n.Welcome.title)
 							.font(.title).bold()
 							.multilineTextAlignment(.center)
+							// Wrap rather than truncate. English fits on one line, but "Willkommen
+							// bei ML Browser" does not and rendered as "Willkommen bei ML Bro…" on
+							// the first screen a new user sees (AIA-0572). The body below already
+							// does this; the title and headline were missing it.
+							.fixedSize(horizontal: false, vertical: true)
 
 						Text(L10n.Welcome.headline(days))
 							.font(.headline)
 							.multilineTextAlignment(.center)
+							.fixedSize(horizontal: false, vertical: true)
 							.testability(Testability.Label.welcomeHeadline)
 
 						Text(L10n.Welcome.body)

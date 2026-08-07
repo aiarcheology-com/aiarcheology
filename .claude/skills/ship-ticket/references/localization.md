@@ -4,7 +4,9 @@ Strings live in a **String Catalog** and are code-generated into `L10n.swift`. G
 exactly right or you'll either reformat the whole catalog or break the localization test.
 
 Files:
-- Catalog: `ios/MLBrowser/iOS/Resources/Localizable.xcstrings` (JSON, `sourceLanguage: en`, ~240 keys).
+- Catalog: `ios/MLBrowser/iOS/Resources/Localizable.xcstrings` (JSON, `sourceLanguage: en`, 429 keys —
+  417 authored plus 12 auto-extracted; 17 locales; ~41 000 lines after AIA-0572). Counts drift:
+  `python3 scripts/xcstrings_tool.py report` is the source of truth.
 - Generated: `ios/MLBrowser/iOS/Generated/L10n.swift` — **never hand-edit; it's regenerated.**
 - Key guard (test): `ios/MLBrowserArchitectureTests/LocalizationCatalogTests.swift` derives the
   authored key set from the catalog at test time (AIA-0417) — there is **no** hand-maintained key
@@ -13,8 +15,17 @@ Files:
 ## The trap (learned the hard way on AIA-0366)
 `Localizable.xcstrings` uses Xcode's JSON style with a **space before the colon** (`"key" : value`)
 and special empty-object formatting. A naïve `json.dump(...)` / `sort_keys=True` re-serialization
-**reformats all ~19 000 lines** (and re-sorts keys), producing an unreadable diff. **Never round-trip
-the whole catalog.** Insert new keys as **surgical text**.
+**reformats the whole file** (and re-sorts keys), producing an unreadable diff. **Never round-trip
+the whole catalog** — and note that no serializer can do it faithfully anyway (AIA-0572 measured
+both reasons): key order matches neither ASCII (`"/ %@"` sorts before `"%.2f"`) nor Apple's
+`JSONSerialization(.sortedKeys)`, and escaping is inconsistent: two `comment` values encode their
+em dash as the six-character escape `—`, while every other em dash in the file is stored as a
+raw UTF-8 character. No single serializer setting reproduces both forms.
+
+**Use the committed tool — never hand-roll a JSON dump:** `scripts/xcstrings_tool.py`
+(`check | report | export | merge | verify`). It splices individual locale blocks by byte span, so
+every other byte is preserved by construction. For one or two new keys, surgical text insertion by
+hand is still fine.
 
 ## Recipe
 

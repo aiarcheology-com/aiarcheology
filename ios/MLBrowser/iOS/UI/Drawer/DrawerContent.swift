@@ -406,7 +406,7 @@ struct DrawerContent: View {
                 Image(systemName: "plus.circle.fill")
             }
             .tint(.blue)
-            .accessibilityLabel("Add Model")
+            .accessibilityLabel(L10n.Models.add)
             // Keep only the model toggles interactive during the tour (AIA-0333).
             .disabled(tour.isActive)
         }

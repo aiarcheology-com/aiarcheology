@@ -308,7 +308,7 @@ struct SettingsForm: View {
 			Text(L10n.Settings.historyLimit)
 				.foregroundColor(.primary)
 			Spacer()
-			TextField("0-100", value: $settings.historySize, formatter: NumberFormatter.historyLimitFormatter)
+			TextField(L10n.Settings.historyLimitPlaceholder, value: $settings.historySize, formatter: NumberFormatter.historyLimitFormatter)
 				.testability(Testability.TextField.settingsHistoryLimit)
 				.multilineTextAlignment(.trailing)
 				.keyboardType(.numberPad)

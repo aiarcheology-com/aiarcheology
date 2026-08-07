@@ -105,7 +105,7 @@ final class LocalizationCatalogTests: XCTestCase {
         let (all, manual) = try Self.parseCatalog()
 
         // Corruption tripwire: the reader must never silently collapse to an (almost) empty set —
-        // that vacuous pass was the AIA-0417 bug. The catalog holds ~240 authored keys.
+        // that vacuous pass was the AIA-0417 bug. The catalog holds ~417 authored keys.
         XCTAssertGreaterThan(
             manual.count, 100,
             "Only \(manual.count) authored key(s) parsed from the source catalog — the reader looks broken."
@@ -139,5 +139,204 @@ final class LocalizationCatalogTests: XCTestCase {
                 "Expected authored key '\(key)' missing from the source catalog."
             )
         }
+    }
+
+    // MARK: - Translation guards (AIA-0572)
+    //
+    // These two tests are the CI half of the localization contract. The richer authoring checks —
+    // CLDR plural categories per locale, entry shape, protected terms — live in
+    // `scripts/xcstrings_tool.py verify`, which is the authority when adding translations. The
+    // CLDR tables are deliberately NOT mirrored here: duplicating them in two languages invites
+    // drift. What CI must catch is the crash class and the regression class, and both are small
+    // enough to implement once, natively, with no Python dependency in the test bundle.
+
+    /// The 16 translation targets, in the same casefold order the catalog and
+    /// `scripts/xcstrings_tool.py` use — zh-Hans and zh-Hant precede zh-HK.
+    private static let targetLocales = [
+        "ar", "bn", "cs", "de", "es", "fa", "fr", "he",
+        "hi", "hu", "pl", "ru", "uk", "zh-Hans", "zh-Hant", "zh-HK"
+    ]
+
+    /// Per-locale count of authored keys carrying a localization, as of AIA-0572.
+    ///
+    /// This is a **ratchet, not a target**: coverage may rise freely and a new English string may
+    /// land untranslated, but existing translations may not silently disappear. Deliberately not a
+    /// strict-parity gate — that would force 16 translations onto every PR adding one string,
+    /// turning a deliberate machine-translation pass into a reflexive one. Raise these numbers when
+    /// coverage genuinely improves.
+    private static let coverageBaseline = [
+        "ar": 362, "bn": 362, "cs": 362, "de": 368,
+        "es": 362, "fa": 362, "fr": 362, "he": 362,
+        "hi": 362, "hu": 362, "pl": 362, "ru": 362,
+        "uk": 362, "zh-HK": 362, "zh-Hans": 362, "zh-Hant": 362
+    ]
+
+    /// `%@`, `%lld`, `%1$@`, `%.2f`, `%%`. The length modifier is captured because `%d` and `%lld`
+    /// consume different argument widths — treating them as interchangeable would let a translation
+    /// misread its argument.
+    private static let formatSpecifier = try? NSRegularExpression(
+        pattern: "%(?:([0-9]+)\\$)?[-+ #0]*[0-9.*]*((?:hh|h|ll|l|q|z|t|j|L)?)([@diouxXeEfgGcsSpaAn%])"
+    )
+
+    /// Normalised specifiers in the order `String(format:)` consumes their arguments: by positional
+    /// index when the string uses `%n$`, otherwise by appearance. Equal lists mean two strings
+    /// consume the same arguments in the same order. `%%` is a literal percent, not an argument.
+    private static func specifiers(in value: String, using regex: NSRegularExpression) -> [String] {
+        let range = NSRange(value.startIndex..., in: value)
+        var found: [(index: Int?, token: String)] = []
+        for match in regex.matches(in: value, range: range) {
+            guard let conversionRange = Range(match.range(at: 3), in: value) else { continue }
+            let conversion = String(value[conversionRange])
+            if conversion == "%" { continue }
+            let length = Range(match.range(at: 2), in: value).map { String(value[$0]) } ?? ""
+            let position = Range(match.range(at: 1), in: value).flatMap { Int(value[$0]) }
+            found.append((position, "%" + length + conversion))
+        }
+        if found.contains(where: { $0.index != nil }) {
+            found.sort { ($0.index ?? 0) < ($1.index ?? 0) }
+            // Keep the positional index in the token. Without it "%1$@: %2$@" and "%2$@: %3$@"
+            // both reduce to ["%@", "%@"] and compare equal, yet the second reads a third argument
+            // that was never passed. Sorting by index still allows a translation to reorder the
+            // arguments on screen, which is what positional specifiers exist for.
+            return found.map { "\($0.index ?? 0):\($0.token)" }
+        }
+        return found.map(\.token)
+    }
+
+    /// Reduces a localization block to `[variant: value]` so simple strings, plural variations and
+    /// device variations can be compared uniformly. A simple string uses the `""` variant.
+    private static func flatten(_ localization: [String: Any]) -> [String: String] {
+        if let unit = localization["stringUnit"] as? [String: Any],
+           let value = unit["value"] as? String {
+            return ["": value]
+        }
+        guard let variations = localization["variations"] as? [String: Any] else { return [:] }
+        for kind in ["plural", "device"] {
+            guard let group = variations[kind] as? [String: Any] else { continue }
+            var out: [String: String] = [:]
+            for (variant, raw) in group {
+                if let block = raw as? [String: Any],
+                   let unit = block["stringUnit"] as? [String: Any],
+                   let value = unit["value"] as? String {
+                    out[variant] = value
+                }
+            }
+            return out
+        }
+        return [:]
+    }
+
+    /// Every authored key's `localizations` object, keyed by locale.
+    private static func parseLocalizations() throws -> [String: [String: [String: Any]]] {
+        let data = try Data(contentsOf: sourceCatalogURL())
+        guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let strings = root["strings"] as? [String: Any] else {
+            throw CatalogError.malformed(sourceCatalogURL())
+        }
+        var out: [String: [String: [String: Any]]] = [:]
+        for (key, value) in strings {
+            guard let entry = value as? [String: Any],
+                  (entry["extractionState"] as? String) == "manual",
+                  let localizations = entry["localizations"] as? [String: Any] else { continue }
+            var blocks: [String: [String: Any]] = [:]
+            for (locale, raw) in localizations {
+                if let block = raw as? [String: Any] { blocks[locale] = block }
+            }
+            if blocks["en"] != nil { out[key] = blocks }
+        }
+        return out
+    }
+
+    /// A translated value must consume exactly the arguments its English sibling does.
+    ///
+    /// This is a crash guard, not a style rule: `String(format:)` reads its arguments positionally,
+    /// so a translation that adds a specifier reads memory that was never passed, and one that
+    /// changes `%lld` to `%d` reads the wrong width.
+    func test_sourceCatalog_translationsPreserveFormatSpecifiers() throws {
+        let catalog = try Self.parseLocalizations()
+        XCTAssertGreaterThan(catalog.count, 100, "Only \(catalog.count) authored key(s) parsed — the reader looks broken.")
+        let regex = try XCTUnwrap(Self.formatSpecifier, "The format-specifier pattern failed to compile.")
+
+        var problems: [String] = []
+        for (key, blocks) in catalog {
+            guard let englishBlock = blocks["en"] else { continue }
+            let english = Self.flatten(englishBlock)
+            // `values.first` on a Dictionary is not deterministic across runs, which would make a
+            // borderline failure appear and vanish between CI runs.
+            guard let englishGeneral = english["other"] ?? english[""]
+                    ?? english.min(by: { $0.key < $1.key })?.value else { continue }
+            let generalSpecifiers = Self.specifiers(in: englishGeneral, using: regex)
+
+            for locale in Self.targetLocales {
+                guard let block = blocks[locale] else { continue }
+                let translated = Self.flatten(block)
+                // A block that is present but yields no variants is malformed. Skipping it here
+                // would let a corrupted translation pass CI while still crashing at runtime.
+                if translated.isEmpty {
+                    problems.append("\(key) [\(locale)]: localization block is present but unreadable")
+                    continue
+                }
+                for (variant, value) in translated {
+                    let actual = Self.specifiers(in: value, using: regex)
+                    if let englishSibling = english[variant] {
+                        let expected = Self.specifiers(in: englishSibling, using: regex)
+                        if actual != expected {
+                            problems.append("\(key) [\(locale)/\(variant)]: \(actual) != English \(expected)")
+                        }
+                    } else {
+                        // A plural category English does not have (e.g. Czech `few`). It may use
+                        // fewer arguments than the general form, never more.
+                        var remaining = generalSpecifiers
+                        for token in actual {
+                            guard let hit = remaining.firstIndex(of: token) else {
+                                problems.append(
+                                    "\(key) [\(locale)/\(variant)]: \(actual) exceeds English `other` \(generalSpecifiers)")
+                                break
+                            }
+                            remaining.remove(at: hit)
+                        }
+                    }
+                }
+            }
+        }
+
+        XCTAssertTrue(
+            problems.isEmpty,
+            """
+            \(problems.count) translation(s) do not consume the same arguments as their English source.
+            \(problems.sorted().prefix(20).joined(separator: "\n"))
+            Fix the values, then re-check with: python3 scripts/xcstrings_tool.py verify
+            """
+        )
+    }
+
+    /// Existing translations must not disappear. Coverage may rise freely.
+    func test_sourceCatalog_translationCoverageDoesNotRegress() throws {
+        let catalog = try Self.parseLocalizations()
+
+        var regressions: [String] = []
+        for locale in Self.targetLocales {
+            let present = catalog.values.filter { $0[locale] != nil }.count
+            guard let floor = Self.coverageBaseline[locale] else {
+                XCTFail("No coverage baseline recorded for '\(locale)'.")
+                continue
+            }
+            if present < floor {
+                regressions.append("\(locale): \(present) localized key(s), baseline \(floor)")
+            }
+        }
+
+        XCTAssertTrue(
+            regressions.isEmpty,
+            """
+            Translation coverage regressed:
+            \(regressions.sorted().joined(separator: "\n"))
+            These counts are authored keys carrying a localization block for the locale — not the
+            percentage `xcstrings_tool.py report` prints, which additionally discounts values still
+            identical to English.
+            Restore the missing translations, or lower the baseline deliberately if the keys were removed.
+            Inspect with: python3 scripts/xcstrings_tool.py report
+            """
+        )
     }
 }

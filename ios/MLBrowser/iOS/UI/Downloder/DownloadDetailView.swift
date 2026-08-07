@@ -65,7 +65,7 @@ struct DownloadDetailView: View {
 			urlText = value
 			validateUrl(value)
 		}
-		.alert("Help", isPresented: $showAlert) {
+		.alert(L10n.Download.Help.title, isPresented: $showAlert) {
 			Button(L10n.Common.ok, role: .cancel) { }
 		} message: {
 			Text(Self.helpMessage)
@@ -185,7 +185,7 @@ private extension DownloadDetailView {
 	}
 
 	var urlTextField: some View {
-		TextField("https://.../mymodel.mlmodel", text: $urlText, axis: .vertical)
+		TextField(L10n.Download.urlPlaceholder, text: $urlText, axis: .vertical)
 			.testability(Testability.TextField.downloadDetailUrl)
 			.lineLimit(5)
 			.autocapitalization(.none)

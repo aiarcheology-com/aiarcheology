@@ -290,7 +290,7 @@ struct MLBrowser: App {
 				if appState.isReady {
 					authGatedContent
 				} else {
-					ProgressView("Loading...")
+					ProgressView(L10n.Common.loading)
 				}
 			}
 			// Single injection of the composition root's real-vs-mock auth flag for the whole

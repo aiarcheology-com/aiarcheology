@@ -234,7 +234,24 @@ Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule
 - Any user-visible string must be localized in `ios/MLBrowser/iOS/Resources/Localizable.xcstrings`.
 - When adding strings:
   - Prefer string keys managed by the project's localization tooling (see generated `L10n.swift` usage patterns).
+  - Keys must be dot-namespaced (`history.title`); `LocalizationCatalogTests` enforces
+    `^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z0-9_]+)+$`. A bare literal in SwiftUI (`Text("Add Model")`) is
+    auto-extracted by `SWIFT_EMIT_LOC_STRINGS`, never reaches `L10n.swift`, and can never be
+    translated — route it through `L10n` instead.
   - Handle pluralization using `.stringsdict`-style plural rules via xcstrings where applicable.
+    Author the CLDR categories the *target* locale requires, not English's: Czech/Polish/Russian/
+    Ukrainian need `few` and `many`, Arabic needs `two`/`few`/`many`. A missing category silently
+    falls back to `other` and renders the wrong grammatical case.
+- Never edit the catalog with a whole-file JSON re-serialization; use `scripts/xcstrings_tool.py`
+  (see `.claude/skills/ship-ticket/references/localization.md` for why a round-trip cannot be
+  byte-faithful).
+- Translated values must carry exactly the format specifiers of their English sibling — same count,
+  same kind, same positional indices, and `%lld` is not `%d`. A mismatch makes `String(format:)`
+  read the wrong argument.
+  - **In CI:** the Harmonize workflow runs `LocalizationCatalogTests`, whose Swift tests enforce
+    format-specifier agreement and a per-locale coverage ratchet. That is the subset that gates a PR.
+  - **Before pushing:** run `python3 scripts/xcstrings_tool.py verify`, which additionally checks
+    entry shape, CLDR plural categories per locale, and protected terms. It is not run by CI.
 - Internationalization checks:
   - Right-to-left layouts (mirroring, alignment, icons with directionality).
   - Dynamic Type (large fonts) and text truncation.
