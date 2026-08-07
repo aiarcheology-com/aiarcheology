@@ -933,10 +933,13 @@ def main() -> int:
 
     e = sub.add_parser("export", help="write per-locale translation worklists")
     e.add_argument("--out", required=True, help="output directory")
+    # Built from RESTRICTED_PREFIXES rather than restated, so the help cannot drift from the
+    # constant it documents — it already had, omitting `settings.subscription.`.
     e.add_argument("--include-restricted", action="store_true",
-                   help="also export legal/billing/irreversible-action keys (paywall.*, "
-                        "subscription.*, auth.account.delete.*). They need Apple's own store "
-                        "terminology and exact legal meaning — do not sweep them up casually.")
+                   help="also export legal/billing/irreversible-action keys ("
+                        + ", ".join(f"{p}*" for p in RESTRICTED_PREFIXES)
+                        + "). They need Apple's own store terminology and exact legal meaning — "
+                          "do not sweep them up casually.")
 
     m = sub.add_parser("merge", help="merge <locale>.json translation files into the catalog")
     m.add_argument("--source", required=True, help="directory of <locale>.json files")
