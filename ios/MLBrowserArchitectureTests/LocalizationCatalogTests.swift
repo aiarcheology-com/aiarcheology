@@ -157,18 +157,21 @@ final class LocalizationCatalogTests: XCTestCase {
         "hi", "hu", "pl", "ru", "uk", "zh-Hans", "zh-Hant", "zh-HK"
     ]
 
-    /// Per-locale count of authored keys carrying a localization, as of AIA-0572.
+    /// Per-locale count of authored keys carrying a localization. Every locale is complete as of
+    /// AIA-0575 — all 417 authored keys, no fallbacks to English anywhere.
     ///
     /// This is a **ratchet, not a target**: coverage may rise freely and a new English string may
     /// land untranslated, but existing translations may not silently disappear. Deliberately not a
     /// strict-parity gate — that would force 16 translations onto every PR adding one string,
-    /// turning a deliberate machine-translation pass into a reflexive one. Raise these numbers when
-    /// coverage genuinely improves.
+    /// turning a deliberate translation pass into a reflexive one. A new untranslated key does not
+    /// reduce these counts, so it still lands; only losing an existing translation trips this.
+    ///
+    /// Raise these numbers when coverage genuinely improves, which is what locks the gain in.
     private static let coverageBaseline = [
-        "ar": 362, "bn": 362, "cs": 362, "de": 368,
-        "es": 362, "fa": 362, "fr": 362, "he": 362,
-        "hi": 362, "hu": 362, "pl": 362, "ru": 362,
-        "uk": 362, "zh-HK": 362, "zh-Hans": 362, "zh-Hant": 362
+        "ar": 417, "bn": 417, "cs": 417, "de": 417,
+        "es": 417, "fa": 417, "fr": 417, "he": 417,
+        "hi": 417, "hu": 417, "pl": 417, "ru": 417,
+        "uk": 417, "zh-HK": 417, "zh-Hans": 417, "zh-Hant": 417
     ]
 
     /// `%@`, `%lld`, `%1$@`, `%.2f`, `%%`. The length modifier is captured because `%d` and `%lld`
