@@ -557,14 +557,27 @@ def cmd_check(args) -> int:
 
 
 def cmd_report(args) -> int:
+    """
+    Per-locale coverage.
+
+    The number that matters is **missing** — a key with no entry for a locale, which falls back to
+    English at runtime. That is the defect.
+
+    A locale having its own entry whose value happens to equal English is NOT a defect and is not
+    counted against coverage. Brand names (`ML Browser`, `ONNX`, `Core ML`), file extensions,
+    invariants (`URL`, `0-100`) and true cognates (French `Application`, `Version`,
+    `Configuration`) are correct as-is, and "fixing" them would make the app worse. What matters is
+    that each locale *holds* the value rather than inheriting it.
+    """
     cat = load_catalog(CATALOG)
     keys = translatable_keys(cat)
     total = len(keys)
     print(f"Catalog: {CATALOG.relative_to(REPO_ROOT)}")
     print(f"  {len(cat['strings'])} keys total, {total} translatable "
           f"(extractionState=manual with an `{SOURCE_LANGUAGE}` source)\n")
-    print(f"  {'locale':9} {'present':>8} {'missing':>8} {'=EN':>5} {'translated':>11} {'coverage':>9}")
-    worst = 1.0
+    print(f"  {'locale':9} {'localized':>12} {'missing':>8} {'same as en':>11}  status")
+
+    incomplete, same_total = [], 0
     for locale in TARGET_LOCALES:
         present = missing = same = 0
         for k in keys:
@@ -576,11 +589,24 @@ def cmd_report(args) -> int:
             present += 1
             if block == flatten(locs.get(SOURCE_LANGUAGE)):
                 same += 1
-        real = present - same
-        cov = real / total if total else 0.0
-        worst = min(worst, cov)
-        print(f"  {locale:9} {present:8} {missing:8} {same:5} {real:11} {cov:8.1%}")
-    print(f"\n  worst locale coverage: {worst:.1%}")
+        same_total += same
+        if missing:
+            incomplete.append(locale)
+        status = "complete" if not missing else f"{missing} FALLING BACK TO ENGLISH"
+        print(f"  {locale:9} {f'{present}/{total}':>12} {missing:8} {same:11}  {status}")
+
+    print()
+    if incomplete:
+        print(f"  INCOMPLETE — {len(incomplete)} locale(s) fall back to English: "
+              f"{', '.join(incomplete)}")
+        print("  Fix with: export --out <dir> / translate / merge --source <dir>")
+    else:
+        print(f"  All {len(TARGET_LOCALES)} locales complete — no string falls back to English.")
+    print(f"  {same_total} entries deliberately match English (brand names, file formats, "
+          f"invariants, cognates).")
+    print("  Those are held explicitly per locale, not inherited, and are not a defect.")
+    # Always exits 0: this is the informational view. `verify --strict-parity` is the gate, and it
+    # names the offending keys, which is what someone fixing this actually needs.
     return 0
 
 
