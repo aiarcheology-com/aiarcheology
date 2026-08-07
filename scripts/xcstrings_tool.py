@@ -410,7 +410,49 @@ def cmd_check(args) -> int:
     for key, locale in mismatches[:5]:
         print(f"    mismatch: {key} / {locale}")
 
-    return 0 if (ok and same_keys and not mismatches) else 1
+    # Reproducing existing blocks proves nothing about escaping: the real catalog contains no
+    # backslash, no escaped quote and no control character, so every escape branch of render() is
+    # unreached above and live during `merge`. Exercise them synthetically instead.
+    hostile = [
+        'straight "quotes" inside',
+        "back\\slash and \\\\ double",
+        "em dash — and ellipsis …",
+        "emoji 🎉 and CJK 中文 and Devanagari अनुवाद",
+        "RTL نص عربي mixed with latin",
+        "tab\there",
+        "unicode line sep   and para sep  ",
+        "percent %% literal and %1$@ positional",
+        " non-breaking space",
+    ]
+    escape_failures = []
+    for value in hostile:
+        block = string_unit(value, "needs_review")
+        rendered = render(block, 8)
+        try:
+            if json.loads(rendered) != block:
+                escape_failures.append((value, "round-trip changed the value"))
+        except json.JSONDecodeError as exc:
+            escape_failures.append((value, f"produced invalid JSON: {exc}"))
+    print(f"render() survives {len(hostile)} hostile escaping cases .. "
+          f"{'PASS' if not escape_failures else f'FAIL ({len(escape_failures)})'}")
+    for value, why in escape_failures[:5]:
+        print(f"    {value!r}: {why}")
+
+    # And the same for a full splice into a real key, proving an edited document still parses.
+    probe_key = next(k for k, i in spans.items() if i["localizations"] and "cs" not in i["locales"])
+    probe = apply_edits(text, [upsert_locale(
+        text, spans, probe_key, "cs", string_unit('spliced "value" — 中文 🎉', "needs_review"))])
+    try:
+        reparsed = json.loads(probe)
+        spliced_ok = (reparsed["strings"][probe_key]["localizations"]["cs"]["stringUnit"]["value"]
+                      == 'spliced "value" — 中文 🎉'
+                      and set(reparsed["strings"]) == keys_parsed)
+    except Exception as exc:  # noqa: BLE001 - report any failure shape
+        spliced_ok = False
+        print(f"    splice probe raised: {exc}")
+    print(f"splice into {probe_key!r} reparses correctly .. {'PASS' if spliced_ok else 'FAIL'}")
+
+    return 0 if (ok and same_keys and not mismatches and not escape_failures and spliced_ok) else 1
 
 
 def cmd_report(args) -> int:
