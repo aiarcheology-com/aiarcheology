@@ -45,11 +45,15 @@ CATALOG = REPO_ROOT / "ios/MLBrowser/iOS/Resources/Localizable.xcstrings"
 
 SOURCE_LANGUAGE = "en"
 
-# The 16 translation targets. Order is irrelevant here; blocks are inserted in casefold order to
-# match how Xcode writes `localizations`.
+# The 16 translation targets, in the casefold order Xcode writes `localizations` — note
+# zh-Hans/zh-Hant precede zh-HK ("hans" < "hant" < "hk"), which is NOT ASCII order.
+#
+# This order is load-bearing, not cosmetic. When a key gains several locales at once they all
+# resolve to the same insertion anchor, so the order they are generated in becomes the order they
+# appear in the file. Listing zh-HK first here put it before zh-Hans in 250 keys.
 TARGET_LOCALES = [
     "ar", "bn", "cs", "de", "es", "fa", "fr", "he",
-    "hi", "hu", "pl", "ru", "uk", "zh-HK", "zh-Hans", "zh-Hant",
+    "hi", "hu", "pl", "ru", "uk", "zh-Hans", "zh-Hant", "zh-HK",
 ]
 
 # CLDR plural categories each locale REQUIRES. A missing category silently falls back to `other`,
@@ -276,10 +280,20 @@ def device_unit(by_device: dict[str, str], state: str = "needs_review") -> dict:
 # --------------------------------------------------------------------------------------------
 
 def apply_edits(text: str, edits: list[tuple[int, int, str]]) -> str:
-    """Apply (start, end, replacement) splices. Non-overlapping; applied right-to-left."""
+    """
+    Apply (start, end, replacement) splices right-to-left so earlier offsets stay valid.
+
+    Several insertions routinely share one anchor: when a key has only `en`, every locale sorting
+    before it (ar, bn, cs, de) is computed against the same original text and lands at the same
+    offset. Applying at a shared anchor pushes whatever is already there to the right, so the FIRST
+    applied ends up LAST. Ties must therefore be applied in reverse of their intended order —
+    sorting by start alone leaves them reversed in the file.
+    """
     for start, end, _ in edits:
         assert start <= end, f"bad span {start}..{end}"
-    ordered = sorted(edits, key=lambda e: e[0], reverse=True)
+    # Sort by (start, sequence) descending: among equal anchors the last-generated edit is applied
+    # first and so ends up rightmost, preserving generation order in the output.
+    ordered = [e for _, e in sorted(enumerate(edits), key=lambda ie: (ie[1][0], ie[0]), reverse=True)]
     for a, b in zip(ordered, ordered[1:]):
         assert b[1] <= a[0], f"overlapping edits: {b[0]}..{b[1]} and {a[0]}..{a[1]}"
     out = text
@@ -452,7 +466,29 @@ def cmd_check(args) -> int:
         print(f"    splice probe raised: {exc}")
     print(f"splice into {probe_key!r} reparses correctly .. {'PASS' if spliced_ok else 'FAIL'}")
 
-    return 0 if (ok and same_keys and not mismatches and not escape_failures and spliced_ok) else 1
+    # Regression test for anchor-tie ordering. Inserting several locales into a key that has only
+    # `en` makes them all resolve to the same offset; a naive right-to-left application reverses
+    # them, and the next Xcode catalog-editor save would then re-sort hundreds of keys.
+    tie_key = next((k for k, i in spans.items()
+                    if i["localizations"] and set(i["locales"]) == {"en"}), None)
+    if tie_key is None:
+        print("locale insertion order .. SKIP (no en-only key to probe)")
+        order_ok = True
+    else:
+        # Use the real TARGET_LOCALES list, in the real order `merge` iterates it — a hand-picked
+        # probe list would silently vindicate a mis-ordered constant.
+        tie_edits = [upsert_locale(text, spans, tie_key, loc, string_unit(f"v-{loc}"))
+                     for loc in TARGET_LOCALES]
+        tied = json.loads(apply_edits(text, tie_edits))
+        got = list(tied["strings"][tie_key]["localizations"])
+        want = sorted(got, key=str.casefold)
+        order_ok = got == want
+        print(f"locale insertion order preserved .. {'PASS' if order_ok else 'FAIL'}")
+        if not order_ok:
+            print(f"    got  {got}\n    want {want}")
+
+    return 0 if (ok and same_keys and not mismatches and not escape_failures
+                 and spliced_ok and order_ok) else 1
 
 
 def cmd_report(args) -> int:
@@ -491,6 +527,7 @@ def cmd_merge(args) -> int:
 
     edits: list[tuple[int, int, str]] = []
     stats: dict[str, int] = {}
+    skipped = 0
     for locale in TARGET_LOCALES:
         f = src / f"{locale}.json"
         if not f.exists():
@@ -516,6 +553,17 @@ def cmd_merge(args) -> int:
                     f"{locale}.json key {key!r}: shape mismatch — English "
                     f"{'has' if 'variations' in en else 'has no'} variations but translation "
                     f"{'has' if 'variations' in block else 'has none'}")
+
+            # If the translation reproduces what is already there, write nothing. Rewriting it
+            # would keep the same text but stamp `needs_review` over an existing `translated`
+            # state — downgrading metadata on strings that were already correct, and padding the
+            # diff. This matters for the many short strings a locale legitimately shares with
+            # English ("OK", "URL", "Web", "Error").
+            existing = (cat["strings"][key]["localizations"] or {}).get(locale)
+            if existing is not None and flatten(existing) == flatten(block):
+                skipped += 1
+                continue
+
             edits.append(upsert_locale(text, spans, key, locale, block))
             n += 1
         stats[locale] = n
@@ -524,7 +572,8 @@ def cmd_merge(args) -> int:
     merged = apply_edits(text, edits)
     json.loads(merged)  # fail loudly rather than write a corrupt catalog
     CATALOG.write_text(merged, encoding="utf-8")
-    print(f"\nmerged {sum(stats.values())} blocks into {CATALOG.relative_to(REPO_ROOT)}")
+    print(f"\nmerged {sum(stats.values())} blocks into {CATALOG.relative_to(REPO_ROOT)}"
+          f"; left {skipped} unchanged block(s) untouched")
     return 0
 
 
@@ -683,7 +732,13 @@ def cmd_export(args) -> int:
             if comment := cat["strings"][key].get("comment"):
                 item["comment"] = comment
             if kind == "plural":
-                item["required_categories"] = sorted(REQUIRED_PLURAL_CATEGORIES.get(locale, {"other"}))
+                required = set(REQUIRED_PLURAL_CATEGORIES.get(locale, {"other"}))
+                # If English carries an explicit `zero` (Apple's exact-match special case, e.g.
+                # "No items"), the translation must carry one too. Omitting it silently drops a
+                # deliberate string and falls back to the counted form ("0 items").
+                if "zero" in en:
+                    required.add("zero")
+                item["required_categories"] = sorted(required)
             if kind == "device":
                 item["device_variants"] = sorted(en)
             items.append(item)
