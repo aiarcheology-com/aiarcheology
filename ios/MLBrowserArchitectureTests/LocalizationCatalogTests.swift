@@ -258,7 +258,7 @@ final class LocalizationCatalogTests: XCTestCase {
             // `values.first` on a Dictionary is not deterministic across runs, which would make a
             // borderline failure appear and vanish between CI runs.
             guard let englishGeneral = english["other"] ?? english[""]
-                    ?? english.sorted(by: { $0.key < $1.key }).first?.value else { continue }
+                    ?? english.min(by: { $0.key < $1.key })?.value else { continue }
             let generalSpecifiers = Self.specifiers(in: englishGeneral, using: regex)
 
             for locale in Self.targetLocales {
