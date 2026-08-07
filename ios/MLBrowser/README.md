@@ -106,6 +106,7 @@ Helper scripts are located in `scripts/` at the repository root.
 |--------|---------|-------|
 | `./scripts/swiftlint.sh` | Run SwiftLint (`fix` to autocorrect) | `aiaswiftlint` |
 | `./scripts/swiftgen.sh generate` | Generate L10n.swift from xcstrings | `aiaswiftgen` |
+| `./scripts/localization.sh` | Check every string exists in all 16 locales | `aialocalization` |
 | `./scripts/harmonize.sh` | Run architectural tests | `aiaharmonize` |
 | `./scripts/unittest.sh` | Run unit tests | `aiaunittests` |
 
@@ -126,9 +127,10 @@ During `setup`, you'll be prompted to enable short command aliases. If enabled:
 | `aiasetup` | `swift run --package-path Tools ProjectTool setup` |
 | `aiaswiftlint` | `./scripts/swiftlint.sh` |
 | `aiaswiftgen` | `./scripts/swiftgen.sh generate` |
+| `aialocalization` | `./scripts/localization.sh` |
 | `aiaharmonize` | `./scripts/harmonize.sh` |
 | `aiaunittests` | `./scripts/unittest.sh` |
-| `aiapipeline` | `aiaswiftgen && aiaswiftlint && aiaharmonize && aiaunittests` |
+| `aiapipeline` | `aiaswiftgen && aiaswiftlint && aialocalization && aiaharmonize && aiaunittests` |
 
 The `.envrc` file is gitignored (local preference). When you `cd` into the project directory, direnv automatically loads the aliases. When you leave, they're unloaded.
 

@@ -218,6 +218,7 @@
 		9407A5E62FE4A9AE0097FB7B /* ClerkKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9407A5E52FE4A9AE0097FB7B /* ClerkKit */; };
 		9407A5E82FE4A9AE0097FB7B /* ClerkKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = 9407A5E72FE4A9AE0097FB7B /* ClerkKitUI */; };
 		940A10022F0500010000A002 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 940A10012F0500010000A001 /* Localizable.xcstrings */; };
+		BDE90DEA1BE01DBF4F8B3160 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 3190EA75B1839A049188B3D7 /* InfoPlist.xcstrings */; };
 		940A10052F0500010000A005 /* LocalizationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10042F0500010000A004 /* LocalizationTests.swift */; };
 		940A10082F0500020000A008 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A10062F0500020000A006 /* L10n.swift */; };
 		940A100C2F0600010000A00C /* L10n+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940A100B2F0600010000A00B /* L10n+SwiftUI.swift */; };
@@ -586,6 +587,7 @@
 		94048A682EE245D60064AC55 /* ModelImportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelImportView.swift; sourceTree = "<group>"; };
 		9407A5E92FE4AAAA0097FB7B /* MLBrowser.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MLBrowser.entitlements; sourceTree = "<group>"; };
 		940A10012F0500010000A001 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		3190EA75B1839A049188B3D7 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		940A10042F0500010000A004 /* LocalizationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationTests.swift; sourceTree = "<group>"; };
 		940A10062F0500020000A006 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		940A100B2F0600010000A00B /* L10n+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "L10n+SwiftUI.swift"; sourceTree = "<group>"; };
@@ -1372,6 +1374,7 @@
 			isa = PBXGroup;
 			children = (
 				940A10012F0500010000A001 /* Localizable.xcstrings */,
+				3190EA75B1839A049188B3D7 /* InfoPlist.xcstrings */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -1674,6 +1677,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				940A10022F0500010000A002 /* Localizable.xcstrings in Resources */,
+				BDE90DEA1BE01DBF4F8B3160 /* InfoPlist.xcstrings in Resources */,
 				8AE2D3262B1AB33000FDE17C /* AIArcheology.mlpackage in Resources */,
 				6F31DAC55F2B4ACABB5FBBE1 /* FastViTT8F16.mlpackage in Resources */,
 				8AE2D3272B1AB33000FDE17C /* HroudaDetector15.mlpackage in Resources */,

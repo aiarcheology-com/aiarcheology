@@ -157,7 +157,7 @@ struct ModelImportView: View {
 			}
 			Button(L10n.Common.ok, role: .cancel) { }
 		} message: {
-			Text(errorMessage ?? "An unknown error occurred.")
+			Text(errorMessage ?? L10n.Alert.Error.unexpected)
 		}
 		.alert(importedModelInfo?.needsReview == true ? L10n.Import.confirmTypeTitle : L10n.Import.successTitle,
 			   isPresented: .init(

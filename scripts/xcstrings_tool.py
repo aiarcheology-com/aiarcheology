@@ -56,6 +56,40 @@ TARGET_LOCALES = [
     "hi", "hu", "pl", "ru", "uk", "zh-Hans", "zh-Hant", "zh-HK",
 ]
 
+
+def discovered_locales(cat: dict) -> set[str]:
+    """Every non-source locale that actually appears anywhere in the catalog."""
+    found: set[str] = set()
+    for entry in cat["strings"].values():
+        found.update(entry.get("localizations") or {})
+    found.discard(SOURCE_LANGUAGE)
+    return found
+
+
+def locale_roster_problems(cat: dict) -> list[str]:
+    """
+    The declared roster must match what the catalog actually contains.
+
+    Without this, `TARGET_LOCALES` is a list of locales we *remember* to check. Add Italian in
+    Xcode, translate one string, and every loop below simply never looks at it — the report shows
+    16 happy locales and CI goes green while the app ships a language that is 1/417 translated.
+    Discovery alone would be worse (a locale could vanish unnoticed), so require exact agreement
+    and make adding a language a deliberate, reviewed edit.
+    """
+    declared, found = set(TARGET_LOCALES), discovered_locales(cat)
+    problems = []
+    for locale in sorted(found - declared):
+        problems.append(
+            f"locale `{locale}` exists in the catalog but is not in TARGET_LOCALES, so nothing "
+            f"checks it. Add it to scripts/xcstrings_tool.py and translate it fully, or remove it "
+            f"from the catalog.")
+    for locale in sorted(declared - found):
+        problems.append(
+            f"locale `{locale}` is declared in TARGET_LOCALES but appears nowhere in the catalog. "
+            f"Either it was dropped (remove it from the list) or every one of its translations was "
+            f"deleted.")
+    return problems
+
 # CLDR plural categories each locale REQUIRES. A missing category silently falls back to `other`,
 # which is a grammar bug in Slavic and Arabic ("5 položka" instead of "5 položek"), so absence is a
 # hard failure.
@@ -87,6 +121,12 @@ REQUIRED_PLURAL_CATEGORIES = {
 # Apple's exact-match special case, legal in any language.
 ALWAYS_ALLOWED_CATEGORIES = {"zero"}
 
+# Above this share of values identical to English, a locale is a copy of the source language rather
+# than a translation. Real overlap is brand names, file extensions, invariants and cognates; the
+# highest genuine figure in this catalog is French at ~9%, so 50% is far above any honest locale
+# and far below a wholesale clone.
+CLONED_LOCALE_THRESHOLD = 0.50
+
 # Categories a locale may carry but is not required to. Hebrew's `many` (v=0, n%10=0, n>10) is
 # present in older CLDR data and absent from newer releases, so requiring it would force an
 # unreachable form while reporting it as dead would be wrong on the runtimes that still have it.
@@ -101,14 +141,49 @@ DO_NOT_TRANSLATE = [
     "App Store", "ONNX", ".mlmodel", ".mlpackage", ".onnx", "iCloud", "Face ID", "Touch ID",
 ]
 
-# Legal, billing and irreversible-action copy. Machine translation is NOT applied here: a wrong
-# auto-renewal disclosure risks an App Review 3.1.2 rejection in de/cs/pl/hu (all jurisdictions with
-# statutory auto-renew disclosure rules), and a wrong account-deletion confirmation can cause an
-# irreversible user action in a language nobody on the team reads. These keys keep falling back to
-# English, exactly as they do today, until a human translator pass covers them.
-NO_MACHINE_TRANSLATION_PREFIXES = (
+# Legal, billing and irreversible-action copy. These carry a higher bar than ordinary UI strings: a
+# wrong auto-renewal disclosure risks an App Review 3.1.2 rejection in de/cs/pl/hu (all
+# jurisdictions with statutory auto-renew disclosure rules), and a wrong account-deletion
+# confirmation can cause an irreversible user action in a language nobody on the team reads.
+#
+# AIA-0572 held them back from a machine pass for exactly that reason. AIA-0575 translated them
+# anyway, by explicit decision, so that no locale shows English placeholders — with store-facing
+# terms matched to Apple's own localisations and everything left `needs_review` for audit.
+#
+# `export` still skips them by default, so a routine bulk pass cannot sweep them up by accident.
+# Pass --include-restricted to work on them deliberately.
+RESTRICTED_PREFIXES = (
     "paywall.", "subscription.", "auth.account.delete.", "settings.subscription.",
 )
+
+# Auto-extracted entries (no `extractionState`) that are allowed to exist.
+#
+# `SWIFT_EMIT_LOC_STRINGS` turns a bare SwiftUI literal into a catalog entry with no
+# `extractionState`. Those entries never reach `L10n.swift`, so **no locale can ever translate
+# them** — which is how "Add Model", "Help" and "Loading..." shipped English in all 17 languages
+# until AIA-0572 promoted them. Nothing caught it, because an auto-extracted key is invisible to
+# both the id-shape guard and the parity guard.
+#
+# So: anything auto-extracted that contains actual words is a hardcoded UI string and fails
+# `verify`. This set is the accepted baseline, and adding to it should be a deliberate, reviewed
+# act — not the way a new untranslated string quietly gets in.
+ACCEPTED_AUTO_EXTRACTED = {
+    # Pure format/punctuation fragments from string interpolation. Not translatable text, and they
+    # come back on every build because the interpolation is the source (see AIA-0572): e.g.
+    # `Text("\(completed) / \(total)")` -> "%lld / %lld", `Text("/ \(bytes)")` -> "/ %@".
+    "", " %@|", "/ %@", "%.2f", "%@: %@", "%lld / %lld",
+    # Superseded by dot-namespaced keys in AIA-0572; their source literals are gone, so these are
+    # stale remnants Xcode will drop. Listed rather than deleted because deleting an entry Xcode
+    # still believes in just invites it back.
+    "0-100", "Add Model", "Help", "Loading...", "https://.../mymodel.mlmodel",
+    # STILL LIVE and genuinely untranslatable: `.accessibilityLabel("Version \(versionString)")`
+    # in AppDescriptionView.swift. A VoiceOver string that no locale can translate — it wants the
+    # same promotion the others got. Tracked, not silently blessed.
+    "Version %@",
+}
+
+# Two consecutive letters — enough to tell "Add Model" from "%lld / %lld" or "0-100".
+LOOKS_LIKE_PROSE = re.compile(r"[A-Za-z]{2}")
 
 # `%@`, `%lld`, `%1$@`, `%.2f`, `%%` … Captures the positional index so ordering can be compared,
 # and the length modifier, because `%d` and `%lld` consume different argument widths — treating
@@ -129,7 +204,8 @@ def _skip_ws(text: str, i: int) -> int:
 
 def _scan_string(text: str, i: int) -> int:
     """`i` points at the opening quote. Returns the index just past the closing quote."""
-    assert text[i] == '"', f"expected string at {i}, found {text[i]!r}"
+    if text[i] != '"':
+        raise ValueError(f"expected string at {i}, found {text[i]!r}")
     i += 1
     while i < len(text):
         c = text[i]
@@ -161,7 +237,8 @@ def _scan_value(text: str, i: int) -> int:
             elif ch in "}]":
                 depth -= 1
                 if depth == 0:
-                    assert ch == close, f"bracket mismatch at {i}"
+                    if ch != close:
+                        raise ValueError(f"bracket mismatch at {i}: expected {close!r}, got {ch!r}")
                     return i + 1
             i += 1
         raise ValueError("unterminated container")
@@ -182,7 +259,8 @@ def object_members(text: str, obj_start: int) -> tuple[list[dict], int]:
       value_start / value_end — span of the member's value
       member_end   — end of the value (comma excluded)
     """
-    assert text[obj_start] == "{", f"expected {{ at {obj_start}, found {text[obj_start]!r}"
+    if text[obj_start] != "{":
+        raise ValueError(f"expected {{ at {obj_start}, found {text[obj_start]!r}")
     i = obj_start + 1
     members: list[dict] = []
     while True:
@@ -196,7 +274,8 @@ def object_members(text: str, obj_start: int) -> tuple[list[dict], int]:
         key_end = _scan_string(text, i)
         key = json.loads(text[key_start:key_end])
         i = _skip_ws(text, key_end)
-        assert text[i] == ":", f"expected : at {i}"
+        if text[i] != ":":
+            raise ValueError(f"expected : at {i}, found {text[i]!r}")
         i = _skip_ws(text, i + 1)
         value_start = i
         value_end = _scan_value(text, i)
@@ -221,7 +300,8 @@ def catalog_spans(text: str) -> dict[str, dict]:
     """Map every top-level string key to its entry span and its `localizations` span."""
     root, _ = object_members(text, _skip_ws(text, 0))
     strings = find_member(root, "strings")
-    assert strings, "catalog has no top-level `strings` object"
+    if not strings:
+        raise ValueError("catalog has no top-level `strings` object")
     entries, _ = object_members(text, strings["value_start"])
 
     out: dict[str, dict] = {}
@@ -296,12 +376,14 @@ def apply_edits(text: str, edits: list[tuple[int, int, str]]) -> str:
     sorting by start alone leaves them reversed in the file.
     """
     for start, end, _ in edits:
-        assert start <= end, f"bad span {start}..{end}"
+        if start > end:
+            raise ValueError(f"bad span {start}..{end}")
     # Sort by (start, sequence) descending: among equal anchors the last-generated edit is applied
     # first and so ends up rightmost, preserving generation order in the output.
     ordered = [e for _, e in sorted(enumerate(edits), key=lambda ie: (ie[1][0], ie[0]), reverse=True)]
     for a, b in zip(ordered, ordered[1:]):
-        assert b[1] <= a[0], f"overlapping edits: {b[0]}..{b[1]} and {a[0]}..{a[1]}"
+        if b[1] > a[0]:
+            raise ValueError(f"overlapping edits: {b[0]}..{b[1]} and {a[0]}..{a[1]}")
     out = text
     for start, end, replacement in ordered:
         out = out[:start] + replacement + out[end:]
@@ -522,14 +604,27 @@ def cmd_check(args) -> int:
 
 
 def cmd_report(args) -> int:
+    """
+    Per-locale coverage.
+
+    The number that matters is **missing** — a key with no entry for a locale, which falls back to
+    English at runtime. That is the defect.
+
+    A locale having its own entry whose value happens to equal English is NOT a defect and is not
+    counted against coverage. Brand names (`ML Browser`, `ONNX`, `Core ML`), file extensions,
+    invariants (`URL`, `0-100`) and true cognates (French `Application`, `Version`,
+    `Configuration`) are correct as-is, and "fixing" them would make the app worse. What matters is
+    that each locale *holds* the value rather than inheriting it.
+    """
     cat = load_catalog(CATALOG)
     keys = translatable_keys(cat)
     total = len(keys)
     print(f"Catalog: {CATALOG.relative_to(REPO_ROOT)}")
     print(f"  {len(cat['strings'])} keys total, {total} translatable "
           f"(extractionState=manual with an `{SOURCE_LANGUAGE}` source)\n")
-    print(f"  {'locale':9} {'present':>8} {'missing':>8} {'=EN':>5} {'translated':>11} {'coverage':>9}")
-    worst = 1.0
+    print(f"  {'locale':9} {'localized':>12} {'missing':>8} {'same as en':>11}  status")
+
+    incomplete, same_total = [], 0
     for locale in TARGET_LOCALES:
         present = missing = same = 0
         for k in keys:
@@ -541,11 +636,24 @@ def cmd_report(args) -> int:
             present += 1
             if block == flatten(locs.get(SOURCE_LANGUAGE)):
                 same += 1
-        real = present - same
-        cov = real / total if total else 0.0
-        worst = min(worst, cov)
-        print(f"  {locale:9} {present:8} {missing:8} {same:5} {real:11} {cov:8.1%}")
-    print(f"\n  worst locale coverage: {worst:.1%}")
+        same_total += same
+        if missing:
+            incomplete.append(locale)
+        status = "complete" if not missing else f"{missing} FALLING BACK TO ENGLISH"
+        print(f"  {locale:9} {f'{present}/{total}':>12} {missing:8} {same:11}  {status}")
+
+    print()
+    if incomplete:
+        print(f"  INCOMPLETE — {len(incomplete)} locale(s) fall back to English: "
+              f"{', '.join(incomplete)}")
+        print("  Fix with: export --out <dir> / translate / merge --source <dir>")
+    else:
+        print(f"  All {len(TARGET_LOCALES)} locales complete — no string falls back to English.")
+    print(f"  {same_total} entries deliberately match English (brand names, file formats, "
+          f"invariants, cognates).")
+    print("  Those are held explicitly per locale, not inherited, and are not a defect.")
+    # Always exits 0: this is the informational view. `verify --strict-parity` is the gate, and it
+    # names the offending keys, which is what someone fixing this actually needs.
     return 0
 
 
@@ -631,8 +739,9 @@ def variation_kind(loc: dict | None) -> str | None:
     return None
 
 
-def is_machine_translatable(key: str) -> bool:
-    return not key.startswith(NO_MACHINE_TRANSLATION_PREFIXES)
+def is_restricted(key: str) -> bool:
+    """Legal, billing or irreversible-action copy — excluded from a routine bulk pass."""
+    return key.startswith(RESTRICTED_PREFIXES)
 
 
 def cmd_verify(args) -> int:
@@ -640,6 +749,84 @@ def cmd_verify(args) -> int:
     keys = translatable_keys(cat)
     problems: list[str] = []
     notes: list[str] = []
+
+    # ---- Hard slot count, English as the source of truth -------------------------------------
+    # The app is authored in English, so the English authored-key count IS the expected count for
+    # every other locale. Add 5 strings in code and this table shows N+5 for `en` and N for anyone
+    # who did not get them, before any other check runs. Printed always, so a green run records the
+    # numbers too rather than only proving absence of failure.
+    source_total = len(keys)
+    key_set = set(keys)
+
+    # Before counting anything, confirm we are counting the right set of locales. A locale absent
+    # from TARGET_LOCALES is not "passing" — it is unexamined.
+    roster = locale_roster_problems(cat)
+    problems.extend(roster)
+
+    print(f"Localization parity — source language `{SOURCE_LANGUAGE}` is the reference")
+    print(f"  {SOURCE_LANGUAGE} authored strings: {source_total}")
+    print(f"  locales checked: {len(TARGET_LOCALES)}"
+          f"{'' if not roster else f'  ({len(roster)} ROSTER PROBLEM(S) — see below)'}\n")
+    print(f"  {'locale':9} {'have':>6} {'missing':>8} {'extra':>6} {'=en':>6}  status")
+
+    slot_deficit = 0
+    for locale in TARGET_LOCALES:
+        have = sum(1 for k in keys if (cat["strings"][k].get("localizations") or {}).get(locale))
+        missing = source_total - have
+        # Presence is not translation. Every check here counts a locale that holds an entry as
+        # done, so cloning English wholesale into a new language would pass everything. Legitimate
+        # overlap is small — brand names, file formats, invariants and true cognates run under 10%
+        # — so a locale mostly identical to English is a copy, not a translation.
+        same = sum(1 for k in keys
+                   if (blk := flatten((cat["strings"][k].get("localizations") or {}).get(locale)))
+                   is not None and blk == flatten(cat["strings"][k]["localizations"][SOURCE_LANGUAGE]))
+        if have and same / have > CLONED_LOCALE_THRESHOLD:
+            problems.append(
+                f"locale `{locale}`: {same}/{have} values are identical to English "
+                f"({same / have:.0%}). That is a copy of the source language, not a translation. "
+                f"Cognates and brand names alone stay well under "
+                f"{CLONED_LOCALE_THRESHOLD:.0%}.")
+        # A locale holding a key English does not: an orphan left behind by a rename or deletion.
+        # It ships dead weight and hides the fact that the real key lost its translation.
+        extra = sum(1 for k, v in cat["strings"].items()
+                    if k not in key_set and (v.get("localizations") or {}).get(locale))
+        slot_deficit += missing
+        flag = "OK" if not (missing or extra) else "FAIL"
+        print(f"  {locale:9} {have:6} {missing:8} {extra:6} {same:6}  {flag}")
+        if extra and args.strict_parity:
+            orphans = sorted(k for k, v in cat["strings"].items()
+                             if k not in key_set and (v.get("localizations") or {}).get(locale))
+            problems.append(
+                f"[{locale}] {len(orphans)} orphaned localization(s) for key(s) with no English "
+                f"source: {orphans[:5]}")
+    expected_slots = source_total * len(TARGET_LOCALES)
+    print(f"\n  slots: {expected_slots - slot_deficit}/{expected_slots} filled"
+          f"{'' if not slot_deficit else f' — {slot_deficit} EMPTY'}\n")
+
+    # An authored key with no English source is invisible to every other check here: it is absent
+    # from `translatable_keys` (which requires an `en` value), and the auto-extracted scan below
+    # skips it for being `manual`. It ships its raw key name as the UI string in all 17 locales.
+    for key, entry in cat["strings"].items():
+        if entry.get("extractionState") != "manual":
+            continue
+        if not (entry.get("localizations") or {}).get(SOURCE_LANGUAGE):
+            problems.append(
+                f"{key}: authored key with no `{SOURCE_LANGUAGE}` source. Nothing else here can "
+                f"see it — it is excluded from the parity check for lacking English — and at "
+                f"runtime it displays its own key name.")
+
+    # A hardcoded SwiftUI literal is auto-extracted into an entry that can never be translated.
+    # Catch it here, because neither the parity check below nor the id-shape guard can see it:
+    # an auto-extracted key is in neither the authored set nor the id-shaped set.
+    for key, entry in cat["strings"].items():
+        if entry.get("extractionState") == "manual":
+            continue
+        if key in ACCEPTED_AUTO_EXTRACTED or not LOOKS_LIKE_PROSE.search(key):
+            continue
+        problems.append(
+            f"{key!r}: hardcoded user-facing string, auto-extracted from source. It has no "
+            f"extractionState, so it never reaches L10n.swift and no locale can translate it. "
+            f"Route it through a dot-namespaced catalog key and use L10n instead of the literal.")
 
     for key in keys:
         locs = cat["strings"][key]["localizations"]
@@ -673,6 +860,12 @@ def cmd_verify(args) -> int:
                     f"{key} [{locale}]: device variants {sorted(block)} != English {sorted(en)}")
 
             for variant, value in block.items():
+                # An empty value is not a translation. It counts as "present" everywhere else, so
+                # without this the locale reports complete and ships a blank label.
+                if not value.strip():
+                    problems.append(
+                        f"{key} [{locale}/{variant}]: empty value — blank in the UI, but counted "
+                        f"as translated by every presence check.")
                 got = specifiers(value)
 
                 # Mixing positional (%1$@) and bare (%@) specifiers in one string is undefined in
@@ -758,7 +951,7 @@ def cmd_export(args) -> int:
     for locale in TARGET_LOCALES:
         items = []
         for key in keys:
-            if not is_machine_translatable(key):
+            if is_restricted(key) and not args.include_restricted:
                 skipped_legal += 1
                 continue
             locs = cat["strings"][key]["localizations"]
@@ -808,8 +1001,12 @@ def cmd_export(args) -> int:
     for locale, n in written.items():
         print(f"  {locale:9} {n:4} keys to translate")
     print(f"\nwrote {len(written)} worklists to {out}")
-    print(f"excluded from machine translation: {skipped_legal // len(TARGET_LOCALES)} legal/billing/"
-          f"destructive keys per locale (prefixes: {', '.join(NO_MACHINE_TRANSLATION_PREFIXES)})")
+    if skipped_legal:
+        print(f"excluded: {skipped_legal // len(TARGET_LOCALES)} legal/billing/irreversible-action "
+              f"keys per locale (prefixes: {', '.join(RESTRICTED_PREFIXES)}). "
+              f"Pass --include-restricted to translate them deliberately.")
+    else:
+        print("including legal/billing/irreversible-action keys (--include-restricted).")
     return 0
 
 
@@ -822,6 +1019,13 @@ def main() -> int:
 
     e = sub.add_parser("export", help="write per-locale translation worklists")
     e.add_argument("--out", required=True, help="output directory")
+    # Built from RESTRICTED_PREFIXES rather than restated, so the help cannot drift from the
+    # constant it documents — it already had, omitting `settings.subscription.`.
+    e.add_argument("--include-restricted", action="store_true",
+                   help="also export legal/billing/irreversible-action keys ("
+                        + ", ".join(f"{p}*" for p in RESTRICTED_PREFIXES)
+                        + "). They need Apple's own store terminology and exact legal meaning — "
+                          "do not sweep them up casually.")
 
     m = sub.add_parser("merge", help="merge <locale>.json translation files into the catalog")
     m.add_argument("--source", required=True, help="directory of <locale>.json files")

@@ -489,9 +489,13 @@ preflight() {
             log "Validating build secrets (ProjectTool)…"
             (cd "$REPO_ROOT" && swift run --package-path Tools ProjectTool secrets validate) \
                 || die "Preflight failed: ProjectTool secrets validate (run: swift run --package-path Tools ProjectTool secrets generate)."
-            log "Running the pre-push sweep (lint + harmonize + unit tests)…"
-            (cd "$REPO_ROOT" && ./scripts/swiftlint.sh && ./scripts/harmonize.sh && ./scripts/unittest.sh) \
-                || die "Preflight failed: pre-push sweep (swiftlint / harmonize / unittest)."
+            log "Running the pre-push sweep (lint + localization + harmonize + unit tests)…"
+            # Localization runs early and costs about a second: it is pure Python over the catalog
+            # and needs no Xcode, so a missing translation fails here rather than after a
+            # multi-minute build.
+            (cd "$REPO_ROOT" && ./scripts/swiftlint.sh && ./scripts/localization.sh \
+                && ./scripts/harmonize.sh && ./scripts/unittest.sh) \
+                || die "Preflight failed: pre-push sweep (swiftlint / localization / harmonize / unittest)."
         fi
     fi
 
