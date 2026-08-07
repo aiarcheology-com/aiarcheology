@@ -13,9 +13,12 @@ aiaswiftlint() { ./scripts/swiftlint.sh "$@"; }
 aiaswiftgen() { ./scripts/swiftgen.sh generate; }
 aiaharmonize() { ./scripts/harmonize.sh "$@"; }
 aiaunittests() { ./scripts/unittest.sh "$@"; }
+aialocalization() { ./scripts/localization.sh "$@"; }
 aiapipeline() {
-    echo "🔄 Running aiapipeline: swiftgen → swiftlint → harmonize → unittests"
-    aiaswiftgen && aiaswiftlint && aiaharmonize && aiaunittests
+    echo "🔄 Running aiapipeline: swiftgen → swiftlint → localization → harmonize → unittests"
+    # Localization sits early on purpose: it is pure Python over the catalog, needs no Xcode, and
+    # finishes in about a second — so a missing translation fails before the slow steps run.
+    aiaswiftgen && aiaswiftlint && aialocalization && aiaharmonize && aiaunittests
 }
 
-export -f aiasetup aiaswiftlint aiaswiftgen aiaharmonize aiaunittests aiapipeline
+export -f aiasetup aiaswiftlint aiaswiftgen aiaharmonize aiaunittests aialocalization aiapipeline

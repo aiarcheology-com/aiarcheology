@@ -33,31 +33,14 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Coverage first, so a failure below is read against real numbers rather than guessed at.
-      - name: Coverage report
-        run: python3 scripts/xcstrings_tool.py report
-
-      # The gate. --strict-parity is what a ratchet cannot do: it fails on a NEW key that has no
-      # translations, which is the actual failure mode this workflow exists for. It also checks
-      # entry shape, per-locale CLDR plural categories, and format-specifier agreement with the
-      # English sibling (a mismatch there makes String(format:) read the wrong argument).
-      - name: Verify parity, shape, plurals and format specifiers
+      # Runs the exact script a developer runs locally, so "the same gate" is literal rather than
+      # two implementations that drift. It prints the per-locale slot table (English count vs each
+      # locale), fails on any missing or orphaned string, and ends with the catalog's own
+      # round-trip invariants.
+      - name: ./scripts/localization.sh
         run: |
-          if ! python3 scripts/xcstrings_tool.py verify --strict-parity --limit 60; then
-            echo
-            echo "::error::Some strings are not translated in every locale."
-            echo "Fix it with the same tool, no hand-editing of the catalog:"
-            echo "  python3 scripts/xcstrings_tool.py export --out /tmp/worklists"
-            echo "  # translate each /tmp/worklists/<locale>.source.json into /tmp/translations/<locale>.json"
-            echo "  python3 scripts/xcstrings_tool.py merge  --source /tmp/translations"
-            echo "  python3 scripts/xcstrings_tool.py verify --strict-parity"
-            echo
-            echo "Legal/billing copy (paywall.*, subscription.*, auth.account.delete.*) needs"
-            echo "--include-restricted on export, and Apple's own store terminology. See AIA-0575."
+          if ! ./scripts/localization.sh; then
+            echo "::error::Some strings are not present in every locale — see the table above."
+            echo "Reproduce and fix locally with: ./scripts/localization.sh"
             exit 1
           fi
-
-      # The splicer's own invariants. Cheap, and it fails loudly if the catalog has been hand-edited
-      # into a shape the tool can no longer round-trip safely.
-      - name: Verify the catalog is still machine-readable
-        run: python3 scripts/xcstrings_tool.py check
