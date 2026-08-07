@@ -337,6 +337,8 @@ internal enum L10n {
     internal static let `import` = L10n.tr("Localizable", "common.import", fallback: "Import")
     /// Imported
     internal static let imported = L10n.tr("Localizable", "common.imported", fallback: "Imported")
+    /// Loading...
+    internal static let loading = L10n.tr("Localizable", "common.loading", fallback: "Loading...")
     /// OK
     internal static let ok = L10n.tr("Localizable", "common.ok", fallback: "OK")
     /// Reset
@@ -421,6 +423,8 @@ internal enum L10n {
     internal static let url = L10n.tr("Localizable", "download.url", fallback: "URL")
     /// Enter a direct .mlmodel URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.
     internal static let urlHint = L10n.tr("Localizable", "download.urlHint", fallback: "Enter a direct .mlmodel URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.")
+    /// https://.../mymodel.mlmodel
+    internal static let urlPlaceholder = L10n.tr("Localizable", "download.urlPlaceholder", fallback: "https://.../mymodel.mlmodel")
     internal enum Button {
       /// Cancel
       internal static let cancel = L10n.tr("Localizable", "download.button.cancel", fallback: "Cancel")
@@ -438,6 +442,10 @@ internal enum L10n {
       internal static let interruptedNoResumeData = L10n.tr("Localizable", "download.error.interruptedNoResumeData", fallback: "Download was interrupted and cannot be resumed. Please restart the download.")
       /// Unable to save the URL. Please try again.
       internal static let persistFailed = L10n.tr("Localizable", "download.error.persistFailed", fallback: "Unable to save the URL. Please try again.")
+    }
+    internal enum Help {
+      /// Help
+      internal static let title = L10n.tr("Localizable", "download.help.title", fallback: "Help")
     }
   }
   internal enum DownloadState {
@@ -667,6 +675,8 @@ internal enum L10n {
     }
   }
   internal enum Models {
+    /// Add Model
+    internal static let add = L10n.tr("Localizable", "models.add", fallback: "Add Model")
     /// Models
     internal static let title = L10n.tr("Localizable", "models.title", fallback: "Models")
     internal enum Available {
@@ -787,6 +797,8 @@ internal enum L10n {
     internal static let history = L10n.tr("Localizable", "settings.history", fallback: "History")
     /// History Limit
     internal static let historyLimit = L10n.tr("Localizable", "settings.historyLimit", fallback: "History Limit")
+    /// 0-100
+    internal static let historyLimitPlaceholder = L10n.tr("Localizable", "settings.historyLimitPlaceholder", fallback: "0-100")
     /// Pyramid tiling
     internal static let pyramidTiling = L10n.tr("Localizable", "settings.pyramidTiling", fallback: "Pyramid tiling")
     /// Reopen Last Page
