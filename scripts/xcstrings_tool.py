@@ -101,12 +101,18 @@ DO_NOT_TRANSLATE = [
     "App Store", "ONNX", ".mlmodel", ".mlpackage", ".onnx", "iCloud", "Face ID", "Touch ID",
 ]
 
-# Legal, billing and irreversible-action copy. Machine translation is NOT applied here: a wrong
-# auto-renewal disclosure risks an App Review 3.1.2 rejection in de/cs/pl/hu (all jurisdictions with
-# statutory auto-renew disclosure rules), and a wrong account-deletion confirmation can cause an
-# irreversible user action in a language nobody on the team reads. These keys keep falling back to
-# English, exactly as they do today, until a human translator pass covers them.
-NO_MACHINE_TRANSLATION_PREFIXES = (
+# Legal, billing and irreversible-action copy. These carry a higher bar than ordinary UI strings: a
+# wrong auto-renewal disclosure risks an App Review 3.1.2 rejection in de/cs/pl/hu (all
+# jurisdictions with statutory auto-renew disclosure rules), and a wrong account-deletion
+# confirmation can cause an irreversible user action in a language nobody on the team reads.
+#
+# AIA-0572 held them back from a machine pass for exactly that reason. AIA-0575 translated them
+# anyway, by explicit decision, so that no locale shows English placeholders — with store-facing
+# terms matched to Apple's own localisations and everything left `needs_review` for audit.
+#
+# `export` still skips them by default, so a routine bulk pass cannot sweep them up by accident.
+# Pass --include-restricted to work on them deliberately.
+RESTRICTED_PREFIXES = (
     "paywall.", "subscription.", "auth.account.delete.", "settings.subscription.",
 )
 
@@ -631,8 +637,9 @@ def variation_kind(loc: dict | None) -> str | None:
     return None
 
 
-def is_machine_translatable(key: str) -> bool:
-    return not key.startswith(NO_MACHINE_TRANSLATION_PREFIXES)
+def is_restricted(key: str) -> bool:
+    """Legal, billing or irreversible-action copy — excluded from a routine bulk pass."""
+    return key.startswith(RESTRICTED_PREFIXES)
 
 
 def cmd_verify(args) -> int:
@@ -758,7 +765,7 @@ def cmd_export(args) -> int:
     for locale in TARGET_LOCALES:
         items = []
         for key in keys:
-            if not is_machine_translatable(key):
+            if is_restricted(key) and not args.include_restricted:
                 skipped_legal += 1
                 continue
             locs = cat["strings"][key]["localizations"]
@@ -808,8 +815,12 @@ def cmd_export(args) -> int:
     for locale, n in written.items():
         print(f"  {locale:9} {n:4} keys to translate")
     print(f"\nwrote {len(written)} worklists to {out}")
-    print(f"excluded from machine translation: {skipped_legal // len(TARGET_LOCALES)} legal/billing/"
-          f"destructive keys per locale (prefixes: {', '.join(NO_MACHINE_TRANSLATION_PREFIXES)})")
+    if skipped_legal:
+        print(f"excluded: {skipped_legal // len(TARGET_LOCALES)} legal/billing/irreversible-action "
+              f"keys per locale (prefixes: {', '.join(RESTRICTED_PREFIXES)}). "
+              f"Pass --include-restricted to translate them deliberately.")
+    else:
+        print("including legal/billing/irreversible-action keys (--include-restricted).")
     return 0
 
 
@@ -822,6 +833,10 @@ def main() -> int:
 
     e = sub.add_parser("export", help="write per-locale translation worklists")
     e.add_argument("--out", required=True, help="output directory")
+    e.add_argument("--include-restricted", action="store_true",
+                   help="also export legal/billing/irreversible-action keys (paywall.*, "
+                        "subscription.*, auth.account.delete.*). They need Apple's own store "
+                        "terminology and exact legal meaning — do not sweep them up casually.")
 
     m = sub.add_parser("merge", help="merge <locale>.json translation files into the catalog")
     m.add_argument("--source", required=True, help="directory of <locale>.json files")
