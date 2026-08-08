@@ -36344,7 +36344,7 @@
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "مجاني حتى %1$@ — بدون اشتراك وبدون طريقة دفع. ويمنحك الاشتراك تجربة مجانية إضافية لمدة %2$@ قبل أول عملية خصم."
+            "value" : "مجاني حتى %1$@ — بدون اشتراك وبدون طريقة دفع. ويمنحك الاشتراك تجربة مجانية إضافية (%2$@) قبل أول عملية خصم."
           }
         },
         "bn" : {
@@ -36356,13 +36356,13 @@
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Zdarma do %1$@ — bez předplatného, bez platební metody. Objednáním předplatného navíc získáte bezplatnou zkušební dobu v délce %2$@, teprve pak se strhne první platba."
+            "value" : "Zdarma do %1$@ — bez předplatného, bez platební metody. Objednáním předplatného navíc získáte bezplatnou zkušební dobu: %2$@. Teprve pak se strhne první platba."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Kostenlos bis %1$@ – kein Abo, keine Zahlungsmethode. Mit einem Abo beginnt vor der ersten Abrechnung zusätzlich ein Gratiszeitraum von %2$@."
+            "value" : "Kostenlos bis %1$@ – kein Abo, keine Zahlungsmethode. Mit einem Abo beginnt vor der ersten Abrechnung zusätzlich ein Gratiszeitraum: %2$@."
           }
         },
         "en" : {
