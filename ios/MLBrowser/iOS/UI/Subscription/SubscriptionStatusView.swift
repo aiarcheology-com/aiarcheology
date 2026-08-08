@@ -174,13 +174,14 @@ struct SubscriptionStatusView: View {
 	/// silently does nothing is precisely the failure this path exists to repair, so a refusal
 	/// has to leave a trace instead of reproducing the bug one layer down.
 	private func openManageSubscriptionsPage() {
-		Task {
+		Task { @MainActor in
 			let opened = await UIApplication.shared.open(.appleManageSubscriptions)
 			if opened.not {
 				LoggingPolicy.warning(
 					"The system declined to open Apple's manage-subscriptions page.",
 					logger: .state
 				)
+				notice = .init(title: L10n.Alert.Error.title, message: L10n.Alert.Error.unexpected)
 			}
 		}
 	}
