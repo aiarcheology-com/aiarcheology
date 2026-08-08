@@ -681,7 +681,7 @@ struct PaywallView: View {
 
 	private var trialEligibility: TrialEligibility {
 		guard let product = subscriptionState.products.first else { return .unresolved }
-		guard Self.hasFreeTrialOffer(product) else { return .noTrial }
+		guard product.hasFreeTrialIntroOffer else { return .noTrial }
 		switch introOfferEligibility {
 		case .none: return .unresolved
 		case .some(true): return .gettingTrial
@@ -817,7 +817,7 @@ struct PaywallView: View {
 		billingNote(for: product)
 	}
 
-	/// "Start 1 Month Free Trial" for a user who will actually get one; "Subscribe" for everyone else.
+	/// "Try Free for 2 weeks" for a user who will actually get one; "Subscribe" for everyone else.
 	///
 	/// Both halves of the condition are load-bearing and they answer different questions.
 	/// `introOfferEligibility` is StoreKit's answer about *this Apple Account* — a returning user who
@@ -861,20 +861,13 @@ struct PaywallView: View {
 		} else if trialEligibility == .gettingTrial,
 				  let period = product.subscription?.introductoryOffer?.period.localizedDescription {
 			billingNoteText(L10n.Paywall.trialSupport(period))
-		} else if trialEligibility == .noTrial, Self.hasFreeTrialOffer(product) {
+		} else if trialEligibility == .noTrial, product.hasFreeTrialIntroOffer {
 			// The offer's *existence* is checked separately from this customer's eligibility for it.
 			// StoreKit answers only the second question, and a product carrying no introductory offer
 			// can report `false` for everyone — telling those users they have used up a trial that
 			// was never on sale would be a plain untruth. Only the conjunction is safe to state.
 			billingNoteText(L10n.Paywall.Billing.immediate)
 		}
-	}
-
-	/// Whether the product ships an introductory **free trial** — as opposed to no introductory offer
-	/// at all, or a paid-introductory one. The single question separating "this user spent the trial"
-	/// from "there is no trial to spend".
-	private static func hasFreeTrialOffer(_ product: Product) -> Bool {
-		product.subscription?.introductoryOffer?.paymentMode == .freeTrial
 	}
 
 	private func billingNoteText(_ text: String) -> some View {

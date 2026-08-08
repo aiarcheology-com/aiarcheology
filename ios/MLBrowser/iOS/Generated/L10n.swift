@@ -695,10 +695,10 @@ internal enum L10n {
     internal static let active = L10n.tr("Localizable", "paywall.active", fallback: "Subscribed")
     /// Cancel anytime in your Apple Account settings.
     internal static let cancelFooter = L10n.tr("Localizable", "paywall.cancelFooter", fallback: "Cancel anytime in your Apple Account settings.")
-    /// Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.
-    internal static let disclosure = L10n.tr("Localizable", "paywall.disclosure", fallback: "Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.")
-    /// Payment is charged to your Apple ID when the free trial ends. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.
-    internal static let disclosureTrial = L10n.tr("Localizable", "paywall.disclosureTrial", fallback: "Payment is charged to your Apple ID when the free trial ends. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings.")
+    /// Payment is charged to your Apple Account at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your Apple Account settings.
+    internal static let disclosure = L10n.tr("Localizable", "paywall.disclosure", fallback: "Payment is charged to your Apple Account at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your Apple Account settings.")
+    /// Payment is charged to your Apple Account when the free trial ends. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your Apple Account settings.
+    internal static let disclosureTrial = L10n.tr("Localizable", "paywall.disclosureTrial", fallback: "Payment is charged to your Apple Account when the free trial ends. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your Apple Account settings.")
     /// Your free access has ended. Subscribe to keep using ML Browser and receive all future updates and improvements.
     internal static let expired = L10n.tr("Localizable", "paywall.expired", fallback: "Your free access has ended. Subscribe to keep using ML Browser and receive all future updates and improvements.")
     /// Export or Delete Findings
@@ -717,9 +717,9 @@ internal enum L10n {
     internal static let requestRefund = L10n.tr("Localizable", "paywall.requestRefund", fallback: "Request a Refund")
     /// Restore Purchases
     internal static let restore = L10n.tr("Localizable", "paywall.restore", fallback: "Restore Purchases")
-    /// Start %@ Free Trial
+    /// Try Free for %@
     internal static func startTrial(_ p1: Any) -> String {
-      return L10n.tr("Localizable", "paywall.startTrial", String(describing: p1), fallback: "Start %@ Free Trial")
+      return L10n.tr("Localizable", "paywall.startTrial", String(describing: p1), fallback: "Try Free for %@")
     }
     /// Subscribe
     internal static let subscribe = L10n.tr("Localizable", "paywall.subscribe", fallback: "Subscribe")
@@ -866,9 +866,13 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "settings.sentry.title", fallback: "Sentry Stats")
     }
     internal enum Subscription {
-      /// Free until %@ — no subscription, no payment method. Subscribing starts an extra 2-week free trial before the first charge.
-      internal static func freeAccessFootnote(_ p1: Any) -> String {
-        return L10n.tr("Localizable", "settings.subscription.freeAccessFootnote", String(describing: p1), fallback: "Free until %@ — no subscription, no payment method. Subscribing starts an extra 2-week free trial before the first charge.")
+      /// Free until %1$@ — no subscription, no payment method. Subscribing starts an extra free trial of %2$@ before the first charge.
+      internal static func freeAccessFootnote(_ p1: Any, _ p2: Any) -> String {
+        return L10n.tr("Localizable", "settings.subscription.freeAccessFootnote", String(describing: p1), String(describing: p2), fallback: "Free until %1$@ — no subscription, no payment method. Subscribing starts an extra free trial of %2$@ before the first charge.")
+      }
+      /// Free until %@ — no subscription, no payment method.
+      internal static func freeAccessFootnoteNoTrial(_ p1: Any) -> String {
+        return L10n.tr("Localizable", "settings.subscription.freeAccessFootnoteNoTrial", String(describing: p1), fallback: "Free until %@ — no subscription, no payment method.")
       }
       /// Your free trial runs until %@, when the first charge is made.
       internal static func trialFootnote(_ p1: Any) -> String {

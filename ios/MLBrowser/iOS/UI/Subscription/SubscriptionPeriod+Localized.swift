@@ -82,6 +82,14 @@ extension Product.SubscriptionPeriod {
 }
 
 extension Product {
+	/// Whether the product ships an introductory **free trial** — as opposed to no introductory
+	/// offer at all, or a paid-introductory one. The single question separating "this user spent
+	/// the trial" from "there is no trial to spend"; shared by the paywall and the Settings
+	/// account footer so the two surfaces cannot drift (AIA-0562).
+	var hasFreeTrialIntroOffer: Bool {
+		subscription?.introductoryOffer?.paymentMode == .freeTrial
+	}
+
 	/// This product's recurring price with the period it recurs over — "$3.99 / month".
 	///
 	/// Both parts come from the product, so App Store Connect stays the single source of truth:
