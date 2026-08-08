@@ -1,6 +1,6 @@
 Build: TBD
 
-Test Focus: the app now speaks 16 languages properly. Until now it claimed to support them but only about a quarter of the text was translated — set your phone to Czech and most of the app still came out in English. Every screen is now translated, including the subscription and account screens, which were the last ones left in English.
+Test Focus: the app now speaks 16 languages properly. Until now it claimed to support them but only about a quarter of the text was translated — set your phone to Czech and most of the app still came out in English. Every screen is now translated, including the subscription and account screens, which were the last ones left in English. This build also rewrites the English subscription wording itself — the trial button, the legal paragraph, and the free-access note in Settings — and re-translates those.
 
 Two things before you start. The translations were produced by machine, not a professional translator, so awkward or wrong wording is a genuinely useful report. And the wording on the subscription screens is the part we most want checked, because getting billing text wrong has consequences beyond looking sloppy.
 
@@ -8,18 +8,20 @@ To test, change your phone's language in Settings > General > Language & Region,
 
 1. Set your phone to one of these: Arabic, Bengali, Czech, German, Spanish, Persian, French, Hebrew, Hindi, Hungarian, Polish, Russian, Ukrainian, Simplified Chinese, Traditional Chinese (Taiwan) or Traditional Chinese (Hong Kong). Walk through the side menu, Settings, the model catalog, downloads, importing a model, and the findings list. Everything should be in your language. Report any screen still mostly English.
 
-2. Open the subscribe screen and read the money copy end to end. The price, what a subscription includes, the free-trial line, and the small legal paragraph should all be in your language and should agree with each other. This paragraph must still say when payment is taken, that the subscription renews automatically, that you can cancel up to 24 hours before the period ends, and where to cancel. If any of that is missing or contradicts the rest of the screen, that is the most important thing to report in this build.
+2. Open the subscribe screen and read the money copy end to end. The price, what a subscription includes, the free-trial line and the small legal paragraph should all be in your language and agree with each other. Three things changed, and each should read as a proper sentence: the green button ("Try Free for 2 weeks" in English, not "Start 2 weeks Free Trial"), the legal paragraph saying Apple Account rather than Apple ID, and both mentions of cancelling naming the same place. The paragraph must still say when payment is taken, that the subscription renews automatically, that you can cancel up to 24 hours before the period ends, and where to cancel. Anything missing or contradictory here is the most important thing to report.
 
-3. Settings > Subscription, and the account-deletion confirmation, should also be fully translated. The deletion warning must make it unmistakable that the action cannot be undone.
+3. While your free access is still running, open Settings and read the grey note under the account section. It should name the date your free access ends. If it also promises an extra free trial, that must match what the subscribe screen offers you — same length, and only when you are actually offered one. On an Apple Account that already used this app's trial, the note should give the date only.
 
-4. Set the language to Arabic, Hebrew or Persian. These read right to left, and this is the first build with enough real text to see it properly. The layout should mirror — menus, arrows and back buttons on the opposite side. Look for text running off the edge, overlapping, or reading in the wrong direction. This is the likeliest place for something to look broken.
+4. Settings > Subscription, and the account-deletion confirmation, should also be fully translated. The deletion warning must make it unmistakable that the action cannot be undone.
 
-5. Set the language to German or Russian. Both run noticeably longer than English. Check buttons, Settings rows and tab labels for text cut off with "…" or spilling outside its button. A screenshot helps.
+5. Set the language to Arabic, Hebrew or Persian. These read right to left. The layout should mirror — menus, arrows and back buttons on the opposite side. Look for text running off the edge, overlapping, or reading in the wrong direction. This is the likeliest place for something to look broken.
 
-6. Find a screen that counts things, such as a findings or file count. Check it reads naturally for 0, 1, 2 and 5. Czech, Polish, Russian, Ukrainian and Arabic change the word depending on the number, and this is the first build to get that right.
+6. Set the language to German or Russian. Both run noticeably longer than English. Check buttons, Settings rows and tab labels for text cut off with "…" or spilling outside its button. A screenshot helps.
 
-7. Anywhere a number, price or name is inserted into a sentence ("Files: 3 / 10", "$3.99 / month", "The model X from Y has been imported"), confirm the values still appear and sit sensibly in the sentence. Missing or duplicated values there are a real bug, not a wording preference.
+7. Find a screen that counts things, such as a findings or file count. Check it reads naturally for 0, 1, 2 and 5. Czech, Polish, Russian, Ukrainian and Arabic change the word depending on the number.
 
-8. On first launch, iOS asks permission to find devices on your local network. That prompt is now translated too — check it reads naturally in your language.
+8. Anywhere a number, price or name is inserted into a sentence ("Files: 3 / 10", "$3.99 / month"), confirm the values still appear and sit sensibly in the sentence. Missing or duplicated values there are a real bug, not a wording preference.
 
-9. Switch back to English and confirm nothing changed: English text should be exactly as it was before this build.
+9. On first launch, iOS asks permission to find devices on your local network. That prompt is now translated too — check it reads naturally in your language.
+
+10. Switch back to English and confirm nothing changed: English text should be exactly as it was before this build.
