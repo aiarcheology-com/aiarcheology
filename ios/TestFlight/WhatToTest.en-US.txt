@@ -24,4 +24,4 @@ To test, change your phone's language in Settings > General > Language & Region,
 
 9. On first launch, iOS asks permission to find devices on your local network. That prompt is now translated too — check it reads naturally in your language.
 
-10. Switch back to English and confirm nothing changed: English text should be exactly as it was before this build.
+10. Switch back to English. Apart from the subscription wording in steps 2 and 3, which changed deliberately, English text should read exactly as it did before this build.

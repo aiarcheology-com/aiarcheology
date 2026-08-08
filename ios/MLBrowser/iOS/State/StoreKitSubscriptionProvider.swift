@@ -115,7 +115,13 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 				"Failed to load subscription products: \(error.localizedDescription)",
 				logger: .networking
 			)
-			products = []
+			// Deliberately keeps whatever was already loaded. A failed refresh says nothing about
+			// the products fetched earlier, and this now has more than one caller: Settings resolves
+			// the same products to decide what its footer may promise, and the paywall is presented
+			// as a sheet from that very screen. Clearing here republished an empty list to every
+			// observer, so a fetch that failed — or merely got cancelled when its view went away —
+			// could swap a working Subscribe button for "subscriptions are not available right now"
+			// under the user's finger. Only a successful fetch replaces the list.
 		}
 	}
 

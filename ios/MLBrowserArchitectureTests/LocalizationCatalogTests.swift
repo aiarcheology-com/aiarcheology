@@ -105,7 +105,7 @@ final class LocalizationCatalogTests: XCTestCase {
         let (all, manual) = try Self.parseCatalog()
 
         // Corruption tripwire: the reader must never silently collapse to an (almost) empty set —
-        // that vacuous pass was the AIA-0417 bug. The catalog holds ~417 authored keys.
+        // that vacuous pass was the AIA-0417 bug. The catalog holds ~418 authored keys.
         XCTAssertGreaterThan(
             manual.count, 100,
             "Only \(manual.count) authored key(s) parsed from the source catalog — the reader looks broken."
@@ -158,7 +158,7 @@ final class LocalizationCatalogTests: XCTestCase {
     ]
 
     /// Per-locale count of authored keys carrying a localization. Every locale is complete as of
-    /// AIA-0575 — all 417 authored keys, no fallbacks to English anywhere.
+    /// AIA-0575 — all 418 authored keys, no fallbacks to English anywhere.
     ///
     /// This is a **ratchet, not a target**: coverage may rise freely and a new English string may
     /// land untranslated, but existing translations may not silently disappear. Deliberately not a

@@ -164,7 +164,12 @@ struct SettingsForm: View {
 					}
 				}
 			}
-			.task {
+			// Keyed on the loaded product, so this runs again if the products arrive from anywhere
+			// else — the paywall sheet presented from this same screen loads them too. A one-shot
+			// task that ran while the list was still empty would leave eligibility unresolved for
+			// the life of the sheet, leaving the date-only footer standing next to a paywall that
+			// is offering the trial.
+			.task(id: subscriptionState.products.first?.id) {
 				// Resolve what the account footer may promise (AIA-0562/0576): the product's trial
 				// offer and this Apple Account's eligibility for it — the same off-the-launch-path
 				// fetch the paywall runs. Gated to exactly the state that renders the free-access
@@ -172,7 +177,9 @@ struct SettingsForm: View {
 				guard subscriptionState.isPaymentsSurfaceEnabled,
 					  !subscriptionState.isSubscribed,
 					  freeAccessEndsOn != nil else { return }
-				await subscriptionState.loadProducts()
+				if subscriptionState.products.isEmpty {
+					await subscriptionState.loadProducts()
+				}
 				if let subscription = subscriptionState.products.first?.subscription {
 					introOfferEligibility = await subscription.isEligibleForIntroOffer
 				}

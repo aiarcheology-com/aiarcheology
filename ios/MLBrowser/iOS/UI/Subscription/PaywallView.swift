@@ -817,14 +817,15 @@ struct PaywallView: View {
 		billingNote(for: product)
 	}
 
-	/// "Try Free for 2 weeks" for a user who will actually get one; "Subscribe" for everyone else.
+	/// "Try Free for <period>" for a user who will actually get one; "Subscribe" for everyone else.
 	///
-	/// Both halves of the condition are load-bearing and they answer different questions.
-	/// `introOfferEligibility` is StoreKit's answer about *this Apple Account* — a returning user who
-	/// already spent the trial is charged at once, and promising them a free one is the kind of copy
-	/// that gets a build rejected. ``hasFreeTrialOffer`` asks whether the product carries a trial at
-	/// all, because a product with no introductory offer reports ineligible for *everyone*, and
-	/// without this the label would be right by accident rather than by construction.
+	/// Both halves of ``trialEligibility`` are load-bearing and they answer different questions.
+	/// ``introOfferEligibility`` is StoreKit's answer about *this Apple Account* — a returning user
+	/// who already spent the trial is charged at once, and promising them a free one is the kind of
+	/// copy that gets a build rejected. ``Product/hasFreeTrialIntroOffer`` asks whether the product
+	/// carries a trial at all, because a product with no introductory offer reports ineligible for
+	/// *everyone*, and without this the label would be right by accident rather than by
+	/// construction. This function reads the answer they produce together, not the two conditions.
 	///
 	/// The period comes from the offer, never a literal: the ticket's "Start 14-Day Free Trial"
 	/// hardcodes a length that App Store Connect owns and can change without a release.

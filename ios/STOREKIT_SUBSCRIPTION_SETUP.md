@@ -68,8 +68,8 @@ offer withdrawn, StoreKit still resolving — gets the date-only sentence
   remain:
   1. App Store Connect (the actual offer),
   2. `ios/MLBrowser/Configuration.storekit` (`introductoryOffer.subscriptionPeriod`, local testing only).
-  Every user-facing statement of the length — the paywall's trial line and the Settings
-  free-access footnote — is derived from the product and needs no edit (AIA-0576).
+  All three user-facing statements of the length — the purchase button, the paywall's trial line
+  and the Settings free-access footnote — are derived from the product and need no edit (AIA-0576).
 
 ## Gating model — WHOLE-APP subscription (no free/premium split)
 
