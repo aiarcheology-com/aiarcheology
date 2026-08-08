@@ -29817,7 +29817,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings."
+            "value" : "Payment is charged to your Apple Account at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your Apple Account settings."
           }
         },
         "es" : {
@@ -29925,7 +29925,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Payment is charged to your Apple ID when the free trial ends. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings."
+            "value" : "Payment is charged to your Apple Account when the free trial ends. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your Apple Account settings."
           }
         },
         "es" : {
@@ -31620,7 +31620,7 @@
       }
     },
     "paywall.startTrial" : {
-      "comment" : "Purchase button for a user still eligible for the introductory free trial. %@ is the trial length, from App Store Connect — never hardcoded.",
+      "comment" : "Purchase button for a user still eligible for the introductory free trial. %@ is the trial length, from App Store Connect — never hardcoded. It is always a spelled-out, nominative duration noun phrase produced by the app's period formatter ('2 weeks', '1 month'), never a badge form like '14-day' — reorder the sentence rather than forcing a preposition whose case the phrase cannot carry.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
@@ -31650,7 +31650,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start %@ Free Trial"
+            "value" : "Try Free for %@"
           }
         },
         "es" : {
@@ -32157,7 +32157,7 @@
       }
     },
     "paywall.trialSupport" : {
-      "comment" : "Under the purchase button when a free trial applies. Deliberately anchored to the purchase completing rather than to today: the trial starts when the transaction does, which Ask-to-Buy can delay by days, and 'in 14 days' would also contradict the renewal disclosure below it. %@ is the trial length.",
+      "comment" : "Under the purchase button when a free trial applies. Deliberately anchored to the purchase completing rather than to today: the trial starts when the transaction does, which Ask-to-Buy can delay by days, and 'in 14 days' would also contradict the renewal disclosure below it. %@ is the trial length — always a spelled-out, nominative duration noun phrase from the app's period formatter ('2 weeks', '1 month'), never a badge form like '14-day'; reorder the sentence rather than forcing a case the phrase cannot carry.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
@@ -36338,6 +36338,7 @@
       }
     },
     "settings.subscription.freeAccessFootnote" : {
+      "comment" : "Settings account footer while the app-managed free window is open and this user would actually get the introductory free trial on subscribing. %1$@ is the window's end date; %2$@ is the trial length — a spelled-out, nominative duration noun phrase from the app's period formatter ('2 weeks'), never a badge form like '14-day'.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
@@ -36367,7 +36368,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Free until %@ — no subscription, no payment method. Subscribing starts an extra 2-week free trial before the first charge."
+            "value" : "Free until %1$@ — no subscription, no payment method. Subscribing starts an extra free trial of %2$@ before the first charge."
           }
         },
         "es" : {
@@ -36440,6 +36441,18 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "在 %@ 之前免費使用，無需訂閱，也無需付款方式。訂閱後會先獲得額外 2 星期免費試用，之後才首次扣款。"
+          }
+        }
+      }
+    },
+    "settings.subscription.freeAccessFootnoteNoTrial" : {
+      "comment" : "Settings account footer while the app-managed free window is open but no introductory free trial can be promised to this user — the product carries no free-trial offer, this Apple Account already used it, or StoreKit has not answered yet. States only the window, never a trial. %@ is the window's end date.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free until %@ — no subscription, no payment method."
           }
         }
       }
