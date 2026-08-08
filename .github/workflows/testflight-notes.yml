@@ -28,19 +28,35 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check every WhatToTest file
+        shell: bash
+        env:
+          # ${#var} counts characters only in a UTF-8 locale; otherwise it falls back to bytes and
+          # would disagree with deliver.sh for the em dashes and ellipses these notes contain.
+          LC_ALL: C.UTF-8
         run: |
-          # Keep in step with WHATSNEW_MAX in scripts/deliver.sh.
-          # `status` is read-only in zsh; `rc` stays portable if anyone runs this by hand.
+          # Keep in step with WHATSNEW_MAX in scripts/deliver.sh, and measure the same way it does:
+          # characters via ${#text}, not bytes via `wc -c`. This file is 3211 bytes but 3203
+          # characters, so near the cap the two measures give different answers.
           MAX=4000
           rc=0
+
           shopt -s nullglob
-          for f in ios/TestFlight/WhatToTest.*.txt; do
-            n=$(wc -c < "$f" | tr -d ' ')
+          files=(ios/TestFlight/WhatToTest.*.txt)
+          # Without this, deleting the last notes file leaves the loop with nothing to iterate and
+          # the job passes — a green check certifying that no tester notes exist at all.
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::No ios/TestFlight/WhatToTest.*.txt found. A build must ship tester notes (ios/AGENTS.md §13)."
+            exit 1
+          fi
+
+          for f in "${files[@]}"; do
+            text="$(cat "$f")"
+            n=${#text}
             if [ "$n" -gt "$MAX" ]; then
-              echo "::error file=$f::$f is $n chars; App Store Connect caps whatsNew at $MAX."
+              echo "::error file=$f::$f is $n characters; App Store Connect caps whatsNew at $MAX."
               rc=1
             else
-              echo "$f: $n/$MAX chars"
+              echo "$f: $n/$MAX characters"
             fi
             # deliver.sh refuses to publish notes without a line to stamp the build number onto.
             if ! grep -qxE 'Build: .*' "$f"; then
@@ -48,6 +64,7 @@ jobs:
               rc=1
             fi
           done
+
           if [ "$rc" -ne 0 ]; then
             echo
             echo "These notes describe ONE build, not the project's history. Remove the sections for"
