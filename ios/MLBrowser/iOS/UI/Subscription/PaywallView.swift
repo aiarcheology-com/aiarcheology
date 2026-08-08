@@ -113,8 +113,8 @@ struct SubscriptionNotice: Equatable {
 ///
 /// `Color.secondary` rather than a literal: this app hardcodes no colours, and the outline has to
 /// stay legible in both appearances. Deliberately not the hierarchical `.tertiary`, which resolves
-/// against the *foreground* style — Restore sets `.tint` and Manage is a `Link`, so the same
-/// modifier would have drawn two different colours.
+/// against the *foreground* style — Restore sets `.foregroundStyle(.tint)` and Manage is a `Link`,
+/// so the same modifier would have drawn two different colours.
 private struct PaywallOutlinedAction: ViewModifier {
 	func body(content: Content) -> some View {
 		content
