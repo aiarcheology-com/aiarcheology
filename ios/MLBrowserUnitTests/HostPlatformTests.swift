@@ -101,8 +101,30 @@ final class HostPlatformTests: XCTestCase {
         XCTAssertTrue(HostPlatform.macDesignedForiPad.prefersContextMenuOverSwipe)
     }
     
+    // MARK: - supportsManageSubscriptionsSheet Tests
+
+    func test_supportsManageSubscriptionsSheet_iOS_returnsTrue() {
+        XCTAssertTrue(HostPlatform.iOS.supportsManageSubscriptionsSheet)
+    }
+
+    func test_supportsManageSubscriptionsSheet_iPadOS_returnsTrue() {
+        XCTAssertTrue(HostPlatform.iPadOS.supportsManageSubscriptionsSheet)
+    }
+
+    /// StoreKit declares the sheet available on macCatalyst, and this target does not build
+    /// Catalyst — so it must not inherit the iOS-on-Mac workaround untested.
+    func test_supportsManageSubscriptionsSheet_macViaCatalyst_returnsTrue() {
+        XCTAssertTrue(HostPlatform.macViaCatalyst.supportsManageSubscriptionsSheet)
+    }
+
+    /// The regression this guards: `storekitagent` rejects the manage-subscriptions request on
+    /// iOS-on-Mac, and the SwiftUI modifier swallows the error, so the button did nothing.
+    func test_supportsManageSubscriptionsSheet_macDesignedForiPad_returnsFalse() {
+        XCTAssertFalse(HostPlatform.macDesignedForiPad.supportsManageSubscriptionsSheet)
+    }
+
     // MARK: - Platform Property Consistency Tests
-    
+
     func test_allPlatforms_haveMutuallyExclusiveDeviceTypes() {
         let platforms: [HostPlatform] = [.iOS, .iPadOS, .macViaCatalyst, .macDesignedForiPad]
         
