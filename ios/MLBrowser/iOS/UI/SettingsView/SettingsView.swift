@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import StoreKit
 import ClerkKit
 import ClerkKitUI
 
@@ -52,6 +53,11 @@ struct SettingsForm: View {
 
 	/// The paywall, opened from the Subscription row while nothing is owned (AIA-0556).
 	@State private var showPaywall = false
+
+	/// Whether *this* Apple Account would still get the introductory free trial, or `nil` until
+	/// StoreKit has said — the paywall's three-valued rule (see `PaywallView.introOfferEligibility`),
+	/// borrowed so the account footer never promises a trial to a returning user (AIA-0562).
+	@State private var introOfferEligibility: Bool?
 	@FocusState private var isHistoryLimitFocused: Bool
 	/// Drives the Settings navigation stack so the embedded Clerk profile pushes onto it.
 	@State private var accountPath: NavigationPath
@@ -156,6 +162,26 @@ struct SettingsForm: View {
 						}
 						.testability(Testability.Button.settingsKeyboardDone)
 					}
+				}
+			}
+			// Keyed on the loaded product, so this runs again if the products arrive from anywhere
+			// else — the paywall sheet presented from this same screen loads them too. A one-shot
+			// task that ran while the list was still empty would leave eligibility unresolved for
+			// the life of the sheet, leaving the date-only footer standing next to a paywall that
+			// is offering the trial.
+			.task(id: subscriptionState.products.first?.id) {
+				// Resolve what the account footer may promise (AIA-0562/0576): the product's trial
+				// offer and this Apple Account's eligibility for it — the same off-the-launch-path
+				// fetch the paywall runs. Gated to exactly the state that renders the free-access
+				// footnote, so every other Settings visit skips the StoreKit round trip.
+				guard subscriptionState.isPaymentsSurfaceEnabled,
+					  !subscriptionState.isSubscribed,
+					  freeAccessEndsOn != nil else { return }
+				if subscriptionState.products.isEmpty {
+					await subscriptionState.loadProducts()
+				}
+				if let subscription = subscriptionState.products.first?.subscription {
+					introOfferEligibility = await subscription.isEligibleForIntroOffer
 				}
 			}
 
@@ -522,6 +548,14 @@ struct SettingsForm: View {
 	/// payment method, and is measured from the purchase. The two never show together — the first is
 	/// only reachable while unsubscribed, the second only once subscribed — so each line can state
 	/// its own terms without hedging about the other.
+	///
+	/// The free-access line may also *mention* the trial ("an extra free trial of 2 weeks"), and
+	/// that mention is a per-user claim about money: a returning Apple Account gets no second
+	/// trial. So it follows the paywall's rule — stated only once the product's free-trial offer
+	/// AND this user's eligibility are both confirmed; anything unresolved or negative falls back
+	/// to the date-only sentence (AIA-0562/0576). Under-claiming is the safe direction: the
+	/// paywall states the trial at the moment of subscribing, while nothing would ever correct an
+	/// over-claim left standing here.
 	private var subscriptionFootnote: String? {
 		guard subscriptionState.isPaymentsSurfaceEnabled else { return nil }
 		if subscriptionState.isSubscribed {
@@ -529,9 +563,14 @@ struct SettingsForm: View {
 			return L10n.Settings.Subscription.trialFootnote(ends.formatted(date: .abbreviated, time: .omitted))
 		}
 		guard let freeAccessEndsOn else { return nil }
-		return L10n.Settings.Subscription.freeAccessFootnote(
-			freeAccessEndsOn.formatted(date: .abbreviated, time: .omitted)
-		)
+		let windowEnds = freeAccessEndsOn.formatted(date: .abbreviated, time: .omitted)
+		if let product = subscriptionState.products.first,
+		   product.hasFreeTrialIntroOffer,
+		   introOfferEligibility == true,
+		   let period = product.subscription?.introductoryOffer?.period.localizedDescription {
+			return L10n.Settings.Subscription.freeAccessFootnote(windowEnds, period)
+		}
+		return L10n.Settings.Subscription.freeAccessFootnoteNoTrial(windowEnds)
 	}
 
 	private var accountSection: some View {

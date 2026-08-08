@@ -29793,49 +29793,49 @@
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "يتم خصم قيمة الاشتراك من معرّف Apple الخاص بك عند تأكيد عملية الشراء. ويتجدد الاشتراك تلقائيًا ما لم يتم إلغاؤه قبل 24 ساعة على الأقل من نهاية الفترة الحالية. يمكنك إدارة الاشتراك أو إلغاؤه في أي وقت من الإعدادات."
+            "value" : "يتم خصم قيمة الاشتراك من حساب Apple الخاص بك عند تأكيد عملية الشراء. ويتجدد الاشتراك تلقائيًا ما لم يتم إلغاؤه قبل 24 ساعة على الأقل من نهاية الفترة الحالية. يمكنك إدارة الاشتراك أو إلغاؤه في أي وقت من إعدادات حساب Apple."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "নিশ্চিত করার সময় আপনার Apple ID থেকে পেমেন্ট নেওয়া হয়। বর্তমান মেয়াদ শেষ হওয়ার অন্তত 24 ঘণ্টা আগে বাতিল না করলে সাবস্ক্রিপশন স্বয়ংক্রিয়ভাবে রিনিউ হয়। আপনার Apple অ্যাকাউন্টের সেটিংসে যেকোনো সময় পরিচালনা করুন বা বাতিল করুন।"
+            "value" : "নিশ্চিত করার সময় আপনার Apple অ্যাকাউন্ট থেকে পেমেন্ট নেওয়া হয়। বর্তমান মেয়াদ শেষ হওয়ার অন্তত 24 ঘণ্টা আগে বাতিল না করলে সাবস্ক্রিপশন স্বয়ংক্রিয়ভাবে রিনিউ হয়। আপনার Apple অ্যাকাউন্টের সেটিংসে যেকোনো সময় পরিচালনা করুন বা বাতিল করুন।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Platba bude účtována k vašemu účtu Apple ID při potvrzení nákupu. Předplatné se automaticky obnovuje, pokud není zrušeno alespoň 24 hodin před koncem aktuálního období. Spravovat nebo zrušit ho můžete kdykoli v Nastavení zařízení v sekci účtu Apple."
+            "value" : "Platba bude účtována k vašemu účtu Apple při potvrzení nákupu. Předplatné se automaticky obnovuje, pokud není zrušeno alespoň 24 hodin před koncem aktuálního období. Spravovat nebo zrušit ho můžete kdykoli v Nastavení zařízení v sekci účtu Apple."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Die Zahlung wird bei der Bestätigung des Kaufs über Ihre Apple-ID abgerechnet. Das Abonnement verlängert sich automatisch, sofern es nicht mindestens 24 Stunden vor Ende des laufenden Zeitraums gekündigt wird. Sie können das Abo jederzeit in den Einstellungen Ihres Apple-Accounts verwalten oder kündigen."
+            "value" : "Die Zahlung wird bei der Bestätigung des Kaufs über Ihren Apple-Account abgerechnet. Das Abonnement verlängert sich automatisch, sofern es nicht mindestens 24 Stunden vor Ende des laufenden Zeitraums gekündigt wird. Sie können das Abo jederzeit in den Einstellungen Ihres Apple-Accounts verwalten oder kündigen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Payment is charged to your Apple ID at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings."
+            "value" : "Payment is charged to your Apple Account at confirmation. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your Apple Account settings."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "El pago se carga a tu cuenta de Apple al confirmar la compra. La suscripción se renueva automáticamente a menos que se cancele al menos 24 horas antes del final del período actual. Puedes gestionarla o cancelarla cuando quieras en Ajustes."
+            "value" : "El pago se carga a tu cuenta de Apple al confirmar la compra. La suscripción se renueva automáticamente a menos que se cancele al menos 24 horas antes del final del período actual. Puedes gestionarla o cancelarla cuando quieras en los ajustes de tu cuenta de Apple."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "مبلغ اشتراک هنگام تأیید خرید از شناسهٔ Apple شما کسر می‌شود. اشتراک به‌طور خودکار تمدید می‌شود، مگر آنکه دست‌کم ۲۴ ساعت پیش از پایان دورهٔ جاری لغو شود. هر زمان می‌توانید اشتراک را در تنظیمات مدیریت یا لغو کنید."
+            "value" : "مبلغ اشتراک هنگام تأیید خرید از حساب Apple شما کسر می‌شود. اشتراک به‌طور خودکار تمدید می‌شود، مگر آنکه دست‌کم ۲۴ ساعت پیش از پایان دورهٔ جاری لغو شود. هر زمان می‌توانید اشتراک را در تنظیمات حساب Apple مدیریت یا لغو کنید."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Le paiement est débité de votre compte Apple au moment de la confirmation. L'abonnement se renouvelle automatiquement, sauf s'il est annulé au moins 24 heures avant la fin de la période en cours. Vous pouvez le gérer ou l'annuler à tout moment dans Réglages."
+            "value" : "Le paiement est débité de votre compte Apple au moment de la confirmation. L'abonnement se renouvelle automatiquement, sauf s'il est annulé au moins 24 heures avant la fin de la période en cours. Vous pouvez le gérer ou l'annuler à tout moment dans les réglages de votre compte Apple."
           }
         },
         "he" : {
@@ -29847,7 +29847,7 @@
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "पुष्टि के समय भुगतान आपकी Apple ID से लिया जाता है। सब्सक्रिप्शन अपने आप रिन्यू हो जाता है, बशर्ते मौजूदा अवधि खत्म होने से कम से कम 24 घंटे पहले इसे रद्द न कर दिया जाए। अपने Apple खाते की सेटिंग्स में कभी भी प्रबंधित करें या रद्द करें।"
+            "value" : "पुष्टि के समय भुगतान आपके Apple खाते से लिया जाता है। सब्सक्रिप्शन अपने आप रिन्यू हो जाता है, बशर्ते मौजूदा अवधि खत्म होने से कम से कम 24 घंटे पहले इसे रद्द न कर दिया जाए। अपने Apple खाते की सेटिंग्स में कभी भी प्रबंधित करें या रद्द करें।"
           }
         },
         "hu" : {
@@ -29859,25 +29859,25 @@
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Płatność zostanie pobrana z Twojego konta Apple ID w chwili potwierdzenia zakupu. Subskrypcja odnawia się automatycznie, o ile nie zostanie anulowana co najmniej 24 godziny przed końcem bieżącego okresu. Subskrypcją możesz zarządzać lub anulować ją w dowolnym momencie w Ustawieniach urządzenia, w sekcji konta Apple."
+            "value" : "Płatność zostanie pobrana z Twojego konta Apple w chwili potwierdzenia zakupu. Subskrypcja odnawia się automatycznie, o ile nie zostanie anulowana co najmniej 24 godziny przed końcem bieżącego okresu. Subskrypcją możesz zarządzać lub anulować ją w dowolnym momencie w Ustawieniach urządzenia, w sekcji konta Apple."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Оплата списывается с вашей учётной записи Apple при подтверждении покупки. Подписка продлевается автоматически, если не отменить её не менее чем за 24 часа до окончания текущего периода. Управлять подпиской или отменить её можно в любой момент в Настройках."
+            "value" : "Оплата списывается с вашей учётной записи Apple при подтверждении покупки. Подписка продлевается автоматически, если не отменить её не менее чем за 24 часа до окончания текущего периода. Управлять подпиской или отменить её можно в любой момент в настройках учётной записи Apple."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Оплата списується з вашого облікового запису Apple під час підтвердження покупки. Передплата продовжується автоматично, якщо не скасувати її щонайменше за 24 години до завершення поточного періоду. Керувати передплатою або скасувати її можна будь-коли в Налаштуваннях."
+            "value" : "Оплата списується з вашого облікового запису Apple під час підтвердження покупки. Передплата продовжується автоматично, якщо не скасувати її щонайменше за 24 години до завершення поточного періоду. Керувати передплатою або скасувати її можна будь-коли в налаштуваннях облікового запису Apple."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "确认购买时会向你的 Apple ID 收取费用。订阅将自动续订，除非在当前订阅周期结束前至少 24 小时取消。你可以随时在系统“设置”的 Apple 账户中管理或取消订阅。"
+            "value" : "确认购买时会向你的 Apple 账户收取费用。订阅将自动续订，除非在当前订阅周期结束前至少 24 小时取消。你可以随时在系统“设置”的 Apple 账户中管理或取消订阅。"
           }
         },
         "zh-Hant" : {
@@ -29889,7 +29889,7 @@
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "確認購買時會向你的 Apple ID 收取費用。訂閱會自動續期，除非在目前訂閱期結束前最少 24 小時取消。你可隨時在系統「設定」的 Apple 帳戶中管理或取消訂閱。"
+            "value" : "確認購買時會向你的 Apple 帳戶收取費用。訂閱會自動續期，除非在目前訂閱期結束前最少 24 小時取消。你可隨時在系統「設定」的 Apple 帳戶中管理或取消訂閱。"
           }
         }
       }
@@ -29901,49 +29901,49 @@
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "يتم خصم قيمة الاشتراك من معرّف Apple الخاص بك عند انتهاء التجربة المجانية. ويتجدد الاشتراك تلقائيًا ما لم يتم إلغاؤه قبل 24 ساعة على الأقل من نهاية الفترة الحالية. يمكنك إدارة الاشتراك أو إلغاؤه في أي وقت من الإعدادات."
+            "value" : "يتم خصم قيمة الاشتراك من حساب Apple الخاص بك عند انتهاء التجربة المجانية. ويتجدد الاشتراك تلقائيًا ما لم يتم إلغاؤه قبل 24 ساعة على الأقل من نهاية الفترة الحالية. يمكنك إدارة الاشتراك أو إلغاؤه في أي وقت من إعدادات حساب Apple."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "ফ্রি ট্রায়াল শেষ হলে আপনার Apple ID থেকে পেমেন্ট নেওয়া হয়। বর্তমান মেয়াদ শেষ হওয়ার অন্তত 24 ঘণ্টা আগে বাতিল না করলে সাবস্ক্রিপশন স্বয়ংক্রিয়ভাবে রিনিউ হয়। আপনার Apple অ্যাকাউন্টের সেটিংসে যেকোনো সময় পরিচালনা করুন বা বাতিল করুন।"
+            "value" : "ফ্রি ট্রায়াল শেষ হলে আপনার Apple অ্যাকাউন্ট থেকে পেমেন্ট নেওয়া হয়। বর্তমান মেয়াদ শেষ হওয়ার অন্তত 24 ঘণ্টা আগে বাতিল না করলে সাবস্ক্রিপশন স্বয়ংক্রিয়ভাবে রিনিউ হয়। আপনার Apple অ্যাকাউন্টের সেটিংসে যেকোনো সময় পরিচালনা করুন বা বাতিল করুন।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Platba bude účtována k vašemu účtu Apple ID po skončení bezplatné zkušební verze. Předplatné se automaticky obnovuje, pokud není zrušeno alespoň 24 hodin před koncem aktuálního období. Spravovat nebo zrušit ho můžete kdykoli v Nastavení zařízení v sekci účtu Apple."
+            "value" : "Platba bude účtována k vašemu účtu Apple po skončení bezplatné zkušební verze. Předplatné se automaticky obnovuje, pokud není zrušeno alespoň 24 hodin před koncem aktuálního období. Spravovat nebo zrušit ho můžete kdykoli v Nastavení zařízení v sekci účtu Apple."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Die Zahlung wird bei Ablauf des Gratiszeitraums über Ihre Apple-ID abgerechnet. Das Abonnement verlängert sich automatisch, sofern es nicht mindestens 24 Stunden vor Ende des laufenden Zeitraums gekündigt wird. Sie können das Abo jederzeit in den Einstellungen Ihres Apple-Accounts verwalten oder kündigen."
+            "value" : "Die Zahlung wird bei Ablauf des Gratiszeitraums über Ihren Apple-Account abgerechnet. Das Abonnement verlängert sich automatisch, sofern es nicht mindestens 24 Stunden vor Ende des laufenden Zeitraums gekündigt wird. Sie können das Abo jederzeit in den Einstellungen Ihres Apple-Accounts verwalten oder kündigen."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Payment is charged to your Apple ID when the free trial ends. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in Settings."
+            "value" : "Payment is charged to your Apple Account when the free trial ends. The subscription renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your Apple Account settings."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "El pago se carga a tu cuenta de Apple cuando termina la prueba gratuita. La suscripción se renueva automáticamente a menos que se cancele al menos 24 horas antes del final del período actual. Puedes gestionarla o cancelarla cuando quieras en Ajustes."
+            "value" : "El pago se carga a tu cuenta de Apple cuando termina la prueba gratuita. La suscripción se renueva automáticamente a menos que se cancele al menos 24 horas antes del final del período actual. Puedes gestionarla o cancelarla cuando quieras en los ajustes de tu cuenta de Apple."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "مبلغ اشتراک در پایان دورهٔ آزمایشی رایگان از شناسهٔ Apple شما کسر می‌شود. اشتراک به‌طور خودکار تمدید می‌شود، مگر آنکه دست‌کم ۲۴ ساعت پیش از پایان دورهٔ جاری لغو شود. هر زمان می‌توانید اشتراک را در تنظیمات مدیریت یا لغو کنید."
+            "value" : "مبلغ اشتراک در پایان دورهٔ آزمایشی رایگان از حساب Apple شما کسر می‌شود. اشتراک به‌طور خودکار تمدید می‌شود، مگر آنکه دست‌کم ۲۴ ساعت پیش از پایان دورهٔ جاری لغو شود. هر زمان می‌توانید اشتراک را در تنظیمات حساب Apple مدیریت یا لغو کنید."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Le paiement est débité de votre compte Apple à la fin de l'essai gratuit. L'abonnement se renouvelle automatiquement, sauf s'il est annulé au moins 24 heures avant la fin de la période en cours. Vous pouvez le gérer ou l'annuler à tout moment dans Réglages."
+            "value" : "Le paiement est débité de votre compte Apple à la fin de l'essai gratuit. L'abonnement se renouvelle automatiquement, sauf s'il est annulé au moins 24 heures avant la fin de la période en cours. Vous pouvez le gérer ou l'annuler à tout moment dans les réglages de votre compte Apple."
           }
         },
         "he" : {
@@ -29955,7 +29955,7 @@
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "मुफ़्त ट्रायल खत्म होने पर भुगतान आपकी Apple ID से लिया जाता है। सब्सक्रिप्शन अपने आप रिन्यू हो जाता है, बशर्ते मौजूदा अवधि खत्म होने से कम से कम 24 घंटे पहले इसे रद्द न कर दिया जाए। अपने Apple खाते की सेटिंग्स में कभी भी प्रबंधित करें या रद्द करें।"
+            "value" : "मुफ़्त ट्रायल खत्म होने पर भुगतान आपके Apple खाते से लिया जाता है। सब्सक्रिप्शन अपने आप रिन्यू हो जाता है, बशर्ते मौजूदा अवधि खत्म होने से कम से कम 24 घंटे पहले इसे रद्द न कर दिया जाए। अपने Apple खाते की सेटिंग्स में कभी भी प्रबंधित करें या रद्द करें।"
           }
         },
         "hu" : {
@@ -29967,25 +29967,25 @@
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Płatność zostanie pobrana z Twojego konta Apple ID po zakończeniu bezpłatnego okresu próbnego. Subskrypcja odnawia się automatycznie, o ile nie zostanie anulowana co najmniej 24 godziny przed końcem bieżącego okresu. Subskrypcją możesz zarządzać lub anulować ją w dowolnym momencie w Ustawieniach urządzenia, w sekcji konta Apple."
+            "value" : "Płatność zostanie pobrana z Twojego konta Apple po zakończeniu bezpłatnego okresu próbnego. Subskrypcja odnawia się automatycznie, o ile nie zostanie anulowana co najmniej 24 godziny przed końcem bieżącego okresu. Subskrypcją możesz zarządzać lub anulować ją w dowolnym momencie w Ustawieniach urządzenia, w sekcji konta Apple."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Оплата списывается с вашей учётной записи Apple по окончании бесплатного пробного периода. Подписка продлевается автоматически, если не отменить её не менее чем за 24 часа до окончания текущего периода. Управлять подпиской или отменить её можно в любой момент в Настройках."
+            "value" : "Оплата списывается с вашей учётной записи Apple по окончании бесплатного пробного периода. Подписка продлевается автоматически, если не отменить её не менее чем за 24 часа до окончания текущего периода. Управлять подпиской или отменить её можно в любой момент в настройках учётной записи Apple."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Оплата списується з вашого облікового запису Apple після завершення безкоштовного пробного періоду. Передплата продовжується автоматично, якщо не скасувати її щонайменше за 24 години до завершення поточного періоду. Керувати передплатою або скасувати її можна будь-коли в Налаштуваннях."
+            "value" : "Оплата списується з вашого облікового запису Apple після завершення безкоштовного пробного періоду. Передплата продовжується автоматично, якщо не скасувати її щонайменше за 24 години до завершення поточного періоду. Керувати передплатою або скасувати її можна будь-коли в налаштуваннях облікового запису Apple."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "免费试用结束时会向你的 Apple ID 收取费用。订阅将自动续订，除非在当前订阅周期结束前至少 24 小时取消。你可以随时在系统“设置”的 Apple 账户中管理或取消订阅。"
+            "value" : "免费试用结束时会向你的 Apple 账户收取费用。订阅将自动续订，除非在当前订阅周期结束前至少 24 小时取消。你可以随时在系统“设置”的 Apple 账户中管理或取消订阅。"
           }
         },
         "zh-Hant" : {
@@ -29997,7 +29997,7 @@
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "免費試用結束時會向你的 Apple ID 收取費用。訂閱會自動續期，除非在目前訂閱期結束前最少 24 小時取消。你可隨時在系統「設定」的 Apple 帳戶中管理或取消訂閱。"
+            "value" : "免費試用結束時會向你的 Apple 帳戶收取費用。訂閱會自動續期，除非在目前訂閱期結束前最少 24 小時取消。你可隨時在系統「設定」的 Apple 帳戶中管理或取消訂閱。"
           }
         }
       }
@@ -31620,13 +31620,13 @@
       }
     },
     "paywall.startTrial" : {
-      "comment" : "Purchase button for a user still eligible for the introductory free trial. %@ is the trial length, from App Store Connect — never hardcoded.",
+      "comment" : "Purchase button for a user still eligible for the introductory free trial. %@ is the trial length, from App Store Connect — never hardcoded. It is always a spelled-out, nominative duration noun phrase produced by the app's period formatter ('2 weeks', '1 month'), never a badge form like '14-day' — reorder the sentence rather than forcing a preposition whose case the phrase cannot carry.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "ابدأ تجربة مجانية لمدة %@"
+            "value" : "جرّب مجانًا (%@)"
           }
         },
         "bn" : {
@@ -31650,7 +31650,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start %@ Free Trial"
+            "value" : "Try Free for %@"
           }
         },
         "es" : {
@@ -31686,7 +31686,7 @@
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%@ ingyenes próbaidőszak indítása"
+            "value" : "Ingyenes kipróbálás: %@"
           }
         },
         "pl" : {
@@ -32157,13 +32157,13 @@
       }
     },
     "paywall.trialSupport" : {
-      "comment" : "Under the purchase button when a free trial applies. Deliberately anchored to the purchase completing rather than to today: the trial starts when the transaction does, which Ask-to-Buy can delay by days, and 'in 14 days' would also contradict the renewal disclosure below it. %@ is the trial length.",
+      "comment" : "Under the purchase button when a free trial applies. Deliberately anchored to the purchase completing rather than to today: the trial starts when the transaction does, which Ask-to-Buy can delay by days, and 'in 14 days' would also contradict the renewal disclosure below it. %@ is the trial length — always a spelled-out, nominative duration noun phrase from the app's period formatter ('2 weeks', '1 month'), never a badge form like '14-day'; reorder the sentence rather than forcing a case the phrase cannot carry.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "لا يتم خصم أي مبلغ خلال تجربتك المجانية. وتبدأ الفوترة بعد %@ من إتمام عملية الشراء، ما لم تقم بالإلغاء."
+            "value" : "لا يتم خصم أي مبلغ خلال تجربتك المجانية. وتبدأ الفوترة عند انقضاء هذه المدة (%@) بعد إتمام عملية الشراء، ما لم تقم بالإلغاء."
           }
         },
         "bn" : {
@@ -36338,108 +36338,217 @@
       }
     },
     "settings.subscription.freeAccessFootnote" : {
+      "comment" : "Settings account footer while the app-managed free window is open and this user would actually get the introductory free trial on subscribing. %1$@ is the window's end date; %2$@ is the trial length — a spelled-out, nominative duration noun phrase from the app's period formatter ('2 weeks'), never a badge form like '14-day'.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "مجاني حتى %@ — بدون اشتراك وبدون طريقة دفع. ويمنحك الاشتراك تجربة مجانية إضافية لمدة أسبوعين قبل أول عملية خصم."
+            "value" : "مجاني حتى %1$@ — بدون اشتراك وبدون طريقة دفع. ويمنحك الاشتراك تجربة مجانية إضافية (%2$@) قبل أول عملية خصم."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%@ পর্যন্ত ফ্রি — কোনো সাবস্ক্রিপশন নেই, কোনো পেমেন্ট পদ্ধতি নেই। সাবস্ক্রাইব করলে প্রথম চার্জের আগে অতিরিক্ত 2 সপ্তাহের ফ্রি ট্রায়াল শুরু হয়।"
+            "value" : "%1$@ পর্যন্ত ফ্রি — কোনো সাবস্ক্রিপশন নেই, কোনো পেমেন্ট পদ্ধতি নেই। সাবস্ক্রাইব করলে প্রথম চার্জের আগে অতিরিক্ত একটি ফ্রি ট্রায়াল (%2$@) শুরু হয়।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Zdarma do %@ — bez předplatného, bez platební metody. Objednáním předplatného navíc získáte dvoutýdenní bezplatnou zkušební verzi, teprve pak se strhne první platba."
+            "value" : "Zdarma do %1$@ — bez předplatného, bez platební metody. Objednáním předplatného navíc získáte bezplatnou zkušební dobu: %2$@. Teprve pak se strhne první platba."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Kostenlos bis %@ – kein Abo, keine Zahlungsmethode. Mit einem Abo beginnt vor der ersten Abrechnung zusätzlich ein 2-wöchiger Gratiszeitraum."
+            "value" : "Kostenlos bis %1$@ – kein Abo, keine Zahlungsmethode. Mit einem Abo beginnt vor der ersten Abrechnung zusätzlich ein Gratiszeitraum: %2$@."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Free until %@ — no subscription, no payment method. Subscribing starts an extra 2-week free trial before the first charge."
+            "value" : "Free until %1$@ — no subscription, no payment method. Subscribing starts an extra free trial of %2$@ before the first charge."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Gratis hasta el %@ — sin suscripción ni método de pago. Al suscribirte, comienza una prueba gratuita adicional de 2 semanas antes del primer cargo."
+            "value" : "Gratis hasta el %1$@ — sin suscripción ni método de pago. Al suscribirte, comienza una prueba gratuita adicional de %2$@ antes del primer cargo."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "تا %@ رایگان — بدون اشتراک و بدون روش پرداخت. با مشترک شدن، پیش از نخستین پرداخت، دو هفته دورهٔ آزمایشی رایگان اضافی آغاز می‌شود."
+            "value" : "تا %1$@ رایگان — بدون اشتراک و بدون روش پرداخت. با مشترک شدن، پیش از نخستین پرداخت، یک دورهٔ آزمایشی رایگان اضافی به مدت %2$@ آغاز می‌شود."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Gratuit jusqu'au %@ — sans abonnement ni moyen de paiement. En vous abonnant, vous démarrez un essai gratuit supplémentaire de 2 semaines avant le premier débit."
+            "value" : "Gratuit jusqu'au %1$@ — sans abonnement ni moyen de paiement. En vous abonnant, vous démarrez un essai gratuit supplémentaire de %2$@ avant le premier débit."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "בחינם עד %@ — ללא מינוי וללא אמצעי תשלום. ההרשמה למינוי מתחילה תקופת ניסיון נוספת בחינם של שבועיים לפני החיוב הראשון."
+            "value" : "בחינם עד %1$@ — ללא מינוי וללא אמצעי תשלום. ההרשמה למינוי מתחילה תקופת ניסיון נוספת בחינם של %2$@ לפני החיוב הראשון."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%@ तक मुफ़्त — कोई सब्सक्रिप्शन नहीं, कोई भुगतान विधि नहीं। सब्सक्राइब करने पर पहले शुल्क से पहले 2 हफ़्ते का अतिरिक्त मुफ़्त ट्रायल शुरू होता है।"
+            "value" : "%1$@ तक मुफ़्त — कोई सब्सक्रिप्शन नहीं, कोई भुगतान विधि नहीं। सब्सक्राइब करने पर पहले शुल्क से पहले %2$@ का अतिरिक्त मुफ़्त ट्रायल शुरू होता है।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Ingyenes eddig: %@ – nincs előfizetés, nincs fizetési mód. Az előfizetéssel további 2 hetes ingyenes próbaidőszak indul az első terhelés előtt."
+            "value" : "Ingyenes eddig: %1$@ – nincs előfizetés, nincs fizetési mód. Az előfizetéssel az első terhelés előtt további ingyenes próbaidőszak indul (%2$@)."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Bezpłatnie do %@ — bez subskrypcji, bez metody płatności. Wykupienie subskrypcji uruchamia dodatkowy dwutygodniowy bezpłatny okres próbny przed pierwszą opłatą."
+            "value" : "Bezpłatnie do %1$@ — bez subskrypcji, bez metody płatności. Wykupienie subskrypcji uruchamia dodatkowy bezpłatny okres próbny (%2$@) przed pierwszą opłatą."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Бесплатно до %@ — без подписки и способа оплаты. При оформлении подписки начнётся дополнительный 2-недельный бесплатный пробный период до первого списания."
+            "value" : "Бесплатно до %1$@ — без подписки и способа оплаты. При оформлении подписки до первого списания начнётся дополнительный бесплатный пробный период — %2$@."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Безкоштовно до %@ — без передплати та способу оплати. Після оформлення передплати почнеться додатковий 2-тижневий безкоштовний пробний період до першого списання."
+            "value" : "Безкоштовно до %1$@ — без передплати та способу оплати. Після оформлення передплати до першого списання почнеться додатковий безкоштовний пробний період — %2$@."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "在 %@ 之前免费使用，无需订阅，也无需付款方式。订阅后会先获得额外 2 周免费试用，之后才首次扣款。"
+            "value" : "免费使用至 %1$@，无需订阅，也无需付款方式。订阅后会先获得额外 %2$@ 免费试用，之后才首次扣款。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "在 %@ 之前免費 — 不需訂閱，也不需付款方式。訂閱後會再獲得額外兩週的免費試用，之後才會首次收費。"
+            "value" : "免費使用至 %1$@ — 不需訂閱，也不需付款方式。訂閱後會再獲得額外 %2$@ 的免費試用，之後才會首次收費。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "在 %@ 之前免費使用，無需訂閱，也無需付款方式。訂閱後會先獲得額外 2 星期免費試用，之後才首次扣款。"
+            "value" : "免費使用至 %1$@，無需訂閱，也無需付款方式。訂閱後會先獲得額外 %2$@ 免費試用，之後才首次扣款。"
+          }
+        }
+      }
+    },
+    "settings.subscription.freeAccessFootnoteNoTrial" : {
+      "comment" : "Settings account footer while the app-managed free window is open but no introductory free trial can be promised to this user — the product carries no free-trial offer, this Apple Account already used it, or StoreKit has not answered yet. States only the window, never a trial. %@ is the window's end date.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "مجاني حتى %@ — بدون اشتراك وبدون طريقة دفع."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ পর্যন্ত ফ্রি — কোনো সাবস্ক্রিপশন নেই, কোনো পেমেন্ট পদ্ধতি নেই।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zdarma do %@ — bez předplatného, bez platební metody."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Kostenlos bis %@ – kein Abo, keine Zahlungsmethode."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Free until %@ — no subscription, no payment method."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Gratis hasta el %@ — sin suscripción ni método de pago."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تا %@ رایگان — بدون اشتراک و بدون روش پرداخت."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Gratuit jusqu'au %@ — sans abonnement ni moyen de paiement."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "בחינם עד %@ — ללא מינוי וללא אמצעי תשלום."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "%@ तक मुफ़्त — कोई सब्सक्रिप्शन नहीं, कोई भुगतान विधि नहीं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ingyenes eddig: %@ – nincs előfizetés, nincs fizetési mód."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Bezpłatnie do %@ — bez subskrypcji, bez metody płatności."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Бесплатно до %@ — без подписки и способа оплаты."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Безкоштовно до %@ — без передплати та способу оплати."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免费使用至 %@，无需订阅，也无需付款方式。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免費使用至 %@ — 不需訂閱，也不需付款方式。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "免費使用至 %@，無需訂閱，也無需付款方式。"
           }
         }
       }

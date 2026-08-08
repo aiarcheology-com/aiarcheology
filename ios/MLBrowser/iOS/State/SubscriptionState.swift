@@ -80,8 +80,13 @@ protocol SubscriptionProviding: AnyObject {
 	/// launch, BEFORE any purchase UI is shown.
 	func start() async
 
-	/// Load the subscription products from the store. Degrades gracefully (logs +
-	/// leaves ``products`` empty) on failure; never throws.
+	/// Load the subscription products from the store. Degrades gracefully and never throws.
+	///
+	/// A failure **keeps whatever was already loaded** rather than emptying ``products``: this has
+	/// more than one caller, and clearing on a failed or cancelled refresh republished an empty
+	/// list to every observer — enough to swap a working Subscribe button for the unavailable
+	/// state under the user (AIA-0562). ``products`` is therefore empty only until the first
+	/// successful load, and only a successful load replaces it.
 	func loadProducts() async
 
 	/// Purchase a product.

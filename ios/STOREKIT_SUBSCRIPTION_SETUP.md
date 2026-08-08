@@ -50,9 +50,11 @@ first charge — 28 days total. Someone who trialled this subscription before (o
 charged the moment they subscribe, and the paywall says so: it checks `introOfferEligibility` and
 swaps the trial line for `paywall.billing.immediate`.
 
-The runbook spells this out because the copy does not. `settings.subscription.freeAccessFootnote`
-promises the extra 2-week trial **unconditionally**, which is wrong for a returning user — tracked
-with the rest of the free-period wording in #562.
+The copy now spells this out too (AIA-0562/0576): the Settings account footer states the extra
+trial **only after StoreKit confirms this Apple Account still gets it**, with the length derived
+from the product (`SettingsForm.subscriptionFootnote`); every other reader — returning user,
+offer withdrawn, StoreKit still resolving — gets the date-only sentence
+(`settings.subscription.freeAccessFootnoteNoTrial`).
 
 ## Pricing & trial decisions (rationale)
 
@@ -62,13 +64,12 @@ with the rest of the free-period wording in #562.
 - (Research recommended $9.99 + 7-day on category medians; the owner chose $3.99. The intro offer
   started as 1 month and was shortened to **2 weeks on 2026-08-04**, once the app itself began
   giving away the first 14 days.)
-- **Changing the trial length is no longer an ASC-only edit.** It now has three sources of truth
-  that must move together, or the app lies to the user:
+- **Changing the trial length is an ASC edit plus one local mirror.** Two sources of truth
+  remain:
   1. App Store Connect (the actual offer),
-  2. `ios/MLBrowser/Configuration.storekit` (`introductoryOffer.subscriptionPeriod`, local testing only),
-  3. `settings.subscription.freeAccessFootnote` in `Localizable.xcstrings`, which **hardcodes**
-     "2-week".
-  The paywall's own trial line is derived from the product and needs no edit.
+  2. `ios/MLBrowser/Configuration.storekit` (`introductoryOffer.subscriptionPeriod`, local testing only).
+  All three user-facing statements of the length — the purchase button, the paywall's trial line
+  and the Settings free-access footnote — are derived from the product and need no edit (AIA-0576).
 
 ## Gating model — WHOLE-APP subscription (no free/premium split)
 
