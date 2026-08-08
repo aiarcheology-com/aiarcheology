@@ -110,6 +110,16 @@ final class StoreKitSubscriptionProvider: SubscriptionProviding {
 					logger: .networking
 				)
 			}
+		} catch is CancellationError {
+			// Not a failure: the view that asked went away mid-fetch, which is ordinary now that
+			// Settings loads products for its account footer and can be dismissed at any moment.
+			// Logged at debug because `error` here would raise a remote event every time someone
+			// closes Settings quickly.
+			LoggingPolicy.debug("Product load cancelled — keeping whatever was already loaded.", logger: .networking)
+		} catch let error as URLError where error.code == .cancelled {
+			// The same cancellation, surfaced through the URL loading system rather than Swift
+			// concurrency. StoreKit can report it either way, so both are treated as ordinary.
+			LoggingPolicy.debug("Product load cancelled — keeping whatever was already loaded.", logger: .networking)
 		} catch {
 			LoggingPolicy.error(
 				"Failed to load subscription products: \(error.localizedDescription)",
