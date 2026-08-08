@@ -96,6 +96,38 @@ struct SubscriptionNotice: Equatable {
 	}
 }
 
+/// A hairline outline for the paywall's two secondary actions — Restore Purchases and Manage
+/// Subscription.
+///
+/// Deliberately **not** `.bordered`: a filled capsule would compete with Subscribe, which is the
+/// only action this screen wants tapped, and the screen already spends its one filled control on
+/// it. Left bare, though, both read as captions rather than controls — which is exactly how they
+/// looked on the App Review screenshot. A hairline keeps them recognisably tappable and still
+/// visually subordinate, and the padding it needs doubles the touch target.
+///
+/// Both fill the content width rather than hugging their labels. Hugging made the two capsules
+/// visibly different sizes — "Manage Subscription" is a longer word pair than "Restore Purchases" —
+/// which reads as a mistake rather than a hierarchy. Filling also aligns them with Subscribe and
+/// with the screen's other bordered controls, so the equality holds by construction instead of by
+/// the two labels happening to be a similar length in a given locale.
+///
+/// `Color.secondary` rather than a literal: this app hardcodes no colours, and the outline has to
+/// stay legible in both appearances. Deliberately not the hierarchical `.tertiary`, which resolves
+/// against the *foreground* style — Restore sets `.tint` and Manage is a `Link`, so the same
+/// modifier would have drawn two different colours.
+private struct PaywallOutlinedAction: ViewModifier {
+	func body(content: Content) -> some View {
+		content
+			.frame(maxWidth: .infinity)
+			.padding(.vertical, 10)
+			.overlay(Capsule().strokeBorder(Color.secondary.opacity(0.45), lineWidth: 1))
+	}
+}
+
+private extension View {
+	func paywallOutlinedAction() -> some View { modifier(PaywallOutlinedAction()) }
+}
+
 /// The paywall. Presented as the whole-app root gate (`SubscriptionGateView`) when the
 /// signed-in user isn't subscribed. Reads products and entitlement from
 /// ``SubscriptionState`` and drives purchase / restore intents.
@@ -485,6 +517,7 @@ struct PaywallView: View {
 				.font(.footnote)
 				.opacity(inFlight == .restore ? 0 : 1)
 				.overlay { if inFlight == .restore { ProgressView() } }
+				.paywallOutlinedAction()
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(.tint)
@@ -536,6 +569,7 @@ struct PaywallView: View {
 		// subscriber can reach Apple's management screen from here.
 		Link(L10n.Paywall.manage, destination: Self.manageSubscriptionsURL)
 			.font(.footnote)
+			.paywallOutlinedAction()
 			.testability(Testability.Link.paywallManage)
 
 		legalFooter
