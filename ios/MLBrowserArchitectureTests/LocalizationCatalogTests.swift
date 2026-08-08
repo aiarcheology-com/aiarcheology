@@ -168,10 +168,10 @@ final class LocalizationCatalogTests: XCTestCase {
     ///
     /// Raise these numbers when coverage genuinely improves, which is what locks the gain in.
     private static let coverageBaseline = [
-        "ar": 417, "bn": 417, "cs": 417, "de": 417,
-        "es": 417, "fa": 417, "fr": 417, "he": 417,
-        "hi": 417, "hu": 417, "pl": 417, "ru": 417,
-        "uk": 417, "zh-HK": 417, "zh-Hans": 417, "zh-Hant": 417
+        "ar": 418, "bn": 418, "cs": 418, "de": 418,
+        "es": 418, "fa": 418, "fr": 418, "he": 418,
+        "hi": 418, "hu": 418, "pl": 418, "ru": 418,
+        "uk": 418, "zh-HK": 418, "zh-Hans": 418, "zh-Hant": 418
     ]
 
     /// `%@`, `%lld`, `%1$@`, `%.2f`, `%%`. The length modifier is captured because `%d` and `%lld`
