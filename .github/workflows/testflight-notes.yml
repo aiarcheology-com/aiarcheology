@@ -1,0 +1,73 @@
+name: TestFlight notes
+
+# App Store Connect caps a build's "What to Test" (whatsNew) at 4000 characters. The file had grown
+# to 12 480 by accumulating one "Also in this build:" section per feature and never removing a
+# shipped one, so `deliver.sh notes` failed and builds went out with NO tester notes at all
+# (AIA-0574). deliver.sh knew the limit, but only checked after the archive and the upload.
+#
+# This catches it at pull-request time instead, in about two seconds. Path-filtered on purpose: it
+# is not a required check, so a skipped run costs nothing.
+on:
+  pull_request:
+    branches-ignore:
+      - "copilot/**"
+    paths:
+      - "ios/TestFlight/WhatToTest.*.txt"
+      - ".github/workflows/testflight-notes.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  length:
+    name: Tester notes fit App Store Connect
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check every WhatToTest file
+        shell: bash
+        env:
+          # ${#var} counts characters only in a UTF-8 locale; otherwise it falls back to bytes and
+          # would disagree with deliver.sh for the em dashes and ellipses these notes contain.
+          LC_ALL: C.UTF-8
+        run: |
+          # Keep in step with WHATSNEW_MAX in scripts/deliver.sh, and measure the same way it does:
+          # characters via ${#text}, not bytes via `wc -c`. This file is 3211 bytes but 3203
+          # characters, so near the cap the two measures give different answers.
+          MAX=4000
+          rc=0
+
+          shopt -s nullglob
+          files=(ios/TestFlight/WhatToTest.*.txt)
+          # Without this, deleting the last notes file leaves the loop with nothing to iterate and
+          # the job passes — a green check certifying that no tester notes exist at all.
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::No ios/TestFlight/WhatToTest.*.txt found. A build must ship tester notes (ios/AGENTS.md §13)."
+            exit 1
+          fi
+
+          for f in "${files[@]}"; do
+            text="$(cat "$f")"
+            n=${#text}
+            if [ "$n" -gt "$MAX" ]; then
+              echo "::error file=$f::$f is $n characters; App Store Connect caps whatsNew at $MAX."
+              rc=1
+            else
+              echo "$f: $n/$MAX characters"
+            fi
+            # deliver.sh refuses to publish notes without a line to stamp the build number onto.
+            if ! grep -qxE 'Build: .*' "$f"; then
+              echo "::error file=$f::$f has no 'Build:' line for deliver.sh to stamp."
+              rc=1
+            fi
+          done
+
+          if [ "$rc" -ne 0 ]; then
+            echo
+            echo "These notes describe ONE build, not the project's history. Remove the sections for"
+            echo "builds that already shipped; their notes were delivered with those builds."
+            exit 1
+          fi

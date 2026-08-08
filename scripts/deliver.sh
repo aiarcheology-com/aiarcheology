@@ -483,12 +483,33 @@ preflight() {
     # Build-secrets validation + the pre-push sweep only apply to a build; a notes push touches no
     # source, so it never runs them.
     if [[ "$archives" == 1 ]]; then
+        # Deliberately OUTSIDE the --skip-tests branch. This is a one-line read of a local file,
+        # not part of the test sweep, and putting it inside meant `deliver --skip-tests` — the
+        # documented way to deliver when the suites have already been run — sailed past it and hit
+        # the same too-late failure at the `notes` step. That is precisely how AIA-0574 happened.
+        #
+        # Measured with ${#text} on the command-substituted contents, which is exactly what
+        # build_whatsnew uses to enforce WHATSNEW_MAX. `wc -c` would count bytes: this very file is
+        # 3211 bytes but 3203 characters, so near the cap the two disagree and a valid file gets
+        # rejected. Matching the publisher's measure is the point — a third measure is a third
+        # answer.
+        if [[ -f "$WHATSNEW_FILE" ]]; then
+            whatsnew_text="$(cat "$WHATSNEW_FILE")"
+            if (( ${#whatsnew_text} > WHATSNEW_MAX )); then
+                preflight_fail "$(basename "$WHATSNEW_FILE") is ${#whatsnew_text} characters; App Store Connect caps whatsNew at ${WHATSNEW_MAX}. Prune the sections for builds that already shipped — the file is notes for THIS build, not a changelog."
+            fi
+            log "Tester notes: ${#whatsnew_text}/${WHATSNEW_MAX} characters."
+        else
+            preflight_fail "Missing ${WHATSNEW_FILE} — a build must ship tester notes (ios/AGENTS.md §13)."
+        fi
+
         if [[ "$SKIP_TESTS" == 1 ]]; then
             warn "--skip-tests: skipping ProjectTool secrets validation + the full sweep. NOT a full release preflight."
         else
             log "Validating build secrets (ProjectTool)…"
             (cd "$REPO_ROOT" && swift run --package-path Tools ProjectTool secrets validate) \
                 || die "Preflight failed: ProjectTool secrets validate (run: swift run --package-path Tools ProjectTool secrets generate)."
+
             log "Running the pre-push sweep (lint + localization + harmonize + unit tests)…"
             # Localization runs early and costs about a second: it is pure Python over the catalog
             # and needs no Xcode, so a missing translation fails here rather than after a
