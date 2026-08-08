@@ -64,6 +64,26 @@ enum HostPlatform {
         }
     }
     
+    /// Whether StoreKit's in-app "Manage Subscription" sheet — `View.manageSubscriptionsSheet`,
+    /// i.e. `AppStore.showManageSubscriptions(in:)` — can actually be presented on this host.
+    ///
+    /// False on iOS-on-Mac. `storekitagent` answers the app's request with
+    /// *"manageSubscriptionsEngagementRequest(with:reply:) is unsupported on the current
+    /// platform"* (`SKInternalErrorDomain` 9 → `StoreKitError.unknown`), and the SwiftUI modifier
+    /// has no error channel, so the tap produces nothing whatsoever: no sheet, no message.
+    /// Callers must send the user to `URL.appleManageSubscriptions` instead.
+    ///
+    /// Catalyst stays `true`: StoreKit declares the sheet available on macCatalyst, and this
+    /// target does not build Catalyst, so it must not inherit a workaround verified elsewhere.
+    var supportsManageSubscriptionsSheet: Bool {
+        switch self {
+        case .iOS, .iPadOS, .macViaCatalyst:
+            return true
+        case .macDesignedForiPad:
+            return false
+        }
+    }
+
     /// True for iPadOS, macViaCatalyst, and macDesignedForiPad - platforms where swipe gestures conflict with other interactions
     var prefersContextMenuOverSwipe: Bool {
         switch self {

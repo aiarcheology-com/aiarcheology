@@ -67,6 +67,15 @@ struct SubscriptionStatusView: View {
 				// in-app programmatic cancellation — this is the compliant path).
 				Button(L10n.Paywall.manage) {
 					guard isBusy.not else { return }
+					// Not every host can present StoreKit's sheet. On iOS-on-Mac the system
+					// rejects the request and the modifier below has nowhere to report it, so
+					// the tap did nothing at all — no sheet, no error (AIA-0448's family).
+					// Apple's account page is the substitute, and it is the same destination
+					// the paywall's "Manage Subscription" already sends people to.
+					guard HostPlatform.current.supportsManageSubscriptionsSheet else {
+						openManageSubscriptionsPage()
+						return
+					}
 					showManage = true
 				}
 
@@ -143,6 +152,9 @@ struct SubscriptionStatusView: View {
 		}
 		.navigationTitle(L10n.Auth.Account.subscription)
 		.navigationBarTitleDisplayMode(.inline)
+		// Stays attached unconditionally: on hosts without the sheet the button never flips
+		// `showManage`, so this is inert there. Making the modifier itself conditional would
+		// mean a structurally different view per platform for no gain.
 		.manageSubscriptionsSheet(isPresented: $showManage)
 		.alert(notice?.title ?? L10n.Alert.Error.title, isPresented: .init(
 			get: { notice != nil },
@@ -153,6 +165,24 @@ struct SubscriptionStatusView: View {
 			Text(notice?.message ?? "")
 		}
 		.task { await subscriptionState.loadProducts() }
+	}
+
+	/// Opens Apple's subscription management page, for hosts where StoreKit's in-app sheet
+	/// cannot be presented (``HostPlatform/supportsManageSubscriptionsSheet``).
+	///
+	/// The result is checked rather than discarded. A "Manage Subscription" action that
+	/// silently does nothing is precisely the failure this path exists to repair, so a refusal
+	/// has to leave a trace instead of reproducing the bug one layer down.
+	private func openManageSubscriptionsPage() {
+		Task {
+			let opened = await UIApplication.shared.open(.appleManageSubscriptions)
+			if opened.not {
+				LoggingPolicy.warning(
+					"The system declined to open Apple's manage-subscriptions page.",
+					logger: .state
+				)
+			}
+		}
 	}
 
 	/// AIA-0448, Mac only. On iOS-on-Mac every PUSH signal about the refund sheet dies in

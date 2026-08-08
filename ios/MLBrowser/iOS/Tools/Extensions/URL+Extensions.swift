@@ -8,6 +8,17 @@
 import Foundation
 
 extension URL {
+	/// Apple's account page for managing a subscription (cancel / change plan).
+	///
+	/// The substitute for StoreKit's in-app manage sheet on hosts that cannot present it — see
+	/// ``HostPlatform/supportsManageSubscriptionsSheet``. Lives here, and not privately in each
+	/// view, because the paywall and Settings → Account → Subscription both offer "Manage
+	/// Subscription" and must not drift to different destinations.
+	///
+	/// The hardcoded literal always parses, so the force-unwrap cannot fail.
+	// swiftlint:disable:next force_unwrapping
+	static let appleManageSubscriptions = URL(string: "https://apps.apple.com/account/subscriptions")!
+
 	func completePath(to directory: FileManager.SearchPathDirectory, isDirectory: Bool) throws -> URL {
 		let baseDirectoryURL = try FileManager.default.url(for: directory, in: .userDomainMask, appropriateFor: nil, create: false)
 		return baseDirectoryURL.appendingPathComponent(self.path, isDirectory: isDirectory)

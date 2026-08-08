@@ -567,7 +567,7 @@ struct PaywallView: View {
 
 		// Manage existing subscription (cancel / change plan). Always available so a
 		// subscriber can reach Apple's management screen from here.
-		Link(L10n.Paywall.manage, destination: Self.manageSubscriptionsURL)
+		Link(L10n.Paywall.manage, destination: .appleManageSubscriptions)
 			.font(.footnote)
 			.paywallOutlinedAction()
 			.testability(Testability.Link.paywallManage)
@@ -927,11 +927,6 @@ struct PaywallView: View {
 			L10n.Paywall.Benefit.cancel
 		]
 	}
-
-	/// Apple's standard "Manage Subscriptions" deep link. The hardcoded literal always
-	/// parses, so the force-unwrap cannot fail.
-	// swiftlint:disable:next force_unwrapping
-	private static let manageSubscriptionsURL = URL(string: "https://apps.apple.com/account/subscriptions")!
 
 	/// Apple's standard EULA, accepted as the Terms of Use when no custom one is provided.
 	// swiftlint:disable:next force_unwrapping
