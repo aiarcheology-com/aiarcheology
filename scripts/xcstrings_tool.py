@@ -546,6 +546,15 @@ def requested_catalog(args) -> Path:
     path = Path(raw)
     return path if path.is_absolute() else REPO_ROOT / path
 
+
+def catalog_label(catalog: Path) -> str:
+    """Render an in-repository path compactly without rejecting external catalog paths."""
+    try:
+        return str(catalog.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(catalog)
+
+
 def cmd_check(args) -> int:
     """Prove the splicer is byte-neutral when it applies no edits."""
     catalog = requested_catalog(args)
@@ -559,7 +568,7 @@ def cmd_check(args) -> int:
     keys_parsed = set(parsed["strings"])
     same_keys = keys_scanned == keys_parsed
 
-    print(f"Catalog: {catalog.relative_to(REPO_ROOT)}")
+    print(f"Catalog: {catalog_label(catalog)}")
     print(f"scanner found {len(keys_scanned)} keys; json.load found {len(keys_parsed)}")
     print(f"key sets identical .......... {'PASS' if same_keys else 'FAIL'}")
     print(f"zero-edit splice is a no-op .. {'PASS' if ok else 'FAIL'}")
@@ -661,8 +670,28 @@ def cmd_check(args) -> int:
     for k in unordered[:5]:
         print(f"    {k}: {spans[k]['locale_order']}")
 
+    # Regression test for removing adjacent final entries. The final-entry splice consumes the
+    # preceding comma, so computing both removals from one original document overlaps. Each removal
+    # must instead rescan the document left by its predecessor, regardless of caller-supplied order.
+    prune_probe_keys = list(spans)[-2:]
+    if len(prune_probe_keys) < 2:
+        print("multi-key prune .. SKIP (fewer than two catalog keys)")
+        prune_ok = True
+    else:
+        prune_ok = True
+        expected_keys = keys_parsed - set(prune_probe_keys)
+        for removal_order in (prune_probe_keys, list(reversed(prune_probe_keys))):
+            try:
+                pruned = prune_top_level_keys(text, removal_order)
+                if set(json.loads(pruned)["strings"]) != expected_keys:
+                    prune_ok = False
+            except Exception as exc:  # noqa: BLE001 - report any failure shape
+                prune_ok = False
+                print(f"    multi-key prune raised: {exc}")
+        print(f"multi-key prune handles final adjacent keys .. {'PASS' if prune_ok else 'FAIL'}")
+
     return 0 if (ok and same_keys and not mismatches and not escape_failures
-                 and spliced_ok and order_ok and not unordered) else 1
+                 and spliced_ok and order_ok and not unordered and prune_ok) else 1
 
 
 def cmd_report(args) -> int:
@@ -784,9 +813,18 @@ def cmd_merge(args) -> int:
     merged = apply_edits(text, edits)
     json.loads(merged)  # fail loudly rather than write a corrupt catalog
     catalog.write_text(merged, encoding="utf-8")
-    print(f"\nmerged {sum(stats.values())} blocks into {catalog.relative_to(REPO_ROOT)}"
+    print(f"\nmerged {sum(stats.values())} blocks into {catalog_label(catalog)}"
           f"; left {skipped} unchanged block(s) untouched")
     return 0
+
+
+def prune_top_level_keys(text: str, keys: list[str]) -> str:
+    """Remove top-level entries one at a time, rescanning after every byte splice."""
+    pruned = text
+    for key in keys:
+        spans = catalog_spans(pruned)
+        pruned = apply_edits(pruned, [top_level_entry_removal(pruned, spans, key)])
+    return pruned
 
 
 def cmd_prune(args) -> int:
@@ -798,14 +836,23 @@ def cmd_prune(args) -> int:
     if missing:
         raise SystemExit(f"catalog has no key(s): {', '.join(repr(k) for k in missing)}")
 
-    edits = [top_level_entry_removal(text, spans, key) for key in args.keys]
-    pruned = apply_edits(text, edits)
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for key in args.keys:
+        if key in seen:
+            duplicates.append(key)
+        else:
+            seen.add(key)
+    if duplicates:
+        raise SystemExit(f"catalog key(s) requested more than once: {', '.join(repr(k) for k in duplicates)}")
+
+    pruned = prune_top_level_keys(text, args.keys)
     parsed = json.loads(pruned)
     remaining = set(parsed["strings"])
     if any(key in remaining for key in args.keys):
         raise SystemExit("prune splice left at least one requested key in the catalog")
     catalog.write_text(pruned, encoding="utf-8")
-    print(f"pruned {len(args.keys)} key(s) from {catalog.relative_to(REPO_ROOT)}")
+    print(f"pruned {len(args.keys)} key(s) from {catalog_label(catalog)}")
     return 0
 
 
@@ -861,6 +908,8 @@ def info_plist_problems() -> list[str]:
             translated = value[""]
             if key in INFO_PLIST_TRANSLATED_KEYS and translated == english:
                 problems.append(f"InfoPlist {key!r}: `{locale}` is still English")
+            if key == "CFBundleName" and translated != english:
+                problems.append(f"InfoPlist {key!r}: `{locale}` must remain {english!r}")
             if key == "AI Archeology native model graph" and "AI Archeology" not in translated:
                 problems.append(f"InfoPlist {key!r}: `{locale}` dropped protected term `AI Archeology`")
             if key == "ONNX model" and "ONNX" not in translated:
