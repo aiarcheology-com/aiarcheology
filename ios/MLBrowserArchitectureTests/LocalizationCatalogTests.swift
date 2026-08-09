@@ -51,10 +51,19 @@ final class LocalizationCatalogTests: XCTestCase {
             .appendingPathComponent("ios/MLBrowser/iOS/Resources/Localizable.xcstrings")
     }
 
+    /// The separate catalog for values that iOS reads directly from Info.plist.
+    private static func infoPlistCatalogURL() -> URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent() // MLBrowserArchitectureTests
+            .deletingLastPathComponent() // ios
+            .deletingLastPathComponent() // repo root
+            .appendingPathComponent("ios/MLBrowser/iOS/Resources/InfoPlist.xcstrings")
+    }
+
     /// Parses the source `.xcstrings` and returns `(all: every top-level key, manual: the authored
     /// keys)`. Authored keys are those whose top-level entry has `extractionState == "manual"` — the
     /// state Xcode writes for keys added via the String Catalog editor / SwiftGen workflow.
-    /// Auto-extracted string literals (e.g. `"%.2f"`, `"Loading..."`) have no `extractionState`.
+    /// Auto-extracted string literals (for example format fragments) have no `extractionState`.
     ///
     /// Only the TOP-LEVEL `strings` keys are localization keys. Do **not** recurse into an entry's
     /// `localizations` / `stringUnit` / `variations`: the `state` values nested there are per-unit
@@ -93,7 +102,7 @@ final class LocalizationCatalogTests: XCTestCase {
 
     /// Keys matching the app's stable-identifier convention: a dot-namespaced identifier
     /// (`history.title`, `browser.location.dataSheet.deleteCookies`). Excludes auto-extraction noise
-    /// (`""`, `"%.2f"`, `"Add Model"`, `"Loading..."`, …).
+    /// (for example `""`, `"%.2f"`, and interpolation fragments).
     private static func idShapedKeys(in keys: Set<String>) -> Set<String> {
         let predicate = NSPredicate(format: "SELF MATCHES %@", "^[A-Za-z][A-Za-z0-9]*(\\.[A-Za-z0-9_]+)+$")
         return keys.filter { predicate.evaluate(with: $0) }
@@ -143,7 +152,7 @@ final class LocalizationCatalogTests: XCTestCase {
 
     // MARK: - Translation guards (AIA-0572)
     //
-    // These two tests are the CI half of the localization contract. The richer authoring checks —
+    // These tests are the CI half of the localization contract. The richer authoring checks —
     // CLDR plural categories per locale, entry shape, protected terms — live in
     // `scripts/xcstrings_tool.py verify`, which is the authority when adding translations. The
     // CLDR tables are deliberately NOT mirrored here: duplicating them in two languages invites
@@ -157,8 +166,9 @@ final class LocalizationCatalogTests: XCTestCase {
         "hi", "hu", "pl", "ru", "uk", "zh-Hans", "zh-Hant", "zh-HK"
     ]
 
-    /// Per-locale count of authored keys carrying a localization. Every locale is complete as of
-    /// AIA-0575 — all 418 authored keys, no fallbacks to English anywhere.
+    /// Per-locale count of authored keys carrying a localization across both source catalogs.
+    /// Every locale is complete as of AIA-0582 — 418 app strings plus four Info.plist values, with
+    /// no fallbacks to English anywhere.
     ///
     /// This is a **ratchet, not a target**: coverage may rise freely and a new English string may
     /// land untranslated, but existing translations may not silently disappear. Deliberately not a
@@ -168,10 +178,10 @@ final class LocalizationCatalogTests: XCTestCase {
     ///
     /// Raise these numbers when coverage genuinely improves, which is what locks the gain in.
     private static let coverageBaseline = [
-        "ar": 418, "bn": 418, "cs": 418, "de": 418,
-        "es": 418, "fa": 418, "fr": 418, "he": 418,
-        "hi": 418, "hu": 418, "pl": 418, "ru": 418,
-        "uk": 418, "zh-HK": 418, "zh-Hans": 418, "zh-Hant": 418
+        "ar": 422, "bn": 422, "cs": 422, "de": 422,
+        "es": 422, "fa": 422, "fr": 422, "he": 422,
+        "hi": 422, "hu": 422, "pl": 422, "ru": 422,
+        "uk": 422, "zh-HK": 422, "zh-Hans": 422, "zh-Hant": 422
     ]
 
     /// `%@`, `%lld`, `%1$@`, `%.2f`, `%%`. The length modifier is captured because `%d` and `%lld`
@@ -230,11 +240,11 @@ final class LocalizationCatalogTests: XCTestCase {
     }
 
     /// Every authored key's `localizations` object, keyed by locale.
-    private static func parseLocalizations() throws -> [String: [String: [String: Any]]] {
-        let data = try Data(contentsOf: sourceCatalogURL())
+    private static func parseLocalizations(from url: URL = sourceCatalogURL()) throws -> [String: [String: [String: Any]]] {
+        let data = try Data(contentsOf: url)
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let strings = root["strings"] as? [String: Any] else {
-            throw CatalogError.malformed(sourceCatalogURL())
+            throw CatalogError.malformed(url)
         }
         var out: [String: [String: [String: Any]]] = [:]
         for (key, value) in strings {
@@ -248,6 +258,55 @@ final class LocalizationCatalogTests: XCTestCase {
             if blocks["en"] != nil { out[key] = blocks }
         }
         return out
+    }
+
+    /// The system-facing values extracted from `MLBrowser-Info.plist` and the product settings.
+    /// `CFBundleName` is intentionally included: it must be held explicitly in every locale even
+    /// though its value is a protected product name.
+    private static let infoPlistSourceValues = [
+        "NSLocalNetworkUsageDescription": "Your permission is needed to connect with devices on your local network. This allows the app to automatically detect and interact with compatible devices for streamlined data sharing and enhanced functionality.",
+        "CFBundleName": "ML Browser",
+        "AI Archeology native model graph": "AI Archeology native model graph",
+        "ONNX model": "ONNX model"
+    ]
+
+    /// Info.plist strings are not generated into `L10n.swift`, so guard their source catalog
+    /// directly. This catches a missing UTI description even when all SwiftUI keys are complete.
+    func test_infoPlistCatalog_systemFacingValuesAreLocalized() throws {
+        let catalog = try Self.parseLocalizations(from: Self.infoPlistCatalogURL())
+        XCTAssertEqual(
+            Set(catalog.keys), Set(Self.infoPlistSourceValues.keys),
+            "InfoPlist catalog keys drifted from the values exposed to the system."
+        )
+
+        for (key, english) in Self.infoPlistSourceValues {
+            let blocks = try XCTUnwrap(catalog[key], "InfoPlist key '\(key)' is missing.")
+            let englishValue = try XCTUnwrap(
+                Self.flatten(try XCTUnwrap(blocks["en"], "InfoPlist key '\(key)' has no English source."))[""]
+            )
+            XCTAssertEqual(englishValue, english, "InfoPlist key '\(key)' has the wrong English source.")
+
+            for locale in Self.targetLocales {
+                let block = try XCTUnwrap(blocks[locale], "InfoPlist key '\(key)' is missing '\(locale)'.")
+                let value = try XCTUnwrap(
+                    Self.flatten(block)[""],
+                    "InfoPlist key '\(key)' has an unreadable '\(locale)' block."
+                )
+                XCTAssertFalse(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                switch key {
+                case "AI Archeology native model graph":
+                    XCTAssertTrue(value.contains("AI Archeology"), "Protected product name was translated in '\(locale)'.")
+                    XCTAssertNotEqual(value, english, "UTI description '\(key)' is still English in '\(locale)'.")
+                case "ONNX model":
+                    XCTAssertTrue(value.contains("ONNX"), "Protected format name was translated in '\(locale)'.")
+                    XCTAssertNotEqual(value, english, "UTI description '\(key)' is still English in '\(locale)'.")
+                case "CFBundleName":
+                    XCTAssertEqual(value, english, "CFBundleName must remain identical in '\(locale)'.")
+                default:
+                    break
+                }
+            }
+        }
     }
 
     /// A translated value must consume exactly the arguments its English sibling does.
@@ -316,10 +375,12 @@ final class LocalizationCatalogTests: XCTestCase {
     /// Existing translations must not disappear. Coverage may rise freely.
     func test_sourceCatalog_translationCoverageDoesNotRegress() throws {
         let catalog = try Self.parseLocalizations()
+        let infoPlistCatalog = try Self.parseLocalizations(from: Self.infoPlistCatalogURL())
 
         var regressions: [String] = []
         for locale in Self.targetLocales {
             let present = catalog.values.filter { $0[locale] != nil }.count
+                + infoPlistCatalog.values.filter { $0[locale] != nil }.count
             guard let floor = Self.coverageBaseline[locale] else {
                 XCTFail("No coverage baseline recorded for '\(locale)'.")
                 continue

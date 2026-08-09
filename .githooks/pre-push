@@ -1,0 +1,25 @@
+#!/bin/bash
+#
+# Prove a local Xcode build does not rewrite the source String Catalogs before pushing a branch.
+# This check is intentionally local: it takes several minutes on a clean runner, while the
+# GitHub Localization workflow remains the fast Python-only semantic gate.
+
+set -euo pipefail
+
+has_branch_push=0
+while read -r local_ref _ remote_ref _; do
+    if [[ "${local_ref}" == refs/heads/* && "${remote_ref}" == refs/heads/* ]]; then
+        has_branch_push=1
+    fi
+done
+
+# Do not build for tag-only pushes or branch deletions.
+if [[ "${has_branch_push}" -eq 0 ]]; then
+    exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "${REPO_ROOT}"
+
+echo "Running String Catalog build-stability guard before push…"
+./scripts/check_localization_build.sh
