@@ -29,7 +29,7 @@ extension EnvironmentValues {
 /// Coordinates snapshot requests across SwiftUI replacement. A request is retained until both a
 /// consumer and live WKWebView have attached, and only one physical WebKit snapshot is outstanding
 /// at a time. Newer requests coalesce; a completion is delivered only to the exact consumer/frame
-/// that started it.
+/// and WebView/capture generation that started it.
 @MainActor
 final class SnapshotWorkCoordinator {
 	private struct Consumer {
@@ -43,6 +43,7 @@ final class SnapshotWorkCoordinator {
 		let request: SnapshotRequest
 		let consumer: Consumer
 		let attachmentGeneration: UInt64
+		let captureGeneration: UInt64
 	}
 
 	private let renderer: any SnapshotRendering
@@ -51,8 +52,10 @@ final class SnapshotWorkCoordinator {
 	private var latestRequest: SnapshotRequest?
 	private var consumerGeneration: UInt64 = 0
 	private var attachmentGeneration: UInt64 = 0
+	private var captureGeneration: UInt64 = 0
 	private var rendererAttached = false
 	private var rendering = false
+	private var captureActive = false
 
 	init(renderer: any SnapshotRendering) {
 		self.renderer = renderer
@@ -100,7 +103,23 @@ final class SnapshotWorkCoordinator {
 		consumer = nil
 	}
 
+	/// Freezes snapshot delivery while the finding picker/save sheet owns the displayed frame.
+	/// An existing WebKit continuation cannot be cancelled, so its generation is invalidated and
+	/// any request that arrived before the freeze is discarded. Detection resumes with a fresh
+	/// timer request after the capture closes.
+	func findingCaptureStarted() {
+		captureActive = true
+		captureGeneration &+= 1
+		pendingRequest = nil
+		latestRequest = nil
+	}
+
+	func findingCaptureEnded() {
+		captureActive = false
+	}
+
 	func enqueue(_ request: SnapshotRequest) {
+		guard captureActive.not else { return }
 		latestRequest = request
 		pendingRequest = request
 		startNextIfPossible()
@@ -108,6 +127,7 @@ final class SnapshotWorkCoordinator {
 
 	private func startNextIfPossible() {
 		guard rendering.not,
+			  captureActive.not,
 			  rendererAttached,
 			  let request = pendingRequest,
 			  let consumer
@@ -115,7 +135,12 @@ final class SnapshotWorkCoordinator {
 
 		pendingRequest = nil
 		rendering = true
-		let work = Work(request: request, consumer: consumer, attachmentGeneration: attachmentGeneration)
+		let work = Work(
+			request: request,
+			consumer: consumer,
+			attachmentGeneration: attachmentGeneration,
+			captureGeneration: captureGeneration
+		)
 		let renderer = renderer
 		Task { @MainActor [weak self, renderer] in
 			let image = await renderer.snapshot()
@@ -128,7 +153,8 @@ final class SnapshotWorkCoordinator {
 		if let image,
 		   consumer?.id == work.consumer.id,
 		   consumer?.generation == work.consumer.generation,
-		   attachmentGeneration == work.attachmentGeneration {
+		   attachmentGeneration == work.attachmentGeneration,
+		   captureGeneration == work.captureGeneration {
 			work.consumer.deliver(image, work.consumer.frame, work.request)
 		}
 		startNextIfPossible()

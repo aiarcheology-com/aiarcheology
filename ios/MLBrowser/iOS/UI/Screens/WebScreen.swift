@@ -354,6 +354,7 @@ struct WebScreenView: View {
             // capture: unfreeze the displayed frame, then resume the timer —
             // its immediate snapshot replaces the frozen frame right away.
             isCapturingFinding = false
+			appState.snapshotWorkCoordinator.findingCaptureEnded()
             appState.detectionState.findingCaptureEnded()
             // Tour (AIA-0333): a dismiss without a save returns to the capture step (no-op once
             // the finding was saved, which already advanced the step).
@@ -394,6 +395,7 @@ struct WebScreenView: View {
             appState.chromeState.findModeRequested = false
             // Freeze exactly like an annotation tap would: detection passes pause
             // and the displayed frame holds while the user picks the place.
+			appState.snapshotWorkCoordinator.findingCaptureStarted()
             isCapturingFinding = true
             appState.detectionState.findingCaptureStarted()
             findPickActive = true
@@ -601,6 +603,7 @@ struct WebScreenView: View {
 	private func cancelFindPick() {
 		findPickActive = false
 		isCapturingFinding = false
+		appState.snapshotWorkCoordinator.findingCaptureEnded()
 		appState.detectionState.findingCaptureEnded()
 	}
 

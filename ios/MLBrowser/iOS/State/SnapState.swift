@@ -77,6 +77,9 @@ final class SnapState: ObservableObject {
 	func stopTimer() {
 		timerCancellable?.cancel()
 		timerCancellable = nil
+		// The publisher replays to late SwiftUI subscribers. A stopped detection run must not
+		// resurrect its last request if the snapshot consumer is mounted afterwards.
+		latestSnapshotRequest.send(nil)
 	}
 
 	private func requestTimerSnapshot(for runID: UInt64) {

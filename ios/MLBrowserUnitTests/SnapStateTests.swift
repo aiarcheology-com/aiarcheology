@@ -130,6 +130,19 @@ final class SnapStateTests: XCTestCase {
         
         XCTAssertNil(sut.timerCancellable)
     }
+
+    func testStopTimer_DoesNotReplayTheStoppedRunToALateSubscriber() {
+        sut.startTimer(for: 1)
+        sut.stopTimer()
+
+        let expectation = XCTestExpectation(description: "Stopped run is not replayed")
+        expectation.isInverted = true
+        sut.combinedPublishers
+            .sink { _ in expectation.fulfill() }
+            .store(in: &cancellables)
+
+        wait(for: [expectation], timeout: 0.1)
+    }
     
     func testStartTimer_CalledTwice_DoesNotCreateNewTimer() {
         sut.startTimer(for: 1)

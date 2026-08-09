@@ -91,7 +91,7 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
         await waitForSnapshotCall(renderer, count: 1)
 
         renderer.completeNext(with: UIImage())
-        await Task.yield()
+        await waitForDeliveries(count: 1) { delivered }
 
         XCTAssertEqual(delivered, [request])
     }
@@ -128,7 +128,7 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
         XCTAssertTrue(replacementDeliveries.isEmpty, "Old-run completion belongs to the departed consumer")
 
         renderer.completeNext(with: UIImage())
-        await Task.yield()
+        await waitForDeliveries(count: 1) { replacementDeliveries }
 
         XCTAssertEqual(replacementDeliveries, [restartedRun])
     }
@@ -154,9 +154,39 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
         XCTAssertTrue(deliveries.isEmpty)
 
         renderer.completeNext(with: UIImage())
-        await Task.yield()
+        await waitForDeliveries(count: 1) { deliveries }
 
         XCTAssertEqual(deliveries, [request])
+    }
+
+    func testFindingCapture_DiscardsInFlightSnapshotUntilDetectionResumes() async {
+        let renderer = HeldSnapshotRenderer()
+        let sut = SnapshotWorkCoordinator(renderer: renderer)
+        let requestBeforeCapture = SnapshotRequest(runID: 1, sequence: 1)
+        let requestAfterCapture = SnapshotRequest(runID: 1, sequence: 2)
+        var deliveries: [SnapshotRequest] = []
+
+        sut.rendererDidAttach()
+        sut.registerConsumer(id: UUID(), frame: .zero) { _, _, deliveredRequest in
+            deliveries.append(deliveredRequest)
+        }
+        sut.enqueue(requestBeforeCapture)
+        await waitForSnapshotCall(renderer, count: 1)
+
+        sut.findingCaptureStarted()
+        sut.enqueue(requestAfterCapture)
+        renderer.completeNext(with: UIImage())
+        await Task.yield()
+        XCTAssertTrue(deliveries.isEmpty, "A pre-freeze snapshot must not replace the frozen frame")
+        XCTAssertEqual(renderer.snapshotCallCount, 1, "Capture holds later requests until detection resumes")
+
+        sut.findingCaptureEnded()
+        sut.enqueue(requestAfterCapture)
+        await waitForSnapshotCall(renderer, count: 2)
+        renderer.completeNext(with: UIImage())
+        await waitForDeliveries(count: 1) { deliveries }
+
+        XCTAssertEqual(deliveries, [requestAfterCapture])
     }
 
     private func waitForSnapshotCall(
@@ -169,5 +199,17 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
             await Task.yield()
         }
         XCTAssertEqual(renderer.snapshotCallCount, count, file: file, line: line)
+    }
+
+    private func waitForDeliveries(
+        count: Int,
+        deliveries: () -> [SnapshotRequest],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        for _ in 0..<20 where deliveries().count < count {
+            await Task.yield()
+        }
+        XCTAssertEqual(deliveries().count, count, file: file, line: line)
     }
 }
