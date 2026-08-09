@@ -14,6 +14,7 @@
 # build phase with less unrelated work.
 #
 # Usage:
+#   # Runs automatically before branch pushes when `ProjectTool setup` has installed repo hooks.
 #   ./scripts/check_localization_build.sh
 #   DERIVED_DATA_PATH=/tmp/derived XCODEBUILD_DESTINATION='generic/platform=iOS Simulator' \
 #     ./scripts/check_localization_build.sh

@@ -255,9 +255,9 @@ Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule
     format-specifier agreement and a per-locale coverage ratchet. That is the subset that gates a PR.
   - **Before pushing:** run `python3 scripts/xcstrings_tool.py verify`, which additionally checks
     entry shape, CLDR plural categories per locale, and protected terms. It is not run by CI.
-  - After an Xcode build, run `./scripts/check_localization_build.sh`. It snapshots both catalogs,
-    performs the CI-shaped build, and fails if Xcode rewrites either one; the Localization workflow
-    runs this guard on macOS as well as the fast Python gate on Ubuntu.
+  - The repository pre-push hook runs `./scripts/check_localization_build.sh`. It snapshots both
+    catalogs, performs the Xcode build, and fails if Xcode rewrites either one; rerun it manually
+    after an Xcode or localization-tooling change. GitHub CI keeps the fast Python gate on Ubuntu.
 - Internationalization checks:
   - Right-to-left layouts (mirroring, alignment, icons with directionality).
   - Dynamic Type (large fonts) and text truncation.

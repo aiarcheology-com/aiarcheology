@@ -72,7 +72,8 @@ What it does:
 
 2. **Configures git** (skipped in CI environments):
    - Marks the CoreData model contents file as "assume unchanged" to prevent noisy diffs
-   - Configures git to use `.githooks/` for hooks (enables SwiftLint pre-commit validation)
+   - Configures git to use `.githooks/` for hooks (enables SwiftLint pre-commit and String Catalog
+     build-stability pre-push validation)
 
 3. **Optional: Directory aliases** (skipped in CI environments):
    - Prompts to enable short command aliases via [direnv](https://direnv.net/)
@@ -107,6 +108,7 @@ Helper scripts are located in `scripts/` at the repository root.
 | `./scripts/swiftlint.sh` | Run SwiftLint (`fix` to autocorrect) | `aiaswiftlint` |
 | `./scripts/swiftgen.sh generate` | Generate L10n.swift from xcstrings | `aiaswiftgen` |
 | `./scripts/localization.sh` | Check every string exists in all 16 locales | `aialocalization` |
+| `./scripts/check_localization_build.sh` | Build locally and verify Xcode leaves String Catalogs unchanged | — |
 | `./scripts/harmonize.sh` | Run architectural tests | `aiaharmonize` |
 | `./scripts/unittest.sh` | Run unit tests | `aiaunittests` |
 

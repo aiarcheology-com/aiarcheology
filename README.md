@@ -18,7 +18,7 @@ The flagship use case — and where the name comes from — is archeology: brows
 | `scripts/` | Developer scripts: lint, codegen, architectural tests, unit tests |
 | `cloudflare/` | Cloudflare Worker relaying Sentry issues into GitHub Issues ([details](cloudflare/README.md)) |
 | `.github/workflows/` | CI: SwiftLint, Harmonize (architecture tests), issue-key automation |
-| `.githooks/` | Git hooks (SwiftLint pre-commit), enabled by `ProjectTool setup` |
+| `.githooks/` | Git hooks (SwiftLint pre-commit, catalog-stability pre-push), enabled by `ProjectTool setup` |
 | `.tools.json` | Pinned versions of swiftlint / swiftgen / sentry-cli used by all developers and CI |
 
 ## Supported model formats
