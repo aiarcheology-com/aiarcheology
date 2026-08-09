@@ -37,9 +37,6 @@
         }
       }
     },
-    "0-100" : {
-
-    },
     "about.copyright" : {
       "comment" : "Copyright notice in about screen",
       "extractionState" : "manual",
@@ -1107,9 +1104,6 @@
           }
         }
       }
-    },
-    "Add Model" : {
-
     },
     "adjustment.brightness" : {
       "comment" : "Brightness slider label",
@@ -21828,9 +21822,6 @@
         }
       }
     },
-    "Help" : {
-
-    },
     "history.clear.button" : {
       "comment" : "Button text to clear history",
       "extractionState" : "manual",
@@ -22262,9 +22253,6 @@
           }
         }
       }
-    },
-    "https://.../mymodel.mlmodel" : {
-
     },
     "import.appleDocumentation" : {
       "comment" : "Link to Apple Create ML documentation",
@@ -28487,9 +28475,6 @@
           }
         }
       }
-    },
-    "Loading..." : {
-
     },
     "models.add" : {
       "comment" : "Accessibility label for the button that adds a new ML model.",

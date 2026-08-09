@@ -6,7 +6,8 @@ Why this exists (AIA-0572)
 --------------------------
 `Localizable.xcstrings` is a ~41 000-line JSON document that Xcode owns. Re-serialising it with
 `json.dump` reformats every line and re-sorts keys, producing an unreviewable diff — the trap
-documented in the ship-ticket localization reference.
+documented in the ship-ticket localization reference. `InfoPlist.xcstrings` is smaller but follows
+the same byte-faithful rules.
 
 Two properties of the real file make a naive round-trip *impossible* to do byte-faithfully:
 
@@ -25,6 +26,7 @@ Subcommands
   check    Prove the splicer is a no-op: apply zero edits, assert the output is byte-identical.
   report   Per-locale coverage. Counts a value identical to English as *untranslated*.
   merge    Insert translations from a directory of <locale>.json files.
+  prune    Remove named top-level keys with byte-span splices.
   verify   Gate the catalog: locale parity, format-specifier agreement, plural-category sanity.
 
 `verify` is the safety net that `check` cannot provide: `check` only exercises formatting that
@@ -42,6 +44,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CATALOG = REPO_ROOT / "ios/MLBrowser/iOS/Resources/Localizable.xcstrings"
+INFO_PLIST_CATALOG = REPO_ROOT / "ios/MLBrowser/iOS/Resources/InfoPlist.xcstrings"
 
 SOURCE_LANGUAGE = "en"
 
@@ -55,6 +58,28 @@ TARGET_LOCALES = [
     "ar", "bn", "cs", "de", "es", "fa", "fr", "he",
     "hi", "hu", "pl", "ru", "uk", "zh-Hans", "zh-Hant", "zh-HK",
 ]
+
+# Info.plist has its own catalog. Keep the small system-facing surface explicit instead of
+# attempting to infer it from build settings (which differ between Xcode releases and build
+# configurations). The first entry is the existing local-network permission copy; the other three
+# are the values Xcode extracts from MLBrowser-Info.plist / PRODUCT_NAME.
+INFO_PLIST_SOURCE_VALUES = {
+    "NSLocalNetworkUsageDescription": (
+        "Your permission is needed to connect with devices on your local network. This allows the "
+        "app to automatically detect and interact with compatible devices for streamlined data "
+        "sharing and enhanced functionality."
+    ),
+    "CFBundleName": "ML Browser",
+    "AI Archeology native model graph": "AI Archeology native model graph",
+    "ONNX model": "ONNX model",
+}
+
+# These two values are user-visible file-type descriptions. Unlike CFBundleName, translating them
+# is required; keeping the list separate makes the protected brand/format terms auditable.
+INFO_PLIST_TRANSLATED_KEYS = {
+    "AI Archeology native model graph",
+    "ONNX model",
+}
 
 
 def discovered_locales(cat: dict) -> set[str]:
@@ -160,9 +185,9 @@ RESTRICTED_PREFIXES = (
 #
 # `SWIFT_EMIT_LOC_STRINGS` turns a bare SwiftUI literal into a catalog entry with no
 # `extractionState`. Those entries never reach `L10n.swift`, so **no locale can ever translate
-# them** — which is how "Add Model", "Help" and "Loading..." shipped English in all 17 languages
-# until AIA-0572 promoted them. Nothing caught it, because an auto-extracted key is invisible to
-# both the id-shape guard and the parity guard.
+# them** — which is how hardcoded UI prose can ship English in all 17 languages. Nothing catches
+# it unless the catalog gate treats auto-extracted prose as a defect, because such a key is
+# invisible to both the id-shape guard and the parity guard.
 #
 # So: anything auto-extracted that contains actual words is a hardcoded UI string and fails
 # `verify`. This set is the accepted baseline, and adding to it should be a deliberate, reviewed
@@ -172,10 +197,6 @@ ACCEPTED_AUTO_EXTRACTED = {
     # come back on every build because the interpolation is the source (see AIA-0572): e.g.
     # `Text("\(completed) / \(total)")` -> "%lld / %lld", `Text("/ \(bytes)")` -> "/ %@".
     "", " %@|", "/ %@", "%.2f", "%@: %@", "%lld / %lld",
-    # Superseded by dot-namespaced keys in AIA-0572; their source literals are gone, so these are
-    # stale remnants Xcode will drop. Listed rather than deleted because deleting an entry Xcode
-    # still believes in just invites it back.
-    "0-100", "Add Model", "Help", "Loading...", "https://.../mymodel.mlmodel",
     # STILL LIVE and genuinely untranslatable: `.accessibilityLabel("Version \(versionString)")`
     # in AppDescriptionView.swift. A VoiceOver string that no locale can translate — it wants the
     # same promotion the others got. Tracked, not silently blessed.
@@ -390,6 +411,37 @@ def apply_edits(text: str, edits: list[tuple[int, int, str]]) -> str:
     return out
 
 
+def top_level_entry_removal(text: str, spans: dict[str, dict], key: str) -> tuple[int, int, str]:
+    """Build a byte splice that removes one top-level `strings` member.
+
+    The scanner deliberately keeps member spans rather than re-serialising the document. Removing
+    the comma with the member (or with its predecessor when it is last) leaves the surrounding
+    catalog bytes untouched and keeps the result valid JSON.
+    """
+    if key not in spans:
+        raise ValueError(f"catalog has no key {key!r}")
+
+    entry = spans[key]["entry"]
+    # `catalog_spans` stores entries in source order in the dict. Python preserves that order, so
+    # this is also the order Xcode wrote them in.
+    keys = list(spans)
+    index = keys.index(key)
+    if index + 1 < len(keys):
+        next_entry = spans[keys[index + 1]]["entry"]
+        # Consume the target value, its comma, and the whitespace before the next member. Keep the
+        # newline/indentation before the target so a first-member deletion retains Xcode's style.
+        return (entry["member_start"], next_entry["member_start"], "")
+
+    if index == 0:
+        # A one-member catalog: remove only the value and leave the object's existing whitespace.
+        return (entry["member_start"], entry["member_end"], "")
+
+    previous = spans[keys[index - 1]]["entry"]
+    # The comma separating the previous value from the target belongs to this removal. The
+    # whitespace before the closing brace remains intact.
+    return (previous["member_end"], entry["member_end"], "")
+
+
 def upsert_locale(text: str, spans: dict, key: str, locale: str, block: dict) -> tuple[int, int, str]:
     """
     Build the splice that inserts (or replaces) `locale` inside `key`'s `localizations` object.
@@ -486,9 +538,18 @@ def is_submultiset(small: list[str], big: list[str]) -> bool:
 # Commands
 # --------------------------------------------------------------------------------------------
 
+def requested_catalog(args) -> Path:
+    """Return the catalog selected by a command, defaulting to Localizable.xcstrings."""
+    raw = getattr(args, "catalog", None)
+    if not raw:
+        return CATALOG
+    path = Path(raw)
+    return path if path.is_absolute() else REPO_ROOT / path
+
 def cmd_check(args) -> int:
     """Prove the splicer is byte-neutral when it applies no edits."""
-    text = CATALOG.read_text(encoding="utf-8")
+    catalog = requested_catalog(args)
+    text = catalog.read_text(encoding="utf-8")
     spans = catalog_spans(text)
     rebuilt = apply_edits(text, [])
     ok = rebuilt == text
@@ -498,6 +559,7 @@ def cmd_check(args) -> int:
     keys_parsed = set(parsed["strings"])
     same_keys = keys_scanned == keys_parsed
 
+    print(f"Catalog: {catalog.relative_to(REPO_ROOT)}")
     print(f"scanner found {len(keys_scanned)} keys; json.load found {len(keys_parsed)}")
     print(f"key sets identical .......... {'PASS' if same_keys else 'FAIL'}")
     print(f"zero-edit splice is a no-op .. {'PASS' if ok else 'FAIL'}")
@@ -659,7 +721,8 @@ def cmd_report(args) -> int:
 
 def cmd_merge(args) -> int:
     src = Path(args.source)
-    text = CATALOG.read_text(encoding="utf-8")
+    catalog = requested_catalog(args)
+    text = catalog.read_text(encoding="utf-8")
     spans = catalog_spans(text)
     cat = json.loads(text)
 
@@ -720,9 +783,29 @@ def cmd_merge(args) -> int:
 
     merged = apply_edits(text, edits)
     json.loads(merged)  # fail loudly rather than write a corrupt catalog
-    CATALOG.write_text(merged, encoding="utf-8")
-    print(f"\nmerged {sum(stats.values())} blocks into {CATALOG.relative_to(REPO_ROOT)}"
+    catalog.write_text(merged, encoding="utf-8")
+    print(f"\nmerged {sum(stats.values())} blocks into {catalog.relative_to(REPO_ROOT)}"
           f"; left {skipped} unchanged block(s) untouched")
+    return 0
+
+
+def cmd_prune(args) -> int:
+    """Remove named top-level keys with byte-span splices."""
+    catalog = requested_catalog(args)
+    text = catalog.read_text(encoding="utf-8")
+    spans = catalog_spans(text)
+    missing = [key for key in args.keys if key not in spans]
+    if missing:
+        raise SystemExit(f"catalog has no key(s): {', '.join(repr(k) for k in missing)}")
+
+    edits = [top_level_entry_removal(text, spans, key) for key in args.keys]
+    pruned = apply_edits(text, edits)
+    parsed = json.loads(pruned)
+    remaining = set(parsed["strings"])
+    if any(key in remaining for key in args.keys):
+        raise SystemExit("prune splice left at least one requested key in the catalog")
+    catalog.write_text(pruned, encoding="utf-8")
+    print(f"pruned {len(args.keys)} key(s) from {catalog.relative_to(REPO_ROOT)}")
     return 0
 
 
@@ -742,6 +825,47 @@ def variation_kind(loc: dict | None) -> str | None:
 def is_restricted(key: str) -> bool:
     """Legal, billing or irreversible-action copy — excluded from a routine bulk pass."""
     return key.startswith(RESTRICTED_PREFIXES)
+
+
+def info_plist_problems() -> list[str]:
+    """Validate the system-facing Info.plist catalog alongside the app catalog."""
+    if not INFO_PLIST_CATALOG.exists():
+        return [f"InfoPlist catalog missing: {INFO_PLIST_CATALOG.relative_to(REPO_ROOT)}"]
+
+    try:
+        cat = load_catalog(INFO_PLIST_CATALOG)
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"InfoPlist catalog unreadable: {exc}"]
+
+    problems: list[str] = []
+    strings = cat.get("strings") if isinstance(cat, dict) else None
+    if not isinstance(strings, dict):
+        return ["InfoPlist catalog has no top-level `strings` object"]
+
+    for key, english in INFO_PLIST_SOURCE_VALUES.items():
+        entry = strings.get(key)
+        if not isinstance(entry, dict):
+            problems.append(f"InfoPlist missing extracted key {key!r}")
+            continue
+        localizations = entry.get("localizations") or {}
+        source = flatten(localizations.get(SOURCE_LANGUAGE))
+        if source != {"": english}:
+            problems.append(
+                f"InfoPlist {key!r}: English source must be {english!r}, got {source!r}")
+            continue
+        for locale in TARGET_LOCALES:
+            value = flatten(localizations.get(locale))
+            if value is None or not value.get("") or not value[""].strip():
+                problems.append(f"InfoPlist {key!r}: missing `{locale}` localization")
+                continue
+            translated = value[""]
+            if key in INFO_PLIST_TRANSLATED_KEYS and translated == english:
+                problems.append(f"InfoPlist {key!r}: `{locale}` is still English")
+            if key == "AI Archeology native model graph" and "AI Archeology" not in translated:
+                problems.append(f"InfoPlist {key!r}: `{locale}` dropped protected term `AI Archeology`")
+            if key == "ONNX model" and "ONNX" not in translated:
+                problems.append(f"InfoPlist {key!r}: `{locale}` dropped protected term `ONNX`")
+    return problems
 
 
 def cmd_verify(args) -> int:
@@ -924,6 +1048,15 @@ def cmd_verify(args) -> int:
                         f"{key} [{locale}]: plural categories {sorted(extra)} can never match in "
                         f"this locale (harmless, but dead)")
 
+    info_problems = info_plist_problems()
+    print(f"InfoPlist catalog: {INFO_PLIST_CATALOG.relative_to(REPO_ROOT)}")
+    print(f"  required keys: {len(INFO_PLIST_SOURCE_VALUES)}; locales checked: {len(TARGET_LOCALES)}")
+    if info_problems:
+        problems.extend(info_problems)
+        print(f"  status: FAIL ({len(info_problems)} problem(s))")
+    else:
+        print("  status: PASS (source values and all locale blocks present)")
+
     for n in notes[:args.limit]:
         print(f"  note: {n}")
     if problems:
@@ -1014,7 +1147,9 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("check", help="prove the splicer and renderer are byte-faithful")
+    c = sub.add_parser("check", help="prove the splicer and renderer are byte-faithful")
+    c.add_argument("--catalog", default=None,
+                   help="catalog path (default: Localizable.xcstrings)")
     sub.add_parser("report", help="per-locale coverage")
 
     e = sub.add_parser("export", help="write per-locale translation worklists")
@@ -1031,6 +1166,13 @@ def main() -> int:
     m.add_argument("--source", required=True, help="directory of <locale>.json files")
     m.add_argument("--state", default="needs_review",
                    help="stringUnit state to write (default: needs_review)")
+    m.add_argument("--catalog", default=None,
+                   help="catalog path (default: Localizable.xcstrings; useful for InfoPlist.xcstrings)")
+
+    d = sub.add_parser("prune", help="remove named top-level keys with byte-span splicing")
+    d.add_argument("keys", nargs="+", help="catalog keys to remove")
+    d.add_argument("--catalog", default=None,
+                   help="catalog path (default: Localizable.xcstrings)")
 
     v = sub.add_parser("verify", help="gate shape, format specifiers and plural categories")
     v.add_argument("--strict-parity", action="store_true",
@@ -1040,7 +1182,7 @@ def main() -> int:
     args = p.parse_args()
     return {
         "check": cmd_check, "report": cmd_report, "export": cmd_export,
-        "merge": cmd_merge, "verify": cmd_verify,
+        "merge": cmd_merge, "prune": cmd_prune, "verify": cmd_verify,
     }[args.cmd](args)
 
 

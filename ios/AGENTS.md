@@ -232,6 +232,9 @@ Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule
 ## 8. Localization & Internationalization
 
 - Any user-visible string must be localized in `ios/MLBrowser/iOS/Resources/Localizable.xcstrings`.
+  System-owned copy such as permission alerts and exported/imported file-type descriptions belongs
+  in the separate `ios/MLBrowser/iOS/Resources/InfoPlist.xcstrings` catalog; it is checked by the
+  same localization gate and must be kept in sync with `MLBrowser-Info.plist`.
 - When adding strings:
   - Prefer string keys managed by the project's localization tooling (see generated `L10n.swift` usage patterns).
   - Keys must be dot-namespaced (`history.title`); `LocalizationCatalogTests` enforces
@@ -252,6 +255,9 @@ Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule
     format-specifier agreement and a per-locale coverage ratchet. That is the subset that gates a PR.
   - **Before pushing:** run `python3 scripts/xcstrings_tool.py verify`, which additionally checks
     entry shape, CLDR plural categories per locale, and protected terms. It is not run by CI.
+  - After an Xcode build, run `./scripts/check_localization_build.sh`. It snapshots both catalogs,
+    performs the CI-shaped build, and fails if Xcode rewrites either one; the Localization workflow
+    runs this guard on macOS as well as the fast Python gate on Ubuntu.
 - Internationalization checks:
   - Right-to-left layouts (mirroring, alignment, icons with directionality).
   - Dynamic Type (large fonts) and text truncation.

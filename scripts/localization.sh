@@ -6,12 +6,14 @@
 # for all 16 other locales. Add strings in code and translate none, and this fails with the exact
 # slot counts. It also catches the two subtler ways a string goes untranslated: a hardcoded SwiftUI
 # literal (auto-extracted, so it never reaches L10n.swift and no locale can ever translate it), and
-# an orphaned translation left behind by a rename.
+# an orphaned translation left behind by a rename. `xcstrings_tool.py verify` also validates the
+# separate InfoPlist catalog, where system-facing file-type and permission strings live.
 #
 # Pure Python over the catalog JSON — no Xcode, no simulator, no network. Runs in about a second.
 #
 # Usage:
 #   ./scripts/localization.sh              # report + verify (the gate)
+#   ./scripts/check_localization_build.sh  # build and prove Xcode leaves both catalogs unchanged
 #   ./scripts/localization.sh report       # per-locale coverage only
 #   ./scripts/localization.sh export <dir> # write per-locale worklists of what needs translating
 #   ./scripts/localization.sh merge <dir>  # merge translated <locale>.json files back in
@@ -76,6 +78,7 @@ EOF
         fi
         echo
         "$PYTHON" "$TOOL" check
+        "$PYTHON" "$TOOL" check --catalog "${REPO_ROOT}/ios/MLBrowser/iOS/Resources/InfoPlist.xcstrings"
         ;;
 
     *)
