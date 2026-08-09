@@ -117,9 +117,10 @@ final class DetectionSessionStateTests: XCTestCase {
 
         XCTAssertTrue(sut.accepts(SnapshotRequest(runID: activeRun, sequence: 1)))
 
-        sut.ontheflyDetectionTapped()
+        sut.ontheflyDetectionResetTapped()
 
         XCTAssertFalse(sut.accepts(SnapshotRequest(runID: activeRun, sequence: 2)))
+        XCTAssertTrue(sut.ontheflyDetectionEnabled)
         XCTAssertNotEqual(sut.detectionRunID, activeRun)
     }
 

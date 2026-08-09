@@ -171,6 +171,22 @@ final class SnapStateTests: XCTestCase {
         XCTAssertEqual(received?.sequence, 1)
     }
 
+    func testCombinedPublishers_ReplaysLatestRequestToLateSubscriber() {
+        sut.requestSnapshot(for: 42)
+
+        let expectation = XCTestExpectation(description: "Late subscriber receives retained request")
+        var received: SnapshotRequest?
+        sut.combinedPublishers
+            .sink { request in
+                received = request
+                expectation.fulfill()
+            }
+            .store(in: &cancellables)
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(received, SnapshotRequest(runID: 42, sequence: 1))
+    }
+
     func testStartTimer_ImmediatelyPublishesRunScopedRequest() {
         let expectation = XCTestExpectation(description: "Timer's initial request")
         var received: SnapshotRequest?

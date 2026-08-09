@@ -28,7 +28,7 @@ final class ClassificationDemoUITests: UITestCase {
         play.tap()
 
         XCTAssertTrue(
-            waitForCheckpoint(AID.cpSnapshotDeliveryCount, equals: "1", timeout: 8),
+            waitForCheckpoint(AID.cpSnapshotDeliveryCount, minimum: 1, timeout: 8),
             "Fullscreen PLAY should deliver an initial WebView snapshot before the 10-second timer cadence, without panning"
         )
     }
@@ -51,7 +51,7 @@ final class ClassificationDemoUITests: UITestCase {
         play.tap()
 
         XCTAssertTrue(
-            waitForCheckpoint(AID.cpSnapshotDeliveryCount, equals: "1", timeout: 8),
+            waitForCheckpoint(AID.cpSnapshotDeliveryCount, minimum: 1, timeout: 8),
             "PLAY should deliver the initial WebView snapshot before the 10-second timer cadence, without panning"
         )
 
@@ -64,7 +64,7 @@ final class ClassificationDemoUITests: UITestCase {
         // Qualifying passes accumulate while the finding stays on screen (the pulse's
         // driving signal) — proves recurrence, not a one-shot.
         XCTAssertTrue(
-            waitForCheckpoint(AID.cpFlashCount, equals: "2", timeout: 30),
+            waitForCheckpoint(AID.cpFlashCount, minimum: 2, timeout: 30),
             "Qualifying passes should accumulate while the finding persists"
         )
 

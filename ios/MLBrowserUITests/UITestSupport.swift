@@ -271,6 +271,19 @@ class UITestCase: XCTestCase {
 		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
 	}
 
+	/// Waits until a numeric checkpoint reaches at least `minimum`. This is appropriate for
+	/// monotonic counters, which can advance by more than one between UI-test polling intervals.
+	@discardableResult
+	func waitForCheckpoint(_ id: String, minimum: Int, timeout: TimeInterval = 10) -> Bool {
+		let predicate = NSPredicate { object, _ in
+			guard let element = object as? XCUIElement else { return false }
+			let value = (element.value as? String) ?? (element.value as? NSNumber)?.stringValue ?? element.label
+			return (Int(value) ?? 0) >= minimum
+		}
+		let expectation = XCTNSPredicateExpectation(predicate: predicate, object: checkpoint(id))
+		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+	}
+
 	func checkpointValue(_ id: String, timeout: TimeInterval = 10) -> String? {
 		let element = checkpoint(id)
 		guard element.waitForExistence(timeout: timeout) else { return nil }

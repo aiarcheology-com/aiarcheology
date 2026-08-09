@@ -133,6 +133,32 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
         XCTAssertEqual(replacementDeliveries, [restartedRun])
     }
 
+    func testRendererReattachment_DiscardsOldPageSnapshotAndReplaysLatestRequest() async {
+        let renderer = HeldSnapshotRenderer()
+        let sut = SnapshotWorkCoordinator(renderer: renderer)
+        let request = SnapshotRequest(runID: 1, sequence: 1)
+        var deliveries: [SnapshotRequest] = []
+
+        sut.rendererDidAttach()
+        sut.registerConsumer(id: UUID(), frame: .zero) { _, _, deliveredRequest in
+            deliveries.append(deliveredRequest)
+        }
+        sut.enqueue(request)
+        await waitForSnapshotCall(renderer, count: 1)
+
+        // A recovered WebView replaces the renderer while the old page's capture is still in
+        // flight. The old image must not be delivered to the current consumer.
+        sut.rendererDidAttach()
+        renderer.completeNext(with: UIImage())
+        await waitForSnapshotCall(renderer, count: 2)
+        XCTAssertTrue(deliveries.isEmpty)
+
+        renderer.completeNext(with: UIImage())
+        await Task.yield()
+
+        XCTAssertEqual(deliveries, [request])
+    }
+
     private func waitForSnapshotCall(
         _ renderer: HeldSnapshotRenderer,
         count: Int,

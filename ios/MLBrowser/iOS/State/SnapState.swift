@@ -36,8 +36,9 @@ struct SnapshotRequest: Equatable, Sendable {
 final class SnapState: ObservableObject {
 	var settings: Settings
 	var timerCancellable: Cancellable?
-	private let snapshotTrigger = PassthroughSubject<SnapshotRequest, Never>()
-	private let timerTrigger = PassthroughSubject<SnapshotRequest, Never>()
+	/// Stores the latest pass so a SnapableGroup that mounts after PLAY still receives the initial
+	/// request. `PassthroughSubject` would drop that pass before SwiftUI subscribes.
+	private let latestSnapshotRequest = CurrentValueSubject<SnapshotRequest?, Never>(nil)
 	private var nextRequestSequence: UInt64 = 0
 	var delayedTimer: Bool = false
 	
@@ -48,7 +49,8 @@ final class SnapState: ObservableObject {
 	}
 
 	var combinedPublishers: AnyPublisher<SnapshotRequest, Never> {
-		Publishers.Merge(timerTrigger, snapshotTrigger)
+		latestSnapshotRequest
+			.compactMap { $0 }
 			.eraseToAnyPublisher()
 	}
 
@@ -69,8 +71,7 @@ final class SnapState: ObservableObject {
 	/// Requests one additional pass in the current run, for example after a driver finishes
 	/// registering. Only `DetectionSessionState` calls this public command path.
 	func requestSnapshot(for runID: UInt64) {
-		nextRequestSequence &+= 1
-		snapshotTrigger.send(SnapshotRequest(runID: runID, sequence: nextRequestSequence))
+		enqueueSnapshot(for: runID)
 	}
 
 	func stopTimer() {
@@ -79,7 +80,11 @@ final class SnapState: ObservableObject {
 	}
 
 	private func requestTimerSnapshot(for runID: UInt64) {
+		enqueueSnapshot(for: runID)
+	}
+
+	private func enqueueSnapshot(for runID: UInt64) {
 		nextRequestSequence &+= 1
-		timerTrigger.send(SnapshotRequest(runID: runID, sequence: nextRequestSequence))
+		latestSnapshotRequest.send(SnapshotRequest(runID: runID, sequence: nextRequestSequence))
 	}
 }

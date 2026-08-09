@@ -42,6 +42,7 @@ final class SnapshotWorkCoordinator {
 	private struct Work {
 		let request: SnapshotRequest
 		let consumer: Consumer
+		let attachmentGeneration: UInt64
 	}
 
 	private let renderer: any SnapshotRendering
@@ -49,6 +50,7 @@ final class SnapshotWorkCoordinator {
 	private var pendingRequest: SnapshotRequest?
 	private var latestRequest: SnapshotRequest?
 	private var consumerGeneration: UInt64 = 0
+	private var attachmentGeneration: UInt64 = 0
 	private var rendererAttached = false
 	private var rendering = false
 
@@ -57,7 +59,14 @@ final class SnapshotWorkCoordinator {
 	}
 
 	func rendererDidAttach() {
+		attachmentGeneration &+= 1
 		rendererAttached = true
+		// `takeSnapshot` belongs to the WebView that was attached when it began. If recovery
+		// attaches a replacement before that continuation returns, discard the old-page image and
+		// run the latest request against the replacement instead.
+		if rendering, let latestRequest {
+			pendingRequest = latestRequest
+		}
 		startNextIfPossible()
 	}
 
@@ -106,7 +115,7 @@ final class SnapshotWorkCoordinator {
 
 		pendingRequest = nil
 		rendering = true
-		let work = Work(request: request, consumer: consumer)
+		let work = Work(request: request, consumer: consumer, attachmentGeneration: attachmentGeneration)
 		let renderer = renderer
 		Task { @MainActor [weak self, renderer] in
 			let image = await renderer.snapshot()
@@ -117,8 +126,9 @@ final class SnapshotWorkCoordinator {
 	private func finished(_ work: Work, image: UIImage?) {
 		rendering = false
 		if let image,
-			   consumer?.id == work.consumer.id,
-			   consumer?.generation == work.consumer.generation {
+		   consumer?.id == work.consumer.id,
+		   consumer?.generation == work.consumer.generation,
+		   attachmentGeneration == work.attachmentGeneration {
 			work.consumer.deliver(image, work.consumer.frame, work.request)
 		}
 		startNextIfPossible()
