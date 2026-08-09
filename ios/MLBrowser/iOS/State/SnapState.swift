@@ -23,12 +23,22 @@ final class SnapAdjustment: ObservableObject {
 }
 
 import Combine
+
+/// One request to capture the current web content for a particular detection run. The session
+/// assigns a new run identifier whenever detection starts, stops, or resets; a late snapshot from
+/// an older run must never feed the newly-started one.
+struct SnapshotRequest: Equatable, Sendable {
+	let runID: UInt64
+	let sequence: UInt64
+}
+
 @MainActor
 final class SnapState: ObservableObject {
 	var settings: Settings
 	var timerCancellable: Cancellable?
-	let snapshotTrigger = PassthroughSubject<Void, Never>()
-	let timerTrigger = PassthroughSubject<Void, Never>()
+	private let snapshotTrigger = PassthroughSubject<SnapshotRequest, Never>()
+	private let timerTrigger = PassthroughSubject<SnapshotRequest, Never>()
+	private var nextRequestSequence: UInt64 = 0
 	var delayedTimer: Bool = false
 	
 	@Published var snap: Snapshot?
@@ -37,24 +47,39 @@ final class SnapState: ObservableObject {
 		self.settings = settings
 	}
 
-	var combinedPublishers: AnyPublisher<Void, Never> {
+	var combinedPublishers: AnyPublisher<SnapshotRequest, Never> {
 		Publishers.Merge(timerTrigger, snapshotTrigger)
 			.eraseToAnyPublisher()
 	}
-    func startTimer() {
+
+	/// Starts the timer for an explicitly-owned detection run and immediately queues its first
+	/// request. The receiver is deliberately a request publisher, rather than a bare pulse, so it
+	/// can retain the initial work until both the SwiftUI consumer and WKWebView are actually live.
+	func startTimer(for runID: UInt64) {
 		guard timerCancellable.isNil else { return }
 
-			// Start the timer and handle its events by sending them to timerTrigger
-		self.timerTrigger.send() // start immediately
+		requestTimerSnapshot(for: runID)
 		timerCancellable = Timer.publish(every: settings.snapFrequency, on: .main, in: .common)
 			.autoconnect()
 			.sink { [weak self] _ in
-				self?.timerTrigger.send()
+				self?.requestTimerSnapshot(for: runID)
 			}
+	}
+
+	/// Requests one additional pass in the current run, for example after a driver finishes
+	/// registering. Only `DetectionSessionState` calls this public command path.
+	func requestSnapshot(for runID: UInt64) {
+		nextRequestSequence &+= 1
+		snapshotTrigger.send(SnapshotRequest(runID: runID, sequence: nextRequestSequence))
 	}
 
 	func stopTimer() {
 		timerCancellable?.cancel()
 		timerCancellable = nil
+	}
+
+	private func requestTimerSnapshot(for runID: UInt64) {
+		nextRequestSequence &+= 1
+		timerTrigger.send(SnapshotRequest(runID: runID, sequence: nextRequestSequence))
 	}
 }

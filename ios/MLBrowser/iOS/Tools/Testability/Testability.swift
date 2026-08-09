@@ -424,6 +424,9 @@ extension TestabilityIdentification {
 		/// The current top display label as "identifier=confidence" (AIA-0375) — turns
 		/// "why didn't it qualify" from a guess into a read.
 		case topClassification
+		/// Monotonic count of snapshots delivered to the active detection run. This proves the
+		/// start lifecycle independently from model-load/inference timing (AIA-0587).
+		case snapshotDeliveryCount
 	}
 
 	enum MenuItem: String, TestabilityIdentification {

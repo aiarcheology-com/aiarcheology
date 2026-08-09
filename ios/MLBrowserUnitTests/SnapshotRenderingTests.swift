@@ -52,3 +52,96 @@ final class SnapshotRenderingTests: XCTestCase {
         XCTAssertNil(result)
     }
 }
+
+@MainActor
+private final class HeldSnapshotRenderer: SnapshotRendering {
+    private var continuations: [CheckedContinuation<UIImage?, Never>] = []
+    private(set) var snapshotCallCount = 0
+
+    func snapshot() async -> UIImage? {
+        snapshotCallCount += 1
+        return await withCheckedContinuation { continuations.append($0) }
+    }
+
+    func completeNext(with image: UIImage?) {
+        precondition(continuations.isEmpty.not, "No held snapshot to complete")
+        continuations.removeFirst().resume(returning: image)
+    }
+}
+
+@MainActor
+final class SnapshotWorkCoordinatorTests: XCTestCase {
+
+    func testInitialRequest_WaitsForAttachedRendererAndConsumer() async {
+        let renderer = HeldSnapshotRenderer()
+        let sut = SnapshotWorkCoordinator(renderer: renderer)
+        let request = SnapshotRequest(runID: 7, sequence: 1)
+        var delivered: [SnapshotRequest] = []
+
+        sut.enqueue(request)
+        XCTAssertEqual(renderer.snapshotCallCount, 0, "A start request must survive until WebKit attaches")
+
+        sut.rendererDidAttach()
+        await Task.yield()
+        XCTAssertEqual(renderer.snapshotCallCount, 0, "A request must also wait for a live SwiftUI consumer")
+
+        sut.registerConsumer(id: UUID(), frame: .zero) { _, _, deliveredRequest in
+            delivered.append(deliveredRequest)
+        }
+        await waitForSnapshotCall(renderer, count: 1)
+
+        renderer.completeNext(with: UIImage())
+        await Task.yield()
+
+        XCTAssertEqual(delivered, [request])
+    }
+
+    func testReplacementAndRestart_HoldOnePhysicalSnapshotUntilOldContinuationReturns() async {
+        let renderer = HeldSnapshotRenderer()
+        let sut = SnapshotWorkCoordinator(renderer: renderer)
+        let firstConsumer = UUID()
+        let replacementConsumer = UUID()
+        let firstRun = SnapshotRequest(runID: 1, sequence: 1)
+        let restartedRun = SnapshotRequest(runID: 3, sequence: 2)
+        var firstConsumerDeliveries = 0
+        var replacementDeliveries: [SnapshotRequest] = []
+
+        sut.rendererDidAttach()
+        sut.registerConsumer(id: firstConsumer, frame: .zero) { _, _, _ in
+            firstConsumerDeliveries += 1
+        }
+        sut.enqueue(firstRun)
+        await waitForSnapshotCall(renderer, count: 1)
+
+        // A pause/restart plus a SwiftUI replacement can happen before WebKit completes the
+        // original capture. The newest request wins, but it must wait for that continuation.
+        sut.enqueue(restartedRun)
+        sut.unregisterConsumer(id: firstConsumer)
+        sut.registerConsumer(id: replacementConsumer, frame: .zero) { _, _, request in
+            replacementDeliveries.append(request)
+        }
+        XCTAssertEqual(renderer.snapshotCallCount, 1, "Never overlap WKWebView.takeSnapshot calls")
+
+        renderer.completeNext(with: UIImage())
+        await waitForSnapshotCall(renderer, count: 2)
+        XCTAssertEqual(firstConsumerDeliveries, 0)
+        XCTAssertTrue(replacementDeliveries.isEmpty, "Old-run completion belongs to the departed consumer")
+
+        renderer.completeNext(with: UIImage())
+        await Task.yield()
+
+        XCTAssertEqual(replacementDeliveries, [restartedRun])
+    }
+
+    private func waitForSnapshotCall(
+        _ renderer: HeldSnapshotRenderer,
+        count: Int,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        for _ in 0..<20 where renderer.snapshotCallCount < count {
+            await Task.yield()
+        }
+        XCTAssertEqual(renderer.snapshotCallCount, count, file: file, line: line)
+    }
+}

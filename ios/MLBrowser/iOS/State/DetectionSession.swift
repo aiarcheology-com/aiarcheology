@@ -38,6 +38,9 @@ final class DetectionSession {
 	private(set) lazy var snapAdjustment = SnapAdjustment()
 	private(set) lazy var renderer = DefaultRenderer()
 	private(set) lazy var webViewRenderer = WebSnapshotRenderer(adjustment: self.snapAdjustment)
+	/// Persistent across SwiftUI view replacement. It is forced only from the render path, keeping
+	/// DetectionSession's established lazy construction invariant intact.
+	private(set) lazy var snapshotWorkCoordinator = SnapshotWorkCoordinator(renderer: self.webViewRenderer)
 	private(set) lazy var detectionState = DetectionSessionState(
 		snap: self.snap,
 		settings: self.settings,

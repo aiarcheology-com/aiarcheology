@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 11
+	var version = 12
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -34,6 +34,7 @@ struct LaunchConfig: Encodable {
 	var lastPage: String?
 	var fullscreenDetection: Bool?
 	var disableDetectionAnimations: Bool?
+	var snapFrequency: Double?
 	var fixtureName: String?
 	var stubDownloads: Bool?
 	var enableClassifyDemo: Bool?
@@ -67,6 +68,7 @@ enum AID {
 	static let cpFlashCount = "_AIA:Checkpoint.FlashCount"
 	static let cpClassificationCount = "_AIA:Checkpoint.ClassificationCount"
 	static let cpTopClassification = "_AIA:Checkpoint.TopClassification"
+	static let cpSnapshotDeliveryCount = "_AIA:Checkpoint.SnapshotDeliveryCount"
 
 	// Top toolbar (real Buttons)
 	static let cpu = "_AIA:Button.GlobalToolbarSideMenu"

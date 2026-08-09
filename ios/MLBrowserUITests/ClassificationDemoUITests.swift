@@ -14,11 +14,33 @@ import XCTest
 
 final class ClassificationDemoUITests: UITestCase {
 
+    func testClassifyDemo_fullscreenDetection_deliversInitialSnapshotBeforeTimer() throws {
+        launch(LaunchConfig(
+            pageScenario: .localFixture,
+            fullscreenDetection: true,
+            snapFrequency: 10,
+            fixtureName: "uitest_classify_page",
+            enableClassifyDemo: true
+        ))
+
+        let play = app.buttons[AID.play]
+        XCTAssertTrue(play.waitForExistence(timeout: 10), "Play button missing")
+        play.tap()
+
+        XCTAssertTrue(
+            waitForCheckpoint(AID.cpSnapshotDeliveryCount, equals: "1", timeout: 8),
+            "Fullscreen PLAY should deliver an initial WebView snapshot before the 10-second timer cadence, without panning"
+        )
+    }
+
     func testClassifyDemo_seededEnabled_qualifiesOnFixturePage() throws {
         // The classify demo seeds ENABLED via launch config (real seeding + insert-
         // registration path; drawer-enable flow coverage belongs to AIA-0322).
         launch(LaunchConfig(
             pageScenario: .localFixture,
+            // The start request must be delivered before the next timer cadence. Ten seconds
+            // leaves a clear gap without exceeding Settings' production validation range.
+            snapFrequency: 10,
             fixtureName: "uitest_classify_page",
             enableClassifyDemo: true
         ))
@@ -28,8 +50,13 @@ final class ClassificationDemoUITests: UITestCase {
         XCTAssertTrue(play.waitForExistence(timeout: 10), "Play button missing")
         play.tap()
 
-        // Generous first wait: the enable path loads the model asynchronously and the
-        // first snapshot pass lands on the next timer tick.
+        XCTAssertTrue(
+            waitForCheckpoint(AID.cpSnapshotDeliveryCount, equals: "1", timeout: 8),
+            "PLAY should deliver the initial WebView snapshot before the 10-second timer cadence, without panning"
+        )
+
+        // The enable path loads the model asynchronously. Its registration requests a second
+        // immediate pass in the same run, rather than waiting for the 10-second timer tick.
         XCTAssertTrue(
             waitForCheckpoint(AID.cpClassificationCount, equals: "1", timeout: 60),
             "The real classificator should qualify on the rendered fixture page — top: \(checkpointValue(AID.cpTopClassification, timeout: 2) ?? "<none>")"

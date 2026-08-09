@@ -212,7 +212,7 @@ struct WebScreenView: View {
         // DetectableView handles both snapshotting and annotation in one coordinated scope
         // This keeps detection state local to WebScreenView and ensures coordinate alignment
         DetectableView(
-            renderer: appState.webViewRenderer,
+			snapshotWorkCoordinator: appState.snapshotWorkCoordinator,
             drivers: appState.deep.drivers,
             trigger: appState.snap.combinedPublishers,
             showIdentifiers: showIdentifiers,
@@ -220,6 +220,7 @@ struct WebScreenView: View {
             tiling: tiling,
             tiledBorders: tiledBorders,
             detectionActive: detectionActive,
+			acceptsSnapshot: { appState.detectionState.accepts($0) },
             isCapturingFinding: $isCapturingFinding,
             onFrameChanged: { frame in
                 appliedFrame = frame
@@ -229,7 +230,9 @@ struct WebScreenView: View {
                 appState.chromeState.contentInteractionState = state
             }
         ) { interactionState in
-            MLWebView(loadRequest, renderer: appState.webViewRenderer, loadStatusChanged: { loading, error in
+			MLWebView(loadRequest, renderer: appState.webViewRenderer, rendererAttached: {
+				appState.snapshotWorkCoordinator.rendererDidAttach()
+			}, loadStatusChanged: { loading, error in
 				LoggingPolicy.debug("WebView loading status changed: \(loading ? "loading" : "loaded")", logger: .ui)
                 if let error = error {
 					switch webViewLoadErrorLevel(for: error) {
@@ -501,13 +504,13 @@ struct WebScreenView: View {
 	/// Fires one immediate snapshot when a driver newly appears in a bucket, so a model enabled
 	/// mid-session runs on the current page at once instead of waiting for the next timer tick or a
 	/// scroll. Gated on `detectionActive`: with detection off there is no pass to show and firing one
-	/// would flash a result the paused UI shouldn't present. `snapshotTrigger` is merged into the
-	/// snapshot publisher, so a send produces a pass exactly like a timer tick.
+	/// would flash a result the paused UI shouldn't present. The detection-session facade preserves
+	/// the run identifier, so a late result can never cross a pause/restart boundary.
 	private func fireImmediateSnapshotIfDriverAdded(_ current: Set<UUID>, previous: Binding<Set<UUID>>) {
 		let added = current.subtracting(previous.wrappedValue)
 		previous.wrappedValue = current
-		guard detectionActive, added.isEmpty == false else { return }
-		appState.snap.snapshotTrigger.send()
+		guard added.isEmpty == false else { return }
+		appState.detectionState.driverDidRegister()
 	}
 
 	/// The user marked a place in pick mode — the ONLY capture path (direct taps on

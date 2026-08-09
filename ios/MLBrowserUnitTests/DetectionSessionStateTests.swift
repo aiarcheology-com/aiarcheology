@@ -111,6 +111,33 @@ final class DetectionSessionStateTests: XCTestCase {
         XCTAssertNil(snapState.timerCancellable)
     }
 
+    func testRunScopedRequests_AcceptsOnlyCurrentActiveRun() {
+        sut.ontheflyDetectionTapped()
+        let activeRun = sut.detectionRunID
+
+        XCTAssertTrue(sut.accepts(SnapshotRequest(runID: activeRun, sequence: 1)))
+
+        sut.ontheflyDetectionTapped()
+
+        XCTAssertFalse(sut.accepts(SnapshotRequest(runID: activeRun, sequence: 2)))
+        XCTAssertNotEqual(sut.detectionRunID, activeRun)
+    }
+
+    func testDriverDidRegister_RequestsCurrentRunOnlyWhenActive() {
+        var received: SnapshotRequest?
+        let cancellable = snapState.combinedPublishers.sink { received = $0 }
+        defer { cancellable.cancel() }
+
+        sut.driverDidRegister()
+        XCTAssertNil(received)
+
+        sut.ontheflyDetectionTapped()
+        received = nil
+        sut.driverDidRegister()
+
+        XCTAssertEqual(received?.runID, sut.detectionRunID)
+    }
+
     // MARK: - Chrome Visibility Tests
     //
     // Uniform rule: every detection start hides chrome, every stop shows it,
@@ -239,7 +266,7 @@ final class DetectionSessionStateTests: XCTestCase {
 
     func testOntheflyDetectionResetTapped_WhenEnabled_RestartsTimer() {
         sut.ontheflyDetectionEnabled = true
-        snapState.startTimer()
+        snapState.startTimer(for: 1)
         XCTAssertNotNil(snapState.timerCancellable)
 
         sut.ontheflyDetectionResetTapped()
@@ -469,7 +496,7 @@ final class AppChromeStateTests: XCTestCase {
 
         // Given: detection is enabled
         detectionState.ontheflyDetectionEnabled = true
-        snapState.startTimer()
+        snapState.startTimer(for: 1)
         XCTAssertTrue(detectionState.ontheflyDetectionEnabled)
         XCTAssertNotNil(snapState.timerCancellable)
 

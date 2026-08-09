@@ -25,8 +25,8 @@ public enum ContentInteractionState {
 /// - For WKWebView: called from UIScrollViewDelegate callbacks or JS message handler
 /// - For SwiftUI ScrollView: called from DragGesture handlers
 /// - For image viewers: called from MagnificationGesture/DragGesture handlers
-struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == Never {
-    let renderer: any SnapshotRendering
+struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == Never, P.Output == SnapshotRequest {
+	let snapshotWorkCoordinator: SnapshotWorkCoordinator
     let drivers: DeepDrivers
     let trigger: P
     let showIdentifiers: Bool
@@ -43,6 +43,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     /// further snapshots the steady-state pulse/bubble would freeze forever
     /// (owner-reported, AIA-0374). Plain scalar per the showIdentifiers pattern.
     let detectionActive: Bool
+	/// Reads the authoritative session lifecycle at delivery time, avoiding a transient SwiftUI
+	/// state mirror admitting a snapshot from a paused or replaced run.
+	let acceptsSnapshot: (SnapshotRequest) -> Bool
 
     /// Callback to receive interaction state changes. DetectableView manages state internally.
     private let onInteractionStateChanged: ((ContentInteractionState) -> Void)?
@@ -62,10 +65,13 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     /// Classification consumer (AIA-0374) — a parallel branch of the snapshot flow,
     /// independent of the detection queue/appliedFrame machinery above.
     @StateObject private var flashController = ClassificationFlashController()
+	/// UI-test-only delivery proof. It is incremented only once a snapshot belongs to the current
+	/// active run, before model work begins, so a slow model cannot hide a broken start lifecycle.
+	@State private var deliveredSnapshotCount = 0
 
     /// Initializer with interaction state callback - content receives a binding to update state
     init(
-        renderer: any SnapshotRendering,
+		snapshotWorkCoordinator: SnapshotWorkCoordinator,
         drivers: DeepDrivers,
         trigger: P,
         showIdentifiers: Bool,
@@ -73,12 +79,13 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         tiling: TilingScheme = [],
         tiledBorders: Bool = false,
         detectionActive: Bool = false,
+		acceptsSnapshot: @escaping (SnapshotRequest) -> Bool,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
         @ViewBuilder content: @escaping (Binding<ContentInteractionState>) -> Content
     ) {
-        self.renderer = renderer
+		self.snapshotWorkCoordinator = snapshotWorkCoordinator
         self.drivers = drivers
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
@@ -86,6 +93,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         self.tiling = tiling
         self.tiledBorders = tiledBorders
         self.detectionActive = detectionActive
+		self.acceptsSnapshot = acceptsSnapshot
         self.isCapturingFinding = isCapturingFinding
         self.onInteractionStateChanged = onInteractionStateChanged
         self.content = content
@@ -128,12 +136,15 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         guard AppEnvironment.isRunningUITests else { return "" }
         return String(tiledBorders ? TileLayout.regions(for: tiling).count : 0)
     }
+	private var snapshotDeliveryCountValue: String {
+		AppEnvironment.isRunningUITests ? String(deliveredSnapshotCount) : ""
+	}
 
     var body: some View {
         return GeometryReader { geometry in
             ZStack {
                 // Snapshottable content - pass binding so content can update interaction state
-                SnapableGroup(renderer: renderer, publisher: trigger) {
+                SnapableGroup(workCoordinator: snapshotWorkCoordinator, publisher: trigger) {
                     content($interactionState)
                 }
 
@@ -189,7 +200,11 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 flashController.invalidateInFlight()
             }
         }
-        .onSnapshot { image, _ in
+		.onSnapshot { image, _, request in
+			guard acceptsSnapshot(request) else { return }
+			if AppEnvironment.isRunningUITests {
+				deliveredSnapshotCount += 1
+			}
             // Skip detection while content is being manipulated - geometry is changing
             guard !isInteracting else { return }
             // The frozen frame must outlive the save dialog; new passes resume with
@@ -261,6 +276,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         .checkpoint(.flashCount, value: flashCountValue)
         .checkpoint(.classificationCount, value: classificationCountValue)
         .checkpoint(.topClassification, value: topClassificationValue)
+		.checkpoint(.snapshotDeliveryCount, value: snapshotDeliveryCountValue)
         .onChange(of: detectionActive) { _, active in
             // Pause/stop: clear the pulse + bubble now — no snapshots will arrive to
             // refresh or clear them (owner-reported freeze, AIA-0374).
