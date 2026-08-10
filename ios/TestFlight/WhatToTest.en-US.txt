@@ -1,11 +1,13 @@
 Build: TBD
 
-Test Focus: Detection should start immediately after navigating to a page. It must not require a zoom or scroll to begin.
+Test Focus: Detection should begin immediately after PLAY and after page navigation.
 
-1. On an iPad, open a page containing objects your enabled model recognizes, such as cars.
-2. Follow a link or otherwise navigate within the page, then tap PLAY.
-3. Confirm labels or detection boxes appear without touching, scrolling, or zooming the page.
-4. Repeat after navigating to another page and after using Back or Forward.
-5. Pause and restart detection. Confirm it resumes without requiring a page gesture.
+1. Open a page with an enabled detection or classification model and tap PLAY. Results should begin without panning, zooming, or waiting for the next snapshot interval.
+
+2. Follow a link or use Back or Forward, then tap PLAY. Results should appear without touching, scrolling, or zooming the page.
+
+3. On iPad, repeat with Fullscreen Detection enabled. PLAY hides the browser chrome; detections should still appear promptly once the layout settles.
+
+4. Tap PAUSE, then PLAY again. Results should resume promptly and remain aligned after rotating the device or showing/hiding the browser chrome.
 
 Please report if PLAY produces no results until you zoom or scroll. Include the application log if possible.

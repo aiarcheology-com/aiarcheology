@@ -88,6 +88,7 @@ final class AppState: ObservableObject {
 	var renderer: DefaultRenderer { detection.renderer }
 	var snapAdjustment: SnapAdjustment { detection.snapAdjustment }
 	var webViewRenderer: WebSnapshotRenderer { detection.webViewRenderer }
+	var snapshotWorkCoordinator: SnapshotWorkCoordinator { detection.snapshotWorkCoordinator }
 	var browserState: BrowserState { browser.browserState }
 	var visitTrail: VisitTrailRecorder { browser.visitTrail }
 	var authState: AuthState { account.authState }

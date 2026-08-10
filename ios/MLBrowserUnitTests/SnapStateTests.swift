@@ -117,26 +117,39 @@ final class SnapStateTests: XCTestCase {
     func testStartTimer_SetsTimerCancellable() {
         XCTAssertNil(sut.timerCancellable)
         
-        sut.startTimer()
+        sut.startTimer(for: 1)
         
         XCTAssertNotNil(sut.timerCancellable)
     }
     
     func testStopTimer_ClearsTimerCancellable() {
-        sut.startTimer()
+        sut.startTimer(for: 1)
         XCTAssertNotNil(sut.timerCancellable)
         
         sut.stopTimer()
         
         XCTAssertNil(sut.timerCancellable)
     }
+
+    func testStopTimer_DoesNotReplayTheStoppedRunToALateSubscriber() {
+        sut.startTimer(for: 1)
+        sut.stopTimer()
+
+        let expectation = XCTestExpectation(description: "Stopped run is not replayed")
+        expectation.isInverted = true
+        sut.combinedPublishers
+            .sink { _ in expectation.fulfill() }
+            .store(in: &cancellables)
+
+        wait(for: [expectation], timeout: 0.1)
+    }
     
     func testStartTimer_CalledTwice_DoesNotCreateNewTimer() {
-        sut.startTimer()
+        sut.startTimer(for: 1)
         XCTAssertNotNil(sut.timerCancellable)
         
         // Call startTimer again - guard should prevent recreation
-        sut.startTimer()
+        sut.startTimer(for: 1)
         
         // Timer should still be active (not nil)
         XCTAssertNotNil(sut.timerCancellable)
@@ -153,47 +166,56 @@ final class SnapStateTests: XCTestCase {
     
     // MARK: - Combined Publishers Tests
     
-    func testCombinedPublishers_MergesTimerAndSnapshotTrigger() {
+    func testRequestSnapshot_PublishesRunScopedRequest() {
         let expectation = XCTestExpectation(description: "Combined publisher received value")
-        
+        var received: SnapshotRequest?
+
         sut.combinedPublishers
-            .sink { _ in
+            .sink { request in
+                received = request
                 expectation.fulfill()
             }
             .store(in: &cancellables)
-        
-        // Trigger snapshot
-        sut.snapshotTrigger.send()
-        
+
+        sut.requestSnapshot(for: 42)
+
         wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(received?.runID, 42)
+        XCTAssertEqual(received?.sequence, 1)
     }
-    
-    func testTimerTrigger_SendsValue() {
-        let expectation = XCTestExpectation(description: "Timer trigger received value")
-        
-        sut.timerTrigger
-            .sink { _ in
+
+    func testCombinedPublishers_ReplaysLatestRequestToLateSubscriber() {
+        sut.requestSnapshot(for: 42)
+
+        let expectation = XCTestExpectation(description: "Late subscriber receives retained request")
+        var received: SnapshotRequest?
+        sut.combinedPublishers
+            .sink { request in
+                received = request
                 expectation.fulfill()
             }
             .store(in: &cancellables)
-        
-        sut.timerTrigger.send()
-        
+
         wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(received, SnapshotRequest(runID: 42, sequence: 1))
     }
-    
-    func testSnapshotTrigger_SendsValue() {
-        let expectation = XCTestExpectation(description: "Snapshot trigger received value")
-        
-        sut.snapshotTrigger
-            .sink { _ in
+
+    func testStartTimer_ImmediatelyPublishesRunScopedRequest() {
+        let expectation = XCTestExpectation(description: "Timer's initial request")
+        var received: SnapshotRequest?
+
+        sut.combinedPublishers
+            .sink { request in
+                received = request
                 expectation.fulfill()
             }
             .store(in: &cancellables)
-        
-        sut.snapshotTrigger.send()
-        
+
+        sut.startTimer(for: 99)
+
         wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(received?.runID, 99)
+        XCTAssertEqual(received?.sequence, 1)
     }
     
     // MARK: - Snap Property Tests

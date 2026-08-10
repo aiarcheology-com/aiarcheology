@@ -24,7 +24,7 @@ struct UITestLaunchConfiguration: Codable {
 
 	/// Schema version. Bump when the fields change; a mismatch traps loudly so a stale
 	/// test config can never silently pass.
-	static let currentVersion = 11
+	static let currentVersion = 12
 
 	/// The baseline home URL for the "home page is set" scenario. A real, parseable URL
 	/// (RFC-2606 reserved domain) so it exercises the genuine home-load decision; tests
@@ -68,6 +68,9 @@ struct UITestLaunchConfiguration: Codable {
 	var fullscreenDetection: Bool?
 	/// Override the disable-detection-animations setting. `nil` keeps the baseline (off = animated).
 	var disableDetectionAnimations: Bool?
+	/// Optional snapshot cadence for start-lifecycle coverage. Kept inside Settings' supported
+	/// 1...10-second range so UI tests exercise the production timer contract.
+	var snapFrequency: Double?
 	/// Route model downloads through `StubDownloadURLProtocol` (AIA-0318) so tests never hit the
 	/// network. `nil`/`false` keeps the real network path.
 	var stubDownloads: Bool?
@@ -133,6 +136,7 @@ struct UITestLaunchConfiguration: Codable {
 
 		// 1) Full baseline — every setting the tests depend on, re-applied every launch.
 		settings.snapAfterAppStart = false
+		settings.snapFrequency = 3.0
 		settings.isDetectionPaused = false
 		settings.fullscreenDetection = false
 		settings.disableDetectionAnimations = false
@@ -186,6 +190,13 @@ struct UITestLaunchConfiguration: Codable {
 
 		if let disableDetectionAnimations = config.disableDetectionAnimations {
 			settings.disableDetectionAnimations = disableDetectionAnimations
+		}
+
+		if let snapFrequency = config.snapFrequency {
+			guard (1.0...10.0).contains(snapFrequency) else {
+				fatalError("\(environmentKey) snapFrequency must be within 1...10 seconds, got \(snapFrequency)")
+			}
+			settings.snapFrequency = snapFrequency
 		}
 
 		switch config.analyticsScenario {

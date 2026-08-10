@@ -17,6 +17,7 @@ import OSLog
 @available(iOS 13, *)
 public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 	let renderer: WebSnapshotRenderer
+	var rendererAttached: (() -> Void)?
 	@EnvironmentObject var browserState: BrowserState
 	var request: LoadRequest
     var loadStatusChanged: ((Bool, Error?) -> Void)?
@@ -25,11 +26,13 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 	init(
 		_ request: LoadRequest,
 		renderer: WebSnapshotRenderer,
+		rendererAttached: (() -> Void)? = nil,
 		loadStatusChanged: ((Bool, Error?) -> Void)? = nil,
 		interactionStateChanged: ((ContentInteractionState) -> Void)? = nil
 	) {
 		self.request = request
 		self.renderer = renderer
+		self.rendererAttached = rendererAttached
         self.loadStatusChanged = loadStatusChanged
         self.interactionStateChanged = interactionStateChanged
     }
@@ -48,7 +51,7 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			source: """
 			(function() {
 				let interactionTimeout = null;
-				let isInteracting = false;
+				var isInteracting = false;
 
 				function notifyInteractionStart() {
 					if (!isInteracting) {
@@ -117,6 +120,7 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		webView.uiDelegate = context.coordinator
 		webView.scrollView.delegate = context.coordinator
 		renderer.attach(webView)
+		rendererAttached?()
 		// The Coordinator needs BrowserState for delegate → state plumbing
 		// (navigation-settled tokens, dismantle teardown).
 		context.coordinator.browserState = browserState

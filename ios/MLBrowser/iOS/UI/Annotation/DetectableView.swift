@@ -25,8 +25,8 @@ public enum ContentInteractionState {
 /// - For WKWebView: called from UIScrollViewDelegate callbacks or JS message handler
 /// - For SwiftUI ScrollView: called from DragGesture handlers
 /// - For image viewers: called from MagnificationGesture/DragGesture handlers
-struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == Never {
-    let renderer: any SnapshotRendering
+struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == Never, P.Output == SnapshotRequest {
+	let snapshotWorkCoordinator: SnapshotWorkCoordinator
     let drivers: DeepDrivers
     let trigger: P
     let showIdentifiers: Bool
@@ -43,6 +43,12 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     /// further snapshots the steady-state pulse/bubble would freeze forever
     /// (owner-reported, AIA-0374). Plain scalar per the showIdentifiers pattern.
     let detectionActive: Bool
+	/// Reads the authoritative session lifecycle at delivery time, avoiding a transient SwiftUI
+	/// state mirror admitting a snapshot from a paused or replaced run.
+	let acceptsSnapshot: SnapshotRequestAcceptance
+	/// Asks the session to queue a current-run snapshot after this view invalidates an old frame for
+	/// a layout change. The session owns the request so a paused run cannot restart itself here.
+	let contentGeometryDidChange: () -> Void
 
     /// Callback to receive interaction state changes. DetectableView manages state internally.
     private let onInteractionStateChanged: ((ContentInteractionState) -> Void)?
@@ -62,12 +68,12 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     /// Classification consumer (AIA-0374) — a parallel branch of the snapshot flow,
     /// independent of the detection queue/appliedFrame machinery above.
     @StateObject private var flashController = ClassificationFlashController()
-    /// UI-test-only count of snapshots admitted past the interaction/capture guards.
-    @State private var deliveredSnapshotCount = 0
+	/// UI-test-only count of current-run snapshots admitted past the interaction/capture guards.
+	@State private var deliveredSnapshotCount = 0
 
     /// Initializer with interaction state callback - content receives a binding to update state
     init(
-        renderer: any SnapshotRendering,
+        snapshotWorkCoordinator: SnapshotWorkCoordinator,
         drivers: DeepDrivers,
         trigger: P,
         showIdentifiers: Bool,
@@ -75,19 +81,23 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         tiling: TilingScheme = [],
         tiledBorders: Bool = false,
         detectionActive: Bool = false,
+        acceptsSnapshot: @escaping SnapshotRequestAcceptance,
+        contentGeometryDidChange: @escaping () -> Void,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
         @ViewBuilder content: @escaping (Binding<ContentInteractionState>) -> Content
     ) {
-        self.renderer = renderer
+		self.snapshotWorkCoordinator = snapshotWorkCoordinator
         self.drivers = drivers
         self.trigger = trigger
         self.showIdentifiers = showIdentifiers
         self.animateDetections = animateDetections
         self.tiling = tiling
         self.tiledBorders = tiledBorders
-        self.detectionActive = detectionActive
+		self.detectionActive = detectionActive
+		self.acceptsSnapshot = acceptsSnapshot
+		self.contentGeometryDidChange = contentGeometryDidChange
         self.isCapturingFinding = isCapturingFinding
         self.onInteractionStateChanged = onInteractionStateChanged
         self.content = content
@@ -130,12 +140,19 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         guard AppEnvironment.isRunningUITests else { return "" }
         return String(tiledBorders ? TileLayout.regions(for: tiling).count : 0)
     }
+	private var snapshotDeliveryCountValue: String {
+		AppEnvironment.isRunningUITests ? String(deliveredSnapshotCount) : ""
+	}
 
     var body: some View {
         return GeometryReader { geometry in
             ZStack {
                 // Snapshottable content - pass binding so content can update interaction state
-                SnapableGroup(renderer: renderer, publisher: trigger) {
+                SnapableGroup(
+                    workCoordinator: snapshotWorkCoordinator,
+                    publisher: trigger,
+                    acceptsRequest: acceptsSnapshot
+                ) {
                     content($interactionState)
                 }
 
@@ -189,9 +206,13 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 coordinator.geometryChanged()
                 // An in-flight classify pass saw the old-geometry frame (AIA-0374).
                 flashController.invalidateInFlight()
+				// PLAY can hide the browser chrome. Its immediate snapshot then belongs to the
+				// old size, so the state owner queues a replacement for the settled geometry.
+				contentGeometryDidChange()
             }
         }
-        .onSnapshot { image, _ in
+		.onSnapshot { image, _, request in
+			guard acceptsSnapshot(request) else { return }
             // Skip detection while content is being manipulated - geometry is changing
             guard !isInteracting else {
                 LoggingPolicy.debug("Detection snapshot skipped during content interaction", logger: .ui)
@@ -260,10 +281,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // value only the UI-test checkpoint marker reads (the marker itself already renders only
         // under UI tests).
         .checkpoint(.detectionCount, value: AppEnvironment.isRunningUITests ? String(renderedDetectionCount) : "")
-        .checkpoint(
-            .snapshotDeliveryCount,
-            value: AppEnvironment.isRunningUITests ? String(deliveredSnapshotCount) : ""
-        )
         // AIA-0426: how many tile-border outlines the overlay is drawing — lets a UI test confirm
         // that enabling "Tiled Borders" actually renders borders (0 when the setting is off).
         .checkpoint(.tiledBorderCount, value: tiledBorderCountValue)
@@ -273,6 +290,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         .checkpoint(.flashCount, value: flashCountValue)
         .checkpoint(.classificationCount, value: classificationCountValue)
         .checkpoint(.topClassification, value: topClassificationValue)
+		.checkpoint(.snapshotDeliveryCount, value: snapshotDeliveryCountValue)
         .onChange(of: detectionActive) { _, active in
             // Pause/stop: clear the pulse + bubble now — no snapshots will arrive to
             // refresh or clear them (owner-reported freeze, AIA-0374).

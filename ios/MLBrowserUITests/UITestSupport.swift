@@ -22,7 +22,7 @@ struct LaunchConfig: Encodable {
 		case localFixture
 	}
 
-	var version = 11
+	var version = 12
 	enum AnalyticsScenario: String, Encodable {
 		case prompt
 		case disabled
@@ -34,6 +34,7 @@ struct LaunchConfig: Encodable {
 	var lastPage: String?
 	var fullscreenDetection: Bool?
 	var disableDetectionAnimations: Bool?
+	var snapFrequency: Double?
 	var fixtureName: String?
 	var stubDownloads: Bool?
 	var enableClassifyDemo: Bool?
@@ -266,6 +267,19 @@ class UITestCase: XCTestCase {
 	@discardableResult
 	func waitForCheckpoint(_ id: String, equals expected: String, timeout: TimeInterval = 10) -> Bool {
 		let predicate = NSPredicate(format: "value == %@ OR label == %@", expected, expected)
+		let expectation = XCTNSPredicateExpectation(predicate: predicate, object: checkpoint(id))
+		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+	}
+
+	/// Waits until a numeric checkpoint reaches at least `minimum`. This is appropriate for
+	/// monotonic counters, which can advance by more than one between UI-test polling intervals.
+	@discardableResult
+	func waitForCheckpoint(_ id: String, minimum: Int, timeout: TimeInterval = 10) -> Bool {
+		let predicate = NSPredicate { object, _ in
+			guard let element = object as? XCUIElement else { return false }
+			let value = (element.value as? String) ?? (element.value as? NSNumber)?.stringValue ?? element.label
+			return (Int(value) ?? 0) >= minimum
+		}
 		let expectation = XCTNSPredicateExpectation(predicate: predicate, object: checkpoint(id))
 		return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
 	}

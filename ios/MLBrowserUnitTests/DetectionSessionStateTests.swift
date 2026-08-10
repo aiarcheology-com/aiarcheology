@@ -111,6 +111,63 @@ final class DetectionSessionStateTests: XCTestCase {
         XCTAssertNil(snapState.timerCancellable)
     }
 
+    func testRunScopedRequests_AcceptsOnlyCurrentActiveRun() {
+        sut.ontheflyDetectionTapped()
+        let activeRun = sut.detectionRunID
+
+        XCTAssertTrue(sut.accepts(SnapshotRequest(runID: activeRun, sequence: 1)))
+
+        sut.ontheflyDetectionResetTapped()
+
+        XCTAssertFalse(sut.accepts(SnapshotRequest(runID: activeRun, sequence: 2)))
+        XCTAssertTrue(sut.ontheflyDetectionEnabled)
+        XCTAssertNotEqual(sut.detectionRunID, activeRun)
+    }
+
+    func testDriverDidRegister_RequestsCurrentRunOnlyWhenActive() {
+        var received: SnapshotRequest?
+        let cancellable = snapState.combinedPublishers.sink { received = $0 }
+        defer { cancellable.cancel() }
+
+        sut.driverDidRegister()
+        XCTAssertNil(received)
+
+        sut.ontheflyDetectionTapped()
+        received = nil
+        sut.driverDidRegister()
+
+        XCTAssertEqual(received?.runID, sut.detectionRunID)
+    }
+
+    func testContentGeometryDidChange_RequestsANewSnapshotForTheActiveRun() {
+        var requests: [SnapshotRequest] = []
+        let cancellable = snapState.combinedPublishers.sink { requests.append($0) }
+        defer { cancellable.cancel() }
+
+        sut.ontheflyDetectionTapped()
+        guard let initialRequest = requests.last else {
+            return XCTFail("Starting detection should issue its initial request")
+        }
+
+        sut.contentGeometryDidChange()
+
+        guard let replacementRequest = requests.last else {
+            return XCTFail("An active geometry change should issue a replacement request")
+        }
+        XCTAssertEqual(replacementRequest.runID, sut.detectionRunID)
+        XCTAssertGreaterThan(replacementRequest.sequence, initialRequest.sequence)
+    }
+
+    func testContentGeometryDidChange_DoesNotRequestWhileDetectionIsStopped() {
+        var received: SnapshotRequest?
+        let cancellable = snapState.combinedPublishers.sink { received = $0 }
+        defer { cancellable.cancel() }
+
+        sut.contentGeometryDidChange()
+
+        XCTAssertNil(received)
+    }
+
     // MARK: - Chrome Visibility Tests
     //
     // Uniform rule: every detection start hides chrome, every stop shows it,
@@ -239,7 +296,7 @@ final class DetectionSessionStateTests: XCTestCase {
 
     func testOntheflyDetectionResetTapped_WhenEnabled_RestartsTimer() {
         sut.ontheflyDetectionEnabled = true
-        snapState.startTimer()
+        snapState.startTimer(for: 1)
         XCTAssertNotNil(snapState.timerCancellable)
 
         sut.ontheflyDetectionResetTapped()
@@ -469,7 +526,7 @@ final class AppChromeStateTests: XCTestCase {
 
         // Given: detection is enabled
         detectionState.ontheflyDetectionEnabled = true
-        snapState.startTimer()
+        snapState.startTimer(for: 1)
         XCTAssertTrue(detectionState.ontheflyDetectionEnabled)
         XCTAssertNotNil(snapState.timerCancellable)
 
