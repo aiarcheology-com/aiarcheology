@@ -46,6 +46,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 	/// Reads the authoritative session lifecycle at delivery time, avoiding a transient SwiftUI
 	/// state mirror admitting a snapshot from a paused or replaced run.
 	let acceptsSnapshot: (SnapshotRequest) -> Bool
+	/// Asks the session to queue a current-run snapshot after this view invalidates an old frame for
+	/// a layout change. The session owns the request so a paused run cannot restart itself here.
+	let contentGeometryDidChange: () -> Void
 
     /// Callback to receive interaction state changes. DetectableView manages state internally.
     private let onInteractionStateChanged: ((ContentInteractionState) -> Void)?
@@ -78,8 +81,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         animateDetections: Bool = true,
         tiling: TilingScheme = [],
         tiledBorders: Bool = false,
-        detectionActive: Bool = false,
+		detectionActive: Bool = false,
 		acceptsSnapshot: @escaping (SnapshotRequest) -> Bool,
+		contentGeometryDidChange: @escaping () -> Void,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
@@ -92,8 +96,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         self.animateDetections = animateDetections
         self.tiling = tiling
         self.tiledBorders = tiledBorders
-        self.detectionActive = detectionActive
+		self.detectionActive = detectionActive
 		self.acceptsSnapshot = acceptsSnapshot
+		self.contentGeometryDidChange = contentGeometryDidChange
         self.isCapturingFinding = isCapturingFinding
         self.onInteractionStateChanged = onInteractionStateChanged
         self.content = content
@@ -198,6 +203,9 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 coordinator.geometryChanged()
                 // An in-flight classify pass saw the old-geometry frame (AIA-0374).
                 flashController.invalidateInFlight()
+				// PLAY can hide the browser chrome. Its immediate snapshot then belongs to the
+				// old size, so the state owner queues a replacement for the settled geometry.
+				contentGeometryDidChange()
             }
         }
 		.onSnapshot { image, _, request in

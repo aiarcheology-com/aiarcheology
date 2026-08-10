@@ -14,7 +14,7 @@ import XCTest
 
 final class ClassificationDemoUITests: UITestCase {
 
-    func testClassifyDemo_fullscreenDetection_deliversInitialSnapshotBeforeTimer() throws {
+    func testClassifyDemo_fullscreenDetection_appliesInitialFrameBeforeTimer() throws {
         launch(LaunchConfig(
             pageScenario: .localFixture,
             fullscreenDetection: true,
@@ -30,6 +30,10 @@ final class ClassificationDemoUITests: UITestCase {
         XCTAssertTrue(
             waitForCheckpoint(AID.cpSnapshotDeliveryCount, minimum: 1, timeout: 8),
             "Fullscreen PLAY should deliver an initial WebView snapshot before the 10-second timer cadence, without panning"
+        )
+        XCTAssertTrue(
+            waitForCheckpoint(AID.cpDetectionFrameApplied, equals: "true", timeout: 8),
+            "Fullscreen PLAY should apply a detection frame before the 10-second timer cadence, without panning"
         )
     }
 

@@ -221,6 +221,7 @@ struct WebScreenView: View {
             tiledBorders: tiledBorders,
             detectionActive: detectionActive,
 			acceptsSnapshot: { appState.detectionState.accepts($0) },
+			contentGeometryDidChange: { appState.detectionState.contentGeometryDidChange() },
             isCapturingFinding: $isCapturingFinding,
             onFrameChanged: { frame in
                 appliedFrame = frame

@@ -114,6 +114,14 @@ final class DetectionSessionState: ObservableObject {
 		snap.requestSnapshot(for: detectionRunID)
 	}
 
+	/// The detection surface changed size after an active layout transition (for example PLAY
+	/// hiding the browser chrome). The frame captured before that transition cannot be applied, so
+	/// queue a fresh pass for the current run instead of waiting for the next timer cadence.
+	func contentGeometryDidChange() {
+		guard ontheflyDetectionEnabled else { return }
+		snap.requestSnapshot(for: detectionRunID)
+	}
+
 	/// The apply-time truth for a snapshot. This lives beside the lifecycle transitions so a
 	/// SwiftUI mirror that has not rendered the most recent PLAY/PAUSE change cannot admit stale
 	/// work by accident.
