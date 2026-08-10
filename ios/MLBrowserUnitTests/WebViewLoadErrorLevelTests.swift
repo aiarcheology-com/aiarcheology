@@ -9,6 +9,8 @@
 //
 
 import XCTest
+import UIKit
+import WebKit
 @testable import ML_Browser
 
 final class WebViewLoadErrorLevelTests: XCTestCase {
@@ -49,5 +51,42 @@ final class WebViewLoadErrorLevelTests: XCTestCase {
         // -999 only counts in NSURLErrorDomain; the same code elsewhere is a real error.
         let error = NSError(domain: "SomeOtherDomain", code: NSURLErrorCancelled, userInfo: nil)
         XCTAssertEqual(webViewLoadErrorLevel(for: error), .error)
+    }
+}
+
+@MainActor
+final class WebViewInteractionLifecycleTests: XCTestCase {
+
+    func testNavigationStart_InteractionWasActive_PublishesIdle() {
+        var interactionChanges: [Bool] = []
+        let renderer = WebSnapshotRenderer(adjustment: SnapAdjustment())
+        let view = MLWebView(
+            .initial,
+            renderer: renderer,
+            interactionStateChanged: { interactionChanges.append($0.isInteracting) }
+        )
+        let coordinator = view.makeCoordinator()
+
+        coordinator.scrollViewWillBeginDragging(UIScrollView())
+        XCTAssertEqual(interactionChanges, [true])
+
+        coordinator.webView(WKWebView(), didStartProvisionalNavigation: nil)
+
+        XCTAssertEqual(interactionChanges, [true, false])
+    }
+
+    func testNavigationStart_InteractionWasIdle_DoesNotPublishDuplicateIdle() {
+        var interactionChanges: [Bool] = []
+        let renderer = WebSnapshotRenderer(adjustment: SnapAdjustment())
+        let view = MLWebView(
+            .initial,
+            renderer: renderer,
+            interactionStateChanged: { interactionChanges.append($0.isInteracting) }
+        )
+        let coordinator = view.makeCoordinator()
+
+        coordinator.webView(WKWebView(), didStartProvisionalNavigation: nil)
+
+        XCTAssertTrue(interactionChanges.isEmpty)
     }
 }

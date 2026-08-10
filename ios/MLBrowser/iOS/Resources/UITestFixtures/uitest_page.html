@@ -18,5 +18,8 @@
 <body>
   <h1 id="aia-uitest-marker" role="heading" aria-label="AIA UITEST PAGE">AIA UITEST PAGE</h1>
   <p id="aia-uitest-body">Deterministic local fixture for UI tests.</p>
+  <!-- AIA-0587: tapping a link publishes interaction-start in the app's injected script, then
+       replaces the document before that script's delayed interaction-end can fire. -->
+  <a id="aia-navigation-link" href="about:blank" aria-label="AIA NAVIGATE">Navigate</a>
 </body>
 </html>

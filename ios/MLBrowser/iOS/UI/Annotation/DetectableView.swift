@@ -62,6 +62,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     /// Classification consumer (AIA-0374) — a parallel branch of the snapshot flow,
     /// independent of the detection queue/appliedFrame machinery above.
     @StateObject private var flashController = ClassificationFlashController()
+    /// UI-test-only count of snapshots admitted past the interaction/capture guards.
+    @State private var deliveredSnapshotCount = 0
 
     /// Initializer with interaction state callback - content receives a binding to update state
     init(
@@ -191,10 +193,16 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         }
         .onSnapshot { image, _ in
             // Skip detection while content is being manipulated - geometry is changing
-            guard !isInteracting else { return }
+            guard !isInteracting else {
+                LoggingPolicy.debug("Detection snapshot skipped during content interaction", logger: .ui)
+                return
+            }
             // The frozen frame must outlive the save dialog; new passes resume with
             // the timer once the capture ends.
             guard isCapturingFinding.wrappedValue.not else { return }
+            if AppEnvironment.isRunningUITests {
+                deliveredSnapshotCount += 1
+            }
             // Classification branch (AIA-0374): parallel consumer of the same snapshot,
             // deliberately AFTER both guards above so a straggler frame can't
             // classify-and-flash mid-scroll or behind the save sheet. Independent of
@@ -252,6 +260,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // value only the UI-test checkpoint marker reads (the marker itself already renders only
         // under UI tests).
         .checkpoint(.detectionCount, value: AppEnvironment.isRunningUITests ? String(renderedDetectionCount) : "")
+        .checkpoint(
+            .snapshotDeliveryCount,
+            value: AppEnvironment.isRunningUITests ? String(deliveredSnapshotCount) : ""
+        )
         // AIA-0426: how many tile-border outlines the overlay is drawing — lets a UI test confirm
         // that enabling "Tiled Borders" actually renders borders (0 when the setting is off).
         .checkpoint(.tiledBorderCount, value: tiledBorderCountValue)

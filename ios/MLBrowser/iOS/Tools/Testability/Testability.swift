@@ -405,6 +405,9 @@ extension TestabilityIdentification {
 		/// Count of currently rendered detection annotations (AIA-0317). Lets UI tests assert
 		/// `>= 1` after a detection run; `0` when none are drawn.
 		case detectionCount
+		/// Number of snapshots admitted past DetectableView's interaction/capture guards. Used to
+		/// prove navigation cannot strand the web surface in `.interacting` (AIA-0587).
+		case snapshotDeliveryCount
 		/// Count of tile-border outlines the "Tiled Borders" overlay is drawing (AIA-0426):
 		/// `regions(for:)` count when on, `0` when off. Lets UI tests assert the overlay renders.
 		case tiledBorderCount
