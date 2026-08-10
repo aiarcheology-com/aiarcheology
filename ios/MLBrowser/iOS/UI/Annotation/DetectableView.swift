@@ -74,16 +74,16 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
 
     /// Initializer with interaction state callback - content receives a binding to update state
     init(
-		snapshotWorkCoordinator: SnapshotWorkCoordinator,
+        snapshotWorkCoordinator: SnapshotWorkCoordinator,
         drivers: DeepDrivers,
         trigger: P,
         showIdentifiers: Bool,
         animateDetections: Bool = true,
         tiling: TilingScheme = [],
         tiledBorders: Bool = false,
-		detectionActive: Bool = false,
-		acceptsSnapshot: @escaping (SnapshotRequest) -> Bool,
-		contentGeometryDidChange: @escaping () -> Void,
+        detectionActive: Bool = false,
+        acceptsSnapshot: @escaping (SnapshotRequest) -> Bool,
+        contentGeometryDidChange: @escaping () -> Void,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
         onInteractionStateChanged: ((ContentInteractionState) -> Void)? = nil,
