@@ -63,12 +63,12 @@ enum AID {
 	static let cpDeviceIdiom = "_AIA:Checkpoint.DeviceIdiom"
 	static let cpCurrentPageFile = "_AIA:Checkpoint.CurrentPageFile"
 	static let cpDetectionCount = "_AIA:Checkpoint.DetectionCount"
+	static let cpSnapshotDeliveryCount = "_AIA:Checkpoint.SnapshotDeliveryCount"
 	static let cpTiledBorderCount = "_AIA:Checkpoint.TiledBorderCount"
 	static let cpDetectionFrameApplied = "_AIA:Checkpoint.DetectionFrameApplied"
 	static let cpFlashCount = "_AIA:Checkpoint.FlashCount"
 	static let cpClassificationCount = "_AIA:Checkpoint.ClassificationCount"
 	static let cpTopClassification = "_AIA:Checkpoint.TopClassification"
-	static let cpSnapshotDeliveryCount = "_AIA:Checkpoint.SnapshotDeliveryCount"
 
 	// Top toolbar (real Buttons)
 	static let cpu = "_AIA:Button.GlobalToolbarSideMenu"

@@ -70,6 +70,19 @@ private final class HeldSnapshotRenderer: SnapshotRendering {
 }
 
 @MainActor
+private final class SnapshotRequestGate {
+    var activeRunID: UInt64?
+
+    init(activeRunID: UInt64?) {
+        self.activeRunID = activeRunID
+    }
+
+    func accepts(_ request: SnapshotRequest) -> Bool {
+        request.runID == activeRunID
+    }
+}
+
+@MainActor
 final class SnapshotWorkCoordinatorTests: XCTestCase {
 
     func testInitialRequest_WaitsForAttachedRendererAndConsumer() async {
@@ -85,7 +98,11 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
         await Task.yield()
         XCTAssertEqual(renderer.snapshotCallCount, 0, "A request must also wait for a live SwiftUI consumer")
 
-        sut.registerConsumer(id: UUID(), frame: .zero) { _, _, deliveredRequest in
+        sut.registerConsumer(
+            id: UUID(),
+            frame: .zero,
+            acceptsRequest: { _ in true }
+        ) { _, _, deliveredRequest in
             delivered.append(deliveredRequest)
         }
         await waitForSnapshotCall(renderer, count: 1)
@@ -107,7 +124,11 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
         var replacementDeliveries: [SnapshotRequest] = []
 
         sut.rendererDidAttach()
-        sut.registerConsumer(id: firstConsumer, frame: .zero) { _, _, _ in
+        sut.registerConsumer(
+            id: firstConsumer,
+            frame: .zero,
+            acceptsRequest: { _ in true }
+        ) { _, _, _ in
             firstConsumerDeliveries += 1
         }
         sut.enqueue(firstRun)
@@ -117,7 +138,11 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
         // original capture. The newest request wins, but it must wait for that continuation.
         sut.enqueue(restartedRun)
         sut.unregisterConsumer(id: firstConsumer)
-        sut.registerConsumer(id: replacementConsumer, frame: .zero) { _, _, request in
+        sut.registerConsumer(
+            id: replacementConsumer,
+            frame: .zero,
+            acceptsRequest: { _ in true }
+        ) { _, _, request in
             replacementDeliveries.append(request)
         }
         XCTAssertEqual(renderer.snapshotCallCount, 1, "Never overlap WKWebView.takeSnapshot calls")
@@ -140,7 +165,11 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
         var deliveries: [SnapshotRequest] = []
 
         sut.rendererDidAttach()
-        sut.registerConsumer(id: UUID(), frame: .zero) { _, _, deliveredRequest in
+        sut.registerConsumer(
+            id: UUID(),
+            frame: .zero,
+            acceptsRequest: { _ in true }
+        ) { _, _, deliveredRequest in
             deliveries.append(deliveredRequest)
         }
         sut.enqueue(request)
@@ -167,7 +196,11 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
         var deliveries: [SnapshotRequest] = []
 
         sut.rendererDidAttach()
-        sut.registerConsumer(id: UUID(), frame: .zero) { _, _, deliveredRequest in
+        sut.registerConsumer(
+            id: UUID(),
+            frame: .zero,
+            acceptsRequest: { _ in true }
+        ) { _, _, deliveredRequest in
             deliveries.append(deliveredRequest)
         }
         sut.enqueue(requestBeforeCapture)
@@ -187,6 +220,31 @@ final class SnapshotWorkCoordinatorTests: XCTestCase {
         await waitForDeliveries(count: 1) { deliveries }
 
         XCTAssertEqual(deliveries, [requestAfterCapture])
+    }
+
+    func testStoppedRun_DiscardsRetainedRequestBeforeRendererWorkStarts() async {
+        let renderer = HeldSnapshotRenderer()
+        let sut = SnapshotWorkCoordinator(renderer: renderer)
+        let staleRequest = SnapshotRequest(runID: 1, sequence: 1)
+        let requestGate = SnapshotRequestGate(activeRunID: staleRequest.runID)
+        var deliveries: [SnapshotRequest] = []
+
+        sut.registerConsumer(
+            id: UUID(),
+            frame: .zero,
+            acceptsRequest: { requestGate.accepts($0) }
+        ) { _, _, deliveredRequest in
+            deliveries.append(deliveredRequest)
+        }
+        sut.enqueue(staleRequest)
+        XCTAssertEqual(renderer.snapshotCallCount, 0, "The request waits while WebKit is detached")
+
+        requestGate.activeRunID = nil
+        sut.rendererDidAttach()
+        await Task.yield()
+
+        XCTAssertEqual(renderer.snapshotCallCount, 0, "A stopped run must not start retained work")
+        XCTAssertTrue(deliveries.isEmpty)
     }
 
     private func waitForSnapshotCall(

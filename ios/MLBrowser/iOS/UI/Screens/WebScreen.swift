@@ -506,9 +506,8 @@ struct WebScreenView: View {
 
 	/// Fires one immediate snapshot when a driver newly appears in a bucket, so a model enabled
 	/// mid-session runs on the current page at once instead of waiting for the next timer tick or a
-	/// scroll. Gated on `detectionActive`: with detection off there is no pass to show and firing one
-	/// would flash a result the paused UI shouldn't present. The detection-session facade preserves
-	/// the run identifier, so a late result can never cross a pause/restart boundary.
+	/// scroll. The detection-session owner gates the request on its authoritative active state and
+	/// preserves the run identifier, so a late result can never cross a pause/restart boundary.
 	private func fireImmediateSnapshotIfDriverAdded(_ current: Set<UUID>, previous: Binding<Set<UUID>>) {
 		let added = current.subtracting(previous.wrappedValue)
 		previous.wrappedValue = current

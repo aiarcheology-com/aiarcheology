@@ -9,6 +9,7 @@ import SwiftUI
 import Combine
 
 typealias SnapshotProvider = @MainActor (UIImage, CGRect, SnapshotRequest) -> Void
+typealias SnapshotRequestAcceptance = @MainActor @Sendable (SnapshotRequest) -> Bool
 
 struct Snapshot {
     let image: UIImage
@@ -36,6 +37,7 @@ final class SnapshotWorkCoordinator {
 		let id: UUID
 		let generation: UInt64
 		let frame: CGRect
+		let acceptsRequest: SnapshotRequestAcceptance
 		let deliver: SnapshotProvider
 	}
 
@@ -73,9 +75,20 @@ final class SnapshotWorkCoordinator {
 		startNextIfPossible()
 	}
 
-	func registerConsumer(id: UUID, frame: CGRect, deliver: @escaping SnapshotProvider) {
+	func registerConsumer(
+		id: UUID,
+		frame: CGRect,
+		acceptsRequest: @escaping SnapshotRequestAcceptance,
+		deliver: @escaping SnapshotProvider
+	) {
 		consumerGeneration &+= 1
-		consumer = Consumer(id: id, generation: consumerGeneration, frame: frame, deliver: deliver)
+		consumer = Consumer(
+			id: id,
+			generation: consumerGeneration,
+			frame: frame,
+			acceptsRequest: acceptsRequest,
+			deliver: deliver
+		)
 		// SwiftUI can replace this view while the physical WebKit continuation is still alive. The
 		// old completion belongs to the departed consumer, so re-offer the latest request to the
 		// replacement after it returns rather than waiting for an unrelated user gesture/timer tick.
@@ -85,10 +98,21 @@ final class SnapshotWorkCoordinator {
 		startNextIfPossible()
 	}
 
-	func updateConsumer(id: UUID, frame: CGRect, deliver: @escaping SnapshotProvider) {
+	func updateConsumer(
+		id: UUID,
+		frame: CGRect,
+		acceptsRequest: @escaping SnapshotRequestAcceptance,
+		deliver: @escaping SnapshotProvider
+	) {
 		guard consumer?.id == id else { return }
 		consumerGeneration &+= 1
-		consumer = Consumer(id: id, generation: consumerGeneration, frame: frame, deliver: deliver)
+		consumer = Consumer(
+			id: id,
+			generation: consumerGeneration,
+			frame: frame,
+			acceptsRequest: acceptsRequest,
+			deliver: deliver
+		)
 		// A snapshot that began against the old geometry must not be applied. Re-request the latest
 		// live input after its continuation returns; overlapping WKWebView.takeSnapshot calls are
 		// intentionally forbidden.
@@ -132,6 +156,14 @@ final class SnapshotWorkCoordinator {
 			  let request = pendingRequest,
 			  let consumer
 		else { return }
+		// A request can wait here while SwiftUI replaces the consumer or WebKit attaches. Re-check the
+		// session at the physical-work boundary so a request invalidated by pause/reset never starts an
+		// expensive capture merely because those dependencies appeared later.
+		guard consumer.acceptsRequest(request) else {
+			pendingRequest = nil
+			latestRequest = nil
+			return
+		}
 
 		pendingRequest = nil
 		rendering = true
@@ -167,11 +199,18 @@ struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Ne
 	private unowned var workCoordinator: SnapshotWorkCoordinator
 
 	private let publisher: P
+	private let acceptsRequest: SnapshotRequestAcceptance
 	private var content: Content
 	@State private var consumerID = UUID()
 
-	@inlinable init(workCoordinator: SnapshotWorkCoordinator, publisher: P, @ViewBuilder content: () -> Content) {
+	@inlinable init(
+		workCoordinator: SnapshotWorkCoordinator,
+		publisher: P,
+		acceptsRequest: @escaping SnapshotRequestAcceptance,
+		@ViewBuilder content: () -> Content
+	) {
 		self.publisher = publisher
+		self.acceptsRequest = acceptsRequest
 		self.content = content()
 		self.workCoordinator = workCoordinator
 	}
@@ -186,6 +225,7 @@ struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Ne
 					workCoordinator.registerConsumer(
 						id: consumerID,
 						frame: geometry.frame(in: .local),
+						acceptsRequest: acceptsRequest,
 						deliver: snapshotProvider ?? { _, _, _ in }
 					)
 				}
@@ -193,6 +233,7 @@ struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Ne
 					workCoordinator.updateConsumer(
 						id: consumerID,
 						frame: geometry.frame(in: .local),
+						acceptsRequest: acceptsRequest,
 						deliver: snapshotProvider ?? { _, _, _ in }
 					)
 				}

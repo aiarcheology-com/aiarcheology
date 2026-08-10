@@ -405,6 +405,9 @@ extension TestabilityIdentification {
 		/// Count of currently rendered detection annotations (AIA-0317). Lets UI tests assert
 		/// `>= 1` after a detection run; `0` when none are drawn.
 		case detectionCount
+		/// Number of snapshots admitted past DetectableView's interaction/capture guards. Used to
+		/// prove navigation cannot strand the web surface in `.interacting` (AIA-0587).
+		case snapshotDeliveryCount
 		/// Count of tile-border outlines the "Tiled Borders" overlay is drawing (AIA-0426):
 		/// `regions(for:)` count when on, `0` when off. Lets UI tests assert the overlay renders.
 		case tiledBorderCount
@@ -424,9 +427,6 @@ extension TestabilityIdentification {
 		/// The current top display label as "identifier=confidence" (AIA-0375) — turns
 		/// "why didn't it qualify" from a guess into a read.
 		case topClassification
-		/// Monotonic count of snapshots delivered to the active detection run. This proves the
-		/// start lifecycle independently from model-load/inference timing (AIA-0587).
-		case snapshotDeliveryCount
 	}
 
 	enum MenuItem: String, TestabilityIdentification {

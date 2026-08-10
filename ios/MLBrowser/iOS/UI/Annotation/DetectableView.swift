@@ -45,7 +45,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     let detectionActive: Bool
 	/// Reads the authoritative session lifecycle at delivery time, avoiding a transient SwiftUI
 	/// state mirror admitting a snapshot from a paused or replaced run.
-	let acceptsSnapshot: (SnapshotRequest) -> Bool
+	let acceptsSnapshot: SnapshotRequestAcceptance
 	/// Asks the session to queue a current-run snapshot after this view invalidates an old frame for
 	/// a layout change. The session owns the request so a paused run cannot restart itself here.
 	let contentGeometryDidChange: () -> Void
@@ -68,8 +68,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     /// Classification consumer (AIA-0374) — a parallel branch of the snapshot flow,
     /// independent of the detection queue/appliedFrame machinery above.
     @StateObject private var flashController = ClassificationFlashController()
-	/// UI-test-only delivery proof. It is incremented only once a snapshot belongs to the current
-	/// active run, before model work begins, so a slow model cannot hide a broken start lifecycle.
+	/// UI-test-only count of current-run snapshots admitted past the interaction/capture guards.
 	@State private var deliveredSnapshotCount = 0
 
     /// Initializer with interaction state callback - content receives a binding to update state
@@ -82,7 +81,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         tiling: TilingScheme = [],
         tiledBorders: Bool = false,
         detectionActive: Bool = false,
-        acceptsSnapshot: @escaping (SnapshotRequest) -> Bool,
+        acceptsSnapshot: @escaping SnapshotRequestAcceptance,
         contentGeometryDidChange: @escaping () -> Void,
         isCapturingFinding: Binding<Bool> = .constant(false),
         onFrameChanged: ((AppliedDetectionFrame?) -> Void)? = nil,
@@ -149,7 +148,11 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         return GeometryReader { geometry in
             ZStack {
                 // Snapshottable content - pass binding so content can update interaction state
-                SnapableGroup(workCoordinator: snapshotWorkCoordinator, publisher: trigger) {
+                SnapableGroup(
+                    workCoordinator: snapshotWorkCoordinator,
+                    publisher: trigger,
+                    acceptsRequest: acceptsSnapshot
+                ) {
                     content($interactionState)
                 }
 
@@ -210,14 +213,17 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         }
 		.onSnapshot { image, _, request in
 			guard acceptsSnapshot(request) else { return }
-			if AppEnvironment.isRunningUITests {
-				deliveredSnapshotCount += 1
-			}
             // Skip detection while content is being manipulated - geometry is changing
-            guard !isInteracting else { return }
+            guard !isInteracting else {
+                LoggingPolicy.debug("Detection snapshot skipped during content interaction", logger: .ui)
+                return
+            }
             // The frozen frame must outlive the save dialog; new passes resume with
             // the timer once the capture ends.
             guard isCapturingFinding.wrappedValue.not else { return }
+            if AppEnvironment.isRunningUITests {
+                deliveredSnapshotCount += 1
+            }
             // Classification branch (AIA-0374): parallel consumer of the same snapshot,
             // deliberately AFTER both guards above so a straggler frame can't
             // classify-and-flash mid-scroll or behind the save sheet. Independent of

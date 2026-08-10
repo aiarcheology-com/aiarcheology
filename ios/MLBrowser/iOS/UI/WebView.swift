@@ -288,6 +288,14 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		// `navigationIssued`, so this is the only token that covers them.
 		// swiftlint:disable:next implicitly_unwrapped_optional
 		public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+			// A page interaction can initiate navigation after the injected JavaScript has published
+			// `.interacting`. Replacing the document cancels that document's delayed `end` callback,
+			// so explicitly close the old document's interaction here. Otherwise every subsequent
+			// detection snapshot is discarded until a native scroll/zoom happens to publish idle.
+			if isScrolling {
+				LoggingPolicy.debug("Navigation cleared active web content interaction", logger: .ui)
+			}
+			setScrolling(false)
 			browserState?.navigationStarted(navigation, from: webView)
 		}
 
