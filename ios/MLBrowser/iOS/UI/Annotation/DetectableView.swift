@@ -62,8 +62,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
     /// Classification consumer (AIA-0374) — a parallel branch of the snapshot flow,
     /// independent of the detection queue/appliedFrame machinery above.
     @StateObject private var flashController = ClassificationFlashController()
-	/// UI-test-only count of snapshots admitted past the interaction/capture guards.
-	@State private var deliveredSnapshotCount = 0
+    /// UI-test-only count of snapshots admitted past the interaction/capture guards.
+    @State private var deliveredSnapshotCount = 0
 
     /// Initializer with interaction state callback - content receives a binding to update state
     init(
@@ -180,14 +180,7 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 // The save dialog freezes the displayed frame; a rotation underneath
                 // merely misaligns the frozen boxes behind the sheet (cosmetic), while
                 // clearing them would defeat the freeze.
-				LoggingPolicy.debug(
-					"[AIA-0587 TRACE] DetectableView geometry changed old=\(old.width)x\(old.height) new=\(new.width)x\(new.height) capturing=\(isCapturingFinding.wrappedValue) active=\(detectionActive)",
-					logger: .ui
-				)
-				guard isCapturingFinding.wrappedValue.not else {
-					LoggingPolicy.debug("[AIA-0587 TRACE] Geometry invalidation skipped during finding capture", logger: .ui)
-					return
-				}
+                guard isCapturingFinding.wrappedValue.not else { return }
                 // Layout changed (chrome shown/hidden, rotation): results captured
                 // against the previous geometry would draw misaligned boxes.
                 LoggingPolicy.debug("GeometrySizeChange: \(old.width)x\(old.height) -> \(new.width)x\(new.height)", logger: .ui)
@@ -198,25 +191,18 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 flashController.invalidateInFlight()
             }
         }
-		.onSnapshot { image, frame in
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] DetectableView received snapshot image=\(image.size.width)x\(image.size.height) frame=\(frame.width)x\(frame.height) interacting=\(isInteracting) capturing=\(isCapturingFinding.wrappedValue) active=\(detectionActive)",
-				logger: .ui
-			)
+        .onSnapshot { image, _ in
             // Skip detection while content is being manipulated - geometry is changing
-			guard !isInteracting else {
-				LoggingPolicy.debug("[AIA-0587 TRACE] DetectableView dropped snapshot because content is interacting", logger: .ui)
-				return
-			}
+            guard !isInteracting else {
+                LoggingPolicy.debug("Detection snapshot skipped during content interaction", logger: .ui)
+                return
+            }
             // The frozen frame must outlive the save dialog; new passes resume with
             // the timer once the capture ends.
-			guard isCapturingFinding.wrappedValue.not else {
-				LoggingPolicy.debug("[AIA-0587 TRACE] DetectableView dropped snapshot during finding capture", logger: .ui)
-				return
-			}
-			if AppEnvironment.isRunningUITests {
-				deliveredSnapshotCount += 1
-			}
+            guard isCapturingFinding.wrappedValue.not else { return }
+            if AppEnvironment.isRunningUITests {
+                deliveredSnapshotCount += 1
+            }
             // Classification branch (AIA-0374): parallel consumer of the same snapshot,
             // deliberately AFTER both guards above so a straggler frame can't
             // classify-and-flash mid-scroll or behind the save sheet. Independent of
@@ -225,10 +211,8 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             // Detection pipeline: serialize + coalesce + apply-guard live in the coordinator
             // (AIA-0386). This is the single detection entry point.
             coordinator.ingest(snapshot: image)
-			LoggingPolicy.debug("[AIA-0587 TRACE] DetectableView handed snapshot to detection coordinator", logger: .ui)
         }
         .onChange(of: isCapturingFinding.wrappedValue) { _, capturing in
-			LoggingPolicy.debug("[AIA-0587 TRACE] DetectableView capture state changed capturing=\(capturing)", logger: .ui)
             // Entering a capture must also invalidate work already in flight:
             // the freeze gate alone only discards results WHILE it is set — a
             // pre-freeze pass (or its coalesced successor) finishing after the
@@ -241,10 +225,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             }
         }
         .onChange(of: interactionState) { _, state in
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] DetectableView interaction state changed interacting=\(state.isInteracting) capturing=\(isCapturingFinding.wrappedValue)",
-				logger: .ui
-			)
             // While the save dialog is up the frame stays frozen (interaction events
             // can still arrive from the web view as the sheet animates in).
             // The coordinator invalidates in-flight detection + clears the frame when
@@ -260,10 +240,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
             onInteractionStateChanged?(state)
         }
         .onAppear {
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] DetectableView appeared active=\(detectionActive) interacting=\(isInteracting) capturing=\(isCapturingFinding.wrappedValue)",
-				logger: .ui
-			)
             // Bind the coordinator's live apply-time guards from the installed view's CONNECTED
             // state (AIA-0386). Not done at init: the view's own @State isn't wired to persistent
             // storage yet at init time, so a closure captured there reads a dead initial value.
@@ -272,9 +248,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
                 isCapturing: { isCapturingFinding.wrappedValue }
             )
         }
-		.onDisappear {
-			LoggingPolicy.debug("[AIA-0587 TRACE] DetectableView disappeared active=\(detectionActive)", logger: .ui)
-		}
         .onChange(of: tiling) { _, value in
             // Keep the coordinator's live tiling scheme current (read at each pass start).
             coordinator.tiling = value
@@ -287,10 +260,10 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         // value only the UI-test checkpoint marker reads (the marker itself already renders only
         // under UI tests).
         .checkpoint(.detectionCount, value: AppEnvironment.isRunningUITests ? String(renderedDetectionCount) : "")
-		.checkpoint(
-			.snapshotDeliveryCount,
-			value: AppEnvironment.isRunningUITests ? String(deliveredSnapshotCount) : ""
-		)
+        .checkpoint(
+            .snapshotDeliveryCount,
+            value: AppEnvironment.isRunningUITests ? String(deliveredSnapshotCount) : ""
+        )
         // AIA-0426: how many tile-border outlines the overlay is drawing — lets a UI test confirm
         // that enabling "Tiled Borders" actually renders borders (0 when the setting is off).
         .checkpoint(.tiledBorderCount, value: tiledBorderCountValue)
@@ -301,7 +274,6 @@ struct DetectableView<Content: View, P>: View where P: Publisher, P.Failure == N
         .checkpoint(.classificationCount, value: classificationCountValue)
         .checkpoint(.topClassification, value: topClassificationValue)
         .onChange(of: detectionActive) { _, active in
-			LoggingPolicy.debug("[AIA-0587 TRACE] DetectableView detectionActive changed to \(active)", logger: .ui)
             // Pause/stop: clear the pulse + bubble now — no snapshots will arrive to
             // refresh or clear them (owner-reported freeze, AIA-0374).
             if active.not {

@@ -222,17 +222,9 @@ struct WebScreenView: View {
             detectionActive: detectionActive,
             isCapturingFinding: $isCapturingFinding,
             onFrameChanged: { frame in
-				LoggingPolicy.debug(
-					"[AIA-0587 TRACE] WebScreen received applied frame hasFrame=\(frame != nil)",
-					logger: .ui
-				)
                 appliedFrame = frame
             },
             onInteractionStateChanged: { state in
-				LoggingPolicy.debug(
-					"[AIA-0587 TRACE] WebScreen received interaction state interacting=\(state.isInteracting)",
-					logger: .ui
-				)
                 // Optionally propagate to chromeState for other UI components to observe
                 appState.chromeState.contentInteractionState = state
             }
@@ -252,10 +244,6 @@ struct WebScreenView: View {
                 }
             }, interactionStateChanged: { state in
                 // Update DetectableView's internal state via binding
-				LoggingPolicy.debug(
-					"[AIA-0587 TRACE] WebScreen writing interaction binding interacting=\(state.isInteracting)",
-					logger: .ui
-				)
                 interactionState.wrappedValue = state
             })
             .equatable()
@@ -279,31 +267,15 @@ struct WebScreenView: View {
             tiledBorders = value
         }
         .onReceive(appState.detectionState.$ontheflyDetectionEnabled) { value in
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] WebScreen received detection enabled=\(value) previousMirror=\(detectionActive)",
-				logger: .ui
-			)
             detectionActive = value
         }
         .onReceive(appState.deep.drivers.$classificators) { classificators in
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] WebScreen received classificator list count=\(classificators.count)",
-				logger: .ui
-			)
             fireImmediateSnapshotIfDriverAdded(Set(classificators.map(\.id)), previous: $runningClassifierIDs)
         }
         .onReceive(appState.deep.drivers.$detectors) { detectors in
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] WebScreen received detector list count=\(detectors.count)",
-				logger: .ui
-			)
             fireImmediateSnapshotIfDriverAdded(Set(detectors.map(\.id)), previous: $runningDetectorIDs)
         }
         .onAppear {
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] WebScreen appeared detectionEnabled=\(appState.detectionState.ontheflyDetectionEnabled) timerActive=\(appState.snap.timerCancellable != nil) detectors=\(appState.deep.drivers.detectors.count) classificators=\(appState.deep.drivers.classificators.count)",
-				logger: .ui
-			)
             showIdentifiers = appState.settings.showIdentifiers
             animateDetections = !appState.settings.disableDetectionAnimations
             tiling = appState.settings.tilingSchemes
@@ -470,10 +442,6 @@ struct WebScreenView: View {
             appState.browserState.rebuildRequestHandled()
         }
         .onDisappear {
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] WebScreen disappeared detectionEnabled=\(appState.detectionState.ontheflyDetectionEnabled) timerActive=\(appState.snap.timerCancellable != nil)",
-				logger: .ui
-			)
             // The screen can be unmounted mid-capture (mode switch): without
             // this, the snap timer would stay paused and the pick/sheet state
             // would leak into the next appearance.
@@ -537,16 +505,8 @@ struct WebScreenView: View {
 	/// snapshot publisher, so a send produces a pass exactly like a timer tick.
 	private func fireImmediateSnapshotIfDriverAdded(_ current: Set<UUID>, previous: Binding<Set<UUID>>) {
 		let added = current.subtracting(previous.wrappedValue)
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] WebScreen driver list evaluated current=\(current.count) previous=\(previous.wrappedValue.count) added=\(added.count) detectionActiveMirror=\(detectionActive)",
-			logger: .ui
-		)
 		previous.wrappedValue = current
-		guard detectionActive, added.isEmpty == false else {
-			LoggingPolicy.debug("[AIA-0587 TRACE] WebScreen immediate driver snapshot not sent", logger: .ui)
-			return
-		}
-		LoggingPolicy.debug("[AIA-0587 TRACE] WebScreen sending immediate driver snapshot", logger: .ui)
+		guard detectionActive, added.isEmpty == false else { return }
 		appState.snap.snapshotTrigger.send()
 	}
 

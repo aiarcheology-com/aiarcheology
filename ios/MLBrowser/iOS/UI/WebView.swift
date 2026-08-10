@@ -39,7 +39,6 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
     }
 
     public func makeUIView(context: Context) -> WKWebView {
-		LoggingPolicy.debug("[AIA-0587 TRACE] MLWebView makeUIView started", logger: .ui)
 		// Configure user content controller for JavaScript message handling
 		let contentController = WKUserContentController()
 		contentController.add(context.coordinator, name: "interactionHandler")
@@ -118,10 +117,6 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		webView.uiDelegate = context.coordinator
 		webView.scrollView.delegate = context.coordinator
 		renderer.attach(webView)
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] MLWebView attached renderer bounds=\(webView.bounds.width)x\(webView.bounds.height) windowAttached=\(webView.window != nil)",
-			logger: .ui
-		)
 		// The Coordinator needs BrowserState for delegate → state plumbing
 		// (navigation-settled tokens, dismantle teardown).
 		context.coordinator.browserState = browserState
@@ -152,10 +147,6 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
     }
 
 	public static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] MLWebView dismantleUIView bounds=\(uiView.bounds.width)x\(uiView.bounds.height) windowAttached=\(uiView.window != nil)",
-			logger: .ui
-		)
 		// Subscriptions-only teardown: with the web tab being the only tab this never
 		// fires today, but it must stay correct if tabOrder grows. Deliberately does NOT
 		// detach the renderer's webView (a WebSnapshotRenderer, held weak) — the snapshot
@@ -168,10 +159,6 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
         _ uiView: WKWebView,
         context: UIViewRepresentableContext<Self>
     ) {
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] MLWebView updateUIView bounds=\(uiView.bounds.width)x\(uiView.bounds.height) windowAttached=\(uiView.window != nil) requestGeneration=\(request.generation) lastGeneration=\(context.coordinator.lastLoadedGeneration.map(String.init) ?? "nil")",
-			logger: .ui
-		)
 		// Ensure delegate stays set (can be reset by WKWebView internals)
 		if uiView.scrollView.delegate == nil {
 			uiView.scrollView.delegate = context.coordinator
@@ -251,10 +238,8 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 
 			switch body {
 			case "start":
-				LoggingPolicy.debug("[AIA-0587 TRACE] WKWebView JavaScript interaction started", logger: .ui)
 				setScrolling(true)
 			case "end":
-				LoggingPolicy.debug("[AIA-0587 TRACE] WKWebView JavaScript interaction ended", logger: .ui)
 				setScrolling(false)
 			default:
 				break
@@ -264,51 +249,30 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 		// MARK: - UIScrollViewDelegate
 
 		public func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-			LoggingPolicy.debug("[AIA-0587 TRACE] WKWebView drag began", logger: .ui)
 			setScrolling(true)
 		}
 
 		public func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] WKWebView drag ended decelerating=\(decelerate)",
-				logger: .ui
-			)
 			if !decelerate {
 				setScrolling(false)
 			}
 		}
 
 		public func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-			LoggingPolicy.debug("[AIA-0587 TRACE] WKWebView deceleration ended", logger: .ui)
 			setScrolling(false)
 		}
 
 		public func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] WKWebView zoom began scale=\(scrollView.zoomScale) bounds=\(scrollView.bounds.width)x\(scrollView.bounds.height) content=\(scrollView.contentSize.width)x\(scrollView.contentSize.height)",
-				logger: .ui
-			)
 			setScrolling(true)
 		}
 
 		public func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] WKWebView zoom ended scale=\(scale) bounds=\(scrollView.bounds.width)x\(scrollView.bounds.height) content=\(scrollView.contentSize.width)x\(scrollView.contentSize.height)",
-				logger: .ui
-			)
 			setScrolling(false)
 		}
 
 		private func setScrolling(_ value: Bool) {
-			guard isScrolling != value else {
-				LoggingPolicy.debug(
-					"[AIA-0587 TRACE] WKWebView interaction state unchanged interacting=\(value)",
-					logger: .ui
-				)
-				return
-			}
+			guard isScrolling != value else { return }
 			isScrolling = value
-			LoggingPolicy.debug("[AIA-0587 TRACE] WKWebView interaction state published interacting=\(value)", logger: .ui)
 			let state: ContentInteractionState = value ? .interacting : .idle
 			parent.interactionStateChanged?(state)
 		}
@@ -324,6 +288,9 @@ public struct MLWebView: UIViewRepresentable, @MainActor Equatable {
 			// `.interacting`. Replacing the document cancels that document's delayed `end` callback,
 			// so explicitly close the old document's interaction here. Otherwise every subsequent
 			// detection snapshot is discarded until a native scroll/zoom happens to publish idle.
+			if isScrolling {
+				LoggingPolicy.debug("Navigation cleared active web content interaction", logger: .ui)
+			}
 			setScrolling(false)
 			browserState?.navigationStarted(navigation, from: webView)
 		}

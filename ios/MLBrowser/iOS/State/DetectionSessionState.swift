@@ -49,10 +49,6 @@ final class DetectionSessionState: ObservableObject {
 	var showsFloatingChromeButton: Bool { ontheflyDetectionEnabled && settings.fullscreenDetection }
 
 	func ontheflyDetectionResetTapped() {
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] Detection reset tapped enabled=\(ontheflyDetectionEnabled) timerActive=\(snap.timerCancellable != nil)",
-			logger: .state
-		)
 		if ontheflyDetectionEnabled {
 			snap.stopTimer()
 			snap.startTimer()
@@ -60,17 +56,9 @@ final class DetectionSessionState: ObservableObject {
 	}
 
 	func ontheflyDetectionTapped(recordAnalytics: Bool = true) {
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] Detection toggle tapped before enabled=\(ontheflyDetectionEnabled) chromeVisible=\(chromeVisible) fullscreenSetting=\(settings.fullscreenDetection) timerActive=\(snap.timerCancellable != nil)",
-			logger: .state
-		)
 		ontheflyDetectionEnabled.toggle()
 		if ontheflyDetectionEnabled {
 			chromeVisible = settings.fullscreenDetection.not
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] Detection enabled; chromeVisible=\(chromeVisible) fullscreen=\(isFullscreen); starting timer",
-				logger: .state
-			)
 			snap.startTimer()
 			if recordAnalytics {
 				analytics?.recordDetectionRun()
@@ -82,19 +70,10 @@ final class DetectionSessionState: ObservableObject {
 			showSnapAdjustment = false
 			snap.stopTimer()
 		}
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] Detection toggle completed enabled=\(ontheflyDetectionEnabled) chromeVisible=\(chromeVisible) timerActive=\(snap.timerCancellable != nil)",
-			logger: .state
-		)
 	}
 
 	func chromeToggleTapped() {
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] Chrome toggle tapped before visible=\(chromeVisible) detectionEnabled=\(ontheflyDetectionEnabled)",
-			logger: .state
-		)
 		chromeVisible.toggle()
-		LoggingPolicy.debug("[AIA-0587 TRACE] Chrome visibility changed to \(chromeVisible)", logger: .state)
 	}
 
 	/// Detection was running when the finding-save dialog opened; only then does
@@ -106,10 +85,6 @@ final class DetectionSessionState: ObservableObject {
 	/// queue cancellation, apply gating) lives in DetectableView, which owns that state.
 	func findingCaptureStarted() {
 		detectionWasRunningBeforeCapture = ontheflyDetectionEnabled
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] Finding capture started detectionEnabled=\(ontheflyDetectionEnabled)",
-			logger: .state
-		)
 		if ontheflyDetectionEnabled {
 			snap.stopTimer()
 		}
@@ -120,10 +95,6 @@ final class DetectionSessionState: ObservableObject {
 	/// `startTimer()` fires an immediate snapshot, so the frozen frame is replaced
 	/// right away.
 	func findingCaptureEnded() {
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] Finding capture ended wasRunning=\(detectionWasRunningBeforeCapture) enabledNow=\(ontheflyDetectionEnabled)",
-			logger: .state
-		)
 		if detectionWasRunningBeforeCapture && ontheflyDetectionEnabled {
 			snap.startTimer()
 		}
@@ -134,15 +105,7 @@ final class DetectionSessionState: ObservableObject {
 	/// enabling the feature enters fullscreen, disabling it restores the chrome.
 	/// A no-op while detection is off (`chromeVisible` is already true then).
 	func fullscreenDetectionSettingChanged() {
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] Fullscreen setting changed enabled=\(ontheflyDetectionEnabled) setting=\(settings.fullscreenDetection)",
-			logger: .state
-		)
-		guard ontheflyDetectionEnabled else {
-			LoggingPolicy.debug("[AIA-0587 TRACE] Fullscreen setting change ignored while detection is paused", logger: .state)
-			return
-		}
+		guard ontheflyDetectionEnabled else { return }
 		chromeVisible = settings.fullscreenDetection.not
-		LoggingPolicy.debug("[AIA-0587 TRACE] Fullscreen setting applied chromeVisible=\(chromeVisible)", logger: .state)
 	}
 }

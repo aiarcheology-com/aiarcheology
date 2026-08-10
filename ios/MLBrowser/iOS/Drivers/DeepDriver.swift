@@ -93,10 +93,6 @@ class DeepDrivers: ObservableObject {
 	private let engine = DetectionEngine()
 
 	func register(driver: DeepDriver, along: DeepDriverType) {
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] DeepDrivers register requested type=\(along.rawValue) detectors=\(detectors.count) classificators=\(classificators.count)",
-			logger: .drivers
-		)
 		switch along {
 		case .detector:
 			let alreadyRegistered = detectors.contains { $0.id == driver.id }
@@ -111,10 +107,6 @@ class DeepDrivers: ObservableObject {
 		case .invalid:
 			LoggingPolicy.error("Attempted to register driver with invalid type.", logger: .drivers)
 		}
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] DeepDrivers register completed detectors=\(detectors.count) classificators=\(classificators.count)",
-			logger: .drivers
-		)
 	}
 
 	func update(configuration: DeepConfiguration) async {
@@ -192,17 +184,7 @@ class DeepDrivers: ObservableObject {
 		// Snapshot the driver list on the main actor, then run the serial loop off it in
 		// the engine actor (AIA-0387).
 		let snapshot = detectors
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] DeepDrivers detect started detectors=\(snapshot.count) image=\(image.size.width)x\(image.size.height) regions=\(TileLayout.regions(for: tiling).count)",
-			logger: .drivers
-		)
-		let results = await engine.detect(on: image, in: snapshot, tiling: tiling)
-		let observationCount = results.reduce(0) { $0 + $1.observations.count }
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] DeepDrivers detect completed groups=\(results.count) observations=\(observationCount)",
-			logger: .drivers
-		)
-		return results
+		return await engine.detect(on: image, in: snapshot, tiling: tiling)
 	}
 
 	// Classification counterpart of detect(): each registered classificator runs one
@@ -225,44 +207,16 @@ actor DetectionEngine {
 	// pyramid = 6, 3x3 = 10, both = their 15-region union; empty = full frame only.
 	func detect(on image: UIImage, in detectors: [DeepDriver], tiling: TilingScheme) async -> [DetectionResult] {
 		let regions = TileLayout.regions(for: tiling)
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] DetectionEngine detect loop started detectors=\(detectors.count) regions=\(regions.count)",
-			logger: .drivers
-		)
 		// The loop is serial — a plain array suffices.
 		var results: [DetectionResult] = []
-		for (index, detector) in detectors.enumerated() {
-			if Task.isCancelled {
-				LoggingPolicy.debug(
-					"[AIA-0587 TRACE] DetectionEngine detect loop cancelled before detectorIndex=\(index)",
-					logger: .drivers
-				)
-				break
-			}
-			guard let detector = detector as? Detecting else {
-				LoggingPolicy.debug(
-					"[AIA-0587 TRACE] DetectionEngine skipped non-detecting driver index=\(index)",
-					logger: .drivers
-				)
-				continue
-			}
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] DetectionEngine invoking detector index=\(index)",
-				logger: .drivers
-			)
+		for detector in detectors {
+			if Task.isCancelled { break }
+			guard let detector = detector as? Detecting else { continue }
 			let observations = await detector.detect(image: image, regions: regions)
-			LoggingPolicy.debug(
-				"[AIA-0587 TRACE] DetectionEngine detector completed index=\(index) observations=\(observations.count)",
-				logger: .drivers
-			)
 			guard observations.isEmpty.not else { continue }
 			let params = await detector.params
 			results.append((observations: observations, params: params))
 		}
-		LoggingPolicy.debug(
-			"[AIA-0587 TRACE] DetectionEngine detect loop completed resultGroups=\(results.count)",
-			logger: .drivers
-		)
 		return results
 	}
 
