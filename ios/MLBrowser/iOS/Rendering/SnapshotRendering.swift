@@ -29,6 +29,7 @@ protocol SnapshotRendering: AnyObject, Sendable {
 final class WebSnapshotRenderer: SnapshotRendering {
 	private weak var webView: WKWebView?
 	private let adjustment: SnapAdjustment
+	private var traceSnapshotSequence: UInt64 = 0
 
 	init(adjustment: SnapAdjustment) {
 		self.adjustment = adjustment
@@ -41,32 +42,66 @@ final class WebSnapshotRenderer: SnapshotRendering {
 	/// nonisolated requirement cannot be witnessed by a `@MainActor` method under Swift 6, so it
 	/// stays a concrete `@MainActor` method.
 	func attach(_ webView: WKWebView?) {
+		LoggingPolicy.debug(
+			"[AIA-0587 TRACE] WebSnapshotRenderer attach previous=\(self.webView != nil) new=\(webView != nil) bounds=\(webView?.bounds.width ?? 0)x\(webView?.bounds.height ?? 0) windowAttached=\(webView?.window != nil)",
+			logger: .rendering
+		)
 		self.webView = webView
 	}
 
 	func snapshot() async -> UIImage? {
-		guard let webView else { return nil }
+		traceSnapshotSequence &+= 1
+		let request = traceSnapshotSequence
+		guard let webView else {
+			LoggingPolicy.debug(
+				"[AIA-0587 TRACE] WebSnapshotRenderer snapshot rejected request=\(request) reason=noWebView",
+				logger: .rendering
+			)
+			return nil
+		}
+
+		LoggingPolicy.debug(
+			"[AIA-0587 TRACE] WebSnapshotRenderer snapshot started request=\(request) bounds=\(webView.bounds.width)x\(webView.bounds.height) windowAttached=\(webView.window != nil) loading=\(webView.isLoading) zoom=\(webView.scrollView.zoomScale) content=\(webView.scrollView.contentSize.width)x\(webView.scrollView.contentSize.height) offset=\(webView.scrollView.contentOffset.x),\(webView.scrollView.contentOffset.y)",
+			logger: .rendering
+		)
 
 		// Capture adjustment values on the main actor before hopping off it.
 		let brightness = adjustment.brightness
 		let contrast = adjustment.contrast
 		let saturation = adjustment.saturation
+		let startedAt = Date()
 
 		let config = WKSnapshotConfiguration()
 		return await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
 			webView.takeSnapshot(with: config) { image, error in
 				guard let image else {
+					LoggingPolicy.debug(
+						"[AIA-0587 TRACE] WebSnapshotRenderer WebKit capture returned nil request=\(request) elapsed=\(Date().timeIntervalSince(startedAt))",
+						logger: .rendering
+					)
 					// Preserve the Sentry signal the manual-pick path logged before this move.
 					LoggingPolicy.error("Web snapshot failed", error: error, logger: .ui)
 					continuation.resume(returning: nil)
 					return
 				}
+				LoggingPolicy.debug(
+					"[AIA-0587 TRACE] WebSnapshotRenderer WebKit capture completed request=\(request) pixels=\(image.size.width)x\(image.size.height) scale=\(image.scale) elapsed=\(Date().timeIntervalSince(startedAt))",
+					logger: .rendering
+				)
 				// The Core Image render is expensive — run it off the main thread, as the old
 				// renderer did. `takeSnapshot`/`webView` above cannot leave the main actor.
 				Task.detached(priority: .userInitiated) {
+					LoggingPolicy.debug(
+						"[AIA-0587 TRACE] WebSnapshotRenderer adjustment started request=\(request)",
+						logger: .rendering
+					)
 					let adjusted = image.adjusted(brightness: brightness,
 												  contrast: contrast,
 												  saturation: saturation)
+					LoggingPolicy.debug(
+						"[AIA-0587 TRACE] WebSnapshotRenderer adjustment completed request=\(request) pixels=\(adjusted.size.width)x\(adjusted.size.height) elapsed=\(Date().timeIntervalSince(startedAt))",
+						logger: .rendering
+					)
 					continuation.resume(returning: adjusted)
 				}
 			}

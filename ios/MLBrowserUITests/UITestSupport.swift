@@ -62,6 +62,7 @@ enum AID {
 	static let cpDeviceIdiom = "_AIA:Checkpoint.DeviceIdiom"
 	static let cpCurrentPageFile = "_AIA:Checkpoint.CurrentPageFile"
 	static let cpDetectionCount = "_AIA:Checkpoint.DetectionCount"
+	static let cpSnapshotDeliveryCount = "_AIA:Checkpoint.SnapshotDeliveryCount"
 	static let cpTiledBorderCount = "_AIA:Checkpoint.TiledBorderCount"
 	static let cpDetectionFrameApplied = "_AIA:Checkpoint.DetectionFrameApplied"
 	static let cpFlashCount = "_AIA:Checkpoint.FlashCount"

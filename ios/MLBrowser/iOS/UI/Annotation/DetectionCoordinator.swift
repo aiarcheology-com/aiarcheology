@@ -34,6 +34,7 @@ final class DetectionCoordinator: ObservableObject {
 	private let onFrameChanged: ((AppliedDetectionFrame?) -> Void)?
 
 	private let queue = SnapshotDetectionQueue()
+	private var tracePassSequence: UInt64 = 0
 	/// Invalidation token: a pass that started before an interaction/capture/geometry change must
 	/// not apply. Bumped on every active invalidation; re-checked at apply.
 	private var generation: UInt64 = 0
@@ -63,6 +64,7 @@ final class DetectionCoordinator: ObservableObject {
 	func bindGuards(isInteracting: @escaping () -> Bool, isCapturing: @escaping () -> Bool) {
 		self.isInteracting = isInteracting
 		self.isCapturing = isCapturing
+		LoggingPolicy.debug("[AIA-0587 TRACE] DetectionCoordinator bound live guards", logger: .drivers)
 	}
 
 	// MARK: - Active invalidation (driven from the view's lifecycle events)
@@ -72,6 +74,10 @@ final class DetectionCoordinator: ObservableObject {
 	/// under the save sheet merely misaligns the frozen boxes — cosmetic — while clearing them
 	/// would defeat the freeze).
 	func geometryChanged() {
+		LoggingPolicy.debug(
+			"[AIA-0587 TRACE] DetectionCoordinator geometryChanged generation=\(generation)",
+			logger: .drivers
+		)
 		invalidate(clearFrame: true)
 	}
 
@@ -79,6 +85,10 @@ final class DetectionCoordinator: ObservableObject {
 	/// in-flight work — but only when not capturing (the save sheet keeps the frame frozen even as
 	/// interaction events arrive from the web view while the sheet animates in).
 	func setInteracting(_ interacting: Bool) {
+		LoggingPolicy.debug(
+			"[AIA-0587 TRACE] DetectionCoordinator setInteracting=\(interacting) capturingNow=\(isCapturing()) generation=\(generation)",
+			logger: .drivers
+		)
 		if interacting && isCapturing() == false {
 			invalidate(clearFrame: true)
 		}
@@ -89,6 +99,10 @@ final class DetectionCoordinator: ObservableObject {
 	/// briefly apply a stale frame over the fresh one. Does NOT clear — the displayed frame must
 	/// stay frozen under the sheet.
 	func setCapturing(_ capturing: Bool) {
+		LoggingPolicy.debug(
+			"[AIA-0587 TRACE] DetectionCoordinator setCapturing=\(capturing) generation=\(generation)",
+			logger: .drivers
+		)
 		if capturing {
 			invalidate(clearFrame: false)
 		}
@@ -101,20 +115,54 @@ final class DetectionCoordinator: ObservableObject {
 	/// and overlapping passes would apply out of order). Applies results only if still valid at
 	/// completion.
 	func ingest(snapshot image: UIImage) {
+		LoggingPolicy.debug(
+			"[AIA-0587 TRACE] DetectionCoordinator ingest image=\(image.size.width)x\(image.size.height) generation=\(generation) queueInFlight=\(queue.inFlight) interacting=\(isInteracting()) capturing=\(isCapturing())",
+			logger: .drivers
+		)
 		queue.enqueue(image) { image, done in
+			self.tracePassSequence &+= 1
+			let pass = self.tracePassSequence
 			let startGeneration = self.generation
+			LoggingPolicy.debug(
+				"[AIA-0587 TRACE] DetectionCoordinator pass started pass=\(pass) generation=\(startGeneration) image=\(image.size.width)x\(image.size.height) regionCount=\(TileLayout.regions(for: self.tiling).count)",
+				logger: .drivers
+			)
 			Task {
 				let observations = await self.detect(image, self.tiling)
+				let observationCount = observations.reduce(0) { $0 + $1.observations.count }
+				LoggingPolicy.debug(
+					"[AIA-0587 TRACE] DetectionCoordinator pass completed pass=\(pass) groups=\(observations.count) observations=\(observationCount) currentGeneration=\(self.generation)",
+					logger: .drivers
+				)
 				done()
 				// Discard if invalidated since this pass began (stale geometry/interaction/capture).
-				guard self.generation == startGeneration else { return }
+				guard self.generation == startGeneration else {
+					LoggingPolicy.debug(
+						"[AIA-0587 TRACE] DetectionCoordinator discarded pass=\(pass) reason=generationChanged start=\(startGeneration) current=\(self.generation)",
+						logger: .drivers
+					)
+					return
+				}
 				// Live re-checks: interaction or a capture may have begun after the generation was
 				// snapshotted but before SwiftUI delivered the matching `.onChange`.
-				guard self.isInteracting() == false else { return }
-				guard self.isCapturing() == false else { return }
+				guard self.isInteracting() == false else {
+					LoggingPolicy.debug(
+						"[AIA-0587 TRACE] DetectionCoordinator discarded pass=\(pass) reason=interacting",
+						logger: .drivers
+					)
+					return
+				}
+				guard self.isCapturing() == false else {
+					LoggingPolicy.debug(
+						"[AIA-0587 TRACE] DetectionCoordinator discarded pass=\(pass) reason=capturing",
+						logger: .drivers
+					)
+					return
+				}
 				// Image and results are applied as ONE value: the cached snapshot is always the exact
 				// frame the displayed boxes came from.
 				self.setApplied(AppliedDetectionFrame(image: image, results: observations))
+				LoggingPolicy.debug("[AIA-0587 TRACE] DetectionCoordinator applied pass=\(pass)", logger: .drivers)
 			}
 		}
 	}
@@ -122,7 +170,12 @@ final class DetectionCoordinator: ObservableObject {
 	// MARK: - Internals
 
 	private func invalidate(clearFrame: Bool) {
+		let previousGeneration = generation
 		generation &+= 1
+		LoggingPolicy.debug(
+			"[AIA-0587 TRACE] DetectionCoordinator invalidated generation=\(previousGeneration)->\(generation) clearFrame=\(clearFrame)",
+			logger: .drivers
+		)
 		if clearFrame { setApplied(nil) }
 		// A coalesced snapshot captured against the now-stale state must not start.
 		queue.cancelPending()
@@ -131,6 +184,11 @@ final class DetectionCoordinator: ObservableObject {
 	/// Single write path for the displayed frame: the screen's mirror updates in the same statement,
 	/// so the two can never diverge.
 	private func setApplied(_ frame: AppliedDetectionFrame?) {
+		let observationCount = frame?.results.reduce(0) { $0 + $1.observations.count } ?? 0
+		LoggingPolicy.debug(
+			"[AIA-0587 TRACE] DetectionCoordinator setApplied hasFrame=\(frame != nil) observations=\(observationCount)",
+			logger: .drivers
+		)
 		appliedFrame = frame
 		onFrameChanged?(frame)
 	}
@@ -147,8 +205,13 @@ final class SnapshotDetectionQueue {
 	private var pendingImage: UIImage?
 
 	func enqueue(_ image: UIImage, pass: @escaping Pass) {
+		LoggingPolicy.debug(
+			"[AIA-0587 TRACE] SnapshotDetectionQueue enqueue inFlight=\(inFlight) pending=\(pendingImage != nil) image=\(image.size.width)x\(image.size.height)",
+			logger: .drivers
+		)
 		guard inFlight.not else {
 			pendingImage = image
+			LoggingPolicy.debug("[AIA-0587 TRACE] SnapshotDetectionQueue coalesced newest pending image", logger: .drivers)
 			return
 		}
 		start(image, pass: pass)
@@ -156,16 +219,29 @@ final class SnapshotDetectionQueue {
 
 	/// Drops a coalesced snapshot (e.g. interaction started — its geometry is stale).
 	func cancelPending() {
+		LoggingPolicy.debug(
+			"[AIA-0587 TRACE] SnapshotDetectionQueue cancelPending hadPending=\(pendingImage != nil) inFlight=\(inFlight)",
+			logger: .drivers
+		)
 		pendingImage = nil
 	}
 
 	private func start(_ image: UIImage, pass: @escaping Pass) {
 		inFlight = true
+		LoggingPolicy.debug(
+			"[AIA-0587 TRACE] SnapshotDetectionQueue starting pass image=\(image.size.width)x\(image.size.height)",
+			logger: .drivers
+		)
 		pass(image) { [weak self] in
 			guard let self else { return }
 			self.inFlight = false
+			LoggingPolicy.debug(
+				"[AIA-0587 TRACE] SnapshotDetectionQueue pass done pending=\(self.pendingImage != nil)",
+				logger: .drivers
+			)
 			if let next = self.pendingImage {
 				self.pendingImage = nil
+				LoggingPolicy.debug("[AIA-0587 TRACE] SnapshotDetectionQueue starting coalesced image", logger: .drivers)
 				self.start(next, pass: pass)
 			}
 		}

@@ -1,23 +1,11 @@
 Build: TBD
 
-Test Focus: Manage Subscription now works on the Mac version. Tapping it there did nothing at all before — no panel, no error, nothing — while the same button worked on iPhone and iPad. The 16-language translation work from the previous build is still listed below in short form, in case you have not been through it yet.
+Test Focus: Detection should start immediately after navigating to a page. It must not require a zoom or scroll to begin.
 
-Manage Subscription — the change in this build
+1. On an iPad, open a page containing objects your enabled model recognizes, such as cars.
+2. Follow a link or otherwise navigate within the page, then tap PLAY.
+3. Confirm labels or detection boxes appear without touching, scrolling, or zooming the page.
+4. Repeat after navigating to another page and after using Back or Forward.
+5. Pause and restart detection. Confirm it resumes without requiring a page gesture.
 
-1. On the Mac version, open Settings > Account > Subscription and tap "Manage Subscription". Your web browser should open Apple's subscription page, where cancelling and changing plan happen. If nothing happens at all, that is exactly the bug this build is meant to fix, and it is the single most useful thing to report.
-
-2. On iPhone and iPad, tap the same button. It should still open Apple's own panel inside the app, exactly as it always did. This part was deliberately left alone, so any change in behaviour here is a regression worth reporting.
-
-3. On the subscribe screen, the "Manage Subscription" link near the bottom should open that same Apple page. It should now go to the same place as the Settings button on every device.
-
-Translations — carried over from the previous build
-
-4. Change your language in Settings > General > Language & Region, then reopen the app. Try Arabic, Bengali, Czech, German, Spanish, Persian, French, Hebrew, Hindi, Hungarian, Polish, Russian, Ukrainian, or Chinese (Simplified, Traditional, or Hong Kong). Walk through the side menu, Settings, the model catalog, downloads, importing a model and the findings list. Report any screen still mostly in English. The translations were produced by machine, so awkward or wrong wording is a genuinely useful report.
-
-5. Read the subscribe screen's money copy end to end. The price, what a subscription includes, the free-trial line and the small legal paragraph should all be in your language and agree with each other. The paragraph must still say when payment is taken, that the subscription renews automatically, that you can cancel up to 24 hours before the period ends, and where to cancel. Anything missing or contradictory here matters more than wording taste.
-
-6. While your free access is still running, read the grey note under the account section in Settings. It should name the date your free access ends, and any extra free trial it promises must match what the subscribe screen actually offers you.
-
-7. Set the language to Arabic, Hebrew or Persian. These read right to left and the layout should mirror — menus, arrows and back buttons on the opposite side. Then try German or Russian, which run noticeably longer than English: check buttons and Settings rows for text cut off with "…" or spilling outside its button. A screenshot helps.
-
-8. Find a screen that counts things, such as a findings or file count, and check it reads naturally for 0, 1, 2 and 5. Czech, Polish, Russian, Ukrainian and Arabic change the word depending on the number. Anywhere a number or price is inserted into a sentence ("Files: 3 / 10", "$3.99 / month"), confirm the values still appear and sit sensibly.
+Please report if PLAY produces no results until you zoom or scroll. Include the application log if possible.
