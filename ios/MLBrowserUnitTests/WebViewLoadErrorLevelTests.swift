@@ -57,36 +57,36 @@ final class WebViewLoadErrorLevelTests: XCTestCase {
 @MainActor
 final class WebViewInteractionLifecycleTests: XCTestCase {
 
-	func testNavigationStart_InteractionWasActive_PublishesIdle() {
-		var interactionChanges: [Bool] = []
-		let renderer = WebSnapshotRenderer(adjustment: SnapAdjustment())
-		let view = MLWebView(
-			.initial,
-			renderer: renderer,
-			interactionStateChanged: { interactionChanges.append($0.isInteracting) }
-		)
-		let coordinator = view.makeCoordinator()
+    func testNavigationStart_InteractionWasActive_PublishesIdle() {
+        var interactionChanges: [Bool] = []
+        let renderer = WebSnapshotRenderer(adjustment: SnapAdjustment())
+        let view = MLWebView(
+            .initial,
+            renderer: renderer,
+            interactionStateChanged: { interactionChanges.append($0.isInteracting) }
+        )
+        let coordinator = view.makeCoordinator()
 
-		coordinator.scrollViewWillBeginDragging(UIScrollView())
-		XCTAssertEqual(interactionChanges, [true])
+        coordinator.scrollViewWillBeginDragging(UIScrollView())
+        XCTAssertEqual(interactionChanges, [true])
 
-		coordinator.webView(WKWebView(), didStartProvisionalNavigation: nil)
+        coordinator.webView(WKWebView(), didStartProvisionalNavigation: nil)
 
-		XCTAssertEqual(interactionChanges, [true, false])
-	}
+        XCTAssertEqual(interactionChanges, [true, false])
+    }
 
-	func testNavigationStart_InteractionWasIdle_DoesNotPublishDuplicateIdle() {
-		var interactionChanges: [Bool] = []
-		let renderer = WebSnapshotRenderer(adjustment: SnapAdjustment())
-		let view = MLWebView(
-			.initial,
-			renderer: renderer,
-			interactionStateChanged: { interactionChanges.append($0.isInteracting) }
-		)
-		let coordinator = view.makeCoordinator()
+    func testNavigationStart_InteractionWasIdle_DoesNotPublishDuplicateIdle() {
+        var interactionChanges: [Bool] = []
+        let renderer = WebSnapshotRenderer(adjustment: SnapAdjustment())
+        let view = MLWebView(
+            .initial,
+            renderer: renderer,
+            interactionStateChanged: { interactionChanges.append($0.isInteracting) }
+        )
+        let coordinator = view.makeCoordinator()
 
-		coordinator.webView(WKWebView(), didStartProvisionalNavigation: nil)
+        coordinator.webView(WKWebView(), didStartProvisionalNavigation: nil)
 
-		XCTAssertTrue(interactionChanges.isEmpty)
-	}
+        XCTAssertTrue(interactionChanges.isEmpty)
+    }
 }
