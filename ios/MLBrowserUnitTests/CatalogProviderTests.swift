@@ -574,7 +574,7 @@ final class CatalogProviderTests: XCTestCase {
 		]
 		let downloader = CatalogPackageDownloader(
 			session: makeSession(),
-			fileManager: PrivatePrefixedTemporaryDirectoryFileManager(temporaryDirectory: stagingRoot)
+			fileManager: PrivateTemporaryDirectoryFileManager(temporaryDirectory: stagingRoot)
 		)
 
 		let package = try await downloader.download(files: files) { _ in }
@@ -598,13 +598,59 @@ final class CatalogProviderTests: XCTestCase {
 		]
 		let downloader = CatalogPackageDownloader(
 			session: makeSession(),
-			fileManager: PrivatePrefixedTemporaryDirectoryFileManager(temporaryDirectory: stagingRoot)
+			fileManager: PrivateTemporaryDirectoryFileManager(temporaryDirectory: stagingRoot)
 		)
 
 		let artifact = try await downloader.download(files: files) { _ in }
 
 		XCTAssertEqual(artifact.lastPathComponent, "model.onnx")
 		XCTAssertEqual(try Data(contentsOf: artifact), Data("graph".utf8))
+	}
+
+	/// The staging path validation is what rejects traversal, and it runs per relative path before
+	/// any URL is built. Standardising the staging root once makes the containment guard that follows
+	/// it unreachable for any relative path, so these cases pin the validation itself rather than
+	/// claiming coverage of the guard behind it.
+	func testPackageDownloader_rejectsTraversalComponentsInAPackageTree() async throws {
+		CatalogURLProtocol.responseHandler = { _ in (200, Data("payload".utf8)) }
+		let rejectedPaths = [
+			"Traversal.mlpackage/../../escape.bin",
+			"Traversal.mlpackage/./Manifest.json",
+			"Traversal.mlpackage//Manifest.json"
+		]
+
+		for rejectedPath in rejectedPaths {
+			let files = [
+				CatalogFile(
+					relativePath: "Traversal.mlpackage/Manifest.json",
+					resolveURL: testURL("Manifest.json"),
+					sizeBytes: 7
+				),
+				CatalogFile(relativePath: rejectedPath, resolveURL: testURL("sibling.bin"), sizeBytes: 7)
+			]
+			do {
+				_ = try await CatalogPackageDownloader(session: makeSession()).download(files: files) { _ in }
+				XCTFail("expected \(rejectedPath) to be rejected")
+			} catch let error as CatalogError {
+				XCTAssertEqual(error, .invalidFilePath, "for \(rejectedPath)")
+			}
+		}
+	}
+
+	/// A tree spanning two package roots has no single installable artifact, so it is rejected before
+	/// anything is downloaded.
+	func testPackageDownloader_rejectsFilesSpanningTwoPackageRoots() async throws {
+		let files = [
+			CatalogFile(relativePath: "First.mlpackage/Manifest.json", resolveURL: testURL("Manifest.json"), sizeBytes: 7),
+			CatalogFile(relativePath: "Second.mlpackage/Manifest.json", resolveURL: testURL("Manifest2.json"), sizeBytes: 7)
+		]
+
+		do {
+			_ = try await CatalogPackageDownloader(session: makeSession()).download(files: files) { _ in }
+			XCTFail("expected a tree with two package roots to be rejected")
+		} catch let error as CatalogError {
+			XCTAssertEqual(error, .invalidFilePath)
+		}
 	}
 
 	func testXetProgressByteCount_doesNotTreatSparseLogicalLengthAsDownloadedBytes() throws {
@@ -1092,7 +1138,7 @@ private extension CatalogProviderTests {
 /// device-only `/private`-prefixed temporary directory (AIA-0603). Constructed inline at the call
 /// site: `CatalogPackageDownloader`'s initialiser is actor-isolated, so a `FileManager` that is also
 /// used by the test itself cannot be sent into it.
-private final class PrivatePrefixedTemporaryDirectoryFileManager: FileManager, @unchecked Sendable {
+private final class PrivateTemporaryDirectoryFileManager: FileManager, @unchecked Sendable {
 	private let injectedTemporaryDirectory: URL
 
 	init(temporaryDirectory: URL) {
