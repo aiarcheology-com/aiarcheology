@@ -10,6 +10,17 @@ import CoreData
 import ClerkKit
 import StoreKit
 
+private enum SettingsPresentation: Hashable, Identifiable {
+    case settings
+    case manageAccount
+
+    var id: Self { self }
+
+    var startsAtManageAccount: Bool {
+        self == .manageAccount
+    }
+}
+
 /// The content displayed inside the drawer for MLBrowser.
 ///
 /// This view displays the list of ML configurations.
@@ -56,13 +67,9 @@ struct DrawerContent: View {
 
     /// Controls the settings sheet (presented here, not at ContentView level,
     /// so the drawer stays open behind it — same behavior as Findings)
-    @State private var showSettings = false
+    @State private var settingsPresentation: SettingsPresentation?
     /// Contextual sign-in from the drawer (AIA-0536).
     @State private var showSignIn = false
-
-    /// When true, the Settings sheet opens already pushed to Manage Account (AIA-0536) — the
-    /// drawer's account row is a shortcut to the profile, not to Settings generally.
-    @State private var settingsStartsAtProfile = false
 
     /// The configuration ID to show in detail sheet
     @State private var selectedConfigurationId: UUID?
@@ -141,7 +148,7 @@ struct DrawerContent: View {
                 // Clerk instance, so losing it here would trap rather than degrade.
                 .environment(\.usesRealAuth, usesRealAuth)
         }
-        .sheet(isPresented: $showSettings, onDismiss: { settingsStartsAtProfile = false }) {
+        .sheet(item: $settingsPresentation) { presentation in
             // FindingRepository is a plain (non-ObservableObject) type, so it is passed by
             // initializer rather than injected as an environment object (AIA-0303), the same way
             // WebScreen hands it to SaveFindingSheet.
@@ -152,7 +159,7 @@ struct DrawerContent: View {
                 // is on — free usage, not a trial (AIA-0556). A value rather than the state object:
                 // it is frozen at grant and cannot change while this sheet is up.
                 freeAccessEndsOn: appState.freeAccess.windowEndsOn,
-                startAtManageAccount: settingsStartsAtProfile
+                startAtManageAccount: presentation.startsAtManageAccount
             )
                 .environmentObject(settings)
                 .environmentObject(chromeState)
@@ -258,7 +265,7 @@ struct DrawerContent: View {
     private var settingsSection: some View {
         Section {
             Button {
-                showSettings = true
+                settingsPresentation = .settings
             } label: {
                 Label(L10n.Settings.title, systemImage: "gearshape")
             }
@@ -288,8 +295,7 @@ struct DrawerContent: View {
                 // Deep-link only on the real-auth path: the profile destination reads
                 // `Clerk.shared`, which traps when Clerk was never configured, so a mock-auth tap
                 // opens plain Settings instead of pushing a screen that would crash.
-                settingsStartsAtProfile = usesRealAuth
-                showSettings = true
+                settingsPresentation = usesRealAuth ? .manageAccount : .settings
             }
             .testability(Testability.Button.drawerAccount)
         case .suspended:

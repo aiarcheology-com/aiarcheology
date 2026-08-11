@@ -1,13 +1,17 @@
 Build: TBD
 
-Test Focus: Detection should begin immediately after PLAY and after page navigation.
+Test Focus: The Account row should open Manage Account on the first tap, and Edit Profile should no longer close the app.
 
-1. Open a page with an enabled detection or classification model and tap PLAY. Results should begin without panning, zooming, or waiting for the next snapshot interval.
+1. Sign in, open the drawer, and tap the Account row. Manage Account should open right away on the first tap, not plain Settings.
 
-2. Follow a link or use Back or Forward, then tap PLAY. Results should appear without touching, scrolling, or zooming the page.
+2. From Manage Account, open Edit Profile. It should open and stay open; the app must not freeze or close.
 
-3. On iPad, repeat with Fullscreen Detection enabled. PLAY hides the browser chrome; detections should still appear promptly once the layout settles.
+3. Change a profile detail such as your name, save it, and close the sheet. The updated details should show in Manage Account.
 
-4. Tap PAUSE, then PLAY again. Results should resume promptly and remain aligned after rotating the device or showing/hiding the browser chrome.
+4. Close the sheet and tap the Account row again. It should land on Manage Account again, every time.
 
-Please report if PLAY produces no results until you zoom or scroll. Include the application log if possible.
+5. Open the plain Settings entry in the drawer. It should still open normal app settings, with no account screens forced on top.
+
+6. Repeat steps 1 and 2 on iPad and on Mac (Designed for iPad), where the closing issue was reported. Try it in portrait and landscape, and with the window resized on Mac.
+
+Please report if the Account row opens plain Settings first, needs a second tap, or if the app closes when opening Edit Profile. Include the application log if possible.
