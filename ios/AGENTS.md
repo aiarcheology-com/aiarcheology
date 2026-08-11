@@ -361,6 +361,33 @@ The same applies to the *app* binary you hand a human to test: verify what is in
 trusting that the build you ran produced it. See §13 on `WhatToTest` — a tester reporting "the new
 screen is missing" is usually a stale install, not a bug.
 
+### Clear the local DerivedData caches when a ticket is done
+
+The repo root holds gitignored per-lane DerivedData caches. Two are defined by tooling —
+`.deriveddata` (`scripts/unittest.sh`) and `.deriveddata-localization`
+(`scripts/check_localization_build.sh`) — and both honour a `DERIVED_DATA_PATH` override, so ad-hoc
+lanes (`.deriveddata-prepush`, `.deriveddata-replay-tests`) accumulate at the root too. Nothing
+prunes any of them, and each keeps a full copy of the build products — three lanes totalling 12 GB
+is normal.
+
+**Delete them when a ticket is closed or its branch is merged.** Reclaiming disk is the small
+reason. The large one is that a stale cache fails in a way that does not look like staleness:
+
+- After AIA-0591 changed the Clerk package version, builds from the surviving caches died with
+  `Unable to resolve module dependency: 'CAsyncHTTPClient'` — also `CNIOLLHTTP`, `CNIOPosix`,
+  `_NumericsShims`, `CSystem` — in target EventSource. That is a package-graph error naming modules
+  nobody touched, on a branch whose only Swift change was one view. A fresh DerivedData path built
+  and tested cleanly.
+- It is not the old build-location bug: this reproduces with `IDEBuildLocationStyle = Unique`. Any
+  dependency version change can invalidate a cache this way.
+
+```bash
+rm -rf .deriveddata*
+```
+
+If you hit that error, clear the caches *before* debugging anything else. CI checks out fresh and is
+unaffected; the caches rebuild on the next run.
+
 ### Shipping a release
 
 When a version goes live, update the **Release baseline** in `../README.md` in the same pass:
@@ -371,6 +398,13 @@ downstream leans on it — whether a Core Data migration is required at all, whe
 format is still free to change, and which build a crash report belongs to. Left to rot it does not
 merely go stale, it actively misleads: a contributor reading "production is `0.0.0`" while `0.0.1`
 has in fact shipped will treat a released schema as editable.
+
+### Issues
+
+- **Every issue belongs to the [AI Archeology project](https://github.com/orgs/aiarcheology-com/projects/1)** (org project #1). Add it at creation time — an issue that is not on the board is invisible to planning, and "I'll add it later" is how it stays invisible.
+- **New issues start at `Todo`.** The board's Status field runs `Todo → Waiting → In Progress → In Review → Done`. An empty Status is not a valid starting state; set it when you file the issue.
+- Title issues `AIA-XXXX: <summary>` so the key lines up with the branch segment (`<type>/AIA-XXXX/desc`) and the commit prefix (`[AIA-XXXX]`).
+- **`Closes #NNN` does not auto-close for PRs targeting `develop`.** GitHub only honours closing keywords on merges to the default branch (`main`). Since PRs here target `develop`, closing the issue *and* moving its board status to `Done` is a manual step after every merge — budget for it rather than assuming the link fired.
 
 ### Branches & commits
 
@@ -441,6 +475,7 @@ has in fact shipped will treat a released schema as editable.
 
 ### Changelog
 
+- **2026-08-11**: §13 gained an **Issues** subsection (every issue joins the AI Archeology org project #1 and starts at `Todo`; `Closes #NNN` never fires on a `develop` merge, so closing and moving the board is manual) and a **DerivedData cleanup** rule (clear `.deriveddata*` when a ticket closes; a stale cache surfaces a dependency change as a bogus `CAsyncHTTPClient` module-resolution error, observed on AIA-0591).
 - **2026-07-15**: §3 Feature flags rewritten for AIA-0350 — flags are now remote (ConfigCat) via `FeatureFlagKey`/`FeatureFlagSnapshot`, not compile-time constants. Documents the fail-open default, the create-the-flag-first rule (the dashboard auto-generates keys), the per-flag live vs launch-only decision, and the never-block-launch rule. Full detail moved to `../FEATUREFLAGS.md`; product analytics (not yet implemented) is specified in `../ANALYTICS.md`.
 - **2026-07-14**: §7 synced with the actual rules (AIA-0429): correct test-target path (`MLBrowserArchitectureTests/`), services rule stated as "not `@MainActor`", added singleton/privacy/baseline rules and the fail-closed policy.
 - **2026-07-02**: §10 now states the on-device privacy invariant explicitly (snapshots/detection imagery never leave the device); §13 Pull requests states the `develop` target.
