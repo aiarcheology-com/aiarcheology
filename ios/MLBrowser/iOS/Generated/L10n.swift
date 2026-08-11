@@ -234,6 +234,8 @@ internal enum L10n {
       internal static let timeout = L10n.tr("Localizable", "catalog.download.timeout", fallback: "The download timed out. Please try again.")
       /// Downloading model
       internal static let title = L10n.tr("Localizable", "catalog.download.title", fallback: "Downloading model")
+      /// This model is too large to download.
+      internal static let tooLarge = L10n.tr("Localizable", "catalog.download.tooLarge", fallback: "This model is too large to download.")
     }
     internal enum Empty {
       /// Search for an object-detection or image-classification model.

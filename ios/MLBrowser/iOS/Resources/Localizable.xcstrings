@@ -8106,6 +8106,18 @@
         }
       }
     },
+    "catalog.download.tooLarge" : {
+      "comment" : "Shown when a catalog model exceeds the download size or file-count limits",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This model is too large to download."
+          }
+        }
+      }
+    },
     "catalog.download.timeout" : {
       "comment" : "Error shown when a catalog download stops receiving data and can be retried",
       "extractionState" : "manual",

@@ -259,3 +259,33 @@ enum CatalogError: Error, Equatable, Sendable {
 	case invalidFilePath
 	case tooManyFiles
 }
+
+/// Without a description, Foundation renders a bridged Swift error as a generic localised sentence
+/// plus the case ordinal — a customer report for AIA-0603 read "(ML_Browser.CatalogError-Fehler 6.)",
+/// which named neither the failure nor the code that produced it. These descriptions are deliberately
+/// English and deliberately not user-facing copy: they reach the support-email export, Console, and
+/// the description the crash reporter appends to an event title, all of which are read during triage
+/// and are more useful in one language. User-visible copy is localised where the error is presented
+/// (see `Downloader.catalogDownloadErrorMessage(for:)` and `CatalogBrowseView`).
+extension CatalogError: LocalizedError {
+	var errorDescription: String? {
+		switch self {
+		case .network:
+			return "Catalog network request failed"
+		case .timedOut:
+			return "Catalog transfer timed out"
+		case .invalidResponse:
+			return "Catalog returned an unusable response"
+		case .decoding:
+			return "Catalog response could not be decoded"
+		case .noInstallableArtifact:
+			return "Catalog entry contains no installable artifact"
+		case .tooLarge:
+			return "Catalog download exceeds the size limit"
+		case .invalidFilePath:
+			return "Catalog file path failed validation"
+		case .tooManyFiles:
+			return "Catalog package exceeds the file-count limit"
+		}
+	}
+}
