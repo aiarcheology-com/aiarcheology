@@ -130,7 +130,16 @@ echo ""
 # Build the xcodebuild command dynamically
 #
 # Uses the MLBrowserUnitTests test plan which targets the MLBrowserUnitTests target.
-# Code signing is disabled for CI compatibility (GitHub Actions runners lack dev certificates).
+#
+# Code signing MUST stay enabled. It is tempting to add CODE_SIGNING_ALLOWED=NO /
+# CODE_SIGNING_REQUIRED=NO to shave build time, and this script did exactly that from AIA-0038
+# until AIA-0598. Do not put them back: keychain access is granted through entitlements
+# (`application-identifier`, `keychain-access-groups`), those entitlements are embedded by the
+# codesign step, and an unsigned binary therefore belongs to no keychain access group. Every
+# keychain test then fails with errSecMissingEntitlement (-34018) — 20 of them in
+# FreeAccessAnchorServiceTests (AIA-0556) — which also fails the deliver.sh preflight sweep and
+# makes a TestFlight upload impossible. Simulator builds sign ad-hoc ("Sign to Run Locally") and
+# need no developer certificate, so nothing is gained by skipping it.
 #
 # Environment variables:
 #   SPM_CACHE_PATH: Specify SPM package cache location (for CI)
@@ -148,8 +157,6 @@ XCODEBUILD_ARGS=(
     -derivedDataPath "${DERIVED_DATA}"
     -skipPackagePluginValidation
     -skipMacroValidation
-    CODE_SIGNING_REQUIRED=NO
-    CODE_SIGNING_ALLOWED=NO
 )
 
 if [[ -n "${SPM_CACHE_PATH:-}" ]]; then
