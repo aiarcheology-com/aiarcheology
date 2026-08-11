@@ -16,6 +16,20 @@ struct Snapshot {
     let date: Date = Date()
 }
 
+/// Filters a `CurrentValueSubject` replay caused by an ordinary SwiftUI body update. The same
+/// mounted `SnapableGroup` must enqueue a request only once. A fresh group gets a fresh coordinator
+/// and therefore still receives the retained start request after it mounts.
+@MainActor
+final class SnapshotRequestReplayCoordinator: ObservableObject {
+	private var lastAcceptedRequest: SnapshotRequest?
+
+	func accepts(_ request: SnapshotRequest) -> Bool {
+		guard lastAcceptedRequest != request else { return false }
+		lastAcceptedRequest = request
+		return true
+	}
+}
+
 struct SnapshotRendererKey: EnvironmentKey {
 	static let defaultValue: SnapshotProvider? = nil
 }
@@ -202,6 +216,7 @@ struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Ne
 	private let acceptsRequest: SnapshotRequestAcceptance
 	private var content: Content
 	@State private var consumerID = UUID()
+	@StateObject private var replayCoordinator = SnapshotRequestReplayCoordinator()
 
 	@inlinable init(
 		workCoordinator: SnapshotWorkCoordinator,
@@ -219,6 +234,7 @@ struct SnapableGroup<Content: View, P>: View where P: Publisher, P.Failure == Ne
 		GeometryReader { geometry in
 			content
 				.onReceive(publisher) { request in
+					guard replayCoordinator.accepts(request) else { return }
 					workCoordinator.enqueue(request)
 				}
 				.onAppear {

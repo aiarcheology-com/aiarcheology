@@ -14,6 +14,7 @@
 
 import XCTest
 import UIKit
+import Combine
 @testable import ML_Browser
 
 /// Minimal `SnapshotRendering` double — a plain conformer, no renderer subclassing (AC1). No
@@ -50,6 +51,55 @@ final class SnapshotRenderingTests: XCTestCase {
         let result = await sut.snapshot()
 
         XCTAssertNil(result)
+    }
+}
+
+@MainActor
+final class SnapshotRequestReplayCoordinatorTests: XCTestCase {
+
+    func testReplay_sameRequest_isIgnored() {
+        let coordinator = SnapshotRequestReplayCoordinator()
+        let request = SnapshotRequest(runID: 7, sequence: 3)
+
+        XCTAssertTrue(coordinator.accepts(request))
+        XCTAssertFalse(coordinator.accepts(request))
+    }
+
+    func testReplay_newRequestOrNewConsumer_isAccepted() {
+        let request = SnapshotRequest(runID: 7, sequence: 3)
+        let nextRequest = SnapshotRequest(runID: 7, sequence: 4)
+        let firstConsumer = SnapshotRequestReplayCoordinator()
+
+        XCTAssertTrue(firstConsumer.accepts(request))
+        XCTAssertTrue(firstConsumer.accepts(nextRequest))
+
+        let replacementConsumer = SnapshotRequestReplayCoordinator()
+        XCTAssertTrue(replacementConsumer.accepts(request))
+    }
+
+    func testReplay_retainedPublisherDoesNotEnqueueOnResubscription() {
+        let initialRequest = SnapshotRequest(runID: 7, sequence: 3)
+        let nextRequest = SnapshotRequest(runID: 7, sequence: 4)
+        let publisher = CurrentValueSubject<SnapshotRequest, Never>(initialRequest)
+        let coordinator = SnapshotRequestReplayCoordinator()
+        var enqueuedRequests: [SnapshotRequest] = []
+
+        let receiveRequest: (SnapshotRequest) -> Void = { request in
+            guard coordinator.accepts(request) else { return }
+            enqueuedRequests.append(request)
+        }
+        let firstSubscription = publisher.sink(receiveValue: receiveRequest)
+        XCTAssertEqual(enqueuedRequests, [initialRequest])
+
+        // A SwiftUI body update recreates the `onReceive` subscription. `CurrentValueSubject`
+        // immediately replays its retained request to that new subscription.
+        let bodyUpdateSubscription = publisher.sink(receiveValue: receiveRequest)
+        XCTAssertEqual(enqueuedRequests, [initialRequest])
+
+        publisher.send(nextRequest)
+        XCTAssertEqual(enqueuedRequests, [initialRequest, nextRequest])
+
+        withExtendedLifetime((firstSubscription, bodyUpdateSubscription)) {}
     }
 }
 

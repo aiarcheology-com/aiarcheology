@@ -37,6 +37,45 @@ final class ClassificationDemoUITests: UITestCase {
         )
     }
 
+    func testClassifyDemo_retainedSnapshotReplayDoesNotCreateExtraDeliveries() throws {
+        launch(LaunchConfig(
+            pageScenario: .localFixture,
+            fullscreenDetection: true,
+            // A wide gap makes any delivery after the initial/startup work a replay regression,
+            // not an expected timer tick.
+            snapFrequency: 10,
+            fixtureName: "uitest_classify_page",
+            enableClassifyDemo: true
+        ))
+
+        let play = app.buttons[AID.play]
+        XCTAssertTrue(play.waitForExistence(timeout: 10), "Play button missing")
+        play.tap()
+
+        XCTAssertTrue(
+            waitForCheckpoint(AID.cpClassificationCount, equals: "1", timeout: 60),
+            "The real classificator should complete its initial/startup work"
+        )
+        guard let settledDeliveryCount = Int(checkpointValue(AID.cpSnapshotDeliveryCount, timeout: 2) ?? "") else {
+            return XCTFail("Snapshot delivery checkpoint was unavailable after classification")
+        }
+
+        let deliveryCheckpoint = app.staticTexts[AID.cpSnapshotDeliveryCount]
+        let extraDelivery = NSPredicate { object, _ in
+            guard let element = object as? XCUIElement, element.exists else { return false }
+            let value = (element.value as? String) ?? element.label
+            return (Int(value) ?? 0) > settledDeliveryCount
+        }
+        let noExtraDelivery = XCTNSPredicateExpectation(predicate: extraDelivery, object: deliveryCheckpoint)
+        noExtraDelivery.isInverted = true
+
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [noExtraDelivery], timeout: 3),
+            .completed,
+            "A retained snapshot request replayed after a SwiftUI redraw must not start another pass before the timer tick"
+        )
+    }
+
     func testClassifyDemo_seededEnabled_qualifiesOnFixturePage() throws {
         // The classify demo seeds ENABLED via launch config (real seeding + insert-
         // registration path; drawer-enable flow coverage belongs to AIA-0322).
