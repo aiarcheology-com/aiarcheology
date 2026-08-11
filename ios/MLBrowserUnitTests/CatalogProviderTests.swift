@@ -543,6 +543,70 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertEqual(catalogPackageStagingDirectories(), initialStagingDirectories)
 	}
 
+	/// AIA-0603: staging compared a standardised staging root against a separately standardised
+	/// destination. `standardizedFileURL` strips a leading `/private` only when the resulting path
+	/// exists, so on device — where the temporary directory is `/private/var/mobile/…` — the root
+	/// (which exists) standardised to `/var/mobile/…` while the file about to be written kept its
+	/// `/private` prefix, and containment rejected every package download. The simulator's own
+	/// temporary directory carries no `/private`, so the failure is reachable only by injecting a
+	/// staging root that standardisation rewrites.
+	func testPackageDownloader_stagesPackageUnderPrivatePrefixedTemporaryDirectory() async throws {
+		let stagingRoot = try makePrivatePrefixedTemporaryDirectory()
+		CatalogURLProtocol.responseHandler = { url in
+			url.lastPathComponent == "Manifest.json" ? (200, Data("manifest".utf8)) : (200, Data("weights".utf8))
+		}
+		let files = [
+			CatalogFile(
+				relativePath: "yolo11l-int8.mlpackage/Manifest.json",
+				resolveURL: testURL("Manifest.json"),
+				sizeBytes: 8
+			),
+			CatalogFile(
+				relativePath: "yolo11l-int8.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+				resolveURL: testURL("model.mlmodel"),
+				sizeBytes: 7
+			),
+			CatalogFile(
+				relativePath: "yolo11l-int8.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+				resolveURL: testURL("weight.bin"),
+				sizeBytes: 7
+			)
+		]
+		let downloader = CatalogPackageDownloader(
+			session: makeSession(),
+			fileManager: PrivatePrefixedTemporaryDirectoryFileManager(temporaryDirectory: stagingRoot)
+		)
+
+		let package = try await downloader.download(files: files) { _ in }
+
+		XCTAssertEqual(package.lastPathComponent, "yolo11l-int8.mlpackage")
+		XCTAssertEqual(try Data(contentsOf: package.appendingPathComponent("Manifest.json")), Data("manifest".utf8))
+		XCTAssertEqual(
+			try Data(contentsOf: package.appendingPathComponent("Data/com.apple.CoreML/weights/weight.bin")),
+			Data("weights".utf8)
+		)
+	}
+
+	/// The single-file branch resolves its artifact through the same containment guard, so it fails
+	/// the same way on device. `.onnx` is the shape that reaches it: `Downloader` treats only a lone
+	/// `.mlmodel` as an ordinary single-file download and routes everything else through staging.
+	func testPackageDownloader_stagesSingleONNXUnderPrivatePrefixedTemporaryDirectory() async throws {
+		let stagingRoot = try makePrivatePrefixedTemporaryDirectory()
+		CatalogURLProtocol.responseHandler = { _ in (200, Data("graph".utf8)) }
+		let files = [
+			CatalogFile(relativePath: "model.onnx", resolveURL: testURL("model.onnx"), sizeBytes: 5)
+		]
+		let downloader = CatalogPackageDownloader(
+			session: makeSession(),
+			fileManager: PrivatePrefixedTemporaryDirectoryFileManager(temporaryDirectory: stagingRoot)
+		)
+
+		let artifact = try await downloader.download(files: files) { _ in }
+
+		XCTAssertEqual(artifact.lastPathComponent, "model.onnx")
+		XCTAssertEqual(try Data(contentsOf: artifact), Data("graph".utf8))
+	}
+
 	func testXetProgressByteCount_doesNotTreatSparseLogicalLengthAsDownloadedBytes() throws {
 		let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
 		defer { try? FileManager.default.removeItem(at: url) }
@@ -1005,4 +1069,36 @@ private extension CatalogProviderTests {
 		return Set((try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? [])
 	}
 
+	/// A staging root under `/private/tmp`, which standardisation rewrites to `/tmp` — the same
+	/// existence-conditional rewrite a device performs on `/private/var/mobile/…` (AIA-0603).
+	/// The precondition is asserted rather than skipped: an environment where the rewrite does not
+	/// happen must fail loudly instead of passing a test that can no longer detect the defect.
+	func makePrivatePrefixedTemporaryDirectory() throws -> URL {
+		let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+			.appendingPathComponent("aia0603-\(UUID().uuidString)", isDirectory: true)
+		try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+		addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+		XCTAssertNotEqual(
+			root.path,
+			root.standardizedFileURL.path,
+			"precondition: the staging root must be one standardisation rewrites, or this test cannot fail"
+		)
+		return root
+	}
+
+}
+
+/// Injects a staging root whose path standardisation rewrites, so a simulator test can reproduce the
+/// device-only `/private`-prefixed temporary directory (AIA-0603). Constructed inline at the call
+/// site: `CatalogPackageDownloader`'s initialiser is actor-isolated, so a `FileManager` that is also
+/// used by the test itself cannot be sent into it.
+private final class PrivatePrefixedTemporaryDirectoryFileManager: FileManager, @unchecked Sendable {
+	private let injectedTemporaryDirectory: URL
+
+	init(temporaryDirectory: URL) {
+		self.injectedTemporaryDirectory = temporaryDirectory
+		super.init()
+	}
+
+	override var temporaryDirectory: URL { injectedTemporaryDirectory }
 }
