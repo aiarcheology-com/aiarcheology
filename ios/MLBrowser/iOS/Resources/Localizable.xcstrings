@@ -4978,109 +4978,110 @@
         }
       }
     },
-    "auth.signIn.tagline" : {
+    "auth.signIn.subtitle" : {
+      "comment" : "Subtitle on the sign-in sheet. States what signing in is for and nothing more — the app's detection works signed out, so it must not imply an account unlocks it. Keep 'ML Browser' verbatim.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "سجّل الدخول لكشف الأجسام في أي موقع ويب."
+            "value" : "سجّل الدخول إلى حسابك في ML Browser."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "যেকোনো ওয়েবসাইটে অবজেক্ট শনাক্ত করতে সাইন ইন করুন।"
+            "value" : "আপনার ML Browser অ্যাকাউন্টে সাইন ইন করুন।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Přihlaste se a detekujte objekty na jakémkoli webu."
+            "value" : "Přihlaste se ke svému účtu ML Browser."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Melden Sie sich an, um Objekte auf jeder Website zu erkennen."
+            "value" : "Melden Sie sich bei Ihrem ML Browser Account an."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sign in to detect objects on any website."
+            "value" : "Sign in to your ML Browser account."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Inicia sesión para detectar objetos en cualquier sitio web."
+            "value" : "Inicia sesión en tu cuenta de ML Browser."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "برای تشخیص اشیا در هر وب‌سایتی وارد شوید."
+            "value" : "به حساب ML Browser خود وارد شوید."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Connectez-vous pour détecter des objets sur n’importe quel site web."
+            "value" : "Connectez-vous à votre compte ML Browser."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "התחבר כדי לזהות עצמים בכל אתר."
+            "value" : "היכנס לחשבון ML Browser שלך."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "किसी भी वेबसाइट पर ऑब्जेक्ट पहचानने के लिए साइन इन करें।"
+            "value" : "अपने ML Browser अकाउंट में साइन इन करें।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Jelentkezzen be, hogy bármely webhelyen felismerhessen objektumokat."
+            "value" : "Jelentkezzen be az ML Browser fiókjába."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Zaloguj się, aby wykrywać obiekty na dowolnej stronie."
+            "value" : "Zaloguj się na swoje konto ML Browser."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Войдите, чтобы обнаруживать объекты на любом сайте."
+            "value" : "Войдите в свой аккаунт ML Browser."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Увійдіть, щоб виявляти об’єкти на будь-якому сайті."
+            "value" : "Увійдіть у свій акаунт ML Browser."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "登录后即可在任意网站上检测对象。"
+            "value" : "登录你的 ML Browser 账户。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "登入即可在任何網站上偵測物件。"
+            "value" : "登入你的 ML Browser 帳號。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "登入後即可在任何網站上偵測物件。"
+            "value" : "登入你的 ML Browser 帳戶。"
           }
         }
       }

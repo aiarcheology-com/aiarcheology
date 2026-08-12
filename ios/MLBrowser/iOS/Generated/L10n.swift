@@ -140,8 +140,8 @@ internal enum L10n {
     internal enum SignIn {
       /// Sign In
       internal static let button = L10n.tr("Localizable", "auth.signIn.button", fallback: "Sign In")
-      /// Sign in to detect objects on any website.
-      internal static let tagline = L10n.tr("Localizable", "auth.signIn.tagline", fallback: "Sign in to detect objects on any website.")
+      /// Sign in to your ML Browser account.
+      internal static let subtitle = L10n.tr("Localizable", "auth.signIn.subtitle", fallback: "Sign in to your ML Browser account.")
       /// Welcome to ML Browser
       internal static let title = L10n.tr("Localizable", "auth.signIn.title", fallback: "Welcome to ML Browser")
     }
