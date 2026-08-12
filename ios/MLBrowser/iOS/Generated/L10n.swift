@@ -762,8 +762,10 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "paywall.pending.title", fallback: "Waiting for Approval")
     }
     internal enum RestoreEmpty {
-      /// No previous subscription was found for this Apple Account.
-      internal static let message = L10n.tr("Localizable", "paywall.restoreEmpty.message", fallback: "No previous subscription was found for this Apple Account.")
+      /// No subscription was found for the Apple Account signed in on this device.
+      /// 
+      /// Subscriptions belong to the Apple Account that paid, not to your ML Browser account. If you subscribed with a different Apple Account, sign in to the App Store with that one and tap Restore Purchases again. Buying here would start a second subscription.
+      internal static let messageAppleAccount = L10n.tr("Localizable", "paywall.restoreEmpty.messageAppleAccount", fallback: "No subscription was found for the Apple Account signed in on this device.\n\nSubscriptions belong to the Apple Account that paid, not to your ML Browser account. If you subscribed with a different Apple Account, sign in to the App Store with that one and tap Restore Purchases again. Buying here would start a second subscription.")
       /// Nothing to Restore
       internal static let title = L10n.tr("Localizable", "paywall.restoreEmpty.title", fallback: "Nothing to Restore")
     }

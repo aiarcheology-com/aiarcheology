@@ -44,13 +44,25 @@ struct SubscriptionNotice: Equatable {
 	///
 	/// `.restored` needs no alert: the entitlement lands in published state and the gate
 	/// re-renders, which is the answer. `.nothingToRestore` is **not** an error — the store
-	/// answered correctly and the account owns nothing.
+	/// answered correctly and the Apple Account signed in here owns nothing.
+	///
+	/// That last word is why this copy is as long as it is (AIA-0525). Entitlement is scoped to
+	/// the **Apple Account**, identity to the app account, and the two need not be the same
+	/// person's — so this alert is what a user sees who has already paid on another Apple Account
+	/// and is about to be asked for money a second time. It is the last screen before that
+	/// happens, and therefore the only place a double charge can be prevented rather than
+	/// refunded. It says so explicitly.
+	///
+	/// It states the rule, never a tap route: "Settings → your name → Media & Purchases" is wrong
+	/// on iOS-on-Mac, Apple renames it, and no translator can verify it. Exact paths belong in the
+	/// support macro, where they change without a release.
 	static func forRestore(_ outcome: RestoreOutcome) -> SubscriptionNotice? {
 		switch outcome {
 		case .restored:
 			return nil
 		case .nothingToRestore:
-			return .init(title: L10n.Paywall.RestoreEmpty.title, message: L10n.Paywall.RestoreEmpty.message)
+			return .init(title: L10n.Paywall.RestoreEmpty.title,
+						 message: L10n.Paywall.RestoreEmpty.messageAppleAccount)
 		case .failed:
 			return .init(title: L10n.Alert.Error.title, message: L10n.Paywall.RestoreFailed.message)
 		}

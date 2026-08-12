@@ -31390,110 +31390,110 @@
         }
       }
     },
-    "paywall.restoreEmpty.message" : {
-      "comment" : "Shown when a restore finds no prior subscription.",
+    "paywall.restoreEmpty.messageAppleAccount" : {
+      "comment" : "Body when Restore finds nothing. The last screen before a second purchase, so it must explain that entitlement follows the Apple Account, not the app account. Keep 'App Store' and 'ML Browser' verbatim.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "لم يتم العثور على اشتراك سابق باستخدام حساب Apple هذا."
+            "value" : "لم يتم العثور على اشتراك لحساب Apple المسجَّل دخوله على هذا الجهاز.\n\nالاشتراكات تتبع حساب Apple الذي دفع، وليس حسابك في ML Browser. إذا كنت قد اشتركت بحساب Apple آخر، فسجّل الدخول إلى App Store بذلك الحساب ثم اضغط على استعادة المشتريات مرة أخرى. الشراء هنا سيبدأ اشتراكًا ثانيًا."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "এই Apple অ্যাকাউন্টের জন্য আগের কোনো সাবস্ক্রিপশন পাওয়া যায়নি।"
+            "value" : "এই ডিভাইসে সাইন ইন করা Apple অ্যাকাউন্টের জন্য কোনও সাবস্ক্রিপশন পাওয়া যায়নি।\n\nসাবস্ক্রিপশন যে Apple অ্যাকাউন্ট থেকে কেনা হয়েছে সেটির সঙ্গে যুক্ত থাকে, আপনার ML Browser অ্যাকাউন্টের সঙ্গে নয়। অন্য Apple অ্যাকাউন্ট দিয়ে সাবস্ক্রাইব করে থাকলে সেই অ্যাকাউন্টে App Store-এ সাইন ইন করুন এবং আবার ক্রয় পুনরুদ্ধার করুন চাপুন। এখানে কিনলে দ্বিতীয় একটি সাবস্ক্রিপশন শুরু হবে।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Pro tento účet Apple nebylo nalezeno žádné dřívější předplatné."
+            "value" : "Pro účet Apple přihlášený na tomto zařízení nebylo nalezeno žádné předplatné.\n\nPředplatné patří k účtu Apple, ze kterého bylo zaplaceno, nikoli k vašemu účtu ML Browser. Pokud jste si předplatné pořídili pod jiným účtem Apple, přihlaste se s ním do App Store a znovu klepněte na Obnovit nákupy. Nákup zde by založil druhé předplatné."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Für diesen Apple-Account wurde kein früheres Abonnement gefunden."
+            "value" : "Für den auf diesem Gerät angemeldeten Apple Account wurde kein Abo gefunden.\n\nAbos gehören zu dem Apple Account, mit dem bezahlt wurde, nicht zu Ihrem ML Browser Account. Wenn Sie das Abo mit einem anderen Apple Account abgeschlossen haben, melden Sie sich damit im App Store an und tippen Sie erneut auf Käufe wiederherstellen. Ein Kauf hier würde ein zweites Abo starten."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No previous subscription was found for this Apple Account."
+            "value" : "No subscription was found for the Apple Account signed in on this device.\n\nSubscriptions belong to the Apple Account that paid, not to your ML Browser account. If you subscribed with a different Apple Account, sign in to the App Store with that one and tap Restore Purchases again. Buying here would start a second subscription."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "No se ha encontrado ninguna suscripción anterior para esta cuenta de Apple."
+            "value" : "No se encontró ninguna suscripción para la cuenta de Apple con la que se ha iniciado sesión en este dispositivo.\n\nLas suscripciones pertenecen a la cuenta de Apple que pagó, no a tu cuenta de ML Browser. Si te suscribiste con otra cuenta de Apple, inicia sesión en la App Store con esa cuenta y vuelve a tocar Restaurar compras. Comprar aquí iniciaría una segunda suscripción."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "هیچ اشتراک قبلی برای این حساب Apple پیدا نشد."
+            "value" : "برای حساب Apple واردشده در این دستگاه اشتراکی یافت نشد.\n\nاشتراک‌ها به حساب Apple‌ای تعلق دارند که پرداخت کرده است، نه به حساب ML Browser شما. اگر با حساب Apple دیگری مشترک شده‌اید، با همان حساب وارد App Store شوید و دوباره بازیابی خریدها را بزنید. خرید در اینجا اشتراک دومی آغاز می‌کند."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Aucun abonnement antérieur n'a été trouvé pour ce compte Apple."
+            "value" : "Aucun abonnement n'a été trouvé pour le compte Apple connecté sur cet appareil.\n\nLes abonnements appartiennent au compte Apple qui a payé, et non à votre compte ML Browser. Si vous vous êtes abonné avec un autre compte Apple, connectez-vous à l'App Store avec celui-ci et touchez de nouveau Restaurer les achats. Acheter ici démarrerait un deuxième abonnement."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "לא נמצא מינוי קודם עבור חשבון Apple זה."
+            "value" : "לא נמצא מנוי עבור חשבון Apple המחובר במכשיר הזה.\n\nמנויים שייכים לחשבון Apple ששילם, ולא לחשבון ML Browser שלך. אם נרשמת עם חשבון Apple אחר, היכנס אליו ב-App Store והקש שוב על שחזור רכישות. רכישה כאן תתחיל מנוי שני."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "इस Apple खाते के लिए कोई पिछला सब्सक्रिप्शन नहीं मिला।"
+            "value" : "इस डिवाइस पर साइन इन किए गए Apple अकाउंट के लिए कोई सदस्यता नहीं मिली।\n\nसदस्यता उसी Apple अकाउंट की होती है जिसने भुगतान किया, आपके ML Browser अकाउंट की नहीं। अगर आपने किसी दूसरे Apple अकाउंट से सदस्यता ली है, तो उसी से App Store में साइन इन करें और फिर से खरीदारी बहाल करें दबाएँ। यहाँ खरीदने पर दूसरी सदस्यता शुरू हो जाएगी।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Ehhez az Apple-fiókhoz nem található korábbi előfizetés."
+            "value" : "Nem található előfizetés az ezen az eszközön bejelentkezett Apple-fiókhoz.\n\nAz előfizetés ahhoz az Apple-fiókhoz tartozik, amelyik fizetett, nem az Ön ML Browser fiókjához. Ha másik Apple-fiókkal fizetett elő, jelentkezzen be azzal az App Store áruházba, és koppintson újra a Vásárlások visszaállítása lehetőségre. Az itteni vásárlás egy második előfizetést indítana."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Nie znaleziono wcześniejszej subskrypcji dla tego konta Apple."
+            "value" : "Nie znaleziono subskrypcji dla konta Apple zalogowanego na tym urządzeniu.\n\nSubskrypcja należy do konta Apple, z którego dokonano płatności, a nie do Twojego konta ML Browser. Jeśli subskrypcję wykupiono na innym koncie Apple, zaloguj się na nie w App Store i ponownie dotknij Przywróć zakupy. Zakup tutaj rozpocząłby drugą subskrypcję."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Предыдущих подписок для этой учётной записи Apple не найдено."
+            "value" : "Для аккаунта Apple, выполнившего вход на этом устройстве, подписка не найдена.\n\nПодписка принадлежит тому аккаунту Apple, с которого была оплачена, а не вашему аккаунту ML Browser. Если вы оформили подписку с другого аккаунта Apple, войдите с ним в App Store и снова нажмите «Восстановить покупки». Покупка здесь начнёт вторую подписку."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Попередньої передплати для цього облікового запису Apple не знайдено."
+            "value" : "Для акаунта Apple, у який виконано вхід на цьому пристрої, підписку не знайдено.\n\nПідписка належить тому акаунту Apple, з якого її оплачено, а не вашому акаунту ML Browser. Якщо ви оформили підписку з іншого акаунта Apple, увійдіть у нього в App Store і знову торкніться «Відновити покупки». Купівля тут розпочне другу підписку."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "未找到此 Apple 账户以往的订阅。"
+            "value" : "未找到此设备上已登录的 Apple 账户的订阅。\n\n订阅属于付款的那个 Apple 账户，而不是你的 ML Browser 账户。如果你是用另一个 Apple 账户订阅的，请在 App Store 中登录该账户，然后再次点按“恢复购买”。在此购买将开启第二个订阅。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "找不到此 Apple 帳號先前的訂閱項目。"
+            "value" : "找不到此裝置上已登入的 Apple 帳號的訂閱。\n\n訂閱屬於付款的那個 Apple 帳號，而不是你的 ML Browser 帳號。如果你是用另一個 Apple 帳號訂閱的，請在 App Store 中登入該帳號，然後再次點一下「回復購買項目」。在此購買會開啟第二個訂閱。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "找不到此 Apple 帳戶以往的訂閱。"
+            "value" : "找不到此裝置上已登入的 Apple 帳戶的訂閱。\n\n訂閱屬於付款的那個 Apple 帳戶，而不是你的 ML Browser 帳戶。如果你是用另一個 Apple 帳戶訂閱的，請在 App Store 登入該帳戶，然後再次點一下「回復購買項目」。在此購買會開啟第二個訂閱。"
           }
         }
       }
