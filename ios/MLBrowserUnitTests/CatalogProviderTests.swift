@@ -1116,13 +1116,24 @@ private extension CatalogProviderTests {
 		return Set((try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? [])
 	}
 
-	/// A staging root under `/private/tmp`, which standardisation rewrites to `/tmp` — the same
-	/// existence-conditional rewrite a device performs on `/private/var/mobile/…` (AIA-0603).
-	/// The precondition is asserted rather than skipped: an environment where the rewrite does not
-	/// happen must fail loudly instead of passing a test that can no longer detect the defect.
+	/// A staging root whose path standardisation rewrites — the condition that broke staging on
+	/// device (AIA-0603).
+	///
+	/// On a device the app's own temporary directory already has that property, because it is
+	/// `/private/var/mobile/Containers/…`, so use it: it is both the authentic path and inside the
+	/// sandbox. A simulator's temporary directory sits under `/Users/…` and standardises to itself,
+	/// so there the root must come from `/private/tmp` — writable in the simulator, and denied by the
+	/// sandbox on a device, which is why it is the fallback and never the default. Hard-coding it
+	/// would have failed every real-device test run, including Xcode Cloud's.
+	///
+	/// The precondition is asserted rather than skipped: an environment where neither root rewrites
+	/// must fail loudly instead of passing a test that can no longer detect the defect.
 	func makePrivatePrefixedTemporaryDirectory() throws -> URL {
-		let root = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
-			.appendingPathComponent("aia0603-\(UUID().uuidString)", isDirectory: true)
+		let applicationTemporary = FileManager.default.temporaryDirectory
+		let base = applicationTemporary.path == applicationTemporary.standardizedFileURL.path
+			? URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+			: applicationTemporary
+		let root = base.appendingPathComponent("aia0603-\(UUID().uuidString)", isDirectory: true)
 		try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
 		addTeardownBlock { try? FileManager.default.removeItem(at: root) }
 		XCTAssertNotEqual(
