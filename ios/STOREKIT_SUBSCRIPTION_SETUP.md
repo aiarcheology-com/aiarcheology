@@ -48,8 +48,12 @@ are uploaded.
 > **Republish the privacy policy if it changed.** If
 > `ios/MLBrowser/iOS/Documents/privacypolicy.html` has changed since the last submission, paste it
 > into the hosted page at <https://aiarcheology.com/privacy-policy/> before submitting —
-> `git log --oneline <last-release-tag>.. -- ios/MLBrowser/iOS/Documents/privacypolicy.html`
-> answers it in one command.
+> ```
+> git log --oneline "$(git describe --tags --abbrev=0)".. -- ios/MLBrowser/iOS/Documents/privacypolicy.html
+> ```
+>
+> Runnable as written — it resolves the last release tag itself, so there is nothing to
+> substitute and nothing a shell will mistake for a redirect.
 >
 > The two copies are **both binding and read by different audiences**: App Review reads the hosted
 > URL from App Store Connect, users read the bundled one in-app. Nothing in the repo or CI compares
