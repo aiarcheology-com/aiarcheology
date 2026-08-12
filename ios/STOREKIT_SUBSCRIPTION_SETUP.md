@@ -41,7 +41,7 @@ are uploaded.
 >    to be true — see the localization row above.
 >
 > The **yellow wrench** on Subscribe no longer needs explaining away in a production capture: since
-> AIA-0455 the badge is gated on `AppEnvironment.showsUnderConstructionBadge`, which names the
+> AIA-0458 the badge is gated on `AppEnvironment.showsUnderConstructionBadge`, which names the
 > non-production channels positively rather than inferring them, so an unidentifiable channel is
 > treated as production. It still appears in Simulator, Debug and TestFlight captures.
 

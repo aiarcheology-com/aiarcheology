@@ -882,7 +882,7 @@ struct PaywallView: View {
 	// swiftlint:disable:next force_unwrapping
 	private static let termsOfUseURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
 
-	/// The colour this screen's secondary and legal controls are drawn in (AIA-0455).
+	/// The colour this screen's secondary and legal controls are drawn in (AIA-0458).
 	///
 	/// The app's `AccentColor` is a deliberate neutral grey — `0.700` in light appearance — and
 	/// SwiftUI resolves `.tint`, `Link` and `Button` labels to it. On white that is **≈2.1:1**,

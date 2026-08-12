@@ -171,7 +171,8 @@ enum AppEnvironment {
 		//
 		// This used to answer `.unknown`, and every consumer of `isAppStoreDistribution` tests it
 		// **positively** (`== .appStore`), so `.unknown` sent all of them down their
-		// *non-production* branch in a real App Store install (AIA-0455). That is the wrong
+		// *non-production* branch in a real App Store install (no ticket of its own; PR #612).
+		// That is the wrong
 		// direction for every one of them, and for two it is serious: `ClerkAuthProvider` would
 		// hand a production user the **development** Clerk key and permit instance switching, and
 		// `SignInSheet` would show the dev/prod picker to real customers. `SettingsView`'s debug
@@ -194,7 +195,7 @@ enum AppEnvironment {
     /// misread as `.appStore` (it never special-cases the simulator).
     ///
     /// **Currently has no callers.** Its only one was the under-construction badge, which moved to
-    /// ``showsUnderConstructionBadge`` in AIA-0455 — see there for why the two must not be the same
+    /// ``showsUnderConstructionBadge`` in AIA-0458 — see there for why the two must not be the same
     /// property. Kept because the question it answers is a real one and the answer is subtle: a
     /// future caller asking "is this purchase for real?" should use this rather than
     /// `!isAppStoreDistribution`, and must get "assume not" when the channel is unidentifiable.
@@ -207,7 +208,7 @@ enum AppEnvironment {
     /// Whether this build may wear the "under construction / safe to tap" decoration
     /// (``UnderConstructionBadgeModifier``).
     ///
-    /// Deliberately **not** ``purchasesUseSandbox``, which the badge used to read (AIA-0455). That
+    /// Deliberately **not** ``purchasesUseSandbox``, which the badge used to read (AIA-0458). That
     /// property answers "is this purchase real money?", and it decides by *elimination*:
     /// `distributionChannel != .appStore`. `distributionChannel` recognises the App Store only by
     /// finding a receipt file on disk, and Apple documents that the app receipt can be absent until

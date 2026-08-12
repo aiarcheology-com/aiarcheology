@@ -16,7 +16,7 @@ import SwiftUI
 ///
 /// Gated by `isActive`, which defaults to `AppEnvironment.showsUnderConstructionBadge` — on in
 /// development, UI tests, TestFlight/sandbox and the simulator, and off in production *and*
-/// wherever the channel cannot be identified (AIA-0455: it fails closed, because the cost of a
+/// wherever the channel cannot be identified (AIA-0458: it fails closed, because the cost of a
 /// false positive is a wrench on a paying customer's Subscribe button). The decoration is purely
 /// cosmetic: it never intercepts taps and is hidden from accessibility, so the underlying control
 /// behaves identically with or without it.

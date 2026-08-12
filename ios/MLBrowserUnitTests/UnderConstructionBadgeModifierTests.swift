@@ -27,7 +27,7 @@ final class UnderConstructionBadgeModifierTests: XCTestCase {
 		XCTAssertTrue(AppEnvironment.showsUnderConstructionBadge)
 	}
 
-	/// **The bug this ticket fixes** (AIA-0455): an unidentifiable channel must NOT be decorated.
+	/// **The bug this ticket fixes** (AIA-0458): an unidentifiable channel must NOT be decorated.
 	///
 	/// `distributionChannel` recognises the App Store only by finding a receipt file on disk, and
 	/// Apple documents that the app receipt can be absent until refreshed — after a restore from

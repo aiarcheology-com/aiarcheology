@@ -79,7 +79,7 @@ final class AppEnvironmentTests: XCTestCase {
         XCTAssertFalse(AppEnvironment.isAppStoreDistribution)
     }
 
-    /// **The unidentifiable-channel direction** (AIA-0455). A device Release build with neither an
+    /// **The unidentifiable-channel direction** (PR #612). A device Release build with neither an
     /// embedded provisioning profile nor a readable receipt can only be a store binary whose
     /// receipt has not landed — Apple documents the receipt can be absent until refreshed.
     ///
