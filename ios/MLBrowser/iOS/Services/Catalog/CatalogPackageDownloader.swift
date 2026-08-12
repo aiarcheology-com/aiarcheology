@@ -515,10 +515,24 @@ private extension CatalogPackageDownloader {
 			throw CatalogError.invalidFilePath
 		}
 
-		let destination = components.reduce(stagingRoot) { partialResult, component in
+		// `standardizedFileURL` strips a leading `/private` only when the stripped path exists, so it
+		// is not a pure function of the path it is given. Standardising the staging root (which the
+		// caller has already created) and the destination (which does not exist yet) separately
+		// therefore produced two different prefixes on device, where the temporary directory is
+		// `/private/var/mobile/…`: the root became `/var/mobile/…` while the destination kept its
+		// `/private`, and containment rejected every download (AIA-0603). Standardise once and derive
+		// the destination from that value so the two can never disagree.
+		let root = stagingRoot.standardizedFileURL
+		let destination = components.reduce(root) { partialResult, component in
 			partialResult.appendingPathComponent(String(component))
-		}.standardizedFileURL
-		guard destination.path.hasPrefix(stagingRoot.standardizedFileURL.path + "/") else {
+		}
+		// Defence in depth: the component validation above is what rejects `..`, and every component
+		// here was derived from `root`, so this cannot currently fail. It stays as a guard against
+		// future edits to that validation. Comparing path components rather than a string prefix
+		// keeps it from being satisfied by a sibling directory should the derivation ever change.
+		let rootComponents = root.pathComponents
+		guard destination.pathComponents.count > rootComponents.count,
+			  destination.pathComponents.starts(with: rootComponents) else {
 			throw CatalogError.invalidFilePath
 		}
 		return destination

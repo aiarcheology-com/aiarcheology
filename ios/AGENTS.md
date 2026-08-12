@@ -357,6 +357,14 @@ Two habits close it:
 - **Expect the count to move when you add tests.** If you added three and the total is unchanged,
   you are looking at stale products — that is the cheapest tell there is.
 
+A second mechanism produces the identical false green: **an `-only-testing:` filter that matches
+nothing runs zero tests, exits 0, and prints `** TEST SUCCEEDED **`.** Observed three times in a row
+while diagnosing AIA-0603 — first because a new file under `MLBrowserUnitTests/` was never compiled
+(that target is a plain group; only `MLBrowserArchitectureTests` and `Testability` are
+`PBXFileSystemSynchronizedRootGroup`s, so a new file there must be added to the target explicitly),
+then because the test method sat in a `private extension`, where XCTest cannot discover it. Same
+tell, same fix: confirm the test actually ran before believing the result.
+
 The same applies to the *app* binary you hand a human to test: verify what is installed rather than
 trusting that the build you ran produced it. See §13 on `WhatToTest` — a tester reporting "the new
 screen is missing" is usually a stale install, not a bug.
@@ -457,6 +465,22 @@ has in fact shipped will treat a released schema as editable.
   - Instead: start simple; introduce abstraction when a second implementation or test seam is actually needed.
 - **Duplicated logic** (copy-pasting code, multiple sources of truth):
   - Instead: extract shared logic into a single implementation; prefer a single source of truth for data and behavior. 
+- **Normalising two paths separately and then comparing them** (`a.standardizedFileURL` on one side
+  of a check and `b.standardizedFileURL` on the other):
+  - Why it bites *here*: `standardizedFileURL` and `resolvingSymlinksInPath()` are
+    **existence-conditional** — a leading `/private` is stripped only when the stripped path exists —
+    so they are not pure functions of the path they are given. Applying the *same* function to two
+    URLs therefore does not produce comparable results, which is why "both sides are standardised"
+    reads as safe and is not. On device the app container is `/private/var/mobile/…`: in AIA-0603 a
+    staging directory that already existed standardised to `/var/mobile/…` while the file about to be
+    written into it did not exist and kept its `/private` prefix, so a containment guard rejected
+    every catalog package download. Simulator and iOS-on-Mac containers live under `/Users/…`, where
+    the transform is a no-op — no local test, on any locale or device family, could observe it.
+  - Instead: normalise **once** and derive every other URL from that value, so the two cannot
+    disagree. Compare with a `pathComponents` prefix rather than `path.hasPrefix`, which also matches
+    a sibling (`…/Documents` satisfies a `…/Documents` prefix test against `…/DocumentsBackup`).
+  - The same reasoning applies to any device-vs-simulator path assumption: `/private`, case
+    sensitivity, and container layout all differ, and the simulator is the more permissive of the two.
 - **Prose that outlives what it describes** (a comment, doc, or store listing still explaining a
   thing that has moved, been renamed, or been deleted):
   - Why it bites *here*: the comments in this codebase assert invariants and justify decisions
@@ -475,6 +499,7 @@ has in fact shipped will treat a released schema as editable.
 
 ### Changelog
 
+- **2026-08-12**: §15 gained the **separately-normalised paths** anti-pattern and §13's false-green block gained the `-only-testing:`-matches-nothing mechanism (both from AIA-0603: `standardizedFileURL` is existence-conditional, so a device-only `/private` prefix broke every catalog package download while remaining invisible to the simulator).
 - **2026-08-11**: §13 gained an **Issues** subsection (every issue joins the AI Archeology org project #1 and starts at `Todo`; `Closes #NNN` never fires on a `develop` merge, so closing and moving the board is manual) and a **DerivedData cleanup** rule (clear `.deriveddata*` when a ticket closes; a stale cache surfaces a dependency change as a bogus `CAsyncHTTPClient` module-resolution error, observed on AIA-0591).
 - **2026-07-15**: §3 Feature flags rewritten for AIA-0350 — flags are now remote (ConfigCat) via `FeatureFlagKey`/`FeatureFlagSnapshot`, not compile-time constants. Documents the fail-open default, the create-the-flag-first rule (the dashboard auto-generates keys), the per-flag live vs launch-only decision, and the never-block-launch rule. Full detail moved to `../FEATUREFLAGS.md`; product analytics (not yet implemented) is specified in `../ANALYTICS.md`.
 - **2026-07-14**: §7 synced with the actual rules (AIA-0429): correct test-target path (`MLBrowserArchitectureTests/`), services rule stated as "not `@MainActor`", added singleton/privacy/baseline rules and the fail-closed policy.

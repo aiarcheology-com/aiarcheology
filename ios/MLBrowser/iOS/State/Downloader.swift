@@ -915,11 +915,21 @@ final public class Downloader: NSObject, ObservableObject {
 		}
 	}
 
+	/// Bucketed by what the user can do about it, not one message per case: a decoding failure and an
+	/// unusable response are the same "retry or pick another model" to everyone but us, and the raw
+	/// distinction belongs in the log (see `CatalogError.errorDescription`) rather than in 17 locales.
 	private func catalogDownloadErrorMessage(for error: Error) -> String {
-		if let error = error as? CatalogError, error == .timedOut {
+		guard let error = error as? CatalogError else { return L10n.Catalog.Download.error }
+		switch error {
+		case .timedOut:
 			return L10n.Catalog.Download.timeout
+		case .tooLarge, .tooManyFiles:
+			return L10n.Catalog.Download.tooLarge
+		case .noInstallableArtifact:
+			return L10n.Catalog.Error.unsupportedModel
+		case .network, .invalidResponse, .decoding, .invalidFilePath:
+			return L10n.Catalog.Download.error
 		}
-		return L10n.Catalog.Download.error
 	}
 
 	private func packageStagingDirectory(for packageURL: URL, manifest: PackageDownloadManifest?) -> URL? {
