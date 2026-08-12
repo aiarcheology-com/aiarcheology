@@ -170,8 +170,14 @@ enum AppEnvironment {
     /// configuration instead of charging real money — i.e. everywhere except a genuine App Store
     /// production install. Simulator and Debug builds are forced `true` because a local
     /// StoreKit-test receipt is named `receipt`, which `distributionChannel` would otherwise
-    /// misread as `.appStore` (it never special-cases the simulator). Use this — not
-    /// `!isAppStoreDistribution` — to decide whether a purchase is "for real".
+    /// misread as `.appStore` (it never special-cases the simulator).
+    ///
+    /// **Currently has no callers.** Its only one was the under-construction badge, which moved to
+    /// ``showsUnderConstructionBadge`` in AIA-0455 — see there for why the two must not be the same
+    /// property. Kept because the question it answers is a real one and the answer is subtle: a
+    /// future caller asking "is this purchase for real?" should use this rather than
+    /// `!isAppStoreDistribution`, and must get "assume not" when the channel is unidentifiable.
+    /// That is the opposite of what the badge needs, which is exactly why they are separate.
     static var purchasesUseSandbox: Bool {
         if isSimulator || isDebugConfiguration { return true }
         return distributionChannel != .appStore

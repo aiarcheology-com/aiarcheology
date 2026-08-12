@@ -121,6 +121,21 @@ final class SubscriptionGateUITests: UITestCase {
 			"Delete-account confirmation was not presented"
 		)
 		let dialog = sheet.exists ? sheet : alert
+
+		// The billing warning ships with a remedy; this asserts the remedy is on screen (AIA-0528).
+		// A dialog action that silently fails to render would leave the warning pointing at
+		// nothing, and nothing else in the suite would notice.
+		//
+		// Asserting presence, not tapping: the tap leaves the app for the App Store and would
+		// strand the test. Note what this therefore does *not* cover — that the action actually
+		// opens the URL — which is why the implementation uses the documented `Button` construct
+		// rather than a `Link` whose tap routing in an action sheet is unspecified.
+		let manage = dialog.buttons.matching(identifier: AID.paywallDeleteAccountManage).firstMatch
+		XCTAssertTrue(
+			manage.waitForExistence(timeout: 5),
+			"Delete-account confirmation is missing its Manage Subscription action"
+		)
+
 		// `.firstMatch`, not a subscript: under UI testing `.testability` mirrors the identifier into
 		// the accessibility label too, so a plain lookup matches the same control twice and the tap
 		// fails as ambiguous rather than as missing.

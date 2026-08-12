@@ -116,6 +116,10 @@ extension TestabilityIdentification {
 		case settingsUpgrade
 		case paywallSubscribe
 		case paywallRestore
+		/// Manage Subscription offered from the delete-account confirmation (AIA-0528), so the
+		/// warning that billing continues comes with a way to act on it. A `Button`, not a `Link`:
+		/// a confirmation dialog omits any action whose label is not `Text`.
+		case paywallDeleteAccountManage
 		case paywallSignIn
 		case paywallSignOut
 		/// Delete Account on the root paywall — the other half of the Apple 5.1.1(v) escape, so a
@@ -279,9 +283,6 @@ extension TestabilityIdentification {
 		case appDescriptionTwitter
 		// Paywall / subscriptions (AIA-0343)
 		case paywallManage
-		/// Manage Subscription offered from the delete-account confirmation (AIA-0528), so the
-		/// warning that billing continues comes with a way to act on it.
-		case paywallDeleteAccountManage
 	}
 	
 	enum NavigationLink: String, TestabilityIdentification {

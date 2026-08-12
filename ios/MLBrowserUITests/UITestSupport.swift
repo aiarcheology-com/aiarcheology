@@ -163,6 +163,7 @@ enum AID {
 	static let paywallSignOut = "_AIA:Button.PaywallSignOut"
 	static let paywallDeleteAccount = "_AIA:Button.PaywallDeleteAccount"
 	static let paywallDeleteAccountConfirm = "_AIA:Button.PaywallDeleteAccountConfirm"
+	static let paywallDeleteAccountManage = "_AIA:Button.PaywallDeleteAccountManage"
 
 	// Free-access window (AIA-0556). Since AIA-0567 split the screens, the only informational
 	// presentation is the Welcome screen below — the paywall is the hard wall and the Settings sheet.

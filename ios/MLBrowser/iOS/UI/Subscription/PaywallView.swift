@@ -170,6 +170,10 @@ struct PaywallView: View {
 	/// Real vs. mock auth from the composition root (AIA-0385); forwarded into the sign-in sheet.
 	@Environment(\.usesRealAuth) private var usesRealAuth
 
+	/// Opens Apple's subscription management page from inside the delete-account dialog, where a
+	/// `Link` cannot be used (see the dialog below).
+	@Environment(\.openURL) private var openURL
+
 	/// The purchase/restore round-trip currently in flight, or `nil` when idle. Knowing
 	/// *which* action runs (not just a Bool) lets the tapped button show its own spinner —
 	/// without it the disabled buttons read as a frozen app while StoreKit takes seconds
@@ -376,13 +380,29 @@ struct PaywallView: View {
 		// Manage Subscription is `.default`, never `.cancel`: a second cancel role would collide
 		// with the Cancel below. It dismisses without deleting, which is the same "two independent
 		// explicit choices" shape as the findings dialog above.
+		//
+		// A `Button` opening the URL, **not** a `Link`, and the reason is a contract rather than a
+		// bug. Apple documents that on iOS a confirmation dialog supports only controls whose label
+		// is `Text`, and that passing any other view "results in the content being omitted".
+		//
+		// Measured, so the comment does not overclaim: a `Link` here *does* currently render and is
+		// found by the UI test. But rendering is the easy half — a `Link` in an action sheet also
+		// has to route its tap through a bridged `UIAlertAction`, which the documentation does not
+		// promise either, and a tap that silently does nothing cannot be tested for without leaving
+		// the app. So this trades an undocumented behaviour that happens to work for the documented
+		// one, on the screen where the failure would ship a billing warning pointing at nothing.
+		//
+		// The UI test asserts the action is present; it does **not** discriminate `Link` from
+		// `Button` (both pass), and is not claimed to.
 		.confirmationDialog(
 			L10n.Auth.Account.Delete.title,
 			isPresented: $showDeleteConfirmation,
 			titleVisibility: .visible
 		) {
-			Link(L10n.Paywall.manage, destination: .appleManageSubscriptions)
-				.testability(Testability.Link.paywallDeleteAccountManage)
+			Button(L10n.Paywall.manage) {
+				openURL(.appleManageSubscriptions)
+			}
+			.testability(Testability.Button.paywallDeleteAccountManage)
 
 			Button(L10n.Auth.Account.Delete.action, role: .destructive) {
 				Task {
