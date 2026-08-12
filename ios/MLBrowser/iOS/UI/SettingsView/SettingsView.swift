@@ -362,18 +362,78 @@ struct SettingsForm: View {
 		}
 	}
 
+	/// The app's own section — and, since AIA-0455, where the **subscription** lives.
+	///
+	/// It used to sit in the Account section, directly under the signed-in email address, which
+	/// said as plainly as a layout can: *this account is subscribed*. That is not the model the app
+	/// implements. Entitlement is scoped to the **Apple Account** that paid; the ML Browser account
+	/// is identity, and the two need not belong to the same person — which is the whole of AIA-0525.
+	/// Putting a subscription row under someone's email invited exactly the expectation the payment
+	/// model then breaks.
+	///
+	/// Here it reads as what it is: something about the app you are paying for, next to what the app
+	/// is. The free-access/trial footnote follows it for the same reason — it describes the
+	/// subscription, never the account.
 	private var mlBrowserSection: some View {
-		Section(header: Text(L10n.Settings.Section.mlBrowser)) {
+		Section(
+			header: Text(L10n.Settings.Section.mlBrowser),
+			footer: subscriptionFootnote.map { Text($0) }
+		) {
 			NavigationLink(destination: AppDescriptionView()
 				.environment(\.dismissSheet, { dismiss() })) {
 				Text(L10n.Settings.about)
 			}
 			.testability(Testability.NavigationLink.settingsAbout)
+
+			subscriptionRow
+
 			replayOnboardingRow
 			NavigationLink(destination: resetOptionsView) {
 				Text(L10n.Settings.Reset.title)
 			}
 			.testability(Testability.NavigationLink.settingsReset)
+		}
+	}
+
+	/// Subscription status and its entry points (AIA-0343), rendered in the ML Browser section.
+	///
+	/// Three states, unchanged by the move: subscribed pushes the status submenu (status, renewal,
+	/// manage/cancel via Apple, restore); payments on with nothing owned opens the paywall — before
+	/// AIA-0556 this was inert, which only became a problem once the free-access window let an
+	/// unentitled user reach Settings at all; payments off shows the "Free Beta" row, where there is
+	/// no gate to pass and no product to buy, so tapping could only lead nowhere.
+	@ViewBuilder
+	private var subscriptionRow: some View {
+		if subscriptionState.isPaymentsSurfaceEnabled && subscriptionState.isSubscribed {
+			NavigationLink(value: AccountRoute.subscription) {
+				HStack {
+					Text(L10n.Auth.Account.subscription)
+					Spacer()
+					Text(subscriptionState.isInTrial ? L10n.Subscription.trial : L10n.Paywall.active)
+						.foregroundColor(.secondary)
+				}
+			}
+			.testability(Testability.NavigationLink.settingsSubscription)
+		} else if subscriptionState.isPaymentsSurfaceEnabled {
+			Button {
+				showPaywall = true
+			} label: {
+				HStack {
+					Text(L10n.Auth.Account.subscription)
+					Spacer()
+					// "Not subscribed" also covers a lapse/refund before the gate refreshes.
+					Text(L10n.Subscription.notSubscribed)
+						.foregroundColor(.secondary)
+				}
+			}
+			.testability(Testability.Button.settingsUpgrade)
+		} else {
+			HStack {
+				Text(L10n.Auth.Account.subscription)
+				Spacer()
+				Text(L10n.Auth.Account.freeBeta)
+					.foregroundColor(.secondary)
+			}
 		}
 	}
 
@@ -536,11 +596,11 @@ struct SettingsForm: View {
 		}
 	}
 
-	/// Account management (AIA-0340). "Manage Account" opens Clerk's prebuilt
-	/// `UserProfileView`, which handles change password, email, security/MFA,
-	/// devices, and the App Store-required account deletion (Apple 5.1.1(v)).
-	/// The one line under the account block that says what the user is currently paying, or not
-	/// (AIA-0556). `nil` renders no footer at all.
+	/// The one line under the **ML Browser** block that says what the user is currently paying, or
+	/// not (AIA-0556). `nil` renders no footer at all.
+	///
+	/// It followed the subscription row out of the Account section in AIA-0455 — it describes the
+	/// subscription, and under an email address it read as a statement about that account.
 	///
 	/// Two free periods run through this app and they are easy to confuse, which is the whole reason
 	/// this exists. The app-managed window is free *usage*: no subscription, no card, measured from
@@ -573,15 +633,11 @@ struct SettingsForm: View {
 		return L10n.Settings.Subscription.freeAccessFootnoteNoTrial(windowEnds)
 	}
 
+	/// Identity only, since AIA-0455 moved the subscription to the ML Browser section: sign in, who
+	/// is signed in, and Clerk's profile. Nothing here is about money except the warning that
+	/// deleting the account does not stop it.
 	private var accountSection: some View {
-		// The footer restates `.secondary` because this whole section is wrapped in
-		// `.foregroundColor(.primary)` below, which a footer would otherwise inherit — rendering it
-		// in body text while every other Settings footer stays grey. Set on the leaf so the
-		// section-wide modifier still governs the rows it was added for.
-		Section(
-			header: Text(L10n.Auth.Account.title),
-			footer: subscriptionFootnote.map { Text($0).foregroundStyle(.secondary) }
-		) {
+		Section(header: Text(L10n.Auth.Account.title)) {
 			// Signed out is a first-class state now (AIA-0536): the app is usable without an
 			// account, so Settings offers sign-in instead of assuming it already happened.
 			if case .anonymous = authState.effectiveContext {
@@ -614,46 +670,6 @@ struct SettingsForm: View {
 						.lineLimit(1)
 						.truncationMode(.middle)
 					Spacer()
-				}
-			}
-
-			// Subscription (AIA-0343). When subscribed, tapping pushes the status submenu
-			// (status + manage/cancel via Apple + restore). Otherwise a static row.
-			if subscriptionState.isPaymentsSurfaceEnabled && subscriptionState.isSubscribed {
-				NavigationLink(value: AccountRoute.subscription) {
-					HStack {
-						Text(L10n.Auth.Account.subscription)
-						Spacer()
-						Text(subscriptionState.isInTrial ? L10n.Subscription.trial : L10n.Paywall.active)
-							.foregroundColor(.secondary)
-					}
-				}
-				.testability(Testability.NavigationLink.settingsSubscription)
-			} else if subscriptionState.isPaymentsSurfaceEnabled {
-				// Payments on but nothing owned. Before AIA-0556 this was an inert `HStack` and
-				// there was no way to subscribe from Settings at all — which only became a problem
-				// once the free-access window let an unentitled user reach Settings in the first
-				// place. Same row, same detail text; it just does something now.
-				Button {
-					showPaywall = true
-				} label: {
-					HStack {
-						Text(L10n.Auth.Account.subscription)
-						Spacer()
-						// "Not subscribed" also covers a lapse/refund before the gate refreshes.
-						Text(L10n.Subscription.notSubscribed)
-							.foregroundColor(.secondary)
-					}
-				}
-				.testability(Testability.Button.settingsUpgrade)
-			} else {
-				// Payments off: the "Free Beta" row stays exactly as it was. There is no gate to be
-				// let through and no product to buy, so tapping it could only lead nowhere.
-				HStack {
-					Text(L10n.Auth.Account.subscription)
-					Spacer()
-					Text(L10n.Auth.Account.freeBeta)
-						.foregroundColor(.secondary)
 				}
 			}
 
