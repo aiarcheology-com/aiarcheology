@@ -607,10 +607,11 @@ final class CatalogProviderTests: XCTestCase {
 		XCTAssertEqual(try Data(contentsOf: artifact), Data("graph".utf8))
 	}
 
-	/// The staging path validation is what rejects traversal, and it runs per relative path before
-	/// any URL is built. Standardising the staging root once makes the containment guard that follows
-	/// it unreachable for any relative path, so these cases pin the validation itself rather than
-	/// claiming coverage of the guard behind it.
+	/// Traversal is rejected by the per-component validation in `destinationURL`, before that function
+	/// builds any URL — but note it runs during staging, once a file has already been fetched, not as
+	/// an upfront check on the manifest. Standardising the staging root once makes the containment
+	/// guard behind that validation unreachable for any relative path, so these cases pin the
+	/// validation and deliberately claim no coverage of the guard.
 	func testPackageDownloader_rejectsTraversalComponentsInAPackageTree() async throws {
 		CatalogURLProtocol.responseHandler = { _ in (200, Data("payload".utf8)) }
 		let rejectedPaths = [
