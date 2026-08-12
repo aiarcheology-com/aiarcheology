@@ -14,10 +14,12 @@ import SwiftUI
 /// the first user is the paywall **Subscribe** button, where in every non-production build the
 /// purchase runs against Apple's Sandbox (no real money), so the badge says "safe to tap".
 ///
-/// Gated by `isActive`, which defaults to `AppEnvironment.purchasesUseSandbox` — i.e. on in
-/// development, UI tests, TestFlight/sandbox and the simulator, and **off** only in a real App
-/// Store production install. The decoration is purely cosmetic: it never intercepts taps and is
-/// hidden from accessibility, so the underlying control behaves identically with or without it.
+/// Gated by `isActive`, which defaults to `AppEnvironment.showsUnderConstructionBadge` — on in
+/// development, UI tests, TestFlight/sandbox and the simulator, and off in production *and*
+/// wherever the channel cannot be identified (AIA-0455: it fails closed, because the cost of a
+/// false positive is a wrench on a paying customer's Subscribe button). The decoration is purely
+/// cosmetic: it never intercepts taps and is hidden from accessibility, so the underlying control
+/// behaves identically with or without it.
 ///
 /// Usage:
 /// ```swift
@@ -55,8 +57,8 @@ struct UnderConstructionBadgeModifier: ViewModifier {
 
 extension View {
 	/// Adds the test / under-construction decoration (see ``UnderConstructionBadgeModifier``).
-	/// Defaults to active in any build where in-app purchases aren't real money.
-	func underConstructionBadge(isActive: Bool = AppEnvironment.purchasesUseSandbox) -> some View {
+	/// Defaults to active only in a build positively identified as non-production.
+	func underConstructionBadge(isActive: Bool = AppEnvironment.showsUnderConstructionBadge) -> some View {
 		modifier(UnderConstructionBadgeModifier(isActive: isActive))
 	}
 }

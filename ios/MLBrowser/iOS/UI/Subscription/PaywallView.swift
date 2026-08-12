@@ -445,6 +445,9 @@ struct PaywallView: View {
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(.tint)
+		// See ``Self.interactiveTint``: the app's AccentColor is a neutral grey, and `.tint`
+		// resolves to it, which is what drew this control at ~2.1:1 on white.
+		.tint(Self.interactiveTint)
 		.disabled(inFlight != nil)
 		.testability(Testability.Button.paywallRestore)
 
@@ -452,6 +455,7 @@ struct PaywallView: View {
 		// subscriber can reach Apple's management screen from here.
 		Link(L10n.Paywall.manage, destination: .appleManageSubscriptions)
 			.font(.footnote)
+			.tint(Self.interactiveTint)
 			.paywallOutlinedAction()
 			.testability(Testability.Link.paywallManage)
 
@@ -633,11 +637,24 @@ struct PaywallView: View {
 					.fixedSize(horizontal: false, vertical: true)
 			}
 
+			// Underlined, and tinted away from the grey AccentColor — see ``Self.interactiveTint``.
+			// These two are the only controls on this screen whose sole "I am a link" signal was
+			// colour: Restore and Manage carry a capsule, these are bare `.caption2` text. Schedule
+			// 2 §3.8(b) requires both to be *functional links accessible within* the app, so the
+			// underline matters independently of the contrast fix — it survives any future palette
+			// change, and it answers a reviewer's "is this a link?" without relying on hue.
 			HStack(spacing: 16) {
-				Link(L10n.Paywall.terms, destination: Self.termsOfUseURL)
-				Button(L10n.About.privacyPolicy) { showPrivacy = true }
+				Link(destination: Self.termsOfUseURL) {
+					Text(L10n.Paywall.terms).underline()
+				}
+				Button {
+					showPrivacy = true
+				} label: {
+					Text(L10n.About.privacyPolicy).underline()
+				}
 			}
 			.font(.caption2)
+			.tint(Self.interactiveTint)
 		}
 		.padding(.top, 4)
 		.sheet(isPresented: $showPrivacy) {
@@ -815,6 +832,34 @@ struct PaywallView: View {
 	/// Apple's standard EULA, accepted as the Terms of Use when no custom one is provided.
 	// swiftlint:disable:next force_unwrapping
 	private static let termsOfUseURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+
+	/// The colour this screen's secondary and legal controls are drawn in (AIA-0455).
+	///
+	/// The app's `AccentColor` is a deliberate neutral grey — `0.700` in light appearance — and
+	/// SwiftUI resolves `.tint`, `Link` and `Button` labels to it. On white that is **≈2.1:1**,
+	/// against the 4.5:1 WCAG AA wants at these text sizes, so Restore, Manage, Terms of Use and
+	/// Privacy Policy were all drawn at roughly half the contrast they need. Dark appearance was
+	/// never affected (`0.800` on the sheet background is ≈10.6:1) — this is a light-mode defect.
+	///
+	/// It matters most on *this* screen: Schedule 2 §3.8(b) requires the Terms and Privacy links to
+	/// be accessible within the app, and Guideline 3.1.2 requires disclosure that is "clear and
+	/// conspicuous". It was found by reading the uploaded App Review screenshot as evidence rather
+	/// than as a picture.
+	///
+	/// `Color.blue` rather than a new colorset: it is a **system semantic** colour that adapts
+	/// across appearances on its own — which is why `PaywallOutlinedAction`'s "this app hardcodes
+	/// no colours" does not bar it, and why the app already uses it for interactive elements in
+	/// `DrawerContent`, `ConfigurationForm` and `FindingsListView`. Not green, which is this app's
+	/// primary-action colour: these controls must stay visually subordinate to Subscribe.
+	///
+	/// Honest limit: system blue on white is ≈4.0:1 — a ~2× improvement and unambiguously a
+	/// control, but still marginally under AA at `.caption2`. Closing that last gap needs a custom
+	/// darker blue, i.e. a brand decision. The underline on the two legal links is what makes their
+	/// link-ness independent of contrast in the meantime.
+	///
+	/// Scoped to this screen deliberately. The same grey tints links app-wide; auditing that is a
+	/// separate change, and this is the screen App Review reads.
+	private static let interactiveTint = Color.blue
 
 }
 

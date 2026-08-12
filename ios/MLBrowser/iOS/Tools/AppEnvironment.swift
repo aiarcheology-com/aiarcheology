@@ -176,6 +176,45 @@ enum AppEnvironment {
         if isSimulator || isDebugConfiguration { return true }
         return distributionChannel != .appStore
     }
+
+    /// Whether this build may wear the "under construction / safe to tap" decoration
+    /// (``UnderConstructionBadgeModifier``).
+    ///
+    /// Deliberately **not** ``purchasesUseSandbox``, which the badge used to read (AIA-0455). That
+    /// property answers "is this purchase real money?", and it decides by *elimination*:
+    /// `distributionChannel != .appStore`. `distributionChannel` recognises the App Store only by
+    /// finding a receipt file on disk, and Apple documents that the app receipt can be absent until
+    /// refreshed — after a restore from backup, for instance. A production install without its
+    /// receipt therefore falls through to `.unknown`, and `.unknown != .appStore` is `true`, which
+    /// put a yellow wrench on a paying customer's Subscribe button.
+    ///
+    /// This fails **closed** instead: it names the channels that are genuinely not production, and
+    /// a channel it cannot identify is treated as production. The trade is deliberate — a tester on
+    /// an unidentifiable install loses a reassurance; the alternative decorates someone's money.
+    ///
+    /// `purchasesUseSandbox` keeps its meaning untouched, because for a caller deciding whether a
+    /// purchase is real, "I don't know" must never resolve to "yes, real money".
+    static var showsUnderConstructionBadge: Bool {
+        if isSimulator || isDebugConfiguration { return true }
+        return decoratesControls(on: distributionChannel)
+    }
+
+    /// The channel half of ``showsUnderConstructionBadge``, as a pure function.
+    ///
+    /// Split out because the property is unreachable from a test: it short-circuits on
+    /// `isSimulator || isDebugConfiguration`, both compile-time `true` in every test process, so
+    /// no test can ever drive the switch below through the property. Testing the classification
+    /// therefore needs it addressable on its own — the same reason ``EntitlementTransaction``
+    /// exists for `StoreKit.Transaction`.
+    ///
+    /// Exhaustive on purpose, with no `default`: adding a channel must break the build here rather
+    /// than silently opting production into a decoration.
+    static func decoratesControls(on channel: DistributionChannel) -> Bool {
+        switch channel {
+        case .developmentLike, .testFlightLike: return true
+        case .appStore, .unknown: return false
+        }
+    }
     static var isDevelopmentLikeDistribution: Bool {
 		switch distributionChannel {
 		case .developmentLike: return true
