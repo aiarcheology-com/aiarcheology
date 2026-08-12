@@ -279,6 +279,9 @@ extension TestabilityIdentification {
 		case appDescriptionTwitter
 		// Paywall / subscriptions (AIA-0343)
 		case paywallManage
+		/// Manage Subscription offered from the delete-account confirmation (AIA-0528), so the
+		/// warning that billing continues comes with a way to act on it.
+		case paywallDeleteAccountManage
 	}
 	
 	enum NavigationLink: String, TestabilityIdentification {
@@ -301,6 +304,9 @@ extension TestabilityIdentification {
 	enum Label: String, TestabilityIdentification {
 		case drawerAccountOffline
 		case settingsAccountOffline
+		/// The note under Settings → Manage Account saying deletion does not stop billing
+		/// (AIA-0528). Shown only while subscribed.
+		case settingsDeleteBillingNote
 		case downloadDetailProgressWritten
 		case downloadDetailProgressExpected
 		// Side Menu Cell

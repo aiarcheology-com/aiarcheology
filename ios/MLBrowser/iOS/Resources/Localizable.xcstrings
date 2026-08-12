@@ -3264,109 +3264,110 @@
         }
       }
     },
-    "auth.account.delete.message" : {
+    "auth.account.delete.messageBilling" : {
+      "comment" : "Confirmation body for deleting the account. Must state that an Apple subscription keeps billing — hedged, because the app cannot know whether this reader has one.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "سيؤدي هذا إلى حذف حسابك نهائيًا، ولا يمكن التراجع عن ذلك. هل أنت متأكد؟"
+            "value" : "سيؤدي هذا إلى حذف حسابك نهائيًا، ولا يمكن التراجع عن ذلك. إذا كان لديك اشتراك، فلن يؤدي هذا إلى إلغائه — يمكنك إلغاؤه من App Store."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "এতে আপনার অ্যাকাউন্ট স্থায়ীভাবে মুছে যাবে এবং এটি আর ফেরানো যাবে না। আপনি কি নিশ্চিত?"
+            "value" : "এতে আপনার অ্যাকাউন্ট স্থায়ীভাবে মুছে যাবে এবং এটি আর ফেরানো যাবে না। আপনার সাবস্ক্রিপশন থাকলে এতে সেটি বাতিল হবে না — App Store থেকে বাতিল করুন।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tímto trvale smažete svůj účet. Tuto akci nelze vrátit zpět. Opravdu chcete pokračovat?"
+            "value" : "Tímto trvale smažete svůj účet. Tuto akci nelze vrátit zpět. Pokud máte předplatné, tímto se nezruší — zrušte ho v App Storu."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Dadurch wird Ihr Account dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden. Sind Sie sicher?"
+            "value" : "Dadurch wird Ihr Account dauerhaft gelöscht. Dies kann nicht rückgängig gemacht werden. Ein bestehendes Abo wird dadurch nicht gekündigt — kündigen Sie es im App Store."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This permanently deletes your account and cannot be undone. Are you sure?"
+            "value" : "This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Esto elimina tu cuenta de forma permanente y no se puede deshacer. ¿Seguro que quieres continuar?"
+            "value" : "Esto elimina tu cuenta de forma permanente y no se puede deshacer. Si tienes una suscripción, esto no la cancela: cancélala en la App Store."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "این کار حساب شما را برای همیشه حذف می‌کند و قابل بازگشت نیست. مطمئن هستید؟"
+            "value" : "این کار حساب شما را برای همیشه حذف می‌کند و قابل بازگشت نیست. اگر اشتراک دارید، با این کار لغو نمی‌شود — آن را در App Store لغو کنید."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Cette action supprime définitivement votre compte et ne peut pas être annulée. Voulez-vous vraiment continuer ?"
+            "value" : "Cette action supprime définitivement votre compte et ne peut pas être annulée. Si vous avez un abonnement, cela ne le résilie pas — résiliez-le dans l'App Store."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "פעולה זו מוחקת את החשבון שלך לצמיתות ואי אפשר לבטל אותה. האם ברצונך להמשיך?"
+            "value" : "פעולה זו מוחקת את החשבון שלך לצמיתות ואי אפשר לבטל אותה. אם יש לך מנוי, הפעולה אינה מבטלת אותו — יש לבטל אותו ב-App Store."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "इससे आपका अकाउंट हमेशा के लिए डिलीट हो जाएगा और इसे पहले जैसा नहीं किया जा सकता। क्या आप निश्चित हैं?"
+            "value" : "इससे आपका अकाउंट हमेशा के लिए डिलीट हो जाएगा और इसे पहले जैसा नहीं किया जा सकता। अगर आपकी सदस्यता है, तो इससे वह रद्द नहीं होगी — उसे App Store में रद्द करें।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Ez véglegesen törli a fiókját, és nem vonható vissza. Biztosan folytatja?"
+            "value" : "Ez véglegesen törli a fiókját, és nem vonható vissza. Ha van előfizetése, ez nem mondja le — mondja le az App Store-ban."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Spowoduje to trwałe usunięcie Twojego konta. Tej operacji nie można cofnąć. Czy na pewno chcesz kontynuować?"
+            "value" : "Spowoduje to trwałe usunięcie Twojego konta. Tej operacji nie można cofnąć. Jeśli masz subskrypcję, to jej nie anuluje — anuluj ją w App Store."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Аккаунт будет удалён безвозвратно, это действие нельзя отменить. Вы уверены?"
+            "value" : "Аккаунт будет удалён безвозвратно, это действие нельзя отменить. Если у вас есть подписка, она при этом не отменяется — отмените её в App Store."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Ваш акаунт буде видалено назавжди, і цю дію неможливо скасувати. Ви впевнені?"
+            "value" : "Ваш акаунт буде видалено назавжди, і цю дію неможливо скасувати. Якщо у вас є підписка, це її не скасує — скасуйте її в App Store."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "此操作将永久删除你的账户，且无法撤销。确定要继续吗？"
+            "value" : "此操作将永久删除你的账户，且无法撤销。如果你有订阅，此操作不会取消订阅 — 请在 App Store 中取消。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "這會永久刪除你的帳號，且無法復原。確定要繼續嗎？"
+            "value" : "這會永久刪除你的帳號，且無法復原。如果你有訂閱，這不會取消訂閱 — 請在 App Store 中取消。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "此操作會永久刪除你的帳戶，而且無法復原。確定要繼續嗎？"
+            "value" : "此操作會永久刪除你的帳戶，而且無法復原。如果你有訂閱，此操作不會取消訂閱 — 請在 App Store 取消。"
           }
         }
       }
@@ -3474,6 +3475,114 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "刪除帳戶？"
+          }
+        }
+      }
+    },
+    "auth.account.deleteBillingNote" : {
+      "comment" : "Caption under Settings > Account > Manage Account. Clerk owns the delete confirmation there, so this is the only place we can say that billing continues.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "حذف حسابك لا يلغي اشتراكك. يمكنك إلغاؤه من App Store."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "অ্যাকাউন্ট মুছে ফেললে আপনার সাবস্ক্রিপশন বাতিল হয় না। App Store থেকে বাতিল করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Smazání účtu nezruší vaše předplatné. Zrušte ho v App Storu."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Das Löschen Ihres Accounts kündigt Ihr Abo nicht. Kündigen Sie es im App Store."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleting your account does not cancel your subscription. Cancel it in the App Store."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Eliminar tu cuenta no cancela tu suscripción. Cancélala en la App Store."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "حذف حساب، اشتراک شما را لغو نمی‌کند. آن را در App Store لغو کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Supprimer votre compte ne résilie pas votre abonnement. Résiliez-le dans l'App Store."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מחיקת החשבון אינה מבטלת את המנוי שלך. יש לבטל אותו ב-App Store."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "अकाउंट डिलीट करने से आपकी सदस्यता रद्द नहीं होती। उसे App Store में रद्द करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A fiók törlése nem mondja le az előfizetését. Mondja le az App Store-ban."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Usunięcie konta nie anuluje subskrypcji. Anuluj ją w App Store."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Удаление аккаунта не отменяет подписку. Отмените её в App Store."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Видалення акаунта не скасовує підписку. Скасуйте її в App Store."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "删除账户不会取消订阅。请在 App Store 中取消。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "刪除帳號不會取消訂閱。請在 App Store 中取消。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "刪除帳戶不會取消訂閱。請在 App Store 取消。"
           }
         }
       }

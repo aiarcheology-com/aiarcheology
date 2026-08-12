@@ -670,6 +670,27 @@ struct SettingsForm: View {
 					Text(L10n.Auth.Account.manage)
 				}
 				.testability(Testability.NavigationLink.settingsManageAccount)
+
+				// Deleting the account does not stop Apple billing (AIA-0528). Clerk owns the
+				// delete confirmation inside `UserProfileView`, so its copy is not ours to amend —
+				// and this is nonetheless the only delete path a *subscribed* user can walk, since
+				// the paywall's own account controls are unreachable once entitled.
+				//
+				// Placed directly under the row it warns about rather than in the section footer:
+				// that footer already carries the free-access/trial line, sits two pushes from
+				// Clerk's delete button, and composing the two would mean a second variant for the
+				// in-trial case. One key, adjacent to the control, says it once.
+				//
+				// Rendered only when subscribed — telling a non-subscriber their subscription
+				// continues would be its own untruth — and `.secondary` is restated on the leaf
+				// because the section-wide `.foregroundColor(.primary)` below would otherwise make
+				// a note read as a statement.
+				if subscriptionState.isSubscribed {
+					Text(L10n.Auth.Account.deleteBillingNote)
+						.font(.footnote)
+						.foregroundStyle(.secondary)
+						.testability(Testability.Label.settingsDeleteBillingNote)
+				}
 			}
 		}
 		.foregroundColor(.primary)

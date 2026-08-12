@@ -350,11 +350,28 @@ struct PaywallView: View {
 		} message: {
 			Text(L10n.Settings.Reset.RemoveFindings.message)
 		}
+		// Deleting the Clerk account does **not** stop Apple billing (AIA-0528), and the copy used
+		// to say only that deletion was permanent — leaving someone who believed the relationship
+		// was over to keep being charged.
+		//
+		// The warning is unconditional and hedged ("if you have a subscription") rather than gated
+		// on `subscriptionState.isSubscribed`, which would render it never: `RootGateDisplay.resolve`
+		// returns `.content` as soon as a user is entitled, and Settings presents this screen only
+		// in the not-subscribed branch, so `isSubscribed` is false here in every reachable state.
+		// A conditional would also have hidden the warning from precisely the person AIA-0525
+		// describes — paid on another Apple Account, and therefore reading as unsubscribed here.
+		//
+		// Manage Subscription is `.default`, never `.cancel`: a second cancel role would collide
+		// with the Cancel below. It dismisses without deleting, which is the same "two independent
+		// explicit choices" shape as the findings dialog above.
 		.confirmationDialog(
 			L10n.Auth.Account.Delete.title,
 			isPresented: $showDeleteConfirmation,
 			titleVisibility: .visible
 		) {
+			Link(L10n.Paywall.manage, destination: .appleManageSubscriptions)
+				.testability(Testability.Link.paywallDeleteAccountManage)
+
 			Button(L10n.Auth.Account.Delete.action, role: .destructive) {
 				Task {
 					do {
@@ -369,7 +386,7 @@ struct PaywallView: View {
 
 			Button(L10n.Common.cancel, role: .cancel) {}
 		} message: {
-			Text(L10n.Auth.Account.Delete.message)
+			Text(L10n.Auth.Account.Delete.messageBilling)
 		}
 		// One alert for everything this screen has to say — purchase, restore, and a failed
 		// account deletion (AIA-0376). Chaining a second `.alert` onto the same view risks

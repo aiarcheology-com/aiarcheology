@@ -96,6 +96,8 @@ internal enum L10n {
     /// Sign Out
     internal static let signOut = L10n.tr("Localizable", "auth.signOut", fallback: "Sign Out")
     internal enum Account {
+      /// Deleting your account does not cancel your subscription. Cancel it in the App Store.
+      internal static let deleteBillingNote = L10n.tr("Localizable", "auth.account.deleteBillingNote", fallback: "Deleting your account does not cancel your subscription. Cancel it in the App Store.")
       /// Permanently delete your account and all associated data. This cannot be undone.
       internal static let deleteFooter = L10n.tr("Localizable", "auth.account.deleteFooter", fallback: "Permanently delete your account and all associated data. This cannot be undone.")
       /// Free Beta
@@ -109,8 +111,8 @@ internal enum L10n {
       internal enum Delete {
         /// Delete Account
         internal static let action = L10n.tr("Localizable", "auth.account.delete.action", fallback: "Delete Account")
-        /// This permanently deletes your account and cannot be undone. Are you sure?
-        internal static let message = L10n.tr("Localizable", "auth.account.delete.message", fallback: "This permanently deletes your account and cannot be undone. Are you sure?")
+        /// This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store.
+        internal static let messageBilling = L10n.tr("Localizable", "auth.account.delete.messageBilling", fallback: "This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store.")
         /// Delete Account?
         internal static let title = L10n.tr("Localizable", "auth.account.delete.title", fallback: "Delete Account?")
       }
