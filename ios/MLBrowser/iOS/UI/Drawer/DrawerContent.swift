@@ -166,11 +166,13 @@ struct DrawerContent: View {
                 .environmentObject(detectionState)
                 .environmentObject(subscriptionState)
 				.environmentObject(analytics)
-                // AIA-0461: SubscriptionStatusView (pushed inside this sheet) reads the refund
-                // feature flag; re-inject featureFlags or its @EnvironmentObject traps on Mac.
-                .environmentObject(appState.featureFlags)
-                // AIA-0115: AppDescriptionView (pushed inside this sheet) reads remote messages;
-                // same sheet-boundary trap as featureFlags above.
+                // AIA-0115: AppDescriptionView (pushed inside this sheet) reads remote messages,
+                // and environment objects do not reliably cross a `.sheet` boundary on Mac
+                // (Designed for iPad) — re-inject or its @EnvironmentObject traps. See AGENTS §3.
+                //
+                // `featureFlags` was injected here for the same reason until AIA-0455: its only
+                // reader in this subtree was SubscriptionStatusView's refund row. Nothing under
+                // Settings reads the flags now, so re-add this if that ever changes.
                 .environmentObject(appState.messageCenter)
                 .environment(drawer)
                 .environment(tour)

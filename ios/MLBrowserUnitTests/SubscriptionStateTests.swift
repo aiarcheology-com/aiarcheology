@@ -22,7 +22,7 @@ final class SubscriptionStateTests: XCTestCase {
 		let sut = SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true)
 		await sut.start()
 		XCTAssertFalse(sut.isSubscribed)
-		// No entitlement → no transaction id for the refund sheet.
+		// No entitlement → no transaction id.
 		XCTAssertNil(sut.currentTransactionID)
 	}
 
@@ -30,7 +30,8 @@ final class SubscriptionStateTests: XCTestCase {
 		let sut = SubscriptionState(provider: MockSubscriptionProvider(outcome: .subscribed), isPaymentsEnabled: true)
 		await sut.start()
 		XCTAssertTrue(sut.isSubscribed)
-		// Entitled → a transaction id is exposed so the refund sheet can target it.
+		// Entitled → a transaction id is published, which is what makes the resolver's
+		// deterministic pick observable (AIA-0455 kept the field after removing its UI reader).
 		XCTAssertNotNil(sut.currentTransactionID)
 	}
 
@@ -240,35 +241,8 @@ final class SubscriptionNoticeTests: XCTestCase {
 		XCTAssertEqual(notice.message, L10n.Paywall.RestoreFailed.message)
 	}
 
-	// MARK: - Refund (AIA-0448)
-
-	/// A submitted request is a receipt, not an outcome: the copy must confirm it reached
-	/// Apple without promising money back — the decision arrives later as a revocation.
-	func testRefund_Submitted_ShowsNonErrorNotice() throws {
-		let notice = try XCTUnwrap(SubscriptionNotice.forRefund(.success(.success)))
-		XCTAssertEqual(notice.title, L10n.Subscription.Refund.Submitted.title)
-		XCTAssertNotEqual(notice.title, L10n.Alert.Error.title, "a filed request is not an error")
-	}
-
-	/// The user closed Apple's form themselves — the same deliberate silence as a
-	/// cancelled purchase.
-	func testRefund_UserCancelled_SaysNothing() {
-		XCTAssertNil(SubscriptionNotice.forRefund(.success(.userCancelled)))
-	}
-
-	/// Apple is already reviewing an earlier request; telling the user so is an answer,
-	/// not a malfunction.
-	func testRefund_Duplicate_ShowsNonErrorNotice() throws {
-		let notice = try XCTUnwrap(SubscriptionNotice.forRefund(.failure(.duplicateRequest)))
-		XCTAssertEqual(notice.title, L10n.Subscription.Refund.Duplicate.title)
-		XCTAssertNotEqual(notice.title, L10n.Alert.Error.title, "an already-filed request is not an error")
-	}
-
-	func testRefund_Failed_ShowsErrorNotice() throws {
-		let notice = try XCTUnwrap(SubscriptionNotice.forRefund(.failure(.failed)))
-		XCTAssertEqual(notice.title, L10n.Alert.Error.title)
-		XCTAssertEqual(notice.message, L10n.Subscription.Refund.Failed.message)
-	}
+	// The refund-notice cases that lived here were removed with the in-app refund affordance
+	// itself (AIA-0455). `SubscriptionNotice` now answers for purchase and restore only.
 }
 
 /// A flag provider whose resolved values change after construction, standing in for what

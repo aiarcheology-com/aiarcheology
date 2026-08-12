@@ -167,7 +167,7 @@ final class LocalizationCatalogTests: XCTestCase {
     ]
 
     /// Per-locale count of authored keys carrying a localization across both source catalogs.
-    /// Every locale is complete as of AIA-0582 — 418 app strings plus four Info.plist values, with
+    /// Every locale is complete as of AIA-0455 — 414 app strings plus four Info.plist values, with
     /// no fallbacks to English anywhere.
     ///
     /// This is a **ratchet, not a target**: coverage may rise freely and a new English string may
@@ -177,11 +177,19 @@ final class LocalizationCatalogTests: XCTestCase {
     /// reduce these counts, so it still lands; only losing an existing translation trips this.
     ///
     /// Raise these numbers when coverage genuinely improves, which is what locks the gain in.
+    ///
+    /// **Take the number from this test's own failure message, never from arithmetic or from
+    /// `xcstrings_tool.py report`** (AIA-0455). The count below sums *two* catalogs and `report`
+    /// prints one, so a baseline derived from it is four too low per locale — and the test would
+    /// still pass, silently loosening the ratchet. The previous value proved the hazard is real:
+    /// it read 422 while actual coverage was 423, so a fully-translated key had been added without
+    /// the gain ever being locked in. 418 records both that gain and AIA-0455's net −5 (six refund
+    /// keys plus two replaced keys removed, three fully-translated keys added).
     private static let coverageBaseline = [
-        "ar": 422, "bn": 422, "cs": 422, "de": 422,
-        "es": 422, "fa": 422, "fr": 422, "he": 422,
-        "hi": 422, "hu": 422, "pl": 422, "ru": 422,
-        "uk": 422, "zh-HK": 422, "zh-Hans": 422, "zh-Hant": 422
+        "ar": 418, "bn": 418, "cs": 418, "de": 418,
+        "es": 418, "fa": 418, "fr": 418, "he": 418,
+        "hi": 418, "hu": 418, "pl": 418, "ru": 418,
+        "uk": 418, "zh-HK": 418, "zh-Hans": 418, "zh-Hant": 418
     ]
 
     /// `%@`, `%lld`, `%1$@`, `%.2f`, `%%`. The length modifier is captured because `%d` and `%lld`

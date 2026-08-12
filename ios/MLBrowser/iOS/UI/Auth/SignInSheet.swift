@@ -51,7 +51,14 @@ struct SignInSheet: View {
 					Text(L10n.Auth.SignIn.title)
 						.font(.title).bold()
 						.multilineTextAlignment(.center)
-					Text(L10n.Auth.SignIn.tagline)
+					// Says what signing in *is*, not what it unlocks (AIA-0455). This read
+					// "Sign in to detect objects on any website", which was false in both
+					// directions: an account does not enable detection, and detection is not
+					// gated — the app has been usable signed out since AIA-0536. A sign-in
+					// screen claiming to unlock the core feature is precisely what a Guideline
+					// 5.1.1(v) review looks for. It stays deliberately plain until the account
+					// carries something a user would want (AIA-0615, findings sync).
+					Text(L10n.Auth.SignIn.subtitle)
 						.font(.body)
 						.foregroundStyle(.secondary)
 						.multilineTextAlignment(.center)
@@ -74,7 +81,7 @@ struct SignInSheet: View {
 					.buttonStyle(.borderedProminent)
 					.tint(.green)
 					.controlSize(.large)
-					.accessibilityHint(Text(L10n.Auth.SignIn.tagline))
+					.accessibilityHint(Text(L10n.Auth.SignIn.subtitle))
 					.testability(Testability.Button.authSignIn)
 
 					if showEnvironmentSwitch {

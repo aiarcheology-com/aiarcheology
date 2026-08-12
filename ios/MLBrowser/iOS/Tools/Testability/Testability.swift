@@ -116,9 +116,10 @@ extension TestabilityIdentification {
 		case settingsUpgrade
 		case paywallSubscribe
 		case paywallRestore
-		case paywallRequestRefund
-		// AIA-0461: the Settings → Subscription "Request a Refund" row (feature-flag gated)
-		case settingsRequestRefund
+		/// Manage Subscription offered from the delete-account confirmation (AIA-0528), so the
+		/// warning that billing continues comes with a way to act on it. A `Button`, not a `Link`:
+		/// a confirmation dialog omits any action whose label is not `Text`.
+		case paywallDeleteAccountManage
 		case paywallSignIn
 		case paywallSignOut
 		/// Delete Account on the root paywall — the other half of the Apple 5.1.1(v) escape, so a
@@ -304,6 +305,9 @@ extension TestabilityIdentification {
 	enum Label: String, TestabilityIdentification {
 		case drawerAccountOffline
 		case settingsAccountOffline
+		/// The note under Settings → Manage Account saying deletion does not stop billing
+		/// (AIA-0528). Shown only while subscribed.
+		case settingsDeleteBillingNote
 		case downloadDetailProgressWritten
 		case downloadDetailProgressExpected
 		// Side Menu Cell

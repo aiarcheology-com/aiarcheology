@@ -96,6 +96,8 @@ internal enum L10n {
     /// Sign Out
     internal static let signOut = L10n.tr("Localizable", "auth.signOut", fallback: "Sign Out")
     internal enum Account {
+      /// Deleting your account does not cancel your subscription. Cancel it in the App Store.
+      internal static let deleteBillingNote = L10n.tr("Localizable", "auth.account.deleteBillingNote", fallback: "Deleting your account does not cancel your subscription. Cancel it in the App Store.")
       /// Permanently delete your account and all associated data. This cannot be undone.
       internal static let deleteFooter = L10n.tr("Localizable", "auth.account.deleteFooter", fallback: "Permanently delete your account and all associated data. This cannot be undone.")
       /// Free Beta
@@ -109,8 +111,8 @@ internal enum L10n {
       internal enum Delete {
         /// Delete Account
         internal static let action = L10n.tr("Localizable", "auth.account.delete.action", fallback: "Delete Account")
-        /// This permanently deletes your account and cannot be undone. Are you sure?
-        internal static let message = L10n.tr("Localizable", "auth.account.delete.message", fallback: "This permanently deletes your account and cannot be undone. Are you sure?")
+        /// This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store.
+        internal static let messageBilling = L10n.tr("Localizable", "auth.account.delete.messageBilling", fallback: "This permanently deletes your account and cannot be undone. If you have a subscription, this does not cancel it — cancel it in the App Store.")
         /// Delete Account?
         internal static let title = L10n.tr("Localizable", "auth.account.delete.title", fallback: "Delete Account?")
       }
@@ -138,8 +140,8 @@ internal enum L10n {
     internal enum SignIn {
       /// Sign In
       internal static let button = L10n.tr("Localizable", "auth.signIn.button", fallback: "Sign In")
-      /// Sign in to detect objects on any website.
-      internal static let tagline = L10n.tr("Localizable", "auth.signIn.tagline", fallback: "Sign in to detect objects on any website.")
+      /// Sign in to your ML Browser account.
+      internal static let subtitle = L10n.tr("Localizable", "auth.signIn.subtitle", fallback: "Sign in to your ML Browser account.")
       /// Welcome to ML Browser
       internal static let title = L10n.tr("Localizable", "auth.signIn.title", fallback: "Welcome to ML Browser")
     }
@@ -715,8 +717,6 @@ internal enum L10n {
     internal static let pitch = L10n.tr("Localizable", "paywall.pitch", fallback: "Subscribe to keep using ML Browser and receive all future updates and improvements.")
     /// Subscribe to use ML Browser and receive all future updates and improvements.
     internal static let pitchFirstMeeting = L10n.tr("Localizable", "paywall.pitchFirstMeeting", fallback: "Subscribe to use ML Browser and receive all future updates and improvements.")
-    /// Request a Refund
-    internal static let requestRefund = L10n.tr("Localizable", "paywall.requestRefund", fallback: "Request a Refund")
     /// Restore Purchases
     internal static let restore = L10n.tr("Localizable", "paywall.restore", fallback: "Restore Purchases")
     /// Try Free for %@
@@ -762,8 +762,10 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "paywall.pending.title", fallback: "Waiting for Approval")
     }
     internal enum RestoreEmpty {
-      /// No previous subscription was found for this Apple Account.
-      internal static let message = L10n.tr("Localizable", "paywall.restoreEmpty.message", fallback: "No previous subscription was found for this Apple Account.")
+      /// No subscription was found for the Apple Account signed in on this device.
+      /// 
+      /// Subscriptions belong to the Apple Account that paid, not to your ML Browser account. If you subscribed with a different Apple Account, sign in to the App Store with that one and tap Restore Purchases again. Buying here would start a second subscription.
+      internal static let messageAppleAccount = L10n.tr("Localizable", "paywall.restoreEmpty.messageAppleAccount", fallback: "No subscription was found for the Apple Account signed in on this device.\n\nSubscriptions belong to the Apple Account that paid, not to your ML Browser account. If you subscribed with a different Apple Account, sign in to the App Store with that one and tap Restore Purchases again. Buying here would start a second subscription.")
       /// Nothing to Restore
       internal static let title = L10n.tr("Localizable", "paywall.restoreEmpty.title", fallback: "Nothing to Restore")
     }
@@ -912,24 +914,6 @@ internal enum L10n {
       internal static let week = L10n.tr("Localizable", "subscription.period.week", fallback: "week")
       /// year
       internal static let year = L10n.tr("Localizable", "subscription.period.year", fallback: "year")
-    }
-    internal enum Refund {
-      internal enum Duplicate {
-        /// You have already requested a refund for this purchase. Apple is still reviewing it.
-        internal static let message = L10n.tr("Localizable", "subscription.refund.duplicate.message", fallback: "You have already requested a refund for this purchase. Apple is still reviewing it.")
-        /// Already Requested
-        internal static let title = L10n.tr("Localizable", "subscription.refund.duplicate.title", fallback: "Already Requested")
-      }
-      internal enum Failed {
-        /// The refund request could not be sent. You can also request a refund at reportaproblem.apple.com.
-        internal static let message = L10n.tr("Localizable", "subscription.refund.failed.message", fallback: "The refund request could not be sent. You can also request a refund at reportaproblem.apple.com.")
-      }
-      internal enum Submitted {
-        /// The App Store has your request. Apple decides the outcome and will let you know. Your subscription stays active until a refund is approved.
-        internal static let message = L10n.tr("Localizable", "subscription.refund.submitted.message", fallback: "The App Store has your request. Apple decides the outcome and will let you know. Your subscription stays active until a refund is approved.")
-        /// Refund Requested
-        internal static let title = L10n.tr("Localizable", "subscription.refund.submitted.title", fallback: "Refund Requested")
-      }
     }
   }
   internal enum Support {

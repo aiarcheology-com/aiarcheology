@@ -78,7 +78,40 @@ final class AppEnvironmentTests: XCTestCase {
         // development-only controls such as the Clerk environment picker.
         XCTAssertFalse(AppEnvironment.isAppStoreDistribution)
     }
-    
+
+    /// **The unidentifiable-channel direction** (PR #612). A device Release build with neither an
+    /// embedded provisioning profile nor a readable receipt can only be a store binary whose
+    /// receipt has not landed — Apple documents the receipt can be absent until refreshed.
+    ///
+    /// Every consumer of `isAppStoreDistribution` tests it *positively* (`== .appStore`), so
+    /// answering anything else there sends a real customer down the development branch: the dev
+    /// Clerk key (`ClerkAuthProvider.swift:40`), the dev/prod picker (`SignInSheet.swift:36`), the
+    /// debug section, Core Data recovery, and Sentry's full sampling rate.
+    ///
+    /// `.unknown` must therefore mean **only** "simulator" — which is what its own doc comment
+    /// claims. This asserts that claim rather than trusting it, and fails if the fallback is ever
+    /// restored to `.unknown`.
+    func test_unknownChannel_meansSimulatorOnly() {
+        // On the simulator the early return is the *only* producer of `.unknown`. Off it, no
+        // reachable path yields `.unknown` at all — the fallback now answers `.appStore`.
+        if AppEnvironment.isSimulator {
+            XCTAssertEqual(AppEnvironment.distributionChannel, .unknown)
+        } else {
+            XCTAssertNotEqual(
+                AppEnvironment.distributionChannel, .unknown,
+                "A device build must never report .unknown — it would take every production gate "
+                    + "down its development branch."
+            )
+        }
+    }
+
+    /// The badge and the production gates read the same unidentifiable state in *opposite*
+    /// directions, and both are safe. Pinned together so a later edit cannot quietly align them.
+    func test_unidentifiableChannel_isProductionForGates_andUndecoratedForTheBadge() {
+        XCTAssertFalse(AppEnvironment.decoratesControls(on: .unknown), "never decorate what we cannot identify")
+        XCTAssertFalse(AppEnvironment.decoratesControls(on: .appStore), "never decorate production")
+    }
+
     // MARK: - Environment Variable Detection Tests
     
     func test_XCTestConfigurationFilePath_isSetInTestEnvironment() {

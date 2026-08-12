@@ -126,11 +126,14 @@ enum AppEnvironment {
     }
 
     /// Best-effort runtime channel detection:
-    /// 1) Simulator -> simulator
+    /// 1) Simulator -> unknown
     /// 2) embedded.mobileprovision present -> developmentLike
     /// 3) receipt exists -> sandboxReceipt (testFlightLike) vs receipt (appStore)
     /// 4) DEBUG build -> developmentLike (fallback for edge cases)
-    /// 5) else unknown
+    /// 5) else -> appStore, because a device Release build with neither a profile nor a receipt
+    ///    can only be a store binary whose receipt has not landed. See the note at that return:
+    ///    every `isAppStoreDistribution` consumer tests positively, so guessing anything else
+    ///    puts a production user on the development branch.
     static var distributionChannel: DistributionChannel {
 		// A Simulator can contain a local StoreKit testing receipt named `receipt`.
 		// That file must never make a simulator look like an App Store install: among
@@ -160,7 +163,26 @@ enum AppEnvironment {
 			return .developmentLike
 		}
 
-        return .unknown
+		// Everything above has returned, so this is a **device**, **Release** build with no
+		// embedded provisioning profile and no readable receipt. There is only one way to get
+		// that: a store-distributed binary whose receipt is missing. Apple documents that the app
+		// receipt can be absent until refreshed with `SKReceiptRefreshRequest` — most often after
+		// a restore from backup.
+		//
+		// This used to answer `.unknown`, and every consumer of `isAppStoreDistribution` tests it
+		// **positively** (`== .appStore`), so `.unknown` sent all of them down their
+		// *non-production* branch in a real App Store install (no ticket of its own; PR #612).
+		// That is the wrong
+		// direction for every one of them, and for two it is serious: `ClerkAuthProvider` would
+		// hand a production user the **development** Clerk key and permit instance switching, and
+		// `SignInSheet` would show the dev/prod picker to real customers. `SettingsView`'s debug
+		// section, `DataController`'s recovery paths and Sentry's sampling rate follow the same
+		// gate.
+		//
+		// So it fails **closed to production** instead. Nothing else moves: simulator, Debug,
+		// dev/AdHoc/Enterprise and TestFlight all return above, which is what leaves `.unknown`
+		// meaning exactly what its own doc comment says — the simulator.
+        return .appStore
     }
 
     static var isAppStoreDistribution: Bool { distributionChannel == .appStore }
@@ -170,11 +192,56 @@ enum AppEnvironment {
     /// configuration instead of charging real money — i.e. everywhere except a genuine App Store
     /// production install. Simulator and Debug builds are forced `true` because a local
     /// StoreKit-test receipt is named `receipt`, which `distributionChannel` would otherwise
-    /// misread as `.appStore` (it never special-cases the simulator). Use this — not
-    /// `!isAppStoreDistribution` — to decide whether a purchase is "for real".
+    /// misread as `.appStore` (it never special-cases the simulator).
+    ///
+    /// **Currently has no callers.** Its only one was the under-construction badge, which moved to
+    /// ``showsUnderConstructionBadge`` in AIA-0458 — see there for why the two must not be the same
+    /// property. Kept because the question it answers is a real one and the answer is subtle: a
+    /// future caller asking "is this purchase for real?" should use this rather than
+    /// `!isAppStoreDistribution`, and must get "assume not" when the channel is unidentifiable.
+    /// That is the opposite of what the badge needs, which is exactly why they are separate.
     static var purchasesUseSandbox: Bool {
         if isSimulator || isDebugConfiguration { return true }
         return distributionChannel != .appStore
+    }
+
+    /// Whether this build may wear the "under construction / safe to tap" decoration
+    /// (``UnderConstructionBadgeModifier``).
+    ///
+    /// Deliberately **not** ``purchasesUseSandbox``, which the badge used to read (AIA-0458). That
+    /// property answers "is this purchase real money?", and it decides by *elimination*:
+    /// `distributionChannel != .appStore`. `distributionChannel` recognises the App Store only by
+    /// finding a receipt file on disk, and Apple documents that the app receipt can be absent until
+    /// refreshed — after a restore from backup, for instance. A production install without its
+    /// receipt therefore falls through to `.unknown`, and `.unknown != .appStore` is `true`, which
+    /// put a yellow wrench on a paying customer's Subscribe button.
+    ///
+    /// This fails **closed** instead: it names the channels that are genuinely not production, and
+    /// a channel it cannot identify is treated as production. The trade is deliberate — a tester on
+    /// an unidentifiable install loses a reassurance; the alternative decorates someone's money.
+    ///
+    /// `purchasesUseSandbox` keeps its meaning untouched, because for a caller deciding whether a
+    /// purchase is real, "I don't know" must never resolve to "yes, real money".
+    static var showsUnderConstructionBadge: Bool {
+        if isSimulator || isDebugConfiguration { return true }
+        return decoratesControls(on: distributionChannel)
+    }
+
+    /// The channel half of ``showsUnderConstructionBadge``, as a pure function.
+    ///
+    /// Split out because the property is unreachable from a test: it short-circuits on
+    /// `isSimulator || isDebugConfiguration`, both compile-time `true` in every test process, so
+    /// no test can ever drive the switch below through the property. Testing the classification
+    /// therefore needs it addressable on its own — the same reason ``EntitlementTransaction``
+    /// exists for `StoreKit.Transaction`.
+    ///
+    /// Exhaustive on purpose, with no `default`: adding a channel must break the build here rather
+    /// than silently opting production into a decoration.
+    static func decoratesControls(on channel: DistributionChannel) -> Bool {
+        switch channel {
+        case .developmentLike, .testFlightLike: return true
+        case .appStore, .unknown: return false
+        }
     }
     static var isDevelopmentLikeDistribution: Bool {
 		switch distributionChannel {

@@ -44,56 +44,30 @@ struct SubscriptionNotice: Equatable {
 	///
 	/// `.restored` needs no alert: the entitlement lands in published state and the gate
 	/// re-renders, which is the answer. `.nothingToRestore` is **not** an error — the store
-	/// answered correctly and the account owns nothing.
+	/// answered correctly and the Apple Account signed in here owns nothing.
+	///
+	/// That last word is why this copy is as long as it is (AIA-0525). Entitlement is scoped to
+	/// the **Apple Account**, identity to the app account, and the two need not be the same
+	/// person's — so this alert is what a user sees who has already paid on another Apple Account
+	/// and is about to be asked for money a second time. It is the last screen before that
+	/// happens, and therefore the only place a double charge can be prevented rather than
+	/// refunded. It says so explicitly.
+	///
+	/// It states the rule, never a tap route: "Settings → your name → Media & Purchases" is wrong
+	/// on iOS-on-Mac, Apple renames it, and no translator can verify it. Exact paths belong in the
+	/// support macro, where they change without a release.
 	static func forRestore(_ outcome: RestoreOutcome) -> SubscriptionNotice? {
 		switch outcome {
 		case .restored:
 			return nil
 		case .nothingToRestore:
-			return .init(title: L10n.Paywall.RestoreEmpty.title, message: L10n.Paywall.RestoreEmpty.message)
+			return .init(title: L10n.Paywall.RestoreEmpty.title,
+						 message: L10n.Paywall.RestoreEmpty.messageAppleAccount)
 		case .failed:
 			return .init(title: L10n.Alert.Error.title, message: L10n.Paywall.RestoreFailed.message)
 		}
 	}
 
-	/// What to say once Apple's refund sheet closes (AIA-0448).
-	///
-	/// Reports only that the request *reached Apple* — never that money is coming back. Apple
-	/// decides refunds on its own schedule, and the decision arrives later as a revocation
-	/// that drops the entitlement and raises the gate. Copy promising an outcome here would be
-	/// a promise we cannot keep.
-	///
-	/// `.userCancelled` stays silent for the same reason `.cancelled` does: the user closed
-	/// Apple's form themselves and needs no report of their own decision.
-	///
-	/// `StoreKit.Transaction` is spelled out because SwiftUI publishes its own `Transaction`
-	/// and both are in scope in this file.
-	static func forRefund(
-		_ result: Result<StoreKit.Transaction.RefundRequestStatus, StoreKit.Transaction.RefundRequestError>
-	) -> SubscriptionNotice? {
-		switch result {
-		case .success(let status):
-			switch status {
-			case .success:
-				return .init(title: L10n.Subscription.Refund.Submitted.title,
-							 message: L10n.Subscription.Refund.Submitted.message)
-			case .userCancelled:
-				return nil
-			@unknown default:
-				return nil
-			}
-		case .failure(let error):
-			switch error {
-			case .duplicateRequest:
-				return .init(title: L10n.Subscription.Refund.Duplicate.title,
-							 message: L10n.Subscription.Refund.Duplicate.message)
-			case .failed:
-				return .init(title: L10n.Alert.Error.title, message: L10n.Subscription.Refund.Failed.message)
-			@unknown default:
-				return .init(title: L10n.Alert.Error.title, message: L10n.Subscription.Refund.Failed.message)
-			}
-		}
-	}
 }
 
 /// A hairline outline for the paywall's two secondary actions — Restore Purchases and Manage
@@ -196,6 +170,10 @@ struct PaywallView: View {
 	/// Real vs. mock auth from the composition root (AIA-0385); forwarded into the sign-in sheet.
 	@Environment(\.usesRealAuth) private var usesRealAuth
 
+	/// Opens Apple's subscription management page from inside the delete-account dialog, where a
+	/// `Link` cannot be used (see the dialog below).
+	@Environment(\.openURL) private var openURL
+
 	/// The purchase/restore round-trip currently in flight, or `nil` when idle. Knowing
 	/// *which* action runs (not just a Bool) lets the tapped button show its own spinner —
 	/// without it the disabled buttons read as a frozen app while StoreKit takes seconds
@@ -209,18 +187,9 @@ struct PaywallView: View {
 	/// Presents the contextual sign-in sheet from the root paywall (AIA-0536).
 	@State private var showSignIn = false
 
-	/// Drives Apple's in-app refund request sheet for the active subscription.
-	@State private var showRefund = false
-
-	/// Identifies the current refund-sheet presentation so the polling watchdog can tell
-	/// "this presentation is still up" from "a new sheet was opened meanwhile" (AIA-0448)
-	/// — see SubscriptionStatusView.
-	@State private var refundGeneration = 0
-
-	/// True while any StoreKit flow owns this screen — a purchase/restore round-trip, or the
-	/// refund sheet on its way up. Consulted inside each action rather than via `.disabled`
-	/// on its siblings; see ``SubscriptionStatusView/isBusy`` for why (AIA-0448).
-	private var isBusy: Bool { inFlight != nil || showRefund }
+	/// True while a StoreKit round-trip owns this screen. Consulted inside each action rather than
+	/// via `.disabled` on its siblings; see ``SubscriptionStatusView/isBusy`` for why (AIA-0448).
+	private var isBusy: Bool { inFlight != nil }
 
 	/// Presents the in-app Privacy Policy (App Review requires it on the purchase screen).
 	@State private var showPrivacy = false
@@ -397,11 +366,44 @@ struct PaywallView: View {
 		} message: {
 			Text(L10n.Settings.Reset.RemoveFindings.message)
 		}
+		// Deleting the Clerk account does **not** stop Apple billing (AIA-0528), and the copy used
+		// to say only that deletion was permanent — leaving someone who believed the relationship
+		// was over to keep being charged.
+		//
+		// The warning is unconditional and hedged ("if you have a subscription") rather than gated
+		// on `subscriptionState.isSubscribed`, which would render it never: `RootGateDisplay.resolve`
+		// returns `.content` as soon as a user is entitled, and Settings presents this screen only
+		// in the not-subscribed branch, so `isSubscribed` is false here in every reachable state.
+		// A conditional would also have hidden the warning from precisely the person AIA-0525
+		// describes — paid on another Apple Account, and therefore reading as unsubscribed here.
+		//
+		// Manage Subscription is `.default`, never `.cancel`: a second cancel role would collide
+		// with the Cancel below. It dismisses without deleting, which is the same "two independent
+		// explicit choices" shape as the findings dialog above.
+		//
+		// A `Button` opening the URL, **not** a `Link`, and the reason is a contract rather than a
+		// bug. Apple documents that on iOS a confirmation dialog supports only controls whose label
+		// is `Text`, and that passing any other view "results in the content being omitted".
+		//
+		// Measured, so the comment does not overclaim: a `Link` here *does* currently render and is
+		// found by the UI test. But rendering is the easy half — a `Link` in an action sheet also
+		// has to route its tap through a bridged `UIAlertAction`, which the documentation does not
+		// promise either, and a tap that silently does nothing cannot be tested for without leaving
+		// the app. So this trades an undocumented behaviour that happens to work for the documented
+		// one, on the screen where the failure would ship a billing warning pointing at nothing.
+		//
+		// The UI test asserts the action is present; it does **not** discriminate `Link` from
+		// `Button` (both pass), and is not claimed to.
 		.confirmationDialog(
 			L10n.Auth.Account.Delete.title,
 			isPresented: $showDeleteConfirmation,
 			titleVisibility: .visible
 		) {
+			Button(L10n.Paywall.manage) {
+				openURL(.appleManageSubscriptions)
+			}
+			.testability(Testability.Button.paywallDeleteAccountManage)
+
 			Button(L10n.Auth.Account.Delete.action, role: .destructive) {
 				Task {
 					do {
@@ -416,7 +418,7 @@ struct PaywallView: View {
 
 			Button(L10n.Common.cancel, role: .cancel) {}
 		} message: {
-			Text(L10n.Auth.Account.Delete.message)
+			Text(L10n.Auth.Account.Delete.messageBilling)
 		}
 		// One alert for everything this screen has to say — purchase, restore, and a failed
 		// account deletion (AIA-0376). Chaining a second `.alert` onto the same view risks
@@ -444,35 +446,6 @@ struct PaywallView: View {
 					// Clerk instance, so losing it here traps rather than degrades.
 					.environment(\.usesRealAuth, usesRealAuth)
 			}
-		}
-	}
-
-	/// AIA-0448, Mac only — the same pull-based watchdog as ``SubscriptionStatusView``,
-	/// where the full story is documented: on iOS-on-Mac every push signal about the refund
-	/// sheet dies in the broken remote→host bridge, so a polling task we own detects the
-	/// auto-approved revocation in the store and releases the sheet flag.
-	private func startRefundWatchdogOnMac() {
-		// `.macDesignedForiPad`, not `.isMac`: the bug is specific to the iOS-on-Mac
-		// runtime. Catalyst hosts StoreKit UI differently and is untested here, so it
-		// must not silently inherit a workaround for a bug it may not have.
-		guard HostPlatform.current == .macDesignedForiPad else { return }
-		let generation = refundGeneration
-		Task { @MainActor in
-			for _ in 0..<150 {
-				try? await Task.sleep(for: .seconds(2))
-				guard showRefund, refundGeneration == generation else { return }
-				await subscriptionState.start()
-				if !subscriptionState.isSubscribed {
-					LoggingPolicy.warning(
-						"Refund revocation detected by polling — releasing the sheet flag"
-							+ " (iOS-on-Mac bridge loss).",
-						logger: .state
-					)
-					showRefund = false
-					return
-				}
-			}
-			LoggingPolicy.info("Refund watchdog expired without a revocation.", logger: .state)
 		}
 	}
 
@@ -521,54 +494,17 @@ struct PaywallView: View {
 		}
 		.buttonStyle(.plain)
 		.foregroundStyle(.tint)
+		// See ``Self.interactiveTint``: the app's AccentColor is a neutral grey, and `.tint`
+		// resolves to it, which is what drew this control at ~2.1:1 on white.
+		.tint(Self.interactiveTint)
 		.disabled(inFlight != nil)
 		.testability(Testability.Button.paywallRestore)
-
-		// Request a refund via Apple's native sheet — only for an active subscription
-		// (Apple owns the decision; this just opens the request flow).
-		if subscriptionState.isSubscribed, let transactionID = subscriptionState.currentTransactionID {
-			// While the sheet is up, feedback may only change ATTRIBUTES of this button
-			// (opacity), never its STRUCTURE — structural churn at presentation time was
-			// correlated with the sheet's dismissal never reaching the app on iOS-on-Mac;
-			// see SubscriptionStatusView (AIA-0448). Both the text and the spinner are
-			// always in the tree and only trade opacities.
-			Button(role: .destructive) {
-				guard isBusy.not else { return }
-				LoggingPolicy.info(
-					"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
-					logger: .state
-				)
-				refundGeneration += 1
-				showRefund = true
-				startRefundWatchdogOnMac()
-			} label: {
-				Text(L10n.Paywall.requestRefund)
-					.frame(maxWidth: .infinity)
-					.opacity(showRefund ? 0 : 1)
-					// Decorative, hidden from VoiceOver with a CONSTANT — a dynamic
-					// `.accessibilityHidden` would be another attribute mutating on the
-					// presenting view at exactly the wrong moment (AIA-0448).
-					.overlay {
-						ProgressView()
-							.opacity(showRefund ? 1 : 0)
-							.accessibilityHidden(true)
-					}
-			}
-			.buttonStyle(.bordered)
-			.controlSize(.large)
-			.testability(Testability.Button.paywallRequestRefund)
-			.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
-				LoggingPolicy.info("Refund sheet dismissed: \(result)", logger: .state)
-				notice = SubscriptionNotice.forRefund(result)
-				// Dismissal-time entitlement re-read — see SubscriptionStatusView (AIA-0448).
-				Task { await subscriptionState.start() }
-			}
-		}
 
 		// Manage existing subscription (cancel / change plan). Always available so a
 		// subscriber can reach Apple's management screen from here.
 		Link(L10n.Paywall.manage, destination: .appleManageSubscriptions)
 			.font(.footnote)
+			.tint(Self.interactiveTint)
 			.paywallOutlinedAction()
 			.testability(Testability.Link.paywallManage)
 
@@ -587,8 +523,9 @@ struct PaywallView: View {
 				showRemoveFindings = true
 			} label: {
 				// Both the label and the spinner are always in the tree and only trade opacities —
-				// the same no-structural-churn rule the refund button follows (AIA-0448), because
-				// the share sheet is presented from this screen.
+				// the no-structural-churn rule of AIA-0448, because the share sheet is presented
+				// from this screen and structural churn on a presenting view wedges its dismissal
+				// on iOS-on-Mac.
 				// Its own label rather than Settings' "Remove Findings": here the export is the
 				// point — the delete is what Apple and the GDPR ask for alongside it — and a button
 				// that only advertises deletion is one nobody looking for their data would press.
@@ -749,11 +686,24 @@ struct PaywallView: View {
 					.fixedSize(horizontal: false, vertical: true)
 			}
 
+			// Underlined, and tinted away from the grey AccentColor — see ``Self.interactiveTint``.
+			// These two are the only controls on this screen whose sole "I am a link" signal was
+			// colour: Restore and Manage carry a capsule, these are bare `.caption2` text. Schedule
+			// 2 §3.8(b) requires both to be *functional links accessible within* the app, so the
+			// underline matters independently of the contrast fix — it survives any future palette
+			// change, and it answers a reviewer's "is this a link?" without relying on hue.
 			HStack(spacing: 16) {
-				Link(L10n.Paywall.terms, destination: Self.termsOfUseURL)
-				Button(L10n.About.privacyPolicy) { showPrivacy = true }
+				Link(destination: Self.termsOfUseURL) {
+					Text(L10n.Paywall.terms).underline()
+				}
+				Button {
+					showPrivacy = true
+				} label: {
+					Text(L10n.About.privacyPolicy).underline()
+				}
 			}
 			.font(.caption2)
+			.tint(Self.interactiveTint)
 		}
 		.padding(.top, 4)
 		.sheet(isPresented: $showPrivacy) {
@@ -931,6 +881,34 @@ struct PaywallView: View {
 	/// Apple's standard EULA, accepted as the Terms of Use when no custom one is provided.
 	// swiftlint:disable:next force_unwrapping
 	private static let termsOfUseURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
+
+	/// The colour this screen's secondary and legal controls are drawn in (AIA-0458).
+	///
+	/// The app's `AccentColor` is a deliberate neutral grey — `0.700` in light appearance — and
+	/// SwiftUI resolves `.tint`, `Link` and `Button` labels to it. On white that is **≈2.1:1**,
+	/// against the 4.5:1 WCAG AA wants at these text sizes, so Restore, Manage, Terms of Use and
+	/// Privacy Policy were all drawn at roughly half the contrast they need. Dark appearance was
+	/// never affected (`0.800` on the sheet background is ≈10.6:1) — this is a light-mode defect.
+	///
+	/// It matters most on *this* screen: Schedule 2 §3.8(b) requires the Terms and Privacy links to
+	/// be accessible within the app, and Guideline 3.1.2 requires disclosure that is "clear and
+	/// conspicuous". It was found by reading the uploaded App Review screenshot as evidence rather
+	/// than as a picture.
+	///
+	/// `Color.blue` rather than a new colorset: it is a **system semantic** colour that adapts
+	/// across appearances on its own — which is why `PaywallOutlinedAction`'s "this app hardcodes
+	/// no colours" does not bar it, and why the app already uses it for interactive elements in
+	/// `DrawerContent`, `ConfigurationForm` and `FindingsListView`. Not green, which is this app's
+	/// primary-action colour: these controls must stay visually subordinate to Subscribe.
+	///
+	/// Honest limit: system blue on white is ≈4.0:1 — a ~2× improvement and unambiguously a
+	/// control, but still marginally under AA at `.caption2`. Closing that last gap needs a custom
+	/// darker blue, i.e. a brand decision. The underline on the two legal links is what makes their
+	/// link-ness independent of contrast in the meantime.
+	///
+	/// Scoped to this screen deliberately. The same grey tints links app-wide; auditing that is a
+	/// separate change, and this is the screen App Review reads.
+	private static let interactiveTint = Color.blue
 
 }
 

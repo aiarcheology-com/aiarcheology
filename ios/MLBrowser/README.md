@@ -233,21 +233,23 @@ then verify it appears as trusted in Keychain Access.
 To exercise the failure and Ask-to-Buy branches without StoreKit at all, set
 `MockSubscriptionProvider.purchaseOutcome` / `.restoreOutcome` — see `SubscriptionNoticeTests`.
 
-### Refunds (AIA-0448)
+### Refunds (AIA-0448 → affordance removed by AIA-0455)
 
-Per Apple's [Testing refund requests](https://developer.apple.com/documentation/storekit/testing-refund-requests):
-in **any testing environment** (local `.storekit` and Sandbox) submitting the refund sheet with
-any reason **auto-approves immediately** — the revocation lands in `Transaction.updates`
-(breadcrumb: `Transaction update: … revoked=true`), the entitlement drops, and the paywall
-rises. To test a **declined** refund (Sandbox): choose *Other*, type `DECLINE`, submit. In
-**production** Apple decides within ~48h and emails the customer; the revocation is the app's
-only signal, so the paywall correctly follows *approval*, never submission.
+**The app has no in-app refund entry point, and adding one back is a decision, not a fix.** Apple
+mandates none: Guideline 3.1.2's in-app disclosure list is a closed set that does not contain one,
+and `beginRefundRequest` is documented in purely optional capability language. Refunds are
+administered by Apple through reportaproblem.apple.com, the "Report a Problem" link in the receipt
+email, and Apple Support — all reachable without the app.
 
-⚠️ **iOS-on-Mac bridge loss (undocumented):** on "My Mac (Designed for iPad)" every push
-signal about the refund sheet dies in the remote→host bridge — `onDismiss` never fires, no
-scene notification arrives, and the orphaned presentation blocks all input. The workaround is
-**pull-based and Mac-only** (`startRefundWatchdogOnMac`): a task started at the tap polls the
-store every 2s; when the auto-approved revocation appears, the entitlement re-read raises the
-paywall and the root swap tears down the stuck presentation (log: `Refund revocation detected
-by polling…`; bounded at ~5 min). iPhone/iPad never start the watchdog — `onDismiss` works
-there. Refunds can also be issued from **Debug ▸ StoreKit ▸ Manage Transactions…**.
+It was removed because it could not be made to work on iOS-on-Mac: every push signal about the
+refund sheet died in the remote→host bridge (`onDismiss` never fired, no scene notification
+arrived) and the orphaned presentation blocked all input. A Mac-only polling watchdog papered over
+it and never closed it. Keeping the control on iPhone and iPad alone would have broken
+cross-platform parity, so it went everywhere.
+
+**A granted refund still reaches the app**, and that path is fully covered: it arrives as a
+revocation on the transaction via `Transaction.updates`, `EntitlementResolver` refuses a revoked
+candidate, the entitlement drops and the paywall rises. To exercise it, issue the refund from
+**Debug ▸ StoreKit ▸ Manage Transactions…**, or in Sandbox from the App Store account tools. The
+app correctly follows *approval*, never submission — in production Apple decides within ~48h and
+emails the customer.

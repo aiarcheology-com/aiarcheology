@@ -22,16 +22,28 @@ App: **ML Browser** (App Store Apple ID `6466878953`, team `8860a21d-…`).
 | Localization | English (U.S.) — display name "ML Browser" / "Full access to ML Browser." |
 | Group localization | English (U.S.) — "ML Browser" (added 2026-08-05; the 2026-06-23 rename was the *internal* reference name only) |
 | **Introductory offer** | **2 weeks free** (`FREE_TRIAL` / `TWO_WEEKS`) — all 175 territories, started 2026-08-04, no end date |
-| Review information | Paywall screenshot + review notes uploaded 2026-08-05 — **the screenshot is stale, see below** |
+| Review information | Paywall screenshot + review notes uploaded; screenshot re-captured after AIA-0559 and **shows "$3.99 / month"** (verified 2026-08-12) |
 
 The product reads as **"Missing Metadata"** in ASC until it is attached to an app version. That is
 expected and is the last remaining gate — the screenshot and review notes it used to be waiting on
 are uploaded.
 
-> **The uploaded review screenshot predates AIA-0559 and shows a bare "$3.99" with no period.**
-> It is the 3.1.2 evidence App Review reads for this subscription, so it must be re-captured from a
-> build containing AIA-0559 and re-uploaded *before* the subscription is attached to a version.
-> Submitting a fixed binary behind that screenshot re-presents the defect the fix removes.
+> **Two things to check about the review screenshot before each submission** (AIA-0458 — both found
+> by reading the uploaded asset as *evidence* rather than as a picture):
+>
+> 1. **No overlay artifacts.** The 2026-08-12 capture carried a browser file-picker widget
+>    ("No file chosen") sitting across the *"Cancel anytime in your Apple Account settings."* line —
+>    an artifact of the page it was captured from. An artifact covering a disclosure line is the one
+>    kind of blemish that costs a review cycle.
+> 2. **The description line must match ASC.** A screenshot captured against
+>    `ios/MLBrowser/Configuration.storekit` shows *that file's* product text, not App Store
+>    Connect's. The reviewer notes assert the local config "mirrors this product", so that claim has
+>    to be true — see the localization row above.
+>
+> The **yellow wrench** on Subscribe no longer needs explaining away in a production capture: since
+> AIA-0458 the badge is gated on `AppEnvironment.showsUnderConstructionBadge`, which names the
+> non-production channels positively rather than inferring them, so an unidentifiable channel is
+> treated as production. It still appears in Simulator, Debug and TestFlight captures.
 
 ## Two free periods, and they are not the same thing
 
@@ -110,11 +122,12 @@ $3.99/mo to keep using it.
   subscription name and its description, the **price with its recurring period** ("$3.99 / month",
   AIA-0559), the trial terms when *this* Apple Account is still eligible, the auto-renewable
   disclosure boilerplate, and Terms of Use + Privacy Policy links.
-- **The in-app refund sheet still ships**, in two different shapes, which is easy to misremember:
-  on the paywall it is **ungated** for any active subscriber with a current transaction; in
-  Settings it sits behind the remote `isRefundRequestEnabled` flag (AIA-0461). Apple does not
-  *require* an in-app refund entry point — removing it has been discussed and never done — so
-  treat "it was removed" as a proposal, not a fact, until the code says otherwise.
+- **There is no in-app refund entry point** (AIA-0455 — this *is* now a fact, not a proposal). Both
+  shapes are gone: the Settings row behind `isRefundRequestEnabled`, and the paywall button, which
+  had in any case been unreachable since it was gated on `isSubscribed` while `RootGateDisplay`
+  returns `.content` for anyone entitled. Apple mandates none, and the sheet could not be made to
+  work on iOS-on-Mac. A granted refund still drops the gate — it arrives as a revocation, which is
+  a different code path entirely. See `ios/MLBrowser/README.md` → Refunds.
 - Behind the `isPaymentsEnabled` flag (remote via ConfigCat since AIA-0350; compiled default ON,
   and ON in the submitted build). See FEATUREFLAGS.md.
 - Local testing without ASC: Xcode → Scheme → Run → Options → StoreKit Configuration →

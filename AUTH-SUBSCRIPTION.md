@@ -187,6 +187,40 @@ backend can prove ownership.
 "nothing to restore" and the same person is asked to buy again. This is not fixable on-device; it
 needs the App Store Server Notifications → backend → Clerk-entitlement path.
 
+**Decided 2026-08-12: accepted, by design, for as long as the app is iOS-only.** Entitlement stays
+Apple-Account-scoped, which is the platform's own model and the one iOS users already hold ("my
+purchases follow my Apple Account"). What was wrong was not the model but the app *implying a
+different one*: an account-shaped UI over Apple-Account-shaped entitlement. So AIA-0525 fixed the
+attribution rather than the architecture — `paywall.restoreEmpty.messageAppleAccount` now names
+both scopes and warns, in the last screen before a second purchase, that buying there starts a
+second subscription.
+
+**Revisit trigger: the Android or web launch.** At that point every paying iOS user who installs the
+second client is asked to pay again, systematically rather than as an edge case, and the backend has
+to exist anyway. The cheapest moment to build it is while the subscriber base is still small —
+`appAccountToken` is already written on every purchase, so purchases made now can be bound to
+accounts retroactively. Nothing about accepting this today forecloses that.
+
+**Support macro** (the canned reply; keep the tap paths *here*, not in shipped copy, so they can be
+corrected without a release):
+
+> Subscriptions on iPhone, iPad and Mac are bought from Apple, and they belong to the Apple Account
+> that paid for them — not to your ML Browser account. If you subscribed on another device, that
+> device is probably signed in to a different Apple Account.
+>
+> To check which one this device uses for purchases: **Settings → [your name] → Media & Purchases →
+> View Account**. Sign in there with the Apple Account that paid, then open ML Browser and tap
+> **Restore Purchases**.
+>
+> We cannot transfer a subscription between Apple Accounts — only Apple can see them. If you were
+> charged twice, request a refund at reportaproblem.apple.com; Apple decides refunds and usually
+> answers within about 48 hours.
+
+Note the workaround is conditional, not permanent: `currentEntitlements` reads whichever Apple
+Account is signed in *now*, so access follows that account and disappears again on switching back.
+For someone deliberately keeping two Apple Accounts (work and personal) this is not a one-time
+annoyance.
+
 **3. ~~Offline locks out paying subscribers.~~ Dissolved by AIA-0536.** Auth used to fail closed at
 launch *and every foreground*, blocking a paying user who foregrounded in airplane mode out of an app
 whose ML features are entirely on-device. Auth no longer gates, so an entitled offline user goes
@@ -195,8 +229,23 @@ declines to tag purchases or select a consent scope. Analytics fails closed; the
 See #532, which this closes.
 
 **4. Deleting an account does not cancel the subscription.** Clerk deletion is offered where Apple
-requires it, but the auto-renewing subscription continues billing and the confirmation copy does not
-say so.
+requires it, but the auto-renewing subscription continues billing. **The copy now says so**
+(AIA-0528), on both surfaces and in the two different ways they allow:
+
+- The paywall's own confirmation carries the warning in its message, plus a Manage Subscription
+  link. Unconditional and hedged ("if you have a subscription") rather than gated on `isSubscribed`,
+  which would have rendered it *never* — the root gate returns `.content` for anyone entitled and
+  Settings only presents the paywall when they are not, so `isSubscribed` is false there in every
+  reachable state.
+- Settings gets a note under Manage Account, because Clerk's `UserProfileView` owns the delete
+  confirmation there and its copy is not ours. That is also the only delete path a *subscribed* user
+  can reach, which makes it the one that matters. Shown only while subscribed.
+
+Consequence **1** above (a second Clerk account on one device inheriting the first's subscription)
+is **accepted as-is, decided 2026-08-12**: it needs a genuinely shared device, and the on-device fix
+— filtering `currentEntitlements` by the `appAccountToken` already written at purchase — sits in the
+code path that decides whether anyone gets into the app at all. Denying access to someone who paid
+is a worse failure than the leak. The same backend that closes #2 closes this properly.
 
 **Family Sharing:** `refreshEntitlement` does not filter `Transaction.ownershipType`, so if Family
 Sharing is enabled for the product in App Store Connect, a family member's entirely different Clerk

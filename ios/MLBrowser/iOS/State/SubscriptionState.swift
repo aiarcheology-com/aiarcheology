@@ -65,8 +65,15 @@ protocol SubscriptionProviding: AnyObject {
 	/// product fetch failed or App Store Connect isn't configured yet).
 	var products: [Product] { get }
 
-	/// The StoreKit transaction id backing the current entitlement, if any — used to
-	/// drive Apple's in-app refund request sheet. `nil` when not subscribed.
+	/// The StoreKit transaction id backing the current entitlement, if any. `nil` when not
+	/// subscribed.
+	///
+	/// It drove Apple's in-app refund sheet until AIA-0455 removed that affordance, and is kept
+	/// deliberately rather than deleted with it. It is what makes ``EntitlementResolver``'s
+	/// deterministic pick *observable* to a test — the same resolved transaction also supplies
+	/// ``currentExpirationDate`` and ``isInTrial``, so a pick that varied run to run would flicker
+	/// the renewal date — and it is the handle a future backend needs to reconcile a transaction
+	/// to an account.
 	var currentTransactionID: UInt64? { get }
 
 	/// When the current subscription period ends (renewal or expiry date), if known.
@@ -111,7 +118,8 @@ final class SubscriptionState: ObservableObject {
 	/// Products available on the paywall.
 	@Published private(set) var products: [Product] = []
 
-	/// Transaction id backing the current entitlement (for the refund request sheet).
+	/// Transaction id backing the current entitlement. No UI reads it since AIA-0455; see the
+	/// protocol requirement above for why it is kept.
 	@Published private(set) var currentTransactionID: UInt64?
 
 	/// End of the current subscription period (renewal/expiry date), if known.

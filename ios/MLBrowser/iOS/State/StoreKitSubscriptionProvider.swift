@@ -373,8 +373,8 @@ final class MockSubscriptionProvider: SubscriptionProviding {
 
 	var onEntitlementChange: (() -> Void)?
 
-	/// A fake transaction id when subscribed so the refund affordance is exercisable in
-	/// previews/UI tests (the real refund sheet only works against StoreKit).
+	/// A fake transaction id when subscribed, so the published-field contract holds on the mock
+	/// path too: entitled implies an id, unentitled implies none.
 	var currentTransactionID: UInt64? { outcome == .subscribed ? 1 : nil }
 	var currentExpirationDate: Date? { nil }
 	var isInTrial: Bool { isInTrialFlag && outcome == .subscribed }

@@ -19,9 +19,17 @@ cannot be consulted.
 | `isModelCatalogEnabled` | `true` | **live** | The public model-catalog acquisition surface (AIA-0413) |
 | `isPaymentsEnabled` | `true` | **launch only** | The subscription/paywall surface (AIA-0343) |
 | `isAnalyticsEnabled` | `true` | **live** | Optional analytics availability: when off, no prompt or Settings control is shown and no provider can activate. When on, users retain their own opt-in/out choice. |
-| `isRefundRequestEnabled` | `true` | **live** | The Settings → Subscription "Request a Refund" row (AIA-0461). When off, the row is hidden; refunds remain available through the App Store. |
 | `isAppMessagingEnabled` | `true` | **live** | The app→user messaging surface (AIA-0115): whether remotely-published messages render at all. Fails open — safe because the `appMessages` content setting defaults to empty, so an outage shows no messages rather than stale ones. |
 | `isRatingPromptEnabled` | `true` | **live** | The native App Store rating request offered after a positive moment — a finding saved, or a model imported/converted (AIA-0117). When off, the app never asks; the user can still review from the App Store. |
+| `isSupportReportingEnabled` | `true` | **live** | The in-app support-request surface. |
+| `isCrossDeviceAnalyticsIdentityEnabled` | `true` | **live** | Whether the analytics identity is tied to the account across devices. See `AUTH-SUBSCRIPTION.md`, "What the analytics identity does *not* change". |
+| `isFreeAccessPeriodEnabled` | `true` | **launch only** | Whether a new 14-day app-managed free-access window may be **granted** (AIA-0556). It never shortens or revokes a window already open, and it is captured once at construction. See `ios/STOREKIT_SUBSCRIPTION_SETUP.md`, "Two free periods". |
+
+> **Retired: `isRefundRequestEnabled`** (AIA-0461 → removed by AIA-0455). It gated the
+> Settings → Subscription "Request a Refund" row. The row and the flag are both gone: Apple mandates
+> no in-app refund entry point, and the sheet could not be made to work on iOS-on-Mac. **Archive the
+> ConfigCat key** once a build without it has shipped — until then it is simply unread, because an
+> unknown remote key is inert.
 
 ## How it fits together
 
