@@ -21,6 +21,16 @@ final class SubscriptionGateUITests: UITestCase {
 		assertExists(AID.paywallSignOut, true)
 		// The app chrome (side-menu button) must not be reachable behind the gate.
 		assertExists(AID.cpu, false)
+
+		// **The wall must stay a wall** (AIA-0616). AIA-0616 gave the paywall a close button so the
+		// Settings presentation stops reading as "subscribe or nothing" during the free window. This
+		// is the other half of that change: here both free phases are spent, there is nothing behind
+		// this screen, and a dismiss control would close the app's only screen into nothing.
+		//
+		// It is asserted at the *gate* rather than trusted from the view's `isDeadEnd` check, because
+		// the failure this guards against is someone later making the button unconditional — which
+		// reads as a harmless tidy-up and would be invisible without this line.
+		assertExists(AID.paywallDismiss, false)
 	}
 
 	/// AIA-0564: the centered, full-height stack clipped the paywall's upper and lower content in

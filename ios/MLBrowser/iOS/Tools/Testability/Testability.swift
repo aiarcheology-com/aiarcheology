@@ -116,6 +116,9 @@ extension TestabilityIdentification {
 		case settingsUpgrade
 		case paywallSubscribe
 		case paywallRestore
+		/// Closes the paywall when it is an *offer* rather than a wall (AIA-0616) — present only
+		/// when `isDeadEnd` is false, i.e. never on the root gate.
+		case paywallDismiss
 		/// Manage Subscription offered from the delete-account confirmation (AIA-0528), so the
 		/// warning that billing continues comes with a way to act on it. A `Button`, not a `Link`:
 		/// a confirmation dialog omits any action whose label is not `Text`.

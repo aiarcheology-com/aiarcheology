@@ -1,17 +1,29 @@
 Build: TBD
 
-Test Focus: Downloading models from the catalog on a real iPhone or iPad. This build fixes a fault that made multi-file model downloads fail on physical devices only — simulators and the Mac build were never affected, so please test on a real device.
+Test Focus 1: Subscription screens. Several things moved or changed wording, and one screen gained a close button. Please test on iPhone, iPad and, if you can, "My Mac (Designed for iPad)".
 
-1. Open the catalog and download a multi-file Core ML package, for example the YOLOv11 model "yolo11l-int8" from TheCluster/YOLOv11-CoreML. It should download and install without an error.
+1. Open Settings. "Subscription" has moved out of the Account section — it now sits under ML Browser, just below "About the app". Confirm it shows your correct state and still opens the right screen.
 
-2. Check that the model then appears in your model list, select it, and run one detection with the camera or a photo. Downloading is only half the test — the model has to load and actually detect something.
+2. While you still have free access left, open Settings > ML Browser > Subscription. The subscribe screen must now have an X button in the top-right that closes it and returns you to Settings. This is the fix: before, there was no visible way out and it looked as if subscribing was the only option.
 
-3. Download an ONNX model from the catalog and repeat step 2. This uses a different internal path than a plain Core ML file, so please do not skip it.
+3. After your free access has run out (and with no subscription), the same screen appears as the app's only screen. It must NOT have that X button — there is nothing behind it to go back to. Please check this specifically.
 
-4. Download a plain single-file .mlmodel and repeat step 2. This one worked before, so it is here to confirm nothing broke.
+4. There is no longer a "Request a Refund" button anywhere. This is deliberate. Refunds go through Apple at reportaproblem.apple.com. Confirm the Settings > ML Browser > Subscription screen still offers Manage Subscription and Restore Purchases, and that both work.
 
-5. Download the same model a second time, and try cancelling a download partway through. Then check Settings for the app's storage size: repeated downloads and cancellations should not leave the app growing by leftover temporary files.
+5. Tap Restore Purchases while not subscribed. The message should explain that subscriptions belong to the Apple Account that paid, not to your ML Browser account, and warn that buying there would start a second subscription.
 
-6. If a download does fail, note the exact message. Error text has changed in this build: you should see a plain sentence such as "Couldn't download this model." or "This model is too large to download." — not a raw code like "CatalogError error 6".
+6. On the sign-in screen, the subtitle now reads "Sign in to your ML Browser account." — it used to claim signing in was needed to detect objects, which was never true.
 
-Please report the device model and iOS version with any failure, and include the application log if you can. A download that fails on a phone but works in the simulator is exactly the fault this build addresses.
+7. Delete Account (from the subscribe screen when signed in): the confirmation should say that deleting your account does not cancel a subscription, and offer a Manage Subscription action. In Settings, a note under Manage Account says the same while you are subscribed.
+
+8. Check the subscribe screen's "Terms of Use" and "Privacy Policy" links at the bottom. They are now blue and underlined instead of grey, and both must open.
+
+Test Focus 2: Downloading models from the catalog on a real iPhone or iPad. Multi-file model downloads used to fail on physical devices only.
+
+1. Download a multi-file Core ML package, for example "yolo11l-int8" from TheCluster/YOLOv11-CoreML. It should install without an error, then appear in your model list — select it and run one detection.
+
+2. Repeat with an ONNX model, and with a plain single-file .mlmodel. These take different internal paths.
+
+3. Download the same model twice and cancel one partway through, then check the app's storage size in Settings — repeated downloads should not leave it growing.
+
+Please report the device model and iOS version with any failure, and include the application log if you can.

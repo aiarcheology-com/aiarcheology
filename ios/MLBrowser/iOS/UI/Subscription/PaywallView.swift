@@ -322,6 +322,37 @@ struct PaywallView: View {
 				.frame(maxWidth: .infinity, minHeight: geometry.size.height)
 			}
 			.testability(Testability.View.paywallContent)
+			// A way out, and **only** where one exists (AIA-0616).
+			//
+			// Presented from Settings during the free-access window, this screen is an offer: the
+			// user still has days left and can simply close it. Without a visible control it read as
+			// a wall, because the only exit was an undiscoverable swipe — and a screen that looks
+			// like "subscribe or nothing" when it is not costs a conversion at best and reads as a
+			// dark pattern at worst, on precisely the screen App Review scrutinises.
+			//
+			// Keyed on ``isDeadEnd``, so the root gate — where there genuinely is nothing to go back
+			// to — is untouched and cannot be dismissed into a blank app. That is the same question
+			// the findings escape hatch asks, and it is the reason the property exists rather than
+			// each site testing ``isRootGate`` for itself.
+			.overlay(alignment: .topTrailing) {
+				if isDeadEnd.not {
+					Button {
+						dismiss()
+					} label: {
+						Image(systemName: "xmark")
+							.font(.body.weight(.semibold))
+							.padding(10)
+							.background(.thinMaterial, in: Circle())
+					}
+					.buttonStyle(.plain)
+					.foregroundStyle(.secondary)
+					.padding(.top, 8)
+					.padding(.trailing, 16)
+					// The label is an unlabelled glyph, so VoiceOver needs the word itself.
+					.accessibilityLabel(L10n.Common.dismiss)
+					.testability(Testability.Button.paywallDismiss)
+				}
+			}
 		}
 		.task {
 			// Load products when the paywall appears (kept off the launch path so a slow
