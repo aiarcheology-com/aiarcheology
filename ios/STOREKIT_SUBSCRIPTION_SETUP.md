@@ -48,12 +48,20 @@ are uploaded.
 > **Republish the privacy policy if it changed.** If
 > `ios/MLBrowser/iOS/Documents/privacypolicy.html` has changed since the last submission, paste it
 > into the hosted page at <https://aiarcheology.com/privacy-policy/> before submitting —
-> ```
-> git log --oneline "$(git describe --tags --abbrev=0)".. -- ios/MLBrowser/iOS/Documents/privacypolicy.html
+> ```sh
+> RE='Last updated: [A-Za-z]+ [0-9]{1,2}, [0-9]{4}'
+> diff <(grep -ohE "$RE" ios/MLBrowser/iOS/Documents/privacypolicy.html | head -1) \
+>      <(curl -sL https://aiarcheology.com/privacy-policy/ | grep -ohE "$RE" | head -1) \
+>   && echo "in sync"
 > ```
 >
-> Runnable as written — it resolves the last release tag itself, so there is nothing to
-> substitute and nothing a shell will mistake for a redirect.
+> Runnable as written, and verified both ways: it prints `in sync` when the dates agree and a
+> diff when they do not. It compares the documents themselves rather than asking git what
+> changed, which is the actual question — and it does not depend on release tags, of which
+> this repository has none.
+>
+> The date is a proxy for the body, so it only holds if every edit bumps it. If you ever change
+> the policy text without moving the date, this check will pass while the documents differ.
 >
 > The two copies are **both binding and read by different audiences**: App Review reads the hosted
 > URL from App Store Connect, users read the bundled one in-app. Nothing in the repo or CI compares
