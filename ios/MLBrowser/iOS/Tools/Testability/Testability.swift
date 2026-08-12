@@ -116,9 +116,6 @@ extension TestabilityIdentification {
 		case settingsUpgrade
 		case paywallSubscribe
 		case paywallRestore
-		case paywallRequestRefund
-		// AIA-0461: the Settings → Subscription "Request a Refund" row (feature-flag gated)
-		case settingsRequestRefund
 		case paywallSignIn
 		case paywallSignOut
 		/// Delete Account on the root paywall — the other half of the Apple 5.1.1(v) escape, so a

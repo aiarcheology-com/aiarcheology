@@ -715,8 +715,6 @@ internal enum L10n {
     internal static let pitch = L10n.tr("Localizable", "paywall.pitch", fallback: "Subscribe to keep using ML Browser and receive all future updates and improvements.")
     /// Subscribe to use ML Browser and receive all future updates and improvements.
     internal static let pitchFirstMeeting = L10n.tr("Localizable", "paywall.pitchFirstMeeting", fallback: "Subscribe to use ML Browser and receive all future updates and improvements.")
-    /// Request a Refund
-    internal static let requestRefund = L10n.tr("Localizable", "paywall.requestRefund", fallback: "Request a Refund")
     /// Restore Purchases
     internal static let restore = L10n.tr("Localizable", "paywall.restore", fallback: "Restore Purchases")
     /// Try Free for %@
@@ -912,24 +910,6 @@ internal enum L10n {
       internal static let week = L10n.tr("Localizable", "subscription.period.week", fallback: "week")
       /// year
       internal static let year = L10n.tr("Localizable", "subscription.period.year", fallback: "year")
-    }
-    internal enum Refund {
-      internal enum Duplicate {
-        /// You have already requested a refund for this purchase. Apple is still reviewing it.
-        internal static let message = L10n.tr("Localizable", "subscription.refund.duplicate.message", fallback: "You have already requested a refund for this purchase. Apple is still reviewing it.")
-        /// Already Requested
-        internal static let title = L10n.tr("Localizable", "subscription.refund.duplicate.title", fallback: "Already Requested")
-      }
-      internal enum Failed {
-        /// The refund request could not be sent. You can also request a refund at reportaproblem.apple.com.
-        internal static let message = L10n.tr("Localizable", "subscription.refund.failed.message", fallback: "The refund request could not be sent. You can also request a refund at reportaproblem.apple.com.")
-      }
-      internal enum Submitted {
-        /// The App Store has your request. Apple decides the outcome and will let you know. Your subscription stays active until a refund is approved.
-        internal static let message = L10n.tr("Localizable", "subscription.refund.submitted.message", fallback: "The App Store has your request. Apple decides the outcome and will let you know. Your subscription stays active until a refund is approved.")
-        /// Refund Requested
-        internal static let title = L10n.tr("Localizable", "subscription.refund.submitted.title", fallback: "Refund Requested")
-      }
     }
   }
   internal enum Support {

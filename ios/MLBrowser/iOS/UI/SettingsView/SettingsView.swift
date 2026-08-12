@@ -618,7 +618,7 @@ struct SettingsForm: View {
 			}
 
 			// Subscription (AIA-0343). When subscribed, tapping pushes the status submenu
-			// (status + manage/cancel via Apple + restore + refund). Otherwise a static row.
+			// (status + manage/cancel via Apple + restore). Otherwise a static row.
 			if subscriptionState.isPaymentsSurfaceEnabled && subscriptionState.isSubscribed {
 				NavigationLink(value: AccountRoute.subscription) {
 					HStack {

@@ -56,44 +56,6 @@ struct SubscriptionNotice: Equatable {
 		}
 	}
 
-	/// What to say once Apple's refund sheet closes (AIA-0448).
-	///
-	/// Reports only that the request *reached Apple* — never that money is coming back. Apple
-	/// decides refunds on its own schedule, and the decision arrives later as a revocation
-	/// that drops the entitlement and raises the gate. Copy promising an outcome here would be
-	/// a promise we cannot keep.
-	///
-	/// `.userCancelled` stays silent for the same reason `.cancelled` does: the user closed
-	/// Apple's form themselves and needs no report of their own decision.
-	///
-	/// `StoreKit.Transaction` is spelled out because SwiftUI publishes its own `Transaction`
-	/// and both are in scope in this file.
-	static func forRefund(
-		_ result: Result<StoreKit.Transaction.RefundRequestStatus, StoreKit.Transaction.RefundRequestError>
-	) -> SubscriptionNotice? {
-		switch result {
-		case .success(let status):
-			switch status {
-			case .success:
-				return .init(title: L10n.Subscription.Refund.Submitted.title,
-							 message: L10n.Subscription.Refund.Submitted.message)
-			case .userCancelled:
-				return nil
-			@unknown default:
-				return nil
-			}
-		case .failure(let error):
-			switch error {
-			case .duplicateRequest:
-				return .init(title: L10n.Subscription.Refund.Duplicate.title,
-							 message: L10n.Subscription.Refund.Duplicate.message)
-			case .failed:
-				return .init(title: L10n.Alert.Error.title, message: L10n.Subscription.Refund.Failed.message)
-			@unknown default:
-				return .init(title: L10n.Alert.Error.title, message: L10n.Subscription.Refund.Failed.message)
-			}
-		}
-	}
 }
 
 /// A hairline outline for the paywall's two secondary actions — Restore Purchases and Manage
@@ -209,18 +171,9 @@ struct PaywallView: View {
 	/// Presents the contextual sign-in sheet from the root paywall (AIA-0536).
 	@State private var showSignIn = false
 
-	/// Drives Apple's in-app refund request sheet for the active subscription.
-	@State private var showRefund = false
-
-	/// Identifies the current refund-sheet presentation so the polling watchdog can tell
-	/// "this presentation is still up" from "a new sheet was opened meanwhile" (AIA-0448)
-	/// — see SubscriptionStatusView.
-	@State private var refundGeneration = 0
-
-	/// True while any StoreKit flow owns this screen — a purchase/restore round-trip, or the
-	/// refund sheet on its way up. Consulted inside each action rather than via `.disabled`
-	/// on its siblings; see ``SubscriptionStatusView/isBusy`` for why (AIA-0448).
-	private var isBusy: Bool { inFlight != nil || showRefund }
+	/// True while a StoreKit round-trip owns this screen. Consulted inside each action rather than
+	/// via `.disabled` on its siblings; see ``SubscriptionStatusView/isBusy`` for why (AIA-0448).
+	private var isBusy: Bool { inFlight != nil }
 
 	/// Presents the in-app Privacy Policy (App Review requires it on the purchase screen).
 	@State private var showPrivacy = false
@@ -447,35 +400,6 @@ struct PaywallView: View {
 		}
 	}
 
-	/// AIA-0448, Mac only — the same pull-based watchdog as ``SubscriptionStatusView``,
-	/// where the full story is documented: on iOS-on-Mac every push signal about the refund
-	/// sheet dies in the broken remote→host bridge, so a polling task we own detects the
-	/// auto-approved revocation in the store and releases the sheet flag.
-	private func startRefundWatchdogOnMac() {
-		// `.macDesignedForiPad`, not `.isMac`: the bug is specific to the iOS-on-Mac
-		// runtime. Catalyst hosts StoreKit UI differently and is untested here, so it
-		// must not silently inherit a workaround for a bug it may not have.
-		guard HostPlatform.current == .macDesignedForiPad else { return }
-		let generation = refundGeneration
-		Task { @MainActor in
-			for _ in 0..<150 {
-				try? await Task.sleep(for: .seconds(2))
-				guard showRefund, refundGeneration == generation else { return }
-				await subscriptionState.start()
-				if !subscriptionState.isSubscribed {
-					LoggingPolicy.warning(
-						"Refund revocation detected by polling — releasing the sheet flag"
-							+ " (iOS-on-Mac bridge loss).",
-						logger: .state
-					)
-					showRefund = false
-					return
-				}
-			}
-			LoggingPolicy.info("Refund watchdog expired without a revocation.", logger: .state)
-		}
-	}
-
 	@ViewBuilder
 	private var content: some View {
 		if let product = subscriptionState.products.first {
@@ -524,47 +448,6 @@ struct PaywallView: View {
 		.disabled(inFlight != nil)
 		.testability(Testability.Button.paywallRestore)
 
-		// Request a refund via Apple's native sheet — only for an active subscription
-		// (Apple owns the decision; this just opens the request flow).
-		if subscriptionState.isSubscribed, let transactionID = subscriptionState.currentTransactionID {
-			// While the sheet is up, feedback may only change ATTRIBUTES of this button
-			// (opacity), never its STRUCTURE — structural churn at presentation time was
-			// correlated with the sheet's dismissal never reaching the app on iOS-on-Mac;
-			// see SubscriptionStatusView (AIA-0448). Both the text and the spinner are
-			// always in the tree and only trade opacities.
-			Button(role: .destructive) {
-				guard isBusy.not else { return }
-				LoggingPolicy.info(
-					"Refund requested for transaction \(transactionID) — asking StoreKit to present Apple's refund sheet…",
-					logger: .state
-				)
-				refundGeneration += 1
-				showRefund = true
-				startRefundWatchdogOnMac()
-			} label: {
-				Text(L10n.Paywall.requestRefund)
-					.frame(maxWidth: .infinity)
-					.opacity(showRefund ? 0 : 1)
-					// Decorative, hidden from VoiceOver with a CONSTANT — a dynamic
-					// `.accessibilityHidden` would be another attribute mutating on the
-					// presenting view at exactly the wrong moment (AIA-0448).
-					.overlay {
-						ProgressView()
-							.opacity(showRefund ? 1 : 0)
-							.accessibilityHidden(true)
-					}
-			}
-			.buttonStyle(.bordered)
-			.controlSize(.large)
-			.testability(Testability.Button.paywallRequestRefund)
-			.refundRequestSheet(for: transactionID, isPresented: $showRefund) { result in
-				LoggingPolicy.info("Refund sheet dismissed: \(result)", logger: .state)
-				notice = SubscriptionNotice.forRefund(result)
-				// Dismissal-time entitlement re-read — see SubscriptionStatusView (AIA-0448).
-				Task { await subscriptionState.start() }
-			}
-		}
-
 		// Manage existing subscription (cancel / change plan). Always available so a
 		// subscriber can reach Apple's management screen from here.
 		Link(L10n.Paywall.manage, destination: .appleManageSubscriptions)
@@ -587,8 +470,9 @@ struct PaywallView: View {
 				showRemoveFindings = true
 			} label: {
 				// Both the label and the spinner are always in the tree and only trade opacities —
-				// the same no-structural-churn rule the refund button follows (AIA-0448), because
-				// the share sheet is presented from this screen.
+				// the no-structural-churn rule of AIA-0448, because the share sheet is presented
+				// from this screen and structural churn on a presenting view wedges its dismissal
+				// on iOS-on-Mac.
 				// Its own label rather than Settings' "Remove Findings": here the export is the
 				// point — the delete is what Apple and the GDPR ask for alongside it — and a button
 				// that only advertises deletion is one nobody looking for their data would press.

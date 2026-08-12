@@ -124,8 +124,9 @@ final class EntitlementResolverTests: XCTestCase {
 		XCTAssertEqual(resolved?.transactionID, 3)
 	}
 
-	/// With more than one eligible entitlement the first wins, deterministically — the published
-	/// transaction id drives the refund sheet, so it must not vary run to run.
+	/// With more than one eligible entitlement the first wins, deterministically. The resolved
+	/// transaction supplies the renewal date and the trial flag as well as the id, so a pick that
+	/// varied run to run would flicker what the user is told about their own subscription.
 	func testResolve_MultipleEligible_ResolvesToTheFirst() {
 		let resolved = EntitlementResolver.resolve([
 			candidate(transactionID: 7, expiresAt: expiryDate),

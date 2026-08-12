@@ -45,12 +45,6 @@ enum FeatureFlagKey: String, CaseIterable {
 	/// Rollout is controlled by the ConfigCat value, not by the compiled default.
 	case isSupportReportingEnabled = "isSupportReportingEnabled"
 
-	/// Gates **only** the Settings → Account → Subscription "Request a Refund" row (AIA-0461) —
-	/// whether that entry point is offered at all. Turning it off hides the row; the refund itself
-	/// is always available to the user through the App Store. Fails open so a config outage never
-	/// removes it silently.
-	case isRefundRequestEnabled = "isRefundRequestEnabled"
-
 	/// Gates the native App Store rating request offered after a positive moment — a finding saved,
 	/// or a model imported/converted (AIA-0117). Turning it off stops the app from *asking*; it has
 	/// no bearing on reviews the user writes from the App Store themselves. Fails open so a config
@@ -107,7 +101,6 @@ enum FeatureFlagKey: String, CaseIterable {
 		case .isPaymentsEnabled: return true
 		case .isAnalyticsEnabled: return true
 		case .isSupportReportingEnabled: return true
-		case .isRefundRequestEnabled: return true
 		case .isRatingPromptEnabled: return true
 		case .isAppMessagingEnabled: return true
 		case .isCrossDeviceAnalyticsIdentityEnabled: return true
@@ -181,7 +174,6 @@ struct FeatureFlagSnapshot: Equatable {
 	var isPaymentsEnabled: Bool { self[.isPaymentsEnabled] }
 	var isAnalyticsEnabled: Bool { self[.isAnalyticsEnabled] }
 	var isSupportReportingEnabled: Bool { self[.isSupportReportingEnabled] }
-	var isRefundRequestEnabled: Bool { self[.isRefundRequestEnabled] }
 	var isRatingPromptEnabled: Bool { self[.isRatingPromptEnabled] }
 	var isAppMessagingEnabled: Bool { self[.isAppMessagingEnabled] }
 	var isCrossDeviceAnalyticsIdentityEnabled: Bool { self[.isCrossDeviceAnalyticsIdentityEnabled] }

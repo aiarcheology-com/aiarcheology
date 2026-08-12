@@ -113,7 +113,7 @@ final class StoreKitSubscriptionProviderTests: XCTestCase {
 
 	/// The refund path through the provider rather than the resolver alone: a revoked
 	/// entitlement must publish as no entitlement, and must not leave a stale transaction id
-	/// behind for the refund sheet to act on.
+	/// behind for the expiry and trial fields to be read from.
 	func testRefresh_OnlyRevokedEntitlement_PublishesNotSubscribed() async {
 		let provider = makeProvider(entitlements: [candidate(transactionID: 99, revokedAt: revocationDate)])
 
@@ -148,7 +148,7 @@ final class StoreKitSubscriptionProviderTests: XCTestCase {
 	}
 
 	/// The provider hands the resolver what it was given, unreordered: the first eligible
-	/// entitlement wins, and the refund sheet acts on whichever id is published.
+	/// entitlement wins, and every published field is read off whichever one that is.
 	func testRefresh_MultipleEntitlements_PublishesTheFirstEligibleOne() async {
 		let provider = makeProvider(entitlements: [
 			candidate(transactionID: 1, revokedAt: revocationDate),
