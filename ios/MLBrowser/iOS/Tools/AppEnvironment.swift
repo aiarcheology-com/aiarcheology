@@ -126,11 +126,14 @@ enum AppEnvironment {
     }
 
     /// Best-effort runtime channel detection:
-    /// 1) Simulator -> simulator
+    /// 1) Simulator -> unknown
     /// 2) embedded.mobileprovision present -> developmentLike
     /// 3) receipt exists -> sandboxReceipt (testFlightLike) vs receipt (appStore)
     /// 4) DEBUG build -> developmentLike (fallback for edge cases)
-    /// 5) else unknown
+    /// 5) else -> appStore, because a device Release build with neither a profile nor a receipt
+    ///    can only be a store binary whose receipt has not landed. See the note at that return:
+    ///    every `isAppStoreDistribution` consumer tests positively, so guessing anything else
+    ///    puts a production user on the development branch.
     static var distributionChannel: DistributionChannel {
 		// A Simulator can contain a local StoreKit testing receipt named `receipt`.
 		// That file must never make a simulator look like an App Store install: among
@@ -160,7 +163,25 @@ enum AppEnvironment {
 			return .developmentLike
 		}
 
-        return .unknown
+		// Everything above has returned, so this is a **device**, **Release** build with no
+		// embedded provisioning profile and no readable receipt. There is only one way to get
+		// that: a store-distributed binary whose receipt is missing. Apple documents that the app
+		// receipt can be absent until refreshed with `SKReceiptRefreshRequest` — most often after
+		// a restore from backup.
+		//
+		// This used to answer `.unknown`, and every consumer of `isAppStoreDistribution` tests it
+		// **positively** (`== .appStore`), so `.unknown` sent all of them down their
+		// *non-production* branch in a real App Store install (AIA-0455). That is the wrong
+		// direction for every one of them, and for two it is serious: `ClerkAuthProvider` would
+		// hand a production user the **development** Clerk key and permit instance switching, and
+		// `SignInSheet` would show the dev/prod picker to real customers. `SettingsView`'s debug
+		// section, `DataController`'s recovery paths and Sentry's sampling rate follow the same
+		// gate.
+		//
+		// So it fails **closed to production** instead. Nothing else moves: simulator, Debug,
+		// dev/AdHoc/Enterprise and TestFlight all return above, which is what leaves `.unknown`
+		// meaning exactly what its own doc comment says — the simulator.
+        return .appStore
     }
 
     static var isAppStoreDistribution: Bool { distributionChannel == .appStore }
