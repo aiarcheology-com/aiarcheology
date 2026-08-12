@@ -248,6 +248,13 @@ Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule
 - Never edit the catalog with a whole-file JSON re-serialization; use `scripts/xcstrings_tool.py`
   (see `.claude/skills/ship-ticket/references/localization.md` for why a round-trip cannot be
   byte-faithful).
+- **When a string's *meaning* changes, change the key** — add a new one and prune the old, rather
+  than editing the English in place (AIA-0455). Editing leaves the other 16 locales holding a
+  fluent, grammatical translation of the *old* meaning, and **no gate can see it**: the coverage
+  ratchet counts presence, and `verify` checks shape and format specifiers. An incomplete
+  translation pass on a new key falls back to English carrying the new meaning; on an edited key it
+  renders a local sentence that quietly says something else. Fixing a typo or tightening wording is
+  still an ordinary edit — this is about meaning.
 - Translated values must carry exactly the format specifiers of their English sibling — same count,
   same kind, same positional indices, and `%lld` is not `%d`. A mismatch makes `String(format:)`
   read the wrong argument.

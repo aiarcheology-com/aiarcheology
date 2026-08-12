@@ -3283,7 +3283,7 @@
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Tímto trvale smažete svůj účet. Tuto akci nelze vrátit zpět. Pokud máte předplatné, tímto se nezruší — zrušte ho v App Storu."
+            "value" : "Tímto trvale smažete svůj účet. Tuto akci nelze vrátit zpět. Pokud máte předplatné, tímto se nezruší — zrušte ho v obchodě App Store."
           }
         },
         "de" : {
@@ -3498,7 +3498,7 @@
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Smazání účtu nezruší vaše předplatné. Zrušte ho v App Storu."
+            "value" : "Smazání účtu nezruší vaše předplatné. Zrušte ho v obchodě App Store."
           }
         },
         "de" : {
