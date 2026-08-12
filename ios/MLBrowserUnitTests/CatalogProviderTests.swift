@@ -1137,8 +1137,9 @@ private extension CatalogProviderTests {
 
 /// Injects a staging root whose path standardisation rewrites, so a simulator test can reproduce the
 /// device-only `/private`-prefixed temporary directory (AIA-0603). Constructed inline at the call
-/// site: `CatalogPackageDownloader`'s initialiser is actor-isolated, so a `FileManager` that is also
-/// used by the test itself cannot be sent into it.
+/// site because `CatalogPackageDownloader` is an actor: `FileManager` is not `Sendable`, so passing
+/// one in sends it into the actor's isolation region, which the compiler rejects while this
+/// `@MainActor` test still holds a reference of its own. Inline, the value is used nowhere else.
 private final class PrivateTemporaryDirectoryFileManager: FileManager, @unchecked Sendable {
 	private let injectedTemporaryDirectory: URL
 
