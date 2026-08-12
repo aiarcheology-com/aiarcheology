@@ -1,17 +1,17 @@
 Build: TBD
 
-Test Focus: The Account row should open Manage Account on the first tap, and Edit Profile should no longer close the app.
+Test Focus: Downloading models from the catalog on a real iPhone or iPad. This build fixes a fault that made multi-file model downloads fail on physical devices only — simulators and the Mac build were never affected, so please test on a real device.
 
-1. Sign in, open the drawer, and tap the Account row. Manage Account should open right away on the first tap, not plain Settings.
+1. Open the catalog and download a multi-file Core ML package, for example the YOLOv11 model "yolo11l-int8" from TheCluster/YOLOv11-CoreML. It should download and install without an error.
 
-2. From Manage Account, open Edit Profile. It should open and stay open; the app must not freeze or close.
+2. Check that the model then appears in your model list, select it, and run one detection with the camera or a photo. Downloading is only half the test — the model has to load and actually detect something.
 
-3. Change a profile detail such as your name, save it, and close the sheet. The updated details should show in Manage Account.
+3. Download an ONNX model from the catalog and repeat step 2. This uses a different internal path than a plain Core ML file, so please do not skip it.
 
-4. Close the sheet and tap the Account row again. It should land on Manage Account again, every time.
+4. Download a plain single-file .mlmodel and repeat step 2. This one worked before, so it is here to confirm nothing broke.
 
-5. Open the plain Settings entry in the drawer. It should still open normal app settings, with no account screens forced on top.
+5. Download the same model a second time, and try cancelling a download partway through. Then check Settings for the app's storage size: repeated downloads and cancellations should not leave the app growing by leftover temporary files.
 
-6. Repeat steps 1 and 2 on iPad and on Mac (Designed for iPad), where the closing issue was reported. Try it in portrait and landscape, and with the window resized on Mac.
+6. If a download does fail, note the exact message. Error text has changed in this build: you should see a plain sentence such as "Couldn't download this model." or "This model is too large to download." — not a raw code like "CatalogError error 6".
 
-Please report if the Account row opens plain Settings first, needs a second tap, or if the app closes when opening Edit Profile. Include the application log if possible.
+Please report the device model and iOS version with any failure, and include the application log if you can. A download that fails on a phone but works in the simulator is exactly the fault this build addresses.
