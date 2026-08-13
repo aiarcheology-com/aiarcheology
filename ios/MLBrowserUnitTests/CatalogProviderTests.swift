@@ -1161,3 +1161,92 @@ private final class PrivateTemporaryDirectoryFileManager: FileManager, @unchecke
 
 	override var temporaryDirectory: URL { injectedTemporaryDirectory }
 }
+
+// MARK: - Package failure logging (AIA-0602)
+
+/// The acceptance criterion for AIA-0602 is that a **release** support log identifies which file
+/// failed and why. Restoring the 87 debug call sites does not achieve that on its own —
+/// `CatalogPackageDownloader` had no logging at all, and `CatalogError` carries no associated
+/// values, so a failed package download produced one line naming neither.
+///
+/// These tests guard the half that is easy to break without noticing: the log line has to survive
+/// `LogRedactor`. Two of its patterns would eat exactly the useful part, and both are sensitive to
+/// how the message is phrased rather than to what it contains.
+final class CatalogPackageDownloaderLogTests: XCTestCase {
+	private func file(_ relativePath: String) -> CatalogFile {
+		CatalogFile(
+			relativePath: relativePath,
+			// swiftlint:disable:next force_unwrapping
+			resolveURL: URL(string: "https://models.example.com/\(relativePath)")!,
+			sizeBytes: 1_024
+		)
+	}
+
+	func testTransferFailureLine_NamesTheFileAndTheReason() {
+		let line = CatalogPackageDownloader.transferFailureLogLine(
+			file: file("onnx/data/model.onnx"),
+			index: 2,
+			totalCount: 7,
+			error: CatalogError.network
+		)
+
+		XCTAssertEqual(line, "Package file 3 of 7 failed — model.onnx — network")
+	}
+
+	/// The one that actually protects the acceptance criterion. `absolutePathPattern` eats any run
+	/// of two or more slash-separated components, so logging the package-relative path would leave
+	/// `onnx[redacted path]` in the default attachment — the redacted export is the one nearly every
+	/// user sends.
+	func testTransferFailureLine_SurvivesRedaction() {
+		let line = CatalogPackageDownloader.transferFailureLogLine(
+			file: file("onnx/data/model.onnx"),
+			index: 2,
+			totalCount: 7,
+			error: CatalogError.network
+		)
+
+		let redacted = LogRedactor.redactingSensitiveData(line)
+
+		XCTAssertEqual(redacted, line, "The whole line must survive the default support export")
+		XCTAssertTrue(redacted.contains("model.onnx"), "Support cannot act on a redacted filename")
+		XCTAssertFalse(redacted.contains("redacted"))
+	}
+
+	func testStagingFailureLine_SurvivesRedaction() {
+		let line = CatalogPackageDownloader.stagingFailureLogLine(
+			file: file("weights/model.safetensors"),
+			error: CatalogError.invalidFilePath
+		)
+
+		let redacted = LogRedactor.redactingSensitiveData(line)
+
+		XCTAssertEqual(redacted, line)
+		XCTAssertTrue(redacted.contains("model.safetensors"))
+		XCTAssertTrue(redacted.contains("invalidFilePath"))
+	}
+
+	/// A non-`CatalogError` keeps its domain and code, which is the only thing distinguishing a
+	/// timeout from a DNS failure once everything has been flattened to `.network`.
+	func testFailureReason_KeepsTheUnderlyingDomainAndCode() {
+		let reason = CatalogPackageDownloader.failureReason(
+			for: NSError(domain: NSURLErrorDomain, code: -1009)
+		)
+
+		XCTAssertEqual(reason, "\(NSURLErrorDomain) -1009")
+		XCTAssertEqual(LogRedactor.redactingSensitiveData(reason), reason)
+	}
+
+	/// Phrasing is load-bearing: `identifierValuePattern` matches a bare `download`/`entity`/
+	/// `session`/`user` before `:` or `=` and redacts what follows. This pins the trap so nobody
+	/// "tidies" the message into `download: model.onnx` and silently loses the filename.
+	func testAWordLikeDownloadBeforeAColonWouldHaveDestroyedTheFilename() {
+		let tempting = "Package download: model.onnx failed"
+
+		let redacted = LogRedactor.redactingSensitiveData(tempting)
+
+		XCTAssertFalse(
+			redacted.contains("model.onnx"),
+			"If this ever passes, the redactor changed and the phrasing rule can be relaxed"
+		)
+	}
+}
