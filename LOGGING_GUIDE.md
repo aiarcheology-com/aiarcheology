@@ -90,7 +90,13 @@ Use appropriate log levels based on the significance and audience:
 
 ### `.debug`
 - **Purpose**: Internal developer details, verbose diagnostics
-- **Visible**: Development builds only
+- **Visible**: OSLog in development builds only. **Retained in the support log in every build
+  configuration** while the user keeps "Keep a detailed log" on in Settings (AIA-0602). The Sentry
+  breadcrumb remains development-only — that gate exists for the breadcrumb quota, and applying it
+  to the support attachment as well is what removed 87 debug call sites from every customer report.
+- **Volume**: the support log is capped at five MiB and evicts oldest-first, so a hot-loop call site
+  spends the window everyone else shares. Aggregate per-iteration detail into one entry rather than
+  logging inside the loop; `Detector.detect` is the worked example.
 - **Example**: "2025-10-20T13:46:05.233Z Driver initialized with ID abc-123"
 - **Usage**: `Logger.drivers.logDebug("Driver initialized with ID abc-123")`
 

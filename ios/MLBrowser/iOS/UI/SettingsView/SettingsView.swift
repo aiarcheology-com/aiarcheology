@@ -374,24 +374,36 @@ struct SettingsForm: View {
 	/// Here it reads as what it is: something about the app you are paying for, next to what the app
 	/// is. The free-access/trial footnote follows it for the same reason — it describes the
 	/// subscription, never the account.
+	/// Two groups, following the platform convention (Settings → General → Keyboard → Hardware
+	/// Keyboard is the reference): **a row whose explanatory text sits underneath gets its own
+	/// group**, so the caption reads as belonging to that row rather than to whichever row happens to
+	/// be last in a shared block.
+	///
+	/// That is why Subscription is separate. Its footnote ("Free until … no subscription, no payment
+	/// method") used to be the *section's* footer, so it rendered under Reset and read as a note
+	/// about resetting the app.
+	///
+	/// Only the first group carries the "ML Browser" header; the second is visually separate but
+	/// belongs to it, exactly as the platform does it. The detailed-log switch lives on the About
+	/// screen (`AppDescriptionView.debugSection`), with the version, build and support contact.
+	@ViewBuilder
 	private var mlBrowserSection: some View {
-		Section(
-			header: Text(L10n.Settings.Section.mlBrowser),
-			footer: subscriptionFootnote.map { Text($0) }
-		) {
+		Section(header: Text(L10n.Settings.Section.mlBrowser)) {
 			NavigationLink(destination: AppDescriptionView()
 				.environment(\.dismissSheet, { dismiss() })) {
 				Text(L10n.Settings.about)
 			}
 			.testability(Testability.NavigationLink.settingsAbout)
 
-			subscriptionRow
-
 			replayOnboardingRow
 			NavigationLink(destination: resetOptionsView) {
 				Text(L10n.Settings.Reset.title)
 			}
 			.testability(Testability.NavigationLink.settingsReset)
+		}
+
+		Section(footer: subscriptionFootnote.map { Text($0) }) {
+			subscriptionRow
 		}
 	}
 

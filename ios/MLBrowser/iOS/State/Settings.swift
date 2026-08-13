@@ -73,6 +73,11 @@ final class Settings: ObservableObject, Validatable {
 		/// When the app last *requested* a review — never when one was *displayed*, which StoreKit
 		/// does not report. Absent until the first request.
 		static let ratingPromptLastRequestDate = "ratingPromptLastRequestDate"
+		/// The detailed-application-log switch (AIA-0602). Taken from `LoggingPolicy` by reference
+		/// rather than repeated as a matching literal: `LoggingPolicy` reads this same key straight
+		/// from `UserDefaults.standard` on first use, so two literals drifting apart would decouple
+		/// the toggle from the logger with nothing failing to say so.
+		static let detailedLogging = LoggingPolicy.detailedLoggingDefaultsKey
 	}
 
 	public var isFirstLaunchMarked: Bool = false
@@ -355,6 +360,35 @@ final class Settings: ObservableObject, Validatable {
 		}
 	}
 
+	/// Whether the application log is kept in detail and across launches (AIA-0602).
+	///
+	/// On by default, so a support report can still describe a problem the user hit before they
+	/// thought to report it. Turning it off erases the stored log — that erasure lives in
+	/// ``LoggingPolicy/isDetailedLoggingEnabled``, which is why the value is pushed there rather
+	/// than only written to `defaults`. `LoggingPolicy` also reads the same key itself, for the
+	/// launches on which nothing ever builds this type.
+	@Published public var detailedLoggingEnabled: Bool {
+		didSet {
+			defaults.set(detailedLoggingEnabled, forKey: UserDefaultsKeys.detailedLogging)
+			applyDetailedLoggingToLogger()
+		}
+	}
+
+	/// The remote brake (`isDetailedApplicationLogEnabled`), mirrored here so the logger sees one
+	/// combined answer. Deliberately **not** persisted: it describes the current config, not a choice
+	/// the user made, and a stale copy surviving a launch would be a kill switch that does not
+	/// un-kill.
+	@Published public var isDetailedLoggingFeatureEnabled: Bool = true {
+		didSet { applyDetailedLoggingToLogger() }
+	}
+
+	/// The user's preference **and** the remote brake. Off either way means off — and because the
+	/// setter erases what was stored, flipping the flag off in the dashboard also deletes the log
+	/// rather than merely stopping new entries.
+	private func applyDetailedLoggingToLogger() {
+		LoggingPolicy.isDetailedLoggingEnabled = detailedLoggingEnabled && isDetailedLoggingFeatureEnabled
+	}
+
 	/// Winning moments (a finding saved, a model imported/converted) since the last review request
 	/// (AIA-0117). See ``ReviewPromptPolicy``.
 	@Published public var ratingPromptEventCount: Int {
@@ -463,7 +497,10 @@ final class Settings: ObservableObject, Validatable {
 			UserDefaultsKeys.signInOfferShown: false,
 			UserDefaultsKeys.subscriptionObservedAnonymously: false,
 			UserDefaultsKeys.analyticsFreeAccessExpiryReported: false,
-			UserDefaultsKeys.ratingPromptEventCount: 0
+			UserDefaultsKeys.ratingPromptEventCount: 0,
+			// On by default (AIA-0602): a support report is worth little if the log only starts
+			// when the user thinks to turn logging on.
+			UserDefaultsKeys.detailedLogging: true
         ]
 
 		// Register default values
@@ -494,6 +531,13 @@ final class Settings: ObservableObject, Validatable {
 		self.analyticsFreeAccessExpiryReported = defaults.bool(forKey: UserDefaultsKeys.analyticsFreeAccessExpiryReported)
 		self.remoteFlagLaunchValues = defaults.dictionary(forKey: UserDefaultsKeys.remoteFlagLaunchValues) as? [String: Bool] ?? [:]
 		self.ratingPromptEventCount = defaults.integer(forKey: UserDefaultsKeys.ratingPromptEventCount)
+		self.detailedLoggingEnabled = defaults.bool(forKey: UserDefaultsKeys.detailedLogging)
+		// Pushed explicitly because `didSet` does not fire during `init`, and because this type may
+		// be reading a different `UserDefaults` suite than `LoggingPolicy` does — under UI tests it
+		// reads an ephemeral suite while `LoggingPolicy` reads `.standard`. Without this the toggle
+		// and the logger disagree, and a UI test that seeds the switch off would still be persisting
+		// raw entries (AIA-0602).
+		applyDetailedLoggingToLogger()
 		// There is no `defaults.date(forKey:)`; an absent key must stay `nil` rather than become a
 		// 1970 date, which `shouldRequest` would read as "asked very long ago".
 		self.ratingPromptLastRequestDate = defaults.object(forKey: UserDefaultsKeys.ratingPromptLastRequestDate) as? Date
@@ -568,6 +612,9 @@ final class Settings: ObservableObject, Validatable {
 		analyticsActivationReportedAccountHash = nil
 		analyticsSignedInReportedAccountHash = nil
 		screenshotDetectionEnabled = nil
+		// Back to on, its shipped default (AIA-0602). Restoring defaults means restoring this one
+		// too; the assignment's `didSet` also tells `LoggingPolicy`, so the log itself follows.
+		detailedLoggingEnabled = true
 		// Count only: `ratingPromptLastRequestDate` deliberately survives a reset (AIA-0117) so
 		// "Restore Defaults" cannot be used — deliberately or accidentally — to re-trigger the
 		// review prompt. Anti-nag memory is not a user preference.
@@ -615,6 +662,7 @@ final class Settings: ObservableObject, Validatable {
 		defaults.set(analyticsChoiceMade, forKey: UserDefaultsKeys.analyticsChoiceMade)
 		defaults.set(analyticsAccountEnabled, forKey: UserDefaultsKeys.analyticsAccountEnabled)
 		defaults.set(ratingPromptEventCount, forKey: UserDefaultsKeys.ratingPromptEventCount)
+		defaults.set(detailedLoggingEnabled, forKey: UserDefaultsKeys.detailedLogging)
 		defaults.removeObject(forKey: UserDefaultsKeys.analyticsConsentAccountHash)
 		defaults.removeObject(forKey: UserDefaultsKeys.analyticsActivationReportedAccountHash)
 		defaults.removeObject(forKey: UserDefaultsKeys.analyticsSignedInReportedAccountHash)

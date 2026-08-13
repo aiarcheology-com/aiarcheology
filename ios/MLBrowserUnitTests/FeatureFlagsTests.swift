@@ -40,8 +40,28 @@ final class FeatureFlagsTests: XCTestCase {
 			"isCrossDeviceAnalyticsIdentityEnabled"
 		)
 		XCTAssertEqual(FeatureFlagKey.isFreeAccessPeriodEnabled.rawValue, "isFreeAccessPeriodEnabled")
+		XCTAssertEqual(
+			FeatureFlagKey.isDetailedApplicationLogEnabled.rawValue,
+			"isDetailedApplicationLogEnabled"
+		)
 		// Non-boolean settings share the same dashboard-key contract (AIA-0115).
 		XCTAssertEqual(RemoteSettingKey.appMessages, "appMessages")
+	}
+
+	/// The application-log brake maps to its own key and defaults open (AIA-0602).
+	///
+	/// Failing open is load-bearing here rather than conventional: this ships to gather diagnostics
+	/// on the first release in two years, so a `false` default would let a ConfigCat outage — or a
+	/// first launch, before any sync — silently disable the thing being relied on to see what broke.
+	/// A wrong raw value would be invisible for the same reason a missed lookup is: it just returns
+	/// the default, which looks exactly like "the flag is on".
+	func test_detailedApplicationLogFlag_defaultsOpenAndMapsToItsKey() {
+		XCTAssertTrue(FeatureFlagKey.isDetailedApplicationLogEnabled.defaultValue)
+		XCTAssertTrue(FeatureFlagSnapshot.defaults.isDetailedApplicationLogEnabled)
+		XCTAssertFalse(
+			FeatureFlagSnapshot(values: [.isDetailedApplicationLogEnabled: false])
+				.isDetailedApplicationLogEnabled
+		)
 	}
 
 	/// The rating-prompt flag maps to its own key and defaults open (AIA-0117).

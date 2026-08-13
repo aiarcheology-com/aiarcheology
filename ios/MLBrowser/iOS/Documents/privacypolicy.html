@@ -112,6 +112,15 @@ are <strong>never transmitted to us by the App</strong>: the objects you detect 
 (&ldquo;findings&rdquo;), screenshots and images you capture, your in-App browsing history, default
 page and other settings. The object-detection models run locally on your device. Deleting the App
 removes this local data.</p>
+<p>The App also keeps a <strong>technical log</strong> of what it was doing &mdash; which can include
+web addresses, file names and identifiers &mdash; so that a support report can describe a problem you
+hit earlier rather than only the moment you wrote in. It is stored only on your device, is capped at
+five megabytes with the oldest entries discarded first, and entries older than seven days are removed
+automatically. It is <strong>never sent anywhere on its own</strong>: it leaves your device only if
+you attach it to a support email yourself, and the attachment is redacted unless you expressly choose
+&ldquo;Send unredacted data&rdquo;. You can switch the log off under Settings &rarr; ML Browser
+&rarr; About the app &rarr; Debug &rarr; &ldquo;Keep a detailed log&rdquo;, which also deletes what
+has been stored, and clearing your browsing history deletes it too.</p>
 <p>You may choose to send some of it to us yourself. If you contact support from the App, the App
 prepares an email &mdash; containing technical details such as your App version, device model and
 operating-system version, and, where relevant, the web address involved in the problem &mdash; and
@@ -172,7 +181,10 @@ transfer mechanisms. You may contact us for more information about these safegua
 <p>We keep account data for as long as your account exists, and then delete or anonymize it within a
 reasonable period unless we must retain it to meet legal obligations, resolve disputes, or enforce
 our agreements. Diagnostic/crash data is retained for a limited period for analysis and security.
-On-device data remains until you delete it or uninstall the App.</p>
+On-device data remains until you delete it or uninstall the App &mdash; except the technical log
+described in section 3.4, which is capped at five megabytes with the oldest entries discarded first
+and is removed automatically after seven days, and which you can delete at any time by switching
+&ldquo;Keep a detailed log&rdquo; off or by clearing your browsing history.</p>
 <p>Usage analytics are off by default. We only activate them if you choose <em>Enable analytics</em>
 in the App. You can turn them off at any time in <em>Settings → Privacy</em>.</p>
 

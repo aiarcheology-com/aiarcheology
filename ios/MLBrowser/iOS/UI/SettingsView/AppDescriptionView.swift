@@ -11,6 +11,8 @@ struct AppDescriptionView: View {
     /// Remote About-screen messages (AIA-0115). Injected once at the app root; observed directly
     /// because a nested `ObservableObject` does not republish through `AppState`.
     @EnvironmentObject private var messageCenter: MessageCenterState
+    /// Backs the detailed-log switch below (AIA-0602).
+    @EnvironmentObject private var settings: Settings
     /// Device language for localized message content.
     private let languageCode = AppMessage.deviceLanguageCode
     let versionString: String = appVersion()
@@ -35,6 +37,7 @@ struct AppDescriptionView: View {
 				applicationSection
 				contactSection
 				legalSection
+				debugSection
 			}
 			Spacer()
 			Text(L10n.About.copyright)
@@ -43,6 +46,30 @@ struct AppDescriptionView: View {
 		}
 		.sheetDismissButton(testability: .appDescriptionDismiss)
 		.navigationBarTitle(L10n.Settings.about, displayMode: .inline)
+	}
+
+	/// The detailed application log (AIA-0602), on the About screen rather than in the ML Browser
+	/// section: it is a diagnostic aid, and this is where a user already comes to find the version,
+	/// the build and the way to contact support.
+	///
+	/// Deliberately **not** `SettingsView.debugSection`, which is hidden when
+	/// `AppEnvironment.isAppStoreDistribution`. Hiding it there would leave App Store users with a
+	/// log of the addresses they visit, kept across launches, and no way to switch it off — and it
+	/// would make the bundled privacy policy untrue, since that promises this exact control.
+	///
+	/// The whole group disappears when the remote brake is off, because then there is nothing for the
+	/// switch to do: persistence is already stopped and the stored log deleted.
+	@ViewBuilder
+	private var debugSection: some View {
+		if settings.isDetailedLoggingFeatureEnabled {
+			Section(
+				header: Text(L10n.Settings.Section.debug),
+				footer: Text(L10n.Settings.detailedLoggingExplanation)
+			) {
+				Toggle(L10n.Settings.detailedLogging, isOn: $settings.detailedLoggingEnabled)
+					.testability(Testability.Toggle.settingsDetailedLogging)
+			}
+		}
 	}
 
 	private var messagesSection: some View {

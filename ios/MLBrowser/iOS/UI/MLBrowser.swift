@@ -296,8 +296,17 @@ struct MLBrowser: App {
 			// Single injection of the composition root's real-vs-mock auth flag for the whole
 			// view tree; re-injected across sheet boundaries where needed (AIA-0385).
 			.environment(\.usesRealAuth, appState.usesRealAuth)
+			// The remote brake on the detailed application log (AIA-0602). `initial: true` so the
+			// compiled default is applied on a first launch that has not synced yet, and the live
+			// snapshot thereafter — `FeatureFlagsState` observes the provider's change stream, so a
+			// dashboard flip lands without a relaunch, which is the point of an emergency brake.
+			// `Settings` combines this with the user's own switch; off either way deletes the log.
+			.onChange(of: appState.featureFlags.snapshot.isDetailedApplicationLogEnabled, initial: true) { _, isEnabled in
+				appState.settings.isDetailedLoggingFeatureEnabled = isEnabled
+			}
 			.onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
 				LoggingPolicy.info("App entering background", logger: .lifecycle)
+				LoggingPolicy.flushApplicationLog()
 				appState.analytics.flushDetectionSessionSummary()
 				if appState.detectionState.ontheflyDetectionEnabled {
 					appState.settings.isDetectionPaused = true

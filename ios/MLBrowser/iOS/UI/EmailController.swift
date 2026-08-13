@@ -16,7 +16,9 @@ final class EmailController: NSObject, @MainActor MFMailComposeViewControllerDel
 
 	/// An attachment the **user** chose to include (AIA-0454): either a photo picked from their
 	/// library or a redacted/unredacted application-log tail expressly enabled in the support form.
-	struct Attachment {
+	/// `Sendable` so an attachment can be assembled off the main actor — a full application log is
+	/// read from disk, redacted, and (above a MiB) zipped, none of which may run on the main thread.
+	struct Attachment: Sendable {
 		let data: Data
 		let mimeType: String
 		let fileName: String

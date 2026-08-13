@@ -33625,6 +33625,222 @@
         }
       }
     },
+    "settings.detailedLogging" : {
+      "comment" : "Toggle that keeps a detailed application log across launches so a support report can cover an earlier problem",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "الاحتفاظ بسجل مفصّل"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "বিস্তারিত লগ রাখুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Uchovávat podrobný protokol"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Detailliertes Protokoll behalten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep a detailed log"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mantener un registro detallado"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "نگه‌داشتن گزارش مفصل"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Conserver un journal détaillé"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "שמירת יומן מפורט"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "विस्तृत लॉग रखें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Részletes napló megőrzése"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zachowuj szczegółowy dziennik"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Сохранять подробный журнал"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Зберігати докладний журнал"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "保留详细日志"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "保留詳細記錄"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "保留詳細記錄"
+          }
+        }
+      }
+    },
+    "settings.detailedLoggingExplanation" : {
+      "comment" : "Explanation under the detailed-log toggle, stating what is recorded and that turning it off deletes the stored log",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يسجّل ما يقوم به التطبيق بتفصيل أكبر ويحتفظ به بين مرات التشغيل، حتى يتمكن تقرير الدعم من تغطية مشكلة واجهتها سابقًا. إيقاف هذا الخيار يحذف السجل المخزَّن."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "অ্যাপটি কী করছে তা আরও বিস্তারিতভাবে রেকর্ড করে এবং চালু-বন্ধের মধ্যেও রেখে দেয়, যাতে সহায়তা রিপোর্টে আগে ঘটে যাওয়া সমস্যাও অন্তর্ভুক্ত হয়। এটি বন্ধ করলে সংরক্ষিত লগ মুছে যায়।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zaznamenává podrobněji, co aplikace dělá, a uchovává to i mezi spuštěními, takže hlášení podpoře může zahrnout i problém, který nastal dříve. Vypnutím se uložený protokol smaže."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zeichnet ausführlicher auf, was die App tut, und behält es über Neustarts hinweg, damit ein Supportbericht auch ein früher aufgetretenes Problem abdecken kann. Beim Ausschalten wird das gespeicherte Protokoll gelöscht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Records what the app is doing in more detail and keeps it between launches, so a support report can cover a problem you hit earlier. Turning this off deletes the stored log."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Registra con más detalle lo que hace la app y lo conserva entre sesiones, para que un informe de soporte pueda incluir un problema que tuviste antes. Al desactivarlo se elimina el registro guardado."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "کارهای برنامه را با جزئیات بیشتری ثبت می‌کند و بین اجراها نگه می‌دارد، تا گزارش پشتیبانی بتواند مشکلی را که پیش‌تر رخ داده هم پوشش دهد. با خاموش کردن آن، گزارش ذخیره‌شده حذف می‌شود."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Enregistre plus en détail ce que fait l’app et le conserve d’une session à l’autre, afin qu’un rapport d’assistance puisse couvrir un problème survenu plus tôt. Désactiver cette option supprime le journal enregistré."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מתעד ביתר פירוט את פעולות האפליקציה ושומר אותו בין הפעלות, כך שדוח לתמיכה יוכל לכלול גם תקלה שאירעה קודם. כיבוי האפשרות מוחק את היומן השמור."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ऐप क्या कर रहा है यह अधिक विस्तार से रिकॉर्ड करता है और उसे ऐप बंद होने के बाद भी रखता है, ताकि सहायता रिपोर्ट में पहले हुई समस्या भी शामिल हो सके। इसे बंद करने पर सहेजा गया लॉग हट जाता है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Részletesebben rögzíti, mit csinál az alkalmazás, és indítások között is megőrzi, így a támogatási jelentés egy korábban tapasztalt hibára is kiterjedhet. Kikapcsoláskor a tárolt napló törlődik."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zapisuje dokładniej, co robi aplikacja, i zachowuje to między uruchomieniami, dzięki czemu zgłoszenie do pomocy może obejmować problem, który wystąpił wcześniej. Wyłączenie usuwa zapisany dziennik."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Подробнее записывает действия приложения и сохраняет их между запусками, чтобы обращение в поддержку охватывало и проблему, возникшую ранее. При отключении сохранённый журнал удаляется."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Докладніше записує дії застосунку й зберігає їх між запусками, щоб звернення до підтримки охоплювало й проблему, що сталася раніше. Якщо вимкнути, збережений журнал буде видалено."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "更详细地记录 App 的运行情况，并在多次启动之间保留，这样支持请求就能涵盖你此前遇到的问题。关闭后会删除已存储的日志。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "更詳細地記錄 App 的運作情形，並在多次啟動之間保留，讓支援回報也能涵蓋你先前遇到的問題。關閉後會刪除已儲存的記錄。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "更詳細地記錄 App 的運作情況，並在多次啟動之間保留，讓支援回報也能涵蓋你較早前遇到的問題。關閉後會刪除已儲存的記錄。"
+          }
+        }
+      }
+    },
     "settings.disableDetectionAnimations" : {
       "comment" : "Toggle that disables detection overlay animations (renders static markers instead of pulsing/scaling/fading)",
       "extractionState" : "manual",
@@ -42685,6 +42901,114 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "僅在你願意分享完整技術細節時使用。當中可能包含完整網址、識別碼及位置資料，有助我們重現問題。"
+          }
+        }
+      }
+    },
+    "support.shareApplicationLog" : {
+      "comment" : "Row in the support form that saves or shares the application log outside email.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "حفظ السجل أو مشاركته"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "লগ সংরক্ষণ বা শেয়ার করুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Uložit nebo sdílet protokol"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Protokoll sichern oder teilen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save or share the log"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Guardar o compartir el registro"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ذخیره یا هم‌رسانی گزارش"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Enregistrer ou partager le journal"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "שמירת היומן או שיתופו"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "लॉग सहेजें या साझा करें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Napló mentése vagy megosztása"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zapisz lub udostępnij dziennik"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Сохранить журнал или поделиться им"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Зберегти журнал або поділитися ним"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "存储或分享日志"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "儲存或分享記錄"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "儲存或分享記錄"
           }
         }
       }

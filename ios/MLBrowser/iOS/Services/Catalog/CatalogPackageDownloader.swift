@@ -154,8 +154,20 @@ final class CatalogHTTPFileDownloader: NSObject, URLSessionDownloadDelegate, URL
 	}
 
 	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-		guard let http = downloadTask.response as? HTTPURLResponse,
-			  (200...299).contains(http.statusCode) else {
+		let statusCode = (downloadTask.response as? HTTPURLResponse)?.statusCode
+		guard let statusCode, (200...299).contains(statusCode) else {
+			// The status code is collapsed into `.network` on the next line and cannot be recovered
+			// anywhere downstream, so it is recorded here or not at all (AIA-0602). `originalRequest`
+			// rather than `currentRequest`: a CDN redirect leaves the latter pointing at an opaque
+			// blob key. Last path component only — a full URL, and any path of two or more
+			// components, is redacted out of the default support export.
+			LoggingPolicy.debug(
+				CatalogPackageDownloader.httpFailureLogLine(
+					fileName: downloadTask.originalRequest?.url?.lastPathComponent,
+					statusCode: statusCode ?? -1
+				),
+				logger: .networking
+			)
 			finish(taskIdentifier: downloadTask.taskIdentifier, result: .failure(CatalogError.network))
 			return
 		}
@@ -404,11 +416,19 @@ private extension CatalogPackageDownloader {
 			try await withThrowingTaskGroup(of: DownloadedFile.self) { group in
 				var nextIndex = 0
 				let initialCount = min(Self.maximumConcurrentDownloads, files.count)
+				let totalCount = files.count
 				for _ in 0..<initialCount {
-					let file = files[nextIndex]
+					let index = nextIndex
+					let file = files[index]
 					nextIndex += 1
 					group.addTask { [session, progressReporter, httpDownload] in
-						try await Self.fetch(file: file, session: session, httpDownload: httpDownload) { bytesWritten in
+						try await Self.fetch(
+							file: file,
+							index: index,
+							totalCount: totalCount,
+							session: session,
+							httpDownload: httpDownload
+						) { bytesWritten in
 							progressReporter.update(file: file, downloadedBytes: bytesWritten)
 						}
 					}
@@ -417,14 +437,31 @@ private extension CatalogPackageDownloader {
 				while let downloaded = try await group.next() {
 					downloadedBytes += downloaded.byteCount
 					guard downloadedBytes <= Self.maximumTotalBytes else { throw CatalogError.tooLarge }
-					try stage(downloaded: downloaded, in: stagingRoot)
+					do {
+						try stage(downloaded: downloaded, in: stagingRoot)
+					} catch {
+						// `stage` throws outside `fetch`, so without this line `.invalidFilePath`
+						// reaches the user as an anonymous package failure.
+						LoggingPolicy.debug(
+							Self.stagingFailureLogLine(file: downloaded.file, error: error),
+							logger: .networking
+						)
+						throw error
+					}
 					progressReporter.complete(file: downloaded.file, downloadedBytes: downloaded.byteCount)
 
 					if nextIndex < files.count {
-						let file = files[nextIndex]
+						let index = nextIndex
+						let file = files[index]
 						nextIndex += 1
 						group.addTask { [session, progressReporter, httpDownload] in
-							try await Self.fetch(file: file, session: session, httpDownload: httpDownload) { bytesWritten in
+							try await Self.fetch(
+								file: file,
+								index: index,
+								totalCount: totalCount,
+								session: session,
+								httpDownload: httpDownload
+							) { bytesWritten in
 								progressReporter.update(file: file, downloadedBytes: bytesWritten)
 							}
 						}
@@ -483,8 +520,85 @@ private extension CatalogPackageDownloader {
 		try fileManager.moveItem(at: downloaded.temporaryURL, to: destination)
 	}
 
+	// MARK: - Failure reporting (AIA-0602)
+	//
+	// Until this existed, a failed package download produced exactly one line — "Package download
+	// failed: Catalog network request failed" — which names neither the file nor the cause. These
+	// lines are what make a support log answer "which file, and why".
+	//
+	// They are `.debug`, deliberately. `.warning` and `.error` both add a Sentry breadcrumb
+	// unconditionally, and `.error` also spends event quota via `captureError` — with three
+	// concurrent transfers, one network drop would bill three captures. The ticket requires
+	// breadcrumb volume to be unchanged, so per-file reporting stays on the level whose breadcrumb
+	// is still `#if DEBUG`-gated.
+
+	/// Formats a package-file failure. Every failure line in this file goes through one of these
+	/// formatters — transfer, HTTP status, staging — so all three are covered by the same
+	/// redaction-survival tests. A hand-built message somewhere else is how one of them quietly stops
+	/// surviving redaction while the tests keep passing.
+	///
+	/// Its shape is load-bearing, because `LogRedactor` runs over this string whenever a user
+	/// exports the default (redacted) support log, and two of its patterns would destroy precisely
+	/// the part support needs:
+	///
+	/// - `absolutePathPattern` consumes any run of two or more slash-separated components, so a
+	///   package-relative path such as `onnx/data/model.onnx` becomes `onnx[redacted path]`. Only
+	///   the last component is safe to log.
+	/// - `identifierValuePattern` matches a bare `download`, `entity`, `session` or `user` followed
+	///   by `:` or `=` and redacts whatever comes next — so the filename must never sit directly
+	///   after one of those words. Hence the em dashes.
+	///
+	/// `CatalogPackageDownloaderLogTests` runs this function's real output through `LogRedactor` and
+	/// asserts the basename and reason survive. Reasoning about those regexes instead of asserting
+	/// against them is how this breaks silently.
+	/// `internal`, against the `private extension` it sits in, so the redaction-survival tests can
+	/// call it. Asserting on the real emitted string is the only defence here — see the note above.
+	internal static func transferFailureLogLine(
+		file: CatalogFile,
+		index: Int,
+		totalCount: Int,
+		error: Error
+	) -> String {
+		"Package file \(index + 1) of \(totalCount) failed — \(safeName(file)) — \(failureReason(for: error))"
+	}
+
+	internal static func stagingFailureLogLine(file: CatalogFile, error: Error) -> String {
+		"Package staging failed — \(safeName(file)) — \(failureReason(for: error))"
+	}
+
+	internal static func failureReason(for error: Error) -> String {
+		if let catalogError = error as? CatalogError { return String(describing: catalogError) }
+		let nsError = error as NSError
+		return "\(nsError.domain) \(nsError.code)"
+	}
+
+	/// The basename, with the two characters that can turn it into a `key=value` pair neutralised.
+	///
+	/// Stripping path components is not enough: `identifierValuePattern` fires on a bare `download`,
+	/// `entity`, `session`, `user`… followed by `:` or `=`, and the *filename itself* can supply
+	/// both. A catalog file called `download=model.onnx` is rewritten to `download=[redacted]`, and
+	/// the release support log stops naming the file it exists to name.
+	internal static func safeName(_ file: CatalogFile) -> String {
+		(file.relativePath as NSString).lastPathComponent
+			.replacingOccurrences(of: "=", with: "_")
+			.replacingOccurrences(of: ":", with: "_")
+	}
+
+	/// The transport-level line, sharing the formatter so it is covered by the same
+	/// redaction-survival tests. Hand-building a second message shape is how one of them silently
+	/// stops surviving redaction.
+	internal static func httpFailureLogLine(fileName: String?, statusCode: Int) -> String {
+		let name = (fileName?.isEmpty == false ? fileName : nil) ?? "unknown"
+		let safe = name
+			.replacingOccurrences(of: "=", with: "_")
+			.replacingOccurrences(of: ":", with: "_")
+		return "Package file transfer failed — \(safe) — HTTP \(statusCode)"
+	}
+
 	nonisolated static func fetch(
 		file: CatalogFile,
+		index: Int,
+		totalCount: Int,
 		session: URLSession,
 		httpDownload: @escaping CatalogHTTPDownload,
 		onBytesWritten: @escaping @Sendable (Int64) -> Void = { _ in }
@@ -500,10 +614,20 @@ private extension CatalogPackageDownloader {
 				throw error
 			}
 		} catch is CancellationError {
+			// A sibling failed and the group cancelled this transfer. Logging it would name files
+			// that did not fail, once per concurrent download, and bury the one that did.
 			throw CancellationError()
 		} catch let error as CatalogError {
+			LoggingPolicy.debug(
+				transferFailureLogLine(file: file, index: index, totalCount: totalCount, error: error),
+				logger: .networking
+			)
 			throw error
 		} catch {
+			LoggingPolicy.debug(
+				transferFailureLogLine(file: file, index: index, totalCount: totalCount, error: error),
+				logger: .networking
+			)
 			throw CatalogError.network
 		}
 	}
