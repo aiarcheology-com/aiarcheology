@@ -154,16 +154,18 @@ final class CatalogHTTPFileDownloader: NSObject, URLSessionDownloadDelegate, URL
 	}
 
 	func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
-		let response = downloadTask.response as? HTTPURLResponse
-		guard let response, (200...299).contains(response.statusCode) else {
+		let statusCode = (downloadTask.response as? HTTPURLResponse)?.statusCode
+		guard let statusCode, (200...299).contains(statusCode) else {
 			// The status code is collapsed into `.network` on the next line and cannot be recovered
 			// anywhere downstream, so it is recorded here or not at all (AIA-0602). `originalRequest`
 			// rather than `currentRequest`: a CDN redirect leaves the latter pointing at an opaque
 			// blob key. Last path component only — a full URL, and any path of two or more
 			// components, is redacted out of the default support export.
-			let name = downloadTask.originalRequest?.url?.lastPathComponent ?? "unknown"
 			LoggingPolicy.debug(
-				"Package file transfer failed — \(name) — HTTP \(response?.statusCode ?? -1)",
+				CatalogPackageDownloader.httpFailureLogLine(
+					fileName: downloadTask.originalRequest?.url?.lastPathComponent,
+					statusCode: statusCode ?? -1
+				),
 				logger: .networking
 			)
 			finish(taskIdentifier: downloadTask.taskIdentifier, result: .failure(CatalogError.network))
@@ -530,7 +532,10 @@ private extension CatalogPackageDownloader {
 	// breadcrumb volume to be unchanged, so per-file reporting stays on the level whose breadcrumb
 	// is still `#if DEBUG`-gated.
 
-	/// The one place a package-file failure becomes a log line.
+	/// Formats a package-file failure. Every failure line in this file goes through one of these
+	/// formatters — transfer, HTTP status, staging — so all three are covered by the same
+	/// redaction-survival tests. A hand-built message somewhere else is how one of them quietly stops
+	/// surviving redaction while the tests keep passing.
 	///
 	/// Its shape is load-bearing, because `LogRedactor` runs over this string whenever a user
 	/// exports the default (redacted) support log, and two of its patterns would destroy precisely
@@ -567,8 +572,27 @@ private extension CatalogPackageDownloader {
 		return "\(nsError.domain) \(nsError.code)"
 	}
 
-	private static func safeName(_ file: CatalogFile) -> String {
+	/// The basename, with the two characters that can turn it into a `key=value` pair neutralised.
+	///
+	/// Stripping path components is not enough: `identifierValuePattern` fires on a bare `download`,
+	/// `entity`, `session`, `user`… followed by `:` or `=`, and the *filename itself* can supply
+	/// both. A catalog file called `download=model.onnx` is rewritten to `download=[redacted]`, and
+	/// the release support log stops naming the file it exists to name.
+	internal static func safeName(_ file: CatalogFile) -> String {
 		(file.relativePath as NSString).lastPathComponent
+			.replacingOccurrences(of: "=", with: "_")
+			.replacingOccurrences(of: ":", with: "_")
+	}
+
+	/// The transport-level line, sharing the formatter so it is covered by the same
+	/// redaction-survival tests. Hand-building a second message shape is how one of them silently
+	/// stops surviving redaction.
+	internal static func httpFailureLogLine(fileName: String?, statusCode: Int) -> String {
+		let name = (fileName?.isEmpty == false ? fileName : nil) ?? "unknown"
+		let safe = name
+			.replacingOccurrences(of: "=", with: "_")
+			.replacingOccurrences(of: ":", with: "_")
+		return "Package file transfer failed — \(safe) — HTTP \(statusCode)"
 	}
 
 	nonisolated static func fetch(

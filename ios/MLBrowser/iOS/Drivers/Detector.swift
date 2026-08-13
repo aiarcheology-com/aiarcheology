@@ -111,9 +111,12 @@ actor Detector: Detecting {
         // release builds, that one call site would have been the overwhelming majority of the
         // five-MiB budget and would have rolled the incident being investigated off the front of
         // the log. The slowest region is what the timing was ever read for.
-        var slowestRegionIndex = 0
-        var slowestRegionSeconds: TimeInterval = 0
+        // Optional, not zero-defaulted: if every region throws, a default of index 0 at 0s would put
+        // "slowest region 0 at 0.0s" in the log — a confident, wrong number, which in a diagnostic
+        // record is worse than an absent one.
+        var slowestRegion: (index: Int, seconds: TimeInterval)?
         var emptyRegionCount = 0
+        var failedRegionCount = 0
         for (index, region) in regions.enumerated() {
             detectionRequest.regionOfInterest = region
             let regionStart = Date.now
@@ -124,6 +127,7 @@ actor Detector: Detecting {
                 // be consumed: VNRequest retains the previous run's results on failure.
                 LoggingPolicy.error("Failed to perform detection for region \(index)", error: error, logger: .drivers)
                 DefaultCrashReporter.shared.recordError(error, context: ["operation": "performDetection", "region": "\(index)"])
+                failedRegionCount += 1
                 continue
             }
             let regionObservations = (detectionRequest.results as? [VNRecognizedObjectObservation]) ?? []
@@ -138,19 +142,19 @@ actor Detector: Detecting {
                 ))
             }
             let regionSeconds = Date.now.timeIntervalSince(regionStart)
-            if regionSeconds > slowestRegionSeconds {
-                slowestRegionSeconds = regionSeconds
-                slowestRegionIndex = index
+            if regionSeconds > (slowestRegion?.seconds ?? -1) {
+                slowestRegion = (index, regionSeconds)
             }
             if regionObservations.isEmpty { emptyRegionCount += 1 }
         }
         let results = TileLayout.dedupAcrossRegions(collected)
+        let slowest = slowestRegion.map { "slowest region \($0.index) at \($0.seconds)s" }
+            ?? "no region completed"
         LoggingPolicy.debug(
             """
             Detection over \(regions.count) regions completed with \(results.count) objects \
             (\(collected.count) raw) in \(Date.now.timeIntervalSince(start))s; \
-            slowest region \(slowestRegionIndex) at \(slowestRegionSeconds)s, \
-            \(emptyRegionCount) empty
+            \(slowest), \(emptyRegionCount) empty, \(failedRegionCount) failed
             """,
             logger: .drivers
         )

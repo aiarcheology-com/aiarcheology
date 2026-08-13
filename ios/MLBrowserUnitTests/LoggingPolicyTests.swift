@@ -348,16 +348,41 @@ final class ApplicationLogRecordTests: XCTestCase {
 		XCTAssertEqual(text.filter { $0 == "\n" }.count, 1, "One entry must be exactly one line")
 	}
 
-	func testFrame_ClampsAnOversizedEntryAndSaysHowMuchWentMissing() {
-		let oversized = String(repeating: "a", count: ApplicationLogRecord.maximumEntryByteCount * 2)
+	/// Asserts the reported figure, not merely that a figure is present. The previous version only
+	/// checked `contains("truncated")`, so it would have passed with any number — and the number was
+	/// in fact wrong by the notice's own length, because the loss was computed against the budget
+	/// rather than against the text that actually survived.
+	func testFrame_ClampsAnOversizedEntryAndReportsTheRealLoss() throws {
+		let originalByteCount = ApplicationLogRecord.maximumEntryByteCount * 2
+		let oversized = String(repeating: "a", count: originalByteCount)
 
 		let framed = ApplicationLogRecord.frame(oversized)
 
-		XCTAssertEqual(framed.count, ApplicationLogRecord.maximumEntryByteCount + 1)
-		guard let text = String(bytes: framed, encoding: .utf8) else {
-			return XCTFail("Expected UTF-8")
-		}
-		XCTAssertTrue(text.contains("truncated"), "A shortened entry must not read as a complete one")
+		XCTAssertLessThanOrEqual(framed.count, ApplicationLogRecord.maximumEntryByteCount + 1)
+		let text = try XCTUnwrap(String(bytes: framed, encoding: .utf8))
+		let separator = " …[truncated "
+		let parts = text.components(separatedBy: separator)
+		XCTAssertEqual(parts.count, 2, "A shortened entry must not read as a complete one")
+		let keptByteCount = parts[0].utf8.count
+		let reported = try XCTUnwrap(Int(parts[1].components(separatedBy: " bytes]").first ?? ""))
+
+		XCTAssertEqual(
+			reported,
+			originalByteCount - keptByteCount,
+			"The figure has to describe the text that survived, not the budget"
+		)
+	}
+
+	func testDroppingTornTrailingRecord_RemovesAnUnterminatedTail() {
+		let intact = Data("first\nsecond\n".utf8)
+		XCTAssertEqual(ApplicationLogRecord.droppingTornTrailingRecord(intact), intact)
+
+		let torn = Data("first\nsecond\nthird-was-cut".utf8)
+		XCTAssertEqual(
+			ApplicationLogRecord.droppingTornTrailingRecord(torn),
+			intact,
+			"A record without its terminator is the remains of an interrupted write"
+		)
 	}
 
 	/// The retention window is set almost entirely by the highest-volume call site, which is
@@ -599,6 +624,45 @@ final class DetailedLoggingSwitchTests: XCTestCase {
 		XCTAssertFalse(redacted.contains(marker), "Read-time redaction must still strip the URL")
 		XCTAssertTrue(redacted.contains("[redacted URL]"))
 		XCTAssertTrue(currentLog().contains(marker), "…while the stored record stays complete")
+	}
+
+	/// A user who hits a bug and *then* switches detailed logging on to report it must still get the
+	/// entries from before the switch — those live in the memory backing, and reading only the
+	/// active store would hide exactly the failure they turned it on for.
+	func testEnablingMidSessionStillExportsWhatWasLoggedBeforehand() {
+		LoggingPolicy.isDetailedLoggingEnabled = false
+		let beforeMarker = UUID().uuidString
+		LoggingPolicy.info("before the switch \(beforeMarker)")
+
+		LoggingPolicy.isDetailedLoggingEnabled = true
+		let afterMarker = UUID().uuidString
+		LoggingPolicy.info("after the switch \(afterMarker)")
+		LoggingPolicy.flushApplicationLog()
+
+		let log = currentLog()
+		XCTAssertTrue(log.contains(beforeMarker), "The pre-toggle session log must survive enabling")
+		XCTAssertTrue(log.contains(afterMarker))
+	}
+
+	/// A crash part-way through a write leaves the last record unterminated. The failable decode this
+	/// used to do turned that into an empty export — the user's whole log replaced by the
+	/// "unavailable" placeholder, in precisely the post-crash report the feature exists for.
+	func testATornTrailingRecordDoesNotCollapseTheRedactedExport() throws {
+		LoggingPolicy.info("a complete entry that must survive")
+		LoggingPolicy.flushApplicationLog()
+
+		let currentURL = directoryURL.appendingPathComponent("application-current.log")
+		var raw = try Data(contentsOf: currentURL)
+		// A multi-byte scalar cut in half: valid bytes, invalid UTF-8 tail.
+		raw.append(contentsOf: [0xE2, 0x82])
+		try raw.write(to: currentURL, options: .atomic)
+
+		let redacted = String(bytes: LoggingPolicy.recentApplicationLogData(), encoding: .utf8) ?? ""
+
+		XCTAssertTrue(
+			redacted.contains("a complete entry that must survive"),
+			"One torn tail must not cost the user the entire log"
+		)
 	}
 
 	func testPurgeRemovesEverythingRetained() {

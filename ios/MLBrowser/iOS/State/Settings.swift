@@ -517,6 +517,12 @@ final class Settings: ObservableObject, Validatable {
 		self.remoteFlagLaunchValues = defaults.dictionary(forKey: UserDefaultsKeys.remoteFlagLaunchValues) as? [String: Bool] ?? [:]
 		self.ratingPromptEventCount = defaults.integer(forKey: UserDefaultsKeys.ratingPromptEventCount)
 		self.detailedLoggingEnabled = defaults.bool(forKey: UserDefaultsKeys.detailedLogging)
+		// Pushed explicitly because `didSet` does not fire during `init`, and because this type may
+		// be reading a different `UserDefaults` suite than `LoggingPolicy` does — under UI tests it
+		// reads an ephemeral suite while `LoggingPolicy` reads `.standard`. Without this the toggle
+		// and the logger disagree, and a UI test that seeds the switch off would still be persisting
+		// raw entries (AIA-0602).
+		LoggingPolicy.isDetailedLoggingEnabled = self.detailedLoggingEnabled
 		// There is no `defaults.date(forKey:)`; an absent key must stay `nil` rather than become a
 		// 1970 date, which `shouldRequest` would read as "asked very long ago".
 		self.ratingPromptLastRequestDate = defaults.object(forKey: UserDefaultsKeys.ratingPromptLastRequestDate) as? Date

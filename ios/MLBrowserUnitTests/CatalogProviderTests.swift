@@ -1236,6 +1236,43 @@ final class CatalogPackageDownloaderLogTests: XCTestCase {
 		XCTAssertEqual(LogRedactor.redactingSensitiveData(reason), reason)
 	}
 
+	/// The filename can defeat the criterion by itself. `identifierValuePattern` fires on a bare
+	/// `download` followed by `=`, and a catalog file may legitimately be named that way — stripping
+	/// path components is not enough, the basename's own content has to be neutralised.
+	func testTransferFailureLine_SurvivesAFilenameThatLooksLikeAnIdentifierAssignment() {
+		let line = CatalogPackageDownloader.transferFailureLogLine(
+			file: file("weights/download=model.onnx"),
+			index: 0,
+			totalCount: 3,
+			error: CatalogError.timedOut
+		)
+
+		let redacted = LogRedactor.redactingSensitiveData(line)
+
+		XCTAssertEqual(redacted, line)
+		XCTAssertTrue(redacted.contains("model.onnx"), "The file must still be identifiable")
+		XCTAssertFalse(redacted.contains("[redacted]"))
+	}
+
+	/// The HTTP line is built in the session delegate, far from the other two. Routing it through a
+	/// shared formatter is what keeps it inside these assertions instead of quietly drifting out.
+	func testHTTPFailureLine_SurvivesRedaction() {
+		let line = CatalogPackageDownloader.httpFailureLogLine(fileName: "download=model.onnx", statusCode: 403)
+
+		let redacted = LogRedactor.redactingSensitiveData(line)
+
+		XCTAssertEqual(redacted, line)
+		XCTAssertTrue(redacted.contains("model.onnx"))
+		XCTAssertTrue(redacted.contains("403"))
+	}
+
+	func testHTTPFailureLine_NamesTheFileAsUnknownWhenTheURLHasNone() {
+		let line = CatalogPackageDownloader.httpFailureLogLine(fileName: nil, statusCode: 500)
+
+		XCTAssertTrue(line.contains("unknown"))
+		XCTAssertTrue(line.contains("500"))
+	}
+
 	/// Phrasing is load-bearing: `identifierValuePattern` matches a bare `download`/`entity`/
 	/// `session`/`user` before `:` or `=` and redacts what follows. This pins the trap so nobody
 	/// "tidies" the message into `download: model.onnx` and silently loses the filename.

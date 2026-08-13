@@ -138,8 +138,26 @@ enum LoggingPolicy {
 	}
 
 	private static var activeStore: ApplicationLogStoring {
-		guard isDetailedLoggingEnabled, let persistentLogStore else { return sessionLogBuffer }
+		guard isDetailedLoggingEnabled, let persistentLogStore else {
+			reconcileDisabledStoreOnce()
+			return sessionLogBuffer
+		}
 		return persistentLogStore
+	}
+
+	private nonisolated(unsafe) static var hasReconciledDisabledStore = false
+
+	/// Deletes files left behind by a session that was switched off and then killed before the
+	/// deletion ran.
+	///
+	/// Without this, that app comes back reading "off", takes the memory backing, and never looks at
+	/// the old files again — so a user who turned the log off keeps a raw record of their browsing on
+	/// disk indefinitely, with the UI insisting otherwise. `disable()` being synchronous makes the
+	/// window small; this closes it.
+	private static func reconcileDisabledStoreOnce() {
+		guard hasReconciledDisabledStore == false else { return }
+		hasReconciledDisabledStore = true
+		persistentLogStore?.disable()
 	}
 
 	/// Returns the latest five MiB of application-log entries for a user-selected support-email
@@ -154,9 +172,28 @@ enum LoggingPolicy {
 	/// applying seven regexes to a single five-MiB subject is not a workable alternative. Call this
 	/// off the main thread: a full log costs on the order of a second.
 	static func recentApplicationLogData(sendUnredactedData: Bool = false) -> Data {
-		let raw = activeStore.snapshotData()
+		// Both backings, oldest first. A session that started with the switch off keeps those entries
+		// in memory and everything after in the file; reading only the active one would hide exactly
+		// the failure a user turned the switch on in order to report.
+		var combined = sessionLogBuffer.snapshotData()
+		if let persistentLogStore { combined.append(persistentLogStore.snapshotData()) }
+		// A crash part-way through a write can leave the final record unterminated. Dropping it costs
+		// one entry and prevents two different failures: a fragment whose redaction anchor was cut
+		// off shipping unredacted, and — since the cut can land inside a multi-byte scalar — the
+		// whole export failing to decode and collapsing to nothing.
+		let raw = ApplicationLogRecord.trim(
+			ApplicationLogRecord.droppingTornTrailingRecord(combined),
+			to: ApplicationLogBuffer.maximumByteCount
+		)
 		guard sendUnredactedData == false else { return raw }
-		guard let text = String(data: raw, encoding: .utf8) else { return Data() }
+		// Lossy rather than failable, deliberately against `optional_data_string_conversion`: the
+		// failable initializer returns nil for the whole snapshot when any byte is bad, which turned
+		// one torn trailing record — the ordinary result of a crash mid-write — into an empty export
+		// and replaced the user's entire log with the "unavailable" placeholder. That is the exact
+		// report the feature exists to produce, so a replacement character in one entry is the
+		// cheaper failure by a wide margin.
+		// swiftlint:disable:next optional_data_string_conversion
+		let text = String(decoding: raw, as: UTF8.self)
 		let redacted = text
 			.split(separator: "\n", omittingEmptySubsequences: false)
 			.map { LogRedactor.redactingSensitiveData(String($0)) }
@@ -164,15 +201,29 @@ enum LoggingPolicy {
 		return Data(redacted.utf8)
 	}
 
-	/// Makes everything appended so far durable. Called from the paths that may be the last thing
-	/// this process does.
+	/// Makes everything appended so far durable, **blocking the caller**. Only for the paths that may
+	/// be the last thing this process does.
+	///
+	/// Not used by `error`/`fault`: `flush()` waits for the whole write queue and then an `fsync`,
+	/// and there are over a hundred `error` call sites, many on the main actor. Making each of them
+	/// wait on a possibly-wedged filesystem is the same unbounded main-thread wait that `append`'s
+	/// 20 ms timeout exists to avoid.
 	static func flushApplicationLog() {
 		activeStore.flush()
 	}
 
-	/// Deletes every retained entry, on disk and in memory. Wired to the erasure affordances a user
-	/// would expect to cover a log holding hosts and URLs: Restore Defaults and Clear Browsing
-	/// History.
+	/// Schedules the same durability work without waiting for it. Used by `error`/`fault`, where the
+	/// point is that the entry reaches the file soon, not that the caller stops until it has.
+	static func scheduleApplicationLogFlush() {
+		persistentLogStore?.flushAsynchronously()
+	}
+
+	/// Deletes every retained entry, on disk and in memory.
+	///
+	/// One production caller: Clear Browsing History, whose whole purpose is erasing the hosts and
+	/// addresses this log also holds. Restore Defaults deliberately does **not** call it — it resets
+	/// preference values and nothing else, consistent with the rest of `Settings.reset()`, which does
+	/// not delete findings, screenshots or history either.
 	static func purgeApplicationLog() {
 		persistentLogStore?.purge()
 		sessionLogBuffer.purge()
@@ -321,9 +372,10 @@ enum LoggingPolicy {
         // 1. Local
         logger.logError(localMessage)
 		retain(unredactedLocalMessage, level: "ERROR", category: category)
-		// An error is the thing a support report is usually about, so put it beyond reach of a
-		// crash before returning. Ordinary entries ride the queue; these do not.
-		flushApplicationLog()
+		// An error is usually what a support report is about, so its durability is scheduled ahead of
+		// ordinary entries — but not waited on. Blocking here would put an fsync on the caller's
+		// thread at every one of the hundred-plus error sites, many of them the main actor.
+		scheduleApplicationLogFlush()
 
         // 2. Remote capture (QUOTA - counts toward event limit)
         // Also add as breadcrumb for context in future events
@@ -351,7 +403,7 @@ enum LoggingPolicy {
         // 1. Local
         logger.logFault(prefixedMessage)
 		retain(unredactedPrefixedMessage, level: "FAULT", category: category)
-		flushApplicationLog()
+		scheduleApplicationLogFlush()
 
         // 2. Remote capture (QUOTA - critical issues)
         Observability.recordBreadcrumb(prefixedMessage, level: .fatal, category: category)
@@ -478,10 +530,16 @@ enum ApplicationLogRecord {
 
 		var body = singleLine
 		if body.utf8.count > maximumEntryByteCount {
-			// Say how much went missing. A silently shortened entry reads as a complete one.
-			let droppedByteCount = body.utf8.count - maximumEntryByteCount
-			let notice = " …[truncated \(droppedByteCount) bytes]"
-			body = clamping(body, toUTF8ByteCount: maximumEntryByteCount - notice.utf8.count) + notice
+			// Say how much went missing, and say it accurately: the count is taken against the text
+			// actually kept, not against the budget, because the notice itself occupies part of the
+			// budget. Computing it the obvious way understates the loss by the notice's own length.
+			let originalByteCount = body.utf8.count
+			// Reserve room using the widest the notice could be — its number can never exceed the
+			// original size — then report the loss against the text that actually survived. The
+			// entry can come out a few bytes under budget; the figure being true matters more.
+			let reservedNoticeByteCount = " …[truncated \(originalByteCount) bytes]".utf8.count
+			let kept = clamping(body, toUTF8ByteCount: maximumEntryByteCount - reservedNoticeByteCount)
+			body = kept + " …[truncated \(originalByteCount - kept.utf8.count) bytes]"
 		}
 
 		var record = Data(body.utf8)
@@ -504,6 +562,19 @@ enum ApplicationLogRecord {
 		let window = data.suffix(maximumByteCount)
 		guard let firstNewline = window.firstIndex(of: 0x0A) else { return Data() }
 		return Data(window[window.index(after: firstNewline)...])
+	}
+
+	/// Drops an unterminated final record.
+	///
+	/// Every framed record ends in a newline, so trailing bytes without one are the remains of a
+	/// write interrupted by a crash or power loss. Keeping them causes two distinct failures, and the
+	/// second is the quiet one: a fragment whose redaction anchor was cut off ships unredacted in the
+	/// *default* export, and — because the cut can land inside a multi-byte scalar — a failable UTF-8
+	/// decode of the whole snapshot returns nil, replacing the user's entire log with a placeholder.
+	static func droppingTornTrailingRecord(_ data: Data) -> Data {
+		guard data.isEmpty == false, data.last != 0x0A else { return data }
+		guard let lastNewline = data.lastIndex(of: 0x0A) else { return Data() }
+		return Data(data[...lastNewline])
 	}
 
 	/// Truncates on a grapheme boundary so the result is always valid UTF-8. Iterating `Character`s
@@ -575,12 +646,19 @@ final class ApplicationLogBuffer: ApplicationLogStoring, @unchecked Sendable {
 /// which the problem actually happened.
 ///
 /// **The five-MiB cap is structural, not bookkeeping.** Two files rotate at half the budget each,
-/// and the rotation check runs *before* a write rather than after, so neither file can ever exceed
-/// its half. With `ApplicationLogRecord.maximumEntryByteCount` bounding a single entry far below
-/// that, `current ≤ budget/2` and `previous ≤ budget/2` hold unconditionally — the total is bounded
-/// by construction, with no counter to trust and nothing to scan. (Checking *after* the write is the
-/// obvious version and is wrong: it permits `previous` to be half-plus-one-entry while `current`
-/// fills independently.)
+/// and the rotation check runs *before* a write rather than after, so neither file exceeds its half.
+/// (Checking *after* the write is the obvious version and is wrong: it permits `previous` to be
+/// half-plus-one-entry while `current` fills independently.)
+///
+/// Two honest qualifications, because "unconditional" would be an overclaim:
+/// - it assumes a single framed record fits in half the budget — true by a wide margin in production
+///   (64 KiB against 2.5 MiB), but not for the deliberately tiny budgets some tests use;
+/// - a **terminal** append runs past the cap on purpose, since rotating on the way to
+///   `preconditionFailure` is filesystem surgery at the worst possible moment. That overage lasts
+///   until the next launch, which rotates an oversized `current` before writing.
+///
+/// What holds without qualification is the *delivered* bound: `LoggingPolicy.recentApplicationLogData`
+/// trims to the budget, so no export exceeds it whatever the files did.
 ///
 /// **The serial queue is the buffer.** There is deliberately no ring of my own in front of it: a
 /// bounded queue that evicts to stay bounded would delete entries the disk budget had room for, and
@@ -608,7 +686,6 @@ final class ApplicationLogFileStore: ApplicationLogStoring, @unchecked Sendable 
 	private var currentByteCount = 0
 	private var isPrepared = false
 	private var isEnabled = true
-	private var throttledWriteCount = 0
 
 	private var rotationByteCount: Int { maximumByteCount / 2 }
 	private var currentURL: URL { directoryURL.appendingPathComponent(Self.currentFileName) }
@@ -649,16 +726,19 @@ final class ApplicationLogFileStore: ApplicationLogStoring, @unchecked Sendable 
 	func append(_ entry: String, isTerminal: Bool) {
 		let record = ApplicationLogRecord.frame(entry)
 
-		// Backpressure, never a hang. `DispatchSemaphore` does not donate priority, so an unbounded
-		// `wait()` on the main thread against a wedged filesystem would be a watchdog kill — the
-		// diagnostics subsystem terminating the app it exists to diagnose. On timeout the record is
-		// enqueued anyway and the event is counted, so this can only ever cost latency.
+		// A throttle, not a bound — and the distinction matters, so it is stated rather than implied.
+		// Once the slots are taken the record is enqueued anyway, so a wedged filesystem still lets
+		// closures accumulate; what this buys is 20 ms of slack per caller for the queue to catch up.
+		// It deliberately does not wait longer: `DispatchSemaphore` does not donate priority, and an
+		// unbounded wait on the main thread against a stuck disk would be a watchdog kill — the
+		// diagnostics subsystem terminating the app it exists to diagnose. Dropping instead of
+		// enqueuing was the alternative, and it is worse: it would punch a hole in the middle of the
+		// log with nothing marking it.
 		let acquiredSlot = slots.wait(timeout: .now() + .milliseconds(20)) == .success
 
 		queue.async { [weak self] in
 			guard let self else { return }
 			defer { if acquiredSlot { self.slots.signal() } }
-			if acquiredSlot == false { self.throttledWriteCount += 1 }
 			self.write(record, allowRotation: isTerminal == false)
 		}
 	}
@@ -682,6 +762,12 @@ final class ApplicationLogFileStore: ApplicationLogStoring, @unchecked Sendable 
 		}
 	}
 
+	/// The same work, ordered behind the queued writes but not waited on. For callers that want the
+	/// entry on disk soon without stopping until it is — see `LoggingPolicy.scheduleApplicationLogFlush`.
+	func flushAsynchronously() {
+		queue.async { try? self.handle?.synchronize() }
+	}
+
 	func purge() {
 		queue.sync {
 			self.closeHandle()
@@ -697,7 +783,13 @@ final class ApplicationLogFileStore: ApplicationLogStoring, @unchecked Sendable 
 	/// blocks re-create `application-current.log` with raw entries immediately afterwards, leaving
 	/// the switch reading off while an unredacted file exists on disk.
 	func disable() {
-		queue.async {
+		// `sync`, not `async`. Ordering behind the outstanding writes is necessary but not
+		// sufficient: with `async`, the switch is persisted as off the moment the setter returns
+		// while deletion is merely queued, so an app suspended or killed in between comes back with
+		// the toggle reading off and the raw files still on disk — permanently, because the next
+		// launch uses the memory backing and never revisits them. Blocking a settings tap for a file
+		// delete is the cheaper side of that trade.
+		queue.sync {
 			self.closeHandle()
 			self.isEnabled = false
 			self.removeFiles()
@@ -751,6 +843,24 @@ final class ApplicationLogFileStore: ApplicationLogStoring, @unchecked Sendable 
 
 		purgeAgedFiles()
 		currentByteCount = byteCount(of: currentURL)
+		truncateTornTrailingRecord()
+		// A terminal append deliberately runs past the cap (rotating on the way to
+		// `preconditionFailure` is filesystem surgery at the worst moment), so a crashed session can
+		// leave an oversized `current`. Rotating here bounds the overage to that one launch.
+		if currentByteCount > rotationByteCount {
+			rotate()
+		}
+	}
+
+	/// Removes an unterminated final record left by an interrupted write, so the fragment cannot
+	/// fuse with the next append into one bogus line.
+	private func truncateTornTrailingRecord() {
+		guard currentByteCount > 0,
+			  let data = try? Data(contentsOf: currentURL, options: .mappedIfSafe),
+			  data.last != 0x0A else { return }
+		let repaired = ApplicationLogRecord.droppingTornTrailingRecord(Data(data))
+		guard (try? repaired.write(to: currentURL, options: .atomic)) != nil else { return }
+		currentByteCount = repaired.count
 	}
 
 	/// Age is keyed on **creation** date, not modification date: `current`'s mtime is refreshed by
@@ -778,9 +888,20 @@ final class ApplicationLogFileStore: ApplicationLogStoring, @unchecked Sendable 
 	/// counter tracked `current`.
 	private func rotate() {
 		closeHandle()
-		try? fileManager.removeItem(at: previousURL)
-		try? fileManager.moveItem(at: currentURL, to: previousURL)
-		currentByteCount = 0
+		purgeAgedFiles()
+		do {
+			if fileManager.fileExists(atPath: previousURL.path) {
+				try fileManager.removeItem(at: previousURL)
+			}
+			try fileManager.moveItem(at: currentURL, to: previousURL)
+			currentByteCount = 0
+		} catch {
+			// Swallowing this and resetting the counter anyway is how the cap stops holding: if
+			// `previous` cannot be removed the move fails, `current` survives, and a zeroed counter
+			// lets it grow without bound. Re-derive from the file instead, so the next write sees the
+			// real size and tries to rotate again.
+			currentByteCount = byteCount(of: currentURL)
+		}
 	}
 
 	private func openHandleIfNeeded() -> FileHandle? {

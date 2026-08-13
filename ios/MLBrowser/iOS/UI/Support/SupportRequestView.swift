@@ -262,11 +262,23 @@ struct SupportRequestView: View {
 		}
 		isPreparingApplicationLogExport = true
 		defer { isPreparingApplicationLogExport = false }
+		// `Task.detached` is not a child, so `.task(id:)` cancelling this function does NOT cancel
+		// the work below. Without a generation check, a superseded run finishes after a newer one
+		// deleted the exports and re-creates the file — flip "send unredacted" on and off quickly and
+		// an unredacted export reappears under a form that reads redacted. The generation is claimed
+		// before the work starts and re-checked before the file is kept.
+		let generation = Self.claimApplicationLogExportGeneration()
 		let url = await Task.detached(priority: .userInitiated) { () -> URL? in
 			let logData = LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredacted)
-			return Self.exportedApplicationLogFile(data: logData, sendUnredactedData: sendUnredacted)
+			return Self.exportedApplicationLogFile(
+				data: logData,
+				sendUnredactedData: sendUnredacted,
+				generation: generation
+			)
 		}.value
-		guard Task.isCancelled == false else { return }
+		guard Task.isCancelled == false, Self.isCurrentApplicationLogExportGeneration(generation) else {
+			return
+		}
 		applicationLogExportURL = url
 	}
 
@@ -467,7 +479,10 @@ struct SupportRequestView: View {
 			if let coordinationError { throw coordinationError }
 			return try archived?.get()
 		} catch {
-			LoggingPolicy.warning(
+			// `.debug`, not `.warning`: warning breadcrumbs unconditionally, and AIA-0602 requires
+			// production Sentry volume to be unchanged. The fallback is already safe, so this is a
+			// diagnostic note, not an alert.
+			LoggingPolicy.debug(
 				"Could not compress the application log (\(error.localizedDescription)) — attaching plain text",
 				logger: .ui
 			)
@@ -488,7 +503,28 @@ struct SupportRequestView: View {
 	///
 	/// Shared as plain text at any size — this is the "save it to Files" route, where readability is
 	/// the point; compression is an email concern (see ``applicationLogAttachment(data:sendUnredactedData:)``).
-	nonisolated static func exportedApplicationLogFile(data: Data, sendUnredactedData: Bool) -> URL? {
+	/// Serialises export writes against the generation counter, so a superseded run cannot recreate a
+	/// file a newer run removed. Every mutation of the export directory goes through this queue.
+	private nonisolated static let applicationLogExportQueue =
+		DispatchQueue(label: "com.aiarcheology.ios.support-log-export")
+	private nonisolated(unsafe) static var applicationLogExportGeneration = 0
+
+	static func claimApplicationLogExportGeneration() -> Int {
+		applicationLogExportQueue.sync {
+			applicationLogExportGeneration += 1
+			return applicationLogExportGeneration
+		}
+	}
+
+	static func isCurrentApplicationLogExportGeneration(_ generation: Int) -> Bool {
+		applicationLogExportQueue.sync { applicationLogExportGeneration == generation }
+	}
+
+	nonisolated static func exportedApplicationLogFile(
+		data: Data,
+		sendUnredactedData: Bool,
+		generation: Int? = nil
+	) -> URL? {
 		let fileManager = FileManager.default
 		let directory = applicationLogExportDirectory
 		let url = directory
@@ -496,13 +532,27 @@ struct SupportRequestView: View {
 		do {
 			// Replaced, never accumulated: the previous export may hold unredacted data the user
 			// has since switched off.
-			removeApplicationLogExports()
-			try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-			let payload = data.isEmpty ? Data(emptyApplicationLogPlaceholder.utf8) : data
-			try payload.write(to: url, options: .atomic)
+			try applicationLogExportQueue.sync {
+				guard generation == nil || generation == Self.applicationLogExportGeneration else {
+					// Superseded while we were reading and redacting. Writing now would resurrect an
+					// export the newer run already removed.
+					throw CancellationError()
+				}
+				removeApplicationLogExportsLocked()
+				try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+				let payload = data.isEmpty ? Data(emptyApplicationLogPlaceholder.utf8) : data
+				try payload.write(to: url, options: .atomic)
+			}
 			return url
+		} catch is CancellationError {
+			// Superseded, not failed. Nothing to report and nothing to clean up — the newer run owns
+			// the directory now.
+			return nil
 		} catch {
-			LoggingPolicy.error(
+			// `.debug`, not `.error`: error adds a breadcrumb AND spends Sentry event quota via
+			// captureError, and AIA-0602 requires production Sentry volume to be unchanged. The user
+			// sees the outcome directly — the share row stays disabled.
+			LoggingPolicy.debug(
 				"Could not write the application log for sharing: \(error.localizedDescription)",
 				logger: .ui
 			)
@@ -513,6 +563,12 @@ struct SupportRequestView: View {
 	/// Drops any previously written export. The file can hold unredacted log data, so it must not
 	/// outlive the choice that produced it.
 	nonisolated static func removeApplicationLogExports() {
+		applicationLogExportQueue.sync { removeApplicationLogExportsLocked() }
+	}
+
+	/// The same work without taking the queue, for callers that already hold it. Re-entering
+	/// `queue.sync` from the queue is an unconditional deadlock, not a smell.
+	private nonisolated static func removeApplicationLogExportsLocked() {
 		try? FileManager.default.removeItem(at: applicationLogExportDirectory)
 	}
 
