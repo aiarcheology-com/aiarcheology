@@ -360,6 +360,29 @@ final class ApplicationLogRecordTests: XCTestCase {
 		XCTAssertTrue(text.contains("truncated"), "A shortened entry must not read as a complete one")
 	}
 
+	/// The retention window is set almost entirely by the highest-volume call site, which is
+	/// `Detector.detect`'s per-pass summary. At the measured 195 bytes and the default three-second
+	/// cadence, five MiB covers ~22 hours of continuous detection with one detector and ~7.5 with
+	/// three; at the fastest selectable cadence and three detectors it is still ~2.5 hours. Those
+	/// numbers are why the switch ships on by default (AIA-0602).
+	///
+	/// This guards the assumption rather than the arithmetic: restoring per-region detail would put
+	/// 16 of these lines in each pass and collapse the window to minutes, which is the failure the
+	/// budget exists to prevent.
+	func testDetectionSummaryEntry_StaysWithinTheBudgetTheWindowAssumes() {
+		let summary = "Detection over 15 regions completed with 3 objects (7 raw) in 0.5843729972839355s; "
+			+ "slowest region 11 at 0.0614290237426758s, 9 empty"
+		let entry = "[DEBUG] [app.log] 2026-08-13T14:51:45.123Z Detector.swift:137 " + summary
+
+		let byteCount = ApplicationLogRecord.frame(entry).count
+
+		XCTAssertLessThanOrEqual(
+			byteCount,
+			256,
+			"A per-pass detection entry above this collapses the retention window; re-measure before raising it"
+		)
+	}
+
 	func testTrim_ReturnsTheInputUnchangedWhenItFits() {
 		let data = Data("short\n".utf8)
 
