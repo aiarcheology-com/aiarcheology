@@ -374,18 +374,18 @@ struct SettingsForm: View {
 	/// Here it reads as what it is: something about the app you are paying for, next to what the app
 	/// is. The free-access/trial footnote follows it for the same reason — it describes the
 	/// subscription, never the account.
-	/// Rendered as several groups rather than one, following the platform convention (Settings →
-	/// General → Keyboard → Hardware Keyboard is the reference): **a row whose explanatory text sits
-	/// underneath gets its own group**, so the text reads as belonging to that row instead of to
-	/// whatever happens to be last in a shared block.
+	/// Two groups, following the platform convention (Settings → General → Keyboard → Hardware
+	/// Keyboard is the reference): **a row whose explanatory text sits underneath gets its own
+	/// group**, so the caption reads as belonging to that row rather than to whichever row happens to
+	/// be last in a shared block.
 	///
-	/// Both offenders were real. The subscription footnote ("Free until … no subscription, no payment
-	/// method") was the *section's* footer, so it appeared under Reset and looked like a note about
-	/// resetting. The detailed-log explanation was an inline `Text` row inside the group, which reads
-	/// as a second, unselectable row rather than as a caption.
+	/// That is why Subscription is separate. Its footnote ("Free until … no subscription, no payment
+	/// method") used to be the *section's* footer, so it rendered under Reset and read as a note
+	/// about resetting the app.
 	///
-	/// Only the first group carries the "ML Browser" header; the rest are visually separate but
-	/// belong to it, exactly as the platform does it.
+	/// Only the first group carries the "ML Browser" header; the second is visually separate but
+	/// belongs to it, exactly as the platform does it. The detailed-log switch lives on the About
+	/// screen (`AppDescriptionView.debugSection`), with the version, build and support contact.
 	@ViewBuilder
 	private var mlBrowserSection: some View {
 		Section(header: Text(L10n.Settings.Section.mlBrowser)) {
@@ -394,30 +394,16 @@ struct SettingsForm: View {
 				Text(L10n.Settings.about)
 			}
 			.testability(Testability.NavigationLink.settingsAbout)
-		}
 
-		// Hidden entirely when the remote brake is off, because then there is nothing for the switch
-		// to control — persistence is already disabled and the stored log deleted. Note this row
-		// lives here rather than in `privacySection`, which is itself wrapped in a feature-flag
-		// check: a flag must never be able to hide a privacy control while the behaviour it governs
-		// carries on.
-		if settings.isDetailedLoggingFeatureEnabled {
-			Section(footer: Text(L10n.Settings.detailedLoggingExplanation)) {
-				Toggle(L10n.Settings.detailedLogging, isOn: $settings.detailedLoggingEnabled)
-					.testability(Testability.Toggle.settingsDetailedLogging)
-			}
-		}
-
-		Section(footer: subscriptionFootnote.map { Text($0) }) {
-			subscriptionRow
-		}
-
-		Section {
 			replayOnboardingRow
 			NavigationLink(destination: resetOptionsView) {
 				Text(L10n.Settings.Reset.title)
 			}
 			.testability(Testability.NavigationLink.settingsReset)
+		}
+
+		Section(footer: subscriptionFootnote.map { Text($0) }) {
+			subscriptionRow
 		}
 	}
 

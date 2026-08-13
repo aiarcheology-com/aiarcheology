@@ -2,13 +2,13 @@ Build: TBD
 
 Test Focus 1: The application log attached to a support report. Until now it recorded almost nothing in TestFlight and App Store builds, and it was thrown away every time the app closed — so a report almost never described the problem it was about.
 
-1. Settings > ML Browser has a new switch, "Keep a detailed log", already ON. Read the sentence under it and tell us if it is unclear.
+1. Settings > ML Browser > About the app has a new "Debug" section with a switch, "Keep a detailed log", already ON. Read the sentence under it and tell us if it is unclear.
 
 2. Use the app for a few minutes — browse, run a detection, download a model. Then Settings > About > Report a problem, turn on "Include application log", and tap Compose. Open the attached file: it should hold a lot of detail, not a handful of lines. Nothing should freeze while it is prepared.
 
 3. The important one: make the app record something, then FORCE-QUIT it (swipe it away), reopen it, and compose a report. The log must still contain what happened before you quit. Previously it started from scratch every launch.
 
-4. Turn the switch OFF and compose again — the attachment is much shorter, and the app must not feel any different to use. Clearing your browsing history also deletes the stored log, on purpose: it holds the addresses you visited. "Restore Defaults" does not delete it.
+4. Turn the switch OFF (About the app > Debug) and compose again — the attachment is much shorter, and the app must not feel any different to use. Clearing your browsing history also deletes the stored log, on purpose: it holds the addresses you visited. "Restore Defaults" does not delete it.
 
 5. With "Include application log" on, use the new "Save or share the log" row to send it to Files, AirDrop or a messaging app. The filename says "unredacted" only when you turned on "Send unredacted data". This is mainly for people whose device has no Mail account — that route could not attach anything before.
 
