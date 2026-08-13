@@ -139,13 +139,11 @@ enum LoggingPolicy {
 
 	private static var activeStore: ApplicationLogStoring {
 		guard isDetailedLoggingEnabled, let persistentLogStore else {
-			reconcileDisabledStoreOnce()
+			_ = disabledStoreReconciliation
 			return sessionLogBuffer
 		}
 		return persistentLogStore
 	}
-
-	private nonisolated(unsafe) static var hasReconciledDisabledStore = false
 
 	/// Deletes files left behind by a session that was switched off and then killed before the
 	/// deletion ran.
@@ -154,11 +152,14 @@ enum LoggingPolicy {
 	/// the old files again — so a user who turned the log off keeps a raw record of their browsing on
 	/// disk indefinitely, with the UI insisting otherwise. `disable()` being synchronous makes the
 	/// window small; this closes it.
-	private static func reconcileDisabledStoreOnce() {
-		guard hasReconciledDisabledStore == false else { return }
-		hasReconciledDisabledStore = true
+	///
+	/// A `static let` rather than a checked flag: this is reached from `activeStore`, which logging
+	/// calls on every thread and actor in the app, so a plain `var` guard would be a data race — two
+	/// threads could both read it unset. Swift initialises a static exactly once and does it
+	/// thread-safely, which is precisely the one-time token wanted here.
+	private static let disabledStoreReconciliation: Void = {
 		persistentLogStore?.disable()
-	}
+	}()
 
 	/// Returns the latest five MiB of application-log entries for a user-selected support-email
 	/// attachment. The default is redacted. When the user expressly enables unredacted data, the
