@@ -691,78 +691,91 @@ struct SettingsForm: View {
 	/// deleting the account does not stop it.
 	private var accountSection: some View {
 		Section(header: Text(L10n.Auth.Account.title)) {
-			// Signed out is a first-class state now (AIA-0536): the app is usable without an
-			// account, so Settings offers sign-in instead of assuming it already happened.
-			if case .anonymous = authState.effectiveContext {
-				Button {
-					showSignIn = true
-				} label: {
+			Group {
+				// Signed out is a first-class state now (AIA-0536): the app is usable without an
+				// account, so Settings offers sign-in instead of assuming it already happened.
+				if case .anonymous = authState.effectiveContext {
+					Button {
+						showSignIn = true
+					} label: {
+						HStack {
+							Text(L10n.Auth.SignIn.button)
+							Spacer()
+						}
+					}
+					.testability(Testability.Button.settingsSignIn)
+				} else if case .suspended = authState.effectiveContext {
+					// Signed in but unverifiable: the account must stay visible — vanishing reads as
+					// broken (AIA-0536). Inert: Clerk cannot render the profile without a connection,
+					// and offline its cache does not even yield the email, hence the generic label.
 					HStack {
-						Text(L10n.Auth.SignIn.button)
+						Text(L10n.Auth.Account.title)
+						Spacer()
+						Text(L10n.Auth.Offline.title)
+							.foregroundColor(.secondary)
+							// On the leaf Text, not the HStack: a container's identifier surfaces
+							// unreliably in the accessibility tree; a Text always does.
+							.testability(Testability.Label.settingsAccountOffline)
+					}
+				} else if usesRealAuth, let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress {
+					HStack {
+						Text(email)
+							.foregroundColor(.secondary)
+							.lineLimit(1)
+							.truncationMode(.middle)
 						Spacer()
 					}
 				}
-				.testability(Testability.Button.settingsSignIn)
-			} else if case .suspended = authState.effectiveContext {
-				// Signed in but unverifiable: the account must stay visible — vanishing reads as
-				// broken (AIA-0536). Inert: Clerk cannot render the profile without a connection,
-				// and offline its cache does not even yield the email, hence the generic label.
-				HStack {
-					Text(L10n.Auth.Account.title)
-					Spacer()
-					Text(L10n.Auth.Offline.title)
-						.foregroundColor(.secondary)
-						// On the leaf Text, not the HStack: a container's identifier surfaces
-						// unreliably in the accessibility tree; a Text always does.
-						.testability(Testability.Label.settingsAccountOffline)
-				}
-			} else if usesRealAuth, let email = Clerk.shared.user?.primaryEmailAddress?.emailAddress {
-				HStack {
-					Text(email)
-						.foregroundColor(.secondary)
-						.lineLimit(1)
-						.truncationMode(.middle)
-					Spacer()
+
+				// Requires a *validated* account, not merely the real-auth path: Clerk's profile has
+				// nothing to show for a signed-out user, and after the cut-over that is reachable here.
+				if usesRealAuth, case .validated = authState.effectiveContext {
+					// Push Clerk's profile onto the Settings stack (not a sheet): Settings is
+					// itself a sheet, and a sheet-over-a-sheet presents-then-auto-dismisses.
+					// Value-based push so UserProfileView and its own sub-screens (Manage
+					// account / Security) all navigate on the SAME path — see the matching
+					// `.navigationDestination` on the Form. (A closure NavigationLink would
+					// push the profile off-path, and its sub-rows would fail to resolve.)
+					NavigationLink(value: AccountRoute.profile) {
+						Text(L10n.Auth.Account.manage)
+					}
+					.testability(Testability.NavigationLink.settingsManageAccount)
+
+					// Deleting the account does not stop Apple billing (AIA-0528). Clerk owns the
+					// delete confirmation inside `UserProfileView`, so its copy is not ours to amend —
+					// and this is nonetheless the only delete path a *subscribed* user can walk, since
+					// the paywall's own account controls are unreachable once entitled.
+					//
+					// Placed directly under the row it warns about rather than in the section footer:
+					// that footer already carries the free-access/trial line, sits two pushes from
+					// Clerk's delete button, and composing the two would mean a second variant for the
+					// in-trial case. One key, adjacent to the control, says it once.
+					//
+					// Rendered only when subscribed — telling a non-subscriber their subscription
+					// continues would be its own untruth — and `.secondary` is restated on the leaf
+					// because the rows' `.foregroundColor(.primary)` below would otherwise make a note
+					// read as a statement.
+					if subscriptionState.isSubscribed {
+						Text(L10n.Auth.Account.deleteBillingNote)
+							.font(.footnote)
+							.foregroundStyle(.secondary)
+							.testability(Testability.Label.settingsDeleteBillingNote)
+					}
 				}
 			}
-
-			// Requires a *validated* account, not merely the real-auth path: Clerk's profile has
-			// nothing to show for a signed-out user, and after the cut-over that is reachable here.
-			if usesRealAuth, case .validated = authState.effectiveContext {
-				// Push Clerk's profile onto the Settings stack (not a sheet): Settings is
-				// itself a sheet, and a sheet-over-a-sheet presents-then-auto-dismisses.
-				// Value-based push so UserProfileView and its own sub-screens (Manage
-				// account / Security) all navigate on the SAME path — see the matching
-				// `.navigationDestination` on the Form. (A closure NavigationLink would
-				// push the profile off-path, and its sub-rows would fail to resolve.)
-				NavigationLink(value: AccountRoute.profile) {
-					Text(L10n.Auth.Account.manage)
-				}
-				.testability(Testability.NavigationLink.settingsManageAccount)
-
-				// Deleting the account does not stop Apple billing (AIA-0528). Clerk owns the
-				// delete confirmation inside `UserProfileView`, so its copy is not ours to amend —
-				// and this is nonetheless the only delete path a *subscribed* user can walk, since
-				// the paywall's own account controls are unreachable once entitled.
-				//
-				// Placed directly under the row it warns about rather than in the section footer:
-				// that footer already carries the free-access/trial line, sits two pushes from
-				// Clerk's delete button, and composing the two would mean a second variant for the
-				// in-trial case. One key, adjacent to the control, says it once.
-				//
-				// Rendered only when subscribed — telling a non-subscriber their subscription
-				// continues would be its own untruth — and `.secondary` is restated on the leaf
-				// because the section-wide `.foregroundColor(.primary)` below would otherwise make
-				// a note read as a statement.
-				if subscriptionState.isSubscribed {
-					Text(L10n.Auth.Account.deleteBillingNote)
-						.font(.footnote)
-						.foregroundStyle(.secondary)
-						.testability(Testability.Label.settingsDeleteBillingNote)
-				}
-			}
+			// On the **rows**, not on the `Section`. The rows need it: the signed-out row is a
+			// `Button`, and inside a `List` SwiftUI draws a button's label in the tint colour, which
+			// is the same mechanism that made the Subscription row look disabled (AIA-0623).
+			//
+			// A modifier on the `Section` reaches its header too, and drew "Account" in `.primary`
+			// while every other header in this Form — Annotation, Web Content, ML Browser — kept the
+			// system's own header colour, so the one section with a colour was the one that looked
+			// wrong. `Group` applies the modifier to each child individually, so the rows are
+			// unchanged and the header is left to inherit. Deliberately inheriting rather than
+			// restating a grey on the header: a literal would be a second opinion about a colour the
+			// system owns, and would drift from the other five headers the first time it changed.
+			.foregroundColor(.primary)
 		}
-		.foregroundColor(.primary)
 	}
 
 	@ViewBuilder
