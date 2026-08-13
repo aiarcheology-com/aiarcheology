@@ -378,15 +378,29 @@ screen is missing" is usually a stale install, not a bug.
 
 ### Clear the local DerivedData caches when a ticket is done
 
-The repo root holds gitignored per-lane DerivedData caches. Two are defined by tooling —
+The repo holds gitignored per-lane DerivedData caches. Two are defined by tooling —
 `.deriveddata` (`scripts/unittest.sh`) and `.deriveddata-localization`
 (`scripts/check_localization_build.sh`) — and both honour a `DERIVED_DATA_PATH` override, so ad-hoc
-lanes (`.deriveddata-prepush`, `.deriveddata-replay-tests`) accumulate at the root too. Nothing
-prunes any of them, and each keeps a full copy of the build products — three lanes totalling 12 GB
-is normal.
+lanes (`.deriveddata-prepush`, `.deriveddata-replay-tests`) accumulate too. Nothing prunes any of
+them, and each keeps a full copy of the build products — three lanes totalling 16 GB is normal.
+
+**They are not only at the repo root: `ios/.deriveddata` happens too**, depending on the directory a
+lane was invoked from. A `rm -rf .deriveddata*` run from the root will not catch it, so delete both
+(see the command below).
 
 **Delete them when a ticket is closed or its branch is merged.** Reclaiming disk is the small
-reason. The large one is that a stale cache fails in a way that does not look like staleness:
+reason. There are two large ones.
+
+**It breaks `./scripts/swiftlint.sh`, and the failure does not look like yours.** `.swiftlint.yml`
+excludes `**/DerivedData` but not the lowercase `.deriveddata`, so a leftover cache puts the
+vendored SPM checkouts under `SourcePackages/checkouts` in scope. Measured on AIA-0623: **5680 files
+linted instead of 324, 32 733 violations, 3061 serious, exit 2** — every one of them in `sentry-cocoa`
+and none in this repo's own source. If a lint run that passed an hour ago suddenly fails with
+thousands of violations in files you have never opened, check for a cache before reading a single
+one of them. (The pre-commit hook lints only the changed files, so it stays green throughout and
+does not warn you; CI checks out fresh and is unaffected.)
+
+The second is that a stale cache fails in a way that does not look like staleness either:
 
 - After AIA-0591 changed the Clerk package version, builds from the surviving caches died with
   `Unable to resolve module dependency: 'CAsyncHTTPClient'` — also `CNIOLLHTTP`, `CNIOPosix`,
@@ -397,11 +411,11 @@ reason. The large one is that a stale cache fails in a way that does not look li
   dependency version change can invalidate a cache this way.
 
 ```bash
-rm -rf .deriveddata*
+rm -rf .deriveddata* ios/.deriveddata*
 ```
 
-If you hit that error, clear the caches *before* debugging anything else. CI checks out fresh and is
-unaffected; the caches rebuild on the next run.
+If you hit either symptom, clear the caches *before* debugging anything else. CI checks out fresh
+and is unaffected; the caches rebuild on the next run.
 
 ### Shipping a release
 
