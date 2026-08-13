@@ -54,6 +54,29 @@ enum AnalyticsEvent: Equatable {
 	case onboardingTourCompleted
 	case onboardingTourSkipped
 
+	/// The free-days confirmation was raised — a purchase was about to forfeit an open window
+	/// (AIA-0623).
+	///
+	/// It exists as much for observability of the *screen* as of the user. This confirmation is the
+	/// only one in the app that no automated test can drive — the paywall's Subscribe button needs a
+	/// real StoreKit `Product`, which the UI-test mock cannot supply — so a dialog that silently
+	/// failed to present would leave no trace at all. Against `freeAccessKeepDaysTapped` and
+	/// `subscriptionActivated` it does: raises that are never answered are the signature.
+	case freeAccessConfirmShown
+
+	/// The user was told a purchase would forfeit the rest of their free window, and kept the days
+	/// (AIA-0623).
+	///
+	/// The only way to tell the two ways a `subscribeTapped` ends without a `subscriptionActivated`
+	/// apart: backing out of *our* confirmation, versus cancelling Apple's sheet. That distinction is
+	/// the whole cost measurement for this change — a dialog inserted in front of a purchase is a
+	/// conversion risk, and without this event nobody could say afterwards whether it was one.
+	///
+	/// Bounded by `subscribeTapped`, never above it, because it can only follow one. It says nothing
+	/// about how many days were at stake: the window's own numbers stay on the device, for the same
+	/// reason the grant date does.
+	case freeAccessKeepDaysTapped
+
 	var name: String {
 		switch self {
 		case .paywallShown: "com.aiarcheology.paywall.shown"
@@ -68,6 +91,8 @@ enum AnalyticsEvent: Equatable {
 		case .welcomeShown: "com.aiarcheology.welcome.shown"
 		case .onboardingTourCompleted: "com.aiarcheology.onboarding.tour_completed"
 		case .onboardingTourSkipped: "com.aiarcheology.onboarding.tour_skipped"
+		case .freeAccessConfirmShown: "com.aiarcheology.free_access.forfeit_confirm_shown"
+		case .freeAccessKeepDaysTapped: "com.aiarcheology.free_access.keep_days_tapped"
 		}
 	}
 
@@ -75,7 +100,8 @@ enum AnalyticsEvent: Equatable {
 		switch self {
 		case .paywallShown, .subscribeTapped, .accountSignedIn, .subscriptionActivated,
 			 .freeAccessWindowGranted, .freeAccessContinueTapped, .freeAccessWindowExpired,
-			 .welcomeShown, .onboardingTourCompleted, .onboardingTourSkipped:
+			 .welcomeShown, .onboardingTourCompleted, .onboardingTourSkipped,
+			 .freeAccessConfirmShown, .freeAccessKeepDaysTapped:
 			// Deliberately payload-free. The account is expressed only as the transport's
 			// hashed `clientUser`; the raw Clerk id must never travel as a parameter (AIA-0437).
 			// The window's own numbers — grant date, days remaining — stay on the device: they

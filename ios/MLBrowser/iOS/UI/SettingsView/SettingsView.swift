@@ -33,6 +33,15 @@ struct SettingsForm: View {
 	/// initializer for the same reason `findingRepository` is.
 	var freeAccessEndsOn: Date?
 
+	/// Whole calendar days left in that window, read **when it is asked for** rather than captured
+	/// here (AIA-0623). Forwarded to the paywall, which needs it at the instant Subscribe is tapped.
+	///
+	/// A closure where its neighbour above is a plain value, and the difference is not stylistic:
+	/// the end date is frozen at grant, but the count is derived from the clock and the window can
+	/// run out while this sheet is up. Passing a snapshot would let the paywall tell someone they
+	/// still have days the gate has already stopped honouring.
+	let freeAccessDaysRemaining: () -> Int?
+
 	@Environment(\.dismiss) private var dismiss
 	@Environment(DrawerManager.self) private var drawer
 	@Environment(TourState.self) private var tour
@@ -72,11 +81,13 @@ struct SettingsForm: View {
 		findingRepository: FindingRepository,
 		authState: AuthState,
 		freeAccessEndsOn: Date? = nil,
+		freeAccessDaysRemaining: @escaping () -> Int?,
 		startAtManageAccount: Bool = false
 	) {
 		self.findingRepository = findingRepository
 		self._authState = ObservedObject(wrappedValue: authState)
 		self.freeAccessEndsOn = freeAccessEndsOn
+		self.freeAccessDaysRemaining = freeAccessDaysRemaining
 		var path = NavigationPath()
 		if startAtManageAccount { path.append(AccountRoute.profile) }
 		self._accountPath = State(initialValue: path)
@@ -215,8 +226,16 @@ struct SettingsForm: View {
 			// screen as the wall now, benefit bullets and 3.1.2 copy included — AIA-0567 retired
 			// acceptance criterion 8, so this sheet is no longer develop's paywall and the
 			// free-access flag no longer makes it so.
+			//
+			// This is the one presentation that can be reached *during* an open window, so it is the
+			// one that must hand the paywall the day count: subscribing here is what forfeits the
+			// rest of the window (AIA-0623). The accessor, not a value — see the property.
 			.sheet(isPresented: $showPaywall) {
-				PaywallView(subscriptionState: subscriptionState, analytics: analytics)
+				PaywallView(
+					subscriptionState: subscriptionState,
+					analytics: analytics,
+					freeAccessDaysRemaining: freeAccessDaysRemaining
+				)
 					// A second sheet boundary, like the sign-in sheet above: custom environment
 					// values do not reliably cross one on Mac (AGENTS.md §3), and the paywall reads
 					// this to decide whether its own sign-in sheet may build Clerk's view.
@@ -640,7 +659,13 @@ struct SettingsForm: View {
 		   product.hasFreeTrialIntroOffer,
 		   introOfferEligibility == true,
 		   let period = product.subscription?.introductoryOffer?.period.localizedDescription {
-			return L10n.Settings.Subscription.freeAccessFootnote(windowEnds, period)
+			// A new key, not an edit of the old one (AIA-0623). `freeAccessFootnote` said subscribing
+			// starts "an extra free trial", and directly under a "Free until <date>" line that reads
+			// as *additional to the days you have left* — which is the belief this ticket exists to
+			// correct, one tap from the button that acts on it. Changing the English in place would
+			// have left the other 16 locales holding a fluent translation of the old meaning, and no
+			// gate can see that (AGENTS §8): the ratchet counts presence and `verify` checks shape.
+			return L10n.Settings.Subscription.freeAccessFootnoteWithTrial(windowEnds, period)
 		}
 		return L10n.Settings.Subscription.freeAccessFootnoteNoTrial(windowEnds)
 	}

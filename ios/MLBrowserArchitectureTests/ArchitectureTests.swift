@@ -799,4 +799,117 @@ final class ArchitectureTests: XCTestCase {
             """
         )
     }
+
+    // MARK: - The free-days confirmation cannot be bypassed (AIA-0623)
+
+    /// Subscribing while the app-managed free window is still open forfeits whatever is left of it —
+    /// the window and Apple's introductory trial do not stack, and the trial cannot be deferred. So a
+    /// purchase started from an open window must pass through a confirmation first.
+    ///
+    /// **This rule exists because nothing else can check it.** The paywall's Subscribe button needs a
+    /// real StoreKit `Product`, and `MockSubscriptionProvider` has none, so no UI test can render the
+    /// button — let alone the dialog behind it. `PaywallPurchaseIntentTests` proves the decision is
+    /// *correct*; only this proves it is *reached*. A unit test on an enum nothing calls passes
+    /// forever.
+    ///
+    /// Three claims, each closing a different way the feature could ship dead:
+    ///
+    /// 1. **One purchase call site.** A second route to `SubscriptionState.purchase` is a route that
+    ///    never sees the confirmation. Deliberately spelled as the receiver the app actually uses;
+    ///    that is a real limitation (`state.purchase(…)` under another name would evade it), which is
+    ///    why it is only one of the three and not the whole rule.
+    /// 2. **The decision is consulted.** Deleting the `switch` in the button leaves every other test
+    ///    in the suite green.
+    /// 3. **The one live presentation is wired.** `PaywallView.freeAccessDaysRemaining` has no
+    ///    default, so the compiler forces both call sites to answer — but the cheapest answer that
+    ///    compiles is `{ nil }`, which ships the feature dead on the only path that can ever run it.
+    ///    The Settings sheet is that path, so the accessor has to reach it from `DrawerContent`.
+    func testThePurchasePathCannotBypassTheFreeDaysConfirmation() throws {
+        // Fail closed: an empty scan means the production root moved, not that the rule is satisfied.
+        let files = Self.productionSwiftFiles()
+
+        var purchaseCallSites: [String] = []
+        var paywallConsultsTheDecision = false
+        var settingsRouteIsWired = false
+        var sawPaywall = false
+        var sawDrawer = false
+
+        for fileURL in files {
+            let rel = Self.relativePath(for: fileURL)
+            let source: String
+            do {
+                source = try String(contentsOf: fileURL, encoding: .utf8)
+            } catch {
+                XCTFail("Free-days confirmation scan could not read \(rel): \(error) — failing closed.")
+                continue
+            }
+
+            for (offset, line) in source.components(separatedBy: .newlines).enumerated()
+            where line.contains("subscriptionState.purchase(") {
+                purchaseCallSites.append("\(rel):\(offset + 1)")
+            }
+
+            if rel.hasSuffix("UI/Subscription/PaywallView.swift") {
+                sawPaywall = true
+                paywallConsultsTheDecision = source.contains("PaywallPurchaseIntent.resolve(")
+            }
+
+            if rel.hasSuffix("UI/Drawer/DrawerContent.swift") {
+                sawDrawer = true
+                settingsRouteIsWired = source.contains("windowDaysRemaining")
+            }
+        }
+
+        // Fail closed on the scan itself: if either file were renamed or moved, the two flags below
+        // would be false for the wrong reason, and the failure message would send a reader hunting a
+        // bug that does not exist.
+        XCTAssertTrue(sawPaywall, "PaywallView.swift was not found by the scan — the rule is broken, not violated.")
+        XCTAssertTrue(sawDrawer, "DrawerContent.swift was not found by the scan — the rule is broken, not violated.")
+
+        // Asserted as a count plus a path, never against a list rebuilt from the findings: an
+        // "expected" value derived from the actual one is satisfied by whatever it is handed.
+        XCTAssertEqual(
+            purchaseCallSites.count,
+            1,
+            """
+            `SubscriptionState.purchase` must be called from exactly one place — `PaywallView`'s \
+            `startPurchase(_:)`, which is reached only after `PaywallPurchaseIntent.resolve` has \
+            decided whether the user's remaining free days need confirming first (AIA-0623).
+
+            Found: \(purchaseCallSites.joined(separator: ", "))
+
+            A second call site is a route that spends someone's free window without telling them. \
+            Route the new path through `startPurchase(_:)` instead of calling `purchase` directly.
+            """
+        )
+
+        XCTAssertTrue(
+            purchaseCallSites.first?.hasPrefix("ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift:") == true,
+            """
+            The one `SubscriptionState.purchase` call site has moved out of `PaywallView` \
+            (AIA-0623): it is now at \(purchaseCallSites.first ?? "nowhere"). The confirmation lives \
+            in `PaywallView`, so a purchase committed anywhere else does not pass through it.
+            """
+        )
+
+        XCTAssertTrue(
+            paywallConsultsTheDecision,
+            """
+            `PaywallView` no longer references `PaywallPurchaseIntent.resolve` (AIA-0623), so the \
+            Subscribe button is committing money without asking whether an open free-access window \
+            would be forfeited. `PaywallPurchaseIntentTests` cannot catch this: it tests the \
+            decision, not whether anything calls it.
+            """
+        )
+
+        XCTAssertTrue(
+            settingsRouteIsWired,
+            """
+            `DrawerContent` no longer passes `freeAccess.windowDaysRemaining` into `SettingsForm` \
+            (AIA-0623). The Settings sheet is the *only* presentation that can be reached while a \
+            window is open, so without it `PaywallView.freeAccessDaysRemaining` always answers `nil`, \
+            the confirmation never appears, and every other test in this suite still passes.
+            """
+        )
+    }
 }
