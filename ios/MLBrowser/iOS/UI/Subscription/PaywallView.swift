@@ -840,7 +840,7 @@ struct PaywallView: View {
 		.testability(Testability.Button.paywallSubscribe)
 		// In non-production builds the purchase runs against Apple's Sandbox (no real
 		// charge); flag the button so testers know it's safe to tap (AIA-0354).
-		.underConstructionBadge()
+		.underConstructionBadge(isActive: false)
 
 		billingNote(for: product)
 	}
