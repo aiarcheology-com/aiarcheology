@@ -159,6 +159,8 @@ extension TestabilityIdentification {
 		// App Description
 		case appDescriptionEmailContact
 		case supportSettingsSendEmail
+		// Support Request — share the application log outside email (AIA-0602)
+		case supportRequestShareApplicationLog
 		// Global Toolbar
 		case globalToolbarSideMenu
 		case globalToolbarPlayDetection

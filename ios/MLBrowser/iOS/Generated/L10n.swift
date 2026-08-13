@@ -951,6 +951,8 @@ internal enum L10n {
     internal static let sendUnredactedData = L10n.tr("Localizable", "support.sendUnredactedData", fallback: "Send unredacted data")
     /// Use this only if you are comfortable sharing the full technical details. It can include complete web addresses, IDs and location information, which may help us reproduce the problem.
     internal static let sendUnredactedDataExplanation = L10n.tr("Localizable", "support.sendUnredactedDataExplanation", fallback: "Use this only if you are comfortable sharing the full technical details. It can include complete web addresses, IDs and location information, which may help us reproduce the problem.")
+    /// Save or share the log
+    internal static let shareApplicationLog = L10n.tr("Localizable", "support.shareApplicationLog", fallback: "Save or share the log")
     /// Report a problem
     internal static let title = L10n.tr("Localizable", "support.title", fallback: "Report a problem")
     internal enum Body {

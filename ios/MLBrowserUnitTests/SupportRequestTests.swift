@@ -199,4 +199,110 @@ final class SupportLogAttachmentTests: XCTestCase {
 		XCTAssertEqual(attachment.mimeType, "text/plain")
 		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log-unredacted.txt")
 	}
+
+	// MARK: - Compression (AIA-0602)
+
+	/// Log-shaped bytes of an exact size. Repetitive like a real log, so the zip assertions measure
+	/// the compression a log actually gets rather than the incompressible worst case.
+	private func makeLogData(byteCount: Int) -> Data {
+		let line = Data("[info] [ui] opened https://example.com/models/resnet50 — cache hit\n".utf8)
+		var data = Data()
+		data.reserveCapacity(byteCount + line.count)
+		while data.count < byteCount {
+			data.append(line)
+		}
+		return Data(data.prefix(byteCount))
+	}
+
+	func testApplicationLogAttachment_KeepsPlainTextAtTheThreshold() throws {
+		// Exactly at the limit, not over it: a mail client shows text inline, and support reads a
+		// modest log faster than it unzips one.
+		let data = makeLogData(byteCount: SupportRequestView.applicationLogCompressionThresholdBytes)
+		let attachment = try XCTUnwrap(
+			SupportRequestView.applicationLogAttachment(data: data, sendUnredactedData: false)
+		)
+
+		XCTAssertEqual(attachment.mimeType, "text/plain")
+		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log.txt")
+		XCTAssertEqual(attachment.data, data, "below the threshold the bytes must pass through untouched")
+	}
+
+	func testApplicationLogAttachment_ZipsAPayloadOverTheThreshold() throws {
+		let data = makeLogData(byteCount: SupportRequestView.applicationLogCompressionThresholdBytes + 1)
+		let attachment = try XCTUnwrap(
+			SupportRequestView.applicationLogAttachment(data: data, sendUnredactedData: false)
+		)
+
+		XCTAssertEqual(attachment.mimeType, "application/zip")
+		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log.txt.zip")
+		XCTAssertFalse(attachment.data.isEmpty, "an empty archive would mail the user's log into a void")
+		XCTAssertLessThan(
+			attachment.data.count, data.count,
+			"the whole point is a smaller attachment; a pass-through of the original would still be "
+				+ "labelled application/zip and fail to open"
+		)
+		XCTAssertEqual(
+			Data(attachment.data.prefix(4)), Data([0x50, 0x4B, 0x03, 0x04]),
+			"the bytes must start with the zip local-file-header signature, or the mimeType lies"
+		)
+	}
+
+	func testApplicationLogAttachment_KeepsTheUnredactedNameWhenCompressed() throws {
+		let data = makeLogData(byteCount: SupportRequestView.applicationLogCompressionThresholdBytes + 1)
+		let attachment = try XCTUnwrap(
+			SupportRequestView.applicationLogAttachment(data: data, sendUnredactedData: true)
+		)
+
+		XCTAssertEqual(
+			attachment.fileName, "mlbrowser-application-log-unredacted.txt.zip",
+			"compression must not hide which form the bytes are in — nobody can tell by reading them"
+		)
+		XCTAssertEqual(attachment.mimeType, "application/zip")
+	}
+
+	// MARK: - Share/export (AIA-0602)
+
+	func testExportedApplicationLogFile_WritesTheLogUnderTheRedactedName() throws {
+		defer { SupportRequestView.removeApplicationLogExports() }
+		let data = Data("latest log entry\n".utf8)
+
+		let url = try XCTUnwrap(
+			SupportRequestView.exportedApplicationLogFile(data: data, sendUnredactedData: false)
+		)
+
+		XCTAssertEqual(url.lastPathComponent, "mlbrowser-application-log.txt")
+		XCTAssertEqual(try Data(contentsOf: url), data)
+	}
+
+	func testExportedApplicationLogFile_NamesTheUnredactedExportForWhatItHolds() throws {
+		defer { SupportRequestView.removeApplicationLogExports() }
+
+		let url = try XCTUnwrap(
+			SupportRequestView.exportedApplicationLogFile(
+				data: Data("latest log entry\n".utf8),
+				sendUnredactedData: true
+			)
+		)
+
+		XCTAssertEqual(
+			url.lastPathComponent, "mlbrowser-application-log-unredacted.txt",
+			"a file AirDropped to someone else must say what it contains"
+		)
+	}
+
+	func testRemoveApplicationLogExports_LeavesNoUnredactedFileBehind() throws {
+		let url = try XCTUnwrap(
+			SupportRequestView.exportedApplicationLogFile(
+				data: Data("latest log entry\n".utf8),
+				sendUnredactedData: true
+			)
+		)
+
+		SupportRequestView.removeApplicationLogExports()
+
+		XCTAssertFalse(
+			FileManager.default.fileExists(atPath: url.path),
+			"an unredacted export must not outlive the toggle that produced it"
+		)
+	}
 }

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Foundation
 import PhotosUI
 import UniformTypeIdentifiers
 import ImageIO
@@ -82,6 +83,11 @@ struct SupportRequestView: View {
 	/// have carried — the user's work must survive a missing mail account.
 	@State private var composedRequest: SupportRequest?
 
+	/// The temporary file `ShareLink` hands to Files/AirDrop/Messages. `nil` until the log has been
+	/// gathered and written, which is why the row shows progress rather than a dead share button.
+	@State private var applicationLogExportURL: URL?
+	@State private var isPreparingApplicationLogExport = false
+
 	private let recipient = SupportRequest.supportEmailAddress
 
 	init(initialCategory: SupportCategory? = nil, contextURL: String? = nil) {
@@ -115,6 +121,9 @@ struct SupportRequestView: View {
 					Text(L10n.Support.sendUnredactedDataExplanation)
 						.foregroundStyle(.secondary)
 						.fixedSize(horizontal: false, vertical: true)
+					if includeApplicationLog {
+						applicationLogShareRow
+					}
 				}
 
 				Section {
@@ -157,6 +166,15 @@ struct SupportRequestView: View {
 				}
 			}
 			.task(id: pickedPhoto) { await loadPickedPhoto() }
+			// Keyed on both toggles: the shared file must never lag behind the choice, or the user
+			// would AirDrop redacted bytes from a name that promises unredacted ones (or worse, the
+			// other way round).
+			.task(id: ApplicationLogExportKey(
+				isIncluded: includeApplicationLog,
+				isUnredacted: sendUnredactedApplicationLog
+			)) {
+				await prepareApplicationLogExport()
+			}
 			.onChange(of: includeApplicationLog) { _, isIncludingLog in
 				if !isIncludingLog {
 					sendUnredactedApplicationLog = false
@@ -194,6 +212,62 @@ struct SupportRequestView: View {
 				Text(L10n.Support.ScreenshotUnreadable.message)
 			}
 		}
+	}
+
+	/// Identifies the export the sheet currently needs. `task(id:)` regenerates the file whenever
+	/// either toggle moves.
+	private struct ApplicationLogExportKey: Equatable {
+		let isIncluded: Bool
+		let isUnredacted: Bool
+	}
+
+	/// Saving or sharing the log is the only route off the device for a user with no mail account:
+	/// the `mailto:` fallback in ``compose()`` carries no attachments (RFC 6068), so until now those
+	/// users could not send the log at all (AIA-0602).
+	///
+	/// A file URL, not a string: the recipient gets a filename that states whether the contents are
+	/// redacted, and five MiB never passes through the activity payload.
+	@ViewBuilder
+	private var applicationLogShareRow: some View {
+		if let applicationLogExportURL {
+			ShareLink(item: applicationLogExportURL) {
+				Label(L10n.Support.shareApplicationLog, systemImage: "square.and.arrow.up")
+			}
+			.testability(Testability.Button.supportRequestShareApplicationLog)
+		} else {
+			// Still gathering, or the file could not be written. Either way there is nothing to
+			// share yet, and a share button pointing at a missing file is worse than none.
+			HStack {
+				Label(L10n.Support.shareApplicationLog, systemImage: "square.and.arrow.up")
+					.foregroundStyle(.secondary)
+				Spacer()
+				if isPreparingApplicationLogExport {
+					ProgressView()
+				}
+			}
+		}
+	}
+
+	/// Writes the log the user would send to a temporary file so `ShareLink` has something to hand
+	/// over. Off the main actor for the reason ``compose()`` gives: reading and redacting a full log
+	/// costs about a second, and this view is `@MainActor`.
+	private func prepareApplicationLogExport() async {
+		applicationLogExportURL = nil
+		let sendUnredacted = sendUnredactedApplicationLog
+		guard includeApplicationLog else {
+			// Not merely forgotten: a previous export may hold unredacted data the user has since
+			// switched off, and it must not sit in the container waiting to be shared by accident.
+			await Task.detached(priority: .utility) { Self.removeApplicationLogExports() }.value
+			return
+		}
+		isPreparingApplicationLogExport = true
+		defer { isPreparingApplicationLogExport = false }
+		let url = await Task.detached(priority: .userInitiated) { () -> URL? in
+			let logData = LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredacted)
+			return Self.exportedApplicationLogFile(data: logData, sendUnredactedData: sendUnredacted)
+		}.value
+		guard Task.isCancelled == false else { return }
+		applicationLogExportURL = url
 	}
 
 	/// Loads the image the user picked. Failure is logged, never swallowed: the user explicitly
@@ -258,15 +332,14 @@ struct SupportRequestView: View {
 		if includeApplicationLog {
 			// Off the main actor: the log is read from disk and, unless the user opted into raw
 			// data, every line is run through `LogRedactor` — on the order of a second for a full
-			// five MiB. This view is `@MainActor`, so doing it inline would freeze the sheet.
+			// five MiB. Building the attachment happens here too, because a log over the
+			// compression threshold is written out, zipped and read back. This view is
+			// `@MainActor`, so doing any of it inline would freeze the sheet.
 			let sendUnredacted = sendUnredactedApplicationLog
-			let logData = await Task.detached(priority: .userInitiated) {
-				LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredacted)
+			let applicationLogAttachment = await Task.detached(priority: .userInitiated) {
+				let logData = LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredacted)
+				return Self.applicationLogAttachment(data: logData, sendUnredactedData: sendUnredacted)
 			}.value
-			let applicationLogAttachment = Self.applicationLogAttachment(
-				data: logData,
-				sendUnredactedData: sendUnredactedApplicationLog
-			)
 			LoggingPolicy.info(
 				sendUnredactedApplicationLog
 					? "User chose to include unredacted application data with a support report."
@@ -312,24 +385,135 @@ struct SupportRequestView: View {
 	/// nothing attached, and neither the user nor support could tell "quiet session" from "the log
 	/// was lost" (a full disk, a directory that could not be created). One placeholder line is
 	/// cheap and says which (AIA-0602).
-	static func applicationLogAttachment(
+	///
+	/// Above ``applicationLogCompressionThresholdBytes`` the log is attached as a zip: plain text
+	/// compresses by an order of magnitude, and a five-MiB attachment is the kind of thing a mail
+	/// provider bounces. Below it the raw text stays, because a small log is worth more to support
+	/// readable inline than compressed.
+	nonisolated static func applicationLogAttachment(
 		data: Data,
 		sendUnredactedData: Bool
 	) -> EmailController.Attachment? {
 		guard data.isEmpty == false else {
 			return EmailController.Attachment(
-				data: Data("The application log was empty or unavailable when this report was composed.\n".utf8),
+				data: Data(emptyApplicationLogPlaceholder.utf8),
 				mimeType: "text/plain",
 				fileName: "mlbrowser-application-log-unavailable.txt"
 			)
 		}
+		let fileName = applicationLogFileName(sendUnredactedData: sendUnredactedData)
+		if data.count > applicationLogCompressionThresholdBytes,
+		   let compressed = zippedApplicationLog(data: data, fileName: fileName),
+		   compressed.isEmpty == false,
+		   compressed.count < data.count {
+			return EmailController.Attachment(
+				data: compressed,
+				mimeType: "application/zip",
+				fileName: fileName + ".zip"
+			)
+		}
+		// Reached whenever the payload is small, the zip failed, or the archive came out no smaller
+		// than the input: none of those is a reason to send nothing.
 		return EmailController.Attachment(
 			data: data,
 			mimeType: "text/plain",
-			fileName: sendUnredactedData
-				? "mlbrowser-application-log-unredacted.txt"
-				: "mlbrowser-application-log.txt"
+			fileName: fileName
 		)
+	}
+
+	/// One MiB. Chosen so an ordinary session still arrives as readable text while a full five-MiB
+	/// log — the case that makes the mail unwieldy — is compressed.
+	nonisolated static let applicationLogCompressionThresholdBytes = 1_024 * 1_024
+
+	/// One line rather than nothing, so a quiet session and a lost log cannot look alike (AIA-0602).
+	nonisolated static let emptyApplicationLogPlaceholder =
+		"The application log was empty or unavailable when this report was composed.\n"
+
+	/// The filename has to state which form the bytes are in: nobody receiving a log can tell
+	/// redacted content from unredacted content by reading it.
+	nonisolated static func applicationLogFileName(sendUnredactedData: Bool) -> String {
+		sendUnredactedData
+			? "mlbrowser-application-log-unredacted.txt"
+			: "mlbrowser-application-log.txt"
+	}
+
+	/// Zips the log with the file coordinator's upload intent — a real `.zip`, no third-party
+	/// dependency. Returns `nil` on any failure so the caller falls back to plain text; a bulky
+	/// attachment beats a missing one.
+	///
+	/// The coordinator is pointed at a **directory** holding the log, because that is the case
+	/// documented to produce an archive; a lone regular file can be handed back unchanged.
+	nonisolated static func zippedApplicationLog(data: Data, fileName: String) -> Data? {
+		let fileManager = FileManager.default
+		let staging = fileManager.temporaryDirectory
+			.appendingPathComponent("mlbrowser-log-zip-\(UUID().uuidString)", isDirectory: true)
+		let archiveRoot = staging
+			.appendingPathComponent((fileName as NSString).deletingPathExtension, isDirectory: true)
+		defer { try? fileManager.removeItem(at: staging) }
+		do {
+			try fileManager.createDirectory(at: archiveRoot, withIntermediateDirectories: true)
+			try data.write(to: archiveRoot.appendingPathComponent(fileName), options: .atomic)
+			var coordinationError: NSError?
+			var archived: Result<Data, Error>?
+			NSFileCoordinator().coordinate(
+				readingItemAt: archiveRoot,
+				options: [.forUploading],
+				error: &coordinationError
+			) { archiveURL in
+				// Read inside the accessor: the archive is the coordinator's own temporary file and
+				// is gone once this block returns. Fully read, never memory-mapped, for that reason.
+				archived = Result { try Data(contentsOf: archiveURL) }
+			}
+			if let coordinationError { throw coordinationError }
+			return try archived?.get()
+		} catch {
+			LoggingPolicy.warning(
+				"Could not compress the application log (\(error.localizedDescription)) — attaching plain text",
+				logger: .ui
+			)
+			return nil
+		}
+	}
+
+	/// Where ``exportedApplicationLogFile(data:sendUnredactedData:)`` puts the file it hands to
+	/// `ShareLink`. Inside the app's temporary directory: sandboxed, and purged by the system.
+	private nonisolated static var applicationLogExportDirectory: URL {
+		FileManager.default.temporaryDirectory
+			.appendingPathComponent("support-log-export", isDirectory: true)
+	}
+
+	/// Writes the log under the name that says whether it is redacted, and returns it for sharing.
+	/// `nil` (logged) rather than a throw: the caller's only recourse either way is to leave the row
+	/// with nothing to share.
+	///
+	/// Shared as plain text at any size — this is the "save it to Files" route, where readability is
+	/// the point; compression is an email concern (see ``applicationLogAttachment(data:sendUnredactedData:)``).
+	nonisolated static func exportedApplicationLogFile(data: Data, sendUnredactedData: Bool) -> URL? {
+		let fileManager = FileManager.default
+		let directory = applicationLogExportDirectory
+		let url = directory
+			.appendingPathComponent(applicationLogFileName(sendUnredactedData: sendUnredactedData))
+		do {
+			// Replaced, never accumulated: the previous export may hold unredacted data the user
+			// has since switched off.
+			removeApplicationLogExports()
+			try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+			let payload = data.isEmpty ? Data(emptyApplicationLogPlaceholder.utf8) : data
+			try payload.write(to: url, options: .atomic)
+			return url
+		} catch {
+			LoggingPolicy.error(
+				"Could not write the application log for sharing: \(error.localizedDescription)",
+				logger: .ui
+			)
+			return nil
+		}
+	}
+
+	/// Drops any previously written export. The file can hold unredacted log data, so it must not
+	/// outlive the choice that produced it.
+	nonisolated static func removeApplicationLogExports() {
+		try? FileManager.default.removeItem(at: applicationLogExportDirectory)
 	}
 
 	/// Opens the Settings app. This lands on **ML Browser's own page**, not Mail's — iOS offers no
