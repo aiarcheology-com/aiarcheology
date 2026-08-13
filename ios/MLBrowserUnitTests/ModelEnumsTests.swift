@@ -18,8 +18,27 @@ final class AnnotationSymbolTests: XCTestCase {
         XCTAssertEqual(AnnotationSymbol.point.rawValue, "Point")
     }
     
+    /// **The raw value is a storage format, not a label** (AIA-0620).
+    ///
+    /// `DeepConfiguration.selectedSymbol` decodes this straight out of the Core Data attribute
+    /// `selectedSymbol_` and falls back to `.circle` on anything it does not recognise. So renaming
+    /// this string would not fail loudly — it would silently reset every existing user's annotation
+    /// shape to a circle, on a preference they chose deliberately. It must stay "Square" even
+    /// though the label no longer says so.
     func testSquareRawValue() {
         XCTAssertEqual(AnnotationSymbol.square.rawValue, "Square")
+    }
+
+    /// The other half of the same contract: what the user *reads* is "Rectangle", because the case
+    /// has always drawn `ObservationRectangleView` — a bounding rectangle, never a square.
+    ///
+    /// Asserted against the localized name rather than the catalog so the two cannot drift: if
+    /// someone repoints `.square` at a different key, or renames the raw value to match the label,
+    /// exactly one of these two tests fails and names which mistake was made.
+    func testSquareIsLabelledRectangle_whileItsStoredValueStaysSquare() {
+        XCTAssertEqual(AnnotationSymbol.square.localizedName, L10n.Symbol.rectangle)
+        XCTAssertEqual(AnnotationSymbol.square.rawValue, "Square")
+        XCTAssertNotEqual(AnnotationSymbol.square.localizedName, AnnotationSymbol.square.rawValue)
     }
     
     func testCircleRawValue() {

@@ -1025,8 +1025,8 @@ internal enum L10n {
     internal static let circle = L10n.tr("Localizable", "symbol.circle", fallback: "Circle")
     /// Point
     internal static let point = L10n.tr("Localizable", "symbol.point", fallback: "Point")
-    /// Square
-    internal static let square = L10n.tr("Localizable", "symbol.square", fallback: "Square")
+    /// Rectangle
+    internal static let rectangle = L10n.tr("Localizable", "symbol.rectangle", fallback: "Rectangle")
   }
   internal enum Tab {
     /// Examples

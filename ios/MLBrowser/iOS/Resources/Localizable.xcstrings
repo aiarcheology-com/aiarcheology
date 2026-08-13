@@ -43337,110 +43337,110 @@
         }
       }
     },
-    "symbol.square" : {
-      "comment" : "Annotation symbol type: Square",
+    "symbol.rectangle" : {
+      "comment" : "Annotation symbol type shown in the model's Symbol picker. The shape drawn is a bounding rectangle; the stored value stays \"Square\" for compatibility, so only this label changed.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "مربع"
+            "state" : "needs_review",
+            "value" : "مستطيل"
           }
         },
         "bn" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "বর্গক্ষেত্র"
+            "state" : "needs_review",
+            "value" : "আয়তক্ষেত্র"
           }
         },
         "cs" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Čtverec"
+            "state" : "needs_review",
+            "value" : "Obdélník"
           }
         },
         "de" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quadrat"
+            "state" : "needs_review",
+            "value" : "Rechteck"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Square"
+            "value" : "Rectangle"
           }
         },
         "es" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cuadrado"
+            "state" : "needs_review",
+            "value" : "Rectángulo"
           }
         },
         "fa" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "مربع"
+            "state" : "needs_review",
+            "value" : "مستطیل"
           }
         },
         "fr" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Carré"
+            "state" : "needs_review",
+            "value" : "Rectangle"
           }
         },
         "he" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "ריבוע"
+            "state" : "needs_review",
+            "value" : "מלבן"
           }
         },
         "hi" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "वर्ग"
+            "state" : "needs_review",
+            "value" : "आयत"
           }
         },
         "hu" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Négyzet"
+            "state" : "needs_review",
+            "value" : "Téglalap"
           }
         },
         "pl" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kwadrat"
+            "state" : "needs_review",
+            "value" : "Prostokąt"
           }
         },
         "ru" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Квадрат"
+            "state" : "needs_review",
+            "value" : "Прямоугольник"
           }
         },
         "uk" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Квадрат"
+            "state" : "needs_review",
+            "value" : "Прямокутник"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "方形"
+            "state" : "needs_review",
+            "value" : "矩形"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "方形"
+            "state" : "needs_review",
+            "value" : "矩形"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "方形"
+            "state" : "needs_review",
+            "value" : "矩形"
           }
         }
       }

@@ -344,12 +344,23 @@ struct DrawerContent: View {
         accountFooterLabel(content: content)
     }
 
+    /// The footer's card, matched to the drawer's own `.insetGrouped` rows (AIA-0620).
+    ///
+    /// This slot is pinned with `safeAreaInset`, so it cannot be a `List` section — it is drawn by
+    /// hand, and the hand-drawn metrics had drifted from the real rows above it: a 12pt radius
+    /// against UIKit's inset-grouped 10, and 14pt of vertical padding against a standard row's 11.
+    /// Small numbers, but they sit directly beneath Findings and Settings, where "nearly the same"
+    /// reads as a mistake rather than a distinct element.
+    ///
+    /// Kept as literals rather than derived: UIKit exposes no API for these, so a comment naming
+    /// what they mirror is the honest way to hold them. If the rows above ever change style, this
+    /// is the place that has to follow.
     private func accountFooterLabel<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 14)
+            .padding(.vertical, 11)
             .padding(.horizontal, 16)
-            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
     }
