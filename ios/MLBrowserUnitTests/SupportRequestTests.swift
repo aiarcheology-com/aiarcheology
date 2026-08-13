@@ -173,8 +173,20 @@ final class ScreenshotAttachmentValidatorTests: XCTestCase {
 }
 
 final class SupportLogAttachmentTests: XCTestCase {
-	func testApplicationLogAttachment_OmitsEmptyLogData() {
-		XCTAssertNil(SupportRequestView.applicationLogAttachment(data: Data(), sendUnredactedData: false))
+	/// Previously this asserted `nil` for empty data. Dropping the attachment silently is what made
+	/// "quiet session" and "the log was lost" look identical to whoever reads the report, so an
+	/// empty log now ships one line saying so (AIA-0602).
+	func testApplicationLogAttachment_ExplainsItselfWhenTheLogIsEmpty() throws {
+		let attachment = try XCTUnwrap(
+			SupportRequestView.applicationLogAttachment(data: Data(), sendUnredactedData: false)
+		)
+
+		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log-unavailable.txt")
+		let text = try XCTUnwrap(String(bytes: attachment.data, encoding: .utf8))
+		XCTAssertTrue(
+			text.contains("empty or unavailable"),
+			"The placeholder has to say which, or it is no better than no attachment"
+		)
 	}
 
 	func testApplicationLogAttachment_UsesTheProvidedLogData() throws {

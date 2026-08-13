@@ -74,6 +74,10 @@ struct SupportRequestView: View {
 	@State private var mailtoOpened = false
 	@State private var showCopiedConfirmation = false
 
+	/// Guards the compose button while the request is being assembled (AIA-0602). Reading the
+	/// application log became slow enough to double-tap through.
+	@State private var isComposing = false
+
 	/// Held so the fallback can put the exact same text on the clipboard that the composer would
 	/// have carried — the user's work must survive a missing mail account.
 	@State private var composedRequest: SupportRequest?
@@ -128,12 +132,16 @@ struct SupportRequestView: View {
 				}
 
 				Section {
+					// Disabled while composing: gathering the log is no longer instant (it reads up
+					// to five MiB from disk and redacts it), and a second tap would build a second
+					// request and try to present a second composer over the first.
 					Button(L10n.Support.compose) {
 						Task { await compose() }
 					}
 					.buttonStyle(.borderedProminent)
 					.tint(.green)
 					.frame(maxWidth: .infinity, alignment: .center)
+					.disabled(isComposing)
 				} footer: {
 					Text(L10n.Support.privacyNote)
 						.font(.body)
@@ -230,6 +238,9 @@ struct SupportRequestView: View {
 	}
 
 	private func compose() async {
+		isComposing = true
+		defer { isComposing = false }
+
 		let request = SupportRequest(
 			category: category,
 			contextURL: contextURL,
@@ -245,8 +256,15 @@ struct SupportRequestView: View {
 		composedRequest = request
 		var attachments = [attachment].compactMap { $0 }
 		if includeApplicationLog {
+			// Off the main actor: the log is read from disk and, unless the user opted into raw
+			// data, every line is run through `LogRedactor` — on the order of a second for a full
+			// five MiB. This view is `@MainActor`, so doing it inline would freeze the sheet.
+			let sendUnredacted = sendUnredactedApplicationLog
+			let logData = await Task.detached(priority: .userInitiated) {
+				LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredacted)
+			}.value
 			let applicationLogAttachment = Self.applicationLogAttachment(
-				data: LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredactedApplicationLog),
+				data: logData,
 				sendUnredactedData: sendUnredactedApplicationLog
 			)
 			LoggingPolicy.info(
@@ -288,11 +306,23 @@ struct SupportRequestView: View {
 		}
 	}
 
+	/// Never returns `nil` for a user who asked for the log.
+	///
+	/// An empty log used to mean no attachment at all: the mail went out with the toggle on and
+	/// nothing attached, and neither the user nor support could tell "quiet session" from "the log
+	/// was lost" (a full disk, a directory that could not be created). One placeholder line is
+	/// cheap and says which (AIA-0602).
 	static func applicationLogAttachment(
 		data: Data,
 		sendUnredactedData: Bool
 	) -> EmailController.Attachment? {
-		guard data.isEmpty == false else { return nil }
+		guard data.isEmpty == false else {
+			return EmailController.Attachment(
+				data: Data("The application log was empty or unavailable when this report was composed.\n".utf8),
+				mimeType: "text/plain",
+				fileName: "mlbrowser-application-log-unavailable.txt"
+			)
+		}
 		return EmailController.Attachment(
 			data: data,
 			mimeType: "text/plain",
