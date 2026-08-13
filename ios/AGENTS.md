@@ -200,7 +200,7 @@ Harmonize enforces architectural rules as unit tests. Unlike SwiftLint (regex-ba
 | CoreData entity classes exist | Core Data entities compile and are discoverable |
 | Singleton guardrail | `static let/var shared` only in per-declaration allowlisted files |
 | Screenshot privacy invariant (AIA-0392) | Only `FindingRepository` calls `FindingScreenshotStore.save` |
-| Account-identifier privacy invariant (AIA-0437) | The raw Clerk account id is never passed to `LoggingPolicy` (its messages become Sentry breadcrumbs) |
+| Account-identifier privacy invariant (AIA-0437) | The raw Clerk account id is never passed to `LoggingPolicy` (its messages become Sentry breadcrumbs, and since AIA-0602 also on-disk support-log entries) |
 | Boundary baselines (aspirational) | Views importing CoreData / `*State` importing SwiftUI+UIKit: frozen legacy list, new offenders fail, list only shrinks |
 | Planned: extensions are organized | Future rule for extension file structure |
 
