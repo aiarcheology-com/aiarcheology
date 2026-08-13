@@ -844,19 +844,30 @@ final class ArchitectureTests: XCTestCase {
                 continue
             }
 
-            for (offset, line) in source.components(separatedBy: .newlines).enumerated()
-            where line.contains("subscriptionState.purchase(") {
+            // Comment lines are dropped before every check below. Without that, this whole rule is
+            // satisfiable by prose: a regression that deletes the `switch` but leaves the sentence
+            // "…decided by `PaywallPurchaseIntent.resolve(…)`" in a doc comment would keep it green,
+            // and the comments here are deliberately long. Line comments only — that is what these
+            // files use, and a block-comment parser would be more machinery than the rule is worth.
+            let code = source
+                .components(separatedBy: .newlines)
+                .enumerated()
+                .filter { $0.element.trimmingCharacters(in: .whitespaces).hasPrefix("//") == false }
+
+            for (offset, line) in code where line.contains("subscriptionState.purchase(") {
                 purchaseCallSites.append("\(rel):\(offset + 1)")
             }
 
+            let codeText = code.map(\.element).joined(separator: "\n")
+
             if rel.hasSuffix("UI/Subscription/PaywallView.swift") {
                 sawPaywall = true
-                paywallConsultsTheDecision = source.contains("PaywallPurchaseIntent.resolve(")
+                paywallConsultsTheDecision = codeText.contains("PaywallPurchaseIntent.resolve(")
             }
 
             if rel.hasSuffix("UI/Drawer/DrawerContent.swift") {
                 sawDrawer = true
-                settingsRouteIsWired = source.contains("windowDaysRemaining")
+                settingsRouteIsWired = codeText.contains("windowDaysRemaining")
             }
         }
 

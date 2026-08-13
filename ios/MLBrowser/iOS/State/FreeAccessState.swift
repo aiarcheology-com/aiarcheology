@@ -167,9 +167,16 @@ final class FreeAccessState: ObservableObject {
 	/// the raw clock would offer a user days the gate does not believe in. It is the same rule
 	/// ``FreeAccessWindow/duePrompt(at:)`` states for the Welcome screen, for the same reason.
 	///
-	/// Computed rather than `@Published`, exactly like ``hasSpentWindow``: the answer only changes
-	/// when the clock does, and it is read during `body` next to ``availability``, which does
-	/// publish — so the re-render that can change the answer is the one that already happens.
+	/// Computed rather than `@Published`, but **not** for ``hasSpentWindow``'s reason. That one is
+	/// read during `body`, next to a property that does publish. This one is never read during
+	/// `body` at all: both consumers reach it through a closure evaluated at the moment the user
+	/// taps Subscribe, precisely so the answer is current rather than whatever was true when the
+	/// view was built. An event-time read has nothing to publish to.
+	///
+	/// **So do not put this in a `body` on the strength of this comment.** `SettingsForm` does not
+	/// observe `FreeAccessState`, so a view rendering it would show a count frozen at the last
+	/// unrelated re-render, and would still be showing it after midnight. Publishing it is the
+	/// change that would have to come first.
 	var windowDaysRemaining: Int? {
 		guard hasStarted, case let .active(remaining) = service.phase(of: window) else { return nil }
 		return remaining

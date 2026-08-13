@@ -60,17 +60,32 @@ enum AnalyticsEvent: Equatable {
 	/// It exists as much for observability of the *screen* as of the user. This confirmation is the
 	/// only one in the app that no automated test can drive — the paywall's Subscribe button needs a
 	/// real StoreKit `Product`, which the UI-test mock cannot supply — so a dialog that silently
-	/// failed to present would leave no trace at all. Against `freeAccessKeepDaysTapped` and
-	/// `subscriptionActivated` it does: raises that are never answered are the signature.
+	/// failed to present would otherwise leave no trace at all.
+	///
+	/// **What it can and cannot tell you.** A large gap between this and
+	/// ``freeAccessKeepDaysTapped`` is *suggestive* of a dialog that never appeared; it is not proof,
+	/// because two ordinary behaviours produce the same shape. On iPad a `.confirmationDialog`
+	/// presents as a popover, and the system omits cancel-role actions from those — so "Keep My Free
+	/// Days" is not rendered at all and the user dismisses by tapping outside, which fires no action.
+	/// And a user who chooses Subscribe Anyway and then cancels Apple's sheet also leaves a raise
+	/// with nothing after it. Read the gap as a prompt to go and look, never as a verdict.
 	case freeAccessConfirmShown
 
 	/// The user was told a purchase would forfeit the rest of their free window, and kept the days
 	/// (AIA-0623).
 	///
-	/// The only way to tell the two ways a `subscribeTapped` ends without a `subscriptionActivated`
-	/// apart: backing out of *our* confirmation, versus cancelling Apple's sheet. That distinction is
-	/// the whole cost measurement for this change — a dialog inserted in front of a purchase is a
-	/// conversion risk, and without this event nobody could say afterwards whether it was one.
+	/// It separates the two ways a `subscribeTapped` can end without a `subscriptionActivated`:
+	/// backing out of *our* confirmation, versus cancelling Apple's sheet. That distinction is the
+	/// cost measurement for this change — a dialog inserted in front of a purchase is a conversion
+	/// risk, and without this event nobody could say afterwards whether it was one.
+	///
+	/// **An undercount on iPad, by construction.** It is raised from the cancel-role button, and a
+	/// `.confirmationDialog` presented as a popover — which is what iPad does — omits cancel-role
+	/// actions entirely. iPad users keep their days by tapping outside, which fires no action, so
+	/// they are missing from this count while still present in ``freeAccessConfirmShown``. Tracking
+	/// the dismissal instead would need the button action and the `isPresented` setter to run in a
+	/// guaranteed order, which SwiftUI does not promise and no test here can check — so the
+	/// undercount is documented rather than guessed at.
 	///
 	/// Bounded by `subscribeTapped`, never above it, because it can only follow one. It says nothing
 	/// about how many days were at stake: the window's own numbers stay on the device, for the same

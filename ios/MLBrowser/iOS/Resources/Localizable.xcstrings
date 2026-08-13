@@ -30953,13 +30953,13 @@
               "one" : {
                 "stringUnit" : {
                   "state" : "needs_review",
-                  "value" : "Sie haben noch %lld freien Tag"
+                  "value" : "Sie haben noch %lld kostenlosen Tag"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "needs_review",
-                  "value" : "Sie haben noch %lld freie Tage"
+                  "value" : "Sie haben noch %lld kostenlose Tage"
                 }
               }
             }
@@ -31262,7 +31262,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Diese freien Tage werden nicht zu Ihrem Abo hinzugefügt – sie enden ohnehin am selben Datum. Bis dahin können Sie jederzeit abonnieren."
+            "value" : "Diese kostenlosen Tage werden nicht zu Ihrem Abo hinzugefügt – sie enden ohnehin am selben Datum. Bis dahin können Sie jederzeit abonnieren."
           }
         },
         "en" : {
@@ -31370,7 +31370,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Freie Tage behalten"
+            "value" : "Kostenlose Tage behalten"
           }
         },
         "en" : {

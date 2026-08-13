@@ -558,12 +558,19 @@ struct PaywallView: View {
 			titleVisibility: .visible,
 			presenting: pendingPurchase
 		) { pending in
-			// Neither action clears `pendingPurchase` itself. SwiftUI sets `isPresented` to false on
-			// any choice, and the setter above is what clears it — which is also how the two `Bool`
-			// -bound dialogs above behave. Clearing it here as well would empty the state one frame
-			// *into* the dismissal, and since the title is evaluated from that state (unlike the
-			// actions and message, which `presenting:` keeps alive), the sheet would animate out with
-			// a blank title under `titleVisibility: .visible`.
+			// Neither action clears `pendingPurchase` itself: the `isPresented` setter above is the
+			// one place that does, which is also how the two `Bool`-bound dialogs on this screen
+			// behave. Clearing it in both places would be a second writer for no gain, and the title
+			// is evaluated from that state — unlike the actions and message, which `presenting:`
+			// keeps alive through the dismissal — so a redundant clear can only risk emptying the
+			// title early, never help.
+			//
+			// **On iPad this dialog presents as a popover, and the system omits cancel-role actions
+			// from popovers** — so "Keep My Free Days" is not rendered there and the user dismisses
+			// by tapping outside. That is safe (it keeps the days and charges nothing) but it fires
+			// no action, which is why `freeAccessKeepDaysTapped` undercounts on iPad. Documented on
+			// the event rather than worked around: tracking the dismissal instead would need the
+			// action and this setter to run in a guaranteed order, and SwiftUI does not promise one.
 			//
 			// Two independent explicit choices, the same shape as the two dialogs above. "Inform,
 			// do not obstruct": Subscribe Anyway is a plain default action, not a destructive one —
