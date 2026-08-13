@@ -21,6 +21,62 @@ final class SubscriptionGateUITests: UITestCase {
 		assertExists(AID.paywallSignOut, true)
 		// The app chrome (side-menu button) must not be reachable behind the gate.
 		assertExists(AID.cpu, false)
+
+		// **The wall must stay a wall** (AIA-0616). AIA-0616 gave the paywall a close button so the
+		// Settings presentation stops reading as "subscribe or nothing" during the free window. This
+		// is the other half of that change: here both free phases are spent, there is nothing behind
+		// this screen, and a dismiss control would close the app's only screen into nothing.
+		//
+		// It is asserted at the *gate* rather than trusted from the view's `isDeadEnd` check, because
+		// the failure this guards against is someone later making the button unconditional — which
+		// reads as a harmless tidy-up and would be invisible without this line.
+		assertExists(AID.paywallDismiss, false)
+	}
+
+	/// **Schedule 2 §3.8(b) says the privacy-policy link must be *functional*, and this is what
+	/// checks it** (AIA-0616).
+	///
+	/// It was not. The link opened a sheet that rendered the correct document invisibly — the HTML
+	/// converted fine, but the view then replaced every attribute in the attributed string with a
+	/// SwiftUI `Color` stored under a UIKit key, so 14 308 characters were laid out and drawn in
+	/// nothing. A reviewer tapping this on the paywall got a blank page.
+	///
+	/// **Read this before strengthening the assertions.** A UI test cannot see the original bug.
+	/// XCUITest walks the accessibility tree, not pixels, and the old renderer laid the text out
+	/// perfectly and drew it in an unresolvable colour — so every word was present to a test and
+	/// absent to a human. Asserting only on the document's text passes against the broken build;
+	/// that was measured by reverting the renderer, not assumed.
+	///
+	/// So this pins two things that *are* mechanically checkable, and no more:
+	///   1. the sheet contains the document (catches a missing file, a failed load, an empty sheet);
+	///   2. it renders through a web view, which is the only path that honours the document's own
+	///      stylesheet — including its `prefers-color-scheme` block, i.e. the thing whose absence
+	///      made the text invisible.
+	///
+	/// The second is an implementation assertion, deliberately. It is the only signal available
+	/// here, and it fails loudly if someone swaps in another renderer — at which point they should
+	/// re-verify by eye, because this test cannot.
+	func testPaywall_privacyPolicyLink_opensASheetThatActuallyHasTheDocument() {
+		launch(mockSubscription: "notSubscribed")
+
+		XCTAssertTrue(scrollTo(AID.paywallPrivacyPolicy), "Paywall has no Privacy Policy link")
+		app.buttons[AID.paywallPrivacyPolicy].tap()
+
+		// "Data Controller" is the §1 heading, far enough into the document that finding it proves
+		// the body rendered rather than just a title bar.
+		let marker = app.staticTexts
+			.matching(NSPredicate(format: "label CONTAINS[c] %@", "Data Controller"))
+			.firstMatch
+		XCTAssertTrue(
+			marker.waitForExistence(timeout: 20),
+			"Privacy Policy sheet opened but contains none of the document"
+		)
+
+		XCTAssertTrue(
+			app.webViews.firstMatch.waitForExistence(timeout: 10),
+			"The policy must render in a web view — it is the only path that applies the document's "
+				+ "own stylesheet, and rendering it any other way is what drew it invisibly before"
+		)
 	}
 
 	/// AIA-0564: the centered, full-height stack clipped the paywall's upper and lower content in

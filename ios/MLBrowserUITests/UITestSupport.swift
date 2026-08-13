@@ -159,6 +159,8 @@ enum AID {
 	static let paywallContent = "_AIA:View.PaywallContent"
 	static let paywallSubscribe = "_AIA:Button.PaywallSubscribe"
 	static let paywallRestore = "_AIA:Button.PaywallRestore"
+	static let paywallDismiss = "_AIA:Button.PaywallDismiss"
+	static let paywallPrivacyPolicy = "_AIA:Button.PaywallPrivacyPolicy"
 	static let paywallSignIn = "_AIA:Button.PaywallSignIn"
 	static let paywallSignOut = "_AIA:Button.PaywallSignOut"
 	static let paywallDeleteAccount = "_AIA:Button.PaywallDeleteAccount"

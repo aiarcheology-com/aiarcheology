@@ -322,6 +322,49 @@ struct PaywallView: View {
 				.frame(maxWidth: .infinity, minHeight: geometry.size.height)
 			}
 			.testability(Testability.View.paywallContent)
+			// A way out, and **only** where one exists (AIA-0616).
+			//
+			// Presented from Settings during the free-access window, this screen is an offer: the
+			// user still has days left and can simply close it. Without a visible control it read as
+			// a wall, because the only exit was an undiscoverable swipe — and a screen that looks
+			// like "subscribe or nothing" when it is not costs a conversion at best and reads as a
+			// dark pattern at worst, on precisely the screen App Review scrutinises.
+			//
+			// Keyed on ``isDeadEnd``, so the root gate — where there genuinely is nothing to go back
+			// to — is untouched and cannot be dismissed into a blank app. That is the same question
+			// the findings escape hatch asks, and it is the reason the property exists rather than
+			// each site testing ``isRootGate`` for itself.
+			.overlay(alignment: .topTrailing) {
+				if isDeadEnd.not {
+					Button {
+						dismiss()
+					} label: {
+						// The word, not an ✕. A glyph asks the reader to interpret it, and this is the
+						// one screen where a user who misreads the exit concludes they have to pay.
+						// `L10n.Common.dismiss` already ships in all 17 locales, so saying it costs
+						// nothing — and with real text the label *is* the accessibility label, which is
+						// why no `.accessibilityLabel` is set: adding one would make VoiceOver say it
+						// twice.
+						Text(L10n.Common.dismiss)
+							.font(.body.weight(.semibold))
+							.padding(.horizontal, 14)
+							// 44×44 is Apple's minimum touch target, set explicitly rather than reached
+							// by adding up padding — padding arithmetic is exactly what regresses the
+							// next time someone nudges the insets.
+							.frame(minWidth: 44, minHeight: 44)
+							.background(.thinMaterial, in: Capsule())
+					}
+					.buttonStyle(.plain)
+					// The same blue as Restore, Manage and the legal links: a control, not a caption.
+					// The paywall scrolls *under* this overlay, so the material backing is load-bearing
+					// rather than decorative — without it the word sits on top of moving body text.
+					.tint(Self.interactiveTint)
+					.foregroundStyle(Self.interactiveTint)
+					.padding(.top, 8)
+					.padding(.trailing, 16)
+					.testability(Testability.Button.paywallDismiss)
+				}
+			}
 		}
 		.task {
 			// Load products when the paywall appears (kept off the launch path so a slow
@@ -701,6 +744,7 @@ struct PaywallView: View {
 				} label: {
 					Text(L10n.About.privacyPolicy).underline()
 				}
+				.testability(Testability.Button.paywallPrivacyPolicy)
 			}
 			.font(.caption2)
 			.tint(Self.interactiveTint)
