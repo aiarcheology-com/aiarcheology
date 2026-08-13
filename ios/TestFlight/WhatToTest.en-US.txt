@@ -18,7 +18,13 @@ Test Focus 1: Subscription screens. Several things moved or changed wording, and
 
 8. Check the subscribe screen's "Terms of Use" and "Privacy Policy" links at the bottom. They are now blue and underlined instead of grey, and both must open.
 
-Test Focus 2: Downloading models from the catalog on a real iPhone or iPad. Multi-file model downloads used to fail on physical devices only.
+Test Focus 2: Two small UI corrections.
+
+1. Open the left drawer. The account row at the bottom (Sign In, or your email when signed in) should now look like the Findings and Settings rows directly above it — same corner rounding, same height. Previously it was slightly rounder and taller, which read as a mistake.
+
+2. Open a model's settings and look at the Symbol picker. The middle option is now called "Rectangle" instead of "Square" — it always drew a rectangle around detections, only the label was wrong. Important: if you had "Square" selected before this build, it must still be selected (now reading "Rectangle") and your detections must look exactly as they did. If it switched itself to Circle, that is a bug worth reporting immediately.
+
+Test Focus 3: Downloading models from the catalog on a real iPhone or iPad. Multi-file model downloads used to fail on physical devices only.
 
 1. Download a multi-file Core ML package, for example "yolo11l-int8" from TheCluster/YOLOv11-CoreML. It should install without an error, then appear in your model list — select it and run one detection.
 
