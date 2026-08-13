@@ -96,8 +96,12 @@ swaps the trial line for `paywall.billing.immediate`.
 They stack only for someone who **waits**. The intro offer starts the moment the subscription does
 and cannot be deferred, so converting on day 5 of the window yields 19 free days, not 28 — the
 remaining 9 are simply lost. AIA-0623 stopped that happening silently: tapping Subscribe while a
-window is still open raises a confirmation first, keyed on the window rather than on trial
-eligibility (a user with no intro offer is charged immediately, so they lose more).
+window is still open raises an alert first, keyed on the window rather than on trial
+eligibility (a user with no intro offer is charged immediately, so they lose more). Eligibility
+picks only the *wording* — `paywall.keepFreeAccess.messageWithTrial` says the trial starts when the
+purchase completes, `…messageNoTrial` says billing does — never whether the alert appears. Both are
+anchored to the purchase completing rather than to "now", for the reason `billingNote(for:)` gives:
+Ask-to-Buy and pending approvals can land days later, and `.pending` is reachable from this button.
 
 The copy now spells this out too (AIA-0562/0576, corrected by AIA-0623): the Settings account
 footer states the trial **only after StoreKit confirms this Apple Account still gets it**, with the

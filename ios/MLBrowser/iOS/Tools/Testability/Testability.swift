@@ -115,11 +115,16 @@ extension TestabilityIdentification {
 		/// free-window user can subscribe without waiting to be walled.
 		case settingsUpgrade
 		case paywallSubscribe
-		/// The two choices in the free-days confirmation (AIA-0623), shown when Subscribe is tapped
-		/// while an app-managed window is still open. Identified rather than matched by text so a
-		/// future test does not depend on localized copy — note that no automated test can reach
-		/// them today: the mock subscription provider exposes no `Product`, so the button that
-		/// raises this dialog is never rendered under UI testing.
+		/// The two choices in the free-days confirmation alert (AIA-0623), shown when Subscribe is
+		/// tapped while an app-managed window is still open. Identified rather than matched by text
+		/// so a future test does not depend on localized copy.
+		///
+		/// **Neither identifier is proven to work, for two independent reasons.** No automated test
+		/// can reach them today: the mock subscription provider exposes no `Product`, so the button
+		/// that raises the alert is never rendered under UI testing. And SwiftUI bridges alert
+		/// actions to `UIAlertController`, which is not documented to carry a button's
+		/// accessibility identifier across — check the AX inspector before writing a test that
+		/// depends on either of these rather than assuming they are hooks.
 		case paywallKeepFreeAccess
 		case paywallSubscribeAnyway
 		case paywallRestore

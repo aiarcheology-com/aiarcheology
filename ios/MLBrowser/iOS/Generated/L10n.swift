@@ -758,13 +758,15 @@ internal enum L10n {
     internal enum KeepFreeAccess {
       /// Keep My Free Days
       internal static let keep = L10n.tr("Localizable", "paywall.keepFreeAccess.keep", fallback: "Keep My Free Days")
-      /// These free days aren't added to your subscription — they run out on the same date either way. You can subscribe any time before then.
-      internal static let message = L10n.tr("Localizable", "paywall.keepFreeAccess.message", fallback: "These free days aren't added to your subscription — they run out on the same date either way. You can subscribe any time before then.")
+      /// Subscribing now starts billing as soon as your purchase completes, so the days you have left aren't added to your subscription.
+      internal static let messageNoTrial = L10n.tr("Localizable", "paywall.keepFreeAccess.messageNoTrial", fallback: "Subscribing now starts billing as soon as your purchase completes, so the days you have left aren't added to your subscription.")
+      /// Subscribing now starts your trial as soon as your purchase completes, so the days you have left aren't added to it.
+      internal static let messageWithTrial = L10n.tr("Localizable", "paywall.keepFreeAccess.messageWithTrial", fallback: "Subscribing now starts your trial as soon as your purchase completes, so the days you have left aren't added to it.")
       /// Subscribe Anyway
       internal static let subscribeAnyway = L10n.tr("Localizable", "paywall.keepFreeAccess.subscribeAnyway", fallback: "Subscribe Anyway")
-      /// You still have %lld free days
-      internal static func title(_ p1: Int) -> String {
-        return L10n.tr("Localizable", "paywall.keepFreeAccess.title", p1, fallback: "You still have %lld free days")
+      /// You still have %lld days of free access — no subscription and no payment method needed.
+      internal static func titleNoPaymentNeeded(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "paywall.keepFreeAccess.titleNoPaymentNeeded", p1, fallback: "You still have %lld days of free access — no subscription and no payment method needed.")
       }
     }
     internal enum Pending {

@@ -32,9 +32,9 @@ Test Focus 4: Subscribing while you still have free days. Our tests cannot show 
 
 Needs a device whose free access is still running (Settings > ML Browser shows "Free until <date>"); reinstalling does not reset it. If yours ran out, say so and skip.
 
-1. Settings > ML Browser > Subscription > tap the green Subscribe button. A confirmation must appear FIRST, saying how many free days you have left and that they are not added to your subscription. If the button does nothing, report that immediately.
+1. Settings > ML Browser > Subscription > tap the green Subscribe button. An alert must appear FIRST, saying how many free days you have left and that they are not added to your subscription or trial. If the button does nothing, report that immediately.
 
-2. Choose "Keep My Free Days" — nothing is charged. On iPad there is deliberately no such button; dismiss by tapping outside. Do this before "Subscribe Anyway", which spends your trial.
+2. Both buttons must be visible, on iPhone and iPad alike. Choose "Keep My Free Days" — nothing is charged. Do this before "Subscribe Anyway", which spends your trial.
 
 3. The Subscription row's label used to be grey, as if disabled. It should now match every other row in light and dark mode, and tapping anywhere along the row must open the subscribe screen.
 
