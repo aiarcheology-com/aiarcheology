@@ -258,7 +258,14 @@ final class ApplicationLogBufferTests: XCTestCase {
 		}
 	}
 
-	func testSnapshotData_KeepsTheNewestBytesWithinTheByteLimit() {
+	// The four tests below previously asserted that a byte-level trim keeps the *partial* first
+	// entry (`"st\nsecond\n"`, `"cdef\n"`, …). That was safe only while the buffer held text already
+	// redacted at write time. It now holds raw text, so a surviving half-entry can carry a truncated
+	// URL or token whose left anchor no longer matches its redaction pattern — and that fragment
+	// would ship in the *default*, supposedly-redacted attachment. The rule is now "whole entries
+	// only" (AIA-0602).
+
+	func testSnapshotData_KeepsOnlyWholeEntriesWithinTheByteLimit() {
 		let buffer = ApplicationLogBuffer(maximumByteCount: 10)
 		buffer.append("first")
 		buffer.append("second")
@@ -266,21 +273,10 @@ final class ApplicationLogBufferTests: XCTestCase {
 		guard let text = String(bytes: buffer.snapshotData(), encoding: .utf8) else {
 			return XCTFail("Expected a UTF-8 application log")
 		}
-		XCTAssertEqual(text, "st\nsecond\n")
+		XCTAssertEqual(text, "second\n", "The partial leading entry must be dropped, not truncated")
 	}
 
-	func testSnapshotData_TruncatesAnOversizedNewestEntryToTheByteLimit() {
-		let buffer = ApplicationLogBuffer(maximumByteCount: 5)
-		buffer.append("abcdef")
-
-		XCTAssertEqual(buffer.snapshotData().count, 5)
-		guard let text = String(bytes: buffer.snapshotData(), encoding: .utf8) else {
-			return XCTFail("Expected a UTF-8 application log")
-		}
-		XCTAssertEqual(text, "cdef\n")
-	}
-
-	func testSnapshotData_KeepsTheNewestTailWhenAnOversizedEntryHasLaterEntries() {
+	func testSnapshotData_DropsAnOversizedOlderEntryRatherThanAFragmentOfIt() {
 		let buffer = ApplicationLogBuffer(maximumByteCount: 10)
 		buffer.append(String(repeating: "a", count: 12))
 		buffer.append("x")
@@ -288,16 +284,199 @@ final class ApplicationLogBufferTests: XCTestCase {
 		guard let text = String(bytes: buffer.snapshotData(), encoding: .utf8) else {
 			return XCTFail("Expected a UTF-8 application log")
 		}
-		XCTAssertEqual(text, "aaaaaaa\nx\n")
+		XCTAssertEqual(text, "x\n")
 	}
 
-	func testSnapshotData_TrimsAUnicodeCutoffToValidUTF8() {
-		let buffer = ApplicationLogBuffer(maximumByteCount: 8)
-		buffer.append("aa€bbbbbb")
+	/// A budget too small for one whole entry yields nothing. Empty beats a fragment, and this is
+	/// unreachable in production: a single entry is clamped far below any store's budget.
+	func testSnapshotData_IsEmptyWhenTheBudgetCannotHoldOneWholeEntry() {
+		let buffer = ApplicationLogBuffer(maximumByteCount: 5)
+		buffer.append("abcdef")
+
+		XCTAssertEqual(buffer.snapshotData().count, 0)
+	}
+
+	/// Entry boundaries are always UTF-8 scalar boundaries, so resolving the cut to a whole entry
+	/// makes the old "drop stray continuation bytes" pass unnecessary — the result is valid by
+	/// construction even when the byte cut lands inside a multi-byte scalar.
+	func testSnapshotData_IsValidUTF8WhenTheCutLandsInsideAMultiByteScalar() {
+		let buffer = ApplicationLogBuffer(maximumByteCount: 12)
+		buffer.append("aa€bbbb")
+		buffer.append("ccc")
 
 		guard let text = String(bytes: buffer.snapshotData(), encoding: .utf8) else {
 			return XCTFail("Expected a UTF-8 application log")
 		}
-		XCTAssertEqual(text, "bbbbbb\n")
+		XCTAssertEqual(text, "ccc\n")
+	}
+
+	/// The defect this rule exists for: the trim must not leave a fragment whose redaction anchor
+	/// has been cut off.
+	func testSnapshotData_NeverLeavesAFragmentOfASensitiveValue() {
+		let buffer = ApplicationLogBuffer(maximumByteCount: 24)
+		buffer.append("https://host/p?token=SECRETVALUE")
+		buffer.append("later entry")
+
+		guard let text = String(bytes: buffer.snapshotData(), encoding: .utf8) else {
+			return XCTFail("Expected a UTF-8 application log")
+		}
+		XCTAssertFalse(text.contains("SECRET"), "A truncated secret must never survive the trim")
+		XCTAssertEqual(text, "later entry\n")
+	}
+}
+
+final class ApplicationLogRecordTests: XCTestCase {
+	func testFrame_CollapsesAMultiLineEntryToOnePhysicalLine() {
+		let framed = ApplicationLogRecord.frame("first\nsecond\r\nthird\rfourth")
+
+		guard let text = String(bytes: framed, encoding: .utf8) else {
+			return XCTFail("Expected UTF-8")
+		}
+		XCTAssertEqual(text, "first\\nsecond\\nthird\\nfourth\n")
+		XCTAssertEqual(text.filter { $0 == "\n" }.count, 1, "One entry must be exactly one line")
+	}
+
+	func testFrame_ClampsAnOversizedEntryAndSaysHowMuchWentMissing() {
+		let oversized = String(repeating: "a", count: ApplicationLogRecord.maximumEntryByteCount * 2)
+
+		let framed = ApplicationLogRecord.frame(oversized)
+
+		XCTAssertEqual(framed.count, ApplicationLogRecord.maximumEntryByteCount + 1)
+		guard let text = String(bytes: framed, encoding: .utf8) else {
+			return XCTFail("Expected UTF-8")
+		}
+		XCTAssertTrue(text.contains("truncated"), "A shortened entry must not read as a complete one")
+	}
+
+	func testTrim_ReturnsTheInputUnchangedWhenItFits() {
+		let data = Data("short\n".utf8)
+
+		XCTAssertEqual(ApplicationLogRecord.trim(data, to: 1_024), data)
+	}
+}
+
+final class ApplicationLogFileStoreTests: XCTestCase {
+	private var directoryURL: URL!
+
+	override func setUpWithError() throws {
+		try super.setUpWithError()
+		directoryURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent("AIA0602-\(UUID().uuidString)", isDirectory: true)
+	}
+
+	override func tearDownWithError() throws {
+		try? FileManager.default.removeItem(at: directoryURL)
+		try super.tearDownWithError()
+	}
+
+	private func bytesOnDisk() -> Int {
+		let contents = (try? FileManager.default.contentsOfDirectory(
+			at: directoryURL,
+			includingPropertiesForKeys: [.fileSizeKey]
+		)) ?? []
+		return contents.reduce(0) { total, url in
+			total + ((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+		}
+	}
+
+	/// The headline invariant, at the real budget: far more than the cap goes in, never more than
+	/// the cap is on disk. Rotation is checked *before* each write, so this holds by construction
+	/// rather than by a counter that could drift.
+	func testAppend_NeverExceedsTheByteBudgetOnDisk() {
+		let store = ApplicationLogFileStore(directoryURL: directoryURL, maximumByteCount: 64 * 1_024)
+		let entry = String(repeating: "x", count: 512)
+
+		for index in 0..<4_000 {
+			store.append("\(index) \(entry)")
+		}
+		store.flush()
+
+		XCTAssertGreaterThan(bytesOnDisk(), 0, "Something must have been written")
+		XCTAssertLessThanOrEqual(bytesOnDisk(), 64 * 1_024, "The on-disk cap is not a suggestion")
+	}
+
+	func testAppend_KeepsTheNewestEntriesWhenTheBudgetIsExceeded() {
+		let store = ApplicationLogFileStore(directoryURL: directoryURL, maximumByteCount: 8 * 1_024)
+
+		for index in 0..<2_000 {
+			store.append("entry-\(index)")
+		}
+		store.flush()
+
+		guard let text = String(bytes: store.snapshotData(), encoding: .utf8) else {
+			return XCTFail("Expected a UTF-8 application log")
+		}
+		XCTAssertTrue(text.contains("entry-1999"), "The newest entry must survive")
+		XCTAssertFalse(text.contains("entry-0\n"), "The oldest entries must have rolled off")
+	}
+
+	/// The reason the store exists at all: a report must be able to cover the session in which the
+	/// problem happened, not the one in which the user got around to reporting it.
+	func testSnapshotData_SurvivesAcrossStoreInstances() {
+		let first = ApplicationLogFileStore(directoryURL: directoryURL)
+		first.append("from the earlier session")
+		first.flush()
+
+		let second = ApplicationLogFileStore(directoryURL: directoryURL)
+
+		guard let text = String(bytes: second.snapshotData(), encoding: .utf8) else {
+			return XCTFail("Expected a UTF-8 application log")
+		}
+		XCTAssertTrue(text.contains("from the earlier session"))
+	}
+
+	/// Disable must be ordered *behind* outstanding writes. Deleting the files directly would let a
+	/// queued block re-create them immediately afterwards, leaving the switch reading off while an
+	/// unredacted file sits on disk.
+	func testDisable_LeavesNothingOnDiskEvenWithWritesInFlight() {
+		let store = ApplicationLogFileStore(directoryURL: directoryURL)
+		for index in 0..<500 {
+			store.append("entry-\(index)")
+		}
+
+		store.disable()
+		store.flush()
+
+		XCTAssertEqual(bytesOnDisk(), 0, "A disabled store must leave no raw log behind")
+		XCTAssertEqual(store.snapshotData().count, 0)
+	}
+
+	func testAppend_IsIgnoredWhileDisabled() {
+		let store = ApplicationLogFileStore(directoryURL: directoryURL)
+		store.disable()
+
+		store.append("must not be written")
+		store.flush()
+
+		XCTAssertEqual(bytesOnDisk(), 0)
+	}
+
+	/// Age is keyed on creation date: `current`'s modification date is refreshed by its newest
+	/// append, so an mtime-based cap would never expire the file that actually accumulates entries.
+	func testPrepare_DiscardsFilesOlderThanTheRetentionLimit() throws {
+		let seed = ApplicationLogFileStore(directoryURL: directoryURL)
+		seed.append("from long ago")
+		seed.flush()
+
+		let stale = Date(timeIntervalSinceNow: -8 * 24 * 60 * 60)
+		for url in try FileManager.default.contentsOfDirectory(at: directoryURL, includingPropertiesForKeys: nil) {
+			try FileManager.default.setAttributes([.creationDate: stale], ofItemAtPath: url.path)
+		}
+
+		let reopened = ApplicationLogFileStore(
+			directoryURL: directoryURL,
+			maximumRetainedAge: 7 * 24 * 60 * 60
+		)
+
+		XCTAssertEqual(reopened.snapshotData().count, 0, "Expired entries must not survive a launch")
+	}
+
+	func testAppend_ClampsAnOversizedEntryRatherThanBlowingTheBudget() {
+		let store = ApplicationLogFileStore(directoryURL: directoryURL, maximumByteCount: 1_024 * 1_024)
+
+		store.append(String(repeating: "z", count: ApplicationLogRecord.maximumEntryByteCount * 3))
+		store.flush()
+
+		XCTAssertLessThanOrEqual(bytesOnDisk(), ApplicationLogRecord.maximumEntryByteCount + 1)
 	}
 }
