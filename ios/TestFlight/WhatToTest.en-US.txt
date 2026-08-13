@@ -4,9 +4,9 @@ Test Focus 1: Subscription screens. Several things moved or changed wording, and
 
 1. Open Settings. "Subscription" has moved out of the Account section — it now sits under ML Browser, just below "About the app". Confirm it shows your correct state and still opens the right screen.
 
-2. While you still have free access left, open Settings > ML Browser > Subscription. The subscribe screen must now have an X button in the top-right that closes it and returns you to Settings. This is the fix: before, there was no visible way out and it looked as if subscribing was the only option.
+2. While you still have free access left, open Settings > ML Browser > Subscription. The subscribe screen must now have a "Dismiss" button in the top corner that closes it and returns you to Settings. This is the fix: before, there was no visible way out and it looked as if subscribing was the only option. (In Arabic, Farsi and Hebrew it sits in the top-left rather than the top-right — that is correct.)
 
-3. After your free access has run out (and with no subscription), the same screen appears as the app's only screen. It must NOT have that X button — there is nothing behind it to go back to. Please check this specifically.
+3. After your free access has run out (and with no subscription), the same screen appears as the app's only screen. It must NOT have that Dismiss button — there is nothing behind it to go back to. Please check this specifically.
 
 4. There is no longer a "Request a Refund" button anywhere. This is deliberate. Refunds go through Apple at reportaproblem.apple.com. Confirm the Settings > ML Browser > Subscription screen still offers Manage Subscription and Restore Purchases, and that both work.
 

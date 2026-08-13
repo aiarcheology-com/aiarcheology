@@ -169,12 +169,17 @@ final class FreeAccessUITests: UITestCase {
 		XCTAssertTrue(dismiss.waitForExistence(timeout: 5), "A paywall that is not a gate must offer a way out")
 		dismiss.tap()
 
-		// And the way out has to actually lead back, not just exist.
+		// The way out has to actually lead back, and proving that needs care: waiting for the
+		// Settings row to *exist* proves nothing, because the whole Settings hierarchy still exists
+		// underneath while the sheet covers it. So wait for the paywall itself to go, then require
+		// Settings to be **hittable** rather than merely present.
 		XCTAssertTrue(
-			app.buttons[AID.settingsUpgrade].waitForExistence(timeout: 10),
-			"Dismissing the paywall should return to Settings"
+			waitForDisappearance(of: app.descendants(matching: .any)[AID.paywallContent]),
+			"Dismiss did not take the paywall down"
 		)
-		assertExists(AID.paywallRestore, false)
+		let subscriptionRow = app.buttons[AID.settingsUpgrade]
+		XCTAssertTrue(subscriptionRow.waitForExistence(timeout: 10), "Settings did not come back")
+		XCTAssertTrue(subscriptionRow.isHittable, "Settings came back but is still covered")
 	}
 
 	// MARK: - Welcome → tour ordering (AIA-0567)

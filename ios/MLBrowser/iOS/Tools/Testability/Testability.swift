@@ -119,6 +119,9 @@ extension TestabilityIdentification {
 		/// Closes the paywall when it is an *offer* rather than a wall (AIA-0616) — present only
 		/// when `isDeadEnd` is false, i.e. never on the root gate.
 		case paywallDismiss
+		/// The Privacy Policy link in the paywall's legal footer. Schedule 2 §3.8(b) requires it to
+		/// be *functional*, which is why a test taps it and checks the sheet has content (AIA-0616).
+		case paywallPrivacyPolicy
 		/// Manage Subscription offered from the delete-account confirmation (AIA-0528), so the
 		/// warning that billing continues comes with a way to act on it. A `Button`, not a `Link`:
 		/// a confirmation dialog omits any action whose label is not `Text`.

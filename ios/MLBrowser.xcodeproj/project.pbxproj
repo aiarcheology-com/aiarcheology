@@ -174,7 +174,6 @@
 		8AC393C32B2B9FD700C9BA57 /* DeviceInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393C22B2B9FD700C9BA57 /* DeviceInfo.swift */; };
 		8AC393C52B2BA01100C9BA57 /* NumberFormater+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393C42B2BA01100C9BA57 /* NumberFormater+Extension.swift */; };
 		8AC393C82B2BA0EC00C9BA57 /* PrivacyPolicyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393C72B2BA0EC00C9BA57 /* PrivacyPolicyView.swift */; };
-		8AC393CA2B2BA13300C9BA57 /* HtmlTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393C92B2BA13300C9BA57 /* HtmlTextView.swift */; };
 		8AC393CC2B2BA1C700C9BA57 /* Snapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393CB2B2BA1C700C9BA57 /* Snapshot.swift */; };
 		8AC393D62B2BA33400C9BA57 /* Annotator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393D52B2BA33400C9BA57 /* Annotator.swift */; };
 		8AC393D82B2BA35F00C9BA57 /* ObservationPointView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AC393D72B2BA35F00C9BA57 /* ObservationPointView.swift */; };
@@ -529,7 +528,6 @@
 		8AC393C22B2B9FD700C9BA57 /* DeviceInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceInfo.swift; sourceTree = "<group>"; };
 		8AC393C42B2BA01100C9BA57 /* NumberFormater+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NumberFormater+Extension.swift"; sourceTree = "<group>"; };
 		8AC393C72B2BA0EC00C9BA57 /* PrivacyPolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyPolicyView.swift; sourceTree = "<group>"; };
-		8AC393C92B2BA13300C9BA57 /* HtmlTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HtmlTextView.swift; sourceTree = "<group>"; };
 		8AC393CB2B2BA1C700C9BA57 /* Snapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Snapshot.swift; sourceTree = "<group>"; };
 		8AC393D52B2BA33400C9BA57 /* Annotator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Annotator.swift; sourceTree = "<group>"; };
 		8AC393D72B2BA35F00C9BA57 /* ObservationPointView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservationPointView.swift; sourceTree = "<group>"; };
@@ -938,7 +936,6 @@
 				94D79C892EE36BF40027C9FA /* SnapAdjustmentOverlay.swift */,
 				8A4256E32B1E0BA3009153B1 /* EmailController.swift */,
 				8AC393B72B2B9E1800C9BA57 /* AlertItem.swift */,
-				8AC393C92B2BA13300C9BA57 /* HtmlTextView.swift */,
 				952E8A6BBB23D84896D53765 /* Auth */,
 				52C7290D621F23BD541A171B /* Subscription */,
 				AA0454FF00000000000000FF /* Support */,
@@ -1937,7 +1934,6 @@
 				8A4F0E452F110A0600ABCDEF /* FindingShareCard.swift in Sources */,
 				8A4F0E3B2F110A0600ABCDEF /* FindingsListView.swift in Sources */,
 				8AC650B02B2B9B1800922648 /* DefaultRenderer.swift in Sources */,
-				8AC393CA2B2BA13300C9BA57 /* HtmlTextView.swift in Sources */,
 				8AC650A92B2B4C8300922648 /* CoreDataManagable.swift in Sources */,
 				8ADCE5D52B1EA15200B5EAED /* NSManagedObjectContext+Extensions.swift in Sources */,
 				8AC9B6262B153A11007D20EA /* URL+Extensions.swift in Sources */,

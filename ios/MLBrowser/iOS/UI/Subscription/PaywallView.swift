@@ -339,17 +339,29 @@ struct PaywallView: View {
 					Button {
 						dismiss()
 					} label: {
-						Image(systemName: "xmark")
+						// The word, not an ✕. A glyph asks the reader to interpret it, and this is the
+						// one screen where a user who misreads the exit concludes they have to pay.
+						// `L10n.Common.dismiss` already ships in all 17 locales, so saying it costs
+						// nothing — and with real text the label *is* the accessibility label, which is
+						// why no `.accessibilityLabel` is set: adding one would make VoiceOver say it
+						// twice.
+						Text(L10n.Common.dismiss)
 							.font(.body.weight(.semibold))
-							.padding(10)
-							.background(.thinMaterial, in: Circle())
+							.padding(.horizontal, 14)
+							// 44×44 is Apple's minimum touch target, set explicitly rather than reached
+							// by adding up padding — padding arithmetic is exactly what regresses the
+							// next time someone nudges the insets.
+							.frame(minWidth: 44, minHeight: 44)
+							.background(.thinMaterial, in: Capsule())
 					}
 					.buttonStyle(.plain)
-					.foregroundStyle(.secondary)
+					// The same blue as Restore, Manage and the legal links: a control, not a caption.
+					// The paywall scrolls *under* this overlay, so the material backing is load-bearing
+					// rather than decorative — without it the word sits on top of moving body text.
+					.tint(Self.interactiveTint)
+					.foregroundStyle(Self.interactiveTint)
 					.padding(.top, 8)
 					.padding(.trailing, 16)
-					// The label is an unlabelled glyph, so VoiceOver needs the word itself.
-					.accessibilityLabel(L10n.Common.dismiss)
 					.testability(Testability.Button.paywallDismiss)
 				}
 			}
@@ -732,6 +744,7 @@ struct PaywallView: View {
 				} label: {
 					Text(L10n.About.privacyPolicy).underline()
 				}
+				.testability(Testability.Button.paywallPrivacyPolicy)
 			}
 			.font(.caption2)
 			.tint(Self.interactiveTint)
