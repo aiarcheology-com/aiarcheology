@@ -30853,6 +30853,822 @@
         }
       }
     },
+    "paywall.keepFreeAccess.titleNoPaymentNeeded" : {
+      "comment" : "Title of the alert shown when Subscribe is tapped while app-managed free access is still running. %lld is the whole calendar days left. Pluralized because the window length is remote-configurable and the count is floored at 1. Also states that the free window needs neither a subscription nor a payment method, which is what makes the count worth keeping.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "لا تزال لديك %lld أيام مجانية — بدون اشتراك وبدون طريقة دفع."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "لا يزال لديك %lld يومًا مجانيًا — بدون اشتراك وبدون طريقة دفع."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "لا يزال لديك %lld يوم مجاني — بدون اشتراك وبدون طريقة دفع."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "لا يزال لديك %lld يوم مجاني — بدون اشتراك وبدون طريقة دفع."
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "لا يزال لديك %lld يومان مجانيان — بدون اشتراك وبدون طريقة دفع."
+                }
+              },
+              "zero" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "لا تزال لديك %lld يوم مجاني — بدون اشتراك وبدون طريقة دفع."
+                }
+              }
+            }
+          }
+        },
+        "bn" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "আপনার এখনও %lld দিন ফ্রি আছে — কোনো সাবস্ক্রিপশন নেই, কোনো পেমেন্ট পদ্ধতি নেই।"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "আপনার এখনও %lld দিন ফ্রি আছে — কোনো সাবস্ক্রিপশন নেই, কোনো পেমেন্ট পদ্ধতি নেই।"
+                }
+              }
+            }
+          }
+        },
+        "cs" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Zbývají vám ještě %lld dny zdarma — bez předplatného, bez platební metody."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Zbývá vám ještě %lld dne zdarma — bez předplatného, bez platební metody."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Zbývá vám ještě %lld den zdarma — bez předplatného, bez platební metody."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Zbývá vám ještě %lld dní zdarma — bez předplatného, bez platební metody."
+                }
+              }
+            }
+          }
+        },
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Sie haben noch %lld kostenlosen Tag – kein Abo, keine Zahlungsmethode."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Sie haben noch %lld kostenlose Tage – kein Abo, keine Zahlungsmethode."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You still have %lld day of free access — no subscription and no payment method needed."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You still have %lld days of free access — no subscription and no payment method needed."
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "many" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Aún te quedan %lld días gratis — sin suscripción ni método de pago."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Aún te queda %lld día gratis — sin suscripción ni método de pago."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Aún te quedan %lld días gratis — sin suscripción ni método de pago."
+                }
+              }
+            }
+          }
+        },
+        "fa" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "هنوز %lld روز رایگان دارید — بدون اشتراک و بدون روش پرداخت."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "هنوز %lld روز رایگان دارید — بدون اشتراک و بدون روش پرداخت."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "many" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Il vous reste %lld jours gratuits — sans abonnement ni moyen de paiement."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Il vous reste %lld jour gratuit — sans abonnement ni moyen de paiement."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Il vous reste %lld jours gratuits — sans abonnement ni moyen de paiement."
+                }
+              }
+            }
+          }
+        },
+        "he" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "נותר לך עוד %lld יום חינם — ללא מינוי וללא אמצעי תשלום."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "נותרו לך עוד %lld ימים חינם — ללא מינוי וללא אמצעי תשלום."
+                }
+              },
+              "two" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "נותרו לך עוד %lld ימים חינם — ללא מינוי וללא אמצעי תשלום."
+                }
+              }
+            }
+          }
+        },
+        "hi" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "आपके पास अभी भी %lld मुफ़्त दिन है — कोई सब्सक्रिप्शन नहीं, कोई भुगतान विधि नहीं।"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "आपके पास अभी भी %lld मुफ़्त दिन हैं — कोई सब्सक्रिप्शन नहीं, कोई भुगतान विधि नहीं।"
+                }
+              }
+            }
+          }
+        },
+        "hu" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Még %lld ingyenes napja van – nincs előfizetés, nincs fizetési mód."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Még %lld ingyenes napja van – nincs előfizetés, nincs fizetési mód."
+                }
+              }
+            }
+          }
+        },
+        "pl" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Masz jeszcze %lld bezpłatne dni — bez subskrypcji, bez metody płatności."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Masz jeszcze %lld bezpłatnych dni — bez subskrypcji, bez metody płatności."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Masz jeszcze %lld bezpłatny dzień — bez subskrypcji, bez metody płatności."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "Masz jeszcze %lld bezpłatnego dnia — bez subskrypcji, bez metody płatności."
+                }
+              }
+            }
+          }
+        },
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "У вас ещё %lld бесплатных дня — без подписки и способа оплаты."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "У вас ещё %lld бесплатных дней — без подписки и способа оплаты."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "У вас ещё %lld бесплатный день — без подписки и способа оплаты."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "У вас ещё %lld бесплатного дня — без подписки и способа оплаты."
+                }
+              }
+            }
+          }
+        },
+        "uk" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "У вас ще %lld безкоштовні дні — без передплати та способу оплати."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "У вас ще %lld безкоштовних днів — без передплати та способу оплати."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "У вас ще %lld безкоштовний день — без передплати та способу оплати."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "У вас ще %lld безкоштовного дня — без передплати та способу оплати."
+                }
+              }
+            }
+          }
+        },
+        "zh-Hans" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "你还有 %lld 天免费使用时间，无需订阅，也无需付款方式。"
+                }
+              }
+            }
+          }
+        },
+        "zh-Hant" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "你還有 %lld 天免費使用時間 — 不需訂閱，也不需付款方式。"
+                }
+              }
+            }
+          }
+        },
+        "zh-HK" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "needs_review",
+                  "value" : "你還有 %lld 天免費使用時間，無需訂閱，也無需付款方式。"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "paywall.keepFreeAccess.messageWithTrial" : {
+      "comment" : "Body of that alert, for a viewer who is getting Apple's introductory free trial. States the one fact they are missing: the trial cannot be deferred, so it starts when the purchase completes and the app-managed free days do not carry into it. Anchored to the purchase completing rather than to 'now', because Ask-to-Buy and pending approvals can land days later. Shown only when StoreKit has confirmed this Apple Account is eligible — see the NoTrial sibling for everyone else.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "بالاشتراك الآن تبدأ تجربتك المجانية بمجرد إتمام عملية الشراء، ولا تُضاف إليها أيامك المتبقية."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এখন সাবস্ক্রাইব করলে আপনার কেনাকাটা সম্পূর্ণ হওয়ার সঙ্গে সঙ্গেই ফ্রি ট্রায়াল শুরু হয়, তাই আপনার বাকি দিনগুলি তাতে যোগ হয় না।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Když si předplatné pořídíte teď, bezplatná zkušební verze začne, jakmile se nákup dokončí, takže zbývající dny se k ní nepřičtou."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wenn Sie jetzt abonnieren, beginnt Ihre kostenlose Testphase, sobald Ihr Kauf abgeschlossen ist – Ihre verbleibenden Tage werden ihr nicht hinzugerechnet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribing now starts your trial as soon as your purchase completes, so the days you have left aren't added to it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Si te suscribes ahora, tu prueba gratuita empieza en cuanto se complete tu compra, así que los días que te quedan no se le suman."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "با اشتراک در همین حالا، دورهٔ آزمایشی رایگان شما به‌محض تکمیل خرید آغاز می‌شود و روزهای باقی‌ماندهٔ شما به آن افزوده نمی‌شوند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Si vous vous abonnez maintenant, votre essai gratuit commence dès que votre achat est finalisé : les jours qu'il vous reste ne s'y ajoutent pas."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הרשמה למינוי עכשיו מתחילה את תקופת הניסיון בחינם מיד עם השלמת הרכישה, ולכן הימים שנותרו לך לא מתווספים אליה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "अभी सब्सक्राइब करने पर आपकी खरीदारी पूरी होते ही आपका मुफ़्त ट्रायल शुरू हो जाता है, इसलिए आपके बचे हुए दिन उसमें नहीं जुड़ते।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ha most fizet elő, az ingyenes próbaidőszak akkor indul, amint a vásárlás befejeződik, így a hátralévő napok nem adódnak hozzá."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Jeśli wykupisz subskrypcję teraz, bezpłatny okres próbny zacznie się, gdy tylko zakup zostanie sfinalizowany, więc pozostałe dni nie zostaną do niego doliczone."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Если оформить подписку сейчас, бесплатный пробный период начнётся, как только покупка завершится, поэтому оставшиеся дни к нему не добавляются."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Якщо оформити передплату зараз, безкоштовний пробний період почнеться, щойно покупку буде завершено, тому решта днів до нього не додається."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "现在订阅，购买完成后免费试用随即开始，剩余的天数不会累加进去。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "現在訂閱，購買完成後免費試用隨即開始，剩下的天數不會累加進去。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "現在訂閱，購買完成後免費試用隨即開始，餘下的天數不會累加進去。"
+          }
+        }
+      }
+    },
+    "paywall.keepFreeAccess.messageNoTrial" : {
+      "comment" : "Body of that alert for a viewer who gets no introductory trial — either the product carries none, or this Apple Account has already used it. They are charged as soon as the purchase completes, so their loss is larger than a trial customer's, and the WithTrial wording would promise them a trial they will not get.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "بالاشتراك الآن تبدأ الفوترة بمجرد إتمام عملية الشراء، ولا تُضاف أيامك المتبقية إلى اشتراكك."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এখন সাবস্ক্রাইব করলে আপনার কেনাকাটা সম্পূর্ণ হওয়ার সঙ্গে সঙ্গেই বিলিং শুরু হয়, তাই আপনার বাকি দিনগুলি আপনার সাবস্ক্রিপশনে যোগ হয় না।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Když si předplatné pořídíte teď, placení začne, jakmile se nákup dokončí, takže zbývající dny se k předplatnému nepřičtou."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wenn Sie jetzt abonnieren, beginnt die Abrechnung, sobald Ihr Kauf abgeschlossen ist – Ihre verbleibenden Tage werden dem Abo nicht hinzugerechnet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribing now starts billing as soon as your purchase completes, so the days you have left aren't added to your subscription."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Si te suscribes ahora, el cobro empieza en cuanto se complete tu compra, así que los días que te quedan no se suman a tu suscripción."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "با اشتراک در همین حالا، صورت‌حساب به‌محض تکمیل خرید آغاز می‌شود و روزهای باقی‌ماندهٔ شما به اشتراکتان افزوده نمی‌شوند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Si vous vous abonnez maintenant, la facturation commence dès que votre achat est finalisé : les jours qu'il vous reste ne s'ajoutent pas à votre abonnement."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הרשמה למינוי עכשיו מתחילה את החיוב מיד עם השלמת הרכישה, ולכן הימים שנותרו לך לא מתווספים למינוי."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "अभी सब्सक्राइब करने पर आपकी खरीदारी पूरी होते ही बिलिंग शुरू हो जाती है, इसलिए आपके बचे हुए दिन आपकी सब्सक्रिप्शन में नहीं जुड़ते।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ha most fizet elő, a számlázás akkor kezdődik, amint a vásárlás befejeződik, így a hátralévő napok nem adódnak hozzá az előfizetéshez."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Jeśli wykupisz subskrypcję teraz, naliczanie opłat rozpocznie się, gdy tylko zakup zostanie sfinalizowany, więc pozostałe dni nie zostaną doliczone do subskrypcji."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Если оформить подписку сейчас, оплата начнётся, как только покупка завершится, поэтому оставшиеся дни к подписке не добавляются."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Якщо оформити передплату зараз, оплата почнеться, щойно покупку буде завершено, тому решта днів до передплати не додається."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "现在订阅，购买完成后随即开始收费，剩余的天数不会计入订阅。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "現在訂閱，購買完成後隨即開始計費，剩下的天數不會計入訂閱。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "現在訂閱，購買完成後即時開始收費，餘下的天數不會計入訂閱。"
+          }
+        }
+      }
+    },
+    "paywall.keepFreeAccess.keep" : {
+      "comment" : "Cancel action of that alert: dismisses it and keeps the remaining free access. The safe, emphasised choice.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "الاحتفاظ بأيامي المجانية"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আমার ফ্রি দিনগুলি রাখুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ponechat dny zdarma"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Kostenlose Tage behalten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep My Free Days"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Conservar mis días gratis"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "روزهای رایگانم بماند"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Garder mes jours gratuits"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "לשמור על הימים החינמיים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मेरे मुफ़्त दिन रखें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ingyenes napok megtartása"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zachowaj bezpłatne dni"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Оставить бесплатные дни"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Залишити безкоштовні дні"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "保留免费天数"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "保留免費天數"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "保留免費天數"
+          }
+        }
+      }
+    },
+    "paywall.keepFreeAccess.subscribeAnyway" : {
+      "comment" : "Confirming action of that alert: proceeds to the purchase, forfeiting the remaining free days.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "الاشتراك على أي حال"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "তবুও সাবস্ক্রাইব করুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Přesto předplatit"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Trotzdem abonnieren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribe Anyway"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Suscribirse igualmente"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "با این حال مشترک شوید"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "S'abonner quand même"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "להירשם בכל זאת"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "फिर भी सब्सक्राइब करें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Előfizetés mindenképp"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Subskrybuj mimo to"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Всё равно оформить"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Усе одно оформити"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "仍要订阅"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "仍要訂閱"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "仍要訂閱"
+          }
+        }
+      }
+    },
     "paywall.manage" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -36649,110 +37465,110 @@
         }
       }
     },
-    "settings.subscription.freeAccessFootnote" : {
-      "comment" : "Settings account footer while the app-managed free window is open and this user would actually get the introductory free trial on subscribing. %1$@ is the window's end date; %2$@ is the trial length — a spelled-out, nominative duration noun phrase from the app's period formatter ('2 weeks'), never a badge form like '14-day'.",
+    "settings.subscription.freeAccessFootnoteWithTrial" : {
+      "comment" : "Settings footer under the ML Browser section while app-managed free access is running and this Apple Account still qualifies for the introductory trial. %1$@ is the date free access ends, %2$@ the trial length. Replaces settings.subscription.freeAccessFootnote, whose wording implied the two free periods stack — they do not.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "مجاني حتى %1$@ — بدون اشتراك وبدون طريقة دفع. ويمنحك الاشتراك تجربة مجانية إضافية (%2$@) قبل أول عملية خصم."
+            "value" : "مجاني حتى %1$@ — بدون اشتراك وبدون طريقة دفع. يبدأ الاشتراك تجربة مجانية مدتها %2$@ من تلك اللحظة، ولا تُضاف إليها أيامك المجانية المتبقية."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%1$@ পর্যন্ত ফ্রি — কোনো সাবস্ক্রিপশন নেই, কোনো পেমেন্ট পদ্ধতি নেই। সাবস্ক্রাইব করলে প্রথম চার্জের আগে অতিরিক্ত একটি ফ্রি ট্রায়াল (%2$@) শুরু হয়।"
+            "value" : "%1$@ পর্যন্ত ফ্রি — কোনো সাবস্ক্রিপশন নেই, কোনো পেমেন্ট পদ্ধতি নেই। সাবস্ক্রাইব করলে সেই মুহূর্ত থেকে %2$@-এর ফ্রি ট্রায়াল শুরু হয়; আপনার বাকি ফ্রি দিনগুলি তাতে যোগ হয় না।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Zdarma do %1$@ — bez předplatného, bez platební metody. Objednáním předplatného navíc získáte bezplatnou zkušební dobu: %2$@. Teprve pak se strhne první platba."
+            "value" : "Zdarma do %1$@ — bez předplatného, bez platební metody. Předplacením začne od té chvíle bezplatná zkušební verze na %2$@; zbývající dny zdarma se k ní nepřičítají."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Kostenlos bis %1$@ – kein Abo, keine Zahlungsmethode. Mit einem Abo beginnt vor der ersten Abrechnung zusätzlich ein Gratiszeitraum: %2$@."
+            "value" : "Kostenlos bis %1$@ – kein Abo, keine Zahlungsmethode. Mit dem Abo beginnt ab diesem Moment eine kostenlose Testphase von %2$@; Ihre verbleibenden freien Tage werden nicht dazugerechnet."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Free until %1$@ — no subscription, no payment method. Subscribing starts an extra free trial of %2$@ before the first charge."
+            "value" : "Free until %1$@ — no subscription, no payment method. Subscribing starts a %2$@ free trial from that moment; your remaining free days aren't added to it."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Gratis hasta el %1$@ — sin suscripción ni método de pago. Al suscribirte, comienza una prueba gratuita adicional de %2$@ antes del primer cargo."
+            "value" : "Gratis hasta el %1$@ — sin suscripción ni método de pago. Al suscribirte empieza en ese momento una prueba gratuita de %2$@; tus días gratis restantes no se le suman."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "تا %1$@ رایگان — بدون اشتراک و بدون روش پرداخت. با مشترک شدن، پیش از نخستین پرداخت، یک دورهٔ آزمایشی رایگان اضافی به مدت %2$@ آغاز می‌شود."
+            "value" : "تا %1$@ رایگان — بدون اشتراک و بدون روش پرداخت. با اشتراک، از همان لحظه دورهٔ آزمایشی رایگان %2$@ آغاز می‌شود؛ روزهای رایگان باقی‌مانده به آن افزوده نمی‌شوند."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Gratuit jusqu'au %1$@ — sans abonnement ni moyen de paiement. En vous abonnant, vous démarrez un essai gratuit supplémentaire de %2$@ avant le premier débit."
+            "value" : "Gratuit jusqu'au %1$@ — sans abonnement ni moyen de paiement. L'abonnement lance un essai gratuit de %2$@ à partir de ce moment ; vos jours gratuits restants ne s'y ajoutent pas."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "בחינם עד %1$@ — ללא מינוי וללא אמצעי תשלום. ההרשמה למינוי מתחילה תקופת ניסיון נוספת בחינם של %2$@ לפני החיוב הראשון."
+            "value" : "בחינם עד %1$@ — ללא מינוי וללא אמצעי תשלום. ההרשמה למינוי מתחילה מאותו רגע תקופת ניסיון בחינם של %2$@; הימים החינמיים שנותרו לא מתווספים אליה."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "%1$@ तक मुफ़्त — कोई सब्सक्रिप्शन नहीं, कोई भुगतान विधि नहीं। सब्सक्राइब करने पर पहले शुल्क से पहले %2$@ का अतिरिक्त मुफ़्त ट्रायल शुरू होता है।"
+            "value" : "%1$@ तक मुफ़्त — कोई सब्सक्रिप्शन नहीं, कोई भुगतान विधि नहीं। सब्सक्राइब करने पर उसी क्षण से %2$@ का मुफ़्त ट्रायल शुरू होता है; आपके बचे हुए मुफ़्त दिन उसमें नहीं जुड़ते।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Ingyenes eddig: %1$@ – nincs előfizetés, nincs fizetési mód. Az előfizetéssel az első terhelés előtt további ingyenes próbaidőszak indul (%2$@)."
+            "value" : "Ingyenes eddig: %1$@ – nincs előfizetés, nincs fizetési mód. Az előfizetéssel attól a pillanattól %2$@ ingyenes próbaidőszak indul; a hátralévő ingyenes napok nem adódnak hozzá."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Bezpłatnie do %1$@ — bez subskrypcji, bez metody płatności. Wykupienie subskrypcji uruchamia dodatkowy bezpłatny okres próbny (%2$@) przed pierwszą opłatą."
+            "value" : "Bezpłatnie do %1$@ — bez subskrypcji, bez metody płatności. Subskrypcja rozpoczyna od tego momentu bezpłatny okres próbny (%2$@); pozostałe bezpłatne dni nie są do niego doliczane."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Бесплатно до %1$@ — без подписки и способа оплаты. При оформлении подписки до первого списания начнётся дополнительный бесплатный пробный период — %2$@."
+            "value" : "Бесплатно до %1$@ — без подписки и способа оплаты. С оформлением подписки с этого момента начинается бесплатный пробный период (%2$@); оставшиеся бесплатные дни к нему не добавляются."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Безкоштовно до %1$@ — без передплати та способу оплати. Після оформлення передплати до першого списання почнеться додатковий безкоштовний пробний період — %2$@."
+            "value" : "Безкоштовно до %1$@ — без передплати та способу оплати. З оформленням передплати з цієї миті починається безкоштовний пробний період (%2$@); решта безкоштовних днів до нього не додається."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "免费使用至 %1$@，无需订阅，也无需付款方式。订阅后会先获得额外 %2$@ 免费试用，之后才首次扣款。"
+            "value" : "免费使用至 %1$@，无需订阅，也无需付款方式。订阅后将从那一刻起开始 %2$@ 免费试用；剩余的免费天数不会累加进去。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "免費使用至 %1$@ — 不需訂閱，也不需付款方式。訂閱後會再獲得額外 %2$@ 的免費試用，之後才會首次收費。"
+            "value" : "免費使用至 %1$@ — 不需訂閱，也不需付款方式。訂閱後會從那一刻起開始 %2$@ 免費試用；剩下的免費天數不會累加進去。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "免費使用至 %1$@，無需訂閱，也無需付款方式。訂閱後會先獲得額外 %2$@ 免費試用，之後才首次扣款。"
+            "value" : "免費使用至 %1$@，無需訂閱，也無需付款方式。訂閱後會由那一刻起開始 %2$@ 免費試用；餘下的免費天數不會累加進去。"
           }
         }
       }

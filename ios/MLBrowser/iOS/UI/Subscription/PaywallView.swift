@@ -102,6 +102,45 @@ private extension View {
 	func paywallOutlinedAction() -> some View { modifier(PaywallOutlinedAction()) }
 }
 
+/// What a tap on Subscribe must actually do (AIA-0623).
+///
+/// The app-managed free window and Apple's introductory trial **do not stack**, and an intro offer
+/// cannot be deferred — it begins the moment the subscription starts. So a user who converts on day
+/// 5 of a 14-day window gets 19 free days and one who waits gets 28, for identical access. Nothing
+/// on the screen said so, which meant the app quietly charged its most willing customers nine days
+/// sooner than its most patient ones.
+///
+/// Hooked to the **purchase**, not to any presentation of the paywall, and that is the whole design.
+/// Every route to spending money ends at one button, so covering the button covers every route by
+/// construction — including the next one somebody adds. A presentation hook has to be repeated per
+/// entry point and silently misses it.
+///
+/// Keyed on the window alone, never on trial eligibility. A user with no intro offer is charged
+/// *immediately*, so their loss is larger, not smaller; keying this on `hasFreeTrialIntroOffer`
+/// would skip the worst case. It is self-limiting for the same reason it is simple: once the window
+/// is gone there are no days to count, so the hard wall behaves exactly as it did before.
+///
+/// Extracted as a value rather than written inline in the button for the reason ``RootGateDisplay``
+/// was: a decision about money is worth stating once, in a place a test can reach without a
+/// simulator — and the paywall's Subscribe button provably cannot be driven by the UI suite (the
+/// mock provider exposes no `Product`).
+enum PaywallPurchaseIntent: Equatable {
+	/// Buy now. No window is open, so there is nothing to forfeit.
+	case purchase
+
+	/// Ask first: `remainingDays` of app-managed free access are on the table.
+	case confirmForfeitingFreeAccess(remainingDays: Int)
+
+	/// - Parameter freeAccessDaysRemaining: whole calendar days left in the open window, or `nil`
+	///   when none is open. Must come from ``FreeAccessState/windowDaysRemaining`` — i.e. from the
+	///   window's phase — and never from a fresh count against the end date; see that property for
+	///   why the two can disagree.
+	static func resolve(freeAccessDaysRemaining: Int?) -> PaywallPurchaseIntent {
+		guard let days = freeAccessDaysRemaining, days > 0 else { return .purchase }
+		return .confirmForfeitingFreeAccess(remainingDays: days)
+	}
+}
+
 /// The paywall. Presented as the whole-app root gate (`SubscriptionGateView`) when the
 /// signed-in user isn't subscribed. Reads products and entitlement from
 /// ``SubscriptionState`` and drives purchase / restore intents.
@@ -165,6 +204,22 @@ struct PaywallView: View {
 	/// voluntarily mid-window has lost nothing.
 	var statesExpiredFreeAccess = false
 
+	/// Whole calendar days left in the app-managed free window, read **at the moment of the tap**
+	/// (AIA-0623). `nil` when no window is open.
+	///
+	/// A closure and not a value, deliberately. The count changes while this screen is up — the
+	/// window can run out under an open sheet, and `FreeAccessState` publishes nothing when it does
+	/// (`windowDaysRemaining` is computed) — so a value captured at construction could tell someone
+	/// they still have three free days minutes after the gate stopped believing it. The sibling
+	/// `SettingsForm.freeAccessEndsOn` may be a plain value precisely because *it* is frozen at
+	/// grant; this is not. `continueAction` crosses the same boundary the same way.
+	///
+	/// **No default, on purpose.** An omittable `= nil` is how this ships dead: a future
+	/// presentation that forgets the argument compiles, renders a paywall that silently forfeits
+	/// the window, and passes every test in the suite. Without a default, the memberwise
+	/// initialiser makes every call site state its answer.
+	let freeAccessDaysRemaining: () -> Int?
+
 	@Environment(\.dismiss) private var dismiss
 
 	/// Real vs. mock auth from the composition root (AIA-0385); forwarded into the sign-in sheet.
@@ -183,6 +238,33 @@ struct PaywallView: View {
 		case restore
 	}
 	@State private var inFlight: InFlightAction?
+
+	/// A purchase waiting on the free-days confirmation: what it would buy, what it would cost in
+	/// days the user already has, and which of the two truths about money applies to them
+	/// (AIA-0623).
+	///
+	/// All three are carried rather than re-read when the user answers. `subscriptionState.products`
+	/// is refreshed asynchronously, so re-reading `.first` could buy a different product from the one
+	/// the button was labelled for; the day count is the one the *decision* was made on, so the
+	/// alert can never show a number the branch did not use; and ``getsTrial`` is read at the tap for
+	/// the same reason, while the button's `.disabled` still guarantees StoreKit has answered.
+	private struct PendingForfeitPurchase {
+		let product: Product
+		let remainingDays: Int
+
+		/// Whether this viewer is actually getting Apple's introductory trial.
+		///
+		/// The alert says what subscribing *now* starts, and for these two populations that is not
+		/// the same sentence: a trial customer's trial begins at purchase, and everyone else is
+		/// charged at once. Telling the second group their "trial" starts immediately would promise
+		/// them something they will not get, on the screen App Review reads most carefully — and
+		/// they are precisely the population the confirmation exists for, because being charged at
+		/// once is the *larger* loss, not the smaller one.
+		let getsTrial: Bool
+	}
+
+	/// The purchase the free-days confirmation is holding, or `nil` at every other moment.
+	@State private var pendingPurchase: PendingForfeitPurchase?
 
 	/// Presents the contextual sign-in sheet from the root paywall (AIA-0536).
 	@State private var showSignIn = false
@@ -364,6 +446,86 @@ struct PaywallView: View {
 					.padding(.trailing, 16)
 					.testability(Testability.Button.paywallDismiss)
 				}
+			}
+			// The free days a purchase would forfeit, said before the money moves (AIA-0623).
+			//
+			// The app-managed window and Apple's introductory trial do not stack and the trial cannot
+			// be deferred, so subscribing on day 5 of 14 buys nineteen free days where waiting would
+			// have bought twenty-eight. Nothing on this screen said so, which meant the app charged
+			// its most willing customers soonest.
+			//
+			// An **alert**, not a `.confirmationDialog`, and on this screen that is a behavioural
+			// choice rather than a stylistic one. Two reasons, and the other two dialogs below can
+			// hit neither.
+			//
+			// This is the only confirmation on this screen reachable from the **Settings sheet** —
+			// both others are root-gate only. `SettingsView.resetSection` already records what
+			// happens there: its Remove Findings confirmation is an `.alert` precisely because a
+			// `.confirmationDialog` *did not present* from that sheet-hosted `Form` (AIA-0303). An
+			// action sheet here would have been the one shape with a known failure on the one route
+			// that is new.
+			//
+			// And on iPad a `.confirmationDialog` presents as a popover, from which the system
+			// **omits cancel-role actions entirely** — so the safe choice, "Keep My Free Days", would
+			// not have been rendered for iPad users at all, leaving them to infer that tapping
+			// outside kept their days. An alert renders both actions on every device family, which is
+			// what a decision about money needs.
+			//
+			// **Attached to the ScrollView, not alongside `notice` on the `GeometryReader`**, and
+			// that placement is load-bearing: SwiftUI does not promise to honour two `.alert`
+			// modifiers chained onto the *same* view, which is the reason `notice` is a single alert
+			// carrying three different messages (AIA-0376). One level in is a different view, so both
+			// presentations are the only alert their own view owns. Being inside the `GeometryReader`
+			// changes nothing about what is presented — an alert is presented by the enclosing
+			// controller, not laid out in place.
+			//
+			// Two independent explicit choices, the same shape as the two dialogs below. "Inform, do
+			// not obstruct": Subscribe Anyway is a plain default action, not a destructive one —
+			// anything more insistent about a purchase the user is entitled to make is an App Review
+			// risk, and this alert's job is to tell them what it costs, not to argue.
+			.alert(
+				pendingPurchase.map { L10n.Paywall.KeepFreeAccess.titleNoPaymentNeeded($0.remainingDays) } ?? "",
+				isPresented: .init(
+					get: { pendingPurchase != nil },
+					set: { if $0 == false { pendingPurchase = nil } }
+				),
+				presenting: pendingPurchase
+			) { pending in
+				// Neither action clears `pendingPurchase` itself: the `isPresented` setter above is
+				// the one place that does, which is also how the `Bool`-bound dialogs on this screen
+				// behave. Clearing it in both places would be a second writer for no gain, and the
+				// title is evaluated from that state — unlike the actions and message, which
+				// `presenting:` keeps alive through the dismissal — so a redundant clear can only
+				// risk emptying the title early, never help.
+				Button(L10n.Paywall.KeepFreeAccess.subscribeAnyway) {
+					startPurchase(pending.product)
+				}
+				.testability(Testability.Button.paywallSubscribeAnyway)
+
+				// `.cancel`, so it is the emphasised, escape-mapped choice and dismissal defaults to
+				// keeping the days rather than spending them.
+				Button(L10n.Paywall.KeepFreeAccess.keep, role: .cancel) {
+					// The only way to tell "backed out at our alert" from "cancelled Apple's sheet":
+					// both leave `subscribeTapped` with no `subscriptionActivated` behind it. Without
+					// this event a conversion-affecting screen ships with no way to see what it cost.
+					analytics?.track(.freeAccessKeepDaysTapped)
+				}
+				.testability(Testability.Button.paywallKeepFreeAccess)
+			} message: { pending in
+				// The one sentence that has to be true of *this* reader. `billingNote(for:)` under
+				// the button already draws the same distinction, and it is drawn again here rather
+				// than deferred to it, because the alert covers that note while it is up — a user
+				// reading "your trial" here who is in fact charged at once would have no way to learn
+				// otherwise before tapping.
+				//
+				// Both strings are anchored to the purchase *completing*, never to "now", which is
+				// the rule ``billingNote(for:)`` states and the reason it states it: after Ask-to-Buy
+				// or a pending approval the trial and the billing both begin whenever the transaction
+				// lands, which can be days later — and `.pending` is a reachable outcome of the very
+				// button this alert guards (see ``SubscriptionNotice/forPurchase(_:)``).
+				Text(pending.getsTrial
+					 ? L10n.Paywall.KeepFreeAccess.messageWithTrial
+					 : L10n.Paywall.KeepFreeAccess.messageNoTrial)
 			}
 		}
 		.task {
@@ -810,18 +972,37 @@ struct PaywallView: View {
 		}
 
 		Button {
-			guard isBusy.not else { return }
+			// `pendingPurchase` is part of the guard, not just `isBusy` (Copilot, PR #625). The
+			// confirm branch below never sets `inFlight`, so between the tap that raises the alert
+			// and the alert actually covering the screen `isBusy` is still false — a second tap runs
+			// this whole body again, reports both events a second time and reassigns the pending
+			// purchase. The overcount lands on `freeAccessConfirmShown`, whose ratio to
+			// `freeAccessKeepDaysTapped` is the only evidence that the alert presented at all, so it
+			// is precisely the counter that must not be inflated by a double tap.
+			guard isBusy.not, pendingPurchase == nil else { return }
+			// Reported on the *tap*, before the branch, so the funnel keeps the meaning it has always
+			// had: somebody asked to subscribe. Moving it behind the confirmation would silently
+			// redefine the stage and break comparison with every build before this one — and backing
+			// out at our alert is no different, as a funnel event, from cancelling Apple's sheet,
+			// which has always counted. `freeAccessKeepDaysTapped` is what distinguishes the two.
 			analytics?.track(.subscribeTapped)
-			// Synchronous, before the Task — see the Restore button above.
-			inFlight = .purchase
-			Task {
-				defer { inFlight = nil }
-				let outcome = await subscriptionState.purchase(product)
-				// Dismiss on the outcome, not on the published entitlement: the verified
-				// transaction is the proof of purchase, and `isSubscribed` recomputes from an
-				// async entitlement sequence that may not have caught up yet.
-				if outcome == .subscribed { dismiss() }
-				notice = SubscriptionNotice.forPurchase(outcome)
+			switch PaywallPurchaseIntent.resolve(freeAccessDaysRemaining: freeAccessDaysRemaining()) {
+			case .purchase:
+				startPurchase(product)
+			case let .confirmForfeitingFreeAccess(remainingDays):
+				// `trialEligibility` cannot be `.unresolved` here: this button is `.disabled` until
+				// StoreKit has answered, so the tap that reaches this line has a real answer behind
+				// it and the alert never has to hedge about money.
+				pendingPurchase = .init(
+					product: product,
+					remainingDays: remainingDays,
+					getsTrial: trialEligibility == .gettingTrial
+				)
+				// Reported on the *raise*, not on the render — nothing can observe whether a
+				// confirmation actually appeared. That is the point: this is the one alert in the
+				// app no automated test can drive, so raises with no answer behind them are the only
+				// available signature of one that failed to present.
+				analytics?.track(.freeAccessConfirmShown)
 			}
 		} label: {
 			Text(purchaseButtonTitle(for: product))
@@ -843,6 +1024,31 @@ struct PaywallView: View {
 		.underConstructionBadge()
 
 		billingNote(for: product)
+	}
+
+	/// Commits the purchase. The single place money is ever asked for (AIA-0623).
+	///
+	/// Lifted out of the button verbatim so the direct tap and "Subscribe Anyway" reach StoreKit
+	/// through exactly the same code, rather than through two copies that can drift.
+	///
+	/// It re-checks its own preconditions instead of trusting the caller's, because one of the two
+	/// callers is a confirmation alert: an unbounded amount of time passes between the tap that
+	/// raised it and the tap that answers it, and in that window a restore, an Ask-to-Buy approval
+	/// arriving on `Transaction.updates`, or a second tap can all have landed. The button's
+	/// `.disabled` cannot help here — the alert's buttons are not it.
+	private func startPurchase(_ product: Product) {
+		guard isBusy.not, subscriptionState.isSubscribed == false else { return }
+		// Synchronous, before the Task — see the Restore button above.
+		inFlight = .purchase
+		Task {
+			defer { inFlight = nil }
+			let outcome = await subscriptionState.purchase(product)
+			// Dismiss on the outcome, not on the published entitlement: the verified
+			// transaction is the proof of purchase, and `isSubscribed` recomputes from an
+			// async entitlement sequence that may not have caught up yet.
+			if outcome == .subscribed { dismiss() }
+			notice = SubscriptionNotice.forPurchase(outcome)
+		}
 	}
 
 	/// "Try Free for <period>" for a user who will actually get one; "Subscribe" for everyone else.
@@ -958,12 +1164,16 @@ struct PaywallView: View {
 
 #if DEBUG
 #Preview("Not subscribed") {
-	PaywallView(subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true), analytics: nil)
+	PaywallView(
+		subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true),
+		analytics: nil,
+		freeAccessDaysRemaining: { nil }
+	)
 }
 
 #Preview("Subscribed") {
 	let state = SubscriptionState(provider: MockSubscriptionProvider(outcome: .subscribed), isPaymentsEnabled: true)
-	return PaywallView(subscriptionState: state, analytics: nil)
+	return PaywallView(subscriptionState: state, analytics: nil, freeAccessDaysRemaining: { nil })
 		.task { await state.start() }
 }
 
@@ -973,7 +1183,8 @@ struct PaywallView: View {
 		subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true),
 		analytics: nil,
 		isRootGate: true,
-		statesExpiredFreeAccess: true
+		statesExpiredFreeAccess: true,
+		freeAccessDaysRemaining: { nil }
 	)
 }
 
@@ -983,7 +1194,25 @@ struct PaywallView: View {
 	PaywallView(
 		subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true),
 		analytics: nil,
-		isRootGate: true
+		isRootGate: true,
+		freeAccessDaysRemaining: { nil }
+	)
+}
+
+/// The Settings presentation, mid-window — the only configuration in which a tap on Subscribe has
+/// to ask first (AIA-0623).
+///
+/// **This preview cannot show the confirmation, and that is worth stating rather than discovering.**
+/// `MockSubscriptionProvider` exposes no `Product` (a `Product` cannot be constructed outside
+/// StoreKit), so `content` renders the "unavailable" branch and there is no Subscribe button to
+/// tap. It exists to keep the mid-window input compiling and visible next to the others; the alert
+/// itself is reachable only where StoreKit returns a real product — an Xcode run against
+/// `Configuration.storekit`, or a TestFlight build.
+#Preview("Settings sheet — 9 free days left") {
+	PaywallView(
+		subscriptionState: SubscriptionState(provider: MockSubscriptionProvider(outcome: .notSubscribed), isPaymentsEnabled: true),
+		analytics: nil,
+		freeAccessDaysRemaining: { 9 }
 	)
 }
 #endif

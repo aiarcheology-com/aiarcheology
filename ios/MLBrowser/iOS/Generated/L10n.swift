@@ -755,6 +755,20 @@ internal enum L10n {
       /// The purchase could not be completed. Please try again, or use Restore Purchases if your Apple Account was already charged.
       internal static let message = L10n.tr("Localizable", "paywall.failed.message", fallback: "The purchase could not be completed. Please try again, or use Restore Purchases if your Apple Account was already charged.")
     }
+    internal enum KeepFreeAccess {
+      /// Keep My Free Days
+      internal static let keep = L10n.tr("Localizable", "paywall.keepFreeAccess.keep", fallback: "Keep My Free Days")
+      /// Subscribing now starts billing as soon as your purchase completes, so the days you have left aren't added to your subscription.
+      internal static let messageNoTrial = L10n.tr("Localizable", "paywall.keepFreeAccess.messageNoTrial", fallback: "Subscribing now starts billing as soon as your purchase completes, so the days you have left aren't added to your subscription.")
+      /// Subscribing now starts your trial as soon as your purchase completes, so the days you have left aren't added to it.
+      internal static let messageWithTrial = L10n.tr("Localizable", "paywall.keepFreeAccess.messageWithTrial", fallback: "Subscribing now starts your trial as soon as your purchase completes, so the days you have left aren't added to it.")
+      /// Subscribe Anyway
+      internal static let subscribeAnyway = L10n.tr("Localizable", "paywall.keepFreeAccess.subscribeAnyway", fallback: "Subscribe Anyway")
+      /// You still have %lld days of free access — no subscription and no payment method needed.
+      internal static func titleNoPaymentNeeded(_ p1: Int) -> String {
+        return L10n.tr("Localizable", "paywall.keepFreeAccess.titleNoPaymentNeeded", p1, fallback: "You still have %lld days of free access — no subscription and no payment method needed.")
+      }
+    }
     internal enum Pending {
       /// This purchase needs approval before it can complete. Access is granted automatically once it is approved — you can close this screen.
       internal static let message = L10n.tr("Localizable", "paywall.pending.message", fallback: "This purchase needs approval before it can complete. Access is granted automatically once it is approved — you can close this screen.")
@@ -874,13 +888,13 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "settings.sentry.title", fallback: "Sentry Stats")
     }
     internal enum Subscription {
-      /// Free until %1$@ — no subscription, no payment method. Subscribing starts an extra free trial of %2$@ before the first charge.
-      internal static func freeAccessFootnote(_ p1: Any, _ p2: Any) -> String {
-        return L10n.tr("Localizable", "settings.subscription.freeAccessFootnote", String(describing: p1), String(describing: p2), fallback: "Free until %1$@ — no subscription, no payment method. Subscribing starts an extra free trial of %2$@ before the first charge.")
-      }
       /// Free until %@ — no subscription, no payment method.
       internal static func freeAccessFootnoteNoTrial(_ p1: Any) -> String {
         return L10n.tr("Localizable", "settings.subscription.freeAccessFootnoteNoTrial", String(describing: p1), fallback: "Free until %@ — no subscription, no payment method.")
+      }
+      /// Free until %1$@ — no subscription, no payment method. Subscribing starts a %2$@ free trial from that moment; your remaining free days aren't added to it.
+      internal static func freeAccessFootnoteWithTrial(_ p1: Any, _ p2: Any) -> String {
+        return L10n.tr("Localizable", "settings.subscription.freeAccessFootnoteWithTrial", String(describing: p1), String(describing: p2), fallback: "Free until %1$@ — no subscription, no payment method. Subscribing starts a %2$@ free trial from that moment; your remaining free days aren't added to it.")
       }
       /// Your free trial runs until %@, when the first charge is made.
       internal static func trialFootnote(_ p1: Any) -> String {

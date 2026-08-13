@@ -799,4 +799,210 @@ final class ArchitectureTests: XCTestCase {
             """
         )
     }
+
+    // MARK: - The free-days confirmation cannot be bypassed (AIA-0623)
+
+    /// Subscribing while the app-managed free window is still open forfeits whatever is left of it —
+    /// the window and Apple's introductory trial do not stack, and the trial cannot be deferred. So a
+    /// purchase started from an open window must pass through a confirmation first.
+    ///
+    /// **This rule exists because nothing else can check it.** The paywall's Subscribe button needs a
+    /// real StoreKit `Product`, and `MockSubscriptionProvider` has none, so no UI test can render the
+    /// button — let alone the dialog behind it. `PaywallPurchaseIntentTests` proves the decision is
+    /// *correct*; only this proves it is *reached*. A unit test on an enum nothing calls passes
+    /// forever.
+    ///
+    /// Four claims, each closing a different way the feature could ship dead:
+    ///
+    /// 1. **One purchase call site.** A second route to `SubscriptionState.purchase` is a route that
+    ///    never sees the confirmation. Deliberately spelled as the receiver the app actually uses;
+    ///    that is a real limitation (`state.purchase(…)` under another name would evade it), which is
+    ///    why it is only one of the three and not the whole rule.
+    /// 2. **The decision is consulted.** Deleting the `switch` in the button leaves every other test
+    ///    in the suite green.
+    /// 3. **The one live presentation is wired — at both ends.** `PaywallView.freeAccessDaysRemaining`
+    ///    has no default, so the compiler forces every call site to answer; but the cheapest answer
+    ///    that compiles is `{ nil }`, which ships the feature dead on the only path that can ever run
+    ///    it. The Settings sheet is that path, and it is *two* hand-offs long: `DrawerContent` gives
+    ///    the accessor to `SettingsForm` (claim 3), and `SettingsForm` gives it to the `PaywallView`
+    ///    it presents (claim 4). Pinning only the first left the second free to answer `{ nil }` with
+    ///    this test still green — found by review, not by the test, which is the whole argument for
+    ///    checking both.
+    func testThePurchasePathCannotBypassTheFreeDaysConfirmation() throws {
+        // Fail closed: an empty scan means the production root moved, not that the rule is satisfied.
+        let files = Self.productionSwiftFiles()
+
+        var purchaseCallSites: [String] = []
+        var paywallConsultsTheDecision = false
+        var settingsRouteIsWired = false
+        var settingsForwardsToThePaywall = false
+        var sawPaywall = false
+        var sawDrawer = false
+        var sawSettings = false
+
+        for fileURL in files {
+            let rel = Self.relativePath(for: fileURL)
+            let source: String
+            do {
+                source = try String(contentsOf: fileURL, encoding: .utf8)
+            } catch {
+                XCTFail("Free-days confirmation scan could not read \(rel): \(error) — failing closed.")
+                continue
+            }
+
+            // Comments are dropped before every check below. Without that, this whole rule is
+            // satisfiable by prose: a regression that deletes the `switch` but leaves the sentence
+            // "…decided by `PaywallPurchaseIntent.resolve(…)`" in a doc comment would keep it green,
+            // and the comments here are deliberately long.
+            //
+            // **Trailing comments too, not only whole-line ones.** Dropping whole lines alone left
+            // `startPurchase(product) // PaywallPurchaseIntent.resolve( …` satisfying the check with
+            // the call gone — a smaller hole than the one it closed, but the same hole. Line
+            // comments only; a block-comment parser would be more machinery than the rule is worth.
+            let code = source
+                .components(separatedBy: .newlines)
+                .enumerated()
+                .filter { $0.element.trimmingCharacters(in: .whitespaces).hasPrefix("//") == false }
+                .map { (offset: $0.offset, element: Self.strippingTrailingLineComment($0.element)) }
+
+            for (offset, line) in code where line.contains("subscriptionState.purchase(") {
+                purchaseCallSites.append("\(rel):\(offset + 1)")
+            }
+
+            let codeText = code.map(\.element).joined(separator: "\n")
+
+            if rel.hasSuffix("UI/Subscription/PaywallView.swift") {
+                sawPaywall = true
+                paywallConsultsTheDecision = codeText.contains("PaywallPurchaseIntent.resolve(")
+            }
+
+            if rel.hasSuffix("UI/Drawer/DrawerContent.swift") {
+                sawDrawer = true
+                // The argument label AND the accessor, inside the same closure literal — not merely
+                // both somewhere in the file. A bare `contains("windowDaysRemaining")` would be
+                // satisfied by any unrelated mention while `freeAccessDaysRemaining: { nil }` sat at
+                // the call site, which is exactly the dead-feature state this is here to catch.
+                // `[^}]*` cannot cross the closing brace, so the two have to belong together.
+                let wiring = try? NSRegularExpression(
+                    pattern: #"freeAccessDaysRemaining:\s*\{[^}]*windowDaysRemaining"#
+                )
+                let range = NSRange(location: 0, length: (codeText as NSString).length)
+                settingsRouteIsWired = wiring?.firstMatch(in: codeText, range: range) != nil
+            }
+
+            if rel.hasSuffix("UI/SettingsView/SettingsView.swift") {
+                sawSettings = true
+                // The second half of the same hand-off, and it was unguarded until Fable's review of
+                // this branch found it. `DrawerContent` hands the accessor to `SettingsForm`; this is
+                // where `SettingsForm` hands it on to the paywall it presents. Pinning only the first
+                // link left `PaywallView(freeAccessDaysRemaining: { nil })` here compiling, killing
+                // the confirmation on the *only* presentation that can reach it, with all four
+                // assertions green — the precise dead-feature state the rule exists to catch.
+                //
+                // Inside the `PaywallView(` call, not merely somewhere in the file: `[^)]*` cannot
+                // cross a closing paren, so the argument has to belong to that call. It pins the
+                // identity forward specifically, so any other answer — a literal, a fresh closure —
+                // fails and says so, rather than passing because it is *an* answer.
+                let forwarding = try? NSRegularExpression(
+                    pattern: #"PaywallView\([^)]*freeAccessDaysRemaining:\s*freeAccessDaysRemaining"#
+                )
+                let range = NSRange(location: 0, length: (codeText as NSString).length)
+                settingsForwardsToThePaywall = forwarding?.firstMatch(in: codeText, range: range) != nil
+            }
+        }
+
+        // Fail closed on the scan itself: if any of these files were renamed or moved, the flags
+        // below would be false for the wrong reason, and the failure message would send a reader
+        // hunting a bug that does not exist.
+        XCTAssertTrue(sawPaywall, "PaywallView.swift was not found by the scan — the rule is broken, not violated.")
+        XCTAssertTrue(sawDrawer, "DrawerContent.swift was not found by the scan — the rule is broken, not violated.")
+        XCTAssertTrue(sawSettings, "SettingsView.swift was not found by the scan — the rule is broken, not violated.")
+
+        // Asserted as a count plus a path, never against a list rebuilt from the findings: an
+        // "expected" value derived from the actual one is satisfied by whatever it is handed.
+        XCTAssertEqual(
+            purchaseCallSites.count,
+            1,
+            """
+            `SubscriptionState.purchase` must be called from exactly one place — `PaywallView`'s \
+            `startPurchase(_:)`, which is reached only after `PaywallPurchaseIntent.resolve` has \
+            decided whether the user's remaining free days need confirming first (AIA-0623).
+
+            Found: \(purchaseCallSites.joined(separator: ", "))
+
+            A second call site is a route that spends someone's free window without telling them. \
+            Route the new path through `startPurchase(_:)` instead of calling `purchase` directly.
+            """
+        )
+
+        XCTAssertTrue(
+            purchaseCallSites.first?.hasPrefix("ios/MLBrowser/iOS/UI/Subscription/PaywallView.swift:") == true,
+            """
+            The one `SubscriptionState.purchase` call site has moved out of `PaywallView` \
+            (AIA-0623): it is now at \(purchaseCallSites.first ?? "nowhere"). The confirmation lives \
+            in `PaywallView`, so a purchase committed anywhere else does not pass through it.
+            """
+        )
+
+        XCTAssertTrue(
+            paywallConsultsTheDecision,
+            """
+            `PaywallView` no longer references `PaywallPurchaseIntent.resolve` (AIA-0623), so the \
+            Subscribe button is committing money without asking whether an open free-access window \
+            would be forfeited. `PaywallPurchaseIntentTests` cannot catch this: it tests the \
+            decision, not whether anything calls it.
+            """
+        )
+
+        XCTAssertTrue(
+            settingsRouteIsWired,
+            """
+            `DrawerContent` no longer passes `freeAccess.windowDaysRemaining` into `SettingsForm` \
+            (AIA-0623). The Settings sheet is the *only* presentation that can be reached while a \
+            window is open, so without it `PaywallView.freeAccessDaysRemaining` always answers `nil`, \
+            the confirmation never appears, and every other test in this suite still passes.
+            """
+        )
+
+        XCTAssertTrue(
+            settingsForwardsToThePaywall,
+            """
+            `SettingsForm` no longer forwards `freeAccessDaysRemaining` to the `PaywallView` it \
+            presents (AIA-0623). That is the second half of the same hand-off: `DrawerContent` \
+            supplies the accessor, and this is where it reaches the screen that spends the window. \
+            Answering `{ nil }` here compiles — the non-defaulted parameter forces *an* answer, not \
+            the right one — and ships the confirmation dead on the only path that can run it.
+            """
+        )
+    }
+
+    /// Everything on `line` up to its first line comment, ignoring `//` inside a string literal.
+    ///
+    /// Quote-aware rather than a plain cut at the first `//`, because production files carry URLs
+    /// (`https://…`) that a plain cut would truncate. Truncation only ever *loses* code, so it fails
+    /// closed — but it would fail on a line nobody is looking at, and a guard that cries wolf is one
+    /// somebody eventually deletes.
+    ///
+    /// Deliberately not a Swift lexer: raw strings and multi-line literals can still end a line in
+    /// the wrong state. Both mistakes drop code rather than keep comments, so the rule stays
+    /// conservative in the direction that matters.
+    private static func strippingTrailingLineComment(_ line: String) -> String {
+        let characters = Array(line)
+        var inString = false
+        var escaped = false
+        for index in characters.indices {
+            let character = characters[index]
+            if escaped {
+                escaped = false
+            } else if character == "\\", inString {
+                escaped = true
+            } else if character == "\"" {
+                inString.toggle()
+            } else if character == "/", inString == false,
+                      index + 1 < characters.count, characters[index + 1] == "/" {
+                return String(characters[..<index])
+            }
+        }
+        return line
+    }
 }

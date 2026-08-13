@@ -156,6 +156,32 @@ final class FreeAccessState: ObservableObject {
 		return service.phase(of: window) == .expired
 	}
 
+	/// Whole calendar days left in the open window, or `nil` when none is open (AIA-0623).
+	///
+	/// For the one surface that has to *say* the number rather than compare against it: the
+	/// confirmation shown before a purchase forfeits the rest of the window.
+	///
+	/// **Taken from the phase, never recomputed from ``windowEndsOn``.** That is not a style
+	/// preference — `phase(of:)` counts from `max(now, maxObservedDate)`, the monotonic floor that
+	/// stops a device clock wound backwards from rewinding a window, so an independent count from
+	/// the raw clock would offer a user days the gate does not believe in. It is the same rule
+	/// ``FreeAccessWindow/duePrompt(at:)`` states for the Welcome screen, for the same reason.
+	///
+	/// Computed rather than `@Published`, but **not** for ``hasSpentWindow``'s reason. That one is
+	/// read during `body`, next to a property that does publish. This one is never read during
+	/// `body` at all: both consumers reach it through a closure evaluated at the moment the user
+	/// taps Subscribe, precisely so the answer is current rather than whatever was true when the
+	/// view was built. An event-time read has nothing to publish to.
+	///
+	/// **So do not put this in a `body` on the strength of this comment.** `SettingsForm` does not
+	/// observe `FreeAccessState`, so a view rendering it would show a count frozen at the last
+	/// unrelated re-render, and would still be showing it after midnight. Publishing it is the
+	/// change that would have to come first.
+	var windowDaysRemaining: Int? {
+		guard hasStarted, case let .active(remaining) = service.phase(of: window) else { return nil }
+		return remaining
+	}
+
 	private let notificationCenter: NotificationCenter
 	private var foregroundObservation: AnyCancellable?
 	private var expiryTask: Task<Void, Never>?

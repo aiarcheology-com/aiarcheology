@@ -10,6 +10,7 @@
 		AC055600000000000000B004 /* FreeAccessAnchorServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A004 /* FreeAccessAnchorServiceTests.swift */; };
 		AC055600000000000000B003 /* FreeAccessWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A003 /* FreeAccessWindowTests.swift */; };
 		AC055600000000000000B007 /* SubscriptionGateDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */; };
+		AC055600000000000000B00A /* PaywallPurchaseIntentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A00A /* PaywallPurchaseIntentTests.swift */; };
 		AC055600000000000000B006 /* FreeAccessStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A006 /* FreeAccessStateTests.swift */; };
 		AC055600000000000000B005 /* FreeAccessState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A005 /* FreeAccessState.swift */; };
 		AC055600000000000000B002 /* FreeAccessAnchorService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A002 /* FreeAccessAnchorService.swift */; };
@@ -379,6 +380,7 @@
 		AC055600000000000000A004 /* FreeAccessAnchorServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessAnchorServiceTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A003 /* FreeAccessWindowTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessWindowTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionGateDisplayTests.swift; sourceTree = "<group>"; };
+		AC055600000000000000A00A /* PaywallPurchaseIntentTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PaywallPurchaseIntentTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A006 /* FreeAccessStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessStateTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A005 /* FreeAccessState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessState.swift; sourceTree = "<group>"; };
 		AC055600000000000000A002 /* FreeAccessAnchorService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessAnchorService.swift; sourceTree = "<group>"; };
@@ -1224,6 +1226,7 @@
 				AC055600000000000000A004 /* FreeAccessAnchorServiceTests.swift */,
 				AC055600000000000000A003 /* FreeAccessWindowTests.swift */,
 				AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */,
+				AC055600000000000000A00A /* PaywallPurchaseIntentTests.swift */,
 				AC055600000000000000A006 /* FreeAccessStateTests.swift */,
 				548E8E7AA59A9B9E0C56C84C /* EntitlementTransactionTests.swift */,
 				A400E2EB12B7D3CA1F9151EB /* StoreKitSubscriptionProviderTests.swift */,
@@ -1999,6 +2002,7 @@
 				AC055600000000000000B004 /* FreeAccessAnchorServiceTests.swift in Sources */,
 				AC055600000000000000B003 /* FreeAccessWindowTests.swift in Sources */,
 				AC055600000000000000B007 /* SubscriptionGateDisplayTests.swift in Sources */,
+				AC055600000000000000B00A /* PaywallPurchaseIntentTests.swift in Sources */,
 				AC055600000000000000B006 /* FreeAccessStateTests.swift in Sources */,
 				C54CDEC7AD84AB111D4A8319 /* EntitlementTransactionTests.swift in Sources */,
 				EA89403E84DBCD956619A996 /* StoreKitSubscriptionProviderTests.swift in Sources */,

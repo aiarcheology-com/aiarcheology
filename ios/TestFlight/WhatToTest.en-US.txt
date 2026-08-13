@@ -28,6 +28,14 @@ Test Focus 3: Downloading models from the catalog on a real iPhone or iPad. Mult
 
 3. Download the same model twice and cancel one partway, then check the app's storage size in Settings; repeated downloads should not leave it growing.
 
-Test Focus 4: Subscription screens. Full steps were cut for length — please still exercise Settings > ML Browser > Subscription, the Dismiss button on the subscribe screen, Restore Purchases, and Manage Subscription, and report anything that looks wrong.
+Test Focus 4: Subscribing while you still have free days. Our tests cannot show a real store product, so only you can see this.
+
+Needs a device whose free access is still running (Settings > ML Browser shows "Free until <date>"); reinstalling does not reset it. If yours ran out, say so and skip.
+
+1. Settings > ML Browser > Subscription > tap the green Subscribe button. An alert must appear FIRST, saying how many free days you have left and that they are not added to your subscription or trial. If the button does nothing, report that immediately.
+
+2. Both buttons must be visible, on iPhone and iPad alike. Choose "Keep My Free Days" — nothing is charged. Do this before "Subscribe Anyway", which spends your trial.
+
+3. The Subscription row's label used to be grey, as if disabled. It should now match every other row in light and dark mode, and tapping anywhere along the row must open the subscribe screen.
 
 Please report your device model and iOS version with any problem, and attach the log if you can.

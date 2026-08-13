@@ -153,7 +153,11 @@ final class FreeAccessUITests: UITestCase {
 
 		openSettings()
 		XCTAssertTrue(scrollTo(AID.settingsUpgrade), "Settings has no Subscription row to tap")
-		app.buttons[AID.settingsUpgrade].tap()
+		// `element(...)`, not `app.buttons[...]`: since AIA-0623 the row is an `HStack` carrying the
+		// `.isButton` trait rather than a `Button`, because the list-button style drew its label gray
+		// (AIA-0333). The generic query is type-agnostic and is what `SettingsUITests` already uses
+		// for `replayOnboardingRow`, which this row now mirrors.
+		element(AID.settingsUpgrade).tap()
 
 		// Restore is on every paywall, so it is the presence proof that does not depend on products
 		// loading — the mock provider has none.
@@ -177,7 +181,7 @@ final class FreeAccessUITests: UITestCase {
 			waitForDisappearance(of: app.descendants(matching: .any)[AID.paywallContent]),
 			"Dismiss did not take the paywall down"
 		)
-		let subscriptionRow = app.buttons[AID.settingsUpgrade]
+		let subscriptionRow = element(AID.settingsUpgrade)
 		XCTAssertTrue(subscriptionRow.waitForExistence(timeout: 10), "Settings did not come back")
 		XCTAssertTrue(subscriptionRow.isHittable, "Settings came back but is still covered")
 	}

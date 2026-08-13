@@ -361,7 +361,14 @@ struct SubscriptionGateView<Content: View>: View {
 			// Only a window that actually ran out may be told it ran out. `availability` collapses
 			// "expired" and "never granted" into `.closed` because the gate does not care which;
 			// the copy does.
-			statesExpiredFreeAccess: freeAccess.hasSpentWindow
+			statesExpiredFreeAccess: freeAccess.hasSpentWindow,
+			// The real accessor, not a hardcoded `nil` (AIA-0623). It reads `nil` here anyway —
+			// `RootGateDisplay.resolve` returns `.content` for an open window, so this screen cannot
+			// render while one is running — and that is exactly why passing the truth is better than
+			// asserting the answer: "no confirmation on the wall" then holds by construction, and a
+			// future presentation that does put this screen over an open window inherits the
+			// confirmation instead of silently forfeiting the days.
+			freeAccessDaysRemaining: { freeAccess.windowDaysRemaining }
 		)
 	}
 

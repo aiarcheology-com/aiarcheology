@@ -159,6 +159,10 @@ struct DrawerContent: View {
                 // is on — free usage, not a trial (AIA-0556). A value rather than the state object:
                 // it is frozen at grant and cannot change while this sheet is up.
                 freeAccessEndsOn: appState.freeAccess.windowEndsOn,
+                // The days left, as an accessor rather than a value (AIA-0623): the paywall reached
+                // from Settings reads it at the moment Subscribe is tapped, and unlike the end date
+                // above this number moves — the window can run out while the sheet is open.
+                freeAccessDaysRemaining: { appState.freeAccess.windowDaysRemaining },
                 startAtManageAccount: presentation.startsAtManageAccount
             )
                 .environmentObject(settings)
