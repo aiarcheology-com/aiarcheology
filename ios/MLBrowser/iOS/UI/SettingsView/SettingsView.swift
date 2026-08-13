@@ -446,17 +446,33 @@ struct SettingsForm: View {
 			}
 			.testability(Testability.NavigationLink.settingsSubscription)
 		} else if subscriptionState.isPaymentsSurfaceEnabled {
-			Button {
-				showPaywall = true
-			} label: {
-				HStack {
-					Text(L10n.Auth.Account.subscription)
-					Spacer()
-					// "Not subscribed" also covers a lapse/refund before the gate refreshes.
-					Text(L10n.Subscription.notSubscribed)
-						.foregroundColor(.secondary)
-				}
+			// A plain tappable row rather than a `Button`, for the reason `replayOnboardingRow`
+			// records below (AIA-0333): inside a `List`, the button style renders the *label* gray
+			// and overrides `.foregroundStyle`, so this row alone read as disabled while every other
+			// row in Settings — including the two other branches of this very property — drew its
+			// label in the primary colour. `.buttonStyle(.plain)` fixes the colour but shrinks the
+			// tap target to the text, so the fix is the same one already proven in this file: a full
+			// -width `.contentShape` plus `.onTapGesture` (AIA-0623).
+			//
+			// `.accessibilityElement(children: .combine)` is the one thing `replayOnboardingRow` does
+			// not need and this row does: that row holds a single `Text`, this one holds two, and
+			// without combining them there is no single element for the identifier and the button
+			// trait to land on — the row would surface as two labelled leaves and the UI tests would
+			// lose it. The trait is what keeps it announced as a control now that it is not a
+			// `Button`.
+			HStack {
+				Text(L10n.Auth.Account.subscription)
+				Spacer()
+				// "Not subscribed" also covers a lapse/refund before the gate refreshes.
+				Text(L10n.Subscription.notSubscribed)
+					.foregroundColor(.secondary)
 			}
+			.contentShape(Rectangle())
+			.onTapGesture {
+				showPaywall = true
+			}
+			.accessibilityElement(children: .combine)
+			.accessibilityAddTraits(.isButton)
 			.testability(Testability.Button.settingsUpgrade)
 		} else {
 			HStack {
