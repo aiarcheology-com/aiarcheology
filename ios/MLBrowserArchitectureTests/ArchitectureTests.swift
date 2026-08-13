@@ -867,7 +867,16 @@ final class ArchitectureTests: XCTestCase {
 
             if rel.hasSuffix("UI/Drawer/DrawerContent.swift") {
                 sawDrawer = true
-                settingsRouteIsWired = codeText.contains("windowDaysRemaining")
+                // The argument label AND the accessor, inside the same closure literal — not merely
+                // both somewhere in the file. A bare `contains("windowDaysRemaining")` would be
+                // satisfied by any unrelated mention while `freeAccessDaysRemaining: { nil }` sat at
+                // the call site, which is exactly the dead-feature state this is here to catch.
+                // `[^}]*` cannot cross the closing brace, so the two have to belong together.
+                let wiring = try? NSRegularExpression(
+                    pattern: #"freeAccessDaysRemaining:\s*\{[^}]*windowDaysRemaining"#
+                )
+                let range = NSRange(location: 0, length: (codeText as NSString).length)
+                settingsRouteIsWired = wiring?.firstMatch(in: codeText, range: range) != nil
             }
         }
 
