@@ -558,12 +558,18 @@ struct PaywallView: View {
 			titleVisibility: .visible,
 			presenting: pendingPurchase
 		) { pending in
+			// Neither action clears `pendingPurchase` itself. SwiftUI sets `isPresented` to false on
+			// any choice, and the setter above is what clears it — which is also how the two `Bool`
+			// -bound dialogs above behave. Clearing it here as well would empty the state one frame
+			// *into* the dismissal, and since the title is evaluated from that state (unlike the
+			// actions and message, which `presenting:` keeps alive), the sheet would animate out with
+			// a blank title under `titleVisibility: .visible`.
+			//
 			// Two independent explicit choices, the same shape as the two dialogs above. "Inform,
 			// do not obstruct": Subscribe Anyway is a plain default action, not a destructive one —
 			// anything more insistent about a purchase the user is entitled to make is an App
 			// Review risk, and this dialog's job is to tell them what it costs, not to argue.
 			Button(L10n.Paywall.KeepFreeAccess.subscribeAnyway) {
-				pendingPurchase = nil
 				startPurchase(pending.product)
 			}
 			.testability(Testability.Button.paywallSubscribeAnyway)
@@ -571,7 +577,6 @@ struct PaywallView: View {
 			// `.cancel`, so it is the emphasised, escape-mapped choice and dismissal defaults to
 			// keeping the days rather than spending them.
 			Button(L10n.Paywall.KeepFreeAccess.keep, role: .cancel) {
-				pendingPurchase = nil
 				// The only way to tell "backed out at our dialog" from "cancelled Apple's sheet":
 				// both leave `subscribeTapped` with no `subscriptionActivated` behind it. Without
 				// this event a conversion-affecting screen ships with no way to see what it cost.

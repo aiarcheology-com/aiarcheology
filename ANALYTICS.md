@@ -129,6 +129,8 @@ Two further limits under paywall-first:
 | onboarding: tour completed | none | first-run onboarding reached its last step. The tour now sits between the Welcome screen and the consent question, so its drop-off is the first-run metric |
 | onboarding: tour skipped | none | the same stage, taken by the Skip button. Counted apart because "left early" and "saw all of it" are different answers |
 | free access: window expired | none | the free period ran out without a purchase. Deduplicated **durably and per device** (`analyticsFreeAccessExpiryReported`): expiry is a fact re-observed on every later launch, not an act, so an unguarded report would be a launch counter |
+| free access: forfeit confirm shown | none | a purchase was about to forfeit an open window and the confirmation was raised (AIA-0623). It counts the *raise*, because nothing can observe whether SwiftUI actually presented the dialog — and this is the one confirmation in the app no automated test can drive, since the Subscribe button needs a real StoreKit `Product` the UI-test mock cannot supply. Raises with no answer behind them are therefore the only available signature of a dialog that failed to present |
+| free access: keep days tapped | none | the user read that confirmation and kept their remaining free days. The only way to tell the two ways a `subscribe.tapped` ends without a `subscription.activated` apart: backing out of *our* dialog versus cancelling Apple's sheet. Bounded above by `forfeit_confirm_shown`, which is bounded above by `subscribe.tapped` |
 
 The free-access stages carry no dates and no day counts. The window's numbers are a per-install
 timestamp; a funnel needs the stage, not the calendar.

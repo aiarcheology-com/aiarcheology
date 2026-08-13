@@ -28,6 +28,22 @@ Test Focus 3: Downloading models from the catalog on a real iPhone or iPad. Mult
 
 3. Download the same model twice and cancel one partway, then check the app's storage size in Settings; repeated downloads should not leave it growing.
 
-Test Focus 4: Subscription screens. Full steps were cut for length — please still exercise Settings > ML Browser > Subscription, the Dismiss button on the subscribe screen, Restore Purchases, and Manage Subscription, and report anything that looks wrong.
+Test Focus 4: Subscribing while you still have free days. This is the one we most need eyes on — it cannot be covered by our automated tests, because those cannot show a real App Store product.
+
+You need a device whose free access is STILL RUNNING (Settings > ML Browser shows "Free until <date>" under the Subscription row). Deleting and reinstalling does NOT give you a fresh 14 days on purpose, so if yours has already run out, this focus is not testable for you — say so and skip it.
+
+1. Settings > ML Browser > Subscription > tap the green Subscribe button. A confirmation must appear FIRST, saying how many free days you still have and that they are not added to your subscription. If the button instead does nothing at all, report that immediately — that is the failure we are most worried about.
+
+2. Take "Keep My Free Days" first. It should simply close and charge nothing. Do this before step 3: subscribing uses up your free trial and you cannot get back to this state.
+
+3. Read the sentence under the Subscription row in Settings. It should no longer suggest that subscribing gives you an "extra" trial on top of the days you have left — it should say the trial starts from the moment you subscribe. Tell us if it still reads as though the two add up.
+
+4. Only if you are willing to spend the trial: tap Subscribe again and choose "Subscribe Anyway". It should behave exactly as subscribing always has.
+
+5. If your Apple Account has already used this trial before, you are charged immediately rather than getting a trial. Check that the confirmation still appears and that nothing on the screen promises you a free trial.
+
+6. The Subscription row's label used to be grey, as though the row were disabled. It should now be the same black as every other row in Settings, and tapping anywhere along the row — not just the word — must still open the subscribe screen.
+
+7. Unchanged, but please still exercise: the Dismiss button on the subscribe screen, Restore Purchases, and Manage Subscription.
 
 Please report your device model and iOS version with any problem, and attach the log if you can.
