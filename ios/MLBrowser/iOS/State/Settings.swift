@@ -370,8 +370,23 @@ final class Settings: ObservableObject, Validatable {
 	@Published public var detailedLoggingEnabled: Bool {
 		didSet {
 			defaults.set(detailedLoggingEnabled, forKey: UserDefaultsKeys.detailedLogging)
-			LoggingPolicy.isDetailedLoggingEnabled = detailedLoggingEnabled
+			applyDetailedLoggingToLogger()
 		}
+	}
+
+	/// The remote brake (`isDetailedApplicationLogEnabled`), mirrored here so the logger sees one
+	/// combined answer. Deliberately **not** persisted: it describes the current config, not a choice
+	/// the user made, and a stale copy surviving a launch would be a kill switch that does not
+	/// un-kill.
+	@Published public var isDetailedLoggingFeatureEnabled: Bool = true {
+		didSet { applyDetailedLoggingToLogger() }
+	}
+
+	/// The user's preference **and** the remote brake. Off either way means off — and because the
+	/// setter erases what was stored, flipping the flag off in the dashboard also deletes the log
+	/// rather than merely stopping new entries.
+	private func applyDetailedLoggingToLogger() {
+		LoggingPolicy.isDetailedLoggingEnabled = detailedLoggingEnabled && isDetailedLoggingFeatureEnabled
 	}
 
 	/// Winning moments (a finding saved, a model imported/converted) since the last review request
@@ -522,7 +537,7 @@ final class Settings: ObservableObject, Validatable {
 		// reads an ephemeral suite while `LoggingPolicy` reads `.standard`. Without this the toggle
 		// and the logger disagree, and a UI test that seeds the switch off would still be persisting
 		// raw entries (AIA-0602).
-		LoggingPolicy.isDetailedLoggingEnabled = self.detailedLoggingEnabled
+		applyDetailedLoggingToLogger()
 		// There is no `defaults.date(forKey:)`; an absent key must stay `nil` rather than become a
 		// 1970 date, which `shouldRequest` would read as "asked very long ago".
 		self.ratingPromptLastRequestDate = defaults.object(forKey: UserDefaultsKeys.ratingPromptLastRequestDate) as? Date

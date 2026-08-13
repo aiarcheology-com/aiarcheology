@@ -385,14 +385,21 @@ struct SettingsForm: View {
 			}
 			.testability(Testability.NavigationLink.settingsAbout)
 
-			// The explanation is an inline `Text`, not the section footer: the footer slot already
-			// carries the subscription footnote, which belongs to `subscriptionRow` below.
-			Toggle(L10n.Settings.detailedLogging, isOn: $settings.detailedLoggingEnabled)
-				.testability(Testability.Toggle.settingsDetailedLogging)
-			Text(L10n.Settings.detailedLoggingExplanation)
-				.font(.footnote)
-				.foregroundStyle(.secondary)
-				.fixedSize(horizontal: false, vertical: true)
+			// Hidden entirely when the remote brake is off, because then there is nothing for the
+			// switch to control — persistence is already disabled and the stored log deleted. Note
+			// this row lives here rather than in `privacySection`, which is itself wrapped in a
+			// feature-flag check: a flag must never be able to hide a privacy control while the
+			// behaviour it governs carries on.
+			if settings.isDetailedLoggingFeatureEnabled {
+				// The explanation is an inline `Text`, not the section footer: the footer slot already
+				// carries the subscription footnote, which belongs to `subscriptionRow` below.
+				Toggle(L10n.Settings.detailedLogging, isOn: $settings.detailedLoggingEnabled)
+					.testability(Testability.Toggle.settingsDetailedLogging)
+				Text(L10n.Settings.detailedLoggingExplanation)
+					.font(.footnote)
+					.foregroundStyle(.secondary)
+					.fixedSize(horizontal: false, vertical: true)
+			}
 
 			subscriptionRow
 

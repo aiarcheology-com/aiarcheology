@@ -92,6 +92,29 @@ enum FeatureFlagKey: String, CaseIterable {
 	/// deliberately — the exposure is free *app use*, never free subscription time, which Apple
 	/// tracks per Apple ID server-side and this app cannot give away.
 	case isFreeAccessPeriodEnabled = "isFreeAccessPeriodEnabled"
+
+	/// Gates whether the application log is **persisted** across launches, and with it whether
+	/// `.debug` entries are retained at all (AIA-0602).
+	///
+	/// An emergency brake, not a rollout control. This is the first release in two years and the
+	/// store is new code that writes to every user's disk in a build that cannot be hot-fixed — if it
+	/// misbehaves in the field (storage growth, a wedged write path), App Review latency would
+	/// otherwise put a full release cycle between the report and the remedy.
+	///
+	/// Read **live**, not launch-captured. `FeatureFlagsState` observes the provider's change stream,
+	/// so flipping this in the dashboard takes effect without a relaunch; a launch-captured flag
+	/// would not engage until every user had cold-started, which is no use in an emergency.
+	///
+	/// **Fails open**, like every other flag here, and the reason is specific: this ships to gather
+	/// diagnostics on a release nobody has field data for. A `false` default would mean a ConfigCat
+	/// outage — or a genuine first launch, before any sync — silently disabling the very thing we are
+	/// relying on to see what went wrong.
+	///
+	/// Turning it off does **not** mean no diagnostics. It falls back to the pre-AIA-0602 behaviour:
+	/// a session-scoped in-memory log, still attachable to a support report, without persistence and
+	/// without debug entries. It also deletes what has already been stored — a brake that stopped
+	/// writing but left raw addresses on disk would be worse than no brake.
+	case isDetailedApplicationLogEnabled = "isDetailedApplicationLogEnabled"
 	// swiftlint:enable redundant_string_enum_value
 
 	/// The value used when remote config cannot be consulted.
@@ -105,6 +128,7 @@ enum FeatureFlagKey: String, CaseIterable {
 		case .isAppMessagingEnabled: return true
 		case .isCrossDeviceAnalyticsIdentityEnabled: return true
 		case .isFreeAccessPeriodEnabled: return true
+		case .isDetailedApplicationLogEnabled: return true
 		}
 	}
 }
@@ -178,6 +202,7 @@ struct FeatureFlagSnapshot: Equatable {
 	var isAppMessagingEnabled: Bool { self[.isAppMessagingEnabled] }
 	var isCrossDeviceAnalyticsIdentityEnabled: Bool { self[.isCrossDeviceAnalyticsIdentityEnabled] }
 	var isFreeAccessPeriodEnabled: Bool { self[.isFreeAccessPeriodEnabled] }
+	var isDetailedApplicationLogEnabled: Bool { self[.isDetailedApplicationLogEnabled] }
 
 	/// Every key at its compiled default — the launch/offline value.
 	static let defaults = FeatureFlagSnapshot()

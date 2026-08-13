@@ -665,6 +665,31 @@ final class DetailedLoggingSwitchTests: XCTestCase {
 		)
 	}
 
+	/// The remote brake has to stop the behaviour, not just hide the switch. A kill switch that left
+	/// the store writing — or that stopped writing but left raw addresses on disk — would be worse
+	/// than none, because the UI would say the feature was off.
+	func testTheRemoteBrakeStopsPersistenceAndErasesWhatWasStored() {
+		LoggingPolicy.info("recorded while the brake was open https://example.com/page")
+		LoggingPolicy.flushApplicationLog()
+		XCTAssertGreaterThan(bytesOnDisk(), 0, "Precondition: persistence is on")
+
+		// What `Settings.applyDetailedLoggingToLogger` computes when the flag goes false while the
+		// user's own preference stays true.
+		LoggingPolicy.isDetailedLoggingEnabled = true && false
+
+		XCTAssertEqual(bytesOnDisk(), 0, "Flipping the brake must delete the stored log, not just stop adding")
+
+		LoggingPolicy.info("recorded while the brake was shut")
+		LoggingPolicy.flushApplicationLog()
+		XCTAssertEqual(bytesOnDisk(), 0, "…and nothing may be written afterwards")
+
+		// Diagnostics are not gone, only session-scoped — the pre-AIA-0602 behaviour.
+		XCTAssertTrue(
+			currentLog().contains("recorded while the brake was shut"),
+			"Off must fall back to a session log, not to no log at all"
+		)
+	}
+
 	func testPurgeRemovesEverythingRetained() {
 		LoggingPolicy.info("to be purged")
 		LoggingPolicy.flushApplicationLog()
