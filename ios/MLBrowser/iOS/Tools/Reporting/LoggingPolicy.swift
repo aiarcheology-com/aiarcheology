@@ -9,9 +9,13 @@
 import Foundation
 import OSLog
 
-/// Strips traceable data from log messages before they reach OSLog, Sentry, or the default
-/// support-email attachment. The unredacted support attachment is the only deliberate exception
-/// and requires the user's explicit choice in the mail form.
+/// Strips traceable data from log messages.
+///
+/// Applied at two different moments, deliberately. OSLog and Sentry receive text redacted at the
+/// point of logging. The support attachment is redacted at the point of **export** instead, because
+/// the application log is stored raw: it is the complete record of what the app did, and a consumer
+/// that needs less applies its own filter rather than deleting entries from the record. The
+/// unredacted attachment is the exception the user opts into explicitly in the mail form.
 enum LogRedactor {
     private static let urlPattern = try? NSRegularExpression(
         pattern: #"\b(?:https?|file)://[^\s<>\"']+"#,
@@ -77,35 +81,118 @@ enum LogRedactor {
 /// LoggingPolicy.fault("Core Data stack corrupted", logger: .persistence)
 /// ```
 enum LoggingPolicy {
-	/// The newest log entries, retained only while the app is running. The user can explicitly
-	/// choose either redacted or unredacted data for a support-email attachment; neither is sent
-	/// automatically.
-	private static let redactedApplicationLogBuffer = ApplicationLogBuffer(
+	/// The user-facing switch, as persisted by `Settings`.
+	///
+	/// `LoggingPolicy` reads this itself rather than waiting to be told. `DependencyContainer`
+	/// builds `Settings` lazily, and a background-download relaunch never builds it at all — so a
+	/// push-only design would ignore a persisted opt-out on exactly the launches the user cannot
+	/// see. `Settings` still pushes on change, as a fast path.
+	static let detailedLoggingDefaultsKey = "detailedLoggingEnabled"
+
+	private static let detailedLogging = DetailedLoggingSwitch(defaultsKey: detailedLoggingDefaultsKey)
+
+	/// The off backing: session-scoped and memory-only, which is today's behaviour.
+	private static let sessionLogBuffer = ApplicationLogBuffer(
 		maximumByteCount: ApplicationLogBuffer.maximumByteCount
 	)
-	private static let unredactedApplicationLogBuffer = ApplicationLogBuffer(
-		maximumByteCount: ApplicationLogBuffer.maximumByteCount
-	)
+
+	/// The on backing. `nil` only if the container has no Application Support directory, in which
+	/// case the session buffer carries the log and nothing is persisted.
+	/// `nonisolated(unsafe)` matching `Observability._service` (`Observability.swift:65`): written
+	/// once at init, and thereafter only by the DEBUG-only test seam below, which runs before the
+	/// suite under test logs anything.
+	private nonisolated(unsafe) static var persistentLogStore: ApplicationLogFileStore? = ApplicationLogFileStore
+		.defaultDirectoryURL()
+		.map { ApplicationLogFileStore(directoryURL: $0) }
+
+#if DEBUG
+	/// Test seam. Without it, unit tests exercising the static store would write to the test host's
+	/// real Application Support directory and accumulate across runs and suites — the file would
+	/// outlive the process that created it, which is the entire point of the store and exactly what
+	/// makes it unusable as shared test state.
+	static func redirectApplicationLogForTesting(to directoryURL: URL, enabled: Bool = true) {
+		persistentLogStore?.purge()
+		sessionLogBuffer.purge()
+		persistentLogStore = ApplicationLogFileStore(directoryURL: directoryURL)
+		_ = detailedLogging.setEnabled(enabled)
+	}
+#endif
+
+	/// Whether entries are persisted across launches — and, with it, whether `.debug` is retained.
+	///
+	/// The switch deliberately gates **persistence at every level**, not `.debug` verbosity. Gating
+	/// only `.debug` would leave a control a user reads as "log less" while an unredacted on-disk
+	/// record of URLs and identifiers kept growing at info/warning/error/fault.
+	static var isDetailedLoggingEnabled: Bool {
+		get { detailedLogging.isEnabled }
+		set {
+			guard detailedLogging.setEnabled(newValue) else { return }
+			if newValue {
+				persistentLogStore?.enable()
+			} else {
+				// Erases what was kept, ordered behind any writes already queued.
+				persistentLogStore?.disable()
+				sessionLogBuffer.purge()
+			}
+		}
+	}
+
+	private static var activeStore: ApplicationLogStoring {
+		guard isDetailedLoggingEnabled, let persistentLogStore else { return sessionLogBuffer }
+		return persistentLogStore
+	}
 
 	/// Returns the latest five MiB of application-log entries for a user-selected support-email
 	/// attachment. The default is redacted. When the user expressly enables unredacted data, the
 	/// raw message text — including URLs, identifiers, and location data — is returned instead.
+	///
+	/// Entries are stored **raw** and redacted here, at the point of export. The log is the complete
+	/// record of what the app did; a consumer that needs less applies its own filter, rather than
+	/// the consumer's constraint reaching back and removing entries from the record itself.
+	///
+	/// Redaction runs per line because `ApplicationLogRecord` guarantees one entry is one line —
+	/// applying seven regexes to a single five-MiB subject is not a workable alternative. Call this
+	/// off the main thread: a full log costs on the order of a second.
 	static func recentApplicationLogData(sendUnredactedData: Bool = false) -> Data {
-		(sendUnredactedData ? unredactedApplicationLogBuffer : redactedApplicationLogBuffer).snapshotData()
+		let raw = activeStore.snapshotData()
+		guard sendUnredactedData == false else { return raw }
+		guard let text = String(data: raw, encoding: .utf8) else { return Data() }
+		let redacted = text
+			.split(separator: "\n", omittingEmptySubsequences: false)
+			.map { LogRedactor.redactingSensitiveData(String($0)) }
+			.joined(separator: "\n")
+		return Data(redacted.utf8)
 	}
 
-	private static func retainForSupportEmail(
-		redactedMessage: String,
-		unredactedMessage: String,
+	/// Makes everything appended so far durable. Called from the paths that may be the last thing
+	/// this process does.
+	static func flushApplicationLog() {
+		activeStore.flush()
+	}
+
+	/// Deletes every retained entry, on disk and in memory. Wired to the erasure affordances a user
+	/// would expect to cover a log holding hosts and URLs: Restore Defaults and Clear Browsing
+	/// History.
+	static func purgeApplicationLog() {
+		persistentLogStore?.purge()
+		sessionLogBuffer.purge()
+	}
+
+	/// - Parameter isTerminal: set by the paths on their way to `preconditionFailure`, so the store
+	///   appends past its cap instead of performing `close`/`rename`/`open` on a thread that is
+	///   about to crash deliberately.
+	private static func retain(
+		_ rawMessage: String,
 		level: String,
-		category: String
+		category: String,
+		isTerminal: Bool = false
 	) {
-		redactedApplicationLogBuffer.append("[\(level)] [\(category)] \(redactedMessage)")
-		unredactedApplicationLogBuffer.append("[\(level)] [\(category)] \(unredactedMessage)")
-	}
-
-	private static func retainUnredactedForSupportEmail(_ message: String, level: String, category: String) {
-		unredactedApplicationLogBuffer.append("[\(level)] [\(category)] \(message)")
+		let entry = "[\(level)] [\(category)] \(rawMessage)"
+		if isTerminal, isDetailedLoggingEnabled, let persistentLogStore {
+			persistentLogStore.append(entry, isTerminal: true)
+		} else {
+			activeStore.append(entry)
+		}
 	}
     
     // MARK: - Logging Levels
@@ -115,10 +202,16 @@ enum LoggingPolicy {
     /// - Verbose diagnostic information
     /// - Development-only messages
     ///
+    /// Support log: retained in **every** build configuration, subject to the user's detailed-log
+    /// switch (`isDetailedLoggingEnabled`).
+    ///
     /// Remote: Breadcrumb in DEBUG builds only — debug-level messages may fire in hot
     /// loops (e.g. per-detection-pass timings) and would flood the production
     /// breadcrumb buffer, crowding out the trail that matters when a crash uploads.
-    /// The gate lives here so call sites never need their own `#if DEBUG`.
+    /// The gate lives here so call sites never need their own `#if DEBUG`. That quota
+    /// rule applies to breadcrumbs and to nothing else: applying it to the support
+    /// attachment as well is what removed 87 debug call sites from every customer
+    /// report (AIA-0602).
     static func debug(
         _ message: String,
         logger: Logger = .app,
@@ -132,14 +225,16 @@ enum LoggingPolicy {
         // 1. Local (Console.app / Xcode; release builds discard debug-level os.log)
         logger.logDebug(prefixedMessage)
 
+        // 2. Support log — every build configuration, but only while the user keeps the detailed
+        // log on. Capture is decoupled from consumption; the remaining gate is the user's, not the
+        // compiler's. Off is today's behaviour exactly: no debug entries retained anywhere.
+        if isDetailedLoggingEnabled {
+            retain(unredactedPrefixedMessage, level: "DEBUG", category: category)
+        }
+
 #if DEBUG
-		retainForSupportEmail(
-			redactedMessage: prefixedMessage,
-			unredactedMessage: unredactedPrefixedMessage,
-			level: "DEBUG",
-			category: category
-		)
-        // 2. Remote breadcrumb (only uploaded with crash/error events)
+        // 3. Remote breadcrumb (only uploaded with crash/error events). This gate stays where the
+        // quota actually is, so production breadcrumb volume is unchanged by AIA-0602.
         Observability.recordBreadcrumb(prefixedMessage, level: .debug, category: category)
 #endif
     }
@@ -163,12 +258,7 @@ enum LoggingPolicy {
 
         // 1. Local
         logger.logInfo(prefixedMessage)
-		retainForSupportEmail(
-			redactedMessage: prefixedMessage,
-			unredactedMessage: unredactedPrefixedMessage,
-			level: "INFO",
-			category: category
-		)
+		retain(unredactedPrefixedMessage, level: "INFO", category: category)
 
         // 2. Remote breadcrumb (FREE)
         Observability.recordBreadcrumb(prefixedMessage, level: .info, category: category)
@@ -192,12 +282,7 @@ enum LoggingPolicy {
 
         // 1. Local
         logger.logWarning(prefixedMessage)
-		retainForSupportEmail(
-			redactedMessage: prefixedMessage,
-			unredactedMessage: unredactedPrefixedMessage,
-			level: "WARNING",
-			category: category
-		)
+		retain(unredactedPrefixedMessage, level: "WARNING", category: category)
 
         // 2. Remote breadcrumb (FREE)
         Observability.recordBreadcrumb(prefixedMessage, level: .warning, category: category)
@@ -235,12 +320,10 @@ enum LoggingPolicy {
 
         // 1. Local
         logger.logError(localMessage)
-		retainForSupportEmail(
-			redactedMessage: localMessage,
-			unredactedMessage: unredactedLocalMessage,
-			level: "ERROR",
-			category: category
-		)
+		retain(unredactedLocalMessage, level: "ERROR", category: category)
+		// An error is the thing a support report is usually about, so put it beyond reach of a
+		// crash before returning. Ordinary entries ride the queue; these do not.
+		flushApplicationLog()
 
         // 2. Remote capture (QUOTA - counts toward event limit)
         // Also add as breadcrumb for context in future events
@@ -267,12 +350,8 @@ enum LoggingPolicy {
 
         // 1. Local
         logger.logFault(prefixedMessage)
-		retainForSupportEmail(
-			redactedMessage: prefixedMessage,
-			unredactedMessage: unredactedPrefixedMessage,
-			level: "FAULT",
-			category: category
-		)
+		retain(unredactedPrefixedMessage, level: "FAULT", category: category)
+		flushApplicationLog()
 
         // 2. Remote capture (QUOTA - critical issues)
         Observability.recordBreadcrumb(prefixedMessage, level: .fatal, category: category)
@@ -292,13 +371,9 @@ enum LoggingPolicy {
         let fileName = (filePath as NSString).lastPathComponent
         let fullMessage = "CRITICAL FAILURE at \(fileName):\(line): \(message)"
 		let redactedMessage = LogRedactor.redactingSensitiveData(fullMessage)
-		retainForSupportEmail(
-			redactedMessage: redactedMessage,
-			unredactedMessage: fullMessage,
-			level: "FAULT",
-			category: "app.log"
-		)
-        
+		retain(fullMessage, level: "FAULT", category: "app.log", isTerminal: true)
+		flushApplicationLog()
+
         Logger.app.logFault(redactedMessage)
         Observability.captureFault(redactedMessage)
         
@@ -316,13 +391,10 @@ enum LoggingPolicy {
         let fileName = (filePath as NSString).lastPathComponent
         let fullMessage = "ASSERTION FAILURE at \(fileName):\(line): \(message)"
 		let redactedMessage = LogRedactor.redactingSensitiveData(fullMessage)
-		retainForSupportEmail(
-			redactedMessage: redactedMessage,
-			unredactedMessage: fullMessage,
-			level: "FAULT",
-			category: "app.log"
-		)
-        
+		retain(fullMessage, level: "FAULT", category: "app.log", isTerminal: true)
+		flushApplicationLog()
+
+
 #if DEBUG
         Logger.app.logFault(redactedMessage)
         Observability.captureFault(redactedMessage)
@@ -334,29 +406,51 @@ enum LoggingPolicy {
     }
     
     // MARK: - Privacy Guidelines
-    
-    /// Logs sensitive diagnostic data locally. Release builds mark it private in OSLog and it is
-    /// never sent remotely. It remains in the in-memory raw support-log tail only, which can leave
-    /// the device solely when the user explicitly chooses the unredacted support attachment.
-    static func debugPrivate(
-        _ message: String,
-        logger: Logger = .app,
-        file: String = #file,
-        line: UInt = #line
-    ) {
-        let prefixedMessage = LoggingConfiguration.logPrefix(file: file, line: line) + message
-		// This is excluded from the redacted support attachment. It is retained only in the
-		// separate raw tail for a user who explicitly chooses to send unredacted diagnostic data.
-		retainUnredactedForSupportEmail(prefixedMessage, level: "PRIVATE DEBUG", category: "app.log")
-        
-#if DEBUG
-        logger.logDebug(prefixedMessage)
-        // Don't send private data to remote in any build
-#else
-        // Privacy enforced
-        logger.debug("\(prefixedMessage, privacy: .private)")
-#endif
-    }
+    //
+    // `debugPrivate` lived here: a level written only to the unredacted buffer, so that genuinely
+    // sensitive diagnostics could reach a support attachment only when the user opted in. It had
+    // zero production call sites — its only caller in the repository was its own unit test — and it
+    // was the sole reason the store would have needed a per-line marker distinguishing entries that
+    // must be *dropped* from the redacted export rather than redacted. Removed with AIA-0602; the
+    // store keeps raw text and redacts uniformly on read.
+}
+
+/// Thread-safe holder for the runtime logging switch, resolved from `UserDefaults` on first read.
+///
+/// Resolution is lazy rather than eager so that reading the flag cannot depend on when — or
+/// whether — `Settings` is constructed. Logging happens from every thread and actor in the app, so
+/// the value is lock-guarded rather than assumed to be main-actor.
+final class DetailedLoggingSwitch: @unchecked Sendable {
+	private let lock = NSLock()
+	private let defaults: UserDefaults
+	private let defaultsKey: String
+	private var resolvedValue: Bool?
+
+	init(defaultsKey: String, defaults: UserDefaults = .standard) {
+		self.defaultsKey = defaultsKey
+		self.defaults = defaults
+	}
+
+	var isEnabled: Bool {
+		lock.lock()
+		defer { lock.unlock() }
+		if let resolvedValue { return resolvedValue }
+		// Absent key means a fresh install that has not reached `Settings` yet. Default on: the
+		// point of the feature is that a problem is already recorded by the time it is reported.
+		let value = defaults.object(forKey: defaultsKey) as? Bool ?? true
+		resolvedValue = value
+		return value
+	}
+
+	/// - Returns: `true` when the value actually changed, so callers can skip the erase work on a
+	///   redundant write (`Settings` pushes on every `didSet`, including no-op restores).
+	func setEnabled(_ newValue: Bool) -> Bool {
+		lock.lock()
+		defer { lock.unlock() }
+		guard resolvedValue != newValue else { return false }
+		resolvedValue = newValue
+		return true
+	}
 }
 
 /// Shared record framing for every application-log backing.

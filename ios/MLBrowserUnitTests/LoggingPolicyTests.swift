@@ -156,10 +156,6 @@ final class LoggingPolicyTests: XCTestCase {
         LoggingPolicy.fault("Test fault message", category: "critical")
     }
     
-    func testDebugPrivate_DoesNotCrash() {
-        LoggingPolicy.debugPrivate("Test private message")
-    }
-    
     // MARK: - Empty Message Tests
     
     func testDebug_EmptyMessage_DoesNotCrash() {
@@ -233,6 +229,22 @@ final class LogRedactorTests: XCTestCase {
 }
 
 final class ApplicationLogBufferTests: XCTestCase {
+	private var directoryURL: URL!
+
+	override func setUpWithError() throws {
+		try super.setUpWithError()
+		// The static store is now disk-backed, so without this it would write into the test host's
+		// real container and accumulate across runs and suites.
+		directoryURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent("AIA0602-static-\(UUID().uuidString)", isDirectory: true)
+		LoggingPolicy.redirectApplicationLogForTesting(to: directoryURL)
+	}
+
+	override func tearDownWithError() throws {
+		try? FileManager.default.removeItem(at: directoryURL)
+		try super.tearDownWithError()
+	}
+
 	func testRecentApplicationLogData_UsesTheRawMessageOnlyWhenExplicitlyRequested() {
 		let marker = UUID().uuidString
 		let sensitiveURL = "https://models.example.com/weights?downloadID=\(marker)"
@@ -478,5 +490,101 @@ final class ApplicationLogFileStoreTests: XCTestCase {
 		store.flush()
 
 		XCTAssertLessThanOrEqual(bytesOnDisk(), ApplicationLogRecord.maximumEntryByteCount + 1)
+	}
+}
+
+/// The runtime switch that replaced the `#if DEBUG` gate.
+///
+/// These cannot prove "retained in a release build" — a unit test runs in DEBUG, where the old code
+/// retained too. What they prove is the thing that actually changed: retention is now controlled at
+/// runtime by the user's switch rather than at compile time, so the release behaviour follows from
+/// there being no `#if` left on that path.
+final class DetailedLoggingSwitchTests: XCTestCase {
+	private var directoryURL: URL!
+
+	override func setUpWithError() throws {
+		try super.setUpWithError()
+		directoryURL = FileManager.default.temporaryDirectory
+			.appendingPathComponent("AIA0602-switch-\(UUID().uuidString)", isDirectory: true)
+		LoggingPolicy.redirectApplicationLogForTesting(to: directoryURL, enabled: true)
+	}
+
+	override func tearDownWithError() throws {
+		LoggingPolicy.redirectApplicationLogForTesting(to: directoryURL, enabled: true)
+		try? FileManager.default.removeItem(at: directoryURL)
+		try super.tearDownWithError()
+	}
+
+	private func currentLog() -> String {
+		String(bytes: LoggingPolicy.recentApplicationLogData(sendUnredactedData: true), encoding: .utf8) ?? ""
+	}
+
+	private func bytesOnDisk() -> Int {
+		let contents = (try? FileManager.default.contentsOfDirectory(
+			at: directoryURL,
+			includingPropertiesForKeys: [.fileSizeKey]
+		)) ?? []
+		return contents.reduce(0) { $0 + (((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize)) ?? 0) }
+	}
+
+	func testDebugEntriesAreRetainedWhileTheSwitchIsOn() {
+		let marker = UUID().uuidString
+
+		LoggingPolicy.debug("detection pass \(marker)")
+
+		XCTAssertTrue(currentLog().contains(marker), "The 87 debug call sites are the point of AIA-0602")
+	}
+
+	func testDebugEntriesAreDroppedWhileTheSwitchIsOff() {
+		LoggingPolicy.isDetailedLoggingEnabled = false
+		let debugMarker = UUID().uuidString
+		let infoMarker = UUID().uuidString
+
+		LoggingPolicy.debug("detection pass \(debugMarker)")
+		LoggingPolicy.info("lifecycle \(infoMarker)")
+
+		let log = currentLog()
+		XCTAssertFalse(log.contains(debugMarker), "Off must be today's behaviour: no debug retention")
+		XCTAssertTrue(log.contains(infoMarker), "Off still keeps a session log, so the attachment is never empty")
+	}
+
+	/// The switch gates persistence at *every* level, not debug verbosity. Gating only debug would
+	/// leave a control a user reads as "log less" while an unredacted on-disk record of URLs kept
+	/// growing at info/warning/error.
+	func testTurningTheSwitchOffLeavesNothingOnDisk() {
+		LoggingPolicy.info("something with a host https://example.com/page")
+		LoggingPolicy.flushApplicationLog()
+		XCTAssertGreaterThan(bytesOnDisk(), 0, "Precondition: the on state persists")
+
+		LoggingPolicy.isDetailedLoggingEnabled = false
+		LoggingPolicy.info("after the switch went off")
+		LoggingPolicy.flushApplicationLog()
+
+		XCTAssertEqual(bytesOnDisk(), 0, "Off must erase the record, not just stop adding to it")
+	}
+
+	/// Entries are stored raw and redacted at export, so the default attachment must still be clean.
+	func testTheDefaultExportIsRedactedEvenThoughTheStoreIsRaw() {
+		let marker = UUID().uuidString
+		LoggingPolicy.info("visited https://models.example.com/w?downloadID=\(marker)")
+
+		let redacted = String(
+			bytes: LoggingPolicy.recentApplicationLogData(),
+			encoding: .utf8
+		) ?? ""
+
+		XCTAssertFalse(redacted.contains(marker), "Read-time redaction must still strip the URL")
+		XCTAssertTrue(redacted.contains("[redacted URL]"))
+		XCTAssertTrue(currentLog().contains(marker), "…while the stored record stays complete")
+	}
+
+	func testPurgeRemovesEverythingRetained() {
+		LoggingPolicy.info("to be purged")
+		LoggingPolicy.flushApplicationLog()
+
+		LoggingPolicy.purgeApplicationLog()
+
+		XCTAssertEqual(bytesOnDisk(), 0)
+		XCTAssertEqual(LoggingPolicy.recentApplicationLogData().count, 0)
 	}
 }
