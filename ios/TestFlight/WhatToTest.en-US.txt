@@ -1,29 +1,23 @@
 Build: TBD
 
-Test Focus 1: Subscription screens. Several things moved or changed wording, and one screen gained a close button. Please test on iPhone, iPad and, if you can, "My Mac (Designed for iPad)".
+Test Focus: The application log that goes with a support report. Until now it recorded very little in TestFlight and App Store builds, and it was thrown away every time the app closed — so a report almost never described the problem it was about.
 
-1. Open Settings. "Subscription" has moved out of the Account section — it now sits under ML Browser, just below "About the app". Confirm it shows your correct state and still opens the right screen.
+1. Open Settings > ML Browser. There is a new switch, "Keep a detailed log", and it is ON. Read the sentence under it and tell us if it is unclear.
 
-2. While you still have free access left, open Settings > ML Browser > Subscription. The subscribe screen must now have a "Dismiss" button in the top corner that closes it and returns you to Settings. This is the fix: before, there was no visible way out and it looked as if subscribing was the only option. (In Arabic, Farsi and Hebrew it sits in the top-left rather than the top-right — that is correct.)
+2. Use the app normally for a few minutes — browse, run a detection, download a model. Then go to Settings > About > Contact support, turn on "Include application log", and tap Compose. Open the attached file in the mail draft. It should now contain a lot of detail, not a handful of lines. Nothing should freeze while the mail is prepared.
 
-3. After your free access has run out (and with no subscription), the same screen appears as the app's only screen. It must NOT have that Dismiss button — there is nothing behind it to go back to. Please check this specifically.
+3. The important one: make the app record something, then FORCE-QUIT it (swipe it away), reopen it, and compose a support report. The log must still contain what happened before you quit. Previously it started from scratch every launch.
 
-4. There is no longer a "Request a Refund" button anywhere. This is deliberate. Refunds go through Apple at reportaproblem.apple.com. Confirm the Settings > ML Browser > Subscription screen still offers Manage Subscription and Restore Purchases, and that both work.
+4. If you have a large log, the attachment arrives as a .zip instead of a .txt. Confirm it opens.
 
-5. Tap Restore Purchases while not subscribed. The message should explain that subscriptions belong to the Apple Account that paid, not to your ML Browser account, and warn that buying there would start a second subscription.
+5. In the same support form there is a new row, "Save or share the log". Tap it and send the log to Files, AirDrop or a messaging app. Check the filename: it says "unredacted" only when you turned on "Send unredacted data". This is mainly for people whose device has no Mail account set up — that route could not attach anything before.
 
-6. On the sign-in screen, the subtitle now reads "Sign in to your ML Browser account." — it used to claim signing in was needed to detect objects, which was never true.
+6. Turn "Keep a detailed log" OFF in Settings, then compose a report again. The attachment should be much shorter, and the app must not feel any different to use.
 
-7. Delete Account (from the subscribe screen when signed in): the confirmation should say that deleting your account does not cancel a subscription, and offer a Manage Subscription action. In Settings, a note under Manage Account says the same while you are subscribed.
+7. Clear your browsing history (Settings > ML Browser > History > Clear). This deletes the stored log too, on purpose — the log contains the addresses you visited.
 
-8. Check the subscribe screen's "Terms of Use" and "Privacy Policy" links at the bottom. They are now blue and underlined instead of grey, and both must open.
+8. "Restore Defaults" does NOT delete the log, also on purpose. It only resets settings.
 
-Test Focus 2: Downloading models from the catalog on a real iPhone or iPad. Multi-file model downloads used to fail on physical devices only.
+9. Try a model download that fails — turn on Airplane Mode partway through a multi-file download. The log should name the file that failed and give a reason.
 
-1. Download a multi-file Core ML package, for example "yolo11l-int8" from TheCluster/YOLOv11-CoreML. It should install without an error, then appear in your model list — select it and run one detection.
-
-2. Repeat with an ONNX model, and with a plain single-file .mlmodel. These take different internal paths.
-
-3. Download the same model twice and cancel one partway through, then check the app's storage size in Settings — repeated downloads should not leave it growing.
-
-Please report the device model and iOS version with any failure, and include the application log if you can.
+Please report your device model and iOS version with any problem, and attach the log if you can.
