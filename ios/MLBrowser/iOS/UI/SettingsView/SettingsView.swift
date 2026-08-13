@@ -385,6 +385,15 @@ struct SettingsForm: View {
 			}
 			.testability(Testability.NavigationLink.settingsAbout)
 
+			// The explanation is an inline `Text`, not the section footer: the footer slot already
+			// carries the subscription footnote, which belongs to `subscriptionRow` below.
+			Toggle(L10n.Settings.detailedLogging, isOn: $settings.detailedLoggingEnabled)
+				.testability(Testability.Toggle.settingsDetailedLogging)
+			Text(L10n.Settings.detailedLoggingExplanation)
+				.font(.footnote)
+				.foregroundStyle(.secondary)
+				.fixedSize(horizontal: false, vertical: true)
+
 			subscriptionRow
 
 			replayOnboardingRow

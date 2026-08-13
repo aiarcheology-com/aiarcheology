@@ -238,6 +238,8 @@ extension TestabilityIdentification {
 		case settingsPyramidTiling
 		case settingsGrid3x3Tiling
 		case settingsTiledBorders
+		// AIA-0602: detailed application log, kept across launches
+		case settingsDetailedLogging
 		case supportSettingsDetectScreenshots
 		case supportRequestIncludeApplicationLog
 		case supportRequestSendUnredactedData

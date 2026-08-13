@@ -33625,6 +33625,30 @@
         }
       }
     },
+    "settings.detailedLogging" : {
+      "comment" : "Toggle that keeps a detailed application log across launches so a support report can cover an earlier problem",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep a detailed log"
+          }
+        }
+      }
+    },
+    "settings.detailedLoggingExplanation" : {
+      "comment" : "Explanation under the detailed-log toggle, stating what is recorded and that turning it off deletes the stored log",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Records what the app is doing in more detail and keeps it between launches, so a support report can cover a problem you hit earlier. Turning this off deletes the stored log."
+          }
+        }
+      }
+    },
     "settings.disableDetectionAnimations" : {
       "comment" : "Toggle that disables detection overlay animations (renders static markers instead of pulsing/scaling/fading)",
       "extractionState" : "manual",

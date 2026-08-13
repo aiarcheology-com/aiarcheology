@@ -394,7 +394,6 @@ enum LoggingPolicy {
 		retain(fullMessage, level: "FAULT", category: "app.log", isTerminal: true)
 		flushApplicationLog()
 
-
 #if DEBUG
         Logger.app.logFault(redactedMessage)
         Observability.captureFault(redactedMessage)

@@ -789,6 +789,10 @@ internal enum L10n {
     internal static let defaultPage = L10n.tr("Localizable", "settings.defaultPage", fallback: "Default Page")
     /// Delete Cache
     internal static let deleteCache = L10n.tr("Localizable", "settings.deleteCache", fallback: "Delete Cache")
+    /// Keep a detailed log
+    internal static let detailedLogging = L10n.tr("Localizable", "settings.detailedLogging", fallback: "Keep a detailed log")
+    /// Records what the app is doing in more detail and keeps it between launches, so a support report can cover a problem you hit earlier. Turning this off deletes the stored log.
+    internal static let detailedLoggingExplanation = L10n.tr("Localizable", "settings.detailedLoggingExplanation", fallback: "Records what the app is doing in more detail and keeps it between launches, so a support report can cover a problem you hit earlier. Turning this off deletes the stored log.")
     /// Disable Detection Animations
     internal static let disableDetectionAnimations = L10n.tr("Localizable", "settings.disableDetectionAnimations", fallback: "Disable Detection Animations")
     /// Frequency
