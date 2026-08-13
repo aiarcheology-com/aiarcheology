@@ -106,6 +106,13 @@ struct BrowserHistoryView: View {
 			title: L10n.Alert.Warning.title,
 			message: L10n.Alert.History.Clear.message,
 			primaryButton: .destructive(Text(L10n.History.Clear.button)) {
+				// The application log holds the hosts and addresses this button exists to erase
+				// (AIA-0602) — and it is now kept across launches, so leaving it would mean the
+				// browsing record the user just cleared is still sitting on disk.
+				//
+				// Purged BEFORE the delete, not after: a failure below is worth keeping, and
+				// purging afterwards would erase the very line that reported it.
+				LoggingPolicy.purgeApplicationLog()
 				do {
 					// moc is the viewContext, so merging into [self] is sufficient here.
 					try WebHistoryEntry.deleteAll(in: moc)
