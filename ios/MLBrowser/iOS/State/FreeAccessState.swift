@@ -156,6 +156,25 @@ final class FreeAccessState: ObservableObject {
 		return service.phase(of: window) == .expired
 	}
 
+	/// Whole calendar days left in the open window, or `nil` when none is open (AIA-0623).
+	///
+	/// For the one surface that has to *say* the number rather than compare against it: the
+	/// confirmation shown before a purchase forfeits the rest of the window.
+	///
+	/// **Taken from the phase, never recomputed from ``windowEndsOn``.** That is not a style
+	/// preference — `phase(of:)` counts from `max(now, maxObservedDate)`, the monotonic floor that
+	/// stops a device clock wound backwards from rewinding a window, so an independent count from
+	/// the raw clock would offer a user days the gate does not believe in. It is the same rule
+	/// ``FreeAccessWindow/duePrompt(at:)`` states for the Welcome screen, for the same reason.
+	///
+	/// Computed rather than `@Published`, exactly like ``hasSpentWindow``: the answer only changes
+	/// when the clock does, and it is read during `body` next to ``availability``, which does
+	/// publish — so the re-render that can change the answer is the one that already happens.
+	var windowDaysRemaining: Int? {
+		guard hasStarted, case let .active(remaining) = service.phase(of: window) else { return nil }
+		return remaining
+	}
+
 	private let notificationCenter: NotificationCenter
 	private var foregroundObservation: AnyCancellable?
 	private var expiryTask: Task<Void, Never>?

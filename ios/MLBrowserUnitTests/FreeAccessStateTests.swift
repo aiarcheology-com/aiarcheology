@@ -660,4 +660,96 @@ final class FreeAccessStateTests: XCTestCase {
 		XCTAssertEqual(state.availability, .closed)
 		XCTAssertEqual(tracker.events, [])
 	}
+
+	// MARK: - Days remaining (AIA-0623)
+	//
+	// The number the purchase confirmation states out loud. Every case here is about it agreeing
+	// with the gate rather than with the raw clock.
+
+	@MainActor
+	func testWindowDaysRemaining_beforeStart_isNil() throws {
+		let clock = TestClock(try date(2026, 3, 2))
+		let state = makeState(service: try makeService(clock: clock, durableStore: StubDurableStore()))
+
+		XCTAssertNil(state.windowDaysRemaining)
+	}
+
+	@MainActor
+	func testWindowDaysRemaining_onTheGrantDay_isTheWholeWindow() throws {
+		let clock = TestClock(try date(2026, 3, 2))
+		let state = makeState(service: try makeService(clock: clock, durableStore: StubDurableStore()))
+
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		XCTAssertEqual(state.availability, .open)
+		XCTAssertEqual(state.windowDaysRemaining, 14)
+	}
+
+	@MainActor
+	func testWindowDaysRemaining_midWindow_countsDownWithTheClock() throws {
+		let grantDate = try date(2026, 3, 2)
+		let clock = TestClock(grantDate)
+		let state = makeState(service: try makeService(clock: clock, durableStore: StubDurableStore()))
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		clock.now = try day(10, after: grantDate)
+		state.reevaluate()
+
+		XCTAssertEqual(state.availability, .open)
+		XCTAssertEqual(state.windowDaysRemaining, 4)
+	}
+
+	@MainActor
+	func testWindowDaysRemaining_afterTheWindowRunsOut_isNil() throws {
+		let grantDate = try date(2026, 3, 2)
+		let clock = TestClock(grantDate)
+		let state = makeState(service: try makeService(clock: clock, durableStore: StubDurableStore()))
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		clock.now = try day(14, after: grantDate)
+		state.reevaluate()
+
+		XCTAssertEqual(state.availability, .closed)
+		XCTAssertNil(state.windowDaysRemaining, "A spent window has no days to offer anyone.")
+	}
+
+	@MainActor
+	func testWindowDaysRemaining_whenNoWindowWasEverGranted_isNil() throws {
+		let clock = TestClock(try date(2026, 3, 2))
+		let state = makeState(
+			service: try makeService(clock: clock, durableStore: StubDurableStore()),
+			isFreeAccessPeriodEnabled: false
+		)
+
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		XCTAssertEqual(state.availability, .closed)
+		XCTAssertNil(state.windowDaysRemaining)
+	}
+
+	/// **The one this property exists to get right.** The count is taken from the phase, which
+	/// counts from the monotonic floor — so a device clock wound back to day 1 still reports the
+	/// four days the gate believes in, not the thirteen a fresh `Calendar` count from `now` would
+	/// hand out. Offering days the gate will not honour is how the confirmation would turn into its
+	/// own kind of lie.
+	@MainActor
+	func testWindowDaysRemaining_whenTheClockIsWoundBack_reportsTheClampedCount() throws {
+		let grantDate = try date(2026, 3, 2)
+		let clock = TestClock(grantDate)
+		let state = makeState(service: try makeService(clock: clock, durableStore: StubDurableStore()))
+		state.start(isEntitled: false, isPaymentsSurfaceEnabled: true)
+
+		// Observed at day 10, which advances the floor and persists it.
+		clock.now = try day(10, after: grantDate)
+		state.reevaluate()
+		XCTAssertEqual(state.windowDaysRemaining, 4)
+
+		// Then wound back to day 1.
+		clock.now = try day(1, after: grantDate)
+		state.reevaluate()
+
+		XCTAssertEqual(state.availability, .open)
+		XCTAssertEqual(state.windowDaysRemaining, 4, "The floor, not the rolled-back clock, decides.")
+		XCTAssertNotEqual(state.windowDaysRemaining, 13, "13 is what an unclamped count from `now` would say.")
+	}
 }
