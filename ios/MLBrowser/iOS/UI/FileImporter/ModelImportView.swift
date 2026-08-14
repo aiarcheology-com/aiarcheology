@@ -841,7 +841,12 @@ struct ModelImportView: View {
 	/// Source extensions the app converts to Core ML on-device before the normal loader runs: the
 	/// auditable native package (`.aiagraph`) and self-contained ONNX (`.onnx`). Both share the same
 	/// conversion report machinery (progress, cancellation, log sheet, export).
-	private static let nativeConvertibleExtensions: Set<String> = ["aiagraph", "onnx"]
+	///
+	/// `nonisolated` because the only reader is `restoringNativeConvertibleExtension`, which is
+	/// itself `nonisolated` — without it the property inherits this view's main-actor isolation and
+	/// the reads warn (errors under Swift 6 language mode). Safe by construction rather than by
+	/// assertion: an immutable `let` of a `Set<String>`, which is `Sendable` (AIA-0634).
+	nonisolated private static let nativeConvertibleExtensions: Set<String> = ["aiagraph", "onnx"]
 
 	/// A model downloaded from a URL is stored under the URLSession temporary name, which drops the
 	/// original extension. When the download URL names a native-convertible format but the stored file

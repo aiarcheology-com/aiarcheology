@@ -132,10 +132,16 @@ struct SupportRequestView: View {
 					// image the user hands it. Notably NOT `Gallery/PhotoPicker.swift`, which is a
 					// gallery importer — it copies the pick into Documents and appends it to the
 					// user's gallery, which filing a bug report must not do.
+					// Read once here, on the main actor, and capture the result. `attachment` is
+					// `@State` and therefore main-actor isolated, while `PhotosPicker`'s label
+					// closure is `@Sendable` — reading it inside warns today and is an error under
+					// Swift 6 language mode. A captured `Bool` crosses that boundary safely and the
+					// rendered label is identical (AIA-0634).
+					let hasAttachment = attachment != nil
 					PhotosPicker(selection: $pickedPhoto, matching: .images, photoLibrary: .shared()) {
 						Label(
-							attachment == nil ? L10n.Support.attachScreenshot : L10n.Support.attachedScreenshot,
-							systemImage: attachment == nil ? "photo.badge.plus" : "checkmark.circle.fill"
+							hasAttachment ? L10n.Support.attachedScreenshot : L10n.Support.attachScreenshot,
+							systemImage: hasAttachment ? "checkmark.circle.fill" : "photo.badge.plus"
 						)
 					}
 				}
