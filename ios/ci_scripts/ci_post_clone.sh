@@ -111,6 +111,23 @@ else
         fi
     }
 
+    # Where a downloaded tool can actually land. Xcode Cloud runners do not grant write access to
+    # /usr/local/bin, and this script runs under `set -eo pipefail`, so a `cp` there aborts the
+    # whole build before Xcode compiles anything — with a permission error that looks nothing like
+    # a build problem. Xcode Cloud build 990 hit the same wall in install_sentry_cli.sh (AIA-0632).
+    # Writability is tested rather than inferred from a CI variable: the failure is about the
+    # directory, so the directory is what gets asked.
+    if [[ -w /usr/local/bin ]]; then
+        TOOL_BIN_DIR="/usr/local/bin"
+    elif [[ -n "${HOME:-}" ]]; then
+        TOOL_BIN_DIR="${HOME}/bin"
+        mkdir -p "$TOOL_BIN_DIR"
+        export PATH="${TOOL_BIN_DIR}:$PATH"
+    else
+        echo "   ❌ /usr/local/bin is not writable and HOME is unset — nowhere to install tools"
+        exit 1
+    fi
+
     # Fallback: Install SwiftLint via direct download (version from .tools.json)
     if ! command -v swiftlint &> /dev/null; then
         echo "   Installing SwiftLint fallback..."
@@ -138,8 +155,8 @@ else
         echo "   ✅ SHA256 checksum verified"
         
         unzip -q /tmp/swiftlint.zip -d /tmp/swiftlint
-        cp /tmp/swiftlint/swiftlint /usr/local/bin/swiftlint
-        chmod +x /usr/local/bin/swiftlint
+        cp /tmp/swiftlint/swiftlint "${TOOL_BIN_DIR}/swiftlint"
+        chmod +x "${TOOL_BIN_DIR}/swiftlint"
         rm -rf /tmp/swiftlint /tmp/swiftlint.zip
         echo "   ✅ SwiftLint ${SWIFTLINT_VERSION} installed"
     fi
@@ -168,8 +185,8 @@ else
         echo "   ✅ SHA256 checksum verified"
 
         unzip -q /tmp/swiftgen.zip -d /tmp/swiftgen
-        cp /tmp/swiftgen/bin/swiftgen /usr/local/bin/swiftgen
-        chmod +x /usr/local/bin/swiftgen
+        cp /tmp/swiftgen/bin/swiftgen "${TOOL_BIN_DIR}/swiftgen"
+        chmod +x "${TOOL_BIN_DIR}/swiftgen"
         rm -rf /tmp/swiftgen /tmp/swiftgen.zip
         echo "   ✅ SwiftGen ${SWIFTGEN_VERSION} installed"
     fi
