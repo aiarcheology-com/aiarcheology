@@ -24,8 +24,8 @@ internal enum L10n {
       internal static let application = L10n.tr("Localizable", "about.section.application", fallback: "Application")
       /// Contact
       internal static let contact = L10n.tr("Localizable", "about.section.contact", fallback: "Contact")
-      /// Legal
-      internal static let legal = L10n.tr("Localizable", "about.section.legal", fallback: "Legal")
+      /// Privacy
+      internal static let privacy = L10n.tr("Localizable", "about.section.privacy", fallback: "Privacy")
     }
   }
   internal enum Action {
@@ -86,8 +86,6 @@ internal enum L10n {
     internal enum Settings {
       /// Analytics is off by default. You can change this at any time. When you're signed in, usage statistics are linked to your account, so your usage is counted once across all your devices. Page content, images, URLs, titles, filenames, detection results, and model names are never sent.
       internal static let footer = L10n.tr("Localizable", "analytics.settings.footer", fallback: "Analytics is off by default. You can change this at any time. When you're signed in, usage statistics are linked to your account, so your usage is counted once across all your devices. Page content, images, URLs, titles, filenames, detection results, and model names are never sent.")
-      /// Privacy
-      internal static let title = L10n.tr("Localizable", "analytics.settings.title", fallback: "Privacy")
       /// Share usage data
       internal static let toggle = L10n.tr("Localizable", "analytics.settings.toggle", fallback: "Share usage data")
     }

@@ -68,7 +68,11 @@ final class AnalyticsChoiceUITests: UITestCase {
 
 		app.buttons[AID.analyticsChoiceNotNow].tap()
 		openSettings()
-		XCTAssertTrue(scrollTo(AID.settingsAnalytics), "Analytics toggle is missing")
+		// The switch lives on About the app, under Privacy, since AIA-0626 — the policy it is
+		// governed by is on that screen, and Settings no longer carries a privacy section at all.
+		XCTAssertTrue(scrollTo(AID.settingsAbout), "About row missing from Settings")
+		element(AID.settingsAbout).tap()
+		XCTAssertTrue(scrollTo(AID.settingsAnalytics), "Analytics toggle is missing from About the app")
 		let analyticsToggle = app.switches.matching(identifier: AID.settingsAnalytics).firstMatch
 		XCTAssertEqual(analyticsToggle.value as? String, "0", "Not now must keep analytics disabled")
 	}
@@ -102,7 +106,18 @@ final class AnalyticsChoiceUITests: UITestCase {
 		XCTAssertFalse(choice.isHittable, "the choice must wait behind Settings, not tear it away")
 
 		// Restore Defaults lives on a pushed sub-screen, so leave it before the sheet can be closed.
-		let back = app.navigationBars.buttons.element(boundBy: 0)
+		//
+		// **Scoped to the Reset screen's own navigation bar, never `app.navigationBars` globally**
+		// (AIA-0626). On iPad the Settings sheet is a form sheet that does not cover the app behind
+		// it, so the drawer's navigation bar is in the accessibility tree too and
+		// `app.navigationBars.buttons.element(boundBy: 0)` resolved to the drawer's
+		// `plus.circle.fill` button. The tap computed hit point {-1, -1}, did nothing, and this test
+		// failed on iPad — and only on iPad — with "Settings root did not come back". `SettingsUITests`
+		// hit the identical thing and fixed it the same way; this was the last unscoped lookup left.
+		let resetBar = app.navigationBars["Reset"]
+		XCTAssertTrue(resetBar.waitForExistence(timeout: 5), "Reset navigation bar missing")
+		// UI tests pin the locale to en_US, where the back button carries the previous screen's title.
+		let back = resetBar.buttons["Settings"]
 		XCTAssertTrue(back.waitForExistence(timeout: 5), "Reset screen has no back button")
 		back.tap()
 		// `.firstMatch`, not a subscript: under UI testing `.testability` mirrors the identifier into

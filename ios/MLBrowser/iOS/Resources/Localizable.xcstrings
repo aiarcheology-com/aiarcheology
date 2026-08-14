@@ -577,110 +577,110 @@
         }
       }
     },
-    "about.section.legal" : {
-      "comment" : "Section header for legal info",
+    "about.section.privacy" : {
+      "comment" : "Section header on About the app for everything privacy-related: the Privacy Policy and the Share-usage-data switch (AIA-0626). Replaces about.section.legal — the section held only the policy and read as 'Legal', which described the document rather than what the section is for, and it now holds a control too.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "قانوني"
+            "state" : "needs_review",
+            "value" : "الخصوصية"
           }
         },
         "bn" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "আইনি"
+            "state" : "needs_review",
+            "value" : "গোপনীয়তা"
           }
         },
         "cs" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Právní informace"
+            "state" : "needs_review",
+            "value" : "Soukromí"
           }
         },
         "de" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rechtliches"
+            "state" : "needs_review",
+            "value" : "Datenschutz"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Legal"
+            "value" : "Privacy"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Información legal"
+            "value" : "Privacidad"
           }
         },
         "fa" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "قانونی"
+            "state" : "needs_review",
+            "value" : "حریم خصوصی"
           }
         },
         "fr" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mentions légales"
+            "state" : "needs_review",
+            "value" : "Confidentialité"
           }
         },
         "he" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "משפטי"
+            "state" : "needs_review",
+            "value" : "פרטיות"
           }
         },
         "hi" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "कानूनी"
+            "state" : "needs_review",
+            "value" : "प्राइवेसी"
           }
         },
         "hu" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jogi információk"
+            "state" : "needs_review",
+            "value" : "Adatvédelem"
           }
         },
         "pl" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Informacje prawne"
+            "state" : "needs_review",
+            "value" : "Prywatność"
           }
         },
         "ru" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Правовая информация"
+            "state" : "needs_review",
+            "value" : "Конфиденциальность"
           }
         },
         "uk" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "Правова інформація"
+            "state" : "needs_review",
+            "value" : "Конфіденційність"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "法律"
+            "state" : "needs_review",
+            "value" : "隐私"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "法律資訊"
+            "state" : "needs_review",
+            "value" : "隱私權"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
-            "state" : "translated",
-            "value" : "法律資訊"
+            "state" : "needs_review",
+            "value" : "私隱"
           }
         }
       }
@@ -2937,114 +2937,6 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "分析預設關閉，你可隨時更改。登入後，使用統計會連結至你的帳戶，因此你在所有裝置上的使用只會計算一次。頁面內容、影像、網址、標題、檔案名稱、偵測結果及模型名稱絕不會傳送。"
-          }
-        }
-      }
-    },
-    "analytics.settings.title" : {
-      "comment" : "Title of the optional analytics Settings section.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "الخصوصية"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "গোপনীয়তা"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Soukromí"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Datenschutz"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Privacy"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Privacidad"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "حریم خصوصی"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Confidentialité"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "פרטיות"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "प्राइवेसी"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Adatvédelem"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Prywatność"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Конфиденциальность"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Конфіденційність"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "隐私"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "隱私權"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "私隱"
           }
         }
       }

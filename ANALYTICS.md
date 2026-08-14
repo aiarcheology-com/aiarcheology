@@ -38,8 +38,11 @@ first launch → ConfigCat availability ON
     → onboarding tour
     → notice (default OFF: "Enable analytics" / "Not now")
     → active choice to enable → TelemetryDeck.initialize(...)   ← first time the SDK exists
-    → ContentView → Settings toggle
+    → ContentView → Settings > About the app > Privacy > "Share usage data"
 ```
+
+**The withdrawal control lives on About the app, under Privacy** (AIA-0626), beside the Privacy
+Policy, with the footer stating the collection limits. It is no longer in Settings' own sections.
 
 **The notice renders *after* the subscription gate** (AIA-0447), of every user who reaches the app
 — anonymous included (AIA-0536), and since AIA-0556 unentitled too, because a free-access window
@@ -256,7 +259,7 @@ verify the integration from a simulator without shipping.
 - Dashboard: org `AI Archeology`, app `ML Browser` (already created).
 - ConfigCat: create `isAnalyticsEnabled`, set it ON to make the user choice available. It is a
   live master switch and its compiled fallback is ON. Turning it OFF hides the prompt and
-  Settings control and deactivates the provider, while retaining a user's prior choice.
+  the switch on About the app and deactivates the provider, while retaining a user's prior choice.
 - App ID `TELEMETRYDECK_APP_ID` in 1Password (`TelemetryDeck Keys`) → xcconfig →
   `MLBrowser-Info.plist`. It is a public identifier, not a secret; stored alongside the
   ConfigCat keys for consistency.
@@ -269,7 +272,7 @@ verify the integration from a simulator without shipping.
 - [x] Provider-neutral app API; TelemetryDeck is a replaceable adapter
 - [x] `isAnalyticsEnabled` ConfigCat master switch (live, default ON)
 - [x] Notice before the gates; `initialize` only after active enablement
-- [x] Settings toggle mirrors it (withdrawable while the feature is available)
+- [x] The "Share usage data" switch mirrors it (withdrawable while the feature is available)
 - [ ] **Network-level test: toggle off ⇒ zero egress, including lifecycle signals.** Pair it
       with the on-case — a zero-egress assertion passes trivially if signals never send.
 - [ ] `privacypolicy.html` rewritten — the current "no advertising or analytics SDKs" claim
