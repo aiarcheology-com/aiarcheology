@@ -66,7 +66,7 @@ curl -fsSL --retry 3 --retry-connrefused --retry-delay 2 \
     -o "$DOWNLOAD_PATH" \
     "https://github.com/getsentry/sentry-cli/releases/download/${SENTRY_VERSION}/sentry-cli-Darwin-universal"
 
-# Verification is mandatory — this installs an executable into /usr/local/bin.
+# Verification is mandatory — this installs an executable onto the machine's PATH.
 echo "   Verifying SHA256 checksum..."
 ACTUAL_SHA256=$(shasum -a 256 "$DOWNLOAD_PATH" | awk '{print $1}')
 if [[ "$ACTUAL_SHA256" != "$SENTRY_SHA256" ]]; then
@@ -78,6 +78,34 @@ if [[ "$ACTUAL_SHA256" != "$SENTRY_SHA256" ]]; then
 fi
 echo "   ✅ SHA256 checksum verified"
 
-mv "$DOWNLOAD_PATH" /usr/local/bin/sentry-cli
-chmod +x /usr/local/bin/sentry-cli
-echo "   ✅ sentry-cli ${SENTRY_VERSION} installed"
+# Install into the first location the consumers already look in, rather than insisting on
+# /usr/local/bin. `upload_symbols.sh` and `sentry_release.sh` both resolve
+# PATH → /usr/local/bin → ${HOME}/bin, so the third rung already exists and needs no changes.
+#
+# Xcode Cloud runners do not grant write access to /usr/local/bin. Build 990 — the first release
+# run of `release/1.0.7-2026-08-14` — died there with `Permission denied` *after*
+# `CI_XCODEBUILD_EXIT_CODE=0`: the archive was fine and the workflow failed on its own tooling.
+# Local machines with Homebrew do have that directory writable, which is why every local
+# `deliver.sh` archive worked and this surfaced only on the first Xcode Cloud archive.
+#
+# Tested for writability rather than assumed from `$CI_XCODE_CLOUD`: the failure is about the
+# directory, so the directory is what should be asked. That also covers a local machine without
+# Homebrew, where the old code would have failed the same way.
+if [[ -w /usr/local/bin ]]; then
+    INSTALL_DIR="/usr/local/bin"
+else
+    # An unset HOME must be caught here, not further down. This script has no `set -u`, so
+    # `${HOME}/bin` would silently become `/bin` — which exists, so `mkdir -p` succeeds and the
+    # failure finally surfaces as a `mv: Permission denied` on /bin: the same confusing symptom
+    # this change exists to remove, one directory over.
+    if [[ -z "${HOME:-}" ]]; then
+        echo "   ❌ /usr/local/bin is not writable and HOME is unset — nowhere to install sentry-cli"
+        exit 1
+    fi
+    INSTALL_DIR="${HOME}/bin"
+    mkdir -p "$INSTALL_DIR"
+fi
+
+mv "$DOWNLOAD_PATH" "${INSTALL_DIR}/sentry-cli"
+chmod +x "${INSTALL_DIR}/sentry-cli"
+echo "   ✅ sentry-cli ${SENTRY_VERSION} installed to ${INSTALL_DIR}"
