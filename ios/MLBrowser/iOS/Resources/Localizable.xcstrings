@@ -27555,25 +27555,25 @@
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "اختر نموذج Create ML (.mlmodel أو .mlpackage) يدعم اكتشاف الأشياء. أنواع النماذج الأخرى غير مدعومة في هذا الإصدار."
+            "value" : "اختر نموذج Core ML (.mlmodel أو .mlpackage) لاكتشاف الكائنات أو تصنيف الصور. يمكنك أيضًا استيراد نموذج لاكتشاف الكائنات أو تصنيف الصور بتنسيق ONNX (.onnx) — يحوّله التطبيق إلى Core ML على جهازك. أنواع النماذج الأخرى غير مدعومة في هذا الإصدار."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "এমন একটি Create ML মডেল (.mlmodel বা .mlpackage) চয়ন করুন যা অবজেক্ট ডিটেকশন সমর্থন করে। এই সংস্করণে অন্যান্য মডেল প্রকার সমর্থিত নয়।"
+            "value" : "অবজেক্ট শনাক্তকরণ বা ইমেজ ক্লাসিফিকেশনের জন্য একটি Core ML মডেল (.mlmodel বা .mlpackage) বেছে নিন। আপনি ONNX ফরম্যাটে (.onnx) অবজেক্ট শনাক্তকরণ বা ইমেজ ক্লাসিফিকেশনের মডেলও ইমপোর্ট করতে পারেন — অ্যাপ সেটি আপনার ডিভাইসেই Core ML-এ রূপান্তর করে। অন্য ধরনের মডেল এই সংস্করণে সমর্থিত নয়।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Vyberte model Create ML (.mlmodel nebo .mlpackage), který podporuje detekci objektů. Ostatní typy modelů nejsou v této verzi podporovány."
+            "value" : "Vyberte model Core ML (.mlmodel nebo .mlpackage) pro detekci objektů nebo klasifikaci obrázků. Můžete také importovat model pro detekci objektů nebo klasifikaci obrázků ve formátu ONNX (.onnx) — aplikace jej převede na Core ML přímo ve vašem zařízení. Jiné typy modelů nejsou v této verzi podporovány."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Wählen Sie ein Create ML-Modell (.mlmodel oder .mlpackage), das Objekterkennung unterstützt. Andere Modelltypen werden in dieser Version nicht unterstützt."
+            "value" : "Wählen Sie ein Core ML-Modell (.mlmodel oder .mlpackage) für Objekterkennung oder Bildklassifizierung. Sie können auch ein Modell zur Objekterkennung oder Bildklassifizierung im ONNX-Format (.onnx) importieren – die App konvertiert es auf Ihrem Gerät zu Core ML. Andere Modelltypen werden in dieser Version nicht unterstützt."
           }
         },
         "en" : {
@@ -27585,73 +27585,73 @@
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Elija un modelo Create ML (.mlmodel o .mlpackage) que admita la detección de objetos. Otros tipos de modelos no son compatibles con esta versión."
+            "value" : "Elige un modelo de Core ML (.mlmodel o .mlpackage) para detección de objetos o clasificación de imágenes. También puedes importar un modelo de detección de objetos o clasificación de imágenes en formato ONNX (.onnx): la app lo convierte a Core ML en tu dispositivo. Otros tipos de modelos no son compatibles en esta versión."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "یک مدل Create ML (.mlmodel یا .mlpackage) که از تشخیص اشیاء پشتیبانی می‌کند انتخاب کنید. سایر انواع مدل در این نسخه پشتیبانی نمی‌شوند."
+            "value" : "یک مدل Core ML (.mlmodel یا .mlpackage) برای تشخیص اشیا یا طبقه‌بندی تصویر انتخاب کنید. می‌توانید مدلی برای تشخیص اشیا یا طبقه‌بندی تصویر با قالب ONNX (.onnx) نیز وارد کنید — برنامه آن را روی دستگاه شما به Core ML تبدیل می‌کند. سایر انواع مدل در این نسخه پشتیبانی نمی‌شوند."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Choisissez un modèle Create ML (.mlmodel ou .mlpackage) qui prend en charge la détection d'objets. Les autres types de modèles ne sont pas pris en charge dans cette version."
+            "value" : "Choisissez un modèle Core ML (.mlmodel ou .mlpackage) pour la détection d'objets ou la classification d'images. Vous pouvez également importer un modèle de détection d'objets ou de classification d'images au format ONNX (.onnx) : l'app le convertit en Core ML sur votre appareil. Les autres types de modèles ne sont pas pris en charge dans cette version."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "בחר מודל Create ML (.mlmodel או .mlpackage) התומך בזיהוי אובייקטים. סוגי מודלים אחרים אינם נתמכים בגרסה זו."
+            "value" : "יש לבחור מודל Core ML (.mlmodel או .mlpackage) לזיהוי אובייקטים או לסיווג תמונות. אפשר לייבא גם מודל לזיהוי אובייקטים או לסיווג תמונות בפורמט ONNX (.onnx) — האפליקציה ממירה אותו ל-Core ML במכשיר שלך. סוגי מודלים אחרים אינם נתמכים בגרסה זו."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "एक Create ML मॉडल (.mlmodel या .mlpackage) चुनें जो ऑब्जेक्ट डिटेक्शन का समर्थन करता है। अन्य मॉडल प्रकार इस संस्करण में समर्थित नहीं हैं।"
+            "value" : "ऑब्जेक्ट डिटेक्शन या इमेज क्लासिफ़िकेशन के लिए एक Core ML मॉडल (.mlmodel या .mlpackage) चुनें। आप ONNX फ़ॉर्मैट (.onnx) में ऑब्जेक्ट डिटेक्शन या इमेज क्लासिफ़िकेशन का मॉडल भी इंपोर्ट कर सकते हैं — ऐप उसे आपके डिवाइस पर ही Core ML में बदल देता है। इस वर्शन में अन्य प्रकार के मॉडल समर्थित नहीं हैं।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Válasszon olyan Create ML modellt (.mlmodel vagy .mlpackage), amely támogatja az objektumfelismerést. Más modelltípusok nem támogatottak ebben a verzióban."
+            "value" : "Válasszon egy Core ML modellt (.mlmodel vagy .mlpackage) objektumfelismeréshez vagy képosztályozáshoz. Objektumfelismerő vagy képosztályozó modellt ONNX formátumban (.onnx) is importálhat – az alkalmazás az Ön eszközén alakítja át Core ML formátumra. Más modelltípusokat ez a verzió nem támogat."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Wybierz model Create ML (.mlmodel lub .mlpackage), który obsługuje wykrywanie obiektów. Inne typy modeli nie są obsługiwane w tej wersji."
+            "value" : "Wybierz model Core ML (.mlmodel lub .mlpackage) do wykrywania obiektów lub klasyfikacji obrazów. Możesz też zaimportować model do wykrywania obiektów lub klasyfikacji obrazów w formacie ONNX (.onnx) — aplikacja przekonwertuje go na Core ML na Twoim urządzeniu. Inne typy modeli nie są obsługiwane w tej wersji."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Выберите модель Create ML (.mlmodel или .mlpackage), которая поддерживает обнаружение объектов. Другие типы моделей не поддерживаются в этой версии."
+            "value" : "Выберите модель Core ML (.mlmodel или .mlpackage) для распознавания объектов или классификации изображений. Также можно импортировать модель для распознавания объектов или классификации изображений в формате ONNX (.onnx) — приложение преобразует её в Core ML на вашем устройстве. Другие типы моделей в этой версии не поддерживаются."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Виберіть модель Create ML (.mlmodel або .mlpackage), яка підтримує виявлення об'єктів. Інші типи моделей не підтримуються в цій версії."
+            "value" : "Виберіть модель Core ML (.mlmodel або .mlpackage) для розпізнавання об'єктів чи класифікації зображень. Також можна імпортувати модель для розпізнавання об'єктів чи класифікації зображень у форматі ONNX (.onnx) — застосунок перетворить її на Core ML на вашому пристрої. Інші типи моделей у цій версії не підтримуються."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "选择支持对象检测的 Create ML 模型（.mlmodel 或 .mlpackage）。此版本不支持其他模型类型。"
+            "value" : "选择用于物体检测或图像分类的 Core ML 模型（.mlmodel 或 .mlpackage）。你也可以导入 ONNX 格式（.onnx）的物体检测或图像分类模型——App 会在你的设备上将其转换为 Core ML。本版本不支持其他类型的模型。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "選擇支援物件偵測的 Create ML 模型（.mlmodel 或 .mlpackage）。此版本不支援其他模型類型。"
+            "value" : "選擇用於物件偵測或影像分類的 Core ML 模型（.mlmodel 或 .mlpackage）。你也可以匯入 ONNX 格式（.onnx）的物件偵測或影像分類模型——App 會在你的裝置上將其轉換為 Core ML。本版本不支援其他類型的模型。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "選擇支援物件偵測的 Create ML 模型（.mlmodel 或 .mlpackage）。此版本不支援其他模型類型。"
+            "value" : "選擇用於物件偵測或圖像分類的 Core ML 模型（.mlmodel 或 .mlpackage）。你亦可匯入 ONNX 格式（.onnx）的物件偵測或圖像分類模型——App 會在你的裝置上將其轉換為 Core ML。此版本不支援其他類型的模型。"
           }
         }
       }

@@ -1,19 +1,19 @@
 Build: TBD
 
-Test Focus 1: The "Share usage data" switch moved.
+Test Focus 1: The model-import sheet, in your own language.
 
-It used to sit in its own "Privacy" section in Settings, one screen away from the Privacy Policy that governs it. Both are now in the same place.
+Every language except English was telling users the wrong thing about which models the app accepts. It named the wrong Apple product ("Create ML" instead of "Core ML"), left out ONNX import entirely, and left out image classification. English was always correct.
 
-1. Settings > ML Browser > About the app. The section that used to say "Legal" now says "Privacy", and holds the Privacy Policy with the "Share usage data" switch below it, plus the paragraph about what is and is not collected.
+This only needs checking if you use the app in a language other than English.
 
-2. Settings itself should no longer have a "Privacy" section. If the switch appears in two places, report that.
+1. Switch your device to German, Czech, French, Spanish, Polish, Russian, Ukrainian, Hungarian, Arabic, Hebrew, Hindi, Persian, Bengali or any Chinese variant.
 
-3. The switch must actually work from its new home: flip it on, then off, then on again. It must stay where you put it — if it snaps back by itself, report it immediately.
+2. Open the model list, tap the + button to import a model, and read the "Supported Models" paragraph.
 
-4. Leave About the app and go back in; the switch should still show what you set. Then force-quit, reopen, and check once more.
+3. It must say Core ML — not Create ML — and it must mention that ONNX (.onnx) models can be imported and are converted on your device. It should also mention image classification alongside object detection.
 
-5. Open the Privacy Policy from that same section and confirm it still shows text.
+4. The terms Core ML, ONNX, .mlmodel, .mlpackage and .onnx must appear exactly like that, untranslated.
 
-6. Nothing else in Settings moved — Annotation, Web Content, ML Browser, Account, and the other About rows should all be where they were. The "Keep a detailed log" switch under Debug is unrelated and must still work.
+5. Sanity check the rest of that screen in your language: nothing else changed, so anything that reads oddly is pre-existing — tell us anyway.
 
-Please report your device model and iOS version with any problem, and attach the log if you can.
+Please report your device model, iOS version and the language you tested in.
