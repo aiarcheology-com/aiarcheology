@@ -83,10 +83,16 @@ private struct BundledHTMLView: UIViewRepresentable {
 		/// Navigating those *inside* this sheet would turn a legal document into an unaccountable
 		/// mini-browser with no address bar and no way back — and `mailto:` would simply fail.
 		/// Only `.linkActivated` is cancelled, so the initial `loadHTMLString` still runs.
+		///
+		/// **`decisionHandler` must be `@MainActor @Sendable`, and that is not decoration.** Without
+		/// them the signature only *nearly* matches the optional requirement, so it satisfies nothing
+		/// and WebKit never calls it — the compiler said as much on every build ("nearly matches
+		/// optional requirement"), and the effect was that every link above navigated inside this
+		/// sheet, which is the exact outcome the paragraph above says must not happen (AIA-0634).
 		func webView(
 			_ webView: WKWebView,
 			decidePolicyFor navigationAction: WKNavigationAction,
-			decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+			decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
 		) {
 			guard navigationAction.navigationType == .linkActivated,
 				  let url = navigationAction.request.url else {

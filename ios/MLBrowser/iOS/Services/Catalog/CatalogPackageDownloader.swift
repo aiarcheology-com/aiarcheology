@@ -532,69 +532,6 @@ private extension CatalogPackageDownloader {
 	// breadcrumb volume to be unchanged, so per-file reporting stays on the level whose breadcrumb
 	// is still `#if DEBUG`-gated.
 
-	/// Formats a package-file failure. Every failure line in this file goes through one of these
-	/// formatters — transfer, HTTP status, staging — so all three are covered by the same
-	/// redaction-survival tests. A hand-built message somewhere else is how one of them quietly stops
-	/// surviving redaction while the tests keep passing.
-	///
-	/// Its shape is load-bearing, because `LogRedactor` runs over this string whenever a user
-	/// exports the default (redacted) support log, and two of its patterns would destroy precisely
-	/// the part support needs:
-	///
-	/// - `absolutePathPattern` consumes any run of two or more slash-separated components, so a
-	///   package-relative path such as `onnx/data/model.onnx` becomes `onnx[redacted path]`. Only
-	///   the last component is safe to log.
-	/// - `identifierValuePattern` matches a bare `download`, `entity`, `session` or `user` followed
-	///   by `:` or `=` and redacts whatever comes next — so the filename must never sit directly
-	///   after one of those words. Hence the em dashes.
-	///
-	/// `CatalogPackageDownloaderLogTests` runs this function's real output through `LogRedactor` and
-	/// asserts the basename and reason survive. Reasoning about those regexes instead of asserting
-	/// against them is how this breaks silently.
-	/// `internal`, against the `private extension` it sits in, so the redaction-survival tests can
-	/// call it. Asserting on the real emitted string is the only defence here — see the note above.
-	internal static func transferFailureLogLine(
-		file: CatalogFile,
-		index: Int,
-		totalCount: Int,
-		error: Error
-	) -> String {
-		"Package file \(index + 1) of \(totalCount) failed — \(safeName(file)) — \(failureReason(for: error))"
-	}
-
-	internal static func stagingFailureLogLine(file: CatalogFile, error: Error) -> String {
-		"Package staging failed — \(safeName(file)) — \(failureReason(for: error))"
-	}
-
-	internal static func failureReason(for error: Error) -> String {
-		if let catalogError = error as? CatalogError { return String(describing: catalogError) }
-		let nsError = error as NSError
-		return "\(nsError.domain) \(nsError.code)"
-	}
-
-	/// The basename, with the two characters that can turn it into a `key=value` pair neutralised.
-	///
-	/// Stripping path components is not enough: `identifierValuePattern` fires on a bare `download`,
-	/// `entity`, `session`, `user`… followed by `:` or `=`, and the *filename itself* can supply
-	/// both. A catalog file called `download=model.onnx` is rewritten to `download=[redacted]`, and
-	/// the release support log stops naming the file it exists to name.
-	internal static func safeName(_ file: CatalogFile) -> String {
-		(file.relativePath as NSString).lastPathComponent
-			.replacingOccurrences(of: "=", with: "_")
-			.replacingOccurrences(of: ":", with: "_")
-	}
-
-	/// The transport-level line, sharing the formatter so it is covered by the same
-	/// redaction-survival tests. Hand-building a second message shape is how one of them silently
-	/// stops surviving redaction.
-	internal static func httpFailureLogLine(fileName: String?, statusCode: Int) -> String {
-		let name = (fileName?.isEmpty == false ? fileName : nil) ?? "unknown"
-		let safe = name
-			.replacingOccurrences(of: "=", with: "_")
-			.replacingOccurrences(of: ":", with: "_")
-		return "Package file transfer failed — \(safe) — HTTP \(statusCode)"
-	}
-
 	nonisolated static func fetch(
 		file: CatalogFile,
 		index: Int,
@@ -668,5 +605,79 @@ private extension CatalogPackageDownloader {
 			return nil
 		}
 		return components[...packageIndex].joined(separator: "/")
+	}
+}
+
+// MARK: - Log lines the redaction tests assert against
+
+/// Deliberately a **separate, non-private extension** (AIA-0634).
+///
+/// These five are the only members `CatalogProviderTests` calls, and they were previously declared
+/// `internal` inside the `private extension` above — which the compiler warned about on every build
+/// ("'internal' modifier conflicts with extension's default access of 'private'") five times over.
+/// Deleting the modifier to silence it would have made them private and broken the tests that call
+/// them at `CatalogProviderTests.swift:1186-1260`; the fix is to stop declaring them somewhere their
+/// visibility has to be argued for. Everything else stays private where it was.
+extension CatalogPackageDownloader {
+	/// Formats a package-file failure. Every failure line in this file goes through one of these
+	/// formatters — transfer, HTTP status, staging — so all three are covered by the same
+	/// redaction-survival tests. A hand-built message somewhere else is how one of them quietly stops
+	/// surviving redaction while the tests keep passing.
+	///
+	/// Its shape is load-bearing, because `LogRedactor` runs over this string whenever a user
+	/// exports the default (redacted) support log, and two of its patterns would destroy precisely
+	/// the part support needs:
+	///
+	/// - `absolutePathPattern` consumes any run of two or more slash-separated components, so a
+	///   package-relative path such as `onnx/data/model.onnx` becomes `onnx[redacted path]`. Only
+	///   the last component is safe to log.
+	/// - `identifierValuePattern` matches a bare `download`, `entity`, `session` or `user` followed
+	///   by `:` or `=` and redacts whatever comes next — so the filename must never sit directly
+	///   after one of those words. Hence the em dashes.
+	///
+	/// `CatalogPackageDownloaderLogTests` runs this function's real output through `LogRedactor` and
+	/// asserts the basename and reason survive. Reasoning about those regexes instead of asserting
+	/// against them is how this breaks silently.
+	/// Asserting on the real emitted string is the only defence here — see the note above.
+	internal static func transferFailureLogLine(
+		file: CatalogFile,
+		index: Int,
+		totalCount: Int,
+		error: Error
+	) -> String {
+		"Package file \(index + 1) of \(totalCount) failed — \(safeName(file)) — \(failureReason(for: error))"
+	}
+
+	internal static func stagingFailureLogLine(file: CatalogFile, error: Error) -> String {
+		"Package staging failed — \(safeName(file)) — \(failureReason(for: error))"
+	}
+
+	internal static func failureReason(for error: Error) -> String {
+		if let catalogError = error as? CatalogError { return String(describing: catalogError) }
+		let nsError = error as NSError
+		return "\(nsError.domain) \(nsError.code)"
+	}
+
+	/// The basename, with the two characters that can turn it into a `key=value` pair neutralised.
+	///
+	/// Stripping path components is not enough: `identifierValuePattern` fires on a bare `download`,
+	/// `entity`, `session`, `user`… followed by `:` or `=`, and the *filename itself* can supply
+	/// both. A catalog file called `download=model.onnx` is rewritten to `download=[redacted]`, and
+	/// the release support log stops naming the file it exists to name.
+	internal static func safeName(_ file: CatalogFile) -> String {
+		(file.relativePath as NSString).lastPathComponent
+			.replacingOccurrences(of: "=", with: "_")
+			.replacingOccurrences(of: ":", with: "_")
+	}
+
+	/// The transport-level line, sharing the formatter so it is covered by the same
+	/// redaction-survival tests. Hand-building a second message shape is how one of them silently
+	/// stops surviving redaction.
+	internal static func httpFailureLogLine(fileName: String?, statusCode: Int) -> String {
+		let name = (fileName?.isEmpty == false ? fileName : nil) ?? "unknown"
+		let safe = name
+			.replacingOccurrences(of: "=", with: "_")
+			.replacingOccurrences(of: ":", with: "_")
+		return "Package file transfer failed — \(safe) — HTTP \(statusCode)"
 	}
 }
