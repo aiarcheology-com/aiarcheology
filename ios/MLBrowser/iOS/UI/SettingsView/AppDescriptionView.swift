@@ -13,6 +13,12 @@ struct AppDescriptionView: View {
     @EnvironmentObject private var messageCenter: MessageCenterState
     /// Backs the detailed-log switch below (AIA-0602).
     @EnvironmentObject private var settings: Settings
+    /// Analytics state, for the Share-usage-data switch this screen now owns (AIA-0626).
+    ///
+    /// Inherited from `SettingsForm`, which is where About is pushed from. A push, not a sheet —
+    /// `@EnvironmentObject` crosses it reliably, unlike the custom environment *values* AGENTS §3
+    /// warns about on Mac.
+    @EnvironmentObject private var analytics: AnalyticsState
     /// Device language for localized message content.
     private let languageCode = AppMessage.deviceLanguageCode
     let versionString: String = appVersion()
@@ -36,7 +42,7 @@ struct AppDescriptionView: View {
 				}
 				applicationSection
 				contactSection
-				legalSection
+				privacySection
 				debugSection
 			}
 			Spacer()
@@ -149,8 +155,18 @@ struct AppDescriptionView: View {
 		}
 	}
 
-	private var legalSection: some View {
-		Section(header: Text(L10n.About.Section.legal)) {
+	/// Everything privacy-related, on one screen (AIA-0626).
+	///
+	/// This was `legalSection`, holding only the Privacy Policy link. The app had *two* privacy
+	/// surfaces: this one, headed "Legal", and a section in Settings headed "Privacy" carrying the
+	/// Share-usage-data switch. A user looking for what the app collects had no way to know which to
+	/// open, and the policy and the control that governs it sat two screens apart.
+	///
+	/// The switch keeps its footer, which is the only place the collection limits are stated, and it
+	/// still renders **only** when the analytics feature is on — a switch for a feature that is off
+	/// would promise a choice the app does not honour.
+	private var privacySection: some View {
+		Section(header: Text(L10n.About.Section.privacy), footer: privacyFooter) {
 			NavigationLink(destination:
 							PrivacyPolicyView(htmlFileName: "privacypolicy")
 				.navigationTitle(L10n.About.privacyPolicy)
@@ -158,6 +174,29 @@ struct AppDescriptionView: View {
 				Text(L10n.About.privacyPolicy)
 			}
 			.testability(Testability.NavigationLink.appDescriptionPrivacyPolicy)
+
+			if analytics.isAnalyticsFeatureEnabled {
+				// Reads the derived value, not `settings.analyticsEnabled` — that field holds only
+				// the anonymous bucket's answer, so an account-scoped user would be shown someone
+				// else's choice while their own is in force (AIA-0536). Carried across the move
+				// verbatim for that reason.
+				Toggle(L10n.Analytics.Settings.toggle, isOn: Binding(
+					get: { analytics.isAnalyticsEnabled },
+					set: { analytics.setAnalyticsEnabled($0) }
+				))
+				.testability(Testability.Toggle.settingsAnalytics)
+			}
+		}
+	}
+
+	/// The collection-limits sentence, shown only when there is a switch for it to qualify.
+	///
+	/// Conditional because this section now outlives the switch: it holds the policy link whether or
+	/// not analytics is available, and a footer describing an absent control describes nothing.
+	@ViewBuilder
+	private var privacyFooter: some View {
+		if analytics.isAnalyticsFeatureEnabled {
+			Text(L10n.Analytics.Settings.footer)
 		}
 	}
 
