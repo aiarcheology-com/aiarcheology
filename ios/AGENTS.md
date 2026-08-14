@@ -341,11 +341,11 @@ Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule
   deliberately does not carry, and **each skips silently while the run still reports success**:
   - `NATIVE_MODEL_ONNX_DIRECTORY` — the `.onnx` conversion fixtures behind
     `ONNXConversionIntegrationTests` and the YOLO trunk tests. Populate it with
-    `scripts/fetch_native_test_models.sh [TARGET_DIR]`, which downloads the manifest's models and
+    `./scripts/fetch_native_test_models.sh [TARGET_DIR]`, which downloads the manifest's models and
     verifies each SHA-256, then pass the same directory in the variable.
   - `NATIVE_MODEL_REFERENCE_DIRECTORY` — Apple's MobileNetV2 FP16 / INT8-LUT artifacts behind
     `MobileNetV2ReferenceModelTests`. Do not export it by hand:
-    `scripts/test_native_model_converter.sh` downloads them to a temp directory, pins their SHA-256
+    `./scripts/test_native_model_converter.sh` downloads them to a temp directory, pins their SHA-256
     and sets the variable itself.
 
   Neither variable is set by the other's script, so a run with only one of them still skips half.
@@ -540,7 +540,7 @@ has in fact shipped will treat a released schema as editable.
   test plans do not cover `Sources/NativeModelConverter/`, so a converter change could pass every
   documented gate with none of its own suites run — and its two fixture-gated suites *skip silently
   while the run still reports success*. The bullet names both variables, the script that supplies
-  each (`fetch_native_test_models.sh`, `test_native_model_converter.sh`), and the fact that neither
+  each (`./scripts/fetch_native_test_models.sh`, `./scripts/test_native_model_converter.sh`), and the fact that neither
   script sets the other's variable. `fetch_native_test_models.sh` had until now been documented
   nowhere but its own header comment.
 - **2026-08-12**: §15 gained the **separately-normalised paths** anti-pattern and §13's false-green block gained the `-only-testing:`-matches-nothing mechanism (both from AIA-0603: `standardizedFileURL` is existence-conditional, so a device-only `/private` prefix broke every catalog package download while remaining invisible to the simulator).
