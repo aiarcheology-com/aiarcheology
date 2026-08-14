@@ -334,6 +334,22 @@ Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule
 - Run lint: `./scripts/swiftlint.sh` (use `./scripts/swiftlint.sh fix` only when safe).
 - Run architectural lint: `./scripts/harmonize.sh` (for significant structural changes).
 - Add/update tests when behavior changes.
+- **Touched `Sources/NativeModelConverter/` or `Tests/NativeModelConverterTests/`? The app's test
+  plans do not cover them.** The converter is a separate SPM package at the repo root with its own
+  suite — run `swift test` for it, and see the check table in `../NATIVE_MODEL_CONVERSION.md` for the
+  Apple-artifact and Python parity runs. Two of its suites are gated on fixtures the repo
+  deliberately does not carry, and **each skips silently while the run still reports success**:
+  - `NATIVE_MODEL_ONNX_DIRECTORY` — the `.onnx` conversion fixtures behind
+    `ONNXConversionIntegrationTests` and the YOLO trunk tests. Populate it with
+    `scripts/fetch_native_test_models.sh [TARGET_DIR]`, which downloads the manifest's models and
+    verifies each SHA-256, then pass the same directory in the variable.
+  - `NATIVE_MODEL_REFERENCE_DIRECTORY` — Apple's MobileNetV2 FP16 / INT8-LUT artifacts behind
+    `MobileNetV2ReferenceModelTests`. Do not export it by hand:
+    `scripts/test_native_model_converter.sh` downloads them to a temp directory, pins their SHA-256
+    and sets the variable itself.
+
+  Neither variable is set by the other's script, so a run with only one of them still skips half.
+  A converter change verified against the app's test plans alone has exercised none of this.
 - Build and run unit tests (prefer the scheme's test plans).
   - Xcode: run via the `MLBrowser` scheme and select the test plan.
   - CLI example (choose an available simulator destination on your machine):
@@ -520,6 +536,13 @@ has in fact shipped will treat a released schema as editable.
 
 ### Changelog
 
+- **2026-08-14**: §13 Quality gates gained the **native converter package** (AIA-0637). The app's
+  test plans do not cover `Sources/NativeModelConverter/`, so a converter change could pass every
+  documented gate with none of its own suites run — and its two fixture-gated suites *skip silently
+  while the run still reports success*. The bullet names both variables, the script that supplies
+  each (`fetch_native_test_models.sh`, `test_native_model_converter.sh`), and the fact that neither
+  script sets the other's variable. `fetch_native_test_models.sh` had until now been documented
+  nowhere but its own header comment.
 - **2026-08-12**: §15 gained the **separately-normalised paths** anti-pattern and §13's false-green block gained the `-only-testing:`-matches-nothing mechanism (both from AIA-0603: `standardizedFileURL` is existence-conditional, so a device-only `/private` prefix broke every catalog package download while remaining invisible to the simulator).
 - **2026-08-11**: §13 gained an **Issues** subsection (every issue joins the AI Archeology org project #1 and starts at `Todo`; `Closes #NNN` never fires on a `develop` merge, so closing and moving the board is manual) and a **DerivedData cleanup** rule (clear `.deriveddata*` when a ticket closes; a stale cache surfaces a dependency change as a bogus `CAsyncHTTPClient` module-resolution error, observed on AIA-0591).
 - **2026-07-15**: §3 Feature flags rewritten for AIA-0350 — flags are now remote (ConfigCat) via `FeatureFlagKey`/`FeatureFlagSnapshot`, not compile-time constants. Documents the fail-open default, the create-the-flag-first rule (the dashboard auto-generates keys), the per-flag live vs launch-only decision, and the never-block-launch rule. Full detail moved to `../FEATUREFLAGS.md`; product analytics (not yet implemented) is specified in `../ANALYTICS.md`.
