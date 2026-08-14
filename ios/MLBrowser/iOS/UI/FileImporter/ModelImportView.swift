@@ -363,7 +363,7 @@ struct ModelImportView: View {
 	
 	private var instructionsSection: some View {
 		Section {
-			Text(L10n.Import.supportedModelsInfo)
+			Text(L10n.Import.supportedModelsAndFormats)
 				.font(.subheadline)
 				.foregroundStyle(Color(.secondaryLabel))
 		} header: {

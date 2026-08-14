@@ -659,8 +659,8 @@ internal enum L10n {
     }
     /// Supported Models
     internal static let supportedModels = L10n.tr("Localizable", "import.supportedModels", fallback: "Supported Models")
-    /// Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an object-detection or image-classification model in ONNX format (.onnx) — the app converts it to Core ML on your device. Other model types are not supported in this version.
-    internal static let supportedModelsInfo = L10n.tr("Localizable", "import.supportedModelsInfo", fallback: "Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an object-detection or image-classification model in ONNX format (.onnx) — the app converts it to Core ML on your device. Other model types are not supported in this version.")
+    /// Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an ONNX model (.onnx), which the app converts to Core ML on your device — image classifiers and YOLO-family detectors are supported. Other model types are not supported in this version.
+    internal static let supportedModelsAndFormats = L10n.tr("Localizable", "import.supportedModelsAndFormats", fallback: "Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an ONNX model (.onnx), which the app converts to Core ML on your device — image classifiers and YOLO-family detectors are supported. Other model types are not supported in this version.")
     /// Import Model
     internal static let title = L10n.tr("Localizable", "import.title", fallback: "Import Model")
     /// The model was imported. The app can't verify what an imported model does, so please confirm its type on the next screen. You're responsible for the choice, and a wrong type can produce incorrect results.
