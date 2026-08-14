@@ -1,19 +1,15 @@
 Build: TBD
 
-Test Focus 1: The model-import sheet, in your own language.
+Test Focus 1: What the model-import sheet promises.
 
-Every language except English was telling users the wrong thing about which models the app accepts. It named the wrong Apple product ("Create ML" instead of "Core ML"), left out ONNX import entirely, and left out image classification. English was always correct.
+It used to say you could import "an object-detection or image-classification model in ONNX format". ONNX is a container, not a model type — the app converts image classifiers and YOLO-family detectors, and nothing else. Someone with an SSD or RetinaFace export would have been told it was supported, imported it, and hit a failure.
 
-This only needs checking if you use the app in a language other than English.
+1. Open the model list, tap + to import a model, and read the "Supported Models" paragraph. It should now say image classifiers and YOLO-family detectors are supported — not object detection in general.
 
-1. Switch your device to German, Czech, French, Spanish, Polish, Russian, Ukrainian, Hungarian, Arabic, Hebrew, Hindi, Persian, Bengali or any Chinese variant.
+2. Check it in your own language too. All 17 languages were rewritten; the terms Core ML, ONNX, YOLO, .mlmodel, .mlpackage and .onnx must appear untranslated.
 
-2. Open the model list, tap the + button to import a model, and read the "Supported Models" paragraph.
+3. Import something that should work — a Core ML model, or a YOLO-family ONNX detector — and confirm the import path itself is unchanged.
 
-3. It must say Core ML — not Create ML — and it must mention that ONNX (.onnx) models can be imported and are converted on your device. It should also mention image classification alongside object detection.
-
-4. The terms Core ML, ONNX, .mlmodel, .mlpackage and .onnx must appear exactly like that, untranslated.
-
-5. Sanity check the rest of that screen in your language: nothing else changed, so anything that reads oddly is pre-existing — tell us anyway.
+4. If you have a non-YOLO ONNX detector to hand, import it. It should fail, and the failure should name the operation it could not convert rather than failing vaguely. Tell us the wording if it is unhelpful.
 
 Please report your device model, iOS version and the language you tested in.

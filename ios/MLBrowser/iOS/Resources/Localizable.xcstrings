@@ -27548,110 +27548,110 @@
         }
       }
     },
-    "import.supportedModelsInfo" : {
-      "comment" : "Information about supported model types",
+    "import.supportedModelsAndFormats" : {
+      "comment" : "What the import sheet accepts (AIA-0630). Replaces import.supportedModelsInfo, which promised object detection in ONNX generally — ONNX is a container, and the converter decodes only YOLO-family detector heads (anchor-based YOLOv2 via NativeModelDetectorCatalog, anchor-free YOLOv8/YOLO11 via NativeModelAnchorFreeRecognizer) plus image classifiers. Deliberately names no YOLO version numbers: the catalog gains families, and a version list in a UI string goes stale the day it does.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "اختر نموذج Core ML (.mlmodel أو .mlpackage) لاكتشاف الكائنات أو تصنيف الصور. يمكنك أيضًا استيراد نموذج لاكتشاف الكائنات أو تصنيف الصور بتنسيق ONNX (.onnx) — يحوّله التطبيق إلى Core ML على جهازك. أنواع النماذج الأخرى غير مدعومة في هذا الإصدار."
+            "value" : "اختر نموذج Core ML (.mlmodel أو .mlpackage) لاكتشاف الكائنات أو تصنيف الصور. يمكنك أيضًا استيراد نموذج ONNX (.onnx) يحوّله التطبيق إلى Core ML على جهازك — المدعوم منها مصنّفات الصور وكاشفات عائلة YOLO. أنواع النماذج الأخرى غير مدعومة في هذا الإصدار."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "অবজেক্ট শনাক্তকরণ বা ইমেজ ক্লাসিফিকেশনের জন্য একটি Core ML মডেল (.mlmodel বা .mlpackage) বেছে নিন। আপনি ONNX ফরম্যাটে (.onnx) অবজেক্ট শনাক্তকরণ বা ইমেজ ক্লাসিফিকেশনের মডেলও ইমপোর্ট করতে পারেন — অ্যাপ সেটি আপনার ডিভাইসেই Core ML-এ রূপান্তর করে। অন্য ধরনের মডেল এই সংস্করণে সমর্থিত নয়।"
+            "value" : "অবজেক্ট শনাক্তকরণ বা ইমেজ ক্লাসিফিকেশনের জন্য একটি Core ML মডেল (.mlmodel বা .mlpackage) বেছে নিন। আপনি একটি ONNX মডেলও (.onnx) ইমপোর্ট করতে পারেন, যা অ্যাপ আপনার ডিভাইসেই Core ML-এ রূপান্তর করে — ইমেজ ক্লাসিফায়ার এবং YOLO পরিবারের ডিটেক্টর সমর্থিত। অন্য ধরনের মডেল এই সংস্করণে সমর্থিত নয়।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Vyberte model Core ML (.mlmodel nebo .mlpackage) pro detekci objektů nebo klasifikaci obrázků. Můžete také importovat model pro detekci objektů nebo klasifikaci obrázků ve formátu ONNX (.onnx) — aplikace jej převede na Core ML přímo ve vašem zařízení. Jiné typy modelů nejsou v této verzi podporovány."
+            "value" : "Vyberte model Core ML (.mlmodel nebo .mlpackage) pro detekci objektů nebo klasifikaci obrázků. Můžete také importovat model ONNX (.onnx), který aplikace převede na Core ML přímo ve vašem zařízení — podporovány jsou klasifikátory obrázků a detektory z rodiny YOLO. Jiné typy modelů nejsou v této verzi podporovány."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Wählen Sie ein Core ML-Modell (.mlmodel oder .mlpackage) für Objekterkennung oder Bildklassifizierung. Sie können auch ein Modell zur Objekterkennung oder Bildklassifizierung im ONNX-Format (.onnx) importieren – die App konvertiert es auf Ihrem Gerät zu Core ML. Andere Modelltypen werden in dieser Version nicht unterstützt."
+            "value" : "Wählen Sie ein Core ML-Modell (.mlmodel oder .mlpackage) für Objekterkennung oder Bildklassifizierung. Sie können auch ein ONNX-Modell (.onnx) importieren, das die App auf Ihrem Gerät zu Core ML konvertiert – unterstützt werden Bildklassifizierer und Detektoren der YOLO-Familie. Andere Modelltypen werden in dieser Version nicht unterstützt."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an object-detection or image-classification model in ONNX format (.onnx) — the app converts it to Core ML on your device. Other model types are not supported in this version."
+            "value" : "Choose a Core ML model (.mlmodel or .mlpackage) for object detection or image classification. You can also import an ONNX model (.onnx), which the app converts to Core ML on your device — image classifiers and YOLO-family detectors are supported. Other model types are not supported in this version."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Elige un modelo de Core ML (.mlmodel o .mlpackage) para detección de objetos o clasificación de imágenes. También puedes importar un modelo de detección de objetos o clasificación de imágenes en formato ONNX (.onnx): la app lo convierte a Core ML en tu dispositivo. Otros tipos de modelos no son compatibles en esta versión."
+            "value" : "Elige un modelo de Core ML (.mlmodel o .mlpackage) para detección de objetos o clasificación de imágenes. También puedes importar un modelo ONNX (.onnx), que la app convierte a Core ML en tu dispositivo: se admiten clasificadores de imágenes y detectores de la familia YOLO. Otros tipos de modelos no son compatibles en esta versión."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "یک مدل Core ML (.mlmodel یا .mlpackage) برای تشخیص اشیا یا طبقه‌بندی تصویر انتخاب کنید. می‌توانید مدلی برای تشخیص اشیا یا طبقه‌بندی تصویر با قالب ONNX (.onnx) نیز وارد کنید — برنامه آن را روی دستگاه شما به Core ML تبدیل می‌کند. سایر انواع مدل در این نسخه پشتیبانی نمی‌شوند."
+            "value" : "یک مدل Core ML (.mlmodel یا .mlpackage) برای تشخیص اشیا یا طبقه‌بندی تصویر انتخاب کنید. می‌توانید مدل ONNX (.onnx) نیز وارد کنید که برنامه آن را روی دستگاه شما به Core ML تبدیل می‌کند — طبقه‌بندی‌کننده‌های تصویر و آشکارسازهای خانوادهٔ YOLO پشتیبانی می‌شوند. سایر انواع مدل در این نسخه پشتیبانی نمی‌شوند."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Choisissez un modèle Core ML (.mlmodel ou .mlpackage) pour la détection d'objets ou la classification d'images. Vous pouvez également importer un modèle de détection d'objets ou de classification d'images au format ONNX (.onnx) : l'app le convertit en Core ML sur votre appareil. Les autres types de modèles ne sont pas pris en charge dans cette version."
+            "value" : "Choisissez un modèle Core ML (.mlmodel ou .mlpackage) pour la détection d'objets ou la classification d'images. Vous pouvez également importer un modèle ONNX (.onnx), que l'app convertit en Core ML sur votre appareil : les classificateurs d'images et les détecteurs de la famille YOLO sont pris en charge. Les autres types de modèles ne sont pas pris en charge dans cette version."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "יש לבחור מודל Core ML (.mlmodel או .mlpackage) לזיהוי אובייקטים או לסיווג תמונות. אפשר לייבא גם מודל לזיהוי אובייקטים או לסיווג תמונות בפורמט ONNX (.onnx) — האפליקציה ממירה אותו ל-Core ML במכשיר שלך. סוגי מודלים אחרים אינם נתמכים בגרסה זו."
+            "value" : "יש לבחור מודל Core ML (.mlmodel או .mlpackage) לזיהוי אובייקטים או לסיווג תמונות. אפשר לייבא גם מודל ONNX (.onnx), שהאפליקציה ממירה ל-Core ML במכשיר שלך — נתמכים מסווגי תמונות וגלאים ממשפחת YOLO. סוגי מודלים אחרים אינם נתמכים בגרסה זו."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "ऑब्जेक्ट डिटेक्शन या इमेज क्लासिफ़िकेशन के लिए एक Core ML मॉडल (.mlmodel या .mlpackage) चुनें। आप ONNX फ़ॉर्मैट (.onnx) में ऑब्जेक्ट डिटेक्शन या इमेज क्लासिफ़िकेशन का मॉडल भी इंपोर्ट कर सकते हैं — ऐप उसे आपके डिवाइस पर ही Core ML में बदल देता है। इस वर्शन में अन्य प्रकार के मॉडल समर्थित नहीं हैं।"
+            "value" : "ऑब्जेक्ट डिटेक्शन या इमेज क्लासिफ़िकेशन के लिए एक Core ML मॉडल (.mlmodel या .mlpackage) चुनें। आप ONNX मॉडल (.onnx) भी इंपोर्ट कर सकते हैं, जिसे ऐप आपके डिवाइस पर ही Core ML में बदल देता है — इमेज क्लासिफ़ायर और YOLO परिवार के डिटेक्टर समर्थित हैं। इस वर्शन में अन्य प्रकार के मॉडल समर्थित नहीं हैं।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Válasszon egy Core ML modellt (.mlmodel vagy .mlpackage) objektumfelismeréshez vagy képosztályozáshoz. Objektumfelismerő vagy képosztályozó modellt ONNX formátumban (.onnx) is importálhat – az alkalmazás az Ön eszközén alakítja át Core ML formátumra. Más modelltípusokat ez a verzió nem támogat."
+            "value" : "Válasszon egy Core ML modellt (.mlmodel vagy .mlpackage) objektumfelismeréshez vagy képosztályozáshoz. ONNX modellt (.onnx) is importálhat, amelyet az alkalmazás az Ön eszközén alakít át Core ML formátumra – a képosztályozók és a YOLO család detektorai támogatottak. Más modelltípusokat ez a verzió nem támogat."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Wybierz model Core ML (.mlmodel lub .mlpackage) do wykrywania obiektów lub klasyfikacji obrazów. Możesz też zaimportować model do wykrywania obiektów lub klasyfikacji obrazów w formacie ONNX (.onnx) — aplikacja przekonwertuje go na Core ML na Twoim urządzeniu. Inne typy modeli nie są obsługiwane w tej wersji."
+            "value" : "Wybierz model Core ML (.mlmodel lub .mlpackage) do wykrywania obiektów lub klasyfikacji obrazów. Możesz też zaimportować model ONNX (.onnx), który aplikacja przekonwertuje na Core ML na Twoim urządzeniu — obsługiwane są klasyfikatory obrazów i detektory z rodziny YOLO. Inne typy modeli nie są obsługiwane w tej wersji."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Выберите модель Core ML (.mlmodel или .mlpackage) для распознавания объектов или классификации изображений. Также можно импортировать модель для распознавания объектов или классификации изображений в формате ONNX (.onnx) — приложение преобразует её в Core ML на вашем устройстве. Другие типы моделей в этой версии не поддерживаются."
+            "value" : "Выберите модель Core ML (.mlmodel или .mlpackage) для распознавания объектов или классификации изображений. Также можно импортировать модель ONNX (.onnx), которую приложение преобразует в Core ML на вашем устройстве, — поддерживаются классификаторы изображений и детекторы семейства YOLO. Другие типы моделей в этой версии не поддерживаются."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Виберіть модель Core ML (.mlmodel або .mlpackage) для розпізнавання об'єктів чи класифікації зображень. Також можна імпортувати модель для розпізнавання об'єктів чи класифікації зображень у форматі ONNX (.onnx) — застосунок перетворить її на Core ML на вашому пристрої. Інші типи моделей у цій версії не підтримуються."
+            "value" : "Виберіть модель Core ML (.mlmodel або .mlpackage) для розпізнавання об'єктів чи класифікації зображень. Також можна імпортувати модель ONNX (.onnx), яку застосунок перетворить на Core ML на вашому пристрої, — підтримуються класифікатори зображень і детектори родини YOLO. Інші типи моделей у цій версії не підтримуються."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "选择用于物体检测或图像分类的 Core ML 模型（.mlmodel 或 .mlpackage）。你也可以导入 ONNX 格式（.onnx）的物体检测或图像分类模型——App 会在你的设备上将其转换为 Core ML。本版本不支持其他类型的模型。"
+            "value" : "选择用于物体检测或图像分类的 Core ML 模型（.mlmodel 或 .mlpackage）。你也可以导入 ONNX 模型（.onnx），App 会在你的设备上将其转换为 Core ML——支持图像分类模型和 YOLO 系列检测模型。本版本不支持其他类型的模型。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "選擇用於物件偵測或影像分類的 Core ML 模型（.mlmodel 或 .mlpackage）。你也可以匯入 ONNX 格式（.onnx）的物件偵測或影像分類模型——App 會在你的裝置上將其轉換為 Core ML。本版本不支援其他類型的模型。"
+            "value" : "選擇用於物件偵測或影像分類的 Core ML 模型（.mlmodel 或 .mlpackage）。你也可以匯入 ONNX 模型（.onnx），App 會在你的裝置上將其轉換為 Core ML——支援影像分類模型與 YOLO 系列偵測模型。本版本不支援其他類型的模型。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "選擇用於物件偵測或圖像分類的 Core ML 模型（.mlmodel 或 .mlpackage）。你亦可匯入 ONNX 格式（.onnx）的物件偵測或圖像分類模型——App 會在你的裝置上將其轉換為 Core ML。此版本不支援其他類型的模型。"
+            "value" : "選擇用於物件偵測或圖像分類的 Core ML 模型（.mlmodel 或 .mlpackage）。你亦可匯入 ONNX 模型（.onnx），App 會在你的裝置上將其轉換為 Core ML——支援圖像分類模型與 YOLO 系列偵測模型。此版本不支援其他類型的模型。"
           }
         }
       }
