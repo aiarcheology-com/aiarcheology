@@ -39732,319 +39732,211 @@
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "قد يجعل ذلك تقريرك أكثر فائدة بكثير. فهو يمنحنا سجلاً موجزًا لما كان التطبيق يفعله قبل حدوث المشكلة. يُشفَّر السجل قبل إرفاقه — ولا يستطيع قراءته سوى دعم ML Browser، فلن يكون بإمكانك أنت ولا أي شخص تُعيد توجيه الرسالة إليه قراءته."
+            "value" : "هذا يجعل تقريرك أكثر فائدة بكثير. فهو يمنحنا سجلاً موجزًا لما كان التطبيق يفعله قبل حدوث المشكلة."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "এটি আপনার রিপোর্টকে অনেক বেশি কার্যকর করে তুলতে পারে। সমস্যার আগে অ্যাপটি কী করছিল তার একটি সংক্ষিপ্ত রেকর্ড আমরা পাই। সংযুক্ত করার আগে লগটি এনক্রিপ্ট করা হয় — কেবল ML Browser সহায়তা এটি পড়তে পারে; আপনি বা যাঁকে ইমেলটি ফরওয়ার্ড করবেন, কেউই পড়তে পারবেন না।"
+            "value" : "এটি আপনার রিপোর্টকে অনেক বেশি কার্যকর করে তোলে। সমস্যার আগে অ্যাপটি কী করছিল তার একটি সংক্ষিপ্ত রেকর্ড আমরা পাই।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Díky tomu může být vaše hlášení mnohem užitečnější. Získáme krátký záznam o tom, co aplikace dělala před problémem. Protokol se před přiložením zašifruje — přečíst jej může jen podpora ML Browser a nebude čitelný pro vás ani pro nikoho, komu e-mail přepošlete."
+            "value" : "Díky tomu bude vaše hlášení mnohem užitečnější. Získáme krátký záznam o tom, co aplikace dělala před problémem."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Das kann Ihren Bericht deutlich nützlicher machen. Es gibt uns eine kurze Aufzeichnung dessen, was die App vor dem Problem getan hat. Das Protokoll wird vor dem Anhängen verschlüsselt — nur der Support von ML Browser kann es lesen; weder Sie noch jemand, an den Sie die E-Mail weiterleiten, kann es öffnen."
+            "value" : "Das macht Ihren Bericht deutlich nützlicher. Es gibt uns eine kurze Aufzeichnung dessen, was die App vor dem Problem getan hat."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This can make your report much more useful. It gives us a short record of what the app was doing before the problem. The log is encrypted before it is attached — only ML Browser support can read it, and it will not be readable by you or by anyone you forward it to."
+            "value" : "This makes your report much more useful. It gives us a short record of what the app was doing before the problem."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Esto puede hacer que tu informe sea mucho más útil. Nos ofrece un breve registro de lo que hacía la app antes del problema. El registro se cifra antes de adjuntarse: solo el soporte de ML Browser puede leerlo, y no podrás abrirlo ni tú ni nadie a quien reenvíes el correo."
+            "value" : "Esto hace que tu informe sea mucho más útil. Nos ofrece un breve registro de lo que hacía la app antes del problema."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "این می‌تواند گزارش شما را بسیار مفیدتر کند و سابقه‌ای کوتاه از آنچه برنامه پیش از بروز مشکل انجام می‌داد به ما می‌دهد. گزارش پیش از پیوست‌شدن رمزگذاری می‌شود — تنها پشتیبانی ML Browser می‌تواند آن را بخواند و نه شما و نه کسی که ایمیل را برایش می‌فرستید قادر به خواندن آن نخواهد بود."
+            "value" : "این گزارش شما را بسیار مفیدتر می‌کند و سابقه‌ای کوتاه از آنچه برنامه پیش از بروز مشکل انجام می‌داد به ما می‌دهد."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Cela peut rendre votre rapport beaucoup plus utile. Il nous donne un bref historique de ce que faisait l’app avant le problème. Le journal est chiffré avant d’être joint — seule l’assistance ML Browser peut le lire, et il ne sera lisible ni par vous ni par les personnes à qui vous transférez le message."
+            "value" : "Cela rend votre rapport beaucoup plus utile. Il nous donne un bref historique de ce que faisait l’app avant le problème."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "זה יכול להפוך את הדיווח שלך למועיל הרבה יותר. זה נותן לנו תיעוד קצר של מה שהאפליקציה עשתה לפני התקלה. היומן מוצפן לפני הצירוף — רק התמיכה של ML Browser יכולה לקרוא אותו, ולא תוכל לקרוא אותו לא אתה ולא מי שתעביר אליו את ההודעה."
+            "value" : "זה הופך את הדיווח שלך למועיל הרבה יותר. זה נותן לנו תיעוד קצר של מה שהאפליקציה עשתה לפני התקלה."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "इससे आपकी रिपोर्ट कहीं अधिक उपयोगी हो सकती है। इससे हमें यह संक्षिप्त रिकॉर्ड मिलता है कि समस्या से पहले ऐप क्या कर रहा था। लॉग संलग्न करने से पहले एन्क्रिप्ट किया जाता है — इसे केवल ML Browser सहायता ही पढ़ सकती है; न आप इसे पढ़ पाएंगे और न ही वह व्यक्ति जिसे आप ईमेल अग्रेषित करते हैं।"
+            "value" : "इससे आपकी रिपोर्ट कहीं अधिक उपयोगी हो जाती है। इससे हमें यह संक्षिप्त रिकॉर्ड मिलता है कि समस्या से पहले ऐप क्या कर रहा था।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Ez sokkal hasznosabbá teheti a hibajelentést. Rövid feljegyzést ad arról, mit csinált az alkalmazás a probléma előtt. A naplót csatolás előtt titkosítjuk — csak az ML Browser támogatás tudja elolvasni; sem Ön, sem az, akinek továbbküldi az e-mailt, nem tudja megnyitni."
+            "value" : "Ez sokkal hasznosabbá teszi a hibajelentést. Rövid feljegyzést ad arról, mit csinált az alkalmazás a probléma előtt."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Dzięki temu Twoje zgłoszenie może być znacznie bardziej przydatne. Otrzymujemy krótki zapis tego, co aplikacja robiła przed wystąpieniem problemu. Dziennik jest szyfrowany przed dołączeniem — może go odczytać wyłącznie pomoc techniczna ML Browser; nie odczytasz go ani Ty, ani nikt, komu przekażesz wiadomość."
+            "value" : "Dzięki temu Twoje zgłoszenie będzie znacznie bardziej przydatne. Otrzymujemy krótki zapis tego, co aplikacja robiła przed wystąpieniem problemu."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Это может сделать ваше сообщение гораздо полезнее. Мы получим краткую запись того, что делало приложение перед возникновением проблемы. Журнал шифруется перед вложением — прочитать его может только служба поддержки ML Browser; ни вы, ни те, кому вы перешлёте письмо, открыть его не смогут."
+            "value" : "Это делает ваше сообщение гораздо полезнее. Мы получим краткую запись того, что делало приложение перед возникновением проблемы."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Це може зробити ваше звернення значно кориснішим. Ми отримаємо короткий запис того, що робив застосунок перед виникненням проблеми. Журнал шифрується перед вкладенням — прочитати його може лише служба підтримки ML Browser; ні ви, ні ті, кому ви перешлете лист, не зможуть його відкрити."
+            "value" : "Це робить ваше звернення значно кориснішим. Ми отримаємо короткий запис того, що робив застосунок перед виникненням проблеми."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "这能让你的报告更有价值。它为我们提供一份简短记录，说明出现问题前 App 正在做什么。日志在附加前会被加密——只有 ML Browser 支持团队能够读取，你本人以及你转发邮件的任何人都无法阅读。"
+            "value" : "这能让你的报告更有价值。它为我们提供一份简短记录，说明出现问题前 App 正在做什么。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "這能讓你的報告更有價值。它為我們提供一份簡短記錄，說明問題發生前 App 正在做什麼。記錄在附加前會先加密——只有 ML Browser 支援團隊能夠讀取，你本人以及你轉寄郵件的任何人都無法閱讀。"
+            "value" : "這能讓你的報告更有價值。它為我們提供一份簡短記錄，說明問題發生前 App 正在做什麼。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "這能令你的報告更有價值。它為我們提供一份簡短記錄，說明問題發生前 App 正在做甚麼。記錄在附加前會先加密——只有 ML Browser 支援團隊能夠讀取，你本人以及你轉寄郵件的任何人都無法閱讀。"
+            "value" : "這能令你的報告更有價值。它為我們提供一份簡短記錄，說明問題發生前 App 正在做甚麼。"
           }
         }
       }
     },
-    "support.applicationLog.share" : {
-      "comment" : "Button that saves or shares the encrypted application log file.",
+    "support.shareApplicationLog" : {
+      "comment" : "Row in the support form that saves or shares the application log outside email.",
       "extractionState" : "manual",
       "localizations" : {
         "ar" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "حفظ السجل المشفَّر أو مشاركته"
+            "value" : "حفظ السجل أو مشاركته"
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "এনক্রিপ্ট করা লগ সংরক্ষণ বা শেয়ার করুন"
+            "value" : "লগ সংরক্ষণ বা শেয়ার করুন"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Uložit nebo sdílet zašifrovaný protokol"
+            "value" : "Uložit nebo sdílet protokol"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Verschlüsseltes Protokoll sichern oder teilen"
+            "value" : "Protokoll sichern oder teilen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save or share the encrypted log"
+            "value" : "Save or share the log"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Guardar o compartir el registro cifrado"
+            "value" : "Guardar o compartir el registro"
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "ذخیره یا هم‌رسانی گزارش رمزگذاری‌شده"
+            "value" : "ذخیره یا هم‌رسانی گزارش"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Enregistrer ou partager le journal chiffré"
+            "value" : "Enregistrer ou partager le journal"
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "שמירה או שיתוף של היומן המוצפן"
+            "value" : "שמירת היומן או שיתופו"
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "एन्क्रिप्टेड लॉग सहेजें या साझा करें"
+            "value" : "लॉग सहेजें या साझा करें"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Titkosított napló mentése vagy megosztása"
+            "value" : "Napló mentése vagy megosztása"
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Zapisz lub udostępnij zaszyfrowany dziennik"
+            "value" : "Zapisz lub udostępnij dziennik"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Сохранить или отправить зашифрованный журнал"
+            "value" : "Сохранить журнал или поделиться им"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "Зберегти або надіслати зашифрований журнал"
+            "value" : "Зберегти журнал або поділитися ним"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "存储或共享加密日志"
+            "value" : "存储或分享日志"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "儲存或分享加密記錄"
+            "value" : "儲存或分享記錄"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "needs_review",
-            "value" : "儲存或分享加密記錄"
-          }
-        }
-      }
-    },
-    "support.privacyNoteWithSealedLog" : {
-      "comment" : "Footer explaining that the user reviews and sends the email themselves, and that the app log attachment is encrypted and therefore not readable by them.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "لا يُرسَل شيء حتى ترسله بنفسك. سترى البريد كاملًا ويمكنك إزالة أي مرفق قبل الإرسال. يُرفق سجل التطبيق مشفَّرًا، لذا — بخلاف بقية البريد — لا يمكنك قراءة محتواه."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "আপনি না পাঠানো পর্যন্ত কিছুই পাঠানো হয় না। আপনি পুরো ইমেলটি দেখবেন এবং পাঠানোর আগে যেকোনো সংযুক্তি সরাতে পারবেন। অ্যাপ লগটি এনক্রিপ্ট করা অবস্থায় সংযুক্ত হয়, তাই ইমেলের বাকি অংশের বিপরীতে আপনি এর বিষয়বস্তু পড়তে পারবেন না।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Nic se neodešle, dokud to neuděláte vy. Uvidíte celý e-mail a před odesláním můžete kteroukoli přílohu odebrat. Protokol aplikace je přiložen v zašifrované podobě, takže na rozdíl od zbytku e-mailu jeho obsah nepřečtete."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Es wird nichts gesendet, bis Sie es senden. Sie sehen die gesamte E-Mail und können vor dem Senden jeden Anhang entfernen. Das App-Protokoll wird verschlüsselt angehängt — anders als den Rest der E-Mail können Sie seinen Inhalt nicht lesen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nothing is sent until you send it. You will see the whole email and can remove any attachment before sending. The app log is attached in encrypted form, so unlike the rest of the email you cannot read its contents."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "No se envía nada hasta que tú lo envías. Verás todo el correo y podrás quitar cualquier archivo adjunto antes de enviarlo. El registro de la app se adjunta cifrado, así que, a diferencia del resto del correo, no puedes leer su contenido."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "تا زمانی که خودتان ارسال نکنید چیزی فرستاده نمی‌شود. کل ایمیل را می‌بینید و می‌توانید پیش از ارسال هر پیوستی را حذف کنید. گزارش برنامه به‌صورت رمزگذاری‌شده پیوست می‌شود، بنابراین برخلاف بقیهٔ ایمیل نمی‌توانید محتوای آن را بخوانید."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Rien n’est envoyé tant que vous ne l’envoyez pas. Vous verrez l’intégralité de l’e-mail et pourrez retirer toute pièce jointe avant l’envoi. Le journal de l’app est joint sous forme chiffrée : contrairement au reste du message, vous ne pouvez pas en lire le contenu."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "שום דבר לא נשלח עד שתשלח. תראה את ההודעה כולה ותוכל להסיר כל קובץ מצורף לפני השליחה. יומן האפליקציה מצורף בצורה מוצפנת, ולכן — בניגוד לשאר ההודעה — לא ניתן לקרוא את תוכנו."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "जब तक आप नहीं भेजते, कुछ भी नहीं भेजा जाता। आप पूरा ईमेल देखेंगे और भेजने से पहले कोई भी अनुलग्नक हटा सकते हैं। ऐप लॉग एन्क्रिप्टेड रूप में संलग्न होता है, इसलिए ईमेल के बाकी हिस्से के विपरीत आप उसकी सामग्री नहीं पढ़ सकते।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Semmi sem kerül elküldésre, amíg Ön el nem küldi. Látni fogja a teljes e-mailt, és küldés előtt bármelyik mellékletet eltávolíthatja. Az alkalmazásnapló titkosítva van csatolva, így az e-mail többi részétől eltérően a tartalmát nem tudja elolvasni."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Nic nie zostanie wysłane, dopóki sam tego nie zrobisz. Zobaczysz całą wiadomość i przed wysłaniem możesz usunąć dowolny załącznik. Dziennik aplikacji jest dołączany w postaci zaszyfrowanej, więc — inaczej niż reszta wiadomości — nie odczytasz jego treści."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Ничего не отправляется, пока вы не отправите сами. Вы увидите всё письмо и сможете удалить любое вложение перед отправкой. Журнал приложения вложен в зашифрованном виде, поэтому, в отличие от остального письма, прочитать его содержимое вы не сможете."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Нічого не надсилається, доки ви не надішлете самі. Ви побачите весь лист і зможете вилучити будь-яке вкладення перед надсиланням. Журнал застосунку вкладено в зашифрованому вигляді, тож, на відміну від решти листа, ви не зможете прочитати його вміст."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "在你发送之前，不会发送任何内容。你可以看到整封邮件，并在发送前移除任何附件。App 日志以加密形式附加，因此与邮件的其余部分不同，你无法阅读其内容。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "在你傳送之前，不會傳送任何內容。你可以看到整封郵件，並在傳送前移除任何附件。App 記錄以加密形式附加，因此與郵件的其餘部分不同，你無法閱讀其內容。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "在你傳送之前，不會傳送任何內容。你可以看到整封郵件，並在傳送前移除任何附件。App 記錄以加密形式附加，因此與郵件的其餘部分不同，你無法閱讀其內容。"
+            "value" : "儲存或分享記錄"
           }
         }
       }
@@ -42421,6 +42313,114 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "開啟「設定」"
+          }
+        }
+      }
+    },
+    "support.privacyNote" : {
+      "comment" : "Footer explaining that the user reviews and sends the support email and its attachments themselves.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لا يُرسَل شيء حتى ترسله بنفسك. سترى البريد كاملًا ويمكنك إزالة أي لقطة شاشة أو مرفق سجل قبل الإرسال."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনি না পাঠানো পর্যন্ত কিছুই পাঠানো হয় না। আপনি পুরো ইমেলটি দেখবেন এবং পাঠানোর আগে যেকোনো স্ক্রিনশট বা অ্যাপ লগ অ্যাটাচমেন্ট সরিয়ে দিতে পারবেন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nic se neodešle, dokud to neodešlete vy. Uvidíte celý e-mail a před odesláním můžete odebrat jakýkoli snímek obrazovky i přílohu s protokolem aplikace."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Es wird nichts gesendet, bevor Sie es senden. Sie sehen die gesamte E-Mail und können Bildschirmfoto- oder Protokollanhänge vor dem Senden entfernen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing is sent until you send it. You will see the whole email and can remove any screenshot or app log attachment before sending."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No se envía nada hasta que tú lo envías. Verás el correo completo y podrás quitar cualquier captura de pantalla o registro de la app antes de enviarlo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تا زمانی که خودتان نفرستید چیزی ارسال نمی‌شود. کل ایمیل را می‌بینید و می‌توانید پیش از ارسال، هر عکس صفحه یا پیوست گزارش برنامه را حذف کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Rien n’est envoyé tant que vous ne l’envoyez pas. Vous verrez l’e-mail complet et pourrez retirer toute capture d’écran ou tout journal de l’app avant l’envoi."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "שום דבר אינו נשלח עד שתשלח אותו. תראה את כל תוכן ההודעה ותוכל להסיר כל צילום מסך או יומן אפליקציה לפני השליחה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "जब तक आप न भेजें, कुछ भी नहीं भेजा जाता। आप पूरा ईमेल देखेंगे और भेजने से पहले कोई भी स्क्रीनशॉट या ऐप लॉग अटैचमेंट हटा सकते हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Semmi nem kerül elküldésre, amíg Ön el nem küldi. Látni fogja a teljes e-mailt, és küldés előtt eltávolíthat bármilyen képernyőkép- vagy naplómellékletet."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nic nie zostanie wysłane, dopóki sam tego nie wyślesz. Zobaczysz całą wiadomość i przed wysłaniem możesz usunąć każdy zrzut ekranu oraz załącznik z dziennikiem aplikacji."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ничего не отправляется, пока вы не отправите сами. Вы увидите всё письмо и сможете удалить снимок экрана или журнал приложения перед отправкой."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Нічого не надсилається, доки ви не надішлете самі. Ви побачите весь лист і зможете вилучити знімок екрана або журнал застосунку перед надсиланням."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "在你点击发送前，不会发送任何内容。你可以看到完整邮件，并在发送前移除截屏或 App 日志附件。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "在你按下傳送之前不會送出任何內容。你會看到整封郵件，並可在傳送前移除任何螢幕快照或 App 記錄附件。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "在你傳送之前，不會傳送任何內容。你可看到完整電郵，並在傳送前移除螢幕快照或 App 記錄附件。"
           }
         }
       }

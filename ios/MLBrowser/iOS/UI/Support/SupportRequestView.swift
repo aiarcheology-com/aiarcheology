@@ -51,12 +51,15 @@ enum ScreenshotAttachmentValidator {
 /// diagnostics (including the web address, which is the single most useful clue for a browser bug)
 /// consent-clean. See ``SupportRequest`` for the full argument.
 ///
-/// **The application log is the one exception, and it is a real one (AIA-0643).** It is sealed to
-/// a public key before it is attached, so the user can see *that* they are attaching it and remove
-/// it, but cannot read what it contains. Reviewability is replaced there by a narrower promise:
-/// the attachment is opaque to everyone including the user, and only ML Browser support can open
-/// it. The copy under both toggles and the form's footer say so in plain language; if that copy is
-/// ever softened, this comment is the record that the guarantee changed.
+/// The argument above covers the **email body** — the diagnostics the user actually reads in the
+/// composer. It never really covered the log attachment, which no one was going to read five MiB
+/// of, and since AIA-0643 that attachment is sealed and unreadable to them.
+///
+/// That is a privacy improvement, not a reduction: the file used to be readable by every mail relay
+/// it passed through and by anyone the user forwarded it to. The controls that matter are unchanged
+/// — attach it or not, redacted or not, and remove it in the composer. No copy on this screen
+/// mentions the encryption, deliberately; the disclosure lives in the hosted privacy policy
+/// (AIA-0624, §2 and §3.5), which is where "what leaves my device and who can read it" belongs.
 struct SupportRequestView: View {
 	/// Preselected when the request starts from the screenshot offer, where we already know the
 	/// user is reporting something broken. `nil` from Settings → About the app → Report a problem →
@@ -172,7 +175,7 @@ struct SupportRequestView: View {
 					.frame(maxWidth: .infinity, alignment: .center)
 					.disabled(isComposing)
 				} footer: {
-					Text(L10n.Support.privacyNoteWithSealedLog)
+					Text(L10n.Support.privacyNote)
 						.font(.body)
 						.foregroundStyle(.primary)
 						.fixedSize(horizontal: false, vertical: true)
@@ -251,14 +254,14 @@ struct SupportRequestView: View {
 	private var applicationLogShareRow: some View {
 		if let applicationLogExportURL {
 			ShareLink(item: applicationLogExportURL) {
-				Label(L10n.Support.ApplicationLog.share, systemImage: "square.and.arrow.up")
+				Label(L10n.Support.shareApplicationLog, systemImage: "square.and.arrow.up")
 			}
 			.testability(Testability.Button.supportRequestShareApplicationLog)
 		} else {
 			// Still gathering, or the file could not be written. Either way there is nothing to
 			// share yet, and a share button pointing at a missing file is worse than none.
 			HStack {
-				Label(L10n.Support.ApplicationLog.share, systemImage: "square.and.arrow.up")
+				Label(L10n.Support.shareApplicationLog, systemImage: "square.and.arrow.up")
 					.foregroundStyle(.secondary)
 				Spacer()
 				if isPreparingApplicationLogExport {

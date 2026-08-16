@@ -2,20 +2,18 @@ Build: TBD
 
 Test Focus 1: The application log you attach to a support email is now encrypted.
 
-Until this build, the log left your device as readable text — which meant anyone the email passed through could read it, and so could anyone you forwarded it to. It is now sealed so that only ML Browser support can open it. The trade is that you cannot read it either, and the app should say so everywhere it matters.
+Until this build, the log left your device as readable text — which meant anyone the email passed through could read it, and so could anyone you forwarded it to. It is now sealed so that only ML Browser support can open it. Nothing about how you use the form changes; what changes is that the file you attach is no longer readable by anyone else who handles the email.
 
-1. Go to Settings → About → Contact and turn on "Include application log". Read the blue text under the toggle and the grey note at the bottom of the form. Both should tell you plainly that the log is encrypted and that you will not be able to read it. If either still suggests you can review it before sending, that is the bug.
+1. Go to Settings → About the app → Report a problem → Send email, and turn on "Include application log". Read the blue text under the toggle. Check it in your own language too — it was rewritten for this build and translated into all 16 languages, so tell us if it reads awkwardly or still shows in English, and which language you tested.
 
-2. Check the same two pieces of text in your own language. Three strings were replaced in this build, so they may still appear in English — tell us if they do, and which language you are testing.
+2. With the toggle on, tap "Save or share the log" and send the file to yourself (AirDrop, Files, Messages — whichever you use). Then try to open it. It should be a single file ending in .aialog that no app can display, and its name must NOT contain the word "unredacted". Confirm the name gives away nothing about which option you picked.
 
-3. With the toggle on, tap "Save or share the encrypted log" and send the file to yourself (AirDrop, Files, Messages — whichever you use). Then try to open it. It should be a single file ending in .aialog that no app can display, and its name must NOT contain the word "unredacted". Confirm the name gives away nothing about which option you picked.
+3. Turn on "Send unredacted data" as well and repeat step 2. The file should look exactly the same from the outside — same kind of name, same unreadable contents. That is deliberate: the choice is recorded inside the encrypted file, so a file sitting in your Files app does not announce it.
 
-4. Turn on "Send unredacted data" as well and repeat step 3. The file should look exactly the same from the outside — same kind of name, same unreadable contents. That is deliberate: the choice is recorded inside the encrypted file, so a file sitting in your Files app does not announce it.
+4. Compose a support email with the log attached and check the attachment in the mail composer before sending. There should be exactly one log attachment. You can still remove it if you change your mind — please confirm that still works. You do not need to actually send it.
 
-5. Compose a support email with the log attached and check the attachment in the mail composer before sending. There should be exactly one log attachment. You can still remove it if you change your mind — please confirm that still works. You do not need to actually send it.
+5. Flip "Include application log" on and off a few times quickly, then turn it off and leave the screen. Nothing about the log should remain offered. Previously a file could reappear after you switched the toggle off; if you see any sign of that, tell us.
 
-6. Flip "Include application log" on and off a few times quickly, then turn it off and leave the screen. Nothing about the log should remain offered. Previously a file could reappear after you switched the toggle off; if you see any sign of that, tell us.
-
-7. Anything you would normally attach a log for — a crash, a stuck download, a page that will not render — is worth doing once end to end, to confirm attaching a log has not become slow. A full log takes a moment to prepare; a spinner is expected, a freeze is not.
+6. Anything you would normally attach a log for — a crash, a stuck download, a page that will not render — is worth doing once end to end, to confirm attaching a log has not become slow. A full log takes a moment to prepare; a spinner is expected, a freeze is not.
 
 Please report your device model, iOS version and the language you tested in.

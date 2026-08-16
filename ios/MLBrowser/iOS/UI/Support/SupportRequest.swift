@@ -36,20 +36,15 @@ import Foundation
 /// before sending. This explicit, reversible choice is the consent boundary for diagnostic data that does
 /// not fit in the visible email body.
 ///
-/// **Since AIA-0643 that attachment is sealed and the user cannot read it.** Reviewability — the
-/// argument above, and the reason prefilled diagnostics are defensible — does not extend to it.
-/// What replaces reviewability is deliberately narrower, and is the whole of what we may claim:
+/// **Since AIA-0643 that attachment is sealed**, so the user can no longer read it either. The
+/// consent that matters is unchanged and still explicit: they choose whether to attach it, they
+/// choose redacted or unredacted, and they can remove it in the composer. What changed is that the
+/// file is now opaque to everyone except ML Browser support — including anyone the mail is
+/// forwarded to, which the old plain-text attachment offered no protection against.
 ///
-/// - the user chooses whether to attach it at all, and can remove it in the composer;
-/// - they choose which form it takes, redacted or not, and the copy explains what each includes;
-/// - the file is opaque to *everyone* except ML Browser support — including the user, and
-///   including anyone they forward the mail to, which is a protection the old plain-text
-///   attachment did not offer.
-///
-/// The trade is honest only while the app says so plainly. `support.applicationLog.explanation`
-/// and `support.privacyNoteWithSealedLog` carry that wording, and the hosted privacy policy
-/// (AIA-0624) mirrors it. If any of those is ever softened to imply the user can review what they
-/// send, the claim becomes false — this paragraph is the record of which promise changed and when.
+/// The encryption is disclosed in the hosted privacy policy (AIA-0624, §2 and §3.5) rather than in
+/// the form, deliberately: it is a "what leaves my device and who can read it" fact, and crypto
+/// wording in a bug-report screen reads as a warning that something is wrong.
 struct SupportRequest {
 	/// The support inbox. The one definition every surface uses — the Contact row that displays
 	/// it, the composer that mails it, and the fallback copy that names it.

@@ -949,8 +949,8 @@ internal enum L10n {
     internal static let includeApplicationLog = L10n.tr("Localizable", "support.includeApplicationLog", fallback: "Include application log")
     /// Open Settings
     internal static let openSettings = L10n.tr("Localizable", "support.openSettings", fallback: "Open Settings")
-    /// Nothing is sent until you send it. You will see the whole email and can remove any attachment before sending. The app log is attached in encrypted form, so unlike the rest of the email you cannot read its contents.
-    internal static let privacyNoteWithSealedLog = L10n.tr("Localizable", "support.privacyNoteWithSealedLog", fallback: "Nothing is sent until you send it. You will see the whole email and can remove any attachment before sending. The app log is attached in encrypted form, so unlike the rest of the email you cannot read its contents.")
+    /// Nothing is sent until you send it. You will see the whole email and can remove any screenshot or app log attachment before sending.
+    internal static let privacyNote = L10n.tr("Localizable", "support.privacyNote", fallback: "Nothing is sent until you send it. You will see the whole email and can remove any screenshot or app log attachment before sending.")
     /// Report copied. Paste it into an email to %@.
     internal static func reportCopied(_ p1: Any) -> String {
       return L10n.tr("Localizable", "support.reportCopied", String(describing: p1), fallback: "Report copied. Paste it into an email to %@.")
@@ -961,13 +961,13 @@ internal enum L10n {
     internal static let sendUnredactedData = L10n.tr("Localizable", "support.sendUnredactedData", fallback: "Send unredacted data")
     /// Use this only if you are comfortable sharing the full technical details. It can include complete web addresses, IDs and location information, which may help us reproduce the problem.
     internal static let sendUnredactedDataExplanation = L10n.tr("Localizable", "support.sendUnredactedDataExplanation", fallback: "Use this only if you are comfortable sharing the full technical details. It can include complete web addresses, IDs and location information, which may help us reproduce the problem.")
+    /// Save or share the log
+    internal static let shareApplicationLog = L10n.tr("Localizable", "support.shareApplicationLog", fallback: "Save or share the log")
     /// Report a problem
     internal static let title = L10n.tr("Localizable", "support.title", fallback: "Report a problem")
     internal enum ApplicationLog {
-      /// This can make your report much more useful. It gives us a short record of what the app was doing before the problem. The log is encrypted before it is attached — only ML Browser support can read it, and it will not be readable by you or by anyone you forward it to.
-      internal static let explanation = L10n.tr("Localizable", "support.applicationLog.explanation", fallback: "This can make your report much more useful. It gives us a short record of what the app was doing before the problem. The log is encrypted before it is attached — only ML Browser support can read it, and it will not be readable by you or by anyone you forward it to.")
-      /// Save or share the encrypted log
-      internal static let share = L10n.tr("Localizable", "support.applicationLog.share", fallback: "Save or share the encrypted log")
+      /// This makes your report much more useful. It gives us a short record of what the app was doing before the problem.
+      internal static let explanation = L10n.tr("Localizable", "support.applicationLog.explanation", fallback: "This makes your report much more useful. It gives us a short record of what the app was doing before the problem.")
     }
     internal enum Body {
       /// Account
