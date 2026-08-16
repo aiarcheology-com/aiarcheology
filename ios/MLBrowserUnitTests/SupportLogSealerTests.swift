@@ -205,9 +205,16 @@ final class SupportLogSealerTests: XCTestCase {
 		// We cannot open it — the app holds no private key, which is the point. What is assertable
 		// is that the shipped key produced a well-formed envelope carrying the shipped key id.
 		XCTAssertEqual(sealed.prefix(SupportLogEnvelope.magic.count), SupportLogEnvelope.magic)
+		// Unwrapped first so a malformed SupportLogKeyID reports itself, rather than surfacing as
+		// the far less obvious "1 is not equal to nil" from the comparison below.
+		let advertisedKeyID = try XCTUnwrap(
+			UInt8(Bundle.main.object(
+				forInfoDictionaryKey: SupportLogSealer.keyIDInfoDictionaryKey
+			) as? String ?? ""),
+			"SupportLogKeyID is missing from Info.plist or is not a number in 1...255."
+		)
 		XCTAssertEqual(
-			try SupportLogEnvelope.keyID(of: sealed),
-			UInt8(Bundle.main.object(forInfoDictionaryKey: SupportLogSealer.keyIDInfoDictionaryKey) as? String ?? ""),
+			try SupportLogEnvelope.keyID(of: sealed), advertisedKeyID,
 			"The sealed file must carry the key id this build advertises, or rotation cannot work."
 		)
 		XCTAssertNil(sealed.range(of: Data("a line".utf8)))

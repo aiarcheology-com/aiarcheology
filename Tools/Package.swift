@@ -13,7 +13,14 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0"),
         // The sealed support-log format, shared with the iOS app so the sealer and the opener
         // cannot drift apart. See Sources/SupportLogFormat.
-        .package(path: "..")
+        //
+        // `name:` is load-bearing, not decoration. Without it SwiftPM derives the package identity
+        // from the directory name, so `.product(package:)` below would have to hard-code
+        // "aiarcheology" — and every checkout under a different folder name would fail to resolve.
+        // That is not hypothetical for this repo: ci_post_clone.sh runs
+        // `swift run --package-path Tools ProjectTool setup` on every Xcode Cloud action, against
+        // a clone whose directory name we do not control.
+        .package(name: "NativeModelConverter", path: "..")
     ],
     targets: [
         // Pure, testable logic. A test target cannot `@testable import` an executable target,
@@ -25,9 +32,7 @@ let package = Package(
                 "ProjectToolCore",
                 // 2. Depend on the product in your executable target
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                // `aiarcheology`, not `NativeModelConverter`: a path dependency's identity is the
-                // directory name, not the name declared in its manifest.
-                .product(name: "SupportLogFormat", package: "aiarcheology")
+                .product(name: "SupportLogFormat", package: "NativeModelConverter")
             ]
         ),
         .testTarget(

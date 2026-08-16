@@ -9,7 +9,7 @@ import Foundation
 import CryptoKit
 import SupportLogFormat
 
-/// Turns a application-log snapshot into the single sealed file the user can send.
+/// Turns an application-log snapshot into the single sealed file the user can send.
 ///
 /// The public key is **injected**, never read from the bundle by this type. That is what makes
 /// "the bytes are sealed" assertable: a test constructs a sealer around a key it minted and reads
