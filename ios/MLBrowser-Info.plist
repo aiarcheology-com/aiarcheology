@@ -2,36 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>fetch</string>
-	</array>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.aiarcheology.mlbrowser.messages.refresh</string>
 	</array>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>ymail</string>
-		<string>readdle-spark</string>
-		<string>ms-outlook</string>
-		<string>googlegmail</string>
-		<string>twitter</string>
-	</array>
-	<key>SentryDSN</key>
-	<string>$(SENTRY_DSN)</string>
-	<key>ClerkPublishableKey</key>
-	<string>$(CLERK_PUBLISHABLE_KEY)</string>
-	<key>ClerkPublishableKeyLive</key>
-	<string>$(CLERK_PUBLISHABLE_KEY_LIVE)</string>
-	<key>ConfigCatSDKKey</key>
-	<string>$(CONFIGCAT_SDK_KEY)</string>
-	<key>ConfigCatSDKKeyLive</key>
-	<string>$(CONFIGCAT_SDK_KEY_LIVE)</string>
-	<key>TelemetryDeckAppID</key>
-	<string>$(TELEMETRYDECK_APP_ID)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -43,17 +17,59 @@
 			</array>
 		</dict>
 	</array>
+	<key>ClerkPublishableKey</key>
+	<string>$(CLERK_PUBLISHABLE_KEY)</string>
+	<key>ClerkPublishableKeyLive</key>
+	<string>$(CLERK_PUBLISHABLE_KEY_LIVE)</string>
+	<key>ConfigCatSDKKey</key>
+	<string>$(CONFIGCAT_SDK_KEY)</string>
+	<key>ConfigCatSDKKeyLive</key>
+	<string>$(CONFIGCAT_SDK_KEY_LIVE)</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>ymail</string>
+		<string>readdle-spark</string>
+		<string>ms-outlook</string>
+		<string>googlegmail</string>
+		<string>twitter</string>
+	</array>
+	<key>SentryDSN</key>
+	<string>$(SENTRY_DSN)</string>
+	<key>SupportLogPublicKey</key>
+	<string>KHcmYBs-4-zm47IbPUSRL5aUdm0b_PAS2u18e0KSpTw</string>
+	<key>TelemetryDeckAppID</key>
+	<string>$(TELEMETRYDECK_APP_ID)</string>
+	<!-- Support-log sealing (AIA-0643). A literal, NOT an xcconfig substitution, and NOT a secret:
+	     it is a PUBLIC key that ships readable in every binary, and extracting it lets someone
+	     encrypt a log TO us, which is the feature. Routing it through the secrets lane would only
+	     mean every build without 1Password access had a different feature set — and would have
+	     shipped keyless Xcode Cloud builds, since ci_pre_xcodebuild.sh generates Secrets.xcconfig
+	     from an allowlist of env vars.
+	     The matching PRIVATE key lives only in 1Password ("Support Log Decryption Key") and must
+	     never appear here, in an xcconfig, in CI, or anywhere in the repo.
+	     Rotating: mint with `ProjectTool support-log keygen`, raise SupportLogKeyID, replace the
+	     key below, and keep the retired private key on the same 1Password item so exports from
+	     older builds still open. Do not obfuscate or split this value; there is no threat model
+	     behind it. -->
+	<key>SupportLogPublicKey</key>
+	<string>KHcmYBs-4-zm47IbPUSRL5aUdm0b_PAS2u18e0KSpTw</string>
+	<key>SupportLogKeyID</key>
+	<string>1</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>com.aiarcheology.native-model-graph</string>
-			<key>UTTypeDescription</key>
-			<string>AI Archeology native model graph</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>com.apple.package</string>
 			</array>
+			<key>UTTypeDescription</key>
+			<string>AI Archeology native model graph</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.aiarcheology.native-model-graph</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -66,14 +82,14 @@
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>com.aiarcheology.onnx-model</string>
-			<key>UTTypeDescription</key>
-			<string>ONNX model</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>
 			</array>
+			<key>UTTypeDescription</key>
+			<string>ONNX model</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.aiarcheology.onnx-model</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>

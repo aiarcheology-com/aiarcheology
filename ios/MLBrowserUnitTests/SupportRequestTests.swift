@@ -5,6 +5,8 @@
 //  Structured support requests (AIA-0440 Stage 1, AIA-0454).
 //
 
+import CryptoKit
+import SupportLogFormat
 import XCTest
 @testable import ML_Browser
 
@@ -173,37 +175,26 @@ final class ScreenshotAttachmentValidatorTests: XCTestCase {
 }
 
 final class SupportLogAttachmentTests: XCTestCase {
-	/// Previously this asserted `nil` for empty data. Dropping the attachment silently is what made
-	/// "quiet session" and "the log was lost" look identical to whoever reads the report, so an
-	/// empty log now ships one line saying so (AIA-0602).
-	func testApplicationLogAttachment_ExplainsItselfWhenTheLogIsEmpty() throws {
-		let attachment = try XCTUnwrap(
-			SupportRequestView.applicationLogAttachment(data: Data(), sendUnredactedData: false)
-		)
 
-		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log-unavailable.txt")
-		let text = try XCTUnwrap(String(bytes: attachment.data, encoding: .utf8))
-		XCTAssertTrue(
-			text.contains("empty or unavailable"),
-			"The placeholder has to say which, or it is no better than no attachment"
-		)
+	/// AIA-0643 replaced this whole area. The tests that used to live here pinned the behaviour the
+	/// ticket removed: a `text/plain` attachment below a one-MiB threshold, a `.zip` above it, and a
+	/// filename ending `-unredacted.txt` so a recipient could tell the two apart. None of those
+	/// survive — there is one sealed format at every size, and the redaction flag moved inside the
+	/// envelope precisely so the filename stops announcing it.
+	///
+	/// What is asserted now is the property that replaced them: **whatever goes in, nothing readable
+	/// comes out, and a failure produces no attachment rather than a plain-text one.**
+
+	private var recipient = Curve25519.KeyAgreement.PrivateKey()
+
+	private var sealer: SupportLogSealer {
+		SupportLogSealer(
+			publicKeyBase64URL: SupportLogKeyCoding.base64URLEncoded(recipient.publicKey.rawRepresentation),
+			keyID: "1"
+		)!
 	}
 
-	func testApplicationLogAttachment_UsesTheProvidedLogData() throws {
-		let data = Data("latest log entry\n".utf8)
-		let attachment = try XCTUnwrap(
-			SupportRequestView.applicationLogAttachment(data: data, sendUnredactedData: true)
-		)
-
-		XCTAssertEqual(attachment.data, data)
-		XCTAssertEqual(attachment.mimeType, "text/plain")
-		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log-unredacted.txt")
-	}
-
-	// MARK: - Compression (AIA-0602)
-
-	/// Log-shaped bytes of an exact size. Repetitive like a real log, so the zip assertions measure
-	/// the compression a log actually gets rather than the incompressible worst case.
+	/// Log-shaped bytes: repetitive like a real log, and carrying a marker that must not survive.
 	private func makeLogData(byteCount: Int) -> Data {
 		let line = Data("[info] [ui] opened https://example.com/models/resnet50 — cache hit\n".utf8)
 		var data = Data()
@@ -214,87 +205,118 @@ final class SupportLogAttachmentTests: XCTestCase {
 		return Data(data.prefix(byteCount))
 	}
 
-	func testApplicationLogAttachment_KeepsPlainTextAtTheThreshold() throws {
-		// Exactly at the limit, not over it: a mail client shows text inline, and support reads a
-		// modest log faster than it unzips one.
-		let data = makeLogData(byteCount: SupportRequestView.applicationLogCompressionThresholdBytes)
+	// MARK: - Mail attachment
+
+	/// Previously this asserted `nil` for empty data, then a plain-text placeholder. Dropping the
+	/// attachment silently is what made "quiet session" and "the log was lost" look identical to
+	/// whoever reads the report (AIA-0602), so an empty log still ships one line saying so — but
+	/// sealed like everything else, so there is exactly one output format and no readable special
+	/// case.
+	func testApplicationLogAttachment_ExplainsItselfWhenTheLogIsEmpty() throws {
 		let attachment = try XCTUnwrap(
-			SupportRequestView.applicationLogAttachment(data: data, sendUnredactedData: false)
+			SupportRequestView.applicationLogAttachment(
+				data: Data(), sendUnredactedData: false, sealer: sealer
+			)
 		)
 
-		XCTAssertEqual(attachment.mimeType, "text/plain")
-		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log.txt")
-		XCTAssertEqual(attachment.data, data, "below the threshold the bytes must pass through untouched")
+		let opened = try SupportLogEnvelope.open(attachment.data, with: recipient)
+		let text = try XCTUnwrap(String(bytes: opened.log, encoding: .utf8))
+		XCTAssertTrue(
+			text.contains("empty or unavailable"),
+			"The placeholder has to say which, or it is no better than no attachment"
+		)
 	}
 
-	func testApplicationLogAttachment_ZipsAPayloadOverTheThreshold() throws {
-		let data = makeLogData(byteCount: SupportRequestView.applicationLogCompressionThresholdBytes + 1)
+	func testApplicationLogAttachment_CarriesTheLogSealed() throws {
+		let data = Data("latest log entry\n".utf8)
+
 		let attachment = try XCTUnwrap(
-			SupportRequestView.applicationLogAttachment(data: data, sendUnredactedData: false)
+			SupportRequestView.applicationLogAttachment(
+				data: data, sendUnredactedData: true, sealer: sealer
+			)
 		)
 
-		XCTAssertEqual(attachment.mimeType, "application/zip")
-		XCTAssertEqual(attachment.fileName, "mlbrowser-application-log.txt.zip")
-		XCTAssertFalse(attachment.data.isEmpty, "an empty archive would mail the user's log into a void")
+		XCTAssertEqual(attachment.mimeType, "application/octet-stream")
+		XCTAssertNotEqual(attachment.data, data, "the attachment must not be the plain log")
+		XCTAssertEqual(try SupportLogEnvelope.open(attachment.data, with: recipient).log, data)
+	}
+
+	/// The case the deleted threshold used to govern. A full five-MiB log now takes the same path as
+	/// a one-line one; the only thing size still affects is how well it compresses.
+	func testApplicationLogAttachment_SealsAFullSizedLogAndLeavesNothingReadable() throws {
+		let data = makeLogData(byteCount: 5 * 1_024 * 1_024)
+
+		let attachment = try XCTUnwrap(
+			SupportRequestView.applicationLogAttachment(
+				data: data, sendUnredactedData: false, sealer: sealer
+			)
+		)
+
+		XCTAssertNil(
+			attachment.data.range(of: Data("example.com".utf8)),
+			"a web address from the log must not be readable in the attachment"
+		)
 		XCTAssertLessThan(
 			attachment.data.count, data.count,
-			"the whole point is a smaller attachment; a pass-through of the original would still be "
-				+ "labelled application/zip and fail to open"
+			"compression is unconditional now, so a five-MiB log must still arrive far smaller"
 		)
-		XCTAssertEqual(
-			Data(attachment.data.prefix(4)), Data([0x50, 0x4B, 0x03, 0x04]),
-			"the bytes must start with the zip local-file-header signature, or the mimeType lies"
+		XCTAssertEqual(try SupportLogEnvelope.open(attachment.data, with: recipient).log, data)
+	}
+
+	func testApplicationLogAttachment_NameNeverStatesTheRedactionChoice() throws {
+		let unredacted = try XCTUnwrap(
+			SupportRequestView.applicationLogAttachment(
+				data: makeLogData(byteCount: 4_096), sendUnredactedData: true, sealer: sealer
+			)
+		)
+
+		XCTAssertFalse(unredacted.fileName.contains("unredacted"))
+		XCTAssertTrue(unredacted.fileName.hasSuffix(".aialog"), "got \(unredacted.fileName)")
+		XCTAssertFalse(
+			try SupportLogEnvelope.open(unredacted.data, with: recipient).metadata.redacted,
+			"the choice still has to reach support — sealed, where only they can read it"
 		)
 	}
 
-	func testApplicationLogAttachment_KeepsTheUnredactedNameWhenCompressed() throws {
-		let data = makeLogData(byteCount: SupportRequestView.applicationLogCompressionThresholdBytes + 1)
-		let attachment = try XCTUnwrap(
-			SupportRequestView.applicationLogAttachment(data: data, sendUnredactedData: true)
-		)
+	// MARK: - Share/export (AIA-0602, resealed by AIA-0643)
 
-		XCTAssertEqual(
-			attachment.fileName, "mlbrowser-application-log-unredacted.txt.zip",
-			"compression must not hide which form the bytes are in — nobody can tell by reading them"
-		)
-		XCTAssertEqual(attachment.mimeType, "application/zip")
-	}
-
-	// MARK: - Share/export (AIA-0602)
-
-	func testExportedApplicationLogFile_WritesTheLogUnderTheRedactedName() throws {
+	func testExportedApplicationLogFile_WritesSealedBytes() throws {
 		defer { SupportRequestView.removeApplicationLogExports() }
 		let data = Data("latest log entry\n".utf8)
 
 		let url = try XCTUnwrap(
-			SupportRequestView.exportedApplicationLogFile(data: data, sendUnredactedData: false)
+			SupportRequestView.exportedApplicationLogFile(
+				data: data, sendUnredactedData: false, sealer: sealer
+			)
 		)
 
-		XCTAssertEqual(url.lastPathComponent, "mlbrowser-application-log.txt")
-		XCTAssertEqual(try Data(contentsOf: url), data)
+		let written = try Data(contentsOf: url)
+		XCTAssertTrue(url.lastPathComponent.hasSuffix(".aialog"), "got \(url.lastPathComponent)")
+		XCTAssertNotEqual(written, data, "the shared file must not be the plain log")
+		XCTAssertEqual(try SupportLogEnvelope.open(written, with: recipient).log, data)
 	}
 
-	func testExportedApplicationLogFile_NamesTheUnredactedExportForWhatItHolds() throws {
+	/// The share route used to be the readable one, on the reasoning that "save it to Files" is
+	/// where readability is the point. It is not an exception any more — the user's own copy is as
+	/// opaque as ours.
+	func testExportedApplicationLogFile_IsNotReadableByTheUser() throws {
 		defer { SupportRequestView.removeApplicationLogExports() }
 
 		let url = try XCTUnwrap(
 			SupportRequestView.exportedApplicationLogFile(
-				data: Data("latest log entry\n".utf8),
-				sendUnredactedData: true
+				data: makeLogData(byteCount: 8_192), sendUnredactedData: true, sealer: sealer
 			)
 		)
 
-		XCTAssertEqual(
-			url.lastPathComponent, "mlbrowser-application-log-unredacted.txt",
-			"a file AirDropped to someone else must say what it contains"
-		)
+		let written = try Data(contentsOf: url)
+		XCTAssertNil(written.range(of: Data("example.com".utf8)))
+		XCTAssertFalse(url.lastPathComponent.contains("unredacted"))
 	}
 
-	func testRemoveApplicationLogExports_LeavesNoUnredactedFileBehind() throws {
+	func testRemoveApplicationLogExports_LeavesNoFileBehind() throws {
 		let url = try XCTUnwrap(
 			SupportRequestView.exportedApplicationLogFile(
-				data: Data("latest log entry\n".utf8),
-				sendUnredactedData: true
+				data: Data("latest log entry\n".utf8), sendUnredactedData: true, sealer: sealer
 			)
 		)
 
@@ -302,7 +324,29 @@ final class SupportLogAttachmentTests: XCTestCase {
 
 		XCTAssertFalse(
 			FileManager.default.fileExists(atPath: url.path),
-			"an unredacted export must not outlive the toggle that produced it"
+			"an export must not outlive the toggle that produced it"
 		)
+	}
+
+	/// Files an older build wrote are readable and survive the upgrade, because iOS does not wipe
+	/// `tmp` and the in-sheet cleanup only runs if the user opens the Support form.
+	func testPurgeLegacyApplicationLogExports_RemovesReadableFilesLeftByOlderBuilds() throws {
+		let fileManager = FileManager.default
+		let staging = fileManager.temporaryDirectory
+			.appendingPathComponent("mlbrowser-log-zip-\(UUID().uuidString)", isDirectory: true)
+		try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
+		let strandedZipCopy = staging.appendingPathComponent("mlbrowser-application-log.txt")
+		try Data("readable unredacted log\n".utf8).write(to: strandedZipCopy)
+
+		let legacyExport = fileManager.temporaryDirectory
+			.appendingPathComponent("support-log-export", isDirectory: true)
+		try fileManager.createDirectory(at: legacyExport, withIntermediateDirectories: true)
+		let strandedExport = legacyExport.appendingPathComponent("mlbrowser-application-log-unredacted.txt")
+		try Data("readable unredacted log\n".utf8).write(to: strandedExport)
+
+		SupportRequestView.purgeLegacyApplicationLogExports()
+
+		XCTAssertFalse(fileManager.fileExists(atPath: strandedExport.path), "old plain export survived")
+		XCTAssertFalse(fileManager.fileExists(atPath: strandedZipCopy.path), "old zip staging copy survived")
 	}
 }

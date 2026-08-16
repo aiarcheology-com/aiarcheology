@@ -206,6 +206,11 @@ struct MLBrowser: App {
 		// Build the app's single composition root LAST — after observability is started and
 		// Clerk is configured — so service construction never precedes them (AIA-0385).
 		_appState = StateObject(wrappedValue: DependencyContainer.shared.makeAppState())
+		// Clears readable support-log exports that a PRE-AIA-0643 build left in the temporary
+		// container. iOS does not wipe `tmp` on update, and the in-sheet cleanup only runs if the
+		// user opens the Support form — which most never will. Off the main thread and best-effort:
+		// it touches nothing this launch depends on.
+		Task.detached(priority: .utility) { SupportRequestView.purgeLegacyApplicationLogExports() }
 		LoggingPolicy.info("MLBrowser app launching", logger: .lifecycle)
 	}
 

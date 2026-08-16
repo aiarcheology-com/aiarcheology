@@ -50,6 +50,13 @@ enum ScreenshotAttachmentValidator {
 /// like, and sends it from their own account. That reviewability is what keeps prefilled
 /// diagnostics (including the web address, which is the single most useful clue for a browser bug)
 /// consent-clean. See ``SupportRequest`` for the full argument.
+///
+/// **The application log is the one exception, and it is a real one (AIA-0643).** It is sealed to
+/// a public key before it is attached, so the user can see *that* they are attaching it and remove
+/// it, but cannot read what it contains. Reviewability is replaced there by a narrower promise:
+/// the attachment is opaque to everyone including the user, and only ML Browser support can open
+/// it. The copy under both toggles and the form's footer say so in plain language; if that copy is
+/// ever softened, this comment is the record that the guarantee changed.
 struct SupportRequestView: View {
 	/// Preselected when the request starts from the screenshot offer, where we already know the
 	/// user is reporting something broken. `nil` from Settings → About → Contact, where the user
@@ -109,20 +116,27 @@ struct SupportRequestView: View {
 					.pickerStyle(.inline)
 				}
 
-				Section {
-					Toggle(L10n.Support.includeApplicationLog, isOn: $includeApplicationLog)
-						.testability(Testability.Toggle.supportRequestIncludeApplicationLog)
-					Text(L10n.Support.includeApplicationLogExplanation)
-						.foregroundStyle(.blue)
-						.fixedSize(horizontal: false, vertical: true)
-					Toggle(L10n.Support.sendUnredactedData, isOn: $sendUnredactedApplicationLog)
-						.disabled(!includeApplicationLog)
-						.testability(Testability.Toggle.supportRequestSendUnredactedData)
-					Text(L10n.Support.sendUnredactedDataExplanation)
-						.foregroundStyle(.secondary)
-						.fixedSize(horizontal: false, vertical: true)
-					if includeApplicationLog {
-						applicationLogShareRow
+				// Conditional on a usable key, and withdrawn rather than downgraded without one:
+				// the only alternative to sealing is exporting the log in the clear, which is the
+				// thing AIA-0643 exists to stop. A build with no configured key therefore offers no
+				// log at all, and does it quietly — no alert, no error row, nothing for the user to
+				// act on, because there is nothing they could do about it. See ``SupportLogSealer``.
+				if Self.sealer != nil {
+					Section {
+						Toggle(L10n.Support.includeApplicationLog, isOn: $includeApplicationLog)
+							.testability(Testability.Toggle.supportRequestIncludeApplicationLog)
+						Text(L10n.Support.ApplicationLog.explanation)
+							.foregroundStyle(.blue)
+							.fixedSize(horizontal: false, vertical: true)
+						Toggle(L10n.Support.sendUnredactedData, isOn: $sendUnredactedApplicationLog)
+							.disabled(!includeApplicationLog)
+							.testability(Testability.Toggle.supportRequestSendUnredactedData)
+						Text(L10n.Support.sendUnredactedDataExplanation)
+							.foregroundStyle(.secondary)
+							.fixedSize(horizontal: false, vertical: true)
+						if includeApplicationLog {
+							applicationLogShareRow
+						}
 					}
 				}
 
@@ -158,7 +172,7 @@ struct SupportRequestView: View {
 					.frame(maxWidth: .infinity, alignment: .center)
 					.disabled(isComposing)
 				} footer: {
-					Text(L10n.Support.privacyNote)
+					Text(L10n.Support.privacyNoteWithSealedLog)
 						.font(.body)
 						.foregroundStyle(.primary)
 						.fixedSize(horizontal: false, vertical: true)
@@ -237,14 +251,14 @@ struct SupportRequestView: View {
 	private var applicationLogShareRow: some View {
 		if let applicationLogExportURL {
 			ShareLink(item: applicationLogExportURL) {
-				Label(L10n.Support.shareApplicationLog, systemImage: "square.and.arrow.up")
+				Label(L10n.Support.ApplicationLog.share, systemImage: "square.and.arrow.up")
 			}
 			.testability(Testability.Button.supportRequestShareApplicationLog)
 		} else {
 			// Still gathering, or the file could not be written. Either way there is nothing to
 			// share yet, and a share button pointing at a missing file is worse than none.
 			HStack {
-				Label(L10n.Support.shareApplicationLog, systemImage: "square.and.arrow.up")
+				Label(L10n.Support.ApplicationLog.share, systemImage: "square.and.arrow.up")
 					.foregroundStyle(.secondary)
 				Spacer()
 				if isPreparingApplicationLogExport {
@@ -260,25 +274,36 @@ struct SupportRequestView: View {
 	private func prepareApplicationLogExport() async {
 		applicationLogExportURL = nil
 		let sendUnredacted = sendUnredactedApplicationLog
-		guard includeApplicationLog else {
-			// Not merely forgotten: a previous export may hold unredacted data the user has since
-			// switched off, and it must not sit in the container waiting to be shared by accident.
+		// Claimed unconditionally, and BEFORE the `includeApplicationLog` check.
+		//
+		// `Task.detached` is not a child, so `.task(id:)` cancelling this function does NOT cancel
+		// the work below. Without a generation check a superseded run finishes after a newer one
+		// deleted the exports and recreates the file. The subtle half is the "switched off" branch:
+		// it used to remove the exports without claiming a generation, so an in-flight run still
+		// held the current number, passed its check, and wrote the file the newer run had just
+		// deleted — leaving an export behind after the user turned the toggle off. Claiming here
+		// invalidates any run already in flight, whichever branch we take.
+		//
+		// This mattered more before AIA-0643: the resurrected file was plaintext, and unredacted.
+		// It is now sealed, so the remaining harm is only that a file exists which the user's
+		// action said should not. **That downgrade depends entirely on the seal being
+		// unconditional** — if a "sealing failed, attach plain text" fallback is ever reintroduced,
+		// this becomes a privacy leak again with no test to announce it.
+		let generation = Self.claimApplicationLogExportGeneration()
+		guard includeApplicationLog, let sealer = Self.sealer else {
+			// Not merely forgotten: an export the user switched off must not sit in the container
+			// waiting to be shared by accident.
 			await Task.detached(priority: .utility) { Self.removeApplicationLogExports() }.value
 			return
 		}
 		isPreparingApplicationLogExport = true
 		defer { isPreparingApplicationLogExport = false }
-		// `Task.detached` is not a child, so `.task(id:)` cancelling this function does NOT cancel
-		// the work below. Without a generation check, a superseded run finishes after a newer one
-		// deleted the exports and re-creates the file — flip "send unredacted" on and off quickly and
-		// an unredacted export reappears under a form that reads redacted. The generation is claimed
-		// before the work starts and re-checked before the file is kept.
-		let generation = Self.claimApplicationLogExportGeneration()
 		let url = await Task.detached(priority: .userInitiated) { () -> URL? in
 			let logData = LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredacted)
 			return Self.exportedApplicationLogFile(
 				data: logData,
 				sendUnredactedData: sendUnredacted,
+				sealer: sealer,
 				generation: generation
 			)
 		}.value
@@ -347,16 +372,20 @@ struct SupportRequestView: View {
 		)
 		composedRequest = request
 		var attachments = [attachment].compactMap { $0 }
-		if includeApplicationLog {
+		if includeApplicationLog, let sealer = Self.sealer {
 			// Off the main actor: the log is read from disk and, unless the user opted into raw
 			// data, every line is run through `LogRedactor` — on the order of a second for a full
-			// five MiB. Building the attachment happens here too, because a log over the
-			// compression threshold is written out, zipped and read back. This view is
-			// `@MainActor`, so doing any of it inline would freeze the sheet.
+			// five MiB. Sealing happens here too: compressing and encrypting five MiB is not
+			// main-thread work either. This view is `@MainActor`, so doing any of it inline would
+			// freeze the sheet.
 			let sendUnredacted = sendUnredactedApplicationLog
 			let applicationLogAttachment = await Task.detached(priority: .userInitiated) {
 				let logData = LoggingPolicy.recentApplicationLogData(sendUnredactedData: sendUnredacted)
-				return Self.applicationLogAttachment(data: logData, sendUnredactedData: sendUnredacted)
+				return Self.applicationLogAttachment(
+					data: logData,
+					sendUnredactedData: sendUnredacted,
+					sealer: sealer
+				)
 			}.value
 			LoggingPolicy.info(
 				sendUnredactedApplicationLog
@@ -397,118 +426,86 @@ struct SupportRequestView: View {
 		}
 	}
 
-	/// Never returns `nil` for a user who asked for the log.
+	/// The sealer this build ships with, or `nil` when no usable key is configured.
 	///
-	/// An empty log used to mean no attachment at all: the mail went out with the toggle on and
-	/// nothing attached, and neither the user nor support could tell "quiet session" from "the log
-	/// was lost" (a full disk, a directory that could not be created). One placeholder line is
-	/// cheap and says which (AIA-0602).
+	/// Read through one property so the "is the export available at all?" question has a single
+	/// answer that the view, the producer and the tests all consult.
+	nonisolated static var sealer: SupportLogSealer? { SupportLogSealer.bundled }
+
+	/// The one sealed artifact both export routes hand over.
 	///
-	/// Above ``applicationLogCompressionThresholdBytes`` the log is attached as a zip: plain text
-	/// compresses by an order of magnitude, and a five-MiB attachment is the kind of thing a mail
-	/// provider bounces. Below it the raw text stays, because a small log is worth more to support
-	/// readable inline than compressed.
-	nonisolated static func applicationLogAttachment(
+	/// There used to be two producers emitting *different formats for the same bytes* — plain text
+	/// or a zip for mail depending on a size threshold, always plain text for the share sheet. The
+	/// formats no longer differ, so neither do the producers: this returns the bytes and the name,
+	/// and the two callers differ only in how they deliver them (`Data` for the mail composer, a
+	/// file `URL` for `ShareLink`), which is imposed by those frameworks rather than chosen here.
+	///
+	/// Compression is unconditional and internal to the envelope, so the threshold that used to
+	/// pick between formats has nothing left to decide and is gone.
+	///
+	/// **Returns `nil` on any failure, and that means no attachment at all.** The code this replaced
+	/// argued the opposite in two places — "none of those is a reason to send nothing" and "a bulky
+	/// attachment beats a missing one". That instinct is right when the choice is between formats
+	/// and catastrophic when it is between sealed and not: the only fallback available here is
+	/// plain text, which is exactly what AIA-0643 exists to prevent. Both comments were deleted
+	/// rather than reworded so the next reader cannot inherit them.
+	nonisolated static func sealedApplicationLog(
 		data: Data,
-		sendUnredactedData: Bool
-	) -> EmailController.Attachment? {
-		guard data.isEmpty == false else {
-			return EmailController.Attachment(
-				data: Data(emptyApplicationLogPlaceholder.utf8),
-				mimeType: "text/plain",
-				fileName: "mlbrowser-application-log-unavailable.txt"
-			)
-		}
-		let fileName = applicationLogFileName(sendUnredactedData: sendUnredactedData)
-		if data.count > applicationLogCompressionThresholdBytes,
-		   let compressed = zippedApplicationLog(data: data, fileName: fileName),
-		   compressed.isEmpty == false,
-		   compressed.count < data.count {
-			return EmailController.Attachment(
-				data: compressed,
-				mimeType: "application/zip",
-				fileName: fileName + ".zip"
-			)
-		}
-		// Reached whenever the payload is small, the zip failed, or the archive came out no smaller
-		// than the input: none of those is a reason to send nothing.
-		return EmailController.Attachment(
-			data: data,
-			mimeType: "text/plain",
-			fileName: fileName
-		)
+		sendUnredactedData: Bool,
+		sealer: SupportLogSealer,
+		date: Date = Date()
+	) -> (data: Data, fileName: String)? {
+		// An empty log still produces a file. Sending nothing left neither the user nor support able
+		// to tell a quiet session from a lost log — a full disk, a directory that could not be
+		// created (AIA-0602). The placeholder is sealed like anything else, so there is exactly one
+		// output format rather than a special case that ships readable bytes.
+		let payload = data.isEmpty ? Data(emptyApplicationLogPlaceholder.utf8) : data
+		guard let sealed = sealer.seal(
+			log: payload,
+			redacted: sendUnredactedData == false,
+			appVersion: AppEnvironment.shortVersion ?? "unknown",
+			buildNumber: AppEnvironment.buildNumber ?? "unknown",
+			date: date
+		) else { return nil }
+		return (sealed, SupportLogSealer.fileName(date: date))
 	}
 
-	/// One MiB. Chosen so an ordinary session still arrives as readable text while a full five-MiB
-	/// log — the case that makes the mail unwieldy — is compressed.
-	nonisolated static let applicationLogCompressionThresholdBytes = 1_024 * 1_024
+	/// The mail-composer delivery of ``sealedApplicationLog(data:sendUnredactedData:sealer:date:)``.
+	nonisolated static func applicationLogAttachment(
+		data: Data,
+		sendUnredactedData: Bool,
+		sealer: SupportLogSealer
+	) -> EmailController.Attachment? {
+		guard let sealed = sealedApplicationLog(
+			data: data, sendUnredactedData: sendUnredactedData, sealer: sealer
+		) else { return nil }
+		return EmailController.Attachment(
+			data: sealed.data,
+			mimeType: SupportLogSealer.mimeType,
+			fileName: sealed.fileName
+		)
+	}
 
 	/// One line rather than nothing, so a quiet session and a lost log cannot look alike (AIA-0602).
 	nonisolated static let emptyApplicationLogPlaceholder =
 		"The application log was empty or unavailable when this report was composed.\n"
 
-	/// The filename has to state which form the bytes are in: nobody receiving a log can tell
-	/// redacted content from unredacted content by reading it.
-	nonisolated static func applicationLogFileName(sendUnredactedData: Bool) -> String {
-		sendUnredactedData
-			? "mlbrowser-application-log-unredacted.txt"
-			: "mlbrowser-application-log.txt"
-	}
-
-	/// Zips the log with the file coordinator's upload intent — a real `.zip`, no third-party
-	/// dependency. Returns `nil` on any failure so the caller falls back to plain text; a bulky
-	/// attachment beats a missing one.
-	///
-	/// The coordinator is pointed at a **directory** holding the log, because that is the case
-	/// documented to produce an archive; a lone regular file can be handed back unchanged.
-	nonisolated static func zippedApplicationLog(data: Data, fileName: String) -> Data? {
-		let fileManager = FileManager.default
-		let staging = fileManager.temporaryDirectory
-			.appendingPathComponent("mlbrowser-log-zip-\(UUID().uuidString)", isDirectory: true)
-		let archiveRoot = staging
-			.appendingPathComponent((fileName as NSString).deletingPathExtension, isDirectory: true)
-		defer { try? fileManager.removeItem(at: staging) }
-		do {
-			try fileManager.createDirectory(at: archiveRoot, withIntermediateDirectories: true)
-			try data.write(to: archiveRoot.appendingPathComponent(fileName), options: .atomic)
-			var coordinationError: NSError?
-			var archived: Result<Data, Error>?
-			NSFileCoordinator().coordinate(
-				readingItemAt: archiveRoot,
-				options: [.forUploading],
-				error: &coordinationError
-			) { archiveURL in
-				// Read inside the accessor: the archive is the coordinator's own temporary file and
-				// is gone once this block returns. Fully read, never memory-mapped, for that reason.
-				archived = Result { try Data(contentsOf: archiveURL) }
-			}
-			if let coordinationError { throw coordinationError }
-			return try archived?.get()
-		} catch {
-			// `.debug`, not `.warning`: warning breadcrumbs unconditionally, and AIA-0602 requires
-			// production Sentry volume to be unchanged. The fallback is already safe, so this is a
-			// diagnostic note, not an alert.
-			LoggingPolicy.debug(
-				"Could not compress the application log (\(error.localizedDescription)) — attaching plain text",
-				logger: .ui
-			)
-			return nil
-		}
-	}
-
-	/// Where ``exportedApplicationLogFile(data:sendUnredactedData:)`` puts the file it hands to
-	/// `ShareLink`. Inside the app's temporary directory: sandboxed, and purged by the system.
+	/// Where ``exportedApplicationLogFile(data:sendUnredactedData:sealer:generation:)`` puts the file
+	/// it hands to `ShareLink`. Inside the app's temporary directory: sandboxed, and purged by the
+	/// system.
 	private nonisolated static var applicationLogExportDirectory: URL {
 		FileManager.default.temporaryDirectory
 			.appendingPathComponent("support-log-export", isDirectory: true)
 	}
 
-	/// Writes the log under the name that says whether it is redacted, and returns it for sharing.
-	/// `nil` (logged) rather than a throw: the caller's only recourse either way is to leave the row
-	/// with nothing to share.
+	/// Writes the sealed log and returns it for sharing. `nil` (logged) rather than a throw: the
+	/// caller's only recourse either way is to leave the row with nothing to share.
 	///
-	/// Shared as plain text at any size — this is the "save it to Files" route, where readability is
-	/// the point; compression is an email concern (see ``applicationLogAttachment(data:sendUnredactedData:)``).
+	/// This route once shared plain text at any size, on the reasoning that "save it to Files" is
+	/// where readability is the point. It is now the same sealed bytes the mail path attaches — the
+	/// user's own copy is no more readable than the one we receive, which the share row's copy says
+	/// plainly.
+	///
 	/// Serialises export writes against the generation counter, so a superseded run cannot recreate a
 	/// file a newer run removed. Every mutation of the export directory goes through this queue.
 	private nonisolated static let applicationLogExportQueue =
@@ -529,12 +526,18 @@ struct SupportRequestView: View {
 	nonisolated static func exportedApplicationLogFile(
 		data: Data,
 		sendUnredactedData: Bool,
+		sealer: SupportLogSealer,
 		generation: Int? = nil
 	) -> URL? {
+		// Sealed before anything touches the filesystem. If sealing fails there is no file at all —
+		// writing the plain bytes "so the user has something to share" would hand them the very
+		// export this ticket removed.
+		guard let sealed = sealedApplicationLog(
+			data: data, sendUnredactedData: sendUnredactedData, sealer: sealer
+		) else { return nil }
 		let fileManager = FileManager.default
 		let directory = applicationLogExportDirectory
-		let url = directory
-			.appendingPathComponent(applicationLogFileName(sendUnredactedData: sendUnredactedData))
+		let url = directory.appendingPathComponent(sealed.fileName)
 		do {
 			// Replaced, never accumulated: the previous export may hold unredacted data the user
 			// has since switched off.
@@ -546,8 +549,7 @@ struct SupportRequestView: View {
 				}
 				removeApplicationLogExportsLocked()
 				try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-				let payload = data.isEmpty ? Data(emptyApplicationLogPlaceholder.utf8) : data
-				try payload.write(to: url, options: .atomic)
+				try sealed.data.write(to: url, options: .atomic)
 			}
 			return url
 		} catch is CancellationError {
@@ -566,10 +568,39 @@ struct SupportRequestView: View {
 		}
 	}
 
-	/// Drops any previously written export. The file can hold unredacted log data, so it must not
-	/// outlive the choice that produced it.
+	/// Drops any previously written export.
+	///
+	/// The file is sealed now, so this is no longer about readable data escaping. It is about the
+	/// user's choice: an export they turned off must not stay in the container waiting to be shared
+	/// by accident. ``purgeLegacyApplicationLogExports()`` handles the other half — the readable
+	/// files older builds left behind.
 	nonisolated static func removeApplicationLogExports() {
 		applicationLogExportQueue.sync { removeApplicationLogExportsLocked() }
+	}
+
+	/// Removes readable log exports that **earlier builds** left in the temporary container.
+	///
+	/// Before AIA-0643 both export routes wrote plain text, and one of them staged an unencrypted
+	/// copy in `mlbrowser-log-zip-<uuid>/` whose cleanup was a `defer` — which a crash skips. iOS
+	/// does not wipe `tmp` on update, so upgrading to a build that seals everything does not by
+	/// itself remove what the previous build wrote. Those files are not reachable through the app
+	/// (there is no `UIFileSharingEnabled`), but leaving readable unredacted logs in the container
+	/// after a change made specifically to stop that would be an odd place to draw the line.
+	///
+	/// Unconditional and independent of the sealer: a build with no key must still clean up, and
+	/// this must not wait for the user to open the Support sheet, which they may never do.
+	/// Best-effort and silent — a failure here leaves things exactly as the old build did.
+	nonisolated static func purgeLegacyApplicationLogExports() {
+		let fileManager = FileManager.default
+		let temporaryDirectory = fileManager.temporaryDirectory
+		removeApplicationLogExports()
+		guard let entries = try? fileManager.contentsOfDirectory(
+			at: temporaryDirectory,
+			includingPropertiesForKeys: nil
+		) else { return }
+		for entry in entries where entry.lastPathComponent.hasPrefix("mlbrowser-log-zip-") {
+			try? fileManager.removeItem(at: entry)
+		}
 	}
 
 	/// The same work without taking the queue, for callers that already hold it. Re-entering

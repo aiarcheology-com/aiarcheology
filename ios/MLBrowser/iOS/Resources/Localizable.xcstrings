@@ -39725,6 +39725,42 @@
         }
       }
     },
+    "support.applicationLog.explanation" : {
+      "comment" : "Explains what the application log is for, and that it is encrypted so only support can read it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This can make your report much more useful. It gives us a short record of what the app was doing before the problem. The log is encrypted before it is attached — only ML Browser support can read it, and it will not be readable by you or by anyone you forward it to."
+          }
+        }
+      }
+    },
+    "support.applicationLog.share" : {
+      "comment" : "Button that saves or shares the encrypted application log file.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save or share the encrypted log"
+          }
+        }
+      }
+    },
+    "support.privacyNoteWithSealedLog" : {
+      "comment" : "Footer explaining that the user reviews and sends the email themselves, and that the app log attachment is encrypted and therefore not readable by them.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing is sent until you send it. You will see the whole email and can remove any attachment before sending. The app log is attached in encrypted form, so unlike the rest of the email you cannot read its contents."
+          }
+        }
+      }
+    },
     "support.attachScreenshot" : {
       "comment" : "Button that lets the user attach a screenshot they took themselves to a support request.",
       "extractionState" : "manual",
@@ -41669,114 +41705,6 @@
         }
       }
     },
-    "support.includeApplicationLogExplanation" : {
-      "comment" : "Plain-language explanation for the optional application-log attachment in a support email.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "قد يجعل هذا تقريرك أكثر فائدة بكثير. فهو يمنحنا سجلًا موجزًا لما كان التطبيق يفعله قبل المشكلة، مما يساعدنا على إصلاحها أسرع."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "এটি আপনার রিপোর্টকে অনেক বেশি কাজে লাগাতে পারে। সমস্যার আগে অ্যাপ কী করছিল তার একটি সংক্ষিপ্ত বিবরণ এটি আমাদের দেয়, যা দ্রুত সমাধানে সাহায্য করে।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Vaše hlášení tím může být mnohem užitečnější. Získáme krátký záznam o tom, co aplikace před problémem dělala, což nám pomůže rychleji ho opravit."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Das macht Ihren Bericht deutlich nützlicher. Es zeigt uns kurz, was die App vor dem Problem getan hat, und hilft uns, es schneller zu beheben."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This can make your report much more useful. It gives us a short record of what the app was doing before the problem, which can help us fix it faster."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Esto puede hacer que tu informe sea mucho más útil. Nos ofrece un breve registro de lo que estaba haciendo la app antes del problema, lo que nos ayuda a solucionarlo más rápido."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "این می‌تواند گزارش شما را بسیار مفیدتر کند. سابقهٔ کوتاهی از کاری که برنامه پیش از بروز مشکل انجام می‌داد به ما می‌دهد و کمک می‌کند سریع‌تر آن را رفع کنیم."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Cela peut rendre votre rapport bien plus utile. Il nous donne un bref historique de ce que faisait l’app avant le problème, ce qui nous aide à le corriger plus vite."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "זה יכול להפוך את הדיווח שלך לשימושי הרבה יותר. היומן מספק לנו תיעוד קצר של מה שהאפליקציה עשתה לפני הבעיה, וזה יכול לעזור לנו לתקן אותה מהר יותר."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "इससे आपकी रिपोर्ट कहीं ज़्यादा उपयोगी हो सकती है। यह हमें बताता है कि समस्या से पहले ऐप क्या कर रहा था, जिससे हम इसे तेज़ी से ठीक कर सकते हैं।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Ez sokkal hasznosabbá teheti a jelentést. Rövid feljegyzést ad arról, mit csinált az alkalmazás a hiba előtt, így gyorsabban javíthatjuk."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "To może znacznie zwiększyć przydatność zgłoszenia. Daje nam krótki zapis tego, co aplikacja robiła przed wystąpieniem problemu, co pomoże go szybciej naprawić."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Это может сделать ваше обращение гораздо полезнее. Журнал даёт краткую запись того, что приложение делало до возникновения проблемы, и помогает исправить её быстрее."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Це може зробити ваше звернення значно кориснішим. Журнал дає короткий запис того, що застосунок робив до появи проблеми, і допомагає виправити її швидше."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "这会让你的报告更有价值。它记录了问题发生前 App 的简要运行情况，有助于我们更快修复。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "這能讓你的報告更有幫助。它提供我們一份簡短的紀錄，說明問題發生前 App 正在做什麼，有助於我們更快修正。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "這會令你的報告更有用。它記錄了問題發生前 App 的簡要運行情況，有助我們更快修正。"
-          }
-        }
-      }
-    },
     "support.mailUnavailable.message" : {
       "comment" : "Shown when the mail composer is unavailable but a default mail app opened via mailto. %@ is the support email address.",
       "extractionState" : "manual",
@@ -42205,114 +42133,6 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "開啟「設定」"
-          }
-        }
-      }
-    },
-    "support.privacyNote" : {
-      "comment" : "Footer explaining that the user reviews and sends the support email and its attachments themselves.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "لا يُرسَل شيء حتى ترسله بنفسك. سترى البريد كاملًا ويمكنك إزالة أي لقطة شاشة أو مرفق سجل قبل الإرسال."
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "আপনি না পাঠানো পর্যন্ত কিছুই পাঠানো হয় না। আপনি পুরো ইমেলটি দেখবেন এবং পাঠানোর আগে যেকোনো স্ক্রিনশট বা অ্যাপ লগ অ্যাটাচমেন্ট সরিয়ে দিতে পারবেন।"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Nic se neodešle, dokud to neodešlete vy. Uvidíte celý e-mail a před odesláním můžete odebrat jakýkoli snímek obrazovky i přílohu s protokolem aplikace."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Es wird nichts gesendet, bevor Sie es senden. Sie sehen die gesamte E-Mail und können Bildschirmfoto- oder Protokollanhänge vor dem Senden entfernen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nothing is sent until you send it. You will see the whole email and can remove any screenshot or app log attachment before sending."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "No se envía nada hasta que tú lo envías. Verás el correo completo y podrás quitar cualquier captura de pantalla o registro de la app antes de enviarlo."
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "تا زمانی که خودتان نفرستید چیزی ارسال نمی‌شود. کل ایمیل را می‌بینید و می‌توانید پیش از ارسال، هر عکس صفحه یا پیوست گزارش برنامه را حذف کنید."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Rien n’est envoyé tant que vous ne l’envoyez pas. Vous verrez l’e-mail complet et pourrez retirer toute capture d’écran ou tout journal de l’app avant l’envoi."
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "שום דבר אינו נשלח עד שתשלח אותו. תראה את כל תוכן ההודעה ותוכל להסיר כל צילום מסך או יומן אפליקציה לפני השליחה."
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "जब तक आप न भेजें, कुछ भी नहीं भेजा जाता। आप पूरा ईमेल देखेंगे और भेजने से पहले कोई भी स्क्रीनशॉट या ऐप लॉग अटैचमेंट हटा सकते हैं।"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Semmi nem kerül elküldésre, amíg Ön el nem küldi. Látni fogja a teljes e-mailt, és küldés előtt eltávolíthat bármilyen képernyőkép- vagy naplómellékletet."
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Nic nie zostanie wysłane, dopóki sam tego nie wyślesz. Zobaczysz całą wiadomość i przed wysłaniem możesz usunąć każdy zrzut ekranu oraz załącznik z dziennikiem aplikacji."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Ничего не отправляется, пока вы не отправите сами. Вы увидите всё письмо и сможете удалить снимок экрана или журнал приложения перед отправкой."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Нічого не надсилається, доки ви не надішлете самі. Ви побачите весь лист і зможете вилучити знімок екрана або журнал застосунку перед надсиланням."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "在你点击发送前，不会发送任何内容。你可以看到完整邮件，并在发送前移除截屏或 App 日志附件。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "在你按下傳送之前不會送出任何內容。你會看到整封郵件，並可在傳送前移除任何螢幕快照或 App 記錄附件。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "在你傳送之前，不會傳送任何內容。你可看到完整電郵，並在傳送前移除螢幕快照或 App 記錄附件。"
           }
         }
       }
@@ -43609,114 +43429,6 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "僅在你願意分享完整技術細節時使用。當中可能包含完整網址、識別碼及位置資料，有助我們重現問題。"
-          }
-        }
-      }
-    },
-    "support.shareApplicationLog" : {
-      "comment" : "Row in the support form that saves or shares the application log outside email.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ar" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "حفظ السجل أو مشاركته"
-          }
-        },
-        "bn" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "লগ সংরক্ষণ বা শেয়ার করুন"
-          }
-        },
-        "cs" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Uložit nebo sdílet protokol"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Protokoll sichern oder teilen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Save or share the log"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Guardar o compartir el registro"
-          }
-        },
-        "fa" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "ذخیره یا هم‌رسانی گزارش"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Enregistrer ou partager le journal"
-          }
-        },
-        "he" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "שמירת היומן או שיתופו"
-          }
-        },
-        "hi" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "लॉग सहेजें या साझा करें"
-          }
-        },
-        "hu" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Napló mentése vagy megosztása"
-          }
-        },
-        "pl" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Zapisz lub udostępnij dziennik"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Сохранить журнал или поделиться им"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Зберегти журнал або поділитися ним"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "存储或分享日志"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "儲存或分享記錄"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "儲存或分享記錄"
           }
         }
       }

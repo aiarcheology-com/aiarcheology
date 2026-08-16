@@ -186,10 +186,16 @@ final class LocalizationCatalogTests: XCTestCase {
     /// the gain ever being locked in. 418 records both that gain and AIA-0455's net −5 (six refund
     /// keys plus two replaced keys removed, three fully-translated keys added).
     private static let coverageBaseline = [
-        "ar": 418, "bn": 418, "cs": 418, "de": 418,
-        "es": 418, "fa": 418, "fr": 418, "he": 418,
-        "hi": 418, "hu": 418, "pl": 418, "ru": 418,
-        "uk": 418, "zh-HK": 418, "zh-Hans": 418, "zh-Hant": 418
+        // 418 → 415 in AIA-0643: three support-log strings were replaced rather than reworded,
+        // because sealing the export changed what they promise. `support.privacyNote` said the
+        // user "will see the whole email", which the encrypted attachment no longer honours;
+        // editing the English in place would have left 16 locales fluently promising the old
+        // thing with no gate able to see it (AIA-0455). The replacements are English-only until
+        // translated, so every locale drops by exactly the three keys removed.
+        "ar": 415, "bn": 415, "cs": 415, "de": 415,
+        "es": 415, "fa": 415, "fr": 415, "he": 415,
+        "hi": 415, "hu": 415, "pl": 415, "ru": 415,
+        "uk": 415, "zh-HK": 415, "zh-Hans": 415, "zh-Hant": 415
     ]
 
     /// `%@`, `%lld`, `%1$@`, `%.2f`, `%%`. The length modifier is captured because `%d` and `%lld`
