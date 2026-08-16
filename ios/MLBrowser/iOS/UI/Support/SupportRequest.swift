@@ -27,12 +27,29 @@ import Foundation
 /// A support email the user reads before sending is the opposite case. Do not "fix" this by
 /// stripping the URL; that would restore the bug it was added to solve.
 ///
+/// ## The application log is the exception, and the promise there is a different one
+///
 /// A redacted application-log tail is attached only when the user explicitly enables **Include
 /// application log**. They can separately and explicitly choose **Send unredacted data** when
 /// complete URLs, identifiers, and location data are needed to reproduce the problem. Either
 /// choice produces a bounded five-MiB attachment that the user can remove from the mail composer
 /// before sending. This explicit, reversible choice is the consent boundary for diagnostic data that does
 /// not fit in the visible email body.
+///
+/// **Since AIA-0643 that attachment is sealed and the user cannot read it.** Reviewability — the
+/// argument above, and the reason prefilled diagnostics are defensible — does not extend to it.
+/// What replaces reviewability is deliberately narrower, and is the whole of what we may claim:
+///
+/// - the user chooses whether to attach it at all, and can remove it in the composer;
+/// - they choose which form it takes, redacted or not, and the copy explains what each includes;
+/// - the file is opaque to *everyone* except ML Browser support — including the user, and
+///   including anyone they forward the mail to, which is a protection the old plain-text
+///   attachment did not offer.
+///
+/// The trade is honest only while the app says so plainly. `support.applicationLog.explanation`
+/// and `support.privacyNoteWithSealedLog` carry that wording, and the hosted privacy policy
+/// (AIA-0624) mirrors it. If any of those is ever softened to imply the user can review what they
+/// send, the claim becomes false — this paragraph is the record of which promise changed and when.
 struct SupportRequest {
 	/// The support inbox. The one definition every surface uses — the Contact row that displays
 	/// it, the composer that mails it, and the fallback copy that names it.
