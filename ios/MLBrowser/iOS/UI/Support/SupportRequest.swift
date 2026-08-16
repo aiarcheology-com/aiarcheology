@@ -27,12 +27,24 @@ import Foundation
 /// A support email the user reads before sending is the opposite case. Do not "fix" this by
 /// stripping the URL; that would restore the bug it was added to solve.
 ///
+/// ## The application log is the exception, and the promise there is a different one
+///
 /// A redacted application-log tail is attached only when the user explicitly enables **Include
 /// application log**. They can separately and explicitly choose **Send unredacted data** when
 /// complete URLs, identifiers, and location data are needed to reproduce the problem. Either
 /// choice produces a bounded five-MiB attachment that the user can remove from the mail composer
 /// before sending. This explicit, reversible choice is the consent boundary for diagnostic data that does
 /// not fit in the visible email body.
+///
+/// **Since AIA-0643 that attachment is sealed**, so the user can no longer read it either. The
+/// consent that matters is unchanged and still explicit: they choose whether to attach it, they
+/// choose redacted or unredacted, and they can remove it in the composer. What changed is that the
+/// file is now opaque to everyone except ML Browser support — including anyone the mail is
+/// forwarded to, which the old plain-text attachment offered no protection against.
+///
+/// The encryption is disclosed in the hosted privacy policy (AIA-0624, §2 and §3.5) rather than in
+/// the form, deliberately: it is a "what leaves my device and who can read it" fact, and crypto
+/// wording in a bug-report screen reads as a warning that something is wrong.
 struct SupportRequest {
 	/// The support inbox. The one definition every surface uses — the Contact row that displays
 	/// it, the composer that mails it, and the fallback copy that names it.

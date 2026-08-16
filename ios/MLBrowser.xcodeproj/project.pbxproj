@@ -234,6 +234,10 @@
 		942B1DE12EA6BF72005455F9 /* LoggingConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DDE2EA6BF72005455F9 /* LoggingConfiguration.swift */; };
 		942B1DE32EA6BF86005455F9 /* LoggingConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */; };
 		944D74E62EE63344009F3584 /* SentryCrashReportingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944D74E52EE63344009F3584 /* SentryCrashReportingService.swift */; };
+		AA0643010000000000000002 /* SupportLogSealer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0643010000000000000001 /* SupportLogSealer.swift */; };
+		AA0643020000000000000002 /* SupportLogSealerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0643020000000000000001 /* SupportLogSealerTests.swift */; };
+		AA0643030000000000000002 /* SupportLogFormat in Frameworks */ = {isa = PBXBuildFile; productRef = AA0643030000000000000001 /* SupportLogFormat */; };
+		AA0643040000000000000002 /* SupportLogFormat in Frameworks */ = {isa = PBXBuildFile; productRef = AA0643040000000000000001 /* SupportLogFormat */; };
 		944D74E72EE63344009F3584 /* Observability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944D74E42EE63344009F3584 /* Observability.swift */; };
 		945C556D2ED5127C007DD8FB /* WebHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C556C2ED5127C007DD8FB /* WebHistoryTests.swift */; };
 		945C556F2ED5127C007DD8FB /* TestCoreDataStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */; };
@@ -574,6 +578,7 @@
 		94FF0001000000000000B003 /* FeatureFlagsState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureFlagsState.swift; sourceTree = "<group>"; };
 		94FF0001000000000000B004 /* FeatureFlagsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeatureFlagsTests.swift; sourceTree = "<group>"; };
 		AA0454020000000000000001 /* SupportRequestTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SupportRequestTests.swift; sourceTree = "<group>"; };
+		AA0643020000000000000001 /* SupportLogSealerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SupportLogSealerTests.swift; sourceTree = "<group>"; };
 		A35000000000000000000001 /* TelemetryDeckAnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryDeckAnalyticsService.swift; sourceTree = "<group>"; };
 		A35000000000000000000006 /* AnalyticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsTests.swift; sourceTree = "<group>"; };
 		A35000000000000000000102 /* ReviewPromptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewPromptTests.swift; sourceTree = "<group>"; };
@@ -604,6 +609,7 @@
 		942B1DE22EA6BF86005455F9 /* LoggingConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoggingConfigurationTests.swift; sourceTree = "<group>"; };
 		944D74E42EE63344009F3584 /* Observability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Observability.swift; sourceTree = "<group>"; };
 		944D74E52EE63344009F3584 /* SentryCrashReportingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryCrashReportingService.swift; sourceTree = "<group>"; };
+		AA0643010000000000000001 /* SupportLogSealer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportLogSealer.swift; sourceTree = "<group>"; };
 		945C55682ED5127C007DD8FB /* CoreDataManagableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreDataManagableTests.swift; sourceTree = "<group>"; };
 		945C55692ED5127C007DD8FB /* DeepStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepStateTests.swift; sourceTree = "<group>"; };
 		945C556B2ED5127C007DD8FB /* TestCoreDataStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestCoreDataStack.swift; sourceTree = "<group>"; };
@@ -744,6 +750,7 @@
 				9407A5E62FE4A9AE0097FB7B /* ClerkKit in Frameworks */,
 				9407A5E82FE4A9AE0097FB7B /* ClerkKitUI in Frameworks */,
 				B10000000000000000000007 /* NativeModelConverter in Frameworks */,
+				AA0643030000000000000002 /* SupportLogFormat in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -752,6 +759,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B10000000000000000000009 /* NativeModelConverter in Frameworks */,
+				AA0643040000000000000002 /* SupportLogFormat in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1236,6 +1244,7 @@
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
 				94FF0001000000000000B004 /* FeatureFlagsTests.swift */,
 				AA0454020000000000000001 /* SupportRequestTests.swift */,
+				AA0643020000000000000001 /* SupportLogSealerTests.swift */,
 				ABAA0115000000000000A002 /* AppMessageTests.swift */,
 				ABAA0115000000000000A004 /* MessageCenterStateTests.swift */,
 				ABAA0115000000000000A007 /* MessageSurfaceResolverTests.swift */,
@@ -1410,6 +1419,7 @@
 			children = (
 				944D74E42EE63344009F3584 /* Observability.swift */,
 				944D74E52EE63344009F3584 /* SentryCrashReportingService.swift */,
+				AA0643010000000000000001 /* SupportLogSealer.swift */,
 				9A0C1EAA2F3D000100000001 /* SentryThrottleConfig.swift */,
 				9A0C1EAA2F3D000100000002 /* SentryEventSignature.swift */,
 				9A0C1EAA2F3D000100000003 /* SentryEventGuard.swift */,
@@ -1544,6 +1554,7 @@
 				94CFCA7000000000000000A2 /* ConfigCat */,
 				A35000000000000000000003 /* TelemetryDeck */,
 				B10000000000000000000006 /* NativeModelConverter */,
+				AA0643030000000000000001 /* SupportLogFormat */,
 			);
 			productName = MLBrowser;
 			productReference = 8AE0BC002A97B0B30086DDF9 /* ML Browser.app */;
@@ -1565,6 +1576,7 @@
 			name = MLBrowserUnitTests;
 			packageProductDependencies = (
 				B10000000000000000000008 /* NativeModelConverter */,
+				AA0643040000000000000001 /* SupportLogFormat */,
 			);
 			productName = MLBrowserTests;
 			productReference = 8AE0BC162A97B0B40086DDF9 /* MLBrowserUnitTests.xctest */;
@@ -1807,6 +1819,7 @@
 				8AC6509D2B2B48D500922648 /* Appstate.swift in Sources */,
 				8AC650972B2A442A00922648 /* DeepDriver.swift in Sources */,
 				944D74E62EE63344009F3584 /* SentryCrashReportingService.swift in Sources */,
+				AA0643010000000000000002 /* SupportLogSealer.swift in Sources */,
 				944D74E72EE63344009F3584 /* Observability.swift in Sources */,
 				9A0C1EAA2F3D000200000001 /* SentryThrottleConfig.swift in Sources */,
 				9A0C1EAA2F3D000200000002 /* SentryEventSignature.swift in Sources */,
@@ -2048,6 +2061,7 @@
 				94D79C9A2EE37DBF0027C9FA /* AppEnvironmentTests.swift in Sources */,
 				94FF0001000000000000B104 /* FeatureFlagsTests.swift in Sources */,
 				AA0454030000000000000001 /* SupportRequestTests.swift in Sources */,
+				AA0643020000000000000002 /* SupportLogSealerTests.swift in Sources */,
 				ABAA0115000000000000B002 /* AppMessageTests.swift in Sources */,
 				ABAA0115000000000000B011 /* MessageReplyTests.swift in Sources */,
 				ABAA0115000000000000B013 /* TargetingCoordinatorTests.swift in Sources */,
@@ -2608,6 +2622,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = B1000000000000000000000A /* XCLocalSwiftPackageReference "NativeModelConverter" */;
 			productName = NativeModelConverter;
+		};
+		AA0643030000000000000001 /* SupportLogFormat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1000000000000000000000A /* XCLocalSwiftPackageReference "NativeModelConverter" */;
+			productName = SupportLogFormat;
+		};
+		AA0643040000000000000001 /* SupportLogFormat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1000000000000000000000A /* XCLocalSwiftPackageReference "NativeModelConverter" */;
+			productName = SupportLogFormat;
 		};
 		B10000000000000000000008 /* NativeModelConverter */ = {
 			isa = XCSwiftPackageProductDependency;

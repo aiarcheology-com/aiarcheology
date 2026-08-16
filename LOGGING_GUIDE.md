@@ -97,6 +97,12 @@ Use appropriate log levels based on the significance and audience:
 - **Volume**: the support log is capped at five MiB and evicts oldest-first, so a hot-loop call site
   spends the window everyone else shares. Aggregate per-iteration detail into one entry rather than
   logging inside the loop; `Detector.detect` is the worked example.
+- **Export**: since AIA-0643 the exported log is **sealed** — HPKE (X25519 + ChaCha20-Poly1305) to a
+  public key shipped in `Info.plist`, opened with `ProjectTool support-log decrypt`. This does not
+  relax anything above. Redaction still runs, because the seal protects the log in transit and from
+  whoever the user forwards it to, not from us; every rule in this guide about what may be logged
+  applies unchanged. It does mean the user can no longer read what they send, which is why the
+  in-app copy and the privacy policy say so explicitly.
 - **Example**: "2025-10-20T13:46:05.233Z Driver initialized with ID abc-123"
 - **Usage**: `Logger.drivers.logDebug("Driver initialized with ID abc-123")`
 

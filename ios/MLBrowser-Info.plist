@@ -32,6 +32,23 @@
 	<string>$(CONFIGCAT_SDK_KEY_LIVE)</string>
 	<key>TelemetryDeckAppID</key>
 	<string>$(TELEMETRYDECK_APP_ID)</string>
+	<!-- Support-log sealing (AIA-0643). A literal, NOT an xcconfig substitution, and NOT a secret:
+	     it is a PUBLIC key that ships readable in every binary, and extracting it lets someone
+	     encrypt a log TO us, which is the feature. Routing it through the secrets lane would only
+	     mean every build without 1Password access had a different feature set — and would have
+	     shipped keyless Xcode Cloud builds, since ci_pre_xcodebuild.sh generates Secrets.xcconfig
+	     from an allowlist of env vars.
+	     The matching PRIVATE key lives only in 1Password ("Support Log Decryption Key") and must
+	     never appear here, in an xcconfig, in CI, or anywhere in the repo.
+	     Rotating: mint with `ProjectTool support-log keygen`, raise SupportLogKeyID, replace both
+	     values below, and keep the retired private key on the same 1Password item so exports from
+	     older builds still open. Each key is declared exactly once; if a second copy ever appears,
+	     Apple's parser keeps the LAST one and a rotation can silently ship the retired key. Do not
+	     obfuscate or split this value; there is no threat model behind it. -->
+	<key>SupportLogPublicKey</key>
+	<string>KHcmYBs-4-zm47IbPUSRL5aUdm0b_PAS2u18e0KSpTw</string>
+	<key>SupportLogKeyID</key>
+	<string>1</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

@@ -186,6 +186,13 @@ final class LocalizationCatalogTests: XCTestCase {
     /// the gain ever being locked in. 418 records both that gain and AIA-0455's net −5 (six refund
     /// keys plus two replaced keys removed, three fully-translated keys added).
     private static let coverageBaseline = [
+        // Unchanged at 418 through AIA-0643. Three support-log strings were replaced rather than
+        // reworded, because sealing the export changed what they promise — `support.privacyNote`
+        // said the user "will see the whole email", which the encrypted attachment no longer
+        // honours, and editing the English in place would have left 16 locales fluently promising
+        // the old thing with no gate able to see it (AIA-0455). The replacements were translated
+        // into all 16 locales in the same change, so three keys left and three arrived and the
+        // floor never moved.
         "ar": 418, "bn": 418, "cs": 418, "de": 418,
         "es": 418, "fa": 418, "fr": 418, "he": 418,
         "hi": 418, "hu": 418, "pl": 418, "ru": 418,

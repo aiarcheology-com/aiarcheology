@@ -947,8 +947,6 @@ internal enum L10n {
     internal static let detectScreenshots = L10n.tr("Localizable", "support.detectScreenshots", fallback: "Detect screenshots")
     /// Include application log
     internal static let includeApplicationLog = L10n.tr("Localizable", "support.includeApplicationLog", fallback: "Include application log")
-    /// This can make your report much more useful. It gives us a short record of what the app was doing before the problem, which can help us fix it faster.
-    internal static let includeApplicationLogExplanation = L10n.tr("Localizable", "support.includeApplicationLogExplanation", fallback: "This can make your report much more useful. It gives us a short record of what the app was doing before the problem, which can help us fix it faster.")
     /// Open Settings
     internal static let openSettings = L10n.tr("Localizable", "support.openSettings", fallback: "Open Settings")
     /// Nothing is sent until you send it. You will see the whole email and can remove any screenshot or app log attachment before sending.
@@ -967,6 +965,10 @@ internal enum L10n {
     internal static let shareApplicationLog = L10n.tr("Localizable", "support.shareApplicationLog", fallback: "Save or share the log")
     /// Report a problem
     internal static let title = L10n.tr("Localizable", "support.title", fallback: "Report a problem")
+    internal enum ApplicationLog {
+      /// This makes your report much more useful. It gives us a short record of what the app was doing before the problem.
+      internal static let explanation = L10n.tr("Localizable", "support.applicationLog.explanation", fallback: "This makes your report much more useful. It gives us a short record of what the app was doing before the problem.")
+    }
     internal enum Body {
       /// Account
       internal static let account = L10n.tr("Localizable", "support.body.account", fallback: "Account")
