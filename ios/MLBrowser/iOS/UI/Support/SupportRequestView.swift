@@ -59,8 +59,8 @@ enum ScreenshotAttachmentValidator {
 /// ever softened, this comment is the record that the guarantee changed.
 struct SupportRequestView: View {
 	/// Preselected when the request starts from the screenshot offer, where we already know the
-	/// user is reporting something broken. `nil` from Settings → About → Contact, where the user
-	/// should say what it is about themselves.
+	/// user is reporting something broken. `nil` from Settings → About the app → Report a problem →
+	/// Send email, where the user should say what it is about themselves.
 	let initialCategory: SupportCategory?
 
 	/// The web address involved in the problem, when the caller knows one.
