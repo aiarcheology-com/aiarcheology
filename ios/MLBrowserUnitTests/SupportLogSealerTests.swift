@@ -172,4 +172,44 @@ final class SupportLogSealerTests: XCTestCase {
 	func testTheAttachmentIsDeclaredAsOpaqueBytes() {
 		XCTAssertEqual(SupportLogSealer.mimeType, "application/octet-stream")
 	}
+
+	// MARK: - The key this build actually ships
+
+	/// Everything above injects a key the test minted, which is what makes the sealing claims
+	/// assertable — and also means none of it would notice if the **real** key were missing,
+	/// misspelled in `Info.plist`, or mangled on its way into the bundle. That is the one link the
+	/// rest of the suite cannot see, and it fails silently: the log section simply disappears, and
+	/// a passing test run says nothing about it.
+	///
+	/// Scope, precisely: this proves the shipped key *resolves and works*. It does **not** police
+	/// how it is declared — a duplicate entry would resolve fine here, because Apple's parser keeps
+	/// the last occurrence. That case is caught by
+	/// `ArchitectureTests.testSupportLogKeysAreDeclaredExactlyOnce`, which reads the source plist.
+	func testTheBundledKeyIsPresentAndUsable() throws {
+		let bundled = try XCTUnwrap(
+			SupportLogSealer.bundled,
+			"""
+			No usable SupportLogPublicKey in Info.plist. The app builds and every other test passes, \
+			but the log export is switched off entirely in this build — check the key and key id.
+			"""
+		)
+
+		let sealed = try XCTUnwrap(bundled.seal(
+			log: Data("a line\n".utf8),
+			redacted: true,
+			appVersion: "1.0.7",
+			buildNumber: "412",
+			date: referenceDate
+		))
+
+		// We cannot open it — the app holds no private key, which is the point. What is assertable
+		// is that the shipped key produced a well-formed envelope carrying the shipped key id.
+		XCTAssertEqual(sealed.prefix(SupportLogEnvelope.magic.count), SupportLogEnvelope.magic)
+		XCTAssertEqual(
+			try SupportLogEnvelope.keyID(of: sealed),
+			UInt8(Bundle.main.object(forInfoDictionaryKey: SupportLogSealer.keyIDInfoDictionaryKey) as? String ?? ""),
+			"The sealed file must carry the key id this build advertises, or rotation cannot work."
+		)
+		XCTAssertNil(sealed.range(of: Data("a line".utf8)))
+	}
 }

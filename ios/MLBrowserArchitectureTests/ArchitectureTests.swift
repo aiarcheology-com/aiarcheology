@@ -435,6 +435,27 @@ final class ArchitectureTests: XCTestCase {
         )
     }
 
+    /// The support-log public key must be declared exactly once in the source `Info.plist`.
+    ///
+    /// A duplicate is silently survivable — Apple's parser keeps the **last** occurrence — right up
+    /// until someone rotates the key, edits one copy, and ships a build whose advertised key id no
+    /// longer matches the key actually used. The failure then looks like an unopenable archive with
+    /// no explanation. This is not hypothetical: Xcode inserted exactly such a duplicate while
+    /// AIA-0643 was being written, by alphabetising the file and adding its own sorted copy.
+    func testSupportLogKeysAreDeclaredExactlyOnce() throws {
+        let plistURL = Self.repoRootURL().appendingPathComponent("ios/MLBrowser-Info.plist")
+        let text = try String(contentsOf: plistURL, encoding: .utf8)
+
+        for key in ["SupportLogPublicKey", "SupportLogKeyID"] {
+            let occurrences = text.components(separatedBy: "<key>\(key)</key>").count - 1
+            XCTAssertEqual(
+                occurrences, 1,
+                "\(key) is declared \(occurrences) time(s) in ios/MLBrowser-Info.plist; exactly one "
+                    + "is required, because a duplicate silently resolves to the last occurrence."
+            )
+        }
+    }
+
     // MARK: - 7. Pragmatic Boundaries (guardrails)
 
     /// Avoid accidental proliferation of "global state" singletons.
