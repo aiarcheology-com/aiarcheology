@@ -293,7 +293,9 @@ struct SupportRequestView: View {
 		guard includeApplicationLog, let sealer = Self.sealer else {
 			// Not merely forgotten: an export the user switched off must not sit in the container
 			// waiting to be shared by accident.
-			await Task.detached(priority: .utility) { Self.removeApplicationLogExports() }.value
+			await Task.detached(priority: .utility) {
+				Self.removeApplicationLogExports(generation: generation)
+			}.value
 			return
 		}
 		isPreparingApplicationLogExport = true
@@ -574,8 +576,21 @@ struct SupportRequestView: View {
 	/// user's choice: an export they turned off must not stay in the container waiting to be shared
 	/// by accident. ``purgeLegacyApplicationLogExports()`` handles the other half — the readable
 	/// files older builds left behind.
-	nonisolated static func removeApplicationLogExports() {
-		applicationLogExportQueue.sync { removeApplicationLogExportsLocked() }
+	nonisolated static func removeApplicationLogExports(generation: Int? = nil) {
+		applicationLogExportQueue.sync {
+			// A removal can be superseded exactly as a write can, and the race runs the other way:
+			// switch the log off (claims a generation, spawns a `.utility` removal) then straight
+			// back on (claims a newer one, spawns a `.userInitiated` writer). The writer spends about
+			// a second reading and redacting, so the lower-priority removal can still be waiting when
+			// it finishes — and would then delete the *newer* run's file, leaving the share row
+			// pointing at a URL with nothing behind it. Skipping when superseded is safe because the
+			// newer run clears the directory itself before writing.
+			//
+			// `nil` means "not part of any run" — the launch purge and tests, which must always
+			// remove.
+			guard generation == nil || generation == applicationLogExportGeneration else { return }
+			removeApplicationLogExportsLocked()
+		}
 	}
 
 	/// Removes readable log exports that **earlier builds** left in the temporary container.

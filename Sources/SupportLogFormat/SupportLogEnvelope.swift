@@ -23,8 +23,13 @@ import CryptoKit
 /// "AIALOG"(6) | format version(1) | key id(1) | encapsulated key(32) | ciphertext+tag
 /// ```
 ///
-/// The 8-byte header is passed as AAD. **Every byte outside the ciphertext is in the AAD — adding
-/// a cleartext field means extending the AAD.**
+/// The 8-byte header is passed as AAD. The 32-byte encapsulated key that follows it is **not** in
+/// the AAD, and does not need to be: it is an input to the key schedule, so altering it derives a
+/// different secret and the tag fails regardless (``SupportLogEnvelopeTests`` proves this).
+///
+/// The rule for anyone extending the format is therefore about the header specifically: **any
+/// cleartext field added to the header must also be added to the AAD**, because nothing else
+/// authenticates those bytes.
 ///
 /// ## What the seal does and does not prove
 ///
@@ -138,6 +143,13 @@ public enum SupportLogEnvelope {
 		payload.append(0x0A)
 		payload.append(log)
 
+		// Enforced on the way in as well as the way out. `open` refuses anything that inflates past
+		// this bound, so without the same check here a caller with an oversized log would mint a
+		// file that our own tool cannot read — a failure that would only surface once a user had
+		// already sent it. Unreachable today (delivery is trimmed to 5 MiB) and cheap to keep true.
+		guard payload.count <= maximumInflatedByteCount else {
+			throw FormatError.payloadTooLarge(payload.count)
+		}
 		let header = self.header(keyID: keyID)
 		let compressed = try (payload as NSData).compressed(using: .zlib) as Data
 		// A fresh sender per call, never stored: `seal` is mutating and advances a sequence number,

@@ -129,9 +129,11 @@ final class SupportLogEnvelopeTests: XCTestCase {
 		XCTAssertNil(sealed.range(of: Data(marker.utf8)), "Log content leaked into the sealed file.")
 	}
 
-	/// The redaction choice is the user's, and a file they hand to someone else must not announce
-	/// it. It is sealed, not merely absent from the filename.
-	func testTheRedactionFlagIsNotReadableWithoutTheKey() throws {
+	/// Named for exactly what it checks: the word is absent from the bytes. That is weaker than
+	/// "the flag cannot be recovered" — a one-bit leak elsewhere would pass — but it is the
+	/// assertion that catches the realistic mistake, which is moving the metadata back out of the
+	/// ciphertext. The strong guarantee comes from the flag living inside the AEAD at all.
+	func testTheWordRedactedDoesNotAppearInTheSealedBytes() throws {
 		let recipient = Curve25519.KeyAgreement.PrivateKey()
 		let sealed = try SupportLogEnvelope.seal(
 			log: makeLog(), metadata: makeMetadata(redacted: false), to: recipient.publicKey, keyID: 1
@@ -251,6 +253,23 @@ final class SupportLogEnvelopeTests: XCTestCase {
 		)
 
 		XCTAssertEqual(try SupportLogEnvelope.keyID(of: sealed), 7)
+	}
+
+	/// The bound is enforced on both sides. Sealing something we could not reopen would only be
+	/// discovered after a user had already sent it.
+	func testAPayloadOverTheBoundIsRefusedBySealAndByOpen() throws {
+		let recipient = Curve25519.KeyAgreement.PrivateKey()
+		let oversized = Data(repeating: 0x41, count: SupportLogEnvelope.maximumInflatedByteCount + 1)
+
+		XCTAssertThrowsError(
+			try SupportLogEnvelope.seal(
+				log: oversized, metadata: makeMetadata(), to: recipient.publicKey, keyID: 1
+			)
+		) { error in
+			guard case .payloadTooLarge = error as? SupportLogEnvelope.FormatError else {
+				return XCTFail("Expected payloadTooLarge, got \(error)")
+			}
+		}
 	}
 
 	// MARK: - Format constants

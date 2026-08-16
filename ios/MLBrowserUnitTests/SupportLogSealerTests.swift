@@ -60,9 +60,9 @@ final class SupportLogSealerTests: XCTestCase {
 		XCTAssertNil(sealed.range(of: Data(secret.utf8)))
 	}
 
-	/// The redaction choice must not be recoverable from the file without the key — that is the
-	/// whole reason it moved out of the filename and into the sealed payload.
-	func testTheRedactionChoiceIsNotVisibleInTheSealedBytes() throws {
+	/// Checks the word, not the entropy: this catches the realistic regression (metadata moving
+	/// back outside the ciphertext), and the real guarantee is that the flag is inside the AEAD.
+	func testTheWordRedactedDoesNotAppearInTheSealedBytes() throws {
 		let recipient = Curve25519.KeyAgreement.PrivateKey()
 		let sealer = try makeSealer(recipient)
 
