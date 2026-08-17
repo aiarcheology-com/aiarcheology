@@ -126,9 +126,28 @@ final class ClerkAuthProvider: AuthProviding {
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { $0.isEmpty.not }
             .joined(separator: " ")
-        if fullName.isEmpty.not { return fullName }
-        let username = user.username?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (username?.isEmpty ?? true) ? nil : username
+        return Self.nameUnlessItIsAnAddress(fullName)
+            ?? Self.nameUnlessItIsAnAddress(user.username)
+    }
+
+    /// The candidate, or `nil` if it is blank **or looks like an email address**.
+    ///
+    /// Not reading `primaryEmailAddress` is not enough to keep an address off a share card.
+    /// `firstName`, `lastName` and `username` are free text: the user can type anything, and an
+    /// OAuth provider may populate them from the account's email when it has nothing better. A
+    /// profile with `firstName = "alice@example.com"` would otherwise be prefilled, saved, and
+    /// rendered onto an image the user posts publicly — the exact outcome the no-email rule exists
+    /// to prevent.
+    ///
+    /// The test is simply "contains an `@`", which is deliberately blunt: no human name contains
+    /// one, so the false-positive cost is an empty field the user can type into, while the
+    /// false-negative cost is a leaked address on a public graphic. Those are not comparable.
+    static func nameUnlessItIsAnAddress(_ candidate: String?) -> String? {
+        guard let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines),
+              trimmed.isEmpty.not,
+              trimmed.contains("@").not
+        else { return nil }
+        return trimmed
     }
 
     func prepare() async {

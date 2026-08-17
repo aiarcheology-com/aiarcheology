@@ -232,6 +232,33 @@ final class AuthStateTests: XCTestCase {
 		XCTAssertEqual(sut.accountDisplayName, "Jane Archeologist")
 	}
 
+	// MARK: - No address may become a byline (AIA-0651)
+
+	/// Declining to read `primaryEmailAddress` is not what keeps an address off a share card:
+	/// `firstName`, `lastName` and `username` are free text, and an OAuth provider may fill them
+	/// from the account's email. Anything holding an `@` is refused, so the field is left empty for
+	/// the user rather than publishing their address on an image.
+	func testNameUnlessItIsAnAddress_EmailShapedCandidates_AreRefused() {
+		XCTAssertNil(ClerkAuthProvider.nameUnlessItIsAnAddress("alice@example.com"))
+		XCTAssertNil(ClerkAuthProvider.nameUnlessItIsAnAddress("Alice Smith <alice@example.com>"))
+		XCTAssertNil(ClerkAuthProvider.nameUnlessItIsAnAddress("@alice"))
+	}
+
+	/// The other half: an ordinary name must survive, including non-ASCII and internal punctuation.
+	/// A rule that refused these would silently leave every author field empty.
+	func testNameUnlessItIsAnAddress_OrdinaryNames_SurviveTrimmed() {
+		XCTAssertEqual(ClerkAuthProvider.nameUnlessItIsAnAddress("  Jane Archeologist  "), "Jane Archeologist")
+		XCTAssertEqual(ClerkAuthProvider.nameUnlessItIsAnAddress("Karol Nálezca"), "Karol Nálezca")
+		XCTAssertEqual(ClerkAuthProvider.nameUnlessItIsAnAddress("O'Brien-Smith"), "O'Brien-Smith")
+	}
+
+	/// Blank and whitespace-only are absent, not an empty byline.
+	func testNameUnlessItIsAnAddress_BlankCandidates_AreNil() {
+		XCTAssertNil(ClerkAuthProvider.nameUnlessItIsAnAddress(nil))
+		XCTAssertNil(ClerkAuthProvider.nameUnlessItIsAnAddress(""))
+		XCTAssertNil(ClerkAuthProvider.nameUnlessItIsAnAddress("   \n "))
+	}
+
 	/// The interleaving AIA-0437 guards against: `validateSession()` suspends, and a sign-out
 	/// followed by a *different* sign-in can complete inside that window. The round-trip that
 	/// returns successfully validated the OLD account, so publishing the new one on the strength of

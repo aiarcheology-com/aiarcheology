@@ -8,7 +8,7 @@ A finding has a new optional "Author" field. If you are signed in, it is filled 
 
 2. Save another finding, but this time clear the Author field before saving. The card must simply not show an author row at all — no "Unknown", no empty line, no gap where a name would be.
 
-3. Clear the Author field, then leave the Save screen and come back to it (swipe down and reopen, or switch apps and return). The field must STAY empty. If your name reappears after you deleted it, that is a bug and we want to know.
+3. Start saving a finding, clear the Author field, then switch to another app and come back without closing the Save screen. The field must STAY empty — your name must not reappear over a value you deleted. (Closing the Save screen and starting a brand new capture is different: that is a new finding, so the name is filled in again on purpose.)
 
 4. Sign out, then save a finding. The Author field should be empty, and never show your email address — an email is not a name and must never end up on a picture you post. Type a name by hand and confirm it saves and shows on the card.
 
