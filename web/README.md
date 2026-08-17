@@ -30,15 +30,22 @@ version-controlled and reviewable. `clerk.aiarcheology.com` already works this w
 ## Layout
 
 ```
-web/link-site/
-  .well-known/apple-app-site-association   the association file; appID ZLR4X4U8UQ.com.aiarcheology.ios
-  f.html                                   the landing page, served at /f
-  404.html                                 disables Pages' SPA fallback - see below
-  app.js                                   renders the fragment; textContent only, https-only hrefs
-  styles.css                               separate file because the CSP forbids inline styles
-  _headers                                 content type for the AASA + the security headers
-  _redirects                               /f/ -> /f, / -> /f
+web/
+  README.md                                this file - deliberately OUTSIDE the upload root
+  link-site/                               <- everything below here is published publicly
+    .well-known/apple-app-site-association the association file; appID ZLR4X4U8UQ.com.aiarcheology.ios
+    f.html                                 the landing page, served at /f
+    404.html                               disables Pages' SPA fallback - see below
+    app.js                                 renders the fragment; textContent only, https-only hrefs
+    styles.css                             separate file because the CSP forbids inline styles
+    _headers                               content type for the AASA + the security headers
+    _redirects                             /f/ -> /f, / -> /f
 ```
+
+**This file lives one level above `link-site/` on purpose.** Direct Upload publishes every
+file in the directory it is given, so a README kept alongside the site was served at
+`https://link.aiarcheology.com/README.md` with a 200 — internal deploy notes and engineering
+rationale on a public domain. Anything added to `link-site/` is public; assume it will be read.
 
 **`f.html`, not `f/index.html`.** Pages serves `/contact.html` at `/contact` and redirects the
 `.html` form to it, but it redirects `/about/index.html` to `/about/` — so the directory form
