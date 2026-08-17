@@ -115,3 +115,8 @@ ios/asc.auth/
 
 # Downloaded ONNX test fixtures (scripts/fetch_native_test_models.sh)
 .native-model-fixtures/
+
+# Wrangler's local cache, created by `wrangler pages deploy` for the link.aiarcheology.com
+# static site (AIA-0650). Holds the resolved Cloudflare account id and project metadata —
+# machine-local state, not project configuration, and not something to publish.
+.wrangler/
