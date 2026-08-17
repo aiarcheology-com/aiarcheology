@@ -270,6 +270,7 @@ final class AuthStateTests: XCTestCase {
 private final class SuspendableAuthProvider: AuthProviding {
 	var isSignedIn = true
 	var accountIdentifier: String?
+	var displayName: String?
 
 	/// Arm before a call and the next `validateSession()` suspends and fulfils this instead of
 	/// returning. Consumed on use, so a validation with nothing armed completes immediately.

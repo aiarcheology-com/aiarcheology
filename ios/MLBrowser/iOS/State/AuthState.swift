@@ -60,6 +60,18 @@ protocol AuthProviding {
     /// transport, but it must never be logged or sent as an event parameter.
     var accountIdentifier: String? { get }
 
+    /// A human-readable name for the signed-in account, or `nil` when there is none to offer.
+    ///
+    /// Used to prefill the author of a finding (AIA-0651) — a credit that ends up on a shared
+    /// graphic. **It must never fall back to the account's email address**: an address is not a
+    /// byline, and putting one on an image the user posts publicly would leak it to everyone who
+    /// sees the post. An account with no usable name returns `nil`, and the field is simply left
+    /// empty for the user to fill in.
+    ///
+    /// Not required to be stable: it reflects whatever the account is called *right now*. Callers
+    /// that persist it must snapshot it, never re-read it (see ``AuthState/accountDisplayName``).
+    var displayName: String? { get }
+
     /// Ensure the backend has finished loading its persisted session/environment.
     func prepare() async
 
@@ -108,6 +120,30 @@ final class AuthState: ObservableObject {
     /// writes to ``accountIdentifier``, with ``EffectiveAuthContext/suspended(_:)`` as the one
     /// context corresponding to *no* write — which is why it must be ignored rather than acted on.
     @Published private(set) var effectiveContext: EffectiveAuthContext = .indeterminate
+
+    /// A name to offer as the default author of a new finding (AIA-0651), or `nil` when the app
+    /// has concluded that nobody is signed in.
+    ///
+    /// Deliberately **computed and not `@Published`**. It is read once, when the save sheet
+    /// appears, to seed an editable text field — it is not state anything renders continuously, and
+    /// publishing it would add a second write site to the identity invariant documented on
+    /// ``accountIdentifier`` ("written at exactly the points that write the gate, and only there").
+    ///
+    /// The predicate is `.signedOut`, not `.ready`, and both halves of that matter:
+    /// - Excluding `.signedOut` is what makes "signed out ⇒ empty" true. ``setSignedOut()`` is the
+    ///   only way into that state and runs on a revoked or banned session *before* the backend's
+    ///   cached user necessarily clears — so asking the provider directly could otherwise offer the
+    ///   name of a user this app has already stopped trusting.
+    /// - Requiring `.ready` would have been wrong: ``AuthGate/offline`` is terminal for the session
+    ///   and is the state AIA-0536 exists to have fixed. A signed-in user in the field with no
+    ///   signal sits there, and would get no prefill for the whole session — the single scenario
+    ///   this feature most needs to work. `.checkingSession` is the same story on a cold launch,
+    ///   which is precisely when the persisted account is already hydrated.
+    ///
+    /// Before the backend configures, the provider reports `nil` anyway and the field starts empty.
+    var accountDisplayName: String? {
+        gate == .signedOut ? nil : provider.displayName
+    }
 
     private let provider: AuthProviding
 

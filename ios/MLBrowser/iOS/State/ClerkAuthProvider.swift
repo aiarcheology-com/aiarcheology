@@ -113,6 +113,24 @@ final class ClerkAuthProvider: AuthProviding {
         Clerk.shared.user?.id
     }
 
+    /// The account's name, preferring "First Last" and falling back to the username.
+    ///
+    /// Clerk populates these inconsistently depending on how the account was created — an OAuth
+    /// sign-up usually has both names, an email/password one may have neither, and `username` is
+    /// optional on the instance — so every field here can be absent. When they all are, this
+    /// returns `nil` rather than reaching for `primaryEmailAddress`: see ``AuthProviding/displayName``
+    /// for why an email address must never become a byline on a shared image.
+    var displayName: String? {
+        guard let user = Clerk.shared.user else { return nil }
+        let fullName = [user.firstName, user.lastName]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty.not }
+            .joined(separator: " ")
+        if fullName.isEmpty.not { return fullName }
+        let username = user.username?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (username?.isEmpty ?? true) ? nil : username
+    }
+
     func prepare() async {
         // `Clerk.configure` loads the cached client/session synchronously, so the
         // persisted signed-in state is already available here. `validateSession`
@@ -234,6 +252,18 @@ final class MockAuthProvider: AuthProviding {
 
     /// `nil` while signed out, mirroring the real provider: there is no account to identify.
     var accountIdentifier: String? { outcome == .signedOut ? nil : accountID }
+
+    /// A fixed stand-in name, `nil` while signed out — same shape as the real provider.
+    /// Settable so a unit test can drive the "signed in but no usable name" case, which is a real
+    /// Clerk state (see ``ClerkAuthProvider/displayName``) and the one where the author field must
+    /// end up empty rather than showing something derived from the email address.
+    ///
+    /// Not reachable from UI tests: this provider is configured purely from launch arguments, and
+    /// no `-mockDisplayName` flag is parsed. Add one only when a UI test actually needs it.
+    var displayName: String? { outcome == .signedOut ? nil : mockDisplayName }
+
+    /// Overridable stand-in for the account's name (tests/previews only).
+    var mockDisplayName: String? = "Mock Finder"
 
     func prepare() async {}
 
