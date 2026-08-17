@@ -328,6 +328,8 @@
 		AC055600000000000000B003 /* FreeAccessWindowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A003 /* FreeAccessWindowTests.swift */; };
 		AC055600000000000000B004 /* FreeAccessAnchorServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A004 /* FreeAccessAnchorServiceTests.swift */; };
 		AC055600000000000000B005 /* FreeAccessState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A005 /* FreeAccessState.swift */; };
+		ABAA0650000000000000B003 /* SharedFindingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A003 /* SharedFindingState.swift */; };
+		ABAA0650000000000000B004 /* SharedFindingStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A004 /* SharedFindingStateTests.swift */; };
 		AC055600000000000000B006 /* FreeAccessStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A006 /* FreeAccessStateTests.swift */; };
 		AC055600000000000000B007 /* SubscriptionGateDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */; };
 		AC055600000000000000B008 /* FreeAccessUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A008 /* FreeAccessUITests.swift */; };
@@ -705,6 +707,8 @@
 		AC055600000000000000A003 /* FreeAccessWindowTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessWindowTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A004 /* FreeAccessAnchorServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessAnchorServiceTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A005 /* FreeAccessState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessState.swift; sourceTree = "<group>"; };
+		ABAA0650000000000000A003 /* SharedFindingState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedFindingState.swift; sourceTree = "<group>"; };
+		ABAA0650000000000000A004 /* SharedFindingStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedFindingStateTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A006 /* FreeAccessStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessStateTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionGateDisplayTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A008 /* FreeAccessUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessUITests.swift; sourceTree = "<group>"; };
@@ -956,6 +960,7 @@
 			children = (
 				AC055600000000000000A001 /* FreeAccessWindow.swift */,
 				AC055600000000000000A005 /* FreeAccessState.swift */,
+				ABAA0650000000000000A003 /* SharedFindingState.swift */,
 				A1DC63B8535B544C7E1BDAE6 /* EntitlementTransaction.swift */,
 				F8CF376D75E083E37CB74C79 /* AppAccountToken.swift */,
 				CFCC1FAB6E927E7D65B90A8B /* EntitlementResolver.swift */,
@@ -1210,6 +1215,7 @@
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
 				94FF0001000000000000B004 /* FeatureFlagsTests.swift */,
 				ABAA0650000000000000A002 /* FindingShareLinkTests.swift */,
+				ABAA0650000000000000A004 /* SharedFindingStateTests.swift */,
 				AA0454020000000000000001 /* SupportRequestTests.swift */,
 				AA0643020000000000000001 /* SupportLogSealerTests.swift */,
 				ABAA0115000000000000A002 /* AppMessageTests.swift */,
@@ -1842,6 +1848,7 @@
 				AC055600000000000000B002 /* FreeAccessAnchorService.swift in Sources */,
 				AC055600000000000000B001 /* FreeAccessWindow.swift in Sources */,
 				AC055600000000000000B005 /* FreeAccessState.swift in Sources */,
+				ABAA0650000000000000B003 /* SharedFindingState.swift in Sources */,
 				DA47E3026E55F36F98549973 /* EntitlementTransaction.swift in Sources */,
 				B49058D02D6135CEAACDD928 /* AppAccountToken.swift in Sources */,
 				61B3C02BC674F0B78E380B52 /* EntitlementResolver.swift in Sources */,
@@ -2109,6 +2116,7 @@
 				94D79C9A2EE37DBF0027C9FA /* AppEnvironmentTests.swift in Sources */,
 				94FF0001000000000000B104 /* FeatureFlagsTests.swift in Sources */,
 				ABAA0650000000000000B002 /* FindingShareLinkTests.swift in Sources */,
+				ABAA0650000000000000B004 /* SharedFindingStateTests.swift in Sources */,
 				AA0454030000000000000001 /* SupportRequestTests.swift in Sources */,
 				AA0643020000000000000002 /* SupportLogSealerTests.swift in Sources */,
 				ABAA0115000000000000B002 /* AppMessageTests.swift in Sources */,
