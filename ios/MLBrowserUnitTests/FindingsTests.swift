@@ -535,11 +535,17 @@ final class FindingCaptureDetectionTests: XCTestCase {
 
 // MARK: - Migration gate (plan §1)
 
-/// Opens a store created with the RELEASED model (0.0.0) using the current model
-/// under production-equivalent options: automatic migration ON, mapping-model
-/// inference OFF (DataController disables inference for App Store and Debug
-/// builds, so the bundled explicit mapping carries the release path). Every row
-/// must survive and `FillEntityIdIfNilPolicy` must fill missing entityIds.
+/// Opens a store created with an OLDER model version using the current model
+/// (0.0.2) under production-equivalent options: automatic migration ON,
+/// mapping-model inference OFF (DataController disables inference for App Store
+/// and Debug builds, so the bundled explicit mapping carries the release path).
+/// Every row must survive and `FillEntityIdIfNilPolicy` must fill missing entityIds.
+///
+/// Core Data migration is SINGLE-HOP: it looks for one mapping model straight
+/// from the store's own source model to the current one, never chaining through
+/// the intermediate versions. So every model version still in the field needs its
+/// own mapping to 0.0.2, and both now exist — `0.0.0→0.0.2` (an install that never
+/// upgraded) and `0.0.1→0.0.2` (one that did). One test per live source model.
 ///
 /// Deliberately NOT DataController(storeURL:): that initializer forces inference
 /// ON, and the app's recovery path destroys failing stores — both would turn a
@@ -630,8 +636,10 @@ final class FindingMigrationTests: XCTestCase {
             loadError,
             """
             Migration from the released 0.0.0 store failed: \(String(describing: loadError)). \
-            If the 0.0.1 model changed, the 0.0.0→0.0.1 mapping model must be \
-            recreated in Xcode (its xcmapping embeds both models).
+            Migration is single-hop, so the operative mapping here is 0.0.0→0.0.2 — \
+            not 0.0.0→0.0.1. If either the 0.0.0 or the current 0.0.2 model changed, \
+            the 0.0.0→0.0.2 mapping model must be recreated in Xcode (its xcmapping \
+            embeds the version hashes of both models).
             """
         )
         guard loadError == nil else { return }
@@ -679,5 +687,91 @@ final class FindingMigrationTests: XCTestCase {
 
         // 5. The new Finding entity is usable in the migrated store.
         XCTAssertNotNil(container.managedObjectModel.entitiesByName["Finding"])
+    }
+
+    /// The other live upgrade source (AIA-0651): 0.0.1 shipped `Finding` without `author`, so an
+    /// installation already on 0.0.1 migrates 0.0.1→0.0.2 directly — a path the 0.0.0 test above
+    /// cannot cover, because Core Data never chains hops. Findings written before the field existed
+    /// must survive with their content intact and simply have no author.
+    func testMigrationFromReleased_0_0_1_Store_PreservesFindingsAndLeavesAuthorNil() throws {
+        // 1. Seed a store with the released 0.0.1 model (version file "MLBrowser_0.0.1.mom").
+        let sourceModelURL = try momdURL().appendingPathComponent("MLBrowser_0.0.1.mom")
+        let sourceModel = try XCTUnwrap(NSManagedObjectModel(contentsOf: sourceModelURL))
+        // Same reason as above: the app's NSManagedObject subclasses match the CURRENT
+        // schema, and their awakeFromInsert would touch attributes 0.0.1 does not have.
+        for entity in sourceModel.entities {
+            entity.managedObjectClassName = "NSManagedObject"
+        }
+
+        let seedCoordinator = NSPersistentStoreCoordinator(managedObjectModel: sourceModel)
+        try seedCoordinator.addPersistentStore(ofType: NSSQLiteStoreType, configurationName: nil, at: storeURL)
+        let seedContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        seedContext.persistentStoreCoordinator = seedCoordinator
+
+        let seededTitles = ["Legacy hillfort", "Legacy burial mound"]
+        try seedContext.performAndWait {
+            let findingEntity = sourceModel.entitiesByName["Finding"]!
+            for title in seededTitles {
+                let row = NSManagedObject(entity: findingEntity, insertInto: seedContext)
+                // entityId and lifeCycleString are non-optional with no default in 0.0.1:
+                // omitting either fails validation on save, before any migration happens.
+                row.setValue(UUID(), forKey: "entityId")
+                row.setValue(CoreDataManageableState.ready.rawValue, forKey: "lifeCycleString")
+                row.setValue(title, forKey: "title")
+                row.setValue(Date(), forKey: "creationDate_")
+            }
+            // A second entity, so the assertions below cannot pass on an empty/partial store.
+            let historyEntity = sourceModel.entitiesByName["WebHistoryEntry"]!
+            let historyRow = NSManagedObject(entity: historyEntity, insertInto: seedContext)
+            historyRow.setValue(UUID(), forKey: "entityId")
+            historyRow.setValue(CoreDataManageableState.ready.rawValue, forKey: "lifeCycleString")
+            historyRow.setValue(URL(string: "https://example.com/legacy"), forKey: "page")
+            historyRow.setValue(Date(), forKey: "creationDate_")
+            try seedContext.save()
+        }
+        for store in seedCoordinator.persistentStores {
+            try seedCoordinator.remove(store)
+        }
+
+        // 2. Reopen with the CURRENT model under production-equivalent options.
+        let currentModel = try XCTUnwrap(NSManagedObjectModel(contentsOf: momdURL()))
+        let container = NSPersistentContainer(name: "MigrationTest", managedObjectModel: currentModel)
+        let description = NSPersistentStoreDescription(url: storeURL)
+        description.shouldMigrateStoreAutomatically = true
+        description.shouldInferMappingModelAutomatically = false // production behavior
+        description.shouldAddStoreAsynchronously = false
+        container.persistentStoreDescriptions = [description]
+
+        var loadError: Error?
+        container.loadPersistentStores { _, error in
+            loadError = error
+        }
+        XCTAssertNil(
+            loadError,
+            """
+            Migration from the released 0.0.1 store failed: \(String(describing: loadError)). \
+            Adding Finding.author to 0.0.2 requires an explicit 0.0.1→0.0.2 mapping model \
+            recreated in Xcode; inference is off in release builds, so a missing or stale \
+            mapping strands every user who is already on 0.0.1.
+            """
+        )
+        guard loadError == nil else { return }
+
+        // 3. The pre-author findings survived intact, and the new column is simply empty.
+        let context = container.viewContext
+        let migrated = try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "Finding"))
+        XCTAssertEqual(migrated.count, seededTitles.count, "Finding rows did not survive the migration")
+        XCTAssertEqual(
+            Set(migrated.compactMap { $0.value(forKey: "title") as? String }),
+            Set(seededTitles),
+            "migrated findings lost their titles"
+        )
+        for row in migrated {
+            XCTAssertNil(row.value(forKey: "author"), "a finding written before AIA-0651 has no author")
+            XCTAssertNotNil(row.value(forKey: "entityId"))
+        }
+
+        let history = try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "WebHistoryEntry"))
+        XCTAssertEqual(history.count, 1, "unrelated entities must survive the 0.0.1→0.0.2 hop too")
     }
 }

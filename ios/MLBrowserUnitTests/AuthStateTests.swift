@@ -197,6 +197,41 @@ final class AuthStateTests: XCTestCase {
 		XCTAssertEqual(sut.accountIdentifier, MockAuthProvider.defaultMockAccountID)
 	}
 
+	// MARK: - Account display name (AIA-0651)
+
+	/// The prefill source for a finding's author field: the signed-in account's name while there is
+	/// an account, nothing once there isn't — a signed-out user must never be credited.
+	func testAccountDisplayName_ReadyThenSignedOut_ReturnsTheNameThenNil() async {
+		let provider = MockAuthProvider(outcome: .ready)
+		provider.mockDisplayName = "Jane Archeologist"
+		let sut = AuthState(provider: provider)
+		await sut.start()
+		XCTAssertEqual(sut.gate, .ready)
+
+		XCTAssertEqual(sut.accountDisplayName, "Jane Archeologist")
+
+		await sut.signOut()
+		XCTAssertEqual(sut.gate, .signedOut)
+		XCTAssertNil(sut.accountDisplayName)
+	}
+
+	/// The field case this is actually for: an archeologist standing in a trench with no signal.
+	/// They are still signed in, so the capture editor must still prefill their name — which is why
+	/// the predicate is `.signedOut` and not `.ready`. Gating on `.ready` would blank the credit for
+	/// exactly the users most likely to be recording a finding.
+	func testAccountDisplayName_OfflineGate_StillReturnsTheName() async {
+		let provider = MockAuthProvider(outcome: .ready)
+		provider.mockDisplayName = "Jane Archeologist"
+		let sut = AuthState(provider: provider)
+		await sut.start()
+
+		provider.setOutcomeForTesting(.offline)
+		await sut.refresh()
+
+		XCTAssertEqual(sut.gate, .offline)
+		XCTAssertEqual(sut.accountDisplayName, "Jane Archeologist")
+	}
+
 	/// The interleaving AIA-0437 guards against: `validateSession()` suspends, and a sign-out
 	/// followed by a *different* sign-in can complete inside that window. The round-trip that
 	/// returns successfully validated the OLD account, so publishing the new one on the strength of
