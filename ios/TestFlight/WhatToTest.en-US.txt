@@ -1,19 +1,23 @@
 Build: TBD
 
-Test Focus 1: The application log you attach to a support email is now encrypted.
+Test Focus 1: Findings can now carry the name of whoever found them, and that name appears on the share card.
 
-Until this build, the log left your device as readable text — which meant anyone the email passed through could read it, and so could anyone you forwarded it to. It is now sealed so that only ML Browser support can open it. Nothing about how you use the form changes; what changes is that the file you attach is no longer readable by anyone else who handles the email.
+A finding has a new optional "Author" field. If you are signed in, it is filled in for you when you save a finding; if you are not signed in, it starts empty. Either way you can type whatever you like, or leave it blank. Things with your name on them are worth more than anonymous ones — that is the whole point of this change.
 
-1. Go to Settings → About the app → Report a problem → Send email, and turn on "Include application log". Read the blue text under the toggle. Check it in your own language too — it was rewritten for this build and translated into all 16 languages, so tell us if it reads awkwardly or still shows in English, and which language you tested.
+1. Sign in, then find something and save it. The Save screen has a new Author field between Note and GPS, already filled in with your account name. Save, then open the finding from the Findings list and share it. Your name should appear on the card, just under the detection label. Check both Portrait and Landscape, and both Light and Dark.
 
-2. With the toggle on, tap "Save or share the log" and send the file to yourself (AirDrop, Files, Messages — whichever you use). Then try to open it. It should be a single file ending in .aialog that no app can display, and its name must NOT contain the word "unredacted". Confirm the name gives away nothing about which option you picked.
+2. Save another finding, but this time clear the Author field before saving. The card must simply not show an author row at all — no "Unknown", no empty line, no gap where a name would be.
 
-3. Turn on "Send unredacted data" as well and repeat step 2. The file should look exactly the same from the outside — same kind of name, same unreadable contents. That is deliberate: the choice is recorded inside the encrypted file, so a file sitting in your Files app does not announce it.
+3. Clear the Author field, then leave the Save screen and come back to it (swipe down and reopen, or switch apps and return). The field must STAY empty. If your name reappears after you deleted it, that is a bug and we want to know.
 
-4. Compose a support email with the log attached and check the attachment in the mail composer before sending. There should be exactly one log attachment. You can still remove it if you change your mind — please confirm that still works. You do not need to actually send it.
+4. Sign out, then save a finding. The Author field should be empty, and never show your email address — an email is not a name and must never end up on a picture you post. Type a name by hand and confirm it saves and shows on the card.
 
-5. Flip "Include application log" on and off a few times quickly, then turn it off and leave the screen. Nothing about the log should remain offered. Previously a file could reappear after you switched the toggle off; if you see any sign of that, tell us.
+5. Open an OLD finding you saved before this build, from the Findings list. It should open normally with an empty Author field. Type a name, tap Save, then go back into it — the name should still be there. Then check a DIFFERENT old finding: it must still have no author. Editing one finding's author must never touch another.
 
-6. Anything you would normally attach a log for — a crash, a stuck download, a page that will not render — is worth doing once end to end, to confirm attaching a log has not become slow. A full log takes a moment to prepare; a spinner is expected, a freeze is not.
+6. Sign out and back in while you have findings with authors saved. Their authors must be exactly as you left them. Signing out must never rewrite or erase a name already saved.
+
+7. Export your findings (Findings list → Export) and open the ZIP. Both findings.json and findings.csv should include an author column, with your name where you set one and empty where you did not.
+
+Most important: this build also changes how findings are stored. Please confirm that every finding you had BEFORE installing it is still there, with its picture, title, note and GPS intact. If anything is missing, or the app will not start, tell us immediately and say which version you updated from.
 
 Please report your device model, iOS version and the language you tested in.
