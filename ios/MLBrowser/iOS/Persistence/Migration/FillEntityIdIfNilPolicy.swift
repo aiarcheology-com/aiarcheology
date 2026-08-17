@@ -8,7 +8,14 @@
 import CoreData
 import OSLog
 
-// Migration from 0.0.0 to 0.0.1
+// The custom policy for every migration whose SOURCE is 0.0.0 — currently both `0.0.0→0.0.1` and
+// `0.0.0→0.0.2` (AIA-0651). It lives beside those folders rather than inside one of them because it
+// is shared; the mapping models resolve it by the `@objc` name below, never by path.
+//
+// Migrations are single-hop: Core Data matches one mapping to the (store version, current model)
+// pair and never composes two. So a new model version needs a mapping from every still-live source
+// model, and each of those whose source is 0.0.0 needs this policy — it IS the migration for
+// WebHistoryEntry, DeepConfiguration and DownloadItem, replacing the whole per-row copy below.
 
 private struct MigrationKeys {
     struct Source {

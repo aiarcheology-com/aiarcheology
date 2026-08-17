@@ -97,6 +97,19 @@ final class FindingExporterTests: XCTestCase {
 		XCTAssertEqual(rows.first?["title"] as? String, "Old Fort")
 	}
 
+	/// AIA-0651: the credit has to reach the export, and a finding saved without one must still
+	/// carry the key — an importer distinguishing "no author" from "column absent" depends on it.
+	func testEncodeJSON_author_isPresentWhenSetAndExplicitNullWhenAbsent() throws {
+		let credited = FindingSnapshot(id: UUID(), title: "Signed", author: "Jane Archeologist")
+		let anonymous = FindingSnapshot(id: UUID(), title: "Unsigned")
+
+		let data = try FindingExporter.encodeJSON([credited, anonymous], copiedIds: [])
+		let rows = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+
+		XCTAssertEqual(rows[0]["author"] as? String, "Jane Archeologist")
+		XCTAssertTrue(rows[1]["author"] is NSNull, "author should serialize as explicit null, not be omitted")
+	}
+
 	// MARK: - CSV escaping
 
 	func testCsvField_escapesCommaQuoteAndNewlines() {
@@ -111,11 +124,33 @@ final class FindingExporterTests: XCTestCase {
 		let lines = csv.components(separatedBy: "\r\n")
 
 		XCTAssertEqual(lines.count, 2, "header + one row")
-		XCTAssertTrue(lines[0].hasPrefix("id,title,label,note,gps,page,detectionClass,confidence,date,boxX,boxY,boxWidth,boxHeight,screenshot"))
-		// title defaults to empty here, and label/note/gps/page/detectionClass/date/screenshot are nil → empty cells.
+		XCTAssertTrue(lines[0].hasPrefix("id,title,label,note,gps,page,detectionClass,confidence,date,boxX,boxY,boxWidth,boxHeight,screenshot,author"))
+		// title defaults to empty here, and label/note/gps/page/detectionClass/date/screenshot/author
+		// are nil → empty cells.
 		let cells = lines[1].components(separatedBy: ",")
+		// `csvColumns` and the `fields` array are positionally coupled with nothing enforcing it;
+		// one cell per declared column is the cheapest check that they did not drift apart.
+		XCTAssertEqual(cells.count, lines[0].components(separatedBy: ",").count, "one cell per declared column")
 		XCTAssertEqual(cells[1], "", "title cell empty")
-		XCTAssertEqual(cells.last, "", "screenshot cell empty")
+		// Indexed, not `.last`: screenshot stopped being the final column when `author` was appended.
+		XCTAssertEqual(cells[13], "", "screenshot cell empty")
+		XCTAssertEqual(cells.last, "", "author cell empty")
+	}
+
+	/// The author value lands in the cell the `author` HEADER names (AIA-0651). Located by header
+	/// index rather than a hard-coded position or `.last`, so appending a column later shifts the
+	/// lookup with it instead of quietly reading the neighbouring field.
+	func testEncodeCSV_authorCell_matchesTheAuthorHeaderColumn() throws {
+		let snapshot = FindingSnapshot(id: UUID(), title: "Signed", author: "Jane Archeologist")
+
+		let csv = FindingExporter.encodeCSV([snapshot], copiedIds: [])
+		let lines = csv.components(separatedBy: "\r\n")
+		let headers = try XCTUnwrap(lines.first).components(separatedBy: ",")
+		let authorColumn = try XCTUnwrap(headers.firstIndex(of: "author"), "the CSV header declares no author column")
+		let cells = lines[1].components(separatedBy: ",")
+
+		XCTAssertEqual(cells.count, headers.count, "one cell per declared column")
+		XCTAssertEqual(cells[authorColumn], "Jane Archeologist")
 	}
 
 	// MARK: - Helpers

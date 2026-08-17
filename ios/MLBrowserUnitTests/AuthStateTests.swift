@@ -197,6 +197,68 @@ final class AuthStateTests: XCTestCase {
 		XCTAssertEqual(sut.accountIdentifier, MockAuthProvider.defaultMockAccountID)
 	}
 
+	// MARK: - Account display name (AIA-0651)
+
+	/// The prefill source for a finding's author field: the signed-in account's name while there is
+	/// an account, nothing once there isn't — a signed-out user must never be credited.
+	func testAccountDisplayName_ReadyThenSignedOut_ReturnsTheNameThenNil() async {
+		let provider = MockAuthProvider(outcome: .ready)
+		provider.mockDisplayName = "Jane Archeologist"
+		let sut = AuthState(provider: provider)
+		await sut.start()
+		XCTAssertEqual(sut.gate, .ready)
+
+		XCTAssertEqual(sut.accountDisplayName, "Jane Archeologist")
+
+		await sut.signOut()
+		XCTAssertEqual(sut.gate, .signedOut)
+		XCTAssertNil(sut.accountDisplayName)
+	}
+
+	/// The field case this is actually for: an archeologist standing in a trench with no signal.
+	/// They are still signed in, so the capture editor must still prefill their name — which is why
+	/// the predicate is `.signedOut` and not `.ready`. Gating on `.ready` would blank the credit for
+	/// exactly the users most likely to be recording a finding.
+	func testAccountDisplayName_OfflineGate_StillReturnsTheName() async {
+		let provider = MockAuthProvider(outcome: .ready)
+		provider.mockDisplayName = "Jane Archeologist"
+		let sut = AuthState(provider: provider)
+		await sut.start()
+
+		provider.setOutcomeForTesting(.offline)
+		await sut.refresh()
+
+		XCTAssertEqual(sut.gate, .offline)
+		XCTAssertEqual(sut.accountDisplayName, "Jane Archeologist")
+	}
+
+	// MARK: - No address may become a byline (AIA-0651)
+
+	/// Declining to read `primaryEmailAddress` is not what keeps an address off a share card:
+	/// `firstName`, `lastName` and `username` are free text, and an OAuth provider may fill them
+	/// from the account's email. Anything holding an `@` is refused, so the field is left empty for
+	/// the user rather than publishing their address on an image.
+	func testNameUnlessItIsAnAddress_EmailShapedCandidates_AreRefused() {
+		XCTAssertNil(ClerkAuthProvider.nameUnlessItIsAnAddress("alice@example.com"))
+		XCTAssertNil(ClerkAuthProvider.nameUnlessItIsAnAddress("Alice Smith <alice@example.com>"))
+		XCTAssertNil(ClerkAuthProvider.nameUnlessItIsAnAddress("@alice"))
+	}
+
+	/// The other half: an ordinary name must survive, including non-ASCII and internal punctuation.
+	/// A rule that refused these would silently leave every author field empty.
+	func testNameUnlessItIsAnAddress_OrdinaryNames_SurviveTrimmed() {
+		XCTAssertEqual(ClerkAuthProvider.nameUnlessItIsAnAddress("  Jane Archeologist  "), "Jane Archeologist")
+		XCTAssertEqual(ClerkAuthProvider.nameUnlessItIsAnAddress("Karol Nálezca"), "Karol Nálezca")
+		XCTAssertEqual(ClerkAuthProvider.nameUnlessItIsAnAddress("O'Brien-Smith"), "O'Brien-Smith")
+	}
+
+	/// Blank and whitespace-only are absent, not an empty byline.
+	func testNameUnlessItIsAnAddress_BlankCandidates_AreNil() {
+		XCTAssertNil(ClerkAuthProvider.nameUnlessItIsAnAddress(nil))
+		XCTAssertNil(ClerkAuthProvider.nameUnlessItIsAnAddress(""))
+		XCTAssertNil(ClerkAuthProvider.nameUnlessItIsAnAddress("   \n "))
+	}
+
 	/// The interleaving AIA-0437 guards against: `validateSession()` suspends, and a sign-out
 	/// followed by a *different* sign-in can complete inside that window. The round-trip that
 	/// returns successfully validated the OLD account, so publishing the new one on the strength of
@@ -270,6 +332,7 @@ final class AuthStateTests: XCTestCase {
 private final class SuspendableAuthProvider: AuthProviding {
 	var isSignedIn = true
 	var accountIdentifier: String?
+	var displayName: String?
 
 	/// Arm before a call and the next `validateSession()` suspends and fulfils this instead of
 	/// returning. Consumed on use, so a validation with nothing armed completes immediately.

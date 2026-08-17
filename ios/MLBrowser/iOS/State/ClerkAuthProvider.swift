@@ -113,6 +113,43 @@ final class ClerkAuthProvider: AuthProviding {
         Clerk.shared.user?.id
     }
 
+    /// The account's name, preferring "First Last" and falling back to the username.
+    ///
+    /// Clerk populates these inconsistently depending on how the account was created — an OAuth
+    /// sign-up usually has both names, an email/password one may have neither, and `username` is
+    /// optional on the instance — so every field here can be absent. When they all are, this
+    /// returns `nil` rather than reaching for `primaryEmailAddress`: see ``AuthProviding/displayName``
+    /// for why an email address must never become a byline on a shared image.
+    var displayName: String? {
+        guard let user = Clerk.shared.user else { return nil }
+        let fullName = [user.firstName, user.lastName]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty.not }
+            .joined(separator: " ")
+        return Self.nameUnlessItIsAnAddress(fullName)
+            ?? Self.nameUnlessItIsAnAddress(user.username)
+    }
+
+    /// The candidate, or `nil` if it is blank **or looks like an email address**.
+    ///
+    /// Not reading `primaryEmailAddress` is not enough to keep an address off a share card.
+    /// `firstName`, `lastName` and `username` are free text: the user can type anything, and an
+    /// OAuth provider may populate them from the account's email when it has nothing better. A
+    /// profile with `firstName = "alice@example.com"` would otherwise be prefilled, saved, and
+    /// rendered onto an image the user posts publicly — the exact outcome the no-email rule exists
+    /// to prevent.
+    ///
+    /// The test is simply "contains an `@`", which is deliberately blunt: no human name contains
+    /// one, so the false-positive cost is an empty field the user can type into, while the
+    /// false-negative cost is a leaked address on a public graphic. Those are not comparable.
+    static func nameUnlessItIsAnAddress(_ candidate: String?) -> String? {
+        guard let trimmed = candidate?.trimmingCharacters(in: .whitespacesAndNewlines),
+              trimmed.isEmpty.not,
+              trimmed.contains("@").not
+        else { return nil }
+        return trimmed
+    }
+
     func prepare() async {
         // `Clerk.configure` loads the cached client/session synchronously, so the
         // persisted signed-in state is already available here. `validateSession`
@@ -234,6 +271,21 @@ final class MockAuthProvider: AuthProviding {
 
     /// `nil` while signed out, mirroring the real provider: there is no account to identify.
     var accountIdentifier: String? { outcome == .signedOut ? nil : accountID }
+
+    /// A fixed stand-in name, `nil` while signed out — same shape as the real provider.
+    /// Settable so a unit test can drive the "signed in but no usable name" case, which is a real
+    /// Clerk state (see ``ClerkAuthProvider/displayName``) and the one where the author field must
+    /// end up empty rather than showing something derived from the email address.
+    ///
+    /// **UI tests do see this value**, they just cannot choose it: `fromLaunchArguments()` defaults
+    /// to `.ready`, so any UI test that opens the save sheet finds the Author field prefilled with
+    /// the default below and saves a finding carrying that credit. A UI test asserting an *empty*
+    /// author must therefore arrange `-mockAuthGate signedOut`, not assume nothing filled it in.
+    /// Making the name itself selectable would need a `-mockDisplayName` flag, which no test needs yet.
+    var displayName: String? { outcome == .signedOut ? nil : mockDisplayName }
+
+    /// Overridable stand-in for the account's name (tests/previews only).
+    var mockDisplayName: String? = "Mock Finder"
 
     func prepare() async {}
 

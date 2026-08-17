@@ -376,6 +376,7 @@ struct WebScreenView: View {
                 tour: appState.tour,
                 repository: appState.findingRepository,
                 reviewPrompt: appState.reviewPrompt,
+                defaultAuthor: appState.authState.accountDisplayName,
                 onSaved: { didSaveFinding = true }
             )
         }

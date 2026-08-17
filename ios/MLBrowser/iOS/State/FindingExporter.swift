@@ -25,6 +25,8 @@ struct FindingSnapshot: Sendable, Equatable {
 	let title: String
 	let label: String?
 	let note: String?
+	/// The finder's credit (AIA-0651), nil when it was left blank.
+	let author: String?
 	let gps: String?
 	let page: URL?
 	let detectionClass: String?
@@ -40,6 +42,7 @@ struct FindingSnapshot: Sendable, Equatable {
 		title: String = "",
 		label: String? = nil,
 		note: String? = nil,
+		author: String? = nil,
 		gps: String? = nil,
 		page: URL? = nil,
 		detectionClass: String? = nil,
@@ -52,6 +55,7 @@ struct FindingSnapshot: Sendable, Equatable {
 		self.title = title
 		self.label = label
 		self.note = note
+		self.author = author
 		self.gps = gps
 		self.page = page
 		self.detectionClass = detectionClass
@@ -68,6 +72,7 @@ struct FindingSnapshot: Sendable, Equatable {
 		title = finding.title
 		label = finding.label_
 		note = finding.note_
+		author = finding.author
 		gps = finding.gps_
 		page = finding.page
 		detectionClass = finding.detectionClass
@@ -149,6 +154,7 @@ enum FindingExporter {
 		let title: String
 		let label: String?
 		let note: String?
+		let author: String?
 		let gps: String?
 		let page: String?
 		let detectionClass: String?
@@ -158,7 +164,7 @@ enum FindingExporter {
 		let screenshot: String?
 
 		enum CodingKeys: String, CodingKey {
-			case id, title, label, note, gps, page, detectionClass, confidence, date, box, screenshot
+			case id, title, label, note, author, gps, page, detectionClass, confidence, date, box, screenshot
 		}
 
 		// Explicit `encode` (not the synthesized `encodeIfPresent`) so nil fields
@@ -169,6 +175,7 @@ enum FindingExporter {
 			try container.encode(title, forKey: .title)
 			try container.encode(label, forKey: .label)
 			try container.encode(note, forKey: .note)
+			try container.encode(author, forKey: .author)
 			try container.encode(gps, forKey: .gps)
 			try container.encode(page, forKey: .page)
 			try container.encode(detectionClass, forKey: .detectionClass)
@@ -187,6 +194,7 @@ enum FindingExporter {
 				title: snapshot.title,
 				label: snapshot.label,
 				note: snapshot.note,
+				author: snapshot.author,
 				gps: snapshot.gps,
 				page: snapshot.page?.absoluteString,
 				detectionClass: snapshot.detectionClass,
@@ -203,9 +211,11 @@ enum FindingExporter {
 
 	// MARK: - CSV
 
+	/// Positionally coupled with the `fields` array in `encodeCSV` — nothing enforces their
+	/// agreement, so a new column must be appended to BOTH, in the same place.
 	private static let csvColumns = [
 		"id", "title", "label", "note", "gps", "page", "detectionClass",
-		"confidence", "date", "boxX", "boxY", "boxWidth", "boxHeight", "screenshot"
+		"confidence", "date", "boxX", "boxY", "boxWidth", "boxHeight", "screenshot", "author"
 	]
 
 	static func encodeCSV(_ snapshots: [FindingSnapshot], copiedIds: Set<UUID>) -> String {
@@ -226,7 +236,8 @@ enum FindingExporter {
 				String(snapshot.box.y),
 				String(snapshot.box.width),
 				String(snapshot.box.height),
-				relativeImagePath(for: snapshot, copiedIds: copiedIds)
+				relativeImagePath(for: snapshot, copiedIds: copiedIds),
+				snapshot.author
 			]
 			// RFC-4180 line terminator is CRLF.
 			lines.append(fields.map { csvField($0) }.joined(separator: ","))

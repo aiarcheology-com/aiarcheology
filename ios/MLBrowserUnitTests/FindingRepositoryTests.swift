@@ -58,7 +58,7 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: "Test finding", label: " site ", note: "", gps: "")
+			metadata: FindingMetadata(title: "Test finding", label: " site ", note: "", author: "", gps: "")
 		)
 		// The PNG is written to the real Documents dir even under an in-memory store — clean it up.
 		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
@@ -84,7 +84,7 @@ final class FindingRepositoryTests: XCTestCase {
 				capture: makeCapture(box: box),
 				image: makeImage(),
 				box: box,
-				metadata: FindingMetadata(title: "   ", label: "", note: "", gps: "")
+				metadata: FindingMetadata(title: "   ", label: "", note: "", author: "", gps: "")
 			)
 		)
 		XCTAssertEqual(Finding.count(in: moc, predicate: nil), 0, "no row survives a failed save")
@@ -107,7 +107,7 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: visionBox),
 			image: makeImage(),
 			box: remappedBox,
-			metadata: FindingMetadata(title: "Cropped edge finding", label: "", note: "", gps: "")
+			metadata: FindingMetadata(title: "Cropped edge finding", label: "", note: "", author: "", gps: "")
 		)
 		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
 
@@ -115,6 +115,139 @@ final class FindingRepositoryTests: XCTestCase {
 		XCTAssertEqual(Finding.count(in: moc, predicate: nil), 1)
 		XCTAssertTrue(finding.validationReport().isValid)
 		XCTAssertNotNil(FindingScreenshotStore.load(filename: finding.screenshotFilename))
+	}
+
+	// MARK: - Author (AIA-0651)
+
+	/// The gate on the whole field: a NON-empty author must come back out of the store.
+	/// Asserting only "not something else" would still pass if the value were dropped on the way in
+	/// (`FindingMetadata.author` carries no default precisely so a call site cannot omit it).
+	func testSave_authorProvided_persistsTheAuthor() throws {
+		let box = CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5)
+		let finding = try sut.save(
+			capture: makeCapture(box: box),
+			image: makeImage(),
+			box: box,
+			metadata: FindingMetadata(title: "Signed finding", label: "", note: "", author: "Jane Archeologist", gps: "")
+		)
+		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
+
+		XCTAssertEqual(finding.author, "Jane Archeologist", "the finder's credit round-trips verbatim")
+	}
+
+	/// Same normalization rule as label/note/gps: a field the user only put spaces in is absent, not
+	/// an empty string — the share card and the export both branch on nil.
+	func testSave_whitespaceOnlyAuthor_persistsNil() throws {
+		let box = CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5)
+		let finding = try sut.save(
+			capture: makeCapture(box: box),
+			image: makeImage(),
+			box: box,
+			metadata: FindingMetadata(title: "Unsigned finding", label: "", note: "", author: "   \n ", gps: "")
+		)
+		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
+
+		XCTAssertNil(finding.author, "a whitespace-only author is absent, not an empty string")
+	}
+
+	/// AC #4: the author is per-finding state. Editing (or clearing) one row must not reach any
+	/// other — the failure mode of a credit sourced from one shared/global value at read time.
+	///
+	/// Scope note: this mutates the managed objects directly, because `FindingDetailView` is a
+	/// private SwiftUI view with no seam to drive from a unit test. So it proves the *storage* is
+	/// per-row; it does not prove the detail editor writes it. If `saveEdits()` stopped assigning
+	/// `finding.author`, or `hasChanges` stopped observing it, this test would still pass and the
+	/// user's edit would silently not save — covered instead by TestFlight notes step 5.
+	func testSave_editingOneAuthor_leavesOtherFindingsUntouched() throws {
+		let box = CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5)
+		let first = try sut.save(
+			capture: makeCapture(box: box),
+			image: makeImage(),
+			box: box,
+			metadata: FindingMetadata(title: "First finding", label: "", note: "", author: "Jane Archeologist", gps: "")
+		)
+		let second = try sut.save(
+			capture: makeCapture(box: box),
+			image: makeImage(),
+			box: box,
+			metadata: FindingMetadata(title: "Second finding", label: "", note: "", author: "Karol Nálezca", gps: "")
+		)
+		defer {
+			FindingScreenshotStore.delete(filename: first.screenshotFilename)
+			FindingScreenshotStore.delete(filename: second.screenshotFilename)
+		}
+
+		first.author = "Renamed Finder"
+		try Finding.save(in: moc)
+		XCTAssertEqual(second.author, "Karol Nálezca", "renaming one finder rewrote another finding's credit")
+
+		second.author = nil
+		try Finding.save(in: moc)
+		XCTAssertEqual(first.author, "Renamed Finder", "clearing one finder's credit erased another finding's")
+	}
+
+	/// Covers the *data* half of AC #3: the byline the card renders comes from
+	/// `FindingShareSubject`, which can only be built from a managed object (`init(_:)` — there is
+	/// no memberwise init to fake), so a dropped copy fails here.
+	///
+	/// It does **not** cover the rendering half. Deleting the author `Label` from
+	/// `FindingShareCard` leaves this green while shared cards stop showing the author — there is no
+	/// snapshot-test target, and adding one for this ticket would be scope. That half is a manual
+	/// check on the composer, and step 1 of the TestFlight notes asks a tester to confirm it.
+	func testShareSubject_fromSavedFinding_carriesTheAuthorAndNilWhenBlank() throws {
+		let box = CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5)
+		let credited = try sut.save(
+			capture: makeCapture(box: box),
+			image: makeImage(),
+			box: box,
+			metadata: FindingMetadata(title: "Credited finding", label: "", note: "", author: "Jane Archeologist", gps: "")
+		)
+		let anonymous = try sut.save(
+			capture: makeCapture(box: box),
+			image: makeImage(),
+			box: box,
+			metadata: FindingMetadata(title: "Anonymous finding", label: "", note: "", author: " ", gps: "")
+		)
+		defer {
+			FindingScreenshotStore.delete(filename: credited.screenshotFilename)
+			FindingScreenshotStore.delete(filename: anonymous.screenshotFilename)
+		}
+
+		XCTAssertEqual(FindingShareSubject(credited).author, "Jane Archeologist")
+		// The card renders the byline only when non-nil, so this is what keeps it from inventing one.
+		XCTAssertNil(FindingShareSubject(anonymous).author)
+	}
+
+	/// Exercises `FindingSnapshot.init(_:)`, which every production export goes through — this one via
+	/// `allFindingSnapshots()` (the export-before-delete flow), the Findings list via
+	/// `filteredFindings.map(FindingSnapshot.init)`. Deliberately NOT built with the memberwise init:
+	/// that would assert the encoder rather than the copy, and would stay green with the copy deleted.
+	func testAllFindingSnapshots_savedAuthor_survivesIntoTheSnapshot() throws {
+		let box = CGRect(x: 0.25, y: 0.25, width: 0.5, height: 0.5)
+		let credited = try sut.save(
+			capture: makeCapture(box: box),
+			image: makeImage(),
+			box: box,
+			metadata: FindingMetadata(title: "Credited finding", label: "", note: "", author: "Jane Archeologist", gps: "")
+		)
+		let anonymous = try sut.save(
+			capture: makeCapture(box: box),
+			image: makeImage(),
+			box: box,
+			metadata: FindingMetadata(title: "Anonymous finding", label: "", note: "", author: "", gps: "")
+		)
+		defer {
+			FindingScreenshotStore.delete(filename: credited.screenshotFilename)
+			FindingScreenshotStore.delete(filename: anonymous.screenshotFilename)
+		}
+
+		let snapshots = sut.allFindingSnapshots()
+		XCTAssertEqual(snapshots.count, 2)
+		let creditedSnapshot = try XCTUnwrap(snapshots.first { $0.id == credited.entityId })
+		let anonymousSnapshot = try XCTUnwrap(snapshots.first { $0.id == anonymous.entityId })
+
+		XCTAssertEqual(creditedSnapshot.author, "Jane Archeologist")
+		XCTAssertNil(anonymousSnapshot.author)
 	}
 
 	/// Current filenames in the shared `Documents/Findings` dir (the store's write target),

@@ -314,20 +314,39 @@ environment, Release uses **Production**. Tests and previews never touch the net
 
 ### Release baseline
 
-**In production: app `1.0.6`, Core Data model `0.0.0`.**
+**In production: app `1.0.7`, Core Data model `0.0.1`.**
 
-`1.0.7` is in preparation and has not been submitted. Keep both figures current — they are what
+`1.0.8` is in preparation and carries model `0.0.2`. Keep both figures current — they are what
 tells you whether a migration is required, whether a stored format may still change freely, and
 which build a bug report is actually about. Updating them is part of shipping a release; see
 `ios/AGENTS.md` §13.
 
+**Two source models are live at once**, because `1.0.6` shipped `0.0.0` and `1.0.7` shipped `0.0.1`,
+and a user on `1.0.6` can update straight to `1.0.8` without ever installing `1.0.7`.
+
 | State | Model version | Migration rule |
 |-|-|-|
-| Current public release | `0.0.0` (`MLBrowser.xcdatamodel`) | Every store in the wild starts here. |
-| Current development target | `0.0.1` (`MLBrowser_0.0.1.xcdatamodel`) | Unreleased; changes belong here until it ships. |
-| Required release path | `0.0.0 → 0.0.1` | Regenerate the Xcode mapping model whenever the 0.0.1 schema changes, retain its migration policies, and extend `FindingMigrationTests` with the released-store path. |
+| Live release | `0.0.1` (`MLBrowser_0.0.1.xcdatamodel`) | Shipped in `1.0.7`. Frozen — never edit in place. |
+| Still in the field | `0.0.0` (`MLBrowser.xcdatamodel`) | Shipped in `1.0.6`; any install that skipped `1.0.7` is still here. |
+| Development target | `0.0.2` (`MLBrowser_0.0.2.xcdatamodel`) | Unreleased; changes belong here until it ships. |
+| Required release paths | `0.0.0 → 0.0.2` **and** `0.0.1 → 0.0.2` | One mapping model per live source, each covered by its own `FindingMigrationTests` case. |
 
-Do not treat `0.0.1` as a released schema or introduce a `0.0.1 → …` migration before it ships.
+**Migration is single-hop — this is the part that is easy to get wrong.** Core Data matches *one*
+mapping model to the (store's version hashes, current model) pair; it never chains through
+intermediate versions. Shipping `0.0.0 → 0.0.1` and `0.0.1 → 0.0.2` in the same binary does **not**
+produce a `0.0.0 → 0.0.2` path — measured on AIA-0651 by removing the direct mapping from the build,
+at which point a `0.0.0` store fails to open with both of the others present. So **every new model
+version needs a mapping from every source model still in the field**, not just from its predecessor.
+Chaining would require adopting `NSStagedMigrationManager` (iOS 17+), which this app does not use.
+
+A missing mapping is not a silent reset: App Store builds disable inference *and* are excluded from
+the destroy-and-recreate recovery, so it is a `criticalFailure` at launch. Debug and TestFlight
+builds infer, which is exactly why this class of bug cannot be caught by running the app locally —
+only `FindingMigrationTests`, which disables inference deliberately, sees it.
+
+Once a version's mapping models exist, **that model version is frozen**: each `.xcmappingmodel`
+embeds an archived copy of the destination model, so editing the model silently invalidates every
+mapping that targets it, and the only signal is a migration-test failure.
 
 ## Further reading
 
