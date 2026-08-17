@@ -111,11 +111,17 @@ final class FindingExporterTests: XCTestCase {
 		let lines = csv.components(separatedBy: "\r\n")
 
 		XCTAssertEqual(lines.count, 2, "header + one row")
-		XCTAssertTrue(lines[0].hasPrefix("id,title,label,note,gps,page,detectionClass,confidence,date,boxX,boxY,boxWidth,boxHeight,screenshot"))
-		// title defaults to empty here, and label/note/gps/page/detectionClass/date/screenshot are nil → empty cells.
+		XCTAssertTrue(lines[0].hasPrefix("id,title,label,note,gps,page,detectionClass,confidence,date,boxX,boxY,boxWidth,boxHeight,screenshot,author"))
+		// title defaults to empty here, and label/note/gps/page/detectionClass/date/screenshot/author
+		// are nil → empty cells.
 		let cells = lines[1].components(separatedBy: ",")
+		// `csvColumns` and the `fields` array are positionally coupled with nothing enforcing it;
+		// one cell per declared column is the cheapest check that they did not drift apart.
+		XCTAssertEqual(cells.count, lines[0].components(separatedBy: ",").count, "one cell per declared column")
 		XCTAssertEqual(cells[1], "", "title cell empty")
-		XCTAssertEqual(cells.last, "", "screenshot cell empty")
+		// Indexed, not `.last`: screenshot stopped being the final column when `author` was appended.
+		XCTAssertEqual(cells[13], "", "screenshot cell empty")
+		XCTAssertEqual(cells.last, "", "author cell empty")
 	}
 
 	// MARK: - Helpers

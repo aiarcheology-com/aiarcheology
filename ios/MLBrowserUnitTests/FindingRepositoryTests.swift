@@ -58,7 +58,7 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: box),
 			image: makeImage(),
 			box: box,
-			metadata: FindingMetadata(title: "Test finding", label: " site ", note: "", gps: "")
+			metadata: FindingMetadata(title: "Test finding", label: " site ", note: "", author: "", gps: "")
 		)
 		// The PNG is written to the real Documents dir even under an in-memory store — clean it up.
 		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
@@ -84,7 +84,7 @@ final class FindingRepositoryTests: XCTestCase {
 				capture: makeCapture(box: box),
 				image: makeImage(),
 				box: box,
-				metadata: FindingMetadata(title: "   ", label: "", note: "", gps: "")
+				metadata: FindingMetadata(title: "   ", label: "", note: "", author: "", gps: "")
 			)
 		)
 		XCTAssertEqual(Finding.count(in: moc, predicate: nil), 0, "no row survives a failed save")
@@ -107,7 +107,7 @@ final class FindingRepositoryTests: XCTestCase {
 			capture: makeCapture(box: visionBox),
 			image: makeImage(),
 			box: remappedBox,
-			metadata: FindingMetadata(title: "Cropped edge finding", label: "", note: "", gps: "")
+			metadata: FindingMetadata(title: "Cropped edge finding", label: "", note: "", author: "", gps: "")
 		)
 		defer { FindingScreenshotStore.delete(filename: finding.screenshotFilename) }
 

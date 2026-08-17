@@ -18692,6 +18692,30 @@
         }
       }
     },
+    "finding.author" : {
+      "comment" : "Author section title in the finding editor",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Author"
+          }
+        }
+      }
+    },
+    "finding.authorPlaceholder" : {
+      "comment" : "Placeholder for the finder's name field",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Who found it"
+          }
+        }
+      }
+    },
     "finding.detection" : {
       "comment" : "Generic name for a detected object (fallback labels, accessibility)",
       "extractionState" : "manual",

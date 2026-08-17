@@ -366,11 +366,13 @@ extension TestabilityIdentification {
 		case saveFindingTitle
 		case saveFindingLabel
 		case saveFindingNote
+		case saveFindingAuthor
 		case saveFindingGps
 		// Finding Detail
 		case findingDetailTitle
 		case findingDetailLabel
 		case findingDetailNote
+		case findingDetailAuthor
 		case findingDetailGps
 	}
 	

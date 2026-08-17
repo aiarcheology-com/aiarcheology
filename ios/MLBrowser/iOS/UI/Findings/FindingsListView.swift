@@ -285,6 +285,10 @@ private struct FindingDetailView: View {
 	@State private var title = ""
 	@State private var label = ""
 	@State private var note = ""
+	/// The finder's credit (AIA-0651). Seeded from the stored value only — never from the signed-in
+	/// account: prefill is a capture-time convenience, and re-applying it here would rewrite the
+	/// credit on findings captured by, or already shared with, someone else.
+	@State private var author = ""
 	@State private var gps = ""
 	@State private var saveFailed = false
 
@@ -301,6 +305,7 @@ private struct FindingDetailView: View {
 			titleSection
 			labelSection
 			noteSection
+			authorSection
 			gpsSection
 			detectionSection
 			pageSection
@@ -362,6 +367,13 @@ private struct FindingDetailView: View {
 			TextField(L10n.Finding.notePlaceholder, text: $note, axis: .vertical)
 				.lineLimit(3...6)
 				.testability(Testability.TextField.findingDetailNote)
+		}
+	}
+
+	private var authorSection: some View {
+		Section(L10n.Finding.author) {
+			TextField(L10n.Finding.authorPlaceholder, text: $author)
+				.testability(Testability.TextField.findingDetailAuthor)
 		}
 	}
 
@@ -457,6 +469,7 @@ private struct FindingDetailView: View {
 		trimmedTitle != finding.title
 			|| normalized(label) != finding.label_
 			|| normalized(note) != finding.note_
+			|| normalized(author) != finding.author
 			|| normalized(gps) != finding.gps_
 	}
 
@@ -468,6 +481,7 @@ private struct FindingDetailView: View {
 		title = finding.title
 		label = finding.label_ ?? ""
 		note = finding.note_ ?? ""
+		author = finding.author ?? ""
 		gps = finding.gps_ ?? ""
 	}
 
@@ -475,6 +489,7 @@ private struct FindingDetailView: View {
 		finding.title = trimmedTitle
 		finding.label_ = normalized(label)
 		finding.note_ = normalized(note)
+		finding.author = normalized(author)
 		finding.gps_ = normalized(gps)
 		do {
 			try Finding.save(in: moc)

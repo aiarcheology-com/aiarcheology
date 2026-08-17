@@ -43,6 +43,9 @@ struct FindingShareSubject: Identifiable {
 	let title: String
 	let label: String?
 	let note: String?
+	/// The finder's credit, nil when it was left blank. Rendered as a byline only when present —
+	/// a shared card never invents an "Unknown" author (AIA-0651).
+	let author: String?
 	let gps: String?
 	let detectionClass: String?
 	let confidence: Double
@@ -57,6 +60,7 @@ struct FindingShareSubject: Identifiable {
 		title = finding.displayTitle
 		label = finding.label_
 		note = finding.note_
+		author = finding.author
 		gps = finding.gps_
 		detectionClass = finding.detectionClass
 		confidence = finding.detectionConfidence
@@ -168,6 +172,15 @@ struct FindingShareCard: View {
 					.padding(.vertical, 4)
 					.background(Color.accentColor.opacity(0.18), in: Capsule())
 					.foregroundStyle(Color.accentColor)
+			}
+
+			// The byline sits directly under the detection chip: it credits the finding as a whole,
+			// so it reads above the per-field rows rather than among them (AIA-0651).
+			if let author = subject.author {
+				Label(author, systemImage: "person")
+					.font(.caption)
+					.foregroundStyle(.secondary)
+					.lineLimit(1)
 			}
 
 			if let label = subject.label {

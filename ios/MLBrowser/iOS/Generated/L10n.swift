@@ -469,6 +469,10 @@ internal enum L10n {
     internal static let paused = L10n.tr("Localizable", "downloadState.paused", fallback: "Paused")
   }
   internal enum Finding {
+    /// Author
+    internal static let author = L10n.tr("Localizable", "finding.author", fallback: "Author")
+    /// Who found it
+    internal static let authorPlaceholder = L10n.tr("Localizable", "finding.authorPlaceholder", fallback: "Who found it")
     /// Detection
     internal static let detection = L10n.tr("Localizable", "finding.detection", fallback: "Detection")
     /// GPS

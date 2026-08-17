@@ -17,6 +17,10 @@ struct FindingMetadata {
 	let title: String
 	let label: String
 	let note: String
+	/// The finder's credit (AIA-0651). Deliberately declared WITHOUT a default: a `let` with an
+	/// initializer is dropped from the memberwise init, which would silently ignore whatever every
+	/// call site passed. Requiring it at each site is what makes the capture editor's value arrive.
+	let author: String
 	let gps: String
 }
 
@@ -69,6 +73,7 @@ final class FindingRepository {
 		finding.title = metadata.title.trimmingCharacters(in: .whitespacesAndNewlines)
 		finding.label_ = Self.normalized(metadata.label)
 		finding.note_ = Self.normalized(metadata.note)
+		finding.author = Self.normalized(metadata.author)
 		finding.gps_ = Self.normalized(metadata.gps)
 		finding.detectionClass = capture.observation.primaryLabelIdentifier
 		finding.detectionConfidence = Double(capture.observation.labels.first?.confidence ?? capture.observation.confidence)

@@ -175,6 +175,11 @@ struct SaveFindingSheet: View {
 	/// itself is made by `WebScreen`'s `onDismiss`, once this sheet is off screen.
 	let reviewPrompt: ReviewPromptCoordinator
 
+	/// The signed-in account's display name, or nil when nobody is signed in (AIA-0651). Seeds the
+	/// Author field ONCE, at capture; the sheet never re-reads it, so the credit a finding carries
+	/// is the text that was on screen when it was saved.
+	let defaultAuthor: String?
+
 	/// Called after a successful save, before the sheet dismisses. Lets the presenter follow up —
 	/// the sign-in offer needs to know a finding was actually written, which it cannot infer from
 	/// the review prompt (that can decline for its own reasons) or from the tour (AIA-0536).
@@ -187,6 +192,12 @@ struct SaveFindingSheet: View {
 	/// and previously used labels.
 	@State private var label = ""
 	@State private var note = ""
+	/// The finder's credit. Seeded from `defaultAuthor` on first appearance only — see `didPrefill`.
+	@State private var author = ""
+	/// Latches the one-shot author prefill. The guard cannot be `author.isEmpty`: the sheet's
+	/// `onAppear` fires again on re-appearance, and an empty field then means the user deliberately
+	/// cleared the name — restoring it would put a credit back that they just removed.
+	@State private var didPrefill = false
 	@State private var gps = ""
 	@State private var suggestions: [String] = []
 	@State private var saveFailed = false
@@ -228,6 +239,10 @@ struct SaveFindingSheet: View {
 					TextField(L10n.Finding.notePlaceholder, text: $note, axis: .vertical)
 						.lineLimit(3...6)
 						.testability(Testability.TextField.saveFindingNote)
+				}
+				Section(L10n.Finding.author) {
+					TextField(L10n.Finding.authorPlaceholder, text: $author)
+						.testability(Testability.TextField.saveFindingAuthor)
 				}
 				Section(L10n.Finding.gps) {
 					TextField(L10n.Finding.gpsPlaceholder, text: $gps)
@@ -275,6 +290,14 @@ struct SaveFindingSheet: View {
 			// (the dimmed Title field is reachable but not obvious) — AIA-0333.
 			if tour.isOnSaveStep, title.isEmpty {
 				title = L10n.Tour.defaultFindingTitle
+			}
+			// Author prefill (AIA-0651), exactly once per sheet: latch first, so a re-appearance
+			// takes no branch at all and can never overwrite a field the user edited or cleared.
+			if didPrefill.not {
+				didPrefill = true
+				if let defaultAuthor, defaultAuthor.isEmpty.not, author.isEmpty {
+					author = defaultAuthor
+				}
 			}
 		}
 	}
@@ -364,7 +387,7 @@ struct SaveFindingSheet: View {
 				capture: capture,
 				image: imageToStore,
 				box: boxToStore,
-				metadata: FindingMetadata(title: title, label: label, note: note, gps: gps)
+				metadata: FindingMetadata(title: title, label: label, note: note, author: author, gps: gps)
 			)
 			// Onboarding tour (AIA-0333): the finding is saved → advance the in-sheet save step
 			// before dismissing, so the dismiss isn't mistaken for a cancel.
