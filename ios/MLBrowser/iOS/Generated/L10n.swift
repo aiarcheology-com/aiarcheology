@@ -512,6 +512,10 @@ internal enum L10n {
     internal enum Share {
       /// Dark
       internal static let dark = L10n.tr("Localizable", "finding.share.dark", fallback: "Dark")
+      /// Let people open this finding in the app
+      internal static let includeLink = L10n.tr("Localizable", "finding.share.includeLink", fallback: "Let people open this finding in the app")
+      /// A link travels beside the picture. While it is attached, places that only accept an image — Save Image, and some apps — are not offered. Turn this off to share the picture alone.
+      internal static let includeLinkFootnote = L10n.tr("Localizable", "finding.share.includeLinkFootnote", fallback: "A link travels beside the picture. While it is attached, places that only accept an image — Save Image, and some apps — are not offered. Turn this off to share the picture alone.")
       /// Landscape
       internal static let landscape = L10n.tr("Localizable", "finding.share.landscape", fallback: "Landscape")
       /// Layout

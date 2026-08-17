@@ -126,6 +126,42 @@ final class FindingShareLinkTests: XCTestCase {
 		XCTAssertEqual(parsed.page?.absoluteString, "https://example.org/a/b")
 	}
 
+	/// The test above passes even when the **emitted** link still contains the secret, because a
+	/// round trip parses on the way back in and the parser sanitizes. That is exactly how the real
+	/// bug hid: the builder shipped `?session=secret` inside a link posted to social media, and it
+	/// was only dropped again when the *recipient* read it — long after the exposure.
+	///
+	/// So this asserts on the emitted string itself, and does it with a `Payload` constructed
+	/// **directly** rather than through the mapping that sanitizes, so the guarantee belongs to this
+	/// type rather than to a caller's discipline.
+	func test_emittedLinkNeverCarriesThePagesQueryString() throws {
+		let payload = FindingShareLink.Payload(
+			title: "Roman wall",
+			page: URL(string: "https://example.org/a/b?session=secret&token=abc123#frag")
+		)
+		let url = try XCTUnwrap(FindingShareLink.url(for: payload))
+		let emitted = url.absoluteString
+
+		XCTAssertFalse(emitted.contains("session"), "a session token must never leave in a shared link")
+		XCTAssertFalse(emitted.contains("secret"))
+		XCTAssertFalse(emitted.contains("token"))
+		XCTAssertFalse(emitted.contains("abc123"))
+		// The percent-encoded forms must be absent too, which is what the raw substring check above
+		// would miss if the value were escaped rather than removed.
+		XCTAssertFalse(emitted.contains("%3Fsession"))
+		XCTAssertEqual(try XCTUnwrap(FindingShareLink.payload(from: url)).page?.absoluteString,
+		               "https://example.org/a/b")
+	}
+
+	/// A non-`https` page must be dropped at emission too, not merely refused on the way back in.
+	func test_emittedLinkNeverCarriesANonHTTPSPage() throws {
+		for raw in ["http://example.org/x", "javascript:alert(1)", "file:///etc/passwd"] {
+			let payload = FindingShareLink.Payload(title: "X", page: URL(string: raw))
+			let url = try XCTUnwrap(FindingShareLink.url(for: payload))
+			XCTAssertFalse(url.absoluteString.contains("&u="), "\(raw) must not be emitted")
+		}
+	}
+
 	func test_nonHTTPSPagesAreRejected() throws {
 		for raw in [
 			"http://example.org/insecure",

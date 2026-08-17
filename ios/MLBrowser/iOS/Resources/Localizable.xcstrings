@@ -20420,6 +20420,30 @@
         }
       }
     },
+    "finding.share.includeLink" : {
+      "comment" : "Toggle in the finding share composer deciding whether the shared card travels with a link that opens the finding in the app",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Let people open this finding in the app"
+          }
+        }
+      }
+    },
+    "finding.share.includeLinkFootnote" : {
+      "comment" : "Footnote under the share composer's link toggle, stating what attaching the link costs in the system share sheet",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A link travels beside the picture. While it is attached, places that only accept an image — Save Image, and some apps — are not offered. Turn this off to share the picture alone."
+          }
+        }
+      }
+    },
     "finding.share.landscape" : {
       "comment" : "Landscape layout option for the share card",
       "extractionState" : "manual",

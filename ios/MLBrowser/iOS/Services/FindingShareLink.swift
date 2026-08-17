@@ -230,7 +230,14 @@ enum FindingShareLink {
 		add(Key.detectionClass, sanitizedText(payload.detectionClass, limit: Limit.detectionClass))
 		add(Key.confidence, payload.confidencePercent.map(String.init))
 		add(Key.coordinate, payload.coordinate.map(formatted))
-		add(Key.page, payload.page?.absoluteString)
+		// Reduced again on the way out, even though `FindingShareSubject.linkPayload` already reduced
+		// it. Not redundant: `Payload` is a plain struct that validates nothing, so "the page is
+		// safe" was previously a property of one *caller* remembering to call `sanitizedPage`, and
+		// this contract is the wrong place to hold a security property by convention. Reducing here
+		// makes it true of every link this type can emit, whoever built the payload. The original bug
+		// was invisible in tests because a round-trip check parses on the way back in — and the
+		// parser sanitizes — so the emitted link carried the query string while the test passed.
+		add(Key.page, payload.page.flatMap { sanitizedPage($0.absoluteString) }?.absoluteString)
 		add(Key.author, sanitizedText(payload.author, limit: Limit.author))
 		add(Key.date, payload.date.flatMap(formattedDate))
 
@@ -409,7 +416,13 @@ enum FindingShareLink {
 	///
 	/// The honest cost: a page that only resolves *with* its query — a search result, a paginated
 	/// view — will not reproduce for the recipient. The landing page says so.
-	private static func sanitizedPage(_ raw: String) -> URL? {
+	///
+	/// **Internal, not private, and that is load-bearing.** The builder emits ``Payload/page``
+	/// verbatim, so the reduction has to happen before a `Payload` exists — otherwise a browsed URL's
+	/// query string travels inside the emitted link and is only dropped again when the *recipient*
+	/// parses it, which is far too late to have protected anything. `FindingShareSubject.linkPayload`
+	/// is the one place a raw browsed URL enters this contract, and it calls this.
+	static func sanitizedPage(_ raw: String) -> URL? {
 		guard raw.count <= Limit.page,
 		      var components = URLComponents(string: raw),
 		      components.scheme?.lowercased() == "https",

@@ -269,6 +269,8 @@ extension TestabilityIdentification {
 		case supportRequestSendUnredactedData
 		// Configuration Form — per-model finding flash (AIA-0374)
 		case configurationFormFlashOnFinding
+		// Finding Share Composer — attach an openable link (AIA-0650)
+		case findingShareIncludeLink
 		// Side Menu Cell
 		case sideMenuCellEnabled
 	}

@@ -139,6 +139,9 @@ struct DrawerContent: View {
             // reliably carry \.managedObjectContext across the sheet boundary, so
             // the fetch/distinctLabels would hit the empty default context and crash.
             .environment(\.managedObjectContext, moc)
+            // Same reason (AIA-0650): the share composer two sheets down reads
+            // `isFindingShareLinkEnabled` live, and this is where the chain starts.
+            .environmentObject(appState.featureFlags)
         }
         .sheet(isPresented: $showSignIn) {
             SignInSheet(authState: authState)
