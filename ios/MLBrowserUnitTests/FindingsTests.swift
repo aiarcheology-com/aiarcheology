@@ -709,13 +709,21 @@ final class FindingMigrationTests: XCTestCase {
         seedContext.persistentStoreCoordinator = seedCoordinator
 
         let seededTitles = ["Legacy hillfort", "Legacy burial mound"]
+        // Captured so the assertions can demand the SAME identity back, not merely a non-nil one.
+        var seededIdentity: [String: (id: UUID, screenshot: String)] = [:]
         try seedContext.performAndWait {
             let findingEntity = sourceModel.entitiesByName["Finding"]!
             for title in seededTitles {
                 let row = NSManagedObject(entity: findingEntity, insertInto: seedContext)
                 // entityId and lifeCycleString are non-optional with no default in 0.0.1:
                 // omitting either fails validation on save, before any migration happens.
-                row.setValue(UUID(), forKey: "entityId")
+                let entityId = UUID()
+                // FindingScreenshotStore names every file "<entityId>.png", which is why the
+                // identity below is load-bearing rather than cosmetic.
+                let screenshot = "\(entityId.uuidString).png"
+                seededIdentity[title] = (entityId, screenshot)
+                row.setValue(entityId, forKey: "entityId")
+                row.setValue(screenshot, forKey: "screenshotFilename")
                 row.setValue(CoreDataManageableState.ready.rawValue, forKey: "lifeCycleString")
                 row.setValue(title, forKey: "title")
                 row.setValue(Date(), forKey: "creationDate_")
@@ -768,7 +776,21 @@ final class FindingMigrationTests: XCTestCase {
         )
         for row in migrated {
             XCTAssertNil(row.value(forKey: "author"), "a finding written before AIA-0651 has no author")
-            XCTAssertNotNil(row.value(forKey: "entityId"))
+            let title = try XCTUnwrap(row.value(forKey: "title") as? String)
+            let seeded = try XCTUnwrap(seededIdentity[title], "migration invented a finding titled \(title)")
+            // Asserting merely non-nil would pass a migration that REGENERATED every id. That is not
+            // a cosmetic difference: the screenshot on disk is named "<entityId>.png", so a new id
+            // silently orphans the picture and the finding renders as a grey placeholder for ever.
+            XCTAssertEqual(
+                row.value(forKey: "entityId") as? UUID,
+                seeded.id,
+                "migration must preserve the existing entityId, not mint a new one"
+            )
+            XCTAssertEqual(
+                row.value(forKey: "screenshotFilename") as? String,
+                seeded.screenshot,
+                "a migrated finding must still point at the screenshot it was saved with"
+            )
         }
 
         let history = try context.fetch(NSFetchRequest<NSManagedObject>(entityName: "WebHistoryEntry"))

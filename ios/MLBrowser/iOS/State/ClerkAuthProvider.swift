@@ -277,8 +277,11 @@ final class MockAuthProvider: AuthProviding {
     /// Clerk state (see ``ClerkAuthProvider/displayName``) and the one where the author field must
     /// end up empty rather than showing something derived from the email address.
     ///
-    /// Not reachable from UI tests: this provider is configured purely from launch arguments, and
-    /// no `-mockDisplayName` flag is parsed. Add one only when a UI test actually needs it.
+    /// **UI tests do see this value**, they just cannot choose it: `fromLaunchArguments()` defaults
+    /// to `.ready`, so any UI test that opens the save sheet finds the Author field prefilled with
+    /// the default below and saves a finding carrying that credit. A UI test asserting an *empty*
+    /// author must therefore arrange `-mockAuthGate signedOut`, not assume nothing filled it in.
+    /// Making the name itself selectable would need a `-mockDisplayName` flag, which no test needs yet.
     var displayName: String? { outcome == .signedOut ? nil : mockDisplayName }
 
     /// Overridable stand-in for the account's name (tests/previews only).
