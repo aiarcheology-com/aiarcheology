@@ -622,6 +622,7 @@
 		946200F02ED70AE60047336A /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
 		946A3B722EB543BC002CF63C /* FillEntityIdIfNilPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FillEntityIdIfNilPolicy.swift; sourceTree = "<group>"; };
 		946A3B742EB55675002CF63C /* MLBrowser_0.0.1.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = MLBrowser_0.0.1.xcdatamodel; sourceTree = "<group>"; };
+		946A3B752EB55675002CF63C /* MLBrowser_0.0.2.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = MLBrowser_0.0.2.xcdatamodel; sourceTree = "<group>"; };
 		94713D972EA2F33A00713068 /* ImportHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportHandler.swift; sourceTree = "<group>"; };
 		9489C96D2EA02B0C008C728F /* HostPlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostPlatform.swift; sourceTree = "<group>"; };
 		94929E732ED633C1001A4C63 /* DeepDriversTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepDriversTests.swift; sourceTree = "<group>"; };
@@ -2689,10 +2690,11 @@
 		8A51D1B92B0B1EA400D2417C /* MLBrowser.xcdatamodeld */ = {
 			isa = XCVersionGroup;
 			children = (
+				946A3B752EB55675002CF63C /* MLBrowser_0.0.2.xcdatamodel */,
 				946A3B742EB55675002CF63C /* MLBrowser_0.0.1.xcdatamodel */,
 				8A51D1BA2B0B1EA400D2417C /* MLBrowser.xcdatamodel */,
 			);
-			currentVersion = 946A3B742EB55675002CF63C /* MLBrowser_0.0.1.xcdatamodel */;
+			currentVersion = 946A3B752EB55675002CF63C /* MLBrowser_0.0.2.xcdatamodel */;
 			path = MLBrowser.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;

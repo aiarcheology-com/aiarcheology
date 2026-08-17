@@ -14,6 +14,15 @@ extension Finding {
         return NSFetchRequest<Finding>(entityName: "Finding")
     }
 
+    /// The finder's self-declared credit, shown on the share card (AIA-0651). Optional and
+    /// free text: signing in is not required, so an anonymous user types their own or leaves
+    /// it blank. Prefilled from the Clerk account's name at capture only and never rewritten
+    /// afterwards, so a later profile edit or sign-out cannot change the credit on a finding
+    /// that has already been shared. Never the account's email address — that would put an
+    /// address on a shared graphic.
+    ///
+    /// Unrelated to `DeepConfiguration.author`, which credits the author of an imported ML model.
+    @NSManaged public var author: String?
     /// Vision-normalized bounding box in FULL-IMAGE coordinates (bottom-left origin),
     /// exactly as `DetectedObject.boundingBox` delivers it. The highlight is always
     /// drawn live from these values — never baked into the stored screenshot.
