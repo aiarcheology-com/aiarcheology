@@ -33,15 +33,27 @@ version-controlled and reviewable. `clerk.aiarcheology.com` already works this w
 web/link-site/
   .well-known/apple-app-site-association   the association file; appID ZLR4X4U8UQ.com.aiarcheology.ios
   f.html                                   the landing page, served at /f
+  404.html                                 disables Pages' SPA fallback - see below
   app.js                                   renders the fragment; textContent only, https-only hrefs
   styles.css                               separate file because the CSP forbids inline styles
   _headers                                 content type for the AASA + the security headers
   _redirects                               /f/ -> /f, / -> /f
 ```
 
-**`f.html`, not `f/index.html`.** Directory-style hosting answers `/f` with a 308 to `/f/`,
-and iOS matches a universal link against the URL *as tapped*, before any redirect runs — so
-the directory form means the app silently never opens, with no error anywhere to tell you.
+**`f.html`, not `f/index.html`.** Pages serves `/contact.html` at `/contact` and redirects the
+`.html` form to it, but it redirects `/about/index.html` to `/about/` — so the directory form
+would answer `/f` with a 308 to `/f/`. iOS matches a universal link against the URL *as
+tapped*, before any redirect runs, so that form means the app silently never opens with no
+error anywhere to tell you.
+
+**`404.html` is load-bearing, and not for its text.** Pages' documented behaviour: *"If your
+project does not include a top-level `404.html` file, Pages assumes that you are deploying a
+single-page application"* and matches every unpublished path to the root document with a
+**200**. Without this file, if Pages ever declined to publish the `.well-known`
+dot-directory, `/.well-known/apple-app-site-association` would answer `200` with HTML — and
+the `_headers` rule for that exact path would stamp `Content-Type: application/json` onto it.
+The verification below would pass while iOS was being handed a document it cannot parse. With
+`404.html` present the same situation returns a plain 404, which check 1 catches immediately.
 
 ## The link format
 
