@@ -313,6 +313,8 @@
 		ABAA0115000000000000B012 /* TargetingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A012 /* TargetingCoordinator.swift */; };
 		ABAA0115000000000000B013 /* TargetingCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A013 /* TargetingCoordinatorTests.swift */; };
 		ABAA0115000000000000B014 /* MessageNotificationPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A014 /* MessageNotificationPlanner.swift */; };
+		ABAA0650000000000000B001 /* FindingShareLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A001 /* FindingShareLink.swift */; };
+		ABAA0650000000000000B002 /* FindingShareLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A002 /* FindingShareLinkTests.swift */; };
 		ABAA0115000000000000B015 /* UserNotificationScheduling.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A015 /* UserNotificationScheduling.swift */; };
 		ABAA0115000000000000B016 /* MessageNotificationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A016 /* MessageNotificationCoordinator.swift */; };
 		ABAA0115000000000000B017 /* MessageNotificationPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0115000000000000A017 /* MessageNotificationPlannerTests.swift */; };
@@ -688,6 +690,8 @@
 		ABAA0115000000000000A012 /* TargetingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TargetingCoordinator.swift; sourceTree = "<group>"; };
 		ABAA0115000000000000A013 /* TargetingCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TargetingCoordinatorTests.swift; sourceTree = "<group>"; };
 		ABAA0115000000000000A014 /* MessageNotificationPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageNotificationPlanner.swift; sourceTree = "<group>"; };
+		ABAA0650000000000000A001 /* FindingShareLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingShareLink.swift; sourceTree = "<group>"; };
+		ABAA0650000000000000A002 /* FindingShareLinkTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingShareLinkTests.swift; sourceTree = "<group>"; };
 		ABAA0115000000000000A015 /* UserNotificationScheduling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserNotificationScheduling.swift; sourceTree = "<group>"; };
 		ABAA0115000000000000A016 /* MessageNotificationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageNotificationCoordinator.swift; sourceTree = "<group>"; };
 		ABAA0115000000000000A017 /* MessageNotificationPlannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MessageNotificationPlannerTests.swift; sourceTree = "<group>"; };
@@ -1205,6 +1209,7 @@
 				A41300050000000000000001 /* CatalogProviderTests.swift */,
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
 				94FF0001000000000000B004 /* FeatureFlagsTests.swift */,
+				ABAA0650000000000000A002 /* FindingShareLinkTests.swift */,
 				AA0454020000000000000001 /* SupportRequestTests.swift */,
 				AA0643020000000000000001 /* SupportLogSealerTests.swift */,
 				ABAA0115000000000000A002 /* AppMessageTests.swift */,
@@ -1465,6 +1470,7 @@
 				AC055600000000000000A002 /* FreeAccessAnchorService.swift */,
 				ABAA0115000000000000A008 /* MessageReplyPatchBuilder.swift */,
 				ABAA0115000000000000A014 /* MessageNotificationPlanner.swift */,
+				ABAA0650000000000000A001 /* FindingShareLink.swift */,
 				ABAA0115000000000000A015 /* UserNotificationScheduling.swift */,
 				A41320010000000000000001 /* Catalog */,
 				A1B2C3D42F0104A100000001 /* ModelLoadingService.swift */,
@@ -2018,6 +2024,7 @@
 				ABAA0115000000000000B008 /* MessageReplyPatchBuilder.swift in Sources */,
 				ABAA0115000000000000B009 /* MessageReplyCoordinator.swift in Sources */,
 				ABAA0115000000000000B014 /* MessageNotificationPlanner.swift in Sources */,
+				ABAA0650000000000000B001 /* FindingShareLink.swift in Sources */,
 				ABAA0115000000000000B015 /* UserNotificationScheduling.swift in Sources */,
 				ABAA0115000000000000B016 /* MessageNotificationCoordinator.swift in Sources */,
 				ABAA0115000000000000B010 /* ClerkMessageReplyWriter.swift in Sources */,
@@ -2101,6 +2108,7 @@
 				94D79C992EE37DBF0027C9FA /* NSManagedObjectExtensionsTests.swift in Sources */,
 				94D79C9A2EE37DBF0027C9FA /* AppEnvironmentTests.swift in Sources */,
 				94FF0001000000000000B104 /* FeatureFlagsTests.swift in Sources */,
+				ABAA0650000000000000B002 /* FindingShareLinkTests.swift in Sources */,
 				AA0454030000000000000001 /* SupportRequestTests.swift in Sources */,
 				AA0643020000000000000002 /* SupportLogSealerTests.swift in Sources */,
 				ABAA0115000000000000B002 /* AppMessageTests.swift in Sources */,
