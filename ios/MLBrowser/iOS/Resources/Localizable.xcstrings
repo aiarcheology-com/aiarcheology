@@ -21068,6 +21068,90 @@
         }
       }
     },
+    "finding.shared.openPage" : {
+      "comment" : "Action on the shared-finding screen that browses to the page the link says the finding was captured on",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the Original Page"
+          }
+        }
+      }
+    },
+    "finding.shared.owned.message" : {
+      "comment" : "Body of the shared-finding screen when the link's id matches a finding already stored on this device",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This link points to a finding already saved on this device, so there is nothing to add."
+          }
+        }
+      }
+    },
+    "finding.shared.owned.open" : {
+      "comment" : "Action that opens the findings inventory when the shared link turns out to be the recipient's own finding",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Findings"
+          }
+        }
+      }
+    },
+    "finding.shared.owned.title" : {
+      "comment" : "Headline of the shared-finding screen when the link's id matches a finding already stored on this device",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Is Your Finding"
+          }
+        }
+      }
+    },
+    "finding.shared.title" : {
+      "comment" : "Navigation title of the read-only screen shown when a shared finding link is opened",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared Finding"
+          }
+        }
+      }
+    },
+    "finding.shared.unverifiedMessage" : {
+      "comment" : "Provenance warning on the shared-finding screen: every field arrived in a URL and none of it is authenticated",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Everything on this screen came from the link that was shared with you. None of it has been checked, so treat the details as unconfirmed."
+          }
+        }
+      }
+    },
+    "finding.shared.unverifiedTitle" : {
+      "comment" : "Headline of the provenance warning on the shared-finding screen",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared by Someone Else"
+          }
+        }
+      }
+    },
     "finding.title" : {
       "comment" : "Title section header in the save-finding and finding-detail dialogs (the finding's required name)",
       "extractionState" : "manual",

@@ -330,6 +330,8 @@
 		AC055600000000000000B005 /* FreeAccessState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A005 /* FreeAccessState.swift */; };
 		ABAA0650000000000000B003 /* SharedFindingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A003 /* SharedFindingState.swift */; };
 		ABAA0650000000000000B004 /* SharedFindingStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A004 /* SharedFindingStateTests.swift */; };
+		ABAA0650000000000000B005 /* SharedFindingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A005 /* SharedFindingView.swift */; };
+		ABAA0650000000000000B006 /* SharedFindingViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A006 /* SharedFindingViewTests.swift */; };
 		AC055600000000000000B006 /* FreeAccessStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A006 /* FreeAccessStateTests.swift */; };
 		AC055600000000000000B007 /* SubscriptionGateDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */; };
 		AC055600000000000000B008 /* FreeAccessUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A008 /* FreeAccessUITests.swift */; };
@@ -709,6 +711,8 @@
 		AC055600000000000000A005 /* FreeAccessState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessState.swift; sourceTree = "<group>"; };
 		ABAA0650000000000000A003 /* SharedFindingState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedFindingState.swift; sourceTree = "<group>"; };
 		ABAA0650000000000000A004 /* SharedFindingStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedFindingStateTests.swift; sourceTree = "<group>"; };
+		ABAA0650000000000000A005 /* SharedFindingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedFindingView.swift; sourceTree = "<group>"; };
+		ABAA0650000000000000A006 /* SharedFindingViewTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedFindingViewTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A006 /* FreeAccessStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessStateTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionGateDisplayTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A008 /* FreeAccessUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessUITests.swift; sourceTree = "<group>"; };
@@ -895,6 +899,7 @@
 				8A4F0E352F110A0600ABCDEF /* FindingsListView.swift */,
 				8A4F0E422F110A0600ABCDEF /* ActivityShareSheet.swift */,
 				8A4F0E442F110A0600ABCDEF /* FindingShareCard.swift */,
+				ABAA0650000000000000A005 /* SharedFindingView.swift */,
 			);
 			path = Findings;
 			sourceTree = "<group>";
@@ -1216,6 +1221,7 @@
 				94FF0001000000000000B004 /* FeatureFlagsTests.swift */,
 				ABAA0650000000000000A002 /* FindingShareLinkTests.swift */,
 				ABAA0650000000000000A004 /* SharedFindingStateTests.swift */,
+				ABAA0650000000000000A006 /* SharedFindingViewTests.swift */,
 				AA0454020000000000000001 /* SupportRequestTests.swift */,
 				AA0643020000000000000001 /* SupportLogSealerTests.swift */,
 				ABAA0115000000000000A002 /* AppMessageTests.swift */,
@@ -1849,6 +1855,7 @@
 				AC055600000000000000B001 /* FreeAccessWindow.swift in Sources */,
 				AC055600000000000000B005 /* FreeAccessState.swift in Sources */,
 				ABAA0650000000000000B003 /* SharedFindingState.swift in Sources */,
+				ABAA0650000000000000B005 /* SharedFindingView.swift in Sources */,
 				DA47E3026E55F36F98549973 /* EntitlementTransaction.swift in Sources */,
 				B49058D02D6135CEAACDD928 /* AppAccountToken.swift in Sources */,
 				61B3C02BC674F0B78E380B52 /* EntitlementResolver.swift in Sources */,
@@ -2117,6 +2124,7 @@
 				94FF0001000000000000B104 /* FeatureFlagsTests.swift in Sources */,
 				ABAA0650000000000000B002 /* FindingShareLinkTests.swift in Sources */,
 				ABAA0650000000000000B004 /* SharedFindingStateTests.swift in Sources */,
+				ABAA0650000000000000B006 /* SharedFindingViewTests.swift in Sources */,
 				AA0454030000000000000001 /* SupportRequestTests.swift in Sources */,
 				AA0643020000000000000002 /* SupportLogSealerTests.swift in Sources */,
 				ABAA0115000000000000B002 /* AppMessageTests.swift in Sources */,

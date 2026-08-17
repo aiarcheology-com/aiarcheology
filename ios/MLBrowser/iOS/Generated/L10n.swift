@@ -525,6 +525,24 @@ internal enum L10n {
       /// Share Finding
       internal static let title = L10n.tr("Localizable", "finding.share.title", fallback: "Share Finding")
     }
+    internal enum Shared {
+      /// Open the Original Page
+      internal static let openPage = L10n.tr("Localizable", "finding.shared.openPage", fallback: "Open the Original Page")
+      /// Shared Finding
+      internal static let title = L10n.tr("Localizable", "finding.shared.title", fallback: "Shared Finding")
+      /// Everything on this screen came from the link that was shared with you. None of it has been checked, so treat the details as unconfirmed.
+      internal static let unverifiedMessage = L10n.tr("Localizable", "finding.shared.unverifiedMessage", fallback: "Everything on this screen came from the link that was shared with you. None of it has been checked, so treat the details as unconfirmed.")
+      /// Shared by Someone Else
+      internal static let unverifiedTitle = L10n.tr("Localizable", "finding.shared.unverifiedTitle", fallback: "Shared by Someone Else")
+      internal enum Owned {
+        /// This link points to a finding already saved on this device, so there is nothing to add.
+        internal static let message = L10n.tr("Localizable", "finding.shared.owned.message", fallback: "This link points to a finding already saved on this device, so there is nothing to add.")
+        /// Open Findings
+        internal static let `open` = L10n.tr("Localizable", "finding.shared.owned.open", fallback: "Open Findings")
+        /// This Is Your Finding
+        internal static let title = L10n.tr("Localizable", "finding.shared.owned.title", fallback: "This Is Your Finding")
+      }
+    }
   }
   internal enum Findings {
     /// Export

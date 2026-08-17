@@ -228,6 +228,16 @@ extension TestabilityIdentification {
 		case findingDetailShare
 		case findingShareConfirm
 		case findingShareCancel
+		// Shared finding links (AIA-0650) — the read-only screen a recipient sees.
+		/// Closes the shared-finding screen. The ONLY control that clears the pending link, so a test
+		/// that taps it is exercising the one dismissal path the buffer recognises.
+		case sharedFindingDismiss
+		/// Browses to the page the link says the finding was captured on. Present only when the link
+		/// carried one, so its absence is itself the assertion that no page travelled.
+		case sharedFindingOpenPage
+		/// Shown instead of the unverified card when the id in the link matches a finding this device
+		/// already stores — it opens the findings inventory rather than the link's copy of the work.
+		case sharedFindingOpenOwn
 		// Snap Adjustment
 		case snapAdjustmentReset
 		case snapAdjustmentOverlayDismiss
@@ -406,6 +416,11 @@ extension TestabilityIdentification {
 		/// paywall sibling is: the landscape test needs a scroll view to drive before it can prove
 		/// the footer bullets and the price note stay reachable on a short viewport.
 		case welcomeContent
+		/// The provenance banner on a shared finding (AIA-0650) — "this came from a link and has not
+		/// been verified". Identified because that sentence is the whole security posture of the
+		/// screen: Associated Domains authenticates the domain, never the fields, so a test must be
+		/// able to prove the warning is on screen without matching localized copy.
+		case sharedFindingProvenance
 		// Onboarding tour coach-mark bubble.
 		case tourBubble
 		// App Messages banner container (AIA-0115)
