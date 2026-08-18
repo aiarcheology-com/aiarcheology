@@ -510,8 +510,16 @@ internal enum L10n {
       internal static let title = L10n.tr("Localizable", "finding.save.title", fallback: "Save Finding")
     }
     internal enum Share {
+      /// No web address will travel with this link.
+      internal static let addressNotIncluded = L10n.tr("Localizable", "finding.share.addressNotIncluded", fallback: "No web address will travel with this link.")
+      /// This link carries at most:
+      internal static let addressPreview = L10n.tr("Localizable", "finding.share.addressPreview", fallback: "This link carries at most:")
       /// Dark
       internal static let dark = L10n.tr("Localizable", "finding.share.dark", fallback: "Dark")
+      /// Share the full web address
+      internal static let fullAddress = L10n.tr("Localizable", "finding.share.fullAddress", fallback: "Share the full web address")
+      /// Map sites keep the view you are looking at inside the web address. Sharing it in full is what lets someone open that same view; turned off, only the site itself is shared.
+      internal static let fullAddressFootnote = L10n.tr("Localizable", "finding.share.fullAddressFootnote", fallback: "Map sites keep the view you are looking at inside the web address. Sharing it in full is what lets someone open that same view; turned off, only the site itself is shared.")
       /// Let people open this finding in the app
       internal static let includeLink = L10n.tr("Localizable", "finding.share.includeLink", fallback: "Let people open this finding in the app")
       /// Adds a tappable link beside the picture, so people can open this finding in the app. While it's on, iOS hides Save Image and any app that only accepts pictures from the share sheet. Turn it off to share just the picture.
@@ -553,6 +561,14 @@ internal enum L10n {
         internal static let message = L10n.tr("Localizable", "finding.shared.unreadable.message", fallback: "It may have been shortened or edited on its way to you. Ask whoever shared it to send the link again.")
         /// This Link Could Not Be Read
         internal static let title = L10n.tr("Localizable", "finding.shared.unreadable.title", fallback: "This Link Could Not Be Read")
+      }
+      internal enum Where {
+        /// Detection %1$@ from the left, %2$@ from the top, covering about %3$@ of the page.
+        internal static func accessibility(_ p1: Any, _ p2: Any, _ p3: Any) -> String {
+          return L10n.tr("Localizable", "finding.shared.where.accessibility", String(describing: p1), String(describing: p2), String(describing: p3), fallback: "Detection %1$@ from the left, %2$@ from the top, covering about %3$@ of the page.")
+        }
+        /// Where on the page
+        internal static let title = L10n.tr("Localizable", "finding.shared.where.title", fallback: "Where on the page")
       }
     }
   }

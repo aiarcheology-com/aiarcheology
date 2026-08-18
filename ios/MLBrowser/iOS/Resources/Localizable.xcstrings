@@ -20528,6 +20528,654 @@
         }
       }
     },
+    "finding.share.addressNotIncluded" : {
+      "comment" : "Shown in the share composer when the link will carry no web address at all",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "لن يُرسل أي عنوان ويب مع هذا الرابط."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই লিংকের সঙ্গে কোনো ওয়েব ঠিকানা যাবে না।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "S tímto odkazem nepocestuje žádná webová adresa."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mit diesem Link wird keine Webadresse mitgeschickt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No web address will travel with this link."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Con este enlace no viajará ninguna dirección web."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "هیچ نشانی وبی همراه این پیوند نمی‌رود."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Aucune adresse web ne voyagera avec ce lien."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "שום כתובת אינטרנט לא תישלח עם קישור זה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "इस लिंक के साथ कोई वेब पता नहीं जाएगा।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ezzel a hivatkozással nem utazik webcím."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Z tym linkiem nie zostanie wysłany żaden adres internetowy."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "С этой ссылкой не будет отправлен ни один веб-адрес."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Із цим посиланням не надсилається жодна веб-адреса."
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "呢條連結唔會帶上任何網址。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此链接不会带上任何网址。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此連結不會帶上任何網址。"
+          }
+        }
+      }
+    },
+    "finding.share.addressPreview" : {
+      "comment" : "Label above the exact web address a shared link will carry, shown to the sender before they share",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يحمل هذا الرابط على الأكثر:"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই লিংক সর্বাধিক যা বহন করে:"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tento odkaz nese nejvýše:"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dieser Link enthält höchstens:"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This link carries at most:"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Este enlace lleva como máximo:"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "این پیوند حداکثر این را می‌برد:"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ce lien transporte au maximum :"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "קישור זה נושא לכל היותר:"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "यह लिंक अधिकतम यह ले जाता है:"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ez a hivatkozás legfeljebb ezt viszi:"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ten link przenosi co najwyżej:"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Эта ссылка несёт не более чем:"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Це посилання несе щонайбільше:"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "呢條連結最多會帶上："
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此链接最多会带上："
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此連結最多會帶上："
+          }
+        }
+      }
+    },
+    "finding.share.fullAddress" : {
+      "comment" : "Toggle in the share composer: whether the shared link carries the full web address or only the site",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "مشاركة عنوان الويب الكامل"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "সম্পূর্ণ ওয়েব ঠিকানা শেয়ার করুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sdílet celou webovou adresu"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vollständige Webadresse teilen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share the full web address"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Compartir la dirección web completa"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "اشتراک‌گذاری نشانی کامل وب"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Partager l'adresse web complète"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "שיתוף כתובת האינטרנט המלאה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "पूरा वेब पता साझा करें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A teljes webcím megosztása"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Udostępnij pełny adres internetowy"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Поделиться полным веб-адресом"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Поділитися повною веб-адресою"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "分享完整網址"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "分享完整网址"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "分享完整網址"
+          }
+        }
+      }
+    },
+    "finding.share.fullAddressFootnote" : {
+      "comment" : "Footnote under the full-address toggle, explaining why a map site's view needs the whole address",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تحتفظ مواقع الخرائط بالمشهد الذي تنظر إليه داخل عنوان الويب. مشاركته كاملًا هي ما يتيح لغيرك فتح المشهد نفسه؛ وعند إيقافه يُشارَك الموقع وحده."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "মানচিত্রের সাইটগুলো আপনি যে দৃশ্য দেখছেন তা ওয়েব ঠিকানার ভেতরেই রাখে। সম্পূর্ণ ঠিকানা শেয়ার করলেই অন্য কেউ ঠিক সেই দৃশ্যটি খুলতে পারবেন; বন্ধ থাকলে কেবল সাইটটিই শেয়ার হয়।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mapové servery mají pohled, na který se právě díváte, uložený ve webové adrese. Sdílení celé adresy je to, co ostatním umožní otevřít stejný pohled; vypnuto se sdílí jen samotný web."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Kartendienste speichern die Ansicht, die du gerade siehst, in der Webadresse. Nur vollständig geteilt kann jemand dieselbe Ansicht öffnen; ausgeschaltet wird nur die Website selbst geteilt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Map sites keep the view you are looking at inside the web address. Sharing it in full is what lets someone open that same view; turned off, only the site itself is shared."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Los sitios de mapas guardan la vista que estás viendo dentro de la dirección web. Compartirla completa es lo que permite a otra persona abrir esa misma vista; desactivado, solo se comparte el sitio."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "سایت‌های نقشه، نمایی را که می‌بینید در نشانی وب نگه می‌دارند. اشتراک‌گذاری کامل آن است که به دیگری اجازه می‌دهد همان نما را باز کند؛ در حالت خاموش تنها خود سایت به اشتراک گذاشته می‌شود."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Les sites de cartographie conservent la vue que vous regardez dans l'adresse web. La partager en entier est ce qui permet à quelqu'un d'ouvrir cette même vue ; désactivée, seul le site lui-même est partagé."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "אתרי מפות שומרים את התצוגה שאתה רואה בתוך כתובת האינטרנט. שיתוף הכתובת המלאה הוא מה שמאפשר לאדם אחר לפתוח את אותה תצוגה; כשהאפשרות כבויה משותף רק האתר עצמו."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मानचित्र साइटें आप जो दृश्य देख रहे हैं उसे वेब पते के भीतर ही रखती हैं। पूरा पता साझा करने पर ही कोई वही दृश्य खोल सकता है; बंद होने पर केवल साइट साझा होती है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A térképes oldalak a webcímben tárolják az éppen látott nézetet. Csak a teljes cím megosztásával tud más ugyanazt a nézetet megnyitni; kikapcsolva csak maga az oldal kerül megosztásra."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Serwisy mapowe przechowują oglądany widok w adresie internetowym. Udostępnienie pełnego adresu pozwala komuś otworzyć ten sam widok; po wyłączeniu udostępniana jest tylko sama witryna."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Картографические сайты хранят просматриваемый вид прямо в веб-адресе. Только полный адрес позволит другому человеку открыть тот же вид; при отключении отправляется только сам сайт."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Картографічні сайти зберігають переглядуваний вигляд просто у веб-адресі. Лише повна адреса дасть іншій людині відкрити той самий вигляд; якщо вимкнено, надсилається тільки сам сайт."
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "地圖網站會把你正在睇緊嘅視圖保存喺網址入面。只有完整分享網址，其他人先可以打開同一個視圖；關閉後只會分享網站本身。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "地图网站会把你正在查看的视图保存在网址里。只有完整分享网址，别人才能打开同一个视图；关闭后只分享网站本身。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "地圖網站會把你正在檢視的視圖保存在網址中。只有完整分享網址，別人才能開啟同一個視圖；關閉後只分享網站本身。"
+          }
+        }
+      }
+    },
+    "finding.shared.where.accessibility" : {
+      "comment" : "VoiceOver description of the detection's place on the page: distance from the left, from the top, and the share of the page it covers",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "الاكتشاف على بُعد %1$@ من اليسار و%2$@ من الأعلى، ويغطي نحو %3$@ من الصفحة."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "শনাক্তকরণ বাঁ দিক থেকে %1$@, উপর থেকে %2$@, পৃষ্ঠার প্রায় %3$@ জুড়ে।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Detekce %1$@ zleva, %2$@ shora, zabírá přibližně %3$@ stránky."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Erkennung %1$@ von links, %2$@ von oben, bedeckt etwa %3$@ der Seite."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detection %1$@ from the left, %2$@ from the top, covering about %3$@ of the page."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Detección a %1$@ desde la izquierda y %2$@ desde arriba, cubriendo alrededor del %3$@ de la página."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تشخیص %1$@ از چپ و %2$@ از بالا، پوشش حدود %3$@ صفحه."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Détection à %1$@ de la gauche, %2$@ du haut, couvrant environ %3$@ de la page."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "זיהוי %1$@ מהשמאל, %2$@ מלמעלה, מכסה כ-%3$@ מהעמוד."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "पहचान बाईं ओर से %1$@, ऊपर से %2$@, पृष्ठ के लगभग %3$@ भाग को कवर करती है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Észlelés balról %1$@, felülről %2$@ távolságra, az oldal mintegy %3$@ részét fedi le."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wykrycie %1$@ od lewej, %2$@ od góry, zajmuje około %3$@ strony."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Обнаружение в %1$@ слева и %2$@ сверху, занимает около %3$@ страницы."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Виявлення за %1$@ зліва та %2$@ згори, займає близько %3$@ сторінки."
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "偵測位於距左邊 %1$@、距頂部 %2$@ 位置，大約佔頁面嘅 %3$@。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "检测位于距左侧 %1$@、距顶部 %2$@ 处，约占页面的 %3$@。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "偵測位於距左側 %1$@、距頂部 %2$@ 處，約佔頁面的 %3$@。"
+          }
+        }
+      }
+    },
+    "finding.shared.where.title" : {
+      "comment" : "Heading above the diagram showing where on the captured page the detection sat",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "أين على الصفحة"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "পৃষ্ঠার কোথায়"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Kde na stránce"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wo auf der Seite"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Where on the page"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dónde en la página"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "کجای صفحه"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Où sur la page"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "היכן בעמוד"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "पृष्ठ पर कहाँ"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Hol az oldalon"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Gdzie na stronie"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Где на странице"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Де на сторінці"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "喺頁面上嘅位置"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "在页面上的位置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "在頁面上的位置"
+          }
+        }
+      }
+    },
     "finding.share.includeLinkFootnote" : {
       "comment" : "Footnote under the share composer's link toggle, stating what attaching the link costs in the system share sheet",
       "extractionState" : "manual",

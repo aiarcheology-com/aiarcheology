@@ -309,6 +309,33 @@ final class FindingShareEmissionTests: XCTestCase {
 		)
 	}
 
+	/// The composer's address control has to change the **printed code**, not just the printed text.
+	///
+	/// Asserted by decoding the generated bitmap rather than by reading the state that decides it:
+	/// the failure this guards against was precisely a state variable saying one thing while the
+	/// image said another, so trusting that variable would reproduce the bug inside its own test.
+	func test_cardLink_regeneratesTheCodeWhenTheAddressDetailChanges() throws {
+		let raw = "https://portal.example.org/view?wmcid=5556&x=-556000"
+		let subject = makeSubject(page: URL(string: raw))
+
+		let full = FindingShareQRCode.cardLink(for: subject, pageDetail: .full)
+		let reduced = FindingShareQRCode.cardLink(for: subject, pageDetail: .siteOnly)
+
+		let fullDecoded = try XCTUnwrap(decodedQRPayload(of: try XCTUnwrap(full.qrCode)))
+		let reducedDecoded = try XCTUnwrap(decodedQRPayload(of: try XCTUnwrap(reduced.qrCode)))
+
+		XCTAssertEqual(
+			FindingShareLink.payload(from: try XCTUnwrap(URL(string: fullDecoded)))?.page?.absoluteString,
+			raw,
+			"the printed code did not carry the address the sender was shown"
+		)
+		XCTAssertEqual(
+			FindingShareLink.payload(from: try XCTUnwrap(URL(string: reducedDecoded)))?.page?.absoluteString,
+			"https://portal.example.org/view",
+			"reducing the address left the code encoding the full one"
+		)
+	}
+
 	func test_linkPayload_dropsANonHTTPSPage() {
 		XCTAssertNil(makeSubject(page: URL(string: "http://example.org/x")).linkPayload().page)
 	}

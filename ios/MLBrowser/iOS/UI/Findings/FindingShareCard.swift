@@ -359,6 +359,15 @@ struct FindingShareComposer: View {
 	/// afterwards would silently be an image with no way back into the app.
 	@State private var includesLink = true
 
+	/// Whether the link carries the page's whole address or only its site.
+	///
+	/// **Default on**, because the reduced form is what this ticket exists to fix: a geoportal keeps
+	/// the view in the query string, so a site-only link lands the recipient on a homepage holding
+	/// none of what was shared. The privacy cost is not hidden behind that default — the exact
+	/// address is printed below the toggle before anything is posted, which is the mechanism the
+	/// acceptance criteria name (AIA-0657).
+	@State private var sharesFullAddress = true
+
 	/// The rendered address + QR, built once per presentation. Held in state rather than computed in
 	/// `body` because the preview re-renders on every frame of a pinch or a drag, and generating a QR
 	/// is a Core Image round trip.
@@ -405,12 +414,89 @@ struct FindingShareComposer: View {
 				didSeedTheme = true
 			}
 		}
-		// `initial: true` covers the ordinary case (the flag is already on when the sheet opens);
-		// the change branch covers a mid-session flip, which is the point of reading this flag live.
-		.onChange(of: isLinkEnabled, initial: true) { _, enabled in
-			guard enabled, linkArt == nil else { return }
-			linkArt = FindingShareQRCode.cardLink(for: subject)
+		// Keyed on the **pair**, and rebuilt unconditionally rather than only when `linkArt` is nil.
+		//
+		// The previous `guard enabled, linkArt == nil` made this idempotent on purpose — generating a
+		// QR is a Core Image round trip and the preview re-renders on every frame of a pinch — but
+		// that guard becomes exactly wrong once a second input can change the payload. With it,
+		// flipping the address toggle updated the printed address row (derived from the payload) while
+		// the code went on encoding the previous URL, and `share()` exported that stale code: the
+		// sender would watch the privacy control appear to work and post a card whose QR still carried
+		// the query. Rebuilding costs one round trip per deliberate tap, not one per frame.
+		// `initial: true` covers the ordinary case of the flag already being on when the sheet opens.
+		.onChange(of: [isLinkEnabled, sharesFullAddress], initial: true) { _, flags in
+			linkArt = flags[0] ? FindingShareQRCode.cardLink(for: subject, pageDetail: pageDetail) : nil
 		}
+	}
+
+	/// The address control, and the address itself.
+	///
+	/// The row exists because of what the card cannot say: it prints only `link.aiarcheology.com`,
+	/// so the code beside that text can carry a full query string with nothing on the artifact
+	/// disclosing it. Everything that could ever be sensitive in a shared link is in this one string,
+	/// so it is shown whole — no middle truncation, since the middle is exactly where `?token=` sits.
+	private var addressChoice: some View {
+		VStack(alignment: .leading, spacing: 6) {
+			Toggle(L10n.Finding.Share.fullAddress, isOn: $sharesFullAddress)
+				.testability(Testability.Toggle.findingShareFullAddress)
+			Text(L10n.Finding.Share.fullAddressFootnote)
+				.font(.footnote)
+				.foregroundStyle(.secondary)
+				.frame(maxWidth: .infinity, alignment: .leading)
+
+			VStack(alignment: .leading, spacing: 2) {
+				Text(L10n.Finding.Share.addressPreview)
+					.font(.caption)
+					.foregroundStyle(.secondary)
+				if let address = travellingAddress {
+					// Pinned left-to-right regardless of the app's language. A URL is a
+					// left-to-right string, and under `ar`, `he` or `fa` a mixed-direction host and
+					// path reorder on screen — which would make the one row whose entire purpose is
+					// "this is exactly what travels" display something other than what it holds.
+					// Selectable so a suspicious sender can lift it out and read it elsewhere.
+					Text(verbatim: address.absoluteString)
+						.font(.caption.monospaced())
+						.textSelection(.enabled)
+						.environment(\.layoutDirection, .leftToRight)
+						.multilineTextAlignment(.leading)
+						.frame(maxWidth: .infinity, alignment: .leading)
+						.testability(Testability.View.findingShareAddressPreview)
+				} else {
+					Text(L10n.Finding.Share.addressNotIncluded)
+						.font(.caption)
+						.foregroundStyle(.secondary)
+						.frame(maxWidth: .infinity, alignment: .leading)
+				}
+			}
+			.padding(8)
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+		}
+	}
+
+	/// What the sender has chosen to send.
+	private var pageDetail: FindingShareLink.PageDetail {
+		sharesFullAddress ? .full : .siteOnly
+	}
+
+	/// The address that will actually travel — read back out of the link this composer would emit,
+	/// not out of the subject it would emit it from.
+	///
+	/// That distinction is the whole point. `subject.page` is the browsed URL; what travels is
+	/// whatever survives sanitizing, the credential strip, the drop ladder and the length budget. A
+	/// preview built from the intent would be a description of what we meant to send, which is
+	/// precisely the claim an acceptance criterion about credentials cannot rest on. Building the
+	/// link and parsing it back makes the row a *reading of the artifact*.
+	///
+	/// It is an upper bound rather than an exact match for both artifacts: the QR carries the compact
+	/// variant, whose ladder may reduce this same address to its host to fit. Never a different one —
+	/// `FindingShareLinkTests.test_theCompactAddressIsNeverWiderThanTheFullOne` is what holds that.
+	private var travellingAddress: URL? {
+		guard let url = FindingShareLink.url(
+			for: subject.linkPayload(pageDetail: pageDetail),
+			pageDetail: pageDetail
+		) else { return nil }
+		return FindingShareLink.payload(from: url)?.page
 	}
 
 	/// The live flag. Everything this feature adds — the toggle, the card art and the shared link —
@@ -515,6 +601,10 @@ struct FindingShareComposer: View {
 						.font(.footnote)
 						.foregroundStyle(.secondary)
 						.frame(maxWidth: .infinity, alignment: .leading)
+
+					if includesLink, subject.page != nil {
+						addressChoice
+					}
 				}
 			}
 		}
@@ -573,7 +663,8 @@ struct FindingShareComposer: View {
 					image: image,
 					subject: subject,
 					isLinkEnabled: isLinkEnabled,
-					includesLink: includesLink
+					includesLink: includesLink,
+					pageDetail: pageDetail
 				)
 			)
 		}
