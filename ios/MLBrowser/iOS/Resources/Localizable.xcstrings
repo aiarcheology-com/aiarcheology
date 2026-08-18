@@ -20439,7 +20439,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A link travels beside the picture. While it is attached, places that only accept an image — Save Image, and some apps — are not offered. Turn this off to share the picture alone."
+            "value" : "Adds a tappable link beside the picture, so people can open this finding in the app. While it's on, iOS hides Save Image and any app that only accepts pictures from the share sheet. Turn it off to share just the picture."
           }
         }
       }
@@ -21136,6 +21136,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "This Is Your Finding"
+          }
+        }
+      }
+    },
+    "finding.shared.unreadable.message" : {
+      "comment" : "Body of the screen shown when a shared finding link opened the app but its payload could not be parsed",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It may have been shortened or edited on its way to you. Ask whoever shared it to send the link again."
+          }
+        }
+      }
+    },
+    "finding.shared.unreadable.title" : {
+      "comment" : "Title of the screen shown when a shared finding link opened the app but its payload could not be parsed",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Link Could Not Be Read"
+          }
+        }
+      }
+    },
+    "finding.shared.showOnMap" : {
+      "comment" : "Button that loads the map for a shared finding's coordinate; the map is not mounted until tapped so no tiles are fetched for a sender-chosen point on arrival",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show on Map"
           }
         }
       }

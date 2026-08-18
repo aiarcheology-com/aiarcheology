@@ -238,6 +238,9 @@ extension TestabilityIdentification {
 		/// Shown instead of the unverified card when the id in the link matches a finding this device
 		/// already stores — it opens the findings inventory rather than the link's copy of the work.
 		case sharedFindingOpenOwn
+		/// Loads the map for the link's coordinate. Its presence is the assertion that no map was
+		/// mounted on arrival — tiles are only fetched for a sender-chosen point once tapped.
+		case sharedFindingShowMap
 		// Snap Adjustment
 		case snapAdjustmentReset
 		case snapAdjustmentOverlayDismiss
@@ -423,6 +426,10 @@ extension TestabilityIdentification {
 		/// screen: Associated Domains authenticates the domain, never the fields, so a test must be
 		/// able to prove the warning is on screen without matching localized copy.
 		case sharedFindingProvenance
+		/// The "we could not read this link" screen (AIA-0650). Identified so a test can prove the app
+		/// says *something* when a damaged link opens it — the association matches on path alone, so
+		/// iOS routes a truncated link here instead of to the landing page that explains it.
+		case sharedFindingUnreadable
 		// Onboarding tour coach-mark bubble.
 		case tourBubble
 		// App Messages banner container (AIA-0115)

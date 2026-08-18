@@ -47,7 +47,12 @@ extension FindingShareSubject {
 	/// when the link was read back, producing a link this app cannot itself fully parse.
 	private static func percent(_ confidence: Double) -> Int? {
 		guard confidence.isFinite else { return nil }
-		return min(100, max(0, Int((confidence * 100).rounded())))
+		// Clamped as a `Double`, BEFORE the conversion — not after. `Int(_:)` traps on a value outside
+		// `Int`'s range, so the old `min(100, max(0, Int(x * 100)))` crashed on exactly the input the
+		// clamp was written to defend against: the conversion ran first and took the process with it.
+		// `Finding.detectionConfidence` is an unconstrained Core Data `Double`, so a corrupt or
+		// imported row is enough to reach this, and sharing that finding would have killed the app.
+		return Int((min(1, max(0, confidence)) * 100).rounded())
 	}
 
 	/// Day precision, on an explicit Gregorian/UTC calendar.

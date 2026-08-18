@@ -120,7 +120,7 @@ enum SharedFindingSection: Hashable {
 /// instruction from a stranger; the app acting on one unasked is the whole class of bug this screen
 /// exists to avoid.
 struct SharedFindingView: View {
-	let payload: FindingShareLink.Payload
+	let pending: SharedFindingState.Pending
 
 	@EnvironmentObject private var appState: AppState
 
@@ -142,15 +142,20 @@ struct SharedFindingView: View {
 			// acceptance criterion of this ticket rather than a nicety.
 			NavigationStack {
 				Group {
-					switch presentation {
-					case .unverified:
-						SharedFindingUnverifiedView(payload: payload, onOpenPage: openPage)
-					case .owned(let localTitle):
-						SharedFindingOwnedView(localTitle: localTitle, onOpenFindings: openOwnFinding)
-					case nil:
-						// One runloop at most, until `onAppear` resolves ownership.
-						ProgressView()
-							.frame(maxWidth: .infinity, maxHeight: .infinity)
+					switch pending {
+					case .unreadable:
+						SharedFindingUnreadableView()
+					case .finding(let payload):
+						switch presentation {
+						case .unverified:
+							SharedFindingUnverifiedView(payload: payload, onOpenPage: openPage)
+						case .owned(let localTitle):
+							SharedFindingOwnedView(localTitle: localTitle, onOpenFindings: openOwnFinding)
+						case nil:
+							// One runloop at most, until `onAppear` resolves ownership.
+							ProgressView()
+								.frame(maxWidth: .infinity, maxHeight: .infinity)
+						}
 					}
 				}
 				.navigationTitle(L10n.Finding.Shared.title)
@@ -166,12 +171,16 @@ struct SharedFindingView: View {
 		.onAppear { resolve() }
 		// A second link can replace the first while this screen is up (`SharedFindingState` keeps
 		// the newest), and the new one may belong to the recipient when the old one did not.
-		.onChange(of: payload) { _, _ in resolve() }
+		.onChange(of: pending) { _, _ in resolve() }
 	}
 
 	// MARK: - Actions
 
 	private func resolve() {
+		guard case .finding(let payload) = pending else {
+			presentation = nil
+			return
+		}
 		presentation = .resolve(payloadId: payload.id) { entityId in
 			appState.findingRepository.storedFindingTitle(entityId)
 		}
@@ -200,6 +209,11 @@ struct SharedFindingView: View {
 	/// created from a shared link.*
 	private func openPage(_ page: URL) {
 		appState.chromeState.mode = .web
+		// Close the drawer first. This screen is an overlay above everything, so it can be dismissed
+		// while the drawer — or the findings sheet it presents — is still open underneath, and the
+		// page would then load out of sight behind them. The findings list's own "Open Page" does the
+		// same thing for the same reason.
+		appState.chromeState.presentedSideMenu = false
 		appState.chromeState.pageToOpen = page
 		dismiss()
 	}
@@ -229,6 +243,10 @@ struct SharedFindingView: View {
 struct SharedFindingUnverifiedView: View {
 	let payload: FindingShareLink.Payload
 	let onOpenPage: (URL) -> Void
+
+	/// Whether the recipient has asked for the map. Starts false so opening a link fetches no tiles
+	/// for a sender-chosen coordinate — see ``mapBlock``.
+	@State private var isMapShown = false
 
 	var body: some View {
 		ScrollView {
@@ -331,28 +349,51 @@ struct SharedFindingUnverifiedView: View {
 	/// finding's GPS field is free text nothing auto-populates, so most links have none. When there
 	/// is none this block is absent from ``SharedFindingSection/layout(for:)`` entirely, leaving no
 	/// empty frame and no gap where a map would have been.
+	/// The coordinate, always as text; the map itself only once the recipient asks for it.
+	///
+	/// **Mounting `Map` fetches tiles**, and the coordinate it centres on was chosen by whoever wrote
+	/// the link. Rendering it on arrival would mean opening a stranger's link silently causes this
+	/// device to make a network request parameterised by that stranger's input. This feature already
+	/// refuses that trade once — the shared link travels as a `String` rather than a `URL` precisely
+	/// so `LinkPresentation` cannot fetch anything on the sharer's behalf — and it would be
+	/// inconsistent to accept it here on the recipient's side, where the input is less trusted.
+	///
+	/// The text is the part the acceptance criteria actually need on arrival; the map is one tap away.
 	@ViewBuilder
 	private var mapBlock: some View {
 		if let coordinate = payload.coordinate {
-			let center = CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude)
 			VStack(alignment: .leading, spacing: 10) {
 				detail(L10n.Finding.gps, value: SharedFindingSection.coordinateText(coordinate), systemImage: "location")
-				// Display only. Nothing here asks for location permission or reads the device's
-				// position — the app has no location entitlement and must not acquire one to show a
-				// point that arrived in a URL. `interactionModes: []` keeps it a picture rather than
-				// a map the user can wander off into.
-				Map(
-					initialPosition: .region(
-						MKCoordinateRegion(center: center, latitudinalMeters: 800, longitudinalMeters: 800)
-					),
-					interactionModes: []
-				) {
-					Marker(payload.title, coordinate: center)
+				if isMapShown {
+					let center = CLLocationCoordinate2D(
+						latitude: coordinate.latitude,
+						longitude: coordinate.longitude
+					)
+					// Display only. Nothing here asks for location permission or reads the device's
+					// position — the app has no location entitlement and must not acquire one to show
+					// a point that arrived in a URL. `interactionModes: []` keeps it a picture rather
+					// than a map the user can wander off into.
+					Map(
+						initialPosition: .region(
+							MKCoordinateRegion(center: center, latitudinalMeters: 800, longitudinalMeters: 800)
+						),
+						interactionModes: []
+					) {
+						Marker(payload.title, coordinate: center)
+					}
+					.frame(height: 200)
+					.clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+					// The coordinate is already above as text; a pin has nothing to read out.
+					.accessibilityHidden(true)
+				} else {
+					Button {
+						isMapShown = true
+					} label: {
+						Label(L10n.Finding.Shared.showOnMap, systemImage: "map")
+					}
+					.buttonStyle(.bordered)
+					.testability(Testability.Button.sharedFindingShowMap)
 				}
-				.frame(height: 200)
-				.clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-				// The coordinate is already above as text; a pin has nothing to read out.
-				.accessibilityHidden(true)
 			}
 		}
 	}
@@ -369,6 +410,40 @@ struct SharedFindingUnverifiedView: View {
 				.foregroundStyle(.secondary)
 		}
 		.font(.callout)
+	}
+}
+
+// MARK: - A link we could not read
+
+/// Shown when a link matched this app's association but its payload would not parse.
+///
+/// This screen exists because of an asymmetry that is easy to miss. The association file matches on
+/// path alone, so iOS opens the app for **any** `/f` link — including one a messaging platform
+/// truncated mid-fragment, one that was hand-edited, or one written by a future version of the app.
+/// The landing page has copy for exactly this situation, but the landing page is what the user does
+/// *not* get: having the app installed is precisely what routes them here instead. Without this
+/// screen the app would open and do nothing, which reads as the app being broken rather than the
+/// link being damaged.
+struct SharedFindingUnreadableView: View {
+	var body: some View {
+		VStack(spacing: 16) {
+			Spacer()
+			Image(systemName: "link.badge.plus")
+				.font(.system(size: 44))
+				.foregroundStyle(.secondary)
+				.accessibilityHidden(true)
+			Text(L10n.Finding.Shared.Unreadable.title)
+				.font(.title3.bold())
+				.multilineTextAlignment(.center)
+			Text(L10n.Finding.Shared.Unreadable.message)
+				.font(.footnote)
+				.foregroundStyle(.secondary)
+				.multilineTextAlignment(.center)
+			Spacer()
+		}
+		.padding(24)
+		.frame(maxWidth: .infinity, maxHeight: .infinity)
+		.testability(Testability.View.sharedFindingUnreadable)
 	}
 }
 

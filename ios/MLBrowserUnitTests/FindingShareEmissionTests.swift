@@ -194,6 +194,33 @@ final class FindingShareEmissionTests: XCTestCase {
 		XCTAssertNil(makeSubject(confidence: .nan).linkPayload.confidencePercent)
 	}
 
+	/// The values that actually crashed.
+	///
+	/// The clamp above passed from the start, because 1.4 and -0.2 are small enough that the old
+	/// `min(100, max(0, Int(x * 100)))` never reached the trap — the `Int(_:)` conversion ran FIRST
+	/// and only then was the result clamped, so any value whose ×100 leaves `Int`'s range took the
+	/// process down before the clamp could run. `Finding.detectionConfidence` is an unconstrained
+	/// Core Data `Double`, so one corrupt or imported row was enough to crash the app on share.
+	func test_linkPayload_hugeFiniteConfidenceIsClampedRatherThanTrapping() {
+		for confidence in [
+			Double.greatestFiniteMagnitude,
+			-Double.greatestFiniteMagnitude,
+			1e300,
+			-1e300,
+			Double(Int.max),
+			Double(Int.min)
+		] {
+			let percent = makeSubject(confidence: confidence).linkPayload.confidencePercent
+			XCTAssertNotNil(percent, "\(confidence) is finite, so it must produce a value")
+			XCTAssertTrue((0...100).contains(percent ?? -1), "\(confidence) produced \(percent as Any)")
+		}
+	}
+
+	func test_linkPayload_infiniteConfidenceIsDropped() {
+		XCTAssertNil(makeSubject(confidence: .infinity).linkPayload.confidencePercent)
+		XCTAssertNil(makeSubject(confidence: -.infinity).linkPayload.confidencePercent)
+	}
+
 	func test_linkPayload_absentOptionalsStayAbsent() {
 		let payload = makeSubject(
 			author: nil,

@@ -514,8 +514,8 @@ internal enum L10n {
       internal static let dark = L10n.tr("Localizable", "finding.share.dark", fallback: "Dark")
       /// Let people open this finding in the app
       internal static let includeLink = L10n.tr("Localizable", "finding.share.includeLink", fallback: "Let people open this finding in the app")
-      /// A link travels beside the picture. While it is attached, places that only accept an image — Save Image, and some apps — are not offered. Turn this off to share the picture alone.
-      internal static let includeLinkFootnote = L10n.tr("Localizable", "finding.share.includeLinkFootnote", fallback: "A link travels beside the picture. While it is attached, places that only accept an image — Save Image, and some apps — are not offered. Turn this off to share the picture alone.")
+      /// Adds a tappable link beside the picture, so people can open this finding in the app. While it's on, iOS hides Save Image and any app that only accepts pictures from the share sheet. Turn it off to share just the picture.
+      internal static let includeLinkFootnote = L10n.tr("Localizable", "finding.share.includeLinkFootnote", fallback: "Adds a tappable link beside the picture, so people can open this finding in the app. While it's on, iOS hides Save Image and any app that only accepts pictures from the share sheet. Turn it off to share just the picture.")
       /// Landscape
       internal static let landscape = L10n.tr("Localizable", "finding.share.landscape", fallback: "Landscape")
       /// Layout
@@ -532,6 +532,8 @@ internal enum L10n {
     internal enum Shared {
       /// Open the Original Page
       internal static let openPage = L10n.tr("Localizable", "finding.shared.openPage", fallback: "Open the Original Page")
+      /// Show on Map
+      internal static let showOnMap = L10n.tr("Localizable", "finding.shared.showOnMap", fallback: "Show on Map")
       /// Shared Finding
       internal static let title = L10n.tr("Localizable", "finding.shared.title", fallback: "Shared Finding")
       /// Everything on this screen came from the link that was shared with you. None of it has been checked, so treat the details as unconfirmed.
@@ -545,6 +547,12 @@ internal enum L10n {
         internal static let `open` = L10n.tr("Localizable", "finding.shared.owned.open", fallback: "Open Findings")
         /// This Is Your Finding
         internal static let title = L10n.tr("Localizable", "finding.shared.owned.title", fallback: "This Is Your Finding")
+      }
+      internal enum Unreadable {
+        /// It may have been shortened or edited on its way to you. Ask whoever shared it to send the link again.
+        internal static let message = L10n.tr("Localizable", "finding.shared.unreadable.message", fallback: "It may have been shortened or edited on its way to you. Ask whoever shared it to send the link again.")
+        /// This Link Could Not Be Read
+        internal static let title = L10n.tr("Localizable", "finding.shared.unreadable.title", fallback: "This Link Could Not Be Read")
       }
     }
   }

@@ -162,6 +162,64 @@ final class FindingShareLinkTests: XCTestCase {
 		}
 	}
 
+	/// `Payload` validates nothing on construction, so the builder is the boundary. An out-of-range
+	/// confidence emitted here would be dropped by our own parser and rendered by the landing page —
+	/// the two ends disagreeing about one link, which is the failure both implementations forbid.
+	func test_emittedLinkNeverCarriesAnOutOfRangeConfidence() throws {
+		for value in [-1, 101, 9999, Int.max, Int.min] {
+			let payload = FindingShareLink.Payload(title: "X", confidencePercent: value)
+			let url = try XCTUnwrap(FindingShareLink.url(for: payload))
+			XCTAssertFalse(url.absoluteString.contains("&p="), "p=\(value) must not be emitted")
+		}
+	}
+
+	/// A `DateComponents` for the 30th of February formats perfectly happily. Emitting it would put a
+	/// date on the landing page that this app refuses to read back.
+	func test_emittedLinkNeverCarriesAnImpossibleDate() throws {
+		for components in [
+			DateComponents(year: 2026, month: 2, day: 30),
+			DateComponents(year: 2026, month: 13, day: 1),
+			DateComponents(year: 2026, month: 0, day: 10),
+			DateComponents(year: 2026, month: 6)
+		] {
+			let payload = FindingShareLink.Payload(title: "X", date: components)
+			let url = try XCTUnwrap(FindingShareLink.url(for: payload))
+			XCTAssertFalse(url.absoluteString.contains("&d="), "\(components) must not be emitted")
+		}
+	}
+
+	/// A real date still travels — the guard above must not have made the field unusable.
+	func test_emittedLinkCarriesARealDate() throws {
+		let payload = FindingShareLink.Payload(title: "X", date: DateComponents(year: 2024, month: 2, day: 29))
+		let url = try XCTUnwrap(FindingShareLink.url(for: payload))
+		XCTAssertTrue(url.absoluteString.contains("d=2024-02-29"))
+	}
+
+	/// The parse is bounded before any work happens: the custom scheme is registered app-wide, so any
+	/// app on the device can hand this one a URL, and the parse runs on the main actor.
+	func test_oversizedLinksAreRefusedBeforeParsing() throws {
+		let huge = "https://link.aiarcheology.com/f#v=1&t=" + String(repeating: "a", count: 5000)
+		let url = try XCTUnwrap(URL(string: huge))
+		XCTAssertTrue(FindingShareLink.matches(url), "it is still ours")
+		XCTAssertNil(FindingShareLink.payload(from: url), "but it must not be parsed")
+	}
+
+	func test_tooManyFieldsIsRefused() throws {
+		let pairs = (0..<200).map { "k\($0)=v" }.joined(separator: "&")
+		let url = try XCTUnwrap(URL(string: "https://link.aiarcheology.com/f#v=1&t=X&" + pairs))
+		XCTAssertNil(FindingShareLink.payload(from: url))
+	}
+
+	/// Digits only. `Int("+5")` succeeds where the landing page's regex refuses, and a wire format
+	/// whose two implementations disagree about `+5` is a wire format with a hole in it.
+	func test_confidenceAcceptsPlainDigitsOnly() throws {
+		for raw in ["+5", " 5", "5 ", "٥"] {
+			let url = try XCTUnwrap(URL(string: "https://link.aiarcheology.com/f#v=1&t=X&p=\(raw)"))
+			let parsed = FindingShareLink.payload(from: url)
+			XCTAssertNil(parsed?.confidencePercent, "\(raw) must not parse as a confidence")
+		}
+	}
+
 	func test_nonHTTPSPagesAreRejected() throws {
 		for raw in [
 			"http://example.org/insecure",

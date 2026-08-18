@@ -74,6 +74,18 @@ enum FindingShareLink {
 	/// (57 modules, ≈3.4px per module) and holds up.
 	static let maximumCompactLength = 250
 
+	/// The longest URL the parser will look at, and a *defensive* limit rather than a contract one.
+	///
+	/// Nothing this app emits comes close — ``maximumLength`` caps that at 900. This bounds what an
+	/// arbitrary caller can make the parser do: the custom scheme is registered app-wide, so any app
+	/// on the device can hand this one a URL of its choosing, and the work happens on the main actor.
+	/// The slack over 900 tolerates a link someone hand-edited without inviting unbounded parsing.
+	static let maximumAcceptedLength = 2048
+
+	/// The most key/value pairs the parser will consider. A URL inside ``maximumAcceptedLength`` can
+	/// still hold hundreds of two-character pairs; the contract defines nine.
+	static let maximumAcceptedFields = 32
+
 	private enum Key {
 		static let version = "v"
 		static let id = "i"
@@ -228,7 +240,11 @@ enum FindingShareLink {
 		add(Key.id, payload.id?.uuidString)
 		add(Key.title, sanitizedText(payload.title, limit: variant.titleLimit))
 		add(Key.detectionClass, sanitizedText(payload.detectionClass, limit: Limit.detectionClass))
-		add(Key.confidence, payload.confidencePercent.map(String.init))
+		// Range-checked on the way out as well as the way in. `Payload` is a plain struct that
+		// validates nothing, so a directly-constructed one could emit `p=101` — which this app's own
+		// parser then drops, producing a link it cannot fully read back. Same asymmetry that let the
+		// page's query string escape; closed the same way, at the boundary rather than by convention.
+		add(Key.confidence, payload.confidencePercent.flatMap { (0...100).contains($0) ? String($0) : nil })
 		add(Key.coordinate, payload.coordinate.map(formatted))
 		// Reduced again on the way out, even though `FindingShareSubject.linkPayload` already reduced
 		// it. Not redundant: `Payload` is a plain struct that validates nothing, so "the page is
@@ -294,7 +310,21 @@ enum FindingShareLink {
 	/// a card with nothing on it is the blank screen this ticket's fourth acceptance criterion names.
 	static func payload(from url: URL) -> Payload? {
 		guard matches(url) else { return nil }
+		// Bounded before any parsing work happens, because this runs on the main actor and the input
+		// is not ours. `matches` only proves the scheme and path are ours — the custom scheme is
+		// registered app-wide, so *any* app on the device can hand us
+		// `com.aiarcheology.ios://f#<megabytes>`. Percent-decoding, splitting and normalising that
+		// first and rejecting it afterwards is a way to stall the UI process on demand. Our own links
+		// cap at `maximumLength`; the slack above it tolerates a hand-edited link without inviting
+		// unbounded work.
+		guard url.absoluteString.count <= maximumAcceptedLength else {
+			LoggingPolicy.warning("Shared finding: refusing an oversized link", logger: .state)
+			return nil
+		}
 		guard let items = fragmentItems(of: url) else { return nil }
+		// Same reasoning one level down: a bounded-length fragment can still carry thousands of
+		// key/value pairs, and every one of them is allocated before the duplicate check below.
+		guard items.count <= maximumAcceptedFields else { return nil }
 
 		// Duplicate keys are rejected rather than resolved. There is no correct answer to which of
 		// two titles was meant, and "first wins" versus "last wins" is exactly the kind of quiet
@@ -402,6 +432,11 @@ enum FindingShareLink {
 	private static let bidiControls = CharacterSet(charactersIn: "\u{202A}\u{202B}\u{202C}\u{202D}\u{202E}\u{2066}\u{2067}\u{2068}\u{2069}")
 
 	private static func parseConfidence(_ raw: String) -> Int? {
+		// Digits only. `Int("+5")` succeeds and `Int(" 5")` does not, which is a distinction nobody
+		// intended and one the landing page's regex does not share — it rejects `+5`. The wire format
+		// is plain digits, so both ends now say so explicitly rather than inheriting whatever their
+		// standard library happens to allow.
+		guard raw.allSatisfy(\.isASCII), raw.allSatisfy(\.isNumber), raw.count <= 3 else { return nil }
 		guard let value = Int(raw), (0...100).contains(value) else { return nil }
 		return value
 	}
@@ -442,9 +477,16 @@ enum FindingShareLink {
 		String(format: "%.5f,%.5f", coordinate.latitude, coordinate.longitude)
 	}
 
+	/// Formats a day, and emits it **only if this type would accept it back**.
+	///
+	/// The round trip through ``parseDate(_:)`` is the validation: a `DateComponents` of the 30th of
+	/// February formats perfectly happily, and without this the builder would emit `d=2026-02-30` —
+	/// which our own parser drops, and which the landing page (a separate implementation) renders as
+	/// a real date. Emitting only what we would parse keeps the two ends from disagreeing.
 	private static func formattedDate(_ components: DateComponents) -> String? {
 		guard let year = components.year, let month = components.month, let day = components.day else { return nil }
-		return String(format: "%04d-%02d-%02d", year, month, day)
+		let text = String(format: "%04d-%02d-%02d", year, month, day)
+		return parseDate(text) == nil ? nil : text
 	}
 
 	/// Parses `yyyy-MM-dd` and rejects dates that do not exist.

@@ -34,7 +34,7 @@ struct ContentView: View {
     @State private var floatingButtonPosition: CGPoint?
     @State private var floatingNavBarPosition: CGPoint?
     /// The shared finding link waiting to be shown (AIA-0650), mirrored from `SharedFindingState`.
-    @State private var pendingSharedFinding: FindingShareLink.Payload?
+    @State private var pendingSharedFinding: SharedFindingState.Pending?
     
     init() {
         Backports.Appearance
@@ -143,8 +143,8 @@ struct ContentView: View {
             pendingSharedFinding = payload
         }
         .overlay {
-            if let payload = pendingSharedFinding {
-                SharedFindingView(payload: payload)
+            if let pending = pendingSharedFinding {
+                SharedFindingView(pending: pending)
                     .environmentObject(appState)
                     .transition(.opacity)
             }

@@ -24,14 +24,14 @@ final class SharedFindingStateTests: XCTestCase {
 	func test_handle_buffersAFindingLink() throws {
 		let sut = SharedFindingState()
 		XCTAssertTrue(sut.handle(try url(validLink)))
-		XCTAssertEqual(sut.pending?.title, "Roman wall")
-		XCTAssertEqual(sut.pending?.confidencePercent, 87)
+		XCTAssertEqual(sut.pending?.payload?.title, "Roman wall")
+		XCTAssertEqual(sut.pending?.payload?.confidencePercent, 87)
 	}
 
 	func test_handle_acceptsTheCustomSchemeForm() throws {
 		let sut = SharedFindingState()
 		XCTAssertTrue(sut.handle(try url("com.aiarcheology.ios://f#v=1&t=Villa")))
-		XCTAssertEqual(sut.pending?.title, "Villa")
+		XCTAssertEqual(sut.pending?.payload?.title, "Villa")
 	}
 
 	// MARK: - Leaving everyone else's URLs alone
@@ -59,19 +59,74 @@ final class SharedFindingStateTests: XCTestCase {
 		let sut = SharedFindingState()
 		sut.handle(try url(validLink))
 		XCTAssertFalse(sut.handle(try url("com.aiarcheology.ios://sso-callback?code=abc")))
-		XCTAssertEqual(sut.pending?.title, "Roman wall")
+		XCTAssertEqual(sut.pending?.payload?.title, "Roman wall")
 	}
 
-	func test_handle_malformedFindingLinkIsNotConsumed() throws {
-		let sut = SharedFindingState()
+	/// A link that IS ours but will not parse must be **consumed** and marked unreadable, not
+	/// silently dropped.
+	///
+	/// The association file matches on path alone, so iOS opens this app for any `/f` link — a
+	/// truncated one, a hand-edited one, a `v=2` one from a future release. The landing page has copy
+	/// for exactly that, and the landing page is what having the app installed prevents the user from
+	/// seeing. If `handle` returned false here the app would open and do nothing, which reads as the
+	/// app being broken rather than the link being damaged.
+	func test_handle_ourOwnLinkThatWillNotParseIsMarkedUnreadable() throws {
 		for raw in [
 			"https://link.aiarcheology.com/f",
+			"https://link.aiarcheology.com/f#",
 			"https://link.aiarcheology.com/f#v=2&t=X",
-			"https://link.aiarcheology.com/f#v=1&t=A&t=B"
+			"https://link.aiarcheology.com/f#v=1&t=A&t=B",
+			"https://link.aiarcheology.com/f#v=1&t=",
+			"com.aiarcheology.ios://f#v=1",
+			// Truncated mid-fragment, the way a platform that shortens links leaves one. Cut before
+			// the title, which is what actually happens: `t` comes after `v` and `i` in key order, so
+			// a link chopped at a length limit loses the title and everything after it.
+			// (A truncation that merely SHORTENS the title is not this case — "Roman wa" is a valid
+			// title and must still open the finding. That distinction is the point of this list.)
+			"https://link.aiarcheology.com/f#v=1&i=3F2504E0-4F89-11D3-9A0C-0305E82C3301",
 		] {
-			XCTAssertFalse(sut.handle(try url(raw)), "\(raw) must not be consumed")
-			XCTAssertNil(sut.pending)
+			let sut = SharedFindingState()
+			XCTAssertTrue(sut.handle(try url(raw)), "\(raw) is ours and must be consumed")
+			XCTAssertEqual(sut.pending, .unreadable, "\(raw) must surface as unreadable")
 		}
+	}
+
+	/// The counterpart to the list above: a link whose title was merely shortened is still a valid
+	/// link and must open the finding, not the "could not be read" screen. Truncation only breaks a
+	/// link when it removes something the contract requires.
+	func test_handle_aShortenedTitleStillOpensTheFinding() throws {
+		let sut = SharedFindingState()
+		XCTAssertTrue(sut.handle(try url("https://link.aiarcheology.com/f#v=1&t=Roman%20wa")))
+		XCTAssertEqual(sut.pending?.payload?.title, "Roman wa")
+	}
+
+	/// A cut that lands mid percent-escape also still opens the finding, which is worth pinning down
+	/// because it is not obvious: Foundation does not reject `t=Roman%2`. It re-encodes the stray
+	/// escape (`percentEncodedFragment` reports `%252`) and the value decodes to the literal text
+	/// "Roman%2". So the title arrives slightly mangled rather than the link becoming unreadable —
+	/// the better outcome of the two, and the reason this is asserted rather than assumed.
+	func test_handle_aTitleCutMidEscapeStillOpensTheFinding() throws {
+		let sut = SharedFindingState()
+		XCTAssertTrue(sut.handle(try url("https://link.aiarcheology.com/f#v=1&t=Roman%2")))
+		XCTAssertEqual(sut.pending?.payload?.title, "Roman%2")
+	}
+
+	/// The truncated case above must not be confused with a *foreign* URL, which stays untouched.
+	func test_handle_distinguishesUnreadableFromForeign() throws {
+		let sut = SharedFindingState()
+		XCTAssertFalse(sut.handle(try url("com.aiarcheology.ios://sso-callback?code=abc")))
+		XCTAssertNil(sut.pending)
+		XCTAssertTrue(sut.handle(try url("https://link.aiarcheology.com/f#v=2&t=X")))
+		XCTAssertEqual(sut.pending, .unreadable)
+	}
+
+	/// An oversized link is refused rather than parsed. The custom scheme is registered app-wide, so
+	/// any app on the device can hand this one a URL, and the parse runs on the main actor.
+	func test_handle_refusesAnOversizedLink() throws {
+		let sut = SharedFindingState()
+		let huge = "https://link.aiarcheology.com/f#v=1&t=" + String(repeating: "a", count: 5000)
+		XCTAssertTrue(sut.handle(try url(huge)), "it is still ours")
+		XCTAssertEqual(sut.pending, .unreadable, "but it must not be parsed")
 	}
 
 	// MARK: - Lifetime
@@ -81,7 +136,7 @@ final class SharedFindingStateTests: XCTestCase {
 		let sut = SharedFindingState()
 		sut.handle(try url(validLink))
 		sut.handle(try url("https://link.aiarcheology.com/f#v=1&t=Aqueduct"))
-		XCTAssertEqual(sut.pending?.title, "Aqueduct")
+		XCTAssertEqual(sut.pending?.payload?.title, "Aqueduct")
 	}
 
 	func test_dismiss_clearsThePendingFinding() throws {
@@ -108,13 +163,16 @@ final class SharedFindingStateTests: XCTestCase {
 		let sut = SharedFindingState()
 		sut.handle(try url(validLink))
 
-		// Every other way the outside world can touch this object.
+		// Every other way the outside world can touch this object. Deliberately only URLs that are
+		// NOT ours: a malformed link on our own host is a legitimate replacement now, because it
+		// resolves to `.unreadable` rather than being discarded.
 		_ = sut.handle(try url("com.aiarcheology.ios://sso-callback?code=abc"))
 		_ = sut.handle(try url("https://evil.example/f#v=1&t=X"))
-		_ = sut.handle(try url("https://link.aiarcheology.com/f#v=1&t=A&t=B"))
+		_ = sut.handle(try url("https://aiarcheology.com/f#v=1&t=X"))
+		_ = sut.handle(try url("https://link.aiarcheology.com/other#v=1&t=X"))
 		_ = sut.pending
 
-		XCTAssertEqual(sut.pending?.title, "Roman wall", "only dismissal or a newer link may clear this")
+		XCTAssertEqual(sut.pending?.payload?.title, "Roman wall", "only dismissal or a newer link may clear this")
 	}
 
 	// MARK: - Payload fidelity
@@ -127,7 +185,7 @@ final class SharedFindingStateTests: XCTestCase {
 			+ "&u=https%3A%2F%2Fexample.org%2Fruins&a=V.%20Slav%C3%ADk&d=2026-08-17"
 		XCTAssertTrue(sut.handle(try url(raw)))
 
-		let pending = try XCTUnwrap(sut.pending)
+		let pending = try XCTUnwrap(sut.pending?.payload)
 		XCTAssertEqual(pending.id, UUID(uuidString: "3F2504E0-4F89-11D3-9A0C-0305E82C3301"))
 		XCTAssertEqual(pending.title, "Roman wall")
 		XCTAssertEqual(pending.detectionClass, "stone_wall")
@@ -137,5 +195,14 @@ final class SharedFindingStateTests: XCTestCase {
 		XCTAssertEqual(pending.page?.absoluteString, "https://example.org/ruins")
 		XCTAssertEqual(pending.author, "V. Slavík")
 		XCTAssertEqual(pending.date?.day, 17)
+	}
+}
+
+/// Reaches the payload inside a `.finding` case. Tests assert on fields constantly; the enum is
+/// there for the `.unreadable` distinction, not to make every assertion a `case let`.
+private extension SharedFindingState.Pending {
+	var payload: FindingShareLink.Payload? {
+		if case .finding(let payload) = self { return payload }
+		return nil
 	}
 }

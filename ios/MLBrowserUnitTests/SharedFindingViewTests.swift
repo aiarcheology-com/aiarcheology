@@ -175,11 +175,39 @@ final class SharedFindingViewTests: XCTestCase {
 	}
 
 	/// The owned screen must show the store's title, not the link's. A forged link carrying the
-	/// recipient's own id with someone else's title must not put that title on an unwarned screen.
-	func test_resolve_prefersTheStoredTitleOverTheLinksOwn() {
+	/// recipient's own id with someone else's title must not put that title on the one screen that
+	/// shows no provenance warning.
+	///
+	/// The previous version of this test compared `.owned("Stored title")` against
+	/// `.owned("Forged title")` — two unequal literals — so it passed no matter what `resolve` did.
+	/// What actually needs proving is that **nothing about the link except its id can change the
+	/// result**, so this drives two payloads that differ in every field but `id` and requires the
+	/// same presentation out of both.
+	func test_resolve_ignoresEverythingInTheLinkExceptItsID() {
 		let identifier = UUID()
-		let presentation = SharedFindingPresentation.resolve(payloadId: identifier) { _ in "Stored title" }
-		XCTAssertEqual(presentation, .owned(localTitle: "Stored title"))
-		XCTAssertNotEqual(presentation, .owned(localTitle: payload(id: identifier, title: "Forged title").title))
+		let honest = payload(id: identifier, title: "My own rampart")
+		let forged = FindingShareLink.Payload(
+			id: identifier,
+			title: "Forged title",
+			detectionClass: "forged",
+			confidencePercent: 1,
+			coordinate: FindingShareLink.Coordinate(latitude: 1, longitude: 1),
+			page: URL(string: "https://attacker.example/x"),
+			author: "Someone Else",
+			date: DateComponents(year: 2000, month: 1, day: 1)
+		)
+
+		let fromHonest = SharedFindingPresentation.resolve(payloadId: honest.id) { _ in "Stored title" }
+		let fromForged = SharedFindingPresentation.resolve(payloadId: forged.id) { _ in "Stored title" }
+
+		XCTAssertEqual(fromHonest, .owned(localTitle: "Stored title"))
+		XCTAssertEqual(fromForged, fromHonest, "no link field but the id may reach the owned screen")
+	}
+
+	/// A link whose id this device does not know must never resolve to `owned`, whatever else it
+	/// carries — otherwise a stranger's link could reach the screen that shows no warning.
+	func test_resolve_withoutAStoredMatchStaysUnverified() {
+		XCTAssertEqual(SharedFindingPresentation.resolve(payloadId: UUID()) { _ in nil }, .unverified)
+		XCTAssertEqual(SharedFindingPresentation.resolve(payloadId: nil) { _ in "Stored title" }, .unverified)
 	}
 }

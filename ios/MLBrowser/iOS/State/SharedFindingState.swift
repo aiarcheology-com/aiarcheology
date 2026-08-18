@@ -28,8 +28,28 @@ import Foundation
 @MainActor
 final class SharedFindingState: ObservableObject {
 
-	/// The finding waiting to be shown, or `nil` when there is nothing pending.
-	@Published private(set) var pending: FindingShareLink.Payload?
+	/// What a shared link resolved to.
+	///
+	/// The two cases exist because "this URL is not ours" and "this URL **is** ours and we could not
+	/// read it" demand opposite responses, and collapsing them is a user-visible bug rather than a
+	/// tidiness question.
+	///
+	/// A link that reaches the app has already been matched by the association file, so iOS opened
+	/// this app *instead of* the web page — and the web page is where the "this link was shortened or
+	/// edited" explanation lives. On exactly the devices that have the app installed, that
+	/// explanation can never run. If the app then does nothing, the user has tapped a link, watched
+	/// an app open, and been left on whatever screen happened to be showing. That is the blank screen
+	/// this ticket's fourth acceptance criterion forbids, so the app has to say it itself.
+	enum Pending: Equatable {
+		/// A link that parsed. The finding to show.
+		case finding(FindingShareLink.Payload)
+		/// Ours by host and path, but the payload would not parse — truncated in transit by a
+		/// platform that shortened it, hand-edited, or written by a newer version of the app.
+		case unreadable
+	}
+
+	/// What is waiting to be shown, or `nil` when there is nothing pending.
+	@Published private(set) var pending: Pending?
 
 	/// Offers `url` to the shared-link route.
 	///
@@ -39,7 +59,10 @@ final class SharedFindingState: ObservableObject {
 	/// rather than anything here. A URL we do not recognise leaves `pending` untouched.
 	@discardableResult
 	func handle(_ url: URL) -> Bool {
-		guard let payload = FindingShareLink.payload(from: url) else {
+		// Matching and parsing are asked separately, on purpose. `matches` answers "is this ours",
+		// `payload(from:)` answers "can we read it" — and only the first may cause this to decline
+		// the URL, because declining is what lets Clerk's OAuth callback through untouched.
+		guard FindingShareLink.matches(url) else {
 			// Deliberately not logged with the URL. Application-log entries become Sentry
 			// breadcrumbs and on-disk support-log lines (AIA-0602), and a share link carries a
 			// title, an author's name and coordinates in its fragment.
@@ -48,8 +71,13 @@ final class SharedFindingState: ObservableObject {
 		}
 		// Newest wins. Two links in quick succession is a user tapping again, not a queue to work
 		// through, and showing the older one would be showing the one they changed their mind about.
-		pending = payload
-		LoggingPolicy.info("Shared finding: buffered a link for presentation", logger: .state)
+		if let payload = FindingShareLink.payload(from: url) {
+			pending = .finding(payload)
+			LoggingPolicy.info("Shared finding: buffered a link for presentation", logger: .state)
+		} else {
+			pending = .unreadable
+			LoggingPolicy.warning("Shared finding: link matched but its payload could not be read", logger: .state)
+		}
 		return true
 	}
 

@@ -55,7 +55,10 @@
 
   /** Rejects duplicate keys, exactly as the app's parser does, so both render the same link. */
   function readFields(fragment) {
-    var params = new URLSearchParams(fragment);
+    // `URLSearchParams` decodes a raw `+` as a space; Foundation does not, so the same link would
+    // render "a b" here and "a+b" in the app. The app escapes `+` on emission, so this only bites
+    // hand-made links — but "only hand-made links" is precisely the input worth agreeing about.
+    var params = new URLSearchParams(fragment.replace(/\+/g, '%2B'));
     var fields = {};
     var seen = {};
     var iterator = params.entries();
@@ -91,13 +94,27 @@
     return parsed;
   }
 
+  /**
+   * A plain decimal number, and nothing else.
+   *
+   * `Number()` is unusable here: it accepts hex (`0x10` → 16), exponents (`1e1` → 10), leading and
+   * trailing whitespace, and — worst of all — the empty string, which it turns into 0. So `g=,`
+   * would have put a pin on Null Island while the Swift parser dropped the coordinate entirely.
+   * The regex is the contract; `Number` only runs once the shape is already known to be decimal.
+   */
+  function decimal(raw) {
+    if (typeof raw !== 'string' || !/^-?\d+(\.\d+)?$/.test(raw)) { return null; }
+    var value = Number(raw);
+    return isFinite(value) ? value : null;
+  }
+
   function parseCoordinate(raw) {
     if (typeof raw !== 'string') { return null; }
     var parts = raw.split(',');
     if (parts.length !== 2) { return null; }
-    var latitude = Number(parts[0]);
-    var longitude = Number(parts[1]);
-    if (!isFinite(latitude) || !isFinite(longitude)) { return null; }
+    var latitude = decimal(parts[0]);
+    var longitude = decimal(parts[1]);
+    if (latitude === null || longitude === null) { return null; }
     if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) { return null; }
     return { latitude: latitude, longitude: longitude };
   }
@@ -106,6 +123,26 @@
     if (!/^\d{1,3}$/.test(raw || '')) { return null; }
     var value = parseInt(raw, 10);
     return value >= 0 && value <= 100 ? value : null;
+  }
+
+  /**
+   * `yyyy-mm-dd`, and only if the date exists.
+   *
+   * A regex alone accepts 2026-99-99 and 2026-02-30, which the Swift parser rejects by round-tripping
+   * through a calendar. Same check here, via UTC `Date`: construct it, then read the fields back and
+   * require them to match — JavaScript silently rolls 2026-02-30 forward to 2026-03-02 otherwise.
+   */
+  function validDate(raw) {
+    if (typeof raw !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) { return null; }
+    var parts = raw.split('-');
+    var year = Number(parts[0]);
+    var month = Number(parts[1]);
+    var day = Number(parts[2]);
+    var date = new Date(Date.UTC(year, month - 1, day));
+    if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+      return null;
+    }
+    return raw;
   }
 
   function render() {
@@ -132,8 +169,9 @@
 
     // Rendered exactly as it travelled. Reformatting it would apply the *viewer's* locale to a
     // date the sender chose, and the value is already day-precision only.
-    if (/^\d{4}-\d{2}-\d{2}$/.test(fields.d || '')) {
-      setText('date', fields.d);
+    var date = validDate(fields.d);
+    if (date !== null) {
+      setText('date', date);
       show('date-row');
     }
 

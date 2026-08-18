@@ -17,10 +17,17 @@ enum ShareCardOrientation: String, CaseIterable, Identifiable {
 
 	/// Layout size in points. Rendered at the display scale (≥3) for a crisp,
 	/// social-ready PNG.
+	///
+	/// Enlarged for AIA-0650, keeping both aspect ratios exactly (4:5 and ~1.9:1 — the whole reason
+	/// the two orientations exist). The QR printed on the card cannot shrink: it needs roughly 3px
+	/// per module to survive being photographed off a screen, which pins it at 64pt on a ≥3×
+	/// canvas. Growing the card instead makes that fixed code a smaller *fraction* of the metadata
+	/// block — in portrait it drops from about 36% of that block's height to 25% — which is what
+	/// makes room for it beside the text rather than on top of it.
 	var size: CGSize {
 		switch self {
-		case .portrait: return CGSize(width: 340, height: 425)
-		case .landscape: return CGSize(width: 460, height: 242)
+		case .portrait: return CGSize(width: 480, height: 600)
+		case .landscape: return CGSize(width: 640, height: 336)
 		}
 	}
 
@@ -194,15 +201,6 @@ struct FindingShareCard: View {
 		}
 		.frame(width: slot.width, height: slot.height)
 		.clipped()
-		// Bottom-trailing, opposite the app badge, and inside the slot in both orientations: the
-		// metadata block is already full at these card sizes, so a 64pt code placed there would push
-		// its last rows off the card.
-		.overlay(alignment: .bottomTrailing) {
-			if let link {
-				FindingShareLinkBadge(link: link)
-					.padding(10)
-			}
-		}
 	}
 
 	private var metadata: some View {
@@ -273,6 +271,17 @@ struct FindingShareCard: View {
 			Spacer(minLength: 0)
 		}
 		.padding(16)
+		// Bottom-trailing of the metadata block, which is where a reader looks last. Laid out as an
+		// overlay rather than a row so it sits in the corner regardless of how many rows the finding
+		// happens to have — the block holds anywhere from two to seven. The enlarged card (see
+		// `ShareCardOrientation.size`) is what makes this fit: at the old 340×425 the same 64pt code
+		// would have collided with the last row of a finding that had a note.
+		.overlay(alignment: .bottomTrailing) {
+			if let link {
+				FindingShareLinkBadge(link: link)
+					.padding(16)
+			}
+		}
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 	}
 
