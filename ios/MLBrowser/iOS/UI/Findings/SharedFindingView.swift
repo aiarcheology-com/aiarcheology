@@ -290,14 +290,26 @@ struct SharedFindingView: View {
 	/// The card's own title bar. A `NavigationStack` would give the same thing, but a navigation bar
 	/// inside a 520pt card reads as a screen someone forgot to finish, and the stack brought a whole
 	/// navigation context along for one title and one button.
+	///
+	/// ## Leading and blue, because that is what this app does
+	/// `SaveFindingSheet`, the findings detail screen and the share composer all place the dismissive
+	/// action **leading in blue** and the committing action **trailing in green, bold**. This card has
+	/// no committing action yet — a shared link deliberately writes nothing — so the trailing side is
+	/// empty and the dismiss button sits where every other sheet in the app puts cancel.
+	///
+	/// The title is centred by a `ZStack` rather than by an `HStack` with spacers, so it stays
+	/// centred on the *card* regardless of how wide the button beside it is in the current language.
 	private var header: some View {
-		HStack {
+		ZStack {
 			Text(L10n.Finding.Shared.title)
 				.font(.headline)
-			Spacer(minLength: 12)
-			Button(L10n.Common.done) { dismiss() }
-				.buttonStyle(.borderless)
-				.testability(Testability.Button.sharedFindingDismiss)
+			HStack {
+				Button(L10n.Common.dismiss) { dismiss() }
+					.buttonStyle(.borderless)
+					.tint(.blue)
+					.testability(Testability.Button.sharedFindingDismiss)
+				Spacer(minLength: 12)
+			}
 		}
 		.padding(.horizontal, 20)
 		.padding(.vertical, 14)
