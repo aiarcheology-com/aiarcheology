@@ -19,28 +19,63 @@ import SwiftUI
 struct FindingShareCardLink {
 	let address: String
 	let qrCode: UIImage?
+	/// The edge the code should be drawn at, in points — derived from the symbol's own module count
+	/// rather than fixed. See ``FindingShareQRCode/fittedPointSize(moduleCount:)``.
+	let codePointSize: CGFloat
+
+	init(address: String, qrCode: UIImage?, codePointSize: CGFloat = FindingShareQRCode.maximumPointSize) {
+		self.address = address
+		self.qrCode = qrCode
+		self.codePointSize = codePointSize
+	}
 }
 
 // MARK: - Generation
 
 enum FindingShareQRCode {
 
-	/// The code's edge on the card, in points. The composer renders at `max(displayScale, 3)`, so
-	/// this is at least 264px in the exported PNG.
+	/// The **ceiling** on the code's edge, in points, for a payload at ``FindingShareLink/maximumCompactLength``.
 	///
-	/// Grown from 64pt for AIA-0657, and the growth *is* the budget. Scannability is decided by
-	/// pixels per module, so carrying more characters means more modules, which means each one gets
-	/// thinner unless the code gets physically bigger. At EC-M a 400-character payload is a
-	/// version-15 symbol — 77 modules, 79 with the generator's quiet zone — and
-	/// `floor(264 / 79) = 3`px per module, identical to what 250 characters at 64pt gave
-	/// (`floor(192 / 63) = 3`). The code carries 60% more and is no harder to scan.
-	static let pointSize: CGFloat = 88
+	/// Scannability is decided by pixels per module, so carrying more characters means more modules,
+	/// which means each gets thinner unless the code gets physically bigger. At EC-M a 400-character
+	/// payload is a version-15 symbol — 77 modules, 79 with the generator's quiet zone — and at 3×
+	/// that needs 79pt to hold ``minimumPixelsPerModule``. 88 leaves a little headroom above the
+	/// densest symbol the contract can produce.
+	static let maximumPointSize: CGFloat = 88
+
+	/// The floor: the fixed size the card carried before AIA-0657.
+	///
+	/// Chosen rather than derived, for two reasons. A code that shipped at this size for two releases
+	/// is known to scan, so shrinking below it would be trading a proven property for a few points of
+	/// card. And the address printed under the code has to stay readable — at 8pt it needs about
+	/// 84pt, which fits here once allowed to scale to 0.7, and does not fit anything much smaller.
+	///
+	/// The practical effect: a typical finding's code is 64pt, exactly as before, and only a link
+	/// long enough to need more modules makes it grow.
+	static let minimumPointSize: CGFloat = 64
+
+	/// Below roughly this, a code stops surviving being photographed off a screen — which is the only
+	/// way a reposted card is ever scanned.
+	static let minimumPixelsPerModule: CGFloat = 3
+
+	/// The size a symbol of `moduleCount` modules (quiet zone included) must be drawn at.
+	///
+	/// The budget is a ceiling, not a size: a finding shared from `ags.cuzk.cz/av/` produces a link
+	/// near 150 characters, which is a version-11 symbol at 61 modules and needs 63pt — while the
+	/// 400-character worst case needs 79pt. Fixing every code at the worst case would spend 16pt of
+	/// card on symbols that do not need it, and on a card where the badge now *reserves* its width
+	/// from the text beside it, that width is the metadata block's to lose.
+	static func fittedPointSize(moduleCount: CGFloat) -> CGFloat {
+		let needed = (moduleCount * minimumPixelsPerModule / renderScale).rounded(.up)
+		return min(maximumPointSize, max(minimumPointSize, needed))
+	}
 
 	/// The render scale the composer guarantees. Used to size the generated bitmap for the pixels it
 	/// will actually occupy rather than for the ~60px image the filter hands back.
 	static let renderScale: CGFloat = 3
 
-	static var pixelSize: CGFloat { pointSize * renderScale }
+	/// The bitmap edge for a code drawn at the ceiling. Callers that size dynamically pass their own.
+	static var pixelSize: CGFloat { maximumPointSize * renderScale }
 
 	/// The art for `subject`: always an address, and a code whenever the compact link fits.
 	///
@@ -63,18 +98,39 @@ enum FindingShareQRCode {
 			variant: .compact,
 			pageDetail: pageDetail
 		)
+		guard let compact, let fitted = code(for: compact) else {
+			return FindingShareCardLink(address: FindingShareLink.webHost, qrCode: nil)
+		}
 		return FindingShareCardLink(
 			address: FindingShareLink.webHost,
-			qrCode: compact.flatMap { image(for: $0) }
+			qrCode: fitted.image,
+			codePointSize: fitted.pointSize
 		)
+	}
+
+	/// A code sized to its own payload: the symbol is generated once, its module count read off the
+	/// filter's output, and the bitmap then rendered for exactly the points that symbol needs.
+	///
+	/// Two passes over the same `CIImage`, not two encodes — the expensive part happens once.
+	static func code(for url: URL) -> (image: UIImage, pointSize: CGFloat)? {
+		guard let symbol = symbol(for: url) else { return nil }
+		// `extent.width` is the module count *including* the one-module quiet zone the generator adds
+		// on each side, which is the number that has to survive being photographed.
+		let pointSize = fittedPointSize(moduleCount: symbol.extent.width)
+		guard let image = image(from: symbol, pixelSize: pointSize * renderScale) else { return nil }
+		return (image, pointSize)
 	}
 
 	/// Creating a `CIContext` sets up a GPU pipeline and is expensive, so one is reused — the same
 	/// pattern as `UIImage.adjusted(brightness:contrast:saturation:)`. `CIContext` is thread-safe.
 	private static let context = CIContext(options: nil)
 
-	/// Renders `url` as a QR bitmap `pixelSize` pixels square, or `nil` if it cannot be encoded.
-	static func image(for url: URL, pixelSize: CGFloat = FindingShareQRCode.pixelSize) -> UIImage? {
+	/// Encodes `url` and hands back the raw symbol — one module per pixel, quiet zone included.
+	///
+	/// Separated from the rendering below so ``code(for:)`` can read the module count *before*
+	/// choosing a size. Deriving the size from the symbol is the only way to make the badge cost the
+	/// card no more room than its payload actually requires.
+	private static func symbol(for url: URL) -> CIImage? {
 		let filter = CIFilter.qrCodeGenerator()
 		filter.message = Data(url.absoluteString.utf8)
 		// Medium (~15% recovery). Higher levels buy damage tolerance this code will never need — it
@@ -85,7 +141,16 @@ enum FindingShareQRCode {
 		guard let output = filter.outputImage, output.extent.width >= 1, output.extent.height >= 1 else {
 			return nil
 		}
+		return output
+	}
 
+	/// Renders `url` as a QR bitmap `pixelSize` pixels square, or `nil` if it cannot be encoded.
+	static func image(for url: URL, pixelSize: CGFloat = FindingShareQRCode.pixelSize) -> UIImage? {
+		guard let output = symbol(for: url) else { return nil }
+		return image(from: output, pixelSize: pixelSize)
+	}
+
+	private static func image(from output: CIImage, pixelSize: CGFloat) -> UIImage? {
 		// Nearest-neighbour, at a whole-number factor. The filter returns roughly one pixel per
 		// module, so it *must* be enlarged; doing that with the default smoothing turns every module
 		// edge into a grey ramp, which is exactly what a decoder fails on. A whole-number factor
@@ -135,9 +200,12 @@ enum FindingShareQRCode {
 struct FindingShareLinkBadge: View {
 	let link: FindingShareCardLink
 
-	/// The badge's full width: the code, plus the padding around it. Published so the card can
-	/// reserve exactly this much and no more, rather than guessing.
-	static var width: CGFloat { FindingShareQRCode.pointSize + padding * 2 }
+	/// The widest the badge can ever be — the ceiling code plus its padding. What the *layout test*
+	/// reserves against, because a card must hold the worst case, not the typical one.
+	static var maximumWidth: CGFloat { FindingShareQRCode.maximumPointSize + padding * 2 }
+
+	/// This badge's actual width, which follows its payload.
+	var width: CGFloat { link.codePointSize + Self.padding * 2 }
 
 	private static let padding: CGFloat = 5
 
@@ -149,7 +217,7 @@ struct FindingShareLinkBadge: View {
 					// Nearest-neighbour again on the way out: SwiftUI's default smoothing would undo
 					// the crisp module edges the generator just went to some trouble to produce.
 					.interpolation(.none)
-					.frame(width: FindingShareQRCode.pointSize, height: FindingShareQRCode.pointSize)
+					.frame(width: link.codePointSize, height: link.codePointSize)
 			}
 			// The brand address, not localizable — and not a `LocalizedStringKey` lookup. This is the
 			// card's floor: when the compact link will not fit and there is no code, this line is the
@@ -158,7 +226,7 @@ struct FindingShareLinkBadge: View {
 				.font(.system(size: 8, weight: .semibold))
 				.lineLimit(1)
 				.minimumScaleFactor(0.7)
-				.frame(width: FindingShareQRCode.pointSize)
+				.frame(width: link.codePointSize)
 		}
 		.foregroundStyle(.black)
 		.padding(Self.padding)

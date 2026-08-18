@@ -24,10 +24,20 @@ enum ShareCardOrientation: String, CaseIterable, Identifiable {
 	/// canvas. Growing the card instead makes that fixed code a smaller *fraction* of the metadata
 	/// block — in portrait it drops from about 36% of that block's height to 25% — which is what
 	/// makes room for it beside the text rather than on top of it.
+	/// Landscape grew again for AIA-0657, and by measurement rather than preference. The link badge
+	/// is now a sibling of the text rather than an overlay on it, so it *reserves* its width — and at
+	/// 640pt the metadata block had 139.6pt left for the rows, while the host row (the degraded floor
+	/// the ticket forbids losing) needs about 149pt for a domain like `www.openstreetmap.org`.
+	/// `FindingShareCardLayoutTests.test_theHostRowFitsBesideTheBadgeInBothOrientations` is that
+	/// measurement, and it failed at 640×336 before this change.
+	///
+	/// 760×399 is the same ratio to the pixel — 640/336 and 760/399 are both exactly 40/21 — which
+	/// matters because the two orientations exist *to be* 4:5 and ~1.9:1 for the feeds that crop to
+	/// them. 760×400 would have been a quietly different card.
 	var size: CGSize {
 		switch self {
 		case .portrait: return CGSize(width: 480, height: 600)
-		case .landscape: return CGSize(width: 640, height: 336)
+		case .landscape: return CGSize(width: 760, height: 399)
 		}
 	}
 
@@ -203,7 +213,45 @@ struct FindingShareCard: View {
 		.clipped()
 	}
 
+	/// The text block and, when there is one, the link badge beside it.
+	///
+	/// ## Why the badge is a sibling and not an overlay
+	/// It used to be `.overlay(alignment: .bottomTrailing)` applied *before* the expanding
+	/// `.frame(…, alignment: .topLeading)`, so it anchored to the intrinsically-sized text block
+	/// rather than to the metadata block — below the rows and left of centre in portrait, and not
+	/// quite in the corner in landscape (AIA-0657). Reordering the modifiers would have fixed the
+	/// anchor and left the overlap: an overlay draws *on top of* the rows, so a long note or host
+	/// would run underneath the code.
+	///
+	/// As a sibling in an `HStack(alignment: .bottom)` the overlap is not merely absent, it is
+	/// unrepresentable — the text column's width excludes the badge by construction, at any row
+	/// count from two to seven.
+	///
+	/// ## Two properties, both load-bearing
+	/// - `.frame(maxWidth: .infinity, alignment: .leading)` on the text column: a `VStack` sizes to
+	///   its widest child, so without this the badge sits immediately right of the *longest row*
+	///   instead of flush to the block's trailing edge — the original defect, rebuilt inside its own
+	///   fix.
+	/// - the trailing `Spacer(minLength: 0)`: it is what makes the column fill the block's height,
+	///   and therefore what puts the `.bottom`-aligned badge on the block's floor. Without it the
+	///   `HStack` collapses to its content and the outer `.topLeading` frame floats the badge in
+	///   mid-block whenever the finding has few rows.
+	///
+	/// Two rows is the case that exercises both at once, which is why the layout test asserts there.
 	private var metadata: some View {
+		HStack(alignment: .bottom, spacing: 12) {
+			metadataRows
+				.frame(maxWidth: .infinity, alignment: .leading)
+
+			if let link {
+				FindingShareLinkBadge(link: link)
+			}
+		}
+		.padding(16)
+		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+	}
+
+	private var metadataRows: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			Text(subject.title)
 				.font(.title3.bold())
@@ -268,21 +316,10 @@ struct FindingShareCard: View {
 				.foregroundStyle(.secondary)
 			}
 
+			// Load-bearing: this is what makes the column fill the block, and therefore what puts the
+			// badge beside it on the block's floor. See ``metadata``.
 			Spacer(minLength: 0)
 		}
-		.padding(16)
-		// Bottom-trailing of the metadata block, which is where a reader looks last. Laid out as an
-		// overlay rather than a row so it sits in the corner regardless of how many rows the finding
-		// happens to have — the block holds anywhere from two to seven. The enlarged card (see
-		// `ShareCardOrientation.size`) is what makes this fit: at the old 340×425 the same 64pt code
-		// would have collided with the last row of a finding that had a note.
-		.overlay(alignment: .bottomTrailing) {
-			if let link {
-				FindingShareLinkBadge(link: link)
-					.padding(16)
-			}
-		}
-		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 	}
 
 	private var background: some View {
