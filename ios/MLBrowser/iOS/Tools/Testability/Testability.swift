@@ -228,6 +228,9 @@ extension TestabilityIdentification {
 		case findingDetailShare
 		case findingShareConfirm
 		case findingShareCancel
+		/// Copies the exact address the link will carry. Present only while an address travels, so its
+		/// absence asserts that nothing is being disclosed rather than that copying merely failed.
+		case findingShareCopyAddress
 		// Shared finding links (AIA-0650) — the read-only screen a recipient sees.
 		/// Closes the shared-finding screen. The ONLY control that clears the pending link, so a test
 		/// that taps it is exercising the one dismissal path the buffer recognises.
@@ -241,6 +244,9 @@ extension TestabilityIdentification {
 		/// Loads the map for the link's coordinate. Its presence is the assertion that no map was
 		/// mounted on arrival — tiles are only fetched for a sender-chosen point once tapped.
 		case sharedFindingShowMap
+		/// Copies the full address a received link would open. Present whenever the link carried a
+		/// page, so a recipient can inspect the destination outside the app before trusting it.
+		case sharedFindingCopyAddress
 		// Snap Adjustment
 		case snapAdjustmentReset
 		case snapAdjustmentOverlayDismiss
@@ -436,6 +442,11 @@ extension TestabilityIdentification {
 		/// (AIA-0657). Identified because it is the mechanism behind the ticket's credential
 		/// criterion: a test must be able to read what is on screen without matching localized copy.
 		case findingShareAddressPreview
+		/// The full address a received link will open, shown beside its button (AIA-0659). Identified
+		/// because the disclosure IS the phishing mitigation: a test must be able to prove the whole
+		/// address is on screen — not the host that a lookalike domain imitates — without matching
+		/// localized copy.
+		case sharedFindingAddress
 		/// The page diagram on a received link (AIA-0657): where on the captured page the detection
 		/// sat. Identified because it is the visible half of the ticket's first criterion, and the
 		/// half no localized string can stand in for.

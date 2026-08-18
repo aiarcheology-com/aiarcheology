@@ -441,7 +441,12 @@ struct FindingShareComposer: View {
 	/// disclosing it. Everything that could ever be sensitive in a shared link is in this one string,
 	/// so it is shown whole — no middle truncation, since the middle is exactly where `?token=` sits.
 	private var addressChoice: some View {
-		VStack(alignment: .leading, spacing: 6) {
+		// Read once, used by both the copy button and the preview below it. `travellingAddress`
+		// builds a link and re-parses it, so evaluating it per-control is wasteful — but the reason
+		// it is hoisted is the criterion, not the cost: what the button copies must be exactly what
+		// the row shows, and one value makes that structural instead of two evaluations agreeing.
+		let address = travellingAddress
+		return VStack(alignment: .leading, spacing: 6) {
 			Toggle(L10n.Finding.Share.fullAddress, isOn: $sharesFullAddress)
 				.testability(Testability.Toggle.findingShareFullAddress)
 			Text(L10n.Finding.Share.fullAddressFootnote)
@@ -453,10 +458,30 @@ struct FindingShareComposer: View {
 				.frame(maxWidth: .infinity, alignment: .leading)
 
 			VStack(alignment: .leading, spacing: 2) {
-				Text(L10n.Finding.Share.addressPreview)
-					.font(.caption)
-					.foregroundStyle(.secondary)
-				if let address = travellingAddress {
+				HStack(spacing: 8) {
+					Text(L10n.Finding.Share.addressPreview)
+						.font(.caption)
+						.foregroundStyle(.secondary)
+					Spacer(minLength: 0)
+					// Selecting the text by hand still works and is the floor; this is the one-tap
+					// form, because the floor means dragging two handles across a wrapped
+					// 300-character URL. Inside the address check on purpose: when no address
+					// travels there is nothing to copy, so there must be no control rather than a
+					// disabled one.
+					if let address {
+						Button {
+							UIPasteboard.general.string = address.absoluteString
+						} label: {
+							Label(L10n.Common.copy, systemImage: "doc.on.doc")
+								.labelStyle(.iconOnly)
+						}
+						.buttonStyle(.borderless)
+						.font(.caption)
+						.accessibilityLabel(L10n.Common.copy)
+						.testability(Testability.Button.findingShareCopyAddress)
+					}
+				}
+				if let address {
 					// Pinned left-to-right regardless of the app's language. A URL is a
 					// left-to-right string, and under `ar`, `he` or `fa` a mixed-direction host and
 					// path reorder on screen — which would make the one row whose entire purpose is

@@ -215,14 +215,22 @@ struct FindingsListView: View {
 			.tint(.blue)
 			.testability(Testability.Button.findingsShareEntry)
 		}
-		// Right-click is the Mac idiom; on touch the leading swipe is the share
-		// affordance, so the context menu is Mac-only.
+		// Right-click is the Mac idiom, and on a Mac it is the ONLY way to reach these
+		// actions: a pointer cannot swipe a row. So the menu mirrors BOTH swipe
+		// actions, destructive one last. It stays Mac-only because on touch the swipes
+		// are already the affordances (AIA-0659).
 		.macContextMenu {
 			Button {
 				share(finding)
 			} label: {
 				Label(L10n.Common.share, systemImage: "square.and.arrow.up")
 			}
+			Button(role: .destructive) {
+				delete(finding)
+			} label: {
+				Label(L10n.Common.delete, systemImage: "trash")
+			}
+			.testability(Testability.Button.findingsDeleteEntry)
 		}
 	}
 
@@ -631,8 +639,9 @@ private struct InspectableHighlightedSnapshot: View {
 // MARK: - Mac-only context menu
 
 private extension View {
-	/// Attaches a context menu only when running on a Mac (right-click is the Mac
-	/// idiom). On touch the menu is suppressed — the leading swipe shares instead.
+	/// Attaches a context menu only when running on a Mac. Right-click is the Mac idiom, and it is
+	/// the only pointer-reachable route to actions a mouse cannot swipe to. On touch the menu is
+	/// suppressed — the row's swipe actions serve instead.
 	@ViewBuilder
 	func macContextMenu<MenuItems: View>(@ViewBuilder _ menuItems: () -> MenuItems) -> some View {
 		if ProcessInfo.processInfo.isiOSAppOnMac || ProcessInfo.processInfo.isMacCatalystApp {
