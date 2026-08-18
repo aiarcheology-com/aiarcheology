@@ -18,7 +18,7 @@ Please test on a real map portal (ags.cuzk.cz, mapy.com, openstreetmap.org). Put
 
 6. Scan the QR with the Code Scanner (Control Centre), including from a photo of the card on another screen: it opens the app on the finding. The Camera app opens the web page instead — that is iOS, not a fault. The code is sized to what it holds, so expect a bigger one for a long address.
 
-7. Turn "Let people open this finding in the app" off and share: "Save Image" comes back and no link is attached. That is the trade-off the switch exists for.
+7. Turn "Let people open this finding in the app" off and share: "Save Image" returns and no link is attached. That is the trade-off.
 
 8. Open a link to your OWN finding: the app opens on a read-only screen saying it is yours. Nothing is added to your Findings list — a shared link never creates a finding.
 
@@ -26,7 +26,7 @@ Please test on a real map portal (ags.cuzk.cz, mapy.com, openstreetmap.org). Put
 
 10. The important one. Sign out or use a fresh install so the paywall, welcome screen or analytics question is still waiting, then open a shared link. The finding must appear ON TOP of it. Then tap "Open the Original Page" from there: the card closes, you deal with the paywall, and you should land on the shared page.
 
-11. Dismiss (top left) closes the card and it does not come back. Tapping outside the card must NOT close it.
+11. Dismiss (top left) closes the card for good. Tapping outside it must NOT close it.
 
 12. Damage a link on purpose (delete a chunk from the end) and open it. The app must say it could not read the link, never open to nothing.
 
