@@ -1,0 +1,75 @@
+<!doctype html>
+<!--
+  Shared-finding landing page (AIA-0650).
+
+  Served at /f WITHOUT a trailing slash. This is deliberately f.html and not f/index.html:
+  directory-style hosting answers /f with a 308 to /f/, and iOS matches a universal link
+  against the URL as tapped, before any redirect runs - so the redirect form would mean the
+  app silently never opens.
+
+  The finding travels in the URL fragment, which is never sent to this server. Nothing here
+  is logged, stored or forwarded; the page is static and app.js runs entirely in the browser.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>A finding shared from ML Browser</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="card">
+    <p class="eyebrow">Shared from ML Browser</p>
+
+    <!-- Everything below is filled in by app.js using textContent only. The markup ships
+         empty so that a browser with JS disabled shows the fallback, never raw parameters. -->
+    <h1 id="title" class="title"></h1>
+
+    <p id="detection" class="chip" hidden></p>
+
+    <dl class="meta">
+      <div id="author-row" class="row" hidden>
+        <dt>Found by</dt>
+        <dd id="author"></dd>
+      </div>
+      <div id="date-row" class="row" hidden>
+        <dt>Found on</dt>
+        <dd id="date"></dd>
+      </div>
+      <div id="location-row" class="row" hidden>
+        <dt>Location</dt>
+        <dd><a id="location-link" rel="noopener noreferrer nofollow"></a></dd>
+      </div>
+      <div id="page-row" class="row" hidden>
+        <dt>Page</dt>
+        <dd><a id="page-link" rel="noopener noreferrer nofollow"></a></dd>
+      </div>
+    </dl>
+
+    <div class="actions">
+      <a id="open-in-app" class="button button-secondary" hidden>Open in ML Browser</a>
+      <a class="button button-primary" href="https://apps.apple.com/app/id6466878953">Get ML Browser</a>
+    </div>
+
+    <p class="hint">
+      Already installed? Tapping the original link opens it straight in the app.
+      Installing now? Come back and tap the link again &mdash; iOS cannot carry it
+      through the App Store for you.
+    </p>
+
+    <p id="fallback" class="fallback" hidden>
+      This link does not describe a finding. It may have been shortened, edited or
+      truncated on its way here.
+    </p>
+
+    <p class="disclaimer">
+      ML Browser finds things in web pages using on-device machine learning. Everything above
+      came from the link itself and was written by whoever shared it &mdash; it has not been
+      verified by us, and the page it points to is not ours.
+    </p>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

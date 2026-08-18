@@ -301,6 +301,22 @@ struct MLBrowser: App {
 			// Single injection of the composition root's real-vs-mock auth flag for the whole
 			// view tree; re-injected across sheet boundaries where needed (AIA-0385).
 			.environment(\.usesRealAuth, appState.usesRealAuth)
+			// Shared finding links (AIA-0650). Attached at the scene root because that is where iOS
+			// delivers them, and because a link must be caught whatever is on screen — including the
+			// paywall, the consent screen, and the launch spinner above.
+			//
+			// This is the app's ONLY `onOpenURL`, and it sees every URL the app is handed. That
+			// includes Clerk's OAuth callback on `com.aiarcheology.ios`, which is normally consumed
+			// by `ASWebAuthenticationSession` and must never be swallowed here. `handle` returns
+			// whether the URL was ours, delegating the decision to `FindingShareLink`'s strict
+			// host/path matching, so anything that is not a finding link falls through untouched.
+			//
+			// Deliberately NOT gated on `isFindingShareLinkEnabled`: that flag governs whether this
+			// app *emits* links. Links already shared are out in the world regardless, and turning
+			// emission off must not break them for the strangers who tap them.
+			.onOpenURL { url in
+				appState.sharedFinding.handle(url)
+			}
 			// The remote brake on the detailed application log (AIA-0602). `initial: true` so the
 			// compiled default is applied on a first launch that has not synced yet, and the live
 			// snapshot thereafter — `FeatureFlagsState` observes the provider's change stream, so a

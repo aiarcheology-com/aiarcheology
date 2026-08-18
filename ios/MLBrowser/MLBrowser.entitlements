@@ -10,6 +10,7 @@
 	<array>
 		<string>webcredentials:advanced-tetra-5.clerk.accounts.dev</string>
 		<string>webcredentials:clerk.aiarcheology.com</string>
+		<string>applinks:link.aiarcheology.com</string>
 	</array>
 </dict>
 </plist>

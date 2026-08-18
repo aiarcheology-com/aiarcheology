@@ -115,6 +115,28 @@ enum FeatureFlagKey: String, CaseIterable {
 	/// without debug entries. It also deletes what has already been stored — a brake that stopped
 	/// writing but left raw addresses on disk would be worse than no brake.
 	case isDetailedApplicationLogEnabled = "isDetailedApplicationLogEnabled"
+
+	/// Gates whether the finding share composer **emits a link** (AIA-0650): the "Include link"
+	/// toggle, the short address and the QR rendered into the shared card.
+	///
+	/// **Emission only — the receive path is deliberately never gated.** A link that has already
+	/// been posted somewhere is out of our hands, so switching this off must stop new links being
+	/// made without breaking the ones already in the wild. Gating the receive path would turn a
+	/// dashboard flip into a broken link for every stranger who taps one.
+	///
+	/// **The one flag here that fails *closed*, and the only one that should.** Every other flag
+	/// gates behaviour this app can deliver entirely on its own, so failing open costs nothing when
+	/// config cannot be reached. This one does not: the link it emits is worthless until
+	/// `link.aiarcheology.com` actually serves an `apple-app-site-association` file, and that is
+	/// infrastructure outside this repository and outside any build. Failing open would mean a
+	/// ConfigCat outage — or a genuine first launch, before any sync — silently handing users a
+	/// share link that opens Safari on a host that is not answering. A dead link shared to social
+	/// media cannot be recalled; a feature that stays dark for one launch can.
+	///
+	/// Read **live** rather than launch-captured: it shows and hides an entry point inside a sheet,
+	/// so a mid-session flip is safe and lets the feature be switched on the moment the domain is
+	/// verified, without waiting for the install base to cold-start.
+	case isFindingShareLinkEnabled = "isFindingShareLinkEnabled"
 	// swiftlint:enable redundant_string_enum_value
 
 	/// The value used when remote config cannot be consulted.
@@ -129,6 +151,9 @@ enum FeatureFlagKey: String, CaseIterable {
 		case .isCrossDeviceAnalyticsIdentityEnabled: return true
 		case .isFreeAccessPeriodEnabled: return true
 		case .isDetailedApplicationLogEnabled: return true
+		// The deliberate exception to "defaults fail open" — see the case's documentation. A link
+		// emitted before the domain answers cannot be taken back once it has been posted.
+		case .isFindingShareLinkEnabled: return false
 		}
 	}
 }
@@ -203,6 +228,7 @@ struct FeatureFlagSnapshot: Equatable {
 	var isCrossDeviceAnalyticsIdentityEnabled: Bool { self[.isCrossDeviceAnalyticsIdentityEnabled] }
 	var isFreeAccessPeriodEnabled: Bool { self[.isFreeAccessPeriodEnabled] }
 	var isDetailedApplicationLogEnabled: Bool { self[.isDetailedApplicationLogEnabled] }
+	var isFindingShareLinkEnabled: Bool { self[.isFindingShareLinkEnabled] }
 
 	/// Every key at its compiled default — the launch/offline value.
 	static let defaults = FeatureFlagSnapshot()

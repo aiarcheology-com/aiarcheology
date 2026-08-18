@@ -145,6 +145,18 @@ final class FindingRepository {
 		Finding.count(in: context, predicate: nil) > 0
 	}
 
+	/// The title this device already stores for `entityId`, or `nil` when it stores no such finding.
+	///
+	/// **Read-only, and the only reason a shared link touches Core Data at all (AIA-0650).** A link
+	/// whose id matches a local row is the recipient's *own* finding — most often the sender opening
+	/// their own link — and showing them a stranger's-eye, "unverified" card of their own work would
+	/// be nonsense. The title is read back from the store rather than taken from the link so the one
+	/// piece of text that screen renders is the verified local copy, not the attacker-controllable
+	/// one in the URL fragment. Nothing here writes: a shared link never creates a `Finding`.
+	func storedFindingTitle(_ entityId: UUID) -> String? {
+		Finding.select(entityId, in: context)?.displayTitle
+	}
+
 	/// Trim, then treat an all-whitespace field as absent (nil) — matches the former view helper.
 	private static func normalized(_ text: String) -> String? {
 		let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)

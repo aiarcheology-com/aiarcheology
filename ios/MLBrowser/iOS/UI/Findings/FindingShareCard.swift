@@ -17,10 +17,17 @@ enum ShareCardOrientation: String, CaseIterable, Identifiable {
 
 	/// Layout size in points. Rendered at the display scale (≥3) for a crisp,
 	/// social-ready PNG.
+	///
+	/// Enlarged for AIA-0650, keeping both aspect ratios exactly (4:5 and ~1.9:1 — the whole reason
+	/// the two orientations exist). The QR printed on the card cannot shrink: it needs roughly 3px
+	/// per module to survive being photographed off a screen, which pins it at 64pt on a ≥3×
+	/// canvas. Growing the card instead makes that fixed code a smaller *fraction* of the metadata
+	/// block — in portrait it drops from about 36% of that block's height to 25% — which is what
+	/// makes room for it beside the text rather than on top of it.
 	var size: CGSize {
 		switch self {
-		case .portrait: return CGSize(width: 340, height: 425)
-		case .landscape: return CGSize(width: 460, height: 242)
+		case .portrait: return CGSize(width: 480, height: 600)
+		case .landscape: return CGSize(width: 640, height: 336)
 		}
 	}
 
@@ -68,6 +75,39 @@ struct FindingShareSubject: Identifiable {
 		date = finding.creationDate_
 		page = finding.page
 	}
+
+	/// The value-level initializer. The Core Data one above is how the app builds a subject; this is
+	/// how a test or a preview builds one without a managed object context, which is what makes the
+	/// subject → link-payload mapping checkable on its own (AIA-0650).
+	init(
+		id: UUID,
+		image: UIImage? = nil,
+		normalizedBox: CGRect = .zero,
+		title: String,
+		label: String? = nil,
+		note: String? = nil,
+		author: String? = nil,
+		gps: String? = nil,
+		detectionClass: String? = nil,
+		confidence: Double = 0,
+		host: String? = nil,
+		date: Date? = nil,
+		page: URL? = nil
+	) {
+		self.id = id
+		self.image = image
+		self.normalizedBox = normalizedBox
+		self.title = title
+		self.label = label
+		self.note = note
+		self.author = author
+		self.gps = gps
+		self.detectionClass = detectionClass
+		self.confidence = confidence
+		self.host = host
+		self.date = date
+		self.page = page
+	}
 }
 
 /// The composed, shareable card. Themed via the ambient color scheme (set
@@ -80,6 +120,12 @@ struct FindingShareCard: View {
 	/// Composer-driven framing of the cover-filled image (1 = fit-to-fill).
 	var zoom: CGFloat = 1
 	var offset: CGSize = .zero
+	/// The address + QR sticker, or `nil` (AIA-0650).
+	///
+	/// `nil` is the feature-flag-off path and must render **nothing**: with `isFindingShareLinkEnabled`
+	/// off, the card this produces is byte-identical to the one the app shipped before the link
+	/// existed. It is also the toggle-off path, and the "no compact link could be built" path.
+	var link: FindingShareCardLink?
 
 	@Environment(\.colorScheme) private var colorScheme
 
@@ -225,6 +271,17 @@ struct FindingShareCard: View {
 			Spacer(minLength: 0)
 		}
 		.padding(16)
+		// Bottom-trailing of the metadata block, which is where a reader looks last. Laid out as an
+		// overlay rather than a row so it sits in the corner regardless of how many rows the finding
+		// happens to have — the block holds anywhere from two to seven. The enlarged card (see
+		// `ShareCardOrientation.size`) is what makes this fit: at the old 340×425 the same 64pt code
+		// would have collided with the last row of a finding that had a note.
+		.overlay(alignment: .bottomTrailing) {
+			if let link {
+				FindingShareLinkBadge(link: link)
+					.padding(16)
+			}
+		}
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 	}
 
@@ -237,7 +294,8 @@ struct FindingShareCard: View {
 
 /// Pre-share options sheet: a live preview of the card with Light/Dark and
 /// Portrait/Landscape toggles, then renders the chosen variant to a PNG and
-/// hands it (plus the page URL) to the system share sheet.
+/// hands it to the system share sheet — with, when `isFindingShareLinkEnabled`
+/// is on and the user has not opted out, a link to the finding beside it.
 struct FindingShareComposer: View {
 	let subject: FindingShareSubject
 
@@ -245,10 +303,29 @@ struct FindingShareComposer: View {
 	@Environment(\.displayScale) private var displayScale
 	@Environment(\.colorScheme) private var systemColorScheme
 
+	/// Observed directly rather than reached through `AppState`: a nested `ObservableObject` does not
+	/// republish through its parent, so a dashboard flip would leave this sheet stale (AIA-0350).
+	/// This flag is read live on purpose — it shows and hides an entry point inside a sheet, so it can
+	/// be switched on the moment `link.aiarcheology.com` is verified, without waiting for cold starts.
+	@EnvironmentObject private var featureFlags: FeatureFlagsState
+
 	@State private var theme: ColorScheme = .light
 	@State private var orientation: ShareCardOrientation = .portrait
 	@State private var sharePayload: ActivitySharePayload?
 	@State private var didSeedTheme = false
+
+	/// **Default on, and deliberately not persisted.**
+	///
+	/// `theme` and `orientation` already reseed per presentation for the same reason
+	/// (`didSeedTheme`). A remembered "off" would be indistinguishable from the feature never having
+	/// existed: the user would turn it off once to reach Save Image, and every share they ever made
+	/// afterwards would silently be an image with no way back into the app.
+	@State private var includesLink = true
+
+	/// The rendered address + QR, built once per presentation. Held in state rather than computed in
+	/// `body` because the preview re-renders on every frame of a pinch or a drag, and generating a QR
+	/// is a Core Image round trip.
+	@State private var linkArt: FindingShareCardLink?
 
 	// Composer-driven framing of the card image (cover-fill at zoom 1).
 	@State private var imageZoom: CGFloat = 1
@@ -291,18 +368,48 @@ struct FindingShareComposer: View {
 				didSeedTheme = true
 			}
 		}
+		// `initial: true` covers the ordinary case (the flag is already on when the sheet opens);
+		// the change branch covers a mid-session flip, which is the point of reading this flag live.
+		.onChange(of: isLinkEnabled, initial: true) { _, enabled in
+			guard enabled, linkArt == nil else { return }
+			linkArt = FindingShareQRCode.cardLink(for: subject)
+		}
+	}
+
+	/// The live flag. Everything this feature adds — the toggle, the card art and the shared link —
+	/// hangs off this one read; with it false the composer behaves exactly as it did before AIA-0650.
+	private var isLinkEnabled: Bool {
+		featureFlags.snapshot.isFindingShareLinkEnabled
+	}
+
+	/// The art to print on the card, or `nil` for "print nothing".
+	private var cardLink: FindingShareCardLink? {
+		guard isLinkEnabled, includesLink else { return nil }
+		return linkArt
 	}
 
 	private var preview: some View {
 		GeometryReader { geometry in
-			let fitScale = min(1, geometry.size.width / orientation.size.width)
+			// Fits BOTH dimensions. Scaling on width alone was fine while the card was 340x425 —
+			// it fit a phone at 1:1 — but the enlarged 480x600 card scales to ~0.81 on width and
+			// still stands ~487pt tall, which is taller than the old card and overlaps the zoom
+			// slider below it. Constraining height too keeps the preview inside its slot at any
+			// card size.
+			let fitScale = min(1, min(geometry.size.width / orientation.size.width,
+			                          geometry.size.height / orientation.size.height))
 			let liveZoom = clampZoom(imageZoom * pinch)
 			let liveOffset = clampedOffset(
 				CGSize(width: imageOffset.width + dragDelta.width / fitScale,
 				       height: imageOffset.height + dragDelta.height / fitScale),
 				zoom: liveZoom
 			)
-			FindingShareCard(subject: subject, orientation: orientation, zoom: liveZoom, offset: liveOffset)
+			FindingShareCard(
+				subject: subject,
+				orientation: orientation,
+				zoom: liveZoom,
+				offset: liveOffset,
+				link: cardLink
+			)
 				.environment(\.colorScheme, theme)
 				.clipShape(RoundedRectangle(cornerRadius: 16))
 				.overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(.quaternary))
@@ -358,6 +465,21 @@ struct FindingShareComposer: View {
 			}
 			.pickerStyle(.segmented)
 			.testability(Testability.Picker.findingShareLayout)
+
+			// Labelled by its consequence, not its mechanism: nothing on screen tells the user what
+			// "include a link" would change, and the trade-off it makes is invisible until the system
+			// sheet is already up and Save Image is missing from it. Hidden entirely when the feature
+			// is off, so a dark flag leaves the composer exactly as it was.
+			if isLinkEnabled {
+				VStack(alignment: .leading, spacing: 6) {
+					Toggle(L10n.Finding.Share.includeLink, isOn: $includesLink)
+						.testability(Testability.Toggle.findingShareIncludeLink)
+					Text(L10n.Finding.Share.includeLinkFootnote)
+						.font(.footnote)
+						.foregroundStyle(.secondary)
+						.frame(maxWidth: .infinity, alignment: .leading)
+				}
+			}
 		}
 		// Re-clamp when zooming out via the slider; reset framing per orientation.
 		.onChange(of: imageZoom) { _, newZoom in
@@ -391,19 +513,32 @@ struct FindingShareComposer: View {
 			subject: subject,
 			orientation: orientation,
 			zoom: clampZoom(imageZoom),
-			offset: clampedOffset(imageOffset, zoom: clampZoom(imageZoom))
+			offset: clampedOffset(imageOffset, zoom: clampZoom(imageZoom)),
+			link: cardLink
 		)
 		.environment(\.colorScheme, theme)
 		// Render at ≥3x for a crisp, social-ready PNG regardless of device scale.
 		DefaultRenderer().render(card, scale: max(displayScale, 3)) { image, _ in
-			// Image only: attaching the page URL as a second item makes iOS treat
-			// the share as a link (link preview), which hides image actions like
-			// "Save Image" / Photos / Instagram. The source host is on the card.
 			guard let image else {
 				LoggingPolicy.warning("Share card render failed; nothing to share", logger: .storage)
 				return
 			}
-			sharePayload = ActivitySharePayload(items: [image])
+			// A link CAN ride along, and since AIA-0650 it does — but only as a `String`, never as a
+			// `URL`. A `URL` item would make LinkPresentation fetch that address from this device to
+			// build the sheet's header, an unasked-for network request behind a purely local action,
+			// and would switch the sheet to link-preview presentation, hiding the image. The honest
+			// cost of attaching it at all — Save Image and image-only extensions leave the sheet,
+			// because an activity must accept every item — is what the toggle above gives back.
+			// `FindingShareActivity.items` carries the full reasoning, including why a
+			// `UIActivityItemSource` cannot dodge any of it.
+			sharePayload = ActivitySharePayload(
+				items: FindingShareActivity.items(
+					image: image,
+					subject: subject,
+					isLinkEnabled: isLinkEnabled,
+					includesLink: includesLink
+				)
+			)
 		}
 	}
 }

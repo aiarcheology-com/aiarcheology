@@ -20420,6 +20420,222 @@
         }
       }
     },
+    "finding.share.includeLink" : {
+      "comment" : "Toggle in the finding share composer deciding whether the shared card travels with a link that opens the finding in the app",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "السماح للآخرين بفتح هذا الاكتشاف في التطبيق"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "অন্যরা যেন এই আবিষ্কারটি অ্যাপে খুলতে পারে"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Umožnit ostatním otevřít tento nález v aplikaci"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Anderen erlauben, diesen Fund in der App zu öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Let people open this finding in the app"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Permitir que otros abran este hallazgo en la app"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "به دیگران اجازه بده این یافته را در برنامه باز کنند"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Permettre à d’autres d’ouvrir cette trouvaille dans l’app"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "לאפשר לאחרים לפתוח את הממצא הזה באפליקציה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "दूसरों को यह खोज ऐप में खोलने दें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mások is megnyithassák ezt a leletet az alkalmazásban"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pozwól innym otworzyć to znalezisko w aplikacji"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Разрешить другим открывать эту находку в приложении"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Дозволити іншим відкривати цю знахідку в застосунку"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "让别人能在 App 中打开这个发现"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "讓別人能在 App 中開啟這個發現"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "讓其他人可以喺 App 入面打開呢個發現"
+          }
+        }
+      }
+    },
+    "finding.share.includeLinkFootnote" : {
+      "comment" : "Footnote under the share composer's link toggle, stating what attaching the link costs in the system share sheet",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يضيف رابطًا قابلًا للنقر بجوار الصورة، ليتمكن الآخرون من فتح هذا الاكتشاف في التطبيق. وأثناء تفعيله يُخفي iOS خيار حفظ الصورة وأي تطبيق يقبل الصور فقط من ورقة المشاركة. أوقفه لمشاركة الصورة وحدها."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ছবির পাশে একটি ট্যাপযোগ্য লিংক যোগ করে, যাতে অন্যরা এই আবিষ্কারটি অ্যাপে খুলতে পারেন। এটি চালু থাকলে iOS শেয়ার শিট থেকে Save Image এবং কেবল ছবি নেয় এমন সব অ্যাপ লুকিয়ে রাখে। শুধু ছবিটি শেয়ার করতে এটি বন্ধ করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "K obrázku se přidá odkaz, na který lze klepnout, takže ostatní mohou tento nález otevřít v aplikaci. Když je zapnutý, iOS skryje z nabídky sdílení možnost Uložit obrázek i všechny aplikace, které přijímají pouze obrázky. Vypnutím sdílíte jen obrázek."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Fügt neben dem Bild einen antippbaren Link hinzu, damit andere diesen Fund in der App öffnen können. Solange er aktiv ist, blendet iOS „Bild sichern“ und alle Apps aus, die nur Bilder annehmen. Zum Teilen nur des Bildes ausschalten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adds a tappable link beside the picture, so people can open this finding in the app. While it's on, iOS hides Save Image and any app that only accepts pictures from the share sheet. Turn it off to share just the picture."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Añade un enlace tocable junto a la imagen para que otros puedan abrir este hallazgo en la app. Mientras esté activado, iOS oculta «Guardar imagen» y cualquier app que solo acepte imágenes en la hoja de compartir. Desactívalo para compartir solo la imagen."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "پیوندی قابل‌لمس کنار تصویر افزوده می‌شود تا دیگران بتوانند این یافته را در برنامه باز کنند. تا زمانی که روشن است، iOS گزینهٔ ذخیرهٔ تصویر و هر برنامه‌ای را که فقط تصویر می‌پذیرد از برگهٔ هم‌رسانی پنهان می‌کند. برای هم‌رسانی تنها تصویر، آن را خاموش کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ajoute un lien cliquable à côté de l’image, pour que d’autres puissent ouvrir cette trouvaille dans l’app. Tant qu’il est activé, iOS masque « Enregistrer l’image » et toute app n’acceptant que des images dans la feuille de partage. Désactivez-le pour ne partager que l’image."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "מוסיף ליד התמונה קישור שניתן להקיש עליו, כדי שאחרים יוכלו לפתוח את הממצא הזה באפליקציה. כל עוד האפשרות פעילה, iOS מסתיר מגיליון השיתוף את ‏Save Image ואת כל האפליקציות שמקבלות תמונות בלבד. כבו כדי לשתף רק את התמונה."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "तस्वीर के साथ एक टैप करने योग्य लिंक जोड़ता है, ताकि दूसरे इस खोज को ऐप में खोल सकें। यह चालू रहने पर iOS शेयर शीट से Save Image और केवल तस्वीरें स्वीकार करने वाले सभी ऐप छिपा देता है। सिर्फ़ तस्वीर साझा करने के लिए इसे बंद करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "A kép mellé koppintható hivatkozást tesz, így mások megnyithatják ezt a leletet az alkalmazásban. Amíg be van kapcsolva, az iOS elrejti a megosztási lapról a Kép mentése lehetőséget és minden olyan alkalmazást, amely csak képet fogad. Kapcsold ki, ha csak a képet szeretnéd megosztani."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dodaje obok obrazu klikalny link, dzięki któremu inni mogą otworzyć to znalezisko w aplikacji. Gdy jest włączony, iOS ukrywa w oknie udostępniania opcję Zapisz obraz oraz wszystkie aplikacje przyjmujące wyłącznie obrazy. Wyłącz, aby udostępnić sam obraz."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Рядом с изображением добавляется ссылка, по которой другие смогут открыть эту находку в приложении. Пока она включена, iOS скрывает из меню «Поделиться» пункт «Сохранить изображение» и все приложения, принимающие только изображения. Отключите, чтобы поделиться только изображением."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Поруч із зображенням додається посилання, за яким інші зможуть відкрити цю знахідку в застосунку. Поки воно ввімкнене, iOS приховує з меню поширення пункт «Зберегти зображення» та всі застосунки, що приймають лише зображення. Вимкніть, щоб поділитися тільки зображенням."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "在图片旁附上可点按的链接，别人就能在 App 中打开这个发现。开启期间，iOS 会从共享表单中隐藏“存储图像”以及所有仅接受图片的 App。关闭后只共享图片。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "在圖片旁附上可點一下的連結，別人就能在 App 中開啟這個發現。開啟期間，iOS 會從分享表單中隱藏「儲存影像」以及所有僅接受圖片的 App。關閉後只分享圖片。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "喺圖片旁邊加上可以㩒嘅連結，其他人就可以喺 App 入面打開呢個發現。開啟期間，iOS 會喺分享表單中隱藏「儲存影像」同所有只接受圖片嘅 App。閂咗就只分享圖片。"
+          }
+        }
+      }
+    },
     "finding.share.landscape" : {
       "comment" : "Landscape layout option for the share card",
       "extractionState" : "manual",
@@ -21064,6 +21280,1086 @@
           "stringUnit" : {
             "state" : "needs_review",
             "value" : "分享發現記錄"
+          }
+        }
+      }
+    },
+    "finding.shared.openPage" : {
+      "comment" : "Action on the shared-finding screen that browses to the page the link says the finding was captured on",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "فتح الصفحة الأصلية"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "মূল পৃষ্ঠা খুলুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Otevřít původní stránku"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Originalseite öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the Original Page"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abrir la página original"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "باز کردن صفحهٔ اصلی"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ouvrir la page d’origine"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "פתיחת העמוד המקורי"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मूल पेज खोलें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Eredeti oldal megnyitása"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Otwórz stronę źródłową"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Открыть исходную страницу"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Відкрити вихідну сторінку"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "打开原始页面"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "開啟原始頁面"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "開啟原始頁面"
+          }
+        }
+      }
+    },
+    "finding.shared.owned.message" : {
+      "comment" : "Body of the shared-finding screen when the link's id matches a finding already stored on this device",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "يشير هذا الرابط إلى اكتشاف محفوظ بالفعل على هذا الجهاز، فلا شيء لإضافته."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই লিংকটি এমন একটি আবিষ্কারের দিকে নির্দেশ করে যা ইতিমধ্যেই এই ডিভাইসে সংরক্ষিত, তাই যোগ করার কিছু নেই।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tento odkaz vede k nálezu, který už máte uložený v tomto zařízení, není tedy co přidávat."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dieser Link verweist auf einen Fund, der bereits auf diesem Gerät gespeichert ist. Es gibt nichts hinzuzufügen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This link points to a finding already saved on this device, so there is nothing to add."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Este enlace apunta a un hallazgo que ya está guardado en este dispositivo, así que no hay nada que añadir."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "این پیوند به یافته‌ای اشاره دارد که از پیش روی این دستگاه ذخیره شده است، پس چیزی برای افزودن نیست."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ce lien renvoie à une trouvaille déjà enregistrée sur cet appareil : il n’y a rien à ajouter."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הקישור מפנה לממצא ששמור כבר במכשיר הזה, ולכן אין מה להוסיף."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "यह लिंक उस खोज पर ले जाता है जो पहले से इस डिवाइस पर सहेजी है, इसलिए जोड़ने को कुछ नहीं है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ez a hivatkozás egy olyan leletre mutat, amely már el van mentve ezen az eszközön, így nincs mit hozzáadni."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ten link prowadzi do znaleziska już zapisanego na tym urządzeniu, więc nie ma czego dodawać."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ссылка ведёт к находке, уже сохранённой на этом устройстве, так что добавлять нечего."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Це посилання веде до знахідки, яку вже збережено на цьому пристрої, тож додавати нічого."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "该链接指向本设备上已保存的发现，因此无需再添加。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "該連結指向本裝置上已儲存的發現，因此沒有需要新增的內容。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "呢個連結指向本裝置已經儲存嘅發現，所以冇嘢需要新增。"
+          }
+        }
+      }
+    },
+    "finding.shared.owned.open" : {
+      "comment" : "Action that opens the findings inventory when the shared link turns out to be the recipient's own finding",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "فتح الاكتشافات"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আবিষ্কারগুলি খুলুন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Otevřít nálezy"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Funde öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open Findings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Abrir hallazgos"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "باز کردن یافته‌ها"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ouvrir les trouvailles"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "פתיחת ממצאים"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "खोजें खोलें"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Leletek megnyitása"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Otwórz znaleziska"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Открыть находки"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Відкрити знахідки"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "打开发现"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "開啟發現"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "開啟發現"
+          }
+        }
+      }
+    },
+    "finding.shared.owned.title" : {
+      "comment" : "Headline of the shared-finding screen when the link's id matches a finding already stored on this device",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "هذا اكتشافك"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এটি আপনারই আবিষ্কার"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Toto je váš nález"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Das ist Ihr Fund"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Is Your Finding"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Este hallazgo es tuyo"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "این یافتهٔ شماست"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "C’est votre trouvaille"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "זהו הממצא שלכם"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "यह आपकी खोज है"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ez a te leleted"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "To jest Twoje znalezisko"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Это ваша находка"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Це ваша знахідка"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "这是你的发现"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "這是你的發現"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "呢個係你嘅發現"
+          }
+        }
+      }
+    },
+    "finding.shared.unreadable.message" : {
+      "comment" : "Body of the screen shown when a shared finding link opened the app but its payload could not be parsed",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ربما اختُصر أو عُدِّل في طريقه إليك. اطلب ممن شاركه أن يرسله مرة أخرى."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "আপনার কাছে আসার পথে এটি সংক্ষিপ্ত বা পরিবর্তিত হয়ে থাকতে পারে। যিনি পাঠিয়েছেন তাঁকে আবার লিংকটি পাঠাতে বলুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Cestou k vám mohl být zkrácen nebo upraven. Požádejte odesílatele, ať odkaz pošle znovu."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Er wurde auf dem Weg zu Ihnen möglicherweise gekürzt oder verändert. Bitten Sie die Person, den Link erneut zu senden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It may have been shortened or edited on its way to you. Ask whoever shared it to send the link again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Puede que se acortara o se modificara por el camino. Pide a quien te lo envió que vuelva a mandarlo."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "شاید در مسیر رسیدن به شما کوتاه یا دستکاری شده باشد. از فرستنده بخواهید پیوند را دوباره بفرستد."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Il a peut-être été raccourci ou modifié en chemin. Demandez à la personne de vous le renvoyer."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ייתכן שהוא קוצר או נערך בדרך אליכם. בקשו מהשולח לשלוח את הקישור שוב."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "आप तक पहुँचते-पहुँचते यह छोटा या बदला जा सकता है। भेजने वाले से लिंक दोबारा भेजने को कहें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Útközben lerövidülhetett vagy módosulhatott. Kérd meg a küldőt, hogy küldje el újra."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mógł zostać skrócony lub zmieniony po drodze. Poproś osobę, która go wysłała, o ponowne przesłanie."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "По пути к вам она могла быть сокращена или изменена. Попросите отправителя прислать ссылку ещё раз."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Дорогою до вас його могли скоротити або змінити. Попросіть відправника надіслати посилання ще раз."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "它在传给你的过程中可能被缩短或修改过。请让分享者重新发送该链接。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "它在傳給你的過程中可能被縮短或修改過。請請分享者重新傳送該連結。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "佢喺傳去你度嘅過程中可能被縮短或者改過。請叫分享者重新傳一次連結。"
+          }
+        }
+      }
+    },
+    "finding.shared.unreadable.title" : {
+      "comment" : "Title of the screen shown when a shared finding link opened the app but its payload could not be parsed",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "تعذّر قراءة هذا الرابط"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই লিংকটি পড়া যায়নি"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Odkaz se nepodařilo přečíst"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Dieser Link konnte nicht gelesen werden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This Link Could Not Be Read"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "No se pudo leer este enlace"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "خواندن این پیوند ممکن نبود"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ce lien n’a pas pu être lu"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "לא ניתן היה לקרוא את הקישור"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "यह लिंक पढ़ा नहीं जा सका"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ezt a hivatkozást nem sikerült beolvasni"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Nie udało się odczytać tego linku"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не удалось прочитать ссылку"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Не вдалося прочитати посилання"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "无法读取此链接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無法讀取此連結"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "無法讀取呢個連結"
+          }
+        }
+      }
+    },
+    "finding.shared.showOnMap" : {
+      "comment" : "Button that loads the map for a shared finding's coordinate; the map is not mounted until tapped so no tiles are fetched for a sender-chosen point on arrival",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "عرض على الخريطة"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "মানচিত্রে দেখান"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Zobrazit na mapě"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Auf Karte zeigen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show on Map"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Mostrar en el mapa"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "نمایش روی نقشه"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Afficher sur la carte"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "הצגה במפה"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "मानचित्र पर दिखाएँ"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Megjelenítés a térképen"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Pokaż na mapie"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Показать на карте"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Показати на карті"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "在地图上显示"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "在地圖上顯示"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "喺地圖上顯示"
+          }
+        }
+      }
+    },
+    "finding.shared.title" : {
+      "comment" : "Navigation title of the read-only screen shown when a shared finding link is opened",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "اكتشاف مُشارَك"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "শেয়ার করা আবিষ্কার"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sdílený nález"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Geteilter Fund"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared Finding"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Hallazgo compartido"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "یافتهٔ هم‌رسانی‌شده"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Trouvaille partagée"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "ממצא משותף"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "साझा की गई खोज"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Megosztott lelet"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Udostępnione znalezisko"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Общая находка"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Спільна знахідка"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "共享的发现"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "分享的發現"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "分享嘅發現"
+          }
+        }
+      }
+    },
+    "finding.shared.unverifiedMessage" : {
+      "comment" : "Provenance warning on the shared-finding screen: every field arrived in a URL and none of it is authenticated",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "كل ما في هذه الشاشة مصدره الرابط الذي شُورك معك. لم يخضع أي منه للتحقق، لذا تعامل مع التفاصيل على أنها غير مؤكدة."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "এই স্ক্রিনের সবকিছু আপনাকে পাঠানো লিংক থেকে এসেছে। কোনোটিই যাচাই করা হয়নি, তাই তথ্যগুলোকে অনিশ্চিত ধরে নিন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Vše na této obrazovce pochází z odkazu, který vám někdo poslal. Nic z toho nebylo ověřeno, berte proto údaje jako nepotvrzené."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Alles auf diesem Bildschirm stammt aus dem Link, der Ihnen geschickt wurde. Nichts davon wurde geprüft – behandeln Sie die Angaben als unbestätigt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Everything on this screen came from the link that was shared with you. None of it has been checked, so treat the details as unconfirmed."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Todo lo que aparece en esta pantalla procede del enlace que te enviaron. Nada se ha comprobado, así que trata los datos como no confirmados."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "هرچه در این صفحه می‌بینید از پیوندی آمده که برایتان فرستاده شده است. هیچ‌کدام بررسی نشده، پس این اطلاعات را تأییدنشده در نظر بگیرید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Tout ce qui figure sur cet écran provient du lien qui vous a été envoyé. Rien n’a été vérifié : considérez ces informations comme non confirmées."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "כל מה שמופיע במסך הזה הגיע מהקישור ששותף אתכם. שום פרט לא נבדק, לכן התייחסו לפרטים כאל לא מאומתים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "इस स्क्रीन पर दिखी हर बात आपको भेजे गए लिंक से आई है। इनमें से कुछ भी जाँचा नहीं गया, इसलिए विवरण को अपुष्ट मानें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Ezen a képernyőn minden a neked küldött hivatkozásból származik. Semmi sem lett ellenőrizve, ezért kezeld az adatokat megerősítetlenként."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Wszystko na tym ekranie pochodzi z linku, który Ci przesłano. Nic nie zostało zweryfikowane, więc traktuj te dane jako niepotwierdzone."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Всё на этом экране взято из присланной вам ссылки. Ничего не проверялось, поэтому считайте сведения неподтверждёнными."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Усе на цьому екрані взято з надісланого вам посилання. Нічого не перевірялося, тож вважайте ці дані непідтвердженими."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此屏幕上的全部内容均来自别人分享给你的链接，未经任何核实，请将这些信息视为未经确认。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "此畫面上的所有內容均來自別人分享給你的連結，未經任何查證，請將這些資訊視為未經確認。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "呢個畫面上嘅所有內容都嚟自其他人分享畀你嘅連結，未經任何查證，請當呢啲資料未經確認。"
+          }
+        }
+      }
+    },
+    "finding.shared.unverifiedTitle" : {
+      "comment" : "Headline of the provenance warning on the shared-finding screen",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "شاركه شخص آخر"
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "অন্য কেউ শেয়ার করেছেন"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Sdílel někdo jiný"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Von jemand anderem geteilt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared by Someone Else"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Compartido por otra persona"
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "شخص دیگری هم‌رسانی کرده است"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Partagé par quelqu’un d’autre"
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "שותף על ידי מישהו אחר"
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "किसी और ने साझा किया"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Valaki más osztotta meg"
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Udostępnione przez inną osobę"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Поделился кто-то другой"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "Поділилася інша людина"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "由他人共享"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "由他人分享"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "needs_review",
+            "value" : "由其他人分享"
           }
         }
       }

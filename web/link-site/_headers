@@ -1,0 +1,18 @@
+# Cloudflare Pages response headers.
+#
+# The association file MUST be served as application/json with a 200 and no redirect,
+# or iOS silently refuses to associate the domain and every universal link opens Safari.
+/.well-known/apple-app-site-association
+  Content-Type: application/json
+
+# Every finding parameter arrives from a stranger's URL, so the page runs under a policy
+# that makes an injected <script> inert even if a rendering bug ever lets one through.
+# 'self' for scripts and styles is what forbids inline code - which is why app.js and
+# styles.css are separate files rather than inlined into f.html.
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  X-Robots-Tag: noindex, nofollow, noarchive
+  Cross-Origin-Opener-Policy: same-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), interest-cohort=()

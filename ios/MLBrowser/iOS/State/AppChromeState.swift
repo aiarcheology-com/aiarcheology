@@ -24,6 +24,12 @@ final class AppChromeState: ObservableObject {
 	@Published var presentedSideMenu: Bool = false
 	@Published var selectedConfigurationId: UUID?
 	@Published var pageToOpen: URL?
+	/// A request to put the findings inventory on screen (AIA-0650). The sheet itself is owned by
+	/// `DrawerContent`, which is only mounted while the drawer is open — so this is a *latch*, set
+	/// alongside ``presentedSideMenu`` and consumed (reset to `false`) by `DrawerContent` when it
+	/// appears. A plain call is impossible: the presenting `@State` lives inside a view that does not
+	/// exist yet at the moment the request is made.
+	@Published var presentsFindings: Bool = false
 	/// Write-only today (set by WebScreen; no reader) — retained as-is, out of scope to remove.
 	@Published var contentInteractionState: ContentInteractionState = .idle
 

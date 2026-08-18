@@ -33,6 +33,8 @@ struct ContentView: View {
     @State private var selectedMode = AppMode.web
     @State private var floatingButtonPosition: CGPoint?
     @State private var floatingNavBarPosition: CGPoint?
+    /// The shared finding link waiting to be shown (AIA-0650), mirrored from `SharedFindingState`.
+    @State private var pendingSharedFinding: SharedFindingState.Pending?
     
     init() {
         Backports.Appearance
@@ -120,6 +122,32 @@ struct ContentView: View {
         }
         .alert(isPresented: $showErrorAlert) {
             Alert(title: Text(L10n.Alert.Error.title), message: Text(errorMessage), dismissButton: .default(Text(L10n.Common.ok)))
+        }
+        // A shared finding link (AIA-0650). Attached here so it sits above the app content but
+        // *inside* the subscription and analytics gates — a link must never be a way past either.
+        //
+        // An **overlay**, deliberately not a sheet, for the reason `AnalyticsChoiceGate` documents
+        // at length: this is an ancestor of every sheet the app presents, and a sheet raised from an
+        // ancestor while a descendant's sheet is up presents and then immediately auto-dismisses. A
+        // link can arrive while Settings or the findings list is open, which is exactly that case.
+        //
+        // The pending link is cleared **only** by `SharedFindingState.dismiss()`, from a control the
+        // user pressed inside the screen — never here, and never on a presentation that did not
+        // happen. While a sheet covers the app the link waits behind it, the same deliberate
+        // trade-off the consent gate makes.
+        //
+        // Bridged through `@State` rather than read off `appState`: `sharedFinding` is a nested
+        // `ObservableObject` and does not republish through its parent, so a link arriving would
+        // never redraw this body. Same pattern as the chrome/detection bridges above.
+        .onReceive(appState.sharedFinding.$pending) { payload in
+            pendingSharedFinding = payload
+        }
+        .overlay {
+            if let pending = pendingSharedFinding {
+                SharedFindingView(pending: pending)
+                    .environmentObject(appState)
+                    .transition(.opacity)
+            }
         }
         .onAppear {
             handleOnAppear()

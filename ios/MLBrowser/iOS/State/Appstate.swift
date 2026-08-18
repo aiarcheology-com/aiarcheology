@@ -44,6 +44,11 @@ final class AppState: ObservableObject {
 	// in the app, and it feeds the onboarding half of the free-access funnel (AIA-0567).
 	lazy var tour = TourState(analytics: analytics)
 
+	/// The finding a shared universal link asked us to open, buffered until a surface can show it
+	/// (AIA-0650). Dependency-free app-chrome state, like `tour` above: it holds a value parsed from
+	/// a URL and nothing else, so it needs no services and has no entry in `DependencyContainer`.
+	lazy var sharedFinding = SharedFindingState()
+
 	/// App-chrome + navigation state (AIA-0391, formerly the chrome half of `Guide`). Lives on the
 	/// shell (not a detection feature internal). Lazy → forced on first UI access, exactly as the
 	/// former `guide` was. Borrows `detection.detectionState` for the whole-app reset path.

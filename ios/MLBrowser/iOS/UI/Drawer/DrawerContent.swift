@@ -139,6 +139,9 @@ struct DrawerContent: View {
             // reliably carry \.managedObjectContext across the sheet boundary, so
             // the fetch/distinctLabels would hit the empty default context and crash.
             .environment(\.managedObjectContext, moc)
+            // Same reason (AIA-0650): the share composer two sheets down reads
+            // `isFindingShareLinkEnabled` live, and this is where the chain starts.
+            .environmentObject(appState.featureFlags)
         }
         .sheet(isPresented: $showSignIn) {
             SignInSheet(authState: authState)
@@ -238,6 +241,15 @@ struct DrawerContent: View {
         .onAppear {
             let context = moc
             tour.bindEnableModel { enableFirstReadyDemoModel(in: context) }
+            presentFindingsIfRequested()
+        }
+        // A shared link that turned out to be the recipient's own finding asks for this sheet
+        // (AIA-0650). It arrives as a latch on chrome state rather than a call because this view is
+        // unmounted while the drawer is closed — which is precisely when the request is made, so
+        // `onAppear` above is the branch that normally fires. This one covers the drawer already
+        // being open.
+        .onChange(of: chromeState.presentsFindings) { _, _ in
+            presentFindingsIfRequested()
         }
         // UI-test-only hook (AIA-0402): once the first model has seeded, force it to look unparsed
         // (the seeded demos are parser-decided → read-only) and auto-open its settings in type-review
@@ -252,6 +264,14 @@ struct DrawerContent: View {
             typeReviewConfigId = firstId
             selectedConfigurationId = firstId
         }
+    }
+
+    /// Consumes the `presentsFindings` latch (AIA-0650). Reset before presenting so the request is
+    /// spent exactly once — a latch left set would re-open the sheet every time the drawer is opened.
+    private func presentFindingsIfRequested() {
+        guard chromeState.presentsFindings else { return }
+        chromeState.presentsFindings = false
+        showFindings = true
     }
 
     private var findingsSection: some View {

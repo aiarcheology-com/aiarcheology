@@ -1,0 +1,316 @@
+//
+//  FindingShareEmissionTests.swift
+//  MLBrowserUnitTests
+//
+//  What the share composer emits (AIA-0650): the subject → payload mapping, the QR at the compact
+//  cap, and the flag that decides whether a link leaves the app at all.
+//
+
+import UIKit
+import Vision
+import XCTest
+@testable import ML_Browser
+
+final class FindingShareEmissionTests: XCTestCase {
+
+	// MARK: - Helpers
+
+	private func makeSubject(
+		id: UUID = UUID(),
+		title: String = "Roman wall",
+		author: String? = "V. Slavík",
+		gps: String? = "48.8, 19.53",
+		detectionClass: String? = "stone_wall",
+		confidence: Double = 0.87,
+		date: Date? = nil,
+		page: URL? = URL(string: "https://example.org/ruins")
+	) -> FindingShareSubject {
+		FindingShareSubject(
+			id: id,
+			title: title,
+			author: author,
+			gps: gps,
+			detectionClass: detectionClass,
+			confidence: confidence,
+			date: date,
+			page: page
+		)
+	}
+
+	/// A small opaque bitmap standing in for the rendered card. Only its identity and its type
+	/// matter to these tests.
+	private func makeCardImage() -> UIImage {
+		UIGraphicsImageRenderer(size: CGSize(width: 4, height: 4)).image { context in
+			UIColor.darkGray.setFill()
+			context.fill(CGRect(x: 0, y: 0, width: 4, height: 4))
+		}
+	}
+
+	private func makeDate(year: Int, month: Int, day: Int) throws -> Date {
+		var calendar = Calendar(identifier: .gregorian)
+		calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+		return try XCTUnwrap(calendar.date(from: DateComponents(year: year, month: month, day: day)))
+	}
+
+	/// Decodes a QR bitmap the way a phone camera would — through Vision, not by re-deriving what we
+	/// just encoded.
+	///
+	/// Every supported revision is tried, oldest first, and a revision that cannot *run* is skipped
+	/// rather than counted as a failure to read: the newest barcode detector builds a Core ML
+	/// inference context, which this simulator refuses to create ("Could not create inference
+	/// context"). That is a property of the host, not of the symbol, and letting it fail the test
+	/// would report a sizing bug that is not there.
+	private func decodedQRPayload(of image: UIImage) throws -> String? {
+		let cgImage = try XCTUnwrap(image.cgImage)
+		let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+		var revisionsThatRan = 0
+
+		for revision in VNDetectBarcodesRequest.supportedRevisions.sorted() {
+			let request = VNDetectBarcodesRequest()
+			request.revision = revision
+			request.symbologies = [.qr]
+			do {
+				try handler.perform([request])
+			} catch {
+				continue
+			}
+			revisionsThatRan += 1
+			if let payload = (request.results ?? []).compactMap(\.payloadStringValue).first {
+				return payload
+			}
+		}
+
+		XCTAssertGreaterThan(revisionsThatRan, 0, "No Vision barcode detector could run on this host")
+		return nil
+	}
+
+	// MARK: - The QR, at the cap
+
+	/// The test this file exists for.
+	///
+	/// A short payload always scans, so a happy-path fixture would pass while hiding the only failure
+	/// mode that matters: a symbol whose modules are too small to survive being photographed off a
+	/// screen. The subject below is sized so the **compact** link comes out at exactly
+	/// `FindingShareLink.maximumCompactLength`, which is the largest symbol this app can ever print.
+	///
+	/// The field lengths are deliberate, not decorative:
+	/// `https://link.aiarcheology.com/f#` (32) + `v=1` (3) + `&i=`+36 + `&t=`+40 + `&c=`+28
+	/// + `&p=100` + `&g=48.80000,19.53000` + `&a=`+60 + `&d=2026-08-17` = 250.
+	func test_qrCode_atTheCompactCap_decodesBackToTheSameFinding() throws {
+		let id = try XCTUnwrap(UUID(uuidString: "3F2504E0-4F89-11D3-9A0C-0305E82C3301"))
+		let title = String(repeating: "W", count: 40)
+		let subject = makeSubject(
+			id: id,
+			title: title,
+			author: String(repeating: "A", count: 60),
+			gps: "48.8, 19.53",
+			detectionClass: String(repeating: "c", count: 28),
+			confidence: 1,
+			date: try makeDate(year: 2026, month: 8, day: 17),
+			// Dropped by the compact variant regardless; present so the fixture is a real finding.
+			page: URL(string: "https://example.org/ruins")
+		)
+
+		let compact = try XCTUnwrap(FindingShareLink.url(for: subject.linkPayload, variant: .compact))
+		XCTAssertEqual(
+			compact.absoluteString.count,
+			FindingShareLink.maximumCompactLength,
+			"The fixture must sit exactly on the cap; a shorter link makes this test prove nothing"
+		)
+
+		let code = try XCTUnwrap(
+			FindingShareQRCode.image(for: compact),
+			"A link at the documented cap must still produce a code"
+		)
+		XCTAssertEqual(code.cgImage?.width, Int(FindingShareQRCode.pixelSize))
+
+		let decoded = try XCTUnwrap(
+			decodedQRPayload(of: code),
+			"Vision could not read the code — the symbol is too dense for the rendered size"
+		)
+		XCTAssertEqual(decoded, compact.absoluteString)
+
+		let parsed = try XCTUnwrap(FindingShareLink.payload(from: try XCTUnwrap(URL(string: decoded))))
+		XCTAssertEqual(parsed.id, id, "The scanned code must resolve to the same finding")
+		XCTAssertEqual(parsed.title, title)
+	}
+
+	func test_qrCode_isGeneratedForAnOrdinaryFinding() throws {
+		let subject = makeSubject()
+		let art = FindingShareQRCode.cardLink(for: subject)
+		XCTAssertEqual(art.address, FindingShareLink.webHost)
+		XCTAssertNotNil(art.qrCode)
+	}
+
+	/// The address must survive on its own. A card is about to be posted publicly; a blank or
+	/// half-drawn code box on it is worse than no box.
+	func test_cardLink_withNoUsableTitle_keepsTheAddressAndDropsTheCode() {
+		let art = FindingShareQRCode.cardLink(for: makeSubject(title: "   "))
+		XCTAssertEqual(art.address, FindingShareLink.webHost)
+		XCTAssertNil(art.qrCode)
+	}
+
+	// MARK: - Subject → payload
+
+	func test_linkPayload_mapsEveryField() throws {
+		let id = try XCTUnwrap(UUID(uuidString: "3F2504E0-4F89-11D3-9A0C-0305E82C3301"))
+		let subject = makeSubject(id: id, date: try makeDate(year: 2026, month: 8, day: 17))
+		let payload = subject.linkPayload
+
+		XCTAssertEqual(payload.id, id)
+		XCTAssertEqual(payload.title, "Roman wall")
+		XCTAssertEqual(payload.detectionClass, "stone_wall")
+		XCTAssertEqual(payload.confidencePercent, 87)
+		XCTAssertEqual(payload.coordinate, FindingShareLink.Coordinate(latitude: 48.8, longitude: 19.53))
+		XCTAssertEqual(payload.author, "V. Slavík")
+		XCTAssertEqual(payload.page?.absoluteString, "https://example.org/ruins")
+		XCTAssertEqual(payload.date, DateComponents(year: 2026, month: 8, day: 17))
+	}
+
+	/// The common case, not the exceptional one: `gps_` is a free `TextField` that nothing in the app
+	/// validates or fills in, so most findings carry prose or nothing at all.
+	func test_linkPayload_gpsThatDoesNotParse_yieldsNoCoordinate() {
+		for raw in ["behind the old mill", "48.8", "N/A", "", "1e5, 2", "-48.8N, 19.53E"] {
+			XCTAssertNil(
+				makeSubject(gps: raw).linkPayload.coordinate,
+				"\(raw) must not become a coordinate"
+			)
+		}
+	}
+
+	func test_linkPayload_roundsConfidenceToWholePercent() {
+		XCTAssertEqual(makeSubject(confidence: 0.874).linkPayload.confidencePercent, 87)
+		XCTAssertEqual(makeSubject(confidence: 0.875).linkPayload.confidencePercent, 88)
+		XCTAssertEqual(makeSubject(confidence: 0.876).linkPayload.confidencePercent, 88)
+		XCTAssertEqual(makeSubject(confidence: 0).linkPayload.confidencePercent, 0)
+		XCTAssertEqual(makeSubject(confidence: 1).linkPayload.confidencePercent, 100)
+	}
+
+	/// `Payload` validates nothing on construction, so an out-of-range percent would be emitted and
+	/// then silently dropped by the parser — a link this app could not fully read back.
+	func test_linkPayload_clampsAnImpossibleConfidence() {
+		XCTAssertEqual(makeSubject(confidence: 1.4).linkPayload.confidencePercent, 100)
+		XCTAssertEqual(makeSubject(confidence: -0.2).linkPayload.confidencePercent, 0)
+		XCTAssertNil(makeSubject(confidence: .nan).linkPayload.confidencePercent)
+	}
+
+	/// The values that actually crashed.
+	///
+	/// The clamp above passed from the start, because 1.4 and -0.2 are small enough that the old
+	/// `min(100, max(0, Int(x * 100)))` never reached the trap — the `Int(_:)` conversion ran FIRST
+	/// and only then was the result clamped, so any value whose ×100 leaves `Int`'s range took the
+	/// process down before the clamp could run. `Finding.detectionConfidence` is an unconstrained
+	/// Core Data `Double`, so one corrupt or imported row was enough to crash the app on share.
+	func test_linkPayload_hugeFiniteConfidenceIsClampedRatherThanTrapping() {
+		for confidence in [
+			Double.greatestFiniteMagnitude,
+			-Double.greatestFiniteMagnitude,
+			1e300,
+			-1e300,
+			Double(Int.max),
+			Double(Int.min)
+		] {
+			let percent = makeSubject(confidence: confidence).linkPayload.confidencePercent
+			XCTAssertNotNil(percent, "\(confidence) is finite, so it must produce a value")
+			XCTAssertTrue((0...100).contains(percent ?? -1), "\(confidence) produced \(percent as Any)")
+		}
+	}
+
+	func test_linkPayload_infiniteConfidenceIsDropped() {
+		XCTAssertNil(makeSubject(confidence: .infinity).linkPayload.confidencePercent)
+		XCTAssertNil(makeSubject(confidence: -.infinity).linkPayload.confidencePercent)
+	}
+
+	func test_linkPayload_absentOptionalsStayAbsent() {
+		let payload = makeSubject(
+			author: nil,
+			gps: nil,
+			detectionClass: nil,
+			date: nil,
+			page: nil
+		).linkPayload
+
+		XCTAssertNil(payload.author)
+		XCTAssertNil(payload.coordinate)
+		XCTAssertNil(payload.detectionClass)
+		XCTAssertNil(payload.date)
+		XCTAssertNil(payload.page)
+		XCTAssertEqual(payload.title, "Roman wall")
+	}
+
+	/// The page is reduced **before** the payload exists. The builder emits `page` verbatim, so an
+	/// unreduced URL would carry the browsed query string — session tokens and all — inside the link
+	/// that gets posted, and only the recipient's parser would drop it.
+	func test_linkPayload_reducesThePageBeforeItCanBeEmitted() throws {
+		let subject = makeSubject(page: URL(string: "https://example.org/a/b?session=secret#frag"))
+		XCTAssertEqual(subject.linkPayload.page?.absoluteString, "https://example.org/a/b")
+
+		let link = try XCTUnwrap(FindingShareLink.url(for: subject.linkPayload))
+		XCTAssertFalse(link.absoluteString.contains("session"), "The emitted link must not carry the query")
+	}
+
+	func test_linkPayload_dropsANonHTTPSPage() {
+		XCTAssertNil(makeSubject(page: URL(string: "http://example.org/x")).linkPayload.page)
+	}
+
+	// MARK: - Share-sheet items
+
+	func test_activityItems_withTheFeatureFlagOff_carryTheImageAlone() {
+		let image = makeCardImage()
+		let items = FindingShareActivity.items(
+			image: image,
+			subject: makeSubject(),
+			isLinkEnabled: false,
+			includesLink: true
+		)
+
+		XCTAssertEqual(items.count, 1)
+		XCTAssertTrue(items[0] is UIImage)
+	}
+
+	func test_activityItems_withTheToggleOff_carryTheImageAlone() {
+		let items = FindingShareActivity.items(
+			image: makeCardImage(),
+			subject: makeSubject(),
+			isLinkEnabled: true,
+			includesLink: false
+		)
+
+		XCTAssertEqual(items.count, 1)
+		XCTAssertTrue(items[0] is UIImage)
+	}
+
+	/// The second item's **type** is the assertion, not its text. A `URL` there would make
+	/// LinkPresentation fetch the address from this device to build the sheet's header — an outbound
+	/// request behind a purely local action — and would hide the image behind a link preview.
+	func test_activityItems_withTheFeatureOn_carryTheImageAndTheLinkAsAString() throws {
+		let subject = makeSubject()
+		let items = FindingShareActivity.items(
+			image: makeCardImage(),
+			subject: subject,
+			isLinkEnabled: true,
+			includesLink: true
+		)
+
+		XCTAssertEqual(items.count, 2)
+		XCTAssertTrue(items[0] is UIImage)
+		XCTAssertTrue(items[1] is String, "The link must travel as a String")
+		XCTAssertFalse(items[1] is URL, "A URL item changes how the sheet behaves and what it fetches")
+
+		let expected = try XCTUnwrap(FindingShareLink.url(for: subject.linkPayload))
+		XCTAssertEqual(items[1] as? String, expected.absoluteString)
+	}
+
+	/// A finding whose title is nothing but whitespace cannot produce a link, and the share must
+	/// still work — as an image, exactly as it did before the feature existed.
+	func test_activityItems_whenNoLinkCanBeBuilt_fallBackToTheImageAlone() {
+		let items = FindingShareActivity.items(
+			image: makeCardImage(),
+			subject: makeSubject(title: "   "),
+			isLinkEnabled: true,
+			includesLink: true
+		)
+
+		XCTAssertEqual(items.count, 1)
+	}
+}

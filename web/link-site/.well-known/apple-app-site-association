@@ -1,0 +1,19 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["ZLR4X4U8UQ.com.aiarcheology.ios"],
+        "components": [
+          {
+            "/": "/f",
+            "comment": "Shared finding links (AIA-0650). Must match FindingShareLink.path exactly - iOS matches the tapped URL before any HTTP redirect runs."
+          },
+          {
+            "/": "/f/",
+            "comment": "Tolerated only so a hand-typed or rewritten trailing slash still opens the app. The app never emits this form."
+          }
+        ]
+      }
+    ]
+  }
+}

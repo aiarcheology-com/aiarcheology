@@ -1,23 +1,35 @@
 Build: TBD
 
-Test Focus 1: Findings can now carry the name of whoever found them, and that name appears on the share card.
+Test Focus 1: Findings can now be shared as a link that opens the app on that finding.
 
-A finding has a new optional "Author" field. If you are signed in, it is filled in for you when you save a finding; if you are not signed in, it starts empty. Either way you can type whatever you like, or leave it blank. Things with your name on them are worth more than anonymous ones — that is the whole point of this change.
+Sharing a finding still shares the picture. What is new is that a link travels with it, and the card itself now carries a QR code and the address link.aiarcheology.com. Anyone who sees your post can get to the finding; anyone without the app gets a page describing it and a link to the App Store.
 
-1. Sign in, then find something and save it. The Save screen has a new Author field between Note and GPS, already filled in with your account name. Save, then open the finding from the Findings list and share it. Your name should appear on the card, just under the detection label. Check both Portrait and Landscape, and both Light and Dark.
+Please put coordinates into at least one finding before you start (Findings list, tap a finding, GPS field, e.g. 48.8, 19.53). Without them the map part cannot be tested at all.
 
-2. Save another finding, but this time clear the Author field before saving. The card must simply not show an author row at all — no "Unknown", no empty line, no gap where a name would be.
+1. Share a finding. The card is noticeably larger than before, and the QR sits in the bottom-right of the information block, under the date. Check Portrait and Landscape, Light and Dark: the code must never overlap the text.
 
-3. Start saving a finding, clear the Author field, then switch to another app and come back without closing the Save screen. The field must STAY empty — your name must not reappear over a value you deleted. (Closing the Save screen and starting a brand new capture is different: that is a new finding, so the name is filled in again on purpose.)
+2. The new switch "Let people open this finding in the app" is on. Send the finding to yourself in Messages or Mail. Both the picture AND a link should arrive.
 
-4. Sign out, then save a finding. The Author field should be empty, and never show your email address — an email is not a name and must never end up on a picture you post. Type a name by hand and confirm it saves and shows on the card.
+3. Turn that switch off and share again. "Save Image" comes back in the share sheet, and no link is attached. That is the trade-off the switch exists for — with a link attached, iOS hides Save Image and any app that only accepts pictures.
 
-5. Open an OLD finding you saved before this build, from the Findings list. It should open normally with an empty Author field. Type a name, tap Save, then go back into it — the name should still be there. Then check a DIFFERENT old finding: it must still have no author. Editing one finding's author must never touch another.
+4. Tap the link you sent yourself. The app should open on a read-only screen saying "This Is Your Finding" — because it is yours. Nothing new should appear in your Findings list.
 
-6. Sign out and back in while you have findings with authors saved. Their authors must be exactly as you left them. Signing out must never rewrite or erase a name already saved.
+5. Send a link to someone else with the app installed. They should see the finding with an orange "Shared by Someone Else" warning, the label, confidence, your name and the date. It must NOT be added to their findings.
 
-7. Export your findings (Findings list → Export) and open the ZIP. Both findings.json and findings.csv should include an author column, with your name where you set one and empty where you did not.
+6. On that screen, if the finding had coordinates, there is a "Show on Map" button. The map should appear only after tapping it, never before.
 
-Most important: this build also changes how findings are stored. Please confirm that every finding you had BEFORE installing it is still there, with its picture, title, note and GPS intact. If anything is missing, or the app will not start, tell us immediately and say which version you updated from.
+7. Tap "Open the Original Page". The app should switch to the browser and load the page, with the drawer closed.
+
+8. Open a link on a device WITHOUT the app, or on a computer. You should get a page describing the finding with a "Get ML Browser" button.
+
+9. Damage a link on purpose — delete a chunk from the end and open it. The app must say "This Link Could Not Be Read", never open to nothing.
+
+10. Point the Camera app at the QR on a shared card, including a photo of the card on another screen. It should scan.
+
+Test Focus 2: Findings carry the name of whoever found them.
+
+The Save screen has an Author field between Note and GPS, prefilled from your account when signed in and empty otherwise. Save one with a name and one with it cleared — a blank author must show no row at all on the card, not "Unknown". Signed out it must never show your email address. Export (Findings list, Export) should include an author column.
+
+Most important: please confirm every finding you had BEFORE this build is still there, with its picture, title, note and GPS intact. If anything is missing, or the app will not start, tell us immediately and say which version you updated from.
 
 Please report your device model, iOS version and the language you tested in.

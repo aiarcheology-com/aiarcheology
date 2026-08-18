@@ -13,6 +13,8 @@ import CoreData
 struct FindingsListView: View {
 	@Environment(\.dismiss) private var dismiss
 	@Environment(\.managedObjectContext) private var moc
+	/// Held only to hand on to the share composer's own sheet, which needs it live (AIA-0650).
+	@EnvironmentObject private var featureFlags: FeatureFlagsState
 
 	/// "Open page" routes through the presenting drawer: it must dismiss this
 	/// sheet and the drawer before the web screen loads the URL.
@@ -81,6 +83,9 @@ struct FindingsListView: View {
 		.activityShareSheet($sharePayload)
 		.sheet(item: $shareSubject) { subject in
 			FindingShareComposer(subject: subject)
+				// Environment objects do not reliably cross a `.sheet` boundary on Mac (Designed for
+				// iPad) — re-inject, per AGENTS.md §3.
+				.environmentObject(featureFlags)
 		}
 		.alert(L10n.Findings.Export.error, isPresented: $exportFailed) {
 			Button(L10n.Common.ok, role: .cancel) {}
@@ -279,6 +284,8 @@ struct FindingsListView: View {
 /// committed by the explicit Save button — never implicitly on navigation.
 private struct FindingDetailView: View {
 	@Environment(\.managedObjectContext) private var moc
+	/// Held only to hand on to the share composer's own sheet, which needs it live (AIA-0650).
+	@EnvironmentObject private var featureFlags: FeatureFlagsState
 	@ObservedObject var finding: Finding
 	let onOpenPage: (URL) -> Void
 
@@ -318,6 +325,9 @@ private struct FindingDetailView: View {
 		}
 		.sheet(item: $shareSubject) { subject in
 			FindingShareComposer(subject: subject)
+				// Environment objects do not reliably cross a `.sheet` boundary on Mac (Designed for
+				// iPad) — re-inject, per AGENTS.md §3.
+				.environmentObject(featureFlags)
 		}
 		.onAppear(perform: seedFields)
 	}
