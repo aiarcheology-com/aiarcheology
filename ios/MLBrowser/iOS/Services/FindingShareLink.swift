@@ -346,7 +346,7 @@ enum FindingShareLink {
 			title: title,
 			detectionClass: sanitizedText(fields[Key.detectionClass], limit: Limit.detectionClass),
 			confidencePercent: fields[Key.confidence].flatMap(parseConfidence),
-			coordinate: fields[Key.coordinate].flatMap(CoordinateText.parse),
+			coordinate: fields[Key.coordinate].flatMap(parseWireCoordinate),
 			page: fields[Key.page].flatMap(sanitizedPage),
 			author: sanitizedText(fields[Key.author], limit: Limit.author),
 			date: fields[Key.date].flatMap(parseDate)
@@ -430,6 +430,39 @@ enum FindingShareLink {
 	/// LRE, RLE, PDF, LRO, RLO, LRI, RLI, FSI, PDI — the overrides that let text render in an order
 	/// other than the one it is stored in.
 	private static let bidiControls = CharacterSet(charactersIn: "\u{202A}\u{202B}\u{202C}\u{202D}\u{202E}\u{2066}\u{2067}\u{2068}\u{2069}")
+
+	/// Parses the **wire** form of `g`: exactly two plain decimals separated by one comma.
+	///
+	/// Deliberately *not* ``CoordinateText/parse(_:)``. That one reads the finding's hand-typed GPS
+	/// field, where a person may reasonably write `48.8N`, `48.8°` or `+48.8` — leniency is the point.
+	/// This reads what travels in a link, which the builder always emits as `%.5f,%.5f`, and which a
+	/// second implementation (the landing page) parses independently with a strict decimal regex.
+	///
+	/// Sharing the lenient parser between the two made them disagree: `g=+48.8,+19.53` produced a map
+	/// in the app and no location at all on the web page. A wire format is a contract between two
+	/// programs and should accept exactly one spelling; a text field is a conversation with a person
+	/// and should accept several.
+	private static func parseWireCoordinate(_ raw: String) -> Coordinate? {
+		let parts = raw.split(separator: ",", omittingEmptySubsequences: false)
+		guard parts.count == 2,
+		      let latitude = strictDecimal(String(parts[0])),
+		      let longitude = strictDecimal(String(parts[1]))
+		else { return nil }
+		return Coordinate(latitude: latitude, longitude: longitude)
+	}
+
+	/// `-?\d+(\.\d+)?` and nothing else: no leading `+`, no exponent, no hex, no whitespace, no
+	/// non-ASCII digits. Mirrors the landing page's regex exactly so both ends accept the same set.
+	private static func strictDecimal(_ raw: String) -> Double? {
+		var body = raw
+		if body.hasPrefix("-") { body.removeFirst() }
+		let halves = body.split(separator: ".", omittingEmptySubsequences: false)
+		guard (1...2).contains(halves.count),
+		      halves.allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isASCII) && $0.allSatisfy(\.isNumber) })
+		else { return nil }
+		guard let value = Double(raw), value.isFinite else { return nil }
+		return value
+	}
 
 	private static func parseConfidence(_ raw: String) -> Int? {
 		// Digits only. `Int("+5")` succeeds and `Int(" 5")` does not, which is a distinction nobody

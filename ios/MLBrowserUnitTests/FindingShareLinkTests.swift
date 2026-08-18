@@ -279,6 +279,38 @@ final class FindingShareLinkTests: XCTestCase {
 		}
 	}
 
+	/// The wire form accepts exactly one spelling, and it is the one the builder emits.
+	///
+	/// Found by Copilot on the PR: `g=+48.8,+19.53` parsed in the app (the link's `g` went through the
+	/// LENIENT parser meant for the hand-typed GPS field) and was refused by the landing page's strict
+	/// regex, so one link showed a map in the app and no location on the web. A wire format is a
+	/// contract between two programs; the leniency belongs only where a person is typing.
+	func test_wireCoordinateAcceptsOnlyPlainDecimals() throws {
+		for raw in ["+48.8,+19.53", "48.8N,19.53E", "N48.8,E19.53", "48.8°,19.53°", " 48.8,19.53",
+		            "48.8 ,19.53", "0x30,0x10", "1e1,2e1", "48.8,,19.53", "48.8", "٤٨.٨,١٩.٥"] {
+			let url = try XCTUnwrap(URL(string: "https://link.aiarcheology.com/f#v=1&t=X&g=\(raw)"
+				.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed) ?? ""))
+			XCTAssertNil(FindingShareLink.payload(from: url)?.coordinate, "g=\(raw) must not parse on the wire")
+		}
+	}
+
+	/// The paired positive case, so the test above cannot pass merely because `g` stopped working.
+	func test_wireCoordinateAcceptsWhatTheBuilderEmits() throws {
+		for raw in ["48.80000,19.53000", "-33.85680,151.21530", "0,0", "-0.5,-0.5", "90,-180"] {
+			let url = try XCTUnwrap(URL(string: "https://link.aiarcheology.com/f#v=1&t=X&g=\(raw)"))
+			XCTAssertNotNil(FindingShareLink.payload(from: url)?.coordinate, "g=\(raw) must parse")
+		}
+	}
+
+	/// A round trip must still work: the builder writes `%.5f,%.5f`, which the stricter reader takes.
+	func test_wireCoordinateRoundTripsFromAHandTypedGPSField() throws {
+		// "+48.8N" style input is what a PERSON may type; it is canonicalised on the way out.
+		let coordinate = try XCTUnwrap(CoordinateText.parse("48.8N, 19.53E"))
+		let parsed = try roundTrip(makePayload(coordinate: coordinate))
+		XCTAssertEqual(parsed.coordinate?.latitude ?? 0, 48.8, accuracy: 0.00001)
+		XCTAssertEqual(parsed.coordinate?.longitude ?? 0, 19.53, accuracy: 0.00001)
+	}
+
 	func test_freeTextCoordinateForms() {
 		let expected = FindingShareLink.Coordinate(latitude: 48.8, longitude: 19.53)
 		for raw in ["48.8, 19.53", "48.8 19.53", "48.8,19.53", "48.8°, 19.53°", "48.8N, 19.53E", "N48.8 E19.53"] {
