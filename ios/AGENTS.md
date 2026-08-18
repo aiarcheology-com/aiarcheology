@@ -358,6 +358,29 @@ Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule
 xcodebuild -workspace ios/MLBrowser.xcworkspace -scheme MLBrowser -testPlan MLBrowserUnitTests test
 ```
 
+#### Reading an `xcodebuild` result: three ways to misread a green run
+
+Learned the hard way on AIA-0650; each of these looked like a passing suite.
+
+- **The module name for `@testable import` is `ML_Browser`, with an underscore** — not `MLBrowser`.
+  `PRODUCT_NAME` is "ML Browser", and Swift replaces the space. Getting it wrong fails with
+  `unable to resolve module dependency: 'MLBrowser'`, which reads like a broken project rather than
+  a typo in one import.
+- **`xcodebuild` prints the per-test-case lines *after* `** TEST SUCCEEDED **`.** Waiting for that
+  marker and counting immediately reports `0 passed`, which is indistinguishable from the
+  genuine zero-test run below. Wait for the process to exit, not for the marker.
+- **The two suites log in different formats.** Unit tests print `Test case '...' passed`
+  (lowercase c); UI tests print `Test Case '-[Suite testMethod]' passed` (capital C, legacy form).
+  A counter written for one silently reports zero for the other — an 89-test UI run looked like a
+  silent no-op because of this.
+
+Whatever counts tests, verify the count **moved** by the number of tests you added. A new file that
+is not in its target compiles into nothing, `-only-testing:` then matches nothing, and the run is
+green and empty. `MLBrowserUnitTests` and the UI groups are plain `PBXGroup`s — only
+`MLBrowserArchitectureTests` and `Testability` are synchronized — so a new test file needs explicit
+`.pbxproj` membership in all four places (`PBXBuildFile`, `PBXFileReference`, the group's children,
+and the target's Sources phase).
+
 #### `test-without-building` can report a green run for code that does not compile
 
 Splitting a run into `build-for-testing` then `test-without-building` is worth doing — it keeps a
@@ -443,6 +466,22 @@ downstream leans on it — whether a Core Data migration is required at all, whe
 format is still free to change, and which build a crash report belongs to. Left to rot it does not
 merely go stale, it actively misleads: a contributor reading "production is `0.0.0`" while `0.0.1`
 has in fact shipped will treat a released schema as editable.
+
+#### `deliver.sh` will not archive from an arbitrary branch
+
+The local TestFlight lane mirrors what Xcode Cloud's Release workflow would ship, so it refuses to
+archive unless you are on a `release/*` branch — or you pass `--ref <tag|sha>`, which is an
+**assertion that HEAD already equals that ref**, not a checkout. `--ref $(git rev-parse HEAD)` is
+therefore how you deliver a feature branch deliberately, and it cannot silently ship the wrong
+commit.
+
+Two things that follow: a `release/*` branch **pushed** to the remote fires the paid Xcode Cloud
+Release workflow, so create one locally or not at all; and `deliver.sh notes --build-number N`
+fails until App Store Connect finishes processing, which takes minutes — re-run it rather than
+treating the first failure as real.
+
+`ITSAppUsesNonExemptEncryption` is set to `false` in `MLBrowser-Info.plist`. Nothing prompts for it
+and a missing key stalls a TestFlight build silently, so leave it in place.
 
 ### Issues
 
