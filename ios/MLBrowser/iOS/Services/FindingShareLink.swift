@@ -67,12 +67,20 @@ enum FindingShareLink {
 	/// Ceiling for the QR variant, which is far tighter than the text one and for a physical reason.
 	///
 	/// A fragment payload forces QR **byte** mode (`#`, `&`, `=` and lowercase all fall outside
-	/// alphanumeric mode). At 900 characters that is roughly a version-22 symbol — about 105 modules
-	/// across — and the card renders the code at 64pt on a 3× canvas, so 192px ÷ 105 ≈ 1.8px per
-	/// module. Below roughly 3px per module a code stops surviving being photographed off a screen,
-	/// which is the only way a reposted card is ever scanned. 250 characters lands near version 10
-	/// (57 modules, ≈3.4px per module) and holds up.
-	static let maximumCompactLength = 250
+	/// alphanumeric mode). At 900 characters that is roughly a version-24 symbol — about 113 modules
+	/// across — and at 88pt on a 3× canvas that is 264px ÷ 113 ≈ 2.3px per module. Below roughly 3px
+	/// per module a code stops surviving being photographed off a screen, which is the only way a
+	/// reposted card is ever scanned.
+	///
+	/// **400 characters at EC-M is a version-15 symbol: 77 modules, plus the generator's one-module
+	/// quiet zone each side = 79.** ``FindingShareQRCode/image(for:pixelSize:)`` *floors* the scale
+	/// factor, so the real margin is `floor(264 / 79) = 3`px per module — identical to the 250/64pt
+	/// pairing it replaces (`floor(192 / 63) = 3`), which is why the budget could grow at all.
+	///
+	/// The superseded comment claimed 250 characters "lands near version 10 (57 modules)". It does
+	/// not: v10 holds 213 bytes at EC-M, so 250 needed v11 (61 modules). Recorded because the same
+	/// arithmetic is what justifies the new number.
+	static let maximumCompactLength = 400
 
 	/// The longest URL the parser will look at, and a *defensive* limit rather than a contract one.
 	///
@@ -93,6 +101,7 @@ enum FindingShareLink {
 		static let detectionClass = "c"
 		static let confidence = "p"
 		static let coordinate = "g"
+		static let box = "b"
 		static let page = "u"
 		static let author = "a"
 		static let date = "d"
@@ -105,7 +114,12 @@ enum FindingShareLink {
 		static let compactTitle = 40
 		static let detectionClass = 60
 		static let author = 60
+		/// The reduced page form — scheme, host and path only.
 		static let page = 400
+		/// The full form, which carries the query and fragment a map viewer keeps its view in.
+		/// Larger because that is the whole point: a portal's view parameters are frequently longer
+		/// than the path they hang off.
+		static let fullPage = 600
 	}
 
 	// MARK: - Payload
@@ -126,6 +140,69 @@ enum FindingShareLink {
 		}
 	}
 
+	/// Where on the captured page the detection sat, as fractions of the captured view.
+	///
+	/// ## Top-left origin, deliberately not Vision's
+	/// `Finding.normalizedBox` is a **Vision** rect: bottom-left origin, which is why every drawing
+	/// site in the app goes through `CGRect.visionRect(in:)`. That convention stops here. A wire
+	/// format is read by a second implementation — the landing page — and a Y axis that points the
+	/// other way from every web coordinate system is a disagreement waiting to happen, with nothing
+	/// in the link to say which way is up. The same shape as the ``parseWireCoordinate(_:)``
+	/// divergence recorded below: one spelling on the wire, converted at the boundary.
+	///
+	/// ## What it does *not* carry
+	/// The captured view's aspect ratio does not travel, so a receiver can place the box and size it
+	/// **relative to the page**, but cannot know its true proportions. Position and area are
+	/// fractions and survive exactly; the drawn shape is indicative. A fifth component would buy
+	/// only the shape, at the price of another validation rule and another thing for the two
+	/// implementations to disagree about.
+	struct Box: Hashable, Sendable {
+		let x: Double
+		let y: Double
+		let width: Double
+		let height: Double
+
+		/// Fails rather than clamping, like ``Coordinate``: a box outside the unit square is a
+		/// malformed link, and a silently shrunk one would point at the wrong part of the page.
+		///
+		/// A zero-area box is refused too. `Finding.normalizedBox` is `.zero` for any row saved
+		/// before detection boxes were stored, and "the detection is at the origin and infinitely
+		/// small" is not a thing to draw on a stranger's screen.
+		init?(x: Double, y: Double, width: Double, height: Double) {
+			guard [x, y, width, height].allSatisfy(\.isFinite),
+			      (0...1).contains(x), (0...1).contains(y),
+			      width > 0, height > 0,
+			      // A hair of slack for binary representation only — `0.3 + 0.7 > 1` in Double.
+			      // Wire rounding is handled by quantizing before emission, never by widening this.
+			      x + width <= 1 + 1e-9,
+			      y + height <= 1 + 1e-9
+			else { return nil }
+			self.x = x
+			self.y = y
+			self.width = width
+			self.height = height
+		}
+
+		/// The fraction of the captured view the detection covers. Aspect-invariant, so it is one of
+		/// the two things a receiver may state as fact.
+		var areaFraction: Double { width * height }
+	}
+
+	/// How much of the captured page's address a link may carry.
+	///
+	/// The two forms exist because one answer does not fit both cases this app serves. On an
+	/// ordinary page the path identifies the content and the query is where session tokens live. On
+	/// a geoportal — this app's whole subject — the query *is* the view, and a link without it lands
+	/// the recipient on a homepage holding none of what was shared.
+	enum PageDetail: Hashable, Sendable {
+		/// Scheme, host and path. The safe default, and what every link emitted before AIA-0657
+		/// carried.
+		case siteOnly
+		/// Everything that identifies the view, minus anything shaped like a credential. Chosen by
+		/// the sender, who is shown the exact address first.
+		case full
+	}
+
 	/// The finding, reduced to what fits in a link. Every field except ``title`` is optional because
 	/// every field except the title is optional on a `Finding` too.
 	struct Payload: Hashable, Sendable {
@@ -143,8 +220,12 @@ enum FindingShareLink {
 		/// model produces, so the link never carries more precision than it renders.
 		let confidencePercent: Int?
 		let coordinate: Coordinate?
-		/// The page the finding was captured on — `https` only, and reduced to scheme + host + path.
-		/// See ``sanitizedPage(_:)`` for why the query string is dropped.
+		/// Where on the page the detection sat. For a detection on an ordinary page this is the
+		/// locator — the page plus where on it — in a way a coordinate never is, since `Finding.gps_`
+		/// is hand-typed and usually empty.
+		let box: Box?
+		/// The page the finding was captured on — `https` only, at the detail the sender chose.
+		/// See ``sanitizedPage(_:detail:)``.
 		let page: URL?
 		let author: String?
 		/// Day precision. A finding's capture *time* is a movement record; the date alone is context.
@@ -156,6 +237,7 @@ enum FindingShareLink {
 			detectionClass: String? = nil,
 			confidencePercent: Int? = nil,
 			coordinate: Coordinate? = nil,
+			box: Box? = nil,
 			page: URL? = nil,
 			author: String? = nil,
 			date: DateComponents? = nil
@@ -165,6 +247,7 @@ enum FindingShareLink {
 			self.detectionClass = detectionClass
 			self.confidencePercent = confidencePercent
 			self.coordinate = coordinate
+			self.box = box
 			self.page = page
 			self.author = author
 			self.date = date
@@ -175,8 +258,12 @@ enum FindingShareLink {
 	enum Variant {
 		/// The link shared as text — carries every field that fits.
 		case full
-		/// The link encoded into the QR printed on the card. Drops ``Payload/page`` and shortens the
-		/// title to stay scannable; both variants still resolve to the same finding.
+		/// The link encoded into the QR printed on the card. Shortens the title to stay scannable;
+		/// both variants still resolve to the same finding.
+		///
+		/// It **no longer drops ``Payload/page``**. Removing it unconditionally meant the artifact
+		/// most likely to be reposted — a code printed into an image, which survives a screenshot of
+		/// a screenshot — was the one carrying no way back to the page (AIA-0657).
 		case compact
 
 		var lengthLimit: Int {
@@ -202,27 +289,51 @@ enum FindingShareLink {
 	/// Returns `nil` only when even a title-and-version link cannot fit, which a non-empty title
 	/// cannot cause — but it is expressed as a failure rather than an over-long link so a caller can
 	/// never ship something unscannable by accident.
-	static func url(for payload: Payload, variant: Variant = .full) -> URL? {
-		// Least important first: these are dropped in order while the link is too long. `page` leads
-		// because the card already shows the host, and the compact variant never carries it at all.
-		var droppable: [String] = [Key.page, Key.author, Key.date, Key.detectionClass, Key.coordinate]
-		if variant == .compact { droppable.removeAll { $0 == Key.page } }
+	static func url(for payload: Payload, variant: Variant = .full, pageDetail: PageDetail = .siteOnly) -> URL? {
+		// The page is the one field with two *forms*, so it is never dropped — it is reduced.
+		// Everything else that will not fit is shed first, then the title is shortened, and only
+		// when a title-and-address link still overruns does the address fall back to its host.
+		// Dropping the URL outright is the outcome this contract now refuses to produce: the card
+		// prints only `link.aiarcheology.com`, so a code without a page is a picture of nothing.
+		if let fitted = fitted(payload, variant: variant, pageDetail: pageDetail) { return fitted }
+		guard pageDetail == .full else { return nil }
+		return fitted(payload, variant: variant, pageDetail: .siteOnly)
+	}
 
-		var dropped: Set<String> = variant == .compact ? [Key.page] : []
+	/// One pass of the drop ladder at a fixed page detail. `nil` means "not at this detail".
+	private static func fitted(_ payload: Payload, variant: Variant, pageDetail: PageDetail) -> URL? {
+		// Least important first. `g` leads because a hand-typed coordinate is the field a finding is
+		// least likely to have at all; `i` trails because it is mechanism rather than content — its
+		// only job is recognising a link to a finding the recipient already owns. The product owner
+		// ranked the rest: title, address and author are the must-haves, so `a` is the last piece of
+		// *content* to go and `t` and `u` never go (AIA-0657).
+		let droppable: [String] = [
+			Key.coordinate, Key.date, Key.detectionClass, Key.confidence, Key.box, Key.author, Key.id
+		]
+		var dropped: Set<String> = []
 
 		while true {
-			guard let candidate = assemble(payload, variant: variant, dropping: dropped) else { return nil }
+			guard let candidate = assemble(payload, variant: variant, pageDetail: pageDetail, dropping: dropped) else { return nil }
 			if candidate.absoluteString.count <= variant.lengthLimit { return candidate }
 			guard let next = droppable.first(where: { dropped.contains($0).not }) else {
-				// Everything droppable is gone and it still does not fit: the title alone is too long.
-				// Fall back to a hard-truncated title rather than returning an over-long link.
-				return assembleTruncated(payload, variant: variant, dropping: dropped)
+				// Everything droppable is gone and it still does not fit: the title and the address
+				// together are too long. Shorten the title rather than return an over-long link.
+				return assembleTruncated(payload, variant: variant, pageDetail: pageDetail, dropping: dropped)
 			}
+			// `c` and `p` are two keys for one idea — a class with no confidence beside it reads as
+			// more certain than it is, so they leave together.
 			dropped.insert(next)
+			if next == Key.detectionClass { dropped.insert(Key.confidence) }
 		}
 	}
 
-	private static func assemble(_ payload: Payload, variant: Variant, dropping dropped: Set<String>) -> URL? {
+	private static func assemble(
+		_ payload: Payload,
+		variant: Variant,
+		pageDetail: PageDetail,
+		dropping dropped: Set<String>,
+		titleOverride: String? = nil
+	) -> URL? {
 		// The title is the one field with no optional form: a card with nothing written on it is the
 		// blank screen this ticket's fourth acceptance criterion exists to prevent. Refusing here
 		// rather than emitting a version-only link also keeps the builder and the parser honest —
@@ -238,7 +349,7 @@ enum FindingShareLink {
 		}
 
 		add(Key.id, payload.id?.uuidString)
-		add(Key.title, sanitizedText(payload.title, limit: variant.titleLimit))
+		add(Key.title, sanitizedText(titleOverride ?? payload.title, limit: variant.titleLimit))
 		add(Key.detectionClass, sanitizedText(payload.detectionClass, limit: Limit.detectionClass))
 		// Range-checked on the way out as well as the way in. `Payload` is a plain struct that
 		// validates nothing, so a directly-constructed one could emit `p=101` — which this app's own
@@ -246,6 +357,7 @@ enum FindingShareLink {
 		// page's query string escape; closed the same way, at the boundary rather than by convention.
 		add(Key.confidence, payload.confidencePercent.flatMap { (0...100).contains($0) ? String($0) : nil })
 		add(Key.coordinate, payload.coordinate.map(formatted))
+		add(Key.box, payload.box.flatMap(formattedBox))
 		// Reduced again on the way out, even though `FindingShareSubject.linkPayload` already reduced
 		// it. Not redundant: `Payload` is a plain struct that validates nothing, so "the page is
 		// safe" was previously a property of one *caller* remembering to call `sanitizedPage`, and
@@ -253,7 +365,11 @@ enum FindingShareLink {
 		// makes it true of every link this type can emit, whoever built the payload. The original bug
 		// was invisible in tests because a round-trip check parses on the way back in — and the
 		// parser sanitizes — so the emitted link carried the query string while the test passed.
-		add(Key.page, payload.page.flatMap { sanitizedPage($0.absoluteString) }?.absoluteString)
+		//
+		// `pageDetail` defaults to `.siteOnly` at every entry point, so a caller that forgets to
+		// pass one emits the narrower link, never the wider. The sender's choice has to be spoken
+		// aloud to take effect.
+		add(Key.page, payload.page.flatMap { sanitizedPage($0.absoluteString, detail: pageDetail) }?.absoluteString)
 		add(Key.author, sanitizedText(payload.author, limit: Limit.author))
 		add(Key.date, payload.date.flatMap(formattedDate))
 
@@ -269,18 +385,46 @@ enum FindingShareLink {
 		return components.url
 	}
 
-	/// Last resort when even a stripped link overruns: keep the version and a shortened title.
-	private static func assembleTruncated(_ payload: Payload, variant: Variant, dropping dropped: Set<String>) -> URL? {
-		let overhead = "https://\(webHost)\(path)#\(Key.version)=\(version)&\(Key.title)=".count
-		let budget = variant.lengthLimit - overhead
+	/// Last resort when even a stripped link overruns: keep everything that survived, and shorten
+	/// the title to whatever room is left.
+	///
+	/// The budget is **measured, not assumed**. The superseded version computed it as
+	/// "version + title" alone, which was true only while this fallback threw every other field
+	/// away — it now keeps the address, so a fixed overhead would have produced exactly the
+	/// over-long link the whole ladder exists to prevent. Assembling the same payload once with the
+	/// title dropped gives the real cost of everything else.
+	private static func assembleTruncated(
+		_ payload: Payload,
+		variant: Variant,
+		pageDetail: PageDetail,
+		dropping dropped: Set<String>
+	) -> URL? {
+		guard let withoutTitle = assemble(
+			payload,
+			variant: variant,
+			pageDetail: pageDetail,
+			dropping: dropped.union([Key.title])
+		) else { return nil }
+
+		let separator = "&\(Key.title)=".count
+		let budget = variant.lengthLimit - withoutTitle.absoluteString.count - separator
 		guard budget > 0, let cleaned = sanitizedText(payload.title, limit: variant.titleLimit) else { return nil }
 		let fitted = fittingEncodedLength(cleaned, budget: budget)
+		// Nothing of the title survives, so there is no honest link to emit. The caller prints the
+		// readable address alone rather than a code that says nothing.
 		guard fitted.isEmpty.not else { return nil }
-		return assemble(
-			Payload(title: fitted),
+
+		let candidate = assemble(
+			payload,
 			variant: variant,
-			dropping: dropped
+			pageDetail: pageDetail,
+			dropping: dropped,
+			titleOverride: fitted
 		)
+		// The measurement above is arithmetic on an assembled string, but the assembled string is
+		// what ships — so it is checked rather than trusted.
+		guard let candidate, candidate.absoluteString.count <= variant.lengthLimit else { return nil }
+		return candidate
 	}
 
 	/// Trims `text` until its **percent-encoded** form fits `budget`.
@@ -347,7 +491,8 @@ enum FindingShareLink {
 			detectionClass: sanitizedText(fields[Key.detectionClass], limit: Limit.detectionClass),
 			confidencePercent: fields[Key.confidence].flatMap(parseConfidence),
 			coordinate: fields[Key.coordinate].flatMap(parseWireCoordinate),
-			page: fields[Key.page].flatMap(sanitizedPage),
+			box: fields[Key.box].flatMap(parseBox),
+			page: fields[Key.page].flatMap(acceptedPage),
 			author: sanitizedText(fields[Key.author], limit: Limit.author),
 			date: fields[Key.date].flatMap(parseDate)
 		)
@@ -474,34 +619,171 @@ enum FindingShareLink {
 		return value
 	}
 
-	/// Reduces a captured page URL to the least that still identifies it.
+	/// Reduces a captured page URL to what the sender chose to send — the **emission** side.
 	///
-	/// **`https` only, and query plus fragment are dropped.** A browsed URL's query string is where
-	/// session tokens, one-time links, search terms and account identifiers live, and this URL is
-	/// about to be posted somewhere public by a user who is thinking about a photograph. `http` is
-	/// refused outright rather than upgraded, and a URL carrying embedded credentials is refused
-	/// entirely rather than stripped, because a link that needed a password is not one to hand on.
+	/// **`https` only.** `http` is refused outright rather than upgraded, and a URL carrying
+	/// embedded credentials is refused entirely rather than stripped, because a link that needed a
+	/// password is not one to hand on.
 	///
-	/// The honest cost: a page that only resolves *with* its query — a search result, a paginated
-	/// view — will not reproduce for the recipient. The landing page says so.
+	/// ## What changed in AIA-0657, and what it costs
+	/// This used to drop the query and fragment unconditionally, and that reduction was described as
+	/// *the* security property of this type. It is no longer, and the comment saying so has been
+	/// removed rather than left half-true. For a geoportal — the thing this app exists to look at —
+	/// the view lives in the query or the fragment, so stripping it handed the recipient a homepage
+	/// and called it a shared finding.
 	///
-	/// **Internal, not private, and that is load-bearing.** The builder emits ``Payload/page``
-	/// verbatim, so the reduction has to happen before a `Payload` exists — otherwise a browsed URL's
-	/// query string travels inside the emitted link and is only dropped again when the *recipient*
-	/// parses it, which is far too late to have protected anything. `FindingShareSubject.linkPayload`
-	/// is the one place a raw browsed URL enters this contract, and it calls this.
-	static func sanitizedPage(_ raw: String) -> URL? {
-		guard raw.count <= Limit.page,
+	/// The property that replaces it is **visibility**: the composer shows the sender the exact
+	/// address this function returns, and reducing it to ``PageDetail/siteOnly`` is one tap. What is
+	/// still removed automatically is a small set of parameter names that are credentials and never
+	/// view state — see ``strippingCredentials(from:)``. What is *not* detectable, and is stated
+	/// rather than papered over: a credential in a path segment, inside a nested `redirect=`
+	/// parameter, or under a name this list has never heard of.
+	///
+	/// The length cap applies to the **result**, not the input. Capping the raw string first — which
+	/// is what this did — meant a 600-character portal URL produced no page at all, so the very
+	/// links this ticket exists to fix were the ones silently losing their address entirely.
+	///
+	/// **Internal, not private, and that is load-bearing.** `FindingShareSubject.linkPayload` is the
+	/// one place a raw browsed URL enters this contract, and it calls this.
+	static func sanitizedPage(_ raw: String, detail: PageDetail = .siteOnly) -> URL? {
+		guard raw.count <= maximumAcceptedLength,
 		      var components = URLComponents(string: raw),
 		      components.scheme?.lowercased() == "https",
 		      let host = components.host, host.isEmpty.not,
 		      components.user == nil, components.password == nil
 		else { return nil }
-		components.query = nil
-		components.fragment = nil
 		components.user = nil
 		components.password = nil
-		return components.url
+
+		switch detail {
+		case .siteOnly:
+			components.query = nil
+			components.fragment = nil
+		case .full:
+			components.percentEncodedQuery = strippingCredentials(from: components.percentEncodedQuery)
+			// The fragment is passed through the same sieve *only* when it is written as key/value
+			// pairs, which is where an OAuth implicit-flow `#access_token=…` would sit. OpenStreetMap
+			// writes `#map=15/48.8/19.53`, which parses as one pair named `map` and survives
+			// untouched; a fragment that is not pairs at all is left exactly as it was.
+			components.percentEncodedFragment = strippingCredentials(from: components.percentEncodedFragment)
+		}
+
+		guard let url = components.url, url.absoluteString.count <= limit(for: detail) else { return nil }
+		return url
+	}
+
+	/// Accepts a page URL that arrived in a link — the **parse** side.
+	///
+	/// Deliberately *not* ``sanitizedPage(_:detail:)``, and the difference is the denylist. Stripping
+	/// parameters on the way in would protect nobody: the sender's credentials are the ones worth
+	/// removing, they were removed on the way out, and a query that reached this device belongs to
+	/// whoever wrote the link. Editing a stranger's URL before offering it to the user would only
+	/// mean the address we show is not the address we open.
+	static func acceptedPage(_ raw: String) -> URL? {
+		guard raw.count <= maximumAcceptedLength,
+		      var components = URLComponents(string: raw),
+		      components.scheme?.lowercased() == "https",
+		      let host = components.host, host.isEmpty.not,
+		      components.user == nil, components.password == nil
+		else { return nil }
+		components.user = nil
+		components.password = nil
+		guard let url = components.url, url.absoluteString.count <= Limit.fullPage else { return nil }
+		return url
+	}
+
+	private static func limit(for detail: PageDetail) -> Int {
+		switch detail {
+		case .siteOnly: return Limit.page
+		case .full: return Limit.fullPage
+		}
+	}
+
+	/// Removes the key/value pairs whose **name** is a credential rather than a view.
+	///
+	/// Names are normalized (lowercased, `-` and `_` removed) before matching, so `access_token`,
+	/// `accessToken`, `X-Api-Key` and `X-Amz-Signature` all reduce to something the lists below
+	/// recognise. Two lists rather than one: an exact set for words that are ordinary English when
+	/// they appear inside a longer name (`key` must not eat `keyword`, `sid` must not eat `wmsid`),
+	/// and a substring set for words that are never anything but a credential wherever they appear.
+	///
+	/// Deliberately **no value-shape rule.** A long base64 value is a JSON Web Token about as often
+	/// as it is a portal's encoded view state — `?state=eyJ…` is both, depending on the site — so a
+	/// rule keyed on shape would silently delete the view this ticket exists to preserve, in exactly
+	/// the case nobody can check. Names we are certain about are removed; the rest is shown to the
+	/// sender, who can reduce the whole address with one tap.
+	private static func strippingCredentials(from encoded: String?) -> String? {
+		// Read and rewrite in **percent-encoded** form. Going through `queryItems` would decode every
+		// surviving value and re-encode it on the way back, so `%2F` could return as `/` — and the
+		// address the composer shows the sender has to be the address that travels, byte for byte.
+		guard let encoded, encoded.isEmpty.not,
+		      let items = URLComponents(string: "?" + encoded)?.percentEncodedQueryItems,
+		      // Not key/value pairs at all (`#page/3`, `#map` with no `=`): leave it exactly alone
+		      // rather than re-encode something we do not understand.
+		      items.allSatisfy({ $0.value != nil })
+		else { return encoded }
+
+		let kept = items.filter { isCredentialName($0.name).not }
+		guard kept.count != items.count else { return encoded }
+		guard kept.isEmpty.not else { return nil }
+
+		var rebuilt = URLComponents()
+		rebuilt.percentEncodedQueryItems = kept
+		return rebuilt.percentEncodedQuery
+	}
+
+	private static func isCredentialName(_ raw: String) -> Bool {
+		let name = raw.lowercased().filter { $0 != "-" && $0 != "_" }
+		if credentialNames.contains(name) { return true }
+		return credentialSubstrings.contains { name.contains($0) }
+	}
+
+	/// Whole names only — each is a plausible word inside an innocent parameter.
+	///
+	/// `code` is deliberately **absent**. It names an OAuth authorization code, but on the portals
+	/// this app is pointed at it far more often names a region, a layer or a map sheet — and an
+	/// OAuth code is single-use and already spent by the time anyone is browsing a map with it. The
+	/// trade favours the view reproducing.
+	private static let credentialNames: Set<String> = [
+		"auth", "authorization", "key", "pwd", "passwd", "sid", "session", "sig", "ticket"
+	]
+
+	/// Matched anywhere in the name: none of these appears in a parameter that describes a view.
+	private static let credentialSubstrings: [String] = [
+		"token", "secret", "password", "apikey", "signature", "credential", "jwt", "sessionid"
+	]
+
+	/// Parses the wire form of `b`: exactly four plain decimals, `x,y,width,height`, top-left origin.
+	///
+	/// Shares ``strictDecimal(_:)`` with the coordinate parser for the same reason that one exists —
+	/// the landing page reads this with a decimal regex, and a wire format two programs must agree
+	/// on should accept exactly one spelling.
+	private static func parseBox(_ raw: String) -> Box? {
+		let parts = raw.split(separator: ",", omittingEmptySubsequences: false)
+		guard parts.count == 4 else { return nil }
+		let values = parts.compactMap { strictDecimal(String($0)) }
+		guard values.count == 4 else { return nil }
+		return Box(x: values[0], y: values[1], width: values[2], height: values[3])
+	}
+
+	/// Formats a box, and emits it **only if this type would accept it back**.
+	///
+	/// Four decimals is about a millimetre on a page-sized capture, and quantizing to that grid can
+	/// push an edge-touching box past the unit square: `x = 0.49995` and `width = 0.50005` sum to
+	/// exactly 1 and are perfectly valid, but each rounds *up*, and `0.5000 + 0.5001` is 1.0001,
+	/// which ``parseBox(_:)`` refuses. The extent is therefore quantized *toward the interior* — the
+	/// box moves by at most a ten-thousandth, which is invisible — and the result is then
+	/// round-tripped through the parser, so the builder can never emit a field its own parser
+	/// rejects. Same idiom, and same reason, as ``formattedDate(_:)``.
+	private static func formattedBox(_ box: Box) -> String? {
+		let grid = 10_000.0
+		let x = (box.x * grid).rounded() / grid
+		let y = (box.y * grid).rounded() / grid
+		let width = min((box.width * grid).rounded() / grid, 1 - x)
+		let height = min((box.height * grid).rounded() / grid, 1 - y)
+		guard width > 0, height > 0 else { return nil }
+		let text = String(format: "%.4f,%.4f,%.4f,%.4f", x, y, width, height)
+		return parseBox(text) == nil ? nil : text
 	}
 
 	private static func formatted(_ coordinate: Coordinate) -> String {
