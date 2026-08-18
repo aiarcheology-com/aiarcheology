@@ -83,7 +83,7 @@ final class SharedFindingStateTests: XCTestCase {
 			// a link chopped at a length limit loses the title and everything after it.
 			// (A truncation that merely SHORTENS the title is not this case — "Roman wa" is a valid
 			// title and must still open the finding. That distinction is the point of this list.)
-			"https://link.aiarcheology.com/f#v=1&i=3F2504E0-4F89-11D3-9A0C-0305E82C3301",
+			"https://link.aiarcheology.com/f#v=1&i=3F2504E0-4F89-11D3-9A0C-0305E82C3301"
 		] {
 			let sut = SharedFindingState()
 			XCTAssertTrue(sut.handle(try url(raw)), "\(raw) is ours and must be consumed")
