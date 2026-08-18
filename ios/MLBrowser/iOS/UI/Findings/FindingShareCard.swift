@@ -447,6 +447,9 @@ struct FindingShareComposer: View {
 			Text(L10n.Finding.Share.fullAddressFootnote)
 				.font(.footnote)
 				.foregroundStyle(.secondary)
+				// Explicit, because a greedy sibling in this column otherwise takes its height out of
+				// this text's line count rather than its own.
+				.fixedSize(horizontal: false, vertical: true)
 				.frame(maxWidth: .infinity, alignment: .leading)
 
 			VStack(alignment: .leading, spacing: 2) {
@@ -454,26 +457,26 @@ struct FindingShareComposer: View {
 					.font(.caption)
 					.foregroundStyle(.secondary)
 				if let address = travellingAddress {
-					// Scrollable, because this is the one row a sender may need to read to the end: a
-					// portal address can run to the 600-character cap, which is a dozen lines at
-					// caption size and more at an accessibility text size. Left unscrolled it would
-					// push the controls below it off a small screen, or be compressed — either way
-					// the sender could not check the thing this row exists to let them check.
 					// Pinned left-to-right regardless of the app's language. A URL is a
 					// left-to-right string, and under `ar`, `he` or `fa` a mixed-direction host and
 					// path reorder on screen — which would make the one row whose entire purpose is
 					// "this is exactly what travels" display something other than what it holds.
 					// Selectable so a suspicious sender can lift it out and read it elsewhere.
-					ScrollView(.vertical) {
-						Text(verbatim: address.absoluteString)
-							.font(.caption.monospaced())
-							.textSelection(.enabled)
-							.environment(\.layoutDirection, .leftToRight)
-							.multilineTextAlignment(.leading)
-							.frame(maxWidth: .infinity, alignment: .leading)
-							.testability(Testability.View.findingShareAddressPreview)
-					}
-					.frame(maxHeight: 96)
+					// **Not** a `ScrollView`, and that was a real bug for one build: a scroll view has
+					// no intrinsic height, so in this intrinsically-sized column it collapsed to
+					// nothing — the address box rendered empty — while still claiming enough space to
+					// squeeze the footnote above it into a single truncated line. It was added to
+					// bound the 600-character worst case; the cure was worse than the disease, since
+					// the usual address is two or three lines and the card preview above this is a
+					// `GeometryReader` that gives up height when the controls need it.
+					Text(verbatim: address.absoluteString)
+						.font(.caption.monospaced())
+						.textSelection(.enabled)
+						.environment(\.layoutDirection, .leftToRight)
+						.multilineTextAlignment(.leading)
+						.fixedSize(horizontal: false, vertical: true)
+						.frame(maxWidth: .infinity, alignment: .leading)
+						.testability(Testability.View.findingShareAddressPreview)
 				} else {
 					Text(L10n.Finding.Share.addressNotIncluded)
 						.font(.caption)
