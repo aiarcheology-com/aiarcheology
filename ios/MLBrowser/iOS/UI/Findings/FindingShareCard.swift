@@ -390,7 +390,13 @@ struct FindingShareComposer: View {
 
 	private var preview: some View {
 		GeometryReader { geometry in
-			let fitScale = min(1, geometry.size.width / orientation.size.width)
+			// Fits BOTH dimensions. Scaling on width alone was fine while the card was 340x425 —
+			// it fit a phone at 1:1 — but the enlarged 480x600 card scales to ~0.81 on width and
+			// still stands ~487pt tall, which is taller than the old card and overlaps the zoom
+			// slider below it. Constraining height too keeps the preview inside its slot at any
+			// card size.
+			let fitScale = min(1, min(geometry.size.width / orientation.size.width,
+			                          geometry.size.height / orientation.size.height))
 			let liveZoom = clampZoom(imageZoom * pinch)
 			let liveOffset = clampedOffset(
 				CGSize(width: imageOffset.width + dragDelta.width / fitScale,

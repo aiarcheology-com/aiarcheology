@@ -111,7 +111,7 @@ enum FindingShareLink {
 	// MARK: - Payload
 
 	/// A geographic point that has already been validated as renderable.
-	struct Coordinate: Equatable, Sendable {
+	struct Coordinate: Hashable, Sendable {
 		let latitude: Double
 		let longitude: Double
 
@@ -128,7 +128,7 @@ enum FindingShareLink {
 
 	/// The finding, reduced to what fits in a link. Every field except ``title`` is optional because
 	/// every field except the title is optional on a `Finding` too.
-	struct Payload: Equatable, Sendable {
+	struct Payload: Hashable, Sendable {
 		/// The originating finding's identifier, used for **one** purpose: looking it up in the
 		/// recipient's own store. A match means the recipient already owns this finding — typically
 		/// the sender testing their own link — and the app opens the real finding rather than showing

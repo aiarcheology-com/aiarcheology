@@ -149,6 +149,15 @@ struct SharedFindingView: View {
 						switch presentation {
 						case .unverified:
 							SharedFindingUnverifiedView(payload: payload, onOpenPage: openPage)
+								// Identity tied to the payload, so a second link gets a FRESH view rather
+								// than SwiftUI reusing the first one. Without this, two pieces of state
+								// outlive the swap and both are wrong: `isMapShown` stays true, so the
+								// next link mounts a map with no tap — defeating the privacy property
+								// this screen exists to keep — and `Map(initialPosition:)` only reads its
+								// region at mount, so that map keeps showing the PREVIOUS finding's
+								// location under the new finding's coordinates. Found by driving two
+								// links in succession on a simulator; no unit test would have seen it.
+								.id(payload)
 						case .owned(let localTitle):
 							SharedFindingOwnedView(localTitle: localTitle, onOpenFindings: openOwnFinding)
 						case nil:
