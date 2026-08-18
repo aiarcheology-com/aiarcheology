@@ -53,9 +53,15 @@ final class FindingShareCardLayoutTests: XCTestCase {
 		}
 	}
 
-	private func render(_ subject: FindingShareSubject, _ orientation: ShareCardOrientation, _ scheme: ColorScheme) throws -> (image: UIImage, scale: CGFloat) {
+	private func render(
+		_ subject: FindingShareSubject,
+		_ orientation: ShareCardOrientation,
+		_ scheme: ColorScheme,
+		layoutDirection: LayoutDirection = .leftToRight
+	) throws -> (image: UIImage, scale: CGFloat) {
 		let card = FindingShareCard(subject: subject, orientation: orientation, link: makeLink())
 			.environment(\.colorScheme, scheme)
+			.environment(\.layoutDirection, layoutDirection)
 		let renderer = ImageRenderer(content: card)
 		renderer.scale = 2
 		let image = try XCTUnwrap(renderer.uiImage, "the card did not render")
@@ -142,6 +148,28 @@ final class FindingShareCardLayoutTests: XCTestCase {
 				spread, 2,
 				"\(orientation): the badge moved \(spread)pt between two rows and seven — "
 					+ "without the trailing Spacer the column stops filling the block and the badge floats"
+			)
+		}
+	}
+
+	/// The corner is the **trailing** one, not "the right one", so under a right-to-left layout the
+	/// badge mirrors to the bottom left along with the text it sits beside.
+	///
+	/// Free from `HStack` in principle — it lays out along the layout direction — but `ar`, `he` and
+	/// `fa` are shipping locales and a card is an image a user posts publicly, so "in principle" is
+	/// not the standard. Asserted on a render, in both orientations.
+	func test_theBadgeMirrorsToTheOtherCornerInRightToLeftLayouts() throws {
+		for orientation in ShareCardOrientation.allCases {
+			let (image, scale) = try render(makeSubject(rows: 3), orientation, .light, layoutDirection: .rightToLeft)
+			let code = try codeRect(in: image, scale: scale)
+
+			XCTAssertEqual(
+				code.minX, 16 + 5, accuracy: 2,
+				"\(orientation): the code did not mirror to the leading (left) edge under RTL"
+			)
+			XCTAssertLessThan(
+				code.maxX, orientation.size.width / 2,
+				"\(orientation): the code is still on the right in an RTL layout"
 			)
 		}
 	}

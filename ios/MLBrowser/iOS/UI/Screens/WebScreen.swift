@@ -389,7 +389,15 @@ struct WebScreenView: View {
             // A finding's "open page" action lands here (the findings UI cannot
             // reach the web view directly).
             guard let url else { return }
-            appState.chromeState.pageToOpen = nil
+            // Cleared on the NEXT runloop turn, not inline, and that is not a style choice.
+            // `@Published` publishes from `willSet`, so this closure runs *inside* the assignment
+            // that delivered the value — the inline `pageToOpen = nil` completed first and the
+            // outer assignment then wrote the URL back over it, leaving the latch permanently
+            // armed. Nothing failed visibly: the page loaded, and the next time this screen was
+            // rebuilt (a tab or mode switch) the stale value was redelivered and navigated away
+            // from whatever the user was reading. Measured on develop before AIA-0657; the
+            // property is pinned in SharedFindingStateTests.
+            DispatchQueue.main.async { appState.chromeState.pageToOpen = nil }
             openRequested(url.absoluteString)
         }
         .onReceive(appState.chromeState.$findModeRequested) { requested in
