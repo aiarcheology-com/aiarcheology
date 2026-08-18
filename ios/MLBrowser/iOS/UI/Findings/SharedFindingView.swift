@@ -52,6 +52,7 @@ enum SharedFindingSection: Hashable {
 	case author
 	case date
 	case page
+	case box
 	case map
 
 	static func layout(for payload: FindingShareLink.Payload) -> [SharedFindingSection] {
@@ -62,6 +63,9 @@ enum SharedFindingSection: Hashable {
 		if payload.author != nil { sections.append(.author) }
 		if date(for: payload) != nil { sections.append(.date) }
 		if payload.page != nil { sections.append(.page) }
+		// Directly after the page, because it qualifies it: the page plus where on it is the whole
+		// locator for a detection that is not on a map (AIA-0657).
+		if payload.box != nil { sections.append(.box) }
 		if payload.coordinate != nil { sections.append(.map) }
 		return sections
 	}
@@ -306,6 +310,8 @@ struct SharedFindingUnverifiedView: View {
 			}
 		case .page:
 			pageBlock
+		case .box:
+			boxBlock
 		case .map:
 			mapBlock
 		}
@@ -351,6 +357,35 @@ struct SharedFindingUnverifiedView: View {
 				.buttonStyle(.bordered)
 				.testability(Testability.Button.sharedFindingOpenPage)
 			}
+		}
+	}
+
+	/// Where on the page the detection sat.
+	///
+	/// This is the block that makes a link *locate* rather than merely describe, for the case a
+	/// coordinate never covers: a detection on an ordinary page, where the page plus the place on it
+	/// is the whole answer. `Finding.gps_` is hand-typed and usually empty, so this is the common
+	/// case and the map block is the exception.
+	///
+	/// **No imagery is involved and none could be.** Page snapshots never leave the device (AGENTS
+	/// §10), so the recipient gets a diagram of a page rather than the page: position and area are
+	/// exact, the drawn rectangle's proportions are indicative, and the description below says only
+	/// the two things that are true.
+	@ViewBuilder
+	private var boxBlock: some View {
+		if let box = payload.box {
+			VStack(alignment: .leading, spacing: 8) {
+				Label(L10n.Finding.Shared.Where.title, systemImage: "viewfinder")
+					.font(.callout)
+					.foregroundStyle(.secondary)
+				SharedFindingBoxDiagram(box: box)
+			}
+			.accessibilityElement(children: .ignore)
+			.accessibilityLabel(L10n.Finding.Shared.Where.accessibility(
+				box.x.formatted(.percent.precision(.fractionLength(0))),
+				box.y.formatted(.percent.precision(.fractionLength(0))),
+				box.areaFraction.formatted(.percent.precision(.fractionLength(0)))
+			))
 		}
 	}
 
@@ -419,6 +454,59 @@ struct SharedFindingUnverifiedView: View {
 				.foregroundStyle(.secondary)
 		}
 		.font(.callout)
+	}
+}
+
+// MARK: - Where on the page
+
+/// A page-shaped frame with the detection drawn inside it to scale.
+///
+/// ## Why the frame is a fixed ratio and not the page's
+/// The box is normalized against the captured view, whose aspect ratio does **not** travel — four
+/// numbers were worth their characters, a fifth for the shape was not. So position and area are
+/// faithful and the rectangle's proportions are indicative. That is why nothing here, or in the
+/// accessibility text beside it, claims the drawing is proportional.
+///
+/// ## Why it does not mirror
+/// Pinned left-to-right. This is a picture of a page rather than a run of text: the box's `x` is a
+/// distance from the *page's* left edge, and mirroring the diagram under `ar`, `he` or `fa` would
+/// put the detection on the wrong side of the page it is describing.
+struct SharedFindingBoxDiagram: View {
+	let box: FindingShareLink.Box
+
+	/// Neutral, and deliberately neither a phone's viewport nor a desktop's.
+	private static let aspect: CGFloat = 3.0 / 2.0
+
+	/// A box can be a hairline at this scale — a small detection on a large page — so the drawn rect
+	/// has a floor. It marks *where*; the size is carried honestly by the text.
+	private static let minimumDrawn: CGFloat = 4
+
+	var body: some View {
+		GeometryReader { geometry in
+			let size = geometry.size
+			let width = max(box.width * size.width, Self.minimumDrawn)
+			let height = max(box.height * size.height, Self.minimumDrawn)
+			ZStack(alignment: .topLeading) {
+				RoundedRectangle(cornerRadius: 6, style: .continuous)
+					.fill(Color.secondary.opacity(0.12))
+				RoundedRectangle(cornerRadius: 6, style: .continuous)
+					.strokeBorder(Color.secondary.opacity(0.35), lineWidth: 1)
+				Rectangle()
+					.strokeBorder(.red, lineWidth: 2)
+					.frame(width: width, height: height)
+					// Clamped so a box flush against an edge draws inside the frame rather than
+					// half-outside it, which reads as a rendering fault rather than as a location.
+					.offset(
+						x: min(box.x * size.width, size.width - width),
+						y: min(box.y * size.height, size.height - height)
+					)
+			}
+		}
+		.aspectRatio(Self.aspect, contentMode: .fit)
+		.frame(maxWidth: 240, alignment: .leading)
+		.environment(\.layoutDirection, .leftToRight)
+		.accessibilityHidden(true)
+		.testability(Testability.View.sharedFindingBoxDiagram)
 	}
 }
 

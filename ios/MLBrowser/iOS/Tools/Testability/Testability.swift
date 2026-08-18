@@ -436,6 +436,10 @@ extension TestabilityIdentification {
 		/// (AIA-0657). Identified because it is the mechanism behind the ticket's credential
 		/// criterion: a test must be able to read what is on screen without matching localized copy.
 		case findingShareAddressPreview
+		/// The page diagram on a received link (AIA-0657): where on the captured page the detection
+		/// sat. Identified because it is the visible half of the ticket's first criterion, and the
+		/// half no localized string can stand in for.
+		case sharedFindingBoxDiagram
 		// Onboarding tour coach-mark bubble.
 		case tourBubble
 		// App Messages banner container (AIA-0115)

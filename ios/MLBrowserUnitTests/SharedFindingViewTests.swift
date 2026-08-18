@@ -22,6 +22,7 @@ final class SharedFindingViewTests: XCTestCase {
 		detectionClass: String? = nil,
 		confidencePercent: Int? = nil,
 		coordinate: FindingShareLink.Coordinate? = nil,
+		box: FindingShareLink.Box? = nil,
 		page: URL? = nil,
 		author: String? = nil,
 		date: DateComponents? = nil
@@ -32,6 +33,7 @@ final class SharedFindingViewTests: XCTestCase {
 			detectionClass: detectionClass,
 			confidencePercent: confidencePercent,
 			coordinate: coordinate,
+			box: box,
 			page: page,
 			author: author,
 			date: date
@@ -91,6 +93,44 @@ final class SharedFindingViewTests: XCTestCase {
 			)
 		)
 		XCTAssertEqual(sections, [.provenance, .title, .detection, .author, .date, .page, .map])
+	}
+
+	// MARK: - Where on the page (AIA-0657)
+
+	/// The box block sits immediately after the page, because it qualifies it: for a detection that
+	/// is not on a map, the page plus the place on it is the entire locator.
+	func test_layout_placesTheBoxDirectlyAfterThePage() throws {
+		let sections = SharedFindingSection.layout(
+			for: payload(
+				box: try XCTUnwrap(FindingShareLink.Box(x: 0.1, y: 0.2, width: 0.3, height: 0.4)),
+				page: URL(string: "https://example.org/ridge")
+			)
+		)
+		XCTAssertEqual(sections, [.provenance, .title, .page, .box])
+	}
+
+	/// A box with no page still locates something — "somewhere on the page it came from" is weaker
+	/// than a page plus a box, but it is not nothing, and dropping it would lose the only locator a
+	/// link whose address was reduced still has.
+	func test_layout_keepsTheBoxWithoutAPage() throws {
+		let sections = SharedFindingSection.layout(
+			for: payload(box: try XCTUnwrap(FindingShareLink.Box(x: 0.1, y: 0.2, width: 0.3, height: 0.4)))
+		)
+		XCTAssertEqual(sections, [.provenance, .title, .box])
+	}
+
+	func test_layout_omitsTheBoxWhenTheLinkCarriesNone() {
+		XCTAssertFalse(SharedFindingSection.layout(for: payload()).contains(.box))
+	}
+
+	/// The two claims the screen is allowed to make about the box, and the two the wire format can
+	/// actually support: where it sits, and how much of the page it covers. The captured view's
+	/// aspect ratio does not travel, so the drawn shape is indicative and nothing asserts otherwise.
+	func test_boxAreaAndPositionAreExactEvenThoughTheShapeIsNot() throws {
+		let box = try XCTUnwrap(FindingShareLink.Box(x: 0.25, y: 0.5, width: 0.2, height: 0.1))
+		XCTAssertEqual(box.areaFraction, 0.02, accuracy: 1e-9)
+		XCTAssertEqual(box.x, 0.25, accuracy: 1e-9)
+		XCTAssertEqual(box.y, 0.5, accuracy: 1e-9)
 	}
 
 	// MARK: - Optional blocks appear only when their content does
