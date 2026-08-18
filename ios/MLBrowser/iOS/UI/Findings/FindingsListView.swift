@@ -639,9 +639,9 @@ private struct InspectableHighlightedSnapshot: View {
 // MARK: - Mac-only context menu
 
 private extension View {
-	/// Attaches a context menu only when running on a Mac (right-click is the Mac
-	/// idiom, and the only pointer-reachable route to actions a mouse cannot swipe
-	/// to). On touch the menu is suppressed — the row's swipe actions serve instead.
+	/// Attaches a context menu only when running on a Mac. Right-click is the Mac idiom, and it is
+	/// the only pointer-reachable route to actions a mouse cannot swipe to. On touch the menu is
+	/// suppressed — the row's swipe actions serve instead.
 	@ViewBuilder
 	func macContextMenu<MenuItems: View>(@ViewBuilder _ menuItems: () -> MenuItems) -> some View {
 		if ProcessInfo.processInfo.isiOSAppOnMac || ProcessInfo.processInfo.isMacCatalystApp {
