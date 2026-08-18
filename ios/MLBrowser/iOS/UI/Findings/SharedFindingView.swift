@@ -48,6 +48,7 @@ enum SharedFindingPresentation: Equatable {
 enum SharedFindingSection: Hashable {
 	case provenance
 	case title
+	case openPage
 	case detection
 	case author
 	case date
@@ -59,6 +60,11 @@ enum SharedFindingSection: Hashable {
 		// Provenance leads, unconditionally. It is the only claim on this screen that is true
 		// regardless of what the link contained.
 		var sections: [SharedFindingSection] = [.provenance, .title]
+		// Directly under the title, ahead of the metadata: it is the reason the card exists, and on
+		// the smallest screen it was previously below the fold (AIA-0659). It carries the address it
+		// will open with it — on an unverified card, prominence without disclosure is the phishing
+		// surface, so the two arrive together or not at all.
+		if payload.page != nil { sections.append(.openPage) }
 		if detectionText(for: payload) != nil { sections.append(.detection) }
 		if payload.author != nil { sections.append(.author) }
 		if date(for: payload) != nil { sections.append(.date) }
@@ -444,6 +450,8 @@ struct SharedFindingUnverifiedView: View {
 				}
 				.font(.callout)
 			}
+		case .openPage:
+			openPageBlock
 		case .page:
 			pageBlock
 		case .box:
@@ -480,19 +488,69 @@ struct SharedFindingUnverifiedView: View {
 		.testability(Testability.View.sharedFindingProvenance)
 	}
 
+	/// The card's primary action, and the address it will open, as one unit.
+	///
+	/// Everything on this screen came from a stranger, and this is the only control that leaves the
+	/// app — it opens an attacker-chosen `https` URL. Showing the host alone told the recipient the
+	/// reassuring half and hid the deciding half: a host is exactly what a lookalike domain imitates
+	/// (`atlas.bayern.de.evil.example`), and the path and query are exactly where a real destination
+	/// hides (`atlas.bayern.de/redirect?to=…`). No signature scheme helps — a key shipped in the app
+	/// is not a secret, and a valid one would prove only that this app wrote the link, never that the
+	/// page is safe. Disclosure is the mitigation that works, so the address renders here in full,
+	/// beside the button rather than somewhere the eye reaches after tapping.
 	@ViewBuilder
-	private var pageBlock: some View {
+	private var openPageBlock: some View {
 		if let page = payload.page {
-			VStack(alignment: .leading, spacing: 10) {
-				detail(L10n.Finding.page, value: page.host ?? page.absoluteString, systemImage: "globe")
+			VStack(spacing: 8) {
 				Button {
 					onOpenPage(page)
 				} label: {
 					Label(L10n.Finding.Shared.openPage, systemImage: "safari")
+						.frame(maxWidth: .infinity)
 				}
-				.buttonStyle(.bordered)
+				.buttonStyle(.borderedProminent)
+				.controlSize(.large)
 				.testability(Testability.Button.sharedFindingOpenPage)
+
+				HStack(alignment: .top, spacing: 8) {
+					// Pinned left-to-right: `ar`, `he` and `fa` all ship, and a mixed-direction URL
+					// reorders on screen — which would make the one row whose purpose is "this is where
+					// you are going" display something other than where you are going. Selectable so a
+					// suspicious recipient can lift it out; **not** in a `ScrollView`, which has no
+					// intrinsic height and collapsed to nothing in a sized column once already
+					// (661a477a).
+					Text(verbatim: page.absoluteString)
+						.font(.caption.monospaced())
+						.foregroundStyle(.secondary)
+						.textSelection(.enabled)
+						.environment(\.layoutDirection, .leftToRight)
+						.multilineTextAlignment(.leading)
+						.fixedSize(horizontal: false, vertical: true)
+						.frame(maxWidth: .infinity, alignment: .leading)
+						.testability(Testability.View.sharedFindingAddress)
+					Button {
+						UIPasteboard.general.string = page.absoluteString
+					} label: {
+						Label(L10n.Common.copy, systemImage: "doc.on.doc")
+							.labelStyle(.iconOnly)
+					}
+					.buttonStyle(.borderless)
+					.font(.caption)
+					.accessibilityLabel(L10n.Common.copy)
+					.testability(Testability.Button.sharedFindingCopyAddress)
+				}
 			}
+			.frame(maxWidth: .infinity)
+		}
+	}
+
+	/// The host, kept in the metadata below even though the address above carries it: it is the
+	/// degraded floor that still names the service a finding came from, and it survives even when the
+	/// address was reduced to it (AIA-0657).
+	@ViewBuilder
+	private var pageBlock: some View {
+		if let page = payload.page {
+			detail(L10n.Finding.page, value: page.host ?? page.absoluteString, systemImage: "globe")
 		}
 	}
 

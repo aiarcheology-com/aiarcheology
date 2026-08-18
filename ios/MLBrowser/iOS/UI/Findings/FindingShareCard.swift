@@ -453,9 +453,29 @@ struct FindingShareComposer: View {
 				.frame(maxWidth: .infinity, alignment: .leading)
 
 			VStack(alignment: .leading, spacing: 2) {
-				Text(L10n.Finding.Share.addressPreview)
-					.font(.caption)
-					.foregroundStyle(.secondary)
+				HStack(spacing: 8) {
+					Text(L10n.Finding.Share.addressPreview)
+						.font(.caption)
+						.foregroundStyle(.secondary)
+					Spacer(minLength: 0)
+					// Selecting the text by hand still works and is the floor; this is the one-tap
+					// form, because the floor means dragging two handles across a wrapped
+					// 300-character URL. Inside the `travellingAddress` check on purpose: when no
+					// address travels there is nothing to copy, so there must be no control rather
+					// than a disabled one.
+					if let address = travellingAddress {
+						Button {
+							UIPasteboard.general.string = address.absoluteString
+						} label: {
+							Label(L10n.Common.copy, systemImage: "doc.on.doc")
+								.labelStyle(.iconOnly)
+						}
+						.buttonStyle(.borderless)
+						.font(.caption)
+						.accessibilityLabel(L10n.Common.copy)
+						.testability(Testability.Button.findingShareCopyAddress)
+					}
+				}
 				if let address = travellingAddress {
 					// Pinned left-to-right regardless of the app's language. A URL is a
 					// left-to-right string, and under `ar`, `he` or `fa` a mixed-direction host and
