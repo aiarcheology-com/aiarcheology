@@ -12,11 +12,11 @@ Please test on a real map portal (ags.cuzk.cz, mapy.com, openstreetmap.org). Put
 
 3. Send that link to yourself and open it on another device. It must land on the SAME map view, not the portal's home page. Report it if you land elsewhere.
 
-4. Share again with the switch off — now it should land on the site's front page. Both are correct; the switch chooses.
+4. Share again with the switch off: it lands on the site's front page. Both are correct; the switch chooses.
 
 5. The QR sits flush in the bottom-right CORNER of the information block, beside the rows rather than under them. Check Portrait and Landscape, Light and Dark, with a finding that has many rows (label, note, GPS, host, date) and one with two. It must never overlap text. Landscape cards are wider than before; that is deliberate.
 
-6. Scan the QR with the Camera app, including from a photo of the card on another screen. The code is now sized to what it holds, so expect a bigger one for a long address.
+6. Scan the QR with the Code Scanner (Control Centre), including from a photo of the card on another screen: it opens the app on the finding. The Camera app opens the web page instead — that is iOS, not a fault. The code is sized to what it holds, so expect a bigger one for a long address.
 
 7. Turn "Let people open this finding in the app" off and share: "Save Image" comes back and no link is attached. That is the trade-off the switch exists for.
 
@@ -28,7 +28,7 @@ Please test on a real map portal (ags.cuzk.cz, mapy.com, openstreetmap.org). Put
 
 11. Dismiss (top left) closes the card and it does not come back. Tapping outside the card must NOT close it.
 
-12. Damage a link on purpose — delete a chunk from the end — and open it. The app must say it could not read the link, never open to nothing.
+12. Damage a link on purpose (delete a chunk from the end) and open it. The app must say it could not read the link, never open to nothing.
 
 13. Open a link on a device WITHOUT the app, or on a computer: a page describing the finding with a "Get ML Browser" button, whose page link opens the same map view.
 
