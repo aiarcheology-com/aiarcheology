@@ -200,12 +200,13 @@ enum FindingShareQRCode {
 struct FindingShareLinkBadge: View {
 	let link: FindingShareCardLink
 
-	/// The widest the badge can ever be — the ceiling code plus its padding. What the *layout test*
-	/// reserves against, because a card must hold the worst case, not the typical one.
+	/// The widest the badge can ever be — the ceiling code plus its padding.
+	///
+	/// What the *layout test* reserves against, because the card must hold the worst case rather
+	/// than the typical one. There is deliberately no per-instance width: the badge sizes itself
+	/// from `link.codePointSize` in `body`, and a second property computing the same number invited
+	/// a future reader to believe it drove the layout when nothing read it (raised in review).
 	static var maximumWidth: CGFloat { FindingShareQRCode.maximumPointSize + padding * 2 }
-
-	/// This badge's actual width, which follows its payload.
-	var width: CGFloat { link.codePointSize + Self.padding * 2 }
 
 	private static let padding: CGFloat = 5
 

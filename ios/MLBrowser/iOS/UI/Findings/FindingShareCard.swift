@@ -429,8 +429,8 @@ struct FindingShareComposer: View {
 		// sender would watch the privacy control appear to work and post a card whose QR still carried
 		// the query. Rebuilding costs one round trip per deliberate tap, not one per frame.
 		// `initial: true` covers the ordinary case of the flag already being on when the sheet opens.
-		.onChange(of: [isLinkEnabled, sharesFullAddress], initial: true) { _, flags in
-			linkArt = flags[0] ? FindingShareQRCode.cardLink(for: subject, pageDetail: pageDetail) : nil
+		.onChange(of: LinkArtKey(isEnabled: isLinkEnabled, sharesFullAddress: sharesFullAddress), initial: true) { _, key in
+			linkArt = key.isEnabled ? FindingShareQRCode.cardLink(for: subject, pageDetail: key.detail) : nil
 		}
 	}
 
@@ -488,6 +488,19 @@ struct FindingShareComposer: View {
 			.frame(maxWidth: .infinity, alignment: .leading)
 			.background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 		}
+	}
+
+	/// The two inputs the printed code depends on, named rather than positional.
+	///
+	/// `onChange(of:)` needs one `Equatable` value and Swift tuples cannot conform, so an array was
+	/// the first thing that fit — and indexing it (`flags[0]`) meant the meaning of each element
+	/// lived only in the reader's head, one reordering away from silently regenerating the code for
+	/// the wrong reason (raised in review).
+	private struct LinkArtKey: Equatable {
+		let isEnabled: Bool
+		let sharesFullAddress: Bool
+
+		var detail: FindingShareLink.PageDetail { sharesFullAddress ? .full : .siteOnly }
 	}
 
 	/// What the sender has chosen to send.
