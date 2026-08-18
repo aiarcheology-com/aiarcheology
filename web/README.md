@@ -81,9 +81,14 @@ Direct Upload, not the Git integration: this repository is private and holds the
 and Cloudflare has no reason to read any of it. Direct Upload sends only this directory.
 
 ```
-npx wrangler pages project create aiarcheology-link
-npx wrangler pages deploy web/link-site --project-name=aiarcheology-link
+npx wrangler pages project create aiarcheology-link --production-branch main
+npx wrangler pages deploy web/link-site --project-name=aiarcheology-link --branch main
 ```
+
+**`--branch main` is not optional.** Without it `wrangler` infers the branch from git, so deploying
+from a feature branch produces a **preview** deployment — and a custom domain only ever serves the
+**production** one. The deploy reports success, the preview URL works, and `link.aiarcheology.com`
+returns 404 with nothing to explain why.
 
 Then in the Cloudflare dashboard: the Pages project → Custom domains → add
 `link.aiarcheology.com`, and copy the `<project>.pages.dev` target it shows you.
