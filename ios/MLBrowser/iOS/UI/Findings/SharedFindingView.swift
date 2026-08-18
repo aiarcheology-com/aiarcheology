@@ -312,6 +312,12 @@ struct SharedFindingView: View {
 			HStack {
 				Button(L10n.Common.dismiss) { dismiss() }
 					.buttonStyle(.borderless)
+					// Stated, not inherited. The app's other sheets put this button in a real
+					// navigation bar, which supplies its own metrics; this header is hand-rolled
+					// (see above), so without a font the button falls back to ambient body and
+					// reads lighter than the title beside it — the mismatch that makes a
+					// deliberate title bar look like an unfinished one.
+					.font(.headline)
 					.tint(.blue)
 					.testability(Testability.Button.sharedFindingDismiss)
 				Spacer(minLength: 12)
@@ -501,15 +507,26 @@ struct SharedFindingUnverifiedView: View {
 	@ViewBuilder
 	private var openPageBlock: some View {
 		if let page = payload.page {
-			VStack(spacing: 8) {
+			// The card's sections are 20 apart, so this block spaces its own two rows the same: the
+			// button then sits with equal air above and below rather than hugging the address and
+			// leaving a wider gap under the title.
+			VStack(spacing: 20) {
+				// Sized to its label, not to the card. Dominant is the job — filled and blue, while
+				// nothing else here is — and a full-width slab overshot it: stretched across 520pt it
+				// read as a banner rather than a button, and on an unverified card the loudest element
+				// should be the warning, not the control that opens a stranger's URL.
 				Button {
 					onOpenPage(page)
 				} label: {
 					Label(L10n.Finding.Shared.openPage, systemImage: "safari")
-						.frame(maxWidth: .infinity)
 				}
 				.buttonStyle(.borderedProminent)
-				.controlSize(.large)
+				// Blue explicitly: the app's accent resolves grey here, which read as a disabled
+				// control on the one button that is the card's primary action.
+				.tint(.blue)
+				// A capsule at this width is all shoulder and no edge; a rounded rectangle keeps it a
+				// button. `.controlSize` stays default — large made it a slab.
+				.buttonBorderShape(.roundedRectangle(radius: 10))
 				.testability(Testability.Button.sharedFindingOpenPage)
 
 				HStack(alignment: .top, spacing: 8) {

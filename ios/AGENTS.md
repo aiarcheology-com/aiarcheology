@@ -488,6 +488,7 @@ and a missing key stalls a TestFlight build silently, so leave it in place.
 - **Every issue belongs to the [AI Archeology project](https://github.com/orgs/aiarcheology-com/projects/1)** (org project #1). Add it at creation time — an issue that is not on the board is invisible to planning, and "I'll add it later" is how it stays invisible.
 - **New issues start at `Todo`.** The board's Status field runs `Todo → Waiting → In Progress → In Review → Done`. An empty Status is not a valid starting state; set it when you file the issue.
 - Title issues `AIA-XXXX: <summary>` so the key lines up with the branch segment (`<type>/AIA-XXXX/desc`) and the commit prefix (`[AIA-XXXX]`).
+- **Read an issue's comments, not just its body — the scope is the whole thread.** Scope is routinely *added* after filing, as `## Also in scope:` comments, and `gh issue view --json body` does not return them. Fetch `.../issues/<n>/comments` (or `--json body,comments`) before planning: AIA-0659 looked like a one-line fix from its body and was in fact four items, three of them added by comment hours later.
 - **`Closes #NNN` does not auto-close for PRs targeting `develop`.** GitHub only honours closing keywords on merges to the default branch (`main`). Since PRs here target `develop`, closing the issue *and* moving its board status to `Done` is a manual step after every merge — budget for it rather than assuming the link fired.
 
 ### Branches & commits
