@@ -335,6 +335,7 @@
 		ABAA0650000000000000B007 /* FindingShareEmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A007 /* FindingShareEmission.swift */; };
 		ABAA0650000000000000B008 /* FindingShareQRCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A008 /* FindingShareQRCode.swift */; };
 		ABAA0650000000000000B009 /* FindingShareEmissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0650000000000000A009 /* FindingShareEmissionTests.swift */; };
+		ABAA0657000000000000B001 /* FindingShareCardLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0657000000000000A001 /* FindingShareCardLayoutTests.swift */; };
 		AC055600000000000000B006 /* FreeAccessStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A006 /* FreeAccessStateTests.swift */; };
 		AC055600000000000000B007 /* SubscriptionGateDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */; };
 		AC055600000000000000B008 /* FreeAccessUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC055600000000000000A008 /* FreeAccessUITests.swift */; };
@@ -719,6 +720,7 @@
 		ABAA0650000000000000A007 /* FindingShareEmission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingShareEmission.swift; sourceTree = "<group>"; };
 		ABAA0650000000000000A008 /* FindingShareQRCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingShareQRCode.swift; sourceTree = "<group>"; };
 		ABAA0650000000000000A009 /* FindingShareEmissionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingShareEmissionTests.swift; sourceTree = "<group>"; };
+		ABAA0657000000000000A001 /* FindingShareCardLayoutTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FindingShareCardLayoutTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A006 /* FreeAccessStateTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessStateTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A007 /* SubscriptionGateDisplayTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SubscriptionGateDisplayTests.swift; sourceTree = "<group>"; };
 		AC055600000000000000A008 /* FreeAccessUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FreeAccessUITests.swift; sourceTree = "<group>"; };
@@ -1229,6 +1231,7 @@
 				94FF0001000000000000B004 /* FeatureFlagsTests.swift */,
 				ABAA0650000000000000A002 /* FindingShareLinkTests.swift */,
 				ABAA0650000000000000A009 /* FindingShareEmissionTests.swift */,
+				ABAA0657000000000000A001 /* FindingShareCardLayoutTests.swift */,
 				ABAA0650000000000000A004 /* SharedFindingStateTests.swift */,
 				ABAA0650000000000000A006 /* SharedFindingViewTests.swift */,
 				AA0454020000000000000001 /* SupportRequestTests.swift */,
@@ -2135,6 +2138,7 @@
 				94FF0001000000000000B104 /* FeatureFlagsTests.swift in Sources */,
 				ABAA0650000000000000B002 /* FindingShareLinkTests.swift in Sources */,
 				ABAA0650000000000000B009 /* FindingShareEmissionTests.swift in Sources */,
+				ABAA0657000000000000B001 /* FindingShareCardLayoutTests.swift in Sources */,
 				ABAA0650000000000000B004 /* SharedFindingStateTests.swift in Sources */,
 				ABAA0650000000000000B006 /* SharedFindingViewTests.swift in Sources */,
 				AA0454030000000000000001 /* SupportRequestTests.swift in Sources */,

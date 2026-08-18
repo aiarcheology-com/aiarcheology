@@ -1,30 +1,36 @@
 Build: TBD
 
-Test Focus 1: Findings can now be shared as a link that opens the app on that finding.
+Test Focus 1: Sharing a finding as a link — and what that link now carries.
 
-Sharing a finding still shares the picture. What is new is that a link travels with it, and the card itself now carries a QR code and the address link.aiarcheology.com. Anyone who sees your post can get to the finding; anyone without the app gets a page describing it and a link to the App Store.
+Sharing still shares the picture; a link travels beside it and the card carries a QR. What changed: the link now holds the FULL web address, including the part after the "?" that map sites keep the view in — so a recipient lands on YOUR view, not the site's front page. You are shown that exact address before you post.
 
-Please put coordinates into at least one finding before you start (Findings list, tap a finding, GPS field, e.g. 48.8, 19.53). Without them the map part cannot be tested at all.
+Please test on a real map portal (ags.cuzk.cz, mapy.com, openstreetmap.org). Put coordinates into one finding first (Findings, tap one, GPS field, e.g. 48.8, 19.53) or the map part cannot be tested.
 
-1. Share a finding. The card is noticeably larger than before, and the QR sits in the bottom-right of the information block, under the date. Check Portrait and Landscape, Light and Dark: the code must never overlap the text.
+1. Share a finding from a map portal. Under the link switch is a box headed "This link carries at most:" showing the web address. Read it — whatever is in that box is what travels, nothing more.
 
-2. The new switch "Let people open this finding in the app" is on. Send the finding to yourself in Messages or Mail. Both the picture AND a link should arrive.
+2. Turn "Share the full web address" off: it shortens to the site alone. Turn it back on: the long form returns.
 
-3. Turn that switch off and share again. "Save Image" comes back in the share sheet, and no link is attached. That is the trade-off the switch exists for — with a link attached, iOS hides Save Image and any app that only accepts pictures.
+3. Send that link to yourself and open it on another device. It must land on the SAME map view, not the portal's home page. Report it if you land elsewhere.
 
-4. Tap the link you sent yourself. The app should open on a read-only screen saying "This Is Your Finding" — because it is yours. Nothing new should appear in your Findings list.
+4. Share again with the switch off: it lands on the site's front page. Both are correct; the switch chooses.
 
-5. Send a link to someone else with the app installed. They should see the finding with an orange "Shared by Someone Else" warning, the label, confidence, your name and the date. It must NOT be added to their findings.
+5. The QR sits flush in the bottom-right CORNER of the information block, beside the rows rather than under them. Check Portrait and Landscape, Light and Dark, with a finding that has many rows (label, note, GPS, host, date) and one with two. It must never overlap text. Landscape cards are wider than before; that is deliberate.
 
-6. On that screen, if the finding had coordinates, there is a "Show on Map" button. The map should appear only after tapping it, never before.
+6. Scan the QR with the Code Scanner (Control Centre), including from a photo of the card on another screen: it opens the app on the finding. The Camera app opens the web page instead — that is iOS, not a fault. The code is sized to what it holds, so expect a bigger one for a long address.
 
-7. Tap "Open the Original Page". The app should switch to the browser and load the page, with the drawer closed.
+7. Turn "Let people open this finding in the app" off and share: "Save Image" returns and no link is attached. That is the trade-off.
 
-8. Open a link on a device WITHOUT the app, or on a computer. You should get a page describing the finding with a "Get ML Browser" button.
+8. Open a link to your OWN finding: the app opens on a read-only screen saying it is yours. Nothing is added to your Findings list — a shared link never creates a finding.
 
-9. Damage a link on purpose — delete a chunk from the end and open it. The app must say "This Link Could Not Be Read", never open to nothing.
+9. Open someone else's link. It appears as a CARD over the dimmed app, not a full screen — on a Mac a card in the middle of the window, not lines stranded in a corner. It carries an orange "Shared by Someone Else" warning, and a "Where on the page" diagram of where the detection sat. A diagram, not a screenshot: no picture of your page ever leaves your device.
 
-10. Point the Camera app at the QR on a shared card, including a photo of the card on another screen. It should scan.
+10. The important one. Sign out or use a fresh install so the paywall, welcome screen or analytics question is still waiting, then open a shared link. The finding must appear ON TOP of it. Then tap "Open the Original Page" from there: the card closes, you deal with the paywall, and you should land on the shared page.
+
+11. Dismiss (top left) closes the card for good. Tapping outside it must NOT close it.
+
+12. Damage a link on purpose (delete a chunk from the end) and open it. The app must say it could not read the link, never open to nothing.
+
+13. Open a link on a device WITHOUT the app, or on a computer: a page describing the finding with a "Get ML Browser" button, whose page link opens the same map view.
 
 Test Focus 2: Findings carry the name of whoever found them.
 

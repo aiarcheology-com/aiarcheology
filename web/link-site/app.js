@@ -21,7 +21,10 @@
 
   // Mirrors FindingShareLink.Limit in the app. A hostile link should not be able to hand the
   // page a megabyte of text in a field styled to be one line.
-  var LIMITS = { t: 80, c: 60, a: 60, u: 400 };
+  //
+  // `u` grew to 600 with AIA-0657, when the address stopped being reduced to its host: a map
+  // viewer keeps the view in the query string, and those are frequently longer than the path.
+  var LIMITS = { t: 80, c: 60, a: 60, u: 600 };
 
   function show(id) {
     var element = document.getElementById(id);
@@ -85,12 +88,20 @@
     // protocol check that accepts anything beginning with "http" also accepts "https-evil:".
     if (parsed.protocol !== 'https:') { return null; }
     if (parsed.username !== '' || parsed.password !== '') { return null; }
-    // Drop the query and fragment, exactly as FindingShareLink.sanitizedPage does on the way
-    // out. The app already strips them, so a link arriving here with a query is hand-made —
-    // and the two halves of this contract disagreeing about what a link means is how one ends
-    // up rendering something the other would have refused.
-    parsed.search = '';
-    parsed.hash = '';
+    // The query and fragment are KEPT, as of AIA-0657.
+    //
+    // They used to be stripped here, described as matching what the app did on the way out. That
+    // stopped being true the moment the app began carrying them, and this half mattered more than
+    // it looks: a recipient WITHOUT the app is exactly who lands on this page, and stripping here
+    // would send the audience the sharing feature exists to reach to a geoportal's front door
+    // while the app's own users got the view. The two halves of a contract disagreeing about what
+    // a link means is how one ends up rendering something the other would have refused.
+    //
+    // No credential denylist here, deliberately. That belongs on the emit path, where the sender's
+    // own address is, and it lives in exactly one implementation (FindingShareLink) rather than
+    // being copied into a second one with no tests to keep it honest. A query that reaches this
+    // page is already public - it is in a link someone posted - and rewriting it would only mean
+    // the address shown is not the address opened.
     return parsed;
   }
 

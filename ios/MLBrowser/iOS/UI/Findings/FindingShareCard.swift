@@ -24,10 +24,20 @@ enum ShareCardOrientation: String, CaseIterable, Identifiable {
 	/// canvas. Growing the card instead makes that fixed code a smaller *fraction* of the metadata
 	/// block — in portrait it drops from about 36% of that block's height to 25% — which is what
 	/// makes room for it beside the text rather than on top of it.
+	/// Landscape grew again for AIA-0657, and by measurement rather than preference. The link badge
+	/// is now a sibling of the text rather than an overlay on it, so it *reserves* its width — and at
+	/// 640pt the metadata block had 139.6pt left for the rows, while the host row (the degraded floor
+	/// the ticket forbids losing) needs about 149pt for a domain like `www.openstreetmap.org`.
+	/// `FindingShareCardLayoutTests.test_theHostRowFitsBesideTheBadgeInBothOrientations` is that
+	/// measurement, and it failed at 640×336 before this change.
+	///
+	/// 760×399 is the same ratio to the pixel — 640/336 and 760/399 are both exactly 40/21 — which
+	/// matters because the two orientations exist *to be* 4:5 and ~1.9:1 for the feeds that crop to
+	/// them. 760×400 would have been a quietly different card.
 	var size: CGSize {
 		switch self {
 		case .portrait: return CGSize(width: 480, height: 600)
-		case .landscape: return CGSize(width: 640, height: 336)
+		case .landscape: return CGSize(width: 760, height: 399)
 		}
 	}
 
@@ -203,7 +213,45 @@ struct FindingShareCard: View {
 		.clipped()
 	}
 
+	/// The text block and, when there is one, the link badge beside it.
+	///
+	/// ## Why the badge is a sibling and not an overlay
+	/// It used to be `.overlay(alignment: .bottomTrailing)` applied *before* the expanding
+	/// `.frame(…, alignment: .topLeading)`, so it anchored to the intrinsically-sized text block
+	/// rather than to the metadata block — below the rows and left of centre in portrait, and not
+	/// quite in the corner in landscape (AIA-0657). Reordering the modifiers would have fixed the
+	/// anchor and left the overlap: an overlay draws *on top of* the rows, so a long note or host
+	/// would run underneath the code.
+	///
+	/// As a sibling in an `HStack(alignment: .bottom)` the overlap is not merely absent, it is
+	/// unrepresentable — the text column's width excludes the badge by construction, at any row
+	/// count from two to seven.
+	///
+	/// ## Two properties, both load-bearing
+	/// - `.frame(maxWidth: .infinity, alignment: .leading)` on the text column: a `VStack` sizes to
+	///   its widest child, so without this the badge sits immediately right of the *longest row*
+	///   instead of flush to the block's trailing edge — the original defect, rebuilt inside its own
+	///   fix.
+	/// - the trailing `Spacer(minLength: 0)`: it is what makes the column fill the block's height,
+	///   and therefore what puts the `.bottom`-aligned badge on the block's floor. Without it the
+	///   `HStack` collapses to its content and the outer `.topLeading` frame floats the badge in
+	///   mid-block whenever the finding has few rows.
+	///
+	/// Two rows is the case that exercises both at once, which is why the layout test asserts there.
 	private var metadata: some View {
+		HStack(alignment: .bottom, spacing: 12) {
+			metadataRows
+				.frame(maxWidth: .infinity, alignment: .leading)
+
+			if let link {
+				FindingShareLinkBadge(link: link)
+			}
+		}
+		.padding(16)
+		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+	}
+
+	private var metadataRows: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			Text(subject.title)
 				.font(.title3.bold())
@@ -212,7 +260,12 @@ struct FindingShareCard: View {
 
 			if let detectionClass = subject.detectionClass {
 				// verbatim: model class vocabulary, not localizable.
-				Text(verbatim: "\(detectionClass) · \(Int(subject.confidence * 100))%")
+				// Clamped as a Double BEFORE the conversion. `Int(_:)` traps on NaN or on anything
+				// outside `Int`'s range, and `Finding.detectionConfidence` is an unconstrained Core
+				// Data `Double` — so a corrupt or imported row crashed the app on *rendering the
+				// card*. Exactly the trap `FindingShareEmission.percent` was rewritten to avoid;
+				// this copy was one file away and still had it (found in review, AIA-0657).
+				Text(verbatim: "\(detectionClass) · \(Int((min(1, max(0, subject.confidence.isFinite ? subject.confidence : 0)) * 100).rounded()))%")
 					.font(.caption.weight(.semibold))
 					.padding(.horizontal, 10)
 					.padding(.vertical, 4)
@@ -268,21 +321,10 @@ struct FindingShareCard: View {
 				.foregroundStyle(.secondary)
 			}
 
+			// Load-bearing: this is what makes the column fill the block, and therefore what puts the
+			// badge beside it on the block's floor. See ``metadata``.
 			Spacer(minLength: 0)
 		}
-		.padding(16)
-		// Bottom-trailing of the metadata block, which is where a reader looks last. Laid out as an
-		// overlay rather than a row so it sits in the corner regardless of how many rows the finding
-		// happens to have — the block holds anywhere from two to seven. The enlarged card (see
-		// `ShareCardOrientation.size`) is what makes this fit: at the old 340×425 the same 64pt code
-		// would have collided with the last row of a finding that had a note.
-		.overlay(alignment: .bottomTrailing) {
-			if let link {
-				FindingShareLinkBadge(link: link)
-					.padding(16)
-			}
-		}
-		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 	}
 
 	private var background: some View {
@@ -321,6 +363,15 @@ struct FindingShareComposer: View {
 	/// existed: the user would turn it off once to reach Save Image, and every share they ever made
 	/// afterwards would silently be an image with no way back into the app.
 	@State private var includesLink = true
+
+	/// Whether the link carries the page's whole address or only its site.
+	///
+	/// **Default on**, because the reduced form is what this ticket exists to fix: a geoportal keeps
+	/// the view in the query string, so a site-only link lands the recipient on a homepage holding
+	/// none of what was shared. The privacy cost is not hidden behind that default — the exact
+	/// address is printed below the toggle before anything is posted, which is the mechanism the
+	/// acceptance criteria name (AIA-0657).
+	@State private var sharesFullAddress = true
 
 	/// The rendered address + QR, built once per presentation. Held in state rather than computed in
 	/// `body` because the preview re-renders on every frame of a pinch or a drag, and generating a QR
@@ -368,12 +419,113 @@ struct FindingShareComposer: View {
 				didSeedTheme = true
 			}
 		}
-		// `initial: true` covers the ordinary case (the flag is already on when the sheet opens);
-		// the change branch covers a mid-session flip, which is the point of reading this flag live.
-		.onChange(of: isLinkEnabled, initial: true) { _, enabled in
-			guard enabled, linkArt == nil else { return }
-			linkArt = FindingShareQRCode.cardLink(for: subject)
+		// Keyed on the **pair**, and rebuilt unconditionally rather than only when `linkArt` is nil.
+		//
+		// The previous `guard enabled, linkArt == nil` made this idempotent on purpose — generating a
+		// QR is a Core Image round trip and the preview re-renders on every frame of a pinch — but
+		// that guard becomes exactly wrong once a second input can change the payload. With it,
+		// flipping the address toggle updated the printed address row (derived from the payload) while
+		// the code went on encoding the previous URL, and `share()` exported that stale code: the
+		// sender would watch the privacy control appear to work and post a card whose QR still carried
+		// the query. Rebuilding costs one round trip per deliberate tap, not one per frame.
+		// `initial: true` covers the ordinary case of the flag already being on when the sheet opens.
+		.onChange(of: LinkArtKey(isEnabled: isLinkEnabled, sharesFullAddress: sharesFullAddress), initial: true) { _, key in
+			linkArt = key.isEnabled ? FindingShareQRCode.cardLink(for: subject, pageDetail: key.detail) : nil
 		}
+	}
+
+	/// The address control, and the address itself.
+	///
+	/// The row exists because of what the card cannot say: it prints only `link.aiarcheology.com`,
+	/// so the code beside that text can carry a full query string with nothing on the artifact
+	/// disclosing it. Everything that could ever be sensitive in a shared link is in this one string,
+	/// so it is shown whole — no middle truncation, since the middle is exactly where `?token=` sits.
+	private var addressChoice: some View {
+		VStack(alignment: .leading, spacing: 6) {
+			Toggle(L10n.Finding.Share.fullAddress, isOn: $sharesFullAddress)
+				.testability(Testability.Toggle.findingShareFullAddress)
+			Text(L10n.Finding.Share.fullAddressFootnote)
+				.font(.footnote)
+				.foregroundStyle(.secondary)
+				// Explicit, because a greedy sibling in this column otherwise takes its height out of
+				// this text's line count rather than its own.
+				.fixedSize(horizontal: false, vertical: true)
+				.frame(maxWidth: .infinity, alignment: .leading)
+
+			VStack(alignment: .leading, spacing: 2) {
+				Text(L10n.Finding.Share.addressPreview)
+					.font(.caption)
+					.foregroundStyle(.secondary)
+				if let address = travellingAddress {
+					// Pinned left-to-right regardless of the app's language. A URL is a
+					// left-to-right string, and under `ar`, `he` or `fa` a mixed-direction host and
+					// path reorder on screen — which would make the one row whose entire purpose is
+					// "this is exactly what travels" display something other than what it holds.
+					// Selectable so a suspicious sender can lift it out and read it elsewhere.
+					// **Not** a `ScrollView`, and that was a real bug for one build: a scroll view has
+					// no intrinsic height, so in this intrinsically-sized column it collapsed to
+					// nothing — the address box rendered empty — while still claiming enough space to
+					// squeeze the footnote above it into a single truncated line. It was added to
+					// bound the 600-character worst case; the cure was worse than the disease, since
+					// the usual address is two or three lines and the card preview above this is a
+					// `GeometryReader` that gives up height when the controls need it.
+					Text(verbatim: address.absoluteString)
+						.font(.caption.monospaced())
+						.textSelection(.enabled)
+						.environment(\.layoutDirection, .leftToRight)
+						.multilineTextAlignment(.leading)
+						.fixedSize(horizontal: false, vertical: true)
+						.frame(maxWidth: .infinity, alignment: .leading)
+						.testability(Testability.View.findingShareAddressPreview)
+				} else {
+					Text(L10n.Finding.Share.addressNotIncluded)
+						.font(.caption)
+						.foregroundStyle(.secondary)
+						.frame(maxWidth: .infinity, alignment: .leading)
+				}
+			}
+			.padding(8)
+			.frame(maxWidth: .infinity, alignment: .leading)
+			.background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+		}
+	}
+
+	/// The two inputs the printed code depends on, named rather than positional.
+	///
+	/// `onChange(of:)` needs one `Equatable` value and Swift tuples cannot conform, so an array was
+	/// the first thing that fit — and indexing it (`flags[0]`) meant the meaning of each element
+	/// lived only in the reader's head, one reordering away from silently regenerating the code for
+	/// the wrong reason (raised in review).
+	private struct LinkArtKey: Equatable {
+		let isEnabled: Bool
+		let sharesFullAddress: Bool
+
+		var detail: FindingShareLink.PageDetail { sharesFullAddress ? .full : .siteOnly }
+	}
+
+	/// What the sender has chosen to send.
+	private var pageDetail: FindingShareLink.PageDetail {
+		sharesFullAddress ? .full : .siteOnly
+	}
+
+	/// The address that will actually travel — read back out of the link this composer would emit,
+	/// not out of the subject it would emit it from.
+	///
+	/// That distinction is the whole point. `subject.page` is the browsed URL; what travels is
+	/// whatever survives sanitizing, the credential strip, the drop ladder and the length budget. A
+	/// preview built from the intent would be a description of what we meant to send, which is
+	/// precisely the claim an acceptance criterion about credentials cannot rest on. Building the
+	/// link and parsing it back makes the row a *reading of the artifact*.
+	///
+	/// It is an upper bound rather than an exact match for both artifacts: the QR carries the compact
+	/// variant, whose ladder may reduce this same address to its host to fit. Never a different one —
+	/// `FindingShareLinkTests.test_theCompactAddressIsNeverWiderThanTheFullOne` is what holds that.
+	private var travellingAddress: URL? {
+		guard let url = FindingShareLink.url(
+			for: subject.linkPayload(pageDetail: pageDetail),
+			pageDetail: pageDetail
+		) else { return nil }
+		return FindingShareLink.payload(from: url)?.page
 	}
 
 	/// The live flag. Everything this feature adds — the toggle, the card art and the shared link —
@@ -478,6 +630,10 @@ struct FindingShareComposer: View {
 						.font(.footnote)
 						.foregroundStyle(.secondary)
 						.frame(maxWidth: .infinity, alignment: .leading)
+
+					if includesLink, subject.page != nil {
+						addressChoice
+					}
 				}
 			}
 		}
@@ -536,7 +692,8 @@ struct FindingShareComposer: View {
 					image: image,
 					subject: subject,
 					isLinkEnabled: isLinkEnabled,
-					includesLink: includesLink
+					includesLink: includesLink,
+					pageDetail: pageDetail
 				)
 			)
 		}

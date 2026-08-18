@@ -5,6 +5,7 @@
 //  Buffering for shared finding links (AIA-0650).
 //
 
+import Combine
 import XCTest
 @testable import ML_Browser
 
@@ -195,6 +196,61 @@ final class SharedFindingStateTests: XCTestCase {
 		XCTAssertEqual(pending.page?.absoluteString, "https://example.org/ruins")
 		XCTAssertEqual(pending.author, "V. Slavík")
 		XCTAssertEqual(pending.date?.day, 17)
+	}
+
+	// MARK: - The page latch the shared screen hands its URL to (AIA-0657)
+
+	/// `SharedFindingView.openPage` does not touch the web view directly — it latches
+	/// `AppChromeState.pageToOpen`, which `WebScreen` drains. That indirection is what lets a link
+	/// tapped behind the paywall land on its page after the gate resolves: `WebScreen` is not mounted
+	/// yet, so nothing consumes the value until it is.
+	///
+	/// This pins the hazard on the *other* side of that route, which was live on `develop` before
+	/// this ticket. `@Published` publishes from `willSet`, so a subscriber that clears the property
+	/// inline is assigning *inside* the assignment that delivered the value — its store lands first
+	/// and the outer store then writes the URL back over it. The latch stays armed and the next
+	/// `WebScreen` to mount navigates away from whatever the user was reading.
+	///
+	/// **What this proves, and what it does not.** A SwiftUI `onReceive` closure is not reachable from
+	/// a unit test, and `AppChromeState` takes four live dependencies to construct, so this exercises
+	/// a stand-in with the same shape — one `@Published URL?` and a subscriber that clears it. It
+	/// pins the *semantics* that force `WebScreen`'s deferred clear; that the real screen still uses
+	/// that pattern is held by the comment there and by the agentic check on a running app.
+	func test_clearingThePageLatchInlineDoesNotStick_butDeferringDoes() {
+		/// The shape of `AppChromeState.pageToOpen` and nothing else.
+		final class Latch: ObservableObject {
+			@Published var pageToOpen: URL?
+		}
+
+		let chrome = Latch()
+		let page = URL(string: "https://example.org/ruins")
+
+		var inlineCancellable: AnyCancellable?
+		inlineCancellable = chrome.$pageToOpen.sink { url in
+			guard url != nil else { return }
+			chrome.pageToOpen = nil
+		}
+		chrome.pageToOpen = page
+		XCTAssertEqual(
+			chrome.pageToOpen, page,
+			"If this ever passes as nil, Combine's willSet semantics changed and WebScreen's deferred clear can be simplified"
+		)
+		inlineCancellable?.cancel()
+
+		chrome.pageToOpen = nil
+		var deferredCancellable: AnyCancellable?
+		deferredCancellable = chrome.$pageToOpen.sink { url in
+			guard url != nil else { return }
+			DispatchQueue.main.async { chrome.pageToOpen = nil }
+		}
+		chrome.pageToOpen = page
+
+		let drained = expectation(description: "the latch clears on the next runloop turn")
+		DispatchQueue.main.async { drained.fulfill() }
+		wait(for: [drained], timeout: 1)
+
+		XCTAssertNil(chrome.pageToOpen, "the deferred clear is what WebScreen relies on")
+		deferredCancellable?.cancel()
 	}
 }
 

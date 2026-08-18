@@ -305,7 +305,8 @@ struct MLBrowser: App {
 			// delivers them, and because a link must be caught whatever is on screen — including the
 			// paywall, the consent screen, and the launch spinner above.
 			//
-			// This is the app's ONLY `onOpenURL`, and it sees every URL the app is handed. That
+			// This is the app's only `onOpenURL`, and with the activity handler below it is the whole
+			// of its URL intake. It sees every URL the app is handed. That
 			// includes Clerk's OAuth callback on `com.aiarcheology.ios`, which is normally consumed
 			// by `ASWebAuthenticationSession` and must never be swallowed here. `handle` returns
 			// whether the URL was ours, delegating the decision to `FindingShareLink`'s strict
@@ -315,6 +316,24 @@ struct MLBrowser: App {
 			// app *emits* links. Links already shared are out in the world regardless, and turning
 			// emission off must not break them for the strangers who tap them.
 			.onOpenURL { url in
+				LoggingPolicy.debug("Shared finding: URL delivered via onOpenURL", logger: .state)
+				appState.sharedFinding.handle(url)
+			}
+			// **The other half of the same door, and the app was missing it.**
+			//
+			// A universal link does not always arrive as a URL. iOS hands it to the app as an
+			// `NSUserActivity` of type `NSUserActivityTypeBrowsingWeb`, and only some routes are
+			// bridged into `onOpenURL` above. Tapping a link in Safari happened to land there;
+			// scanning the same link with the Code Scanner did not — so the app launched, the user
+			// watched it open, and nothing whatsoever happened. Found on a real iPhone with build
+			// 999, and invisible in the app log precisely because no handler ran (AIA-0657).
+			//
+			// Both handlers funnel into the same `handle`, which is idempotent for our purposes: it
+			// replaces the pending link with the newest one, so a URL arriving down both routes
+			// buffers the same payload twice rather than presenting twice.
+			.onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+				guard let url = activity.webpageURL else { return }
+				LoggingPolicy.debug("Shared finding: URL delivered via NSUserActivity", logger: .state)
 				appState.sharedFinding.handle(url)
 			}
 			// The remote brake on the detailed application log (AIA-0602). `initial: true` so the
@@ -369,6 +388,23 @@ struct MLBrowser: App {
 				await appState.dataController.awaitStoreReady()
 				appState.downloader.reconnectBackgroundSession()
 			}
+			// A received shared finding (AIA-0650, moved here by AIA-0657). **Applied last, on
+			// purpose**: this modifier must be the outermost one in the scene so the card sits above
+			// everything — the subscription gate, the analytics gate, and also `.screenshotReportOffer`
+			// and `.appMessageBanner` above, which are themselves applied outside the gates. "Outside
+			// the gates" and "top of the z-order" are not the same claim, and only the second one is
+			// what the ticket asks for.
+			//
+			// It used to hang off `ContentView`, i.e. *inside* both gates, so a link tapped by someone
+			// who had not yet dealt with the paywall, the welcome screen or the telemetry question was
+			// buffered and shown only afterwards — the visitor a shared link exists to attract met a
+			// wall and no finding.
+			//
+			// Still an **overlay** rather than a `.sheet`, and now more so than before: as an ancestor
+			// of every sheet the app raises, a sheet here would present and immediately auto-dismiss
+			// whenever one was already up (the trap `AnalyticsChoiceGate` documents). A link arriving
+			// while Settings or the composer is open would flash and be lost.
+			.sharedFindingPresentation(appState)
 		}
 	}
 }
