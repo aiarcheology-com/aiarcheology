@@ -46,11 +46,11 @@ extension FindingShareSubject {
 				width: normalizedBox.width,
 				height: normalizedBox.height
 			),
-			// Reduced *here*, before a `Payload` exists. `FindingShareLink` builds the link from
-			// `page` verbatim and only sanitizes on the way back in, so an unreduced URL would travel
-			// inside the emitted link and be dropped by the recipient — after the query string had
-			// already been posted. This is the single point at which a raw browsed URL, session
-			// tokens and all, enters the share contract.
+			// Reduced *here*, at the one point a raw browsed URL — session tokens and all — enters the
+			// share contract. `FindingShareLink.assemble` reduces again on the way out, so the safety
+			// does not depend on this call being remembered; doing it here as well means the `Payload`
+			// a caller can inspect already matches what would travel, which is what lets the composer
+			// show the sender the real address.
 			page: page.flatMap { FindingShareLink.sanitizedPage($0.absoluteString, detail: pageDetail) },
 			author: author,
 			date: Self.day(from: date)

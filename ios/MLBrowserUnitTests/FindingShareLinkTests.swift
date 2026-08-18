@@ -655,7 +655,12 @@ final class FindingShareLinkTests: XCTestCase {
 			let compact = try XCTUnwrap(FindingShareLink.url(for: payload, variant: .compact, pageDetail: .full))
 
 			let fullPage = try XCTUnwrap(FindingShareLink.payload(from: full)?.page)
-			guard let compactPage = FindingShareLink.payload(from: compact)?.page else { continue }
+			// Asserted, not skipped. "The compact link happened to drop the page" is exactly the case
+			// this property most needs a verdict on, and `continue` gave it a pass.
+			let compactPage = try XCTUnwrap(
+				FindingShareLink.payload(from: compact)?.page,
+				"the QR dropped the address entirely for \(raw)"
+			)
 
 			XCTAssertEqual(compactPage.host, fullPage.host, "the QR must not name a different site")
 			XCTAssertLessThanOrEqual(
@@ -703,5 +708,89 @@ final class FindingShareLinkTests: XCTestCase {
 		XCTAssertEqual(parsed.page?.absoluteString, Self.geoportal)
 		XCTAssertEqual(parsed.author, payload.author)
 		XCTAssertEqual(parsed.id, payload.id)
+	}
+
+	// MARK: - Regressions found in review (AIA-0657)
+
+	/// A full address over its cap must **reduce**, not vanish.
+	///
+	/// `sanitizedPage` used to return `nil` on length alone. The builder omits a `nil` page, the
+	/// shortened link then fits comfortably, and the ladder in `url(for:variant:pageDetail:)` never
+	/// fires — so the longest portal addresses, the ones this ticket exists for, produced links
+	/// carrying no address at all. Found by two independent reviewers.
+	func test_anAddressOverTheFullCapReducesRatherThanDisappearing() throws {
+		let long = "https://portal.example.org/view?" + String(repeating: "q=1&", count: 150)
+		XCTAssertGreaterThan(long.count, 600, "the fixture must exceed the full-form cap")
+
+		let payload = makePayload(title: "Rampart", page: URL(string: long))
+		let url = try XCTUnwrap(FindingShareLink.url(for: payload, pageDetail: .full))
+		let page = try XCTUnwrap(
+			FindingShareLink.payload(from: url)?.page,
+			"an over-long address was dropped instead of reduced"
+		)
+		XCTAssertEqual(page.absoluteString, "https://portal.example.org/view")
+	}
+
+	/// The same hole one level up: the emission mapping must not hand the builder a `nil` page that
+	/// no ladder can recover.
+	func test_theEmittedPayloadStillCarriesAnAddressWhenTheFullFormIsTooLong() throws {
+		let long = "https://portal.example.org/view?" + String(repeating: "q=1&", count: 150)
+		let reduced = try XCTUnwrap(FindingShareLink.sanitizedPage(long, detail: .full))
+		XCTAssertEqual(reduced.absoluteString, "https://portal.example.org/view")
+	}
+
+	/// One bare flag must not switch the whole credential sieve off.
+	///
+	/// `?debug&access_token=…` is ordinary in hand-built portal URLs, and the valueless item used to
+	/// make the strip bail out and return everything unchanged — token included.
+	func test_aValuelessQueryItemDoesNotDisableTheCredentialStrip() throws {
+		let raw = "https://portal.example.org/view?debug&access_token=abc123&layer=orto"
+		let page = try XCTUnwrap(FindingShareLink.sanitizedPage(raw, detail: .full))
+		XCTAssertFalse(page.absoluteString.contains("access_token"), "the token survived beside a bare flag")
+		XCTAssertTrue(page.absoluteString.contains("debug"), "the bare flag itself is not a credential")
+		XCTAssertTrue(page.absoluteString.contains("layer=orto"))
+	}
+
+	/// A percent-encoded parameter *name* must not smuggle a credential past the list.
+	func test_aPercentEncodedCredentialNameIsStillRecognised() throws {
+		let raw = "https://portal.example.org/view?access%5Ftoken=abc123&x=1"
+		let page = try XCTUnwrap(FindingShareLink.sanitizedPage(raw, detail: .full))
+		XCTAssertFalse(page.absoluteString.lowercased().contains("abc123"), "an encoded name hid the token")
+		XCTAssertTrue(page.absoluteString.contains("x=1"))
+	}
+
+	/// The spellings the exact list cannot reach.
+	func test_awsAndSessionKeyNamesAreStripped() throws {
+		let raw = "https://portal.example.org/view?AWSAccessKeyId=AKIA1&session_key=s1&bbox=1,2,3,4"
+		let page = try XCTUnwrap(FindingShareLink.sanitizedPage(raw, detail: .full))
+		XCTAssertFalse(page.absoluteString.contains("AKIA1"))
+		XCTAssertFalse(page.absoluteString.contains("s1"))
+		XCTAssertTrue(page.absoluteString.contains("bbox=1,2,3,4"))
+	}
+
+	/// A detection in the last thousandth of a page is a small detection, not an absent one. Rounding
+	/// the origin to nearest carried `x` to 1.0 here, leaving no room for any width and dropping the
+	/// box entirely.
+	func test_aSliverAgainstTheFarEdgeStillTravels() throws {
+		let box = try XCTUnwrap(FindingShareLink.Box(x: 0.99995, y: 0, width: 0.00005, height: 0.1))
+		let url = try XCTUnwrap(FindingShareLink.url(for: makePayload(box: box)))
+		let carried = try XCTUnwrap(
+			FindingShareLink.payload(from: url)?.box,
+			"a sliver against the far edge was quantized out of existence"
+		)
+		XCTAssertLessThanOrEqual(carried.x + carried.width, 1)
+		XCTAssertGreaterThan(carried.width, 0)
+	}
+
+	/// The floor of the address ladder: when even the path will not fit, the host alone still names
+	/// the service the finding came from — the degraded case the ticket forbids losing.
+	func test_theAddressLadderBottomsOutAtTheHost() throws {
+		let deepPath = "https://portal.example.org/" + String(repeating: "segment/", count: 60)
+		let payload = makePayload(title: String(repeating: "T", count: 40), page: URL(string: deepPath))
+		let url = try XCTUnwrap(FindingShareLink.url(for: payload, variant: .compact, pageDetail: .full))
+		let page = try XCTUnwrap(FindingShareLink.payload(from: url)?.page)
+
+		XCTAssertEqual(page.host, "portal.example.org")
+		XCTAssertLessThanOrEqual(url.absoluteString.count, FindingShareLink.maximumCompactLength)
 	}
 }

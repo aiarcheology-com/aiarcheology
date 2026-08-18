@@ -395,8 +395,10 @@ struct WebScreenView: View {
             // outer assignment then wrote the URL back over it, leaving the latch permanently
             // armed. Nothing failed visibly: the page loaded, and the next time this screen was
             // rebuilt (a tab or mode switch) the stale value was redelivered and navigated away
-            // from whatever the user was reading. Measured on develop before AIA-0657; the
-            // property is pinned in SharedFindingStateTests.
+            // from whatever the user was reading. Measured on develop before AIA-0657.
+            // `SharedFindingStateTests` pins the Combine semantics that force this shape, but it
+            // cannot reach a SwiftUI `onReceive` closure — so nothing automated fails if this line
+            // reverts to an inline assignment. Stated rather than implied.
             DispatchQueue.main.async { appState.chromeState.pageToOpen = nil }
             openRequested(url.absoluteString)
         }

@@ -260,7 +260,12 @@ struct FindingShareCard: View {
 
 			if let detectionClass = subject.detectionClass {
 				// verbatim: model class vocabulary, not localizable.
-				Text(verbatim: "\(detectionClass) · \(Int(subject.confidence * 100))%")
+				// Clamped as a Double BEFORE the conversion. `Int(_:)` traps on NaN or on anything
+				// outside `Int`'s range, and `Finding.detectionConfidence` is an unconstrained Core
+				// Data `Double` — so a corrupt or imported row crashed the app on *rendering the
+				// card*. Exactly the trap `FindingShareEmission.percent` was rewritten to avoid;
+				// this copy was one file away and still had it (found in review, AIA-0657).
+				Text(verbatim: "\(detectionClass) · \(Int((min(1, max(0, subject.confidence.isFinite ? subject.confidence : 0)) * 100).rounded()))%")
 					.font(.caption.weight(.semibold))
 					.padding(.horizontal, 10)
 					.padding(.vertical, 4)
@@ -449,18 +454,26 @@ struct FindingShareComposer: View {
 					.font(.caption)
 					.foregroundStyle(.secondary)
 				if let address = travellingAddress {
+					// Scrollable, because this is the one row a sender may need to read to the end: a
+					// portal address can run to the 600-character cap, which is a dozen lines at
+					// caption size and more at an accessibility text size. Left unscrolled it would
+					// push the controls below it off a small screen, or be compressed — either way
+					// the sender could not check the thing this row exists to let them check.
 					// Pinned left-to-right regardless of the app's language. A URL is a
 					// left-to-right string, and under `ar`, `he` or `fa` a mixed-direction host and
 					// path reorder on screen — which would make the one row whose entire purpose is
 					// "this is exactly what travels" display something other than what it holds.
 					// Selectable so a suspicious sender can lift it out and read it elsewhere.
-					Text(verbatim: address.absoluteString)
-						.font(.caption.monospaced())
-						.textSelection(.enabled)
-						.environment(\.layoutDirection, .leftToRight)
-						.multilineTextAlignment(.leading)
-						.frame(maxWidth: .infinity, alignment: .leading)
-						.testability(Testability.View.findingShareAddressPreview)
+					ScrollView(.vertical) {
+						Text(verbatim: address.absoluteString)
+							.font(.caption.monospaced())
+							.textSelection(.enabled)
+							.environment(\.layoutDirection, .leftToRight)
+							.multilineTextAlignment(.leading)
+							.frame(maxWidth: .infinity, alignment: .leading)
+							.testability(Testability.View.findingShareAddressPreview)
+					}
+					.frame(maxHeight: 96)
 				} else {
 					Text(L10n.Finding.Share.addressNotIncluded)
 						.font(.caption)

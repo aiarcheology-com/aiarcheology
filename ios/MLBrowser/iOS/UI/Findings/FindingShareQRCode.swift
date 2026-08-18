@@ -183,7 +183,7 @@ enum FindingShareQRCode {
 
 // MARK: - The badge on the card
 
-/// The address-and-code sticker overlaid on the card's image slot.
+/// The address-and-code sticker in the card's metadata block.
 ///
 /// **Fixed black-on-white in both themes.** A QR is read by contrast alone, so letting it follow the
 /// card's Light/Dark choice would print a code no scanner can see on every dark card.

@@ -190,6 +190,14 @@ private struct SharedFindingCard: View {
 	}
 }
 
+/// Carries the card content's measured height up to the frame that caps it.
+private struct SharedFindingContentHeight: PreferenceKey {
+	static let defaultValue: CGFloat = 0
+	static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+		value = max(value, nextValue())
+	}
+}
+
 // MARK: - The screen
 
 /// The read-only screen shown when a shared finding link is opened.
@@ -226,7 +234,34 @@ struct SharedFindingView: View {
 			header
 			Divider()
 			ScrollView {
-				switch pending {
+				bodyContent
+					.background(
+						GeometryReader { geometry in
+							Color.clear.preference(key: SharedFindingContentHeight.self, value: geometry.size.height)
+						}
+					)
+			}
+			// **Measured, not proposed.** A `ScrollView` is greedy along its scroll axis: given
+			// `.frame(maxHeight: 560)` it takes all 560 whatever it holds, so a two-line "we could not
+			// read this link" card came out ~600pt tall with dead space under it — the very thing the
+			// card layout replaced. Reading the content's own height and framing to `min(that, cap)`
+			// is what actually shrinks it, while long findings still scroll at the cap.
+			.frame(height: min(contentHeight, 560))
+			.onPreferenceChange(SharedFindingContentHeight.self) { contentHeight = $0 }
+		}
+		.onAppear { resolve() }
+
+		// A second link can replace the first while this screen is up (`SharedFindingState` keeps
+		// the newest), and the new one may belong to the recipient when the old one did not.
+		.onChange(of: pending) { _, _ in resolve() }
+	}
+
+	@State private var contentHeight: CGFloat = 0
+
+	/// The card's scrolling content, extracted so its height can be measured.
+	@ViewBuilder
+	private var bodyContent: some View {
+		switch pending {
 				case .unreadable:
 					SharedFindingUnreadableView()
 				case .finding(let payload):
@@ -250,15 +285,6 @@ struct SharedFindingView: View {
 							.padding(40)
 					}
 				}
-			}
-			// Shrink-to-fit: the scroll view takes only the height its content needs, up to this cap,
-			// so short findings do not get a tall empty card and long ones still scroll.
-			.frame(maxHeight: 560)
-		}
-		.onAppear { resolve() }
-		// A second link can replace the first while this screen is up (`SharedFindingState` keeps
-		// the newest), and the new one may belong to the recipient when the old one did not.
-		.onChange(of: pending) { _, _ in resolve() }
 	}
 
 	/// The card's own title bar. A `NavigationStack` would give the same thing, but a navigation bar
@@ -358,16 +384,17 @@ struct SharedFindingUnverifiedView: View {
 	/// for a sender-chosen coordinate — see ``mapBlock``.
 	@State private var isMapShown = false
 
+	/// Deliberately **not** a `ScrollView`. Since AIA-0657 this is presented inside the card's own
+	/// scroll view, and a scroll view nested in another along the same axis leaves the inner one
+	/// inert while confusing the height the outer one measures.
 	var body: some View {
-		ScrollView {
-			VStack(alignment: .leading, spacing: 20) {
-				ForEach(SharedFindingSection.layout(for: payload), id: \.self) { section in
-					row(section)
-				}
+		VStack(alignment: .leading, spacing: 20) {
+			ForEach(SharedFindingSection.layout(for: payload), id: \.self) { section in
+				row(section)
 			}
-			.frame(maxWidth: .infinity, alignment: .leading)
-			.padding(20)
 		}
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.padding(20)
 	}
 
 	@ViewBuilder

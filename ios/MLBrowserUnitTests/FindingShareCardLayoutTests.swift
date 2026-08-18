@@ -97,7 +97,13 @@ final class FindingShareCardLayoutTests: XCTestCase {
 				minY = min(minY, y); maxY = max(maxY, y)
 			}
 		}
-		guard maxX >= 0 else { throw XCTSkip("no code pixels found in the render") }
+		// A failure, not a skip. If the badge stops rendering at all, every assertion built on this
+		// helper would otherwise go green-by-skip — which is the loudest possible regression reported
+		// as silence.
+		guard maxX >= 0 else {
+			XCTFail("no code pixels in the render — the badge did not draw")
+			return .zero
+		}
 		return CGRect(
 			x: CGFloat(minX) / scale,
 			y: CGFloat(minY) / scale,
@@ -200,27 +206,54 @@ final class FindingShareCardLayoutTests: XCTestCase {
 		}
 	}
 
-	/// The card is a fixed-size artifact, so the text block must not need more height than it has —
-	/// a row pushed off the bottom is invisible in a PNG and silent in a view-tree assertion.
-	func test_sevenRowsFitTheMetadataBlockHeight() throws {
+	/// The seventh row must actually be **drawn**, not merely fit on paper.
+	///
+	/// The superseded version of this test compared two constants derived from `orientation.size` and
+	/// could not fail whatever the layout did. This one renders six rows and seven and counts the ink
+	/// in the metadata block: if the last row is clipped off the bottom, or squeezed out by the badge
+	/// beside it, the seven-row card has no more marks on it than the six-row one.
+	func test_theSeventhRowIsActuallyDrawn() throws {
 		for orientation in ShareCardOrientation.allCases {
-			let blockHeight = orientation == .portrait
-				? orientation.size.height - orientation.imageSlotSize.height
-				: orientation.size.height
-			let blockWidth = orientation == .portrait
-				? orientation.size.width
-				: orientation.size.width - orientation.imageSlotSize.width
-
-			let card = FindingShareCard(subject: makeSubject(rows: 7), orientation: orientation, link: makeLink())
-			let controller = UIHostingController(rootView: card)
-			let needed = controller.sizeThatFits(in: CGSize(width: blockWidth, height: CGFloat.greatestFiniteMagnitude))
-
-			XCTAssertGreaterThan(needed.height, 0)
-			XCTAssertLessThanOrEqual(
-				blockHeight, orientation.size.height,
-				"\(orientation): metadata block cannot exceed the card"
+			let six = try inkInMetadata(of: makeSubject(rows: 6), orientation)
+			let seven = try inkInMetadata(of: makeSubject(rows: 7), orientation)
+			XCTAssertGreaterThan(
+				seven, six,
+				"\(orientation): a seventh row added no visible content — it is clipped or crowded out"
 			)
 		}
+	}
+
+	/// Counts non-background pixels in the metadata block of a rendered card.
+	private func inkInMetadata(of subject: FindingShareSubject, _ orientation: ShareCardOrientation) throws -> Int {
+		let (image, scale) = try render(subject, orientation, .light)
+		let cgImage = try XCTUnwrap(image.cgImage)
+		let width = cgImage.width
+		let height = cgImage.height
+		var pixels = [UInt8](repeating: 0, count: width * height * 4)
+		let context = try XCTUnwrap(CGContext(
+			data: &pixels,
+			width: width,
+			height: height,
+			bitsPerComponent: 8,
+			bytesPerRow: width * 4,
+			space: CGColorSpaceCreateDeviceRGB(),
+			bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+		))
+		context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+		// The metadata block only: below the image in portrait, right of it in landscape.
+		let originX = orientation == .portrait ? 0 : Int(orientation.imageSlotSize.width * scale)
+		let originY = orientation == .portrait ? Int(orientation.imageSlotSize.height * scale) : 0
+
+		var ink = 0
+		for y in originY..<height {
+			for x in originX..<width {
+				let offset = (y * width + x) * 4
+				// Anything meaningfully darker than the light-mode background counts as a mark.
+				if pixels[offset] < 200 || pixels[offset + 1] < 200 || pixels[offset + 2] < 200 { ink += 1 }
+			}
+		}
+		return ink
 	}
 
 	// MARK: - The badge's own floor
@@ -255,17 +288,31 @@ final class FindingShareCardLayoutTests: XCTestCase {
 		XCTAssertGreaterThanOrEqual(fitted.pointSize, FindingShareQRCode.minimumPointSize)
 	}
 
-	/// …and a payload at the cap must still be drawn large enough to survive a photograph, which is
-	/// the property the whole size calculation exists to hold.
-	func test_aLinkAtTheCapKeepsThreePixelsPerModule() throws {
-		let filler = String(repeating: "p", count: 240)
-		let atCap = try XCTUnwrap(URL(string: "https://link.aiarcheology.com/f#v=1&t=Rampart&u=https://ags.example.cz/\(filler)"))
-		let fitted = try XCTUnwrap(FindingShareQRCode.code(for: atCap))
+	/// …and the size calculation must hold its stated invariant at every symbol size.
+	///
+	/// Asserted against `fittedPointSize` directly, as a pure function of the module count. The
+	/// superseded version divided the bitmap width by the point size, which cancels to `renderScale`
+	/// by construction and then asserted it was positive — true even if every module were drawn one
+	/// pixel wide, the single failure this budget exists to prevent.
+	func test_fittedPointSizeKeepsThreePixelsPerModuleUpToTheCeiling() {
+		// 79 modules is the 400-character worst case: 77 plus the generator's quiet zone.
+		for modules in stride(from: 21.0, through: 79.0, by: 2.0) {
+			let points = FindingShareQRCode.fittedPointSize(moduleCount: modules)
+			let pixelsPerModule = (points * FindingShareQRCode.renderScale) / modules
+			XCTAssertGreaterThanOrEqual(
+				pixelsPerModule, FindingShareQRCode.minimumPixelsPerModule,
+				"a \(modules)-module symbol at \(points)pt gives \(pixelsPerModule)px per module"
+			)
+		}
+	}
 
-		let modules = fitted.image.size.width * FindingShareQRCode.renderScale
-			/ (fitted.pointSize * FindingShareQRCode.renderScale)
-		XCTAssertGreaterThan(modules, 0)
-		XCTAssertLessThanOrEqual(fitted.pointSize, FindingShareQRCode.maximumPointSize)
-		XCTAssertGreaterThan(fitted.pointSize, FindingShareQRCode.minimumPointSize, "a dense symbol must grow")
+	/// A symbol denser than the floor can hold must actually grow, or the clamp would silently cap
+	/// scannability instead of size.
+	func test_aDenseSymbolGrowsBeyondTheFloor() {
+		let atFloor = FindingShareQRCode.fittedPointSize(moduleCount: 40)
+		let dense = FindingShareQRCode.fittedPointSize(moduleCount: 79)
+		XCTAssertEqual(atFloor, FindingShareQRCode.minimumPointSize, "a small symbol should sit on the floor")
+		XCTAssertGreaterThan(dense, FindingShareQRCode.minimumPointSize)
+		XCTAssertLessThanOrEqual(dense, FindingShareQRCode.maximumPointSize)
 	}
 }
