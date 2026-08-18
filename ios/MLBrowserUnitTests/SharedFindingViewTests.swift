@@ -92,7 +92,24 @@ final class SharedFindingViewTests: XCTestCase {
 				date: DateComponents(year: 2026, month: 5, day: 14)
 			)
 		)
-		XCTAssertEqual(sections, [.provenance, .title, .detection, .author, .date, .page, .map])
+		XCTAssertEqual(sections, [.provenance, .title, .openPage, .detection, .author, .date, .page, .map])
+	}
+
+	/// The open-page block sits directly after the title, and exists only when a page travelled.
+	///
+	/// Pinned because the position is the security posture, not a layout preference (AIA-0659): the
+	/// block carries the button that leaves the app **and** the full address it will open, so a link
+	/// that moved the two apart — or promoted the button on a payload with no page — would be
+	/// offering a stranger's action without the disclosure that makes it judgeable.
+	func test_layout_placesTheOpenPageBlockUnderTheTitle_onlyWhenAPageTravelled() {
+		let withPage = SharedFindingSection.layout(
+			for: payload(page: URL(string: "https://example.org/ridge"))
+		)
+		XCTAssertEqual(withPage, [.provenance, .title, .openPage, .page])
+
+		let withoutPage = SharedFindingSection.layout(for: payload())
+		XCTAssertFalse(withoutPage.contains(.openPage))
+		XCTAssertEqual(withoutPage, [.provenance, .title])
 	}
 
 	// MARK: - Where on the page (AIA-0657)
@@ -106,7 +123,7 @@ final class SharedFindingViewTests: XCTestCase {
 				page: URL(string: "https://example.org/ridge")
 			)
 		)
-		XCTAssertEqual(sections, [.provenance, .title, .page, .box])
+		XCTAssertEqual(sections, [.provenance, .title, .openPage, .page, .box])
 	}
 
 	/// A box with no page still locates something — "somewhere on the page it came from" is weaker
