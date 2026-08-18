@@ -26,8 +26,15 @@ struct FindingShareCardLink {
 enum FindingShareQRCode {
 
 	/// The code's edge on the card, in points. The composer renders at `max(displayScale, 3)`, so
-	/// this is at least 192px in the exported PNG.
-	static let pointSize: CGFloat = 64
+	/// this is at least 264px in the exported PNG.
+	///
+	/// Grown from 64pt for AIA-0657, and the growth *is* the budget. Scannability is decided by
+	/// pixels per module, so carrying more characters means more modules, which means each one gets
+	/// thinner unless the code gets physically bigger. At EC-M a 400-character payload is a
+	/// version-15 symbol — 77 modules, 79 with the generator's quiet zone — and
+	/// `floor(264 / 79) = 3`px per module, identical to what 250 characters at 64pt gave
+	/// (`floor(192 / 63) = 3`). The code carries 60% more and is no harder to scan.
+	static let pointSize: CGFloat = 88
 
 	/// The render scale the composer guarantees. Used to size the generated bitmap for the pixels it
 	/// will actually occupy rather than for the ~60px image the filter hands back.
@@ -39,11 +46,23 @@ enum FindingShareQRCode {
 	///
 	/// The code carries the **compact** variant, never the full one, and that is the whole reason
 	/// `FindingShareLink.Variant.compact` exists. A 900-character fragment payload forces QR byte
-	/// mode and lands near a version-22 symbol — roughly 105 modules across — which at 192px is
-	/// under 2px per module and simply does not survive being photographed off a screen, the only
-	/// way a reposted card is ever scanned. Both variants resolve to the same finding.
-	static func cardLink(for subject: FindingShareSubject) -> FindingShareCardLink {
-		let compact = FindingShareLink.url(for: subject.linkPayload, variant: .compact)
+	/// mode and lands near a version-24 symbol — roughly 113 modules across — which at 264px is
+	/// 2.3px per module and does not survive being photographed off a screen, the only way a
+	/// reposted card is ever scanned. Both variants resolve to the same finding.
+	///
+	/// Since AIA-0657 the compact link carries the page address too, so the code and the string a
+	/// sender posts name the same place. The compact ladder may still reduce that address to its
+	/// host to fit — never to nothing — which is why the composer's preview is worded as the most
+	/// that travels rather than the exact bytes of both artifacts.
+	static func cardLink(
+		for subject: FindingShareSubject,
+		pageDetail: FindingShareLink.PageDetail = .siteOnly
+	) -> FindingShareCardLink {
+		let compact = FindingShareLink.url(
+			for: subject.linkPayload(pageDetail: pageDetail),
+			variant: .compact,
+			pageDetail: pageDetail
+		)
 		return FindingShareCardLink(
 			address: FindingShareLink.webHost,
 			qrCode: compact.flatMap { image(for: $0) }
@@ -104,12 +123,23 @@ enum FindingShareQRCode {
 /// **Fixed black-on-white in both themes.** A QR is read by contrast alone, so letting it follow the
 /// card's Light/Dark choice would print a code no scanner can see on every dark card.
 ///
-/// It sits over the image rather than in the metadata block because the metadata block has no room:
-/// the portrait card leaves it 178pt for up to seven rows, and a 64pt code would push the last of
-/// them off the card. The image slot is 340×246 (portrait) or 257×242 (landscape) and already
-/// carries the app badge in its opposite corner.
+/// It sits in the **bottom-right of the metadata block**, laid out beside the text rather than over
+/// it (see `FindingShareCard.metadata`). The comment this replaces said it sat over the image slot
+/// and quoted 340×246 slots from a card size that changed in AIA-0650 — neither has been true for
+/// two tickets, and a comment describing a layout the code does not have is worse than none.
+///
+/// ## Its width is the code's width, on purpose
+/// The caption used to be `.fixedSize()`, which made the badge as wide as 21 characters of text
+/// rather than as wide as the code — and the badge's width is what the metadata block has to
+/// reserve. Bounding it to `pointSize` and letting it scale down keeps that reservation honest.
 struct FindingShareLinkBadge: View {
 	let link: FindingShareCardLink
+
+	/// The badge's full width: the code, plus the padding around it. Published so the card can
+	/// reserve exactly this much and no more, rather than guessing.
+	static var width: CGFloat { FindingShareQRCode.pointSize + padding * 2 }
+
+	private static let padding: CGFloat = 5
 
 	var body: some View {
 		VStack(spacing: 3) {
@@ -121,14 +151,17 @@ struct FindingShareLinkBadge: View {
 					.interpolation(.none)
 					.frame(width: FindingShareQRCode.pointSize, height: FindingShareQRCode.pointSize)
 			}
-			// The brand address, not localizable — and not a `LocalizedStringKey` lookup.
+			// The brand address, not localizable — and not a `LocalizedStringKey` lookup. This is the
+			// card's floor: when the compact link will not fit and there is no code, this line is the
+			// only thing telling a reader where the finding came from, so it must not truncate.
 			Text(verbatim: link.address)
 				.font(.system(size: 8, weight: .semibold))
 				.lineLimit(1)
-				.fixedSize()
+				.minimumScaleFactor(0.7)
+				.frame(width: FindingShareQRCode.pointSize)
 		}
 		.foregroundStyle(.black)
-		.padding(5)
+		.padding(Self.padding)
 		.background(Color.white, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 	}
 }

@@ -17,6 +17,7 @@ final class FindingShareEmissionTests: XCTestCase {
 
 	private func makeSubject(
 		id: UUID = UUID(),
+		normalizedBox: CGRect = .zero,
 		title: String = "Roman wall",
 		author: String? = "V. Slavík",
 		gps: String? = "48.8, 19.53",
@@ -27,6 +28,7 @@ final class FindingShareEmissionTests: XCTestCase {
 	) -> FindingShareSubject {
 		FindingShareSubject(
 			id: id,
+			normalizedBox: normalizedBox,
 			title: title,
 			author: author,
 			gps: gps,
@@ -94,8 +96,12 @@ final class FindingShareEmissionTests: XCTestCase {
 	/// `FindingShareLink.maximumCompactLength`, which is the largest symbol this app can ever print.
 	///
 	/// The field lengths are deliberate, not decorative:
-	/// `https://link.aiarcheology.com/f#` (32) + `v=1` (3) + `&i=`+36 + `&t=`+40 + `&c=`+28
-	/// + `&p=100` + `&g=48.80000,19.53000` + `&a=`+60 + `&d=2026-08-17` = 250.
+	/// `https://link.aiarcheology.com/f#` (32) + `v=1` (3) + `&i=`+36 + `&t=`+40 + `&c=`+60
+	/// + `&p=100` + `&g=48.80000,19.53000` + `&u=`+115 + `&a=`+60 + `&d=2026-08-17` = 400.
+	///
+	/// Re-derived for AIA-0657: the cap moved from 250 to 400 and the page is no longer dropped from
+	/// this variant, so the old fixture would sit well under the new cap and quietly stop testing the
+	/// densest symbol the app can print — which is the only thing this test is for.
 	func test_qrCode_atTheCompactCap_decodesBackToTheSameFinding() throws {
 		let id = try XCTUnwrap(UUID(uuidString: "3F2504E0-4F89-11D3-9A0C-0305E82C3301"))
 		let title = String(repeating: "W", count: 40)
@@ -104,14 +110,14 @@ final class FindingShareEmissionTests: XCTestCase {
 			title: title,
 			author: String(repeating: "A", count: 60),
 			gps: "48.8, 19.53",
-			detectionClass: String(repeating: "c", count: 28),
+			detectionClass: String(repeating: "c", count: 60),
 			confidence: 1,
 			date: try makeDate(year: 2026, month: 8, day: 17),
-			// Dropped by the compact variant regardless; present so the fixture is a real finding.
-			page: URL(string: "https://example.org/ruins")
+			// Carried now, and long enough to stand in for a real geoportal address.
+			page: URL(string: "https://example.org/" + String(repeating: "p", count: 95))
 		)
 
-		let compact = try XCTUnwrap(FindingShareLink.url(for: subject.linkPayload, variant: .compact))
+		let compact = try XCTUnwrap(FindingShareLink.url(for: subject.linkPayload(), variant: .compact))
 		XCTAssertEqual(
 			compact.absoluteString.count,
 			FindingShareLink.maximumCompactLength,
@@ -155,7 +161,7 @@ final class FindingShareEmissionTests: XCTestCase {
 	func test_linkPayload_mapsEveryField() throws {
 		let id = try XCTUnwrap(UUID(uuidString: "3F2504E0-4F89-11D3-9A0C-0305E82C3301"))
 		let subject = makeSubject(id: id, date: try makeDate(year: 2026, month: 8, day: 17))
-		let payload = subject.linkPayload
+		let payload = subject.linkPayload()
 
 		XCTAssertEqual(payload.id, id)
 		XCTAssertEqual(payload.title, "Roman wall")
@@ -172,26 +178,26 @@ final class FindingShareEmissionTests: XCTestCase {
 	func test_linkPayload_gpsThatDoesNotParse_yieldsNoCoordinate() {
 		for raw in ["behind the old mill", "48.8", "N/A", "", "1e5, 2", "-48.8N, 19.53E"] {
 			XCTAssertNil(
-				makeSubject(gps: raw).linkPayload.coordinate,
+				makeSubject(gps: raw).linkPayload().coordinate,
 				"\(raw) must not become a coordinate"
 			)
 		}
 	}
 
 	func test_linkPayload_roundsConfidenceToWholePercent() {
-		XCTAssertEqual(makeSubject(confidence: 0.874).linkPayload.confidencePercent, 87)
-		XCTAssertEqual(makeSubject(confidence: 0.875).linkPayload.confidencePercent, 88)
-		XCTAssertEqual(makeSubject(confidence: 0.876).linkPayload.confidencePercent, 88)
-		XCTAssertEqual(makeSubject(confidence: 0).linkPayload.confidencePercent, 0)
-		XCTAssertEqual(makeSubject(confidence: 1).linkPayload.confidencePercent, 100)
+		XCTAssertEqual(makeSubject(confidence: 0.874).linkPayload().confidencePercent, 87)
+		XCTAssertEqual(makeSubject(confidence: 0.875).linkPayload().confidencePercent, 88)
+		XCTAssertEqual(makeSubject(confidence: 0.876).linkPayload().confidencePercent, 88)
+		XCTAssertEqual(makeSubject(confidence: 0).linkPayload().confidencePercent, 0)
+		XCTAssertEqual(makeSubject(confidence: 1).linkPayload().confidencePercent, 100)
 	}
 
 	/// `Payload` validates nothing on construction, so an out-of-range percent would be emitted and
 	/// then silently dropped by the parser — a link this app could not fully read back.
 	func test_linkPayload_clampsAnImpossibleConfidence() {
-		XCTAssertEqual(makeSubject(confidence: 1.4).linkPayload.confidencePercent, 100)
-		XCTAssertEqual(makeSubject(confidence: -0.2).linkPayload.confidencePercent, 0)
-		XCTAssertNil(makeSubject(confidence: .nan).linkPayload.confidencePercent)
+		XCTAssertEqual(makeSubject(confidence: 1.4).linkPayload().confidencePercent, 100)
+		XCTAssertEqual(makeSubject(confidence: -0.2).linkPayload().confidencePercent, 0)
+		XCTAssertNil(makeSubject(confidence: .nan).linkPayload().confidencePercent)
 	}
 
 	/// The values that actually crashed.
@@ -210,15 +216,15 @@ final class FindingShareEmissionTests: XCTestCase {
 			Double(Int.max),
 			Double(Int.min)
 		] {
-			let percent = makeSubject(confidence: confidence).linkPayload.confidencePercent
+			let percent = makeSubject(confidence: confidence).linkPayload().confidencePercent
 			XCTAssertNotNil(percent, "\(confidence) is finite, so it must produce a value")
 			XCTAssertTrue((0...100).contains(percent ?? -1), "\(confidence) produced \(percent as Any)")
 		}
 	}
 
 	func test_linkPayload_infiniteConfidenceIsDropped() {
-		XCTAssertNil(makeSubject(confidence: .infinity).linkPayload.confidencePercent)
-		XCTAssertNil(makeSubject(confidence: -.infinity).linkPayload.confidencePercent)
+		XCTAssertNil(makeSubject(confidence: .infinity).linkPayload().confidencePercent)
+		XCTAssertNil(makeSubject(confidence: -.infinity).linkPayload().confidencePercent)
 	}
 
 	func test_linkPayload_absentOptionalsStayAbsent() {
@@ -228,7 +234,7 @@ final class FindingShareEmissionTests: XCTestCase {
 			detectionClass: nil,
 			date: nil,
 			page: nil
-		).linkPayload
+		).linkPayload()
 
 		XCTAssertNil(payload.author)
 		XCTAssertNil(payload.coordinate)
@@ -243,14 +249,68 @@ final class FindingShareEmissionTests: XCTestCase {
 	/// that gets posted, and only the recipient's parser would drop it.
 	func test_linkPayload_reducesThePageBeforeItCanBeEmitted() throws {
 		let subject = makeSubject(page: URL(string: "https://example.org/a/b?session=secret#frag"))
-		XCTAssertEqual(subject.linkPayload.page?.absoluteString, "https://example.org/a/b")
+		XCTAssertEqual(subject.linkPayload().page?.absoluteString, "https://example.org/a/b")
 
-		let link = try XCTUnwrap(FindingShareLink.url(for: subject.linkPayload))
+		let link = try XCTUnwrap(FindingShareLink.url(for: subject.linkPayload()))
 		XCTAssertFalse(link.absoluteString.contains("session"), "The emitted link must not carry the query")
 	}
 
+	// MARK: - The box, and the sender's address choice (AIA-0657)
+
+	/// The conversion is the point: `normalizedBox` is a Vision rect (bottom-left origin) and the
+	/// wire is top-left, so a box sitting in the **bottom** 25% of the capture must travel as one
+	/// sitting in the **top** 75% down.
+	func test_linkPayload_convertsTheBoxFromVisionToTopLeftOrigin() throws {
+		let subject = makeSubject(normalizedBox: CGRect(x: 0.1, y: 0.0, width: 0.4, height: 0.25))
+		let box = try XCTUnwrap(subject.linkPayload().box)
+
+		XCTAssertEqual(box.x, 0.1, accuracy: 1e-9)
+		XCTAssertEqual(box.y, 0.75, accuracy: 1e-9, "Vision's bottom-left origin was not flipped")
+		XCTAssertEqual(box.width, 0.4, accuracy: 1e-9)
+		XCTAssertEqual(box.height, 0.25, accuracy: 1e-9)
+	}
+
+	/// `.zero` is what a row saved before boxes were stored carries, and it is not a location.
+	func test_linkPayload_carriesNoBoxForAZeroRect() {
+		XCTAssertNil(makeSubject(normalizedBox: .zero).linkPayload().box)
+	}
+
+	func test_linkPayload_carriesTheFullAddressOnlyWhenAsked() throws {
+		let raw = "https://portal.example.org/view?wmcid=5556&x=-556000"
+		let subject = makeSubject(page: URL(string: raw))
+
+		XCTAssertEqual(subject.linkPayload().page?.absoluteString, "https://portal.example.org/view")
+		XCTAssertEqual(subject.linkPayload(pageDetail: .full).page?.absoluteString, raw)
+	}
+
+	/// The share sheet is where the sender's choice actually leaves the app, so the passthrough is
+	/// asserted on the emitted item rather than on the payload it was built from.
+	func test_items_carryTheAddressDetailTheSenderChose() throws {
+		let raw = "https://portal.example.org/view?wmcid=5556"
+		let subject = makeSubject(page: URL(string: raw))
+
+		let full = FindingShareActivity.items(
+			image: makeCardImage(), subject: subject, isLinkEnabled: true, includesLink: true, pageDetail: .full
+		)
+		let reduced = FindingShareActivity.items(
+			image: makeCardImage(), subject: subject, isLinkEnabled: true, includesLink: true, pageDetail: .siteOnly
+		)
+
+		let fullLink = try XCTUnwrap(full.compactMap { $0 as? String }.first)
+		let reducedLink = try XCTUnwrap(reduced.compactMap { $0 as? String }.first)
+
+		XCTAssertEqual(
+			FindingShareLink.payload(from: try XCTUnwrap(URL(string: fullLink)))?.page?.absoluteString,
+			raw
+		)
+		XCTAssertEqual(
+			FindingShareLink.payload(from: try XCTUnwrap(URL(string: reducedLink)))?.page?.absoluteString,
+			"https://portal.example.org/view"
+		)
+	}
+
 	func test_linkPayload_dropsANonHTTPSPage() {
-		XCTAssertNil(makeSubject(page: URL(string: "http://example.org/x")).linkPayload.page)
+		XCTAssertNil(makeSubject(page: URL(string: "http://example.org/x")).linkPayload().page)
 	}
 
 	// MARK: - Share-sheet items
@@ -297,7 +357,7 @@ final class FindingShareEmissionTests: XCTestCase {
 		XCTAssertTrue(items[1] is String, "The link must travel as a String")
 		XCTAssertFalse(items[1] is URL, "A URL item changes how the sheet behaves and what it fetches")
 
-		let expected = try XCTUnwrap(FindingShareLink.url(for: subject.linkPayload))
+		let expected = try XCTUnwrap(FindingShareLink.url(for: subject.linkPayload()))
 		XCTAssertEqual(items[1] as? String, expected.absoluteString)
 	}
 
