@@ -110,6 +110,86 @@ enum SharedFindingSection: Hashable {
 	}
 }
 
+// MARK: - Presentation
+
+extension View {
+	/// Puts a received shared finding above everything else in the scene.
+	///
+	/// Applied at the scene root and **last**, so the card outranks the gates and the two overlays
+	/// that already sit outside them. See the call site in `MLBrowser.swift`.
+	func sharedFindingPresentation(_ appState: AppState) -> some View {
+		modifier(SharedFindingHost(appState: appState))
+	}
+}
+
+/// The host that bridges `SharedFindingState` into the view tree.
+///
+/// A separate `View` rather than an inline `.overlay` because `sharedFinding` is a nested
+/// `ObservableObject`: it does not republish through `AppState`, so a link arriving would never
+/// redraw a body that only observed the parent. Observing it here is what makes the presentation
+/// reactive at all — the same reason `AnalyticsChoiceGate` is its own observed view.
+private struct SharedFindingHost: ViewModifier {
+	let appState: AppState
+	@ObservedObject private var state: SharedFindingState
+
+	init(appState: AppState) {
+		self.appState = appState
+		self.state = appState.sharedFinding
+	}
+
+	func body(content: Content) -> some View {
+		content.overlay {
+			// `isReady` gates only the *presentation*, never the buffering: a link that arrives during
+			// launch waits in `SharedFindingState` and appears when the app is up. Presenting over the
+			// launch spinner would also run the ownership lookup against a store that is still opening.
+			if let pending = state.pending, appState.isReady {
+				SharedFindingCard(pending: pending)
+					// Injected explicitly. `SharedFindingView` reads `AppState` from the environment,
+					// and at the scene root nothing has put it there — `ContentView` used to. A missing
+					// `@EnvironmentObject` is a crash, not a blank view, so this line is load-bearing
+					// rather than tidy. Same reason `.screenshotReportOffer` above takes its
+					// dependencies as arguments.
+					.environmentObject(appState)
+					.transition(.opacity)
+			}
+		}
+	}
+}
+
+/// The dimmed backdrop and the card on it.
+///
+/// Replaces an opaque, full-bleed screen. On a phone that read as a screen; in a Mac window it was a
+/// mostly-empty page with a few rows stranded in the top-left corner. The visual target is a sheet;
+/// the *mechanism* must not be one, for the auto-dismiss reason above.
+private struct SharedFindingCard: View {
+	let pending: SharedFindingState.Pending
+
+	@EnvironmentObject private var appState: AppState
+
+	var body: some View {
+		ZStack {
+			// Deliberately **not** tappable to dismiss. Dismissal clears the buffered link for the
+			// session, and a stray tap on the dim would discard a stranger's finding with no way back
+			// to it except the original link. Done is the only exit, and it is always on screen.
+			Color.black.opacity(0.35)
+				.ignoresSafeArea()
+
+			SharedFindingView(pending: pending)
+				.frame(maxWidth: 520)
+				.background(
+					RoundedRectangle(cornerRadius: 20, style: .continuous)
+						.fill(Color(uiColor: .systemBackground))
+				)
+				.clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+				.shadow(radius: 24, y: 8)
+				.padding(24)
+		}
+		// Without this VoiceOver walks straight through the dim into the paywall behind it, which
+		// would be an accessibility regression shipped inside a feature about being readable.
+		.accessibilityAddTraits(.isModal)
+	}
+}
+
 // MARK: - The screen
 
 /// The read-only screen shown when a shared finding link is opened.
@@ -133,58 +213,68 @@ struct SharedFindingView: View {
 	@State private var presentation: SharedFindingPresentation?
 
 	var body: some View {
-		ZStack {
-			// Opaque from the first frame. This is an overlay over live app content, and the
-			// ownership lookup lands one runloop later — without this the app would show through.
-			Color(uiColor: .systemBackground)
-				.ignoresSafeArea()
-			// The chrome — and with it the way out — is rendered unconditionally, *outside* the
-			// `presentation` check. This overlay is opaque and covers the whole app, so a state in
-			// which it is on screen without a Done button is a screen the user cannot leave. Gating
-			// the toolbar on the ownership lookup would make the escape hatch depend on a Core Data
-			// fetch having succeeded, and "a link never leaves the user on a blank screen" is an
-			// acceptance criterion of this ticket rather than a nicety.
-			NavigationStack {
-				Group {
-					switch pending {
-					case .unreadable:
-						SharedFindingUnreadableView()
-					case .finding(let payload):
-						switch presentation {
-						case .unverified:
-							SharedFindingUnverifiedView(payload: payload, onOpenPage: openPage)
-								// Identity tied to the payload, so a second link gets a FRESH view rather
-								// than SwiftUI reusing the first one. Without this, two pieces of state
-								// outlive the swap and both are wrong: `isMapShown` stays true, so the
-								// next link mounts a map with no tap — defeating the privacy property
-								// this screen exists to keep — and `Map(initialPosition:)` only reads its
-								// region at mount, so that map keeps showing the PREVIOUS finding's
-								// location under the new finding's coordinates. Found by driving two
-								// links in succession on a simulator; no unit test would have seen it.
-								.id(payload)
-						case .owned(let localTitle):
-							SharedFindingOwnedView(localTitle: localTitle, onOpenFindings: openOwnFinding)
-						case nil:
-							// One runloop at most, until `onAppear` resolves ownership.
-							ProgressView()
-								.frame(maxWidth: .infinity, maxHeight: .infinity)
-						}
-					}
-				}
-				.navigationTitle(L10n.Finding.Shared.title)
-				.navigationBarTitleDisplayMode(.inline)
-				.toolbar {
-					ToolbarItem(placement: .confirmationAction) {
-						Button(L10n.Common.done) { dismiss() }
-							.testability(Testability.Button.sharedFindingDismiss)
+		// Sized to its content, not to the window. The card's container caps the width and the
+		// scroll view below caps the height, so a two-row finding is a small card rather than a
+		// full-bleed page with its content stranded in the corner — which is exactly what a
+		// `maxHeight: .infinity` here would reproduce, only now with a tint behind it.
+		VStack(spacing: 0) {
+			// The header — and with it the way out — is rendered unconditionally, *outside* the
+			// `presentation` check. A state in which this card is on screen without a Done button is
+			// a card the user cannot leave. Gating it on the ownership lookup would make the escape
+			// hatch depend on a Core Data fetch having succeeded, and "a link never leaves the user
+			// on a blank screen" is an acceptance criterion rather than a nicety.
+			header
+			Divider()
+			ScrollView {
+				switch pending {
+				case .unreadable:
+					SharedFindingUnreadableView()
+				case .finding(let payload):
+					switch presentation {
+					case .unverified:
+						SharedFindingUnverifiedView(payload: payload, onOpenPage: openPage)
+							// Identity tied to the payload, so a second link gets a FRESH view rather
+							// than SwiftUI reusing the first one. Without this, two pieces of state
+							// outlive the swap and both are wrong: `isMapShown` stays true, so the
+							// next link mounts a map with no tap — defeating the privacy property
+							// this screen exists to keep — and `Map(initialPosition:)` only reads its
+							// region at mount, so that map keeps showing the PREVIOUS finding's
+							// location under the new finding's coordinates. Found by driving two
+							// links in succession on a simulator; no unit test would have seen it.
+							.id(payload)
+					case .owned(let localTitle):
+						SharedFindingOwnedView(localTitle: localTitle, onOpenFindings: openOwnFinding)
+					case nil:
+						// One runloop at most, until `onAppear` resolves ownership.
+						ProgressView()
+							.padding(40)
 					}
 				}
 			}
+			// Shrink-to-fit: the scroll view takes only the height its content needs, up to this cap,
+			// so short findings do not get a tall empty card and long ones still scroll.
+			.frame(maxHeight: 560)
 		}
 		.onAppear { resolve() }
 		// A second link can replace the first while this screen is up (`SharedFindingState` keeps
 		// the newest), and the new one may belong to the recipient when the old one did not.
 		.onChange(of: pending) { _, _ in resolve() }
+	}
+
+	/// The card's own title bar. A `NavigationStack` would give the same thing, but a navigation bar
+	/// inside a 520pt card reads as a screen someone forgot to finish, and the stack brought a whole
+	/// navigation context along for one title and one button.
+	private var header: some View {
+		HStack {
+			Text(L10n.Finding.Shared.title)
+				.font(.headline)
+			Spacer(minLength: 12)
+			Button(L10n.Common.done) { dismiss() }
+				.buttonStyle(.borderless)
+				.testability(Testability.Button.sharedFindingDismiss)
+		}
+		.padding(.horizontal, 20)
+		.padding(.vertical, 14)
 	}
 
 	// MARK: - Actions
@@ -227,6 +317,13 @@ struct SharedFindingView: View {
 		// page would then load out of sight behind them. The findings list's own "Open Page" does the
 		// same thing for the same reason.
 		appState.chromeState.presentedSideMenu = false
+		// First run stages the onboarding tour's demo page (`AppState`), and `WebScreen` consumes it
+		// in the same appear pass that delivers the latch below — so without this the two race and
+		// the page the user actually asked for may lose. A stranger who installed the app *from a
+		// shared link* is the case this feature exists for, and an explicit tap outranks a default:
+		// the tour still runs, it simply starts on the page they came for. Decided by the product
+		// owner (AIA-0657).
+		appState.settings.onboardingInitialPage = nil
 		appState.chromeState.pageToOpen = page
 		dismiss()
 	}

@@ -369,6 +369,23 @@ struct MLBrowser: App {
 				await appState.dataController.awaitStoreReady()
 				appState.downloader.reconnectBackgroundSession()
 			}
+			// A received shared finding (AIA-0650, moved here by AIA-0657). **Applied last, on
+			// purpose**: this modifier must be the outermost one in the scene so the card sits above
+			// everything — the subscription gate, the analytics gate, and also `.screenshotReportOffer`
+			// and `.appMessageBanner` above, which are themselves applied outside the gates. "Outside
+			// the gates" and "top of the z-order" are not the same claim, and only the second one is
+			// what the ticket asks for.
+			//
+			// It used to hang off `ContentView`, i.e. *inside* both gates, so a link tapped by someone
+			// who had not yet dealt with the paywall, the welcome screen or the telemetry question was
+			// buffered and shown only afterwards — the visitor a shared link exists to attract met a
+			// wall and no finding.
+			//
+			// Still an **overlay** rather than a `.sheet`, and now more so than before: as an ancestor
+			// of every sheet the app raises, a sheet here would present and immediately auto-dismiss
+			// whenever one was already up (the trap `AnalyticsChoiceGate` documents). A link arriving
+			// while Settings or the composer is open would flash and be lost.
+			.sharedFindingPresentation(appState)
 		}
 	}
 }
