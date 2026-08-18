@@ -286,7 +286,12 @@ struct WebScreenView: View {
             tiledBorders = appState.settings.tiledBorders
             if hasPerformedInitialAction.not {
                 hasPerformedInitialAction = true
-                if let fixtureURL = appState.settings.launchFixtureURL {
+                if appState.chromeState.pageToOpen != nil {
+                    // A shared link is already waiting; the `onReceive` above loads it. Skipping the
+                    // default here is what stops a home-page flash when `onAppear` wins the race —
+                    // the flag set above covers the other ordering.
+                    intendedPageKind = "sharedLink"
+                } else if let fixtureURL = appState.settings.launchFixtureURL {
                     // AIA-0316 UI-test harness: load a bundled local-HTML fixture directly via
                     // loadFileURL. Highest precedence, and deliberately NOT recorded in history.
                     intendedPageKind = "localFixture"
@@ -389,6 +394,13 @@ struct WebScreenView: View {
             // A finding's "open page" action lands here (the findings UI cannot
             // reach the web view directly).
             guard let url else { return }
+            // A shared link IS this screen's initial action, so claim it. `.onAppear` below performs
+            // the default first load (onboarding / last page / home) and there is no guaranteed
+            // ordering between the two: on a FIRST mount — a link opened from behind the paywall,
+            // which is the whole point of AIA-0657 — `onAppear` ran second and overwrote the page
+            // the user had asked for with the home page. Reported from a real build; no unit test
+            // reaches a SwiftUI lifecycle race.
+            hasPerformedInitialAction = true
             // Cleared on the NEXT runloop turn, not inline, and that is not a style choice.
             // `@Published` publishes from `willSet`, so this closure runs *inside* the assignment
             // that delivered the value — the inline `pageToOpen = nil` completed first and the
