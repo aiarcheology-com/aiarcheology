@@ -523,3 +523,10 @@ func checkedSum(_ a: Int, _ b: Int) -> Int? {
 	let (value, overflow) = a.addingReportingOverflow(b)
 	return overflow ? nil : value
 }
+
+/// `a * b`, or nil when it overflows. Same reasoning as ``checkedSum(_:_:)``: an element count read
+/// out of a checkpoint is attacker-chosen, and a wrapped product compares as a plausible size.
+func checkedProduct(_ a: Int, _ b: Int) -> Int? {
+	let (value, overflow) = a.multipliedReportingOverflow(by: b)
+	return overflow ? nil : value
+}
