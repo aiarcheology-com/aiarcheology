@@ -423,8 +423,8 @@ internal enum L10n {
     internal static let title = L10n.tr("Localizable", "download.title", fallback: "Model")
     /// URL
     internal static let url = L10n.tr("Localizable", "download.url", fallback: "URL")
-    /// Enter a direct .mlmodel URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.
-    internal static let urlHint = L10n.tr("Localizable", "download.urlHint", fallback: "Enter a direct .mlmodel URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.")
+    /// Enter a direct .mlmodel or .onnx URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.
+    internal static let urlHintFormats = L10n.tr("Localizable", "download.urlHintFormats", fallback: "Enter a direct .mlmodel or .onnx URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.")
     /// https://.../mymodel.mlmodel
     internal static let urlPlaceholder = L10n.tr("Localizable", "download.urlPlaceholder", fallback: "https://.../mymodel.mlmodel")
     internal enum Button {
