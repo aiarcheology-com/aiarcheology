@@ -120,6 +120,11 @@ ios/asc.auth/
 # always-on suite uses live in Tests/NativeModelConverterTests/Fixtures/ADAF/ and are not ignored.
 .adaf-checkpoints/
 
+# Python oracle environment for the M3a Faster R-CNN parity spike (AIA-0670). Holds torch,
+# torchvision and coremltools — gigabytes of third-party wheels, rebuildable from the pinned
+# requirements the spike records, so it is machine-local state rather than project content.
+.venv-m3a/
+
 # Wrangler's local cache, created by `wrangler pages deploy` for the link.aiarcheology.com
 # static site (AIA-0650). Holds the resolved Cloudflare account id and project metadata —
 # machine-local state, not project configuration, and not something to publish.
