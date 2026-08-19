@@ -423,8 +423,8 @@ internal enum L10n {
     internal static let title = L10n.tr("Localizable", "download.title", fallback: "Model")
     /// URL
     internal static let url = L10n.tr("Localizable", "download.url", fallback: "URL")
-    /// Enter a direct .mlmodel URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.
-    internal static let urlHint = L10n.tr("Localizable", "download.urlHint", fallback: "Enter a direct .mlmodel URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.")
+    /// Enter a direct .mlmodel or .onnx URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.
+    internal static let urlHintFormats = L10n.tr("Localizable", "download.urlHintFormats", fallback: "Enter a direct .mlmodel or .onnx URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models.")
     /// https://.../mymodel.mlmodel
     internal static let urlPlaceholder = L10n.tr("Localizable", "download.urlPlaceholder", fallback: "https://.../mymodel.mlmodel")
     internal enum Button {
@@ -715,6 +715,10 @@ internal enum L10n {
     internal static let title = L10n.tr("Localizable", "import.title", fallback: "Import Model")
     /// The model was imported. The app can't verify what an imported model does, so please confirm its type on the next screen. You're responsible for the choice, and a wrong type can produce incorrect results.
     internal static let typeConfirmation = L10n.tr("Localizable", "import.typeConfirmation", fallback: "The model was imported. The app can't verify what an imported model does, so please confirm its type on the next screen. You're responsible for the choice, and a wrong type can produce incorrect results.")
+    /// This download is an archive, not a model. Extract it first, then import the model file inside it.
+    internal static let unsupportedArchive = L10n.tr("Localizable", "import.unsupportedArchive", fallback: "This download is an archive, not a model. Extract it first, then import the model file inside it.")
+    /// This download is a training checkpoint, which this app cannot open yet. Import a Core ML or ONNX model instead.
+    internal static let unsupportedCheckpoint = L10n.tr("Localizable", "import.unsupportedCheckpoint", fallback: "This download is a training checkpoint, which this app cannot open yet. Import a Core ML or ONNX model instead.")
     /// Validating model...
     internal static let validating = L10n.tr("Localizable", "import.validating", fallback: "Validating model...")
     /// WWDC: Core ML Converters

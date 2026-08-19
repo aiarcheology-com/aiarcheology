@@ -362,7 +362,7 @@ private extension DownloadDetailView {
 	}
 
 	var packageProgressDescription: String? {
-		guard let packageFileCount else { return L10n.Download.urlHint }
+		guard let packageFileCount else { return L10n.Download.urlHintFormats }
 		switch item.state {
 		case .complete, .imported:
 			return L10n.Catalog.Download.progress(packageFileCount, packageFileCount)

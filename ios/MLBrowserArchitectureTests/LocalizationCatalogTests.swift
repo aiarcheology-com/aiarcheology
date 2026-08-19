@@ -193,10 +193,18 @@ final class LocalizationCatalogTests: XCTestCase {
         // the old thing with no gate able to see it (AIA-0455). The replacements were translated
         // into all 16 locales in the same change, so three keys left and three arrived and the
         // floor never moved.
-        "ar": 418, "bn": 418, "cs": 418, "de": 418,
-        "es": 418, "fa": 418, "fr": 418, "he": 418,
-        "hi": 418, "hu": 418, "pl": 418, "ru": 418,
-        "uk": 418, "zh-HK": 418, "zh-Hans": 418, "zh-Hant": 418
+        //
+        // 447 at AIA-0654, read from this test's own failure output against a sentinel baseline —
+        // never from arithmetic, per the rule above. Only 2 of the 29 points are this ticket's
+        // (`import.unsupportedCheckpoint` and `import.unsupportedArchive`, translated into all 16
+        // locales alongside the `download.urlHintFormats` replacement, which is net zero). The other
+        // 27 were already on `develop`, unlocked: exactly the hazard this comment describes, where a
+        // fully-translated key is added and the gain is never recorded. The floor is a single number
+        // per locale, so locking this ticket's 2 necessarily locks the 27 with them.
+        "ar": 447, "bn": 447, "cs": 447, "de": 447,
+        "es": 447, "fa": 447, "fr": 447, "he": 447,
+        "hi": 447, "hu": 447, "pl": 447, "ru": 447,
+        "uk": 447, "zh-HK": 447, "zh-Hans": 447, "zh-Hant": 447
     ]
 
     /// `%@`, `%lld`, `%1$@`, `%.2f`, `%%`. The length modifier is captured because `%d` and `%lld`

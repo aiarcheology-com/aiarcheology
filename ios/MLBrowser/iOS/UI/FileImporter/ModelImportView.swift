@@ -620,6 +620,12 @@ struct ModelImportView: View {
 		guard activeImportTask == nil else { return }
 		let importSessionID = UUID()
 		activeImportSessionID = importSessionID
+		// Resolved here, on the main actor: deriving it needs a Core Data read, and the work that
+		// consumes it runs detached (AIA-0654).
+		let origin = ModelAcquisitionSource.resolve(
+			downloadURL: request.downloadUrl,
+			catalogSource: DownloadItem.select(request.configurationId, in: moc)?.catalogSource
+		)
 		isLoading = true
 		nativeConversionReport = existingNativeReport
 		nativeConversionProgress = existingNativeReport?.lastProgress
@@ -641,7 +647,8 @@ struct ModelImportView: View {
 						provider: request.provider,
 						retainingOriginalNativePackage: retainingOriginalNativePackage,
 						existingNativeReport: existingNativeReport,
-						reportObserver: reportObserver
+						reportObserver: reportObserver,
+						origin: origin
 					)
 				)
 				await MainActor.run {
@@ -743,13 +750,23 @@ struct ModelImportView: View {
 		let sourceURL = request.sourceURL
 		let configurationID = request.configurationID
 		let downloadURL = request.downloadURL
+		// Staging, naming and the container guard are one operation, and it runs detached: it does
+		// file I/O, and this function resumes on the main actor, so doing any of it out here would
+		// put disk work on the main thread (AGENTS.md §9). `ImportedModelStaging` owns the order
+		// these steps run in and is tested through this same entry point (AIA-0654).
+		let origin = request.origin
 		let storedURL = try await Task.detached(priority: .userInitiated) {
-			let stored = try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationID)
-			return Self.restoringNativeConvertibleExtension(of: stored, from: downloadURL)
+			try ImportedModelStaging.stage(
+				sourceURL: sourceURL,
+				configurationID: configurationID,
+				downloadURL: downloadURL,
+				origin: origin
+			)
 		}.value
 		let configurationDirectory = storedURL.deletingLastPathComponent()
+
 		let reportStore: NativeModelConversionImportReportStore?
-		if Self.nativeConvertibleExtensions.contains(storedURL.pathExtension.lowercased()) {
+		if ImportedModelStaging.nativeConvertibleExtensions.contains(storedURL.pathExtension.lowercased()) {
 			let report: NativeModelConversionImportReport
 			if let existingNativeReport = request.existingNativeReport {
 				guard existingNativeReport.configurationID == configurationID,
@@ -838,43 +855,6 @@ struct ModelImportView: View {
 		)
 	}
 
-	/// Source extensions the app converts to Core ML on-device before the normal loader runs: the
-	/// auditable native package (`.aiagraph`) and self-contained ONNX (`.onnx`). Both share the same
-	/// conversion report machinery (progress, cancellation, log sheet, export).
-	///
-	/// `nonisolated` because the only reader is `restoringNativeConvertibleExtension`, which is
-	/// itself `nonisolated` — without it the property inherits this view's main-actor isolation and
-	/// the reads warn (errors under Swift 6 language mode). Safe by construction rather than by
-	/// assertion: an immutable `let` of a `Set<String>`, which is `Sendable` (AIA-0634).
-	nonisolated private static let nativeConvertibleExtensions: Set<String> = ["aiagraph", "onnx"]
-
-	/// A model downloaded from a URL is stored under the URLSession temporary name, which drops the
-	/// original extension. When the download URL names a native-convertible format but the stored file
-	/// no longer carries that extension, restore the original filename so the on-device converter is
-	/// selected. Core ML files (`.mlmodel`/`.mlpackage`) and files that already carry a convertible
-	/// extension (Files/catalog imports) are returned untouched.
-	nonisolated private static func restoringNativeConvertibleExtension(of storedURL: URL, from downloadURL: URL?) -> URL {
-		let storedExtension = storedURL.pathExtension.lowercased()
-		guard !nativeConvertibleExtensions.contains(storedExtension),
-			let downloadURL,
-			nativeConvertibleExtensions.contains(downloadURL.pathExtension.lowercased())
-		else {
-			return storedURL
-		}
-		let restoredURL = storedURL.deletingLastPathComponent().appendingPathComponent(downloadURL.lastPathComponent)
-		guard restoredURL != storedURL else { return storedURL }
-		do {
-			if FileManager.default.fileExists(atPath: restoredURL.path) {
-				try FileManager.default.removeItem(at: restoredURL)
-			}
-			try FileManager.default.moveItem(at: storedURL, to: restoredURL)
-			return restoredURL
-		} catch {
-			LoggingPolicy.warning("Could not restore native model extension for downloaded file", logger: .storage)
-			return storedURL
-		}
-	}
-
 	/// Converts a verified native source (`.aiagraph` package or `.onnx` file) to a Core ML model
 	/// beside the copied original.
 	///
@@ -886,7 +866,7 @@ struct ModelImportView: View {
 	) async throws -> URL {
 		let storedURL = request.storedURL
 		let sourceExtension = storedURL.pathExtension.lowercased()
-		guard Self.nativeConvertibleExtensions.contains(sourceExtension) else {
+		guard ImportedModelStaging.nativeConvertibleExtensions.contains(sourceExtension) else {
 			return storedURL
 		}
 
@@ -1066,14 +1046,10 @@ struct ModelImportView: View {
 		if configuration.lifeCycle == .ready {
 			deep.saveConfigurations()
 			provider.result(.importSucceeded, id: id)
-			let source: ModelAcquisitionSource
-			if downloadUrl == nil {
-				source = .fileImport
-			} else if configuration.catalogSource != nil {
-				source = .catalog
-			} else {
-				source = .directDownload
-			}
+			let source = ModelAcquisitionSource.resolve(
+				downloadURL: downloadUrl,
+				catalogSource: configuration.catalogSource
+			)
 			analytics.track(.modelImported(source: source))
 
 			return ImportedModelInfo(
@@ -1115,6 +1091,9 @@ private struct NativeModelImportRequest {
 	let retainingOriginalNativePackage: Bool
 	let existingNativeReport: NativeModelConversionImportReport?
 	let reportObserver: @Sendable (NativeModelConversionImportReport) -> Void
+	/// Where this import came from. Resolved on the main actor at the start of the import, because
+	/// deriving it needs a Core Data read and the work below runs detached (AIA-0654).
+	let origin: ModelAcquisitionSource
 }
 
 /// The native-only portion of an import after the source has been staged into app-owned storage.
