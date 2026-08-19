@@ -208,10 +208,10 @@ def main() -> int:
         invented = [row for row in topk[model_id]["pre_nms_sweep"] if row["invented_detections"]]
         if invented:
             print(f"      invented detections at K={[row['value'] for row in invented]}")
-    _write("criterion_2_static_shapes", topk)
 
     # The smallest K that keeps every contributing proposal across every model — the number
-    # condition 2 rests on, computed rather than eyeballed from a table.
+    # condition 2 rests on, computed rather than eyeballed from a table. Computed before the single
+    # write, so the file is never published without it.
     safe_ks = [topk[m]["rank_margin"]["safe_k"] for m in oracles if m in topk
                and topk[m]["rank_margin"]["safe_k"] is not None]
     required_k = max(safe_ks) if safe_ks else None

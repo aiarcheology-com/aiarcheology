@@ -55,6 +55,21 @@ from PIL import Image
 from oracle import resize_v2
 
 MODULE_PATH = Path(__file__).resolve()
+REPOSITORY = MODULE_PATH.parents[2]
+
+
+def _repo_relative(path) -> str:
+    """A path as it appears from the repository root, for anything written into a committed file.
+
+    Results are checked in, so an absolute path would carry one machine's home directory — and the
+    developer's username — into the repository, and would read as a path nobody else has.
+    """
+    resolved = Path(path).resolve()
+    try:
+        return str(resolved.relative_to(REPOSITORY))
+    except ValueError:
+        # Outside the repository: keep the name, drop the location.
+        return resolved.name
 
 # ADAF's README figures. Raw GitHub rather than the Zenodo record because the record publishes
 # weights, not imagery; these three JPEGs are the only real SLRM pictures ADAF publish at all.
@@ -255,7 +270,10 @@ def inspect_for_contamination(path) -> dict:
     )
 
     return {
-        "path": str(file_path),
+        # Repo-relative, because this dict is written into a committed results file. An absolute
+        # path pins the artifact to one machine and to one person's home directory, which makes the
+        # result unreproducible for anyone else and puts a username in the repository.
+        "path": _repo_relative(file_path),
         "pixels": (width, height),
         "mode": original_mode,
         "non_grey_fraction": non_grey_fraction,

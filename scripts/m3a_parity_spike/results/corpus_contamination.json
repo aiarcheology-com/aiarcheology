@@ -1,6 +1,6 @@
 {
   "barrows.jpg": {
-    "path": "/Users/vladimircortesslavik/Development/aiarcheology/scripts/m3a_parity_spike/results/figures/barrows.jpg",
+    "path": "scripts/m3a_parity_spike/results/figures/barrows.jpg",
     "pixels": [
       400,
       400
@@ -25,7 +25,7 @@
     "summary": "0.00% of pixels are non-grey (alert above 0.5%); 0 of 625 16px blocks are majority near-saturated colour, strongest family red at 0.00%. No colour drawing at this threshold; greyscale drawing would not show up here."
   },
   "enclosure.jpg": {
-    "path": "/Users/vladimircortesslavik/Development/aiarcheology/scripts/m3a_parity_spike/results/figures/enclosure.jpg",
+    "path": "scripts/m3a_parity_spike/results/figures/enclosure.jpg",
     "pixels": [
       400,
       400
@@ -50,7 +50,7 @@
     "summary": "0.00% of pixels are non-grey (alert above 0.5%); 0 of 625 16px blocks are majority near-saturated colour, strongest family red at 0.00%. No colour drawing at this threshold; greyscale drawing would not show up here."
   },
   "ringfort.jpg": {
-    "path": "/Users/vladimircortesslavik/Development/aiarcheology/scripts/m3a_parity_spike/results/figures/ringfort.jpg",
+    "path": "scripts/m3a_parity_spike/results/figures/ringfort.jpg",
     "pixels": [
       400,
       400
