@@ -137,6 +137,23 @@ enum FeatureFlagKey: String, CaseIterable {
 	/// so a mid-session flip is safe and lets the feature be switched on the moment the domain is
 	/// verified, without waiting for the install base to cold-start.
 	case isFindingShareLinkEnabled = "isFindingShareLinkEnabled"
+
+	/// Gates the import path for PyTorch checkpoint containers fetched by direct URL (AIA-0654):
+	/// the content sniff that recognises them and the localized rejection that names them. With it
+	/// off, a downloaded checkpoint takes exactly the path it takes today.
+	///
+	/// **Fails closed, and not merely because the feature is new** — that reasoning would default
+	/// every new flag to `false`, which is the reflex `test_defaults_matchShippedBehaviour` exists to
+	/// prevent. The failure mode earns it. This flag is the gate for the *whole* feature, and its
+	/// later milestones decode an untrusted pickle stream from a downloaded file on device. A
+	/// compiled default of `true` would place that parser behind the offline / first-launch / outage
+	/// path, which is exactly where ConfigCat cannot reach it to switch it off. Flipping the compiled
+	/// default from `true` to `false` once that code lands would itself be a behaviour change, so the
+	/// flag has to be born closed.
+	///
+	/// Read **live** rather than launch-captured: it gates a branch inside the import sheet, so a
+	/// mid-session flip is safe and needs no relaunch.
+	case isPyTorchModelImportEnabled = "isPyTorchModelImportEnabled"
 	// swiftlint:enable redundant_string_enum_value
 
 	/// The value used when remote config cannot be consulted.
@@ -151,9 +168,11 @@ enum FeatureFlagKey: String, CaseIterable {
 		case .isCrossDeviceAnalyticsIdentityEnabled: return true
 		case .isFreeAccessPeriodEnabled: return true
 		case .isDetailedApplicationLogEnabled: return true
-		// The deliberate exception to "defaults fail open" — see the case's documentation. A link
-		// emitted before the domain answers cannot be taken back once it has been posted.
+		// The deliberate exceptions to "defaults fail open" — see each case's documentation. A link
+		// emitted before the domain answers cannot be taken back once it has been posted; and a
+		// checkpoint importer must never be reachable on the one path remote config cannot switch off.
 		case .isFindingShareLinkEnabled: return false
+		case .isPyTorchModelImportEnabled: return false
 		}
 	}
 }
@@ -229,6 +248,7 @@ struct FeatureFlagSnapshot: Equatable {
 	var isFreeAccessPeriodEnabled: Bool { self[.isFreeAccessPeriodEnabled] }
 	var isDetailedApplicationLogEnabled: Bool { self[.isDetailedApplicationLogEnabled] }
 	var isFindingShareLinkEnabled: Bool { self[.isFindingShareLinkEnabled] }
+	var isPyTorchModelImportEnabled: Bool { self[.isPyTorchModelImportEnabled] }
 
 	/// Every key at its compiled default — the launch/offline value.
 	static let defaults = FeatureFlagSnapshot()
