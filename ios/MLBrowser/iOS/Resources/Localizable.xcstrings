@@ -24720,12 +24720,6 @@
             "value" : "Цей файл представляється моделлю виявлення ADAF %@. Застосунок може її прочитати, але перетворення поки не підтримується."
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此檔案自稱為 ADAF %@ 偵測模型。App 可以讀取它，但尚未支援轉換。"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
@@ -24736,6 +24730,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此檔案自稱是 ADAF %@ 偵測模型。App 可以讀取它，但尚未支援轉換。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此檔案自稱為 ADAF %@ 偵測模型。App 可以讀取它，但尚未支援轉換。"
           }
         }
       }
@@ -24828,12 +24828,6 @@
             "value" : "Цей файл представляється моделлю виявлення ADAF. Застосунок може її прочитати, але перетворення поки не підтримується."
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此檔案自稱為 ADAF 偵測模型。App 可以讀取它，但尚未支援轉換。"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
@@ -24844,6 +24838,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此檔案自稱是 ADAF 偵測模型。App 可以讀取它，但尚未支援轉換。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此檔案自稱為 ADAF 偵測模型。App 可以讀取它，但尚未支援轉換。"
           }
         }
       }
@@ -24936,12 +24936,6 @@
             "value" : "Цей файл представляється моделлю сегментації зображень. Цей застосунок знаходить і класифікує об’єкти у сцені, тому моделі сегментації не підтримуються."
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此檔案自稱為影像分割模型。此 App 是在畫面中尋找並分類物件，因此不支援分割模型。"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
@@ -24952,6 +24946,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此檔案自稱是影像分割模型。此 App 是在畫面中尋找並分類物件，因此不支援分割模型。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此檔案自稱為影像分割模型。此 App 是在畫面中尋找並分類物件，因此不支援分割模型。"
           }
         }
       }
@@ -25044,12 +25044,6 @@
             "value" : "Ця контрольна точка навчання містить модель, невідому застосунку. Імпортувати можна лише моделі виявлення ADAF."
           }
         },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此訓練檢查點包含 App 無法辨識的模型。只能匯入 ADAF 偵測模型。"
-          }
-        },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
@@ -25057,6 +25051,12 @@
           }
         },
         "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此訓練檢查點包含 App 無法辨識的模型。只能匯入 ADAF 偵測模型。"
+          }
+        },
+        "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "此訓練檢查點包含 App 無法辨識的模型。只能匯入 ADAF 偵測模型。"
