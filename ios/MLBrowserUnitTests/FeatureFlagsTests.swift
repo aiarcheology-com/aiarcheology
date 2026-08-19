@@ -29,14 +29,7 @@ final class FeatureFlagsTests: XCTestCase {
 	/// to `false` by accident still fails `test_defaults_matchShippedBehaviour`, because the only
 	/// way out is to be listed here on purpose. The pairing below then asserts the exception
 	/// positively, so a listed flag that quietly flips back to `true` fails too.
-	private static let failClosedKeys: Set<FeatureFlagKey> = [
-		.isFindingShareLinkEnabled,
-		// AIA-0654. Not "it is new" — that argument would list every new flag here. The feature's
-		// later milestones decode an untrusted pickle stream from a downloaded file on device, and a
-		// `true` default would put that parser behind the offline / first-launch / outage path, the
-		// one place remote config cannot switch it off.
-		.isPyTorchModelImportEnabled
-	]
+	private static let failClosedKeys: Set<FeatureFlagKey> = [.isFindingShareLinkEnabled]
 
 	/// A share link is worthless until `link.aiarcheology.com` serves an association file, which is
 	/// infrastructure outside this repository. Failing open would let a ConfigCat outage — or a
@@ -66,7 +59,6 @@ final class FeatureFlagsTests: XCTestCase {
 		)
 		XCTAssertEqual(FeatureFlagKey.isFreeAccessPeriodEnabled.rawValue, "isFreeAccessPeriodEnabled")
 		XCTAssertEqual(FeatureFlagKey.isFindingShareLinkEnabled.rawValue, "isFindingShareLinkEnabled")
-		XCTAssertEqual(FeatureFlagKey.isPyTorchModelImportEnabled.rawValue, "isPyTorchModelImportEnabled")
 		XCTAssertEqual(
 			FeatureFlagKey.isDetailedApplicationLogEnabled.rawValue,
 			"isDetailedApplicationLogEnabled"
@@ -110,21 +102,6 @@ final class FeatureFlagsTests: XCTestCase {
 		XCTAssertTrue(FeatureFlagKey.isFreeAccessPeriodEnabled.defaultValue)
 		XCTAssertTrue(FeatureFlagSnapshot.defaults.isFreeAccessPeriodEnabled)
 		XCTAssertFalse(FeatureFlagSnapshot(values: [.isFreeAccessPeriodEnabled: false]).isFreeAccessPeriodEnabled)
-	}
-
-	/// The PyTorch-checkpoint import flag maps to its own key and fails **closed** (AIA-0654).
-	///
-	/// `test_failClosedFlags_defaultOff` covers the allowlist as a set; this pins the reasoning to
-	/// the one flag it decides, and pins the remote value's ability to override it. Nothing else in
-	/// the suite can: under tests `DependencyContainer` serves a `StaticFeatureFlagProvider` and
-	/// never contacts ConfigCat, so no test can distinguish a mis-keyed dashboard flag from a
-	/// correctly-keyed one that is switched off. That confirmation is a manual, ticket-blocking step.
-	func test_pyTorchModelImportFlag_defaultsClosedAndMapsToItsKey() {
-		XCTAssertFalse(FeatureFlagKey.isPyTorchModelImportEnabled.defaultValue)
-		XCTAssertFalse(FeatureFlagSnapshot.defaults.isPyTorchModelImportEnabled)
-		XCTAssertTrue(
-			FeatureFlagSnapshot(values: [.isPyTorchModelImportEnabled: true]).isPyTorchModelImportEnabled
-		)
 	}
 
 	// MARK: - Launch-captured flags (AIA-0513)

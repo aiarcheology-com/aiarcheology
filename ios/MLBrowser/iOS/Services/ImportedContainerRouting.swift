@@ -31,27 +31,33 @@ enum ModelContainerImportError: LocalizedError, Equatable {
 enum ImportedContainerRouting {
 	/// The rejection for `format`, or `nil` to mean "carry on exactly as before AIA-0654".
 	///
-	/// Two conditions narrow this to the one case it exists for, and both are load-bearing:
+	/// **Deliberately not behind a feature flag.** The comparable feature — on-device conversion of
+	/// `.onnx` and `.aiagraph`, which likewise parses untrusted downloaded model files — ships
+	/// ungated, and every flag this app has gates a *product surface* rather than a file format.
+	/// Gating this one would also have shipped it inert, since all it does today is replace a
+	/// cryptic import failure with a message that says what the file is. The safety argument is
+	/// therefore carried entirely by ``DownloadedContainerFormat/classify(fileAt:)`` answering
+	/// `.unrecognized` for everything it does not positively recognise, which is the case that
+	/// preserves today's path.
 	///
-	/// - `isCheckpointRoutingEnabled` is the feature flag. Off, this function is inert.
-	/// - `origin` must be `.directDownload`. Not because other origins cannot produce these
-	///   containers — a checkpoint renamed to `.onnx` is selectable in the Files picker, since the
-	///   allowed types are matched by extension — but because of what a rejection *costs* on each
-	///   path. A direct download is already stored under the configuration directory, so
-	///   `storeModelInDocuments` short-circuits and rejecting it leaves only the download the user
-	///   made and can see. A Files import is copied in first, and at this point in the import there
-	///   is no Core Data row and no conversion report, so nothing would ever clean that copy up:
-	///   rejecting there would trade a cryptic error for a silently orphaned file. The renamed-file
-	///   case therefore keeps its current behaviour, deliberately.
-	/// - Parameter format: evaluated **only** when the two conditions above already hold, so an
-	///   import this guard cannot touch does not even pay for the sniff's file read. Autoclosed
-	///   rather than gated at the call site, which would put the same decision in two places.
+	/// `origin` must be `.directDownload`. Not because other origins cannot produce these containers
+	/// — a checkpoint renamed to `.onnx` is selectable in the Files picker, since the allowed types
+	/// are matched by extension — but because of what a rejection *costs* on each path. A direct
+	/// download is already stored under the configuration directory, so `storeModelInDocuments`
+	/// short-circuits and rejecting it leaves only the download the user made and can see. A Files
+	/// import is copied in first, and at this point in the import there is no Core Data row and no
+	/// conversion report, so nothing would ever clean that copy up: rejecting there would trade a
+	/// cryptic error for a silently orphaned file. The renamed-file case therefore keeps its
+	/// current behaviour, deliberately.
+	///
+	/// - Parameter format: evaluated **only** when `origin` already qualifies, so an import this
+	///   guard cannot touch does not even pay for the sniff's file read. Autoclosed rather than
+	///   gated at the call site, which would put the same decision in two places.
 	static func rejection(
 		for format: @autoclosure () -> DownloadedContainerFormat,
-		origin: ModelAcquisitionSource,
-		isCheckpointRoutingEnabled: Bool
+		origin: ModelAcquisitionSource
 	) -> ModelContainerImportError? {
-		guard isCheckpointRoutingEnabled, origin == .directDownload else { return nil }
+		guard origin == .directDownload else { return nil }
 		switch format() {
 		case .pyTorchZipCheckpoint: return .unsupportedCheckpoint
 		case .tarArchive: return .unsupportedArchive

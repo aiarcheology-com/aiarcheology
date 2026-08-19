@@ -46,6 +46,8 @@ Add Model, "Download from URL", then open a download. The hint under the address
 
 Nothing else on this screen should have changed. Downloading a .mlmodel or .onnx by address must behave exactly as it did in the last build: same progress, same pause and resume, same name on the imported model, same errors when an address is wrong. Installing from Open Catalog and importing from Files must also be unchanged. If any of those behave differently from the build you came from, that is the thing we most want to hear about.
 
+One new message can appear, and only for an address you type yourself. If you download something that is not a model - a .zip, a .tar, or a training checkpoint from a research site - the app now says what the file is instead of failing with a message about a model it could not read. The download itself stays in your list; delete it yourself if you want it gone. Everything the app already accepts is unaffected, so if a model that imported before now gets refused, report it immediately and tell us the exact address.
+
 Most important: confirm every finding you had BEFORE this build is still there, with picture, title, note and GPS intact. If anything is missing, or the app will not start, tell us at once and say which version you came from.
 
 Please report your device model, iOS version and the language you tested in.

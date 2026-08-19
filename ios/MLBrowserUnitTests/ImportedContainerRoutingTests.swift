@@ -16,18 +16,14 @@ final class ImportedContainerRoutingTests: XCTestCase {
 
 	func test_checkpointFromADirectDownload_isRejectedAsACheckpoint() {
 		XCTAssertEqual(
-			ImportedContainerRouting.rejection(
-				for: .pyTorchZipCheckpoint, origin: .directDownload, isCheckpointRoutingEnabled: true
-			),
+			ImportedContainerRouting.rejection(for: .pyTorchZipCheckpoint, origin: .directDownload),
 			.unsupportedCheckpoint
 		)
 	}
 
 	func test_tarFromADirectDownload_isRejectedAsAnArchive() {
 		XCTAssertEqual(
-			ImportedContainerRouting.rejection(
-				for: .tarArchive, origin: .directDownload, isCheckpointRoutingEnabled: true
-			),
+			ImportedContainerRouting.rejection(for: .tarArchive, origin: .directDownload),
 			.unsupportedArchive
 		)
 	}
@@ -45,20 +41,6 @@ final class ImportedContainerRoutingTests: XCTestCase {
 
 	// MARK: - Everything that must stay silent
 
-	/// The flag is the master switch: off, the whole feature is inert regardless of content.
-	func test_flagOff_neverRejectsAnything() {
-		for format in [DownloadedContainerFormat.pyTorchZipCheckpoint, .tarArchive, .unrecognized] {
-			for origin in [ModelAcquisitionSource.directDownload, .catalog, .fileImport] {
-				XCTAssertNil(
-					ImportedContainerRouting.rejection(
-						for: format, origin: origin, isCheckpointRoutingEnabled: false
-					),
-					"flag off must be inert for \(format) from \(origin)"
-				)
-			}
-		}
-	}
-
 	/// A recognized container that did **not** arrive as a direct download keeps today's behaviour.
 	///
 	/// Not because other origins cannot produce one — a checkpoint renamed to `.onnx` is selectable
@@ -70,9 +52,7 @@ final class ImportedContainerRoutingTests: XCTestCase {
 		for format in [DownloadedContainerFormat.pyTorchZipCheckpoint, .tarArchive] {
 			for origin in [ModelAcquisitionSource.catalog, .fileImport] {
 				XCTAssertNil(
-					ImportedContainerRouting.rejection(
-						for: format, origin: origin, isCheckpointRoutingEnabled: true
-					),
+					ImportedContainerRouting.rejection(for: format, origin: origin),
 					"\(format) from \(origin) must keep today's path"
 				)
 			}
@@ -80,7 +60,8 @@ final class ImportedContainerRoutingTests: XCTestCase {
 	}
 
 	/// The sniff must not even be evaluated for an import the guard cannot touch — that read is the
-	/// only trace this feature could otherwise leave on the catalog and Files paths.
+	/// only trace this feature could otherwise leave on the catalog and Files paths. With no feature
+	/// flag in front of it, this is the assertion that keeps the guard off those paths entirely.
 	func test_theContainerIsNotEvenSniffedWhenTheGuardCannotFire() {
 		var sniffs = 0
 		let counting: () -> DownloadedContainerFormat = {
@@ -88,19 +69,13 @@ final class ImportedContainerRoutingTests: XCTestCase {
 			return .pyTorchZipCheckpoint
 		}
 
-		_ = ImportedContainerRouting.rejection(
-			for: counting(), origin: .directDownload, isCheckpointRoutingEnabled: false
-		)
-		XCTAssertEqual(sniffs, 0, "flag off must not read the file")
-
-		_ = ImportedContainerRouting.rejection(
-			for: counting(), origin: .catalog, isCheckpointRoutingEnabled: true
-		)
+		_ = ImportedContainerRouting.rejection(for: counting(), origin: .catalog)
 		XCTAssertEqual(sniffs, 0, "a catalog import must not read the file")
 
-		_ = ImportedContainerRouting.rejection(
-			for: counting(), origin: .directDownload, isCheckpointRoutingEnabled: true
-		)
+		_ = ImportedContainerRouting.rejection(for: counting(), origin: .fileImport)
+		XCTAssertEqual(sniffs, 0, "a Files import must not read the file")
+
+		_ = ImportedContainerRouting.rejection(for: counting(), origin: .directDownload)
 		XCTAssertEqual(sniffs, 1, "a direct download is the one case that sniffs")
 	}
 
@@ -108,11 +83,7 @@ final class ImportedContainerRoutingTests: XCTestCase {
 	/// classifies as `.unrecognized`, and `.unrecognized` is never rejected.
 	func test_unrecognizedContent_isNeverRejected() {
 		for origin in [ModelAcquisitionSource.directDownload, .catalog, .fileImport] {
-			XCTAssertNil(
-				ImportedContainerRouting.rejection(
-					for: .unrecognized, origin: origin, isCheckpointRoutingEnabled: true
-				)
-			)
+			XCTAssertNil(ImportedContainerRouting.rejection(for: .unrecognized, origin: origin))
 		}
 	}
 

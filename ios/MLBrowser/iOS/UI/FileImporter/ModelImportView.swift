@@ -620,13 +620,12 @@ struct ModelImportView: View {
 		guard activeImportTask == nil else { return }
 		let importSessionID = UUID()
 		activeImportSessionID = importSessionID
-		// Both reads have to happen here, on the main actor: the Core Data lookup and the flag
-		// snapshot are unavailable to the detached work that consumes them (AIA-0654).
+		// Resolved here, on the main actor: deriving it needs a Core Data read, and the work that
+		// consumes it runs detached (AIA-0654).
 		let origin = ModelAcquisitionSource.resolve(
 			downloadURL: request.downloadUrl,
 			catalogSource: DownloadItem.select(request.configurationId, in: moc)?.catalogSource
 		)
-		let isCheckpointRoutingEnabled = featureFlags.snapshot.isPyTorchModelImportEnabled
 		isLoading = true
 		nativeConversionReport = existingNativeReport
 		nativeConversionProgress = existingNativeReport?.lastProgress
@@ -649,8 +648,7 @@ struct ModelImportView: View {
 						retainingOriginalNativePackage: retainingOriginalNativePackage,
 						existingNativeReport: existingNativeReport,
 						reportObserver: reportObserver,
-						origin: origin,
-						isCheckpointRoutingEnabled: isCheckpointRoutingEnabled
+						origin: origin
 					)
 				)
 				await MainActor.run {
@@ -761,14 +759,12 @@ struct ModelImportView: View {
 		// `ImportedContainerRouting.rejection`, whose autoclosed `format` means an import the guard
 		// cannot touch never pays for the read at all.
 		let origin = request.origin
-		let isCheckpointRoutingEnabled = request.isCheckpointRoutingEnabled
 		let storedURL = try await Task.detached(priority: .userInitiated) {
 			let stored = try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationID)
 			let named = Self.restoringNativeConvertibleExtension(of: stored, from: downloadURL)
 			if let rejection = ImportedContainerRouting.rejection(
 				for: DownloadedContainerFormat.classify(fileAt: named),
-				origin: origin,
-				isCheckpointRoutingEnabled: isCheckpointRoutingEnabled
+				origin: origin
 			) {
 				throw rejection
 			}
@@ -1145,9 +1141,6 @@ private struct NativeModelImportRequest {
 	/// Where this import came from. Resolved on the main actor at the start of the import, because
 	/// deriving it needs a Core Data read and the work below runs detached (AIA-0654).
 	let origin: ModelAcquisitionSource
-	/// The container guard's feature flag, likewise captured up front: the detached work cannot read
-	/// an `@EnvironmentObject`.
-	let isCheckpointRoutingEnabled: Bool
 }
 
 /// The native-only portion of an import after the source has been staged into app-owned storage.
