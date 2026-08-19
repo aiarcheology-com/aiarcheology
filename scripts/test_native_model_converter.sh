@@ -23,4 +23,12 @@ download_reference \
 	"https://ml-assets.apple.com/coreml/models/Image/ImageClassification/MobileNetV2/MobileNetV2FP16.mlmodel" \
 	"c76832208ff4c936365f0f2609f7b77f7f1a6caf62b0b429056d5ad7e48635ad"
 
-NATIVE_MODEL_REFERENCE_DIRECTORY="$reference_directory" swift test
+# `--skip ADAFCheckpointDirectoryTests`: that suite is gated on ADAF_CHECKPOINT_DIRECTORY and
+# would skip here, which the CI workflow treats as a failure — correctly, since its whole purpose
+# is that nothing which *should* run is quietly skipping. This one should not run here. It is
+# redundant by construction with the always-on checkpoint tests, whose fixtures are committed and
+# which do run in this suite; feeding it would put a Zenodo fetch on every converter CI run for a
+# check that adds little (all four detection models share one tensor-table digest, and the one
+# whose bytes are committed already exercises it). It stays honest through its own wrapper,
+# scripts/test_adaf_checkpoints.sh, which fails when the fixtures are missing or any test skips.
+NATIVE_MODEL_REFERENCE_DIRECTORY="$reference_directory" swift test --skip ADAFCheckpointDirectoryTests

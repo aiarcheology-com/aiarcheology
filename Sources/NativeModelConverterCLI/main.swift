@@ -10,8 +10,16 @@ struct NativeModelConverterCLI {
 			print("native-model-converter \(NativeModelConverterVersion.packageVersion) conversion-revision \(NativeModelConverterVersion.conversionRevision)")
 			return
 		}
+		if arguments.first == "inspect-checkpoint" {
+			guard arguments.count == 2 else {
+				FileHandle.standardError.write(Data("usage: native-model-converter inspect-checkpoint CHECKPOINT\n".utf8))
+				exit(64)
+			}
+			inspectCheckpoint(at: arguments[1])
+			return
+		}
 		guard let invocation = parse(arguments: arguments) else {
-			FileHandle.standardError.write(Data("usage: native-model-converter INPUT.aiagraph OUTPUT.mlmodel [--report REPORT.json] | --version\n".utf8))
+			FileHandle.standardError.write(Data("usage: native-model-converter INPUT.aiagraph OUTPUT.mlmodel [--report REPORT.json] | inspect-checkpoint CHECKPOINT | --version\n".utf8))
 			exit(64)
 		}
 
@@ -52,6 +60,57 @@ struct NativeModelConverterCLI {
 				try? FileManager.default.removeItem(at: sidecarURL)
 			}
 			FileHandle.standardError.write(Data("conversion failed: \(error.localizedDescription)\n".utf8))
+			exit(1)
+		}
+	}
+
+	/// Reports what a PyTorch checkpoint describes itself as, without converting anything.
+	///
+	/// Exists so the reader can be pointed at a file nobody here produced — a fresh download rather
+	/// than a committed fixture. It reads the same four things the app does (the archive's end
+	/// records, its central directory, `data.pkl` and `version`), so the byte count it prints is the
+	/// real cost of identifying a half-gigabyte checkpoint.
+	private static func inspectCheckpoint(at path: String) {
+		let url = URL(fileURLWithPath: path)
+		let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? nil
+		do {
+			let checkpoint = try PyTorchCheckpointReader.read(contentsOf: url)
+			print("file            \(url.lastPathComponent)\(size.map { " (\($0) bytes)" } ?? "")")
+			print("archive root    \(checkpoint.root)  (torch.save format \(checkpoint.formatVersion))")
+			// `elementCount` saturates rather than traps, so summing with `+` would put the trap back
+			// at the one place that reads the saturated value — and `partialValue` would wrap, which
+			// prints a negative parameter count instead. Saturate, matching what it is summing.
+			let parameters = checkpoint.tensors.reduce(0) { total, tensor in
+				let (sum, overflow) = total.addingReportingOverflow(tensor.elementCount)
+				return overflow ? .max : sum
+			}
+			print("state_dict      \(checkpoint.tensors.count) tensors, \(parameters) parameters")
+			print("storages        \(checkpoint.totalStorageCount) total, "
+				+ "\(checkpoint.totalStorageCount - checkpoint.tensors.count) of them optimizer state (never read)")
+			if let identifier = checkpoint.identifier { print("training id     \(identifier)") }
+			if let epoch = checkpoint.epoch { print("epoch           \(epoch)") }
+
+			switch ADAFCheckpointCatalog.identity(of: checkpoint) {
+			case .objectDetection(let model):
+				print("identified as   ADAF object detection — \(model.architecture)")
+				let noun = model.detectableClassCount == 1 ? "class" : "classes"
+				print("                detects \(model.detectableClassCount) \(noun) "
+					+ "(\(model.predictorLogitCount) predictor logits, including background)")
+				print("                label: \(model.classLabel?.displayName ?? "none")"
+					+ " (\(model.labelProvenance.rawValue))")
+				print("conversion      not implemented yet — that is AIA-0654 M3")
+			case .segmentation(let architecture):
+				print("identified as   semantic segmentation — \(architecture)")
+				print("conversion      not supported, and not planned: this app detects and classifies")
+				print("                objects in a scene and has no representation for a pixel mask")
+			case .unrecognized(let summary):
+				print("identified as   not a recognised ADAF model")
+				print("                \(summary.tensorCount) tensors, top-level keys: "
+					+ summary.topLevelPrefixes.joined(separator: ", "))
+				if let family = summary.architectureFamily { print("                looks like \(family)") }
+			}
+		} catch {
+			FileHandle.standardError.write(Data("could not read \(url.lastPathComponent): \(error)\n".utf8))
 			exit(1)
 		}
 	}

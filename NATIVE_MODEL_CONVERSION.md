@@ -356,7 +356,7 @@ or newer. It intentionally uses terminal tests rather than a simulator.
 | Independent Python oracle | `$REFERENCE_PYTHON scripts/test_torchvision_mobilenet_v2_parity.py --pretrained --coremltools-reference` | A diagnostic comparison with a separately converted coremltools model, only after that model agrees with PyTorch. |
 | Release conversion report | `swift run -c release native-model-converter INPUT.aiagraph OUTPUT.mlmodel --report conversion-report.json` | Native package read/emission wall time and exact input/output artifact sizes, serialized as JSON. |
 
-### Fixture-gated suites: feeding `NATIVE_MODEL_ONNX_DIRECTORY` and `NATIVE_MODEL_REFERENCE_DIRECTORY`
+### Fixture-gated suites: feeding `NATIVE_MODEL_ONNX_DIRECTORY`, `NATIVE_MODEL_REFERENCE_DIRECTORY` and `ADAF_CHECKPOINT_DIRECTORY`
 
 A bare `swift test` does **not** run the numerical parity oracles. They are gated on two environment
 variables, and a gate that is unset **skips** — so the run still reports success while proving
@@ -369,6 +369,7 @@ requires to stay green, so set them before claiming a converter change is verifi
 | --- | --- | --- |
 | `NATIVE_MODEL_ONNX_DIRECTORY` | `ONNXConversionIntegrationTests` and `YOLOv5/​v8/​11TrunkConversionTests` — top-1 and elementwise comparison against an ONNX Runtime oracle | `scripts/fetch_native_test_models.sh [TARGET_DIR]` |
 | `NATIVE_MODEL_REFERENCE_DIRECTORY` | The Apple MobileNetV2 FP16 / INT8-LUT artifact contract and its red-image probes | `scripts/test_native_model_converter.sh` sets it for you |
+| `ADAF_CHECKPOINT_DIRECTORY` | `ADAFCheckpointDirectoryTests` — every published ADAF PyTorch checkpoint, read and identified from files fetched fresh | `scripts/fetch_adaf_checkpoints.sh`, then run via `scripts/test_adaf_checkpoints.sh` |
 
 ```bash
 # 1. ONNX + YOLO oracles. Downloads 7 .onnx fixtures (~375 MB) to .native-model-fixtures/,
@@ -383,11 +384,37 @@ NATIVE_MODEL_ONNX_DIRECTORY="$PWD/.native-model-fixtures" swift test \
 ./scripts/test_native_model_converter.sh
 ```
 
-**Run both — neither command alone is sufficient.** Each script feeds one gate, so the other gate's
+```bash
+# 3. ADAF PyTorch checkpoints (AIA-0666). Reconstructs all five published files sparsely from HTTP
+#    range requests into .adaf-checkpoints/, which is gitignored: 2.9 GB of logical files for about
+#    10 MB of disk. Add --full for whole files (~4.6 GB, each md5-verified).
+./scripts/fetch_adaf_checkpoints.sh
+./scripts/test_adaf_checkpoints.sh
+```
+
+**The checkpoint gate is the one you should not run with `swift test` directly.** Its wrapper fails
+when the fixtures are missing *or when any test skips*, which a bare run cannot tell you: measured
+on this branch, `swift test --filter ADAFCheckpointDirectoryTests` with the variable unset reports
+"Executed 2 tests, with 2 tests skipped and 0 failures" and exits 0 — a green run that opened
+nothing. `scripts/test_adaf_checkpoints.sh` exits 1 in that situation, and 1 again against an empty
+or absent directory.
+
+Unlike the other two, the checkpoint reader also has an **always-on** real-bytes suite. The head and
+tail ranges of two published checkpoints are committed under
+`Tests/NativeModelConverterTests/Fixtures/ADAF/` (CC-BY-SA-4.0 — see its `NOTICE.md` for
+attribution), and the reader's entire read set — the archive's end records, its central directory,
+`data.pkl` and `version` — lies inside them, so a plain `swift test` genuinely exercises it against
+real bytes. Their test double also *fails* on any read outside those ranges, which is what keeps the
+read set narrow: a regression that starts walking the 932 scattered local headers would work fine
+against the real file and fails loudly here. The gated suite is the redundant check over freshly
+fetched and optionally complete files, not the only one.
+
+**Run all three — no command alone is sufficient.** Each script feeds one gate, so the other gate's
 suites still skip. Measured on this branch: step 1 executes the 4 ONNX Runtime oracles with 0 skips;
 step 2 executes 296 tests with 4 skips, and those 4 skips *are* the ONNX oracles. Only the union
 covers what AGENTS.md §13 asks for. The skip counts are the quickest way to tell which gate you
-forgot: 5 skips means neither variable was set, 4 means only the reference gate was.
+forgot: with none of the three variables set the suite now skips 7 (the 5 above plus the 2 checkpoint
+tests), 4 means only the reference gate was fed, and 2 means only the checkpoint gate is missing.
 
 Run these **sequentially, never alongside an `xcodebuild` invocation**: concurrent builds race the
 SPM `SourcePackages/artifacts` directory and the loser fails with a missing-XCFramework error and
