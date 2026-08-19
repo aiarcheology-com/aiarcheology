@@ -1,0 +1,566 @@
+{
+  "reference_grid_shape": [
+    1,
+    7,
+    7,
+    2
+  ],
+  "calibration_roi_xyxy": [
+    [
+      3.5,
+      7.25,
+      26.75,
+      19.5
+    ]
+  ],
+  "configurations": {
+    "STRICT_ALIGN_ENDPOINTS_MODE|CORNERS_HEIGHT_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.8571428564619408,
+          "offset": 1.9107140445863038,
+          "max_fit_residual": 8.424586734889772e-07
+        },
+        "col": {
+          "scale": 0.8571428680850414,
+          "offset": 2.160713939488287,
+          "max_fit_residual": 2.041502508376425e-06
+        }
+      },
+      "max_grid_offset_px": 1.660715103149414,
+      "mean_grid_offset_px": 0.7244898932320731
+    },
+    "STRICT_ALIGN_ENDPOINTS_MODE|CORNERS_HEIGHT_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9285714236844504,
+          "offset": 0.9553572534018356,
+          "max_fit_residual": 9.804355229903194e-07
+        },
+        "col": {
+          "scale": 0.9285714061264931,
+          "offset": 1.0803570152310134,
+          "max_fit_residual": 1.9049157913286763e-06
+        }
+      },
+      "max_grid_offset_px": 0.7664833068847656,
+      "mean_grid_offset_px": 0.334380106050141
+    },
+    "STRICT_ALIGN_ENDPOINTS_MODE|CORNERS_WIDTH_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.8571428564619408,
+          "offset": 1.9107140445863038,
+          "max_fit_residual": 8.424586734889772e-07
+        },
+        "col": {
+          "scale": 0.8571428680850414,
+          "offset": 2.160713939488287,
+          "max_fit_residual": 2.041502508376425e-06
+        }
+      },
+      "max_grid_offset_px": 1.660715103149414,
+      "mean_grid_offset_px": 0.7244898932320731
+    },
+    "STRICT_ALIGN_ENDPOINTS_MODE|CORNERS_WIDTH_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9285714236844504,
+          "offset": 0.9553572534018356,
+          "max_fit_residual": 9.804355229903194e-07
+        },
+        "col": {
+          "scale": 0.9285714061264931,
+          "offset": 1.0803570152310134,
+          "max_fit_residual": 1.9049157913286763e-06
+        }
+      },
+      "max_grid_offset_px": 0.7664833068847656,
+      "mean_grid_offset_px": 0.334380106050141
+    },
+    "STRICT_ALIGN_ENDPOINTS_MODE|CENTER_SIZE_HEIGHT_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.8571428564619408,
+          "offset": 1.9107140445863038,
+          "max_fit_residual": 8.424586734889772e-07
+        },
+        "col": {
+          "scale": 0.8571428680850414,
+          "offset": 2.160713939488287,
+          "max_fit_residual": 2.041502508376425e-06
+        }
+      },
+      "max_grid_offset_px": 1.660715103149414,
+      "mean_grid_offset_px": 0.7244898932320731
+    },
+    "STRICT_ALIGN_ENDPOINTS_MODE|CENTER_SIZE_HEIGHT_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9285714236844504,
+          "offset": 0.9553572534018356,
+          "max_fit_residual": 9.804355229903194e-07
+        },
+        "col": {
+          "scale": 0.9285714061264931,
+          "offset": 1.0803570152310134,
+          "max_fit_residual": 1.9049157913286763e-06
+        }
+      },
+      "max_grid_offset_px": 0.7664833068847656,
+      "mean_grid_offset_px": 0.334380106050141
+    },
+    "STRICT_ALIGN_ENDPOINTS_MODE|CENTER_SIZE_WIDTH_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.8571428564619408,
+          "offset": 1.9107140445863038,
+          "max_fit_residual": 8.424586734889772e-07
+        },
+        "col": {
+          "scale": 0.8571428680850414,
+          "offset": 2.160713939488287,
+          "max_fit_residual": 2.041502508376425e-06
+        }
+      },
+      "max_grid_offset_px": 1.660715103149414,
+      "mean_grid_offset_px": 0.7244898932320731
+    },
+    "STRICT_ALIGN_ENDPOINTS_MODE|CENTER_SIZE_WIDTH_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9285714236844504,
+          "offset": 0.9553572534018356,
+          "max_fit_residual": 9.804355229903194e-07
+        },
+        "col": {
+          "scale": 0.9285714061264931,
+          "offset": 1.0803570152310134,
+          "max_fit_residual": 1.9049157913286763e-06
+        }
+      },
+      "max_grid_offset_px": 0.7664833068847656,
+      "mean_grid_offset_px": 0.334380106050141
+    },
+    "ALIGN_ENDPOINTS_MODE|CORNERS_HEIGHT_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.8571428564619408,
+          "offset": 1.9107140445863038,
+          "max_fit_residual": 8.424586734889772e-07
+        },
+        "col": {
+          "scale": 0.8571428680850414,
+          "offset": 2.160713939488287,
+          "max_fit_residual": 2.041502508376425e-06
+        }
+      },
+      "max_grid_offset_px": 1.660715103149414,
+      "mean_grid_offset_px": 0.7244898932320731
+    },
+    "ALIGN_ENDPOINTS_MODE|CORNERS_HEIGHT_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9285714236844504,
+          "offset": 0.9553572534018356,
+          "max_fit_residual": 9.804355229903194e-07
+        },
+        "col": {
+          "scale": 0.9285714061264931,
+          "offset": 1.0803570152310134,
+          "max_fit_residual": 1.9049157913286763e-06
+        }
+      },
+      "max_grid_offset_px": 0.7664833068847656,
+      "mean_grid_offset_px": 0.334380106050141
+    },
+    "ALIGN_ENDPOINTS_MODE|CORNERS_WIDTH_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.8571428564619408,
+          "offset": 1.9107140445863038,
+          "max_fit_residual": 8.424586734889772e-07
+        },
+        "col": {
+          "scale": 0.8571428680850414,
+          "offset": 2.160713939488287,
+          "max_fit_residual": 2.041502508376425e-06
+        }
+      },
+      "max_grid_offset_px": 1.660715103149414,
+      "mean_grid_offset_px": 0.7244898932320731
+    },
+    "ALIGN_ENDPOINTS_MODE|CORNERS_WIDTH_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9285714236844504,
+          "offset": 0.9553572534018356,
+          "max_fit_residual": 9.804355229903194e-07
+        },
+        "col": {
+          "scale": 0.9285714061264931,
+          "offset": 1.0803570152310134,
+          "max_fit_residual": 1.9049157913286763e-06
+        }
+      },
+      "max_grid_offset_px": 0.7664833068847656,
+      "mean_grid_offset_px": 0.334380106050141
+    },
+    "ALIGN_ENDPOINTS_MODE|CENTER_SIZE_HEIGHT_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.8571428564619408,
+          "offset": 1.9107140445863038,
+          "max_fit_residual": 8.424586734889772e-07
+        },
+        "col": {
+          "scale": 0.8571428680850414,
+          "offset": 2.160713939488287,
+          "max_fit_residual": 2.041502508376425e-06
+        }
+      },
+      "max_grid_offset_px": 1.660715103149414,
+      "mean_grid_offset_px": 0.7244898932320731
+    },
+    "ALIGN_ENDPOINTS_MODE|CENTER_SIZE_HEIGHT_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9285714236844504,
+          "offset": 0.9553572534018356,
+          "max_fit_residual": 9.804355229903194e-07
+        },
+        "col": {
+          "scale": 0.9285714061264931,
+          "offset": 1.0803570152310134,
+          "max_fit_residual": 1.9049157913286763e-06
+        }
+      },
+      "max_grid_offset_px": 0.7664833068847656,
+      "mean_grid_offset_px": 0.334380106050141
+    },
+    "ALIGN_ENDPOINTS_MODE|CENTER_SIZE_WIDTH_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.8571428564619408,
+          "offset": 1.9107140445863038,
+          "max_fit_residual": 8.424586734889772e-07
+        },
+        "col": {
+          "scale": 0.8571428680850414,
+          "offset": 2.160713939488287,
+          "max_fit_residual": 2.041502508376425e-06
+        }
+      },
+      "max_grid_offset_px": 1.660715103149414,
+      "mean_grid_offset_px": 0.7244898932320731
+    },
+    "ALIGN_ENDPOINTS_MODE|CENTER_SIZE_WIDTH_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9285714236844504,
+          "offset": 0.9553572534018356,
+          "max_fit_residual": 9.804355229903194e-07
+        },
+        "col": {
+          "scale": 0.9285714061264931,
+          "offset": 1.0803570152310134,
+          "max_fit_residual": 1.9049157913286763e-06
+        }
+      },
+      "max_grid_offset_px": 0.7664833068847656,
+      "mean_grid_offset_px": 0.334380106050141
+    },
+    "UPSAMPLE_MODE|CORNERS_HEIGHT_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 1.2098764740208623,
+          "offset": -0.646604324800449,
+          "max_fit_residual": 1.5600227527556854e-06
+        },
+        "col": {
+          "scale": 1.012704177602318,
+          "offset": 1.6162490324768088,
+          "max_fit_residual": 3.0641365711403523e-06
+        }
+      },
+      "max_grid_offset_px": 2.6964282989501953,
+      "mean_grid_offset_px": 1.7857139110565186
+    },
+    "UPSAMPLE_MODE|CORNERS_HEIGHT_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 1.0374593837546613,
+          "offset": 0.16591909927849496,
+          "max_fit_residual": 2.1807149508390467e-06
+        },
+        "col": {
+          "scale": 0.9829268998808759,
+          "offset": 0.8901124245763945,
+          "max_fit_residual": 2.5983473044277616e-06
+        }
+      },
+      "max_grid_offset_px": 0.8324203491210938,
+      "mean_grid_offset_px": 0.6428573374845543
+    },
+    "UPSAMPLE_MODE|CORNERS_WIDTH_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 1.2098764740208623,
+          "offset": -0.646604324800449,
+          "max_fit_residual": 1.5600227527556854e-06
+        },
+        "col": {
+          "scale": 1.012704177602318,
+          "offset": 1.6162490324768088,
+          "max_fit_residual": 3.0641365711403523e-06
+        }
+      },
+      "max_grid_offset_px": 2.6964282989501953,
+      "mean_grid_offset_px": 1.7857139110565186
+    },
+    "UPSAMPLE_MODE|CORNERS_WIDTH_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 1.0374593837546613,
+          "offset": 0.16591909927849496,
+          "max_fit_residual": 2.1807149508390467e-06
+        },
+        "col": {
+          "scale": 0.9829268998808759,
+          "offset": 0.8901124245763945,
+          "max_fit_residual": 2.5983473044277616e-06
+        }
+      },
+      "max_grid_offset_px": 0.8324203491210938,
+      "mean_grid_offset_px": 0.6428573374845543
+    },
+    "UPSAMPLE_MODE|CENTER_SIZE_HEIGHT_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 1.2098764740208623,
+          "offset": -0.646604324800449,
+          "max_fit_residual": 1.5600227527556854e-06
+        },
+        "col": {
+          "scale": 1.012704177602318,
+          "offset": 1.6162490324768088,
+          "max_fit_residual": 3.0641365711403523e-06
+        }
+      },
+      "max_grid_offset_px": 2.6964282989501953,
+      "mean_grid_offset_px": 1.7857139110565186
+    },
+    "UPSAMPLE_MODE|CENTER_SIZE_HEIGHT_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 1.0374593837546613,
+          "offset": 0.16591909927849496,
+          "max_fit_residual": 2.1807149508390467e-06
+        },
+        "col": {
+          "scale": 0.9829268998808759,
+          "offset": 0.8901124245763945,
+          "max_fit_residual": 2.5983473044277616e-06
+        }
+      },
+      "max_grid_offset_px": 0.8324203491210938,
+      "mean_grid_offset_px": 0.6428573374845543
+    },
+    "UPSAMPLE_MODE|CENTER_SIZE_WIDTH_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 1.2098764740208623,
+          "offset": -0.646604324800449,
+          "max_fit_residual": 1.5600227527556854e-06
+        },
+        "col": {
+          "scale": 1.012704177602318,
+          "offset": 1.6162490324768088,
+          "max_fit_residual": 3.0641365711403523e-06
+        }
+      },
+      "max_grid_offset_px": 2.6964282989501953,
+      "mean_grid_offset_px": 1.7857139110565186
+    },
+    "UPSAMPLE_MODE|CENTER_SIZE_WIDTH_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 1.0374593837546613,
+          "offset": 0.16591909927849496,
+          "max_fit_residual": 2.1807149508390467e-06
+        },
+        "col": {
+          "scale": 0.9829268998808759,
+          "offset": 0.8901124245763945,
+          "max_fit_residual": 2.5983473044277616e-06
+        }
+      },
+      "max_grid_offset_px": 0.8324203491210938,
+      "mean_grid_offset_px": 0.6428573374845543
+    },
+    "ROI_ALIGN_MODE|CORNERS_HEIGHT_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9999999999999996,
+          "offset": -3.496637827681401e-15,
+          "max_fit_residual": 1.0658141036401503e-14
+        },
+        "col": {
+          "scale": 1.0000000234389983,
+          "offset": -3.7397758375198445e-07,
+          "max_fit_residual": 1.9657368497405514e-06
+        }
+      },
+      "max_grid_offset_px": 1.9073486328125e-06,
+      "mean_grid_offset_px": 3.016724878427934e-07
+    },
+    "ROI_ALIGN_MODE|CORNERS_HEIGHT_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9999999999999996,
+          "offset": -3.496637827681401e-15,
+          "max_fit_residual": 1.0658141036401503e-14
+        },
+        "col": {
+          "scale": 1.0000000351584992,
+          "offset": -7.263997093682113e-07,
+          "max_fit_residual": 1.829497659144863e-06
+        }
+      },
+      "max_grid_offset_px": 1.9073486328125e-06,
+      "mean_grid_offset_px": 3.308665995695153e-07
+    },
+    "ROI_ALIGN_MODE|CORNERS_WIDTH_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9999999999999996,
+          "offset": -3.496637827681401e-15,
+          "max_fit_residual": 1.0658141036401503e-14
+        },
+        "col": {
+          "scale": 1.0000000234389983,
+          "offset": -3.7397758375198445e-07,
+          "max_fit_residual": 1.9657368497405514e-06
+        }
+      },
+      "max_grid_offset_px": 1.9073486328125e-06,
+      "mean_grid_offset_px": 3.016724878427934e-07
+    },
+    "ROI_ALIGN_MODE|CORNERS_WIDTH_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9999999999999996,
+          "offset": -3.496637827681401e-15,
+          "max_fit_residual": 1.0658141036401503e-14
+        },
+        "col": {
+          "scale": 1.0000000351584992,
+          "offset": -7.263997093682113e-07,
+          "max_fit_residual": 1.829497659144863e-06
+        }
+      },
+      "max_grid_offset_px": 1.9073486328125e-06,
+      "mean_grid_offset_px": 3.308665995695153e-07
+    },
+    "ROI_ALIGN_MODE|CENTER_SIZE_HEIGHT_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9999999999999996,
+          "offset": -3.496637827681401e-15,
+          "max_fit_residual": 1.0658141036401503e-14
+        },
+        "col": {
+          "scale": 1.0000000234389983,
+          "offset": -3.7397758375198445e-07,
+          "max_fit_residual": 1.9657368497405514e-06
+        }
+      },
+      "max_grid_offset_px": 1.9073486328125e-06,
+      "mean_grid_offset_px": 3.016724878427934e-07
+    },
+    "ROI_ALIGN_MODE|CENTER_SIZE_HEIGHT_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9999999999999996,
+          "offset": -3.496637827681401e-15,
+          "max_fit_residual": 1.0658141036401503e-14
+        },
+        "col": {
+          "scale": 1.0000000351584992,
+          "offset": -7.263997093682113e-07,
+          "max_fit_residual": 1.829497659144863e-06
+        }
+      },
+      "max_grid_offset_px": 1.9073486328125e-06,
+      "mean_grid_offset_px": 3.308665995695153e-07
+    },
+    "ROI_ALIGN_MODE|CENTER_SIZE_WIDTH_FIRST|direct_7x7": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9999999999999996,
+          "offset": -3.496637827681401e-15,
+          "max_fit_residual": 1.0658141036401503e-14
+        },
+        "col": {
+          "scale": 1.0000000234389983,
+          "offset": -3.7397758375198445e-07,
+          "max_fit_residual": 1.9657368497405514e-06
+        }
+      },
+      "max_grid_offset_px": 1.9073486328125e-06,
+      "mean_grid_offset_px": 3.016724878427934e-07
+    },
+    "ROI_ALIGN_MODE|CENTER_SIZE_WIDTH_FIRST|crop14_pool2": {
+      "ok": true,
+      "fit": {
+        "row": {
+          "scale": 0.9999999999999996,
+          "offset": -3.496637827681401e-15,
+          "max_fit_residual": 1.0658141036401503e-14
+        },
+        "col": {
+          "scale": 1.0000000351584992,
+          "offset": -7.263997093682113e-07,
+          "max_fit_residual": 1.829497659144863e-06
+        }
+      },
+      "max_grid_offset_px": 1.9073486328125e-06,
+      "mean_grid_offset_px": 3.308665995695153e-07
+    }
+  },
+  "chosen": {
+    "configuration": "ROI_ALIGN_MODE|CORNERS_HEIGHT_FIRST|direct_7x7",
+    "max_grid_offset_px": 1.9073486328125e-06
+  }
+}

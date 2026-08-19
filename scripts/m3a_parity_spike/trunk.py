@@ -80,26 +80,29 @@ def convert(module: torch.nn.Module, example_inputs: tuple, names: list) -> ct.m
 
 
 def _ordered_outputs(model: ct.models.MLModel, payload: dict, reference: tuple) -> list:
-    """Match Core ML's arbitrarily-named outputs back onto the reference tuple, by shape.
+    """Match Core ML's arbitrarily-named outputs back onto the reference tuple, by spec order.
 
-    coremltools names outputs after internal MIL variables (`var_905`, and sometimes `input`), so
-    positional recovery has to go through shape. Every FPN level here has a distinct spatial size, so
-    the mapping is unambiguous; the assertion makes that a checked property rather than a hope.
+    coremltools renames outputs after internal MIL variables (`var_905`, sometimes `input`), so the
+    names carry no meaning — but the order in `spec.description.output` follows the traced tuple, and
+    that is stable.
+
+    Matching by element count instead looks tempting and is wrong: the RPN head emits objectness at
+    `[1, 3, 200, 200]` and deltas at `[1, 12, 100, 100]`, which are both 120000 elements, so a
+    size-based match is genuinely ambiguous and picked the wrong tensor. The shape assertion below
+    turns any future divergence into a failure rather than a plausible number.
     """
-    produced = {name: np.asarray(value) for name, value in model.predict(payload).items()}
-    matched, used = [], set()
-    for tensor in reference:
+    produced = model.predict(payload)
+    names = [output.name for output in model.get_spec().description.output]
+    if len(names) != len(reference):
+        raise RuntimeError(f"expected {len(reference)} Core ML outputs, got {len(names)}")
+
+    matched = []
+    for name, tensor in zip(names, reference):
         want = tuple(tensor.shape)
-        candidates = [
-            name for name, value in produced.items()
-            if name not in used and value.size == int(np.prod(want))
-        ]
-        if not candidates:
-            raise RuntimeError(f"no Core ML output matches shape {want}")
-        if len(candidates) > 1:
-            raise RuntimeError(f"ambiguous Core ML output for shape {want}: {candidates}")
-        used.add(candidates[0])
-        matched.append(produced[candidates[0]].reshape(want))
+        value = np.asarray(produced[name])
+        if value.size != int(np.prod(want)):
+            raise RuntimeError(f"Core ML output '{name}' has {value.size} elements, expected {want}")
+        matched.append(value.reshape(want))
     return matched
 
 

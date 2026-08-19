@@ -1,0 +1,504 @@
+{
+  "memory": [
+    {
+      "k": 1000,
+      "levels_cropped": 4,
+      "crop_tensor_mib": 765.625,
+      "pooled_tensor_mib": 191.40625,
+      "dtype_bytes": 4
+    },
+    {
+      "k": 512,
+      "levels_cropped": 4,
+      "crop_tensor_mib": 392.0,
+      "pooled_tensor_mib": 98.0,
+      "dtype_bytes": 4
+    },
+    {
+      "k": 256,
+      "levels_cropped": 4,
+      "crop_tensor_mib": 196.0,
+      "pooled_tensor_mib": 49.0,
+      "dtype_bytes": 4
+    },
+    {
+      "k": 128,
+      "levels_cropped": 4,
+      "crop_tensor_mib": 98.0,
+      "pooled_tensor_mib": 24.5,
+      "dtype_bytes": 4
+    },
+    {
+      "k": 100,
+      "levels_cropped": 4,
+      "crop_tensor_mib": 76.5625,
+      "pooled_tensor_mib": 19.140625,
+      "dtype_bytes": 4
+    },
+    {
+      "k": 64,
+      "levels_cropped": 4,
+      "crop_tensor_mib": 49.0,
+      "pooled_tensor_mib": 12.25,
+      "dtype_bytes": 4
+    }
+  ],
+  "OD_ringfort": {
+    "proposals": {
+      "padded_input_shape": [
+        1,
+        3,
+        800,
+        800
+      ],
+      "objectness_per_level": [
+        120000,
+        30000,
+        7500,
+        1875,
+        507
+      ],
+      "total_anchors": 159882,
+      "proposals_after_rpn": 997,
+      "objectness_logit_min": -27.951641082763672,
+      "objectness_logit_max": 8.099044799804688
+    },
+    "rank_margin": {
+      "proposals": 997,
+      "detections": 2,
+      "contributing_ranks": [
+        0,
+        45
+      ],
+      "worst_contributing_rank": 45,
+      "safe_k": 46
+    },
+    "padding_false_positives": {
+      "real_proposals": 997,
+      "padded_boxes": 203,
+      "score_threshold": 0.05,
+      "padded_boxes_above_threshold": 0,
+      "max_padded_score": 2.279510590597056e-05,
+      "note": "measured with torchvision's clip/remove_small_boxes cleanup bypassed, because an emitted static graph cannot contain a variable-length filter"
+    },
+    "pre_nms_sweep": [
+      {
+        "cut": "pre_nms",
+        "value": 1000,
+        "detections": 2,
+        "max_score": 0.9802706241607666,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 512,
+        "detections": 2,
+        "max_score": 0.9802706241607666,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 256,
+        "detections": 2,
+        "max_score": 0.9802706241607666,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 128,
+        "detections": 2,
+        "max_score": 0.9802706241607666,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 64,
+        "detections": 2,
+        "max_score": 0.9802706241607666,
+        "oracle_set_agreement": 1.0
+      }
+    ],
+    "post_nms_sweep": [
+      {
+        "cut": "post_nms",
+        "value": 1000,
+        "detections": 2,
+        "max_score": 0.9802706241607666,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 512,
+        "detections": 2,
+        "max_score": 0.9802706241607666,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 256,
+        "detections": 2,
+        "max_score": 0.9802706241607666,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 128,
+        "detections": 2,
+        "max_score": 0.9802706241607666,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 64,
+        "detections": 2,
+        "max_score": 0.9802706241607666,
+        "oracle_set_agreement": 1.0
+      }
+    ]
+  },
+  "OD_barrow": {
+    "proposals": {
+      "padded_input_shape": [
+        1,
+        3,
+        800,
+        800
+      ],
+      "objectness_per_level": [
+        120000,
+        30000,
+        7500,
+        1875,
+        507
+      ],
+      "total_anchors": 159882,
+      "proposals_after_rpn": 1000,
+      "objectness_logit_min": -17.10814094543457,
+      "objectness_logit_max": 8.571809768676758
+    },
+    "rank_margin": {
+      "proposals": 1000,
+      "detections": 3,
+      "contributing_ranks": [
+        0,
+        3,
+        7
+      ],
+      "worst_contributing_rank": 7,
+      "safe_k": 8
+    },
+    "padding_false_positives": {
+      "real_proposals": 1000,
+      "padded_boxes": 200,
+      "score_threshold": 0.05,
+      "padded_boxes_above_threshold": 0,
+      "max_padded_score": 0.0009513547411188483,
+      "note": "measured with torchvision's clip/remove_small_boxes cleanup bypassed, because an emitted static graph cannot contain a variable-length filter"
+    },
+    "pre_nms_sweep": [
+      {
+        "cut": "pre_nms",
+        "value": 1000,
+        "detections": 3,
+        "max_score": 0.9795745015144348,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 512,
+        "detections": 3,
+        "max_score": 0.9795745015144348,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 256,
+        "detections": 3,
+        "max_score": 0.9795745015144348,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 128,
+        "detections": 3,
+        "max_score": 0.9795745015144348,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 64,
+        "detections": 3,
+        "max_score": 0.9795745015144348,
+        "oracle_set_agreement": 1.0
+      }
+    ],
+    "post_nms_sweep": [
+      {
+        "cut": "post_nms",
+        "value": 1000,
+        "detections": 3,
+        "max_score": 0.9795745015144348,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 512,
+        "detections": 3,
+        "max_score": 0.9795745015144348,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 256,
+        "detections": 3,
+        "max_score": 0.9795745015144348,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 128,
+        "detections": 3,
+        "max_score": 0.9795745015144348,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 64,
+        "detections": 3,
+        "max_score": 0.9795745015144348,
+        "oracle_set_agreement": 1.0
+      }
+    ]
+  },
+  "OD_enclosure": {
+    "proposals": {
+      "padded_input_shape": [
+        1,
+        3,
+        800,
+        800
+      ],
+      "objectness_per_level": [
+        120000,
+        30000,
+        7500,
+        1875,
+        507
+      ],
+      "total_anchors": 159882,
+      "proposals_after_rpn": 1000,
+      "objectness_logit_min": -29.459272384643555,
+      "objectness_logit_max": 6.413249969482422
+    },
+    "rank_margin": {
+      "proposals": 1000,
+      "detections": 8,
+      "contributing_ranks": [
+        0,
+        16,
+        29,
+        45,
+        62,
+        86,
+        101,
+        102
+      ],
+      "worst_contributing_rank": 102,
+      "safe_k": 103
+    },
+    "padding_false_positives": {
+      "real_proposals": 1000,
+      "padded_boxes": 200,
+      "score_threshold": 0.05,
+      "padded_boxes_above_threshold": 0,
+      "max_padded_score": 7.577855285489932e-05,
+      "note": "measured with torchvision's clip/remove_small_boxes cleanup bypassed, because an emitted static graph cannot contain a variable-length filter"
+    },
+    "pre_nms_sweep": [
+      {
+        "cut": "pre_nms",
+        "value": 1000,
+        "detections": 8,
+        "max_score": 0.8073384165763855,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 512,
+        "detections": 8,
+        "max_score": 0.8073384165763855,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 256,
+        "detections": 8,
+        "max_score": 0.8073384165763855,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 128,
+        "detections": 9,
+        "max_score": 0.8073384165763855,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 64,
+        "detections": 8,
+        "max_score": 0.8073384165763855,
+        "oracle_set_agreement": 0.875
+      }
+    ],
+    "post_nms_sweep": [
+      {
+        "cut": "post_nms",
+        "value": 1000,
+        "detections": 8,
+        "max_score": 0.8073384165763855,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 512,
+        "detections": 9,
+        "max_score": 0.8073384165763855,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 256,
+        "detections": 9,
+        "max_score": 0.8073384165763855,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 128,
+        "detections": 9,
+        "max_score": 0.8073384165763855,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 64,
+        "detections": 8,
+        "max_score": 0.8073384165763855,
+        "oracle_set_agreement": 0.875
+      }
+    ]
+  },
+  "OD_AO": {
+    "proposals": {
+      "padded_input_shape": [
+        1,
+        3,
+        800,
+        800
+      ],
+      "objectness_per_level": [
+        120000,
+        30000,
+        7500,
+        1875,
+        507
+      ],
+      "total_anchors": 159882,
+      "proposals_after_rpn": 1000,
+      "objectness_logit_min": -24.149673461914062,
+      "objectness_logit_max": 11.796842575073242
+    },
+    "rank_margin": {
+      "proposals": 1000,
+      "detections": 1,
+      "contributing_ranks": [
+        0
+      ],
+      "worst_contributing_rank": 0,
+      "safe_k": 1
+    },
+    "padding_false_positives": {
+      "real_proposals": 1000,
+      "padded_boxes": 200,
+      "score_threshold": 0.05,
+      "padded_boxes_above_threshold": 0,
+      "max_padded_score": 6.242645213205833e-06,
+      "note": "measured with torchvision's clip/remove_small_boxes cleanup bypassed, because an emitted static graph cannot contain a variable-length filter"
+    },
+    "pre_nms_sweep": [
+      {
+        "cut": "pre_nms",
+        "value": 1000,
+        "detections": 1,
+        "max_score": 0.9891449809074402,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 512,
+        "detections": 1,
+        "max_score": 0.9891449809074402,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 256,
+        "detections": 1,
+        "max_score": 0.9891449809074402,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 128,
+        "detections": 1,
+        "max_score": 0.9891449809074402,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "pre_nms",
+        "value": 64,
+        "detections": 1,
+        "max_score": 0.9891449809074402,
+        "oracle_set_agreement": 1.0
+      }
+    ],
+    "post_nms_sweep": [
+      {
+        "cut": "post_nms",
+        "value": 1000,
+        "detections": 1,
+        "max_score": 0.9891449809074402,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 512,
+        "detections": 1,
+        "max_score": 0.9891449809074402,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 256,
+        "detections": 1,
+        "max_score": 0.9891449809074402,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 128,
+        "detections": 1,
+        "max_score": 0.9891449809074402,
+        "oracle_set_agreement": 1.0
+      },
+      {
+        "cut": "post_nms",
+        "value": 64,
+        "detections": 1,
+        "max_score": 0.9891449809074402,
+        "oracle_set_agreement": 1.0
+      }
+    ]
+  }
+}

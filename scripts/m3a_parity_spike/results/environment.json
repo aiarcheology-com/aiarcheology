@@ -1,0 +1,172 @@
+{
+  "python": "3.9.6",
+  "torch": "2.8.0",
+  "torchvision": "0.23.0",
+  "numpy": "2.0.2",
+  "platform": "macOS-26.5.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "macos_build": "25F84",
+  "wheel": {
+    "upstream_path": "installation/aitlas-0.0.1-py3-none-any.whl",
+    "sha256": "be2dbb7e3c39c30a91a79b00f7dc3365320cbc57584a8601e286a8b9c91ab69a"
+  },
+  "oracle_version_is_chosen_not_recovered": true,
+  "checkpoints": {
+    "OD_ringfort": {
+      "md5": "4518e1966cafa0544bd3ea78be3b711a",
+      "sha256": "0312295ea6de6786dcd52f7e0e09cdf0f690e0f3f95b32e8be9e336a8114a17a",
+      "logical_bytes": 517823445,
+      "dense": true
+    },
+    "OD_barrow": {
+      "md5": "b9afba2246821035ea7007e08a64ab80",
+      "sha256": "230f81ac9f91e099229d06fa2da35943ef230e6f3d0945993f805332e6bc3d0c",
+      "logical_bytes": 517823445,
+      "dense": true
+    },
+    "OD_enclosure": {
+      "md5": "8f3eebec97a3a0a5b821a9934eb73142",
+      "sha256": "3f26bf40a5fef4e5b54d030dac4e9ef04a697a75550474df0b440d977ed0ec47",
+      "logical_bytes": 517822511,
+      "dense": true
+    },
+    "OD_AO": {
+      "md5": "0826a6bc1a5ea9f76fd2894dc1751d2b",
+      "sha256": "a6a2286bf68c61acb7661654072ec8b3bb0859d0f79a266e755b916694c970a7",
+      "logical_bytes": 517823445,
+      "dense": true
+    }
+  },
+  "figures": {
+    "barrows.jpg": {
+      "sha256": "a41199b641c43ca1efaf6348811ce4a1a9cdbd0a36dc68f3915664056b772158",
+      "pixels": [
+        400,
+        400
+      ]
+    },
+    "enclosure.jpg": {
+      "sha256": "7594aa829ef384fa2e5393aeed540d1240d0fe7c79fb19133a56266b7143fdf3",
+      "pixels": [
+        400,
+        400
+      ]
+    },
+    "ringfort.jpg": {
+      "sha256": "75bf7e0974506a7ed4f944c7c2505ecad10e6b474511059f7857c364baa60cef",
+      "pixels": [
+        400,
+        400
+      ]
+    }
+  },
+  "constants": {
+    "box_score_thresh": 0.05,
+    "box_score_thresh_is_strict_greater": true,
+    "box_nms_thresh": 0.5,
+    "box_detections_per_img": 100,
+    "rpn_pre_nms_top_n_test": 1000,
+    "rpn_post_nms_top_n_test": 1000,
+    "rpn_nms_thresh": 0.7,
+    "rpn_score_thresh": 0.0,
+    "rpn_min_size": 0.001,
+    "transform_min_size": [
+      800
+    ],
+    "transform_max_size": 1333,
+    "transform_image_mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "transform_image_std": [
+      0.229,
+      0.224,
+      0.225
+    ],
+    "box_roi_pool_output_size": [
+      7,
+      7
+    ],
+    "box_roi_pool_sampling_ratio": 2,
+    "box_roi_pool_featmap_names": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ],
+    "box_head_in_features": 1024,
+    "num_classes": 2,
+    "wheel_get_predicted_threshold": 0.2
+  },
+  "anchor_geometry": {
+    "tile_px": 512,
+    "padded_input_shape": [
+      1,
+      3,
+      800,
+      800
+    ],
+    "feature_levels": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "pool"
+    ],
+    "feature_shapes": [
+      [
+        1,
+        256,
+        200,
+        200
+      ],
+      [
+        1,
+        256,
+        100,
+        100
+      ],
+      [
+        1,
+        256,
+        50,
+        50
+      ],
+      [
+        1,
+        256,
+        25,
+        25
+      ],
+      [
+        1,
+        256,
+        13,
+        13
+      ]
+    ],
+    "anchors_per_location": [
+      3,
+      3,
+      3,
+      3,
+      3
+    ],
+    "anchors_per_level": [
+      120000,
+      30000,
+      7500,
+      1875,
+      507
+    ],
+    "pre_nms_top_n_per_level": [
+      1000,
+      1000,
+      1000,
+      1000,
+      507
+    ],
+    "static_pre_nms_candidates": 4507
+  }
+}

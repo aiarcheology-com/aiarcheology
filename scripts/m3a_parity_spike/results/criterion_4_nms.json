@@ -1,0 +1,72 @@
+{
+  "mid_graph_vs_torchvision": {
+    "iou_threshold": 0.7,
+    "max_boxes": 20,
+    "coreml_valid_count": 20,
+    "torchvision_kept": 40,
+    "torchvision_kept_truncated": 20,
+    "indices_identical": true,
+    "index_set_identical": true,
+    "padded_slots": 0
+  },
+  "static_shape_regimes": [
+    {
+      "regime": "zero_survivors",
+      "input_boxes": 10,
+      "valid_count": 1,
+      "expected_survivors": 0,
+      "matches_expectation": false,
+      "output_shape_fixed_at": 8,
+      "padding_slots": 7,
+      "padding_is_all_zero": true
+    },
+    {
+      "regime": "fewer_than_max",
+      "input_boxes": 4,
+      "valid_count": 4,
+      "expected_survivors": 4,
+      "matches_expectation": true,
+      "output_shape_fixed_at": 8,
+      "padding_slots": 4,
+      "padding_is_all_zero": true
+    },
+    {
+      "regime": "exactly_max",
+      "input_boxes": 8,
+      "valid_count": 8,
+      "expected_survivors": 8,
+      "matches_expectation": true,
+      "output_shape_fixed_at": 8,
+      "padding_slots": 0,
+      "padding_is_all_zero": true
+    },
+    {
+      "regime": "more_than_max",
+      "input_boxes": 40,
+      "valid_count": 8,
+      "expected_survivors": 8,
+      "matches_expectation": true,
+      "output_shape_fixed_at": 8,
+      "padding_slots": 0,
+      "padding_is_all_zero": true
+    }
+  ],
+  "per_class_suppression": {
+    "per_class_False": {
+      "ok": true,
+      "valid_count": 7
+    },
+    "per_class_True": {
+      "ok": true,
+      "valid_count": 10
+    }
+  },
+  "non_composition": {
+    "trials": 200,
+    "trials_where_outputs_differ": 200,
+    "mean_boxes_two_pass": 73.89,
+    "mean_boxes_single_pass_at_0_2": 153.07,
+    "largest_count_difference": 103,
+    "caveat": "the top-100 cap between the passes contributes much of the gap; the tested claim is that a single NMS at 0.2 cannot replace the pair, not that NMS never composes"
+  }
+}
