@@ -2,51 +2,45 @@ Build: TBD
 
 Test Focus 1: Sharing a finding as a link, and what it carries.
 
-Sharing still shares the picture; a link travels beside it and the card carries a QR. The link holds the FULL web address, including the part after the "?" that map sites keep the view in, so a recipient lands on YOUR view.
+A link now travels beside the shared picture, and the card carries a QR. It holds the FULL address, including the part after the "?" holding a map's view, so a recipient lands on YOUR view. Use a real map portal (ags.cuzk.cz, mapy.com, openstreetmap.org) and put coordinates in one finding first (Findings, tap one, GPS, e.g. 48.8, 19.53), or the map part cannot be tested.
 
-Test on a real map portal (ags.cuzk.cz, mapy.com, openstreetmap.org). Put coordinates into one finding first (Findings, tap one, GPS field, e.g. 48.8, 19.53) or the map part cannot be tested.
+1. Share a finding from a map portal. The box headed "This link carries at most:" shows exactly what travels. NEW: the copy button beside it puts that address on the clipboard - paste and compare.
 
-1. Share a finding from a map portal. Under the link switch is a box headed "This link carries at most:" showing the web address. Whatever is in that box is what travels. NEW: the copy button beside that heading puts exactly that address on the clipboard — paste it and compare.
+2. Turn "Share the full web address" off: it shortens to the site alone, and copying gives the shorter one. Turn it back on: the long form returns.
 
-2. Turn "Share the full web address" off: it shortens to the site alone, and copying again gives the shorter one. Turn it back on: the long form returns.
+3. Send that link to yourself and open it on another device: it must land on the SAME map view. With the switch off it lands on the site's front page - both are correct, the switch chooses.
 
-3. Send that link to yourself and open it on another device: it must land on the SAME map view. Shared with the switch off it lands on the site's front page instead — both are correct, the switch chooses.
+4. The QR sits flush in the bottom-right CORNER of the information block, beside the rows not under them. Check Portrait and Landscape, Light and Dark, with a finding of many rows and one of two; it must not overlap text.
 
-4. The QR sits flush in the bottom-right CORNER of the information block, beside the rows not under them. Check Portrait and Landscape, Light and Dark, with a finding that has many rows and one with two; it must never overlap text.
+5. Scan the QR with the Code Scanner (Control Centre), including from a photo of the card on another screen: it opens the app on the finding. The Camera app opens the web page - that is iOS, not a bug.
 
-5. Scan the QR with the Code Scanner (Control Centre), including from a photo of the card on another screen: it opens the app on the finding. The Camera app opens the web page instead — that is iOS, not a fault.
+6. Turn "Let people open this finding in the app" off and share: "Save Image" returns, no link attached.
 
-6. Turn "Let people open this finding in the app" off and share: "Save Image" returns and no link is attached.
+7. Open a link to your OWN finding: it opens read-only, saying it is yours. Nothing is added to your Findings list.
 
-7. Open a link to your OWN finding: the app opens read-only, saying it is yours. Nothing is added to your Findings list.
+8. Open someone else's link. It appears as a CARD over the dimmed app, not full screen, with an orange "Shared by Someone Else" warning and a "Where on the page" diagram - no picture of your page leaves your device.
 
-8. Open someone else's link. It appears as a CARD over the dimmed app, not full screen, with an orange "Shared by Someone Else" warning and a "Where on the page" diagram — no picture of your page leaves your device.
+9. NEW, look hardest at this. On that card "Open the Original Page" is the big button under the title, with the FULL address printed beneath it, wrapping, plus a copy button. Read it before you tap: a link can no longer show a familiar site name while sending you elsewhere.
 
-9. NEW, look hardest at this. On that card "Open the Original Page" is now the big button under the title, with the FULL address it opens printed beneath it, wrapping, plus a copy button. Read it before you tap: a link can no longer show a familiar site name while sending you elsewhere. The site name still appears in the details below.
+10. Sign out or use a fresh install so the paywall, welcome screen or analytics question is still waiting, then open a shared link. The finding must appear ON TOP of it. Then "Open the Original Page" closes the card and lands on the shared page.
 
-10. Sign out or use a fresh install so the paywall, welcome screen or analytics question is still waiting, then open a shared link. The finding must appear ON TOP of it. Then tap "Open the Original Page": the card closes, you deal with the paywall, and land on the shared page.
+11. Dismiss (top left) closes the card for good. Tapping outside must NOT close it.
 
-11. Dismiss (top left) closes the card for good. Tapping outside it must NOT close it.
-
-12. Damage a link (delete a chunk from the end) and open it: the app must say it could not read the link, never open to nothing.
+12. Damage a link (delete a chunk from the end): the app must say it could not read it, never open to nothing.
 
 13. Open a link on a device WITHOUT the app, or on a computer: a page describing the finding with a "Get ML Browser" button.
 
 Test Focus 2: Findings carry the name of whoever found them.
 
-The Save screen has an Author field between Note and GPS, prefilled from your account when signed in and empty otherwise. Save one with a name and one cleared — a blank author must show no row on the card, not "Unknown". Signed out it must never show your email. Export should include an author column.
+The Save screen has an Author field between Note and GPS, prefilled from your account when signed in and empty otherwise. Save one with a name and one cleared - a blank author must show no row on the card, not "Unknown". Signed out it must never show your email. Export should include an author column.
 
 Test Focus 3: Deleting a finding on a Mac.
 
-On a Mac, right-click a finding row: Delete now sits beside Share, in red. It removes the finding and its picture just as swiping does on iPhone and iPad. Delete one, then the last one, and confirm the empty screen. Touch is unchanged: swipe left to delete, no menu on long press.
+On a Mac, right-click a finding row: Delete now sits beside Share, in red. It removes the finding and its picture just as swiping does on iPhone and iPad. Delete one, then the last one, and confirm the empty screen. Touch is unchanged: swipe left, no menu on long press.
 
-Test Focus 4: The download screen now names both formats it accepts.
+Test Focus 4: The download screen.
 
-Add Model, "Download from URL", then open a download. The hint under the address field must read "Enter a direct .mlmodel or .onnx URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models." The old wording named only .mlmodel, which was wrong: .onnx has worked for a while. Switch your phone to each language you can read and check that sentence again - it was retranslated into all 16 languages, and the three file endings must stay in Latin letters exactly as written, never translated or transliterated. Tell us if any language reads awkwardly, or if you see a bare key like "download.urlHintFormats" instead of a sentence.
-
-Nothing else on this screen should have changed. Downloading a .mlmodel or .onnx by address must behave exactly as it did in the last build: same progress, same pause and resume, same name on the imported model, same errors when an address is wrong. Installing from Open Catalog and importing from Files must also be unchanged. If any of those behave differently from the build you came from, that is the thing we most want to hear about.
-
-One new message can appear, and only for an address you type yourself. If you download something that is not a model - a .zip, a .tar, or a training checkpoint from a research site - the app now says what the file is instead of failing with a message about a model it could not read. The download itself stays in your list; delete it yourself if you want it gone. Everything the app already accepts is unaffected, so if a model that imported before now gets refused, report it immediately and tell us the exact address.
+The hint now reads ".mlmodel or .onnx", not ".mlmodel" alone - check it in each language you read, endings still in Latin letters. Downloading by address, Open Catalog and Files imports must behave as before: a model that imported before but is refused now matters most.
 
 Most important: confirm every finding you had BEFORE this build is still there, with picture, title, note and GPS intact. If anything is missing, or the app will not start, tell us at once and say which version you came from.
 
