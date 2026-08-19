@@ -28,8 +28,14 @@ struct ADAFFixtureManifest: Decodable {
 		/// are meaningful only against this.
 		let totalLength: Int
 		let md5: String?
-		let head: Region
-		let tail: Region
+		/// What the catalog must answer for this file: `objectDetection` or `segmentation`.
+		let expects: String?
+		let classLabel: String?
+		let tensorCount: Int?
+		/// Present only for the models whose bytes are committed here. The rest are listed so the
+		/// fetch script and the gated suite know what to get and how to verify it.
+		let head: Region?
+		let tail: Region?
 	}
 
 	let models: [Model]
@@ -142,11 +148,13 @@ enum ADAFFixtures {
 	/// fail here, naming itself, rather than deep inside a parser.
 	static func sparseBytes(_ id: String) throws -> SparseFixtureBytes {
 		let model = try self.model(id)
-		let head = try region(model.head)
-		let tail = try region(model.tail)
+		let headRegion = try XCTUnwrap(model.head, "'\(id)' has no committed bytes — it is fetch-only")
+		let tailRegion = try XCTUnwrap(model.tail, "'\(id)' has no committed bytes — it is fetch-only")
+		let head = try region(headRegion)
+		let tail = try region(tailRegion)
 		return SparseFixtureBytes(
 			totalLength: model.totalLength,
-			regions: [(model.head.offset, head), (model.tail.offset, tail)]
+			regions: [(headRegion.offset, head), (tailRegion.offset, tail)]
 		)
 	}
 

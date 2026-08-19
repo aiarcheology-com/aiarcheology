@@ -337,7 +337,7 @@ Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule
 - **Touched `Sources/NativeModelConverter/` or `Tests/NativeModelConverterTests/`? The app's test
   plans do not cover them.** The converter is a separate SPM package at the repo root with its own
   suite — run `swift test` for it, and see the check table in `../NATIVE_MODEL_CONVERSION.md` for the
-  Apple-artifact and Python parity runs. Two of its suites are gated on fixtures the repo
+  Apple-artifact and Python parity runs. Three of its suites are gated on fixtures the repo
   deliberately does not carry, and **each skips silently while the run still reports success**:
   - `NATIVE_MODEL_ONNX_DIRECTORY` — the `.onnx` conversion fixtures behind
     `ONNXConversionIntegrationTests` and the YOLO trunk tests. Populate it with
@@ -348,8 +348,24 @@ Add rules to `ios/MLBrowserArchitectureTests/ArchitectureTests.swift`. Each rule
     `./scripts/test_native_model_converter.sh` downloads them to a temp directory, pins their SHA-256
     and sets the variable itself.
 
-  Neither variable is set by the other's script, so a run with only one of them still skips half.
+  - `ADAF_CHECKPOINT_DIRECTORY` — the published ADAF PyTorch checkpoints behind
+    `ADAFCheckpointDirectoryTests` (AIA-0666). Populate it with
+    `./scripts/fetch_adaf_checkpoints.sh [--full] [TARGET_DIR]`, which reconstructs each file
+    sparsely from HTTP range requests (~10 MB of disk for 2.9 GB of logical files; `--full` fetches
+    whole files and verifies each md5). **Run the suite via
+    `./scripts/test_adaf_checkpoints.sh [TARGET_DIR]`, not `swift test` directly** — the wrapper
+    fails when the fixtures are absent or when any test skipped, which is precisely what a bare run
+    will not tell you.
+
+  No variable is set by another's script, so a run with only one of them still skips the rest.
   A converter change verified against the app's test plans alone has exercised none of this.
+
+  The checkpoint reader is the one part of the converter with an always-on real-bytes suite: the
+  head and tail ranges of two published ADAF checkpoints are committed under
+  `Tests/NativeModelConverterTests/Fixtures/ADAF/` (CC-BY-SA-4.0, see its `NOTICE.md`), and because
+  the reader's whole read set lies inside them, a plain `swift test` really does exercise it against
+  real bytes. The gated suite above is the redundant check over files fetched fresh, not the only
+  one.
 - Build and run unit tests (prefer the scheme's test plans).
   - Xcode: run via the `MLBrowser` scheme and select the test plan.
   - CLI example (choose an available simulator destination on your machine):
