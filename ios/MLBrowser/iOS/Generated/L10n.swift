@@ -611,6 +611,18 @@ internal enum L10n {
   internal enum Import {
     /// Apple Create ML Documentation
     internal static let appleDocumentation = L10n.tr("Localizable", "import.appleDocumentation", fallback: "Apple Create ML Documentation")
+    /// This file describes itself as an ADAF %@ detection model. This app can read it, but converting it is not supported yet.
+    internal static func checkpointDetector(_ p1: Any) -> String {
+      return L10n.tr("Localizable", "import.checkpointDetector", String(describing: p1), fallback: "This file describes itself as an ADAF %@ detection model. This app can read it, but converting it is not supported yet.")
+    }
+    /// This file describes itself as an ADAF detection model. This app can read it, but converting it is not supported yet.
+    internal static let checkpointDetectorUnlabelled = L10n.tr("Localizable", "import.checkpointDetectorUnlabelled", fallback: "This file describes itself as an ADAF detection model. This app can read it, but converting it is not supported yet.")
+    /// This file describes itself as an image segmentation model. This app finds and classifies objects in a scene, so segmentation models are not supported.
+    internal static let checkpointSegmentation = L10n.tr("Localizable", "import.checkpointSegmentation", fallback: "This file describes itself as an image segmentation model. This app finds and classifies objects in a scene, so segmentation models are not supported.")
+    /// This training checkpoint holds a model this app does not recognise (%lld tensors). Only ADAF detection models can be imported.
+    internal static func checkpointUnrecognized(_ p1: Int) -> String {
+      return L10n.tr("Localizable", "import.checkpointUnrecognized", p1, fallback: "This training checkpoint holds a model this app does not recognise (%lld tensors). Only ADAF detection models can be imported.")
+    }
     /// Confirm the model type
     internal static let confirmTypeTitle = L10n.tr("Localizable", "import.confirmTypeTitle", fallback: "Confirm the model type")
     /// Conversion Log

@@ -201,10 +201,17 @@ final class LocalizationCatalogTests: XCTestCase {
         // 27 were already on `develop`, unlocked: exactly the hazard this comment describes, where a
         // fully-translated key is added and the gain is never recorded. The floor is a single number
         // per locale, so locking this ticket's 2 necessarily locks the 27 with them.
-        "ar": 447, "bn": 447, "cs": 447, "de": 447,
-        "es": 447, "fa": 447, "fr": 447, "he": 447,
-        "hi": 447, "hu": 447, "pl": 447, "ru": 447,
-        "uk": 447, "zh-HK": 447, "zh-Hans": 447, "zh-Hant": 447
+        //
+        // 451 at AIA-0666, read the same way — the sentinel run reported `451 localized key(s)` for
+        // every one of the 16 locales. All four points are this ticket's: the rejection for a
+        // downloaded PyTorch checkpoint stopped being one generic sentence and became four that name
+        // what the file describes itself as (`import.checkpointDetector`,
+        // `…DetectorUnlabelled`, `…Segmentation`, `…Unrecognized`), each translated into all 16
+        // locales in the same change. Nothing was pruned, so the step is exactly the four new keys.
+        "ar": 451, "bn": 451, "cs": 451, "de": 451,
+        "es": 451, "fa": 451, "fr": 451, "he": 451,
+        "hi": 451, "hu": 451, "pl": 451, "ru": 451,
+        "uk": 451, "zh-HK": 451, "zh-Hans": 451, "zh-Hant": 451
     ]
 
     /// `%@`, `%lld`, `%1$@`, `%.2f`, `%%`. The length modifier is captured because `%d` and `%lld`

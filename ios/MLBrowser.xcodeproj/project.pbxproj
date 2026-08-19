@@ -280,6 +280,8 @@
 		ABAA0654000000000000A006 /* ImportedContainerRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0654000000000000A005 /* ImportedContainerRouting.swift */; };
 		ABAA0654000000000000A00A /* ImportedModelStaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0654000000000000A009 /* ImportedModelStaging.swift */; };
 		ABAA0654000000000000A00C /* ImportedModelStagingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0654000000000000A00B /* ImportedModelStagingTests.swift */; };
+		ABAA0666000000000000A002 /* ImportedCheckpointAnalyser.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0666000000000000A001 /* ImportedCheckpointAnalyser.swift */; };
+		ABAA0666000000000000A004 /* ImportedCheckpointAnalyserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0666000000000000A003 /* ImportedCheckpointAnalyserTests.swift */; };
 		ABAA0654000000000000A008 /* ImportedContainerRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0654000000000000A007 /* ImportedContainerRoutingTests.swift */; };
 		ABAA0654000000000000A004 /* DownloadedContainerFormatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0654000000000000A003 /* DownloadedContainerFormatTests.swift */; };
 		A35000000000000000000101 /* ReviewPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35000000000000000000100 /* ReviewPrompt.swift */; };
@@ -673,6 +675,8 @@
 		ABAA0654000000000000A005 /* ImportedContainerRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedContainerRouting.swift; sourceTree = "<group>"; };
 		ABAA0654000000000000A009 /* ImportedModelStaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedModelStaging.swift; sourceTree = "<group>"; };
 		ABAA0654000000000000A00B /* ImportedModelStagingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedModelStagingTests.swift; sourceTree = "<group>"; };
+		ABAA0666000000000000A001 /* ImportedCheckpointAnalyser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedCheckpointAnalyser.swift; sourceTree = "<group>"; };
+		ABAA0666000000000000A003 /* ImportedCheckpointAnalyserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedCheckpointAnalyserTests.swift; sourceTree = "<group>"; };
 		ABAA0654000000000000A007 /* ImportedContainerRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedContainerRoutingTests.swift; sourceTree = "<group>"; };
 		ABAA0654000000000000A003 /* DownloadedContainerFormatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadedContainerFormatTests.swift; sourceTree = "<group>"; };
 		A35000000000000000000100 /* ReviewPrompt.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewPrompt.swift; sourceTree = "<group>"; };
@@ -1244,6 +1248,7 @@
 				ABAA0654000000000000A003 /* DownloadedContainerFormatTests.swift */,
 				ABAA0654000000000000A007 /* ImportedContainerRoutingTests.swift */,
 				ABAA0654000000000000A00B /* ImportedModelStagingTests.swift */,
+				ABAA0666000000000000A003 /* ImportedCheckpointAnalyserTests.swift */,
 				ABAA0650000000000000A002 /* FindingShareLinkTests.swift */,
 				ABAA0650000000000000A009 /* FindingShareEmissionTests.swift */,
 				ABAA0657000000000000A001 /* FindingShareCardLayoutTests.swift */,
@@ -1518,6 +1523,7 @@
 				ABAA0654000000000000A001 /* DownloadedContainerFormat.swift */,
 				ABAA0654000000000000A005 /* ImportedContainerRouting.swift */,
 				ABAA0654000000000000A009 /* ImportedModelStaging.swift */,
+				ABAA0666000000000000A001 /* ImportedCheckpointAnalyser.swift */,
 				A35000000000000000000001 /* TelemetryDeckAnalyticsService.swift */,
 			);
 			path = Services;
@@ -2083,6 +2089,7 @@
 				ABAA0654000000000000A002 /* DownloadedContainerFormat.swift in Sources */,
 				ABAA0654000000000000A006 /* ImportedContainerRouting.swift in Sources */,
 				ABAA0654000000000000A00A /* ImportedModelStaging.swift in Sources */,
+				ABAA0666000000000000A002 /* ImportedCheckpointAnalyser.swift in Sources */,
 				1C2C07EA2917960C501206AB /* SubscriptionState.swift in Sources */,
 				AC0513000000000000B001 /* FlagLaunchValueMirror.swift in Sources */,
 				AC0437000000000000B001 /* AccountAnalyticsCoordinator.swift in Sources */,
@@ -2160,6 +2167,7 @@
 				ABAA0654000000000000A004 /* DownloadedContainerFormatTests.swift in Sources */,
 				ABAA0654000000000000A008 /* ImportedContainerRoutingTests.swift in Sources */,
 				ABAA0654000000000000A00C /* ImportedModelStagingTests.swift in Sources */,
+				ABAA0666000000000000A004 /* ImportedCheckpointAnalyserTests.swift in Sources */,
 				ABAA0650000000000000B002 /* FindingShareLinkTests.swift in Sources */,
 				ABAA0650000000000000B009 /* FindingShareEmissionTests.swift in Sources */,
 				ABAA0657000000000000B001 /* FindingShareCardLayoutTests.swift in Sources */,

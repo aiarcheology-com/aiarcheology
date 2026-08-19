@@ -14,15 +14,40 @@ import Foundation
 /// of its own. The value it adds over today's failure is that the message names what the file
 /// actually is instead of reporting that a model could not be read.
 enum ModelContainerImportError: LocalizedError, Equatable {
-	/// A PyTorch training checkpoint. Support is the rest of AIA-0654; this is the honest interim.
+	/// A PyTorch checkpoint the app could not read — malformed, truncated, ZIP64, an unknown
+	/// serialization version, or a pickle that was refused. Still the honest generic message, and
+	/// since AIA-0666 it is *only* used when the file genuinely could not be identified.
 	case unsupportedCheckpoint
 	/// A tar archive. The app has no archive extraction at all, so this one is not "yet".
 	case unsupportedArchive
+	/// The pinned ADAF object-detection table, with the class name when the checkpoint carried one.
+	/// Conversion is AIA-0654 M3.
+	case adafDetectorNotConvertible(className: String?)
+	/// A semantic-segmentation model. **Permanent, not "yet"**: the app detects and classifies objects
+	/// in a scene and has no representation for a per-pixel mask anywhere — not in the converter's
+	/// task enum, not in the drivers, not in a finding (AIA-0654 scope decision, 2026-08-19).
+	case segmentationUnsupported
+	/// A readable checkpoint holding a model this app does not know.
+	case unrecognizedCheckpoint(tensorCount: Int)
 
+	/// - Note: every message describes what the file **says it is**, never what it is. A checkpoint's
+	///   tensor table and training `id` are chosen by whoever wrote the file, so recognition is
+	///   self-declaration and the copy must not launder it into a provenance claim. The only values
+	///   interpolated here are a class name from a closed four-case enum and a tensor count; nothing
+	///   attacker-authored reaches the alert, and the detail goes to the log instead.
 	var errorDescription: String? {
 		switch self {
-		case .unsupportedCheckpoint: return L10n.Import.unsupportedCheckpoint
-		case .unsupportedArchive: return L10n.Import.unsupportedArchive
+		case .unsupportedCheckpoint:
+			return L10n.Import.unsupportedCheckpoint
+		case .unsupportedArchive:
+			return L10n.Import.unsupportedArchive
+		case .adafDetectorNotConvertible(let className):
+			guard let className else { return L10n.Import.checkpointDetectorUnlabelled }
+			return L10n.Import.checkpointDetector(className)
+		case .segmentationUnsupported:
+			return L10n.Import.checkpointSegmentation
+		case .unrecognizedCheckpoint(let tensorCount):
+			return L10n.Import.checkpointUnrecognized(tensorCount)
 		}
 	}
 }
@@ -62,6 +87,28 @@ enum ImportedContainerRouting {
 		case .pyTorchZipCheckpoint: return .unsupportedCheckpoint
 		case .tarArchive: return .unsupportedArchive
 		case .unrecognized: return nil
+		}
+	}
+
+	/// Upgrades a generic checkpoint rejection to one that names the model, once the file has been
+	/// read (AIA-0666).
+	///
+	/// Kept separate from ``rejection(for:origin:)`` so that function stays pure and its tests stay
+	/// exactly as they were: the decision about *whether* to reject is unchanged by this milestone,
+	/// and only the wording of one of its two verdicts gets sharper.
+	///
+	/// - Parameter verdict: autoclosed, so a tar rejection — or any rejection that is not a
+	///   checkpoint — never pays for reading and decoding one.
+	static func refined(
+		_ rejection: ModelContainerImportError,
+		by verdict: @autoclosure () -> ImportedCheckpointVerdict
+	) -> ModelContainerImportError {
+		guard rejection == .unsupportedCheckpoint else { return rejection }
+		switch verdict() {
+		case .adafDetector(let className): return .adafDetectorNotConvertible(className: className)
+		case .segmentation: return .segmentationUnsupported
+		case .unrecognisedModel(let tensorCount): return .unrecognizedCheckpoint(tensorCount: tensorCount)
+		case .unreadable: return rejection
 		}
 	}
 }

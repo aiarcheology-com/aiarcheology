@@ -24632,6 +24632,438 @@
         }
       }
     },
+    "import.checkpointDetector" : {
+      "comment" : "Import rejection: a recognised ADAF detection checkpoint, naming its class (AIA-0666)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يصف هذا الملف نفسه بأنه نموذج كشف ADAF من نوع %@. يستطيع التطبيق قراءته، لكن تحويله غير مدعوم بعد."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই ফাইলটি নিজেকে একটি ADAF %@ শনাক্তকরণ মডেল হিসেবে বর্ণনা করে। অ্যাপ এটি পড়তে পারে, তবে রূপান্তর এখনও সমর্থিত নয়।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tento soubor se popisuje jako detekční model ADAF %@. Aplikace jej umí přečíst, ale převod zatím není podporován."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Datei bezeichnet sich selbst als ADAF-Erkennungsmodell „%@“. Die App kann sie lesen, aber die Konvertierung wird noch nicht unterstützt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file describes itself as an ADAF %@ detection model. This app can read it, but converting it is not supported yet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este archivo se describe a sí mismo como un modelo de detección ADAF %@. La app puede leerlo, pero su conversión aún no es compatible."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "این فایل خود را یک مدل تشخیص ADAF از نوع %@ معرفی می‌کند. برنامه می‌تواند آن را بخواند، اما تبدیل آن هنوز پشتیبانی نمی‌شود."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce fichier se présente comme un modèle de détection ADAF %@. L’app peut le lire, mais sa conversion n’est pas encore prise en charge."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הקובץ הזה מתאר את עצמו כמודל זיהוי ADAF מסוג %@. האפליקציה יכולה לקרוא אותו, אך המרה עדיין אינה נתמכת."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह फ़ाइल स्वयं को ADAF %@ डिटेक्शन मॉडल बताती है। ऐप इसे पढ़ सकता है, लेकिन रूपांतरण अभी समर्थित नहीं है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ez a fájl ADAF %@ felismerési modellként azonosítja magát. Az app be tudja olvasni, de az átalakítása még nem támogatott."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ten plik przedstawia się jako model detekcji ADAF %@. Aplikacja potrafi go odczytać, ale konwersja nie jest jeszcze obsługiwana."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот файл представляется моделью обнаружения ADAF %@. Приложение может её прочитать, но преобразование пока не поддерживается."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Цей файл представляється моделлю виявлення ADAF %@. Застосунок може її прочитати, але перетворення поки не підтримується."
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此檔案自稱為 ADAF %@ 偵測模型。App 可以讀取它，但尚未支援轉換。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该文件自称是 ADAF %@ 检测模型。App 可以读取它，但尚不支持转换。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此檔案自稱是 ADAF %@ 偵測模型。App 可以讀取它，但尚未支援轉換。"
+          }
+        }
+      }
+    },
+    "import.checkpointDetectorUnlabelled" : {
+      "comment" : "Import rejection: a recognised ADAF detection checkpoint whose class name is missing (AIA-0666)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يصف هذا الملف نفسه بأنه نموذج كشف ADAF. يستطيع التطبيق قراءته، لكن تحويله غير مدعوم بعد."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই ফাইলটি নিজেকে একটি ADAF শনাক্তকরণ মডেল হিসেবে বর্ণনা করে। অ্যাপ এটি পড়তে পারে, তবে রূপান্তর এখনও সমর্থিত নয়।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tento soubor se popisuje jako detekční model ADAF. Aplikace jej umí přečíst, ale převod zatím není podporován."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Datei bezeichnet sich selbst als ADAF-Erkennungsmodell. Die App kann sie lesen, aber die Konvertierung wird noch nicht unterstützt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file describes itself as an ADAF detection model. This app can read it, but converting it is not supported yet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este archivo se describe a sí mismo como un modelo de detección ADAF. La app puede leerlo, pero su conversión aún no es compatible."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "این فایل خود را یک مدل تشخیص ADAF معرفی می‌کند. برنامه می‌تواند آن را بخواند، اما تبدیل آن هنوز پشتیبانی نمی‌شود."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce fichier se présente comme un modèle de détection ADAF. L’app peut le lire, mais sa conversion n’est pas encore prise en charge."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הקובץ הזה מתאר את עצמו כמודל זיהוי ADAF. האפליקציה יכולה לקרוא אותו, אך המרה עדיין אינה נתמכת."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह फ़ाइल स्वयं को ADAF डिटेक्शन मॉडल बताती है। ऐप इसे पढ़ सकता है, लेकिन रूपांतरण अभी समर्थित नहीं है।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ez a fájl ADAF felismerési modellként azonosítja magát. Az app be tudja olvasni, de az átalakítása még nem támogatott."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ten plik przedstawia się jako model detekcji ADAF. Aplikacja potrafi go odczytać, ale konwersja nie jest jeszcze obsługiwana."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот файл представляется моделью обнаружения ADAF. Приложение может её прочитать, но преобразование пока не поддерживается."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Цей файл представляється моделлю виявлення ADAF. Застосунок може її прочитати, але перетворення поки не підтримується."
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此檔案自稱為 ADAF 偵測模型。App 可以讀取它，但尚未支援轉換。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该文件自称是 ADAF 检测模型。App 可以读取它，但尚不支持转换。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此檔案自稱是 ADAF 偵測模型。App 可以讀取它，但尚未支援轉換。"
+          }
+        }
+      }
+    },
+    "import.checkpointSegmentation" : {
+      "comment" : "Import rejection: a segmentation model, which this app cannot represent at all (AIA-0666)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يصف هذا الملف نفسه بأنه نموذج تجزئة صور. يعثر هذا التطبيق على الأشياء في المشهد ويصنّفها، لذا فإن نماذج التجزئة غير مدعومة."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই ফাইলটি নিজেকে একটি ইমেজ সেগমেন্টেশন মডেল হিসেবে বর্ণনা করে। এই অ্যাপ দৃশ্যের বস্তু খুঁজে বের করে ও শ্রেণিবদ্ধ করে, তাই সেগমেন্টেশন মডেল সমর্থিত নয়।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tento soubor se popisuje jako model segmentace obrazu. Tato aplikace hledá a klasifikuje objekty ve scéně, takže segmentační modely nejsou podporovány."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Datei bezeichnet sich selbst als Bildsegmentierungsmodell. Diese App findet und klassifiziert Objekte in einer Szene, daher werden Segmentierungsmodelle nicht unterstützt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file describes itself as an image segmentation model. This app finds and classifies objects in a scene, so segmentation models are not supported."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este archivo se describe a sí mismo como un modelo de segmentación de imágenes. Esta app localiza y clasifica objetos en una escena, por lo que los modelos de segmentación no son compatibles."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "این فایل خود را یک مدل قطعه‌بندی تصویر معرفی می‌کند. این برنامه اشیاء را در صحنه پیدا و دسته‌بندی می‌کند، بنابراین مدل‌های قطعه‌بندی پشتیبانی نمی‌شوند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce fichier se présente comme un modèle de segmentation d’images. Cette app repère et classe les objets d’une scène ; les modèles de segmentation ne sont donc pas pris en charge."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "הקובץ הזה מתאר את עצמו כמודל פילוח תמונה. האפליקציה הזו מאתרת ומסווגת עצמים בסצנה, ולכן מודלי פילוח אינם נתמכים."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह फ़ाइल स्वयं को इमेज सेगमेंटेशन मॉडल बताती है। यह ऐप दृश्य में वस्तुएँ ढूँढ़कर उनका वर्गीकरण करता है, इसलिए सेगमेंटेशन मॉडल समर्थित नहीं हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ez a fájl képszegmentálási modellként azonosítja magát. Ez az app objektumokat keres és osztályoz egy jeleneten, ezért a szegmentálási modellek nem támogatottak."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ten plik przedstawia się jako model segmentacji obrazu. Ta aplikacja znajduje i klasyfikuje obiekty w scenie, więc modele segmentacji nie są obsługiwane."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот файл представляется моделью сегментации изображений. Это приложение находит и классифицирует объекты в сцене, поэтому модели сегментации не поддерживаются."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Цей файл представляється моделлю сегментації зображень. Цей застосунок знаходить і класифікує об’єкти у сцені, тому моделі сегментації не підтримуються."
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此檔案自稱為影像分割模型。此 App 是在畫面中尋找並分類物件，因此不支援分割模型。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该文件自称是图像分割模型。此 App 用于在画面中查找并分类对象，因此不支持分割模型。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此檔案自稱是影像分割模型。此 App 是在畫面中尋找並分類物件，因此不支援分割模型。"
+          }
+        }
+      }
+    },
+    "import.checkpointUnrecognized" : {
+      "comment" : "Import rejection: a readable checkpoint holding a model the app does not know (AIA-0666)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "يحتوي نقطة التحقق التدريبية هذه على نموذج لا يتعرّف عليه التطبيق (%lld موتّر). يمكن استيراد نماذج كشف ADAF فقط."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই ট্রেনিং চেকপয়েন্টে এমন একটি মডেল আছে যা অ্যাপ চিনতে পারে না (%lld টেনসর)। শুধুমাত্র ADAF শনাক্তকরণ মডেল আমদানি করা যায়।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tento tréninkový kontrolní bod obsahuje model, který aplikace nezná (%lld tenzorů). Importovat lze pouze detekční modely ADAF."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Trainings-Checkpoint enthält ein Modell, das die App nicht kennt (%lld Tensoren). Es lassen sich nur ADAF-Erkennungsmodelle importieren."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This training checkpoint holds a model this app does not recognise (%lld tensors). Only ADAF detection models can be imported."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este punto de control de entrenamiento contiene un modelo que la app no reconoce (%lld tensores). Solo se pueden importar modelos de detección ADAF."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "این نقطهٔ بازرسی آموزش شامل مدلی است که برنامه آن را نمی‌شناسد (%lld تانسور). فقط مدل‌های تشخیص ADAF قابل واردکردن هستند."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce point de contrôle d’entraînement contient un modèle que l’app ne reconnaît pas (%lld tenseurs). Seuls les modèles de détection ADAF peuvent être importés."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "נקודת הבידוק הזו מכילה מודל שהאפליקציה אינה מזהה (%lld טנזורים). ניתן לייבא רק מודלי זיהוי ADAF."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "इस ट्रेनिंग चेकपॉइंट में ऐसा मॉडल है जिसे ऐप नहीं पहचानता (%lld टेंसर)। केवल ADAF डिटेक्शन मॉडल आयात किए जा सकते हैं।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ez a tanítási mentés olyan modellt tartalmaz, amelyet az app nem ismer (%lld tenzor). Csak ADAF felismerési modellek importálhatók."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ten punkt kontrolny treningu zawiera model, którego aplikacja nie rozpoznaje (%lld tensorów). Zaimportować można tylko modele detekcji ADAF."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта контрольная точка обучения содержит модель, неизвестную приложению (%lld тензоров). Импортировать можно только модели обнаружения ADAF."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ця контрольна точка навчання містить модель, невідому застосунку (%lld тензорів). Імпортувати можна лише моделі виявлення ADAF."
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此訓練檢查點包含 App 無法辨識的模型（%lld 個張量）。只能匯入 ADAF 偵測模型。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此训练检查点包含 App 无法识别的模型（%lld 个张量）。只能导入 ADAF 检测模型。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此訓練檢查點包含 App 無法辨識的模型（%lld 個張量）。只能匯入 ADAF 偵測模型。"
+          }
+        }
+      }
+    },
     "import.confirmTypeTitle" : {
       "comment" : "Title of the alert shown after importing a model, prompting the user to confirm its type (AIA-0402)",
       "extractionState" : "manual",

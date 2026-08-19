@@ -37,11 +37,16 @@ enum ImportedModelStaging {
 	/// - Returns: the URL the model now lives at, which the caller treats as the stored source.
 	/// - Throws: ``ModelContainerImportError`` for a recognised-but-unsupported container, or any
 	///   file-system error from staging.
+	/// - Parameter analyser: reads a recognised checkpoint to decide which model it describes.
+	///   Injectable so a test can assert **how often** it runs — the guarantee that matters is that a
+	///   catalog install, a Files import, a tar, or any format the app handles normally never triggers
+	///   it at all, and that is a claim about call counts rather than about outcomes.
 	static func stage(
 		sourceURL: URL,
 		configurationID: UUID,
 		downloadURL: URL?,
-		origin: ModelAcquisitionSource
+		origin: ModelAcquisitionSource,
+		analyser: (URL) -> ImportedCheckpointVerdict = ImportedCheckpointAnalyser.verdict
 	) throws -> URL {
 		let stored = try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationID)
 		let named = restoringNativeConvertibleExtension(of: stored, from: downloadURL)
@@ -49,7 +54,9 @@ enum ImportedModelStaging {
 			for: DownloadedContainerFormat.classify(fileAt: named),
 			origin: origin
 		) {
-			throw rejection
+			// Only now is the file read: the origin gate and the content sniff have already agreed
+			// that this import is being refused, so the analysis only decides what to *say*.
+			throw ImportedContainerRouting.refined(rejection, by: analyser(named))
 		}
 		return named
 	}
