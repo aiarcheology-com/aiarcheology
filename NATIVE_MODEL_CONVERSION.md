@@ -393,7 +393,7 @@ NATIVE_MODEL_ONNX_DIRECTORY="$PWD/.native-model-fixtures" swift test \
 ```
 
 **The checkpoint gate is the one you should not run with `swift test` directly.** Its wrapper fails
-when the fixtures are missing *or when any test skipped*, which a bare run cannot tell you: measured
+when the fixtures are missing *or when any test skips*, which a bare run cannot tell you: measured
 on this branch, `swift test --filter ADAFCheckpointDirectoryTests` with the variable unset reports
 "Executed 2 tests, with 2 tests skipped and 0 failures" and exits 0 — a green run that opened
 nothing. `scripts/test_adaf_checkpoints.sh` exits 1 in that situation, and 1 again against an empty

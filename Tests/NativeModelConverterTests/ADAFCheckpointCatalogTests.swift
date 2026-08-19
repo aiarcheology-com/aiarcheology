@@ -196,6 +196,14 @@ final class ADAFCheckpointCatalogTests: XCTestCase {
 
 	// MARK: - Helpers
 
+	private static func rowMajorStride(of shape: [Int]) -> [Int] {
+		var strides = [Int](repeating: 1, count: shape.count)
+		for axis in Swift.stride(from: shape.count - 2, through: 0, by: -1) {
+			strides[axis] = strides[axis + 1] * shape[axis + 1]
+		}
+		return strides
+	}
+
 	private static func checkpoint(tensors: [(String, [Int])], identifier: String?) -> PyTorchCheckpoint {
 		PyTorchCheckpoint(
 			root: "cp.pth",
@@ -209,7 +217,11 @@ final class ADAFCheckpointCatalogTests: XCTestCase {
 					name: tensor.0,
 					dataType: tensor.0.hasSuffix("num_batches_tracked") ? .int64 : .float32,
 					shape: tensor.1,
-					stride: [1],
+					// Row-major, so the helper produces tensors the reader could actually have built.
+					// A flat `[1]` is not contiguous for a rank-4 shape, and `readTensors` would refuse
+					// it — a later stride-sensitive assertion written against this helper would have
+					// been checking an object no checkpoint can contain.
+					stride: rowMajorStride(of: tensor.1),
 					storageOffset: 0,
 					storageKey: "\(index)",
 					storageElementCount: tensor.1.reduce(1, *)

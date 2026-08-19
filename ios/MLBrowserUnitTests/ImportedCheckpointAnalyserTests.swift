@@ -185,10 +185,14 @@ final class ImportedCheckpointAnalyserTests: XCTestCase {
 		XCTAssertTrue(text.lowercased().contains("yet"))
 	}
 
-	/// Only a closed enum's display name and a bounded number ever reach an alert.
-	func test_theUnrecognisedMessageCarriesACountAndNothingElse() throws {
-		let text = try XCTUnwrap(ModelContainerImportError.unrecognizedCheckpoint(tensorCount: 12).errorDescription)
-		XCTAssertTrue(text.contains("12"))
+	/// The count is carried for diagnostics and logged, but never rendered: "%lld tensors" reads
+	/// "1 tensors", and Czech, Polish, Russian, Ukrainian and Arabic need count-dependent forms that a
+	/// single interpolated string cannot express. It is also a number no user can act on.
+	func test_theUnrecognisedMessageDoesNotInterpolateACount() throws {
+		let one = try XCTUnwrap(ModelContainerImportError.unrecognizedCheckpoint(tensorCount: 1).errorDescription)
+		let many = try XCTUnwrap(ModelContainerImportError.unrecognizedCheckpoint(tensorCount: 12).errorDescription)
+		XCTAssertEqual(one, many, "the message must not vary with a count it cannot pluralise")
+		XCTAssertFalse(one.contains("1 tensors"), "'\(one)' is ungrammatical for a single tensor")
 	}
 
 	// MARK: - Helpers

@@ -318,14 +318,18 @@ public enum PyTorchCheckpointReader {
 	/// re-check when a cap moves.
 	private static func countStorages(in value: PickleValue) -> Int {
 		var pending = [value]
-		var count = 0
+		// Distinct keys, not references. Two tensors may legitimately name one storage — torch writes
+		// that for tied parameters, and `readTensors` allows it as long as both describe it the same
+		// way. Counting references instead would make the count disagree with the archive for exactly
+		// those files, refusing them for the wrong reason and leaving the shared-storage branch
+		// unreachable. The published ADAF checkpoints share none, so only a test shows the difference.
+		var keys: Set<String> = []
 		while let current = pending.popLast() {
 			switch current {
-			case .storage:
-				count += 1
+			case .storage(let storage):
+				keys.insert(storage.key)
 			case .tensor(let tensor):
-				_ = tensor
-				count += 1
+				keys.insert(tensor.storage.key)
 			case .tuple(let items), .list(let items):
 				pending.append(contentsOf: items)
 			case .dictionary(let entries):
@@ -337,7 +341,7 @@ public enum PyTorchCheckpointReader {
 				break
 			}
 		}
-		return count
+		return keys.count
 	}
 }
 

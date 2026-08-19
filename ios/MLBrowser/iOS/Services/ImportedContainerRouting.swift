@@ -32,9 +32,9 @@ enum ModelContainerImportError: LocalizedError, Equatable {
 
 	/// - Note: every message describes what the file **says it is**, never what it is. A checkpoint's
 	///   tensor table and training `id` are chosen by whoever wrote the file, so recognition is
-	///   self-declaration and the copy must not launder it into a provenance claim. The only values
-	///   interpolated here are a class name from a closed four-case enum and a tensor count; nothing
-	///   attacker-authored reaches the alert, and the detail goes to the log instead.
+	///   self-declaration and the copy must not launder it into a provenance claim. The only value
+	///   interpolated here is a class name from a closed four-case enum; nothing attacker-authored
+	///   reaches the alert, and the detail goes to the log instead.
 	var errorDescription: String? {
 		switch self {
 		case .unsupportedCheckpoint:
@@ -46,8 +46,12 @@ enum ModelContainerImportError: LocalizedError, Equatable {
 			return L10n.Import.checkpointDetector(className)
 		case .segmentationUnsupported:
 			return L10n.Import.checkpointSegmentation
-		case .unrecognizedCheckpoint(let tensorCount):
-			return L10n.Import.checkpointUnrecognized(tensorCount)
+		case .unrecognizedCheckpoint:
+			// The tensor count is carried on the case for diagnostics and logged by the analyser, but
+			// it is deliberately not rendered: "%lld tensors" reads "1 tensors" in English and needs
+			// count-dependent forms in Czech, Polish, Russian, Ukrainian and Arabic, and the number
+			// tells a person nothing they can act on.
+			return L10n.Import.checkpointUnrecognized
 		}
 	}
 }

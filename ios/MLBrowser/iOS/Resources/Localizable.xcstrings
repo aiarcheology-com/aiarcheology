@@ -24963,103 +24963,103 @@
         "ar" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "يحتوي نقطة التحقق التدريبية هذه على نموذج لا يتعرّف عليه التطبيق (%lld موتّر). يمكن استيراد نماذج كشف ADAF فقط."
+            "value" : "يحتوي نقطة التحقق التدريبية هذه على نموذج لا يتعرّف عليه التطبيق. يمكن استيراد نماذج كشف ADAF فقط."
           }
         },
         "bn" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "এই ট্রেনিং চেকপয়েন্টে এমন একটি মডেল আছে যা অ্যাপ চিনতে পারে না (%lld টেনসর)। শুধুমাত্র ADAF শনাক্তকরণ মডেল আমদানি করা যায়।"
+            "value" : "এই ট্রেনিং চেকপয়েন্টে এমন একটি মডেল আছে যা অ্যাপ চিনতে পারে না। শুধুমাত্র ADAF শনাক্তকরণ মডেল আমদানি করা যায়।"
           }
         },
         "cs" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tento tréninkový kontrolní bod obsahuje model, který aplikace nezná (%lld tenzorů). Importovat lze pouze detekční modely ADAF."
+            "value" : "Tento tréninkový kontrolní bod obsahuje model, který aplikace nezná. Importovat lze pouze detekční modely ADAF."
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dieser Trainings-Checkpoint enthält ein Modell, das die App nicht kennt (%lld Tensoren). Es lassen sich nur ADAF-Erkennungsmodelle importieren."
+            "value" : "Dieser Trainings-Checkpoint enthält ein Modell, das die App nicht kennt. Es lassen sich nur ADAF-Erkennungsmodelle importieren."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "This training checkpoint holds a model this app does not recognise (%lld tensors). Only ADAF detection models can be imported."
+            "value" : "This training checkpoint holds a model this app does not recognise. Only ADAF detection models can be imported."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este punto de control de entrenamiento contiene un modelo que la app no reconoce (%lld tensores). Solo se pueden importar modelos de detección ADAF."
+            "value" : "Este punto de control de entrenamiento contiene un modelo que la app no reconoce. Solo se pueden importar modelos de detección ADAF."
           }
         },
         "fa" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "این نقطهٔ بازرسی آموزش شامل مدلی است که برنامه آن را نمی‌شناسد (%lld تانسور). فقط مدل‌های تشخیص ADAF قابل واردکردن هستند."
+            "value" : "این نقطهٔ بازرسی آموزش شامل مدلی است که برنامه آن را نمی‌شناسد. فقط مدل‌های تشخیص ADAF قابل واردکردن هستند."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ce point de contrôle d’entraînement contient un modèle que l’app ne reconnaît pas (%lld tenseurs). Seuls les modèles de détection ADAF peuvent être importés."
+            "value" : "Ce point de contrôle d’entraînement contient un modèle que l’app ne reconnaît pas. Seuls les modèles de détection ADAF peuvent être importés."
           }
         },
         "he" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "נקודת הבידוק הזו מכילה מודל שהאפליקציה אינה מזהה (%lld טנזורים). ניתן לייבא רק מודלי זיהוי ADAF."
+            "value" : "נקודת הבידוק הזו מכילה מודל שהאפליקציה אינה מזהה. ניתן לייבא רק מודלי זיהוי ADAF."
           }
         },
         "hi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "इस ट्रेनिंग चेकपॉइंट में ऐसा मॉडल है जिसे ऐप नहीं पहचानता (%lld टेंसर)। केवल ADAF डिटेक्शन मॉडल आयात किए जा सकते हैं।"
+            "value" : "इस ट्रेनिंग चेकपॉइंट में ऐसा मॉडल है जिसे ऐप नहीं पहचानता। केवल ADAF डिटेक्शन मॉडल आयात किए जा सकते हैं।"
           }
         },
         "hu" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ez a tanítási mentés olyan modellt tartalmaz, amelyet az app nem ismer (%lld tenzor). Csak ADAF felismerési modellek importálhatók."
+            "value" : "Ez a tanítási mentés olyan modellt tartalmaz, amelyet az app nem ismer. Csak ADAF felismerési modellek importálhatók."
           }
         },
         "pl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ten punkt kontrolny treningu zawiera model, którego aplikacja nie rozpoznaje (%lld tensorów). Zaimportować można tylko modele detekcji ADAF."
+            "value" : "Ten punkt kontrolny treningu zawiera model, którego aplikacja nie rozpoznaje. Zaimportować można tylko modele detekcji ADAF."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Эта контрольная точка обучения содержит модель, неизвестную приложению (%lld тензоров). Импортировать можно только модели обнаружения ADAF."
+            "value" : "Эта контрольная точка обучения содержит модель, неизвестную приложению. Импортировать можно только модели обнаружения ADAF."
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ця контрольна точка навчання містить модель, невідому застосунку (%lld тензорів). Імпортувати можна лише моделі виявлення ADAF."
+            "value" : "Ця контрольна точка навчання містить модель, невідому застосунку. Імпортувати можна лише моделі виявлення ADAF."
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此訓練檢查點包含 App 無法辨識的模型（%lld 個張量）。只能匯入 ADAF 偵測模型。"
+            "value" : "此訓練檢查點包含 App 無法辨識的模型。只能匯入 ADAF 偵測模型。"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此训练检查点包含 App 无法识别的模型（%lld 个张量）。只能导入 ADAF 检测模型。"
+            "value" : "此训练检查点包含 App 无法识别的模型。只能导入 ADAF 检测模型。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此訓練檢查點包含 App 無法辨識的模型（%lld 個張量）。只能匯入 ADAF 偵測模型。"
+            "value" : "此訓練檢查點包含 App 無法辨識的模型。只能匯入 ADAF 偵測模型。"
           }
         }
       }

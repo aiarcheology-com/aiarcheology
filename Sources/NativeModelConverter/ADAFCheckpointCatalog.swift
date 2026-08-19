@@ -100,7 +100,7 @@ public enum ADAFCheckpointCatalog {
 
 	/// Structural probes, used **only** to describe a checkpoint that did not match a pinned digest.
 	///
-	/// They are not a recognition rule. Six probes match a six-tensor fragment, and an unrelated
+	/// They are not a recognition rule. Seven probes match a seven-tensor fragment, and an unrelated
 	/// torchvision Faster R-CNN would satisfy every one of them — so a positive answer needs the
 	/// whole table, and probes exist to turn "not recognised" into a sentence that says what was
 	/// there instead.

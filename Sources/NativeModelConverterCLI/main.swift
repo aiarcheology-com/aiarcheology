@@ -77,8 +77,10 @@ struct NativeModelConverterCLI {
 			let checkpoint = try PyTorchCheckpointReader.read(contentsOf: url)
 			print("file            \(url.lastPathComponent)\(size.map { " (\($0) bytes)" } ?? "")")
 			print("archive root    \(checkpoint.root)  (torch.save format \(checkpoint.formatVersion))")
-			print("state_dict      \(checkpoint.tensors.count) tensors, "
-				+ "\(checkpoint.tensors.reduce(0) { $0 + $1.elementCount }) parameters")
+			// `elementCount` saturates rather than traps, so summing it with `+` would put the trap
+			// back at the one place that reads the saturated value.
+			let parameters = checkpoint.tensors.reduce(0) { $0.addingReportingOverflow($1.elementCount).partialValue }
+			print("state_dict      \(checkpoint.tensors.count) tensors, \(parameters) parameters")
 			print("storages        \(checkpoint.totalStorageCount) total, "
 				+ "\(checkpoint.totalStorageCount - checkpoint.tensors.count) of them optimizer state (never read)")
 			if let identifier = checkpoint.identifier { print("training id     \(identifier)") }
@@ -87,7 +89,8 @@ struct NativeModelConverterCLI {
 			switch ADAFCheckpointCatalog.identity(of: checkpoint) {
 			case .objectDetection(let model):
 				print("identified as   ADAF object detection — \(model.architecture)")
-				print("                detects \(model.detectableClassCount) class "
+				let noun = model.detectableClassCount == 1 ? "class" : "classes"
+				print("                detects \(model.detectableClassCount) \(noun) "
 					+ "(\(model.predictorLogitCount) predictor logits, including background)")
 				print("                label: \(model.classLabel?.displayName ?? "none")"
 					+ " (\(model.labelProvenance.rawValue))")
