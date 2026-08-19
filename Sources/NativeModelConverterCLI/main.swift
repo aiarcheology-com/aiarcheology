@@ -77,9 +77,13 @@ struct NativeModelConverterCLI {
 			let checkpoint = try PyTorchCheckpointReader.read(contentsOf: url)
 			print("file            \(url.lastPathComponent)\(size.map { " (\($0) bytes)" } ?? "")")
 			print("archive root    \(checkpoint.root)  (torch.save format \(checkpoint.formatVersion))")
-			// `elementCount` saturates rather than traps, so summing it with `+` would put the trap
-			// back at the one place that reads the saturated value.
-			let parameters = checkpoint.tensors.reduce(0) { $0.addingReportingOverflow($1.elementCount).partialValue }
+			// `elementCount` saturates rather than traps, so summing with `+` would put the trap back
+			// at the one place that reads the saturated value — and `partialValue` would wrap, which
+			// prints a negative parameter count instead. Saturate, matching what it is summing.
+			let parameters = checkpoint.tensors.reduce(0) { total, tensor in
+				let (sum, overflow) = total.addingReportingOverflow(tensor.elementCount)
+				return overflow ? .max : sum
+			}
 			print("state_dict      \(checkpoint.tensors.count) tensors, \(parameters) parameters")
 			print("storages        \(checkpoint.totalStorageCount) total, "
 				+ "\(checkpoint.totalStorageCount - checkpoint.tensors.count) of them optimizer state (never read)")

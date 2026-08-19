@@ -111,7 +111,7 @@ enum ImportedContainerRouting {
 		switch verdict() {
 		case .adafDetector(let className): return .adafDetectorNotConvertible(className: className)
 		case .segmentation: return .segmentationUnsupported
-		case .unrecognisedModel(let tensorCount): return .unrecognizedCheckpoint(tensorCount: tensorCount)
+		case .unrecognizedModel(let tensorCount): return .unrecognizedCheckpoint(tensorCount: tensorCount)
 		case .unreadable: return rejection
 		}
 	}

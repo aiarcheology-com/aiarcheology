@@ -20,7 +20,7 @@ enum ImportedCheckpointVerdict: Equatable {
 	/// A semantic-segmentation model. Not supported, and not planned (AIA-0654 scope decision).
 	case segmentation
 	/// A readable checkpoint holding some other model.
-	case unrecognisedModel(tensorCount: Int)
+	case unrecognizedModel(tensorCount: Int)
 	/// The container is a PyTorch checkpoint but could not be read — malformed, truncated, ZIP64, a
 	/// serialization version this has never seen, or a pickle that was refused.
 	case unreadable
@@ -54,7 +54,7 @@ enum ImportedCheckpointAnalyser {
 					"Unrecognised checkpoint: \(summary.tensorCount) tensors, keys \(summary.topLevelPrefixes.joined(separator: ", "))",
 					logger: .storage
 				)
-				return .unrecognisedModel(tensorCount: summary.tensorCount)
+				return .unrecognizedModel(tensorCount: summary.tensorCount)
 			}
 		} catch {
 			LoggingPolicy.warning("Could not read PyTorch checkpoint: \(error)", logger: .storage)

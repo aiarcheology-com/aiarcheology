@@ -123,7 +123,7 @@ final class ImportedCheckpointAnalyserTests: XCTestCase {
 			(.adafDetector(className: "Barrow"), .adafDetectorNotConvertible(className: "Barrow")),
 			(.adafDetector(className: nil), .adafDetectorNotConvertible(className: nil)),
 			(.segmentation, .segmentationUnsupported),
-			(.unrecognisedModel(tensorCount: 12), .unrecognizedCheckpoint(tensorCount: 12)),
+			(.unrecognizedModel(tensorCount: 12), .unrecognizedCheckpoint(tensorCount: 12)),
 			// A checkpoint that could not be read keeps M1's honest generic message.
 			(.unreadable, .unsupportedCheckpoint)
 		]
