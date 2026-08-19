@@ -1,0 +1,31 @@
+{
+  "real_proposals": {
+    "count": 997,
+    "mismatches": 0,
+    "agrees": true,
+    "first_mismatch_area": null
+  },
+  "adversarial": {
+    "count": 40,
+    "mismatches": 0,
+    "agrees": true,
+    "first_mismatch_area": null,
+    "includes_degenerate": [
+      0.0,
+      1e-12,
+      1.0,
+      4.0,
+      1000000000000.0
+    ],
+    "note": "zero area comes from the boxes NMS pads with, so log2(sqrt(0)) = -inf is a real input on every tile, not a hypothetical"
+  },
+  "fp16_margin": {
+    "samples": 200000,
+    "min_distance_to_boundary": 2.384185791015625e-06,
+    "median_distance_to_boundary": 0.24505376815795898,
+    "within_1e_3_of_boundary": 430,
+    "fp16_level_flips": 44,
+    "fp16_level_flip_rate": 0.00022,
+    "source": "box widths and heights resampled from this image's real RPN proposals"
+  }
+}

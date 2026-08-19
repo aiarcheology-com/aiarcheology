@@ -143,11 +143,20 @@ def calibrate(spatial_scale: float = 1.0, output_size: int = 7, sampling_ratio: 
     }
 
 
-def best_configuration(calibration: dict) -> tuple:
-    """Pick on the grid geometry, not on a residual against real data.
+def best_grid_configuration(calibration: dict) -> tuple:
+    """The configuration whose sampling grid is closest to torchvision's.
 
-    Selecting on real-feature residuals would be selecting on the evaluation set. The grid offset is
-    a property of the operators alone, so choosing here and evaluating there keeps the two apart.
+    **This cannot pick the construction on its own, and treating it as if it could was a real bug.**
+    The calibration input is an affine ramp, and the average of an affine function over any symmetric
+    sample set equals its value at the centroid — which is exactly why the grid can be recovered at
+    all, and exactly why the metric is *blind to `sampling_ratio`*. `direct_7x7` and `crop14_pool2`
+    therefore tie at ~2e-06, and an earlier version took `min()` of that tie, which resolved by
+    insertion order to `direct_7x7` and recorded it as the chosen construction. Measured on real
+    features, `direct_7x7` has a ~50% relative residual where `crop14_pool2` has ~0.006: the tie-break
+    was picking the wrong operator.
+
+    So this returns the geometry winner, and `choose_construction` below decides which construction
+    to actually use, on values.
     """
     scored = [
         (key, value["max_grid_offset_px"])
@@ -157,6 +166,62 @@ def best_configuration(calibration: dict) -> tuple:
     if not scored:
         raise ProbeError("no CropResize configuration produced a usable sampling grid")
     return min(scored, key=lambda item: item[1])
+
+
+def choose_construction(features: np.ndarray, boxes_xyxy: np.ndarray, spatial_scale: float, *,
+                        mode: str = "ROI_ALIGN_MODE",
+                        box_coordinate_mode: str = "CORNERS_HEIGHT_FIRST") -> dict:
+    """Run the value test the grid metric cannot: compare constructions on real feature maps.
+
+    This is the step the module docstring calls (iii) — the falsifiable part. The prediction is that
+    cropping at 2x and average-pooling 2x2 reproduces `sampling_ratio=2`'s averaging while a bare 7x7
+    crop does not, and unlike the grid comparison this can actually fail.
+    """
+    results = {}
+    for label, crop, pool in (("direct_7x7", 7, 0), ("crop14_pool2", 14, 2)):
+        results[label] = measure_on_features(
+            features, boxes_xyxy, mode=mode, box_coordinate_mode=box_coordinate_mode,
+            spatial_scale=spatial_scale, average_pool=pool, crop_size=crop,
+        )
+    winner = min(results.items(), key=lambda item: item[1]["relative_mean_abs_diff"])
+    return {"constructions": results, "chosen": winner[0],
+            "chosen_relative_mean_abs_diff": winner[1]["relative_mean_abs_diff"]}
+
+
+def axis_swap_sensitivity(spatial_scale: float = 1.0, output_size: int = 7) -> dict:
+    """Prove the calibration can see a coordinate-layout error, by committing one deliberately.
+
+    Packing an ROI width-first while telling the layer it is height-first is the mistake that would
+    otherwise be indistinguishable from a genuine operator difference. If the honest packing and the
+    swapped packing produced similar grids, every "match" this file reports would be worthless — so
+    the separation is measured rather than assumed, and it lives in the harness rather than in a
+    docstring claiming it was checked once.
+    """
+    reference = torchvision_sampling_grid(
+        CALIBRATION_ROI, output_size, spatial_scale, 2, False, CALIBRATION_SIZE
+    )
+    honest = crop_resize_sampling_grid(
+        CALIBRATION_ROI, output_size, "ROI_ALIGN_MODE", "CORNERS_HEIGHT_FIRST", spatial_scale,
+        CALIBRATION_SIZE,
+    )
+    probe = crop_resize_probe(
+        channels=3, height=CALIBRATION_SIZE, width=CALIBRATION_SIZE, roi_count=1,
+        target_height=output_size, target_width=output_size, mode="ROI_ALIGN_MODE",
+        box_coordinate_mode="CORNERS_HEIGHT_FIRST", spatial_scale=spatial_scale,
+    )
+    swapped_rois = pack_rois(CALIBRATION_ROI, "CORNERS_WIDTH_FIRST")
+    out = np.asarray(
+        probe.run(features=_coordinate_ramp(CALIBRATION_SIZE, CALIBRATION_SIZE), rois=swapped_rois)["pooled"]
+    ).reshape(1, 3, output_size, output_size)
+    swapped = np.stack([out[:, 0], out[:, 1]], axis=-1)
+
+    return {
+        "honest_packing_max_grid_offset_px": float(np.abs(reference - honest).max()),
+        "swapped_packing_max_grid_offset_px": float(np.abs(reference - swapped).max()),
+        "harness_can_detect_a_swap": bool(
+            np.abs(reference - swapped).max() > 100 * max(np.abs(reference - honest).max(), 1e-9)
+        ),
+    }
 
 
 def compensated_boxes(boxes_xyxy: np.ndarray, fit: dict) -> np.ndarray:

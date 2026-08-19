@@ -114,23 +114,33 @@ def rank_margin(model: torch.nn.Module, image_chw: np.ndarray) -> dict:
         proposal_count = proposals[0].shape[0]
 
     ranks = []
+    ambiguous = 0
     kept_scores = scores[0].numpy()
     foreground = probabilities[:, 1:].max(dim=1).values.numpy()
-    order = np.argsort(-foreground)
-    rank_of_proposal = np.empty(proposal_count, dtype=int)
-    rank_of_proposal[order] = np.arange(proposal_count)
 
     for score in kept_scores:
         matches = np.nonzero(np.isclose(foreground, score, rtol=1e-5, atol=1e-7))[0]
         if matches.size:
-            ranks.append(int(rank_of_proposal[matches[0]]))
+            # The rank is the proposal's POSITION in the RPN-ordered list, because that is what a
+            # fixed K truncates: `filter_proposals` emits proposals score-descending and a static
+            # graph keeps the first K of them. An earlier version re-sorted by box-head foreground
+            # score and reported that ordering instead — which answers a different question and
+            # flattered the result badly. On OD_enclosure it reported a worst rank of 102 where the
+            # true positions run to 722, so a K chosen from it would have silently dropped
+            # detections the spike claimed were safe.
+            ranks.append(int(matches[0]))
+            ambiguous += int(matches.size > 1)
 
     return {
         "proposals": int(proposal_count),
         "detections": int(len(kept_scores)),
-        "contributing_ranks": sorted(ranks),
-        "worst_contributing_rank": max(ranks) if ranks else None,
+        "contributing_proposal_positions": sorted(ranks),
+        "worst_contributing_position": max(ranks) if ranks else None,
+        # The smallest K that still contains every contributing proposal, by position.
         "safe_k": (max(ranks) + 1) if ranks else None,
+        # A score collision would make the position attribution unreliable; report it rather than
+        # letting a silent mis-attribution look like a measurement.
+        "ambiguous_attributions": ambiguous,
     }
 
 
@@ -159,13 +169,19 @@ def sweep_cut(model: torch.nn.Module, image_chw: np.ndarray, *, which: str,
             boxes, scores = out["boxes"].numpy(), out["scores"].numpy()
             if baseline is None:
                 baseline = (boxes, scores)
+            retained, invented = _agreement(baseline[0], boxes)
             rows.append({
                 "cut": which,
                 "value": value,
                 "detections": int(len(boxes)),
                 "max_score": float(scores.max()) if len(scores) else None,
                 # Agreement with the DEFAULT-cut oracle set, not "recall": no labels exist here.
-                "oracle_set_agreement": _agreement(baseline[0], boxes),
+                "oracle_set_retained": retained,
+                # And the other direction, which a one-sided metric hides. A smaller K can ADD a
+                # detection the baseline never had — measured at K=128 on OD_enclosure, which
+                # returned 9 boxes against a baseline of 8 while one-directional agreement still
+                # read 1.0. Losing nothing is not the same as changing nothing.
+                "invented_detections": invented,
             })
     finally:
         model.rpn._pre_nms_top_n = original_pre
@@ -174,15 +190,21 @@ def sweep_cut(model: torch.nn.Module, image_chw: np.ndarray, *, which: str,
 
 
 def _agreement(reference_boxes: np.ndarray, candidate_boxes: np.ndarray,
-               iou_threshold: float = 0.5) -> float | None:
+               iou_threshold: float = 0.5) -> tuple:
+    """Both directions: the fraction of the baseline retained, and how many boxes are new.
+
+    Returning only the first is what let an invented detection pass unnoticed.
+    """
     if len(reference_boxes) == 0:
-        return None
+        return None, int(len(candidate_boxes))
     if len(candidate_boxes) == 0:
-        return 0.0
+        return 0.0, 0
     from torchvision.ops import box_iou
 
     iou = box_iou(torch.from_numpy(reference_boxes), torch.from_numpy(candidate_boxes)).numpy()
-    return float((iou.max(axis=1) >= iou_threshold).mean())
+    retained = float((iou.max(axis=1) >= iou_threshold).mean())
+    invented = int((iou.max(axis=0) < iou_threshold).sum())
+    return retained, invented
 
 
 def padding_false_positives(model: torch.nn.Module, image_chw: np.ndarray, *,

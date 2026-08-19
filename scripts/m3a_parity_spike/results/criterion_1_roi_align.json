@@ -559,8 +559,34 @@
       "mean_grid_offset_px": 3.308665995695153e-07
     }
   },
-  "chosen": {
+  "best_grid_configuration": {
     "configuration": "ROI_ALIGN_MODE|CORNERS_HEIGHT_FIRST|direct_7x7",
-    "max_grid_offset_px": 1.9073486328125e-06
+    "max_grid_offset_px": 1.9073486328125e-06,
+    "caveat": "the grid metric is blind to sampling_ratio, so it cannot choose the construction"
+  },
+  "axis_swap_sensitivity": {
+    "honest_packing_max_grid_offset_px": 1.9073486328125e-06,
+    "swapped_packing_max_grid_offset_px": 6.464288711547852,
+    "harness_can_detect_a_swap": true
+  },
+  "construction_on_real_features": {
+    "constructions": {
+      "direct_7x7": {
+        "max_abs_diff": 1.317969799041748,
+        "mean_abs_diff": 0.04852799928561486,
+        "relative_mean_abs_diff": 0.40259931896480033,
+        "pre_compensated": false,
+        "construction": "crop7_direct"
+      },
+      "crop14_pool2": {
+        "max_abs_diff": 1.317969799041748,
+        "mean_abs_diff": 0.0052593696302600575,
+        "relative_mean_abs_diff": 0.04363292660933002,
+        "pre_compensated": false,
+        "construction": "crop14_pool2"
+      }
+    },
+    "chosen": "crop14_pool2",
+    "chosen_relative_mean_abs_diff": 0.04363292660933002
   }
 }

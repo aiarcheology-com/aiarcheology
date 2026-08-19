@@ -88,8 +88,14 @@ def _ordered_outputs(model: ct.models.MLModel, payload: dict, reference: tuple) 
 
     Matching by element count instead looks tempting and is wrong: the RPN head emits objectness at
     `[1, 3, 200, 200]` and deltas at `[1, 12, 100, 100]`, which are both 120000 elements, so a
-    size-based match is genuinely ambiguous and picked the wrong tensor. The shape assertion below
-    turns any future divergence into a failure rather than a plausible number.
+    size-based match is genuinely ambiguous and picked the wrong tensor.
+
+    The check below is a **size** assertion, not a shape one — Core ML returns these flattened, so
+    the true shape is not recoverable from the output to compare against. It catches a
+    wrong-length output but would not catch a same-size transposition; what actually protects the
+    ordering is `spec.description.output` following the traced tuple. Said plainly here because an
+    earlier version of this docstring called it a shape assertion, which claimed a guarantee the
+    code does not provide.
     """
     produced = model.predict(payload)
     names = [output.name for output in model.get_spec().description.output]

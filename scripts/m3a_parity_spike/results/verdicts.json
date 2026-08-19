@@ -5,6 +5,26 @@
     "detail": "ROI_ALIGN_MODE|CORNERS_HEIGHT_FIRST|direct_7x7 reproduces torchvision's grid to 1.91e-06 feature px"
   },
   {
+    "criterion": "criterion 1 harness sees an axis swap",
+    "outcome": "PASS",
+    "detail": "swapped packing moves the grid 6.46 px"
+  },
+  {
+    "criterion": "criterion 1 construction",
+    "outcome": "PASS",
+    "detail": "crop-at-2x + 2x2 average pool wins on real features (0.0436 relative) against a bare 7x7 crop (0.4026)"
+  },
+  {
+    "criterion": "criterion 3 level assignment (real proposals)",
+    "outcome": "PASS",
+    "detail": "997 real proposal areas, 0 mismatches"
+  },
+  {
+    "criterion": "criterion 3 level assignment (adversarial)",
+    "outcome": "PASS",
+    "detail": "40 boundary and degenerate areas, 0 mismatches"
+  },
+  {
     "criterion": "criterion 4 mid-graph NMS",
     "outcome": "PASS",
     "detail": "NN-layer NMS returns torchvision's kept indices in torchvision's order"
@@ -66,17 +86,17 @@
   },
   {
     "criterion": "composition coreml_pooling [OD_AO]",
-    "outcome": "PASS",
-    "detail": "1 matched, 0 unmatched, box shift 0.00003 px, score delta 0.000000"
+    "outcome": "UNDERPOWERED",
+    "detail": "thresholds met, but only 1 detection(s) exercised them (minimum 2)"
   },
   {
     "criterion": "composition coreml_pooling_fp16 [OD_AO]",
-    "outcome": "PASS",
-    "detail": "1 matched, 0 unmatched, box shift 0.00169 px, score delta 0.000000"
+    "outcome": "UNDERPOWERED",
+    "detail": "thresholds met, but only 1 detection(s) exercised them (minimum 2)"
   },
   {
     "criterion": "composition torch_fp16 [OD_AO]",
-    "outcome": "PASS",
-    "detail": "1 matched, 0 unmatched, box shift 0.00169 px, score delta 0.000000"
+    "outcome": "UNDERPOWERED",
+    "detail": "thresholds met, but only 1 detection(s) exercised them (minimum 2)"
   }
 ]

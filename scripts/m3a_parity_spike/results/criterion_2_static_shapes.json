@@ -66,12 +66,13 @@
     "rank_margin": {
       "proposals": 997,
       "detections": 2,
-      "contributing_ranks": [
-        0,
-        45
+      "contributing_proposal_positions": [
+        5,
+        11
       ],
-      "worst_contributing_rank": 45,
-      "safe_k": 46
+      "worst_contributing_position": 11,
+      "safe_k": 12,
+      "ambiguous_attributions": 0
     },
     "padding_false_positives": {
       "real_proposals": 997,
@@ -87,35 +88,40 @@
         "value": 1000,
         "detections": 2,
         "max_score": 0.9802706241607666,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 512,
         "detections": 2,
         "max_score": 0.9802706241607666,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 256,
         "detections": 2,
         "max_score": 0.9802706241607666,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 128,
         "detections": 2,
         "max_score": 0.9802706241607666,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 64,
         "detections": 2,
         "max_score": 0.9802706241607666,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       }
     ],
     "post_nms_sweep": [
@@ -124,35 +130,40 @@
         "value": 1000,
         "detections": 2,
         "max_score": 0.9802706241607666,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 512,
         "detections": 2,
         "max_score": 0.9802706241607666,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 256,
         "detections": 2,
         "max_score": 0.9802706241607666,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 128,
         "detections": 2,
         "max_score": 0.9802706241607666,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 64,
         "detections": 2,
         "max_score": 0.9802706241607666,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       }
     ]
   },
@@ -179,13 +190,14 @@
     "rank_margin": {
       "proposals": 1000,
       "detections": 3,
-      "contributing_ranks": [
+      "contributing_proposal_positions": [
         0,
-        3,
-        7
+        2,
+        4
       ],
-      "worst_contributing_rank": 7,
-      "safe_k": 8
+      "worst_contributing_position": 4,
+      "safe_k": 5,
+      "ambiguous_attributions": 0
     },
     "padding_false_positives": {
       "real_proposals": 1000,
@@ -201,35 +213,40 @@
         "value": 1000,
         "detections": 3,
         "max_score": 0.9795745015144348,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 512,
         "detections": 3,
         "max_score": 0.9795745015144348,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 256,
         "detections": 3,
         "max_score": 0.9795745015144348,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 128,
         "detections": 3,
         "max_score": 0.9795745015144348,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 64,
         "detections": 3,
         "max_score": 0.9795745015144348,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       }
     ],
     "post_nms_sweep": [
@@ -238,35 +255,40 @@
         "value": 1000,
         "detections": 3,
         "max_score": 0.9795745015144348,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 512,
         "detections": 3,
         "max_score": 0.9795745015144348,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 256,
         "detections": 3,
         "max_score": 0.9795745015144348,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 128,
         "detections": 3,
         "max_score": 0.9795745015144348,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 64,
         "detections": 3,
         "max_score": 0.9795745015144348,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       }
     ]
   },
@@ -293,18 +315,19 @@
     "rank_margin": {
       "proposals": 1000,
       "detections": 8,
-      "contributing_ranks": [
+      "contributing_proposal_positions": [
         0,
-        16,
-        29,
-        45,
-        62,
-        86,
-        101,
-        102
+        12,
+        13,
+        14,
+        15,
+        143,
+        598,
+        722
       ],
-      "worst_contributing_rank": 102,
-      "safe_k": 103
+      "worst_contributing_position": 722,
+      "safe_k": 723,
+      "ambiguous_attributions": 0
     },
     "padding_false_positives": {
       "real_proposals": 1000,
@@ -320,35 +343,40 @@
         "value": 1000,
         "detections": 8,
         "max_score": 0.8073384165763855,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 512,
         "detections": 8,
         "max_score": 0.8073384165763855,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 256,
         "detections": 8,
         "max_score": 0.8073384165763855,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 128,
         "detections": 9,
         "max_score": 0.8073384165763855,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 64,
         "detections": 8,
         "max_score": 0.8073384165763855,
-        "oracle_set_agreement": 0.875
+        "oracle_set_retained": 0.875,
+        "invented_detections": 0
       }
     ],
     "post_nms_sweep": [
@@ -357,35 +385,40 @@
         "value": 1000,
         "detections": 8,
         "max_score": 0.8073384165763855,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 512,
         "detections": 9,
         "max_score": 0.8073384165763855,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 256,
         "detections": 9,
         "max_score": 0.8073384165763855,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 128,
         "detections": 9,
         "max_score": 0.8073384165763855,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 64,
         "detections": 8,
         "max_score": 0.8073384165763855,
-        "oracle_set_agreement": 0.875
+        "oracle_set_retained": 0.875,
+        "invented_detections": 0
       }
     ]
   },
@@ -412,11 +445,12 @@
     "rank_margin": {
       "proposals": 1000,
       "detections": 1,
-      "contributing_ranks": [
+      "contributing_proposal_positions": [
         0
       ],
-      "worst_contributing_rank": 0,
-      "safe_k": 1
+      "worst_contributing_position": 0,
+      "safe_k": 1,
+      "ambiguous_attributions": 0
     },
     "padding_false_positives": {
       "real_proposals": 1000,
@@ -432,35 +466,40 @@
         "value": 1000,
         "detections": 1,
         "max_score": 0.9891449809074402,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 512,
         "detections": 1,
         "max_score": 0.9891449809074402,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 256,
         "detections": 1,
         "max_score": 0.9891449809074402,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 128,
         "detections": 1,
         "max_score": 0.9891449809074402,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "pre_nms",
         "value": 64,
         "detections": 1,
         "max_score": 0.9891449809074402,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       }
     ],
     "post_nms_sweep": [
@@ -469,36 +508,42 @@
         "value": 1000,
         "detections": 1,
         "max_score": 0.9891449809074402,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 512,
         "detections": 1,
         "max_score": 0.9891449809074402,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 256,
         "detections": 1,
         "max_score": 0.9891449809074402,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 128,
         "detections": 1,
         "max_score": 0.9891449809074402,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       },
       {
         "cut": "post_nms",
         "value": 64,
         "detections": 1,
         "max_score": 0.9891449809074402,
-        "oracle_set_agreement": 1.0
+        "oracle_set_retained": 1.0,
+        "invented_detections": 0
       }
     ]
-  }
+  },
+  "required_k_across_models": 723
 }

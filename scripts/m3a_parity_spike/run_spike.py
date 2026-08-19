@@ -22,8 +22,10 @@ import time
 from pathlib import Path
 
 import numpy as np
+import torch
 from PIL import Image
 
+import criterion_levels
 import criterion_nms
 import criterion_roi_align
 import criterion_topk
@@ -73,7 +75,35 @@ def main() -> int:
     environment["anchor_geometry"] = oracle.anchor_geometry(reference.model, TILE_PX)
     _write("environment", environment)
 
-    print("S3  input domain: which scaling reproduces the trained domain")
+    print("S3  corpus: contamination, scaling, quantisation")
+    # The contamination screen has to run here rather than in a note somewhere: these are README
+    # figures, and one carrying its own predictions painted on would poison every number below.
+    contamination = {
+        name: inputs.inspect_for_contamination(meta["path"]) for name, meta in figures.items()
+    }
+    for name, report in contamination.items():
+        print(f"    {name}: likely_annotated={report['likely_annotated']}")
+    _write("corpus_contamination", contamination)
+
+    # Quantisation, priced on paired renderings of ONE array so the difference is bit depth and
+    # nothing else. A synthetic float raster against a real JPEG would vary content, relief,
+    # rendering and bit depth at once.
+    synthetic = inputs.synthetic_slrm(TILE_PX, 0)
+    float_input, quantised_input = inputs.paired_quantization(synthetic)
+    quantisation = {"max_abs_difference": float(np.abs(float_input - quantised_input).max()),
+                    "note": "prices bit depth only; JPEG's other losses are not reproduced here"}
+    for model_id, built in oracles.items():
+        rows = {}
+        for label, array in (("float", float_input), ("8bit_roundtrip", quantised_input)):
+            with torch.no_grad():
+                out = built.model([oracle.resize_v2(array).float()])[0]
+            got = out["scores"].numpy()
+            rows[label] = {"detections_above_0_05": int((got > 0.05).sum()),
+                           "max_score": float(got.max()) if got.size else 0.0}
+        quantisation[model_id] = rows
+    _write("criterion_quantisation", quantisation)
+
+    print("S3b input domain: which scaling reproduces the trained domain")
     scaling = {}
     for model_id, built in oracles.items():
         figure = _figure_for(model_id)
@@ -82,7 +112,6 @@ def main() -> int:
         image = np.asarray(Image.open(figure).convert("RGB"))
         rows = {}
         for name, tensor in inputs.scaling_candidates(image).items():
-            import torch
             with torch.no_grad():
                 out = built.model([tensor.float()])[0]
             scores = out["scores"].numpy()
@@ -110,13 +139,49 @@ def main() -> int:
 
     print("S5  criterion 1: RoIAlign")
     calibration = criterion_roi_align.calibrate(spatial_scale=1.0)
-    best_key, best_offset = criterion_roi_align.best_configuration(calibration)
-    calibration["chosen"] = {"configuration": best_key, "max_grid_offset_px": best_offset}
+    best_key, best_offset = criterion_roi_align.best_grid_configuration(calibration)
+    calibration["best_grid_configuration"] = {
+        "configuration": best_key, "max_grid_offset_px": best_offset,
+        "caveat": "the grid metric is blind to sampling_ratio, so it cannot choose the construction",
+    }
+    # Prove the calibration can see a coordinate-layout error, rather than asserting it was checked.
+    calibration["axis_swap_sensitivity"] = criterion_roi_align.axis_swap_sensitivity()
+    print(f"    axis-swap sensitivity: honest "
+          f"{calibration['axis_swap_sensitivity']['honest_packing_max_grid_offset_px']:.2e} px vs "
+          f"swapped {calibration['axis_swap_sensitivity']['swapped_packing_max_grid_offset_px']:.2f} px")
+
+    # The value test the grid metric cannot do: real FPN features, real proposals.
+    with torch.no_grad():
+        ref_images, _ = reference.model.transform([torch.from_numpy(chw)])
+        ref_features = reference.model.backbone(ref_images.tensors)
+        ref_proposals, _ = reference.model.rpn(ref_images, ref_features)
+    level0 = ref_features["0"].numpy()
+    level0_scale = level0.shape[-1] / ref_images.tensors.shape[-1]
+    calibration["construction_on_real_features"] = criterion_roi_align.choose_construction(
+        level0, ref_proposals[0].numpy()[:64], level0_scale,
+    )
+    chosen = calibration["construction_on_real_features"]
+    print(f"    construction on real features: {chosen['chosen']} "
+          f"(relative mean |delta| {chosen['chosen_relative_mean_abs_diff']:.4f})")
     _write("criterion_1_roi_align", calibration)
+
     verdicts.append(decision_rule.judge_boolean(
         "criterion 1 sampling grid",
         best_offset <= 1e-3,
         f"{best_key} reproduces torchvision's grid to {best_offset:.2e} feature px",
+    ))
+    verdicts.append(decision_rule.judge_boolean(
+        "criterion 1 harness sees an axis swap",
+        calibration["axis_swap_sensitivity"]["harness_can_detect_a_swap"],
+        f"swapped packing moves the grid "
+        f"{calibration['axis_swap_sensitivity']['swapped_packing_max_grid_offset_px']:.2f} px",
+    ))
+    verdicts.append(decision_rule.judge_boolean(
+        "criterion 1 construction",
+        chosen["chosen"] == "crop14_pool2",
+        f"crop-at-2x + 2x2 average pool wins on real features "
+        f"({chosen['constructions']['crop14_pool2']['relative_mean_abs_diff']:.4f} relative) against "
+        f"a bare 7x7 crop ({chosen['constructions']['direct_7x7']['relative_mean_abs_diff']:.4f})",
     ))
 
     print("S6  criteria 2 and 3: static shapes, rank margin, level assignment")
@@ -137,9 +202,46 @@ def main() -> int:
             "post_nms_sweep": criterion_topk.sweep_cut(built.model, model_chw, which="post_nms"),
         }
         margin = topk[model_id]["rank_margin"]
-        print(f"    {model_id}: {margin['detections']} detections, worst contributing proposal rank "
-              f"{margin['worst_contributing_rank']} of {margin['proposals']}")
+        print(f"    {model_id}: {margin['detections']} detections, worst contributing proposal "
+              f"position {margin['worst_contributing_position']} of {margin['proposals']} "
+              f"(safe K {margin['safe_k']})")
+        invented = [row for row in topk[model_id]["pre_nms_sweep"] if row["invented_detections"]]
+        if invented:
+            print(f"      invented detections at K={[row['value'] for row in invented]}")
     _write("criterion_2_static_shapes", topk)
+
+    # The smallest K that keeps every contributing proposal across every model — the number
+    # condition 2 rests on, computed rather than eyeballed from a table.
+    safe_ks = [topk[m]["rank_margin"]["safe_k"] for m in oracles if m in topk
+               and topk[m]["rank_margin"]["safe_k"] is not None]
+    required_k = max(safe_ks) if safe_ks else None
+    topk["required_k_across_models"] = required_k
+    print(f"    smallest K containing every contributing proposal: {required_k}")
+    _write("criterion_2_static_shapes", topk)
+
+    print("S6b criterion 3: level assignment")
+    levels = {
+        "real_proposals": criterion_levels.real_proposals(reference.model, chw),
+        "adversarial": criterion_levels.adversarial_set(),
+        "fp16_margin": criterion_levels.fp16_margin(reference.model, chw),
+    }
+    _write("criterion_3_level_assignment", levels)
+    print(f"    real proposals: {levels['real_proposals']['mismatches']} mismatches of "
+          f"{levels['real_proposals']['count']}; adversarial: "
+          f"{levels['adversarial']['mismatches']} of {levels['adversarial']['count']}; "
+          f"fp16 flip rate {levels['fp16_margin']['fp16_level_flip_rate']:.5f}")
+    verdicts.append(decision_rule.judge_boolean(
+        "criterion 3 level assignment (real proposals)",
+        levels["real_proposals"]["agrees"],
+        f"{levels['real_proposals']['count']} real proposal areas, "
+        f"{levels['real_proposals']['mismatches']} mismatches",
+    ))
+    verdicts.append(decision_rule.judge_boolean(
+        "criterion 3 level assignment (adversarial)",
+        levels["adversarial"]["agrees"],
+        f"{levels['adversarial']['count']} boundary and degenerate areas, "
+        f"{levels['adversarial']['mismatches']} mismatches",
+    ))
 
     print("S7  criterion 4: the three suppression passes")
     rng = np.random.default_rng(5)

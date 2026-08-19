@@ -6,9 +6,18 @@ conditions are not caveats on that result; they are four specific design commitm
 make, each forced by a number below, plus one genuinely unresolved item.
 
 Measured on all four `OD_*` checkpoints against the vendored aitlas wheel, on ADAF's own SLRM
-figures. 16 verdicts, 0 FAIL, 0 UNDERPOWERED (`results/verdicts.json`). Thresholds were fixed in
-`decision_rule.py` with the reason for each value, and that file discloses that exploratory probes
-preceded it.
+figures. **20 verdicts, 0 FAIL, 3 UNDERPOWERED** (`results/verdicts.json`) — the three being OD_AO's
+composition results, which meet every threshold on a single detection and are labelled rather than
+counted. Thresholds are fixed in `decision_rule.py` with the reason for each value, and that file
+discloses that exploratory probes preceded it.
+
+An adversarial review of this branch found that three of the numbers in an earlier draft were
+unbacked: criterion 3 passed with no committed code measuring it, criterion 1's recorded winner was
+chosen by a metric that cannot see the difference, and criterion 2's headline rank was computed from
+the wrong ordering. All three are corrected below, and the corrections changed a condition — the
+required K went from a claimed 128 to a measured 723, which is a memory problem rather than an
+accuracy one. The wrong versions are described where they were wrong, because a spike whose job is
+to be believed should show where it was not.
 
 ---
 
@@ -32,35 +41,72 @@ output *is* the effective sample position, whatever the sampling ratio.
 | `ROI_ALIGN_MODE`, corner coordinates | grid matches torchvision to **1.91e-06 feature px** |
 | Fitted affine `reference = scale·candidate + offset` | **scale 1.0, offset 0.0 — the identity** |
 | `UPSAMPLE_MODE` | 2.70 px off — the number a naive sweep would have reported as "Core ML cannot do RoIAlign" |
-| Harness sensitivity (mutation test) | packing width-first while declaring height-first moves the grid **6.46 px**, so the harness can tell a coordinate bug from an operator difference |
+| Harness sensitivity (mutation test, now in the harness) | packing width-first while declaring height-first moves the grid **6.46 px**, so the harness can tell a coordinate bug from an operator difference |
 
-No ROI pre-compensation is needed. Substituted into the real pipeline, the detection set is unchanged
-and boxes move **≤ 0.00005 px** across all four models.
+**The grid metric cannot choose the construction, and an earlier version of this document let it
+try.** The calibration input is an affine ramp, and the average of an affine function over a
+symmetric sample set is its value at the centroid — which is why the grid is recoverable at all, and
+why the metric is blind to `sampling_ratio`. `direct_7x7` and `crop14_pool2` therefore tie at
+1.91e-06, and taking `min()` of a tie resolved by insertion order to `direct_7x7`. Measured on real
+features, that is the wrong operator by an order of magnitude:
 
-### 2. Static shapes and fixed top-K — PASS, and it sets K
+| construction | relative mean abs difference on real FPN features |
+|-|-|
+| bare 7×7 crop | **0.4026** |
+| **crop at 14×14 + 2×2 average pool** | **0.0436** |
+
+No ROI pre-compensation is needed. Substituted into the real pipeline with the winning construction,
+the detection set is unchanged and boxes move **≤ 0.00005 px** across all four models.
+
+Worth flagging against my own prediction: the module's docstring predicted the pooled construction's
+residual would collapse to float noise (~1e-6). It did not — 0.0436 relative is far above that. The
+likely cause is boundary semantics (`roi_align` zero-pads outside the feature map where CropResize
+appears to clamp), which edge-touching proposals exercise and the interior calibration ROI cannot
+see. The end-to-end detection sets are unaffected, but the prediction failed and the mechanism is
+not nailed down — M3b should assume edge proposals are where this operator differs.
+
+### 2. Static shapes and fixed top-K — PASS on expressibility, but **K is expensive**
 
 Retention is the wrong instrument: torchvision is already capped at 1000/1000/100, so on this imagery
-every K in a plausible sweep retains everything and the curve is a flat line. The **rank margin** —
-which proposal each surviving detection came from — is what a cut actually threatens.
+a retention curve is a flat line. The **rank margin** — the *position* of the proposal each surviving
+detection came from, since a static K keeps the first K of a score-ordered list — is what a cut
+actually threatens.
 
-| model | detections | worst contributing proposal rank |
+| model | detections | contributing proposal positions | smallest safe K |
+|-|-|-|-|
+| OD_ringfort | 2 | 5, 11 | 12 |
+| OD_barrow | 3 | 0, 2, 4 | 5 |
+| **OD_enclosure** | 8 | 0, 12, 13, 14, 15, 143, 598, **722** | **723** |
+| OD_AO | 1 | 0 | 1 |
+
+**The required K across the four models is 723**, driven entirely by OD_enclosure, whose eighth
+detection comes from proposal 722 of 1000. That is the number the memory cost has to be paid at:
+
+| K | crop (14×14) at all 4 levels | pooled (7×7) at all 4 levels |
 |-|-|-|
-| OD_ringfort | 2 | 45 of 997 |
-| OD_barrow | 3 | 7 of 1000 |
-| OD_enclosure | 8 | **102** of 1000 |
-| OD_AO | 1 | 0 of 1000 |
+| 1000 (torchvision default) | 765.6 MiB | 191.4 MiB |
+| **723 (measured requirement)** | **553.5 MiB** | 138.4 MiB |
+| 256 | 196.0 MiB | 49.0 MiB |
+| 128 | 98.0 MiB | 24.5 MiB |
 
-Every detection across all four models originates in a proposal ranked ≤ 102. Sweeping the pre-NMS
-cut alone (post-NMS held fixed), oracle-set agreement is 1.0 down to K=128 and falls to **0.875 at
-K=64** on OD_enclosure. So **K=128** is the measured floor, and it is not an accuracy decision — it is
-a memory one:
+Per-ROI level assignment is data dependent and a data-dependent gather has no fixed output shape, so
+a static graph must crop **every** ROI at **every** level and select afterwards — four times the
+tensors. Whether the four 14×14 crops are live simultaneously depends on how Core ML schedules them;
+553.5 MiB is the upper bound and 138.4 MiB the figure if each level is pooled before the next is
+cropped. Neither is comfortable on iOS.
 
-| K | ROI activations, all 4 levels, fp32 |
-|-|-|
-| 1000 (torchvision default) | **765.6 MiB** |
-| 256 | 196.0 MiB |
-| **128** | **98.0 MiB** |
-| 64 | 49.0 MiB (loses 12.5% of OD_enclosure's set) |
+**An earlier version of this document claimed K=128 with zero loss. That was wrong**, and the way it
+was wrong is worth recording: the rank was computed by re-sorting proposals on *box-head* score
+rather than by their position in the RPN-ordered list, which flattered the worst rank from 722 down
+to 102. The empirical sweep does still show agreement 1.0 at K=128 — but at K=128 OD_enclosure
+returns **9** detections against a baseline of 8, so a one-directional retention metric called it a
+clean pass while the output set had changed. Both directions are now reported.
+
+Static shapes were also checked for what they *invent*. NMS pads with zero boxes, which reach the box
+head and are assigned fresh scores. Measured with torchvision's `clip_boxes_to_image` /
+`remove_small_boxes` cleanup bypassed — mandatory, since feeding padded proposals into torch hands
+the zeros to code that deletes them and returns zero by construction: **0 padded boxes cleared the
+0.05 threshold**, max padded score 7.6e-05.
 
 Per-ROI level assignment is data dependent and a data-dependent gather has no fixed output shape, so
 a static graph must crop **every** ROI at **every** level and select afterwards — four times the
@@ -77,11 +123,20 @@ magnitude.
 
 `floor(k0 + log2(s/s0) + eps)` built from `sqrt`, `log`, `scale` and `floor`, with the epsilon
 **outside** the logarithm as torchvision has it (`poolers.py:78`; putting it inside is a different
-function and differs exactly at a boundary). The probe reproduces `LevelMapper` **exactly** across
-areas spanning every level, including area 0.
+function and differs exactly at a boundary).
 
-fp16 is the residual risk and it is now a number: over 200,000 realistic proposals, **0.0205%**
-(41) change level when box coordinates are rounded to fp16 — about 0.2 proposals per tile at K=1000.
+| set | result |
+|-|-|
+| 997 areas from the model's **real** RPN proposals | **0 mismatches** |
+| 40 adversarial areas — power-of-two boundaries stepped by `nextafter`, plus the degenerate ones padding produces (zero area, 1 px, 1e12) | **0 mismatches** |
+| fp16 flip rate, box shapes resampled from real proposals | **0.022%** |
+
+Zero area is not a hypothetical input: criterion 2 measured that padded NMS slots are zero boxes, so
+`log2(sqrt(0)) = -inf` reaches this expression on every tile that is not full.
+
+*(These numbers were previously produced by ad-hoc commands that were never committed — the probe
+existed and nothing called it. They are now generated by `criterion_levels.py` from `run_spike.py`,
+which is the difference between a measurement and a recollection.)*
 
 ### 4. Both NMS passes — PASS, and there are three
 
@@ -176,9 +231,12 @@ figures because they already span the full range — a tie, reported as one.)
 | Parameters | 43,315,482 — **165.2 MiB** fp32, 82.6 MiB fp16, per single-class model |
 | Backbone stem activation | 39.1 MiB (64×400×400 fp32) |
 | FPN P2 | 39.1 MiB (256×200×200 fp32) |
-| ROI stage at the measured K=128 | 98.0 MiB |
+| ROI stage at the measured K=723 | **553.5 MiB** of crops, 138.4 MiB pooled |
 
-Not measured: device latency, thermal behaviour, and real peak memory under iOS.
+So a single-class detector wants roughly 165 MiB of fp32 weights plus a ROI stage in the hundreds of
+megabytes, on a device with a jetsam limit. **This, not numerical parity, is the part of the ticket's
+"worth shipping" question that is still open**, and it is arithmetic rather than measurement: device
+latency, thermal behaviour and real peak memory under iOS are all unmeasured.
 
 ---
 
@@ -186,10 +244,14 @@ Not measured: device latency, thermal behaviour, and real peak memory under iOS.
 
 1. **Resize outside the graph.** No NN-spec mode reproduces torchvision's, and pinning `min_size` to
    the tile moves boxes 19.4 px. Hand Core ML an already-resized buffer.
-2. **K = 128, not 1000.** Measured floor with zero loss across four models; drops ROI activations
-   from 765.6 MiB to 98.0 MiB. K=64 loses 12.5% of OD_enclosure's set.
+2. **Budget for K ≈ 723, and treat ROI memory as the binding constraint.** That is the measured
+   requirement across the four models, costing 553.5 MiB of 14×14 crops (138.4 MiB pooled) because a
+   static graph crops at every level. This is the item most likely to force a design change — chunking
+   the ROI stage into a fixed number of fixed-size batches is the obvious lever and **this spike did
+   not measure it**.
 3. **RoIAlign as `CropResize` at 2× followed by a 2×2 average pool**, `ROI_ALIGN_MODE`, corner
-   coordinates, no pre-compensation. A bare 7×7 crop is a different operator.
+   coordinates, no pre-compensation. A bare 7×7 crop is a different operator — 0.4026 relative
+   residual against 0.0436 — and it is what a sampling-ratio-blind metric will pick if allowed to.
 4. **Handle the empty-tile NMS defect.** `valid_count = 1` when nothing qualifies; the graph must not
    treat the first slot as a detection without checking the score.
 5. **Emit both terminal passes.** They do not compose.

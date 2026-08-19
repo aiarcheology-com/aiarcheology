@@ -44,9 +44,14 @@ MATCH_IOU = 0.5
 # reorder a proposal.
 MAX_ELEMENTWISE_ABS = 1e-4
 
-# A criterion measured on fewer than this many confident detections is reported as UNDERPOWERED
-# rather than PASS: a threshold met by one detection is met by one detection.
-MIN_EXERCISED_DETECTIONS = 1
+# A criterion measured on fewer than this many detections is reported as UNDERPOWERED rather than
+# PASS: a threshold met by one detection is met by one detection.
+#
+# This was 1, which made the outcome unreachable — `matched == 0` already routes to UNMEASURED, so
+# `matched < 1` could never fire and the reported "0 UNDERPOWERED" was vacuous rather than
+# reassuring. At 2, OD_AO's single-detection result is labelled honestly, which is the whole point of
+# having the category.
+MIN_EXERCISED_DETECTIONS = 2
 
 
 @dataclass
@@ -80,7 +85,9 @@ def judge_detection_set(criterion: str, *, matched: int, unmatched_reference: in
     if max_score_delta is not None and max_score_delta > MAX_SCORE_DELTA:
         return Verdict(criterion, "FAIL", f"score delta {max_score_delta:.5f} > {MAX_SCORE_DELTA}")
     if matched < MIN_EXERCISED_DETECTIONS:
-        return Verdict(criterion, "UNDERPOWERED", f"only {matched} detections exercised")
+        return Verdict(criterion, "UNDERPOWERED",
+                       f"thresholds met, but only {matched} detection(s) exercised them "
+                       f"(minimum {MIN_EXERCISED_DETECTIONS})")
     detail = (f"{matched} matched, 0 unmatched, box shift "
               f"{(max_box_shift if max_box_shift is not None else float('nan')):.5f} px, score delta "
               f"{(max_score_delta if max_score_delta is not None else float('nan')):.6f}")
