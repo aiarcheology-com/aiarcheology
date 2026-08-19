@@ -155,6 +155,106 @@ final class PyTorchCheckpointReaderTests: XCTestCase {
 		}
 	}
 
+	// MARK: - Arithmetic that must refuse rather than abort
+
+	/// The crash both reviewers found. `shape.reduce(1, *)` traps on overflow, and a trap is a process
+	/// abort that no `catch` above can turn into a refused import — so a pasted URL could kill the app.
+	/// Dimensions are attacker-chosen and were guarded only `>= 0`.
+	func test_aShapeWhoseProductOverflows_isRefusedRatherThanTrapping() throws {
+		var program = PickleProgram()
+		program.emptyDict()
+		program.string("state_dict")
+		program.global("collections", "OrderedDict"); program.emptyTuple(); program.reduce()
+		program.string("w")
+		program.global("torch._utils", "_rebuild_tensor_v2")
+		program.mark()
+		program.storage(key: "0", count: 1)
+		program.int1(0)
+		program.mark(); program.int4(2_147_483_647); program.int4(2_147_483_647); program.int4(2_147_483_647); program.tuple()
+		program.mark(); program.int1(1); program.int1(1); program.int1(1); program.tuple()
+		program.newFalse()
+		program.global("collections", "OrderedDict"); program.emptyTuple(); program.reduce()
+		program.tuple(); program.reduce()
+		program.setItem(); program.setItem(); program.stop()
+
+		let builder = TestZipBuilder(entries: [
+			.init(name: "cp.pth/data.pkl", payload: program.bytes, localExtraLength: 56),
+			.init(name: "cp.pth/version", payload: Array("3\n".utf8)),
+			.init(name: "cp.pth/data/0", payload: [0, 0, 0, 0])
+		])
+		XCTAssertThrowsError(try PyTorchCheckpointReader.read(ArrayBytes(builder.build()))) { error in
+			guard case .unreadablePickle = try? XCTUnwrap(error as? PyTorchCheckpointError) else {
+				return XCTFail("got \(error)")
+			}
+		}
+	}
+
+	/// `elementCount` must saturate rather than trap even when the value is built directly, because the
+	/// type is public and a future caller need not come through the decoder.
+	func test_anOverflowingShapeSaturatesInsteadOfTrapping() {
+		let reference = PyTorchTensorRef(
+			name: "w", dataType: .float32,
+			shape: [Int.max, 2], stride: [1, 1], storageOffset: 0,
+			storageKey: "0", storageElementCount: 4
+		)
+		XCTAssertEqual(reference.elementCount, .max)
+		XCTAssertFalse(reference.isContiguousAndComplete)
+	}
+
+	/// A view that is strided rather than contiguous addresses memory far beyond what its element
+	/// count suggests: shape [2, 2] with stride [100, 1] holds four elements but reaches index 101.
+	func test_aStridedViewIsRefusedEvenThoughItsElementCountFits() throws {
+		let builder = TestZipBuilder(entries: [
+			.init(name: "cp.pth/data.pkl",
+				  payload: Self.oneTensorPickle(elements: 4, shape: [2, 2], stride: [100, 1]),
+				  localExtraLength: 56),
+			.init(name: "cp.pth/version", payload: Array("3\n".utf8)),
+			.init(name: "cp.pth/data/0", payload: [UInt8](repeating: 0, count: 16))
+		])
+		XCTAssertThrowsError(try PyTorchCheckpointReader.read(ArrayBytes(builder.build()))) { error in
+			XCTAssertEqual(error as? PyTorchCheckpointError, .tensorIsNotContiguous(tensor: "w"))
+		}
+	}
+
+	// MARK: - One storage cannot be two things
+
+	/// Two tensors naming the same blob with different dtypes: one eight-byte entry satisfies
+	/// `2 x float32` and `1 x int64` alike, so the per-tensor size check passes twice while the reader
+	/// holds contradictory descriptions of a single storage.
+	func test_twoTensorsDescribingOneStorageDifferently_areRefused() throws {
+		let builder = TestZipBuilder(entries: [
+			.init(name: "cp.pth/data.pkl", payload: Self.twoTensorsSharingAStoragePickle(), localExtraLength: 56),
+			.init(name: "cp.pth/version", payload: Array("3\n".utf8)),
+			.init(name: "cp.pth/data/0", payload: [UInt8](repeating: 0, count: 8))
+		])
+		XCTAssertThrowsError(try PyTorchCheckpointReader.read(ArrayBytes(builder.build()))) { error in
+			XCTAssertEqual(error as? PyTorchCheckpointError, .storageDescribedInconsistently(key: "0"))
+		}
+	}
+
+	/// The doc comment used to say the storage count was checked against the archive. It was counted
+	/// and never compared; now it is.
+	func test_aPickleReferencingFewerStoragesThanTheArchiveCarries_isRefused() throws {
+		let builder = TestZipBuilder(entries: [
+			.init(name: "cp.pth/data.pkl", payload: Self.oneTensorPickle(elements: 4), localExtraLength: 56),
+			.init(name: "cp.pth/version", payload: Array("3\n".utf8)),
+			.init(name: "cp.pth/data/0", payload: [UInt8](repeating: 0, count: 16)),
+			.init(name: "cp.pth/data/1", payload: [UInt8](repeating: 0, count: 16))
+		])
+		XCTAssertThrowsError(try PyTorchCheckpointReader.read(ArrayBytes(builder.build()))) { error in
+			XCTAssertEqual(error as? PyTorchCheckpointError,
+						   .storageCountDisagreesWithArchive(pickle: 1, archive: 2))
+		}
+	}
+
+	/// The real files satisfy it: 932 persistent ids against 932 `data/<n>` entries.
+	func test_theRealCheckpointsAgreeOnTheirStorageCount() throws {
+		for (id, expected) in [("OD_ringfort", 932), ("AO_HRNet", 4_724)] {
+			let checkpoint = try PyTorchCheckpointReader.read(try ADAFFixtures.sparseBytes(id))
+			XCTAssertEqual(checkpoint.totalStorageCount, expected, id)
+		}
+	}
+
 	// MARK: - Shape of the file
 
 	func test_aCheckpointWithNoStateDictionary_isRefused() throws {
@@ -219,8 +319,34 @@ final class PyTorchCheckpointReaderTests: XCTestCase {
 
 	// MARK: - Helpers
 
+	/// Two tensors whose persistent ids name the same storage key with different dtypes.
+	private static func twoTensorsSharingAStoragePickle() -> [UInt8] {
+		var program = PickleProgram()
+		program.emptyDict()
+		program.string("state_dict")
+		program.global("collections", "OrderedDict"); program.emptyTuple(); program.reduce()
+		for (name, kind, count) in [("a", "FloatStorage", UInt8(2)), ("b", "LongStorage", UInt8(1))] {
+			program.string(name)
+			program.global("torch._utils", "_rebuild_tensor_v2")
+			program.mark()
+			program.storage(kind: kind, key: "0", count: count)
+			program.int1(0)
+			program.mark(); program.int1(count); program.tuple()
+			program.mark(); program.int1(1); program.tuple()
+			program.newFalse()
+			program.global("collections", "OrderedDict"); program.emptyTuple(); program.reduce()
+			program.tuple(); program.reduce()
+			program.setItem()
+		}
+		program.setItem()
+		program.stop()
+		return program.bytes
+	}
+
 	/// `{"state_dict": OrderedDict([("w", tensor)])}` with one float32 tensor.
-	private static func oneTensorPickle(elements: UInt8, shape: [UInt8]? = nil, storageOffset: UInt8 = 0) -> [UInt8] {
+	private static func oneTensorPickle(
+		elements: UInt8, shape: [UInt8]? = nil, stride: [UInt8]? = nil, storageOffset: UInt8 = 0
+	) -> [UInt8] {
 		var program = PickleProgram()
 		program.emptyDict()
 		program.string("state_dict")
@@ -237,7 +363,9 @@ final class PyTorchCheckpointReaderTests: XCTestCase {
 		program.mark()
 		for dimension in shape ?? [elements] { program.int1(dimension) }
 		program.tuple()
-		program.mark(); program.int1(1); program.tuple()
+		program.mark()
+		for step in stride ?? [1] { program.int1(step) }
+		program.tuple()
 		program.newFalse()
 		program.global("collections", "OrderedDict"); program.emptyTuple(); program.reduce()
 		program.tuple()

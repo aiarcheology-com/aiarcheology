@@ -130,6 +130,7 @@ enum PickleDecoderError: Error, Equatable {
 		case stackDepth
 		case marks
 		case pickleBytes
+		case tensorRank
 	}
 }
 
@@ -155,13 +156,19 @@ enum PyTorchPickleDecoder {
 	/// | bytes | 113,659 | 621,064 | 16 MiB | 27x |
 	/// | opcodes | 31,438 | 161,795 | 4,000,000 | 24x |
 	/// | memo entries | 7,853 | 40,387 | 1,000,000 | 24x |
-	/// | materialized nodes | 38,008 | 197,465 | 4,000,000 | 20x |
+	/// | materialized nodes | 109,622 | 562,689 | 16,000,000 | 28x |
 	/// | container work | 0 | 2,000 | 4,000,000 | 2,000x |
 	/// | stack depth | 820 | 2,012 | 100,000 | 49x |
 	/// | container width | 404 | 1,964 | 50,000 | 25x |
 	/// | string length | 56 | 68 | 4,096 | 60x |
-	/// | nesting depth | 3 | 3 | 64 | 21x |
+	/// | nesting depth | 5 | 5 | 128 | 25x |
+	/// | tensor rank | 4 | 4 | 16 | 4x |
 	/// | simultaneous marks | 6 | 6 | 1,024 | 170x |
+	///
+	/// The node and depth figures rose when tensors and storages started retaining the weight of the
+	/// arguments they were built from — a fix, not drift: charging a tensor as one node let a wide
+	/// memoized shape be recalled thousands of times for nothing. The two-sided assertion is what
+	/// surfaced the change, which is the reason it measures floors as well as ceilings.
 	///
 	/// Container work is the outlier and deliberately so: it meters copy *cost*, not size, and its
 	/// real-file floor is near zero because `torch.save` fills each container in one batch. It is
@@ -171,7 +178,7 @@ enum PyTorchPickleDecoder {
 		static let pickleBytes = 16 * 1024 * 1024
 		static let opcodes = 4_000_000
 		static let memoEntries = 1_000_000
-		static let materializedNodes = 4_000_000
+		static let materializedNodes = 16_000_000
 		/// The summed size of every container rebuilt during a decode.
 		///
 		/// Value semantics make each `SETITEM` or `APPEND` copy the container it grows, so the *work*
@@ -187,8 +194,14 @@ enum PyTorchPickleDecoder {
 		/// the wrong thing.
 		static let containerWidth = 50_000
 		static let stringLength = 4_096
-		static let nestingDepth = 64
+		static let nestingDepth = 128
 		static let marks = 1_024
+		/// Dimensions in one tensor's `size`/`stride`. Every published ADAF tensor has rank 4 or less.
+		///
+		/// Without it a `size` tuple can be as wide as the container cap, and rank multiplies every
+		/// later traversal of the table: 50,000 dimensions across 50,000 tensors is billions of
+		/// multiplications from a pickle that trips no other limit.
+		static let tensorRank = 16
 	}
 
 	/// A stack entry, carrying the weight and depth of the value it holds.
@@ -201,11 +214,19 @@ enum PyTorchPickleDecoder {
 		let value: PickleValue
 		let nodes: Int
 		let depth: Int
+		/// For a dictionary, key → position, carried so `SETITEM` does not rebuild it.
+		///
+		/// Rebuilding the index per opcode is O(width) *hashes*, and a hash is proportional to the key,
+		/// so a dictionary of long keys grown one at a time costs far more than the element copies
+		/// ``Caps/containerWork`` charges for — tens of seconds while staying inside every limit.
+		/// Carrying it makes the charge honest: the work really is the copy.
+		let dictionaryIndex: [PickleValue: Int]
 
-		init(_ value: PickleValue, nodes: Int = 1, depth: Int = 1) {
+		init(_ value: PickleValue, nodes: Int = 1, depth: Int = 1, dictionaryIndex: [PickleValue: Int] = [:]) {
 			self.value = value
 			self.nodes = nodes
 			self.depth = depth
+			self.dictionaryIndex = dictionaryIndex
 		}
 	}
 
@@ -222,6 +243,8 @@ enum PyTorchPickleDecoder {
 		var peakStackDepth = 0
 		var peakNestingDepth = 0
 		var peakMarks = 0
+		var peakStringLength = 0
+		var peakTensorRank = 0
 	}
 
 	static func decode(_ bytes: [UInt8]) throws -> PickleValue {
@@ -249,6 +272,8 @@ enum PyTorchPickleDecoder {
 		var peakStackDepth = 0
 		var peakNestingDepth = 0
 		var peakMarks = 0
+		var peakStringLength = 0
+		var peakTensorRank = 0
 
 		var statistics: Statistics {
 			Statistics(
@@ -258,7 +283,9 @@ enum PyTorchPickleDecoder {
 				containerWork: containerWork,
 				peakStackDepth: peakStackDepth,
 				peakNestingDepth: peakNestingDepth,
-				peakMarks: peakMarks
+				peakMarks: peakMarks,
+				peakStringLength: peakStringLength,
+				peakTensorRank: peakTensorRank
 			)
 		}
 
@@ -333,8 +360,8 @@ enum PyTorchPickleDecoder {
 		/// that can amplify work without adding bytes.
 		private mutating func stepMemo(_ opcode: UInt8, at offset: Int) throws -> Bool {
 			switch opcode {
-			case 0x71: try memoize(Int(try readByte(at: offset)))									// BINPUT
-			case 0x72: try memoize(Int(try readUInt32(at: offset)))									// LONG_BINPUT
+			case 0x71: try memoize(Int(try readByte(at: offset)), opcode: opcode, at: offset)		// BINPUT
+			case 0x72: try memoize(Int(try readUInt32(at: offset)), opcode: opcode, at: offset)		// LONG_BINPUT
 			case 0x68: try recall(Int(try readByte(at: offset)))									// BINGET
 			case 0x6A: try recall(Int(try readUInt32(at: offset)))									// LONG_BINGET
 			default: return false
@@ -436,9 +463,9 @@ enum PyTorchPickleDecoder {
 			return items
 		}
 
-		private mutating func memoize(_ index: Int) throws {
+		private mutating func memoize(_ index: Int, opcode: UInt8, at offset: Int) throws {
 			guard let slot = stack.last else {
-				throw PickleDecoderError.stackUnderflow(opcode: 0x71, atOffset: cursor)
+				throw PickleDecoderError.stackUnderflow(opcode: opcode, atOffset: offset)
 			}
 			if memo[index] == nil {
 				guard memo.count < Caps.memoEntries else { throw PickleDecoderError.capExceeded(.memoEntries) }
@@ -533,13 +560,10 @@ enum PyTorchPickleDecoder {
 			var entries = existing
 			var nodes = target.nodes
 			var depth = target.depth
-			// Indexed once, then O(1) per pair. A linear scan per pair is quadratic in the dictionary's
-			// width, which at the width cap is minutes of work from a small file — the cost curve is
-			// recorded on `Caps.containerWork`.
-			var positions = [PickleValue: Int](minimumCapacity: existing.count)
-			for (position, entry) in existing.enumerated() where positions[entry.key] == nil {
-				positions[entry.key] = position
-			}
+			// Inherited from the target rather than rebuilt: see `Slot.dictionaryIndex`. A rebuild here
+			// re-hashes every existing key on every `SETITEM`, which is work proportional to key
+			// *length* while `chargeWork` only meters element copies.
+			var positions = target.dictionaryIndex
 			for pair in pairs {
 				// Insertion order is preserved and a repeated key replaces in place, which is what
 				// Python does and what keeps a `state_dict`'s tensor order meaningful.
@@ -562,7 +586,7 @@ enum PyTorchPickleDecoder {
 			}
 			guard depth <= Caps.nestingDepth else { throw PickleDecoderError.capExceeded(.nestingDepth) }
 			try charge(pairs.reduce(0) { $0 + $1.key.nodes + $1.value.nodes })
-			push(Slot(.dictionary(entries), nodes: nodes, depth: depth))
+			push(Slot(.dictionary(entries), nodes: nodes, depth: depth, dictionaryIndex: positions))
 		}
 
 		// MARK: - The four globals, and the two things that may be done with them
@@ -574,7 +598,12 @@ enum PyTorchPickleDecoder {
 				// Refused before it can reach the stack. This is the opcode that makes `torch.load`
 				// arbitrary code execution, so the allow-list is the whole containment argument and
 				// nothing outside it is tolerated, ignored, or deferred.
-				throw PickleDecoderError.forbiddenGlobal(module: module, name: name)
+				//
+				// The names are clamped because they are attacker-authored and this error is logged:
+				// each may be up to `Caps.stringLength` bytes, which is a log-flood primitive for free.
+				throw PickleDecoderError.forbiddenGlobal(
+					module: Machine.clamped(module), name: Machine.clamped(name)
+				)
 			}
 			push(Slot(.global(global)))
 		}
@@ -604,7 +633,14 @@ enum PyTorchPickleDecoder {
 				try pushContainer(.dictionary([]), children: [])
 
 			case .rebuildTensorV2:
-				try pushContainer(.tensor(try rebuildTensor(args)), children: [])
+				// `children: [arguments]`, not `[]`. A tensor retains its whole argument subtree — two
+				// dimension tuples that may each be thousands of elements — so charging it as a single
+				// node would let one memoized tensor be recalled tens of thousands of times for a
+				// weight of one apiece, and every later walk of the tensor table would pay for what the
+				// cap never saw.
+				let tensor = try rebuildTensor(args)
+				peakTensorRank = max(peakTensorRank, tensor.shape.count)
+				try pushContainer(.tensor(tensor), children: [arguments])
 
 			case .storage:
 				throw PickleDecoderError.unsupportedReduction("a storage type is not callable")
@@ -632,6 +668,18 @@ enum PyTorchPickleDecoder {
 			guard shape.count == stride.count else {
 				throw PickleDecoderError.unsupportedReduction("_rebuild_tensor_v2 rank disagreement")
 			}
+			// The shape's product must exist as an `Int`. Every dimension is attacker-chosen, and Swift's
+			// `*` **traps** on overflow — a trap is a process abort, not a thrown error, so no `catch`
+			// anywhere above can turn it into a refused import. Enforcing it here means no `PickleTensor`
+			// can ever hold a shape whose product does not fit, which is what makes `elementCount` safe
+			// for every consumer rather than safe only where somebody remembered to check.
+			var elements = 1
+			for dimension in shape {
+				guard let next = checkedProduct(elements, dimension) else {
+					throw PickleDecoderError.unsupportedReduction("_rebuild_tensor_v2 size overflows")
+				}
+				elements = next
+			}
 			guard case .bool(let requiresGrad) = args[4] else {
 				throw PickleDecoderError.unsupportedReduction("_rebuild_tensor_v2 requires_grad")
 			}
@@ -653,6 +701,9 @@ enum PyTorchPickleDecoder {
 			guard case .tuple(let items) = value else {
 				throw PickleDecoderError.unsupportedReduction("_rebuild_tensor_v2 \(label) is not a tuple")
 			}
+			guard items.count <= Caps.tensorRank else {
+				throw PickleDecoderError.capExceeded(.tensorRank)
+			}
 			return try items.map {
 				guard case .int(let dimension) = $0, dimension >= 0 else {
 					throw PickleDecoderError.unsupportedReduction("_rebuild_tensor_v2 \(label) element")
@@ -663,6 +714,8 @@ enum PyTorchPickleDecoder {
 
 		/// The persistent id torch writes for a storage: `("storage", <type>, key, location, numel)`.
 		private mutating func persistentLoad(opcode: UInt8, at offset: Int) throws {
+			// Retained as `children: [identifier]` below, for the same reason as a tensor: the storage
+			// keeps the strings the identifier tuple carried.
 			let identifier = try pop(opcode, at: offset)
 			guard case .tuple(let fields) = identifier.value, fields.count == 5 else {
 				throw PickleDecoderError.malformedPersistentID("expected a 5-tuple")
@@ -684,7 +737,7 @@ enum PyTorchPickleDecoder {
 			}
 			try pushContainer(
 				.storage(PickleStorage(kind: kind, key: key, location: location, elementCount: elementCount)),
-				children: []
+				children: [identifier]
 			)
 		}
 
@@ -756,6 +809,7 @@ enum PyTorchPickleDecoder {
 			guard bytes.count - cursor >= length else { throw PickleDecoderError.truncated(atOffset: offset) }
 			let slice = Array(bytes[cursor..<(cursor + length)])
 			cursor += length
+			peakStringLength = max(peakStringLength, length)
 			// Strict, for the same reason entry names are: `String(decoding:as:)` substitutes U+FFFD
 			// and never fails, so two different byte sequences would collapse into one dictionary key
 			// and a tensor would be lost rather than the file refused.
@@ -763,6 +817,15 @@ enum PyTorchPickleDecoder {
 				throw PickleDecoderError.notUTF8(atOffset: offset)
 			}
 			return string
+		}
+
+		/// Shortens attacker-authored text to something a log line can carry.
+		///
+		/// Nothing here reaches a user-visible string — the app renders only closed enums and bounded
+		/// integers — but a diagnostic that interpolates an unbounded attacker value is still a way to
+		/// flood a log from a file.
+		static func clamped(_ text: String, to limit: Int = 64) -> String {
+			text.count <= limit ? text : String(text.prefix(limit)) + "…"
 		}
 
 		/// A newline-terminated ASCII token, as `GLOBAL` uses.

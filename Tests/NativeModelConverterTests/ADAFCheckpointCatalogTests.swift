@@ -95,6 +95,26 @@ final class ADAFCheckpointCatalogTests: XCTestCase {
 		}
 	}
 
+	/// Probes describe; they do not identify — and that has to hold for segmentation too. Three names
+	/// with arbitrary shapes were previously enough to earn the permanent "never supported" refusal,
+	/// which contradicted the documented rule and mislabelled anything that happened to share them.
+	/// Verified before removing the shortcut: all four published HRNet checkpoints share one digest,
+	/// so no real segmentation model depends on it.
+	func test_aFragmentSatisfyingTheSegmentationProbes_isNotCalledSegmentation() throws {
+		let checkpoint = Self.checkpoint(tensors: [
+			("head.projection.0.weight", [1]),
+			("backbone.classifier.weight", [1]),
+			("backbone.final_layer.1.weight", [1])
+		], identifier: nil)
+
+		guard case .unrecognized(let summary) = ADAFCheckpointCatalog.identity(of: checkpoint) else {
+			return XCTFail("three probe names must not earn a permanent segmentation refusal")
+		}
+		// It still says what it looked like, which is what probes are for.
+		XCTAssertEqual(summary.architectureFamily, "HRNet")
+		XCTAssertEqual(summary.tensorCount, 3)
+	}
+
 	// MARK: - Labels
 
 	func test_eachPublishedIdentifier_yieldsItsClass() {

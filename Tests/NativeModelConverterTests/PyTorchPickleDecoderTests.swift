@@ -178,11 +178,17 @@ final class PyTorchPickleDecoderTests: XCTestCase {
 				("stackDepth", stats.peakStackDepth, caps.stackDepth),
 				("containerWidth", stateDict.count, caps.containerWidth),
 				("nestingDepth", stats.peakNestingDepth, caps.nestingDepth),
+				("stringLength", stats.peakStringLength, caps.stringLength),
+				("tensorRank", stats.peakTensorRank, caps.tensorRank),
 				("marks", stats.peakMarks, caps.marks)
 			]
 			for (name, observed, cap) in margins {
+				// Tensor rank is deliberately the tight one: 4 observed against a cap of 16. Rank
+				// multiplies the cost of every later walk of the tensor table, so a generous margin
+				// here buys an attacker more than it buys a future model.
+				let required = name == "tensorRank" ? 4 : 16
 				XCTAssertGreaterThanOrEqual(
-					cap, observed * 16,
+					cap, observed * required,
 					"\(model.id): cap '\(name)' is \(cap) but \(model.id) already costs \(observed)"
 				)
 			}
@@ -347,6 +353,88 @@ final class PyTorchPickleDecoderTests: XCTestCase {
 		}
 		program.stop()
 		assertThrows(program) { XCTAssertEqual($0, .capExceeded(.materializedNodes)) }
+	}
+
+	/// A tensor keeps the weight of the arguments it was built from. Charging it as one node let a
+	/// wide memoized shape be recalled thousands of times for nothing, and every later walk of the
+	/// tensor table paid for what the cap never saw.
+	func test_aMemoizedTensorRecalledManyTimes_isChargedEachTime() throws {
+		var program = PickleProgram()
+		program.global("torch._utils", "_rebuild_tensor_v2")
+		program.mark()
+		program.storage(key: "0", count: 4)
+		program.int1(0)
+		program.mark(); program.int1(2); program.int1(2); program.tuple()
+		program.mark(); program.int1(2); program.int1(1); program.tuple()
+		program.newFalse()
+		program.global("collections", "OrderedDict"); program.emptyTuple(); program.reduce()
+		program.tuple(); program.reduce()
+		program.put(0)
+
+		let (_, single) = try PyTorchPickleDecoder.decodeWithStatistics(program.bytes + [0x2E])
+		var repeated = program
+		repeated.emptyList()
+		repeated.mark()
+		for _ in 0..<50 { repeated.get(0) }
+		repeated.appends()
+		repeated.stop()
+		let (_, many) = try PyTorchPickleDecoder.decodeWithStatistics(repeated.bytes)
+
+		// What matters is the cost *per recall*, not the ratio of two whole programs: `single` already
+		// includes the storage tuple, its strings and the empty hooks dict. Under the defect each
+		// `BINGET` charged exactly 1 no matter how large the value it brought back.
+		let perRecall = (many.materializedNodes - single.materializedNodes) / 50
+		XCTAssertGreaterThanOrEqual(perRecall, 10,
+									"a recalled tensor cost \(perRecall) nodes; charging it as 1 is the defect")
+	}
+
+	/// Rank is a multiplier on every later traversal of the tensor table, so it is capped tightly.
+	/// Real tensors have rank 4.
+	func test_aTensorWithAnAbsurdRank_isRefused() {
+		var program = PickleProgram()
+		program.global("torch._utils", "_rebuild_tensor_v2")
+		program.mark()
+		program.storage(key: "0", count: 1)
+		program.int1(0)
+		program.mark()
+		for _ in 0...PyTorchPickleDecoder.Caps.tensorRank { program.int1(1) }
+		program.tuple()
+		program.mark(); program.int1(1); program.tuple()
+		program.newFalse()
+		program.global("collections", "OrderedDict"); program.emptyTuple(); program.reduce()
+		program.tuple(); program.reduce()
+		program.stop()
+		assertThrows(program) { XCTAssertEqual($0, .capExceeded(.tensorRank)) }
+	}
+
+	/// The overflow that would abort the process rather than refuse the file.
+	func test_aShapeWhoseProductOverflows_isRefusedByTheDecoder() {
+		var program = PickleProgram()
+		program.global("torch._utils", "_rebuild_tensor_v2")
+		program.mark()
+		program.storage(key: "0", count: 1)
+		program.int1(0)
+		program.mark(); program.int4(2_147_483_647); program.int4(2_147_483_647); program.int4(2_147_483_647); program.tuple()
+		program.mark(); program.int1(1); program.int1(1); program.int1(1); program.tuple()
+		program.newFalse()
+		program.global("collections", "OrderedDict"); program.emptyTuple(); program.reduce()
+		program.tuple(); program.reduce()
+		program.stop()
+		assertThrows(program) {
+			XCTAssertEqual($0, .unsupportedReduction("_rebuild_tensor_v2 size overflows"))
+		}
+	}
+
+	/// A forbidden global's name is attacker-authored and ends up in a logged error.
+	func test_aForbiddenGlobalsNameIsClampedInTheError() {
+		var program = PickleProgram()
+		program.global(String(repeating: "m", count: 3_000), String(repeating: "n", count: 3_000))
+		program.stop()
+		assertThrows(program) { error in
+			guard case .forbiddenGlobal(let module, let name) = error else { return XCTFail("got \(error)") }
+			XCTAssertLessThanOrEqual(module.count, 65)
+			XCTAssertLessThanOrEqual(name.count, 65)
+		}
 	}
 
 	// MARK: - Caps

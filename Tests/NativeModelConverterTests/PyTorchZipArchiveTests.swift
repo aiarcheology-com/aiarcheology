@@ -33,6 +33,11 @@ struct TestZipBuilder {
 		var overrideCentralSize: UInt32?
 		var overrideLocalName: String?
 		var centralExtra: [UInt8] = []
+		/// Written into the local header only, leaving the central record saying something else.
+		var overrideLocalFlags: UInt16?
+		var overrideLocalMethod: UInt16?
+		/// Written into the central record's local-header pointer, so it can be aimed anywhere.
+		var overrideLocalHeaderOffset: UInt32?
 	}
 
 	var entries: [Entry] = []
@@ -56,7 +61,7 @@ struct TestZipBuilder {
 			localOffsets.append(bytes.count)
 			let nameBytes = Array((entry.overrideLocalName ?? entry.name).utf8)
 			bytes += le32(0x0403_4B50)
-			bytes += le16(20) + le16(entry.flags) + le16(entry.method)
+			bytes += le16(20) + le16(entry.overrideLocalFlags ?? entry.flags) + le16(entry.overrideLocalMethod ?? entry.method)
 			bytes += le16(0) + le16(0)
 			// Zeroed here exactly as torch writes them: the data-descriptor bit puts the real values
 			// in the central directory.
@@ -78,7 +83,7 @@ struct TestZipBuilder {
 			bytes += le32(size) + le32(size)
 			bytes += le16(UInt16(nameBytes.count)) + le16(UInt16(entry.centralExtra.count)) + le16(0)
 			bytes += le16(0) + le16(0) + le32(0)
-			bytes += le32(UInt32(localOffsets[index]))
+			bytes += le32(entry.overrideLocalHeaderOffset ?? UInt32(localOffsets[index]))
 			bytes += nameBytes + entry.centralExtra
 		}
 		let directorySize = bytes.count - directoryOffset
@@ -401,6 +406,49 @@ final class PyTorchZipArchiveTests: XCTestCase {
 		let (_, pickle) = try archive.torchPickleEntry()
 		XCTAssertThrowsError(try archive.bytes(of: pickle, maximumByteCount: 8 * 1024 * 1024)) { error in
 			XCTAssertEqual(error as? PyTorchZipArchiveError, .entryOutOfBounds(name: "checkpoint.pth/data.pkl"))
+		}
+	}
+
+	// MARK: - The local header must agree with the record that points at it
+
+	/// A central record saying "stored" while the local header says "deflated" describes the payload
+	/// two different ways. Checking only the signature and the name lets that through.
+	func test_aLocalHeaderWithADifferentCompressionMethod_isRefused() throws {
+		var builder = TestZipBuilder.torchLike()
+		builder.entries[0].overrideLocalMethod = 8
+		let archive = try PyTorchZipArchive.open(ArrayBytes(builder.build()))
+		let (_, pickle) = try archive.torchPickleEntry()
+		XCTAssertThrowsError(try archive.bytes(of: pickle, maximumByteCount: 1024)) { error in
+			XCTAssertEqual(error as? PyTorchZipArchiveError, .localHeaderMismatch(name: "checkpoint.pth/data.pkl"))
+		}
+	}
+
+	/// The data-descriptor bit decides whether the local sizes mean anything, so the two headers must
+	/// agree about it.
+	func test_aLocalHeaderDisagreeingAboutTheDataDescriptor_isRefused() throws {
+		var builder = TestZipBuilder.torchLike()
+		builder.entries[0].overrideLocalFlags = 0x0800
+		let archive = try PyTorchZipArchive.open(ArrayBytes(builder.build()))
+		let (_, pickle) = try archive.torchPickleEntry()
+		XCTAssertThrowsError(try archive.bytes(of: pickle, maximumByteCount: 1024)) { error in
+			XCTAssertEqual(error as? PyTorchZipArchiveError, .localHeaderMismatch(name: "checkpoint.pth/data.pkl"))
+		}
+	}
+
+	/// Entries live before the directory that describes them. Pointing a local header into the
+	/// directory itself is how a payload gets hidden where a reader is not looking.
+	func test_anEntryWhosePayloadWouldSitInsideTheDirectory_isRefused() throws {
+		var builder = TestZipBuilder.torchLike()
+		let plain = TestZipBuilder.torchLike().build()
+		// Aim the pointer at the tail: anything resolved from there ends after the directory starts.
+		builder.entries[0].overrideLocalHeaderOffset = UInt32(plain.count - 60)
+		let archive = try PyTorchZipArchive.open(ArrayBytes(builder.build()))
+		let (_, pickle) = try archive.torchPickleEntry()
+		XCTAssertThrowsError(try archive.bytes(of: pickle, maximumByteCount: 1024)) { error in
+			switch error as? PyTorchZipArchiveError {
+			case .entryOutOfBounds, .localHeaderMismatch: break
+			default: XCTFail("got \(error)")
+			}
 		}
 	}
 

@@ -38,8 +38,22 @@ public struct PyTorchTensorRef: Equatable, Sendable {
 	/// The **storage's** element count, which a tensor may only partially view.
 	public let storageElementCount: Int
 
-	/// The number of elements the tensor itself has.
-	public var elementCount: Int { shape.reduce(1, *) }
+	/// The number of elements the tensor itself has, saturating rather than trapping.
+	///
+	/// Swift's `*` traps on overflow, and every dimension here came out of a file somebody else
+	/// wrote. A trap is a process abort that no `catch` can convert into a refused import, so this
+	/// saturates to `Int.max` instead — a value that fails every bounds check it is compared against.
+	/// The decoder already refuses a shape whose product does not fit, so this is the second line
+	/// rather than the first; it exists because the type is public and a future caller may construct
+	/// one without going through the decoder.
+	public var elementCount: Int {
+		var product = 1
+		for dimension in shape {
+			guard let next = checkedProduct(product, dimension) else { return .max }
+			product = next
+		}
+		return product
+	}
 
 	/// True when the tensor covers its whole storage in row-major order — the shape every tensor in
 	/// the pinned ADAF checkpoints has, and the one a weight reader can treat as a flat copy.
@@ -48,7 +62,8 @@ public struct PyTorchTensorRef: Equatable, Sendable {
 		var expected = 1
 		for (dimension, step) in zip(shape, stride).reversed() {
 			guard step == expected else { return false }
-			expected *= dimension
+			guard let next = checkedProduct(expected, dimension) else { return false }
+			expected = next
 		}
 		return true
 	}
@@ -86,6 +101,14 @@ public enum PyTorchCheckpointError: Error, Equatable {
 	case storageSizeDisagreesWithArchive(tensor: String, declared: Int, archive: Int)
 	case storageMissingFromArchive(tensor: String, entry: String)
 	case tensorOutsideItsStorage(tensor: String)
+	/// A tensor is a strided view rather than a plain contiguous block. Every tensor in every
+	/// published ADAF checkpoint is contiguous and fills its storage; supporting anything else means
+	/// stride arithmetic no real file would exercise.
+	case tensorIsNotContiguous(tensor: String)
+	/// Two tensors describe the same `data/<key>` differently. One storage cannot be both.
+	case storageDescribedInconsistently(key: String)
+	/// The pickle references a different number of storages than the archive carries.
+	case storageCountDisagreesWithArchive(pickle: Int, archive: Int)
 }
 
 /// Reads a `torch.save` checkpoint's structure: what tensors it holds, what shape they are, and the
@@ -99,6 +122,10 @@ public enum PyTorchCheckpointReader {
 	/// The `state_dict` width this will read. HRNet, the largest published ADAF checkpoint, has
 	/// 1,964; anything beyond 25x that is not a model this converter has any prospect of supporting.
 	static let maximumTensorCount = 50_000
+
+	/// `torch.save` names storages with small decimal integers; the longest in any published ADAF
+	/// checkpoint is three characters.
+	static let maximumStorageKeyLength = 64
 
 	public static func read(contentsOf url: URL) throws -> PyTorchCheckpoint {
 		let source: FileBytes
@@ -125,6 +152,20 @@ public enum PyTorchCheckpointReader {
 		let top = try decodeTopLevel(archive, entry: pickleEntry)
 		let tensors = try readTensors(top, archive: archive, root: root)
 
+		// The pickle and the container are two independent statements about the same file, so they
+		// have to agree on how many storages exist. Measured on `OD_ringfort`: 932 persistent ids in
+		// the pickle and 932 `data/<n>` entries in the archive, which with `data.pkl` and `version`
+		// makes the directory's 934. Counting without comparing is what the doc comment used to
+		// promise and the code did not do.
+		let storageCount = countStorages(in: top)
+		let blobPrefix = "\(root)/data/"
+		let archiveStorageCount = archive.entries.count { $0.name.hasPrefix(blobPrefix) }
+		guard storageCount == archiveStorageCount else {
+			throw PyTorchCheckpointError.storageCountDisagreesWithArchive(
+				pickle: storageCount, archive: archiveStorageCount
+			)
+		}
+
 		return PyTorchCheckpoint(
 			root: root,
 			formatVersion: formatVersion,
@@ -133,7 +174,7 @@ public enum PyTorchCheckpointReader {
 			loss: top["loss"].flatMap(\.doubleValue),
 			startTimestamp: top["start"].flatMap(\.intValue),
 			tensors: tensors,
-			totalStorageCount: countStorages(in: top)
+			totalStorageCount: storageCount
 		)
 	}
 
@@ -196,6 +237,12 @@ public enum PyTorchCheckpointReader {
 			throw PyTorchCheckpointError.tooManyTensors(entries.count)
 		}
 
+		// One storage cannot be two things. Without this, two tensors can name the same `data/<key>`
+		// as `FloatStorage(count: 2)` and `LongStorage(count: 1)`, and a single eight-byte entry
+		// satisfies both size checks — leaving the reader holding contradictory descriptions of one
+		// blob, each of which passed.
+		var storages: [String: PickleStorage] = [:]
+
 		return try entries.map { entry in
 			guard case .string(let name) = entry.key else {
 				throw PyTorchCheckpointError.notACheckpoint("a state_dict key is not a string")
@@ -204,6 +251,19 @@ public enum PyTorchCheckpointReader {
 				throw PyTorchCheckpointError.notACheckpoint("state_dict entry '\(name)' is not a tensor")
 			}
 
+			if let seen = storages[tensor.storage.key] {
+				guard seen == tensor.storage else {
+					throw PyTorchCheckpointError.storageDescribedInconsistently(key: tensor.storage.key)
+				}
+			} else {
+				storages[tensor.storage.key] = tensor.storage
+			}
+
+			// The storage key is attacker-authored and ends up in a thrown error that gets logged, so
+			// it is bounded here as well as being validated by the archive lookup below.
+			guard tensor.storage.key.count <= maximumStorageKeyLength else {
+				throw PyTorchCheckpointError.notACheckpoint("storage key for '\(name)' is implausibly long")
+			}
 			let dataType: PyTorchTensorDataType = tensor.storage.kind == .float32 ? .float32 : .int64
 			let entryName = "\(root)/data/\(tensor.storage.key)"
 			guard let blob = archive.entry(named: entryName) else {
@@ -227,13 +287,21 @@ public enum PyTorchCheckpointReader {
 				storageKey: tensor.storage.key,
 				storageElementCount: tensor.storage.elementCount
 			)
-			// A view must fit the storage it views. The published checkpoints are all contiguous and
-			// offset zero, so nothing here is exercised by them -- which is exactly why it is checked
-			// rather than assumed.
+			// A view must fit the storage it views.
 			guard let span = checkedSum(reference.elementCount, tensor.storageOffset),
 				span <= tensor.storage.elementCount
 			else {
 				throw PyTorchCheckpointError.tensorOutsideItsStorage(tensor: name)
+			}
+			// And it must be a plain contiguous block. Counting elements is not enough on its own:
+			// shape [2, 2] with stride [100, 1] holds four elements but addresses index 101, so a
+			// count-only check passes a tensor that reads far outside its storage. Requiring
+			// contiguity refuses that whole family instead of computing the extent of each case, and
+			// costs nothing real — every tensor in every published ADAF checkpoint is contiguous and
+			// fills its storage. The digest does not cover stride, so without this a pinned table with
+			// hostile strides would still earn the model-specific verdict.
+			guard reference.isContiguousAndComplete else {
+				throw PyTorchCheckpointError.tensorIsNotContiguous(tensor: name)
 			}
 			return reference
 		}

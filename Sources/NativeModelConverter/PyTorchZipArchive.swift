@@ -18,6 +18,10 @@ struct PyTorchZipEntry: Equatable {
 	let uncompressedSize: Int
 	let crc32: UInt32
 	let localHeaderOffset: Int
+	/// The central record's general-purpose flags and compression method, kept so the local header
+	/// can be required to agree with them rather than merely to exist.
+	let flags: UInt16
+	let method: UInt16
 }
 
 enum PyTorchZipArchiveError: Error, Equatable {
@@ -62,6 +66,10 @@ struct PyTorchZipArchive {
 	let entries: [PyTorchZipEntry]
 	private let source: any RandomAccessBytes
 	private let index: [String: Int]
+	/// Where the central directory starts. Entry payloads must end at or before it: a local header
+	/// and payload placed *inside* the directory would otherwise be readable, which is a way to make
+	/// one region of the file mean two things.
+	private let directoryOffset: Int
 
 	// MARK: - Format constants
 
@@ -81,7 +89,8 @@ struct PyTorchZipArchive {
 	/// descriptor) and bit 11 (the name is UTF-8). Every other bit — encryption, strong encryption,
 	/// patched data, masked local headers — is refused rather than ignored, because each one changes
 	/// what the bytes at the data offset mean.
-	private static let permittedFlags: UInt16 = 0x0008 | 0x0800
+	private static let dataDescriptorFlag: UInt16 = 0x0008
+	private static let permittedFlags: UInt16 = dataDescriptorFlag | 0x0800
 
 	/// The ZIP64 extra field's header ID. Its presence means a size or offset in this record is a
 	/// sentinel, so the 32-bit value read here would be `0xFFFFFFFF` used as a literal.
@@ -111,7 +120,9 @@ struct PyTorchZipArchive {
 				throw PyTorchZipArchiveError.duplicateEntryName(entry.name)
 			}
 		}
-		return PyTorchZipArchive(entries: entries, source: source, index: index)
+		return PyTorchZipArchive(
+			entries: entries, source: source, index: index, directoryOffset: directory.offset
+		)
 	}
 
 	private struct Directory {
@@ -357,7 +368,10 @@ struct PyTorchZipArchive {
 			guard source.containsRange(offset: headerOffset, count: localFileHeaderLength) else {
 				throw PyTorchZipArchiveError.entryOutOfBounds(name: name)
 			}
-			entries.append(PyTorchZipEntry(name: name, uncompressedSize: size, crc32: crc, localHeaderOffset: headerOffset))
+			entries.append(PyTorchZipEntry(
+				name: name, uncompressedSize: size, crc32: crc,
+				localHeaderOffset: headerOffset, flags: flags, method: UInt16(method)
+			))
 			cursor = recordEnd
 		}
 
@@ -420,6 +434,28 @@ struct PyTorchZipArchive {
 		guard Self.readUInt32(header, 0) == Self.localFileHeaderSignature else {
 			throw PyTorchZipArchiveError.localHeaderMismatch(name: entry.name)
 		}
+		// The local header must agree with the central record on everything that changes what the
+		// bytes at the data offset *mean*. Checking only the signature and the name leaves a file free
+		// to say "stored, sizes in a descriptor" centrally and something else locally, and the reader
+		// would then read a payload the archive describes two ways.
+		guard Self.readUInt16(header, 8) == entry.method else {
+			throw PyTorchZipArchiveError.localHeaderMismatch(name: entry.name)
+		}
+		let localFlags = Self.readUInt16(header, 6)
+		guard localFlags & ~Self.permittedFlags == 0,
+			localFlags & Self.dataDescriptorFlag == entry.flags & Self.dataDescriptorFlag
+		else {
+			throw PyTorchZipArchiveError.localHeaderMismatch(name: entry.name)
+		}
+		// With the data-descriptor bit set, torch writes zeroes here and the real sizes live in the
+		// central directory; without it, the local sizes must match what the directory claims.
+		if entry.flags & Self.dataDescriptorFlag == 0 {
+			guard Int(Self.readUInt32(header, 18)) == entry.uncompressedSize,
+				Int(Self.readUInt32(header, 22)) == entry.uncompressedSize
+			else {
+				throw PyTorchZipArchiveError.localHeaderMismatch(name: entry.name)
+			}
+		}
 		let nameLength = Int(Self.readUInt16(header, 26))
 		let extraLength = Int(Self.readUInt16(header, 28))
 
@@ -443,7 +479,12 @@ struct PyTorchZipArchive {
 
 		guard let afterName = checkedSum(nameStart, nameLength),
 			let dataOffset = checkedSum(afterName, extraLength),
-			source.containsRange(offset: dataOffset, count: entry.uncompressedSize)
+			let dataEnd = checkedSum(dataOffset, entry.uncompressedSize),
+			source.containsRange(offset: dataOffset, count: entry.uncompressedSize),
+			// Entries live before the directory that describes them. Without this, a crafted local
+			// header and payload can be hidden inside a central record's comment and reached by
+			// pointing `localHeaderOffset` back into the directory.
+			dataEnd <= directoryOffset
 		else {
 			throw PyTorchZipArchiveError.entryOutOfBounds(name: entry.name)
 		}

@@ -139,13 +139,16 @@ public enum ADAFCheckpointCatalog {
 			return .segmentation(architecture: "HRNet")
 		}
 
+		// Probes describe, they do not identify — including here. Three names with arbitrary shapes
+		// are not a segmentation model, and answering `.segmentation` for them would hand a
+		// three-tensor fragment the permanent "never supported" refusal. Measured before removing the
+		// shortcut: all four published HRNet checkpoints digest to the same value, so nothing real
+		// reaches this path.
 		let names = Set(checkpoint.tensors.map(\.name))
-		if segmentationProbes.allSatisfy(names.contains) {
-			// A segmentation model this is not pinned to is still a segmentation model, and the answer
-			// for those is permanent.
-			return .segmentation(architecture: "HRNet")
-		}
-		return .unrecognized(summary(of: checkpoint, matchesDetectionProbes: objectDetectionProbes.allSatisfy(names.contains)))
+		return .unrecognized(summary(
+			of: checkpoint,
+			family: familyName(matching: names)
+		))
 	}
 
 	/// A digest of the canonical `name|dtype|shape` table.
@@ -195,9 +198,16 @@ public enum ADAFCheckpointCatalog {
 		return (single, .checkpointIdentifier)
 	}
 
+	/// The architecture family the probes suggest, for the message only.
+	private static func familyName(matching names: Set<String>) -> String? {
+		if objectDetectionProbes.allSatisfy(names.contains) { return "Faster R-CNN" }
+		if segmentationProbes.allSatisfy(names.contains) { return "HRNet" }
+		return nil
+	}
+
 	private static func summary(
 		of checkpoint: PyTorchCheckpoint,
-		matchesDetectionProbes: Bool
+		family: String?
 	) -> ADAFCheckpointSummary {
 		var seen: [String] = []
 		for tensor in checkpoint.tensors {
@@ -210,7 +220,7 @@ public enum ADAFCheckpointCatalog {
 		return ADAFCheckpointSummary(
 			tensorCount: checkpoint.tensors.count,
 			topLevelPrefixes: seen,
-			architectureFamily: matchesDetectionProbes ? "Faster R-CNN" : nil
+			architectureFamily: family
 		)
 	}
 
