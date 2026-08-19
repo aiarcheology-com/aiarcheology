@@ -52,11 +52,11 @@ func parseROI(_ text: String) -> CGRect {
         $0.trimmingCharacters(in: .whitespaces)
     }
     guard parts.count == 4 else { failUsage("--roi wants exactly four comma-separated numbers, got \(parts.count)") }
-    let numbers = parts.map { Double($0) }
-    guard numbers.allSatisfy({ $0 != nil && $0!.isFinite }) else {
+    let numbers = parts.compactMap { Double($0) }
+    guard numbers.count == parts.count, numbers.allSatisfy({ $0.isFinite }) else {
         failUsage("--roi values must all be finite numbers: \(text)")
     }
-    let values = numbers.map { $0! }
+    let values = numbers
     let rect = CGRect(x: values[0], y: values[1], width: values[2], height: values[3])
     // Vision rejects a region outside the unit rect at perform() time with an opaque error;
     // catching it here keeps a typo from looking like a model failure.
@@ -148,7 +148,10 @@ func fourCharacterCode(_ value: OSType) -> String? {
     let bytes = [UInt8(truncatingIfNeeded: value >> 24), UInt8(truncatingIfNeeded: value >> 16),
                  UInt8(truncatingIfNeeded: value >> 8), UInt8(truncatingIfNeeded: value)]
     guard bytes.allSatisfy({ (0x20...0x7E).contains($0) }) else { return nil }
-    return String(decoding: bytes, as: UTF8.self)
+    // The guard above already restricts these to printable ASCII, so the failable initialiser
+    // cannot actually fail here — it is used because the function's contract is already optional
+    // and because it keeps the byte-to-text conversion explicit about its encoding.
+    return String(bytes: bytes, encoding: .ascii)
 }
 
 func featureTypeName(_ type: MLFeatureType) -> String {
