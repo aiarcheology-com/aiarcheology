@@ -117,23 +117,27 @@ extension DownloadedContainerFormat {
 				return false
 			}
 
-			let flags = readUInt16(bytes, at: offset + zipFlagsOffset)
-			// General-purpose bit 3: sizes are written *after* the data, in a trailing descriptor, so
-			// the header's size field is zero and the next header's offset cannot be computed from it.
-			// Stop instead of walking to a garbage offset. `torch.save` writes stored entries with
-			// known sizes, so this only ever fires on foreign or hostile archives.
-			guard flags & 0x0008 == 0 else { return false }
-
 			let nameLength = Int(readUInt16(bytes, at: offset + zipNameLengthOffset))
 			let extraLength = Int(readUInt16(bytes, at: offset + zipExtraLengthOffset))
 			let compressedSize = Int(readUInt32(bytes, at: offset + zipCompressedSizeOffset))
 			guard nameLength > 0, nameLength <= maximumEntryNameLength else { return false }
 
+			// The name is read and matched **before** any decision about continuing, because a
+			// header's own name is always fully present regardless of how its sizes are recorded.
+			// Getting this order wrong is not hypothetical: real `torch.save` archives set the
+			// data-descriptor bit on the very entry that carries `data.pkl`, so checking that bit
+			// first rejected exactly the files this exists to recognise (AIA-0654).
 			let nameStart = offset + zipLocalHeaderLength
 			guard bytes.count - nameStart >= nameLength else { return false }
 			if isTorchPickleEntryName(Array(bytes[nameStart..<(nameStart + nameLength)])) {
 				return true
 			}
+
+			// Only now does continuing matter. General-purpose bit 3 puts the sizes in a trailing
+			// descriptor and leaves the header's fields zero, so the next header's offset cannot be
+			// computed — stop rather than walk to a garbage offset.
+			let flags = readUInt16(bytes, at: offset + zipFlagsOffset)
+			guard flags & 0x0008 == 0 else { return false }
 
 			// Overflow-safe advance; a hostile size field must not wrap the offset into range.
 			let (afterName, nameOverflow) = nameStart.addingReportingOverflow(nameLength)

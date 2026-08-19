@@ -79,10 +79,27 @@ final class DownloadedContainerFormatTests: XCTestCase {
 		XCTAssertEqual(DownloadedContainerFormat.classify(fileAt: url), .unrecognized)
 	}
 
-	/// General-purpose bit 3 means the sizes live in a trailing descriptor, so the next header's
-	/// offset cannot be derived from this one. The walk must stop rather than jump to a computed
-	/// garbage offset.
-	func test_zipWithAStreamedLeadingEntry_stopsAndIsUnrecognized() throws {
+	/// The shape of a **real** `torch.save` archive, and the case that shipped broken.
+	///
+	/// `OD_ringfort.tar` from Zenodo opens with `flags=0x0808` — the data-descriptor bit set — on the
+	/// very entry named `best_checkpoint_<ts>_<epoch>.pth/data.pkl`, with `csize`/`usize` zero and a
+	/// 56-byte extra field. Checking that bit before reading the name rejected exactly the files
+	/// this sniffer exists to recognise, and the app fell through to Core ML's protobuf parser. A
+	/// header's own name is always present regardless of how its sizes are recorded, so the name is
+	/// matched first and the bit only decides whether the walk may continue.
+	func test_realTorchArchiveShape_descriptorBitSetOnTheEntryCarryingThePickle_isACheckpoint() throws {
+		var bytes = zip(entries: [("best_checkpoint_1691592063_17.pth/data.pkl", 0, 56)])
+		bytes[6] = 0x08
+		bytes[7] = 0x08
+		// A trailing descriptor means the header records no sizes.
+		for index in 18..<26 { bytes[index] = 0 }
+		let url = try write(bytes)
+		XCTAssertEqual(DownloadedContainerFormat.classify(fileAt: url), .pyTorchZipCheckpoint)
+	}
+
+	/// The walk still must not guess an offset it cannot compute: with the descriptor bit set on a
+	/// *non-matching* entry, there is no way to reach the next header, so classification stops.
+	func test_zipWithAStreamedLeadingEntryThatIsNotThePickle_stopsAndIsUnrecognized() throws {
 		var bytes = zip(entries: [("archive/streamed", 4), ("archive/data.pkl", 8)])
 		bytes[6] |= 0x08
 		let url = try write(bytes)
