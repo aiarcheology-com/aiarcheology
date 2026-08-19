@@ -205,9 +205,10 @@ def main() -> int:
         print(f"    {model_id}: {margin['detections']} detections, worst contributing proposal "
               f"position {margin['worst_contributing_position']} of {margin['proposals']} "
               f"(safe K {margin['safe_k']})")
-        invented = [row for row in topk[model_id]["pre_nms_sweep"] if row["invented_detections"]]
-        if invented:
-            print(f"      invented detections at K={[row['value'] for row in invented]}")
+        surplus = [row for row in topk[model_id]["pre_nms_sweep"] if row["surplus_detections"]]
+        if surplus:
+            print("      surplus detections at K="
+                  f"{[(row['value'], row['surplus_detections']) for row in surplus]}")
 
     # The smallest K that keeps every contributing proposal across every model — the number
     # condition 2 rests on, computed rather than eyeballed from a table. Computed before the single

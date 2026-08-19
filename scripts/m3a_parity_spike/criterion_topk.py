@@ -169,7 +169,7 @@ def sweep_cut(model: torch.nn.Module, image_chw: np.ndarray, *, which: str,
             boxes, scores = out["boxes"].numpy(), out["scores"].numpy()
             if baseline is None:
                 baseline = (boxes, scores)
-            retained, invented = _agreement(baseline[0], boxes)
+            retained, surplus = _agreement(baseline[0], boxes)
             rows.append({
                 "cut": which,
                 "value": value,
@@ -181,7 +181,9 @@ def sweep_cut(model: torch.nn.Module, image_chw: np.ndarray, *, which: str,
                 # detection the baseline never had — measured at K=128 on OD_enclosure, which
                 # returned 9 boxes against a baseline of 8 while one-directional agreement still
                 # read 1.0. Losing nothing is not the same as changing nothing.
-                "invented_detections": invented,
+                "surplus_detections": surplus,
+                # The raw counts, so a reader can check the metric against them rather than trust it.
+                "baseline_detections": int(len(baseline[0])),
             })
     finally:
         model.rpn._pre_nms_top_n = original_pre
@@ -191,9 +193,18 @@ def sweep_cut(model: torch.nn.Module, image_chw: np.ndarray, *, which: str,
 
 def _agreement(reference_boxes: np.ndarray, candidate_boxes: np.ndarray,
                iou_threshold: float = 0.5) -> tuple:
-    """Both directions: the fraction of the baseline retained, and how many boxes are new.
+    """Both directions: the fraction of the baseline retained, and how many boxes are surplus.
 
-    Returning only the first is what let an invented detection pass unnoticed.
+    Matching is **one-to-one**, and that is the whole point. Asking only "does this candidate overlap
+    *some* reference box" misses a duplicate — two candidates matching one reference — and a
+    duplicate is a detection the graph produced that the baseline did not. Measured on OD_enclosure
+    at K=128: the baseline returns 8 boxes and the cut returns 9, and the any-match version scored
+    that as retained 1.0 with 0 surplus. One-to-one matching finds the extra box.
+
+    This is the second time this metric has been too generous. The first version reported only
+    retention, which hid the change entirely; the second counted surplus by any-match, which hid a
+    duplicate. Both were caught by comparing the reported number against the raw detection counts,
+    which is why those counts are also written to the results file.
     """
     if len(reference_boxes) == 0:
         return None, int(len(candidate_boxes))
@@ -202,9 +213,23 @@ def _agreement(reference_boxes: np.ndarray, candidate_boxes: np.ndarray,
     from torchvision.ops import box_iou
 
     iou = box_iou(torch.from_numpy(reference_boxes), torch.from_numpy(candidate_boxes)).numpy()
-    retained = float((iou.max(axis=1) >= iou_threshold).mean())
-    invented = int((iou.max(axis=0) < iou_threshold).sum())
-    return retained, invented
+    claimed: set = set()
+    matched = 0
+    # Greedy by best available overlap, so the strongest pairing wins before the weaker ones and a
+    # second candidate cannot re-use a reference that is already spoken for.
+    for reference_index in np.argsort(-iou.max(axis=1)):
+        available = [(iou[reference_index, j], j) for j in range(len(candidate_boxes))
+                     if j not in claimed]
+        if not available:
+            break
+        best_iou, best_index = max(available)
+        if best_iou >= iou_threshold:
+            claimed.add(best_index)
+            matched += 1
+
+    retained = matched / len(reference_boxes)
+    surplus = len(candidate_boxes) - matched
+    return retained, surplus
 
 
 def padding_false_positives(model: torch.nn.Module, image_chw: np.ndarray, *,

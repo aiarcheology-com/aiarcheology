@@ -98,9 +98,22 @@ cropped. Neither is comfortable on iOS.
 **An earlier version of this document claimed K=128 with zero loss. That was wrong**, and the way it
 was wrong is worth recording: the rank was computed by re-sorting proposals on *box-head* score
 rather than by their position in the RPN-ordered list, which flattered the worst rank from 722 down
-to 102. The empirical sweep does still show agreement 1.0 at K=128 — but at K=128 OD_enclosure
-returns **9** detections against a baseline of 8, so a one-directional retention metric called it a
-clean pass while the output set had changed. Both directions are now reported.
+to 102.
+
+The empirical sweep does not rescue it either, once the metric is honest:
+
+| K (pre-NMS, post-NMS held at default) | detections | baseline | retained | surplus |
+|-|-|-|-|-|
+| 1000 / 512 / 256 | 8 | 8 | 1.000 | 0 |
+| **128** | 9 | 8 | 1.000 | **1** |
+| **64** | 8 | 8 | 0.875 | **1** |
+
+K=128 **adds a detection the baseline never produced**, and K=64 both drops one and adds one. This
+metric has now been too generous twice: the first version reported only retention, which hid the
+change completely; the second counted surplus by "does this candidate overlap *any* reference",
+which hid a **duplicate** — two candidates matching one reference. Matching is now one-to-one, and
+the raw detection counts are written beside the ratio so a reader can check the metric rather than
+trust it.
 
 Static shapes were also checked for what they *invent*. NMS pads with zero boxes, which reach the box
 head and are assigned fresh scores. Measured with torchvision's `clip_boxes_to_image` /

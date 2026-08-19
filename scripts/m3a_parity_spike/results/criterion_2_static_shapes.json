@@ -89,7 +89,8 @@
         "detections": 2,
         "max_score": 0.9802706241607666,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 2
       },
       {
         "cut": "pre_nms",
@@ -97,7 +98,8 @@
         "detections": 2,
         "max_score": 0.9802706241607666,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 2
       },
       {
         "cut": "pre_nms",
@@ -105,7 +107,8 @@
         "detections": 2,
         "max_score": 0.9802706241607666,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 2
       },
       {
         "cut": "pre_nms",
@@ -113,7 +116,8 @@
         "detections": 2,
         "max_score": 0.9802706241607666,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 2
       },
       {
         "cut": "pre_nms",
@@ -121,7 +125,8 @@
         "detections": 2,
         "max_score": 0.9802706241607666,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 2
       }
     ],
     "post_nms_sweep": [
@@ -131,7 +136,8 @@
         "detections": 2,
         "max_score": 0.9802706241607666,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 2
       },
       {
         "cut": "post_nms",
@@ -139,7 +145,8 @@
         "detections": 2,
         "max_score": 0.9802706241607666,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 2
       },
       {
         "cut": "post_nms",
@@ -147,7 +154,8 @@
         "detections": 2,
         "max_score": 0.9802706241607666,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 2
       },
       {
         "cut": "post_nms",
@@ -155,7 +163,8 @@
         "detections": 2,
         "max_score": 0.9802706241607666,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 2
       },
       {
         "cut": "post_nms",
@@ -163,7 +172,8 @@
         "detections": 2,
         "max_score": 0.9802706241607666,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 2
       }
     ]
   },
@@ -214,7 +224,8 @@
         "detections": 3,
         "max_score": 0.9795745015144348,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 3
       },
       {
         "cut": "pre_nms",
@@ -222,7 +233,8 @@
         "detections": 3,
         "max_score": 0.9795745015144348,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 3
       },
       {
         "cut": "pre_nms",
@@ -230,7 +242,8 @@
         "detections": 3,
         "max_score": 0.9795745015144348,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 3
       },
       {
         "cut": "pre_nms",
@@ -238,7 +251,8 @@
         "detections": 3,
         "max_score": 0.9795745015144348,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 3
       },
       {
         "cut": "pre_nms",
@@ -246,7 +260,8 @@
         "detections": 3,
         "max_score": 0.9795745015144348,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 3
       }
     ],
     "post_nms_sweep": [
@@ -256,7 +271,8 @@
         "detections": 3,
         "max_score": 0.9795745015144348,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 3
       },
       {
         "cut": "post_nms",
@@ -264,7 +280,8 @@
         "detections": 3,
         "max_score": 0.9795745015144348,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 3
       },
       {
         "cut": "post_nms",
@@ -272,7 +289,8 @@
         "detections": 3,
         "max_score": 0.9795745015144348,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 3
       },
       {
         "cut": "post_nms",
@@ -280,7 +298,8 @@
         "detections": 3,
         "max_score": 0.9795745015144348,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 3
       },
       {
         "cut": "post_nms",
@@ -288,7 +307,8 @@
         "detections": 3,
         "max_score": 0.9795745015144348,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 3
       }
     ]
   },
@@ -344,7 +364,8 @@
         "detections": 8,
         "max_score": 0.8073384165763855,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 8
       },
       {
         "cut": "pre_nms",
@@ -352,7 +373,8 @@
         "detections": 8,
         "max_score": 0.8073384165763855,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 8
       },
       {
         "cut": "pre_nms",
@@ -360,7 +382,8 @@
         "detections": 8,
         "max_score": 0.8073384165763855,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 8
       },
       {
         "cut": "pre_nms",
@@ -368,7 +391,8 @@
         "detections": 9,
         "max_score": 0.8073384165763855,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 1,
+        "baseline_detections": 8
       },
       {
         "cut": "pre_nms",
@@ -376,7 +400,8 @@
         "detections": 8,
         "max_score": 0.8073384165763855,
         "oracle_set_retained": 0.875,
-        "invented_detections": 0
+        "surplus_detections": 1,
+        "baseline_detections": 8
       }
     ],
     "post_nms_sweep": [
@@ -386,7 +411,8 @@
         "detections": 8,
         "max_score": 0.8073384165763855,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 8
       },
       {
         "cut": "post_nms",
@@ -394,7 +420,8 @@
         "detections": 9,
         "max_score": 0.8073384165763855,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 1,
+        "baseline_detections": 8
       },
       {
         "cut": "post_nms",
@@ -402,7 +429,8 @@
         "detections": 9,
         "max_score": 0.8073384165763855,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 1,
+        "baseline_detections": 8
       },
       {
         "cut": "post_nms",
@@ -410,7 +438,8 @@
         "detections": 9,
         "max_score": 0.8073384165763855,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 1,
+        "baseline_detections": 8
       },
       {
         "cut": "post_nms",
@@ -418,7 +447,8 @@
         "detections": 8,
         "max_score": 0.8073384165763855,
         "oracle_set_retained": 0.875,
-        "invented_detections": 0
+        "surplus_detections": 1,
+        "baseline_detections": 8
       }
     ]
   },
@@ -467,7 +497,8 @@
         "detections": 1,
         "max_score": 0.9891449809074402,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 1
       },
       {
         "cut": "pre_nms",
@@ -475,7 +506,8 @@
         "detections": 1,
         "max_score": 0.9891449809074402,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 1
       },
       {
         "cut": "pre_nms",
@@ -483,7 +515,8 @@
         "detections": 1,
         "max_score": 0.9891449809074402,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 1
       },
       {
         "cut": "pre_nms",
@@ -491,7 +524,8 @@
         "detections": 1,
         "max_score": 0.9891449809074402,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 1
       },
       {
         "cut": "pre_nms",
@@ -499,7 +533,8 @@
         "detections": 1,
         "max_score": 0.9891449809074402,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 1
       }
     ],
     "post_nms_sweep": [
@@ -509,7 +544,8 @@
         "detections": 1,
         "max_score": 0.9891449809074402,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 1
       },
       {
         "cut": "post_nms",
@@ -517,7 +553,8 @@
         "detections": 1,
         "max_score": 0.9891449809074402,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 1
       },
       {
         "cut": "post_nms",
@@ -525,7 +562,8 @@
         "detections": 1,
         "max_score": 0.9891449809074402,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 1
       },
       {
         "cut": "post_nms",
@@ -533,7 +571,8 @@
         "detections": 1,
         "max_score": 0.9891449809074402,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 1
       },
       {
         "cut": "post_nms",
@@ -541,7 +580,8 @@
         "detections": 1,
         "max_score": 0.9891449809074402,
         "oracle_set_retained": 1.0,
-        "invented_detections": 0
+        "surplus_detections": 0,
+        "baseline_detections": 1
       }
     ]
   },
