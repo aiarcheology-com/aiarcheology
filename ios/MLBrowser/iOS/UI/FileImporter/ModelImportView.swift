@@ -752,23 +752,29 @@ struct ModelImportView: View {
 		let sourceURL = request.sourceURL
 		let configurationID = request.configurationID
 		let downloadURL = request.downloadURL
+		// The container guard (AIA-0654) is decided inside this same detached task, not after it.
+		// Its sniff opens and reads the stored file, and this function resumes on the main actor, so
+		// deciding it out here would put disk I/O on the main thread (AGENTS.md §9). The guard runs
+		// at the first point where the bytes are in app-owned storage and *before* the conversion
+		// report exists, so a rejected container never mints a report or an intermediate to clean
+		// up. It can only ever reject what already dead-ends today — see
+		// `ImportedContainerRouting.rejection`, whose autoclosed `format` means an import the guard
+		// cannot touch never pays for the read at all.
+		let origin = request.origin
+		let isCheckpointRoutingEnabled = request.isCheckpointRoutingEnabled
 		let storedURL = try await Task.detached(priority: .userInitiated) {
 			let stored = try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationID)
-			return Self.restoringNativeConvertibleExtension(of: stored, from: downloadURL)
+			let named = Self.restoringNativeConvertibleExtension(of: stored, from: downloadURL)
+			if let rejection = ImportedContainerRouting.rejection(
+				for: DownloadedContainerFormat.classify(fileAt: named),
+				origin: origin,
+				isCheckpointRoutingEnabled: isCheckpointRoutingEnabled
+			) {
+				throw rejection
+			}
+			return named
 		}.value
 		let configurationDirectory = storedURL.deletingLastPathComponent()
-
-		// The container guard (AIA-0654). It sits here because this is the first point where the
-		// bytes are in app-owned storage, and *before* the conversion report is created, so a
-		// rejected container never mints a report or an intermediate to clean up. It can only ever
-		// reject what already dead-ends today — see `ImportedContainerRouting.rejection`.
-		if let rejection = ImportedContainerRouting.rejection(
-			for: DownloadedContainerFormat.classify(fileAt: storedURL),
-			origin: request.origin,
-			isCheckpointRoutingEnabled: request.isCheckpointRoutingEnabled
-		) {
-			throw rejection
-		}
 
 		let reportStore: NativeModelConversionImportReportStore?
 		if Self.nativeConvertibleExtensions.contains(storedURL.pathExtension.lowercased()) {

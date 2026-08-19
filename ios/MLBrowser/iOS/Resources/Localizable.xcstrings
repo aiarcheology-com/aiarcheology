@@ -30036,10 +30036,106 @@
       "comment" : "Import rejection: the download is an archive the app cannot open (AIA-0654)",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "هذا التنزيل أرشيف وليس نموذجًا. استخرجه أولاً، ثم استورد ملف النموذج الموجود بداخله."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই ডাউনলোডটি একটি আর্কাইভ, মডেল নয়। প্রথমে এটি এক্সট্র্যাক্ট করুন, তারপর ভিতরের মডেল ফাইলটি ইমপোর্ট করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tento soubor je archiv, nikoli model. Nejprve jej rozbalte a pak importujte soubor modelu uvnitř."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Download ist ein Archiv, kein Modell. Entpacke es zuerst und importiere dann die Modelldatei darin."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "This download is an archive, not a model. Extract it first, then import the model file inside it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta descarga es un archivo comprimido, no un modelo. Extráelo primero y luego importa el archivo de modelo que contiene."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "این بارگیری یک بایگانی است، نه یک مدل. ابتدا آن را استخراج کنید، سپس فایل مدل داخل آن را وارد کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce téléchargement est une archive, pas un modèle. Extrayez-la d’abord, puis importez le fichier de modèle qu’elle contient."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההורדה הזו היא ארכיון, לא מודל. חלץ אותו תחילה, ואז ייבא את קובץ המודל שבתוכו."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह डाउनलोड एक आर्काइव है, मॉडल नहीं। पहले इसे एक्सट्रैक्ट करें, फिर उसके अंदर की मॉडल फ़ाइल इंपोर्ट करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ez a letöltés egy archívum, nem modell. Először csomagolja ki, majd importálja a benne lévő modellfájlt."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ten plik to archiwum, a nie model. Najpierw je rozpakuj, a potem zaimportuj znajdujący się w nim plik modelu."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Это архив, а не модель. Сначала распакуйте его, затем импортируйте файл модели внутри."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Це архів, а не модель. Спочатку розпакуйте його, потім імпортуйте файл моделі всередині."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此下载内容是压缩包，不是模型。请先解压，然后导入其中的模型文件。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此下載內容是壓縮檔，不是模型。請先解壓縮，然後匯入其中的模型檔案。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此下載內容是壓縮檔，不是模型。請先解壓縮，然後匯入其中的模型檔案。"
           }
         }
       }
@@ -30048,10 +30144,106 @@
       "comment" : "Import rejection: the download is a machine-learning training checkpoint, which is not supported yet (AIA-0654)",
       "extractionState" : "manual",
       "localizations" : {
+        "ar" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "هذا التنزيل هو نقطة تحقق تدريب، ولا يستطيع هذا التطبيق فتحها بعد. استورد نموذج Core ML أو ONNX بدلاً من ذلك."
+          }
+        },
+        "bn" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "এই ডাউনলোডটি একটি ট্রেনিং চেকপয়েন্ট, যা এই অ্যাপ এখনও খুলতে পারে না। এর পরিবর্তে একটি Core ML বা ONNX মডেল ইমপোর্ট করুন।"
+          }
+        },
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tento soubor je trénovací kontrolní bod, který tato aplikace zatím neumí otevřít. Importujte místo něj model Core ML nebo ONNX."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Download ist ein Trainings-Checkpoint, den diese App noch nicht öffnen kann. Importiere stattdessen ein Core ML- oder ONNX-Modell."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "This download is a training checkpoint, which this app cannot open yet. Import a Core ML or ONNX model instead."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta descarga es un punto de control de entrenamiento, que esta app todavía no puede abrir. Importa un modelo de Core ML u ONNX en su lugar."
+          }
+        },
+        "fa" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "این بارگیری یک نقطه‌بازرسی آموزش است که این برنامه هنوز نمی‌تواند آن را باز کند. به‌جای آن یک مدل Core ML یا ONNX وارد کنید."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce téléchargement est un point de contrôle d’entraînement, que cette app ne peut pas encore ouvrir. Importez plutôt un modèle Core ML ou ONNX."
+          }
+        },
+        "he" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ההורדה הזו היא נקודת ביקורת של אימון, שהאפליקציה עדיין לא יכולה לפתוח. ייבא במקומה מודל Core ML או ONNX."
+          }
+        },
+        "hi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "यह डाउनलोड एक ट्रेनिंग चेकपॉइंट है, जिसे यह ऐप अभी नहीं खोल सकता। इसके बजाय कोई Core ML या ONNX मॉडल इंपोर्ट करें।"
+          }
+        },
+        "hu" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ez a letöltés egy tanítási ellenőrzőpont, amelyet ez az alkalmazás még nem tud megnyitni. Importáljon helyette Core ML vagy ONNX modellt."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ten plik to punkt kontrolny trenowania, którego ta aplikacja nie potrafi jeszcze otworzyć. Zaimportuj zamiast tego model Core ML lub ONNX."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Это контрольная точка обучения, которую приложение пока не может открыть. Импортируйте вместо неё модель Core ML или ONNX."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Це контрольна точка навчання, яку застосунок поки не може відкрити. Імпортуйте натомість модель Core ML або ONNX."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此下载内容是训练检查点，本应用暂时无法打开。请改为导入 Core ML 或 ONNX 模型。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此下載內容是訓練檢查點，本應用程式暫時無法開啟。請改為匯入 Core ML 或 ONNX 模型。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此下載內容是訓練檢查點，本應用程式暫時無法開啟。請改為匯入 Core ML 或 ONNX 模型。"
           }
         }
       }

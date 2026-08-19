@@ -356,6 +356,43 @@ or newer. It intentionally uses terminal tests rather than a simulator.
 | Independent Python oracle | `$REFERENCE_PYTHON scripts/test_torchvision_mobilenet_v2_parity.py --pretrained --coremltools-reference` | A diagnostic comparison with a separately converted coremltools model, only after that model agrees with PyTorch. |
 | Release conversion report | `swift run -c release native-model-converter INPUT.aiagraph OUTPUT.mlmodel --report conversion-report.json` | Native package read/emission wall time and exact input/output artifact sizes, serialized as JSON. |
 
+### Fixture-gated suites: feeding `NATIVE_MODEL_ONNX_DIRECTORY` and `NATIVE_MODEL_REFERENCE_DIRECTORY`
+
+A bare `swift test` does **not** run the numerical parity oracles. They are gated on two environment
+variables, and a gate that is unset **skips** — so the run still reports success while proving
+nothing about conversion accuracy. Measured on a clean checkout: `swift test` with neither variable
+set executes 296 tests, skips 5, and exits 0. Treat "green" from that command as covering graph
+validation and serialization only, never parity. Both variables are the two suites AGENTS.md §13
+requires to stay green, so set them before claiming a converter change is verified.
+
+| Variable | Unlocks | How to populate |
+| --- | --- | --- |
+| `NATIVE_MODEL_ONNX_DIRECTORY` | `ONNXConversionIntegrationTests` and `YOLOv5/​v8/​11TrunkConversionTests` — top-1 and elementwise comparison against an ONNX Runtime oracle | `scripts/fetch_native_test_models.sh [TARGET_DIR]` |
+| `NATIVE_MODEL_REFERENCE_DIRECTORY` | The Apple MobileNetV2 FP16 / INT8-LUT artifact contract and its red-image probes | `scripts/test_native_model_converter.sh` sets it for you |
+
+```bash
+# 1. ONNX + YOLO oracles. Downloads 7 .onnx fixtures (~375 MB) to .native-model-fixtures/,
+#    which is gitignored; each file is SHA-256 verified and re-runs are cached, so this is
+#    cheap after the first time.
+./scripts/fetch_native_test_models.sh
+NATIVE_MODEL_ONNX_DIRECTORY="$PWD/.native-model-fixtures" swift test \
+  --filter "ONNXConversionIntegrationTests|YOLOv5TrunkConversionTests|YOLOv8TrunkConversionTests|YOLO11TrunkConversionTests"
+
+# 2. Apple artifact contract. Downloads the two reference .mlmodel files into a temp directory,
+#    exports NATIVE_MODEL_REFERENCE_DIRECTORY, runs the suite, and deletes the directory on exit.
+./scripts/test_native_model_converter.sh
+```
+
+**Run both — neither command alone is sufficient.** Each script feeds one gate, so the other gate's
+suites still skip. Measured on this branch: step 1 executes the 4 ONNX Runtime oracles with 0 skips;
+step 2 executes 296 tests with 4 skips, and those 4 skips *are* the ONNX oracles. Only the union
+covers what AGENTS.md §13 asks for. The skip counts are the quickest way to tell which gate you
+forgot: 5 skips means neither variable was set, 4 means only the reference gate was.
+
+Run these **sequentially, never alongside an `xcodebuild` invocation**: concurrent builds race the
+SPM `SourcePackages/artifacts` directory and the loser fails with a missing-XCFramework error and
+zero tests run, which reads like a real failure but is a toolchain collision.
+
 `PARITY_PYTHON` denotes any environment containing PyTorch, torchvision, and NumPy; the primary
 route invokes the Swift `native-model-evaluator` CLI and imports no coremltools code. The present
 exploratory environment uses Torch 2.8.0. `REFERENCE_PYTHON` must additionally contain a pinned,

@@ -48,6 +48,19 @@ final class DownloadedContainerFormatTests: XCTestCase {
 		XCTAssertEqual(DownloadedContainerFormat.classify(fileAt: url), .pyTorchZipCheckpoint)
 	}
 
+	/// `torch.save` pads local headers with an alignment extra field, so a leading entry in a real
+	/// checkpoint carries a nonzero extra length. Without this the `extraLength` term of the walk's
+	/// advance is never exercised, and a bug there would pass the whole suite while silently missing
+	/// every real ADAF file — safe in direction, but the feature would simply never fire.
+	func test_zipWithExtraFieldsOnLeadingEntries_isACheckpoint() throws {
+		let url = try write(zip(entries: [
+			("archive/byteorder", 6, 12),
+			("archive/version", 2, 4),
+			("archive/data.pkl", 32, 8)
+		]))
+		XCTAssertEqual(DownloadedContainerFormat.classify(fileAt: url), .pyTorchZipCheckpoint)
+	}
+
 	/// A bare `data.pkl` with no root directory still counts.
 	func test_zipWithAnUnrootedTorchPickle_isACheckpoint() throws {
 		let url = try write(zip(entries: [("data.pkl", 8)]))
@@ -187,11 +200,15 @@ final class DownloadedContainerFormatTests: XCTestCase {
 		return url
 	}
 
-	/// A minimal zip of stored entries: local header + name + payload, repeated. Enough of the
-	/// format for a prefix sniff, which never reads the central directory.
+	/// A minimal zip of stored entries: local header + name + extra + payload, repeated. Enough of
+	/// the format for a prefix sniff, which never reads the central directory.
 	private func zip(entries: [(String, Int)]) -> [UInt8] {
+		zip(entries: entries.map { ($0.0, $0.1, 0) })
+	}
+
+	private func zip(entries: [(String, Int, Int)]) -> [UInt8] {
 		var bytes: [UInt8] = []
-		for (name, payloadSize) in entries {
+		for (name, payloadSize, extraSize) in entries {
 			let nameBytes = [UInt8](name.utf8)
 			bytes += [0x50, 0x4B, 0x03, 0x04]      // signature
 			bytes += [0x14, 0x00]                  // version needed
@@ -202,8 +219,9 @@ final class DownloadedContainerFormatTests: XCTestCase {
 			bytes += uint32(payloadSize)           // compressed size
 			bytes += uint32(payloadSize)           // uncompressed size
 			bytes += uint16(nameBytes.count)
-			bytes += uint16(0)                     // extra length
+			bytes += uint16(extraSize)             // extra length (torch pads for alignment)
 			bytes += nameBytes
+			bytes += [UInt8](repeating: 0xFF, count: extraSize)
 			bytes += [UInt8](repeating: 0x00, count: payloadSize)
 		}
 		return bytes

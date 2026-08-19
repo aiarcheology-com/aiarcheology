@@ -201,18 +201,40 @@ final class ImportedContainerRoutingTests: XCTestCase {
 
 	/// The check that catches a standardised path leaking out of the naming decision.
 	///
-	/// `standardizedFileURL` strips a leading `/private` only when the stripped path exists, so a
+	/// `standardizedFileURL` strips a leading `/private` only when the stripped path **exists**, so a
 	/// standardised return value would diverge from the stored file's own directory on device and
-	/// fail `URL.relativePath(from:)`, which is a raw string prefix test. This assertion fails in
-	/// the simulator too, which is the point: the device-only variant of this bug is invisible here.
+	/// then fail `URL.relativePath(from:)`, which is a raw string prefix test — deleting the
+	/// configuration and failing the import.
+	///
+	/// - Important: the fixture must be a directory that **really exists**, or this test is inert.
+	///   Its first version used `/private/var/mobile/…`, which exists on no test host; standardising
+	///   it is therefore a no-op, both implementations return the same path, and the test passed
+	///   against the very bug it exists to catch. `XCTSkipUnless` below makes that failure mode
+	///   impossible to repeat silently: if this host has no directory where the strip fires, the
+	///   test reports as skipped rather than as green. Its second version derived the fixture from
+	///   `NSTemporaryDirectory()`, which under the simulator is the app's own container and is not
+	///   reachable under `/private` — so the strip never fired and the test skipped every run, which
+	///   is honest but protects nothing. Hence a candidate list: `DownloadedFileNaming` is pure and
+	///   touches no filesystem, so the directory only has to *exist*, never be writable.
 	func test_returnedURLKeepsTheStoredDirectoryVerbatim() throws {
-		let privatePrefixed = URL(fileURLWithPath: "/private/var/mobile/Containers/Data/Configurations/ABC/dl.tmp")
+		let candidates = ["/private/etc", "/private/var/tmp", "/private/tmp", "/private/var"]
+		let privateDirectory = try XCTUnwrap(
+			candidates
+				.map { URL(fileURLWithPath: $0, isDirectory: true) }
+				.first { $0.standardizedFileURL.path != $0.path },
+			"""
+			None of \(candidates) makes standardizedFileURL strip /private on this host, so the \
+			invariant cannot be exercised. Do not delete this test — find a directory that does.
+			"""
+		)
+
+		let stored = privateDirectory.appendingPathComponent("dl.tmp")
 		let url = try XCTUnwrap(DownloadedFileNaming.restoredURL(
-			of: privatePrefixed, namedBy: try XCTUnwrap(URL(string: "https://example.com/model.onnx"))
+			of: stored, namedBy: try XCTUnwrap(URL(string: "https://example.com/model.onnx"))
 		))
 		XCTAssertEqual(
 			url.path,
-			privatePrefixed.deletingLastPathComponent().path + "/model.onnx",
+			privateDirectory.path + "/model.onnx",
 			"the returned URL must be derived from the unstandardised stored directory"
 		)
 	}
