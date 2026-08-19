@@ -114,16 +114,52 @@ def fp16_margin(model: torch.nn.Module, image_chw: np.ndarray, samples: int = 20
     fractional = exact - np.floor(exact)
     distance = np.minimum(fractional, 1.0 - fractional)
 
-    half = lambda a: a.astype(np.float16).astype(np.float64)  # noqa: E731
-    rounded = CANONICAL_LEVEL + np.log2(np.sqrt(half(width) * half(height)) / CANONICAL_SCALE) + EPS
-    flips = int((np.floor(exact) != np.floor(rounded)).sum())
+    # Three regimes, because the naive one produces an alarming number for a reason that is not
+    # precision at all, and reporting it alone would misdirect M3b.
+    #
+    # (a) coordinates quantised, expression evaluated exactly;
+    # (b) the whole expression in fp16, which is what a naive half-precision graph does;
+    # (c) the area computed in float32 and only the logarithm path in fp16.
+    #
+    # An earlier version rounded the inputs, promoted to float64 and called the result (b). It was
+    # measuring (a).
+    coords_only = (
+        CANONICAL_LEVEL
+        + np.log2(np.sqrt(width.astype(np.float16).astype(np.float64)
+                          * height.astype(np.float16).astype(np.float64)) / CANONICAL_SCALE)
+        + EPS
+    )
+    half_width = width.astype(np.float16)
+    half_height = height.astype(np.float16)
+    half_area = half_width * half_height
+    all_half = (
+        np.float16(CANONICAL_LEVEL)
+        + np.log2(np.sqrt(half_area) / np.float16(CANONICAL_SCALE)).astype(np.float16)
+        + np.float16(EPS)
+    ).astype(np.float64)
+    safe_area = (
+        np.float16(CANONICAL_LEVEL)
+        + np.log2(np.sqrt((width * height).astype(np.float32)) / np.float16(CANONICAL_SCALE)).astype(np.float16)
+        + np.float16(EPS)
+    ).astype(np.float64)
+
+    overflowed = int(np.isinf(half_area).sum())
 
     return {
         "samples": samples,
         "min_distance_to_boundary": float(distance.min()),
         "median_distance_to_boundary": float(np.median(distance)),
         "within_1e_3_of_boundary": int((distance < 1e-3).sum()),
-        "fp16_level_flips": flips,
-        "fp16_level_flip_rate": flips / samples,
+        "fp16_coordinates_only_flip_rate": int((np.floor(exact) != np.floor(coords_only)).sum()) / samples,
+        "fp16_throughout_flip_rate": int((np.floor(exact) != np.floor(all_half)).sum()) / samples,
+        "fp16_with_float32_area_flip_rate": int((np.floor(exact) != np.floor(safe_area)).sum()) / samples,
+        # The finding that explains the gap between the second and third figures.
+        "fp16_area_overflow_rate": overflowed / samples,
+        "fp16_max_representable": float(np.finfo(np.float16).max),
+        "square_box_side_that_overflows_fp16_area": float(np.sqrt(np.finfo(np.float16).max)),
         "source": "box widths and heights resampled from this image's real RPN proposals",
+        "note": "the fp16-throughout rate is dominated by OVERFLOW, not rounding: w*h exceeds "
+                "float16's 65504 for any box wider than about 256 px, which real proposals routinely "
+                "are. Computing the area in float32 and leaving only the logarithm in fp16 collapses "
+                "the rate, so this is a design instruction for M3b rather than a precision limit.",
     }

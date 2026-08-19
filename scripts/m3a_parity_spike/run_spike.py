@@ -229,7 +229,8 @@ def main() -> int:
     print(f"    real proposals: {levels['real_proposals']['mismatches']} mismatches of "
           f"{levels['real_proposals']['count']}; adversarial: "
           f"{levels['adversarial']['mismatches']} of {levels['adversarial']['count']}; "
-          f"fp16 flip rate {levels['fp16_margin']['fp16_level_flip_rate']:.5f}")
+          f"fp16 flip rate {levels['fp16_margin']['fp16_throughout_flip_rate']:.5f} "
+          f"(coordinates only {levels['fp16_margin']['fp16_coordinates_only_flip_rate']:.5f})")
     verdicts.append(decision_rule.judge_boolean(
         "criterion 3 level assignment (real proposals)",
         levels["real_proposals"]["agrees"],

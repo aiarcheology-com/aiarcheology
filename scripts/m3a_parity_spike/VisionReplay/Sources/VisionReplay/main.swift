@@ -64,7 +64,13 @@ func parseROI(_ text: String) -> CGRect {
     guard rect.minX >= 0, rect.minY >= 0, rect.maxX <= 1.0000001, rect.maxY <= 1.0000001 else {
         failUsage("--roi must lie inside the normalised unit rect: \(text)")
     }
-    return rect
+    // The tolerance above exists so that `0.5,0,0.5,1` typed as three decimals is not rejected for
+    // arriving at 1.0000000001 — but accepting a value and then handing Vision the unclamped
+    // version reintroduces the opaque perform()-time failure this check exists to prevent. So the
+    // rectangle is clamped to the unit rect before it leaves.
+    let maxX = min(rect.maxX, 1.0)
+    let maxY = min(rect.maxY, 1.0)
+    return CGRect(x: rect.minX, y: rect.minY, width: maxX - rect.minX, height: maxY - rect.minY)
 }
 
 var modelPath: String?
