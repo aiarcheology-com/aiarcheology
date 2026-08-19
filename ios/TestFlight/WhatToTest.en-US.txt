@@ -40,6 +40,12 @@ Test Focus 3: Deleting a finding on a Mac.
 
 On a Mac, right-click a finding row: Delete now sits beside Share, in red. It removes the finding and its picture just as swiping does on iPhone and iPad. Delete one, then the last one, and confirm the empty screen. Touch is unchanged: swipe left to delete, no menu on long press.
 
+Test Focus 4: The download screen now names both formats it accepts.
+
+Add Model, "Download from URL", then open a download. The hint under the address field must read "Enter a direct .mlmodel or .onnx URL for a detection or classification model. Use Open Catalog for multi-file .mlpackage models." The old wording named only .mlmodel, which was wrong: .onnx has worked for a while. Switch your phone to each language you can read and check that sentence again - it was retranslated into all 16 languages, and the three file endings must stay in Latin letters exactly as written, never translated or transliterated. Tell us if any language reads awkwardly, or if you see a bare key like "download.urlHintFormats" instead of a sentence.
+
+Nothing else on this screen should have changed. Downloading a .mlmodel or .onnx by address must behave exactly as it did in the last build: same progress, same pause and resume, same name on the imported model, same errors when an address is wrong. Installing from Open Catalog and importing from Files must also be unchanged. If any of those behave differently from the build you came from, that is the thing we most want to hear about.
+
 Most important: confirm every finding you had BEFORE this build is still there, with picture, title, note and GPS intact. If anything is missing, or the app will not start, tell us at once and say which version you came from.
 
 Please report your device model, iOS version and the language you tested in.
