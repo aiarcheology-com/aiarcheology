@@ -189,8 +189,14 @@ def multi_scale_roi_align(features: list, boxes: torch.Tensor, image_size: tuple
     scales = _level_scales(features[:4], image_size)
     areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
     side = torch.sqrt(areas.clamp(min=0))
-    # floor(4 + log2(s/224) + eps), clamped to the four pooled levels — eps OUTSIDE the log.
-    target = torch.floor(4.0 + torch.log2(side / 224.0 + 1e-12) + torch.tensor(1e-6))
+    # floor(4 + log2(s/224) + eps), clamped to the four pooled levels — eps OUTSIDE the log, as
+    # torchvision has it (`poolers.py:78`). This line previously carried a second epsilon *inside*
+    # the logarithm as a guard against log2(0), which is the exact substitution `criterion_levels`
+    # exists to warn about: it is a different function, and the comment claimed otherwise. It
+    # changed nothing measurable here — 0 of 997 real proposals moved level, and this set contains no
+    # zero-area boxes — but a guard that contradicts its own comment is how the next reader is
+    # misled. torch.log2(0) is -inf, which the clamp below sends to level 2 without help.
+    target = torch.floor(4.0 + torch.log2(side / 224.0) + torch.tensor(1e-6))
     target = target.clamp(min=2, max=5).to(torch.int64) - 2
 
     pooled = torch.zeros((boxes.shape[0], features[0].shape[1], output_size, output_size),
