@@ -620,6 +620,13 @@ struct ModelImportView: View {
 		guard activeImportTask == nil else { return }
 		let importSessionID = UUID()
 		activeImportSessionID = importSessionID
+		// Both reads have to happen here, on the main actor: the Core Data lookup and the flag
+		// snapshot are unavailable to the detached work that consumes them (AIA-0654).
+		let origin = ModelAcquisitionSource.resolve(
+			downloadURL: request.downloadUrl,
+			catalogSource: DownloadItem.select(request.configurationId, in: moc)?.catalogSource
+		)
+		let isCheckpointRoutingEnabled = featureFlags.snapshot.isPyTorchModelImportEnabled
 		isLoading = true
 		nativeConversionReport = existingNativeReport
 		nativeConversionProgress = existingNativeReport?.lastProgress
@@ -641,7 +648,9 @@ struct ModelImportView: View {
 						provider: request.provider,
 						retainingOriginalNativePackage: retainingOriginalNativePackage,
 						existingNativeReport: existingNativeReport,
-						reportObserver: reportObserver
+						reportObserver: reportObserver,
+						origin: origin,
+						isCheckpointRoutingEnabled: isCheckpointRoutingEnabled
 					)
 				)
 				await MainActor.run {
@@ -748,6 +757,19 @@ struct ModelImportView: View {
 			return Self.restoringNativeConvertibleExtension(of: stored, from: downloadURL)
 		}.value
 		let configurationDirectory = storedURL.deletingLastPathComponent()
+
+		// The container guard (AIA-0654). It sits here because this is the first point where the
+		// bytes are in app-owned storage, and *before* the conversion report is created, so a
+		// rejected container never mints a report or an intermediate to clean up. It can only ever
+		// reject what already dead-ends today — see `ImportedContainerRouting.rejection`.
+		if let rejection = ImportedContainerRouting.rejection(
+			for: DownloadedContainerFormat.classify(fileAt: storedURL),
+			origin: request.origin,
+			isCheckpointRoutingEnabled: request.isCheckpointRoutingEnabled
+		) {
+			throw rejection
+		}
+
 		let reportStore: NativeModelConversionImportReportStore?
 		if Self.nativeConvertibleExtensions.contains(storedURL.pathExtension.lowercased()) {
 			let report: NativeModelConversionImportReport
@@ -861,8 +883,11 @@ struct ModelImportView: View {
 		else {
 			return storedURL
 		}
-		let restoredURL = storedURL.deletingLastPathComponent().appendingPathComponent(downloadURL.lastPathComponent)
-		guard restoredURL != storedURL else { return storedURL }
+		// The filename comes from a URL the user typed, so it is validated before it becomes a path.
+		// `DownloadedFileNaming` answers nil for anything that must keep the stored name (AIA-0654).
+		guard let restoredURL = DownloadedFileNaming.restoredURL(of: storedURL, namedBy: downloadURL) else {
+			return storedURL
+		}
 		do {
 			if FileManager.default.fileExists(atPath: restoredURL.path) {
 				try FileManager.default.removeItem(at: restoredURL)
@@ -1066,14 +1091,10 @@ struct ModelImportView: View {
 		if configuration.lifeCycle == .ready {
 			deep.saveConfigurations()
 			provider.result(.importSucceeded, id: id)
-			let source: ModelAcquisitionSource
-			if downloadUrl == nil {
-				source = .fileImport
-			} else if configuration.catalogSource != nil {
-				source = .catalog
-			} else {
-				source = .directDownload
-			}
+			let source = ModelAcquisitionSource.resolve(
+				downloadURL: downloadUrl,
+				catalogSource: configuration.catalogSource
+			)
 			analytics.track(.modelImported(source: source))
 
 			return ImportedModelInfo(
@@ -1115,6 +1136,12 @@ private struct NativeModelImportRequest {
 	let retainingOriginalNativePackage: Bool
 	let existingNativeReport: NativeModelConversionImportReport?
 	let reportObserver: @Sendable (NativeModelConversionImportReport) -> Void
+	/// Where this import came from. Resolved on the main actor at the start of the import, because
+	/// deriving it needs a Core Data read and the work below runs detached (AIA-0654).
+	let origin: ModelAcquisitionSource
+	/// The container guard's feature flag, likewise captured up front: the detached work cannot read
+	/// an `@EnvironmentObject`.
+	let isCheckpointRoutingEnabled: Bool
 }
 
 /// The native-only portion of an import after the source has been staged into app-owned storage.

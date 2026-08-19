@@ -277,6 +277,8 @@
 		A35000000000000000000009 /* AnalyticsChoiceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35000000000000000000008 /* AnalyticsChoiceUITests.swift */; };
 		A3500000000000000000000B /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3500000000000000000000A /* Analytics.swift */; };
 		ABAA0654000000000000A002 /* DownloadedContainerFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0654000000000000A001 /* DownloadedContainerFormat.swift */; };
+		ABAA0654000000000000A006 /* ImportedContainerRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0654000000000000A005 /* ImportedContainerRouting.swift */; };
+		ABAA0654000000000000A008 /* ImportedContainerRoutingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0654000000000000A007 /* ImportedContainerRoutingTests.swift */; };
 		ABAA0654000000000000A004 /* DownloadedContainerFormatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAA0654000000000000A003 /* DownloadedContainerFormatTests.swift */; };
 		A35000000000000000000101 /* ReviewPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35000000000000000000100 /* ReviewPrompt.swift */; };
 		A35000000000000000000103 /* ReviewPromptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35000000000000000000102 /* ReviewPromptTests.swift */; };
@@ -666,6 +668,8 @@
 		A35000000000000000000008 /* AnalyticsChoiceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsChoiceUITests.swift; sourceTree = "<group>"; };
 		A3500000000000000000000A /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
 		ABAA0654000000000000A001 /* DownloadedContainerFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadedContainerFormat.swift; sourceTree = "<group>"; };
+		ABAA0654000000000000A005 /* ImportedContainerRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedContainerRouting.swift; sourceTree = "<group>"; };
+		ABAA0654000000000000A007 /* ImportedContainerRoutingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportedContainerRoutingTests.swift; sourceTree = "<group>"; };
 		ABAA0654000000000000A003 /* DownloadedContainerFormatTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadedContainerFormatTests.swift; sourceTree = "<group>"; };
 		A35000000000000000000100 /* ReviewPrompt.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewPrompt.swift; sourceTree = "<group>"; };
 		A35000000000000000000102 /* ReviewPromptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewPromptTests.swift; sourceTree = "<group>"; };
@@ -1234,6 +1238,7 @@
 				94D79C8D2EE37DBF0027C9FA /* AppEnvironmentTests.swift */,
 				94FF0001000000000000B004 /* FeatureFlagsTests.swift */,
 				ABAA0654000000000000A003 /* DownloadedContainerFormatTests.swift */,
+				ABAA0654000000000000A007 /* ImportedContainerRoutingTests.swift */,
 				ABAA0650000000000000A002 /* FindingShareLinkTests.swift */,
 				ABAA0650000000000000A009 /* FindingShareEmissionTests.swift */,
 				ABAA0657000000000000A001 /* FindingShareCardLayoutTests.swift */,
@@ -1506,6 +1511,7 @@
 				B10000000000000000000012 /* NativeModelConversionImportReport.swift */,
 				A3500000000000000000000A /* Analytics.swift */,
 				ABAA0654000000000000A001 /* DownloadedContainerFormat.swift */,
+				ABAA0654000000000000A005 /* ImportedContainerRouting.swift */,
 				A35000000000000000000001 /* TelemetryDeckAnalyticsService.swift */,
 			);
 			path = Services;
@@ -2069,6 +2075,7 @@
 				A35000000000000000000002 /* TelemetryDeckAnalyticsService.swift in Sources */,
 				A3500000000000000000000B /* Analytics.swift in Sources */,
 				ABAA0654000000000000A002 /* DownloadedContainerFormat.swift in Sources */,
+				ABAA0654000000000000A006 /* ImportedContainerRouting.swift in Sources */,
 				1C2C07EA2917960C501206AB /* SubscriptionState.swift in Sources */,
 				AC0513000000000000B001 /* FlagLaunchValueMirror.swift in Sources */,
 				AC0437000000000000B001 /* AccountAnalyticsCoordinator.swift in Sources */,
@@ -2144,6 +2151,7 @@
 				94D79C9A2EE37DBF0027C9FA /* AppEnvironmentTests.swift in Sources */,
 				94FF0001000000000000B104 /* FeatureFlagsTests.swift in Sources */,
 				ABAA0654000000000000A004 /* DownloadedContainerFormatTests.swift in Sources */,
+				ABAA0654000000000000A008 /* ImportedContainerRoutingTests.swift in Sources */,
 				ABAA0650000000000000B002 /* FindingShareLinkTests.swift in Sources */,
 				ABAA0650000000000000B009 /* FindingShareEmissionTests.swift in Sources */,
 				ABAA0657000000000000B001 /* FindingShareCardLayoutTests.swift in Sources */,

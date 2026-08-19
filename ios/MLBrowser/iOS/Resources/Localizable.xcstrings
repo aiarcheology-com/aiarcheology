@@ -30032,6 +30032,30 @@
         }
       }
     },
+    "import.unsupportedArchive" : {
+      "comment" : "Import rejection: the download is an archive the app cannot open (AIA-0654)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This download is an archive, not a model. Extract it first, then import the model file inside it."
+          }
+        }
+      }
+    },
+    "import.unsupportedCheckpoint" : {
+      "comment" : "Import rejection: the download is a machine-learning training checkpoint, which is not supported yet (AIA-0654)",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This download is a training checkpoint, which this app cannot open yet. Import a Core ML or ONNX model instead."
+          }
+        }
+      }
+    },
     "import.validating" : {
       "comment" : "Validating model progress message",
       "extractionState" : "manual",
