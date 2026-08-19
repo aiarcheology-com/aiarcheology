@@ -17,6 +17,16 @@ import Foundation
 /// ``unrecognized``, which is not a judgement about the file: it means "take the path this file
 /// would have taken before AIA-0654". That is what keeps the classification incapable of changing
 /// the outcome of any import that works today.
+///
+/// **Known limit, accepted deliberately.** This decides *before* the converter or Core ML sees the
+/// file, so a file crafted to satisfy both this sniff and a supported parser — an ONNX model with an
+/// ignored field positioned to put `ustar` at offset 257 and an octal-looking size at 124, say — is
+/// rejected rather than imported. No static check closes that: a polyglot can satisfy a checksum
+/// too. The alternative is to reject only after the normal path has already failed, which is
+/// airtight but makes the app compile a 518 MB non-model before explaining itself, on exactly the
+/// files this exists for. Early rejection costs an adversarial case that requires deliberate
+/// construction; late rejection costs every genuine one. Nothing here can be triggered by accident:
+/// it needs six exact bytes at one exact offset plus a well-formed octal field at another.
 enum DownloadedContainerFormat: Equatable {
 	/// A PyTorch zip-serialization checkpoint (`torch.save`) — the shape the ADAF models on Zenodo
 	/// ship in, despite their `.tar` filenames.

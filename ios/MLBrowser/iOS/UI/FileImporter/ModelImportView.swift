@@ -750,30 +750,23 @@ struct ModelImportView: View {
 		let sourceURL = request.sourceURL
 		let configurationID = request.configurationID
 		let downloadURL = request.downloadURL
-		// The container guard (AIA-0654) is decided inside this same detached task, not after it.
-		// Its sniff opens and reads the stored file, and this function resumes on the main actor, so
-		// deciding it out here would put disk I/O on the main thread (AGENTS.md §9). The guard runs
-		// at the first point where the bytes are in app-owned storage and *before* the conversion
-		// report exists, so a rejected container never mints a report or an intermediate to clean
-		// up. It can only ever reject what already dead-ends today — see
-		// `ImportedContainerRouting.rejection`, whose autoclosed `format` means an import the guard
-		// cannot touch never pays for the read at all.
+		// Staging, naming and the container guard are one operation, and it runs detached: it does
+		// file I/O, and this function resumes on the main actor, so doing any of it out here would
+		// put disk work on the main thread (AGENTS.md §9). `ImportedModelStaging` owns the order
+		// these steps run in and is tested through this same entry point (AIA-0654).
 		let origin = request.origin
 		let storedURL = try await Task.detached(priority: .userInitiated) {
-			let stored = try FileManager.storeModelInDocuments(from: sourceURL, configurationId: configurationID)
-			let named = Self.restoringNativeConvertibleExtension(of: stored, from: downloadURL)
-			if let rejection = ImportedContainerRouting.rejection(
-				for: DownloadedContainerFormat.classify(fileAt: named),
+			try ImportedModelStaging.stage(
+				sourceURL: sourceURL,
+				configurationID: configurationID,
+				downloadURL: downloadURL,
 				origin: origin
-			) {
-				throw rejection
-			}
-			return named
+			)
 		}.value
 		let configurationDirectory = storedURL.deletingLastPathComponent()
 
 		let reportStore: NativeModelConversionImportReportStore?
-		if Self.nativeConvertibleExtensions.contains(storedURL.pathExtension.lowercased()) {
+		if ImportedModelStaging.nativeConvertibleExtensions.contains(storedURL.pathExtension.lowercased()) {
 			let report: NativeModelConversionImportReport
 			if let existingNativeReport = request.existingNativeReport {
 				guard existingNativeReport.configurationID == configurationID,
@@ -862,46 +855,6 @@ struct ModelImportView: View {
 		)
 	}
 
-	/// Source extensions the app converts to Core ML on-device before the normal loader runs: the
-	/// auditable native package (`.aiagraph`) and self-contained ONNX (`.onnx`). Both share the same
-	/// conversion report machinery (progress, cancellation, log sheet, export).
-	///
-	/// `nonisolated` because the only reader is `restoringNativeConvertibleExtension`, which is
-	/// itself `nonisolated` — without it the property inherits this view's main-actor isolation and
-	/// the reads warn (errors under Swift 6 language mode). Safe by construction rather than by
-	/// assertion: an immutable `let` of a `Set<String>`, which is `Sendable` (AIA-0634).
-	nonisolated private static let nativeConvertibleExtensions: Set<String> = ["aiagraph", "onnx"]
-
-	/// A model downloaded from a URL is stored under the URLSession temporary name, which drops the
-	/// original extension. When the download URL names a native-convertible format but the stored file
-	/// no longer carries that extension, restore the original filename so the on-device converter is
-	/// selected. Core ML files (`.mlmodel`/`.mlpackage`) and files that already carry a convertible
-	/// extension (Files/catalog imports) are returned untouched.
-	nonisolated private static func restoringNativeConvertibleExtension(of storedURL: URL, from downloadURL: URL?) -> URL {
-		let storedExtension = storedURL.pathExtension.lowercased()
-		guard !nativeConvertibleExtensions.contains(storedExtension),
-			let downloadURL,
-			nativeConvertibleExtensions.contains(downloadURL.pathExtension.lowercased())
-		else {
-			return storedURL
-		}
-		// The filename comes from a URL the user typed, so it is validated before it becomes a path.
-		// `DownloadedFileNaming` answers nil for anything that must keep the stored name (AIA-0654).
-		guard let restoredURL = DownloadedFileNaming.restoredURL(of: storedURL, namedBy: downloadURL) else {
-			return storedURL
-		}
-		do {
-			if FileManager.default.fileExists(atPath: restoredURL.path) {
-				try FileManager.default.removeItem(at: restoredURL)
-			}
-			try FileManager.default.moveItem(at: storedURL, to: restoredURL)
-			return restoredURL
-		} catch {
-			LoggingPolicy.warning("Could not restore native model extension for downloaded file", logger: .storage)
-			return storedURL
-		}
-	}
-
 	/// Converts a verified native source (`.aiagraph` package or `.onnx` file) to a Core ML model
 	/// beside the copied original.
 	///
@@ -913,7 +866,7 @@ struct ModelImportView: View {
 	) async throws -> URL {
 		let storedURL = request.storedURL
 		let sourceExtension = storedURL.pathExtension.lowercased()
-		guard Self.nativeConvertibleExtensions.contains(sourceExtension) else {
+		guard ImportedModelStaging.nativeConvertibleExtensions.contains(sourceExtension) else {
 			return storedURL
 		}
 
