@@ -1,0 +1,351 @@
+{
+  "protocol": {
+    "description": "Each model is built and compiled to .mlmodelc once, out of band, into a cache keyed on the builder's source and the coremltools version as well as the dimensions. Every measured number comes from a fresh subprocess that only loads the .mlmodelc (CompiledMLModel, CPU_ONLY) and predicts. Peaks are ru_maxrss above the process's CURRENT resident size at the top (ps -o rss=), not above its ru_maxrss: the peak must be a high-water mark and the baseline must not, or the imports' transient is quietly credited to the design. One configuration and one mode per process, because ru_maxrss is a high-water mark.",
+    "roi_count_k": 1000,
+    "levels": [
+      {
+        "stride": 4,
+        "side": 200
+      },
+      {
+        "stride": 8,
+        "side": 100
+      },
+      {
+        "stride": 16,
+        "side": 50
+      },
+      {
+        "stride": 32,
+        "side": 25
+      }
+    ],
+    "channels": 256,
+    "pooled_size": 7,
+    "hidden": 1024,
+    "chunk_outputs": {
+      "scores": [
+        null,
+        5
+      ],
+      "boxes": [
+        null,
+        20
+      ]
+    },
+    "fc1_weight_mib": 49.0,
+    "feature_maps_mib": 51.8798828125,
+    "weight_seed": 20260820,
+    "input_seed": 7,
+    "not_comparable_to": "the earlier in-process host-chunking smoke run, whose monolithic figure included a builder this protocol removes",
+    "coremltools": "9.0",
+    "python": "3.9.6"
+  },
+  "decision_rule": {
+    "max_full_run_peak_above_baseline_mib": 300.0,
+    "max_latency_multiple_vs_monolithic": 3.0
+  },
+  "results": [
+    {
+      "name": "b52",
+      "batch": 52,
+      "invocations": 20,
+      "role": "chunked",
+      "rois_covered": 1040,
+      "padding_overhead": 1.04,
+      "config_hash": "75446a9a3fe850a7",
+      "compiled_bytes": 55728058,
+      "load": {
+        "mode": "load",
+        "baseline_rss_mib": 294.203125,
+        "import_high_water_mib": 295.390625,
+        "import_transient_mib": 1.1875,
+        "load_peak_rss_mib": 368.453125,
+        "load_peak_above_baseline_mib": 74.25,
+        "load_seconds": 0.017246249999999907
+      },
+      "full": {
+        "mode": "full",
+        "baseline_rss_mib": 294.984375,
+        "import_high_water_mib": 296.1875,
+        "import_transient_mib": 1.203125,
+        "load_peak_rss_mib": 369.296875,
+        "load_peak_above_baseline_mib": 74.3125,
+        "load_seconds": 0.01814316699999985,
+        "inputs_rss_above_baseline_mib": 116.109375,
+        "peak_rss_mib": 522.3125,
+        "peak_above_baseline_mib": 227.328125,
+        "loop_seconds": 0.72165225,
+        "seconds_per_predict_mean": 0.0360826125,
+        "seconds_per_predict": [
+          0.059864791999999944,
+          0.0338172499999998,
+          0.03479037500000004,
+          0.03402291700000015,
+          0.03484237499999976,
+          0.03499041699999994,
+          0.03469029200000007,
+          0.03657416599999985,
+          0.03658399999999995,
+          0.034194832999999925,
+          0.03459999999999974,
+          0.03493808300000012,
+          0.03400612499999989,
+          0.034627167000000014,
+          0.034872167000000065,
+          0.03504870899999979,
+          0.03395074999999981,
+          0.035192042000000257,
+          0.03470912500000001,
+          0.03492324999999985
+        ],
+        "retained_output_mib": 0.095367431640625,
+        "output_sha256": "a906d1e2f9e4ad096c7fb0f01df6d3dd0e58751adcc873f2fe36101890b4609d",
+        "output_sum": -1287.48583984375,
+        "output_abs_max": 2.812192916870117,
+        "output_finite": true
+      },
+      "latency_multiple_vs_monolithic": 1.1098706781149206,
+      "peak_saving_vs_monolithic_mib": 608.15625
+    },
+    {
+      "name": "b91",
+      "batch": 91,
+      "invocations": 11,
+      "role": "chunked",
+      "rois_covered": 1001,
+      "padding_overhead": 1.001,
+      "config_hash": "6f79bb4567cc2127",
+      "compiled_bytes": 55728058,
+      "load": {
+        "mode": "load",
+        "baseline_rss_mib": 293.03125,
+        "import_high_water_mib": 294.203125,
+        "import_transient_mib": 1.171875,
+        "load_peak_rss_mib": 388.53125,
+        "load_peak_above_baseline_mib": 95.5,
+        "load_seconds": 0.018588332999999846
+      },
+      "full": {
+        "mode": "full",
+        "baseline_rss_mib": 294.015625,
+        "import_high_water_mib": 295.21875,
+        "import_transient_mib": 1.203125,
+        "load_peak_rss_mib": 389.421875,
+        "load_peak_above_baseline_mib": 95.40625,
+        "load_seconds": 0.019039999999999946,
+        "inputs_rss_above_baseline_mib": 134.765625,
+        "peak_rss_mib": 539.84375,
+        "peak_above_baseline_mib": 245.828125,
+        "loop_seconds": 0.6703552500000001,
+        "seconds_per_predict_mean": 0.06094138636363637,
+        "seconds_per_predict": [
+          0.080089042,
+          0.057193457999999975,
+          0.05816329100000006,
+          0.05703129200000001,
+          0.060140917000000016,
+          0.0586919159999999,
+          0.05882454199999998,
+          0.06047591700000021,
+          0.06165562499999977,
+          0.0588752079999999,
+          0.05896374999999976
+        ],
+        "retained_output_mib": 0.095367431640625,
+        "output_sha256": "a906d1e2f9e4ad096c7fb0f01df6d3dd0e58751adcc873f2fe36101890b4609d",
+        "output_sum": -1287.48583984375,
+        "output_abs_max": 2.812192916870117,
+        "output_finite": true
+      },
+      "latency_multiple_vs_monolithic": 1.0309780588855604,
+      "peak_saving_vs_monolithic_mib": 589.65625
+    },
+    {
+      "name": "b182",
+      "batch": 182,
+      "invocations": 6,
+      "role": "chunked",
+      "rois_covered": 1092,
+      "padding_overhead": 1.092,
+      "config_hash": "f647b7d4a9cf9f8e",
+      "compiled_bytes": 55728091,
+      "load": {
+        "mode": "load",
+        "baseline_rss_mib": 295.984375,
+        "import_high_water_mib": 297.171875,
+        "import_transient_mib": 1.1875,
+        "load_peak_rss_mib": 426.28125,
+        "load_peak_above_baseline_mib": 130.296875,
+        "load_seconds": 0.020048750000000393
+      },
+      "full": {
+        "mode": "full",
+        "baseline_rss_mib": 295.28125,
+        "import_high_water_mib": 296.203125,
+        "import_transient_mib": 0.921875,
+        "load_peak_rss_mib": 425.515625,
+        "load_peak_above_baseline_mib": 130.234375,
+        "load_seconds": 0.02003166700000003,
+        "inputs_rss_above_baseline_mib": 179.34375,
+        "peak_rss_mib": 585.796875,
+        "peak_above_baseline_mib": 290.515625,
+        "loop_seconds": 0.6921719999999998,
+        "seconds_per_predict_mean": 0.11536199999999996,
+        "seconds_per_predict": [
+          0.13202883300000012,
+          0.11295849999999996,
+          0.11155175000000028,
+          0.11210725000000021,
+          0.11058354100000001,
+          0.11276883400000015
+        ],
+        "retained_output_mib": 0.095367431640625,
+        "output_sha256": "a906d1e2f9e4ad096c7fb0f01df6d3dd0e58751adcc873f2fe36101890b4609d",
+        "output_sum": -1287.48583984375,
+        "output_abs_max": 2.812192916870117,
+        "output_finite": true
+      },
+      "latency_multiple_vs_monolithic": 1.0645312988522666,
+      "peak_saving_vs_monolithic_mib": 544.96875
+    },
+    {
+      "name": "b364",
+      "batch": 364,
+      "invocations": 3,
+      "role": "chunked",
+      "rois_covered": 1092,
+      "padding_overhead": 1.092,
+      "config_hash": "2e06e75868e46d61",
+      "compiled_bytes": 55728091,
+      "load": {
+        "mode": "load",
+        "baseline_rss_mib": 295.8125,
+        "import_high_water_mib": 297.0625,
+        "import_transient_mib": 1.25,
+        "load_peak_rss_mib": 591.671875,
+        "load_peak_above_baseline_mib": 295.859375,
+        "load_seconds": 0.028128249999999966
+      },
+      "full": {
+        "mode": "full",
+        "baseline_rss_mib": 294.875,
+        "import_high_water_mib": 296.109375,
+        "import_transient_mib": 1.234375,
+        "load_peak_rss_mib": 590.703125,
+        "load_peak_above_baseline_mib": 295.828125,
+        "load_seconds": 0.02959424999999971,
+        "inputs_rss_above_baseline_mib": 296.03125,
+        "peak_rss_mib": 703.328125,
+        "peak_above_baseline_mib": 408.453125,
+        "loop_seconds": 0.6925773749999999,
+        "seconds_per_predict_mean": 0.23085912499999997,
+        "seconds_per_predict": [
+          0.24503845899999988,
+          0.2248606660000001,
+          0.22257558399999988
+        ],
+        "retained_output_mib": 0.095367431640625,
+        "output_sha256": "a906d1e2f9e4ad096c7fb0f01df6d3dd0e58751adcc873f2fe36101890b4609d",
+        "output_sum": -1287.48583984375,
+        "output_abs_max": 2.812192916870117,
+        "output_finite": true
+      },
+      "latency_multiple_vs_monolithic": 1.0651547484793424,
+      "peak_saving_vs_monolithic_mib": 427.03125
+    },
+    {
+      "name": "monolithic",
+      "batch": 1000,
+      "invocations": 1,
+      "role": "monolithic",
+      "rois_covered": 1000,
+      "padding_overhead": 1.0,
+      "config_hash": "2d85a0bf2cc2807c",
+      "compiled_bytes": 55728122,
+      "load": {
+        "mode": "load",
+        "baseline_rss_mib": 293.421875,
+        "import_high_water_mib": 294.59375,
+        "import_transient_mib": 1.171875,
+        "load_peak_rss_mib": 1015.265625,
+        "load_peak_above_baseline_mib": 721.84375,
+        "load_seconds": 0.04636074999999984
+      },
+      "full": {
+        "mode": "full",
+        "baseline_rss_mib": 293.5625,
+        "import_high_water_mib": 294.71875,
+        "import_transient_mib": 1.15625,
+        "load_peak_rss_mib": 1015.484375,
+        "load_peak_above_baseline_mib": 721.921875,
+        "load_seconds": 0.046646332999999984,
+        "inputs_rss_above_baseline_mib": 722.125,
+        "peak_rss_mib": 1129.046875,
+        "peak_above_baseline_mib": 835.484375,
+        "loop_seconds": 0.6502129160000001,
+        "seconds_per_predict_mean": 0.6502129160000001,
+        "seconds_per_predict": [
+          0.6501637090000001
+        ],
+        "retained_output_mib": 0.095367431640625,
+        "output_sha256": "a906d1e2f9e4ad096c7fb0f01df6d3dd0e58751adcc873f2fe36101890b4609d",
+        "output_sum": -1287.48583984375,
+        "output_abs_max": 2.812192916870117,
+        "output_finite": true
+      }
+    },
+    {
+      "name": "monolithic_repeated",
+      "batch": 1000,
+      "invocations": 8,
+      "role": "control",
+      "rois_covered": 8000,
+      "padding_overhead": 8.0,
+      "config_hash": "2d85a0bf2cc2807c",
+      "compiled_bytes": 55728122,
+      "load": {
+        "mode": "load",
+        "baseline_rss_mib": 292.59375,
+        "import_high_water_mib": 293.828125,
+        "import_transient_mib": 1.234375,
+        "load_peak_rss_mib": 1014.46875,
+        "load_peak_above_baseline_mib": 721.875,
+        "load_seconds": 0.04708133299999995
+      },
+      "full": {
+        "mode": "full",
+        "baseline_rss_mib": 294.765625,
+        "import_high_water_mib": 295.9375,
+        "import_transient_mib": 1.171875,
+        "load_peak_rss_mib": 1016.671875,
+        "load_peak_above_baseline_mib": 721.90625,
+        "load_seconds": 0.05160312499999975,
+        "inputs_rss_above_baseline_mib": 722.15625,
+        "peak_rss_mib": 1130.734375,
+        "peak_above_baseline_mib": 835.96875,
+        "loop_seconds": 4.905069999999999,
+        "seconds_per_predict_mean": 0.6131337499999999,
+        "seconds_per_predict": [
+          0.63118775,
+          0.6217054579999997,
+          0.6015727499999999,
+          0.5983855419999999,
+          0.6177260420000001,
+          0.6028303340000001,
+          0.6233974580000003,
+          0.6079380000000008
+        ],
+        "retained_output_mib": 0.095367431640625,
+        "output_sha256": "a906d1e2f9e4ad096c7fb0f01df6d3dd0e58751adcc873f2fe36101890b4609d",
+        "output_sum": -1287.48583984375,
+        "output_abs_max": 2.812192916870117,
+        "output_finite": true
+      }
+    }
+  ],
+  "verdict": {
+    "outcome": "PASS",
+    "detail": "3 of the chunked configurations fit; best is b52 at 227.3 MiB above baseline (budget 300) and 1.11x the monolithic wall time (budget 3.0x), while processing 1.04x the monolithic run's ROIs because the last chunk is padded \u2014 the multiple is a conservative one"
+  }
+}

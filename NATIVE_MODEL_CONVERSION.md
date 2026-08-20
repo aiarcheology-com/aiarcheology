@@ -105,6 +105,23 @@ it retains `converted.mlmodel`, asks `MLModel.compileModel(at:)` to create the `
 artifact, and loads that compiled model. Before conversion, the app asks whether to retain the
 app-sandbox copy of the original `.aiagraph`; the external user-selected source is never altered.
 
+One emission can now write more than one file in that single output format. The emitter's
+`emit(graph:weights:to:roiBoxHeadChunk:)` overload writes a second standalone `.mlmodel` beside the
+primary — `converted.mlmodel` yields `converted.roi-box-head-chunk.mlmodel` — and records it in a
+manifest inside the primary model's Core ML metadata, carrying the companion's role, plain basename,
+SHA-256, fixed batch size, proposal count, and derived invocation count. The companion is written
+first and the primary last, because the primary is the discovery anchor: publishing it earlier would
+leave a model advertising a file that does not exist.
+
+That companion is deliberately **not** a Core ML pipeline stage. A stage is embedded in the outer
+model and runs inside the same `prediction` call, which is precisely the in-graph chunking AIA-0670
+measured as saving nothing; a separate model is what lets the host drive the loop itself and invoke
+the chunk the manifest's invocation count times. It is also **not yet production-managed**: the app's
+cleanup path removes exactly the converted model and its metadata sidecar, and the CLI reports a
+single output model size, so until those paths learn about companions in M3c the caller owns the
+companion's lifetime. Neither the high-level `NativeModelConverter.convert` API nor the CLI reaches
+this overload today.
+
 The app writes `native-conversion-report.json` as a journal before starting emission. The journal
 contains only relative artifact names, phases, metrics, and path-free diagnostics. When a user
 cancels or a normal error completes an attempt, the app removes generated `.mlmodel`/sidecar output
@@ -126,13 +143,15 @@ temporary archive as well.
 
 Metadata must not be copied blindly. A source model can describe image normalization, labels, or a
 classifier wrapper that the generated Core ML model does not expose. The contract therefore keeps
-three separate kinds of facts:
+each kind of fact separate:
 
 | Layer | Durable location | Meaning |
 | --- | --- | --- |
 | Source metadata | `Model.aiagraph/metadata.json`, then byte-for-byte `converted.metadata.json` | The original exporter/model facts, including arbitrary nested JSON. |
 | Conversion provenance | Namespaced Core ML user-defined keys | Graph/weights/metadata SHA-256, exporter name/version, target format, and the derived target interface. |
 | Target metadata | Standard Core ML metadata plus target namespaced keys | Facts true of the generated NeuralNetwork `.mlmodel`, never unverified source claims. |
+| Artifact manifest | `com.aiarcheology.native.target.artifact-manifest.json` | The companion files the primary model cannot run without: role, plain basename, SHA-256, fixed batch size, proposal count, invocation count. |
+| Parity provenance | `com.aiarcheology.native.target.parity-provenance.json` | What this emission is entitled to claim about its numerics: `verified` or `structurally-matched`. |
 
 `metadata.json` is optional for legacy v1 packages and required by current exporters. When present,
 the manifest names it explicitly and pins its SHA-256. It has this extensible envelope:
@@ -177,6 +196,36 @@ input/output names/shapes/types, source producer, and graph/weight/metadata hash
 preprocessing adapter, classifier wrapper, or detector decoder must add the corresponding target
 metadata only when that behavior has been emitted and is parity-tested.
 
+The last two rows are canonical JSON documents rather than flat strings, each carrying its own
+`format` and `formatVersion`, and both are written to the model's *outer* description — the only
+description `MLModelDescription` publishes for a pipeline. The artifact manifest appears only when an
+emission wrote a companion, and its digest is what lets a future consumer detect an older companion
+left beside a newer primary before loading it — nothing in this converter enforces that yet: no
+manifest reader and no hash-checking loader exists, so today the digest records the binding rather
+than checking it, and a stale companion still compiles and predicts with silently mismatched shapes.
+It deliberately records interface facts only; batch size and invocation count are numbers a runtime
+must obey, whereas how fast a chunk ran on some device is a measurement that would age into a lie
+inside a shipped model.
+
+Parity provenance is written by every emission path that writes target metadata at all, and never
+conditionally within one, because a model missing the fact is indistinguishable from one whose
+numbers were checked. Those paths are the package overload, the ONNX/classifier overload, the
+detector overload, and the ROI-box-head-chunk overload, which stamps both files it writes. The bare
+`emit(graph:weights:to:)` and `emit(graph:to:)` overloads pass no metadata, so a model written
+through them carries no metadata block at all — no parity provenance, no conversion revision, no
+target interface. They exist for conformance fixtures and tests; a caller emitting a model to ship
+uses one of the four stamped paths.
+
+The default claim is the honest one: `structurally-matched` says the graph validated, every
+operation lowered, and the model serialized successfully — the emitter never compiles or loads its
+own output, so it cannot say more. It is a statement about the conversion, not about the numbers it
+produces. `verified` means the emitted outputs were compared against a reference oracle and agreed
+within that check's tolerance, and only a
+caller that ran such a check may ask for it. A caller who says nothing gets the conservative claim
+rather than no claim at all, so silence can never ship a model asserting a parity run that did not
+happen. The value carries the claim and nothing else — no oracle name, no error bound, no date; those
+describe a run, and which of the two claims an emission is entitled to make does not age.
+
 The high-level converter additionally records the input package filename in the generated Core ML
 model as `com.aiarcheology.native.conversion.source-package-filename`. A host may supply an original
 model filename and an authoritative remote URL through `NativeModelConversionSourceProvenance`; ML
@@ -191,8 +240,8 @@ content hashes rather than a URL or filename.
 
 ## Versioned converter identity
 
-Every converted `.mlmodel` carries four separate, non-substitutable identities in Core ML
-user-defined metadata:
+Every `.mlmodel` emitted through a metadata-writing path — the four listed above — carries these
+separate, non-substitutable identities in Core ML user-defined metadata:
 
 | Identity | Metadata | Purpose |
 | --- | --- | --- |
@@ -210,6 +259,17 @@ Release rule: change the SemVer package version for public API or package compat
 increment `conversionRevision` for every output-affecting emitter, validation, or target-metadata
 change; keep the source producer version owned by the exporter. The package test checks all four
 embedded identities against the compiled Core ML model.
+
+Under that rule `conversionRevision` moves from 3 to 4 in this change, because the emitted artifact
+contents changed again. Revision 3 was anchor-free detector emission — a Core ML network plus
+non-maximum-suppression pipeline for YOLO v8/v11 raw heads, with its task, class count, label
+provenance, and coordinate-space metadata. Revision 4 adds the two-stage detector operations
+(ROI crop/resize, top-K, gather, the in-graph non-maximum-suppression layer, and the elementwise
+primitives the box arithmetic composes from), the standalone ROI box head chunk named by an artifact
+manifest in the primary model's metadata, and the parity provenance every metadata-writing emission
+path now records. A
+revision-4 model is therefore distinguishable from a revision-3 one by its metadata alone, which is
+what the revision exists to make possible.
 
 The torchvision reference exporter writes this metadata by default and accepts
 `--metadata-json SOURCE.json` to preserve a supplied metadata document byte-for-byte. A package
@@ -260,26 +320,57 @@ Rules enforced today:
 - A single little-endian `weights.bin`; every weight has an exact byte range derived from its type
   and shape.
 - No overlapping ranges, duplicate tensor names, forward tensor references, or duplicate outputs.
-- Operations are already topologically ordered and declare one typed output each.
+- Operations are already topologically ordered. Each declares one typed output, except `splitND`
+  (one per split size), `topK` (values, then indices), and `nms` (kept boxes, kept scores, kept
+  source indices, and the valid count) — the arities the Core ML layers themselves require.
 - Only JSON scalar/vector attributes are allowed; tensors may not be constructed dynamically.
 
 ## Starter operation set
 
-Version 1's validator recognizes 21 operations: `conv2d` (including grouped/depthwise), `linear`,
-`relu`, `relu6`, `maxPool2d`, `averagePool2d`, `globalAveragePool2d`, `reshape`, `transpose`,
-`concat`, `softmax`, `matmul`, `add`, `subtract`, `multiply`, `divide`, `batchNorm`, `sigmoid`,
-`tanh`, `flatten`, and `identity`.
+The validator recognizes 43 operation names, and which of them a graph may use depends on its format
+version. Nineteen are shared by both families: `conv2d` (including grouped/depthwise), `linear`,
+`relu`, `relu6`, `maxPool2d`, `averagePool2d`, `upsample2d`, `globalAveragePool2d`, `softmax`, `add`,
+`multiply`, `divide`, `batchNorm`, `sigmoid`, `tanh`, `leakyRelu`, `exp`, `flatten`, and `identity`.
+Version 1, the classic rank-5 layout family, adds six of its own — `reshape`, `transpose`, `concat`,
+`sliceChannels`, `softmaxChannel`, and `constant` — for 25 in total. Version 2, the exact-ND family,
+adds seventeen — `reshapeND`, `transposeND`, `concatND`, `sliceND`, `splitND`, `batchedMatmulND`,
+`constantND`, `subtract`, `minND`, `maxND`, `floor`, `log`, `greaterEqual`, `cropResize`, `topK`,
+`gather`, and `nms` — for 36. `matmul` is a recognized name but valid under neither version.
 
-This is enough for a fixed-shape MobileNetV2 classifier when exported in inference mode. It is not
-yet enough to import an arbitrary detector: YOLO-style heads need more shape, slice, resize, decode,
-and non-maximum-suppression coverage, and their output must be adapted to the app's Vision detector
-contract (`confidence` and `coordinates`).
+Several of those are exact-ND only for a stronger reason than layout preference. `floor`, `log`,
+`greaterEqual`, `minND`, `maxND`, and `subtract` have no equivalent in the classic layer set at all —
+there is no floor, no comparison, and no subtract there — so their only Core ML form is an exact-rank
+layer, and admitting one into a version 1 graph would mix layers that read the same blob differently.
+`cropResize` adds a second reason: its blobs are rank 5 *as data*, the box input being
+`[K, 1, 4, 1, 1]` and the output batching over K, which the legacy mapping's fixed four-axis reading
+cannot name. `gather` adds a third, its output rank being `data.rank - 1 + indices.rank` rather than
+the data input's, a rank that varies with the indices blob. And `nms` adds a fourth: its kernel
+refuses inputs that are not rank 3 exactly, and rank 3 is a shape the legacy mapping reads as
+`[C, H, W]` rather than the `[batch, boxes, 4]` the layer means.
 
-The emitter is intentionally narrower than the validator. It now emits and numerically tests the
-MobileNetV2 classifier spine: grouped/depthwise `conv2d`, `batchNorm`, `relu`, `relu6`, residual
-`add`, `globalAveragePool2d`, `flatten` (axis 1), and `linear`. It stores Float32 or Float16
-weights inside a Core ML neural-network model. The remaining validated operations are rejected at
-emission time until they receive the same compiler-backed coverage.
+This is enough for a fixed-shape MobileNetV2 classifier exported in inference mode, and — since
+revision 3 — for an anchor-free YOLO v8/v11 raw head emitted as a Core ML network plus
+non-maximum-suppression pipeline against the app's Vision detector contract (`confidence` and
+`coordinates`). It is not yet enough to import an arbitrary detector. What the operations above give
+a two-stage architecture is layer vocabulary, not an assembled detector: no Faster R-CNN proposal
+generator or box head is built, exported, or parity-tested here.
+
+The emitter is no longer much narrower than the validator. It emits every recognized operation except
+`divide`, `tanh`, `identity`, and the universally rejected `matmul`; those still fail at emission time
+with their graph node name and kind rather than falling back silently. Alongside the MobileNetV2
+classifier spine — grouped/depthwise `conv2d`, `batchNorm`, `relu`, `relu6`, residual `add`,
+`globalAveragePool2d`, `flatten` (axis 1), `linear` — and the YOLO trunk and decode operations, it
+now emits `floor`, `log`, `greaterEqual`, `minND`, `maxND`, `subtract`, `cropResize`, `topK`,
+`gather`, and `nms`. `averagePool2d`, which the validator already accepted, gained an emitter path in
+the same change. Weights remain Float32 or Float16 stored inside the Core ML neural-network model.
+
+Two of the new operations need care at the call site. `cropResize` is deliberately only the crop:
+torchvision's `roi_align(sampling_ratio=2)` is reproduced as a graph-level composition — crop at twice
+the target size, then a 2x2 `averagePool2d` — so neither operation is welded to one sampling ratio.
+And the in-graph `nms` layer is not the standalone NMS *model* the detector pipeline emits as its
+terminal stage: the layer has fixed padded outputs, sits mid-graph where its survivors feed everything
+after it, and mandates `[center-x, center-y, width, height]` box coordinates, where every other box
+operation in this IR works in corners.
 
 ## Model priority
 
@@ -339,6 +430,15 @@ The rules that keep these tests meaningful are:
 
 Golden suites start with tiny Conv/ReLU/Linear tests, then MobileNetV2, then SSD-MobileNet and a
 detector head. Unsupported operations must receive compiler-backed coverage before being enabled.
+
+Every operation added for two-stage detection follows that rule. `NativeModelDetectionLayerTests`
+compiles a single-operation model per behavior and compares its Core ML output against an
+independently computed expectation, including the crop-then-average-pool composition checked against
+`torchvision.ops.roi_align` on interior boxes; `NativeModelEmissionRegressionTests` decodes a
+representative conversion to prove the previous revision's structure survived the change. One
+divergence is pinned rather than hidden: for a box overhanging the feature map, `cropResize`
+contributes exactly zero past the last interpolable row and column where `roi_align` replicates the
+edge, so the two disagree there by construction. Closing that gap is M3c.
 
 ## Required tools and commands
 

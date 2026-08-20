@@ -74,11 +74,15 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	///
 	/// When the package contains source metadata, this writes target-correct Core ML metadata into
 	/// the model and an exact `<model-name>.metadata.json` sidecar beside it.
+	///
+	/// `parityEvidence` is the caller's claim about the emitted numerics and defaults to the
+	/// unevidenced one: only a caller that actually ran a reference-oracle check may pass `.verified`.
 	@discardableResult
 	public func emit(
 		package: NativeModelGraphPackage,
 		to outputURL: URL,
 		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
+		parityEvidence: NativeModelParityEvidence = .unevidenced,
 		reporting progress: NativeModelConversionProgressHandler? = nil,
 		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws -> NativeModelEmissionMetrics {
@@ -106,7 +110,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			),
 			graph: package.graph,
 			sourceProvenance: sourceProvenance,
-			interface: interface
+			interface: interface,
+			parityEvidence: parityEvidence
 		)
 		try emit(
 			graph: package.graph,
@@ -171,6 +176,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		targetSemanticsIntent: NativeModelTargetSemanticsIntent? = nil,
 		sourceMetadata: NativeModelCoreMLMetadata? = nil,
 		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
+		parityEvidence: NativeModelParityEvidence = .unevidenced,
 		reporting progress: NativeModelConversionProgressHandler? = nil,
 		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws {
@@ -188,7 +194,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			sourceProvenance: sourceProvenance,
 			graph: graph,
 			emittedWeights: weights,
-			interface: interface
+			interface: interface,
+			parityEvidence: parityEvidence
 		)
 		try emit(
 			graph: graph,
@@ -221,6 +228,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		targetSemanticsIntent: NativeModelTargetSemanticsIntent? = nil,
 		sourceMetadata: NativeModelCoreMLMetadata? = nil,
 		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
+		parityEvidence: NativeModelParityEvidence = .unevidenced,
 		reporting progress: NativeModelConversionProgressHandler? = nil,
 		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws {
@@ -247,7 +255,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			sourceProvenance: sourceProvenance,
 			graph: graph,
 			emittedWeights: weights,
-			interface: interface
+			interface: interface,
+			parityEvidence: parityEvidence
 		)
 		try emit(
 			graph: graph,
@@ -262,12 +271,255 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		)
 	}
 
+	/// Emits the model together with a standalone ROI box head chunk beside it, and records in the
+	/// primary model's metadata which companion it needs and how to verify it.
+	///
+	/// Two independent `.mlmodel` files, never a Core ML pipeline: a pipeline stage is embedded in
+	/// the outer model and runs inside the same `prediction` call, which is exactly the in-graph
+	/// chunking AIA-0670 measured as saving nothing. See ``NativeModelROIBoxHeadChunkEmission``.
+	///
+	/// The companion is written first and the primary last. The primary is the discovery anchor — it
+	/// is the file that carries the manifest — so publishing it before the companion exists would
+	/// leave a model advertising a file that is not there.
+	///
+	/// The pair is not production-managed yet: the app's cleanup path removes exactly the model and
+	/// its metadata sidecar, and the CLI reports one model size. Teaching those paths about
+	/// companions is M3c; until then the caller owns the companion's lifetime.
+	///
+	/// One emission makes one parity claim, stamped on both files: the primary is useless without the
+	/// chunk it drives, so a check that covered only one of them has not checked what this emission
+	/// produces.
+	@discardableResult
+	public func emit(
+		graph: NativeModelGraph,
+		weights: Data,
+		to outputURL: URL,
+		roiBoxHeadChunk chunk: NativeModelROIBoxHeadChunkEmission,
+		parityEvidence: NativeModelParityEvidence = .unevidenced
+	) throws -> NativeModelEmissionArtifactSet {
+		guard chunk.fixedBatchSize > 0 else {
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
+				reason: "the chunk's fixed batch size must be positive, got \(chunk.fixedBatchSize)"
+			)
+		}
+		guard chunk.proposalCount > 0 else {
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
+				reason: "the chunk's proposal count must be positive, got \(chunk.proposalCount)"
+			)
+		}
+		// A batch larger than the whole proposal set describes a loop whose single invocation is asked for
+		// proposals that do not exist.
+		guard chunk.fixedBatchSize <= chunk.proposalCount else {
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
+				reason: "the chunk's fixed batch size \(chunk.fixedBatchSize) exceeds the \(chunk.proposalCount) proposals it batches"
+			)
+		}
+		// The manifest is an instruction to the runtime: send `fixedBatchSize` proposals per invocation.
+		// Nothing else ties that number to the model it is written beside, so a chunk graph declaring a
+		// different batch extent would ship a manifest Core ML refuses at input-binding time.
+		//
+		// "At least one input" rather than "every input", because the two are different shapes and only
+		// one of them is this graph: the ROI and level-weight inputs are batched per proposal, while the
+		// four FPN feature maps are shared across the whole batch and declare a leading extent of 1.
+		// Demanding the batch everywhere would reject the very model this overload exists to emit. But
+		// `contains` alone would also accept a stray input declaring some third extent, so anything that
+		// is neither the batch nor the shared 1 is refused by name.
+		let declaredBatchExtents = chunk.graph.inputs.compactMap(\.shape.first)
+		guard declaredBatchExtents.contains(chunk.fixedBatchSize) else {
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
+				reason: "the manifest would ask the runtime for batches of \(chunk.fixedBatchSize), but no chunk input declares that leading extent (declared: \(declaredBatchExtents))"
+			)
+		}
+		let unbatchable = declaredBatchExtents.filter { $0 != chunk.fixedBatchSize && $0 != 1 }
+		guard unbatchable.isEmpty else {
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
+				reason: "every chunk input must be batched at \(chunk.fixedBatchSize) or shared at 1, but \(unbatchable) is neither"
+			)
+		}
+		// Resolved before anything is written: a name the runtime could not resolve beside the primary
+		// must never reach a shipped manifest.
+		let companionFilename = try Self.companionFilename(for: .roiBoxHeadChunk, besidePrimaryAt: outputURL)
+		let companionURL = outputURL.deletingLastPathComponent().appendingPathComponent(companionFilename)
+
+		// The companion's bytes come first because the primary's manifest records their digest; the
+		// primary therefore cannot be built until the companion is final. Its metadata is its own —
+		// the primary's would state the wrong interface, graph and weights digest for this file — and
+		// it is emitted as a plain neural network, not through the detector overload, which would wrap
+		// it in the network + suppression pipeline it is not.
+		let companionInterface = try resolveEmissionInterface(
+			graph: chunk.graph,
+			classifierLabels: nil,
+			imagePreprocessing: nil,
+			detection: nil,
+			detectionTarget: nil,
+			targetSemanticsIntent: nil
+		)
+		let companionMetadata = try onnxTargetMetadata(
+			source: nil,
+			sourceProvenance: nil,
+			graph: chunk.graph,
+			emittedWeights: chunk.weights,
+			interface: companionInterface,
+			parityEvidence: parityEvidence
+		)
+		let companionModel = try modelData(
+			graph: chunk.graph,
+			weights: chunk.weights,
+			context: EmissionContext(
+				metadata: companionMetadata,
+				interface: companionInterface,
+				progress: nil,
+				cancellationCheck: nil
+			)
+		)
+		let companionSHA256 = NativeModelConversionChecksums.sha256Hex(of: companionModel)
+
+		let manifest = NativeModelArtifactManifest(companions: [
+			NativeModelArtifactManifest.Companion(
+				role: .roiBoxHeadChunk,
+				filename: companionFilename,
+				sha256: companionSHA256,
+				fixedBatchSize: chunk.fixedBatchSize,
+				proposalCount: chunk.proposalCount,
+				invocationCount: chunk.invocationCount
+			)
+		])
+		let primaryInterface = try resolveEmissionInterface(
+			graph: graph,
+			classifierLabels: nil,
+			imagePreprocessing: nil,
+			detection: nil,
+			detectionTarget: nil,
+			targetSemanticsIntent: nil
+		)
+		// The manifest rides in the primary's target metadata, which makeModel attaches to the model's
+		// outer description — the only description `MLModelDescription` publishes.
+		let primaryMetadata = try metadata(
+			onnxTargetMetadata(
+				source: nil,
+				sourceProvenance: nil,
+				graph: graph,
+				emittedWeights: weights,
+				interface: primaryInterface,
+				parityEvidence: parityEvidence
+			),
+			addingUserDefined: NativeModelArtifactManifest.userDefinedKey,
+			value: manifest.canonicalJSON()
+		)
+		let primaryModel = try modelData(
+			graph: graph,
+			weights: weights,
+			context: EmissionContext(
+				metadata: primaryMetadata,
+				interface: primaryInterface,
+				progress: nil,
+				cancellationCheck: nil
+			)
+		)
+
+		try companionModel.write(to: companionURL, options: .atomic)
+		do {
+			try primaryModel.write(to: outputURL, options: .atomic)
+		} catch {
+			// The companion was published for a primary that never arrived. Take it back rather than
+			// leave a file nothing names: on a fresh directory this restores the pre-emission state
+			// exactly. It cannot do so when an *existing* pair was being replaced — the old companion's
+			// bytes are already gone — which is why the emission is documented as non-atomic against a
+			// live pair, and why a consumer is expected to verify the manifest digest rather than trust
+			// the file beside it. Best effort by construction: the write failed, so the filesystem is
+			// already misbehaving, and a failure to clean up must not replace the error that explains it.
+			try? FileManager.default.removeItem(at: companionURL)
+			throw error
+		}
+
+		// Byte counts come from the same buffers the digests cover, so a reported size can never
+		// describe different bytes than the reported hash.
+		return NativeModelEmissionArtifactSet(
+			primary: NativeModelEmittedArtifact(
+				role: .primary,
+				url: outputURL,
+				byteCount: UInt64(primaryModel.count),
+				sha256: NativeModelConversionChecksums.sha256Hex(of: primaryModel)
+			),
+			companions: [
+				NativeModelEmittedArtifact(
+					role: .roiBoxHeadChunk,
+					url: companionURL,
+					byteCount: UInt64(companionModel.count),
+					sha256: companionSHA256
+				)
+			]
+		)
+	}
+
+	/// The plain basename a companion takes beside the primary model: `converted.mlmodel` yields
+	/// `converted.roi-box-head-chunk.mlmodel`, following the `<model-name>.metadata.json` sidecar
+	/// convention. The `.mlmodel` extension is fixed rather than inherited because Core ML compiles
+	/// by extension.
+	///
+	/// The manifest records a name the runtime resolves *beside* the primary, so anything that is not
+	/// a plain basename — a path separator, a leading dot that could read as a traversal component —
+	/// is rejected here instead of being written into a shipped model.
+	static func companionFilename(
+		for role: NativeModelEmittedArtifact.Role,
+		besidePrimaryAt primaryURL: URL
+	) throws -> String {
+		let suffix: String
+		switch role {
+		case .primary:
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(reason: "the primary model is not a companion of itself")
+		case .roiBoxHeadChunk:
+			suffix = "roi-box-head-chunk"
+		}
+		let filename = "\(primaryURL.deletingPathExtension().lastPathComponent).\(suffix).mlmodel"
+		guard !filename.contains("/"), !filename.hasPrefix(".") else {
+			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
+				reason: "'\(filename)' is not a plain filename that resolves beside the primary model"
+			)
+		}
+		return filename
+	}
+
+	/// Returns `metadata` carrying one more `userDefined` entry. Core ML's string map is the only
+	/// place a manifest can travel with the model it describes.
+	private func metadata(
+		_ metadata: NativeModelCoreMLMetadata,
+		addingUserDefined key: String,
+		value: String
+	) -> NativeModelCoreMLMetadata {
+		var userDefined = metadata.userDefined
+		userDefined[key] = value
+		return NativeModelCoreMLMetadata(
+			shortDescription: metadata.shortDescription,
+			versionString: metadata.versionString,
+			author: metadata.author,
+			license: metadata.license,
+			userDefined: userDefined
+		)
+	}
+
 	private func emit(
 		graph: NativeModelGraph,
 		weights: Data,
 		to outputURL: URL,
 		context: EmissionContext
 	) throws {
+		let model = try modelData(graph: graph, weights: weights, context: context)
+		try context.cancellationCheck?()
+		context.progress?(NativeModelConversionProgress(phase: .writingModel))
+		try model.write(to: outputURL, options: .atomic)
+		context.progress?(NativeModelConversionProgress(phase: .writingModel, completedUnitCount: 1, totalUnitCount: 1))
+	}
+
+	/// Validates the graph against the emitter's contract and serializes it, without touching disk.
+	///
+	/// Separated from writing so a multi-artifact emission can build every file's bytes — and hash
+	/// them — before any of them is published.
+	private func modelData(
+		graph: NativeModelGraph,
+		weights: Data,
+		context: EmissionContext
+	) throws -> Data {
 		try context.cancellationCheck?()
 		let validation = NativeModelGraphValidator().validate(graph)
 		guard validation.isConvertible else {
@@ -295,7 +547,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			return tensor
 		}
 
-		let model = try makeModel(
+		return try makeModel(
 			input: ModelBuildInput(
 				inputTensors: graph.inputs,
 				outputTensors: outputTensors,
@@ -305,10 +557,6 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			),
 			context: context
 		)
-		try context.cancellationCheck?()
-		context.progress?(NativeModelConversionProgress(phase: .writingModel))
-		try model.write(to: outputURL, options: .atomic)
-		context.progress?(NativeModelConversionProgress(phase: .writingModel, completedUnitCount: 1, totalUnitCount: 1))
 	}
 
 	private func tensorIndex(for graph: NativeModelGraph) -> [String: NativeModelTensor] {
@@ -799,7 +1047,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		sourceProvenance: NativeModelConversionSourceProvenance?,
 		graph: NativeModelGraph,
 		emittedWeights: Data,
-		interface: ResolvedEmissionInterface
+		interface: ResolvedEmissionInterface,
+		parityEvidence: NativeModelParityEvidence = .unevidenced
 	) throws -> NativeModelCoreMLMetadata {
 		try targetMetadata(
 			from: source,
@@ -808,16 +1057,20 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			),
 			graph: graph,
 			sourceProvenance: sourceProvenance,
-			interface: interface
+			interface: interface,
+			parityEvidence: parityEvidence
 		)
 	}
 
+	/// `parityEvidence` defaults to the unevidenced claim in both metadata builders, so a path added
+	/// later that says nothing about parity writes the conservative fact rather than no fact at all.
 	private func targetMetadata(
 		from source: NativeModelCoreMLMetadata?,
 		checksums: NativeModelConversionChecksums,
 		graph: NativeModelGraph,
 		sourceProvenance: NativeModelConversionSourceProvenance?,
-		interface: ResolvedEmissionInterface
+		interface: ResolvedEmissionInterface,
+		parityEvidence: NativeModelParityEvidence = .unevidenced
 	) throws -> NativeModelCoreMLMetadata {
 		// A detector is emitted as a Core ML pipeline (network + NMS); a classifier interface is only
 		// emitted when labels match the output. The format string reflects what was actually written.
@@ -833,7 +1086,13 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				inputs: graph.inputs,
 				outputs: graph.outputs,
 				graph: graph
-			)
+			),
+			// Written on every path that builds target metadata, never conditionally: a model missing the
+			// fact is indistinguishable from one whose numerics were checked, which is the confusion the
+			// fact exists to prevent. The bare `emit(graph:weights:to:)` overload builds no metadata at
+			// all, so a model written through it carries none of these keys.
+			NativeModelParityProvenance.userDefinedKey:
+				try NativeModelParityProvenance(evidence: parityEvidence).canonicalJSON()
 		]
 		if let graphSHA256 = checksums.graphSHA256 {
 			userDefined["com.aiarcheology.native.conversion.graph-sha256"] = graphSHA256
@@ -968,8 +1227,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			try linearLayer(for: operation, weightsByName: weightsByName, weights: weights)
 		case .add:
 			try addLayer(for: operation)
-		case .maxPool2D:
-			try maxPoolLayer(for: operation)
+		case .maxPool2D, .averagePool2D:
+			try poolingLayer(for: operation)
 		case .concatenate:
 			try concatenateLayer(for: operation)
 		case .softmax:
@@ -981,7 +1240,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		case .concatenateND:
 			try concatenateNDLayer(for: operation)
 		case .leakyReLU, .sigmoid, .exponential, .multiply, .reshape, .transpose, .sliceChannels, .softmaxChannel, .upsample2D,
-			.reshapeND, .transposeND, .sliceND, .splitND, .batchedMatrixMultiplicationND:
+			.reshapeND, .transposeND, .sliceND, .splitND, .batchedMatrixMultiplicationND,
+			.floor, .naturalLogarithm, .greaterOrEqual, .minimumND, .maximumND, .subtract, .cropResize,
+			.topK, .gather, .nonMaximumSuppression:
 			try detectionLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
@@ -1246,7 +1507,17 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 120, parameters: pooling)
 	}
 
-	private func maxPoolLayer(for operation: NativeModelOperation) throws -> Data {
+	/// Max and average pooling are one `PoolingLayerParams` (field 120) apart: the two differ only in the
+	/// `type` member and in the average-only padding rule below, so they share an emitter rather than a
+	/// copied one. Field numbers read off coremltools 9.0's `NeuralNetwork_pb2.PoolingLayerParams`
+	/// descriptor: type = 1, kernelSize = 10, stride = 20, valid = 30, avgPoolExcludePadding = 50.
+	///
+	/// `avgPoolExcludePadding` is pinned to true, meaning the divisor counts only real samples. It is
+	/// unobservable at the zero padding the ROI construction uses, so the pin is chosen for the padded
+	/// case: it matches ONNX AveragePool's default (`count_include_pad = 0`). PyTorch's `AvgPool2d`
+	/// defaults the other way, so a future reader that meets `count_include_pad=True` with non-zero
+	/// padding has to reject it rather than assume this emitter agrees.
+	private func poolingLayer(for operation: NativeModelOperation) throws -> Data {
 		try requireSingleActivationInput(operation)
 		guard let kernelSize = operation.attributes["kernelSize"]?.integerArrayValue, kernelSize.count == 2,
 			let strides = operation.attributes["strides"]?.integerArrayValue, strides.count == 2,
@@ -1254,12 +1525,16 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		else {
 			throw NativeModelCoreMLEmissionError.invalidOperation(
 				operation: operation.name,
-				reason: "maxPool2d requires kernelSize/strides pairs of positive integers"
+				reason: "\(operation.kind.serializedValue) requires kernelSize/strides pairs of positive integers"
 			)
 		}
+		let isAverage = operation.kind == .averagePool2D
 		let padding = try paddingAttribute(for: operation)
 		let pooling = CoreMLProtobufEncoder.message { pooling in
-			// PoolingLayerParams.type MAX is the proto3 default (0), so no explicit type field is written.
+			// PoolingType MAX is the proto3 default (0), so only AVERAGE (1) is written.
+			if isAverage {
+				CoreMLProtobufEncoder.appendVarintField(1, value: 1, to: &pooling)
+			}
 			for dimension in kernelSize {
 				CoreMLProtobufEncoder.appendVarintField(10, value: UInt64(dimension), to: &pooling)
 			}
@@ -1267,6 +1542,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				CoreMLProtobufEncoder.appendVarintField(20, value: UInt64(stride), to: &pooling)
 			}
 			CoreMLProtobufEncoder.appendMessageField(30, value: validPadding(padding), to: &pooling)
+			if isAverage {
+				CoreMLProtobufEncoder.appendVarintField(50, value: 1, to: &pooling)
+			}
 		}
 		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 120, parameters: pooling)
 	}
@@ -1342,7 +1620,9 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	}
 
 	/// Routes the operations introduced for detection decoding. Split from `layer(for:)` so the
-	/// operator table stays inside the cyclomatic-complexity limit.
+	/// operator table stays inside the cyclomatic-complexity limit; the kinds it does not name go on to
+	/// `boxArithmeticLayer(for:)`, which raises the same unsupported-operation error for anything
+	/// neither router handles.
 	private func detectionLayer(for operation: NativeModelOperation) throws -> Data {
 		switch operation.kind {
 		case .leakyReLU: try leakyReLULayer(for: operation)
@@ -1359,12 +1639,283 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		case .sliceND: try sliceNDLayer(for: operation)
 		case .splitND: try splitNDLayer(for: operation)
 		case .batchedMatrixMultiplicationND: try batchedMatrixMultiplicationNDLayer(for: operation)
+		default: try boxArithmeticLayer(for: operation)
+		}
+	}
+
+	/// Routes the elementwise and mask primitives the box arithmetic is built from — FPN level
+	/// assignment, small-box filtering, and coordinate clipping — plus the ROI crop those boxes feed and
+	/// the top-K/gather pair that decides which boxes reach it at all.
+	/// A third router rather than more cases in the two above it, for the same reason those were split:
+	/// to stay inside the cyclomatic-complexity limit, which the router above is already at.
+	private func boxArithmeticLayer(for operation: NativeModelOperation) throws -> Data {
+		switch operation.kind {
+		case .floor: try floorLayer(for: operation)
+		case .naturalLogarithm: try naturalLogarithmLayer(for: operation)
+		case .greaterOrEqual: try greaterOrEqualLayer(for: operation)
+		case .minimumND: try elementwiseBoundLayer(for: operation, parameterField: 870)
+		case .maximumND: try elementwiseBoundLayer(for: operation, parameterField: 875)
+		case .subtract: try subtractLayer(for: operation)
+		case .cropResize: try cropResizeLayer(for: operation)
+		case .topK: try topKLayer(for: operation)
+		case .gather: try gatherLayer(for: operation)
+		case .nonMaximumSuppression: try nonMaximumSuppressionLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
 				operation: operation.name,
 				kind: operation.kind.serializedValue
 			)
 		}
+	}
+
+	/// Rounds toward negative infinity — Core ML's parameterless `FloorLayerParams` (field 670). The
+	/// level assignment relies on the negative side truncating downward: a box smaller than the
+	/// canonical scale has a negative level before clamping, where `trunc` would round it the wrong way.
+	private func floorLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 670, parameters: Data())
+	}
+
+	/// `ln(x)`, expressed as Core ML's unary-function layer with type LOG. Any other base is one
+	/// multiply away (`log2(x) = ln(x) · 1/ln 2`), which is what lets the level assignment sum two
+	/// half-logarithms instead of forming a box area that overflows fp16 above 65504.
+	private func naturalLogarithmLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		let unary = CoreMLProtobufEncoder.message { unary in
+			// UnaryFunctionLayerParams.type = 1; the LOG member of that enum is 5.
+			CoreMLProtobufEncoder.appendVarintField(1, value: 5, to: &unary)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 220, parameters: unary)
+	}
+
+	/// `x >= threshold` as a 1.0/0.0 mask. `GreaterEqualLayerParams` (field 832) accepts either two
+	/// blobs or one blob and its threshold scalar; this is the single-input form, so the threshold
+	/// rides in the layer rather than costing a constant blob. That scalar is the message's *only*
+	/// field and it is numbered 2, not 1 — writing it as field 1 leaves the layer comparing against 0.
+	private func greaterOrEqualLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard let threshold = operation.attributes["threshold"]?.floatingPointValue else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "greaterEqual requires a floating-point 'threshold' attribute"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendFloatField(2, value: Float(threshold), to: &parameters)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 832, parameters: parameters)
+	}
+
+	/// Elementwise `min(a, b)` (field 870) and `max(a, b)` (field 875), both parameterless. Taking the
+	/// bound as a second tensor is what makes a per-coordinate box clip expressible: the scalar Clip
+	/// layer would force one interval on x and y, which is wrong the moment the image is not square.
+	private func elementwiseBoundLayer(for operation: NativeModelOperation, parameterField: Int) throws -> Data {
+		guard operation.inputs.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "\(operation.kind.serializedValue) requires exactly two activation inputs"
+			)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: parameterField, parameters: Data())
+	}
+
+	/// Core ML's `CropResize` (layer field 212) — one bilinear ROI patch per box, and the first layer
+	/// here with two runtime inputs that are not interchangeable: input 0 is the feature map and input 1
+	/// the boxes. Both must be declared rank 5 (the layer validates `rank >= 5` and rejects less):
+	/// features `[1, B, C, H, W]`, boxes `[K, 1, 4, 1, 1]`, output `[K, B, C, targetHeight, targetWidth]`
+	/// — measured, not assumed, in `scripts/m3a_parity_spike/probes.py`.
+	///
+	/// `CropResizeLayerParams` field numbers verified against coremltools 9.0's
+	/// `NeuralNetwork_pb2.CropResizeLayerParams` descriptor: targetSize = 1 (repeated uint64, height then
+	/// width, matching `NeuralNetworkBuilder.add_crop_resize`'s append order), normalizedCoordinates = 2,
+	/// mode = 3, boxIndicesMode = 4, spatialScale = 5.
+	///
+	/// Sampling mode and box order are pinned rather than parameterised. `SamplingMode.samplingMethod`
+	/// (field 1) is written as ROI_ALIGN_MODE (3) because the enum's zero member is
+	/// STRICT_ALIGN_ENDPOINTS_MODE, a *different* sampling grid that would silently take the default.
+	/// `BoxCoordinatesMode.boxMode` (field 1) is CORNERS_HEIGHT_FIRST, which *is* that enum's zero member,
+	/// so field 4 carries an empty message: the submessage is present on the wire without writing a
+	/// redundant zero. `[y0, x0, y1, x1]` is the order the box blob must already be in.
+	private func cropResizeLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "cropResize requires exactly two inputs: the feature map and the box blob"
+			)
+		}
+		guard let targetHeight = operation.attributes["targetHeight"]?.integerValue, targetHeight > 0,
+			let targetWidth = operation.attributes["targetWidth"]?.integerValue, targetWidth > 0,
+			let spatialScale = operation.attributes["spatialScale"]?.floatingPointValue, spatialScale > 0
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "cropResize requires positive 'targetHeight'/'targetWidth' integers and a positive 'spatialScale'"
+			)
+		}
+		// Absent means unnormalized box coordinates — the form the box arithmetic produces, in feature
+		// pixels once `spatialScale` has been applied. The validator refuses a present non-boolean, so
+		// this coalesce covers absence only, never a wrongly typed value quietly reading as false.
+		let normalizedROI = operation.attributes["normalizedROI"]?.booleanValue ?? false
+		let samplingMode = CoreMLProtobufEncoder.message { mode in
+			CoreMLProtobufEncoder.appendVarintField(1, value: 3, to: &mode)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(targetHeight), to: &parameters)
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(targetWidth), to: &parameters)
+			if normalizedROI {
+				CoreMLProtobufEncoder.appendVarintField(2, value: 1, to: &parameters)
+			}
+			CoreMLProtobufEncoder.appendMessageField(3, value: samplingMode, to: &parameters)
+			CoreMLProtobufEncoder.appendMessageField(4, value: Data(), to: &parameters)
+			CoreMLProtobufEncoder.appendFloatField(5, value: Float(spatialScale), to: &parameters)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 212, parameters: parameters)
+	}
+
+	/// Core ML's `TopK` (layer field 1015): the `k` largest values along `axis` and the source index of
+	/// each. Two outputs, values first and indices second — not a choice this emitter makes, but the
+	/// layer's own rule: Core ML's validator rejects any other count outright ("Layer 'tk' of type 1015
+	/// has 1 outputs but expects exactly 2", measured on a compiled model with coremltools 9.0). So a
+	/// values-only emitter fails to compile, while a swapped one compiles and returns ranks as scores.
+	///
+	/// `TopKLayerParams` field numbers verified against coremltools 9.0's `NeuralNetwork_pb2.TopKLayerParams`
+	/// descriptor: axis = 1 (int64), K = 2 (uint64), useBottomK = 3 (bool). `useBottomK` stays at its
+	/// proto3 default of false; the bottom-k form is the same layer returning the K *smallest* values and
+	/// would compile identically.
+	///
+	/// Values come back in descending order (measured on that same probe). Which of two *equal* values
+	/// wins is not part of the contract — nothing in the parameters orders them — so a graph that depends
+	/// on tie order is depending on an unspecified detail.
+	private func topKLayer(for operation: NativeModelOperation) throws -> Data {
+		try requireSingleActivationInput(operation)
+		guard operation.outputs.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "topK produces exactly two outputs: the values, then their source indices"
+			)
+		}
+		guard let k = operation.attributes["k"]?.integerValue, k > 0,
+			let axis = operation.attributes["axis"]?.integerValue, axis >= 0
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "topK requires a positive 'k' and a non-negative 'axis' (the reader normalizes negative axes)"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(axis), to: &parameters)
+			CoreMLProtobufEncoder.appendVarintField(2, value: UInt64(k), to: &parameters)
+		}
+		return simpleLayer(name: operation.name, input: operation.inputs[0], outputs: operation.outputs, parameterField: 1015, parameters: parameters)
+	}
+
+	/// Core ML's `Gather` (layer field 930): input 0 is the data blob, input 1 the indices, and the output
+	/// takes the indices tensor's shape in place of `data`'s `axis`. Its rank is therefore
+	/// `data.rank - 1 + indices.rank` — the same expression coremltools' own `add_gather` records for the
+	/// output — so rank-2 indices over rank-2 data give a rank-3 result. Nothing here recomputes that: the
+	/// emitter declares the shape the graph already carries, and Core ML rejects a declaration that
+	/// disagrees. The two inputs are not interchangeable and a swap still compiles whenever both ranks
+	/// permit it.
+	///
+	/// `GatherLayerParams` has exactly one field, axis = 1 (int64), verified against coremltools 9.0's
+	/// `NeuralNetwork_pb2.GatherLayerParams` descriptor. Indices ride in an ordinary float blob — the
+	/// neural-network spec has no integer blob — and the layer truncates them.
+	private func gatherLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "gather requires exactly two inputs: the data blob and the indices"
+			)
+		}
+		guard let axis = operation.attributes["axis"]?.integerValue, axis >= 0 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "gather requires a non-negative 'axis' (the reader normalizes negative axes)"
+			)
+		}
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(axis), to: &parameters)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 930, parameters: parameters)
+	}
+
+	/// Greedy non-maximum suppression as a **layer inside the graph** (`NeuralNetworkLayer` field 1400) —
+	/// deliberately not the standalone NMS **model** `NativeModelDetectorPipeline` emits as its terminal
+	/// stage. Different operator, different message, different semantics: the model has flexible outputs
+	/// and a Vision-facing interface and can only be last, this one has fixed padded outputs and a
+	/// valid-count and can sit anywhere. The M3a spike measured both precisely because reporting one while
+	/// meaning the other is the easy mistake here.
+	///
+	/// Inputs are boxes then scores, and both must be rank 3 exactly: `[1, N, 4]` and `[1, N, classes]`.
+	/// Measured, not assumed — a rank-2 pair still writes a well-formed `.mlmodel`, which Core ML's own
+	/// compiler then refuses: "non_maximum_suppression_kernel: first two inputs must have rank 3"
+	/// (coremltools 9.0, the probe harness in `scripts/m3a_parity_spike/probes.py`).
+	///
+	/// **Box coordinates are mandatorily `[center-x, center-y, width, height]`.** Unlike `CropResize`,
+	/// whose `boxIndicesMode` chooses between corner conventions, this message has *no* coordinate-mode
+	/// field — verified by reading the whole descriptor, which has exactly the four fields written below.
+	/// Every other box operation in this file works in corners, so the conversion belongs immediately
+	/// before this layer; corners fed here suppress a different set and nothing reports an error.
+	///
+	/// `NonMaximumSuppressionLayerParams` field numbers verified against coremltools 9.0's
+	/// `NeuralNetwork_pb2.NonMaximumSuppressionLayerParams` descriptor: iouThreshold = 1 (float),
+	/// scoreThreshold = 2 (float), maxBoxes = 3 (uint64), perClassSuppression = 4 (bool).
+	///
+	/// Four outputs, all padded to `maxBoxes` — kept boxes, kept scores, kept source indices (padded with
+	/// −1), and `valid_count`. **`valid_count` lies at zero survivors**: with a score threshold above every
+	/// input score the layer reports 1, and slot 0 carries the highest-scoring box together with its real,
+	/// sub-threshold score (measured, coremltools 9.0). A graph that trusts it therefore grows one phantom
+	/// detection on every empty tile, which for this app is every page with no archaeology on it. The fix
+	/// is a mask on the returned scores, composed in the graph rather than hidden in this layer;
+	/// `NativeModelDetectionLayerTests` pins both the defect and the composition that cancels it.
+	private func nonMaximumSuppressionLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "nms requires exactly two inputs: the boxes and the scores"
+			)
+		}
+		guard operation.outputs.count == 4 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "nms produces exactly four outputs: boxes, scores, source indices, then the valid count"
+			)
+		}
+		guard let iouThreshold = operation.attributes["iouThreshold"]?.floatingPointValue,
+			let scoreThreshold = operation.attributes["scoreThreshold"]?.floatingPointValue,
+			let maxBoxes = operation.attributes["maxBoxes"]?.integerValue, maxBoxes > 0
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "nms requires floating-point 'iouThreshold' and 'scoreThreshold' values and a positive 'maxBoxes'"
+			)
+		}
+		// Absent means class-agnostic suppression, which is what ADAF's single-class detectors need and
+		// what the reference pipeline does; the flag only becomes observable with more than one class. As
+		// with `normalizedROI`, the validator refuses a present non-boolean before this coalesce runs.
+		let perClassSuppression = operation.attributes["perClassSuppression"]?.booleanValue ?? false
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendFloatField(1, value: Float(iouThreshold), to: &parameters)
+			CoreMLProtobufEncoder.appendFloatField(2, value: Float(scoreThreshold), to: &parameters)
+			CoreMLProtobufEncoder.appendVarintField(3, value: UInt64(maxBoxes), to: &parameters)
+			if perClassSuppression {
+				CoreMLProtobufEncoder.appendVarintField(4, value: 1, to: &parameters)
+			}
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 1400, parameters: parameters)
+	}
+
+	/// `a - b`, Core ML's parameterless `SubtractBroadcastableLayerParams` (field 905). The classic
+	/// layer set has add (230) and multiply (231) but no subtract at all, which is why this one
+	/// operation the graph validator has always accepted had no emitter case until now.
+	private func subtractLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "subtract requires exactly two activation inputs"
+			)
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 905, parameters: Data())
 	}
 
 	/// Core ML's classic softmax (field 175), which always normalizes over the channel axis. The
@@ -1879,6 +2430,7 @@ public enum NativeModelCoreMLEmissionError: Error, Equatable, LocalizedError, Se
 	case invalidConvolution(operation: String, reason: String)
 	case invalidOperation(operation: String, reason: String)
 	case invalidDetectionInterface(reason: String)
+	case invalidArtifactSet(reason: String)
 	case outputFileSizeUnavailable(String)
 
 	public var errorDescription: String? {
@@ -1901,6 +2453,8 @@ public enum NativeModelCoreMLEmissionError: Error, Equatable, LocalizedError, Se
 			"Operation '\(operation)' is invalid: \(reason)."
 		case .invalidDetectionInterface(let reason):
 			"The detection interface is invalid: \(reason)."
+		case .invalidArtifactSet(let reason):
+			"The emitted artifact set is invalid: \(reason)."
 		case .outputFileSizeUnavailable(let file):
 			"The emitted model '\(file)' could not be measured."
 		}

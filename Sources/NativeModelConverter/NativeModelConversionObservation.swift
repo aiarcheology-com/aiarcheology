@@ -195,6 +195,7 @@ extension NativeModelCoreMLEmissionError {
 		case .invalidConvolution: "invalidConvolution"
 		case .invalidOperation: "invalidOperation"
 		case .invalidDetectionInterface: "invalidDetectionInterface"
+		case .invalidArtifactSet: "invalidArtifactSet"
 		case .outputFileSizeUnavailable: "outputFileSizeUnavailable"
 		}
 	}

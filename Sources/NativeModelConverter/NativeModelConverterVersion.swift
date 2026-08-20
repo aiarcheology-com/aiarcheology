@@ -14,7 +14,9 @@
 /// ``NativeModelProducer/name`` and ``NativeModelProducer/version`` in the graph package.
 public enum NativeModelConverterVersion {
 	public static let packageVersion = "0.1.0"
-	/// Revision 3 adds anchor-free detector emission (a Core ML NMS pipeline for v8/v11 raw heads)
-	/// and its target metadata: task, class count, label provenance, and coordinate space.
-	public static let conversionRevision = 3
+	/// Revision 4 adds the two-stage detector operations (crop/resize, top-K, gather, non-maximum
+	/// suppression and the elementwise primitives the box arithmetic composes from), the standalone
+	/// ROI box head chunk named by an artifact manifest in the primary model's metadata, and the
+	/// parity provenance every emission now records.
+	public static let conversionRevision = 4
 }
