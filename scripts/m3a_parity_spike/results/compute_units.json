@@ -1,0 +1,51 @@
+{
+  "elementwise": {
+    "variants": {
+      "cpu_float32": {
+        "max_abs_diff": 5.97834587097168e-05,
+        "mean_abs_diff": 1.243872839040705e-06,
+        "compute_units": "ComputeUnit.CPU_ONLY"
+      },
+      "all_float32": {
+        "max_abs_diff": 0.026565909385681152,
+        "mean_abs_diff": 0.0008461836026981473,
+        "compute_units": "ComputeUnit.ALL"
+      },
+      "cpu_float16_weights": {
+        "max_abs_diff": 0.012887775897979736,
+        "mean_abs_diff": 0.00047850709524936973,
+        "compute_units": "ComputeUnit.CPU_ONLY"
+      },
+      "all_float16_weights": {
+        "max_abs_diff": 0.026565909385681152,
+        "mean_abs_diff": 0.0008461836026981473,
+        "compute_units": "ComputeUnit.ALL"
+      }
+    },
+    "caveat": "a Mac Neural Engine is not an iPhone's, and Core ML may decline to place this graph off the CPU at all; an exact match with CPU-only is therefore ambiguous between 'placement changed nothing' and 'placement did not change'"
+  },
+  "detection_level": {
+    "torch_baseline_detections": 2,
+    "by_compute_unit": {
+      "cpu_only": {
+        "detections": 2,
+        "matched": 2,
+        "unmatched_a": 0,
+        "unmatched_b": 0,
+        "iou_threshold": 0.5,
+        "max_score_delta": 1.4156103134155273e-06,
+        "max_box_shift_px": 0.000152587890625
+      },
+      "all": {
+        "detections": 2,
+        "matched": 2,
+        "unmatched_a": 0,
+        "unmatched_b": 0,
+        "iou_threshold": 0.5,
+        "max_score_delta": 0.0026592686772346497,
+        "max_box_shift_px": 0.08576202392578125
+      }
+    },
+    "caveat": "one image, and this Mac's Neural Engine is not an iPhone's; the direction is evidence, the magnitude is not transferable to device"
+  }
+}

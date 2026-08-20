@@ -1,0 +1,119 @@
+{
+  "configuration": {
+    "channels": 256,
+    "feature_map": [
+      200,
+      200
+    ],
+    "roi_count": 728,
+    "levels_assumed_for_analytic": 4
+  },
+  "note": "peak measured one configuration per process, because ru_maxrss is a high-water mark and several configurations in one process would report the largest for all",
+  "results": [
+    {
+      "chunks": 1,
+      "rois_per_chunk": 728,
+      "baseline_rss_mib": 294.78125,
+      "peak_rss_mib": 737.546875,
+      "peak_above_baseline_mib": 442.765625,
+      "output_sha256": "7ff0403a83cb146fccf0f6ae4d0e5b563ce205aa23ae8debecaaa8c688039abc",
+      "output_sum": -3683.712126246799,
+      "output_shape": [
+        728,
+        256,
+        7,
+        7
+      ],
+      "transient_crop_mib_one_level": 139.34375,
+      "accumulated_pooled_mib_one_level": 34.8359375,
+      "predicted_peak_mib_one_level": 174.1796875,
+      "predicted_peak_mib_four_levels_projected": 696.71875,
+      "matches_unchunked_exactly": true,
+      "peak_saving_mib": 0.0
+    },
+    {
+      "chunks": 2,
+      "rois_per_chunk": 364,
+      "baseline_rss_mib": 294.34375,
+      "peak_rss_mib": 754.703125,
+      "peak_above_baseline_mib": 460.359375,
+      "output_sha256": "7ff0403a83cb146fccf0f6ae4d0e5b563ce205aa23ae8debecaaa8c688039abc",
+      "output_sum": -3683.712126246799,
+      "output_shape": [
+        728,
+        256,
+        7,
+        7
+      ],
+      "transient_crop_mib_one_level": 69.671875,
+      "accumulated_pooled_mib_one_level": 34.8359375,
+      "predicted_peak_mib_one_level": 104.5078125,
+      "predicted_peak_mib_four_levels_projected": 418.03125,
+      "matches_unchunked_exactly": true,
+      "peak_saving_mib": -17.59375
+    },
+    {
+      "chunks": 4,
+      "rois_per_chunk": 182,
+      "baseline_rss_mib": 295.421875,
+      "peak_rss_mib": 747.671875,
+      "peak_above_baseline_mib": 452.25,
+      "output_sha256": "7ff0403a83cb146fccf0f6ae4d0e5b563ce205aa23ae8debecaaa8c688039abc",
+      "output_sum": -3683.712126246799,
+      "output_shape": [
+        728,
+        256,
+        7,
+        7
+      ],
+      "transient_crop_mib_one_level": 34.8359375,
+      "accumulated_pooled_mib_one_level": 34.8359375,
+      "predicted_peak_mib_one_level": 69.671875,
+      "predicted_peak_mib_four_levels_projected": 278.6875,
+      "matches_unchunked_exactly": true,
+      "peak_saving_mib": -9.484375
+    },
+    {
+      "chunks": 8,
+      "rois_per_chunk": 91,
+      "baseline_rss_mib": 293.234375,
+      "peak_rss_mib": 740.828125,
+      "peak_above_baseline_mib": 447.59375,
+      "output_sha256": "7ff0403a83cb146fccf0f6ae4d0e5b563ce205aa23ae8debecaaa8c688039abc",
+      "output_sum": -3683.712126246799,
+      "output_shape": [
+        728,
+        256,
+        7,
+        7
+      ],
+      "transient_crop_mib_one_level": 17.41796875,
+      "accumulated_pooled_mib_one_level": 34.8359375,
+      "predicted_peak_mib_one_level": 52.25390625,
+      "predicted_peak_mib_four_levels_projected": 209.015625,
+      "matches_unchunked_exactly": true,
+      "peak_saving_mib": -4.828125
+    },
+    {
+      "chunks": 14,
+      "rois_per_chunk": 52,
+      "baseline_rss_mib": 293.046875,
+      "peak_rss_mib": 736.53125,
+      "peak_above_baseline_mib": 443.484375,
+      "output_sha256": "7ff0403a83cb146fccf0f6ae4d0e5b563ce205aa23ae8debecaaa8c688039abc",
+      "output_sum": -3683.712126246799,
+      "output_shape": [
+        728,
+        256,
+        7,
+        7
+      ],
+      "transient_crop_mib_one_level": 9.953125,
+      "accumulated_pooled_mib_one_level": 34.8359375,
+      "predicted_peak_mib_one_level": 44.7890625,
+      "predicted_peak_mib_four_levels_projected": 179.15625,
+      "matches_unchunked_exactly": true,
+      "peak_saving_mib": -0.71875
+    }
+  ]
+}

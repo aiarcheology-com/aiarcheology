@@ -282,3 +282,118 @@ def detections_with_substitutions(detector: torch.nn.Module, image_chw: np.ndarr
         "substituted_pooling": substitute_pooling,
         "float16_interfaces": half,
     }
+
+
+def compute_unit_report(detector: torch.nn.Module, image_chw: np.ndarray) -> dict:
+    """The trunk's elementwise error across compute units and weight precisions.
+
+    M3a's headline elementwise figure (5.98e-05) is CPU-only float32, which is a controlled semantic
+    baseline and **not** what the app runs: `DeepDriver.swift:67` leaves `MLModelConfiguration` at its
+    default, so Core ML may place work on the GPU or the Neural Engine and may use float16 there. The
+    only evidence for what that costs was a yolov8n proxy.
+
+    This measures it for the real converted trunk, separating the two variables rather than
+    conflating them: compute unit (CPU-only against the default `ALL`) and weight precision (float32
+    against float16 weights, via NN-spec's own quantisation). A difference that appears only under
+    `ALL` is placement; one that appears under float16 weights on CPU is precision.
+
+    The honest limit: this Mac's Neural Engine is not an iPhone's, and Core ML may decline to use it
+    for a graph like this. The `used_ane_or_gpu` field cannot be read directly from the framework
+    here, so a result matching CPU-only exactly is ambiguous — it may mean placement did not change
+    the numbers, or that placement did not change. M3b's device run is what settles it.
+    """
+    from coremltools.models.neural_network.quantization_utils import quantize_weights
+
+    with torch.no_grad():
+        images, _ = detector.transform([torch.from_numpy(image_chw)])
+        tensors = images.tensors
+        reference = _Trunk(detector)(tensors)
+
+    base = convert(_Trunk(detector), (tensors,), ["image"])
+    payload = {"image": tensors.numpy()}
+
+    variants = {}
+    for label, spec_source, units in (
+        ("cpu_float32", base, CPU_ONLY),
+        ("all_float32", base, ct.ComputeUnit.ALL),
+        ("cpu_float16_weights", None, CPU_ONLY),
+        ("all_float16_weights", None, ct.ComputeUnit.ALL),
+    ):
+        try:
+            if spec_source is None:
+                quantised = quantize_weights(base, nbits=16)
+                model = ct.models.MLModel(quantised.get_spec(), compute_units=units)
+            else:
+                model = ct.models.MLModel(spec_source.get_spec(), compute_units=units)
+            produced = _ordered_outputs(model, payload, reference)
+            worst = max(float(np.abs(got - want.numpy()).max())
+                        for want, got in zip(reference, produced))
+            mean = float(np.mean([float(np.abs(got - want.numpy()).mean())
+                                  for want, got in zip(reference, produced)]))
+            variants[label] = {"max_abs_diff": worst, "mean_abs_diff": mean,
+                               "compute_units": str(units)}
+        except Exception as exc:  # noqa: BLE001 - a variant that cannot run IS the result
+            variants[label] = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+
+    return {
+        "variants": variants,
+        "caveat": "a Mac Neural Engine is not an iPhone's, and Core ML may decline to place this "
+                  "graph off the CPU at all; an exact match with CPU-only is therefore ambiguous "
+                  "between 'placement changed nothing' and 'placement did not change'",
+    }
+
+
+def detection_level_compute_units(detector: torch.nn.Module, image_chw: np.ndarray,
+                                  wheel_threshold: float = 0.2) -> dict:
+    """What the compute unit costs in **detections**, which is the only currency that ships.
+
+    The elementwise number under `ComputeUnit.ALL` is alarming on its own, but elementwise upstream of
+    a top-K was never the right instrument for a decision — a large tensor difference that does not
+    reorder anything changes no output. So the trunk is run under each compute unit and its features
+    are fed through the rest of the real detector, ending where ADAF ends: after the wheel's
+    class-agnostic NMS at 0.2.
+    """
+    from criterion_transform import _match_detections
+
+    with torch.no_grad():
+        images, _ = detector.transform([torch.from_numpy(image_chw)])
+        reference_features = _Trunk(detector)(images.tensors)
+    converted = convert(_Trunk(detector), (images.tensors,), ["image"])
+
+    def detections(features) -> tuple:
+        mapping = {key: value for key, value in zip(FPN_LEVEL_KEYS, features)}
+        with torch.no_grad():
+            proposals, _ = detector.rpn(images, mapping)
+            pooled = detector.roi_heads.box_roi_pool(mapping, [proposals[0]], images.image_sizes)
+            head = detector.roi_heads.box_head(pooled)
+            class_logits, box_regression = detector.roi_heads.box_predictor(head)
+            boxes, scores, labels = detector.roi_heads.postprocess_detections(
+                class_logits, box_regression, [proposals[0]], images.image_sizes
+            )
+            out = detector.transform.postprocess(
+                [{"boxes": boxes[0], "scores": scores[0], "labels": labels[0]}],
+                images.image_sizes, [image_chw.shape[-2:]],
+            )[0]
+            keep = torchvision.ops.nms(out["boxes"], out["scores"], wheel_threshold)
+        return out["boxes"][keep].numpy(), out["scores"][keep].numpy()
+
+    base_boxes, base_scores = detections(reference_features)
+    rows = {}
+    for label, units in (("cpu_only", CPU_ONLY), ("all", ct.ComputeUnit.ALL)):
+        try:
+            model = ct.models.MLModel(converted.get_spec(), compute_units=units)
+            produced = _ordered_outputs(model, {"image": images.tensors.numpy()}, reference_features)
+            boxes, scores = detections([torch.from_numpy(array) for array in produced])
+            rows[label] = {
+                "detections": int(len(boxes)),
+                **_match_detections(base_boxes, base_scores, boxes, scores, iou_threshold=0.5),
+            }
+        except Exception as exc:  # noqa: BLE001
+            rows[label] = {"error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+
+    return {
+        "torch_baseline_detections": int(len(base_boxes)),
+        "by_compute_unit": rows,
+        "caveat": "one image, and this Mac's Neural Engine is not an iPhone's; the direction is "
+                  "evidence, the magnitude is not transferable to device",
+    }

@@ -275,11 +275,20 @@ latency, thermal behaviour and real peak memory under iOS are all unmeasured.
 
 1. **Resize outside the graph.** No NN-spec mode reproduces torchvision's, and pinning `min_size` to
    the tile moves boxes 19.4 px. Hand Core ML an already-resized buffer.
-2. **Budget for K ≈ 723, and treat ROI memory as the binding constraint.** That is the measured
-   requirement across the four models, costing 553.5 MiB of 14×14 crops (138.4 MiB pooled) because a
-   static graph crops at every level. This is the item most likely to force a design change — chunking
-   the ROI stage into a fixed number of fixed-size batches is the obvious lever and **this spike did
-   not measure it**.
+2. **Budget for K ≈ 723, and treat ROI memory as the binding constraint — and do not expect
+   in-graph chunking to relieve it.** K = 723 is the measured requirement across the four models,
+   costing 553.5 MiB of 14×14 crops (138.4 MiB pooled) because a static graph crops at every level.
+   Chunking was then measured rather than left as "the obvious lever"
+   (`criterion_chunking.py`, one configuration per process because `ru_maxrss` is a high-water
+   mark): the chunked stage — `slice_static` → `crop_resize` → pool per batch, `concat_nd` — is
+   **expressible and bit-identical** to the unchunked stage at 2, 4, 8 and 14 chunks, **and saves
+   nothing**: peak RSS above baseline is 443 MiB unchunked and 443–460 MiB at every chunk count,
+   against a shape-arithmetic prediction of 174 → 45 MiB. Peak does scale with total ROI count
+   (239 → 443 MiB from K=91 to K=728), so the measurement is sensitive — Core ML simply appears to
+   allocate every layer's output for the model's lifetime rather than freeing a chunk's crop before
+   the next runs. The surviving lever is **host-side chunking**: emit the ROI stage as its own small
+   model and invoke it N times per image from Swift, which caps the peak at one batch. That is a
+   pipeline-design decision for M3b, and it is **unmeasured**.
 3. **RoIAlign as `CropResize` at 2× followed by a 2×2 average pool**, `ROI_ALIGN_MODE`, corner
    coordinates, no pre-compensation. A bare 7×7 crop is a different operator — 0.4026 relative
    residual against 0.0436 — and it is what a sampling-ratio-blind metric will pick if allowed to.
@@ -304,9 +313,27 @@ latency, thermal behaviour and real peak memory under iOS are all unmeasured.
   | box x, width | `0.8269857`, `0.1728516` | `0.8271651`, `0.1732262` |
 
   Same five objects found, but confidences quantise to an fp16 grid and box edges move by up to
-  **~0.3 px** on an 810 px image. That is within this spike's 1 px budget and it is a *different
-  model's* number — the mechanism is demonstrated, the magnitude for a converted Faster R-CNN is not.
-  **M3b must retire this on real hardware with the real detector.**
+  **~0.3 px** on an 810 px image.
+
+  It has since been measured on **this model's converted trunk** too (`trunk.compute_unit_report`,
+  `trunk.detection_level_compute_units`), and the direction holds with real numbers attached:
+
+  | trunk variant | elementwise max | detections | max box shift | max score delta |
+  |-|-|-|-|-|
+  | CPU-only, float32 (the published baseline) | 5.98e-05 | 2 | 0.00015 px | 1.4e-06 |
+  | **`ALL` (the app's default)** | **2.66e-02** | 2, 0 unmatched | **0.0858 px** | **0.00266** |
+  | CPU-only, fp16 weights | 1.29e-02 | — | — | — |
+  | `ALL`, fp16 weights | 2.66e-02 (identical to `ALL` fp32) | — | — | — |
+
+  Three things follow. The elementwise budget (1e-4) **holds only CPU-only** — under the app's
+  default it is breached by 265×. The detection-level budgets still hold, but the margins collapse
+  from ~170× / ~700× to **12× on box position and 3.8× on score**, on n=1 image. And `ALL` produces
+  identical output with fp32 and fp16 weights, meaning the GPU/ANE computes in half precision
+  regardless of stored weight precision — so fp16 *storage* is free, and the precision that matters
+  is decided by placement, not by the file. A Mac's Neural Engine is not an iPhone's, and Core ML
+  may partition differently on device: **M3b must still re-measure this on real hardware**, but the
+  question is now "does the 3.8× score margin survive the device", not "does compute placement
+  matter at all".
 - **The Vision layer is now partly measured.** `VisionReplay/` drives a model exactly as the app does
   — `VNCoreMLModel` + `VNCoreMLRequest` with `.scaleFit` (`Detector.swift:76`) and an optional region
   of interest — and reproduces the ROI-relative-coordinate trap that `TileLayout.remap` corrects. It

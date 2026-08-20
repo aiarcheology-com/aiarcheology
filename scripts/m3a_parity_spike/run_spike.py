@@ -25,6 +25,7 @@ import numpy as np
 import torch
 from PIL import Image
 
+import criterion_chunking
 import criterion_levels
 import criterion_nms
 import criterion_roi_align
@@ -309,6 +310,31 @@ def main() -> int:
         composition[model_id] = {"baseline_detections": int(len(base["boxes"])), "runs": rows}
         print(f"    {model_id}: baseline {len(base['boxes'])} detections")
     _write("composition", composition)
+
+    print("S10a compute units: what the app's default costs")
+    compute = {
+        "elementwise": trunk.compute_unit_report(reference.model, chw),
+        "detection_level": trunk.detection_level_compute_units(reference.model, chw),
+    }
+    _write("compute_units", compute)
+    for label, row in compute["elementwise"]["variants"].items():
+        if "error" not in row:
+            print(f"    elementwise {label:22s} max {row['max_abs_diff']:.3e}")
+    for label, row in compute["detection_level"]["by_compute_unit"].items():
+        if "error" not in row:
+            print(f"    detections  {label:22s} {row['detections']} dets, "
+                  f"shift {row['max_box_shift_px']}, score delta {row['max_score_delta']}")
+
+    print("S10b ROI-stage chunking: expressible, and does it save memory?")
+    chunking = criterion_chunking.measure()
+    _write("criterion_chunking", chunking)
+    for row in chunking["results"]:
+        if "error" in row:
+            print(f"    chunks={row['chunks']}: ERROR")
+            continue
+        print(f"    chunks={row['chunks']:<3} exact={row.get('matches_unchunked_exactly', 'ref')} "
+              f"peak above baseline {row['peak_above_baseline_mib']:.0f} MiB "
+              f"(predicted {row['predicted_peak_mib_one_level']:.0f})")
 
     print("S10 cost")
     parameters = sum(t.numel() for t in reference.model.state_dict().values())
