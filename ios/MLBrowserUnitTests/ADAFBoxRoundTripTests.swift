@@ -82,9 +82,12 @@ final class ADAFBoxRoundTripTests: XCTestCase {
 
 	// MARK: - One-way anchor: the geometry the network sees
 
-	/// Compared against the integers in the committed torchvision oracle, not against anything this
-	/// codebase computed. A third of this page is 300×500, which `GeneralizedRCNNTransform` resizes to
-	/// 800×1333 — `max_size` binding, not `min_size` — on a 800×1344 canvas.
+	/// A third of this page is 300×500, which `GeneralizedRCNNTransform` resizes to 799×1333 —
+	/// `max_size` binding, not `min_size` — on an 800×1344 canvas.
+	///
+	/// The committed oracle carries no 300×500 case, so these integers are hand-derived below and were
+	/// checked directly against torchvision rather than against this codebase. The oracle's own cases
+	/// pin the same rule in `NativeModelImageSizingTests`.
 	func testGeometry_forARealTileMatchesTorchvisionsOwnIntegers() throws {
 		let region = NativeModelNormalizedRect(x: 0, y: 0, width: 1.0 / 3.0, height: 1.0 / 3.0)
 		let plan = try XCTUnwrap(NativeModelImageSizing.cropPlan(frame: frame, region: region))

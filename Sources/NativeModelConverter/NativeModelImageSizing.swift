@@ -148,15 +148,25 @@ public enum NativeModelImageSizing {
 		let shortSide = Double(min(source.width, source.height))
 		let longSide = Double(max(source.width, source.height))
 		let scale = min(Double(minSize) / shortSide, Double(maxSize) / longSide)
-		let width = Int((Double(source.width) * scale).rounded(.down))
-		let height = Int((Double(source.height) * scale).rounded(.down))
-		guard width > 0, height > 0 else { return nil }
+		// `Int(_: Double)` is a runtime trap for a non-finite or out-of-range value, so the products are
+		// range-checked before the conversion rather than after it. This is a trust boundary: the region
+		// sizes arrive from whatever wires this up.
+		let scaledWidth = (Double(source.width) * scale).rounded(.down)
+		let scaledHeight = (Double(source.height) * scale).rounded(.down)
+		guard scaledWidth.isFinite, scaledHeight.isFinite,
+			  scaledWidth >= 1, scaledHeight >= 1,
+			  scaledWidth <= Double(Int.max / 2), scaledHeight <= Double(Int.max / 2)
+		else { return nil }
+		let width = Int(scaledWidth)
+		let height = Int(scaledHeight)
 		return NativeModelImageSize(width: width, height: height)
 	}
 
 	/// Each dimension rounded up to a multiple of `strideDivisible`, per `batch_images`.
 	public static func canvasSize(for resized: NativeModelImageSize, strideDivisible: Int) -> NativeModelImageSize? {
-		guard resized.isEmpty == false, strideDivisible > 0 else { return nil }
+		guard resized.isEmpty == false, strideDivisible > 0,
+			  resized.width <= Int.max - strideDivisible, resized.height <= Int.max - strideDivisible
+		else { return nil }
 		func rounded(_ value: Int) -> Int {
 			(value + strideDivisible - 1) / strideDivisible * strideDivisible
 		}
@@ -220,7 +230,14 @@ public enum NativeModelImageSizing {
 		frame: NativeModelImageSize,
 		region: NativeModelNormalizedRect
 	) -> CropPlan? {
-		guard frame.isEmpty == false else { return nil }
+		// Every component is checked before any arithmetic: `Int(_: Double)` traps on a non-finite or
+		// out-of-range value, and the clamp below cannot run before the conversion. `sourceBox` guards
+		// the same way; this was the one entry point that did not.
+		guard frame.isEmpty == false,
+			  region.x.isFinite, region.y.isFinite, region.width.isFinite, region.height.isFinite,
+			  region.width > 0, region.height > 0,
+			  region.x >= -1, region.y >= -1, region.x + region.width <= 2, region.y + region.height <= 2
+		else { return nil }
 		let width = Double(frame.width)
 		let height = Double(frame.height)
 		// Vision's origin is bottom-left; a raster crop's is top-left, so the far edge becomes the near
@@ -300,9 +317,16 @@ public enum NativeModelImageSizing {
 	}
 
 	private static func axisMapping(from sourceLength: Int, to targetLength: Int) -> [AxisTap] {
-		// ATen returns a scale of 0 for a single-element output, which lands the sample on index 0
-		// rather than dividing by a length of one.
-		let scale = targetLength > 1 ? Double(sourceLength) / Double(targetLength) : 0
+		// Always `input / output`, including when the output is a single pixel.
+		//
+		// ATen's `area_pixel_compute_scale` does have an `output_size > 1 ? … : 0` guard, but it sits
+		// **inside** the `align_corners` branch. Under `align_corners=false` — this component's whole
+		// contract — the scale is `input_size / output_size` at every output length, so a one-pixel
+		// axis samples the source *centre*, not its first pixel. Resizing `[10, 20, 30, 40]` to length
+		// one gives 25.0 under this rule and 10.0 under the other; torchvision gives 25.0.
+		//
+		// It is reachable: a 2×2000 region binds on `maxSize` and resizes to 1×1333.
+		let scale = Double(sourceLength) / Double(targetLength)
 		return (0..<targetLength).map { index in
 			// `area_pixel_compute_source_index`: clamped at zero for align_corners=false, which is why
 			// the first output pixel of an upscale reads the first source pixel exactly.
@@ -427,6 +451,10 @@ public enum NativeModelImageSizing {
 		preprocessing: NativeModelImagePreprocessing
 	) -> [Float]? {
 		guard channels > 0, channels == preprocessing.channelCount,
+			  // `NativeModelImagePreprocessing` has a public memberwise initialiser, so its scale and bias
+			  // arrays are not guaranteed to match the colour space's channel count.
+			  preprocessing.scale.count == channels, preprocessing.bias.count == channels,
+			  size.isEmpty == false,
 			  buffer.count == channels * size.width * size.height
 		else { return nil }
 		var output = buffer
@@ -456,7 +484,7 @@ public extension NativeModelImageSizing.Geometry {
 	/// The box is **clipped to the content rectangle** before un-scaling. A detection straddling the
 	/// pad boundary is a real thing a detector produces, and passing its padded part through would
 	/// place it outside the crop; leaving the clamp to `TileLayout.remap` would not catch it either,
-	/// since that clamps at the *page* edge (`DetectionTiling.swift:109`), which is somewhere else
+	/// since that clamps at the *page* edge (`DetectionTiling.swift:126-128`), which is somewhere else
 	/// entirely. Returns `nil` when nothing survives the clip.
 	func sourceBox(fromCanvasBox box: NativeModelNormalizedRect) -> NativeModelNormalizedRect? {
 		guard sourceSize.isEmpty == false, resizedSize.isEmpty == false, canvasSize.isEmpty == false,

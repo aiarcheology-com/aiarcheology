@@ -55,6 +55,18 @@ final class NativeModelImageSizingTests: XCTestCase {
 			let alignCornersTrueSamples: [Sample]
 		}
 
+		struct DegenerateAxisCase: Decodable {
+			let name: String
+			let channels: Int
+			let sourceHeight: Int
+			let sourceWidth: Int
+			let targetHeight: Int
+			let targetWidth: Int
+			let source: [Float]
+			let expected: [Float]
+		}
+
+		let degenerateAxisCases: [DegenerateAxisCase]
 		let transform: Transform
 		let absoluteToleranceNormalised: Float
 		let absoluteToleranceRaw: Float
@@ -327,6 +339,43 @@ final class NativeModelImageSizingTests: XCTestCase {
 		XCTAssertNil(NativeModelImageSizing.resizedSize(for: NativeModelImageSize(width: 8, height: 8), minSize: 0, maxSize: 1333))
 	}
 
+	/// A one-pixel output axis samples the source **centre**, not its first pixel.
+	///
+	/// This is the `align_corners` trap in its least visible form. ATen's scale rule does carry an
+	/// `output_size > 1 ? … : 0` guard, but it lives inside the `align_corners=True` branch; under the
+	/// convention this component implements the scale stays `input/output` at every output length. The
+	/// two answers differ by the whole span of the axis — 25.0 against 10.0 on `[10, 20, 30, 40]` — and
+	/// the wrong one produces a perfectly plausible image.
+	///
+	/// It is reachable from the real sizing rule: a 2×2000 region binds on `maxSize` and resizes to
+	/// 1×1333.
+	func testResample_samplesTheSourceCentreWhenAnAxisCollapsesToOnePixel() throws {
+		let oracle = try loadOracle()
+		XCTAssertFalse(oracle.degenerateAxisCases.isEmpty, "no degenerate-axis reference: this test would assert nothing")
+
+		for testCase in oracle.degenerateAxisCases {
+			let resized = try XCTUnwrap(
+				NativeModelImageSizing.resample(
+					testCase.source,
+					channels: testCase.channels,
+					from: NativeModelImageSize(width: testCase.sourceWidth, height: testCase.sourceHeight),
+					to: NativeModelImageSize(width: testCase.targetWidth, height: testCase.targetHeight)
+				),
+				"\(testCase.name): resample returned nil"
+			)
+			XCTAssertEqual(resized.count, testCase.expected.count, "\(testCase.name) element count")
+			for (index, expected) in testCase.expected.enumerated() {
+				XCTAssertEqual(resized[index], expected, accuracy: 1e-5, "\(testCase.name) at \(index)")
+			}
+		}
+
+		// And the sizing rule really does produce it, so the case above is not hypothetical.
+		let collapsed = try XCTUnwrap(
+			NativeModelImageSizing.resizedSize(for: NativeModelImageSize(width: 2, height: 2000), minSize: 800, maxSize: 1333)
+		)
+		XCTAssertEqual(collapsed.width, 1, "a 2×2000 region really does collapse an axis to one pixel")
+	}
+
 	/// A 1×1 source scales to 800×800, where every output pixel's source coordinate `0.5·a − 0.5` is
 	/// far below zero and must clamp to source pixel 0 rather than index out of bounds.
 	func testResample_clampsBelowTheLowEdgeOnTheDegenerateCase() throws {
@@ -509,6 +558,16 @@ final class NativeModelImageSizingTests: XCTestCase {
 
 		XCTAssertEqual(plan.effectiveRegion.width * 901, Double(plan.pixelRect.width), accuracy: 1e-9)
 		XCTAssertEqual(plan.effectiveRegion.x * 901, Double(plan.pixelRect.x), accuracy: 1e-9)
+		// The vertical pair matters more than the horizontal one and was the gap: `effectiveRegion` is
+		// consumed by `TileLayout.remap`, and a round trip that maps a box out and back through the SAME
+		// effective region cancels any error in it. Only a comparison against the pixel rectangle — which
+		// is itself pinned by a hand-computed literal — can catch a vertical shift.
+		XCTAssertEqual(plan.effectiveRegion.height * 1501, Double(plan.pixelRect.height), accuracy: 1e-9)
+		// Vision's y is measured from the bottom, so it is the crop's FAR raster edge that fixes it.
+		XCTAssertEqual(
+			plan.effectiveRegion.y * 1501, Double(1501 - (plan.pixelRect.y + plan.pixelRect.height)), accuracy: 1e-9,
+			"effectiveRegion.y must describe the same rows pixelRect does, measured from the page bottom"
+		)
 		XCTAssertNotEqual(
 			plan.effectiveRegion.width, ideal.width,
 			"901 is not divisible by three; the effective region must differ from the requested one"
@@ -519,5 +578,35 @@ final class NativeModelImageSizingTests: XCTestCase {
 		let frame = NativeModelImageSize(width: 100, height: 100)
 		let sliver = NativeModelNormalizedRect(x: 0.5, y: 0.5, width: 0.001, height: 0.001)
 		XCTAssertNil(NativeModelImageSizing.cropPlan(frame: frame, region: sliver), "a zero-pixel crop is not a crop")
+	}
+
+	/// `Int(_: Double)` is a runtime trap, not a nil — so a region carrying a non-finite or absurd
+	/// coordinate has to be refused before any conversion, and this test would crash rather than fail
+	/// if it were not.
+	func testCropPlan_rejectsRegionsThatWouldTrapTheConversion() {
+		let frame = NativeModelImageSize(width: 100, height: 100)
+		for region in [
+			NativeModelNormalizedRect(x: .nan, y: 0, width: 0.5, height: 0.5),
+			NativeModelNormalizedRect(x: 0, y: .infinity, width: 0.5, height: 0.5),
+			NativeModelNormalizedRect(x: 0, y: 0, width: .nan, height: 0.5),
+			NativeModelNormalizedRect(x: 1e300, y: 0, width: 0.5, height: 0.5),
+			NativeModelNormalizedRect(x: 0, y: 0, width: -0.5, height: 0.5)
+		] {
+			XCTAssertNil(NativeModelImageSizing.cropPlan(frame: frame, region: region), "\(region) must be refused")
+		}
+	}
+
+	/// The same boundary on the other public entry points.
+	func testPublicEntryPoints_refuseRatherThanTrapOnAbsurdInput() {
+		XCTAssertNil(NativeModelImageSizing.canvasSize(for: NativeModelImageSize(width: Int.max, height: 8), strideDivisible: 32))
+		XCTAssertNil(NativeModelImageSizing.resizedSize(for: NativeModelImageSize(width: 8, height: 8), minSize: Int.max, maxSize: Int.max))
+		// A preprocessing value whose arrays are shorter than its colour space's channel count.
+		let malformed = NativeModelImagePreprocessing(colorSpace: .rgb, scale: [], bias: [])
+		XCTAssertNil(
+			NativeModelImageSizing.normalized(
+				[1, 2, 3], channels: 3, size: NativeModelImageSize(width: 1, height: 1), preprocessing: malformed
+			),
+			"empty scale/bias arrays would index out of bounds"
+		)
 	}
 }

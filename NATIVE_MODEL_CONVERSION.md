@@ -720,10 +720,12 @@ figures, because one number would conflate pixel-format conversion with resampli
 all would be indistinguishable from a real result. Taken on the iOS 26.5 simulator with an sRGB
 source and a BGRA pixel format; no physical device is currently attachable (`xcrun devicectl list
 devices` reports the only physical entry as unavailable, and AIA-0675 records Xcode 26.6 failing to
-personalise an iOS 27-generation developer disk image for a device on iOS 26.5.2). **So the app
-pre-sizes and Vision passes the buffer through untouched.** The alternative — bypassing
+personalise an iOS 27-generation developer disk image for a device on iOS 26.5.2). **So the app can
+pre-size and Vision will pass the buffer through untouched**, and the alternative — bypassing
 `VNCoreMLRequest`'s scaling — is not needed, which matters because it would have collided with
-AIA-0675 criterion 9.
+AIA-0675 criterion 9. Nothing is wired yet: `Detector` is deliberately untouched by this slice and
+the component has no non-test call site, so this records a settled design question, not a shipped
+behaviour.
 
 **Normalisation stays in the graph.** `NativeModelImagePreprocessing.imageNetRGB` already performs
 exactly torchvision's arithmetic and the emitter already exercises it. The reason is not preference
@@ -766,9 +768,12 @@ square probe and is deliberately not reused here.
 Measured against that oracle over 825 samples: the resampler is within **9.34e-05** of torchvision in
 `[0, 1]` units; the whole forward pass against torchvision's padded tensor within **4.08e-04**
 normalised. Through an 8-bit buffer, which is what production can deliver, **0.00197** in `[0, 1]` —
-at least a factor of 66 better than the 0.1296 an in-graph resize leaves, and a conservative
-comparison, since 0.00197 is essentially the 8-bit half-step floor (`0.5/255 = 0.00196`) and so does
-not depend on the test pattern, while the 0.1296 was measured on a real figure at an integer scale.
+**65.8×** better than the 0.1296 an in-graph resize leaves. Read that ratio as conservative rather
+than exact: 0.00197 is the worst sampled value on a pattern chosen for maximal high-frequency content
+and sits within 0.5 % of the 8-bit half-step (`0.5/255 = 0.00196`), which is a rounding *upper bound*
+and suggests the resample contributes almost nothing on top of quantisation — while the 0.1296 was
+measured on a real figure at an integer scale, i.e. not worst-cased the same way. Both figures come
+from sampled comparisons, not exhaustive ones.
 
 The oracle carries cases chosen to discriminate rather than to pass, including a **trap** (768×512
 scales both axes by exactly 1.5625, so a single-scalar implementation passes it) and an

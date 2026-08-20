@@ -286,6 +286,40 @@ def build_case(case: dict) -> dict:
     }
 
 
+def degenerate_axis_reference() -> list:
+    """Resizes that collapse an axis to a single pixel, straight from `F.interpolate`.
+
+    These exist because `align_corners=False` and `align_corners=True` disagree about what a one-pixel
+    output samples, and it is easy to implement the wrong one. ATen's `area_pixel_compute_scale` does
+    carry an `output_size > 1 ? ... : 0` guard, but it sits inside the `align_corners=True` branch;
+    under `align_corners=False` the scale stays `input/output`, so the single sample lands on the
+    source *centre*. Resizing [10, 20, 30, 40] to length one gives 25.0 that way and 10.0 the other.
+
+    A one-pixel axis is reachable from the real sizing rule, not just from a unit test: a 2x2000
+    region binds on max_size and resizes to 1x1333.
+    """
+    cases = []
+    for name, values, shape, target in [
+        ("row4to1", [10.0, 20.0, 30.0, 40.0], (1, 1, 4), (1, 1)),
+        ("square5to1", [float(v) for v in range(25)], (1, 5, 5), (1, 1)),
+        ("column6to1", [1.0, 2.0, 4.0, 8.0, 16.0, 32.0], (1, 6, 1), (1, 1)),
+        ("wide8to3", [float(v) for v in range(8)], (1, 1, 8), (1, 3)),
+    ]:
+        tensor = torch.tensor(values, dtype=torch.float32).reshape(1, *shape)
+        out = torch.nn.functional.interpolate(tensor, size=target, mode="bilinear", align_corners=False)
+        cases.append({
+            "name": name,
+            "channels": shape[0],
+            "sourceHeight": shape[1],
+            "sourceWidth": shape[2],
+            "targetHeight": target[0],
+            "targetWidth": target[1],
+            "source": [compact(v) for v in values],
+            "expected": [compact(v) for v in out.flatten().tolist()],
+        })
+    return cases
+
+
 def main() -> int:
     oracle = {
         "comment": (
@@ -331,6 +365,7 @@ def main() -> int:
         ),
         "transformBranch": {"training": False, "sizeDivisibleReadFromTransform": SIZE_DIVISIBLE},
         "cases": [build_case(case) for case in CASES],
+        "degenerateAxisCases": degenerate_axis_reference(),
     }
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)

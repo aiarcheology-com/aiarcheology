@@ -117,7 +117,7 @@ final class VisionScaleFitProbeTests: XCTestCase {
 	/// Renders the CIImage into a pixel buffer in the model's own constrained format and predicts
 	/// directly. Vision has to perform this same conversion, so whatever it costs is a floor under
 	/// (b) rather than part of the resampling answer.
-	private func conversionFloor(model: MLModel, image: UIImage, planar: [Float]) throws -> Float {
+	private func predictionOutput(model: MLModel, image: UIImage) throws -> [Float] {
 		let constraint = try XCTUnwrap(
 			model.modelDescription.inputDescriptionsByName["image"]?.imageConstraint,
 			"the probe must present an image input, or Vision would refuse it outright"
@@ -132,8 +132,7 @@ final class VisionScaleFitProbeTests: XCTestCase {
 		CIContext().render(ciImage, to: pixelBuffer)
 
 		let input = try MLDictionaryFeatureProvider(dictionary: ["image": MLFeatureValue(pixelBuffer: pixelBuffer)])
-		let output = try planarOutput(from: model.prediction(from: input))
-		return worstDifference(output, planar)
+		return try planarOutput(from: model.prediction(from: input))
 	}
 
 	// MARK: - (b) and (c) Vision
@@ -161,8 +160,15 @@ final class VisionScaleFitProbeTests: XCTestCase {
 		let model = try loadProbeModel()
 		let (image, planar) = try makeImage(side: Self.side)
 
-		let floor = try conversionFloor(model: model, image: image, planar: planar)
-		let visionMatched = worstDifference(try visionOutput(model: model, image: image), planar)
+		let predicted = try predictionOutput(model: model, image: image)
+		let visionOutputMatched = try visionOutput(model: model, image: image)
+		let floor = worstDifference(predicted, planar)
+		let visionMatched = worstDifference(visionOutputMatched, planar)
+		// The decisive comparison is Vision against the direct prediction **elementwise**. Subtracting
+		// two scalar maxima would not establish it: the two worst pixels can be different pixels with
+		// errors in opposite directions, so a floor of 50 and a Vision error of 50 would look like a
+		// difference of zero while Vision was in fact wrong by 50 everywhere.
+		let visionVersusPrediction = worstDifference(visionOutputMatched, predicted)
 
 		// The control. The same pattern one pixel larger forces `.scaleFit` to actually resample; if
 		// this does not diverge sharply from the matched-size figure, the probe is measuring nothing
@@ -178,8 +184,8 @@ final class VisionScaleFitProbeTests: XCTestCase {
 			  (a) conversion floor, CIContext render + MLModel.prediction : \(floor)
 			  (b) Vision .scaleFit at matched \(Self.side)×\(Self.side)      : \(visionMatched)
 			  (c) Vision .scaleFit at mismatched \(Self.mismatchedSide)×\(Self.mismatchedSide)   : \(visionMismatched)
-			  resampling attributable to Vision at matched size, (b) − (a) : \(visionMatched - floor)
-			  (values are raw 0…255 code units)
+			  Vision against the direct prediction, elementwise            : \(visionVersusPrediction)
+			  (values are raw 0…255 code units; the last line is the answer, the two above it are context)
 			"""
 		)
 
@@ -192,13 +198,15 @@ final class VisionScaleFitProbeTests: XCTestCase {
 			visionMatched, visionMismatched / 4,
 			"at matched size Vision must be dramatically closer to the source than when it resamples"
 		)
-		// The claim the design rests on: at matched size Vision adds nothing beyond the conversion
-		// every path pays. Half a code unit is the most a correct 8-bit round trip can cost.
+		// The claim the design rests on: at matched size Vision adds nothing beyond the conversion every
+		// path pays. Asserted elementwise against the direct prediction, so no cancellation between two
+		// unrelated maxima can make a real divergence look like zero.
 		XCTAssertLessThanOrEqual(
-			visionMatched - floor, 0.5,
+			visionVersusPrediction, 0.5,
 			"Vision resampled a matched-size input; pre-sizing app-side would not survive it, and the "
 				+ "fallback collides with AIA-0675 criterion 9"
 		)
+		XCTAssertLessThanOrEqual(floor, 0.5, "the conversion itself must not move a pixel either")
 	}
 
 	/// Kept separate from the geometry so the two findings cannot be confused. Core ML de-interleaves a
@@ -211,11 +219,15 @@ final class VisionScaleFitProbeTests: XCTestCase {
 		let plane = Self.side * Self.side
 		XCTAssertEqual(output.count, 3 * plane)
 
-		// Channel means are pairwise distinct for this pattern, so a swap moves them.
+		// Elementwise, not by channel mean. The means of this pattern are 126.81, 128.13 and 127.31 —
+		// within about one code unit of each other — so a mean comparison at any usable tolerance cannot
+		// see the red/blue swap it exists to catch. Individual pixels differ by far more.
 		for channel in 0..<3 {
-			let produced = output[(channel * plane)..<((channel + 1) * plane)].reduce(0, +) / Float(plane)
-			let expected = planar[(channel * plane)..<((channel + 1) * plane)].reduce(0, +) / Float(plane)
-			XCTAssertEqual(produced, expected, accuracy: 1, "channel \(channel) does not match the channel it was given")
+			let worst = zip(
+				output[(channel * plane)..<((channel + 1) * plane)],
+				planar[(channel * plane)..<((channel + 1) * plane)]
+			).reduce(Float(0)) { max($0, abs($1.0 - $1.1)) }
+			XCTAssertLessThanOrEqual(worst, 0.5, "channel \(channel) does not match the channel it was given")
 		}
 	}
 }
