@@ -983,7 +983,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		case .leakyReLU, .sigmoid, .exponential, .multiply, .reshape, .transpose, .sliceChannels, .softmaxChannel, .upsample2D,
 			.reshapeND, .transposeND, .sliceND, .splitND, .batchedMatrixMultiplicationND,
 			.floor, .naturalLogarithm, .greaterOrEqual, .minimumND, .maximumND, .subtract, .cropResize,
-			.topK, .gather:
+			.topK, .gather, .nonMaximumSuppression:
 			try detectionLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
@@ -1400,6 +1400,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		case .cropResize: try cropResizeLayer(for: operation)
 		case .topK: try topKLayer(for: operation)
 		case .gather: try gatherLayer(for: operation)
+		case .nonMaximumSuppression: try nonMaximumSuppressionLayer(for: operation)
 		default:
 			throw NativeModelCoreMLEmissionError.unsupportedOperation(
 				operation: operation.name,
@@ -1576,6 +1577,71 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			CoreMLProtobufEncoder.appendVarintField(1, value: UInt64(axis), to: &parameters)
 		}
 		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 930, parameters: parameters)
+	}
+
+	/// Greedy non-maximum suppression as a **layer inside the graph** (`NeuralNetworkLayer` field 1400) —
+	/// deliberately not the standalone NMS **model** `NativeModelDetectorPipeline` emits as its terminal
+	/// stage. Different operator, different message, different semantics: the model has flexible outputs
+	/// and a Vision-facing interface and can only be last, this one has fixed padded outputs and a
+	/// valid-count and can sit anywhere. The M3a spike measured both precisely because reporting one while
+	/// meaning the other is the easy mistake here.
+	///
+	/// Inputs are boxes then scores, and both must be rank 3 exactly: `[1, N, 4]` and `[1, N, classes]`.
+	/// Measured, not assumed — a rank-2 pair still writes a well-formed `.mlmodel`, which Core ML's own
+	/// compiler then refuses: "non_maximum_suppression_kernel: first two inputs must have rank 3"
+	/// (coremltools 9.0, the probe harness in `scripts/m3a_parity_spike/probes.py`).
+	///
+	/// **Box coordinates are mandatorily `[center-x, center-y, width, height]`.** Unlike `CropResize`,
+	/// whose `boxIndicesMode` chooses between corner conventions, this message has *no* coordinate-mode
+	/// field — verified by reading the whole descriptor, which has exactly the four fields written below.
+	/// Every other box operation in this file works in corners, so the conversion belongs immediately
+	/// before this layer; corners fed here suppress a different set and nothing reports an error.
+	///
+	/// `NonMaximumSuppressionLayerParams` field numbers verified against coremltools 9.0's
+	/// `NeuralNetwork_pb2.NonMaximumSuppressionLayerParams` descriptor: iouThreshold = 1 (float),
+	/// scoreThreshold = 2 (float), maxBoxes = 3 (uint64), perClassSuppression = 4 (bool).
+	///
+	/// Four outputs, all padded to `maxBoxes` — kept boxes, kept scores, kept source indices (padded with
+	/// −1), and `valid_count`. **`valid_count` lies at zero survivors**: with a score threshold above every
+	/// input score the layer reports 1, and slot 0 carries the highest-scoring box together with its real,
+	/// sub-threshold score (measured, coremltools 9.0). A graph that trusts it therefore grows one phantom
+	/// detection on every empty tile, which for this app is every page with no archaeology on it. The fix
+	/// is a mask on the returned scores, composed in the graph rather than hidden in this layer;
+	/// `NativeModelDetectionLayerTests` pins both the defect and the composition that cancels it.
+	private func nonMaximumSuppressionLayer(for operation: NativeModelOperation) throws -> Data {
+		guard operation.inputs.count == 2 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "nms requires exactly two inputs: the boxes and the scores"
+			)
+		}
+		guard operation.outputs.count == 4 else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "nms produces exactly four outputs: boxes, scores, source indices, then the valid count"
+			)
+		}
+		guard let iouThreshold = operation.attributes["iouThreshold"]?.floatingPointValue,
+			let scoreThreshold = operation.attributes["scoreThreshold"]?.floatingPointValue,
+			let maxBoxes = operation.attributes["maxBoxes"]?.integerValue, maxBoxes > 0
+		else {
+			throw NativeModelCoreMLEmissionError.invalidOperation(
+				operation: operation.name,
+				reason: "nms requires floating-point 'iouThreshold' and 'scoreThreshold' values and a positive 'maxBoxes'"
+			)
+		}
+		// Absent means class-agnostic suppression, which is what ADAF's single-class detectors need and
+		// what the reference pipeline does; the flag only becomes observable with more than one class.
+		let perClassSuppression = operation.attributes["perClassSuppression"]?.booleanValue ?? false
+		let parameters = CoreMLProtobufEncoder.message { parameters in
+			CoreMLProtobufEncoder.appendFloatField(1, value: Float(iouThreshold), to: &parameters)
+			CoreMLProtobufEncoder.appendFloatField(2, value: Float(scoreThreshold), to: &parameters)
+			CoreMLProtobufEncoder.appendVarintField(3, value: UInt64(maxBoxes), to: &parameters)
+			if perClassSuppression {
+				CoreMLProtobufEncoder.appendVarintField(4, value: 1, to: &parameters)
+			}
+		}
+		return layer(name: operation.name, inputs: operation.inputs, outputs: operation.outputs, parameterField: 1400, parameters: parameters)
 	}
 
 	/// `a - b`, Core ML's parameterless `SubtractBroadcastableLayerParams` (field 905). The classic

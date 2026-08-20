@@ -1035,6 +1035,281 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		)
 	}
 
+	// MARK: - Suppression
+
+	// The NMS *layer*, which is not the standalone NMS *model* `NativeModelDetectorPipeline` emits as its
+	// terminal stage. This one lives inside the graph with fixed padded outputs, so everything after it
+	// has to cope with the padding — and with the phantom the layer emits when nothing survives at all.
+
+	func testNonMaximumSuppression_suppressesTheOverlapAndPadsTheRemainingSlots() async throws {
+		// Fixture: `.venv-m3a` python (torch 2.8.0, torchvision 0.23.0, coremltools 9.0). The three boxes
+		// below are center-size; decoded to corners they are (0, 0, 60, 60), (5, 5, 55, 55) and
+		// (180, 180, 220, 220), where `torchvision.ops.nms(..., 0.5)` keeps [0, 2] — box 1 has IoU 0.6944
+		// with box 0 and loses on score.
+		//
+		// The first two are concentric on purpose, which is what makes this fixture decide the coordinate
+		// convention rather than merely exercise it: read as corners the same six numbers are a 20 × 20 rect
+		// nested in a 30 × 30 one, IoU 0.4444, and a corners-mode layer would keep all three and report a
+		// valid count of 3. Two is only reachable by reading them as center-size, which is the layer's
+		// mandatory and unparameterised convention.
+		let outputs = try await suppress(
+			boxes: [[30, 30, 60, 60], [30, 30, 50, 50], [200, 200, 40, 40]],
+			scores: [[0.9], [0.8], [0.7]],
+			iouThreshold: 0.5, scoreThreshold: 0, maxBoxes: 3
+		)
+		assertClose(try XCTUnwrap(outputs["valid_count"]), [2])
+		// Survivors come back in descending score order, and the trailing index slot is −1 rather than 0 —
+		// which is the only thing separating "no third box" from "the third box is input 0".
+		assertClose(try XCTUnwrap(outputs["kept_indices"]), [0, 2, -1])
+		assertClose(try XCTUnwrap(outputs["kept_scores"]), [0.9, 0.7, 0])
+		// Boxes come back in the coordinates they went in; the layer does not rewrite them.
+		assertClose(
+			try XCTUnwrap(outputs["kept_boxes"]),
+			[30, 30, 60, 60, 200, 200, 40, 40, 0, 0, 0, 0]
+		)
+	}
+
+	func testNonMaximumSuppression_appliesItsOwnIouThresholdAndNotTheDefault() async throws {
+		// The threshold decides the answer here rather than merely accompanying it. The two boxes overlap at
+		// IoU 0.2857 — decoded corners (0, 0, 60, 60) and (20, 20, 80, 80) — which is above 0.2 and below 0.5,
+		// so torchvision keeps [0, 1] at 0.5 and [0] at 0.2, and so does the layer. A threshold written to the
+		// wrong parameter field falls back to the proto3 default of 0.0, which suppresses on any overlap at
+		// all and collapses both cases onto the second. Fixture: same venv and probe harness.
+		let boxes: [[Float]] = [[30, 30, 60, 60], [50, 50, 60, 60]]
+		let scores: [[Float]] = [[0.9], [0.8]]
+		let lenient = try await suppress(
+			boxes: boxes, scores: scores, iouThreshold: 0.5, scoreThreshold: 0, maxBoxes: 2
+		)
+		assertClose(try XCTUnwrap(lenient["valid_count"]), [2])
+		assertClose(try XCTUnwrap(lenient["kept_indices"]), [0, 1])
+
+		let strict = try await suppress(
+			boxes: boxes, scores: scores, iouThreshold: 0.2, scoreThreshold: 0, maxBoxes: 2
+		)
+		assertClose(try XCTUnwrap(strict["valid_count"]), [1])
+		assertClose(try XCTUnwrap(strict["kept_indices"]), [0, -1])
+	}
+
+	func testNonMaximumSuppression_perClassKeepsWhatTheClassAgnosticPassSuppresses() async throws {
+		// `perClassSuppression` is the one parameter with no effect on a single-class detector, so it needs a
+		// two-class fixture to be observable at all. The boxes overlap at IoU 0.6944; box 0 wins class 0 and
+		// box 1 wins class 1. Class-agnostic suppression compares the two across classes and keeps one box;
+		// per-class suppression runs the groups separately and keeps both. A dropped field 4 collapses the
+		// second case onto the first. Fixture: same venv and probe harness as above.
+		let boxes: [[Float]] = [[30, 30, 60, 60], [30, 30, 50, 50]]
+		let scores: [[Float]] = [[0.9, 0.3], [0.2, 0.85]]
+		let agnostic = try await suppress(
+			boxes: boxes, scores: scores, iouThreshold: 0.5, scoreThreshold: 0, maxBoxes: 2
+		)
+		assertClose(try XCTUnwrap(agnostic["valid_count"]), [1])
+		assertClose(try XCTUnwrap(agnostic["kept_indices"]), [0, -1])
+
+		let perClass = try await suppress(
+			boxes: boxes, scores: scores, iouThreshold: 0.5, scoreThreshold: 0, maxBoxes: 2,
+			perClassSuppression: true
+		)
+		assertClose(try XCTUnwrap(perClass["valid_count"]), [2])
+		assertClose(try XCTUnwrap(perClass["kept_indices"]), [0, 1])
+		// The whole score vector rides along per slot, not just the winning class.
+		assertClose(try XCTUnwrap(perClass["kept_scores"]), [0.9, 0.3, 0.2, 0.85])
+	}
+
+	func testNonMaximumSuppression_reportsOneValidBoxWhenNothingClearsTheThreshold() async throws {
+		// The defect, pinned rather than described. Every score here is below the layer's own
+		// `scoreThreshold`, so the honest answer is zero survivors — and the layer answers 1, filling slot 0
+		// with the highest-scoring box and its real, sub-threshold score. Measured on coremltools 9.0 / this
+		// runtime; if a future Core ML release fixes it, this test fails and says so, which is the point of
+		// asserting the wrong answer on purpose.
+		//
+		// Index 1, not 0: the phantom is the top-scoring input box, not whatever happened to be first.
+		let outputs = try await suppress(
+			boxes: Self.spreadOutBoxes, scores: [[0.10], [0.40], [0.25]],
+			iouThreshold: 0.5, scoreThreshold: 0.5, maxBoxes: 3
+		)
+		assertClose(try XCTUnwrap(outputs["valid_count"]), [1])
+		assertClose(try XCTUnwrap(outputs["kept_indices"]), [1, -1, -1])
+		assertClose(try XCTUnwrap(outputs["kept_scores"]), [0.4, 0, 0])
+		assertClose(
+			try XCTUnwrap(outputs["kept_boxes"]),
+			[110, 110, 20, 20, 0, 0, 0, 0, 0, 0, 0, 0]
+		)
+	}
+
+	func testNonMaximumSuppressionMaskedByScore_leavesAnEmptyTileEmpty() async throws {
+		// The acceptance criterion. Same inputs as the test above — nothing clears 0.5 — but the suppression
+		// is followed by the score mask, and the composed result is entirely zero: the phantom has been
+		// turned into padding, which is what the rest of the graph already knows how to ignore.
+		//
+		// Delete `survivors`, `masked_scores` and `masked_boxes` from the graph below and this test fails on
+		// the first blob, because the raw layer hands back score 0.4 and box [110, 110, 20, 20]. That is the
+		// mutation this test exists to fail.
+		//
+		// Placement in the assembled ADAF detector is M3c's obligation, not this test's: nothing here can
+		// check that the real graph masks in the right place, because the real graph does not exist yet.
+		// What this pins is that the primitives compose into the fix, so M3c cannot forget it silently and
+		// still be green.
+		let outputs = try await suppressAndMask(
+			boxes: Self.spreadOutBoxes, scores: [[0.10], [0.40], [0.25]], scoreThreshold: 0.5
+		)
+		assertClose(try XCTUnwrap(outputs["masked_scores"]), [0, 0, 0])
+		assertClose(try XCTUnwrap(outputs["masked_boxes"]), [Float](repeating: 0, count: 12))
+	}
+
+	func testNonMaximumSuppressionMaskedByScore_leavesRealDetectionsAlone() async throws {
+		// The other half of the mutation argument: a mask that zeroed everything would pass the test above.
+		// Two boxes clear 0.5 here and both come through untouched, so the mask is selecting rather than
+		// erasing. Box 0 scores 0.10 and is dropped by the layer's own threshold before the mask is reached,
+		// which is why only two slots are populated at all.
+		let outputs = try await suppressAndMask(
+			boxes: Self.spreadOutBoxes, scores: [[0.10], [0.90], [0.70]], scoreThreshold: 0.5
+		)
+		assertClose(try XCTUnwrap(outputs["masked_scores"]), [0.9, 0.7, 0])
+		assertClose(
+			try XCTUnwrap(outputs["masked_boxes"]),
+			[110, 110, 20, 20, 210, 210, 20, 20, 0, 0, 0, 0]
+		)
+	}
+
+	/// Three center-size boxes far enough apart that suppression never fires, so a test using them is
+	/// measuring the score path and nothing else.
+	private static let spreadOutBoxes: [[Float]] = [[10, 10, 20, 20], [110, 110, 20, 20], [210, 210, 20, 20]]
+
+	/// One `nms` over its two runtime inputs, returning all four outputs by name. Both inputs are rank 3
+	/// exactly — `[1, N, 4]` and `[1, N, classes]` — because the kernel refuses anything else, and the
+	/// outputs are padded to `maxBoxes` with the valid count arriving as a rank-1 blob of one element.
+	private func suppress(
+		boxes: [[Float]],
+		scores: [[Float]],
+		iouThreshold: Double,
+		scoreThreshold: Double,
+		maxBoxes: Int,
+		perClassSuppression: Bool = false
+	) async throws -> [String: [Float]] {
+		let classCount = try XCTUnwrap(scores.first).count
+		let shapes = Self.suppressionShapes(boxCount: boxes.count, classCount: classCount, maxBoxes: maxBoxes)
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			producer: NativeModelGraphProducer(name: "test", version: "1"),
+			inputs: [
+				NativeModelTensor(name: "boxes", dataType: .float32, shape: shapes.boxInput),
+				NativeModelTensor(name: "scores", dataType: .float32, shape: shapes.scoreInput)
+			],
+			weights: [],
+			operations: [Self.suppression(
+				iouThreshold: iouThreshold, scoreThreshold: scoreThreshold,
+				maxBoxes: maxBoxes, perClassSuppression: perClassSuppression, shapes: shapes
+			)],
+			outputs: Self.suppressionOutputNames
+		)
+		return try await predict(
+			graph: graph, weights: Data(),
+			inputs: [
+				"boxes": (shapes.boxInput, boxes.flatMap { $0 }),
+				"scores": (shapes.scoreInput, scores.flatMap { $0 })
+			],
+			outputShapes: shapes.outputs
+		)
+	}
+
+	/// The composed form: the same suppression, then the mask that cancels the phantom. `survivors` is a
+	/// 1.0/0.0 blob over the returned scores, which zeroes the phantom and the padding by the same rule —
+	/// a padded slot scores 0 and fails the same comparison. The box mask is that blob concatenated to the
+	/// coordinate width, because classic multiply (231) is per-position and does not broadcast.
+	private func suppressAndMask(
+		boxes: [[Float]],
+		scores: [[Float]],
+		scoreThreshold: Double
+	) async throws -> [String: [Float]] {
+		let maxBoxes = boxes.count
+		let shapes = Self.suppressionShapes(boxCount: boxes.count, classCount: 1, maxBoxes: maxBoxes)
+		let survivorShape = shapes.outputs["kept_scores"] ?? []
+		let boxShape = shapes.outputs["kept_boxes"] ?? []
+		let graph = NativeModelGraph(
+			formatVersion: NativeModelGraph.exactNDFormatVersion,
+			producer: NativeModelGraphProducer(name: "test", version: "1"),
+			inputs: [
+				NativeModelTensor(name: "boxes", dataType: .float32, shape: shapes.boxInput),
+				NativeModelTensor(name: "scores", dataType: .float32, shape: shapes.scoreInput)
+			],
+			weights: [],
+			operations: [
+				Self.suppression(
+					iouThreshold: 0.5, scoreThreshold: scoreThreshold,
+					maxBoxes: maxBoxes, perClassSuppression: false, shapes: shapes
+				),
+				NativeModelOperation(
+					name: "survivors", kind: .greaterOrEqual, inputs: ["kept_scores"],
+					outputs: [NativeModelTensor(name: "survivors", dataType: .float32, shape: survivorShape)],
+					attributes: ["threshold": .floatingPoint(scoreThreshold)]
+				),
+				NativeModelOperation(
+					name: "masked_scores", kind: .multiply, inputs: ["kept_scores", "survivors"],
+					outputs: [NativeModelTensor(name: "masked_scores", dataType: .float32, shape: survivorShape)],
+					attributes: [:]
+				),
+				NativeModelOperation(
+					name: "box_mask", kind: .concatenateND,
+					inputs: [String](repeating: "survivors", count: 4),
+					outputs: [NativeModelTensor(name: "box_mask", dataType: .float32, shape: boxShape)],
+					attributes: ["axis": .integer(2)]
+				),
+				NativeModelOperation(
+					name: "masked_boxes", kind: .multiply, inputs: ["kept_boxes", "box_mask"],
+					outputs: [NativeModelTensor(name: "masked_boxes", dataType: .float32, shape: boxShape)],
+					attributes: [:]
+				)
+			],
+			outputs: ["masked_scores", "masked_boxes"]
+		)
+		return try await predict(
+			graph: graph, weights: Data(),
+			inputs: [
+				"boxes": (shapes.boxInput, boxes.flatMap { $0 }),
+				"scores": (shapes.scoreInput, scores.flatMap { $0 })
+			],
+			outputShapes: ["masked_scores": survivorShape, "masked_boxes": boxShape]
+		)
+	}
+
+	/// Output order is the layer's, not a choice: boxes, scores, source indices, then the valid count.
+	private static let suppressionOutputNames = ["kept_boxes", "kept_scores", "kept_indices", "valid_count"]
+
+	private static func suppressionShapes(
+		boxCount: Int, classCount: Int, maxBoxes: Int
+	) -> (boxInput: [Int], scoreInput: [Int], outputs: [String: [Int]]) {
+		(
+			boxInput: [1, boxCount, 4],
+			scoreInput: [1, boxCount, classCount],
+			outputs: [
+				"kept_boxes": [1, maxBoxes, 4],
+				"kept_scores": [1, maxBoxes, classCount],
+				"kept_indices": [1, maxBoxes],
+				"valid_count": [1]
+			]
+		)
+	}
+
+	private static func suppression(
+		iouThreshold: Double,
+		scoreThreshold: Double,
+		maxBoxes: Int,
+		perClassSuppression: Bool,
+		shapes: (boxInput: [Int], scoreInput: [Int], outputs: [String: [Int]])
+	) -> NativeModelOperation {
+		NativeModelOperation(
+			name: "suppressed", kind: .nonMaximumSuppression, inputs: ["boxes", "scores"],
+			outputs: suppressionOutputNames.map {
+				NativeModelTensor(name: $0, dataType: .float32, shape: shapes.outputs[$0] ?? [])
+			},
+			attributes: [
+				"iouThreshold": .floatingPoint(iouThreshold),
+				"scoreThreshold": .floatingPoint(scoreThreshold),
+				"maxBoxes": .integer(maxBoxes),
+				"perClassSuppression": .boolean(perClassSuppression)
+			]
+		)
+	}
+
 	// MARK: - Rejection
 
 	func testLeakyReLU_withoutAlphaIsRejected() {
@@ -1192,6 +1467,66 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2
 		)
 	}
+
+	func testNonMaximumSuppression_underTheLegacyFormatIsRejected() {
+		assertLegacyFormatRejects(kind: .nonMaximumSuppression, attributes: Self.nmsAttributes, inputCount: 2)
+	}
+
+	func testNonMaximumSuppression_withThreeOutputsIsRejected() {
+		// The generalised output-arity table's four-output row. Three outputs is not "the valid count is
+		// optional": Core ML requires exactly four, and a graph that declares three would be refused by the
+		// Core ML compiler with a message naming a layer type number instead of the operation.
+		assertEmissionFails(
+			kind: .nonMaximumSuppression, attributes: Self.nmsAttributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2, outputCount: 3
+		)
+	}
+
+	func testNonMaximumSuppression_withoutAnIouThresholdIsRejected() {
+		var attributes = Self.nmsAttributes
+		attributes["iouThreshold"] = nil
+		assertEmissionFails(
+			kind: .nonMaximumSuppression, attributes: attributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2, outputCount: 4
+		)
+	}
+
+	func testNonMaximumSuppression_withoutAScoreThresholdIsRejected() {
+		// Missing rather than zero. A dropped threshold would fall back to the proto3 default of 0.0, which
+		// admits every box and is exactly the silent-nonsense case a required attribute prevents.
+		var attributes = Self.nmsAttributes
+		attributes["scoreThreshold"] = nil
+		assertEmissionFails(
+			kind: .nonMaximumSuppression, attributes: attributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2, outputCount: 4
+		)
+	}
+
+	func testNonMaximumSuppression_withoutAPositiveMaxBoxesIsRejected() {
+		// `maxBoxes` is the fixed extent of all four outputs, so zero declares blobs with no slots at all.
+		var attributes = Self.nmsAttributes
+		attributes["maxBoxes"] = .integer(0)
+		assertEmissionFails(
+			kind: .nonMaximumSuppression, attributes: attributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion, inputCount: 2, outputCount: 4
+		)
+	}
+
+	func testNonMaximumSuppression_withOnlyBoxesIsRejected() {
+		// Suppression with no scores has nothing to rank by. Core ML's layer also accepts three more inputs
+		// carrying the thresholds and `maxBoxes` at runtime; the graph contract takes none of them, so the
+		// arity is exact in both directions.
+		assertEmissionFails(
+			kind: .nonMaximumSuppression, attributes: Self.nmsAttributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion, outputCount: 4
+		)
+	}
+
+	private static let nmsAttributes: [String: NativeModelAttribute] = [
+		"iouThreshold": .floatingPoint(0.5),
+		"scoreThreshold": .floatingPoint(0.05),
+		"maxBoxes": .integer(2)
+	]
 
 	private static let topKAttributes: [String: NativeModelAttribute] = [
 		"k": .integer(2),
