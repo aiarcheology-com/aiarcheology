@@ -153,9 +153,14 @@ public enum PyTorchWeightExtractor {
 			throw PyTorchWeightExtractionError.checkpointDescribesAnotherArchive
 		}
 
-		guard FileManager.default.createFile(atPath: destinationURL.path, contents: nil),
-			let handle = try? FileHandle(forWritingTo: destinationURL)
-		else {
+		guard FileManager.default.createFile(atPath: destinationURL.path, contents: nil) else {
+			throw PyTorchWeightExtractionError.destinationNotWritable(destinationURL.lastPathComponent)
+		}
+		guard let handle = try? FileHandle(forWritingTo: destinationURL) else {
+			// The file exists by now and this method promises to leave none behind on a throw. Folding
+			// this into the guard above leaves an empty `weights.bin` on disk, which a caller that
+			// treats the file's presence as success would read as an empty model.
+			try? FileManager.default.removeItem(at: destinationURL)
 			throw PyTorchWeightExtractionError.destinationNotWritable(destinationURL.lastPathComponent)
 		}
 
