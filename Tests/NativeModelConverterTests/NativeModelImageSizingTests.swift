@@ -23,11 +23,9 @@ final class NativeModelImageSizingTests: XCTestCase {
 
 	private struct Oracle: Decodable {
 		struct Sample: Decodable {
-			// swiftlint:disable identifier_name
 			let c: Int
 			let y: Int
 			let x: Int
-			// swiftlint:enable identifier_name
 			let value: Float
 		}
 

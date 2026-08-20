@@ -319,7 +319,15 @@ def main() -> int:
         "absoluteToleranceRaw": 2e-4,
         "toleranceReason": (
             "float32 sampling-coordinate granularity in torch's own kernel, amplified by the mod-256 "
-            "discontinuities in the input pattern; measured worst 9.3e-5 on downscale2000x1500"
+            "discontinuities in the input pattern (adjacent pixels can differ by a full unit in [0,1], "
+            "so coordinate noise passes straight into the value). Measured worst 9.3e-5 on "
+            "downscale2000x1500. The ulp of a float32 coordinate near 1076 is 1.22e-4, so a half-ulp "
+            "is 6.1e-5 and two or three chained roundings in scale*(d+0.5)-0.5 account for the 1.5x. "
+            "The Swift formula itself was checked separately by resampling a linear ramp, where the "
+            "output IS the sampling coordinate: against a float64 tensor (which forces torch's own "
+            "opmath to double) the two agreed to 5.6e-17, so the formula is exact and only the "
+            "precision differs. NOTE: this residual grows with coordinate magnitude, so the tolerance "
+            "is validated for canvases up to 1344; a larger canvas requires re-measurement."
         ),
         "transformBranch": {"training": False, "sizeDivisibleReadFromTransform": SIZE_DIVISIBLE},
         "cases": [build_case(case) for case in CASES],

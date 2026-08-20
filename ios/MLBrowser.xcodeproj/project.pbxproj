@@ -81,6 +81,9 @@
 		8A4F0E222F110A0400ABCDEF /* VisitTrail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E212F110A0400ABCDEF /* VisitTrail.swift */; };
 		8A4F0E242F110A0400ABCDEF /* VisitTrailRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E232F110A0400ABCDEF /* VisitTrailRecorderTests.swift */; };
 		8A4F0E262F110A0500ABCDEF /* DetectionTiling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E252F110A0500ABCDEF /* DetectionTiling.swift */; };
+		D68006800000000000000002 /* VisionScaleFitProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D68006800000000000000001 /* VisionScaleFitProbeTests.swift */; };
+		D68006800000000000000004 /* ADAFBoxRoundTripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D68006800000000000000003 /* ADAFBoxRoundTripTests.swift */; };
+		D68006800000000000000006 /* VisionScaleFitProbe.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = D68006800000000000000005 /* VisionScaleFitProbe.mlmodel */; };
 		8A4F0E282F110A0500ABCDEF /* DetectionTilingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E272F110A0500ABCDEF /* DetectionTilingTests.swift */; };
 		8A4F0E362F110A0600ABCDEF /* Finding+CoreDataClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E302F110A0600ABCDEF /* Finding+CoreDataClass.swift */; };
 		8A4F0E372F110A0600ABCDEF /* Finding+CoreDataProperties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A4F0E312F110A0600ABCDEF /* Finding+CoreDataProperties.swift */; };
@@ -477,6 +480,9 @@
 		8A4F0E212F110A0400ABCDEF /* VisitTrail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitTrail.swift; sourceTree = "<group>"; };
 		8A4F0E232F110A0400ABCDEF /* VisitTrailRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisitTrailRecorderTests.swift; sourceTree = "<group>"; };
 		8A4F0E252F110A0500ABCDEF /* DetectionTiling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionTiling.swift; sourceTree = "<group>"; };
+		D68006800000000000000001 /* VisionScaleFitProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionScaleFitProbeTests.swift; sourceTree = "<group>"; };
+		D68006800000000000000003 /* ADAFBoxRoundTripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ADAFBoxRoundTripTests.swift; sourceTree = "<group>"; };
+		D68006800000000000000005 /* VisionScaleFitProbe.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; path = VisionScaleFitProbe.mlmodel; sourceTree = "<group>"; };
 		8A4F0E272F110A0500ABCDEF /* DetectionTilingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionTilingTests.swift; sourceTree = "<group>"; };
 		8A4F0E302F110A0600ABCDEF /* Finding+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Finding+CoreDataClass.swift"; sourceTree = "<group>"; };
 		8A4F0E312F110A0600ABCDEF /* Finding+CoreDataProperties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Finding+CoreDataProperties.swift"; sourceTree = "<group>"; };
@@ -1284,6 +1290,8 @@
 				94D79C8B2EE37B0D0027C9FA /* FileManagerExtensionsTests.swift */,
 				8A4F0E1B2F110A0300ABCDEF /* BrowserStateTests.swift */,
 				8A4F0E482F110A0600ABCDEF /* FindingExporterTests.swift */,
+				D68006800000000000000001 /* VisionScaleFitProbeTests.swift */,
+				D68006800000000000000003 /* ADAFBoxRoundTripTests.swift */,
 				8A4F0E272F110A0500ABCDEF /* DetectionTilingTests.swift */,
 				8A4F0E3D2F110A0600ABCDEF /* FindingsTests.swift */,
 				94929E7A2ED63ADE001A4C63 /* GalleryModelTests.swift */,
@@ -1485,6 +1493,7 @@
 			children = (
 				94E018910000000000000003 /* terrain_iphone.png */,
 				94E018910000000000000005 /* terrain_ipad.png */,
+				D68006800000000000000005 /* VisionScaleFitProbe.mlmodel */,
 			);
 			path = Fixtures;
 			sourceTree = "<group>";
@@ -2140,6 +2149,9 @@
 				94929E7E2ED63ADE001A4C63 /* SnapStateTests.swift in Sources */,
 				8A4F0E1C2F110A0300ABCDEF /* BrowserStateTests.swift in Sources */,
 				8A4F0E492F110A0600ABCDEF /* FindingExporterTests.swift in Sources */,
+				D68006800000000000000006 /* VisionScaleFitProbe.mlmodel in Sources */,
+				D68006800000000000000002 /* VisionScaleFitProbeTests.swift in Sources */,
+				D68006800000000000000004 /* ADAFBoxRoundTripTests.swift in Sources */,
 				8A4F0E282F110A0500ABCDEF /* DetectionTilingTests.swift in Sources */,
 				8A4F0E3E2F110A0600ABCDEF /* FindingsTests.swift in Sources */,
 				8A4F0E242F110A0400ABCDEF /* VisitTrailRecorderTests.swift in Sources */,
