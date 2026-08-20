@@ -33,8 +33,12 @@ Three things are worth saying plainly about that population:
 - **A rank cannot exceed the proposals that exist.** `rpn_post_nms_top_n` is 1000, so 1000 is the
   ceiling for both the observed ranks and any K derived from them. A tail that reaches the ceiling is
   not a large K, it is the finding that no cut is safe.
-- **Attribution is by score identity** (`criterion_topk.rank_margin`), so a score collision would
-  mis-attribute a rank. Collisions are counted and reported rather than assumed away.
+- **Attribution is by score identity** (`criterion_topk.rank_margin`), so a score collision
+  mis-attributes a rank: the earliest proposal sharing the score is credited, which is a tie-break
+  and not an observation. Collisions are counted, flagged per observation, and — this is the part a
+  count alone hides — checked against the maximum itself, because the maximum is the only number
+  this file produces. When the maximum rests on a tie-break, K is the low end of a range and every
+  summary here says so.
 """
 
 from __future__ import annotations
@@ -119,6 +123,8 @@ def rank_margin_with_scores(model, image_chw: np.ndarray) -> dict:
 
     ranks: list = []
     kept: list = []
+    collided: list = []
+    latest: list = []
     ambiguous = 0
     kept_scores = scores[0].numpy()
     foreground = probabilities[:, 1:].max(dim=1).values.numpy()
@@ -126,19 +132,35 @@ def rank_margin_with_scores(model, image_chw: np.ndarray) -> dict:
     for score in kept_scores:
         matches = np.nonzero(np.isclose(foreground, score, rtol=1e-5, atol=1e-7))[0]
         if matches.size:
+            # `matches[0]` is a tie-break, not an observation: when several proposals share a score
+            # the earliest of them is credited, which biases every ambiguous position *low*. The
+            # choice is kept (changing it would change the metric criterion 2 defined), but it is now
+            # recorded alongside `matches[-1]`, the same detection's other end, so a reader can see
+            # that an ambiguous maximum is the bottom of a range and not a measurement.
             ranks.append(int(matches[0]))
+            latest.append(int(matches[-1]))
             kept.append(float(score))
+            collided.append(bool(matches.size > 1))
             ambiguous += int(matches.size > 1)
 
     order = np.argsort(ranks) if ranks else []
+    worst = max(ranks) if ranks else None
     return {
         "proposals": int(proposal_count),
         "detections": int(len(kept_scores)),
         "contributing_proposal_positions": [ranks[i] for i in order],
         "contributing_scores": [kept[i] for i in order],
-        "worst_contributing_position": max(ranks) if ranks else None,
+        "contributing_attribution_ambiguous": [collided[i] for i in order],
+        "worst_contributing_position": worst,
         "safe_k": (max(ranks) + 1) if ranks else None,
         "ambiguous_attributions": ambiguous,
+        # True when the run's own maximum is one of the tie-broken positions — the case in which the
+        # number this file exists to produce is not exact.
+        "worst_position_is_ambiguous": bool(
+            worst is not None and any(flag for rank, flag in zip(ranks, collided) if rank == worst)),
+        # The same maximum with every tie broken the other way. Never lower than
+        # `worst_contributing_position`, and the two together are the range the true maximum lies in.
+        "worst_contributing_position_latest_match": max(latest) if latest else None,
     }
 
 
@@ -194,10 +216,12 @@ def _stratum(observations: list, cut: float) -> dict:
     Strict `>` matches `roi_heads.py:711` and ADAF's own vectorisation cut, both of which are strict;
     a `>=` here would quietly admit a detection neither of them keeps.
     """
-    ranks = sorted(rank for rank, score in observations if score > cut)
+    surviving = sorted((rank, ambiguous) for rank, score, ambiguous in observations if score > cut)
+    ranks = [rank for rank, _ in surviving]
     if not ranks:
         return {"score_cut": cut, "detections": 0, "max_rank": None, "k": None,
-                "detections_at_or_above_m3a_k": 0}
+                "detections_at_or_above_m3a_k": 0, "ambiguous_attributions": 0,
+                "max_rank_attribution_ambiguous": False}
     return {
         "score_cut": cut,
         "detections": len(ranks),
@@ -206,6 +230,11 @@ def _stratum(observations: list, cut: float) -> dict:
         "percentiles": percentiles(ranks),
         "histogram": histogram(ranks),
         "detections_at_or_above_m3a_k": int(sum(rank >= M3A_K for rank in ranks)),
+        # Carried into every stratum, because a K quoted from one of these rows is quoted just as
+        # readily as the headline one and deserves the same warning.
+        "ambiguous_attributions": int(sum(ambiguous for _, ambiguous in surviving)),
+        "max_rank_attribution_ambiguous": bool(
+            any(ambiguous for rank, ambiguous in surviving if rank == ranks[-1])),
     }
 
 
@@ -241,10 +270,18 @@ def reproduce_native(oracles: dict) -> dict:
             "figure": name,
             "measured": measured,
             "published": expected,
+            # The **whole** position vector, not its length and its maximum. Two harnesses can agree
+            # on how many detections there were and how far out the worst one came from while
+            # disagreeing about every position between — a proposal list reordered in the middle
+            # would pass a count-and-max check and still mean the widened numbers describe a
+            # different RPN. `worst_contributing_position` is a function of the vector, so comparing
+            # it separately adds nothing. `.get`, because a published record written before this
+            # field existed must read as a mismatch and hold the run UNMEASURED, not as agreement.
             "matches_published": bool(
                 expected is not None
                 and expected["detections"] == measured["detections"]
-                and expected["worst_contributing_position"] == measured["worst_contributing_position"]
+                and expected.get("contributing_proposal_positions")
+                == measured["contributing_proposal_positions"]
             ),
             "variant_agrees_with_criterion_topk": bool(
                 variant["contributing_proposal_positions"]
@@ -277,14 +314,23 @@ def measure() -> dict:
                         "detections": margin["detections"],
                         "contributing_proposal_positions": margin["contributing_proposal_positions"],
                         "contributing_scores": margin["contributing_scores"],
+                        "contributing_attribution_ambiguous":
+                            margin["contributing_attribution_ambiguous"],
                         "worst_contributing_position": margin["worst_contributing_position"],
                         "ambiguous_attributions": margin["ambiguous_attributions"],
+                        "worst_position_is_ambiguous": margin["worst_position_is_ambiguous"],
+                        "worst_contributing_position_latest_match":
+                            margin["worst_contributing_position_latest_match"],
                     })
 
-    observations = [(rank, score) for run in runs
-                    for rank, score in zip(run["contributing_proposal_positions"],
-                                           run["contributing_scores"])]
-    ranks = [rank for rank, _ in observations]
+    # Ambiguity travels with the observation it belongs to, not as a separate count bolted on at the
+    # end: the question the summary has to answer is not "were there collisions" but "is *this*
+    # number one of them", and only a per-observation flag can answer it.
+    observations = [(rank, score, ambiguous) for run in runs
+                    for rank, score, ambiguous in zip(run["contributing_proposal_positions"],
+                                                      run["contributing_scores"],
+                                                      run["contributing_attribution_ambiguous"])]
+    ranks = [rank for rank, _, _ in observations]
     worst_per_run = [run["worst_contributing_position"] for run in runs
                      if run["worst_contributing_position"] is not None]
     ceiling = max((run["proposals"] for run in runs), default=0)
@@ -319,6 +365,16 @@ def measure() -> dict:
             "detections_at_or_above_m3a_k": int(sum(rank >= M3A_K for rank in ranks)),
             "detections_above_16": int(sum(rank >= 16 for rank in ranks)),
             "ambiguous_attributions": int(sum(run["ambiguous_attributions"] for run in runs)),
+            "runs_with_ambiguous_attributions": int(
+                sum(1 for run in runs if run["ambiguous_attributions"])),
+            # The one field that decides whether `max_rank` may be quoted as a measurement. It is
+            # computed rather than assumed because "there was a collision somewhere" and "the number
+            # in the headline is a collision" are different findings with different consequences.
+            "max_rank_attribution_ambiguous": bool(ranks) and any(
+                ambiguous for rank, _, ambiguous in observations if rank == max(ranks)),
+            "max_rank_if_collisions_broken_late": max(
+                (run["worst_contributing_position_latest_match"] for run in runs
+                 if run["worst_contributing_position_latest_match"] is not None), default=None),
             "all_ranks_sorted": sorted(int(rank) for rank in ranks),
             "by_score_cut": {str(cut): _stratum(observations, cut) for cut in SCORE_CUTS},
         },
@@ -327,6 +383,41 @@ def measure() -> dict:
     }
     report["estimate"] = _estimate(report)
     return report
+
+
+def _attribution_caveat(distribution: dict) -> str:
+    """The one sentence that stops K being quoted as an exact measurement.
+
+    Attribution is by score identity, and on a collision the earliest proposal sharing the score is
+    credited (`rank_margin_with_scores`). That is a tie-break, not an observation, and in this corpus
+    it is not a harmless one: the collisions are rare, but the maximum can be one of them, and the
+    maximum is the entire number this file produces. A summary that reports K and mentions collisions
+    only as a count somewhere else lets a reader carry "K = 989" into a design document as though the
+    989 had been observed.
+
+    Which way the doubt runs matters and is stated: `matches[0]` biases every ambiguous position
+    *low*, so the true maximum is at least the reported one. That is why this changes nothing about
+    the recommendation — the conservative reading freezes K at the proposal ceiling, and a maximum
+    that can only move up cannot argue for a smaller K. It changes only what may be written down.
+    """
+    if not distribution["ambiguous_attributions"]:
+        return ("Every attribution was unambiguous (no score collisions), so the maximum is an "
+                "observation rather than a tie-break.")
+    shared = (f"{distribution['ambiguous_attributions']} of "
+              f"{distribution['detections']} attributions were ambiguous — the detection's score "
+              f"matched more than one proposal, and the earliest was credited")
+    if not distribution["max_rank_attribution_ambiguous"]:
+        return (f"{shared}. None of them is the maximum, so K rests on an unambiguous position; the "
+                f"ambiguity affects positions inside the distribution, not its edge.")
+    late = distribution.get("max_rank_if_collisions_broken_late")
+    return (f"{shared}, and one of them IS the maximum. K is therefore not an exact measurement: it "
+            f"is the low end of a range, because crediting the earliest proposal biases an ambiguous "
+            f"position downwards"
+            + (f" (breaking every collision the other way puts the worst position at {late})."
+               if late is not None else ".")
+            + " The conservative conclusion is unaffected and still holds — a maximum that can only "
+              "move further out cannot justify a smaller K, and freezing K at the proposal ceiling "
+              "covers it either way — but the exact figure must not be cited as measured.")
 
 
 def _estimate(report: dict) -> dict:
@@ -367,6 +458,7 @@ def _estimate(report: dict) -> dict:
         stratum = (f" No detection cleared the {vectorised['score_cut']} vectorisation cut, so the "
                    f"widened set says nothing about the K a user-visible detection needs.")
 
+    caveat = _attribution_caveat(distribution)
     return {
         "k": int(widened_k),
         "rule": "max(contributing proposal position) + 1, as criterion_topk.rank_margin defines safe_k",
@@ -375,6 +467,10 @@ def _estimate(report: dict) -> dict:
         "second_largest_rank": int(second) if second is not None else None,
         "p99_rank": p99,
         "k_above_vectorisation_cut": vectorised["k"],
+        # Beside `k`, not buried in the prose, so anything that reads this record programmatically
+        # cannot pick up the number without also being handed the reason it is not exact.
+        "k_is_exact": not distribution["max_rank_attribution_ambiguous"],
+        "attribution_caveat": caveat,
         "reasoning": (
             f"{distribution['detections']} detections over {report['corpus']['runs']} tile x model "
             f"runs. The 99th percentile of contributing ranks is {p99:.0f} and the second largest is "
@@ -386,6 +482,7 @@ def _estimate(report: dict) -> dict:
                if widened_k >= ceiling - 0.05 * ceiling else
                f", against {M3A_K} from 14 detections.")
             + stratum
+            + " " + caveat
         ),
     }
 
@@ -416,14 +513,19 @@ def evaluate(report: dict) -> Verdict:
                        f"this file set as ten times M3a's 14; K = {estimate['k']} from them is the "
                        f"same kind of estimate it was meant to replace")
 
+    # The verdict is the line that gets quoted, so the ambiguity rides on it rather than living in a
+    # field further down the JSON that nobody reading the summary opens.
+    caveat = estimate["attribution_caveat"]
+
     if estimate["k"] <= M3A_K:
         return Verdict("K re-estimate", "PASS",
                        f"{distribution['detections']} detections, max rank "
-                       f"{distribution['max_rank']}; K = {estimate['k']} <= M3a's {M3A_K}")
+                       f"{distribution['max_rank']}; K = {estimate['k']} <= M3a's {M3A_K}. {caveat}")
     return Verdict("K re-estimate", "FAIL",
                    f"{distribution['detections']} detections, max rank {distribution['max_rank']}: "
                    f"K = {estimate['k']} exceeds M3a's {M3A_K}, and "
-                   f"{distribution['detections_at_or_above_m3a_k']} detection(s) would be dropped by it")
+                   f"{distribution['detections_at_or_above_m3a_k']} detection(s) would be dropped by "
+                   f"it. {caveat}")
 
 
 def render(report: dict) -> str:
@@ -454,7 +556,10 @@ def render(report: dict) -> str:
         + f", max={distribution['max_rank']}",
         f"  {distribution['detections_above_16']} of {distribution['detections']} came from rank 16 "
         f"or beyond; {distribution['detections_at_or_above_m3a_k']} from rank {M3A_K} or beyond",
-        f"  ambiguous attributions: {distribution['ambiguous_attributions']}",
+        f"  ambiguous attributions: {distribution['ambiguous_attributions']} over "
+        f"{distribution['runs_with_ambiguous_attributions']} run(s); the maximum itself is "
+        + ("AMBIGUOUS — K below is the low end of a range, not a measurement"
+           if distribution["max_rank_attribution_ambiguous"] else "unambiguous"),
         "",
         "the same ranks, read at each score cut:",
     ]
@@ -466,7 +571,11 @@ def render(report: dict) -> str:
         )
     lines += [
         "",
-        f"K = {report['estimate']['k']} ({report['estimate']['rule']})",
+        f"K = {report['estimate']['k']}"
+        # `.get` with an exact default: the no-detections estimate has no K to qualify, and a
+        # KeyError here would take out the whole summary over a corpus that produced nothing.
+        + ("" if report["estimate"].get("k_is_exact", True) else " (NOT EXACT — see the caveat below)")
+        + f" ({report['estimate']['rule']})",
         f"  {report['estimate']['reasoning']}",
     ]
     return "\n".join(lines)

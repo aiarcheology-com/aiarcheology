@@ -201,6 +201,9 @@
     "detections_at_or_above_m3a_k": 51,
     "detections_above_16": 527,
     "ambiguous_attributions": 1,
+    "runs_with_ambiguous_attributions": 1,
+    "max_rank_attribution_ambiguous": false,
+    "max_rank_if_collisions_broken_late": 988,
     "all_ranks_sorted": [
       0,
       0,
@@ -1136,7 +1139,9 @@
           "256-511": 95,
           "512-1023": 117
         },
-        "detections_at_or_above_m3a_k": 51
+        "detections_at_or_above_m3a_k": 51,
+        "ambiguous_attributions": 1,
+        "max_rank_attribution_ambiguous": false
       },
       "0.5": {
         "score_cut": 0.5,
@@ -1158,7 +1163,9 @@
           "256-511": 6,
           "512-1023": 7
         },
-        "detections_at_or_above_m3a_k": 5
+        "detections_at_or_above_m3a_k": 5,
+        "ambiguous_attributions": 0,
+        "max_rank_attribution_ambiguous": false
       }
     }
   },
@@ -1187,8 +1194,18 @@
         0.1023324728012085,
         0.11159350723028183
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 568,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 568
     },
     {
       "figure": "barrows.jpg",
@@ -1206,8 +1223,14 @@
         0.978752851486206,
         0.854003369808197
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 1,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 1
     },
     {
       "figure": "barrows.jpg",
@@ -1231,8 +1254,17 @@
         0.08670049160718918,
         0.0960448607802391
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 419,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 419
     },
     {
       "figure": "barrows.jpg",
@@ -1252,8 +1284,15 @@
         0.9604429602622986,
         0.2970949709415436
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 5,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 5
     },
     {
       "figure": "barrows.jpg",
@@ -1275,8 +1314,16 @@
         0.9659016132354736,
         0.05492048338055611
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 219,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 219
     },
     {
       "figure": "barrows.jpg",
@@ -1302,8 +1349,18 @@
         0.07067996263504028,
         0.07631167024374008
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 953,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 953
     },
     {
       "figure": "barrows.jpg",
@@ -1327,8 +1384,17 @@
         0.16267406940460205,
         0.06768473237752914
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 394,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 394
     },
     {
       "figure": "barrows.jpg",
@@ -1348,8 +1414,15 @@
         0.9263562560081482,
         0.1134122982621193
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 705,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 705
     },
     {
       "figure": "barrows.jpg",
@@ -1369,8 +1442,15 @@
         0.9629277586936951,
         0.9377750754356384
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 3,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 3
     },
     {
       "figure": "barrows.jpg",
@@ -1394,8 +1474,17 @@
         0.05835207551717758,
         0.0843466967344284
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 685,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 685
     },
     {
       "figure": "barrows.jpg",
@@ -1417,8 +1506,16 @@
         0.9695465564727783,
         0.08219175040721893
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 507,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 507
     },
     {
       "figure": "barrows.jpg",
@@ -1446,8 +1543,19 @@
         0.060391657054424286,
         0.06902256608009338
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 700,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 700
     },
     {
       "figure": "barrows.jpg",
@@ -1475,8 +1583,19 @@
         0.054995760321617126,
         0.063458152115345
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 744,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 744
     },
     {
       "figure": "barrows.jpg",
@@ -1496,8 +1615,15 @@
         0.9398525357246399,
         0.05205750837922096
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 316,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 316
     },
     {
       "figure": "barrows.jpg",
@@ -1523,8 +1649,18 @@
         0.05266523361206055,
         0.1102622002363205
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 315,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 315
     },
     {
       "figure": "barrows.jpg",
@@ -1552,8 +1688,19 @@
         0.15126964449882507,
         0.3448116183280945
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 826,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 826
     },
     {
       "figure": "barrows.jpg",
@@ -1577,8 +1724,17 @@
         0.15066251158714294,
         0.05525705963373184
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 381,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 381
     },
     {
       "figure": "barrows.jpg",
@@ -1602,8 +1758,17 @@
         0.058649979531764984,
         0.10295449197292328
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 695,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 695
     },
     {
       "figure": "barrows.jpg",
@@ -1623,8 +1788,15 @@
         0.050551965832710266,
         0.056722287088632584
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 272,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 272
     },
     {
       "figure": "barrows.jpg",
@@ -1648,8 +1820,17 @@
         0.11484366655349731,
         0.09159985184669495
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 60,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 60
     },
     {
       "figure": "barrows.jpg",
@@ -1667,8 +1848,14 @@
         0.9776651859283447,
         0.44548532366752625
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 315,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 315
     },
     {
       "figure": "barrows.jpg",
@@ -1688,8 +1875,15 @@
         0.05762341246008873,
         0.07002578675746918
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 64,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 64
     },
     {
       "figure": "barrows.jpg",
@@ -1711,8 +1905,16 @@
         0.9116864800453186,
         0.9641375541687012
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 821,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 821
     },
     {
       "figure": "barrows.jpg",
@@ -1736,8 +1938,17 @@
         0.34553244709968567,
         0.057014867663383484
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 570,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 570
     },
     {
       "figure": "barrows.jpg",
@@ -1759,8 +1970,16 @@
         0.14427094161510468,
         0.06736479699611664
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 326,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 326
     },
     {
       "figure": "barrows.jpg",
@@ -1782,8 +2001,16 @@
         0.06121205911040306,
         0.05884261429309845
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 307,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 307
     },
     {
       "figure": "barrows.jpg",
@@ -1807,8 +2034,17 @@
         0.1447615772485733,
         0.19905181229114532
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 280,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 280
     },
     {
       "figure": "barrows.jpg",
@@ -1828,8 +2064,15 @@
         0.0929502472281456,
         0.2003374546766281
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 978,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 978
     },
     {
       "figure": "barrows.jpg",
@@ -1853,8 +2096,17 @@
         0.8576943874359131,
         0.06365934014320374
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 918,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 918
     },
     {
       "figure": "barrows.jpg",
@@ -1882,8 +2134,19 @@
         0.2255537211894989,
         0.05087112635374069
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 641,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 641
     },
     {
       "figure": "barrows.jpg",
@@ -1905,8 +2168,16 @@
         0.22109723091125488,
         0.06685271114110947
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 207,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 207
     },
     {
       "figure": "barrows.jpg",
@@ -1928,8 +2199,16 @@
         0.4253588914871216,
         0.056554265320301056
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 311,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 311
     },
     {
       "figure": "barrows.jpg",
@@ -1953,8 +2232,17 @@
         0.17308686673641205,
         0.12654586136341095
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 525,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 525
     },
     {
       "figure": "barrows.jpg",
@@ -1974,8 +2262,15 @@
         0.15572834014892578,
         0.3810403048992157
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 470,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 470
     },
     {
       "figure": "barrows.jpg",
@@ -1999,8 +2294,17 @@
         0.8747327327728271,
         0.263241708278656
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 920,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 920
     },
     {
       "figure": "barrows.jpg",
@@ -2028,8 +2332,19 @@
         0.11687466502189636,
         0.2626909613609314
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 962,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 962
     },
     {
       "figure": "barrows.jpg",
@@ -2047,8 +2362,14 @@
         0.11448459327220917,
         0.10827117413282394
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 930,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 930
     },
     {
       "figure": "barrows.jpg",
@@ -2066,8 +2387,14 @@
         0.31790152192115784,
         0.07862020283937454
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 647,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 647
     },
     {
       "figure": "barrows.jpg",
@@ -2087,8 +2414,15 @@
         0.07555131614208221,
         0.10184694081544876
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 302,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 302
     },
     {
       "figure": "barrows.jpg",
@@ -2104,8 +2438,13 @@
       "contributing_scores": [
         0.12155905365943909
       ],
+      "contributing_attribution_ambiguous": [
+        false
+      ],
       "worst_contributing_position": 92,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 92
     },
     {
       "figure": "barrows.jpg",
@@ -2117,8 +2456,11 @@
       "detections": 0,
       "contributing_proposal_positions": [],
       "contributing_scores": [],
+      "contributing_attribution_ambiguous": [],
       "worst_contributing_position": null,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": null
     },
     {
       "figure": "barrows.jpg",
@@ -2130,8 +2472,11 @@
       "detections": 0,
       "contributing_proposal_positions": [],
       "contributing_scores": [],
+      "contributing_attribution_ambiguous": [],
       "worst_contributing_position": null,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": null
     },
     {
       "figure": "barrows.jpg",
@@ -2153,8 +2498,16 @@
         0.05791540816426277,
         0.058386582881212234
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 7,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 7
     },
     {
       "figure": "barrows.jpg",
@@ -2172,8 +2525,14 @@
         0.13212943077087402,
         0.09421107918024063
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 10,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 10
     },
     {
       "figure": "barrows.jpg",
@@ -2191,8 +2550,14 @@
         0.10438284277915955,
         0.8937779068946838
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 566,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 566
     },
     {
       "figure": "barrows.jpg",
@@ -2210,8 +2575,14 @@
         0.05436469241976738,
         0.40992361307144165
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 115,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 115
     },
     {
       "figure": "barrows.jpg",
@@ -2231,8 +2602,15 @@
         0.10453998297452927,
         0.15172120928764343
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 33,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 33
     },
     {
       "figure": "barrows.jpg",
@@ -2256,8 +2634,17 @@
         0.12958070635795593,
         0.05061609670519829
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 42,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 42
     },
     {
       "figure": "barrows.jpg",
@@ -2273,8 +2660,13 @@
       "contributing_scores": [
         0.1515214890241623
       ],
+      "contributing_attribution_ambiguous": [
+        false
+      ],
       "worst_contributing_position": 25,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 25
     },
     {
       "figure": "barrows.jpg",
@@ -2286,8 +2678,11 @@
       "detections": 0,
       "contributing_proposal_positions": [],
       "contributing_scores": [],
+      "contributing_attribution_ambiguous": [],
       "worst_contributing_position": null,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": null
     },
     {
       "figure": "barrows.jpg",
@@ -2303,8 +2698,13 @@
       "contributing_scores": [
         0.2165806144475937
       ],
+      "contributing_attribution_ambiguous": [
+        false
+      ],
       "worst_contributing_position": 167,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 167
     },
     {
       "figure": "barrows.jpg",
@@ -2320,8 +2720,13 @@
       "contributing_scores": [
         0.11784131824970245
       ],
+      "contributing_attribution_ambiguous": [
+        false
+      ],
       "worst_contributing_position": 4,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 4
     },
     {
       "figure": "barrows.jpg",
@@ -2339,8 +2744,14 @@
         0.4038277268409729,
         0.09711873531341553
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 558,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 558
     },
     {
       "figure": "barrows.jpg",
@@ -2358,8 +2769,14 @@
         0.1330602914094925,
         0.07702118158340454
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 4,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 4
     },
     {
       "figure": "enclosure.jpg",
@@ -2399,8 +2816,25 @@
         0.12419003248214722,
         0.057105742394924164
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 932,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 932
     },
     {
       "figure": "enclosure.jpg",
@@ -2424,8 +2858,17 @@
         0.11778382956981659,
         0.11530116945505142
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 682,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 682
     },
     {
       "figure": "enclosure.jpg",
@@ -2473,8 +2916,29 @@
         0.0912337601184845,
         0.46836933493614197
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 606,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 606
     },
     {
       "figure": "enclosure.jpg",
@@ -2504,8 +2968,20 @@
         0.06155739352107048,
         0.08346911519765854
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 245,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 245
     },
     {
       "figure": "enclosure.jpg",
@@ -2537,8 +3013,21 @@
         0.07071976363658905,
         0.06653556227684021
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 830,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 830
     },
     {
       "figure": "enclosure.jpg",
@@ -2562,8 +3051,17 @@
         0.5741246342658997,
         0.06936817616224289
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 9,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 9
     },
     {
       "figure": "enclosure.jpg",
@@ -2603,8 +3101,25 @@
         0.17332611978054047,
         0.17854765057563782
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 744,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 744
     },
     {
       "figure": "enclosure.jpg",
@@ -2628,8 +3143,17 @@
         0.1171756312251091,
         0.13731707632541656
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 35,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 35
     },
     {
       "figure": "enclosure.jpg",
@@ -2689,8 +3213,35 @@
         0.09901830554008484,
         0.06964700669050217
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 988,
-      "ambiguous_attributions": 1
+      "ambiguous_attributions": 1,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 988
     },
     {
       "figure": "enclosure.jpg",
@@ -2716,8 +3267,18 @@
         0.10484197735786438,
         0.615435004234314
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 58,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 58
     },
     {
       "figure": "enclosure.jpg",
@@ -2755,8 +3316,24 @@
         0.06705723702907562,
         0.09231489896774292
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 704,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 704
     },
     {
       "figure": "enclosure.jpg",
@@ -2786,8 +3363,20 @@
         0.6210491061210632,
         0.14411523938179016
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 295,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 295
     },
     {
       "figure": "enclosure.jpg",
@@ -2847,8 +3436,35 @@
         0.08746827393770218,
         0.06876687705516815
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 777,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 777
     },
     {
       "figure": "enclosure.jpg",
@@ -2878,8 +3494,20 @@
         0.060685157775878906,
         0.19450274109840393
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 750,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 750
     },
     {
       "figure": "enclosure.jpg",
@@ -2951,8 +3579,41 @@
         0.4383174479007721,
         0.0657884031534195
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 916,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 916
     },
     {
       "figure": "enclosure.jpg",
@@ -2980,8 +3641,19 @@
         0.10067643970251083,
         0.0634239912033081
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 662,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 662
     },
     {
       "figure": "enclosure.jpg",
@@ -3033,8 +3705,31 @@
         0.07833949476480484,
         0.07911612093448639
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 913,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 913
     },
     {
       "figure": "enclosure.jpg",
@@ -3060,8 +3755,18 @@
         0.15328961610794067,
         0.5351997017860413
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 383,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 383
     },
     {
       "figure": "enclosure.jpg",
@@ -3091,8 +3796,20 @@
         0.09837746620178223,
         0.05074770376086235
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 575,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 575
     },
     {
       "figure": "enclosure.jpg",
@@ -3112,8 +3829,15 @@
         0.17298798263072968,
         0.0956757515668869
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 2,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 2
     },
     {
       "figure": "enclosure.jpg",
@@ -3137,8 +3861,17 @@
         0.05150047689676285,
         0.05205970257520676
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 571,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 571
     },
     {
       "figure": "enclosure.jpg",
@@ -3158,8 +3891,15 @@
         0.1617395579814911,
         0.08550053089857101
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 349,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 349
     },
     {
       "figure": "enclosure.jpg",
@@ -3199,8 +3939,25 @@
         0.0774761214852333,
         0.0733075737953186
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 888,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 888
     },
     {
       "figure": "enclosure.jpg",
@@ -3218,8 +3975,14 @@
         0.05234239622950554,
         0.06139310821890831
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 263,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 263
     },
     {
       "figure": "enclosure.jpg",
@@ -3255,8 +4018,23 @@
         0.130906343460083,
         0.11913903802633286
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 763,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 763
     },
     {
       "figure": "enclosure.jpg",
@@ -3280,8 +4058,17 @@
         0.06577800214290619,
         0.08939613401889801
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 227,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 227
     },
     {
       "figure": "enclosure.jpg",
@@ -3309,8 +4096,19 @@
         0.5445365309715271,
         0.07985901087522507
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 309,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 309
     },
     {
       "figure": "enclosure.jpg",
@@ -3332,8 +4130,16 @@
         0.05053585395216942,
         0.14546926319599152
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 308,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 308
     },
     {
       "figure": "enclosure.jpg",
@@ -3369,8 +4175,23 @@
         0.12062255293130875,
         0.0579974539577961
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 577,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 577
     },
     {
       "figure": "enclosure.jpg",
@@ -3396,8 +4217,18 @@
         0.053234100341796875,
         0.07502547651529312
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 122,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 122
     },
     {
       "figure": "enclosure.jpg",
@@ -3439,8 +4270,26 @@
         0.07695163041353226,
         0.06572631746530533
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 982,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 982
     },
     {
       "figure": "enclosure.jpg",
@@ -3460,8 +4309,15 @@
         0.0916685163974762,
         0.0744740441441536
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 28,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 28
     },
     {
       "figure": "enclosure.jpg",
@@ -3489,8 +4345,19 @@
         0.05875816196203232,
         0.0711994469165802
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 566,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 566
     },
     {
       "figure": "enclosure.jpg",
@@ -3506,8 +4373,13 @@
       "contributing_scores": [
         0.06223640590906143
       ],
+      "contributing_attribution_ambiguous": [
+        false
+      ],
       "worst_contributing_position": 351,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 351
     },
     {
       "figure": "enclosure.jpg",
@@ -3535,8 +4407,19 @@
         0.05009094998240471,
         0.05128948763012886
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 957,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 957
     },
     {
       "figure": "enclosure.jpg",
@@ -3548,8 +4431,11 @@
       "detections": 0,
       "contributing_proposal_positions": [],
       "contributing_scores": [],
+      "contributing_attribution_ambiguous": [],
       "worst_contributing_position": null,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": null
     },
     {
       "figure": "enclosure.jpg",
@@ -3609,8 +4495,35 @@
         0.05188244581222534,
         0.07599955052137375
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 801,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 801
     },
     {
       "figure": "enclosure.jpg",
@@ -3644,8 +4557,22 @@
         0.06512098759412766,
         0.0660419836640358
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 428,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 428
     },
     {
       "figure": "enclosure.jpg",
@@ -3687,8 +4614,26 @@
         0.1098957508802414,
         0.549015998840332
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 948,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 948
     },
     {
       "figure": "enclosure.jpg",
@@ -3720,8 +4665,21 @@
         0.07538837939500809,
         0.14583785831928253
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 455,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 455
     },
     {
       "figure": "enclosure.jpg",
@@ -3771,8 +4729,30 @@
         0.11831193417310715,
         0.08365625143051147
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 953,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 953
     },
     {
       "figure": "enclosure.jpg",
@@ -3798,8 +4778,18 @@
         0.16905845701694489,
         0.08260127156972885
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 164,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 164
     },
     {
       "figure": "enclosure.jpg",
@@ -3833,8 +4823,22 @@
         0.05473122000694275,
         0.10438442975282669
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 700,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 700
     },
     {
       "figure": "enclosure.jpg",
@@ -3864,8 +4868,20 @@
         0.07512140274047852,
         0.12934334576129913
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 782,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 782
     },
     {
       "figure": "enclosure.jpg",
@@ -3901,8 +4917,23 @@
         0.27611997723579407,
         0.05764966458082199
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 790,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 790
     },
     {
       "figure": "enclosure.jpg",
@@ -3920,8 +4951,14 @@
         0.07037447392940521,
         0.05955140292644501
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 437,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 437
     },
     {
       "figure": "enclosure.jpg",
@@ -3971,8 +5008,30 @@
         0.05765946954488754,
         0.10292395949363708
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 558,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 558
     },
     {
       "figure": "enclosure.jpg",
@@ -3996,8 +5055,17 @@
         0.05605016648769379,
         0.10130739212036133
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 12,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 12
     },
     {
       "figure": "enclosure.jpg",
@@ -4035,8 +5103,24 @@
         0.22359009087085724,
         0.08337369561195374
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 959,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 959
     },
     {
       "figure": "enclosure.jpg",
@@ -4058,8 +5142,16 @@
         0.07057192921638489,
         0.07647429406642914
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 211,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 211
     },
     {
       "figure": "enclosure.jpg",
@@ -4095,8 +5187,23 @@
         0.0894811749458313,
         0.08810557425022125
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 851,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 851
     },
     {
       "figure": "enclosure.jpg",
@@ -4116,8 +5223,15 @@
         0.15536023676395416,
         0.21240544319152832
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 158,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 158
     },
     {
       "figure": "enclosure.jpg",
@@ -4153,8 +5267,23 @@
         0.119542695581913,
         0.07813265174627304
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 691,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 691
     },
     {
       "figure": "enclosure.jpg",
@@ -4178,8 +5307,17 @@
         0.25281044840812683,
         0.18103855848312378
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 273,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 273
     },
     {
       "figure": "ringfort.jpg",
@@ -4201,8 +5339,16 @@
         0.16338559985160828,
         0.08404263854026794
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 16,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 16
     },
     {
       "figure": "ringfort.jpg",
@@ -4220,8 +5366,14 @@
         0.9885767102241516,
         0.11003146320581436
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 722,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 722
     },
     {
       "figure": "ringfort.jpg",
@@ -4241,8 +5393,15 @@
         0.09097987413406372,
         0.980676531791687
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 207,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 207
     },
     {
       "figure": "ringfort.jpg",
@@ -4262,8 +5421,15 @@
         0.06141303479671478,
         0.09585607051849365
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 781,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 781
     },
     {
       "figure": "ringfort.jpg",
@@ -4285,8 +5451,16 @@
         0.9809387922286987,
         0.05314337834715843
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 368,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 368
     },
     {
       "figure": "ringfort.jpg",
@@ -4304,8 +5478,14 @@
         0.9864734411239624,
         0.07359538972377777
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 10,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 10
     },
     {
       "figure": "ringfort.jpg",
@@ -4325,8 +5505,15 @@
         0.1162814199924469,
         0.9818298816680908
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 371,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 371
     },
     {
       "figure": "ringfort.jpg",
@@ -4344,8 +5531,14 @@
         0.9886787533760071,
         0.08660328388214111
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 57,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 57
     },
     {
       "figure": "ringfort.jpg",
@@ -4365,8 +5558,15 @@
         0.9827808141708374,
         0.05706822872161865
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 741,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 741
     },
     {
       "figure": "ringfort.jpg",
@@ -4384,8 +5584,14 @@
         0.988868236541748,
         0.06818511337041855
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 15,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 15
     },
     {
       "figure": "ringfort.jpg",
@@ -4411,8 +5617,18 @@
         0.06384097784757614,
         0.05033297464251518
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 612,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 612
     },
     {
       "figure": "ringfort.jpg",
@@ -4428,8 +5644,13 @@
       "contributing_scores": [
         0.9864367842674255
       ],
+      "contributing_attribution_ambiguous": [
+        false
+      ],
       "worst_contributing_position": 0,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 0
     },
     {
       "figure": "ringfort.jpg",
@@ -4449,8 +5670,15 @@
         0.06850280612707138,
         0.15585224330425262
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 9,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 9
     },
     {
       "figure": "ringfort.jpg",
@@ -4470,8 +5698,15 @@
         0.3071025609970093,
         0.06588480621576309
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 437,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 437
     },
     {
       "figure": "ringfort.jpg",
@@ -4491,8 +5726,15 @@
         0.05442284420132637,
         0.9809807538986206
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 430,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 430
     },
     {
       "figure": "ringfort.jpg",
@@ -4510,8 +5752,14 @@
         0.9881248474121094,
         0.24411533772945404
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 17,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 17
     },
     {
       "figure": "ringfort.jpg",
@@ -4531,8 +5779,15 @@
         0.054876841604709625,
         0.980679988861084
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 459,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 459
     },
     {
       "figure": "ringfort.jpg",
@@ -4550,8 +5805,14 @@
         0.9850773215293884,
         0.1406232714653015
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 15,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 15
     },
     {
       "figure": "ringfort.jpg",
@@ -4567,8 +5828,13 @@
       "contributing_scores": [
         0.07940585166215897
       ],
+      "contributing_attribution_ambiguous": [
+        false
+      ],
       "worst_contributing_position": 959,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 959
     },
     {
       "figure": "ringfort.jpg",
@@ -4594,8 +5860,18 @@
         0.05398142710328102,
         0.050765957683324814
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 19,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 19
     },
     {
       "figure": "ringfort.jpg",
@@ -4613,8 +5889,14 @@
         0.07805898040533066,
         0.11857566237449646
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 783,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 783
     },
     {
       "figure": "ringfort.jpg",
@@ -4640,8 +5922,18 @@
         0.059562403708696365,
         0.06408427655696869
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 378,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 378
     },
     {
       "figure": "ringfort.jpg",
@@ -4661,8 +5953,15 @@
         0.061670247465372086,
         0.4328311085700989
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 610,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 610
     },
     {
       "figure": "ringfort.jpg",
@@ -4688,8 +5987,18 @@
         0.0994320958852768,
         0.24533352255821228
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 113,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 113
     },
     {
       "figure": "ringfort.jpg",
@@ -4707,8 +6016,14 @@
         0.09066599607467651,
         0.16931357979774475
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 413,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 413
     },
     {
       "figure": "ringfort.jpg",
@@ -4728,8 +6043,15 @@
         0.06025061756372452,
         0.06491558253765106
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 61,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 61
     },
     {
       "figure": "ringfort.jpg",
@@ -4751,8 +6073,16 @@
         0.4264037013053894,
         0.08558886498212814
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 624,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 624
     },
     {
       "figure": "ringfort.jpg",
@@ -4770,8 +6100,14 @@
         0.9691706299781799,
         0.06472387909889221
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 66,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 66
     },
     {
       "figure": "ringfort.jpg",
@@ -4795,8 +6131,17 @@
         0.0754837617278099,
         0.4296242296695709
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 339,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 339
     },
     {
       "figure": "ringfort.jpg",
@@ -4816,8 +6161,15 @@
         0.10037238150835037,
         0.05434368923306465
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 8,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 8
     },
     {
       "figure": "ringfort.jpg",
@@ -4839,8 +6191,16 @@
         0.11843334138393402,
         0.1898471862077713
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 492,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 492
     },
     {
       "figure": "ringfort.jpg",
@@ -4856,8 +6216,13 @@
       "contributing_scores": [
         0.9466778635978699
       ],
+      "contributing_attribution_ambiguous": [
+        false
+      ],
       "worst_contributing_position": 0,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 0
     },
     {
       "figure": "ringfort.jpg",
@@ -4883,8 +6248,18 @@
         0.6197648048400879,
         0.13246513903141022
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 346,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 346
     },
     {
       "figure": "ringfort.jpg",
@@ -4904,8 +6279,15 @@
         0.052409593015909195,
         0.06880772113800049
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 13,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 13
     },
     {
       "figure": "ringfort.jpg",
@@ -4927,8 +6309,16 @@
         0.055239856243133545,
         0.06914835423231125
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 940,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 940
     },
     {
       "figure": "ringfort.jpg",
@@ -4948,8 +6338,15 @@
         0.060101352632045746,
         0.09887837618589401
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 578,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 578
     },
     {
       "figure": "ringfort.jpg",
@@ -4977,8 +6374,19 @@
         0.07013598084449768,
         0.09634681791067123
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 931,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 931
     },
     {
       "figure": "ringfort.jpg",
@@ -5016,8 +6424,24 @@
         0.10220818966627121,
         0.23861481249332428
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 752,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 752
     },
     {
       "figure": "ringfort.jpg",
@@ -5035,8 +6459,14 @@
         0.05550891533493996,
         0.050331614911556244
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 14,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 14
     },
     {
       "figure": "ringfort.jpg",
@@ -5062,8 +6492,18 @@
         0.07616239786148071,
         0.1103227436542511
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 517,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 517
     },
     {
       "figure": "ringfort.jpg",
@@ -5075,8 +6515,11 @@
       "detections": 0,
       "contributing_proposal_positions": [],
       "contributing_scores": [],
+      "contributing_attribution_ambiguous": [],
       "worst_contributing_position": null,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": null
     },
     {
       "figure": "ringfort.jpg",
@@ -5092,8 +6535,13 @@
       "contributing_scores": [
         0.0654817596077919
       ],
+      "contributing_attribution_ambiguous": [
+        false
+      ],
       "worst_contributing_position": 0,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 0
     },
     {
       "figure": "ringfort.jpg",
@@ -5117,8 +6565,17 @@
         0.08266067504882812,
         0.05884250998497009
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 941,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 941
     },
     {
       "figure": "ringfort.jpg",
@@ -5142,8 +6599,17 @@
         0.09588655084371567,
         0.07219849526882172
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 94,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 94
     },
     {
       "figure": "ringfort.jpg",
@@ -5167,8 +6633,17 @@
         0.05738387629389763,
         0.14708362519741058
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 414,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 414
     },
     {
       "figure": "ringfort.jpg",
@@ -5188,8 +6663,15 @@
         0.35263538360595703,
         0.0943409875035286
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 325,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 325
     },
     {
       "figure": "ringfort.jpg",
@@ -5219,8 +6701,20 @@
         0.09097834676504135,
         0.053797557950019836
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 595,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 595
     },
     {
       "figure": "ringfort.jpg",
@@ -5252,8 +6746,21 @@
         0.05414837971329689,
         0.0831732451915741
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 372,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 372
     },
     {
       "figure": "ringfort.jpg",
@@ -5277,8 +6784,17 @@
         0.06884592771530151,
         0.05598876625299454
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 961,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 961
     },
     {
       "figure": "ringfort.jpg",
@@ -5304,8 +6820,18 @@
         0.0800604373216629,
         0.06636154651641846
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 91,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 91
     },
     {
       "figure": "ringfort.jpg",
@@ -5325,8 +6851,15 @@
         0.0632401779294014,
         0.05754722282290459
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 20,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 20
     },
     {
       "figure": "ringfort.jpg",
@@ -5358,8 +6891,21 @@
         0.06396251916885376,
         0.09915105253458023
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 622,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 622
     },
     {
       "figure": "ringfort.jpg",
@@ -5377,8 +6923,14 @@
         0.09733009338378906,
         0.05701296776533127
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false
+      ],
       "worst_contributing_position": 727,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 727
     },
     {
       "figure": "ringfort.jpg",
@@ -5404,11 +6956,21 @@
         0.09301777184009552,
         0.07142240554094315
       ],
+      "contributing_attribution_ambiguous": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
       "worst_contributing_position": 962,
-      "ambiguous_attributions": 0
+      "ambiguous_attributions": 0,
+      "worst_position_is_ambiguous": false,
+      "worst_contributing_position_latest_match": 962
     }
   ],
-  "seconds": 103.17181992530823,
+  "seconds": 107.93350791931152,
   "estimate": {
     "k": 989,
     "rule": "max(contributing proposal position) + 1, as criterion_topk.rank_margin defines safe_k",
@@ -5417,10 +6979,12 @@
     "second_largest_rank": 982,
     "p99_rank": 953.0,
     "k_above_vectorisation_cut": 949,
-    "reasoning": "912 detections over 162 tile x model runs. The 99th percentile of contributing ranks is 953 and the second largest is 982, against a maximum of 988. 722 was not the tail's edge: 51 detection(s) in the widened set came from rank 723 or beyond, so K = 723 would drop them. Applying criterion 2's own rule to the widened set gives K = 989, which is within 11 of the 1000-proposal ceiling \u2014 the honest reading is that no cut meaningfully below rpn_post_nms_top_n is safe on this corpus. Restricted to the 157 detections above the 0.5 vectorisation cut \u2014 the ones a user is ever shown \u2014 the max rank is 948 and the rule gives K = 949, with 5 of them at or beyond 723."
+    "k_is_exact": true,
+    "attribution_caveat": "1 of 912 attributions were ambiguous \u2014 the detection's score matched more than one proposal, and the earliest was credited. None of them is the maximum, so K rests on an unambiguous position; the ambiguity affects positions inside the distribution, not its edge.",
+    "reasoning": "912 detections over 162 tile x model runs. The 99th percentile of contributing ranks is 953 and the second largest is 982, against a maximum of 988. 722 was not the tail's edge: 51 detection(s) in the widened set came from rank 723 or beyond, so K = 723 would drop them. Applying criterion 2's own rule to the widened set gives K = 989, which is within 11 of the 1000-proposal ceiling \u2014 the honest reading is that no cut meaningfully below rpn_post_nms_top_n is safe on this corpus. Restricted to the 157 detections above the 0.5 vectorisation cut \u2014 the ones a user is ever shown \u2014 the max rank is 948 and the rule gives K = 949, with 5 of them at or beyond 723. 1 of 912 attributions were ambiguous \u2014 the detection's score matched more than one proposal, and the earliest was credited. None of them is the maximum, so K rests on an unambiguous position; the ambiguity affects positions inside the distribution, not its edge."
   },
   "verdict": {
     "outcome": "FAIL",
-    "detail": "912 detections, max rank 988: K = 989 exceeds M3a's 723, and 51 detection(s) would be dropped by it"
+    "detail": "912 detections, max rank 988: K = 989 exceeds M3a's 723, and 51 detection(s) would be dropped by it. 1 of 912 attributions were ambiguous \u2014 the detection's score matched more than one proposal, and the earliest was credited. None of them is the maximum, so K rests on an unambiguous position; the ambiguity affects positions inside the distribution, not its edge."
   }
 }

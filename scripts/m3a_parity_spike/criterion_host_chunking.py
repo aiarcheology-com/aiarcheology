@@ -34,7 +34,10 @@ fresh subprocess that only ever loads that `.mlmodelc` and predicts. Two measure
 
 Both are reported above a baseline sampled at the top of the measured process. That baseline includes
 torch, which `import coremltools` drags in whether or not anything here wants it; measuring above
-baseline is what makes that irrelevant rather than something to apologise for.
+baseline is what makes that irrelevant rather than something to apologise for. The baseline is the
+process's **current** resident size, not its `ru_maxrss` — subtracting one high-water mark from
+another would silently absorb the imports' transient peak into the design's allowance, and it would
+absorb it in the direction that makes chunking look better than it is (`_current_rss_mib`).
 
 The monolithic reference (B=723, N=1) is measured **under this same protocol**. The earlier
 in-process smoke run is not a comparison partner for anything here — its monolithic number was paid
@@ -46,8 +49,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import inspect
 import json
 import math
+import os
 import resource
 import subprocess
 import sys
@@ -111,6 +116,29 @@ def _peak_mib() -> float:
     # macOS reports ru_maxrss in bytes; Linux in kibibytes. Detected by magnitude rather than
     # platform string, since a wrong unit would silently rescale the whole finding.
     return peak / MEBIBYTE if peak > 10 ** 7 else peak / 1024
+
+
+def _current_rss_mib() -> float:
+    """Resident size **right now**, which is the only honest thing to subtract a peak from.
+
+    The asymmetry between this and `_peak_mib` is deliberate, and getting it wrong biases the finding
+    in the design's favour. The *peak* has to be a high-water mark: a transient the ROI stage
+    allocates and frees is memory the device really had to have. The *baseline* must not be, because
+    `ru_maxrss` at the top of the process is the largest the imports ever were, not the size they
+    settled at. If `import coremltools` spikes to 340 MiB and settles at 295, a later true peak of
+    520 is reported as +180 instead of +225 — the increment is **under-stated**, and under-stating it
+    is exactly what would sneak a configuration under `MAX_FULL_RUN_PEAK_MIB`. Both numbers are kept
+    in the row (`baseline_rss_mib` and `import_high_water_mib`) so the size of that gap is visible
+    rather than something a reader has to take on trust.
+
+    `ps -o rss=` reports kibibytes on both macOS and Linux, so unlike `ru_maxrss` it needs no
+    magnitude test. A subprocess rather than a dependency: `psutil` is not in this spike's venv, and
+    adding one to read a number `ps` already prints would be a strange thing to make the next reader
+    install.
+    """
+    output = subprocess.run(["/bin/ps", "-o", "rss=", "-p", str(os.getpid())],
+                            capture_output=True, text=True, check=True).stdout
+    return float(output.strip()) / 1024
 
 
 # --------------------------------------------------------------------------------------------
@@ -206,10 +234,21 @@ def config_hash(batch: int, seed: int = WEIGHT_SEED) -> str:
     The invocation count is deliberately absent: the monolithic run and its repeated control are the
     same model called a different number of times, so they share a cache entry and the control costs
     no second build.
+
+    `build_chunk_model`'s **source** and the coremltools version are in the key, and they are the two
+    that matter most. A cache that ignores its own builder is worse than no cache: no cache is merely
+    slow, while this one would hand a fresh subprocess an `.mlmodelc` compiled from a CropResize and
+    pooling construction that no longer exists, and the run would report the current version's
+    numbers for the previous version's graph — a wrong measurement that looks exactly like a right
+    one. Hashing the source text is coarse (a comment edit costs a rebuild) and that is the correct
+    direction to be wrong in.
     """
     payload = json.dumps({
         "batch": batch, "levels": LEVELS, "channels": CHANNELS, "output_size": OUTPUT_SIZE,
         "hidden": HIDDEN, "classes": CLASS_COUNT, "seed": seed,
+        "coremltools": ct.__version__,
+        "builder_source": hashlib.sha256(
+            inspect.getsource(build_chunk_model).encode()).hexdigest(),
     }, sort_keys=True)
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
@@ -235,9 +274,9 @@ def compiled_model_path(batch: int, cache_root: Path) -> Path:
 def host_inputs(count: int, seed: int) -> tuple:
     """The four feature maps, K ROIs in image coordinates, and their one-hot level assignment.
 
-    The level arithmetic is torchvision's — `floor(4 + log2(sqrt(area)/224))` clamped to [2, 5]
-    (`trunk.py:199`) — and it runs *here*, on the host, because that is the concession that lets the
-    graph stay static. What crosses into Core ML is its one-hot result, not the boxes' areas.
+    The level arithmetic is torchvision's — `floor(4 + log2(sqrt(area)/224) + 1e-6)` clamped to
+    [2, 5] (`trunk.py:199`) — and it runs *here*, on the host, because that is the concession that
+    lets the graph stay static. What crosses into Core ML is its one-hot result, not the boxes' areas.
     """
     rng = np.random.default_rng(seed)
     # `dtype=np.float32`, not `.astype(np.float32)`. The convenient spelling draws float64 first and
@@ -256,7 +295,13 @@ def host_inputs(count: int, seed: int) -> tuple:
     ], axis=1).astype(np.float32)
 
     side_length = np.sqrt((boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1]))
-    level = np.clip(np.floor(4.0 + np.log2(side_length / 224.0)), 2, 5).astype(np.int64) - 2
+    # `+ 1e-6` OUTSIDE the log, as `LevelMapper` has it (`poolers.py:78`). Calling this assignment
+    # torchvision's while dropping its epsilon puts an exact 224x224 ROI one level too low, and this
+    # branch has already fixed that same omission once — in `trunk.py:199`, in the emitted graph. A
+    # probe that keeps the bug the graph no longer has is measuring a different stage from the one
+    # that will ship. On this seed's boxes it moves nothing (0 of 1000 change level); the reason to
+    # fix it is that "it happened not to matter here" is not a property of the formula.
+    level = np.clip(np.floor(4.0 + np.log2(side_length / 224.0) + 1e-6), 2, 5).astype(np.int64) - 2
     one_hot = np.zeros((count, 1, len(LEVELS), 1, 1), dtype=np.float32)
     one_hot[np.arange(count), 0, level, 0, 0] = 1.0
 
@@ -269,7 +314,11 @@ def host_inputs(count: int, seed: int) -> tuple:
 
 def _run_measured(model_path: str, batch: int, invocations: int, mode: str, seed: int) -> dict:
     """One configuration in one mode, in this process. Never builds. Invoked as a subprocess."""
-    baseline_mib = _peak_mib()
+    # Current resident size, not `_peak_mib()`. See `_current_rss_mib`: a high-water baseline
+    # subtracted from a high-water peak hides the imports' transient, and it hides it in the
+    # direction that flatters the design.
+    baseline_mib = _current_rss_mib()
+    import_high_water_mib = _peak_mib()
 
     started = time.perf_counter()
     model = CompiledMLModel(model_path, compute_units=CPU_ONLY)
@@ -279,6 +328,8 @@ def _run_measured(model_path: str, batch: int, invocations: int, mode: str, seed
     row = {
         "mode": mode,
         "baseline_rss_mib": baseline_mib,
+        "import_high_water_mib": import_high_water_mib,
+        "import_transient_mib": import_high_water_mib - baseline_mib,
         "load_peak_rss_mib": load_peak_mib,
         "load_peak_above_baseline_mib": load_peak_mib - baseline_mib,
         "load_seconds": load_seconds,
@@ -401,11 +452,15 @@ def measure(*, only: str = None, seed: int = INPUT_SEED, cache_root: Path = None
 
     return {
         "protocol": {
-            "description": "Each model is built and compiled to .mlmodelc once, out of band. Every "
-                           "measured number comes from a fresh subprocess that only loads the "
-                           ".mlmodelc (CompiledMLModel, CPU_ONLY) and predicts. Peaks are ru_maxrss "
-                           "above a baseline sampled at the top of that process, one configuration "
-                           "and one mode per process because ru_maxrss is a high-water mark.",
+            "description": "Each model is built and compiled to .mlmodelc once, out of band, into a "
+                           "cache keyed on the builder's source and the coremltools version as well "
+                           "as the dimensions. Every measured number comes from a fresh subprocess "
+                           "that only loads the .mlmodelc (CompiledMLModel, CPU_ONLY) and predicts. "
+                           "Peaks are ru_maxrss above the process's CURRENT resident size at the "
+                           "top (ps -o rss=), not above its ru_maxrss: the peak must be a high-water "
+                           "mark and the baseline must not, or the imports' transient is quietly "
+                           "credited to the design. One configuration and one mode per process, "
+                           "because ru_maxrss is a high-water mark.",
             "roi_count_k": ROI_COUNT,
             "levels": [{"stride": stride, "side": side} for stride, side in LEVELS],
             "channels": CHANNELS, "pooled_size": OUTPUT_SIZE, "hidden": HIDDEN,
@@ -488,7 +543,15 @@ def render(report: dict) -> str:
             f"{full['seconds_per_predict_mean'] * 1000:>10.1f}"
         )
     lines.append("")
-    lines.append("MiB columns are ru_maxrss above each measured process's own baseline.")
+    lines.append("MiB columns are ru_maxrss above each measured process's own resident size at the "
+                 "top of the run,")
+    transients = [row[mode]["import_transient_mib"] for row in report["results"]
+                  for mode in ("load", "full")
+                  if isinstance(row.get(mode), dict) and "import_transient_mib" in row[mode]]
+    if transients:
+        lines.append(f"not above its ru_maxrss — the imports transiently peak "
+                     f"{min(transients):.1f}-{max(transients):.1f} MiB above where they settle, and "
+                     f"a high-water baseline would hand every one of those MiB to the design.")
     return "\n".join(lines)
 
 
