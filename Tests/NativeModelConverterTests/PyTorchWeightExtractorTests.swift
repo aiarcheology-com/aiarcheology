@@ -252,6 +252,76 @@ final class PyTorchWeightExtractorTests: XCTestCase {
 		}
 	}
 
+	/// One storage, thousands of names. The reader permits this — torch writes it for tied parameters
+	/// and `countStorages` counts distinct keys, so the pickle/archive agreement check sees one
+	/// storage and passes. A per-tensor limit cannot see it either: every tensor is tiny. Without a
+	/// total budget a small archive buys an unbounded amount of reading, converting and writing.
+	func test_manyTensorsSharingOneStorage_stopAtTheTotalBudget() throws {
+		let payload = littleEndianFloat32Bytes([1, 2, 3, 4])
+		let (_, source) = archive(holding: payload, shape: [4])
+		let shared = PyTorchCheckpoint(
+			root: "checkpoint.pth", formatVersion: 3, identifier: nil, epoch: nil, loss: nil,
+			startTimestamp: nil,
+			tensors: (0..<64).map { index in
+				PyTorchTensorRef(
+					name: "layer.\(index).weight", dataType: .float32, shape: [4], stride: [1],
+					storageOffset: 0, storageKey: "0", storageElementCount: 4
+				)
+			},
+			totalStorageCount: 1,
+			pickleChecksum: builtPickleChecksum
+		)
+		let destination = temporaryFileURL()
+
+		// Two tensors of eight fp16 bytes fit exactly; the third must be refused before it is read.
+		XCTAssertThrowsError(
+			try PyTorchWeightExtractor.extract(shared, from: source, to: destination, maximumTotalByteCount: 16)
+		) {
+			XCTAssertEqual(
+				$0 as? PyTorchWeightExtractionError,
+				.weightsExceedBudget(byteCount: 24, limit: 16)
+			)
+		}
+		XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+	}
+
+	/// A checkpoint whose weights are already NaN or infinite. Copying them faithfully produces the
+	/// same poisoned artifact the overflow check exists to prevent.
+	func test_weightsThatAreAlreadyNonFinite_areRefusedNamingTheTensor() throws {
+		for (label, bits) in [("NaN", UInt32(0x7FC0_0000)), ("+inf", UInt32(0x7F80_0000)), ("-inf", UInt32(0xFF80_0000))] {
+			let payload = littleEndianFloat32Bytes([1, 2]) + (0..<4).map { UInt8((bits >> ($0 * 8)) & 0xFF) } + littleEndianFloat32Bytes([4])
+			let (checkpoint, source) = archive(holding: payload, shape: [4])
+			let destination = temporaryFileURL()
+
+			XCTAssertThrowsError(
+				try PyTorchWeightExtractor.extract(checkpoint, from: source, to: destination), label
+			) {
+				XCTAssertEqual($0 as? PyTorchWeightExtractionError, .nonFiniteWeight(tensor: "layer.weight"), label)
+			}
+			XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path), label)
+		}
+	}
+
+	/// The binding must rest on the pickle's **bytes**, not on the number the archive claims for them.
+	///
+	/// This archive carries different pickle bytes while its central directory declares the original's
+	/// checksum. Comparing the declared field alone accepts it and emits another model's weights under
+	/// this checkpoint's identity; re-reading the payload does not, because reading verifies it
+	/// against that same declared field.
+	func test_anArchiveForgingTheDeclaredPickleChecksum_isStillRefused() throws {
+		let payload = littleEndianFloat32Bytes([1, 2, 3, 4])
+		var forged = TestZipBuilder.torchLike(pickle: [0x80, 0x02, 0x4E, 0x2E])
+		forged.entries[0].overrideCRC = builtPickleChecksum
+		forged.entries.append(TestZipBuilder.Entry(name: "checkpoint.pth/data/0", payload: payload))
+		let source = ArrayBytes(forged.build())
+		let destination = temporaryFileURL()
+
+		XCTAssertThrowsError(
+			try PyTorchWeightExtractor.extract(handMadeCheckpoint(shape: [4], elementCount: 4), from: source, to: destination)
+		)
+		XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+	}
+
 	/// The failure no other check here can see: a description decoded from one file, extracted from
 	/// another. The four published detectors have byte-identical tensor tables, so names, shapes,
 	/// storage keys, entry sizes and per-entry CRCs all agree across them — every assertion in this

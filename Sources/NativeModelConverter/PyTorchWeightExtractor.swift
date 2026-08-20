@@ -63,6 +63,15 @@ public enum PyTorchWeightExtractionError: Error, Equatable {
 	/// A finite fp32 weight that fp16 cannot represent, so storing it would replace a number with an
 	/// infinity and no test downstream would see anything wrong. Named rather than clamped.
 	case valueNotRepresentableInFloat16(tensor: String)
+	/// A weight that is already NaN or infinite in the checkpoint. Copying it faithfully produces
+	/// exactly the poisoned artifact the overflow check exists to prevent — the value's provenance
+	/// does not make it any more usable — so it is refused rather than passed through.
+	case nonFiniteWeight(tensor: String)
+	/// The weights would exceed the caller's total budget. Distinct from a single oversized tensor:
+	/// a checkpoint may name thousands of tensors that all reference **one** storage, and the reader
+	/// permits that (torch writes it for tied parameters). Without a total, a small archive can ask
+	/// for an unbounded amount of reading, converting and writing.
+	case weightsExceedBudget(byteCount: UInt64, limit: UInt64)
 	/// The storage's bytes do not match the checksum the archive's central directory records for
 	/// them. Distinct from a malformed archive: the container parsed, and the bytes at the resolved
 	/// offset are not the bytes that were written there.
@@ -98,6 +107,14 @@ public enum PyTorchWeightExtractor {
 	/// directory cannot name a half-gigabyte "tensor" and have it read.
 	public static let maximumStorageByteCount = 128 * 1024 * 1024
 
+	/// The most bytes the emitted blob may reach, unless the caller says otherwise.
+	///
+	/// The published ADAF detectors produce 86,630,834 bytes, so this is generous by 6x. It exists
+	/// for the amplification a per-tensor limit cannot see: `maximumStorageByteCount` bounds one
+	/// storage, but nothing bounds how many tensors name the same one, and each is streamed and
+	/// written again.
+	public static let defaultMaximumTotalByteCount: UInt64 = 512 * 1024 * 1024
+
 	/// The most fp32 bytes held at once. A multiple of four, which is what keeps a float from
 	/// straddling two chunks — the boundary bug that would shift every subsequent value by a byte and
 	/// still produce a blob of exactly the right length.
@@ -108,13 +125,15 @@ public enum PyTorchWeightExtractor {
 	/// - Parameter checkpointURL: the file `checkpoint` was read from. Reopened here rather than
 	///   carried on ``PyTorchCheckpoint``, which is a description of a file and holds no handle to
 	///   one.
-	/// - Important: on any throw the destination is removed. A partially written blob whose manifest
-	///   claims a length is worse than no blob at all, and the checksum that would catch it is not
-	///   computed until the whole entry has been streamed.
+	/// - Important: on any throw the destination is removed, on a best-effort basis — a removal that
+	///   itself fails cannot be reported without replacing the real error with a worse one. A
+	///   partially written blob whose manifest claims a length is worse than no blob at all, and the
+	///   checksum that would catch it is not computed until the whole entry has been streamed.
 	public static func extract(
 		_ checkpoint: PyTorchCheckpoint,
 		from checkpointURL: URL,
-		to destinationURL: URL
+		to destinationURL: URL,
+		maximumTotalByteCount: UInt64 = defaultMaximumTotalByteCount
 	) throws -> PyTorchWeightExtraction {
 		let source: FileBytes
 		do {
@@ -122,7 +141,10 @@ public enum PyTorchWeightExtractor {
 		} catch {
 			throw PyTorchWeightExtractionError.unreadableArchive("\(error)")
 		}
-		return try extract(checkpoint, from: source, to: destinationURL)
+		return try extract(
+			checkpoint, from: source, to: destinationURL,
+			maximumTotalByteCount: maximumTotalByteCount
+		)
 	}
 
 	/// The extraction itself, over any byte source.
@@ -133,7 +155,8 @@ public enum PyTorchWeightExtractor {
 	static func extract(
 		_ checkpoint: PyTorchCheckpoint,
 		from source: any RandomAccessBytes,
-		to destinationURL: URL
+		to destinationURL: URL,
+		maximumTotalByteCount: UInt64 = defaultMaximumTotalByteCount
 	) throws -> PyTorchWeightExtraction {
 		let archive: PyTorchZipArchive
 		let pickleEntry: PyTorchZipEntry
@@ -143,14 +166,34 @@ public enum PyTorchWeightExtractor {
 		} catch {
 			throw PyTorchWeightExtractionError.unreadableArchive("\(error)")
 		}
-		// The description and the bytes must be the same file. `checkpoint` was decoded from *a*
-		// file and this opens one again, and between those two moments the file can change — a
-		// resumed download, a shared cache directory, or a caller that simply passed the wrong URL.
+		// The description and the bytes must come from the same `data.pkl`. `checkpoint` was decoded
+		// from *a* file and this opens one again, and between those two moments the file can change —
+		// a resumed download, a shared cache directory, or a caller that simply passed the wrong URL.
 		// Every other check here would still pass: the four published detectors have byte-identical
 		// tensor tables, so names, shapes, storage keys, entry sizes and per-entry CRCs would all
 		// agree while the weights came from a different model and nothing said so.
-		guard pickleEntry.crc32 == checkpoint.pickleChecksum else {
-			throw PyTorchWeightExtractionError.checkpointDescribesAnotherArchive
+		//
+		// The payload is **re-read** rather than compared against the directory's declared CRC field.
+		// Reading it verifies it against that field (`bytes(of:)` checks the checksum), so a
+		// replacement archive cannot simply copy the original's declared value into a directory
+		// describing different pickle bytes.
+		//
+		// - Important: this binds the description to the **pickle**, not to the whole file. An archive
+		//   carrying byte-identical pickle bytes beside different storage payloads — with matching
+		//   recomputed CRCs — is not detected, and cannot be by any check over `data.pkl`. Closing
+		//   that needs a whole-file digest, which costs a full re-read of a 518 MB download and would
+		//   undo the reader's under-a-megabyte read set. It is a deliberate limit, not an oversight.
+		do {
+			let pickle = try archive.bytes(
+				of: pickleEntry, maximumByteCount: PyTorchPickleDecoder.Caps.pickleBytes
+			)
+			guard CRC32.checksum(pickle) == checkpoint.pickleChecksum else {
+				throw PyTorchWeightExtractionError.checkpointDescribesAnotherArchive
+			}
+		} catch let error as PyTorchWeightExtractionError {
+			throw error
+		} catch {
+			throw PyTorchWeightExtractionError.unreadableArchive("\(pickleEntry.name): \(error)")
 		}
 
 		guard FileManager.default.createFile(atPath: destinationURL.path, contents: nil) else {
@@ -201,6 +244,14 @@ public enum PyTorchWeightExtractor {
 			else {
 				throw PyTorchWeightExtractionError.shapeTooLarge(tensor: tensor.name)
 			}
+			// Checked before the tensor is streamed, not after: the point is to refuse the work, not
+			// to notice afterwards that too much of it was done.
+			let projected = offset + UInt64(halfBytes)
+			guard projected <= maximumTotalByteCount else {
+				throw PyTorchWeightExtractionError.weightsExceedBudget(
+					byteCount: projected, limit: maximumTotalByteCount
+				)
+			}
 
 			let entryName = "\(checkpoint.root)/data/\(tensor.storageKey)"
 			guard let entry = archive.entry(named: entryName) else {
@@ -222,7 +273,16 @@ public enum PyTorchWeightExtractor {
 				) { chunk in
 					let converted = Data(try float16Bytes(of: chunk, tensor: tensor.name))
 					digest.update(data: converted)
-					try handle.write(contentsOf: converted)
+					// A disk-full or permission failure here is a fact about the destination, and
+					// reporting it as a malformed archive sends whoever reads the error to the wrong
+					// file entirely.
+					do {
+						try handle.write(contentsOf: converted)
+					} catch {
+						throw PyTorchWeightExtractionError.destinationNotWritable(
+							destinationURL.lastPathComponent
+						)
+					}
 					// Sampled here rather than per tensor: the residency this is asked about is the
 					// chunk's, and a tensor-boundary sample can miss it entirely.
 					memory = tracker.sample() ?? memory
@@ -283,11 +343,17 @@ public enum PyTorchWeightExtractor {
 				| UInt32(chunk[index + 2]) << 16
 				| UInt32(chunk[index + 3]) << 24
 			let value = Float(bitPattern: bits)
+			// A weight that arrives NaN or infinite is refused rather than copied. Faithfulness is the
+			// wrong instinct here: the result is the same poisoned artifact the overflow check below
+			// exists to prevent, and it would carry exactly the length the manifest expects. Measured
+			// on all four published detectors: zero NaN, zero infinities, so nothing real is refused.
+			guard value.isFinite else {
+				throw PyTorchWeightExtractionError.nonFiniteWeight(tensor: tensor)
+			}
 			let half = Float16(value)
 			// Underflow to zero is ordinary precision loss and is accepted. Overflow to infinity is
-			// not: it replaces a weight with a value that poisons every product it enters, and the
-			// blob would still be exactly the length the manifest expects.
-			guard value.isFinite == false || half.isFinite else {
+			// not, for the same reason.
+			guard half.isFinite else {
 				throw PyTorchWeightExtractionError.valueNotRepresentableInFloat16(tensor: tensor)
 			}
 			let halfBits = half.bitPattern

@@ -78,13 +78,14 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 		let directory = try requireDirectory()
 		let manifest = try ADAFFixtures.manifest()
 		var examined = 0
+		var sparse: [String] = []
 
 		for model in manifest.models where model.expects == "objectDetection" {
 			let url = directory.appendingPathComponent(model.fileName)
 			guard FileManager.default.fileExists(atPath: url.path) else { continue }
 			let marker = directory.appendingPathComponent(".\(model.fileName).sparse")
 			if FileManager.default.fileExists(atPath: marker.path) {
-				print("[AIA-0675] \(model.fileName): sparse copy, skipped — run fetch with --full")
+				sparse.append(model.fileName)
 				continue
 			}
 
@@ -135,6 +136,12 @@ final class ADAFCheckpointDirectoryTests: XCTestCase {
 		}
 
 		XCTAssertGreaterThan(examined, 0, "no whole detection checkpoint was available — fetch with --full")
+		// Without this the test passes on one whole detector beside three sparse ones, while claiming
+		// end-to-end coverage for every detector present.
+		XCTAssertEqual(
+			sparse, [],
+			"these detectors are present but sparse, so their weights were never extracted: \(sparse)"
+		)
 	}
 
 	/// The same attack as the built-archive test, with the files that make it plausible (AIA-0675).
