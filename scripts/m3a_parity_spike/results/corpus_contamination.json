@@ -1,0 +1,77 @@
+{
+  "barrows.jpg": {
+    "path": "scripts/m3a_parity_spike/results/figures/barrows.jpg",
+    "pixels": [
+      400,
+      400
+    ],
+    "mode": "RGB",
+    "non_grey_fraction": 0.0,
+    "non_grey_fraction_threshold": 0.005,
+    "likely_annotated": false,
+    "saturated_fraction": 0.0,
+    "saturated_by_colour": {
+      "red": 0.0,
+      "green": 0.0,
+      "blue": 0.0,
+      "yellow": 0.0,
+      "magenta": 0.0,
+      "cyan": 0.0
+    },
+    "saturated_blocks_16px": 0,
+    "blocks_total": 625,
+    "max_block_saturation": 0.0,
+    "detects_boxes": false,
+    "summary": "0.00% of pixels are non-grey (alert above 0.5%); 0 of 625 16px blocks are majority near-saturated colour, strongest family red at 0.00%. No colour drawing at this threshold; greyscale drawing would not show up here."
+  },
+  "enclosure.jpg": {
+    "path": "scripts/m3a_parity_spike/results/figures/enclosure.jpg",
+    "pixels": [
+      400,
+      400
+    ],
+    "mode": "RGB",
+    "non_grey_fraction": 0.0,
+    "non_grey_fraction_threshold": 0.005,
+    "likely_annotated": false,
+    "saturated_fraction": 0.0,
+    "saturated_by_colour": {
+      "red": 0.0,
+      "green": 0.0,
+      "blue": 0.0,
+      "yellow": 0.0,
+      "magenta": 0.0,
+      "cyan": 0.0
+    },
+    "saturated_blocks_16px": 0,
+    "blocks_total": 625,
+    "max_block_saturation": 0.0,
+    "detects_boxes": false,
+    "summary": "0.00% of pixels are non-grey (alert above 0.5%); 0 of 625 16px blocks are majority near-saturated colour, strongest family red at 0.00%. No colour drawing at this threshold; greyscale drawing would not show up here."
+  },
+  "ringfort.jpg": {
+    "path": "scripts/m3a_parity_spike/results/figures/ringfort.jpg",
+    "pixels": [
+      400,
+      400
+    ],
+    "mode": "RGB",
+    "non_grey_fraction": 0.0,
+    "non_grey_fraction_threshold": 0.005,
+    "likely_annotated": false,
+    "saturated_fraction": 0.0,
+    "saturated_by_colour": {
+      "red": 0.0,
+      "green": 0.0,
+      "blue": 0.0,
+      "yellow": 0.0,
+      "magenta": 0.0,
+      "cyan": 0.0
+    },
+    "saturated_blocks_16px": 0,
+    "blocks_total": 625,
+    "max_block_saturation": 0.0,
+    "detects_boxes": false,
+    "summary": "0.00% of pixels are non-grey (alert above 0.5%); 0 of 625 16px blocks are majority near-saturated colour, strongest family red at 0.00%. No colour drawing at this threshold; greyscale drawing would not show up here."
+  }
+}

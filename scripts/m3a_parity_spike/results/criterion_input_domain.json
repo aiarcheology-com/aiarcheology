@@ -1,0 +1,102 @@
+{
+  "OD_ringfort": {
+    "figure": "ringfort.jpg",
+    "candidates": {
+      "divide_255": {
+        "detections_above_0_05": 2,
+        "detections_above_0_5": 1,
+        "max_score": 0.9802706241607666
+      },
+      "raw": {
+        "detections_above_0_05": 0,
+        "detections_above_0_5": 0,
+        "max_score": 0.0
+      },
+      "times_255": {
+        "detections_above_0_05": 0,
+        "detections_above_0_5": 0,
+        "max_score": 0.0
+      },
+      "per_tile_minmax": {
+        "detections_above_0_05": 2,
+        "detections_above_0_5": 1,
+        "max_score": 0.9802706241607666
+      }
+    }
+  },
+  "OD_barrow": {
+    "figure": "barrows.jpg",
+    "candidates": {
+      "divide_255": {
+        "detections_above_0_05": 3,
+        "detections_above_0_5": 3,
+        "max_score": 0.9795745015144348
+      },
+      "raw": {
+        "detections_above_0_05": 2,
+        "detections_above_0_5": 0,
+        "max_score": 0.12066499888896942
+      },
+      "times_255": {
+        "detections_above_0_05": 0,
+        "detections_above_0_5": 0,
+        "max_score": 0.0
+      },
+      "per_tile_minmax": {
+        "detections_above_0_05": 4,
+        "detections_above_0_5": 3,
+        "max_score": 0.9722460508346558
+      }
+    }
+  },
+  "OD_enclosure": {
+    "figure": "enclosure.jpg",
+    "candidates": {
+      "divide_255": {
+        "detections_above_0_05": 8,
+        "detections_above_0_5": 2,
+        "max_score": 0.8073384165763855
+      },
+      "raw": {
+        "detections_above_0_05": 0,
+        "detections_above_0_5": 0,
+        "max_score": 0.0
+      },
+      "times_255": {
+        "detections_above_0_05": 0,
+        "detections_above_0_5": 0,
+        "max_score": 0.0
+      },
+      "per_tile_minmax": {
+        "detections_above_0_05": 8,
+        "detections_above_0_5": 2,
+        "max_score": 0.8073384165763855
+      }
+    }
+  },
+  "OD_AO": {
+    "figure": "ringfort.jpg",
+    "candidates": {
+      "divide_255": {
+        "detections_above_0_05": 1,
+        "detections_above_0_5": 1,
+        "max_score": 0.9891449809074402
+      },
+      "raw": {
+        "detections_above_0_05": 0,
+        "detections_above_0_5": 0,
+        "max_score": 0.0
+      },
+      "times_255": {
+        "detections_above_0_05": 0,
+        "detections_above_0_5": 0,
+        "max_score": 0.0
+      },
+      "per_tile_minmax": {
+        "detections_above_0_05": 1,
+        "detections_above_0_5": 1,
+        "max_score": 0.9891449809074402
+      }
+    }
+  }
+}

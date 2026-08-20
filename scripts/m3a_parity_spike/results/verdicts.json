@@ -1,0 +1,102 @@
+[
+  {
+    "criterion": "criterion 1 sampling grid",
+    "outcome": "PASS",
+    "detail": "ROI_ALIGN_MODE|CORNERS_HEIGHT_FIRST|direct_7x7 reproduces torchvision's grid to 1.91e-06 feature px"
+  },
+  {
+    "criterion": "criterion 1 harness sees an axis swap",
+    "outcome": "PASS",
+    "detail": "swapped packing moves the grid 6.46 px"
+  },
+  {
+    "criterion": "criterion 1 construction",
+    "outcome": "PASS",
+    "detail": "crop-at-2x + 2x2 average pool wins on real features (0.0436 relative) against a bare 7x7 crop (0.4026)"
+  },
+  {
+    "criterion": "criterion 3 level assignment (real proposals)",
+    "outcome": "PASS",
+    "detail": "997 real proposal areas, 0 mismatches"
+  },
+  {
+    "criterion": "criterion 3 level assignment (adversarial)",
+    "outcome": "PASS",
+    "detail": "40 boundary and degenerate areas, 0 mismatches"
+  },
+  {
+    "criterion": "criterion 4 mid-graph NMS",
+    "outcome": "PASS",
+    "detail": "NN-layer NMS returns torchvision's kept indices in torchvision's order"
+  },
+  {
+    "criterion": "backbone+FPN elementwise",
+    "outcome": "PASS",
+    "detail": "max |delta| 5.98e-05 <= 1e-04"
+  },
+  {
+    "criterion": "RPN head elementwise",
+    "outcome": "PASS",
+    "detail": "max |delta| 0.00e+00 <= 1e-04"
+  },
+  {
+    "criterion": "composition coreml_pooling [OD_ringfort]",
+    "outcome": "PASS",
+    "detail": "2 matched, 0 unmatched, box shift 0.00005 px, score delta 0.000000"
+  },
+  {
+    "criterion": "composition coreml_pooling_fp16 [OD_ringfort]",
+    "outcome": "PASS",
+    "detail": "2 matched, 0 unmatched, box shift 0.00180 px, score delta 0.000002"
+  },
+  {
+    "criterion": "composition torch_fp16 [OD_ringfort]",
+    "outcome": "PASS",
+    "detail": "2 matched, 0 unmatched, box shift 0.00182 px, score delta 0.000002"
+  },
+  {
+    "criterion": "composition coreml_pooling [OD_barrow]",
+    "outcome": "PASS",
+    "detail": "3 matched, 0 unmatched, box shift 0.00002 px, score delta 0.000000"
+  },
+  {
+    "criterion": "composition coreml_pooling_fp16 [OD_barrow]",
+    "outcome": "PASS",
+    "detail": "3 matched, 0 unmatched, box shift 0.00049 px, score delta 0.000002"
+  },
+  {
+    "criterion": "composition torch_fp16 [OD_barrow]",
+    "outcome": "PASS",
+    "detail": "3 matched, 0 unmatched, box shift 0.00052 px, score delta 0.000001"
+  },
+  {
+    "criterion": "composition coreml_pooling [OD_enclosure]",
+    "outcome": "PASS",
+    "detail": "5 matched, 0 unmatched, box shift 0.00005 px, score delta 0.000001"
+  },
+  {
+    "criterion": "composition coreml_pooling_fp16 [OD_enclosure]",
+    "outcome": "PASS",
+    "detail": "5 matched, 0 unmatched, box shift 0.00580 px, score delta 0.000014"
+  },
+  {
+    "criterion": "composition torch_fp16 [OD_enclosure]",
+    "outcome": "PASS",
+    "detail": "5 matched, 0 unmatched, box shift 0.00586 px, score delta 0.000012"
+  },
+  {
+    "criterion": "composition coreml_pooling [OD_AO]",
+    "outcome": "UNDERPOWERED",
+    "detail": "thresholds met, but only 1 detection(s) exercised them (minimum 2)"
+  },
+  {
+    "criterion": "composition coreml_pooling_fp16 [OD_AO]",
+    "outcome": "UNDERPOWERED",
+    "detail": "thresholds met, but only 1 detection(s) exercised them (minimum 2)"
+  },
+  {
+    "criterion": "composition torch_fp16 [OD_AO]",
+    "outcome": "UNDERPOWERED",
+    "detail": "thresholds met, but only 1 detection(s) exercised them (minimum 2)"
+  }
+]
