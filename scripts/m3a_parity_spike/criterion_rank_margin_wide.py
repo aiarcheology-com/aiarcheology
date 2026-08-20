@@ -66,7 +66,9 @@ OFFSETS_PER_AXIS = 3
 # cannot vary. Both rescales are exact on a 400-pixel figure (300 and 600), so no rounding enters.
 SCALES = (0.75, 1.0, 1.5)
 
-# The K this is testing, from `criterion_topk` via `criterion_host_chunking.ROI_COUNT`.
+# The K this file exists to test, as `criterion_topk` measured it. Deliberately a literal and not a
+# reference: this run's finding is what moved `criterion_host_chunking.ROI_COUNT` off 723, so reading
+# the budget back from there would compare the widened set against its own conclusion.
 M3A_K = 723
 
 # Ten times M3a's 14 detections. Below this the re-estimate is reported as UNDERPOWERED, because a

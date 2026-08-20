@@ -466,11 +466,20 @@ def _recommendation(report: dict) -> str:
         return (f"no candidate reaches the interior floor; best is {best} at "
                 f"{scores[best]:.2e} relative (ceiling {FIXED_RESIDUAL_CEILING:.0e}). M3c cannot fix "
                 f"this by padding.")
-    return (f"M3c should pad every FPN level with a one-pixel REPLICATE ring and add one feature-map "
-            f"pixel (1/spatial_scale image pixels) to every ROI coordinate: {best} holds the worst "
-            f"boundary population at {scores[best]:.2e} relative, against "
-            f"{scores['no_ring']:.2e} unpadded and {scores['zero_ring']:.2e} for the zero ring the "
-            f"ticket proposed.")
+    # The winning candidate is named from `best`, never spelled out as a literal: `_mechanism` above
+    # restates its conclusion from the numbers so a future run cannot inherit a stale claim, and a
+    # recommendation that hardcoded "replicate" would contradict its own evidence the first time a
+    # different candidate won.
+    padding = {
+        "no_ring": "leave every FPN level unpadded",
+        "zero_ring": "pad every FPN level with a one-pixel ZERO ring",
+        "replicate_ring": "pad every FPN level with a one-pixel REPLICATE ring",
+    }[best]
+    shift = "" if best == "no_ring" else (" and add one feature-map pixel (1/spatial_scale image "
+                                          "pixels) to every ROI coordinate")
+    return (f"M3c should {padding}{shift}: {best} holds the worst boundary population at "
+            f"{scores[best]:.2e} relative, against {scores['no_ring']:.2e} unpadded and "
+            f"{scores['zero_ring']:.2e} for the zero ring the ticket proposed.")
 
 
 def evaluate(report: dict) -> list:

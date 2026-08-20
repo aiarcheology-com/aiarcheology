@@ -203,8 +203,9 @@ def build_chunk_model(batch: int, seed: int = WEIGHT_SEED):
 def config_hash(batch: int, seed: int = WEIGHT_SEED) -> str:
     """Everything that changes the compiled artefact, and nothing that does not.
 
-    The invocation count is deliberately absent: B=723/N=1 and B=723/N=8 are the same model called a
-    different number of times, so they share a cache entry and the control costs no second build.
+    The invocation count is deliberately absent: the monolithic run and its repeated control are the
+    same model called a different number of times, so they share a cache entry and the control costs
+    no second build.
     """
     payload = json.dumps({
         "batch": batch, "levels": LEVELS, "channels": CHANNELS, "output_size": OUTPUT_SIZE,
@@ -216,8 +217,8 @@ def config_hash(batch: int, seed: int = WEIGHT_SEED) -> str:
 def compiled_model_path(batch: int, cache_root: Path) -> Path:
     """Build and compile once; every later process only loads.
 
-    Cached outside the repository: a `.mlmodelc` for B=723 is ~56 MiB of random weights, and results/
-    holds findings, not binaries.
+    Cached outside the repository: the whole-batch `.mlmodelc` is ~56 MiB of random weights, and
+    results/ holds findings, not binaries.
     """
     destination = cache_root / f"chunk_b{batch}_{config_hash(batch)}.mlmodelc"
     if not destination.exists():
@@ -338,6 +339,12 @@ def _run_measured(model_path: str, batch: int, invocations: int, mode: str, seed
 # Orchestration
 # --------------------------------------------------------------------------------------------
 
+# Chosen when K was 723 and deliberately left alone when it moved to 1000, because none of them
+# divides K: `ceil` then pads the last chunk, so b52 processes 1040 ROIs and b182/b364 process 1092
+# against the monolithic run's exactly 1000. That overhead is charged to chunking in every latency
+# multiple below — the bias runs *against* the design under test, so a PASS earned with it is a
+# conservative PASS. `padding_overhead` records the size of the handicap rather than leaving a reader
+# to derive it; a real emitter pads K up to a multiple of B the same way.
 CHUNK_BATCHES = (52, 91, 182, 364)
 
 
@@ -379,6 +386,7 @@ def measure(*, only: str = None, seed: int = INPUT_SEED, cache_root: Path = None
     for config in selected:
         row = dict(config)
         row["rois_covered"] = config["batch"] * config["invocations"]
+        row["padding_overhead"] = row["rois_covered"] / ROI_COUNT
         row["config_hash"] = config_hash(config["batch"])
         try:
             model_path = compiled_model_path(config["batch"], cache_root)
@@ -437,7 +445,7 @@ def evaluate(report: dict) -> Verdict:
         row["latency_multiple_vs_monolithic"] = multiple
         row["peak_saving_vs_monolithic_mib"] = reference_peak - peak
         if peak <= MAX_FULL_RUN_PEAK_MIB and multiple <= MAX_LATENCY_MULTIPLE:
-            passing.append((peak, row["name"], multiple))
+            passing.append((peak, row["name"], multiple, row.get("padding_overhead", 1.0)))
 
     if not passing:
         best = min((r["full"]["peak_above_baseline_mib"] for r in rows
@@ -448,11 +456,13 @@ def evaluate(report: dict) -> Verdict:
                        f"(budget {MAX_FULL_RUN_PEAK_MIB:.0f} MiB), monolithic "
                        f"{reference_peak:.1f} MiB / {reference_seconds:.2f} s")
 
-    peak, name, multiple = min(passing)
+    peak, name, multiple, overhead = min(passing)
     return Verdict("host-side chunking", "PASS",
                    f"{len(passing)} of the chunked configurations fit; best is {name} at "
                    f"{peak:.1f} MiB above baseline (budget {MAX_FULL_RUN_PEAK_MIB:.0f}) and "
-                   f"{multiple:.2f}x the monolithic wall time (budget {MAX_LATENCY_MULTIPLE:.1f}x)")
+                   f"{multiple:.2f}x the monolithic wall time (budget {MAX_LATENCY_MULTIPLE:.1f}x), "
+                   f"while processing {overhead:.2f}x the monolithic run's ROIs because the last "
+                   f"chunk is padded — the multiple is a conservative one")
 
 
 def render(report: dict) -> str:
