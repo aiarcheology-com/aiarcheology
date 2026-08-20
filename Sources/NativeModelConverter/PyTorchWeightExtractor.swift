@@ -158,6 +158,115 @@ public enum PyTorchWeightExtractor {
 		to destinationURL: URL,
 		maximumTotalByteCount: UInt64 = defaultMaximumTotalByteCount
 	) throws -> PyTorchWeightExtraction {
+		let archive = try openBinding(checkpoint, in: source)
+
+		guard FileManager.default.createFile(atPath: destinationURL.path, contents: nil) else {
+			throw PyTorchWeightExtractionError.destinationNotWritable(destinationURL.lastPathComponent)
+		}
+		guard let handle = try? FileHandle(forWritingTo: destinationURL) else {
+			// The file exists by now and this method promises to leave none behind on a throw. Folding
+			// this into the guard above leaves an empty `weights.bin` on disk, which a caller that
+			// treats the file's presence as success would read as an empty model.
+			try? FileManager.default.removeItem(at: destinationURL)
+			throw PyTorchWeightExtractionError.destinationNotWritable(destinationURL.lastPathComponent)
+		}
+
+		let tracker = NativeModelConversionMemoryTracker()
+		var memory = tracker.sample()
+		var digest = SHA256()
+		var weights: [NativeModelWeight] = []
+		var skipped: [String] = []
+		var offset: UInt64 = 0
+		var sourceByteCount: UInt64 = 0
+		var completed = false
+		defer {
+			try? handle.close()
+			if completed == false {
+				try? FileManager.default.removeItem(at: destinationURL)
+			}
+		}
+
+		for tensor in checkpoint.tensors {
+			guard tensor.dataType == .float32 else {
+				guard isSkippableCounter(tensor) else {
+					throw PyTorchWeightExtractionError.unrepresentableTensor(
+						tensor: tensor.name, dataType: tensor.dataType.rawValue
+					)
+				}
+				skipped.append(tensor.name)
+				continue
+			}
+			let (entry, expectedSourceBytes, halfBytes) = try plan(tensor, in: archive, root: checkpoint.root)
+			// Checked before the tensor is streamed, not after: the point is to refuse the work, not
+			// to notice afterwards that too much of it was done.
+			let projected = offset + UInt64(halfBytes)
+			guard projected <= maximumTotalByteCount else {
+				throw PyTorchWeightExtractionError.weightsExceedBudget(
+					byteCount: projected, limit: maximumTotalByteCount
+				)
+			}
+
+			do {
+				try archive.streamBytes(
+					of: entry,
+					maximumByteCount: maximumStorageByteCount,
+					chunkByteCount: chunkByteCount
+				) { chunk in
+					let converted = Data(try float16Bytes(of: chunk, tensor: tensor.name))
+					digest.update(data: converted)
+					// A disk-full or permission failure here is a fact about the destination, and
+					// reporting it as a malformed archive sends whoever reads the error to the wrong
+					// file entirely.
+					do {
+						try handle.write(contentsOf: converted)
+					} catch {
+						throw PyTorchWeightExtractionError.destinationNotWritable(
+							destinationURL.lastPathComponent
+						)
+					}
+					// Sampled here rather than per tensor: the residency this is asked about is the
+					// chunk's, and a tensor-boundary sample can miss it entirely.
+					memory = tracker.sample() ?? memory
+				}
+			} catch let error as PyTorchWeightExtractionError {
+				throw error
+			} catch PyTorchZipArchiveError.checksumMismatch {
+				throw PyTorchWeightExtractionError.storageChecksumFailed(tensor: tensor.name)
+			} catch {
+				throw PyTorchWeightExtractionError.unreadableArchive("\(entry.name): \(error)")
+			}
+
+			weights.append(NativeModelWeight(
+				name: tensor.name,
+				dataType: .float16,
+				shape: tensor.shape,
+				offset: offset,
+				byteCount: UInt64(halfBytes)
+			))
+			offset += UInt64(halfBytes)
+			sourceByteCount += UInt64(expectedSourceBytes)
+		}
+
+		completed = true
+		return PyTorchWeightExtraction(
+			weights: weights,
+			byteCount: offset,
+			sourceByteCount: sourceByteCount,
+			sha256: digest.finalize().map { String(format: "%02x", $0) }.joined(),
+			skippedCounterTensors: skipped,
+			memory: memory
+		)
+	}
+
+
+	/// Opens `source` and proves it carries the `data.pkl` that `checkpoint` was decoded from.
+	///
+	/// Separate from ``extract(_:from:to:maximumTotalByteCount:)`` because it answers its own
+	/// question — "are these the bytes this description came from?" — and reads as one thing.
+	private static func openBinding(
+		_ checkpoint: PyTorchCheckpoint,
+		in source: any RandomAccessBytes
+	) throws -> PyTorchZipArchive {
 		let archive: PyTorchZipArchive
 		let pickleEntry: PyTorchZipEntry
 		do {
@@ -195,126 +304,46 @@ public enum PyTorchWeightExtractor {
 		} catch {
 			throw PyTorchWeightExtractionError.unreadableArchive("\(pickleEntry.name): \(error)")
 		}
+		return archive
+	}
 
-		guard FileManager.default.createFile(atPath: destinationURL.path, contents: nil) else {
-			throw PyTorchWeightExtractionError.destinationNotWritable(destinationURL.lastPathComponent)
+	/// Resolves the archive entry holding `tensor`'s storage, and the byte counts it implies.
+	///
+	/// The two sizes are returned together because they are two views of one fact, and computing
+	/// them apart is how a blob ends up the right length while holding the wrong tensor.
+	private static func plan(
+		_ tensor: PyTorchTensorRef,
+		in archive: PyTorchZipArchive,
+		root: String
+	) throws -> (entry: PyTorchZipEntry, sourceBytes: Int, halfBytes: Int) {
+		guard tensor.isContiguousAndComplete else {
+			throw PyTorchWeightExtractionError.tensorIsNotContiguous(tensor: tensor.name)
 		}
-		guard let handle = try? FileHandle(forWritingTo: destinationURL) else {
-			// The file exists by now and this method promises to leave none behind on a throw. Folding
-			// this into the guard above leaves an empty `weights.bin` on disk, which a caller that
-			// treats the file's presence as success would read as an empty model.
-			try? FileManager.default.removeItem(at: destinationURL)
-			throw PyTorchWeightExtractionError.destinationNotWritable(destinationURL.lastPathComponent)
+		guard let sourceBytes = checkedProduct(tensor.elementCount, tensor.dataType.byteCount),
+			let halfBytes = checkedProduct(tensor.elementCount, 2)
+		else {
+			throw PyTorchWeightExtractionError.shapeTooLarge(tensor: tensor.name)
 		}
-
-		let tracker = NativeModelConversionMemoryTracker()
-		var memory = tracker.sample()
-		var digest = SHA256()
-		var weights: [NativeModelWeight] = []
-		var skipped: [String] = []
-		var offset: UInt64 = 0
-		var sourceByteCount: UInt64 = 0
-		var completed = false
-		defer {
-			try? handle.close()
-			if completed == false {
-				try? FileManager.default.removeItem(at: destinationURL)
-			}
+		let entryName = "\(root)/data/\(tensor.storageKey)"
+		guard let entry = archive.entry(named: entryName) else {
+			throw PyTorchWeightExtractionError.storageMissingFromArchive(
+				tensor: tensor.name, entry: entryName
+			)
 		}
-
-		for tensor in checkpoint.tensors {
-			guard tensor.dataType == .float32 else {
-				guard tensor.dataType == .int64,
-					tensor.name.hasSuffix(".num_batches_tracked"),
-					tensor.shape.isEmpty,
-					tensor.storageElementCount == 1
-				else {
-					throw PyTorchWeightExtractionError.unrepresentableTensor(
-						tensor: tensor.name, dataType: tensor.dataType.rawValue
-					)
-				}
-				skipped.append(tensor.name)
-				continue
-			}
-			guard tensor.isContiguousAndComplete else {
-				throw PyTorchWeightExtractionError.tensorIsNotContiguous(tensor: tensor.name)
-			}
-			guard let expectedSourceBytes = checkedProduct(tensor.elementCount, tensor.dataType.byteCount),
-				let halfBytes = checkedProduct(tensor.elementCount, 2)
-			else {
-				throw PyTorchWeightExtractionError.shapeTooLarge(tensor: tensor.name)
-			}
-			// Checked before the tensor is streamed, not after: the point is to refuse the work, not
-			// to notice afterwards that too much of it was done.
-			let projected = offset + UInt64(halfBytes)
-			guard projected <= maximumTotalByteCount else {
-				throw PyTorchWeightExtractionError.weightsExceedBudget(
-					byteCount: projected, limit: maximumTotalByteCount
-				)
-			}
-
-			let entryName = "\(checkpoint.root)/data/\(tensor.storageKey)"
-			guard let entry = archive.entry(named: entryName) else {
-				throw PyTorchWeightExtractionError.storageMissingFromArchive(
-					tensor: tensor.name, entry: entryName
-				)
-			}
-			guard entry.uncompressedSize == expectedSourceBytes else {
-				throw PyTorchWeightExtractionError.storageSizeDisagreesWithArchive(
-					tensor: tensor.name, expected: expectedSourceBytes, archive: entry.uncompressedSize
-				)
-			}
-
-			do {
-				try archive.streamBytes(
-					of: entry,
-					maximumByteCount: maximumStorageByteCount,
-					chunkByteCount: chunkByteCount
-				) { chunk in
-					let converted = Data(try float16Bytes(of: chunk, tensor: tensor.name))
-					digest.update(data: converted)
-					// A disk-full or permission failure here is a fact about the destination, and
-					// reporting it as a malformed archive sends whoever reads the error to the wrong
-					// file entirely.
-					do {
-						try handle.write(contentsOf: converted)
-					} catch {
-						throw PyTorchWeightExtractionError.destinationNotWritable(
-							destinationURL.lastPathComponent
-						)
-					}
-					// Sampled here rather than per tensor: the residency this is asked about is the
-					// chunk's, and a tensor-boundary sample can miss it entirely.
-					memory = tracker.sample() ?? memory
-				}
-			} catch let error as PyTorchWeightExtractionError {
-				throw error
-			} catch PyTorchZipArchiveError.checksumMismatch {
-				throw PyTorchWeightExtractionError.storageChecksumFailed(tensor: tensor.name)
-			} catch {
-				throw PyTorchWeightExtractionError.unreadableArchive("\(entryName): \(error)")
-			}
-
-			weights.append(NativeModelWeight(
-				name: tensor.name,
-				dataType: .float16,
-				shape: tensor.shape,
-				offset: offset,
-				byteCount: UInt64(halfBytes)
-			))
-			offset += UInt64(halfBytes)
-			sourceByteCount += UInt64(expectedSourceBytes)
+		guard entry.uncompressedSize == sourceBytes else {
+			throw PyTorchWeightExtractionError.storageSizeDisagreesWithArchive(
+				tensor: tensor.name, expected: sourceBytes, archive: entry.uncompressedSize
+			)
 		}
+		return (entry, sourceBytes, halfBytes)
+	}
 
-		completed = true
-		return PyTorchWeightExtraction(
-			weights: weights,
-			byteCount: offset,
-			sourceByteCount: sourceByteCount,
-			sha256: digest.finalize().map { String(format: "%02x", $0) }.joined(),
-			skippedCounterTensors: skipped,
-			memory: memory
-		)
+	/// Whether `tensor` is one of the BatchNorm counters this extractor is allowed to drop.
+	private static func isSkippableCounter(_ tensor: PyTorchTensorRef) -> Bool {
+		tensor.dataType == .int64
+			&& tensor.name.hasSuffix(".num_batches_tracked")
+			&& tensor.shape.isEmpty
+			&& tensor.storageElementCount == 1
 	}
 
 	/// Converts one chunk of little-endian fp32 to little-endian fp16.
