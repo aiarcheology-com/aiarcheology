@@ -74,11 +74,15 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	///
 	/// When the package contains source metadata, this writes target-correct Core ML metadata into
 	/// the model and an exact `<model-name>.metadata.json` sidecar beside it.
+	///
+	/// `parityEvidence` is the caller's claim about the emitted numerics and defaults to the
+	/// unevidenced one: only a caller that actually ran a reference-oracle check may pass `.verified`.
 	@discardableResult
 	public func emit(
 		package: NativeModelGraphPackage,
 		to outputURL: URL,
 		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
+		parityEvidence: NativeModelParityEvidence = .unevidenced,
 		reporting progress: NativeModelConversionProgressHandler? = nil,
 		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws -> NativeModelEmissionMetrics {
@@ -106,7 +110,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			),
 			graph: package.graph,
 			sourceProvenance: sourceProvenance,
-			interface: interface
+			interface: interface,
+			parityEvidence: parityEvidence
 		)
 		try emit(
 			graph: package.graph,
@@ -171,6 +176,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		targetSemanticsIntent: NativeModelTargetSemanticsIntent? = nil,
 		sourceMetadata: NativeModelCoreMLMetadata? = nil,
 		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
+		parityEvidence: NativeModelParityEvidence = .unevidenced,
 		reporting progress: NativeModelConversionProgressHandler? = nil,
 		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws {
@@ -188,7 +194,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			sourceProvenance: sourceProvenance,
 			graph: graph,
 			emittedWeights: weights,
-			interface: interface
+			interface: interface,
+			parityEvidence: parityEvidence
 		)
 		try emit(
 			graph: graph,
@@ -221,6 +228,7 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		targetSemanticsIntent: NativeModelTargetSemanticsIntent? = nil,
 		sourceMetadata: NativeModelCoreMLMetadata? = nil,
 		sourceProvenance: NativeModelConversionSourceProvenance? = nil,
+		parityEvidence: NativeModelParityEvidence = .unevidenced,
 		reporting progress: NativeModelConversionProgressHandler? = nil,
 		checkingCancellation cancellationCheck: NativeModelConversionCancellationHandler? = nil
 	) throws {
@@ -247,7 +255,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			sourceProvenance: sourceProvenance,
 			graph: graph,
 			emittedWeights: weights,
-			interface: interface
+			interface: interface,
+			parityEvidence: parityEvidence
 		)
 		try emit(
 			graph: graph,
@@ -276,12 +285,17 @@ public struct NativeModelCoreMLEmitter: Sendable {
 	/// The pair is not production-managed yet: the app's cleanup path removes exactly the model and
 	/// its metadata sidecar, and the CLI reports one model size. Teaching those paths about
 	/// companions is M3c; until then the caller owns the companion's lifetime.
+	///
+	/// One emission makes one parity claim, stamped on both files: the primary is useless without the
+	/// chunk it drives, so a check that covered only one of them has not checked what this emission
+	/// produces.
 	@discardableResult
 	public func emit(
 		graph: NativeModelGraph,
 		weights: Data,
 		to outputURL: URL,
-		roiBoxHeadChunk chunk: NativeModelROIBoxHeadChunkEmission
+		roiBoxHeadChunk chunk: NativeModelROIBoxHeadChunkEmission,
+		parityEvidence: NativeModelParityEvidence = .unevidenced
 	) throws -> NativeModelEmissionArtifactSet {
 		guard chunk.fixedBatchSize > 0 else {
 			throw NativeModelCoreMLEmissionError.invalidArtifactSet(
@@ -316,7 +330,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			sourceProvenance: nil,
 			graph: chunk.graph,
 			emittedWeights: chunk.weights,
-			interface: companionInterface
+			interface: companionInterface,
+			parityEvidence: parityEvidence
 		)
 		let companionModel = try modelData(
 			graph: chunk.graph,
@@ -356,7 +371,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				sourceProvenance: nil,
 				graph: graph,
 				emittedWeights: weights,
-				interface: primaryInterface
+				interface: primaryInterface,
+				parityEvidence: parityEvidence
 			),
 			addingUserDefined: NativeModelArtifactManifest.userDefinedKey,
 			value: manifest.canonicalJSON()
@@ -990,7 +1006,8 @@ public struct NativeModelCoreMLEmitter: Sendable {
 		sourceProvenance: NativeModelConversionSourceProvenance?,
 		graph: NativeModelGraph,
 		emittedWeights: Data,
-		interface: ResolvedEmissionInterface
+		interface: ResolvedEmissionInterface,
+		parityEvidence: NativeModelParityEvidence = .unevidenced
 	) throws -> NativeModelCoreMLMetadata {
 		try targetMetadata(
 			from: source,
@@ -999,16 +1016,20 @@ public struct NativeModelCoreMLEmitter: Sendable {
 			),
 			graph: graph,
 			sourceProvenance: sourceProvenance,
-			interface: interface
+			interface: interface,
+			parityEvidence: parityEvidence
 		)
 	}
 
+	/// `parityEvidence` defaults to the unevidenced claim in both metadata builders, so a path added
+	/// later that says nothing about parity writes the conservative fact rather than no fact at all.
 	private func targetMetadata(
 		from source: NativeModelCoreMLMetadata?,
 		checksums: NativeModelConversionChecksums,
 		graph: NativeModelGraph,
 		sourceProvenance: NativeModelConversionSourceProvenance?,
-		interface: ResolvedEmissionInterface
+		interface: ResolvedEmissionInterface,
+		parityEvidence: NativeModelParityEvidence = .unevidenced
 	) throws -> NativeModelCoreMLMetadata {
 		// A detector is emitted as a Core ML pipeline (network + NMS); a classifier interface is only
 		// emitted when labels match the output. The format string reflects what was actually written.
@@ -1024,7 +1045,11 @@ public struct NativeModelCoreMLEmitter: Sendable {
 				inputs: graph.inputs,
 				outputs: graph.outputs,
 				graph: graph
-			)
+			),
+			// Written on every path, never conditionally: a model missing the fact is indistinguishable
+			// from one whose numerics were checked, which is the confusion the fact exists to prevent.
+			NativeModelParityProvenance.userDefinedKey:
+				try NativeModelParityProvenance(evidence: parityEvidence).canonicalJSON()
 		]
 		if let graphSHA256 = checksums.graphSHA256 {
 			userDefined["com.aiarcheology.native.conversion.graph-sha256"] = graphSHA256

@@ -164,6 +164,27 @@ final class NativeModelEmittedArtifactsTests: XCTestCase {
 		XCTAssertEqual(FileManager.default.fileExists(atPath: modelURL.path), false)
 	}
 
+	func testEmitWithROIBoxHeadChunk_stampsOneParityClaimOnBothFiles() throws {
+		let directory = try temporaryDirectory()
+		let modelURL = directory.appendingPathComponent("converted.mlmodel")
+		let artifacts = try NativeModelCoreMLEmitter().emit(
+			graph: primaryGraph(), weights: Data(), to: modelURL,
+			roiBoxHeadChunk: chunk(), parityEvidence: .verified
+		)
+
+		// The primary is useless without the chunk it drives, so the claim covers the pair. A companion
+		// left unstamped would be indistinguishable from one nobody ever checked.
+		let companionURL = try XCTUnwrap(artifacts.companions.first).url
+		for url in [modelURL, companionURL] {
+			let json = try XCTUnwrap(userDefined(of: try compiled(at: url))[NativeModelParityProvenance.userDefinedKey])
+			XCTAssertEqual(
+				try JSONDecoder().decode(NativeModelParityProvenance.self, from: Data(json.utf8)).evidence,
+				.verified,
+				"\(url.lastPathComponent) must carry the emission's parity claim"
+			)
+		}
+	}
+
 	func testEmit_withoutAChunk_stillWritesExactlyOneUnannotatedModel() throws {
 		let directory = try temporaryDirectory()
 		let modelURL = directory.appendingPathComponent("converted.mlmodel")

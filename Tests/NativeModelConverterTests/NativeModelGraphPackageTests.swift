@@ -230,6 +230,11 @@ final class NativeModelGraphPackageTests: XCTestCase {
 			userDefined["com.aiarcheology.native.converter.conversion-revision"],
 			String(NativeModelConverterVersion.conversionRevision)
 		)
+		// A package conversion runs no numeric check, so it must claim no more than a structural match.
+		XCTAssertEqual(
+			userDefined[NativeModelParityProvenance.userDefinedKey],
+			try NativeModelParityProvenance(evidence: .structurallyMatched).canonicalJSON()
+		)
 		XCTAssertEqual(userDefined["com.aiarcheology.native.conversion.producer.name"], "tests")
 		XCTAssertEqual(userDefined["com.aiarcheology.native.conversion.producer.version"], "1.0.0")
 		XCTAssertEqual(userDefined["com.aiarcheology.native.conversion.source-metadata-sha256"], checksum(of: metadata))
