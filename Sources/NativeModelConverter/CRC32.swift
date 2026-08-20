@@ -23,11 +23,29 @@ enum CRC32 {
 		}
 	}()
 
-	static func checksum(_ bytes: [UInt8]) -> UInt32 {
-		var crc: UInt32 = 0xFFFF_FFFF
+	/// The value a running checksum starts from.
+	static let initialValue: UInt32 = 0xFFFF_FFFF
+
+	/// Folds one chunk into a running checksum.
+	///
+	/// The incremental form exists because a weight blob is streamed: holding a 51 MB tensor in
+	/// memory only to checksum it would defeat the bounded-memory point of streaming it at all. The
+	/// fold is byte-for-byte the one ``checksum(_:)`` performs, which is why that method is now
+	/// written in terms of these two rather than kept as a second copy that could drift.
+	static func update(_ crc: UInt32, with bytes: [UInt8]) -> UInt32 {
+		var crc = crc
 		for byte in bytes {
 			crc = (crc >> 8) ^ table[Int((crc ^ UInt32(byte)) & 0xFF)]
 		}
-		return crc ^ 0xFFFF_FFFF
+		return crc
+	}
+
+	/// Turns a running checksum into the value a zip record carries.
+	static func finalize(_ crc: UInt32) -> UInt32 {
+		crc ^ 0xFFFF_FFFF
+	}
+
+	static func checksum(_ bytes: [UInt8]) -> UInt32 {
+		finalize(update(initialValue, with: bytes))
 	}
 }

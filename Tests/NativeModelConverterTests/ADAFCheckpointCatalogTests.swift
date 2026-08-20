@@ -227,7 +227,10 @@ final class ADAFCheckpointCatalogTests: XCTestCase {
 					storageElementCount: tensor.1.reduce(1, *)
 				)
 			},
-			totalStorageCount: tensors.count
+			totalStorageCount: tensors.count,
+			// Arbitrary: nothing in the catalog reads the pickle's checksum. It exists so weight
+			// extraction can prove it is reading the file a description came from (AIA-0675).
+			pickleChecksum: 0
 		)
 	}
 }

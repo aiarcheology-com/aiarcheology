@@ -14,9 +14,9 @@
       "md5": "4518e1966cafa0544bd3ea78be3b711a",
       "head": {
         "offset": 0,
-        "length": 131072,
+        "length": 163840,
         "file": "OD_ringfort.head.bin",
-        "sha256": "a8874aab0ee18b714e1984bbfb9b6c5be1fb4cd6aba02ce373aea468cab6a148"
+        "sha256": "4686f06f0a10b7465427eafc36871f42157dd261650a30b5faf2c73a7c3ddc07"
       },
       "tail": {
         "offset": 517741000,
