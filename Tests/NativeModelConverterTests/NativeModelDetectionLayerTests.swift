@@ -475,22 +475,26 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 	// MARK: - Box post-processing compositions
 
 	func testLevelAssignment_productFreeFormMatchesTorchvision() async throws {
-		// torchvision's LevelMapper (`ops/poolers.py`) assigns floor(4 + log2(sqrt(w·h) / 224)), clamped
-		// to [2, 5]. The graph evaluates the algebraically identical product-free form
-		// 4 + 0.5·log2(w) + 0.5·log2(h) − log2(224), which never forms the area: three of these six
-		// boxes have an area above fp16's 65504 (120000, 720000, 1200000) and would come out of an fp16
-		// area as infinity, while every intermediate here stays under 21.
+		// torchvision's LevelMapper (`ops/poolers.py`) assigns
+		// floor(4 + log2(sqrt(w·h) / 224) + 1e-6), clamped to [2, 5]. The graph evaluates the
+		// product-free form 4 + 0.5·log2(w) + 0.5·log2(h) − log2(224) + 1e-6, which never forms the
+		// area: three of these six boxes have an area above fp16's 65504 (120000, 720000, 1200000) and
+		// would come out of an fp16 area as infinity, while every intermediate here stays under 21.
+		//
+		// The two forms are equal in exact arithmetic and *not* in float32 — they accumulate different
+		// rounding — so the epsilon is not decoration carried over for symmetry. It is what keeps the
+		// two on the same side of `floor` at the sizes where the difference lands, which
+		// `testLevelAssignment_agreesWithTorchvisionOnTheCanonicalScale` below measures directly.
 		//
 		// Fixture: `.venv-m3a` python (torch 2.8.0, torchvision 0.23.0), levels taken from the mapper's
-		// own expression and confirmed equal to the product-free form. The sizes deliberately avoid
-		// exact powers of two, where the mapper's 1e-6 epsilon — added outside the logarithm — is what
-		// decides which side `floor` falls on.
+		// own expression.
 		let widths: [Float] = [10, 32, 100, 300, 800, 1200]
 		let heights: [Float] = [8, 32, 150, 400, 900, 1000]
 		var builder = BoxArithmeticGraph(shape: [1, 6])
 		let halfInverseLn2 = builder.constant(0.5 / Float(log(2.0)), name: "half_inverse_ln2")
 		let canonicalLevel = builder.constant(4, name: "canonical_level")
 		let canonicalScale = builder.constant(Float(log2(224.0)), name: "canonical_scale")
+		let epsilon = builder.constant(1e-6, name: "epsilon")
 		let lowestLevel = builder.constant(2, name: "lowest_level")
 		let highestLevel = builder.constant(5, name: "highest_level")
 		let logWidth = builder.apply(.naturalLogarithm, ["w"], name: "log_width")
@@ -500,7 +504,8 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		let halfLog2Area = builder.apply(.add, [halfLog2Width, halfLog2Height], name: "half_log2_area")
 		let biased = builder.apply(.add, [halfLog2Area, canonicalLevel], name: "biased")
 		let level = builder.apply(.subtract, [biased, canonicalScale], name: "level")
-		let floored = builder.apply(.floor, [level], name: "floored")
+		let nudged = builder.apply(.add, [level, epsilon], name: "nudged")
+		let floored = builder.apply(.floor, [nudged], name: "floored")
 		let raised = builder.apply(.maximumND, [floored, lowestLevel], name: "raised")
 		builder.apply(.minimumND, [raised, highestLevel], name: "y")
 
@@ -510,6 +515,51 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		)
 		// Pre-clamp values are −0.65, 1.19, 3.13, 4.63, 5.92, 6.29 — both clamps are exercised.
 		assertClose(output, [2, 2, 3, 4, 5, 5])
+	}
+
+	func testLevelAssignment_agreesWithTorchvisionOnTheCanonicalScale() async throws {
+		// The sizes the test above avoids, and the reason the epsilon is in the composition at all.
+		//
+		// Every box here has sqrt(w·h) an exact power of two times 224, so torchvision's level lands
+		// exactly on an integer and `floor` is deciding between it and the integer below. In float32
+		// the product-free form does not reach that integer from the same side: 0.5·log2(w) +
+		// 0.5·log2(h) − log2(224) evaluates to a few ulps *below* zero for a 224 × 224 box where
+		// torchvision's log2(sqrt(w·h)/224) evaluates to exactly zero. Without the 1e-6 the graph
+		// therefore floors to 3 where torchvision floors to 4 — a full level, on the canonical scale
+		// the whole formula is defined around, sending those ROIs to the wrong FPN stride.
+		//
+		// This is not a rare-input concern that random testing would have surfaced: 20 000 randomly
+		// sized boxes disagree zero times, because a random float essentially never lands on the
+		// boundary. Only these sizes show it, which is why they are pinned here rather than left to a
+		// sweep. Measured in float32 with `.venv-m3a` (numpy 2.x, torchvision 0.23.0); each expectation
+		// is torchvision's LevelMapper output for that box, clamped to [2, 5].
+		let widths: [Float] = [224, 112, 56, 224, 56, 448]
+		let heights: [Float] = [224, 112, 224, 56, 56, 448]
+		var builder = BoxArithmeticGraph(shape: [1, 6])
+		let halfInverseLn2 = builder.constant(0.5 / Float(log(2.0)), name: "half_inverse_ln2")
+		let canonicalLevel = builder.constant(4, name: "canonical_level")
+		let canonicalScale = builder.constant(Float(log2(224.0)), name: "canonical_scale")
+		let epsilon = builder.constant(1e-6, name: "epsilon")
+		let lowestLevel = builder.constant(2, name: "lowest_level")
+		let highestLevel = builder.constant(5, name: "highest_level")
+		let logWidth = builder.apply(.naturalLogarithm, ["w"], name: "log_width")
+		let logHeight = builder.apply(.naturalLogarithm, ["h"], name: "log_height")
+		let halfLog2Width = builder.apply(.multiply, [logWidth, halfInverseLn2], name: "half_log2_width")
+		let halfLog2Height = builder.apply(.multiply, [logHeight, halfInverseLn2], name: "half_log2_height")
+		let halfLog2Area = builder.apply(.add, [halfLog2Width, halfLog2Height], name: "half_log2_area")
+		let biased = builder.apply(.add, [halfLog2Area, canonicalLevel], name: "biased")
+		let level = builder.apply(.subtract, [biased, canonicalScale], name: "level")
+		let nudged = builder.apply(.add, [level, epsilon], name: "nudged")
+		let floored = builder.apply(.floor, [nudged], name: "floored")
+		let raised = builder.apply(.maximumND, [floored, lowestLevel], name: "raised")
+		builder.apply(.minimumND, [raised, highestLevel], name: "y")
+
+		let output = try await predict(
+			graph: builder.graph(inputs: ["w", "h"], output: "y"), weights: builder.weightData,
+			inputs: ["w": ([1, 6], widths), "h": ([1, 6], heights)], outputShape: [1, 6]
+		)
+		// Remove the `nudged` node and this becomes [3, 2, 2, 2, 2, 4] — every entry one level low.
+		assertClose(output, [4, 3, 3, 3, 2, 5])
 	}
 
 	func testSmallBoxMask_requiresBothSidesAndKeepsTheBoundary() async throws {
@@ -1003,8 +1053,15 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		assertEmissionFails(kind: .upsample2D, attributes: [:])
 	}
 
-	func testGreaterOrEqual_withoutThresholdIsRejected() {
-		assertEmissionFails(kind: .greaterOrEqual, attributes: [:], formatVersion: NativeModelGraph.exactNDFormatVersion)
+	func testGreaterOrEqual_withoutThresholdIsRejectedByTheValidator() {
+		// The validator owns this rule, so it is the validator that must refuse the graph. The emitter
+		// carries a matching guard for callers that reach `greaterOrEqualLayer` without validating, which
+		// `emit` never does — asserting `.validator` here keeps that unreachable guard from being
+		// mistaken for the thing under test.
+		assertEmissionFails(
+			kind: .greaterOrEqual, attributes: [:],
+			formatVersion: NativeModelGraph.exactNDFormatVersion, rejection: .validator
+		)
 	}
 
 	func testFloor_underTheLegacyFormatIsRejected() {
@@ -1098,6 +1155,21 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		)
 	}
 
+	func testTopK_withANegativeAxisIsRejectedByTheEmitter() {
+		// The one rejection on this operation the validator does *not* own. It requires `axis` to be an
+		// integer, matching every other axis-carrying operation here, because the readers normalize a
+		// negative axis before a graph is ever built. Nothing normalizes a hand-written graph, and the
+		// wire format has no negative varint, so the emitter is the last thing standing between −1 and an
+		// axis of 18446744073709551615. Asserting `.emitter` proves this guard is reachable, unlike the
+		// ones that duplicate a validator rule.
+		var attributes = Self.topKAttributes
+		attributes["axis"] = .integer(-1)
+		assertEmissionFails(
+			kind: .topK, attributes: attributes,
+			formatVersion: NativeModelGraph.exactNDFormatVersion, outputCount: 2, rejection: .emitter
+		)
+	}
+
 	func testTopK_withASecondInputIsRejected() {
 		// Core ML's layer takes an optional second input carrying K. The graph contract does not, because
 		// a runtime K leaves every downstream extent undeclarable — so the arity here is exact.
@@ -1184,6 +1256,7 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 		formatVersion: Int = NativeModelGraph.currentFormatVersion,
 		inputCount: Int = 1,
 		outputCount: Int = 1,
+		rejection: ExpectedRejection? = nil,
 		file: StaticString = #filePath,
 		line: UInt = #line
 	) {
@@ -1211,6 +1284,40 @@ final class NativeModelDetectionLayerTests: XCTestCase {
 			try NativeModelCoreMLEmitter().emit(graph: graph, weights: Data(), to: url),
 			"A malformed \(kind.serializedValue) must be rejected, not emitted.",
 			file: file, line: line
-		)
+		) { error in
+			guard let rejection else { return }
+			guard let emission = error as? NativeModelCoreMLEmissionError else {
+				XCTFail("Expected a NativeModelCoreMLEmissionError, got \(error).", file: file, line: line)
+				return
+			}
+			// Naming the rejection is the point. `emit` validates the whole graph before it writes a
+			// single layer, so a malformed operation is normally refused by the *validator* and the
+			// emitter's own guard for the same mistake never runs. A test that accepted any error at all
+			// would read as covering the emitter guard while actually covering the validator, and would
+			// keep passing if the guard it names were deleted.
+			switch rejection {
+			case .validator:
+				guard case .invalidGraph = emission else {
+					XCTFail("Expected the validator to reject this, got \(emission).", file: file, line: line)
+					return
+				}
+			case .emitter:
+				guard case .invalidOperation = emission else {
+					XCTFail("Expected the emitter to reject this, got \(emission).", file: file, line: line)
+					return
+				}
+			}
+		}
 	}
+}
+
+/// Which layer of `emit` is expected to refuse a malformed operation.
+///
+/// The two are not interchangeable: the validator runs first and covers every rule it declares, so an
+/// emitter guard for a rule the validator already enforces is unreachable through the public entry
+/// point. Keeping the distinction in the tests is what stops "rejected" from quietly meaning "rejected
+/// by something, somewhere".
+private enum ExpectedRejection {
+	case validator
+	case emitter
 }
